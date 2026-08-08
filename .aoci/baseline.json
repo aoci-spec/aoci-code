@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-08T14:00:44Z",
+  "updated_at": "2026-08-08T16:50:48Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -16,10 +16,9 @@
       "normalized_sha256": "638ef12d4d78a8fa1e795d0575da0e7fd40893e24df6dc22bad1cbad0ce9268f"
     },
     ".github/workflows/full-confidence.yml": {
-      "role": "index",
-      "sha256": "21d6680424e8dfe09f05d0bfbce8c9c9300f0976ccf403cf082c0b717a87d1f3",
-      "size": 5164,
-      "normalized_sha256": "21d6680424e8dfe09f05d0bfbce8c9c9300f0976ccf403cf082c0b717a87d1f3"
+      "sha256": "db82b01babf0f8c34ac3e89285be7ccc7ab930db9119a240f60461abb7415948",
+      "size": 6020,
+      "normalized_sha256": "db82b01babf0f8c34ac3e89285be7ccc7ab930db9119a240f60461abb7415948"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
@@ -118,9 +117,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "8af40b2d79b90d4a03050743feff7855c97abcbf34cca1f47cbc7a7fee35660b",
-      "size": 62744,
-      "normalized_sha256": "8af40b2d79b90d4a03050743feff7855c97abcbf34cca1f47cbc7a7fee35660b"
+      "sha256": "497322c7c3ff40da7448ed8960a1e1d6711a0e312a4dd4406867a8698b4ba87e",
+      "size": 62756,
+      "normalized_sha256": "497322c7c3ff40da7448ed8960a1e1d6711a0e312a4dd4406867a8698b4ba87e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4958,10 +4957,9 @@
       "normalized_sha256": "1c6e2f820bcdb748bf053652bb85272980bd7bbe0333f98c9dea1c14a75ac616"
     },
     "scripts/check-licenses.sh": {
-      "role": "index",
-      "sha256": "421b0138d1ae4af2c9d3b5900139aad8f7bc4d909512b43f64a5ba589b92b64b",
-      "size": 8302,
-      "normalized_sha256": "421b0138d1ae4af2c9d3b5900139aad8f7bc4d909512b43f64a5ba589b92b64b"
+      "sha256": "94c36d23f216478c72f1867629d3caa4f4fa8e7a881c271e9e57e20174bf4dd5",
+      "size": 9080,
+      "normalized_sha256": "94c36d23f216478c72f1867629d3caa4f4fa8e7a881c271e9e57e20174bf4dd5"
     },
     "scripts/check-public-text.sh": {
       "role": "index",

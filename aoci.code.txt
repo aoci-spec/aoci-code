@@ -22,7 +22,7 @@ go.sum[CG3T]: F:Authenticates the exact Go dependency module contents used by bu
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/.github/workflows/===
 ci.yml[CG5T]: F:Runs the public pull-request and branch CI matrix for formatting, tests, builds, and contract checks | R:- | A:- | S:-
-full-confidence.yml[CG5S]: F:Runs scheduled, manual, and main-branch full-confidence jobs for pinned analysis, licensing, race, native lifecycle, and database integration | R:code:Makefile,code:scripts/check-licenses.sh | A:GitHub Actions workflow_dispatch | S:Repository permissions stay read-only, and changes to legal assets or dependency metadata trigger this gate
+full-confidence.yml[CG5S]: F:Runs scheduled, manual, and main-branch full-confidence gates for cold-cache licensing, analysis, race, native lifecycle, databases, and scale benchmarks | R:code:Makefile,code:scripts/check-licenses.sh | A:GitHub Actions workflow_dispatch | S:The cold-cache gate must prove Windows-only dependencies resolve with GOPROXY=off and leave go.mod and go.sum unchanged
 release-rehearsal.yml[CG5S]: F:Exercises non-publishing release packaging and artifact verification with read-only permissions | R:- | A:- | S:-
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/cmd/aoci/===
@@ -319,7 +319,7 @@ main.go[CG5L]: F:Runs deterministic long-lived cognition refresh scenarios and e
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/===
 check-deps.sh[CG5S]: F:Rejects forbidden dependency directions between deterministic core and AI orchestration layers | R:- | A:- | S:-
-check-licenses.sh[CG5M]: F:Validates FSL legal metadata and exact THIRD-PARTY-NOTICES parity against reachable external packages across the six-target release matrix | R:code:.goreleaser.yml,code:THIRD-PARTY-NOTICES | A:make licenses | S:Uses pinned offline Go tooling, fails on placeholders or unknown and configured prohibited licenses, and treats release-matrix drift as a reviewed contract change
+check-licenses.sh[CG5M]: F:Prefetches the locked Go graph, then checks FSL metadata and exact notice parity for offline reachable packages across the six-target release matrix | R:code:.goreleaser.yml,code:THIRD-PARTY-NOTICES | A:make licenses | S:Prefetch is read-only; all target-specific inventory remains GOPROXY=off and rejects placeholders, unknown licenses, or release-matrix drift
 check-public-text.sh[CG5T]: F:Runs the public-text safety scanner over release-facing source and assets | R:- | A:- | S:-
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/release/archive-smoke/===
