@@ -54,6 +54,31 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           go install github.com/google/go-licenses@v1.6.0
+      - name: cold-cache cross-platform license inventory
+        env:
+          GOMODCACHE: ${{ runner.temp }}/aoci-license-modcache
+          GOCACHE: ${{ runner.temp }}/aoci-license-buildcache
+        run: |
+          test ! -e "$GOMODCACHE"
+          env \
+            CGO_ENABLED=0 \
+            GOOS=linux \
+            GOARCH=amd64 \
+            GOTOOLCHAIN=local \
+            GOWORK=off \
+            GOFLAGS=-mod=readonly \
+            go list -deps ./cmd/aoci >/dev/null
+          make licenses
+          env \
+            CGO_ENABLED=0 \
+            GOOS=windows \
+            GOARCH=amd64 \
+            GOTOOLCHAIN=local \
+            GOWORK=off \
+            GOPROXY=off \
+            GOFLAGS=-mod=readonly \
+            go list -deps ./cmd/aoci | grep -Fx github.com/inconshreveable/mousetrap
+          git diff --exit-code -- go.mod go.sum
       - name: full confidence gate
         run: make full
       - name: large migration and 10,000-object planner performance fixtures

@@ -99,6 +99,29 @@ if [ ! -x "${license_tool}" ]; then
   exit 1
 fi
 
+# Populate the complete locked module graph before the target-specific audit
+# intentionally disables module lookup. Linux-only vet/list steps do not fetch
+# Windows-only dependencies such as Cobra's mousetrap package on a fresh runner.
+# -mod=readonly keeps this preparation from changing the declared module graph.
+readonly_go_flags="${GOFLAGS:+${GOFLAGS} }-mod=readonly"
+if ! env \
+  GOTOOLCHAIN=local \
+  GOWORK=off \
+  GOFLAGS="${readonly_go_flags}" \
+  "${go_bin_path}" mod download; then
+  echo "[check-licenses] failed to prefetch the locked module graph" >&2
+  exit 1
+fi
+if ! env \
+  GOTOOLCHAIN=local \
+  GOWORK=off \
+  GOPROXY=off \
+  GOFLAGS="${readonly_go_flags}" \
+  "${go_bin_path}" mod verify; then
+  echo "[check-licenses] prefetched module graph failed offline verification" >&2
+  exit 1
+fi
+
 raw_report_path="$(mktemp)"
 report_path="$(mktemp)"
 target_report_path="$(mktemp)"
@@ -117,7 +140,7 @@ for release_target in "${release_targets[@]}"; do
     GOTOOLCHAIN=local \
     GOWORK=off \
     GOPROXY=off \
-    GOFLAGS="${GOFLAGS:+${GOFLAGS} }-mod=readonly" \
+    GOFLAGS="${readonly_go_flags}" \
     "${license_tool}" report ./... >"${target_report_path}" 2>"${diagnostic_path}"; then
     echo "[check-licenses] dependency inventory failed for ${release_target}" >&2
     cat "${diagnostic_path}" >&2
@@ -137,7 +160,7 @@ for release_target in "${release_targets[@]}"; do
     GOTOOLCHAIN=local \
     GOWORK=off \
     GOPROXY=off \
-    GOFLAGS="${GOFLAGS:+${GOFLAGS} }-mod=readonly" \
+    GOFLAGS="${readonly_go_flags}" \
     "${go_bin_path}" list -deps \
       -f '{{with .Module}}{{if not .Main}}{{.Path}} {{.Version}}{{end}}{{end}}' \
       ./cmd/aoci >"${target_module_inventory_path}" 2>"${diagnostic_path}"; then
