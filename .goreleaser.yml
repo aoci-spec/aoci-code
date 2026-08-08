@@ -1,7 +1,8 @@
 # AOCI-CODE cross-platform package configuration.
 # 索引条目: .goreleaser.yml[Dist.Root.3.Xp.T]
-# Publishing remains disabled in the public candidate; release authorization is
-# a separate explicit phase.
+# GoReleaser's SCM publisher stays disabled. The pinned GitHub tag workflow
+# performs keyless signing, provenance attestation, exact-asset verification,
+# and the explicitly authorized draft-to-prerelease transition.
 version: 2
 project_name: aoci
 
@@ -42,6 +43,10 @@ archives:
 checksum:
   name_template: SHA256SUMS
   algorithm: sha256
+
+# GoReleaser's checksum is retained for local release rehearsals. The signed
+# tag workflow rebuilds SHA256SUMS after copying the six archive SBOMs into the
+# isolated release-asset directory so the published checksum covers both sets.
 
 sboms:
   - id: archives

@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	releaseManifestSchema       = "aoci-release-artifact-manifest/v3"
-	legacyReleaseManifestSchema = "aoci-release-artifact-manifest/v2"
+	releaseManifestSchema         = "aoci-release-artifact-manifest/v4"
+	previousReleaseManifestSchema = "aoci-release-artifact-manifest/v3"
+	legacyReleaseManifestSchema   = "aoci-release-artifact-manifest/v2"
 )
 
 type releaseContracts struct {
@@ -58,16 +59,23 @@ type artifact struct {
 }
 
 type releaseManifest struct {
-	Schema       string           `json:"schema"`
-	Version      string           `json:"version"`
-	SourceCommit string           `json:"source_commit"`
-	SourceDirty  bool             `json:"source_dirty"`
-	BuildDate    string           `json:"build_date"`
-	GoVersion    string           `json:"go_version"`
-	GoReleaser   string           `json:"goreleaser_version"`
-	Syft         string           `json:"syft_version"`
-	Contracts    releaseContracts `json:"contracts"`
-	Artifacts    []artifact       `json:"artifacts"`
+	Schema             string              `json:"schema"`
+	Version            string              `json:"version"`
+	SourceCommit       string              `json:"source_commit"`
+	SourceDirty        bool                `json:"source_dirty"`
+	BuildDate          string              `json:"build_date"`
+	GoVersion          string              `json:"go_version"`
+	GoReleaser         string              `json:"goreleaser_version"`
+	Syft               string              `json:"syft_version"`
+	Contracts          releaseContracts    `json:"contracts"`
+	Artifacts          []artifact          `json:"artifacts,omitempty"`
+	ReleaseProfile     string              `json:"release_profile,omitempty"`
+	Publisher          *publisherIdentity  `json:"publisher,omitempty"`
+	ChecksumSubjects   []artifact          `json:"checksum_subjects,omitempty"`
+	Checksum           *artifact           `json:"checksum,omitempty"`
+	ProvenanceSubjects []string            `json:"provenance_subjects,omitempty"`
+	Signature          *envelopeDescriptor `json:"signature,omitempty"`
+	Provenance         *envelopeDescriptor `json:"provenance,omitempty"`
 }
 
 func main() {
@@ -91,6 +99,10 @@ func run(args []string) error {
 	syftVersion := flags.String("syft-version", "", "Syft identity")
 	toolsListSHA := flags.String("tools-list-sha256", "", "SHA-256 of the reviewed MCP tools/list protocol")
 	allowDirty := flags.Bool("allow-dirty", false, "allow a non-release rehearsal from a dirty source tree")
+	signedRelease := flags.Bool("signed-release", false, "generate the signed release v4 asset contract")
+	publisherRepository := flags.String("publisher-repository", "", "HTTPS repository identity for signed provenance")
+	publisherWorkflow := flags.String("publisher-workflow", "", "repository-relative release workflow path")
+	publisherRef := flags.String("publisher-ref", "", "exact Git ref used by the release workflow")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -114,12 +126,8 @@ func run(args []string) error {
 	if dirty && !*allowDirty {
 		return errors.New("source tree is dirty; use allow-dirty only for a non-release rehearsal")
 	}
-	artifacts, err := collectArtifacts(*dist, *output)
-	if err != nil {
-		return err
-	}
 	manifest := releaseManifest{
-		Schema:       releaseManifestSchema,
+		Schema:       previousReleaseManifestSchema,
 		Version:      *version,
 		SourceCommit: *sourceCommit,
 		SourceDirty:  dirty,
@@ -128,7 +136,24 @@ func run(args []string) error {
 		GoReleaser:   *goreleaserVersion,
 		Syft:         *syftVersion,
 		Contracts:    currentReleaseContracts(*toolsListSHA),
-		Artifacts:    artifacts,
+	}
+	if *signedRelease {
+		if *publisherRepository == "" || *publisherWorkflow == "" || *publisherRef == "" {
+			return errors.New("publisher-repository, publisher-workflow, and publisher-ref are required for a signed release")
+		}
+		if err := prepareSignedReleaseManifest(&manifest, *dist, *output, publisherIdentity{
+			Repository: *publisherRepository,
+			Workflow:   *publisherWorkflow,
+			Ref:        *publisherRef,
+		}); err != nil {
+			return err
+		}
+	} else {
+		artifacts, err := collectArtifacts(*dist, *output)
+		if err != nil {
+			return err
+		}
+		manifest.Artifacts = artifacts
 	}
 	if err := validateManifest(manifest); err != nil {
 		return err
@@ -246,6 +271,9 @@ func verifyExisting(path string) error {
 	if err := validateManifest(manifest); err != nil {
 		return err
 	}
+	if manifest.Schema == releaseManifestSchema {
+		return verifySignedReleaseFiles(manifest, path)
+	}
 	dist := filepath.Dir(path)
 	actual, err := collectArtifacts(dist, path)
 	if err != nil {
@@ -263,7 +291,7 @@ func verifyExisting(path string) error {
 }
 
 func validateManifest(manifest releaseManifest) error {
-	if manifest.Schema != releaseManifestSchema && manifest.Schema != legacyReleaseManifestSchema {
+	if manifest.Schema != releaseManifestSchema && manifest.Schema != previousReleaseManifestSchema && manifest.Schema != legacyReleaseManifestSchema {
 		return fmt.Errorf("unsupported schema %q", manifest.Schema)
 	}
 	if manifest.Version == "" || manifest.SourceCommit == "" || manifest.BuildDate == "" {
@@ -287,6 +315,9 @@ func validateManifest(manifest releaseManifest) error {
 	}
 	if manifest.Contracts != expectedContracts || len(manifest.Contracts.MCPListToolsSHA256) != 64 {
 		return errors.New("release contract manifest is incomplete or unsupported")
+	}
+	if manifest.Schema == releaseManifestSchema {
+		return validateSignedReleaseManifest(manifest)
 	}
 	if len(manifest.Artifacts) == 0 {
 		return errors.New("release manifest has no artifacts")

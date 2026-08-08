@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
 > [!IMPORTANT]
-> AOCI-CODE v0.1.0-rc1 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). During this RC stage, build from canonical source. GitHub Releases will be available after public release.
+> AOCI-CODE v0.1.0-rc1 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). Build from canonical source or use a signed package from [GitHub Releases](https://github.com/aoci-spec/aoci-code/releases) after following the [release verification procedure](docs/install.md#signed-github-release-packages).
 
 ## What is AOCI-CODE?
 
@@ -39,20 +39,20 @@ initialize it for my project, integrate MCP, and build the project index.
 ```
 ## Manual integration
 
-During the current RC stage, obtain AOCI-CODE from canonical source and build the `aoci` binary. After public release, prebuilt binaries will also be available through GitHub Releases. Give this README and the built binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, or Cursor. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
+Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, verify its checksum, the keyless GitHub Actions publisher identity, provenance, and release manifest as described in the [installation guide](docs/install.md#signed-github-release-packages). Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, or Cursor. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
 
 The time required to generate complete cognition for the first time depends on repository size. A normal integration consists of preparing the binary, having the AI Agent or user initialize the target repository, asking the host to “build the index,” and verifying alignment. Subsequent development does not require a repeated “maintain the index” reminder at the end of every request; project rules and the AOCI MCP workflow guide the AI Agent through incremental cognition maintenance after managed objects change.
 
 ### 0. Requirements
 
-- A checkout of the canonical AOCI-CODE source repository;
+- A verified release package or a checkout of the canonical AOCI-CODE source repository;
 - The Go toolchain declared by `go.mod`, `make`, and any other tools required by the repository;
 - A supported MCP host, such as Codex, Claude Code, or Cursor;
 - Normal read and write access to the target repository.
 
-The current RC installation route is to build from canonical source. This README does not provide a Release download URL before one exists; GitHub Releases will become the binary distribution route after public release.
+The signed-package route and executable verification commands are in the [installation guide](docs/install.md#signed-github-release-packages). The source-build route remains available below.
 
-### 1. Current RC: build from source and hand integration to an AI Agent
+### 1. Current RC: use a verified package or build from source
 
 Clone the canonical repository, build the binary, and keep its resulting path stable:
 

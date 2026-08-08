@@ -1,0 +1,644 @@
+name: signed-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without the leading v
+        required: true
+        default: 0.1.0-rc1
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  supply_chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      attestations: write
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      tag_name: ${{ steps.identity.outputs.tag_name }}
+      source_commit: ${{ steps.identity.outputs.source_commit }}
+      certificate_identity: ${{ steps.identity.outputs.certificate_identity }}
+      provenance_name: ${{ steps.identity.outputs.provenance_name }}
+      attestation_id: ${{ steps.provenance.outputs.attestation-id }}
+      attestation_url: ${{ steps.provenance.outputs.attestation-url }}
+      artifact_name: aoci-signed-release-${{ steps.identity.outputs.source_commit }}
+    env:
+      GO_VERSION: '1.26.5'
+      GORELEASER_VERSION: v2.17.1
+      SYFT_VERSION: v1.44.0
+      COSIGN_VERSION: v3.1.3
+      EXPECTED_REPOSITORY: aoci-spec/aoci-code
+      EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
+      EXPECTED_SIGNER_WORKFLOW: aoci-spec/aoci-code/.github/workflows/release.yml
+    steps:
+      - name: Check out the exact workflow ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Bind the isolated release asset directory
+        run: echo "ASSET_DIR=${RUNNER_TEMP}/aoci-release-assets" >> "$GITHUB_ENV"
+
+      - name: Install pinned GoReleaser
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: ${{ env.GORELEASER_VERSION }}
+          install-only: true
+
+      - name: Install pinned Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Establish release identity
+        id: identity
+        env:
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          source_commit=$(git rev-parse HEAD)
+          ref_commit=$(git rev-parse "${GITHUB_REF}^{commit}")
+          test "$source_commit" = "$ref_commit"
+
+          case "$GITHUB_EVENT_NAME" in
+            workflow_dispatch)
+              test "$GITHUB_REF" = refs/heads/main
+              version=$DISPATCH_VERSION
+              tag_name="v${version}"
+              publish=false
+              ;;
+            push)
+              case "$GITHUB_REF" in refs/tags/v*) ;; *) exit 1 ;; esac
+              tag_name=$GITHUB_REF_NAME
+              version=${tag_name#v}
+              publish=true
+              test "$(git cat-file -t "$tag_name")" = tag
+              test "$(git rev-parse "${tag_name}^{commit}")" = "$source_commit"
+              test "$(git for-each-ref --format='%(subject)' "refs/tags/${tag_name}")" = "AOCI-CODE ${tag_name}"
+              remote_main=$(git ls-remote --exit-code origin refs/heads/main | awk '{ print $1 }')
+              test "$remote_main" = "$source_commit"
+              ;;
+            *)
+              echo "unsupported event: $GITHUB_EVENT_NAME" >&2
+              exit 1
+              ;;
+          esac
+
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]]; then
+            echo "invalid release version: $version" >&2
+            exit 1
+          fi
+          test "$tag_name" = "v${version}"
+          certificate_identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          build_date=$(git show -s --format=%cI HEAD)
+
+          {
+            echo "version=$version"
+            echo "tag_name=$tag_name"
+            echo "source_commit=$source_commit"
+            echo "build_date=$build_date"
+            echo "publish=$publish"
+            echo "certificate_identity=$certificate_identity"
+            echo "provenance_name=AOCI-CODE_v${version}.provenance.sigstore.json"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Require all final-SHA gates before a tag build
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          require_successful_run() {
+            workflow=$1
+            required_event=${2:-}
+            runs=$(gh api \
+              "repos/${EXPECTED_REPOSITORY}/actions/workflows/${workflow}/runs?branch=main&head_sha=${SOURCE_COMMIT}&status=success&per_page=100")
+            run_id=$(jq -r \
+              --arg sha "$SOURCE_COMMIT" \
+              --arg event "$required_event" \
+              --arg current_run "$GITHUB_RUN_ID" '
+                [.workflow_runs[] | select(
+                  .head_sha == $sha and
+                  .head_branch == "main" and
+                  .status == "completed" and
+                  .conclusion == "success" and
+                  (.id | tostring) != $current_run and
+                  ($event == "" or .event == $event)
+                )][0].id // empty
+              ' <<<"$runs")
+            if [ -z "$run_id" ]; then
+              echo "no successful ${workflow} run for main at ${SOURCE_COMMIT}" >&2
+              exit 1
+            fi
+            echo "- ${workflow}: run \`${run_id}\`" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          echo "### Final-SHA release gates" >> "$GITHUB_STEP_SUMMARY"
+          require_successful_run ci.yml
+          require_successful_run full-confidence.yml
+          require_successful_run release-rehearsal.yml
+          require_successful_run release.yml workflow_dispatch
+
+      - name: Install pinned release-gate tools
+        run: |
+          set -euo pipefail
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          go install github.com/google/go-licenses@v1.6.0
+          go install github.com/anchore/syft/cmd/syft@${SYFT_VERSION}
+          go mod download
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+
+      - name: Run the complete release gate
+        run: make release-check
+
+      - name: Create a runner-local dry-run tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          TAG_NAME: ${{ steps.identity.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/tags/${TAG_NAME}"; then
+            echo "runner-local tag already exists: ${TAG_NAME}" >&2
+            exit 1
+          fi
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com \
+            tag -a "$TAG_NAME" -m "AOCI-CODE ${TAG_NAME}" HEAD
+
+      - name: Build the six release archives and SBOMs
+        env:
+          TAG_NAME: ${{ steps.identity.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse "${TAG_NAME}^{commit}")" = "$(git rev-parse HEAD)"
+          goreleaser release --clean
+
+      - name: Assemble the distributable subjects
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+        run: |
+          set -euo pipefail
+          mkdir "$ASSET_DIR"
+          archives=(
+            "aoci_${VERSION}_linux_amd64.tar.gz"
+            "aoci_${VERSION}_linux_arm64.tar.gz"
+            "aoci_${VERSION}_darwin_amd64.tar.gz"
+            "aoci_${VERSION}_darwin_arm64.tar.gz"
+            "aoci_${VERSION}_windows_amd64.zip"
+            "aoci_${VERSION}_windows_arm64.zip"
+          )
+          subjects=()
+          for archive in "${archives[@]}"; do
+            subjects+=("$archive" "${archive}.sbom.json")
+          done
+          for subject in "${subjects[@]}"; do
+            test -f "dist/${subject}"
+            cp "dist/${subject}" "${ASSET_DIR}/${subject}"
+          done
+          test "$(find "$ASSET_DIR" -maxdepth 1 -type f | wc -l)" -eq 12
+
+          temp_root=$(mktemp -d)
+          for archive in "${archives[@]}"; do
+            unpack_dir="${temp_root}/${archive}"
+            mkdir "$unpack_dir"
+            case "$archive" in
+              *.zip) unzip -q "${ASSET_DIR}/${archive}" -d "$unpack_dir" ;;
+              *) tar -xzf "${ASSET_DIR}/${archive}" -C "$unpack_dir" ;;
+            esac
+            platform=${archive#"aoci_${VERSION}_"}
+            platform=${platform%.tar.gz}
+            platform=${platform%.zip}
+            expected_os=${platform%_*}
+            expected_arch=${platform##*_}
+            binary=$(find "$unpack_dir" -type f \( -name aoci -o -name aoci.exe \) -print -quit)
+            test -n "$binary"
+            metadata=$(go version -m "$binary")
+            grep -Fq $'build\tvcs.revision='"${SOURCE_COMMIT}" <<<"$metadata"
+            grep -Fq $'build\tvcs.modified=false' <<<"$metadata"
+            grep -Fq $'build\t-trimpath=true' <<<"$metadata"
+            grep -Fq $'build\tCGO_ENABLED=0' <<<"$metadata"
+            grep -Fq $'build\tGOOS='"${expected_os}" <<<"$metadata"
+            grep -Fq $'build\tGOARCH='"${expected_arch}" <<<"$metadata"
+            strings_file="${unpack_dir}/binary.strings"
+            strings "$binary" > "$strings_file"
+            grep -Fq "$VERSION" "$strings_file"
+            grep -Fq "$SOURCE_COMMIT" "$strings_file"
+          done
+
+          linux_dir=$(mktemp -d)
+          tar -xzf "${ASSET_DIR}/aoci_${VERSION}_linux_amd64.tar.gz" -C "$linux_dir"
+          version_output=$("${linux_dir}/aoci" --version)
+          grep -Fq "aoci version ${VERSION}" <<<"$version_output"
+          grep -Fq "commit ${SOURCE_COMMIT}" <<<"$version_output"
+
+          (
+            cd "$ASSET_DIR"
+            for subject in "${subjects[@]}"; do
+              sha256sum "$subject"
+            done > SHA256SUMS
+            sha256sum -c SHA256SUMS
+          )
+
+      - name: Generate the release manifest
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+          BUILD_DATE: ${{ steps.identity.outputs.build_date }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code
+          test -z "$(git status --porcelain --untracked-files=all)"
+          go run ./scripts/release/archive-smoke --dist "$ASSET_DIR"
+          go run ./scripts/release/manifest \
+            --signed-release \
+            --dist "$ASSET_DIR" \
+            --output "$ASSET_DIR/RELEASE-MANIFEST.json" \
+            --version "$VERSION" \
+            --source-commit "$SOURCE_COMMIT" \
+            --build-date "$BUILD_DATE" \
+            --go-version "$(go version)" \
+            --goreleaser-version "${GORELEASER_VERSION#v}" \
+            --syft-version "${SYFT_VERSION#v}" \
+            --tools-list-sha256 "$(sha256sum testdata/golden/mcp_list_tools.json | awk '{ print $1 }')" \
+            --publisher-repository "https://github.com/${EXPECTED_REPOSITORY}" \
+            --publisher-workflow .github/workflows/release.yml \
+            --publisher-ref "$GITHUB_REF"
+          test "$(find "$ASSET_DIR" -maxdepth 1 -type f | wc -l)" -eq 14
+
+      - name: Prepare the exact provenance subject set
+        id: provenance-subjects
+        run: |
+          set -euo pipefail
+          subject_checksums="${RUNNER_TEMP}/aoci-provenance-subjects.sha256"
+          cp "$ASSET_DIR/SHA256SUMS" "$subject_checksums"
+          (
+            cd "$ASSET_DIR"
+            sha256sum -c "$subject_checksums"
+          )
+          (
+            cd "$ASSET_DIR"
+            sha256sum SHA256SUMS RELEASE-MANIFEST.json
+          ) > "${RUNNER_TEMP}/aoci-provenance-extra-subjects.sha256"
+          cat "${RUNNER_TEMP}/aoci-provenance-extra-subjects.sha256" >> "$subject_checksums"
+          test "$(wc -l < "$subject_checksums")" -eq 14
+          sort -k2 "$subject_checksums" -o "$subject_checksums"
+          (
+            cd "$ASSET_DIR"
+            sha256sum -c "$subject_checksums"
+          )
+          echo "checksums=$subject_checksums" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SLSA build provenance for all 14 subjects
+        id: provenance
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-checksums: ${{ steps.provenance-subjects.outputs.checksums }}
+          show-summary: true
+
+      - name: Preserve the provenance bundle as a release asset
+        env:
+          PROVENANCE_BUNDLE: ${{ steps.provenance.outputs.bundle-path }}
+          PROVENANCE_NAME: ${{ steps.identity.outputs.provenance_name }}
+        run: |
+          set -euo pipefail
+          test -f "$PROVENANCE_BUNDLE"
+          cp "$PROVENANCE_BUNDLE" "${ASSET_DIR}/${PROVENANCE_NAME}"
+
+      - name: Keyless-sign the checksum file
+        env:
+          CERTIFICATE_IDENTITY: ${{ steps.identity.outputs.certificate_identity }}
+        run: |
+          set -euo pipefail
+          cosign sign-blob \
+            --bundle="${ASSET_DIR}/SHA256SUMS.sigstore.json" \
+            --yes \
+            "${ASSET_DIR}/SHA256SUMS"
+          cosign verify-blob \
+            --bundle="${ASSET_DIR}/SHA256SUMS.sigstore.json" \
+            --certificate-identity="$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer="$EXPECTED_OIDC_ISSUER" \
+            "${ASSET_DIR}/SHA256SUMS"
+
+      - name: Verify the exact local release asset contract
+        env:
+          VERSION: ${{ steps.identity.outputs.version }}
+          PROVENANCE_NAME: ${{ steps.identity.outputs.provenance_name }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+          CERTIFICATE_IDENTITY: ${{ steps.identity.outputs.certificate_identity }}
+        run: |
+          set -euo pipefail
+          expected_assets="${RUNNER_TEMP}/expected-release-assets.txt"
+          cat > "$expected_assets" <<EOF
+          AOCI-CODE_v${VERSION}.provenance.sigstore.json
+          RELEASE-MANIFEST.json
+          SHA256SUMS
+          SHA256SUMS.sigstore.json
+          aoci_${VERSION}_darwin_amd64.tar.gz
+          aoci_${VERSION}_darwin_amd64.tar.gz.sbom.json
+          aoci_${VERSION}_darwin_arm64.tar.gz
+          aoci_${VERSION}_darwin_arm64.tar.gz.sbom.json
+          aoci_${VERSION}_linux_amd64.tar.gz
+          aoci_${VERSION}_linux_amd64.tar.gz.sbom.json
+          aoci_${VERSION}_linux_arm64.tar.gz
+          aoci_${VERSION}_linux_arm64.tar.gz.sbom.json
+          aoci_${VERSION}_windows_amd64.zip
+          aoci_${VERSION}_windows_amd64.zip.sbom.json
+          aoci_${VERSION}_windows_arm64.zip
+          aoci_${VERSION}_windows_arm64.zip.sbom.json
+          EOF
+          sed -i 's/^[[:space:]]*//' "$expected_assets"
+          actual_assets="${RUNNER_TEMP}/actual-release-assets.txt"
+          find "$ASSET_DIR" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "$actual_assets"
+          LC_ALL=C sort -o "$expected_assets" "$expected_assets"
+          diff -u "$expected_assets" "$actual_assets"
+          test "$(wc -l < "$actual_assets")" -eq 16
+          (cd "$ASSET_DIR" && sha256sum -c SHA256SUMS)
+          go run ./scripts/release/manifest --verify "$ASSET_DIR/RELEASE-MANIFEST.json"
+
+          verify_provenance() {
+            gh attestation verify "$1" \
+              --repo "$EXPECTED_REPOSITORY" \
+              --bundle "${ASSET_DIR}/${PROVENANCE_NAME}" \
+              --cert-identity "$CERTIFICATE_IDENTITY" \
+              --cert-oidc-issuer "$EXPECTED_OIDC_ISSUER" \
+              --signer-workflow "$EXPECTED_SIGNER_WORKFLOW" \
+              --signer-digest "$SOURCE_COMMIT" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$SOURCE_COMMIT" \
+              --deny-self-hosted-runners
+          }
+          verify_provenance "${ASSET_DIR}/aoci_${VERSION}_linux_amd64.tar.gz"
+          verify_provenance "${ASSET_DIR}/aoci_${VERSION}_windows_amd64.zip"
+          verify_provenance "${ASSET_DIR}/aoci_${VERSION}_darwin_arm64.tar.gz"
+          verify_provenance "$ASSET_DIR/SHA256SUMS"
+          verify_provenance "$ASSET_DIR/RELEASE-MANIFEST.json"
+
+      - name: Upload the exact signed asset handoff
+        id: upload-release-assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: aoci-signed-release-${{ steps.identity.outputs.source_commit }}
+          path: ${{ runner.temp }}/aoci-release-assets/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+      - name: Record signing and provenance evidence
+        env:
+          CERTIFICATE_IDENTITY: ${{ steps.identity.outputs.certificate_identity }}
+          SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+          ATTESTATION_ID: ${{ steps.provenance.outputs.attestation-id }}
+          ATTESTATION_URL: ${{ steps.provenance.outputs.attestation-url }}
+          ARTIFACT_ID: ${{ steps.upload-release-assets.outputs.artifact-id }}
+          ARTIFACT_URL: ${{ steps.upload-release-assets.outputs.artifact-url }}
+        run: |
+          {
+            echo "### Signed release evidence"
+            echo "- Source commit: \`${SOURCE_COMMIT}\`"
+            echo "- Certificate identity: \`${CERTIFICATE_IDENTITY}\`"
+            echo "- OIDC issuer: \`${EXPECTED_OIDC_ISSUER}\`"
+            echo "- Provenance attestation ID: \`${ATTESTATION_ID}\`"
+            echo "- Provenance attestation URL: ${ATTESTATION_URL}"
+            echo "- Exact 16-asset handoff ID: \`${ARTIFACT_ID}\`"
+            echo "- Exact 16-asset handoff URL: ${ARTIFACT_URL}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    if: github.event_name == 'push'
+    needs: supply_chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      GO_VERSION: '1.26.5'
+      COSIGN_VERSION: v3.1.3
+      EXPECTED_REPOSITORY: aoci-spec/aoci-code
+      EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
+      EXPECTED_SIGNER_WORKFLOW: aoci-spec/aoci-code/.github/workflows/release.yml
+      TAG_NAME: ${{ needs.supply_chain.outputs.tag_name }}
+      VERSION: ${{ needs.supply_chain.outputs.version }}
+      SOURCE_COMMIT: ${{ needs.supply_chain.outputs.source_commit }}
+      PROVENANCE_NAME: ${{ needs.supply_chain.outputs.provenance_name }}
+      CERTIFICATE_IDENTITY: ${{ needs.supply_chain.outputs.certificate_identity }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the exact release tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Bind the isolated release asset directory
+        run: echo "ASSET_DIR=${RUNNER_TEMP}/aoci-release-assets" >> "$GITHUB_ENV"
+
+      - name: Install pinned Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: ${{ env.COSIGN_VERSION }}
+
+      - name: Download the exact signed asset handoff
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ needs.supply_chain.outputs.artifact_name }}
+          path: ${{ runner.temp }}/aoci-release-assets
+          digest-mismatch: error
+
+      - name: Revalidate the handoff and annotated tag
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = "$EXPECTED_REPOSITORY"
+          test "$GITHUB_REF" = "refs/tags/${TAG_NAME}"
+          test "$(git cat-file -t "$TAG_NAME")" = tag
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          test "$(git rev-parse "${TAG_NAME}^{commit}")" = "$SOURCE_COMMIT"
+          test "$(git ls-remote --exit-code origin refs/heads/main | awk '{ print $1 }')" = "$SOURCE_COMMIT"
+          test "$CERTIFICATE_IDENTITY" = "https://github.com/${EXPECTED_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
+          go mod download
+          go mod verify
+          git diff --exit-code -- go.mod go.sum
+          test "$(find "$ASSET_DIR" -maxdepth 1 -type f | wc -l)" -eq 16
+          (cd "$ASSET_DIR" && sha256sum -c SHA256SUMS)
+          go run ./scripts/release/manifest --verify "$ASSET_DIR/RELEASE-MANIFEST.json"
+          cosign verify-blob \
+            --bundle="${ASSET_DIR}/SHA256SUMS.sigstore.json" \
+            --certificate-identity="$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer="$EXPECTED_OIDC_ISSUER" \
+            "${ASSET_DIR}/SHA256SUMS"
+
+      - name: Create or safely resume the draft pre-release
+        run: |
+          set -euo pipefail
+          tag_ref=$(gh api "repos/${EXPECTED_REPOSITORY}/git/ref/tags/${TAG_NAME}")
+          tag_object=$(jq -r '.object.sha' <<<"$tag_ref")
+          test "$(jq -r '.object.type' <<<"$tag_ref")" = tag
+          test "$(gh api "repos/${EXPECTED_REPOSITORY}/git/tags/${tag_object}" --jq .object.sha)" = "$SOURCE_COMMIT"
+
+          notes="${RUNNER_TEMP}/release-notes.md"
+          {
+            echo "AOCI-CODE v${VERSION} is built from \`${SOURCE_COMMIT}\`."
+            echo
+            awk -v heading="## v${VERSION}" '
+              $0 == heading { include=1; next }
+              include && /^## / { exit }
+              include { print }
+            ' CHANGELOG.md
+            echo
+            echo "See \`docs/install.md\` and \`docs/supply-chain.md\` for asset verification."
+          } > "$notes"
+          local_assets="${RUNNER_TEMP}/local-assets.txt"
+          find "$ASSET_DIR" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "$local_assets"
+          test "$(wc -l < "$local_assets")" -eq 16
+          mapfile -t assets < <(find "$ASSET_DIR" -maxdepth 1 -type f -print | LC_ALL=C sort)
+          test "${#assets[@]}" -eq 16
+
+          releases=$(gh api --paginate --slurp "repos/${EXPECTED_REPOSITORY}/releases?per_page=100")
+          matching_count=$(jq --arg tag "$TAG_NAME" '[.[][] | select(.tag_name == $tag)] | length' <<<"$releases")
+          case "$matching_count" in
+            0)
+              gh release create "$TAG_NAME" "${assets[@]}" \
+                --repo "$EXPECTED_REPOSITORY" \
+                --verify-tag \
+                --draft \
+                --prerelease \
+                --latest=false \
+                --title "AOCI-CODE v${VERSION}" \
+                --notes-file "$notes"
+              ;;
+            1)
+              release_json=$(jq -c --arg tag "$TAG_NAME" '[.[][] | select(.tag_name == $tag)][0]' <<<"$releases")
+              test "$(jq -r .tag_name <<<"$release_json")" = "$TAG_NAME"
+              test "$(jq -r .draft <<<"$release_json")" = true
+              test "$(jq -r .prerelease <<<"$release_json")" = true
+              test "$(jq -r .name <<<"$release_json")" = "AOCI-CODE v${VERSION}"
+              test "$(jq -r .body <<<"$release_json")" = "$(cat "$notes")"
+
+              remote_assets="${RUNNER_TEMP}/resume-remote-assets.txt"
+              jq -r '.assets[].name' <<<"$release_json" | LC_ALL=C sort > "$remote_assets"
+              extras="${RUNNER_TEMP}/resume-extra-assets.txt"
+              comm -13 "$local_assets" "$remote_assets" > "$extras"
+              if [ -s "$extras" ]; then
+                echo "draft release contains undeclared assets:" >&2
+                cat "$extras" >&2
+                exit 1
+              fi
+
+              if [ -s "$remote_assets" ]; then
+                existing_dir=$(mktemp -d)
+                gh release download "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --dir "$existing_dir"
+                find "$existing_dir" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "${RUNNER_TEMP}/resume-downloaded-assets.txt"
+                diff -u "$remote_assets" "${RUNNER_TEMP}/resume-downloaded-assets.txt"
+                while IFS= read -r asset; do
+                  cmp "${ASSET_DIR}/${asset}" "${existing_dir}/${asset}"
+                done < "$remote_assets"
+              fi
+
+              missing_assets="${RUNNER_TEMP}/resume-missing-assets.txt"
+              comm -23 "$local_assets" "$remote_assets" > "$missing_assets"
+              while IFS= read -r asset; do
+                [ -n "$asset" ] || continue
+                gh release upload "$TAG_NAME" "${ASSET_DIR}/${asset}" --repo "$EXPECTED_REPOSITORY"
+              done < "$missing_assets"
+              ;;
+            *)
+              echo "multiple releases resolve to tag ${TAG_NAME}" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Download and verify the draft release
+        run: |
+          set -euo pipefail
+          release_json=$(gh release view "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --json assets,isDraft,isPrerelease,tagName,url)
+          test "$(jq -r .isDraft <<<"$release_json")" = true
+          test "$(jq -r .isPrerelease <<<"$release_json")" = true
+          test "$(jq -r .tagName <<<"$release_json")" = "$TAG_NAME"
+          jq -r '.assets[].name' <<<"$release_json" | LC_ALL=C sort > "${RUNNER_TEMP}/remote-assets.txt"
+          find "$ASSET_DIR" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "${RUNNER_TEMP}/local-assets.txt"
+          diff -u "${RUNNER_TEMP}/local-assets.txt" "${RUNNER_TEMP}/remote-assets.txt"
+          test "$(wc -l < "${RUNNER_TEMP}/remote-assets.txt")" -eq 16
+
+          download_dir=$(mktemp -d)
+          gh release download "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --dir "$download_dir"
+          find "$download_dir" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "${RUNNER_TEMP}/downloaded-assets.txt"
+          diff -u "${RUNNER_TEMP}/local-assets.txt" "${RUNNER_TEMP}/downloaded-assets.txt"
+          while IFS= read -r asset; do
+            cmp "${ASSET_DIR}/${asset}" "${download_dir}/${asset}"
+          done < "${RUNNER_TEMP}/local-assets.txt"
+          (cd "$download_dir" && sha256sum -c SHA256SUMS)
+          go run ./scripts/release/manifest --verify "${download_dir}/RELEASE-MANIFEST.json"
+          cosign verify-blob \
+            --bundle="${download_dir}/SHA256SUMS.sigstore.json" \
+            --certificate-identity="$CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer="$EXPECTED_OIDC_ISSUER" \
+            "${download_dir}/SHA256SUMS"
+
+          verify_api_provenance() {
+            gh attestation verify "$1" \
+              --repo "$EXPECTED_REPOSITORY" \
+              --cert-identity "$CERTIFICATE_IDENTITY" \
+              --cert-oidc-issuer "$EXPECTED_OIDC_ISSUER" \
+              --signer-workflow "$EXPECTED_SIGNER_WORKFLOW" \
+              --signer-digest "$SOURCE_COMMIT" \
+              --source-ref "$GITHUB_REF" \
+              --source-digest "$SOURCE_COMMIT" \
+              --deny-self-hosted-runners
+          }
+          verify_api_provenance "${download_dir}/aoci_${VERSION}_linux_amd64.tar.gz"
+          verify_api_provenance "${download_dir}/aoci_${VERSION}_windows_amd64.zip"
+          verify_api_provenance "${download_dir}/aoci_${VERSION}_darwin_arm64.tar.gz"
+          verify_api_provenance "${download_dir}/SHA256SUMS"
+          verify_api_provenance "${download_dir}/RELEASE-MANIFEST.json"
+
+      - name: Publish the verified draft as a pre-release
+        run: |
+          set -euo pipefail
+          gh release edit "$TAG_NAME" \
+            --repo "$EXPECTED_REPOSITORY" \
+            --draft=false \
+            --prerelease \
+            --latest=false \
+            --verify-tag
+          release_json=$(gh release view "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --json assets,isDraft,isPrerelease,url)
+          test "$(jq -r .isDraft <<<"$release_json")" = false
+          test "$(jq -r .isPrerelease <<<"$release_json")" = true
+          test "$(jq '.assets | length' <<<"$release_json")" -eq 16
+          echo "Release URL: $(jq -r .url <<<"$release_json")" >> "$GITHUB_STEP_SUMMARY"

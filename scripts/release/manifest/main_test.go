@@ -21,7 +21,7 @@ func TestManifestRoundTripAndTamperDetection(t *testing.T) {
 		t.Fatal(err)
 	}
 	manifest := releaseManifest{
-		Schema:       releaseManifestSchema,
+		Schema:       previousReleaseManifestSchema,
 		Version:      "test",
 		SourceCommit: "commit",
 		BuildDate:    "2026-01-01T00:00:00Z",
@@ -147,7 +147,7 @@ func TestManifestRequiresExactlyOneSBOMPerArchive(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := releaseManifest{
-				Schema:       releaseManifestSchema,
+				Schema:       previousReleaseManifestSchema,
 				Version:      "test",
 				SourceCommit: "commit",
 				BuildDate:    "2026-01-01T00:00:00Z",
@@ -175,7 +175,7 @@ func TestManifestRejectsArtifactKindMismatch(t *testing.T) {
 	artifacts := artifactFixtures("SHA256SUMS", "aoci_linux_amd64.tar.gz", "aoci_linux_amd64.tar.gz.sbom.json")
 	artifacts[0].Kind = "archive"
 	manifest := releaseManifest{
-		Schema:       releaseManifestSchema,
+		Schema:       previousReleaseManifestSchema,
 		Version:      "test",
 		SourceCommit: "commit",
 		BuildDate:    "2026-01-01T00:00:00Z",
@@ -224,7 +224,7 @@ func TestManifestRejectsPlaceholderToolIdentity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := releaseManifest{
-				Schema:       releaseManifestSchema,
+				Schema:       previousReleaseManifestSchema,
 				Version:      "test",
 				SourceCommit: "commit",
 				BuildDate:    "2026-01-01T00:00:00Z",

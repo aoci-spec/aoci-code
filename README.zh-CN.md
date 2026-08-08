@@ -10,7 +10,7 @@
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
 > [!IMPORTANT]
-> AOCI-CODE v0.1.0-rc1 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。当前 RC 阶段从 canonical source 构建；GitHub Releases 将在公开发布后提供。
+> AOCI-CODE v0.1.0-rc1 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [GitHub Releases](https://github.com/aoci-spec/aoci-code/releases) 提供的签名包；使用前请遵循[发布验证流程](docs/install.md#signed-github-release-packages)。
 
 ## AOCI-CODE 是什么？
 
@@ -39,20 +39,20 @@ AOCI-CODE 会将这些信息组织成符号与语义结合的高信息密度认�
 ```
 ## 手动接入
 
-当前 RC 阶段，请从 canonical source 获取 AOCI-CODE 并构建 `aoci` 二进制。公开发布后，预构建二进制也将通过 GitHub Releases 提供。请把本 README 和已构建二进制的稳定绝对路径交给 Codex、Claude Code、Cursor 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
+请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](docs/install.md#signed-github-release-packages)验证校验和、GitHub Actions keyless 发布者身份、provenance 和 Release Manifest。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
 
 首次生成完整认知所需时间取决于仓库规模。正常接入过程包括：准备二进制文件、让 AI Agent 或用户初始化目标仓库、在宿主中提出“建立索引”、验证对齐。后续开发不需要在每个需求末尾重复提醒“维护索引”；项目规则和 AOCI MCP 工作流会在受管对象变化后引导 AI Agent 完成增量认知维护。
 
 ### 0. 环境要求
 
-- canonical AOCI-CODE 源码仓库的工作副本；
+- 已验证的 Release 包，或 canonical AOCI-CODE 源码仓库的工作副本；
 - `go.mod` 声明的 Go 工具链、`make` 及仓库要求的其他工具；
 - 一个受支持的 MCP 宿主，例如 Codex、Claude Code 或 Cursor；
 - 对目标仓库的正常读写权限。
 
-当前 RC 的安装路线是从 canonical source 构建。本 README 不会在 Release 下载地址实际存在前提供该地址；GitHub Releases 将在公开发布后成为二进制分发渠道。
+签名包路线和可执行验证命令见[安装指南](docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
 
-### 1. 当前 RC：从源码构建并交给 AI Agent 接入
+### 1. 当前 RC：使用已验证的包或从源码构建
 
 克隆 canonical 仓库、构建二进制，并保持构建结果的路径稳定：
 
