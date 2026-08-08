@@ -1,0 +1,22 @@
+The Header must contain these blocks as # comment lines:
+- A [System] line: one-sentence project identity covering what it is, its technical form, and defining traits.
+- A [Deployment] line: essential build and deployment facts. Include only facts supported by the profile and current Header; preserve existing wording conservatively when uncertain.
+- The three-part syntax: lines beginning with # are explanatory content that index tools do not extract but models must read; ===description/absolute/path/=== opens a directory section; every other non-empty line in that section is an Entry.
+- Entry format and field responsibilities:
+  F is a short, precise anchor for the core function, with semantic completeness taking priority;
+  R lists only exact paths or module names for strong cross-file dependencies;
+  A lists only APIs, entry points, or contracts exposed by the file;
+  S contains only information absent from filename + tag + F + R + A but necessary to understand the system or modify the code.
+- The five-dimensional ABCDE tag dictionary: A Layer / B Module / C Importance / optional D Trait / E Scale.
+  A multi-domain repository, such as backend plus frontend or code plus extensive documentation, should define separate A/B/D blocks for each technical domain and state that the same letter may have different meanings across systems.
+  C Importance and E Scale retain one shared meaning across systems.
+- C Importance values: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge.
+- E Scale values: L-large M-medium S-small T-tiny. Preserve line thresholds from the current Header, or provide reasonable thresholds when absent.
+- S discipline: ask two questions. Can this sentence be inferred from the first four layers (filename + tag + F + R + A)? Does it materially affect understanding the system or modifying the code? Write it only when the first answer is no and the second is yes. Do not write evolution narratives or time-dependent information; describe only current accumulated state. Quotas by C Importance are {{.SQuotaDefaultSpaced}}; a quota is a ceiling, not a target.
+- R scope: list only strong cross-file dependencies as exact paths or module names; omit logging, generic utilities, and framework-provided dependencies.
+- A scope: list only APIs, entry points, or contracts exposed by this file; omit internal functions; use - when none exists.
+- Preserve these human-calibrated [Correct index examples] and their explanation:
+  #main.go[CRT9OT]: F:process entry point | R:internal/cli/root.go | A:- | S:In MCP mode stdout is reserved for the JSON-RPC protocol stream; logs must go to stderr
+  #atomic.go[FAT9AT]: F:atomic write | R:- | A:AtomicWrite | S:The temporary file must be in the target directory; failure must preserve the original file
+  #Note: These examples come from a real Go project and illustrate only F/R/A/S information roles and granularity; determine actual tags from the current project dictionary
+Preserve valid dictionary items, evidenced system principles, and human-calibrated examples from the existing Header.

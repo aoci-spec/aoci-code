@@ -1,0 +1,2 @@
+头部字典未建立: 本仓索引头部缺少可用的A层级/B模块字典，维护任务暂停发放。
+请维护者先完成aoci index header draft → diff → apply；agent不要在无字典状态下硬写条目。

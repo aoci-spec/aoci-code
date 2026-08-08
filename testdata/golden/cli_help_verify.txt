@@ -1,0 +1,6 @@
+Perform deterministic set operations only; never modify the Baseline or formal index.
+Result.Missing and top-level RawMissing always preserve the same raw physical facts, partitioned exclusively into Actionable, CurationExcluded, and Skipped. Included and Pending are respective subsets.
+When team setting line_ending_tolerance=true, a pure CRLF/LF difference enters informational LineEndingOnly and counts as neither Stale nor a failing exit condition.
+Exit codes reflect unresolved governance debt: ActionableMissing, PendingCuration, Orphan, Stale, or Unbaselined produces exit 1; only excluded items, non-Pending technical skips, or LineEndingOnly produces exit 0.
+Exit codes: 0=governance complete, 1=unresolved governance drift, 2=invalid index format, 3=not initialized or configuration error.
+For verify, check, index score, and index inventory, “read-only” means that the formal index and Baseline are not modified; it does not mean strictly zero filesystem writes. When Ledger is enabled, all four commands may append to the local Ledger, and verify also attempts to write Verify History. An audit-write failure does not change existing exit codes or governance criteria.

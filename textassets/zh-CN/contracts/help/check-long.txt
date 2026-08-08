@@ -1,0 +1,4 @@
+聚合回答“现在可以提交吗”:
+  阻断: ActionableMissing / PendingCurationMissing / Stale / Unbaselined / 字典违规 / 格式错误 / Entries或Curation草稿悬置;
+  展示不拦: RawMissing / CurationExcludedMissing / 非Pending的SkippedMissing / Orphan / LineEndingOnly / S配额 / E档位 / tagparse Warning。
+原始四态、Missing三分与完整策展路径请看 aoci verify。

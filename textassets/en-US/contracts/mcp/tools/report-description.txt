@@ -1,0 +1,1 @@
+Record follow-up work when evidence is insufficient to generate or decide Legacy Entry semantics reliably. This writes a local report and audit record but does not modify the formal index or Baseline. Volumes v1 returns volume_read_only. It does not replace Curation, orphan decisions, or failure recovery.

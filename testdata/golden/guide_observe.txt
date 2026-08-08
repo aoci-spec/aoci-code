@@ -1,0 +1,7 @@
+MESSAGE:
+automation.mode=off：当前只报告EntriesRequired事实，不允许生成候选、Stage或Apply。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+可以读取Plan、Verify和现有索引了解事实，但不要生成或提交语义候选。
+不得直接调用agent stage、header stage、entries apply或header apply。
+需要继续完整索引治理时，由维护者修改团队config.json中的automation.mode。

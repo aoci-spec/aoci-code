@@ -1,0 +1,16 @@
+MESSAGE:
+automation.mode=legacy：当前存在待语义策展文件；按旧仓兼容停点完成Stage与Diff，在Apply前等待用户批准。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+逐项调查curation_batch.targets的文件内容、邻近模块、构建发布配置和仓库实际使用方式。
+每项decision、role、reason和confidence必须由当前模型独立判断；禁止按路径、文件名、扩展名、物理画像、正则、模板、规则引擎或批量脚本套用语义裁决。
+profile_reason只是物理画像，不是最终裁决；empty、binary或oversize文件仍可能承载包边界、类型声明、注册标记、协议标记或构建发布语义。
+只有文件自身具有独立、可维护、不能由目录或其他文件条目替代的语义时才decision=include；否则decision=exclude。
+include表示该文件必须进入后续Entries生成；exclude必须形成可审计排除决策，不得仅因文件为空、二进制、路径相似或扩展名相同而批量套用。
+每项必须填写decision、role、reason和confidence；path与source_sha256保持原值。
+模板中的confidence=-1是无效占位，必须由当前模型逐项替换为0至100的JSON整数；不得保留-1，不得使用小数、字符串、null或省略字段。
+完整覆盖本批全部目标，不能少报、增报或重复路径。
+把curation_stage_request保存为UTF-8 JSON文件并替换{request_file}后执行Stage。
+执行curation diff形成P-23内容审阅记录。
+legacy兼容态要求展示Diff并在curation apply前等待用户批准。
+批准后Apply并重新运行guide。

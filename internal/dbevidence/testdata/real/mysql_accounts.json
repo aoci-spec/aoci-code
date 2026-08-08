@@ -1,0 +1,122 @@
+{
+  "version": "database-evidence/v1",
+  "object_ref": "database://mysqltemp/aoci_test/accounts",
+  "engine": "mysql",
+  "source_id": "mysqltemp",
+  "database": "aoci_test",
+  "namespace": "aoci_test",
+  "name": "accounts",
+  "kind": "base_table",
+  "columns": [
+    {
+      "ordinal": 1,
+      "name": "id",
+      "native_type": "bigint",
+      "canonical_type": "bigint",
+      "nullable": false,
+      "auto_increment": true
+    },
+    {
+      "ordinal": 2,
+      "name": "email",
+      "native_type": "varchar(255)",
+      "canonical_type": "varchar",
+      "nullable": false
+    },
+    {
+      "ordinal": 3,
+      "name": "status",
+      "native_type": "varchar(20)",
+      "canonical_type": "varchar",
+      "nullable": false,
+      "default_expression": "active"
+    },
+    {
+      "ordinal": 4,
+      "name": "payload",
+      "native_type": "json",
+      "canonical_type": "json",
+      "nullable": true
+    },
+    {
+      "ordinal": 5,
+      "name": "email_lower",
+      "native_type": "varchar(255)",
+      "canonical_type": "varchar",
+      "nullable": true,
+      "generated": "stored",
+      "generation_expression": "lower(`email`)"
+    }
+  ],
+  "primary_key": {
+    "name": "PRIMARY",
+    "columns": [
+      "id"
+    ]
+  },
+  "unique_constraints": [
+    {
+      "name": "accounts_email_key",
+      "columns": [
+        "email"
+      ]
+    },
+    {
+      "name": "accounts_id_status_key",
+      "columns": [
+        "id",
+        "status"
+      ]
+    }
+  ],
+  "foreign_keys": [],
+  "checks": [
+    {
+      "name": "accounts_status_check",
+      "expression": "(`status` in (_utf8mb4\\'active\\',_utf8mb4\\'disabled\\'))"
+    }
+  ],
+  "indexes": [
+    {
+      "name": "PRIMARY",
+      "unique": true,
+      "primary": true,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "id"
+        }
+      ]
+    },
+    {
+      "name": "accounts_email_key",
+      "unique": true,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "email"
+        }
+      ]
+    },
+    {
+      "name": "accounts_id_status_key",
+      "unique": true,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "id"
+        },
+        {
+          "position": 2,
+          "column": "status"
+        }
+      ]
+    }
+  ]
+}

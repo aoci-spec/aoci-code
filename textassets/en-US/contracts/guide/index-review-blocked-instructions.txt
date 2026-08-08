@@ -1,0 +1,2 @@
+Do not run scan --force, overwrite aoci.txt automatically, or generate candidates.
+Show the user the Plan summary and current Git diff, then wait for a maintainer decision.

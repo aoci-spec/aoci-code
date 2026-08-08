@@ -1,0 +1,157 @@
+AOCI Host Capability, Guide Action, and Interaction v1
+======================================================
+
+Capability Manifest
+-------------------
+
+`aoci-capability-manifest/v1` is the single read-only CLI capability document.
+It reports `product=AOCI-CODE`, `binary=aoci`, the canonical repository and Go
+module, the AOCI version and commit, MCP protocol, sorted nine-tool list and
+identity, CLI lifecycle capabilities, input contract versions, detected
+layout, supported Planner/Apply/Recovery families, required Agent fields, TTY
+requirements, Database capabilities, Overview delivery modes, compatibility
+strategy, and `network_accessed=false`.
+
+The manifest is produced by `aoci --json capabilities`. It reads layout bytes
+but writes no formal or runtime asset. Hosts may cache it for one process/service
+identity and must invalidate it when the AOCI version, commit, or repository
+root changes. It does not add a tenth MCP tool.
+
+Guide action contract
+---------------------
+
+Every machine Guide result carries one `next_action_contract` derived from the
+same facts as its human instructions. It contains action, exact command or MCP
+tool name, complete required parameters, Agent ID, schema version, request-file
+path when applicable, expected preimage, Plan/Run identity, TTY requirement,
+automatic-retry flag, one transport-schema correction limit, and success next
+action.
+
+Generated Header, Entries, and Curation commands always include the explicit
+`--agent` value. Unknown or mistyped transport fields fail before Draft or
+formal writes. A Host may correct one purely structural request-field error
+using the advertised schema. That correction does not change Candidate
+identity and is not semantic `repair_required`.
+
+Human interaction contract
+--------------------------
+
+`aoci-host-interaction/v1` is returned when a protected action requires a real
+terminal. It includes `interaction_required=true`,
+`interaction_kind=human_tty_digest_confirmation`, an OS-quoted exact command,
+full digest, safe summary, exact phrase, resume action, `tty_required=true`,
+`model_self_approval=false`, and whether formal writes started.
+
+AOCI continues to require an actual character-device TTY and exact phrase. It
+does not support `--yes`, piped model approval, blanket approval, or approval
+reuse across Envelopes. A PTY-capable Host can execute the exact command in an
+interactive adapter. This contract does not claim that Codex Desktop or any
+other external Host automatically allocates a PTY.
+
+Fresh Auto authorization is not a human-interaction simulation. A machine-
+selected and Session-pinned Fresh policy may produce
+cognition-bootstrap-auto-eligibility/v1 and policy_bound_auto only when every
+eligibility fact is green. That projection reports tty_required=false and
+model_self_approval=false. Review, Legacy Migration, and any real blocker keep
+or restore the interaction boundary; model text cannot confirm a digest,
+change the Session policy, clear a blocker, or approve Recovery.
+
+Whole-Index Host contract
+-------------------------
+
+An ordinary `aoci_overview` response may begin an automatic
+`overview-chunk-receipt/v1` chain according to the project-owned
+`overview_delivery.chunk_tokens` value. On `continuation_required=true`, the
+Host-Agent submits the exact `next_cursor` without asking the user, beginning
+business work, or stating a partial system conclusion. It continues until
+`completed=true`, then verifies the aggregate Receipt and submits the existing
+`model-cognition-attestation/v1`.
+
+Host truncation, invalid or repeated order, cursor failure, configuration
+change, or Index change stops the chain. Attestation failure stops
+complete-cognition acceptance and semantic retry, not an honest answer or
+source-bound task. Until Attestation completes, Memory, source, Spec, direct aoci.txt,
+historical sessions, Scope, Search, and Entry reads cannot supplement cognition
+or substitute for missing Chunks. The challenge ordinal is the 1-based
+position in the shared formal Entry/object sequence; Header content, comments,
+blank lines, Section/Overview/Chunk markers, receipts, and Metadata are
+excluded, and Chunk Receipts use the same sequence. The model submits semantic
+answers once; at most one same-response schema-only correction is allowed.
+AOCI does not probe Host capacity or reduce the
+configuration automatically; after truncation the user may choose a smaller
+valid value and restart. Successful ordinary feedback is one concise sentence
+that separates actual machine coverage from self-assessed system-framework
+mastery. Detailed cursor,
+per-Chunk SHA, Metadata, and Attestation JSON remain machine evidence by
+default. A complete, Host-confirmed, governance-aligned compaction refresh
+consumes its generation even when Attestation is partial or failed and returns
+source-bound continuation guidance; the Host does not automatically repeat
+Overview. Initial failure additionally blocks unbound system-wide decisions.
+The normative transport rules are in
+`aoci-overview-delivery-v1.txt`.
+
+Fresh Bootstrap Host authoring
+------------------------------
+
+The capability manifest advertises the Fresh Onboarding v2, Authoring Batch,
+Completion, Semantic Authoring Requirement, and Provenance contracts without
+adding an MCP tool. When a new Fresh Session returns authoring_next, the Host
+automatically follows the existing Onboarding next actions. It reads the
+current evidence, authors Root/Meta/tags/F/R/A/S using model judgment, supplies
+one Host-issued authoring_run_id, submits the exact v2 Completion declaration,
+and places the complete provenance receipt in Candidate v1.
+
+The Host must not ask the program to infer semantics or treat paths, AST,
+imports, Schema, regular expressions, frameworks, fixtures, or templates as a
+model-authored result. AOCI computes Plan, Evidence, Batch, and Candidate
+bindings but never fills origin=host_model or manufactures a valid receipt.
+The receipt is a Host trust-boundary declaration and content binding, not
+cryptographic proof of internal reasoning.
+
+Normal user interaction need only express the goal of establishing an AOCI
+index. Per-batch terms are not user decisions. The Host continues until the
+existing digest-confirmation boundary or a real ambiguity, source/CAS drift,
+Recovery, third-party conflict, or external action requires a stop.
+
+For eligible Fresh Auto, the default user-facing progress is limited to the
+Locale equivalents of "Analyzing the project", "Establishing project
+cognition", "Verifying safety boundaries", and "Project cognition
+established". Header, Scope, Candidate, FRAS, provenance, approval digests,
+receipts, Batches, and internal token accounting remain machine details. On
+failure, the Host presents the real blocker instead of the internal pipeline.
+
+Long-running auto messages and recovery
+---------------------------------------
+
+A progress, explanation, architecture, timing, or error question is not a
+control command. The Host answers concisely, preserves current Plan, Run,
+candidate, commit, Push, and CI identities, and resumes the existing next
+action. Only an explicit stop, pause, cancel, rollback, scope change, or commit
+or Push prohibition changes execution. This rule adds no persistent Task
+Session.
+
+repair_required is a bounded automatic correction of failed candidates only.
+Its findings use the same candidate_index, path, canonical_object_identity,
+domain, field, rule_code, expected, actual, cause, and safe_repair_action
+machine schema as Impact, Preview, and MCP Apply. Auto preserves the other
+candidates and stages the same complete batch again without a user prompt.
+stopped ends the current write attempt. The Host uses the existing zero-write
+closure, Intent, Receipt, CAS, and Recovery evidence to replan, Resume, or
+Rollback automatically when proof is complete. Unprovable state, third-party
+formal bytes, non-converging CAS, approval, or external action remains a real
+stop; the Host never deletes Recovery or weakens a guard to continue.
+
+Compatibility
+-------------
+
+Existing nine MCP tools and Legacy/Volumes lifecycle behavior remain intact.
+Capability and Guide fields are additive machine surfaces. Executable machine
+constants remain the single token authority; docs and Locale assets describe
+them without copying mutable numeric sets.
+
+R73 additionally advertises `cognition_lineage_v1`,
+`database_to_code_impact_v1`, `cognition_evolution_v1`, and
+`narrow_system_relation_projection_v1` as read-only CLI lifecycle
+capabilities. `database_capabilities` advertises the environment Credential
+Provider and `database_access_preflight_v1`. These are additive array members;
+the manifest version and exact nine-tool MCP identity remain unchanged.

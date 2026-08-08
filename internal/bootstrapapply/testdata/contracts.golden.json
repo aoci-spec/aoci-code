@@ -1,0 +1,31 @@
+{
+  "apply_request": "cognition-bootstrap-apply-request/v1",
+  "apply_envelope": "cognition-bootstrap-apply-envelope/v1",
+  "approval": "cognition-bootstrap-approval/v1",
+  "recovery": "cognition-bootstrap-recovery/v1",
+  "apply_result": "cognition-bootstrap-apply-result/v1",
+  "transaction_status": "cognition-bootstrap-transaction-status/v1",
+  "operation": "bootstrap",
+  "preimage": "absent",
+  "recovery_policy": "incomplete_bootstrap_only",
+  "approval_mechanism": "interactive_digest_confirmation",
+  "formal_order": [
+    "meta",
+    "code",
+    "database",
+    "root",
+    "baseline"
+  ],
+  "disk_states": [
+    "preimage",
+    "postimage",
+    "unknown",
+    "wrong_type",
+    "missing_staging"
+  ],
+  "terminal_states": [
+    "applied",
+    "already_applied",
+    "rolled_back"
+  ]
+}

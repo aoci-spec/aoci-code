@@ -1,0 +1,6 @@
+File-level Curation include-mode discipline (an include decision has admitted this file to Entry drafting):
+1. Base the Entry only on the injected Curation role, Curation reason, file profile, path context, and source text when present.
+2. The Curation role states the file's current semantic responsibility in the system. The Curation reason explains why the file deserves an independent Entry even when it is empty, binary, or very large.
+3. When source text is absent, do not infer functions, types, or call relationships inside the file. Center F on the Curation role; use - for R or A when no explicit fact supports it.
+4. Do not copy confidence, source_sha256, agent, model, or audit time into FRAS text. Those values are governance metadata.
+5. Describe only current state. Do not turn the include decision into an evolution narrative, and do not invent business facts from the extension or filename alone.

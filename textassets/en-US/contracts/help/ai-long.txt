@@ -1,0 +1,5 @@
+aoci ai manages the optional AI enhancement layer.
+
+The AI layer can generate, update, and compact index entries in batches. It is disabled by default, so an unconfigured aoci installation is a deterministic offline tool.
+Data sovereignty: when enabled, source code is sent only to the endpoint you explicitly configure, whether public cloud or self-hosted. It does not pass through any other service.
+Secret handling: configuration stores only the environment variable name. The actual secret is read from that variable and is never written to disk.

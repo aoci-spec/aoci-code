@@ -1,0 +1,1 @@
+automation.mode=legacy：当前保持旧仓兼容停点；完成Header Stage与Diff后在Apply前等待用户批准。

@@ -1,0 +1,1 @@
+Only orphaned Entries remain. Automation must not remove them; a maintainer must decide each one.

@@ -1,0 +1,1 @@
+Read host-Agent candidates from a plain UTF-8 JSON file; maximum {{.EntriesMaxBodyBytes}} bytes (recommended on Windows)

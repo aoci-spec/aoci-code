@@ -1,0 +1,103 @@
+name: release-rehearsal
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-rehearsal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: install pinned SBOM generator
+        run: go install github.com/anchore/syft/cmd/syft@v1.44.0
+      - name: build snapshot archives, checksums, and SBOMs
+        uses: goreleaser/goreleaser-action@v7.2.1
+        with:
+          distribution: goreleaser
+          version: v2.17.1
+          args: release --snapshot --clean
+      - name: verify supply-chain artifacts
+        run: |
+          go run ./scripts/release/archive-smoke --dist dist
+          go run ./scripts/release/manifest \
+            --dist dist \
+            --output dist/RELEASE-MANIFEST.json \
+            --version "snapshot-${GITHUB_SHA}" \
+            --source-commit "$GITHUB_SHA" \
+            --build-date "$(git show -s --format=%cI HEAD)" \
+            --go-version "$(go version)" \
+            --goreleaser-version v2.17.1 \
+            --syft-version v1.44.0 \
+            --tools-list-sha256 "$(sha256sum testdata/golden/mcp_list_tools.json | awk '{print $1}')"
+          (cd dist && sha256sum -c SHA256SUMS)
+          go run ./scripts/release/manifest --verify dist/RELEASE-MANIFEST.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aoci-release-rehearsal-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  native-package-smoke:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            archive: '*_linux_amd64.tar.gz'
+            binary: aoci
+          - os: windows-latest
+            archive: '*_windows_amd64.zip'
+            binary: aoci.exe
+          - os: macos-15-intel
+            archive: '*_darwin_amd64.tar.gz'
+            binary: aoci
+          - os: macos-15
+            archive: '*_darwin_arm64.tar.gz'
+            binary: aoci
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aoci-release-rehearsal-${{ github.sha }}
+          path: dist
+      - name: run packaged native binary and rehearse atomic rollback
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/aoci-package"
+          archive=$(find dist -type f -name '${{ matrix.archive }}' -print -quit)
+          test -n "$archive"
+          case "$archive" in
+            *.zip) unzip -q "$archive" -d "$RUNNER_TEMP/aoci-package" ;;
+            *) tar -xzf "$archive" -C "$RUNNER_TEMP/aoci-package" ;;
+          esac
+          binary=$(find "$RUNNER_TEMP/aoci-package" -type f -name '${{ matrix.binary }}' -print -quit)
+          test -n "$binary"
+          chmod +x "$binary"
+          "$binary" --version
+          custody="$RUNNER_TEMP/aoci-promotion"
+          mkdir -p "$custody"
+          cp "$binary" "$custody/stable"
+          cp "$custody/stable" "$custody/backup"
+          cp "$binary" "$custody/candidate.tmp"
+          mv -f "$custody/candidate.tmp" "$custody/stable"
+          cmp "$binary" "$custody/stable"
+          cp "$custody/backup" "$custody/restore.tmp"
+          mv -f "$custody/restore.tmp" "$custody/stable"
+          cmp "$custody/backup" "$custody/stable"

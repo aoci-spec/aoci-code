@@ -1,0 +1,9 @@
+Detect and classify drift between the index and disk:
+  changed: source changed for an indexed file;
+  new: ordinary Actionable files and valid include decisions;
+  curation_excluded: completed exclusion decisions;
+  pending_curation: waiting for an include/exclude decision;
+  skipped_missing: Pending and other technical skips;
+  deleted/unbaselined: reported only.
+When the team enables line-ending tolerance, a pure CRLF/LF representation difference does not enter changed.
+Only changed and new reach the model or draft area. --dry-run never sends data externally.

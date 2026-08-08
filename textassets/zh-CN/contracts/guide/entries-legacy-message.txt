@@ -1,0 +1,1 @@
+automation.mode=legacy：当前存在可执行Entries目标；按旧仓兼容停点完成Stage、Check、Diff，并在Apply前等待用户批准。

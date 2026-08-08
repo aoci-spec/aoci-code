@@ -1,0 +1,1 @@
+automation.mode=auto: the host Agent must generate a Header candidate, complete Stage and Diff, and Apply directly when the machine gates pass.

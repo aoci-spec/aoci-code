@@ -1,0 +1,2 @@
+Remove the complete Entry line for a specified file from the index. A typical use is manual cleanup after aoci index update reports a deleted orphan.
+Removing the Entry for a live file is also allowed; the file will then appear as Missing in verify, prompting Entry regeneration. Use --preview before applying the change.

@@ -1,0 +1,1 @@
+仓库已有Baseline但存在Unbaselined文件，自动工序不得用scan --force整体承认。

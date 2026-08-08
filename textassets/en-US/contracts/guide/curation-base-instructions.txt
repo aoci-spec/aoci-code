@@ -1,0 +1,10 @@
+Investigate each curation_batch.targets item: its contents, neighboring modules, build and release configuration, and actual use in the repository.
+The current model must decide every decision, role, reason, and confidence independently. Never apply a semantic decision from a path, filename, extension, physical profile, regular expression, template, rule engine, or batch script.
+profile_reason is only a physical profile, not the final decision. An empty, binary, or oversize file may still carry a package boundary, type declaration, registration marker, protocol marker, or build and release semantics.
+Use decision=include only when the file itself has independent, maintainable semantics that a directory or another file's Entry cannot replace. Otherwise use decision=exclude.
+include means the file must enter subsequent Entries generation. exclude must create an auditable exclusion decision. Never apply either decision in bulk merely because files are empty, binary, have similar paths, or share an extension.
+Fill decision, role, reason, and confidence for every item, preserving path and source_sha256 exactly.
+confidence=-1 in the template is an invalid placeholder. The current model must replace it item by item with a JSON integer from 0 through 100. Do not retain -1 or use a decimal, string, null, or omitted field.
+Cover every target in the batch exactly once; do not omit, add, or duplicate a path.
+Save curation_stage_request as a UTF-8 JSON file, replace {request_file}, and run Stage.
+Run curation diff to create the P-23 content-review record.

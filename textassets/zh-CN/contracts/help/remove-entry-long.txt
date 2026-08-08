@@ -1,0 +1,3 @@
+从索引中删除指定文件的条目(整行)。典型场景: aoci index update 报出
+deleted(孤儿)后的人工清理。删除活文件的条目同样允许 —— 删除后该文件
+将以 Missing 态出现在 verify 中,提示重建条目。操作前建议 --preview 确认。

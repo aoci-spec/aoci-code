@@ -1,0 +1,2 @@
+Do not delete workspace files to eliminate this task.
+Show the user the orphans from the Plan. Use remove-entry only after the user makes an explicit decision.

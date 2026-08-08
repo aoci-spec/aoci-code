@@ -1,0 +1,6 @@
+从UTF-8请求文件或stdin读取结构化JSON。
+请求总大小上限{{.HeaderMaxBodyBytes}}字节({{.HeaderMaxBodyHuman}})，header字段上限{{.HeaderMaxHeaderBytes}}字节({{.HeaderMaxHeaderHuman}})。
+Windows推荐--request-file；PowerShell 5不得用文本管道传递中文请求JSON。
+--request-file与--stdin-json互斥且必须二选一；Stage不修改正式索引或Baseline。
+header_required计划应省略intent；intent=semantic_refresh只接受精确的当前aligned计划，并写入草稿Manifest以便Apply核对同一阶段。
+Locale迁移期间必须提供managed_index_text；它与Header共享同一Plan、草稿摘要、Diff、CAS与Apply事务。

@@ -1,0 +1,2 @@
+stop_before_apply=true: show the complete Diff and wait for user approval before curation apply.
+After approval, Apply and then run guide again.

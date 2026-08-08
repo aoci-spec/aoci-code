@@ -1,0 +1,3 @@
+Run entries stage and capture the actual run_id, then run entries check and entries diff to create the machine precheck and P-23 content-review record.
+stop_before_apply=true: show the user the Diff and wait for approval before entries apply.
+After approval, run atomic Apply, verify, and then guide again.

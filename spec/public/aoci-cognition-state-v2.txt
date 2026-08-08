@@ -1,0 +1,177 @@
+AOCI Cognition State v2
+=======================
+
+Status and scope
+----------------
+
+`cognition-state/v2` is an additive, read-only projection over the existing
+Overview delivery, Model Cognition Attestation v1, live governance, scope, and
+receipt facts. It is not a second cognition workflow, does not persist state,
+does not authorize Apply, and does not replace any legacy field.
+
+The executable machine vocabulary is owned by `internal/machinecontract`.
+This specification defines the projection semantics and compatibility
+boundary. Existing Overview delivery, Attestation, receipt, refresh, and
+governance specifications remain authoritative for their respective inputs.
+
+Opt-in and compatibility
+------------------------
+
+The Host requests this projection with:
+
+    cognition_state_version: cognition-state/v2
+
+When the field is absent, Overview emits exactly the legacy response bytes for
+that delivery mode, including the existing Attestation Prompt and localized
+messages. The v2 Attestation interpretation is added only when this version is
+explicitly requested. An unknown projection version fails as a bad argument
+before Overview delivery. The projection adds no MCP tool and does not change
+the MCP tool-name identity.
+
+Legacy `cognition_level`, `cognition_level_state`,
+`cognition_level_message`, `delivery_integrity`, `model_attestation`,
+`cognition_assimilation`, `cognition_state`, `model_scope_cognition_reliable`,
+`model_full_cognition_reliable`, `completed`, and cognition Receipt fields keep
+their existing values and meanings. The v2 projection cannot feed back into
+their calculation or into refresh-generation consumption.
+
+Projection shape
+----------------
+
+The projection is one object with these required fields:
+
+* `version`: `cognition-state/v2`;
+* `model_cognition_level`: integer 0 through 3;
+* `model_cognition_level_state`: the matching state token;
+* `delivery_verified`: boolean;
+* `model_cognition_usable`: boolean;
+* `model_cognition_usability_status`: `usable`, `not_established`, or
+  `unusable`;
+* `strict_attestation_verified`: boolean;
+* `strict_attestation_status`: `verified`, `partial`, `failed`, or
+  `not_provided`;
+* `strict_attestation_failure_reasons`: an ordered array of stable reason
+  tokens with no expected answer content;
+* `governance_aligned`: boolean;
+* `current_system_cognition_reliable`: boolean; and
+* `protocol_completed`: boolean.
+
+Full and Attestation text responses render the object on one
+`cognition_state_v2: <JSON>` metadata line. Chunk and checkpoint JSON responses
+render the same object under the `cognition_state_v2` property. Blocked and
+absent-scope responses also include the object when explicitly requested.
+
+Model cognition level
+---------------------
+
+The v2 Level describes progressive model cognition availability only:
+
+* Level 0, `no_cognition`: no valid cognition is available for the requested
+  response;
+* Level 1, `index_loaded`: a valid Index or CognitionSet is loaded, but complete
+  Host delivery is not verified;
+* Level 2, `delivery_verified`: delivery is confirmed, but model cognition
+  usability is not established; and
+* Level 3, `model_cognition_usable`: current delivered cognition satisfies the
+  operational usability conditions below.
+
+Strict Attestation, governance alignment, and current-system reliability never
+advance or reduce this Level. `delivery_verified` and
+`model_cognition_usable` are also emitted as independent booleans so a Host
+does not need to infer them from the Level.
+
+Delivery verification
+---------------------
+
+`delivery_verified=true` only when the existing delivery assessment reports
+`delivery_integrity=confirmed`. Server-side body construction without an exact
+Host confirmation is not verified delivery.
+
+Model cognition usability
+-------------------------
+
+Model cognition usability is an operational Host-model projection, not strict
+Challenge proof. It is true only when all of the following hold for the current
+delivered body and current Attestation report:
+
+* delivery is verified;
+* the report uses Model Cognition Attestation v1 and is bound to the current
+  Index or scope identity, Entry-sequence identity, Entry count, and Challenge
+  digest;
+* the reported Entry count matches the delivered Entry count;
+* the reported estimated Token count is within the existing Attestation
+  tolerance;
+* reported coverage is at least the existing complete-coverage threshold;
+* truncation is not detected; and
+* reported system-framework mastery is at least the existing complete-mastery
+  threshold.
+
+Ordinal order, Challenge object identity, Tag, and core F exactness do not
+participate in model cognition usability. They remain strict proof facts. A
+wrong or stale Attestation envelope cannot establish usability.
+
+The usability status is `usable` when the boolean is true. It is
+`not_established` when no current report is provided or delivery is not
+verified. It is `unusable` when delivery is verified and a report is provided
+but one or more usability conditions fail.
+
+Strict Attestation
+------------------
+
+`strict_attestation_verified=true` exactly when the unchanged legacy
+`model_attestation=pass`. Its status maps pass to `verified`, partial to
+`partial`, fail to `failed`, and absent input to `not_provided`.
+
+Failure reasons are deterministic, ordered, and additive. The vocabulary is:
+
+* `not_provided`;
+* `attestation_envelope_identity_mismatch`;
+* `challenge_answer_count_mismatch`;
+* `ordinal_order_mismatch`;
+* `object_identity_mismatch`;
+* `tag_mismatch`;
+* `core_f_mismatch`;
+* `reported_entry_count_mismatch`;
+* `reported_token_estimate_mismatch`;
+* `coverage_below_threshold`; and
+* `truncation_detected`.
+
+The projection reports only reason tokens. It never returns expected object
+identities, Tags, core F text, or another Challenge answer oracle. An empty
+array means strict verification passed.
+
+Governance and current-system reliability
+-----------------------------------------
+
+`governance_aligned` is copied from the existing live governance fact used by
+Overview. The projection does not recalculate governance and does not consult
+Receipt, Ledger, or Verify History as an alternative authority.
+
+`current_system_cognition_reliable=true` only when all of these are true:
+
+* the effective scope is the complete system scope;
+* delivery is verified;
+* model cognition is usable;
+* strict Attestation is verified; and
+* governance is aligned.
+
+This preserves the existing full-system safety boundary while making each
+input fact independently visible. It does not grant an Apply permission or
+change any authorization decision.
+
+Protocol completion
+-------------------
+
+`protocol_completed` describes whether the current requested cognition attempt
+has reached a terminal protocol result. It is true for a processed Attestation
+submission, an explicit checkpoint response, or a blocked/absent-scope
+terminal response. It is false during initial Full delivery, every Chunk
+delivery including the final body Chunk, and a Host-confirmation-only response
+that still awaits an Attestation report.
+
+Fresh Bootstrap, Candidate, and authoring provenance
+----------------------------------------------------
+
+This contract has no Candidate, Bootstrap, Onboarding, semantic-authoring, or
+provenance semantics. Those schemas and state machines are outside
+`cognition-state/v2` and remain unchanged by this projection.

@@ -1,0 +1,21 @@
+# ===== Cursor参考配置（请按当前Cursor版本语法人工核对后写入）=====
+# 位置：{{.RepoRoot}}/.cursor/mcp.json
+#
+# {
+#   "mcpServers": {
+#     "aoci": {
+#       "command": "{{.BinPath}}",
+#       "args": ["--repo", "{{.RepoRoot}}", "mcp"]
+#     }
+#   }
+# }
+#
+# ===== Codex用户级配置参考（可选替代项目级配置）=====
+# aoci init --agent codex会自动写入项目级{{.RepoRoot}}/.codex/config.toml。
+# 若更偏好用户级全局配置，可在~/.codex/config.toml追加同款
+# [mcp_servers.aoci]表，或执行：
+# codex mcp add aoci -- {{.BinPath}} --repo {{.RepoRoot}} mcp
+#
+# AOCI当前提供九个MCP工具，并通过aoci_rules暴露完整Host-Agent Guide纪律。
+# Codex/Cursor稳定文件编辑Hook当前不提供；索引读写、策展与完整生成通过
+# MCP工具和aoci index agent命令协议完成。

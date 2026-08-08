@@ -1,0 +1,2 @@
+Header dictionary is missing: this repository's index Header does not contain a usable A-layer/B-module dictionary, so maintenance dispatch is paused.
+The maintainer must first complete aoci index header draft → diff → apply. An agent must not write Entries without a dictionary.

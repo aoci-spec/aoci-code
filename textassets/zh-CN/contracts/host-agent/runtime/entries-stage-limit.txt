@@ -1,0 +1,1 @@
+Entries Stage请求文件总大小上限{{.EntriesMaxBodyBytes}}字节({{.EntriesMaxBodyHuman}})，单批最多{{.EntriesMaxEntries}}条候选。

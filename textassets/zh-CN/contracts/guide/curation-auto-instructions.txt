@@ -1,0 +1,2 @@
+机器硬闸通过后直接执行curation apply，不请求人工批准。
+重新运行guide；include项将进入Entries，exclude项保留为正式排除决策。

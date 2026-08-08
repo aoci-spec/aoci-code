@@ -1,0 +1,2 @@
+Stop the generation workflow and show the maintainer the unbaselined list from the Plan.
+Do not run scan --force. The maintainer must decide whether configuration changed, files need to be admitted, or the Baseline needs governance.

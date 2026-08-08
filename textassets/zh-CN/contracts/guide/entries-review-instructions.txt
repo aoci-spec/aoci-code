@@ -1,0 +1,3 @@
+执行entries stage并取得真实run_id，再执行entries check和entries diff，形成机器预检与P-23内容审阅记录。
+stop_before_apply=true，向用户展示Diff并在entries apply前等待批准。
+批准后执行原子apply、verify，再重新运行guide。

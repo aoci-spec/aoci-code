@@ -1,0 +1,1 @@
+Replay the same complete source_sha256-bound batch to recover only the Baseline and alignment facts

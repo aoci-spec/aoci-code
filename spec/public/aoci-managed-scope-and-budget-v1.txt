@@ -1,0 +1,178 @@
+AOCI Managed Scope v2 and Cognition Budget v1
+
+Status: stable machine contract. Executable identifiers and enumerations are
+owned by internal/machinecontract. This Spec explains their semantics and must
+not become a copied validator or fallback authority.
+
+1. One Whole-Index
+
+AOCI retains one logical complete repository cognition index. Managed Scope is
+source-governance policy, not a second index, query replacement, or permission
+to present a partial body as complete cognition. Legacy and Volumes remain
+compatible physical layouts. Source, tests, configuration, and database
+structure remain the highest implementation evidence.
+
+2. Roles
+
+index requires one model-authored Entry, participates in the Whole-Index and
+the cognition Baseline, and produces Missing, Orphan, Stale, and Unbaselined.
+observe has no Entry and consumes no Whole-Index tokens, but its deterministic
+source fingerprint remains in the same Baseline. New, changed, and removed
+observe paths produce ObservedNew, ObservedChanged, and ObservedRemoved. Under
+review_required, an exact reviewed set must advance through the governed Scope
+transaction. exclude has no Entry or fingerprint; its content is not opened and
+does not enter Prompt, Evidence, Candidate, or Ledger bodies.
+
+3. Policy and evaluation
+
+managed-scope-policy/v2 contains profile, observe_change_policy,
+approval_mode (inherit, auto, or review), and ordered
+rules. Rules contain rule_id, action, pattern, pattern_kind, reason, optional
+structured decision_basis, source, created_by, order, enabled, and optional
+exceptions. decision_basis distinguishes semantic_density,
+test_responsibility_delegation, generated_asset, locale_delegation,
+public_private_boundary, duplicate_semantics, maintainer_direction, and the
+forbidden reduction basis transport_constraint without parsing free-form
+reason text. The policy also owns
+count and percentage thresholds that remain risk facts for compatibility;
+reduction size alone is not an Auto approval gate. Paths are repository
+relative, slash-normalized, non-escaping, and deterministic. File, directory,
+and glob rules can match future paths. Stable last-match ordering applies within
+one source priority. The precedence is Safe Inventory hard denial, approved
+high-risk exact opt-in, user, exact Curation, profile, Git facts, then default.
+Every evaluation explains its winning rule, source, priority, safety state,
+content-read state, Whole-Index participation, fingerprint participation, and
+reason.
+
+production indexes ordinary Safe Inventory candidates, observes test source,
+and excludes testdata, fixtures, Golden bodies, and snapshots. full indexes
+tests too. custom requires explicit project rules. User rules can override
+non-safety profile behavior.
+
+4. Safety
+
+Safe Inventory v2 runs before policy evaluation. Devices, unsafe links or
+reparse boundaries, AOCI runtime transactions, database runtime data, VCS
+objects, generated/runtime directories, secrets, sockets, PID/log files, and
+other hard-denied objects cannot be reopened by a normal rule. A sensitive
+object can be considered only by an exact-file opt-in and a real digest-bound
+human TTY approval before content read. Directory opt-ins and opt-ins for
+devices, boundary escapes, database runtime, or AOCI transaction assets are
+invalid. Secret templates such as .env.example are not secrets by name alone.
+
+5. Direct edits and transitions
+
+Configuration is desired policy. The active policy and budget identities, plus
+the exact applied budget policy needed to prove tightening versus relaxation,
+live in the existing Baseline receipt. A direct edit never changes Entries or
+fingerprints; Verify, Check, Status, Maintain, and Guide report
+scope_change_required until one governed Apply. index-to-observe and
+index-to-exclude require one scope-entry-disposition/v1 per removed Entry.
+Only the model decides unique semantics and authors transfer candidates.
+Programs validate binding and complete coverage; they never decide semantic
+value. Legacy observe/exclude-to-index requires a source-bound complete Entry
+candidate. Volumes may first activate an Entry-less source as Index through the
+governed Scope transaction; that explicit authoring debt remains Missing and
+must then be completed through machine-issued Maintain batches before alignment.
+
+6. Apply authorization
+
+aoci-apply-authorization-policy/v1 is the executable authorization authority.
+approval_mode=inherit follows the team-owned automation.mode. An explicit auto
+or review is a project override, except automation.mode=off always wins and
+forbids Apply. Effective auto uses standing team authorization; review requires
+interactive_digest_confirmation in a real character-device TTY; legacy keeps
+the prior compatibility boundary; off permits Plan and Preview but writes
+nothing.
+
+Auto is not model self-approval and does not omit evidence. After deterministic
+replay and all hard gates, AOCI creates aoci-policy-bound-approval/v1 before
+Intent. The immutable Receipt binds operation, repository identity, automation
+and Scope modes, authorization-policy identity, Envelope and Preview digests,
+current Index/Baseline/config/Scope/Curation identities, projected
+Index/Baseline and Whole-Index cost, Entry and role counts, complete Retention
+Review, P0/P1, write and guard sets, recovery direction, audit time, and its own
+approval digest. Apply validates the Receipt again under the global lock and
+stores it in the recovery Intent. A Receipt cannot authorize another Envelope;
+policy or formal-preimage drift invalidates it. Resume reuses the immutable
+Intent Receipt and never asks for a new approval. Repeated Apply is idempotent.
+
+Auto permits governed Entry create, update, and retirement; every Scope role
+transition; reviewed Curation and semantic-transfer candidates; observe
+fingerprint advancement; and proven budget tightening. It requires complete
+model-owned Retention disposition and reviewed transfers, P0=P1=0, no R/S or
+projected maximum violation, no pending transaction or third-party bytes,
+deterministic replay, exact CAS guards, and available recovery. A large Entry
+count is not independently blocking.
+
+An Index-to-Observe/Exclude transition for a Missing, Stale, or Unbaselined
+authoring target is a cognition_coverage_reduction. It is recorded with path,
+old/new role, authoring state, rule identity, and structured decision basis,
+raises P1, and cannot receive policy_bound_auto authorization. A transport,
+batch, payload, token, or single-request limit is never an admissible automatic
+coverage-reduction basis; decision_basis=transport_constraint adds the explicit
+transport_constraint_not_allowed blocker. Independent Scope review may still
+authorize normal evidence-backed density changes. Existing complete Entry
+retirement retains its prior disposition and authorization contract.
+
+Auto fails with blocked facts rather than falling back to a confirmation phrase
+for sensitive-content inclusion, source-file writes, unsafe filesystem
+boundaries, Root/Meta/Volume lifecycle, budget relaxation, enforce-to-observe,
+weakened safety, explicit or incomplete semantic drops, P0/P1, third-party
+bytes, incomplete batches, or unavailable recovery. Automatic workflows never
+silently delete source files or ungoverned Entries. A governed role transition
+may atomically retire formal Entries without deleting business source.
+
+7. One transaction
+
+managed-scope-change-plan/v2 freezes old/new policy and budget identities,
+every role and Entry delta, Retention Review, Baseline and observe deltas,
+before/after token reports, risk, write/guard sets, and recovery direction.
+Risk distinguishes any approval-bound budget_policy_change from a proven
+budget_relaxation; Legacy observe to a stricter enforce policy is not relaxation.
+Preview and the mode-selected authorization Receipt bind one Envelope digest.
+Apply reuses the global cognition
+lock, CAS, AtomicWrite, Baseline, Ledger, receipt/archive, and recovery pipeline.
+The Preview is also a managed-scope-change-envelope/v2 document through its
+explicit envelope_version and digest. Desired configuration is a CAS guard;
+the Baseline receipt is the active policy identity. The envelope source guard
+binds the live managed-source snapshot at Plan time, separately from the
+projected Baseline; Apply accepts only its own bound Root postimage and rejects
+any other post-Plan source drift. Apply advances aoci.txt,
+an optional reviewed Curation postimage, Baseline roles/fingerprints, and audit
+state as one formal transaction. Baseline is last. A
+partial transaction is resumed or rolled back from immutable pre/postimages;
+repeated Apply is idempotent. Third-party changes fail closed.
+
+8. Budget
+
+cognition-budget-policy/v1 has mode observe or enforce, Whole-Index target,
+warning and maximum tokens, and complete non-overlapping C1-C9 target/maximum
+bands for R and S. Old projects without materialized policy use observe;
+new-project init materializes enforce. Project values are configurable and are
+not global constants.
+
+Reports measure Header, F, R, A, S, structure, total, largest Entries, largest
+R/S, and field violations. Only formal index-role cognition bytes count toward
+Whole-Index. A candidate is never truncated, summarized, retagged, or assigned
+a lower C by the program. In enforce mode an ordinary Entry Apply validates the
+candidate R/S and the final projected Whole-Index before any write. The unified
+Scope transaction applies the same hard field and projected maximum gates even
+during a migration from observe mode. Failure is repair_required with current,
+projected, target, warning, maximum, delta, largest objects, and suggested
+model-owned compression targets.
+
+Maintain candidates carry the complete R/S band policy, exact limits for an
+existing Entry's C level, current Whole-Index cost, remaining headroom, Scope
+role, and observe-evidence state. Before model output exists, projected cost is
+the current baseline and projection_pending is true; the submitted candidate
+receives the authoritative projected gate.
+
+9. Compatibility and delivery
+
+Baseline fingerprints without role mean index. Legacy config and Baseline are
+readable and remain observe-budget compatible. The MCP surface stays at nine
+tools. Volumes, Migration/Reversal, Database Evidence/Binding, Auto Onboarding,
+dual Locale, no-network core, and CGO-free builds retain their contracts.
+Ordinary Overview continues to deliver the complete formal Whole-Index; Scope,
+search, or chunks cannot substitute for it.

@@ -1,0 +1,5 @@
+Configure the AI enhancement layer.
+
+Security: this command never accepts a secret value. --key-env accepts only the name of the environment variable that contains the secret.
+Provide the actual secret through the environment, for example export AOCI_AI_KEY=sk-xxx; configuration records only the variable name.
+--local writes config.local.json for this machine only and keeps it out of Git. The default writes the team-shared config.json.

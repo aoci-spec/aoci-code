@@ -1,0 +1,1 @@
+automation.mode=legacy: preserve the existing-repository compatibility stop. Complete Header Stage and Diff, then wait for user approval before Apply.

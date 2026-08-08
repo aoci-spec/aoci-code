@@ -1,0 +1,7 @@
+#AOCI-ROOT-MANIFEST: 1
+#Format-Version: cognition-volumes/v1
+#Locale: en-US
+#Project: synthetic table FRAS quality fixture
+#Boundary: evidence.sql is inert test evidence and is never connected to a database
+#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=-
+#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta

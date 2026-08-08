@@ -1,0 +1,3 @@
+Run header diff to create the P-23 content-review record.
+When the machine gates pass, run header apply directly without requesting human approval.
+Run verify and then guide again. Stop and report immediately if consistency or safety cannot be guaranteed.

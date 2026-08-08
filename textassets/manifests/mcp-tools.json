@@ -1,0 +1,280 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/mcp/tools/rules-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/rules-description.txt",
+      "description": "MCP description for the runtime behavior-contract entrypoint",
+      "used_by": "internal/mcptools/tools_read.go:registerReadTools",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "会话级运行合同",
+          "同一认知周期",
+          "不会修改正式索引或Baseline",
+          "可能追加本地审计记录"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/overview-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/overview-description.txt",
+      "description": "MCP description for complete repository cognition and receipt reuse",
+      "used_by": "internal/mcptools/tools_read.go:registerReadTools",
+      "protocol_tokens": [
+        "aoci_get_entries",
+        "aoci_search",
+        "host_delivery_confirmation",
+        "model-cognition-attestation/v1",
+        "index_sha256",
+        "entry_sequence_sha256",
+        "entry_count",
+        "overview-chunk-receipt/v1",
+        "continuation_required",
+        "next_cursor",
+        "check_only",
+        "cognition_state_version",
+        "cognition-state/v2",
+        "model_cognition_usable",
+        "strict_attestation_verified",
+        "governance_aligned",
+        "current_system_cognition_reliable",
+        "aoci_maintain"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整正式Whole-Index",
+          "自动继续",
+          "不得询问用户",
+          "不生成目录清单",
+          "不会修改正式索引或Baseline",
+          "可能追加本地审计记录"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/get-entries-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/get-entries-description.txt",
+      "description": "MCP description for exceptional local Entry recall",
+      "used_by": "internal/mcptools/tools_read.go:registerReadTools",
+      "protocol_tokens": [
+        "Entry",
+        "Overview"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "局部不确定",
+          "不会修改正式索引或Baseline",
+          "可能追加本地审计记录"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/search-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/search-description.txt",
+      "description": "MCP description for exceptional filtered Entry recall",
+      "used_by": "internal/mcptools/tools_read.go:registerReadTools",
+      "protocol_tokens": [
+        "Entry",
+        "Overview"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "目标路径未知",
+          "不会修改正式索引或Baseline",
+          "可能追加本地审计记录"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/header-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/header-description.txt",
+      "description": "MCP description for reading Header rules and tag dictionaries",
+      "used_by": "internal/mcptools/tools_header.go:registerHeaderTool",
+      "protocol_tokens": [
+        "Header"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "项目规则",
+          "标签字典",
+          "不会修改正式索引或Baseline",
+          "可能追加本地审计记录"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/update-entry-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/update-entry-description.txt",
+      "description": "MCP description for governed atomic semantic Entry updates",
+      "used_by": "internal/mcptools/tools_write_api.go:registerWriteTools",
+      "protocol_tokens": [
+        "Entry",
+        "entries",
+        "aoci_maintain",
+        "source_sha256",
+        "repair_required",
+        "candidate_index",
+        "canonical_object_identity",
+        "rule_code",
+        "safe_repair_action",
+        "retry_scope"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "正式写入",
+          "可修拒绝一次返回全部确定性Finding",
+          "证据不足时不要猜写"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/report-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/report-description.txt",
+      "description": "MCP description for recording unresolved semantic maintenance work",
+      "used_by": "internal/mcptools/tools_write_api.go:registerWriteTools",
+      "protocol_tokens": [
+        "Entry",
+        "Baseline"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "登记待办",
+          "不修改正式索引"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/tools/remove-entry-description",
+      "kind": "contract",
+      "path": "contracts/mcp/tools/remove-entry-description.txt",
+      "description": "MCP description for orphan-only Entry removal",
+      "used_by": "internal/mcptools/tools_remove.go:registerRemoveTool",
+      "protocol_tokens": [
+        "Entry",
+        "aoci_report"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "孤儿",
+          "不得通过删除工作区对象制造孤儿"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/header-empty-message",
+      "kind": "contract",
+      "path": "contracts/mcp/header-empty-message.txt",
+      "description": "Host recovery contract when no Header dictionary exists",
+      "used_by": "internal/mcptools/tools_header.go:registerHeaderTool",
+      "protocol_tokens": [
+        "aoci_report"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "标签"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/overview/attestation-prompt",
+      "kind": "contract",
+      "path": "contracts/mcp/overview/attestation-prompt.txt",
+      "description": "Concise Host prompt for model cognition attestation after complete Overview delivery",
+      "used_by": "internal/mcptools/overview_attestation_v1.go:attestationPrompt",
+      "protocol_tokens": [
+        "Entry",
+        "Token",
+        "ordinal",
+        "Tag",
+        "index_sha256",
+        "entry_sequence_sha256",
+        "entry_count",
+        "code:",
+        "database://"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整AOCI索引",
+          "估计覆盖率",
+          "是否检测到截断",
+          "核心F职责"
+        ]
+      }
+    },
+    {
+      "id": "contracts/mcp/input-schema-descriptions",
+      "kind": "contract",
+      "path": "contracts/mcp/input-schema-descriptions.json",
+      "description": "Locale-specific natural-language descriptions for versioned MCP input schemas",
+      "used_by": "internal/mcptools/tools_contract_assets.go:loadMCPInputSchemas",
+      "protocol_tokens": [
+        "aoci_overview",
+        "aoci_get_entries",
+        "aoci_search",
+        "aoci_update_entry",
+        "aoci_report",
+        "aoci_remove_entry",
+        "cognition_receipt",
+        "cognition_state_version",
+        "cognition-state/v2",
+        "model_cognition_state",
+        "index_sha256",
+        "entry_sequence_sha256",
+        "entry_count",
+        "scope_covered",
+        "check_only",
+        "refresh_reasons",
+        "refresh_event_id",
+        "stable_checkpoint",
+        "context_compaction",
+        "semantic_threshold",
+        "phase_transition",
+        "paths",
+        "dir",
+        "keyword",
+        "tag_filter",
+        "path",
+        "new_entry",
+        "source_sha256",
+        "candidate_id",
+        "batch_id",
+        "code_batch_id",
+        "entries",
+        "note"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "仓库相对路径",
+          "完整认知"
+        ]
+      }
+    },
+    {
+      "id": "contracts/ui/messages",
+      "kind": "contract",
+      "path": "contracts/ui/messages.json",
+      "description": "Keyed locale catalog for short runtime messages and formatting shells",
+      "used_by": "internal/index/query.go:ParseTagFilter",
+      "protocol_tokens": [
+        "search.bad_filter_format",
+        "prompt.unnamed_project",
+        "overview.cognition_state.attestation_interpretation_v2",
+        "cognition-state/v2",
+        "model_cognition_usable"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "未命名项目"
+        ]
+      }
+    }
+  ]
+}

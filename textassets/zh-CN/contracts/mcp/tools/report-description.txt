@@ -1,0 +1,1 @@
+在证据不足、无法可靠生成或裁决Legacy Entry语义时登记待办；会写入本地报告与审计，但不修改正式索引或Baseline。Volumes v1返回volume_read_only。它不替代Curation、孤儿裁决或故障恢复。

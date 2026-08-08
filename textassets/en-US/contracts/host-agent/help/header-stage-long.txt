@@ -1,0 +1,6 @@
+Read structured JSON from a UTF-8 request file or stdin.
+The request is limited to {{.HeaderMaxBodyBytes}} bytes ({{.HeaderMaxBodyHuman}}), and the header field to {{.HeaderMaxHeaderBytes}} bytes ({{.HeaderMaxHeaderHuman}}).
+Use --request-file on Windows. PowerShell 5 must not pass request JSON through a text pipeline.
+Exactly one of --request-file and --stdin-json is required. Stage does not modify the formal index or Baseline.
+Omit intent for a header_required Plan. intent=semantic_refresh is accepted only for the exact current aligned Plan and is persisted in the draft Manifest so Apply enforces that same stage.
+During Locale migration, managed_index_text is required and is governed by the same Plan, draft hash, Diff, CAS, and Apply transaction as the Header.

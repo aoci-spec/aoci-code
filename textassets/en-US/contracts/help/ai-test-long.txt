@@ -1,0 +1,2 @@
+Read configuration and the environment-provided secret, send one minimal probe to the configured endpoint, and report connectivity and usage.
+Data sovereignty: data is sent only to the endpoint in base_url and to no other address.

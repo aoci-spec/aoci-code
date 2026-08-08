@@ -1,0 +1,3 @@
+Windows commands protect executable paths with PowerShell's & call operator and double quotes. Preserve both the & and the quotes exactly.
+Ordinary Windows CLI --json output is ASCII-safe JSON. PowerShell 5 can capture it directly with & and parse it with ConvertFrom-Json; no transcoding wrapper is needed.
+Stage requests must still prefer a UTF-8 request-file. Do not construct or pass request JSON through a PowerShell text pipeline. Use ProcessStartInfo with explicit UTF-8 only for an older AOCI version or when stdout and stderr must be separated at the byte level.

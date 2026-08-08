@@ -1,0 +1,1 @@
+Read Curation candidates from a plain UTF-8 JSON file; maximum {{.CurationMaxBodyBytes}} bytes (recommended on Windows)

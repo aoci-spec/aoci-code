@@ -1,0 +1,8 @@
+====AOCI 平台风格索引样例(紧凑标签;锁死"CLI 能读平台旧索引"的元协议主张)====
+===处理器 /opt/aoci-platform/internal/handler/===
+project_source.go[WA9JM]: F:项目源管理与GitHub接入 | R:service/project.go,middleware/auth.go | A:POST /api/v1/projects;GET /api/v1/projects/<id> | S:含中文与|[]<>混排字符的S字段;全角标点测试:【重要】禁止在无备份时操作;token经AES-GCM加密存储
+#分区注释行: 应被保留但不提取
+websocket_term.go[WT9SL]: F:终端WebSocket | R:service/ssh_session.go | A:GET /api/v1/ws/terminal | S1:第一段 | S2:第二段合并进S
+===服务 /opt/aoci-platform/internal/service/===
+project.go[SP8CM]: F:项目服务 | R:repository/project.go | A:CreateProject;ListProjects | S:软删除走partial unique index
+====样例完毕====

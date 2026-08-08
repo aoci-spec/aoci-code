@@ -1,0 +1,8 @@
+先运行header_show取得完整索引头、标签字典、正确示例和S配额，不得猜测取值。
+每一条标签及F/R/A/S都必须由当前模型阅读目标文件后独立生成；禁止使用AST、符号提取、import扫描、路径、文件名、扩展名、正则、模板、规则引擎或批量脚本生成、预填或改写语义。
+工具只可用于读取或分段传递源码原文、保存请求、执行校验和落盘；不得先生成语义草稿再由模型表面润色。
+逐个完整读取batch.targets源码；update目标同时核对old_entry；不得仅凭目录、文件名、符号列表或邻近条目生成候选。
+F写简短明确的核心功能锚点，通常控制在10个字以内但语义完整优先；R只列跨文件强关联且不得复制全部import；A只列本文件对外API；S只写文件名+标签+F+R+A推不出、但理解系统或修改代码必须知道的信息。
+为entries_stage_request每项填充单行FRAS候选；path和source_sha256保持原值；同一请求中的每条entry都必须由当前模型逐项生成，不得由脚本循环拼接。
+把完整entries_stage_request保存为UTF-8 JSON文件，并把commands.entries_stage中的{request_file}替换为该路径。
+Windows PowerShell 5不得用文本管道传递中文JSON；--stdin-json仅用于可靠字节流环境。

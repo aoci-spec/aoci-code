@@ -1,0 +1,3 @@
+结束完整索引生成循环；不要继续创建空草稿或重复Apply。
+将本次aligned结果作为checkpoint证据。Agent决定下一阶段是否需要仓库全貌；之后显式调用普通Overview时完整交付请求scope，check_only继续作为紧凑检查路径。
+本Guide完成后的普通仓库开发使用仓库Fast门；Full Confidence和Release Rehearsal属于后台或稳定版本冻结门，不是逐次编辑步骤。

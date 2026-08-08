@@ -1,0 +1,3 @@
+Header dictionary is unparseable: the Header appears to contain dictionary lines, but the machine cannot extract their symbols, so maintenance dispatch is paused.
+The canonical English form is “#A Layer: SYMBOL-description ...”. The maintainer must inspect the dictionary lines or confirm the aoci binary version.
+An agent must not write Entries while the dictionary is unavailable.

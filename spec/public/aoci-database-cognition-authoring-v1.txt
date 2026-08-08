@@ -1,0 +1,267 @@
+Database Cognition Authoring v1
+
+Status: R67-D1 contract with the additive R72.2 daily-governance extension.
+This contract connects saved Database Evidence v1 to model-authored table FRAS.
+The authoring operation still requires a declared and present Database Cognition
+Volume; the independent Database Cognition Bootstrap may now create that
+semantic-free lifecycle target in a Code-only Volumes repository. It extends,
+but does not replace, Cognition Volumes v1, Object FRAS v2,
+Database Table FRAS v1, or Database Evidence v1.
+
+1. Authority and semantic boundary
+
+The only ordinary Database Cognition v1 object is a base table. One canonical
+database://source/namespace/table object has exactly one complete Entry:
+
+  table_name[tag]: F:... | R:... | A:... | S:...
+
+The host model authors the complete tag and every F/R/A/S field after reading
+complete current Table Evidence and relevant migrations, repositories,
+services, APIs, configuration, and tests. Current canonical Evidence is the
+authority for schema facts; current source and tests remain the authority for
+business semantics.
+
+The program may discover tables, deliver complete Evidence, bind identities,
+validate candidates, resolve impact, render Diff, and govern writes. It must
+not generate, prefill, rewrite, shorten, truncate, delete, symmetrize, or repair
+any tag, F, R, A, or S content. It must not turn a table name into F, every FK
+into R, callers into A, or status/deleted_at/tenant_id/created_at names into S.
+An invalid or oversized candidate returns repair_required with zero formal
+Volume writes and every actionable Repair Finding from the complete batch. The
+model changes only the listed candidate fields, preserves all other candidates,
+and resubmits the same complete batch.
+
+F is one core proposition. R contains only strong relationships. A contains
+only stable access and contract surfaces. Each S statement is admitted only
+when it is not inferable from the table name, tag, F, R, A, or ordinary schema
+facts and removing it could cause an incorrect code, schema, transaction,
+concurrency, lifecycle, retention, or cross-table write-order change. Physical
+table size never increases FRAS limits.
+
+Columns, keys, constraints, indexes, and partitions remain Evidence inside the
+table object. Views, materialized views, triggers, procedures, functions, and
+events are outside v1.
+
+2. Existing-Volume boundary
+
+D1 operates only when Root already declares a Database Volume and its file is
+present and valid. A marker-only Database Volume is present-empty and may
+receive new table Entries. D1 may add or update multiple table Entries in one
+existing Database Volume.
+
+When the Volume is absent, Maintain remains read-only. Without accepted Evidence
+it returns snapshot_or_repair_evidence. With accepted Evidence it returns
+bootstrap_database_cognition. The auto CLI lifecycle router, not Maintain or
+D1 Apply, may then create the Database descriptor and marker-only Volume under
+the Database Cognition Bootstrap contract. D1 does not create, delete, or
+declare a Volume; write Root or Meta; migrate a Legacy repository; infer a
+layout; or perform D2 Bootstrap.
+
+3. Cognition Binding state
+
+Database Evidence Baseline and Database Cognition Binding are independent:
+
+- .aoci/database-baseline.json answers which database structure snapshot was
+  explicitly accepted;
+- the optional database_cognition object in .aoci/baseline.json answers which
+  Table Evidence SHA supports each current model-authored Entry.
+
+The binding extension version is database-cognition-binding/v1. Each sorted
+record contains object_ref, source_id, evidence_version,
+table_evidence_sha256, and entry_sha256. entry_sha256 binds the exact canonical
+Entry line. The extension is omitted in Legacy and older files, preserving the
+existing Baseline JSON shape. It is advanced in the same in-memory Baseline and
+same locked Apply/recovery transaction as the existing cognition Volume; it is
+not a second Baseline or transaction system.
+
+Given reliable current Evidence, the formal Database Entry, and this binding:
+
+- cognition_missing: Evidence has a table but the Volume has no Entry;
+- cognition_unbaselined: an Entry exists but no matching binding exists, or its
+  canonical Entry hash differs;
+- cognition_stale: Entry and binding exist but source identity, Evidence
+  version, or table_evidence_sha256 differs from current Evidence;
+- cognition_orphan: an Entry exists while reliable current Evidence for that
+  configured source has no table;
+- cognition_current: Entry and binding exist and both Entry and Table Evidence
+  identities match;
+- evidence_unavailable: reliable saved Evidence cannot be obtained;
+- evidence_invalid: saved Evidence is damaged or non-canonical;
+- source_disabled: the configured source is disabled.
+
+Unavailable is never empty. Snapshot and Verify never refresh cognition
+bindings. Evidence Baseline acceptance never makes cognition current. A rename
+is old orphan plus new missing; no rename is inferred and no orphan is deleted.
+With no configured source, Database cognition contributes no debt and no
+network access.
+
+4. Offline Maintain discovery
+
+The existing aoci_maintain accepts optional scope values code, database, and
+all. In a Volumes repository, absent scope is the ordinary path and uses the
+shared governance facts to select Code, Database, both, or aligned. Explicit
+scope remains an advanced compatibility diagnostic. In Legacy, absent scope
+and code retain established behavior. Database assessment reads only accepted
+saved canonical Evidence, the current CognitionSet, and the existing Baseline;
+it never opens a database connection.
+
+The no-argument mixed path and explicit all scope execute Code and offline
+Database assessment together. They never silently treat all as Database or
+hide Code debt.
+
+Database Maintain returns requested/effective scope, the offline assessment,
+current Entry, complete Table Evidence Bundle, Table Evidence SHA and safe
+reference, related known Code objects, candidate_id, batch_id, Database Volume
+preimage, target and remaining counts, authoring contract, and next action. In
+the ordinary no-argument path, every Database-only or mixed authoring result
+includes the exact formal authoring_meta, current Database dictionary, table
+F/R/A/S rules, canonical database:// relation identity rules, and one complete
+legal Database Entry validated by the formal parser and validator. It does not
+require an earlier scope=database call. It returns no target-specific proposed
+tag or FRAS field. Orphan and unreliable Evidence stop for review. An absent
+Volume routes to snapshot_or_repair_evidence or bootstrap_database_cognition
+according to the accepted Evidence state; a current state needs no action.
+
+The Evidence Bundle version remains database-evidence-bundle/v1 and includes
+business_data_read=false and semantic_candidate_included=false. Its next_action
+is the stable machine token author_complete_model_authored_table_fras.
+
+5. Candidate receipt and double binding
+
+The receipt version is database-cognition-candidate/v1. It is a non-secret,
+machine-owned local receipt stored below
+.aoci/drafts/database-cognition/candidate-<batch_id>.json through the existing
+atomic writer. It contains:
+
+- batch_id;
+- Database Volume repository-relative path and exact raw-byte SHA-256 preimage;
+- a complete sorted target set;
+- for each target, candidate_id, object_ref, source_id, cognition state,
+  Evidence version, table_evidence_sha256, and safe Evidence reference.
+
+The ids are deterministic, typed, length-framed SHA-256 identities. They reduce
+model hash copying; they are not credentials, bearer tokens, or external
+authentication. The normal model submission carries one top-level batch_id and
+each unchanged candidate_id plus its complete Entry. source_sha256 is not used
+to impersonate both the cognition preimage and Evidence identity. Legacy and
+Code source_sha256 contracts remain compatible.
+
+At planning and immediately under the existing write lock, AOCI revalidates the
+receipt, configured/enabled source, target presence, complete canonical table
+Evidence, Evidence version/reference/SHA, and Database Volume preimage. A target
+table change invalidates its candidate. An unrelated table change does not
+invalidate the batch when all target Evidence identities remain exact. An
+unsafe reference, damaged Evidence, changed target, changed Volume, changed
+configuration, or missing object fails closed.
+
+The current non-secret source selection (engine, database, namespaces, and
+include/exclude filters) must exactly match the saved source manifest. Reusing
+the same source_id for a different selection makes the old Evidence
+unavailable for current cognition and invalidates an outstanding candidate.
+Credential environment names and timeout policy are not selection identity.
+
+6. Deterministic multi-table batches
+
+Actionable objects are sorted by canonical object_ref. One page is bounded by
+an object count and the sum of complete canonical Table Evidence bytes. A
+single table larger than the byte budget is delivered alone and is never
+truncated. The machine defaults and allowed bounds are owned only by
+internal/machinecontract; optional team configuration may adjust them, while
+local configuration cannot override them.
+
+Every page has one explicit complete target set. The model must submit every
+target exactly once; order does not matter. Missing, duplicate, additional, or
+mismatched targets reject the entire batch before formal writes. After a page
+succeeds, the next Maintain deterministically returns remaining non-current
+objects. Identical planning is stable, completed candidate retry is idempotent,
+and planning scales without a token prediction model.
+
+7. Existing governance Apply and recovery
+
+Database candidates pass through the existing Impact Resolver, Projected
+Cognition Validation, Diff/P-23, write lock, CAS, AtomicWrite, Baseline, Ledger,
+governance receipt, and Entries Recovery. No database_apply,
+database_transaction, database_recovery, second Ledger, or tenth MCP tool
+exists.
+
+Before any formal write, the entire projected CognitionSet must satisfy the
+Volume marker and namespace boundaries, Meta dictionary, Object FRAS v2
+format/length/item rules, identity rules, and unambiguous non-dangling
+cross-Volume relations. One failure leaves the whole Database Volume unchanged.
+The program never edits the candidate to pass validation.
+
+One Database Volume postimage contains the complete multi-table page and is
+written once through AtomicWriteCAS. Every corresponding binding advances in
+the same existing Baseline save. A successful result cannot expose a new Entry
+without its binding. If the Volume postimage exists but Baseline/binding or a
+later governance effect is incomplete, the existing Entries recovery receipt
+proves preimage/postimage ownership and the identical batch completes it. The
+version-4 extension of that same recovery receipt retains the batch identity,
+exact bounded Volume preimages, Baseline preimage identity, and exact Database
+Cognition Binding targets, so it can finish the binding even
+if the local candidate draft receipt is later missing or damaged. This
+fallback is permitted only after the Database Volume is the proven postimage;
+it never authorizes a preimage write with stale Evidence. Recovery is
+idempotent. Before Baseline advancement, a policy-selected exact rollback may
+restore only proven transaction Volume postimages through the existing CAS;
+changed Evidence, guards, Baseline, or third-party bytes block it. A
+binding-only update is an ordinary first Apply when the Entry
+bytes already match; a second identical submission is a duplicate.
+
+The same existing update transaction may combine multiple Code candidates and
+one complete Database receipt batch. All candidates are applied and validated
+in memory; Code Volume is written at most once, Database Volume at most once,
+and the combined Baseline/Binding postimage at most once. Code-only never
+writes Database and Database-only never writes Code. The fixed formal order is
+Code, Database, Baseline/Binding, Receipt, Ledger, Archive.
+
+Creating a Database Entry is permitted only in Database candidate-receipt
+mode. The older source_sha256 Database update path may update an existing C3
+object but cannot create an unbound Entry.
+
+The prior C3 one-existing-Code plus one-existing-Database source_sha256 path
+remains supported.
+
+8. Status and user surface
+
+The existing database CLI group adds:
+
+  aoci database cognition status [--json]
+
+It reports the stable assessment schema, configured source count, Database
+Volume state, Evidence and Entry counts, all cognition-state counts,
+network_accessed=false, and a next_action token. It reads only local files.
+Database Maintain exposes the same assessment through the existing MCP tool.
+Database alignment is not presented as overall Code or repository alignment.
+
+The MCP tool set remains exactly nine. Ordinary Overview and check_only
+semantics are unchanged. D1 adds no database connection to MCP. Only explicit
+database source inspect, snapshot, or verify commands may connect.
+
+9. Privacy and failure boundary
+
+D1 never reads business rows or issues product DDL/DML. Candidate receipts,
+bindings, Evidence Bundles, status, Ledger, D1-specific diagnostics, and test
+evidence must not contain a DSN, password, token, endpoint, host, IP, username,
+or business-row sentinel. Receipt I/O failures use stable machine codes rather
+than interpolating absolute filesystem paths. credential_env remains only an
+environment variable name and is not returned by Database Maintain. The
+established MCP cognition receipt continues to report runtime_repository_root
+as repository identity; D1 does not add another host-identity field.
+
+Formal writes require valid local Evidence but do not reconnect to reproduce
+it. Evidence files are content-addressed and rehashed. Path traversal,
+symlinks, non-canonical JSON, duplicate JSON keys, trailing JSON, wrong hashes,
+stale receipts, CAS conflicts, AtomicWrite failures, Baseline failures, and
+third-party postimages fail closed or enter only the existing recovery path.
+
+10. Explicitly unsupported
+
+- Database Volume creation or declaration by Maintain or Entry Apply;
+- Root or Meta writes;
+- Legacy-to-Volumes migration;
+- View, materialized view, trigger, procedure, function, or event cognition;
+- program-generated or program-repaired FRAS;
+- automatic production database connection;
+- product DDL/DML or business-row reads;
+- D2 Bootstrap, main-branch merge, or stable release semantics.

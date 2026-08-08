@@ -1,0 +1,1 @@
+重放同一受source_sha256绑定的完整批次，只恢复Baseline与对齐事实

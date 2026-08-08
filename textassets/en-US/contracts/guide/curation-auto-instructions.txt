@@ -1,0 +1,2 @@
+When the machine gates pass, run curation apply directly without requesting human approval.
+Run guide again. include items enter Entries, while exclude items remain formal exclusion decisions.

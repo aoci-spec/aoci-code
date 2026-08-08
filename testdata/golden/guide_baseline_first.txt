@@ -1,0 +1,6 @@
+MESSAGE:
+当前仓库尚无Baseline，可以执行一次普通scan建立可信起点。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+执行aoci scan，不要添加--force。
+scan成功后立即重新运行guide，不要在无Baseline状态下生成语义候选。

@@ -1,0 +1,4 @@
+从UTF-8请求文件或stdin读取结构化JSON，全部候选须来自当前agent plan。
+请求总大小上限{{.EntriesMaxBodyBytes}}字节({{.EntriesMaxBodyHuman}})，单批最多{{.EntriesMaxEntries}}条候选。
+Windows推荐--request-file；PowerShell 5不得用文本管道传递中文请求JSON。
+--request-file与--stdin-json互斥且必须二选一；Stage先安全提交草稿；automation.mode=auto时随后内部完成Check、Diff、P-23与原子Apply；候选内容错误返回repair_required，由宿主只修失败项并自动重新Stage；stopped结束当前尝试，由现有零写入和Recovery证据决定自动重新Plan、Resume、Rollback、用户动作或hard block；review或legacy只保留草稿并按Guide停点继续。

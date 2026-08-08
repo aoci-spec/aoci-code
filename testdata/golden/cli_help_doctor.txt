@@ -1,0 +1,2 @@
+aoci doctor inspects four groups without changing formal assets: repository and core assets, Agent integration, the AI enhancement layer, and platform features.
+It does not use the network by default. Only --net sends one connectivity probe to the configured endpoint; no third party is involved.

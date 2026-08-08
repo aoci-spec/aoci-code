@@ -1,0 +1,1 @@
+verify、check、index score 与 index inventory 的“只读”仅表示不修改正式索引或Baseline，不等同于严格零文件写入：Ledger启用时四者都可能追加本地Ledger，verify还会尝试写入Verify History；审计写入失败不改变既有退出码与治理判据。

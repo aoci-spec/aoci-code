@@ -1,0 +1,2 @@
+stop_before_apply=true，展示完整Diff并在curation apply前等待用户批准。
+批准后Apply并重新运行guide。

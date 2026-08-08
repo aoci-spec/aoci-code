@@ -1,0 +1,1 @@
+Preserve the current state and resolve the conflict or runtime failure

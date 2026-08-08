@@ -1,0 +1,1 @@
+automation.mode=review: files require semantic Curation. Complete Stage and Diff, then wait for user approval before Apply.

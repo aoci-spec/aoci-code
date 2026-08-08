@@ -1,0 +1,34 @@
+目标文件: {{.RelPath}}
+
+以下为当前索引头部原文(标签字典与规范的唯一来源):
+----- 索引头部 开始 -----
+{{.HeaderText}}----- 索引头部 结束 -----
+
+{{if .HasSuggestedSection}}归段建议(仅供理解文件定位,实际落段由工具决定): {{.SuggestedSection}}
+
+{{end}}{{if .NeighborEntries}}同段既有条目样例(风格参照,不要照抄内容):
+{{range .NeighborEntries}}  {{.}}
+{{end}}
+{{end}}{{if .IsUpdate}}以下为该文件的现有条目(更新参照 —— 仍成立的S约束保留,失效的删除):
+----- 现有条目 开始 -----
+{{.OldEntry}}----- 现有条目 结束 -----
+
+{{end}}{{if .Curation}}以下为已经通过治理链验证的文件级include策展上下文:
+----- 策展上下文 开始 -----
+语义角色: {{.Curation.Role}}
+收录理由: {{.Curation.Reason}}
+置信度: {{.Curation.Confidence}}
+物理画像: {{.Curation.ProfileReason}}
+文件大小: {{.Curation.SizeBytes}}B
+文件行数: {{.Curation.Lines}}
+扩展名: {{.Curation.Ext}}
+source_sha256: {{.Curation.SourceSHA256}}
+----- 策展上下文 结束 -----
+
+{{end}}{{if .HasSourceText}}以下为目标文件源码原文:
+----- 源码原文 开始 -----
+{{.SourceText}}----- 源码原文 结束 -----
+
+{{else if .Curation}}目标文件正文未注入: 该文件为空、二进制或超过自动全文读取上限。只能使用上方策展上下文、路径和索引头部起草条目。
+
+{{end}}现在输出该文件的条目(恰好一行,遵守全部输出硬约束):

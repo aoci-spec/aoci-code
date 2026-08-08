@@ -1,0 +1,1 @@
+头部字典: 完整索引Guide会发放Header候选流程；也可使用已配置端点运行 aoci index header draft。

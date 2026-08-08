@@ -1,0 +1,1 @@
+legacy is the compatibility mode for existing repositories. Stage, Check, and Diff may run, but approval is required before Apply

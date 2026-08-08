@@ -1,0 +1,1 @@
+automation.mode=auto：当前存在待语义策展文件；宿主Agent应完成Curation Stage、Diff，并在硬闸通过后直接Apply。

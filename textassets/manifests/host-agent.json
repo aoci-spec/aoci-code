@@ -1,0 +1,238 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/host-agent/runtime/base-instructions",
+      "kind": "contract",
+      "path": "contracts/host-agent/runtime/base-instructions.txt",
+      "description": "Common executable-path instruction injected into every Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:agentRuntimeInstructionsFor",
+      "protocol_tokens": [
+        "commands",
+        "AOCI",
+        "PATH"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/runtime/windows-instructions",
+      "kind": "contract",
+      "path": "contracts/host-agent/runtime/windows-instructions.txt",
+      "description": "Windows PowerShell and JSON transport instructions injected into Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:agentRuntimeInstructionsFor",
+      "protocol_tokens": [
+        "PowerShell",
+        "ConvertFrom-Json",
+        "UTF-8 request-file",
+        "ProcessStartInfo"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "ASCII安全JSON"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/runtime/header-stage-limit",
+      "kind": "contract",
+      "path": "contracts/host-agent/runtime/header-stage-limit.txt",
+      "description": "Header Stage request-size facts injected into Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:finalizeAgentGuideRuntimeContractFor",
+      "variables": [
+        "HeaderMaxBodyBytes",
+        "HeaderMaxBodyHuman",
+        "HeaderMaxHeaderBytes",
+        "HeaderMaxHeaderHuman"
+      ],
+      "protocol_tokens": [
+        "Header Stage",
+        "{{.HeaderMaxBodyHuman}}",
+        "{{.HeaderMaxHeaderHuman}}"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/runtime/entries-stage-limit",
+      "kind": "contract",
+      "path": "contracts/host-agent/runtime/entries-stage-limit.txt",
+      "description": "Entries Stage request-size and batch facts injected into Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:finalizeAgentGuideRuntimeContractFor",
+      "variables": [
+        "EntriesMaxBodyBytes",
+        "EntriesMaxBodyHuman",
+        "EntriesMaxEntries"
+      ],
+      "protocol_tokens": [
+        "Entries Stage",
+        "{{.EntriesMaxBodyHuman}}"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/runtime/curation-stage-limit",
+      "kind": "contract",
+      "path": "contracts/host-agent/runtime/curation-stage-limit.txt",
+      "description": "Curation Stage request-size, batch, and normalization facts injected into Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:finalizeAgentGuideRuntimeContractFor",
+      "variables": [
+        "CurationMaxBodyBytes",
+        "CurationMaxBodyHuman",
+        "CurationMaxDecisions"
+      ],
+      "protocol_tokens": [
+        "Curation Stage",
+        "{{.CurationMaxBodyHuman}}"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "role和reason",
+          "规范化为空格"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/help/entries-stage-long",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/entries-stage-long.txt",
+      "description": "Long help text for Host-Agent Entries Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "EntriesMaxBodyBytes",
+        "EntriesMaxBodyHuman",
+        "EntriesMaxEntries"
+      ],
+      "protocol_tokens": [
+        "automation.mode=auto",
+        "Check",
+        "Diff",
+        "P-23",
+        "repair_required",
+        "stopped",
+        "review",
+        "legacy"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/help/entries-stage-request-file",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/entries-stage-request-file.txt",
+      "description": "request-file flag help for Host-Agent Entries Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "EntriesMaxBodyBytes"
+      ],
+      "protocol_tokens": [
+        "UTF-8"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "Windows推荐"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/help/header-stage-long",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/header-stage-long.txt",
+      "description": "Long help text for Host-Agent Header Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "HeaderMaxBodyBytes",
+        "HeaderMaxBodyHuman",
+        "HeaderMaxHeaderBytes",
+        "HeaderMaxHeaderHuman"
+      ],
+      "protocol_tokens": [
+        "{{.HeaderMaxBodyHuman}}",
+        "{{.HeaderMaxHeaderHuman}}",
+        "Baseline",
+        "--request-file"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/help/header-stage-request-file",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/header-stage-request-file.txt",
+      "description": "request-file flag help for Host-Agent Header Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "HeaderMaxBodyBytes"
+      ],
+      "protocol_tokens": [
+        "UTF-8"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "Windows推荐"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/help/curation-stage-long",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/curation-stage-long.txt",
+      "description": "Long help text for Host-Agent Curation Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "CurationMaxBodyBytes",
+        "CurationMaxBodyHuman",
+        "CurationMaxDecisions"
+      ],
+      "protocol_tokens": [
+        "include/exclude",
+        "{{.CurationMaxBodyHuman}}",
+        "curation.json",
+        "Baseline"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "role和reason"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/help/curation-stage-request-file",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/curation-stage-request-file.txt",
+      "description": "request-file flag help for Host-Agent Curation Stage",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "variables": [
+        "CurationMaxBodyBytes"
+      ],
+      "protocol_tokens": [
+        "UTF-8"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "Windows推荐"
+        ]
+      }
+    },
+    {
+      "id": "contracts/host-agent/help/stage-stdin-json",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/stage-stdin-json.txt",
+      "description": "stdin-json flag help shared by Host-Agent Stage commands",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateStageHelp",
+      "protocol_tokens": [
+        "stdin",
+        "UTF-8"
+      ]
+    },
+    {
+      "id": "contracts/host-agent/help/guide-long",
+      "kind": "contract",
+      "path": "contracts/host-agent/help/guide-long.txt",
+      "description": "Long help text for Host-Agent Guide",
+      "used_by": "internal/cli/index_agent_host_contract.go:decorateHostAgentHelp",
+      "protocol_tokens": [
+        "execute",
+        "applied",
+        "repair_required",
+        "stopped",
+        "prepare_and_review",
+        "observe",
+        "blocked",
+        "complete",
+        "ConvertFrom-Json"
+      ]
+    }
+  ]
+}

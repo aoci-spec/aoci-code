@@ -1,0 +1,1 @@
+List files that exist on disk but have no Entry in the formal index, including their profiles. Runs offline.

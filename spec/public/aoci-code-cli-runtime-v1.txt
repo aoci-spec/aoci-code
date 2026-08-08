@@ -1,0 +1,47 @@
+AOCI-CODE CLI Runtime Contract v1
+=================================
+
+Identity
+--------
+
+The installed binary is named `aoci`. The canonical Go module is
+`github.com/aoci-spec/aoci-code`. The command tree and the exact flags exposed
+by the current binary are discoverable through `aoci --help` and command-level
+`--help` output.
+
+Global behavior
+---------------
+
+`--repo` binds an invocation to a repository root. `--json` selects the
+machine-readable output for commands that support it. `--quiet` suppresses
+eligible human progress output; it does not change the result or authorization
+boundary.
+
+The stable process exit classes are:
+
+  0 success
+  1 drift or ordinary check failure
+  2 invalid input, index, or governance state
+  3 uninitialized repository, configuration, or parameter failure
+  10 internal failure
+
+One `--json` invocation emits at most one top-level business result or error
+envelope. Human-readable errors are written to stderr. The `aoci mcp` command
+uses a direct stdio protocol path described by the MCP runtime contract.
+
+State and writes
+----------------
+
+Command help and the live Guide identify whether an operation is observational,
+prepares a candidate, requires human interaction, or can update formal assets.
+An observational command does not modify the formal index or Baseline unless
+its contract explicitly says otherwise, but local audit evidence can still be
+written when enabled. Formal writes use the existing validation, lock, CAS,
+atomic-write, and recovery pipeline.
+
+Compatibility
+-------------
+
+Automation must consume JSON fields, schema versions, exit classes, and live
+capability output instead of parsing human prose. A public contract change that
+alters these surfaces requires matching compatibility tests.

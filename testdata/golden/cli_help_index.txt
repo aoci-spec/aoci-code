@@ -1,0 +1,9 @@
+aoci index groups the index bootstrap, generation, maintenance, and quality-governance workflows.
+inventory:      list files present on disk but absent from the index, with profiles; fully offline.
+header draft:   call the user-configured endpoint to draft a Header; writes only to the draft area.
+build:          draft initial Entries in batches; writes only to the draft area.
+update:         detect drift and govern it according to automation.mode.
+entries:        Check, Diff, and atomic Apply.
+score:          score index quality across nine dimensions.
+agent:          Plan, Guide, and Stage protocol for a host Agent.
+For verify, check, index score, and index inventory, “read-only” means that the formal index and Baseline are not modified; it does not mean strictly zero filesystem writes. When Ledger is enabled, all four commands may append to the local Ledger, and verify also attempts to write Verify History. An audit-write failure does not change existing exit codes or governance criteria.

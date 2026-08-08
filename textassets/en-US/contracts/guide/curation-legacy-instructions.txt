@@ -1,0 +1,2 @@
+legacy compatibility mode requires showing the Diff and waiting for user approval before curation apply.
+After approval, Apply and then run guide again.

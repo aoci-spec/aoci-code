@@ -1,0 +1,5 @@
+执行entries stage并读取返回的auto_finalize；正常路径不得再调用commands.check、commands.diff或commands.apply。
+auto_finalize.status=applied时，当前批次已完成Check、Diff、P-23与原子Apply；执行verify并重新运行guide。
+auto_finalize.status=repair_required时，读取findings，只修正其中失败条目；其他候选保持原样，重写同一完整请求文件并再次执行commands.entries_stage。不得要求用户回复“继续”，不得调用Entries Check、Diff或Apply。
+auto_finalize.status=stopped时结束当前写入尝试，并检查failed_step、error、正式写入证据和recovery。auto模式下，证明零写入则记录closure并重新Plan；完整Intent与postimage可证明则Resume；策略要求Rollback且preimage精确可证明则恢复后重新Plan。只有证据不足、第三方正式字节冲突、有界重新Plan仍不收敛、需要审批或外部动作，或命中其他安全边界时才停止用户任务。不得绕过Generation Plan、P-23、CAS或写入一致性防线。
+一个批次成功不代表完整任务完成；只有guide返回complete、blocked、审批停点，或stopped已分类为user_action_required/hard_blocked时才允许结束。普通回复边界、用户提问、repair_required和可自动恢复的stopped都不是结束条件。

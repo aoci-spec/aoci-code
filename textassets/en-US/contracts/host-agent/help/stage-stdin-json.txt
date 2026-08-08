@@ -1,0 +1,1 @@
+Read candidate JSON from stdin; use only when a reliable UTF-8 byte stream is guaranteed

@@ -1,0 +1,712 @@
+[
+  {
+    "description": "读取指定Entry。Legacy与Code使用仓库路径或目录；Volumes v1还可使用volume_id和规范object_refs（包括database://表身份），并为每条结果返回Volume身份。Legacy实时漂移行为不变。仅用于局部不确定、Overview正文不完整或用户明确查看特定条目；不要用少量Entry替代完整Overview。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "dir": {
+          "description": "要整段读取的目录相对路径(与 paths 二选一)",
+          "type": "string"
+        },
+        "object_refs": {
+          "description": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "paths": {
+          "description": "要读取条目的文件相对路径列表(与 dir 二选一)",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "volume_id": {
+          "description": "Volumes v1对象卷：code或database；省略时Legacy paths保持兼容",
+          "enum": [
+            "code",
+            "database"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "aoci_get_entries"
+  },
+  {
+    "description": "读取项目规则与共享对象规则、标签字典与校准示例。Legacy返回Header；Volumes v1返回Meta并明确Root身份，绝不把Root项目概览冒充字典。仅在规则尚不可靠或需要单独核对时调用。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "inputSchema": {
+      "type": "object"
+    },
+    "name": "aoci_header"
+  },
+  {
+    "description": "受管理内容达到最终稳定状态后，领取下一个机器签发的当前完整创作批次。Legacy行为保持兼容：可证明的format-only可能前移Baseline，调用可能追加本地Ledger审计记录。repair_required或stopped必须完整处理；纯只读任务、不稳定中间态或已经aligned时都不要再次调用。刷新待处理时，先由Verify、Check和Guide证明aligned。新仓或不完整索引必须使用当前Guide，本工具不能替代该流程。Volumes v1普通路径省略scope，由共享治理事实确定aligned、authoring_required、evidence_required或blocked。面对大型logical plan，Maintain按确定顺序最多返回max_entries=200个候选，并明确logical_plan、batch_identity、total_targets、included、remaining、continuation_required、Composite/Scope身份、每项目Source或Evidence绑定及精确Guide action。这是当前批次的完整候选集合，不是Host可任意修改的前缀，也不是Whole-Index上限。当前批次原子Apply后，remaining非零则基于新preimage重新调用Maintain。只有remaining、missing、stale、unbaselined、orphan、Scope债务与Recovery全部归零才允许Whole-Index aligned。Maintain只可能写机器候选收据和本地Ledger审计，不创作Tag或F/R/A/S，不连接数据库，不改变Scope，也不因transport上限缩减Index覆盖。Orphan仍是显式remove候选，Root和Meta仍为Guard；scope=database只读取已保存的Canonical Evidence，不包含任何程序生成的标签或FRAS字段，Database Volume缺失时稳定返回database_volume_absent，且不创建Root、Meta或Database Volume。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "description": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容",
+          "enum": [
+            "code",
+            "database",
+            "all"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "aoci_maintain"
+  },
+  {
+    "description": "交付完整正式Whole-Index；Volumes v1仓库可选all、project、meta、code或database scope。普通调用在正文可装入overview_delivery.chunk_tokens时一次交付，否则立即返回使用overview-chunk-receipt/v1的第1块。看到continuation_required=true后必须原样提交next_cursor并自动继续到completed=true；不得询问用户、开始业务任务、给出阶段性结论，或用scope、aoci_search、aoci_get_entries补齐缺块。Host截断、缺块、重复、乱序、cursor失败或Index/配置变化时停止本次认知链。正式Entry ordinal是唯一规范序列中的1-based位置：Header、注释、空行、Section/Overview/Chunk Marker、Receipt与Metadata均不计数，Chunk Receipt与Challenge答案消费同一序列。完整链结束后只正式提交一次host_delivery_confirmation和既有model-cognition-attestation/v1；Attestation必须原样回绑最终Challenge发布的当前index_sha256、entry_sequence_sha256与entry_count，旧身份无效。同一响应只允许一次纯Schema修正，语义不匹配即fail/uncertain，禁止读取Memory、源码、Spec、aoci.txt、历史会话或调用Search、Get Entries、Scope旁路补答。Attestation为partial或fail时禁止无保留地声称完整系统认知，但不禁止诚实回答或source-bound调查与工程。ordinal、对象身份、Tag或核心F不匹配属于严格证明失败，本身不能证明模型没有理解系统。Host可以设置cognition_state_version=cognition-state/v2，接收把delivery_verified、model_cognition_usable、strict_attestation_verified、governance_aligned与current_system_cognition_reliable分开的增量只读投影；省略该字段时保持精确Legacy响应形状。上下文压缩刷新若传输完整、Host确认且治理对齐，则即使Attestation为partial或fail也消费该generation，Host继续原source-bound任务而不再次自动Overview。首次失败还会阻断未绑定源码的Root/Meta、Migration、全局布局和其他系统决策。system_mastery_percent只自评系统框架——架构、职责、强关系、稳定外部契约以及高熵安全和维护约束——不表示完整源码或运行实况知识。默认只向用户展示一句把真实索引覆盖率与框架掌握度分开的简洁结果。check_only=true只返回紧凑checkpoint，不进入分块链。正式认知Dirty或Stale时仍可交付但不可靠；aoci_maintain仍是治理路径，未决Recovery或不一致snapshot失败关闭。正文只包含开始Marker、原始aoci.txt字节和结束Marker，不生成目录清单。Legacy无参数与Volumes scope行为保持兼容。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "check_only": {
+          "description": "仅返回紧凑checkpoint判定；为false或未设置时，在snapshot一致时完整交付请求scope",
+          "type": "boolean"
+        },
+        "cognition_receipt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "cognition_scope": {
+                  "type": "string"
+                },
+                "cognition_state": {
+                  "type": "string"
+                },
+                "index_sha256": {
+                  "type": "string"
+                },
+                "last_refresh_event_id": {
+                  "type": "string"
+                },
+                "mcp_service_version": {
+                  "type": "string"
+                },
+                "model_full_cognition_reliable": {
+                  "type": "boolean"
+                },
+                "pending_refresh_reasons": {
+                  "items": {
+                    "enum": [
+                      "context_compaction",
+                      "semantic_threshold",
+                      "phase_transition"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh_generation": {
+                  "type": "integer"
+                },
+                "runtime_repository_root": {
+                  "type": "string"
+                },
+                "state_owner": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "version",
+                "runtime_repository_root",
+                "index_sha256",
+                "mcp_service_version",
+                "cognition_scope",
+                "cognition_state",
+                "state_owner",
+                "model_full_cognition_reliable"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "asset_state": {
+                  "enum": [
+                    "absent",
+                    "present",
+                    "invalid"
+                  ],
+                  "type": "string"
+                },
+                "cognition_scope": {
+                  "type": "string"
+                },
+                "cognition_state": {
+                  "type": "string"
+                },
+                "composite_identity": {
+                  "type": "string"
+                },
+                "delivered_volumes": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "asset_state": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "object_count": {
+                        "type": "integer"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "sha256": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "path",
+                      "asset_state",
+                      "object_count"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "effective_scope": {
+                  "type": "string"
+                },
+                "last_refresh_event_id": {
+                  "type": "string"
+                },
+                "layout_mode": {
+                  "type": "string"
+                },
+                "mcp_service_version": {
+                  "type": "string"
+                },
+                "meta_sha256": {
+                  "type": "string"
+                },
+                "model_full_cognition_reliable": {
+                  "type": "boolean"
+                },
+                "model_scope_cognition_reliable": {
+                  "type": "boolean"
+                },
+                "pending_refresh_reasons": {
+                  "items": {
+                    "enum": [
+                      "context_compaction",
+                      "semantic_threshold",
+                      "phase_transition"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "refresh_generation": {
+                  "type": "integer"
+                },
+                "requested_scope": {
+                  "type": "string"
+                },
+                "root_sha256": {
+                  "type": "string"
+                },
+                "runtime_repository_root": {
+                  "type": "string"
+                },
+                "scope_available": {
+                  "type": "boolean"
+                },
+                "scope_identity": {
+                  "type": "string"
+                },
+                "scope_object_count": {
+                  "type": "integer"
+                },
+                "state_owner": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "version",
+                "runtime_repository_root",
+                "mcp_service_version",
+                "cognition_scope",
+                "cognition_state",
+                "state_owner",
+                "layout_mode",
+                "requested_scope",
+                "effective_scope",
+                "scope_available",
+                "asset_state",
+                "root_sha256",
+                "meta_sha256",
+                "delivered_volumes",
+                "scope_object_count",
+                "scope_identity",
+                "composite_identity",
+                "model_scope_cognition_reliable",
+                "model_full_cognition_reliable",
+                "refresh_generation",
+                "pending_refresh_reasons"
+              ],
+              "type": "object"
+            }
+          ],
+          "description": "可选的上次完整交付或checkpoint凭据"
+        },
+        "cognition_state_version": {
+          "const": "cognition-state/v2",
+          "description": "可选的增量认知状态投影版本；传入cognition-state/v2可请求相互独立的交付、模型可用性、严格Attestation、治理与当前系统可靠性字段；省略时保持精确Legacy响应形状",
+          "type": "string"
+        },
+        "cursor": {
+          "description": "上一块返回的确定性Overview连续读取cursor，必须原样使用",
+          "type": "string"
+        },
+        "host_delivery_confirmation": {
+          "additionalProperties": false,
+          "properties": {
+            "body_bytes": {
+              "type": "integer"
+            },
+            "body_sha256": {
+              "type": "string"
+            },
+            "end_marker_observed": {
+              "type": "boolean"
+            },
+            "version": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "body_sha256",
+            "body_bytes",
+            "end_marker_observed"
+          ],
+          "type": "object"
+        },
+        "model_cognition_attestation": {
+          "additionalProperties": false,
+          "properties": {
+            "challenge_answers": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "core_f": {
+                    "maxLength": 16384,
+                    "type": "string"
+                  },
+                  "object_identity": {
+                    "description": "精确规范对象身份；只有Code对象也可使用其精确仓库相对路径，不接受路径清理、大小写折叠、basename查找或模糊解析",
+                    "maxLength": 4096,
+                    "type": "string"
+                  },
+                  "ordinal": {
+                    "description": "正式Entry序列中的1-based位置；Header、注释、空行、Section/Overview/Chunk Marker、Receipt与Metadata均不计数，Chunk Receipt使用同一序列",
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "tag": {
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ordinal",
+                  "object_identity",
+                  "tag",
+                  "core_f"
+                ],
+                "type": "object"
+              },
+              "maxItems": 12,
+              "type": "array"
+            },
+            "challenge_digest": {
+              "maxLength": 128,
+              "type": "string"
+            },
+            "confidence_percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            "coverage_percent": {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            "entry_count": {
+              "description": "本次Challenge发布的当前正式Entry精确数量；与模型自报覆盖数量分开",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "entry_sequence_sha256": {
+              "description": "本次Challenge发布的当前正式Entry或认知对象有序序列精确SHA-256",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "index_sha256": {
+              "description": "本次Challenge发布的当前完整Index或请求scope精确SHA-256；旧Attestation身份必须失败",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "reported_entry_count": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "reported_estimated_tokens": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "system_mastery_percent": {
+              "description": "模型对系统框架的自评掌握度：整体架构、模块职责、强关系、稳定外部契约以及高熵安全和维护约束；不表示掌握全部源码、分支、标识符、测试或运行实况",
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            "truncation_detected": {
+              "type": "boolean"
+            },
+            "uncertainty_reasons": {
+              "items": {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            "unseen_sections": {
+              "items": {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              "maxItems": 64,
+              "type": "array"
+            },
+            "version": {
+              "const": "model-cognition-attestation/v1",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "index_sha256",
+            "entry_sequence_sha256",
+            "entry_count",
+            "challenge_digest",
+            "reported_entry_count",
+            "reported_estimated_tokens",
+            "coverage_percent",
+            "system_mastery_percent",
+            "confidence_percent",
+            "truncation_detected",
+            "unseen_sections",
+            "uncertainty_reasons",
+            "challenge_answers"
+          ],
+          "type": "object"
+        },
+        "model_cognition_state": {
+          "description": "宿主对当前完整认知的判断: valid、uncertain或invalid",
+          "type": "string"
+        },
+        "refresh_event_id": {
+          "description": "声明refresh_reasons时必填的宿主事件幂等键",
+          "type": "string"
+        },
+        "refresh_reasons": {
+          "description": "宿主可选声明的刷新原因：context_compaction和/或phase_transition；semantic_threshold仅由机器计算",
+          "items": {
+            "enum": [
+              "context_compaction",
+              "phase_transition"
+            ],
+            "type": "string"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "scope": {
+          "description": "可选认知scope：all、project、meta、code或database；Volumes v1默认all，Legacy无参数行为保持不变",
+          "enum": [
+            "all",
+            "project",
+            "meta",
+            "code",
+            "database"
+          ],
+          "type": "string"
+        },
+        "scope_covered": {
+          "description": "当前任务是否仍在已掌握认知范围内",
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
+        "stable_checkpoint": {
+          "description": "当前修改、格式化、Lint与必要测试是否已经到达最近稳定检查点",
+          "type": [
+            "null",
+            "boolean"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "name": "aoci_overview"
+  },
+  {
+    "description": "仅用于治理结果明确返回的孤儿Entry候选。Legacy接受磁盘对象已不存在的仓库相对路径。Volumes v1接受code:\u003cpath\u003e或canonical database://对象身份，并从共享治理事实重新证明孤儿状态。普通删除继续拒绝任何仍有效的R引用。唯一例外是expected owner与actual owner不同且正确正式Owner存在的精确机器ownership-conflict finding；它只移除放错Domain的Entry并保留正确Owner。事务Guard Root、Meta、每个已声明对象Volume、已保存Evidence以及现有Baseline/Database Binding。它不删除源码文件、数据库对象、Evidence、Root、Meta或Volume。存在Recovery、状态变化、事实不可证明或第三方字节时一律拒绝。非孤儿删除需维护者裁决并用aoci_report登记理由；不得通过删除工作区对象制造孤儿，也不得删除数据库对象来制造孤儿。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "治理返回的显式Orphan身份：Legacy仓库相对路径、code:\u003cpath\u003e或canonical database:// object_ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "name": "aoci_remove_entry"
+  },
+  {
+    "description": "在证据不足、无法可靠生成或裁决Legacy Entry语义时登记待办；会写入本地报告与审计，但不修改正式索引或Baseline。Volumes v1返回volume_read_only。它不替代Curation、孤儿裁决或故障恢复。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "note": {
+          "description": "待办说明: 改了什么/为何没把握更新条目",
+          "type": "string"
+        },
+        "path": {
+          "description": "相关文件的仓库相对路径",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "note"
+      ],
+      "type": "object"
+    },
+    "name": "aoci_report"
+  },
+  {
+    "description": "读取当前AOCI会话级运行合同。新的Agent Run没有可靠合同，或合同已不在有效上下文、AOCI服务身份发生变化时调用；同一认知周期不要重复调用。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "name": "aoci_rules"
+  },
+  {
+    "description": "按关键词和/或标签搜索Entry。Volumes v1可限定all、project、meta、code或database，并返回volume_id与规范对象身份；Legacy行为不变。用于目标路径未知、局部不确定或用户明确检索；不要用搜索结果替代完整Overview。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "keyword": {
+          "description": "关键词,大小写不敏感,匹配条目整行(与 tag_filter 至少给一个)",
+          "type": "string"
+        },
+        "scope": {
+          "description": "可选Volumes v1检索scope：all、project、meta、code或database",
+          "enum": [
+            "all",
+            "project",
+            "meta",
+            "code",
+            "database"
+          ],
+          "type": "string"
+        },
+        "tag_filter": {
+          "description": "标签过滤器,如 A=Index 或 C\u003e=7(与 keyword 至少给一个)",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "aoci_search"
+  },
+  {
+    "description": "通过既有Impact、Projected Validation、Diff、CAS、AtomicWrite、Baseline/Database Binding、Receipt、Ledger和Recovery管线正式写入机器签发的当前完整模型创作Entry批次。Volumes Code创作必须原样携带无参数aoci_maintain返回的code_batch_id、每项candidate_id、path与source_sha256；Database候选原样携带顶层batch_id和每项candidate_id，不得把Database Volume或Table Evidence哈希复制到source_sha256。max_entries只限制本次请求和原子事务，不限制logical plan、Whole-Index或Managed Scope。entries必须等于当前机器签发批次的完整候选集合，Host不得自行截取Maintain输出。AOCI在写入前验证全部候选及Source/Evidence、Scope、Composite、关系、Tag、FRAS、R/S和投影Budget绑定，使Code最多写一次、Database最多写一次、Baseline/Binding最多写一次。若R引用后续尚未写入的Code目标，机器零写入签发包含所需关系闭包的替代批次；不得删除或机械改写模型创作的R。成功批次若remaining非零，不得宣称Whole-Index aligned，应基于新preimage重新调用Maintain继续。可修拒绝一次返回全部确定性Finding，包含candidate_index、canonical_object_identity、rule_code与safe_repair_action；repair_required只修retry_scope并重提同一当前完整批次。既有直接单条、Legacy和兼容Code source_sha256输入保持支持。Root和Meta仅为Guard。证据不足时不要猜写，不得因transport上限缩减Scope或提交机器批次的子集。",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "batch_id": {
+          "description": "aoci_maintain返回的机器拥有当前完整Database Cognition批次身份",
+          "type": "string"
+        },
+        "candidate_id": {
+          "description": "aoci_maintain返回的机器拥有Code或Database Cognition候选身份；不得合成，也不得在此手工复制Evidence哈希",
+          "type": "string"
+        },
+        "code_batch_id": {
+          "description": "aoci_maintain返回的机器拥有当前完整Code Cognition批次身份",
+          "type": "string"
+        },
+        "entries": {
+          "description": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取",
+          "items": {
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "object_ref"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "candidate_id"
+                      ]
+                    }
+                  ]
+                },
+                "required": [
+                  "path",
+                  "source_sha256"
+                ]
+              },
+              {
+                "not": {
+                  "required": [
+                    "object_ref"
+                  ]
+                },
+                "required": [
+                  "path",
+                  "source_sha256",
+                  "candidate_id"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "path"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "candidate_id"
+                      ]
+                    }
+                  ]
+                },
+                "required": [
+                  "object_ref",
+                  "source_sha256"
+                ]
+              },
+              {
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "path"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "source_sha256"
+                      ]
+                    }
+                  ]
+                },
+                "required": [
+                  "object_ref",
+                  "candidate_id"
+                ]
+              }
+            ],
+            "properties": {
+              "candidate_id": {
+                "description": "Code或Database候选的机器拥有身份；当前完整批次还必须提交对应domain批次身份",
+                "type": "string"
+              },
+              "new_entry": {
+                "description": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
+                "type": "string"
+              },
+              "object_ref": {
+                "description": "Database表Entry的规范对象身份；与path二选一",
+                "type": "string"
+              },
+              "path": {
+                "description": "目标文件的仓库相对路径",
+                "type": "string"
+              },
+              "source_sha256": {
+                "description": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
+                "type": "string"
+              }
+            },
+            "required": [
+              "new_entry"
+            ],
+            "type": "object"
+          },
+          "type": [
+            "null",
+            "array"
+          ]
+        },
+        "new_entry": {
+          "description": "兼容单条模式的完整单行条目",
+          "type": "string"
+        },
+        "object_ref": {
+          "description": "兼容单条模式的规范Database对象身份",
+          "type": "string"
+        },
+        "path": {
+          "description": "兼容单条模式的仓库相对路径",
+          "type": "string"
+        },
+        "source_sha256": {
+          "description": "Code源码字节或既有Database对象更新的兼容绑定；Database Cognition创作改用candidate_id与batch_id",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "name": "aoci_update_entry"
+  }
+]

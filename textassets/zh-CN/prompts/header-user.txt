@@ -1,0 +1,19 @@
+项目名: {{.ProjectName}}
+仓库根(目录段头的绝对路径基准): {{.RepoRootSlash}}
+
+{{if .HasCurrentHeader}}以下为现有头部原文，请在其基础上完善(既有有效字典项、有事实依据的系统原则和人工校准示例必须保留):
+----- 现有头部原文 开始 -----
+{{.CurrentHeader}}----- 现有头部原文 结束 -----
+
+{{else}}现有头部为空: 请从零起草。
+
+{{end}}仓库画像(唯一事实依据，禁止虚构画像之外的内容):
+文件总数: {{.TotalFiles}}
+{{if .Dirs}}目录分布(目录: 文件数):
+{{range .Dirs}}  {{.Dir}}: {{.Count}}
+{{end}}{{end}}{{if .Exts}}扩展名分布(扩展名: 文件数):
+{{range .Exts}}  {{.Ext}}: {{.Count}}
+{{end}}{{end}}{{if .SampleFiles}}代表性文件样本(相对仓库根):
+{{range .SampleFiles}}  {{.}}
+{{end}}{{end}}
+现在输出头部文本(只输出头部本身，遵守全部输出硬约束):

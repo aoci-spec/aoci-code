@@ -1,0 +1,135 @@
+{
+  "version": "database-evidence/v1",
+  "object_ref": "database://pgtemp/aoci_d0/accounts",
+  "engine": "postgresql",
+  "source_id": "pgtemp",
+  "database": "postgres",
+  "namespace": "aoci_d0",
+  "name": "accounts",
+  "kind": "base_table",
+  "columns": [
+    {
+      "ordinal": 1,
+      "name": "id",
+      "native_type": "bigint",
+      "canonical_type": "bigint",
+      "nullable": false,
+      "identity": "BY DEFAULT"
+    },
+    {
+      "ordinal": 2,
+      "name": "email",
+      "native_type": "text",
+      "canonical_type": "text",
+      "nullable": false
+    },
+    {
+      "ordinal": 3,
+      "name": "status",
+      "native_type": "text",
+      "canonical_type": "text",
+      "nullable": false,
+      "default_expression": "'active'::text"
+    },
+    {
+      "ordinal": 4,
+      "name": "payload",
+      "native_type": "jsonb",
+      "canonical_type": "jsonb",
+      "nullable": true
+    },
+    {
+      "ordinal": 5,
+      "name": "email_lower",
+      "native_type": "text",
+      "canonical_type": "text",
+      "nullable": true,
+      "generated": "ALWAYS",
+      "generation_expression": "lower(email)"
+    }
+  ],
+  "primary_key": {
+    "name": "accounts_pk",
+    "columns": [
+      "id"
+    ]
+  },
+  "unique_constraints": [
+    {
+      "name": "accounts_email_key",
+      "columns": [
+        "email"
+      ]
+    },
+    {
+      "name": "accounts_id_status_key",
+      "columns": [
+        "id",
+        "status"
+      ]
+    }
+  ],
+  "foreign_keys": [],
+  "checks": [
+    {
+      "name": "accounts_status_check",
+      "expression": "CHECK (status = ANY (ARRAY['active'::text, 'disabled'::text]))"
+    }
+  ],
+  "indexes": [
+    {
+      "name": "accounts_email_expr_idx",
+      "unique": false,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "expression": "lower(email)"
+        },
+        {
+          "position": 2,
+          "column": "status",
+          "included": true
+        }
+      ]
+    },
+    {
+      "name": "accounts_email_key",
+      "unique": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "email"
+        }
+      ]
+    },
+    {
+      "name": "accounts_id_status_key",
+      "unique": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "id"
+        },
+        {
+          "position": 2,
+          "column": "status"
+        }
+      ]
+    },
+    {
+      "name": "accounts_pk",
+      "unique": true,
+      "primary": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "id"
+        }
+      ]
+    }
+  ]
+}

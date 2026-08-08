@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# aoci PreToolUse hook —— 零逻辑: JSON 解析与判断全在 aoci 二进制内(可测)
+# Claude Code 经 stdin 传入 {"tool_name":...,"tool_input":{"file_path":...}}
+exec "{{.BinPath}}" --repo "{{.RepoRoot}}" hook pretool --agent claude --stdin-json

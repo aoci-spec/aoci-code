@@ -1,0 +1,1 @@
+off reports deterministic facts only; it does not generate candidates, Stage, or Apply

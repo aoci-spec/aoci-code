@@ -1,0 +1,3 @@
+Score the current index across nine quality dimensions:
+format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse.
+tagparse exposes unparseable-tag Warnings without changing check's pass policy.

@@ -1,0 +1,136 @@
+name: full-confidence
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 2 * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/check-licenses.sh'
+      - 'LICENSE'
+      - 'NOTICE'
+      - 'PATENTS'
+      - 'TRADEMARKS'
+      - 'THIRD-PARTY-NOTICES'
+      - 'README.md'
+      - 'README.zh-CN.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/release/clean-room-smoke.sh'
+      - 'internal/fs/**'
+      - 'internal/baseline/**'
+      - 'internal/cognitiontxn/**'
+      - 'internal/migrationapply/**'
+      - 'internal/bootstrapapply/**'
+      - 'internal/scopechange/**'
+      - 'internal/mcptools/**'
+      - 'internal/dbevidence/**'
+      - 'internal/machinecontract/**'
+      - 'internal/managedscope/**'
+      - 'internal/managedstate/**'
+      - 'internal/cognitionbudget/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-confidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  linux-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: install pinned analysis tools
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          go install github.com/google/go-licenses@v1.6.0
+      - name: full confidence gate
+        run: make full
+      - name: large migration and 10,000-object planner performance fixtures
+        run: |
+          go test -run '^$' -bench '^BenchmarkMigrationScale$/^objects-(1|100|1000)$/' -benchtime=1x ./internal/migrationapply
+          go test -run '^$' -bench 'Benchmark(BootstrapScale|BootstrapPlannerScale)$' -benchtime=1x ./internal/bootstrapapply ./internal/cognitionplan
+          go test -run '^$' -bench 'Benchmark(DatabaseCognitionScale|ResolveImpactLargeIndependentSet|ResolveImpactTenThousandMixedSet)$' -benchtime=1x ./internal/dbcognition ./internal/cognition
+
+  native-lifecycle:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: native build and lifecycle confidence
+        shell: bash
+        env:
+          # macOS exposes its default temporary directory through /var, which
+          # is a system symlink. Keep the parent-symlink safety gate intact by
+          # placing native test repositories in the runner's real temp path.
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          CGO_ENABLED=0 go build ./cmd/aoci
+          go test -count=1 ./internal/fs ./internal/bootstrapapply ./internal/migrationapply ./internal/cognitionplan ./internal/scopechange ./internal/managedscope ./internal/cognitionbudget ./internal/onboarding ./internal/mcptools
+
+  postgresql-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start isolated PostgreSQL
+        run: |
+          password="aoci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "::add-mask::${password}"
+          echo "AOCI_TEST_POSTGRES_ADMIN_PASSWORD=${password}" >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_POSTGRES_ADMIN_ADDR=127.0.0.1:5432' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_POSTGRES_ADMIN_USER=postgres' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_POSTGRES_ADMIN_DATABASE=postgres' >> "$GITHUB_ENV"
+          docker run -d --name "aoci-pg-${GITHUB_RUN_ID}" -p 5432:5432 -e POSTGRES_PASSWORD="${password}" postgres:18 >/dev/null
+          for attempt in $(seq 1 30); do docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
+          docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null
+      - name: PostgreSQL read-only Evidence integration
+        run: go test -v -tags=integration -count=1 -run TestPostgreSQLRealCatalogCollectionAndDrift ./internal/dbevidence
+      - name: stop isolated PostgreSQL
+        if: always()
+        run: docker rm -f "aoci-pg-${GITHUB_RUN_ID}" >/dev/null 2>&1 || true
+
+  mysql-integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: aoci_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: MySQL read-only Evidence integration
+        env:
+          AOCI_TEST_MYSQL_ADMIN_ADDR: 127.0.0.1:3306
+          AOCI_TEST_MYSQL_ADMIN_USER: root
+          AOCI_TEST_MYSQL_ADMIN_DATABASE: aoci_test
+        run: go test -v -tags=integration -count=1 -run TestMySQLRealCatalogCollectionAndDrift ./internal/dbevidence

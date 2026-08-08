@@ -1,0 +1,2 @@
+A Curation Stage request file is limited to {{.CurationMaxBodyBytes}} bytes ({{.CurationMaxBodyHuman}}) and {{.CurationMaxDecisions}} decisions per batch.
+Stage normalizes carriage returns, newlines, and repeated whitespace in role and reason to spaces. Submit one-paragraph, auditable descriptions of current semantics.

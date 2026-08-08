@@ -1,0 +1,158 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/help/ai-long",
+      "kind": "contract",
+      "path": "contracts/help/ai-long.txt",
+      "description": "Stable AI command overview covering optional enhancement, data sovereignty and key handling",
+      "used_by": "internal/cli/cli_help_contract.go:aiLongHelp",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "AI 增强层",
+          "纯离线确定性工具",
+          "数据主权",
+          "密钥安全",
+          "绝不落盘"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/ai-setup-long",
+      "kind": "contract",
+      "path": "contracts/help/ai-setup-long.txt",
+      "description": "Stable AI setup contract for environment-variable keys and team versus local configuration",
+      "used_by": "internal/cli/cli_help_contract.go:aiSetupLongHelp",
+      "protocol_tokens": [
+        "--key-env",
+        "AOCI_AI_KEY",
+        "--local",
+        "config.local.json",
+        "config.json"
+      ]
+    },
+    {
+      "id": "contracts/help/ai-test-long",
+      "kind": "contract",
+      "path": "contracts/help/ai-test-long.txt",
+      "description": "Stable AI endpoint probe and data sovereignty description",
+      "used_by": "internal/cli/cli_help_contract.go:aiTestLongHelp",
+      "protocol_tokens": [
+        "base_url"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "最小探测请求",
+          "数据主权",
+          "不触达任何其他地址"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/index-build-long",
+      "kind": "contract",
+      "path": "contracts/help/index-build-long.txt",
+      "description": "Stable Index Build target selection and file-level curation filtering contract",
+      "used_by": "internal/cli/cli_help_contract.go:indexBuildLongHelp",
+      "protocol_tokens": [
+        "--missing",
+        "curation.json",
+        "Actionable",
+        "include",
+        "exclude",
+        "Pending",
+        "--paths"
+      ]
+    },
+    {
+      "id": "contracts/help/header-draft-long",
+      "kind": "contract",
+      "path": "contracts/help/header-draft-long.txt",
+      "description": "Stable Header Draft-first location, review and data sovereignty contract",
+      "used_by": "internal/cli/cli_help_contract.go:headerDraftLongHelp",
+      "protocol_tokens": [
+        ".aoci/drafts/<run_id>/header.txt",
+        "diff",
+        "apply",
+        "base_url"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "不含源码正文"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/index-score-long",
+      "kind": "contract",
+      "path": "contracts/help/index-score-long.txt",
+      "description": "Stable nine-dimension Index Score description and tagparse policy",
+      "used_by": "internal/cli/cli_help_contract.go:indexScoreLongHelp",
+      "protocol_tokens": [
+        "format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse",
+        "tagparse",
+        "Warning",
+        "check"
+      ]
+    },
+    {
+      "id": "contracts/help/index-agent-long",
+      "kind": "contract",
+      "path": "contracts/help/index-agent-long.txt",
+      "description": "Stable Host-Agent deterministic task protocol overview",
+      "used_by": "internal/cli/cli_help_contract.go:indexAgentLongHelp",
+      "protocol_tokens": [
+        "Codex",
+        "Claude Code",
+        "plan",
+        "guide",
+        "stage",
+        "curation"
+      ]
+    },
+    {
+      "id": "contracts/help/index-agent-header-long",
+      "kind": "contract",
+      "path": "contracts/help/index-agent-header-long.txt",
+      "description": "Stable Host-Agent Header candidate and automation approval description",
+      "used_by": "internal/cli/cli_help_contract.go:indexAgentHeaderLongHelp",
+      "protocol_tokens": [
+        "header_required",
+        "header stage",
+        "automation.mode"
+      ]
+    },
+    {
+      "id": "contracts/help/update-entry-long",
+      "kind": "contract",
+      "path": "contracts/help/update-entry-long.txt",
+      "description": "Stable single-entry replacement or insertion and validation description",
+      "used_by": "internal/cli/cli_help_contract.go:updateEntryLongHelp",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整单行条目",
+          "整行替换",
+          "S 字段",
+          "拒绝"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/entries-check-long",
+      "kind": "contract",
+      "path": "contracts/help/entries-check-long.txt",
+      "description": "Stable Entries Check validation, review hash, exit code and Diff navigation contract",
+      "used_by": "internal/cli/cli_help_contract.go:entriesCheckLongHelp",
+      "protocol_tokens": [
+        "manifest.reviews",
+        "SHA-256",
+        "exit 0",
+        "exit 2",
+        "Diff",
+        "Apply"
+      ]
+    }
+  ]
+}

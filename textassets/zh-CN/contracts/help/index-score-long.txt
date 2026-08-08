@@ -1,0 +1,3 @@
+对当前索引做九维度质量评分:
+format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse。
+tagparse 用于暴露标签不可解析 Warning,不改变 check 放行策略。

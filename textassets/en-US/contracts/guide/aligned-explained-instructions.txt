@@ -1,0 +1,3 @@
+End the full-index generation loop. Do not force Entry generation for CurationExcludedMissing or non-Pending SkippedMissing.
+verify preserves the raw RawMissing facts. CurationExcludedMissing and non-Pending SkippedMissing do not fail verification; only unresolved ActionableMissing, PendingCurationMissing, Orphan, Stale, or Unbaselined returns a nonzero exit code.
+Treat this aligned result as checkpoint evidence. The Agent decides whether the next phase needs repository-wide cognition; an ordinary explicit Overview then delivers the complete requested scope, while check_only remains the compact assessment path.

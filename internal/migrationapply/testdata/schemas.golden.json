@@ -1,0 +1,50 @@
+[
+  {
+    "version": "cognition-legacy-snapshot/v1",
+    "sha256": "20b77a0b9f4621a66ac217e48fca9a7734d58544513d695365f587eaebb2ec3e"
+  },
+  {
+    "version": "cognition-migration-apply-envelope/v2",
+    "sha256": "f0c1f18df5a9b6b52d5cc55e8352a7fd8ef6f6b8e1fb99d1aaab3ffca97141ca"
+  },
+  {
+    "version": "cognition-migration-apply-request/v2",
+    "sha256": "7a27e45724f470d827562f655774fc8bc7297401c28800bda1ae910faa8e2e97"
+  },
+  {
+    "version": "cognition-migration-apply-result/v2",
+    "sha256": "60ae76c1adeacd9536a5143fc86f14c22cab4e473b4bd3a3946a4078d98a982d"
+  },
+  {
+    "version": "cognition-migration-approval/v2",
+    "sha256": "e0c19eda71f7fd67bfe4f9a7c246cc29e181b49d2ce317267227929f1d95809c"
+  },
+  {
+    "version": "cognition-migration-mapping/v2",
+    "sha256": "39968342f14fa6fed110df87a57344ac02d00a59782b549cb30e5fe5a2f8a4f4"
+  },
+  {
+    "version": "cognition-migration-receipt/v2",
+    "sha256": "b79cec5b24968385154d0e87d23770d30437c1ad98742caf8079bed008862e2a"
+  },
+  {
+    "version": "cognition-migration-recovery/v2",
+    "sha256": "63f96f33f31f47e0e15130495f9dad12b2a6b9ae0751038f666c1a6549f8c9b3"
+  },
+  {
+    "version": "cognition-migration-reversal-approval/v2",
+    "sha256": "8033524fe24e71372ddd8e5cff10d9995af609df956c1d1410415b76ca3148b4"
+  },
+  {
+    "version": "cognition-migration-reversal-plan/v2",
+    "sha256": "919b5e05ac1000da14ef361ba0295aa742f39693179e456cf38b14346f241981"
+  },
+  {
+    "version": "cognition-migration-reversal-recovery/v2",
+    "sha256": "0b30f6a61610d85444742816c54be61bbb9365026ccaa79f1c7a5c98b0a14d9e"
+  },
+  {
+    "version": "cognition-migration-transaction-status/v2",
+    "sha256": "995d81f3c6b508a3c6f3a963e9203fb80154cb19d578670ccbe0deacdaaa89e8"
+  }
+]

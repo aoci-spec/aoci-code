@@ -1,0 +1,601 @@
+{
+  "version": 2,
+  "default_locale": "en-US",
+  "official_locales": [
+    "en-US",
+    "zh-CN"
+  ],
+  "development_locales": [],
+  "assets": [
+    {
+      "id": "contracts/runtime-rules",
+      "kind": "contract",
+      "path": "contracts/runtime-rules.txt",
+      "description": "Short-form MCP host-agent behavior contract returned by aoci_rules",
+      "used_by": "internal/index/query.go:BuildRuntimeRules",
+      "protocol_tokens": [
+        "aoci_rules",
+        "aoci_overview",
+        "aoci_get_entries",
+        "aoci_search",
+        "aoci_header",
+        "aoci_maintain",
+        "aoci_update_entry",
+        "aoci_report",
+        "runtime_repository_root",
+        "index_sha256",
+        "mcp_service_version",
+        "cognition_scope",
+        "cognition_refresh_threshold",
+        "context_compaction",
+        "semantic_threshold",
+        "phase_transition",
+        "refresh_event_id",
+        "refresh_not_required",
+        "refresh_required",
+        "refresh_deferred_until_stable",
+        "refresh_ready_for_overview",
+        "valid",
+        "uncertain",
+        "invalid",
+        "no_cognition",
+        "index_loaded",
+        "delivery_verified",
+        "cognition-state/v2",
+        "model_cognition_usable",
+        "strict_attestation_verified",
+        "governance_aligned",
+        "current_system_cognition_reliable",
+        "cognition_verified",
+        "cognition_governed",
+        "aligned=true",
+        "status=applied",
+        "repair_required",
+        "stopped",
+        "source_sha256",
+        "entries",
+        "findings",
+        "failed_step",
+        "error",
+        "recovery",
+        "format-only",
+        "aoci.txt",
+        ".aoci"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "Codex Memory和历史Skill只能辅助",
+          "不能替代匹配当前AOCI身份的认知收据",
+          "项目AGENTS、当前AOCI身份、源码和运行事实优先",
+          "Prompt只约束模型语义生成",
+          "机器数值、词表与集合只由当前编译版本的internal/machinecontract提供"
+        ]
+      }
+    },
+    {
+      "id": "prompts/header-user",
+      "kind": "prompt",
+      "path": "prompts/header-user.txt",
+      "description": "Dynamic user message used to inject the current Header and repository profile",
+      "used_by": "internal/prompt/header.go:BuildHeaderMessages",
+      "enforced_by": [],
+      "variables": [
+        ".",
+        "Count",
+        "CurrentHeader",
+        "Dir",
+        "Dirs",
+        "Ext",
+        "Exts",
+        "HasCurrentHeader",
+        "ProjectName",
+        "RepoRootSlash",
+        "SampleFiles",
+        "TotalFiles"
+      ],
+      "protocol_tokens": []
+    },
+    {
+      "id": "prompts/entry-user",
+      "kind": "prompt",
+      "path": "prompts/entry-user.txt",
+      "description": "Dynamic user message used to inject one Entry target and its evidence",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [
+        "internal/prompt/entry.go:BuildEntryMessages"
+      ],
+      "variables": [
+        ".",
+        "Curation",
+        "Curation.Confidence",
+        "Curation.Ext",
+        "Curation.Lines",
+        "Curation.ProfileReason",
+        "Curation.Reason",
+        "Curation.Role",
+        "Curation.SizeBytes",
+        "Curation.SourceSHA256",
+        "HasSourceText",
+        "HasSuggestedSection",
+        "HeaderText",
+        "IsUpdate",
+        "NeighborEntries",
+        "OldEntry",
+        "RelPath",
+        "SourceText",
+        "SuggestedSection"
+      ],
+      "protocol_tokens": [
+        "source_sha256"
+      ]
+    },
+    {
+      "id": "contracts/guide/base-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/base-instructions.txt",
+      "description": "Instruction shared by every Host-Agent Guide response",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:newAgentGuideBase",
+      "protocol_tokens": [
+        "instructions",
+        "guide",
+        "plan_id",
+        "source_sha256",
+        "run_id"
+      ]
+    },
+    {
+      "id": "contracts/guide/baseline-first-message",
+      "kind": "contract",
+      "path": "contracts/guide/baseline-first-message.txt",
+      "description": "Guide message for repositories without an existing Baseline",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildBaselineGuide",
+      "protocol_tokens": [
+        "Baseline",
+        "scan"
+      ]
+    },
+    {
+      "id": "contracts/guide/baseline-first-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/baseline-first-instructions.txt",
+      "description": "Guide instructions for creating the first Baseline",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildBaselineGuide",
+      "protocol_tokens": [
+        "aoci scan",
+        "--force",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/baseline-blocked-message",
+      "kind": "contract",
+      "path": "contracts/guide/baseline-blocked-message.txt",
+      "description": "Guide message for Unbaselined files in a repository with an existing Baseline",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildBaselineGuide",
+      "protocol_tokens": [
+        "Baseline",
+        "Unbaselined",
+        "scan --force"
+      ]
+    },
+    {
+      "id": "contracts/guide/baseline-blocked-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/baseline-blocked-instructions.txt",
+      "description": "Blocked Guide instructions that prevent Baseline whitewashing",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildBaselineGuide",
+      "protocol_tokens": [
+        "unbaselined",
+        "scan --force"
+      ]
+    },
+    {
+      "id": "contracts/guide/observe-message",
+      "kind": "contract",
+      "path": "contracts/guide/observe-message.txt",
+      "description": "Parameterized Guide message for automation.mode=off",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildObserveGuide",
+      "variables": [
+        "Scope"
+      ],
+      "protocol_tokens": [
+        "automation.mode=off",
+        "Stage",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/observe-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/observe-instructions.txt",
+      "description": "Read-only Guide instructions for automation.mode=off",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildObserveGuide",
+      "protocol_tokens": [
+        "Plan",
+        "Verify",
+        "agent stage",
+        "header apply",
+        "automation.mode"
+      ]
+    },
+    {
+      "id": "contracts/guide/aligned-clean-message",
+      "kind": "contract",
+      "path": "contracts/guide/aligned-clean-message.txt",
+      "description": "Guide completion message when all raw drift dimensions are zero",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildAlignedGuide",
+      "protocol_tokens": [
+        "AOCI",
+        "Baseline"
+      ]
+    },
+    {
+      "id": "contracts/guide/aligned-clean-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/aligned-clean-instructions.txt",
+      "description": "Guide completion instruction for a fully aligned repository",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildAlignedGuide",
+      "protocol_tokens": [
+        "Apply",
+        "Overview",
+        "aligned"
+      ]
+    },
+    {
+      "id": "contracts/guide/aligned-explained-message",
+      "kind": "contract",
+      "path": "contracts/guide/aligned-explained-message.txt",
+      "description": "Guide completion message when RawMissing remains but is fully explained",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildAlignedGuide",
+      "protocol_tokens": [
+        "CurationExcludedMissing",
+        "SkippedMissing",
+        "RawMissing"
+      ]
+    },
+    {
+      "id": "contracts/guide/aligned-explained-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/aligned-explained-instructions.txt",
+      "description": "Guide completion instructions for explained RawMissing",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildAlignedGuide",
+      "protocol_tokens": [
+        "RawMissing",
+        "CurationExcludedMissing",
+        "SkippedMissing",
+        "ActionableMissing",
+        "PendingCurationMissing",
+        "Orphan",
+        "Stale",
+        "Unbaselined",
+        "Overview",
+        "aligned"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-base-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/header-base-instructions.txt",
+      "description": "Shared semantic generation and request-file instructions for Header Guide",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "Header",
+        "F/R/A/S",
+        "header_stage_request.header",
+        "commands.header_stage",
+        "UTF-8",
+        "run_id"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-auto-message",
+      "kind": "contract",
+      "path": "contracts/guide/header-auto-message.txt",
+      "description": "Header Guide message for automation.mode=auto",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "automation.mode=auto",
+        "Header",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-auto-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/header-auto-instructions.txt",
+      "description": "Header Guide completion actions for automation.mode=auto",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "header diff",
+        "P-23",
+        "header apply",
+        "verify",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-review-message",
+      "kind": "contract",
+      "path": "contracts/guide/header-review-message.txt",
+      "description": "Header Guide message for automation.mode=review",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "automation.mode=review",
+        "Header",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-review-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/header-review-instructions.txt",
+      "description": "Header Guide approval actions for automation.mode=review",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "header diff",
+        "stop_before_apply=true",
+        "header apply",
+        "verify",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-legacy-message",
+      "kind": "contract",
+      "path": "contracts/guide/header-legacy-message.txt",
+      "description": "Header Guide message for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "automation.mode=legacy",
+        "Header",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/header-legacy-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/header-legacy-instructions.txt",
+      "description": "Header Guide approval actions for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildHeaderGuide",
+      "protocol_tokens": [
+        "header diff",
+        "legacy",
+        "header apply",
+        "verify",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-base-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/entries-base-instructions.txt",
+      "description": "Shared semantic generation and request-file instructions for Entries Guide",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "header_show",
+        "batch.targets",
+        "old_entry",
+        "F/R/A/S",
+        "entries_stage_request",
+        "path",
+        "source_sha256",
+        "commands.entries_stage",
+        "UTF-8",
+        "--stdin-json"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-auto-message",
+      "kind": "contract",
+      "path": "contracts/guide/entries-auto-message.txt",
+      "description": "Entries Guide message for automation.mode=auto",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "automation.mode=auto",
+        "Entries",
+        "Stage",
+        "Check",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-auto-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/entries-auto-instructions.txt",
+      "description": "Entries Auto finalize, repair, and stop instructions",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "auto_finalize.status=applied",
+        "auto_finalize.status=repair_required",
+        "auto_finalize.status=stopped",
+        "findings",
+        "commands.entries_stage",
+        "failed_step",
+        "error",
+        "recovery",
+        "Generation Plan",
+        "P-23",
+        "CAS",
+        "complete",
+        "blocked"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-review-message",
+      "kind": "contract",
+      "path": "contracts/guide/entries-review-message.txt",
+      "description": "Entries Guide message for automation.mode=review",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "automation.mode=review",
+        "Entries",
+        "Stage",
+        "Check",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-review-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/entries-review-instructions.txt",
+      "description": "Entries Guide approval actions for automation.mode=review",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "entries stage",
+        "entries check",
+        "entries diff",
+        "P-23",
+        "stop_before_apply=true",
+        "entries apply",
+        "verify",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-legacy-message",
+      "kind": "contract",
+      "path": "contracts/guide/entries-legacy-message.txt",
+      "description": "Entries Guide message for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "automation.mode=legacy",
+        "Entries",
+        "Stage",
+        "Check",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/entries-legacy-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/entries-legacy-instructions.txt",
+      "description": "Entries Guide approval actions for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_guide_workflow.go:buildEntriesGuide",
+      "protocol_tokens": [
+        "entries stage",
+        "entries check",
+        "entries diff",
+        "P-23",
+        "legacy",
+        "entries apply",
+        "verify",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-base-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/curation-base-instructions.txt",
+      "description": "Shared semantic investigation and request instructions for Curation Guide",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "curation_batch.targets",
+        "decision",
+        "role",
+        "reason",
+        "confidence",
+        "profile_reason",
+        "empty",
+        "binary",
+        "oversize",
+        "include",
+        "exclude",
+        "path",
+        "source_sha256",
+        "confidence=-1",
+        "UTF-8",
+        "curation diff",
+        "P-23"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-auto-message",
+      "kind": "contract",
+      "path": "contracts/guide/curation-auto-message.txt",
+      "description": "Curation Guide message for automation.mode=auto",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "automation.mode=auto",
+        "Curation",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-auto-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/curation-auto-instructions.txt",
+      "description": "Curation Guide completion actions for automation.mode=auto",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "curation apply",
+        "guide",
+        "include",
+        "Entries",
+        "exclude"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-review-message",
+      "kind": "contract",
+      "path": "contracts/guide/curation-review-message.txt",
+      "description": "Curation Guide message for automation.mode=review",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "automation.mode=review",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-review-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/curation-review-instructions.txt",
+      "description": "Curation Guide approval actions for automation.mode=review",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "stop_before_apply=true",
+        "curation apply",
+        "Apply",
+        "guide"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-legacy-message",
+      "kind": "contract",
+      "path": "contracts/guide/curation-legacy-message.txt",
+      "description": "Curation Guide message for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "automation.mode=legacy",
+        "Stage",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/guide/curation-legacy-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/curation-legacy-instructions.txt",
+      "description": "Curation Guide approval actions for automation.mode=legacy",
+      "used_by": "internal/cli/index_agent_curation_guide.go:buildCurationGuide",
+      "protocol_tokens": [
+        "legacy",
+        "curation apply",
+        "Apply",
+        "guide"
+      ]
+    }
+  ]
+}

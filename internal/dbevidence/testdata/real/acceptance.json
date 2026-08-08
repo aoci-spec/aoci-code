@@ -1,0 +1,33 @@
+{
+  "version": "database-real-acceptance/v1",
+  "engines": [
+    {
+      "engine": "mysql",
+      "object_ref": "database://mysqltemp/aoci_test/accounts",
+      "canonical_evidence_ref": "testdata/real/mysql_accounts.json",
+      "table_evidence_sha256": "79f1de81b949fd5de0e3d8a53042cbfb28aeb014a8234ced266ab694453c346a",
+      "source_snapshot_sha256": "33f9e341ec32e7918df752bd6988af396ffb172012094f54e1c34f2839cbba94",
+      "table_count": 5,
+      "drift": {
+        "unchanged": 3,
+        "new": 1,
+        "changed": 1,
+        "removed": 1
+      }
+    },
+    {
+      "engine": "postgresql",
+      "object_ref": "database://pgtemp/aoci_d0/accounts",
+      "canonical_evidence_ref": "testdata/real/postgresql_accounts.json",
+      "table_evidence_sha256": "d4a04d14f0cca18478e33a86c2988f862457ace07c3b6f865e888ddf4f362c04",
+      "source_snapshot_sha256": "b32e828c732c38f40dd4a094c1b08f2c59f4e433822ef4dac1a6e59f18b642ed",
+      "table_count": 6,
+      "drift": {
+        "unchanged": 4,
+        "new": 1,
+        "changed": 1,
+        "removed": 1
+      }
+    }
+  ]
+}

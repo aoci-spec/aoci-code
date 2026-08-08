@@ -1,0 +1,2 @@
+Provide a deterministic task protocol for host Agents such as Codex and Claude Code.
+plan returns a fact-bound Plan with hashes; guide returns staged actions; stage accepts Entry candidates; curation governs semantic decisions for special files.

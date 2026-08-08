@@ -1,0 +1,1 @@
+automation.mode=review: executable Entries targets exist. The host Agent must complete Stage, Check, and Diff, then wait for user approval before Apply.

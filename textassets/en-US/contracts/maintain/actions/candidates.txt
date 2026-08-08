@@ -1,0 +1,1 @@
+Read each current candidate and submit the complete machine-issued batch in one aoci_update_entry.entries call; when remaining is nonzero, Apply then call Maintain again

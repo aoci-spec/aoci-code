@@ -1,0 +1,170 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/init/next-step",
+      "kind": "contract",
+      "path": "contracts/init/next-step.txt",
+      "description": "Stable post-init instruction for creating the first Baseline and entering the MCP cognition contract",
+      "used_by": "internal/cli/init_messages.go:initNextStepMessage",
+      "protocol_tokens": [
+        "aoci scan",
+        "aoci_rules"
+      ]
+    },
+    {
+      "id": "contracts/init/full-index-line",
+      "kind": "contract",
+      "path": "contracts/init/full-index-line.txt",
+      "description": "Parameterized post-init full-index Guide instruction",
+      "used_by": "internal/cli/init_messages.go:initFullIndexMessage",
+      "variables": [
+        "AutomationHint",
+        "AutomationMode",
+        "GuideCommand"
+      ],
+      "protocol_tokens": [
+        "{{.GuideCommand}}",
+        "{{.AutomationMode}}",
+        "{{.AutomationHint}}",
+        "automation.mode="
+      ]
+    },
+    {
+      "id": "contracts/init/header-dictionary-line",
+      "kind": "contract",
+      "path": "contracts/init/header-dictionary-line.txt",
+      "description": "Stable Header-generation instruction shown when init creates a minimal index skeleton",
+      "used_by": "internal/cli/init_messages.go:initHeaderDictionaryMessage",
+      "protocol_tokens": [
+        "Guide",
+        "Header",
+        "aoci index header draft"
+      ]
+    },
+    {
+      "id": "contracts/init/automation-auto",
+      "kind": "contract",
+      "path": "contracts/init/automation-auto.txt",
+      "description": "Post-init explanation for automation.mode=auto",
+      "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
+      "protocol_tokens": [
+        "auto",
+        "Guide",
+        "Entries Stage",
+        "Check",
+        "Diff",
+        "P-23",
+        "Apply",
+        "applied",
+        "Verify",
+        "repair_required",
+        "stopped"
+      ]
+    },
+    {
+      "id": "contracts/init/automation-review",
+      "kind": "contract",
+      "path": "contracts/init/automation-review.txt",
+      "description": "Post-init explanation for automation.mode=review",
+      "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
+      "protocol_tokens": [
+        "review",
+        "Stage",
+        "Check",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/init/automation-legacy",
+      "kind": "contract",
+      "path": "contracts/init/automation-legacy.txt",
+      "description": "Post-init explanation for legacy repositories without a declared automation block",
+      "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
+      "protocol_tokens": [
+        "legacy",
+        "Stage",
+        "Check",
+        "Diff",
+        "Apply"
+      ]
+    },
+    {
+      "id": "contracts/init/automation-off",
+      "kind": "contract",
+      "path": "contracts/init/automation-off.txt",
+      "description": "Post-init explanation for deterministic observation-only mode",
+      "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
+      "protocol_tokens": [
+        "off",
+        "Stage",
+        "Apply"
+      ]
+    },
+    {
+      "id": "templates/minimal-index",
+      "kind": "template",
+      "path": "templates/minimal-index.txt.tmpl",
+      "description": "Repository-level minimal aoci.txt skeleton materialized by aoci init",
+      "used_by": "internal/cli/init.go:renderMinimalIndex",
+      "variables": [
+        "ProjectName",
+        "RepoRootSlash"
+      ],
+      "protocol_tokens": [
+        "{{.ProjectName}}",
+        "{{.RepoRootSlash}}",
+        "F:",
+        "R:",
+        "A:",
+        "S:",
+        "#Locale:"
+      ]
+    },
+    {
+      "id": "templates/volume-root",
+      "kind": "template",
+      "path": "templates/volume-root.txt.tmpl",
+      "description": "Semantic-free Volume Root created for a new project",
+      "used_by": "internal/cli/init_volumes.go:renderInitialVolumeAssets",
+      "variables": [
+        "ProjectName"
+      ],
+      "protocol_tokens": [
+        "{{.ProjectName}}",
+        "#AOCI-ROOT-MANIFEST: 1",
+        "#Format-Version: cognition-volumes/v1",
+        "#Locale:",
+        "id=meta",
+        "id=code"
+      ]
+    },
+    {
+      "id": "templates/volume-meta",
+      "kind": "template",
+      "path": "templates/volume-meta.txt.tmpl",
+      "description": "Stable starter Meta contract for a semantic-free empty Code Volume",
+      "used_by": "internal/cli/init_volumes.go:renderInitialVolumeAssets",
+      "variables": [
+        "SQuotaDefaultCompact"
+      ],
+      "protocol_tokens": [
+        "{{.SQuotaDefaultCompact}}",
+        "#AOCI-META-VOLUME: 1",
+        "repository-cognition-object/v2",
+        "#Canonical-Tag-Authoring:",
+        "CG7T",
+        "#[Tag dictionary: code]",
+        "#[Tag dictionary: database]"
+      ]
+    },
+    {
+      "id": "templates/aoci-gitignore",
+      "kind": "template",
+      "path": "templates/aoci-gitignore.txt",
+      "description": "Repository-local Git boundary generated for .aoci runtime and formal assets",
+      "used_by": "internal/cli/init_gitignore.go:ensureAOCIRuntimeGitignore"
+    }
+  ]
+}

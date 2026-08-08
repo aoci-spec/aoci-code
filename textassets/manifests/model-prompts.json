@@ -1,0 +1,239 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "prompts/header-role",
+      "kind": "prompt",
+      "path": "prompts/header-role.txt",
+      "description": "System role for Header drafting",
+      "used_by": "internal/prompt/header.go:BuildHeaderMessages",
+      "enforced_by": [],
+      "protocol_tokens": [
+        "AOCI"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "头部"
+        ]
+      }
+    },
+    {
+      "id": "prompts/header-output-rules",
+      "kind": "prompt",
+      "path": "prompts/header-output-rules.txt",
+      "description": "Header output shape and forbidden structure contract",
+      "used_by": "internal/prompt/header.go:BuildHeaderMessages",
+      "enforced_by": [
+        "internal/index/header.go:ValidateHeaderText"
+      ],
+      "protocol_tokens": [
+        "==="
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "只输出头部文本本身",
+          "禁止生成任何文件条目"
+        ]
+      }
+    },
+    {
+      "id": "prompts/header-content-blocks",
+      "kind": "prompt",
+      "path": "prompts/header-content-blocks.txt",
+      "description": "Header content blocks, FRAS responsibilities, and calibration examples",
+      "used_by": "internal/prompt/header.go:BuildHeaderMessages",
+      "enforced_by": [],
+      "variables": [
+        "SQuotaDefaultSpaced"
+      ],
+      "protocol_tokens": [
+        "F:",
+        "R:",
+        "A:",
+        "S:",
+        "{{.SQuotaDefaultSpaced}}"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "【正确索引示例】"
+        ]
+      }
+    },
+    {
+      "id": "prompts/header-dict-rules",
+      "kind": "prompt",
+      "path": "prompts/header-dict-rules.txt",
+      "description": "Header dictionary semantic discipline and numeric declaration shape",
+      "used_by": "internal/prompt/header.go:BuildHeaderMessages",
+      "enforced_by": [
+        "internal/index/dict.go:CheckTagsAgainstDict"
+      ],
+      "variables": [
+        "SQuotaDefaultCompact"
+      ],
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "E规模"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-role",
+      "kind": "prompt",
+      "path": "prompts/entry-role.txt",
+      "description": "System role for one-file Entry drafting",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [],
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "文件名[标签]: F:功能 | R:关联 | A:接口 | S:高熵简述"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-output-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-output-rules.txt",
+      "description": "Entry single-line output and complete FRAS shape contract",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [
+        "internal/index/validator.go:ValidateEntryLineWith"
+      ],
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "恰好一行",
+          "文件名[标签]: F:... | R:... | A:... | S:...",
+          "不含任何目录前缀"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-field-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-field-rules.txt",
+      "description": "FRAS semantic responsibilities and S quota discipline",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [
+        "internal/index/quota.go:CheckSQuotaWith"
+      ],
+      "variables": [
+        "SQuotaDefaultWithUnits"
+      ],
+      "protocol_tokens": [
+        "F:",
+        "R:",
+        "A:",
+        "S:",
+        "code:path/to/file",
+        "database://source/namespace/table",
+        "{{.SQuotaDefaultWithUnits}}"
+      ]
+    },
+    {
+      "id": "prompts/entry-dict-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-dict-rules.txt",
+      "description": "Entry tag dictionary and compact tag grammar discipline",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [
+        "internal/index/escale.go:CheckEScale",
+        "internal/index/dict.go:CheckTagsAgainstDict"
+      ],
+      "protocol_tokens": [
+        "A+B+C+[D]+E",
+        "CG7T"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "字典外标签直接判不合格",
+          "SrvC9(错误)",
+          "字典缺口:建议新增X符号"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-fact-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-fact-rules.txt",
+      "description": "Model-only semantic generation and injected-evidence discipline",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [],
+      "protocol_tokens": [
+        "AST"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "模型必须阅读",
+          "源码原文",
+          "批量脚本"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-update-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-update-rules.txt",
+      "description": "Conditional semantic preservation contract for Entry updates",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [],
+      "protocol_tokens": [
+        "S"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "更新模式纪律",
+          "现有条目"
+        ]
+      }
+    },
+    {
+      "id": "prompts/entry-curation-rules",
+      "kind": "prompt",
+      "path": "prompts/entry-curation-rules.txt",
+      "description": "Conditional fact boundary for governed include decisions",
+      "used_by": "internal/prompt/entry.go:BuildEntryMessages",
+      "enforced_by": [
+        "internal/curation/store.go:DecisionByPath",
+        "internal/curation/profile.go:ProfilePath",
+        "internal/workflow/entries_curation.go:prepareEntrySource"
+      ],
+      "protocol_tokens": [
+        "include",
+        "confidence",
+        "source_sha256",
+        "FRAS"
+      ]
+    },
+    {
+      "id": "prompts/database-entry-authoring-rules",
+      "kind": "prompt",
+      "path": "prompts/database-entry-authoring-rules.txt",
+      "description": "Model-only table FRAS authoring and complete Database candidate batch discipline",
+      "used_by": "internal/authoringcontract/contract.go:Assemble",
+      "enforced_by": [
+        "internal/cognition/objects.go:validateFRASV2",
+        "internal/mcptools/tools_write_volume_commit.go:planCognitionVolumeUpdates"
+      ],
+      "protocol_tokens": [
+        "Database",
+        "Table Evidence",
+        "F:",
+        "R:",
+        "A:",
+        "S:",
+        "batch_id",
+        "candidate_id"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整标签与F/R/A/S全部由你自主选择",
+          "S中的每句话必须同时满足两问",
+          "提交返回批次中的全部候选"
+        ]
+      }
+    }
+  ]
+}

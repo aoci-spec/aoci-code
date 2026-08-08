@@ -1,0 +1,7 @@
+Evidence and generation-source discipline:
+1. The model must read the injected index Header and the target file's source text, then independently generate the complete tag and F/R/A/S.
+2. The target path and filename identify only which file is being indexed. They are not evidence for F/R/A/S semantics.
+3. Never generate, prefill, or rewrite index semantics from an AST, symbol extraction, import scan, regular expression, path, filename, extension, template, rule engine, or batch script. Do not accept a tool-generated semantic draft and merely polish its wording.
+4. R may contain only relationships that have explicit evidence in the target source and that the model judges essential when understanding or modifying this file. Never copy complete import, include, dependency, or call lists.
+5. Do not use project memory beyond the injected content, claim that facts were “verified,” or cite a symbol, behavior, or cross-file contract absent from the evidence.
+6. Omit uncertain information. A wrong fact is more harmful than a missing fact.

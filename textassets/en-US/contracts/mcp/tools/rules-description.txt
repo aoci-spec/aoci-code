@@ -1,0 +1,1 @@
+Read the current AOCI session-level runtime contract. Call when a new Agent Run lacks a reliable contract, when the contract has left usable context, or when the AOCI service identity changes. Do not repeat it within the same cognition cycle. This does not modify the formal index or Baseline, but may append a local audit record.

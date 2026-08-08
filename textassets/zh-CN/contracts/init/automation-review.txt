@@ -1,0 +1,1 @@
+review 允许执行 Stage、Check 与 Diff，但必须在 Apply 前等待批准

@@ -1,0 +1,9 @@
+LONG:
+从UTF-8请求文件或stdin读取完整批次include/exclude决策。
+请求总大小上限8388608字节(8 MiB)，单批最多200项；role和reason中的换行会规范化为空格。
+Windows推荐--request-file；PowerShell 5不得用文本管道传递中文请求JSON。
+Stage不修改正式curation.json、索引或Baseline。
+REQUEST_FILE:
+从UTF-8普通JSON文件读取Curation候选；上限8388608字节(Windows推荐)
+STDIN_JSON:
+从stdin读取候选JSON，仅用于可保证UTF-8字节流的环境

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "method": "Unicode rune count; nearest-rank percentiles; Header calibration examples excluded; R/A items split on canonical commas; '-' counts as zero items",
+  "source_index_sha256": "537ae6c9d508b5789c6e448467b61d62e344ec56d3f780babddcd71097e30987",
+  "formal_entry_count": 875,
+  "percentiles": [50, 75, 90, 95, 99],
+  "fields": {
+    "F_characters": {"p50": 78, "p75": 91, "p90": 109, "p95": 118, "p99": 130, "max": 142},
+    "R_characters": {"p50": 138, "p75": 176, "p90": 214, "p95": 243, "p99": 315, "max": 434},
+    "R_items": {"p50": 4, "p75": 5, "p90": 6, "p95": 7, "p99": 8, "max": 12},
+    "A_characters": {"p50": 34, "p75": 50, "p90": 111, "p95": 157, "p99": 358, "max": 1366},
+    "A_items": {"p50": 1, "p75": 1, "p90": 1, "p95": 1, "p99": 2, "max": 9},
+    "S_characters": {"p50": 168, "p75": 220, "p90": 301, "p95": 336, "p99": 421, "max": 599}
+  },
+  "hypothetical_v2_limit_hits": {
+    "F_characters": 0,
+    "R_characters": 4,
+    "R_items": 8,
+    "A_characters": 6,
+    "A_items": 1,
+    "distinct_entries": 15
+  }
+}

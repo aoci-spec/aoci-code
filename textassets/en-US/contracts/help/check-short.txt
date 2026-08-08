@@ -1,0 +1,1 @@
+Run aggregate pre-commit checks (does not modify the formal index or Baseline; may write local audit data)

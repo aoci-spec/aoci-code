@@ -1,0 +1,96 @@
+name: fast-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fast-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: modules and formatting
+        run: |
+          go mod download
+          go mod verify
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+          make fmt-check
+      - name: compile and unit tests
+        run: |
+          packages=$(go list ./... | grep -Ev '/internal/(cli|mcptools|fs|baseline|bootstrapapply|cognitiontxn|migrationapply|scopechange|dbevidence|dbcognition|managedscope|managedstate|cognitionbudget|machinecontract|capability)$|/textassets$')
+          go test -short -count=1 $packages
+          CGO_ENABLED=0 go build ./cmd/aoci
+          go vet ./...
+      - name: timing
+        if: always()
+        run: echo "build-and-unit_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
+  contracts-and-safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: contracts and public safety
+        run: |
+          bash scripts/check-deps.sh
+          bash scripts/check-public-text.sh
+          go test -short -count=1 ./textassets ./internal/machinecontract ./internal/capability ./internal/cognitionbudget ./internal/managedscope
+          go test -short -count=1 ./internal/mcptools
+      - name: timing
+        if: always()
+        run: echo "contracts-and-safety_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
+  lifecycle-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: CAS, Recovery, Migration, Scope, and Database safety
+        run: |
+          go test -short -count=1 ./internal/fs ./internal/baseline ./internal/bootstrapapply ./internal/migrationapply ./internal/scopechange ./internal/dbevidence ./internal/dbcognition ./internal/onboarding
+          go test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestAlignedCleanGuideMatchesGoldenByteForByte|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestEntriesAutoCleanupFailureRetryOnlyCompletesRecovery|TestHeaderApplyKeepsRecoveryWhenCASWritesThenReturnsError|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt|TestAgentPlanIDIgnoresOnlyVolatileExcludedRuntimeCounts)$' ./internal/cli
+      - name: timing
+        if: always()
+        run: echo "lifecycle-smoke_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
+  windows-compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: Windows amd64 CGO-free compile
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o "$RUNNER_TEMP/aoci.exe" ./cmd/aoci
+      - name: timing
+        if: always()
+        run: echo "windows-compile_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"

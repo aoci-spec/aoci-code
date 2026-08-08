@@ -1,0 +1,1 @@
+No executable index task remains and governance has converged. RawMissing still preserves facts explained by CurationExcludedMissing or non-Pending SkippedMissing.

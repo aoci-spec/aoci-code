@@ -1,0 +1,66 @@
+Database Table FRAS v1 (candidate evidence and cognition contract)
+
+Status: R67-D1 connects R67-D0 canonical PostgreSQL/MySQL Evidence to complete
+model-authored table FRAS in an already declared and present Database Volume.
+Automatic table cognition generation and formal Database Volume creation still
+do not exist. See aoci-database-evidence-v1.txt and
+aoci-database-cognition-authoring-v1.txt.
+
+1. Object identity and section
+
+The only ordinary Database v1 object is Table. Each table has exactly one
+Entry, scoped by a database namespace section:
+
+  ===Primary PostgreSQL public tables/database://primary/public/===
+  users[DB9S]: F:store canonical user account state | R:database://primary/public/tenants,database://primary/public/user_profiles | A:user_id,UserRepository,AuthService | S:Hard deletion is forbidden because retained ownership records require the identity
+
+The canonical object reference is database://primary/public/users. Table names
+are not repository paths.
+
+Schema, Column, Primary Key, Foreign Key, Unique Constraint, Check Constraint,
+Index, Relationship, Trigger, and Business Rule are evidence used by the model
+for a table Entry. They are not independent Database v1 Entries. Views,
+materialized views, and stored procedures require a future protocol and are not
+silently treated as tables.
+
+2. Table FRAS
+
+F states the table's single core responsibility. It never lists columns. A
+table with 200 columns does not receive a longer F; complete physical shape
+belongs to a future Canonical Schema Snapshot.
+
+R selects only strong relationships needed for safe understanding or change:
+critical foreign-key tables, strong business companions, important junction
+tables, coupled repositories/services, or objects that must change together.
+It is not a dump of every foreign key, index, trigger, or query caller.
+New or changed values use exact database:// or code: canonical identities;
+unique bare table or file names are never accepted as write aliases.
+
+A selects stable data contracts and formal access/change entrypoints: key
+business identifiers, important uniqueness contracts, formal Repositories or
+Services, key APIs, and migrations. It excludes all columns, ordinary indexes,
+CRUD methods, SQL, callers, and helpers. Use - when no stable contract exists.
+
+S applies the FRAS v2 two-question admission gate. Appropriate content can
+include lifecycle or retention rules not fully expressed by DDL, deletion
+rules, transaction boundaries, concurrency constraints, business-state
+invariants, cross-table write order, current audit/legal retention constraints,
+and business meaning not inferable from ordinary Unique/FK/Check facts.
+
+S must not repeat primary keys, not-null, ordinary Unique, foreign keys, types,
+or facts already present in A or canonical schema evidence. It never records a
+date, version, modification history, or why a past author made a choice.
+
+3. Evidence and generation boundary
+
+A collector may capture exact schema/catalog evidence and source references.
+It may not turn a table name into F, copy every FK into R, copy ORM
+callers into A, infer S from names such as status/deleted_at/tenant_id, select a
+tag, or emit a semantic draft. The model independently reads each table's DDL,
+constraints, migrations, access code, tests, and necessary business evidence,
+then authors the whole Entry.
+
+The read validator checks marker/section/object structure, duplicate table
+identity, tag grammar and Meta dictionary membership, FRAS presence, Unicode
+limits, and R/A item counts. It preserves the original line and emits a
+finding; it never truncates or rewrites a candidate.

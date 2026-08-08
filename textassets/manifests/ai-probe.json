@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "prompts/ai-probe-system",
+      "kind": "prompt",
+      "path": "prompts/ai-probe-system.txt",
+      "description": "Stable system message for the minimal AI endpoint connectivity probe",
+      "used_by": "internal/cli/ai_probe_contract.go:aiTestProbeMessages",
+      "enforced_by": [],
+      "protocol_tokens": [
+        "ok"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "连通性测试助手",
+          "只回复"
+        ]
+      }
+    },
+    {
+      "id": "prompts/ai-probe-user",
+      "kind": "prompt",
+      "path": "prompts/ai-probe-user.txt",
+      "description": "Stable user message for the minimal AI endpoint connectivity probe",
+      "used_by": "internal/cli/ai_probe_contract.go:aiTestProbeMessages",
+      "enforced_by": [],
+      "protocol_tokens": [
+        "ok"
+      ]
+    }
+  ]
+}

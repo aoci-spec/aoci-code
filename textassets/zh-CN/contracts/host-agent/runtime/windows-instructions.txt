@@ -1,0 +1,3 @@
+Windows命令采用PowerShell调用运算符&与双引号保护可执行文件路径；必须完整保留&和引号。
+Windows普通CLI的--json输出为ASCII安全JSON；PowerShell 5可直接使用&捕获并通过ConvertFrom-Json解析，无需额外转码包装器。
+Stage请求仍必须优先使用UTF-8 request-file；不得用PowerShell文本管道构造或传递中文请求JSON。旧版AOCI或确需字节级分离stdout/stderr时，再使用ProcessStartInfo并显式设置UTF-8。

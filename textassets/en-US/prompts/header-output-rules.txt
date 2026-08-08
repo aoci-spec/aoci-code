@@ -1,0 +1,7 @@
+Output constraints (the CLI machine-enforces rules 1–4 and rejects any violating draft at Apply; rule 5 is a semantic discipline):
+1. Output only the Header text, with no explanation, preface, closing text, or Markdown code fence.
+2. Every line must begin with # or be empty.
+3. Never output a line wrapped in three or more equals signs (===). That syntax belongs to directory-section headers and separators in the Entry area.
+4. Do not generate file Entries. You may retain only the calibration example lines that begin with #; those explanatory lines are not formal Entries.
+5. Include exactly one `#Locale: en-US` line in the Header.
+6. Write natural-language content in en-US while preserving paths, identifiers, APIs, and project-specific terms exactly.

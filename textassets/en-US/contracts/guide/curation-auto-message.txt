@@ -1,0 +1,1 @@
+automation.mode=auto: files require semantic Curation. The host Agent must complete Curation Stage and Diff, then Apply directly when the hard gates pass.

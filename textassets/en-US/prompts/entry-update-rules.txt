@@ -1,0 +1,5 @@
+Update-mode discipline (update an existing Entry rather than drafting from scratch):
+1. Treat the injected existing Entry as important evidence. Preserve every S constraint that still holds, including operational constraints, special cases, implicit contracts, and negative space. These encode accumulated maintenance knowledge unless the new source clearly invalidates them.
+2. Remove obsolete content and add newly evidenced high-entropy constraints under the S discipline. Output the complete current accumulated Entry.
+3. Do not narrate the change itself with phrases such as “changed to,” “added,” or “previously.” Describe only the present state.
+4. Re-evaluate tags from the new source's size and responsibility. Do not carry old tags forward blindly; the file may have changed substantially.

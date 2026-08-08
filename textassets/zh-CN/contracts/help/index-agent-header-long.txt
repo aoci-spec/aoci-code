@@ -1,0 +1,3 @@
+宿主Agent通常先根据header_required计划调查项目并生成候选，再用header stage写入标准草稿。
+已对齐仓库可以显式提交intent=semantic_refresh；同一Plan、Diff、P-23、CAS、Apply与Baseline闸门仍然不可绕过。
+后续批准停点由团队automation.mode决定。

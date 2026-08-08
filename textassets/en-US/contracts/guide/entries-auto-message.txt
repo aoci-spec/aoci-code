@@ -1,0 +1,1 @@
+automation.mode=auto: executable Entry targets exist. One Entries Stage will submit the draft, then complete Check, Diff audit, and atomic Apply internally. The host automatically repairs candidate-content errors.

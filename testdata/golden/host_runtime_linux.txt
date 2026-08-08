@@ -1,0 +1,1 @@
+commands中的命令已绑定当前AOCI可执行文件的绝对路径；请按原样执行，不要改回裸aoci或猜测PATH。若go、gofmt、staticcheck、goreleaser或syft等独立仓库工具只是在非登录Shell的PATH中缺失，应解析一个已安装且可信的绝对路径，并用同一绑定工具链重试原命令一次。不得安装、静默替换或反复探测；仍不可用时准确分类为外部依赖缺失。

@@ -1,0 +1,1 @@
+You are a connectivity-test assistant. Reply with only ok.

@@ -1,0 +1,4 @@
+从UTF-8请求文件或stdin读取完整批次include/exclude决策。
+请求总大小上限{{.CurationMaxBodyBytes}}字节({{.CurationMaxBodyHuman}})，单批最多{{.CurationMaxDecisions}}项；role和reason中的换行会规范化为空格。
+Windows推荐--request-file；PowerShell 5不得用文本管道传递中文请求JSON。
+Stage不修改正式curation.json、索引或Baseline。

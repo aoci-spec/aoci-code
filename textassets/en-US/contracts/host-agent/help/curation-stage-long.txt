@@ -1,0 +1,4 @@
+Read a complete batch of include/exclude decisions from a UTF-8 request file or stdin.
+The request is limited to {{.CurationMaxBodyBytes}} bytes ({{.CurationMaxBodyHuman}}) and {{.CurationMaxDecisions}} decisions per batch. Newlines in role and reason are normalized to spaces.
+Use --request-file on Windows. PowerShell 5 must not pass request JSON through a text pipeline.
+Stage does not modify the formal curation.json, index, or Baseline.

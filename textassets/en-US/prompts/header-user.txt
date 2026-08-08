@@ -1,0 +1,19 @@
+Project: {{.ProjectName}}
+Repository root (absolute-path base for directory-section headers): {{.RepoRootSlash}}
+
+{{if .HasCurrentHeader}}Existing Header text. Improve it while preserving valid dictionary items, evidenced system principles, and human-calibrated examples:
+----- EXISTING HEADER BEGIN -----
+{{.CurrentHeader}}----- EXISTING HEADER END -----
+
+{{else}}The current Header is empty. Draft it from scratch.
+
+{{end}}Repository profile (the sole source of facts; do not invent content beyond it):
+Total files: {{.TotalFiles}}
+{{if .Dirs}}Directory distribution (directory: file count):
+{{range .Dirs}}  {{.Dir}}: {{.Count}}
+{{end}}{{end}}{{if .Exts}}Extension distribution (extension: file count):
+{{range .Exts}}  {{.Ext}}: {{.Count}}
+{{end}}{{end}}{{if .SampleFiles}}Representative file samples (relative to the repository root):
+{{range .SampleFiles}}  {{.}}
+{{end}}{{end}}
+Now output the Header text only, following every output constraint:

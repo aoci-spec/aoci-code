@@ -1,0 +1,1 @@
+auto 严格按当前 Guide 阶段连续执行；Entries Stage 内部完成 Check、Diff、P-23 与原子 Apply；applied 后执行 Verify 并重新 Guide；repair_required 时只修失败条目并自动重新 Stage，不要求用户继续；stopped写入尝试只在现有证据可证明时自动重新Plan、Resume或Rollback，只有审批/外部动作边界、不可证明Recovery、第三方冲突或其他真实安全故障才停止用户任务

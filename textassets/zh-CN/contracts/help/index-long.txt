@@ -1,0 +1,8 @@
+aoci index 是索引bootstrap、生成、维护与质量治理工序组。
+inventory:      纯离线列出磁盘有、索引无的文件及画像。
+header draft:   调用用户配置端点起草头部，只写草稿区。
+build:          批量起草首次条目，只写草稿区。
+update:         检测漂移并按automation.mode治理。
+entries:        Check、Diff与原子Apply。
+score:          九维度索引质量评分。
+agent:          宿主Agent的Plan、Guide与Stage协议。

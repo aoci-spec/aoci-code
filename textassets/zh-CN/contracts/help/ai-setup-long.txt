@@ -1,0 +1,5 @@
+写入 AI 增强层配置。
+
+安全: 本命令【不接受】传入密钥值,只接受 --key-env(存放密钥的环境变量名称)。
+真实密钥请通过环境变量提供(如 export AOCI_AI_KEY=sk-xxx),配置中只记变量名。
+--local 写入 config.local.json(仅本机、不进 Git);默认写入 config.json(团队共享)。

@@ -1,0 +1,265 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/maintain/tool-description",
+      "kind": "contract",
+      "path": "contracts/maintain/tool-description.txt",
+      "description": "MCP tool description for the compact Auto maintenance closure",
+      "used_by": "internal/mcptools/tools_maintain.go:registerMaintainTool",
+      "protocol_tokens": [
+        "format-only",
+        "Baseline",
+        "Ledger",
+        "Guide",
+        "repair_required",
+        "stopped",
+        "logical_plan",
+        "max_entries",
+        "included",
+        "remaining",
+        "continuation_required"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "最终稳定状态",
+          "scope=database只读取已保存的Canonical Evidence",
+          "不包含任何程序生成的标签或FRAS字段",
+          "Database Volume缺失时稳定返回database_volume_absent",
+          "不创建Root、Meta或Database Volume"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/dictionary-unparseable",
+      "kind": "contract",
+      "path": "contracts/maintain/dictionary-unparseable.txt",
+      "description": "Recovery message when the Header contains dictionary-like lines that cannot be parsed",
+      "used_by": "internal/mcptools/tools_maintain.go:maintainDictionaryUnparseableMessage",
+      "protocol_tokens": [
+        "aoci",
+        "agent"
+      ]
+    },
+    {
+      "id": "contracts/maintain/dictionary-missing",
+      "kind": "contract",
+      "path": "contracts/maintain/dictionary-missing.txt",
+      "description": "Recovery message when the Header has no usable A/B dictionary",
+      "used_by": "internal/mcptools/tools_maintain.go:maintainDictionaryMissingMessage",
+      "protocol_tokens": [
+        "aoci index header draft",
+        "diff",
+        "apply",
+        "agent"
+      ]
+    },
+    {
+      "id": "contracts/maintain/actions/repository-failure",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/repository-failure.txt",
+      "description": "Recovery action for repository or configuration failure during Maintain",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "保留当前资产",
+          "重试"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/dictionary-unparseable",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/dictionary-unparseable.txt",
+      "description": "Recovery action for an unparseable Header dictionary",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "标签字典",
+          "重试"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/dictionary-missing",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/dictionary-missing.txt",
+      "description": "Recovery action for a missing governed Header dictionary",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [
+        "Header"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "标签字典",
+          "重试"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/snapshot-failure",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/snapshot-failure.txt",
+      "description": "Recovery action for a repository snapshot read failure",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "目录可读性",
+          "重试"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/curation-invalid",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/curation-invalid.txt",
+      "description": "Recovery action for an invalid file-curation asset",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [
+        ".aoci/curation.json"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "策展裁决"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/format-only-failure",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/format-only-failure.txt",
+      "description": "Stopped action after a real format-only conflict or runtime failure",
+      "used_by": "internal/mcptools/tools_maintain.go:handleMaintainWithVersion",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "保留当前资产",
+          "冲突",
+          "运行故障"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/blocked",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/blocked.txt",
+      "description": "Stopped action when Maintain findings contain real governance or safety stops",
+      "used_by": "internal/mcptools/tools_maintain.go:buildMaintainAutoResult",
+      "protocol_tokens": [
+        "findings"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "安全停点"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/candidates",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/candidates.txt",
+      "description": "Repair-required action for a complete semantic candidate batch",
+      "used_by": "internal/mcptools/tools_maintain.go:buildMaintainAutoResult",
+      "protocol_tokens": [
+        "aoci_update_entry.entries"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整批次"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/aligned",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/aligned.txt",
+      "description": "Applied action shared by Maintain and Update when governance is aligned",
+      "used_by": "internal/mcptools/tools_maintain.go:buildMaintainAutoResult,internal/mcptools/tools_auto_result.go:autoApplyNextAction",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "治理已对齐",
+          "无需继续调用"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/apply-remaining",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/apply-remaining.txt",
+      "description": "Applied-but-not-aligned action requesting one remaining Maintain pass",
+      "used_by": "internal/mcptools/tools_auto_result.go:autoApplyNextAction",
+      "protocol_tokens": [
+        "aoci_maintain"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "真实停点"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/apply-duplicate",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/apply-duplicate.txt",
+      "description": "Applied duplicate-batch action that states the real write count",
+      "used_by": "internal/mcptools/tools_auto_result.go:autoApplyNextAction",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "正式写入为0",
+          "无需继续调用"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/update-repair",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/update-repair.txt",
+      "description": "Repair-required action for an invalid semantic update batch",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "protocol_tokens": [
+        "findings"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "同一完整批次"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/update-stopped",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/update-stopped.txt",
+      "description": "Stopped action for a semantic update conflict or runtime failure",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "保留现场",
+          "冲突",
+          "运行故障"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/baseline-replay",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/baseline-replay.txt",
+      "description": "Stopped recovery action after Index postimage with incomplete Baseline",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "protocol_tokens": [
+        "source_sha256",
+        "Baseline"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "完整批次"
+        ]
+      }
+    }
+  ]
+}

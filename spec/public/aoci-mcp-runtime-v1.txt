@@ -1,0 +1,41 @@
+AOCI-CODE MCP Runtime Contract v1
+=================================
+
+Transport and identity
+----------------------
+
+`aoci mcp` runs an MCP server over stdio. `serverInfo.name` is `aoci-code` and
+`serverInfo.version` is the version injected into the running binary. Stdout is
+reserved for JSON-RPC frames. Logs and diagnostics are written to stderr.
+
+The current MCP protocol identity is `2025-11-25`.
+
+Tool surface
+------------
+
+The public server exposes exactly these nine tools:
+
+  aoci_get_entries
+  aoci_header
+  aoci_maintain
+  aoci_overview
+  aoci_remove_entry
+  aoci_report
+  aoci_rules
+  aoci_search
+  aoci_update_entry
+
+The SHA-256 identity of the sorted names, joined by LF with a final LF, is:
+
+  b4a56cb6d4e625189708e2132a45094eecc62a05c6a1bd4d06ddd0471598176e
+
+Schemas and behavior
+--------------------
+
+The tool descriptions and input schemas returned by the running server are the
+machine contract. Tools resolve the repository passed to the server and load
+current repository state for each call. A protocol error is returned as an MCP
+error result; it is not printed as a second stdout message.
+
+The nine-tool identity is independent from optional CLI lifecycle commands.
+Changing a CLI command does not implicitly add, remove, or rename an MCP tool.

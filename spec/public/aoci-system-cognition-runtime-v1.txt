@@ -1,0 +1,36 @@
+AOCI System Cognition Runtime Contract v1
+=========================================
+
+Boundary
+--------
+
+System cognition commands expose read-only derived views. Cognition Volumes,
+saved Schema Evidence bindings, Baseline fingerprints, and receipt-bound
+identities remain the underlying authorities. A derived result reports
+`derived=true`; the relation projection additionally reports
+`authoritative=false`. These commands do not create an Apply, CAS, Recovery,
+Baseline, Ledger, approval, or persistence lifecycle.
+
+CLI surface and versions
+------------------------
+
+`aoci cognition system` exposes:
+
+  relations   system-relation-projection/v1
+  lineage     cognition-lineage/v1
+  impact      database-to-code-impact/v1
+  snapshot    cognition-evolution-snapshot/v1
+  evolution   cognition-evolution/v1
+
+`impact` requires a canonical Database object reference. `evolution` consumes
+one strict JSON snapshot produced by the snapshot command. Unknown fields,
+duplicate keys, trailing JSON, or a version mismatch fail validation.
+
+Observable safety properties
+----------------------------
+
+The projection is deterministic for the same coherent cognition and Baseline
+inputs, is sorted before identity calculation, does not access the network,
+and does not read business rows. Findings report incomplete or unresolved
+bindings instead of inventing relations. The public JSON structs and command
+tests are the field-level executable contract.

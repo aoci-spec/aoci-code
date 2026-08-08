@@ -1,0 +1,5 @@
+Output constraints (the CLI machine-enforces rules 1–3 and rejects violations; rule 4 is a semantic discipline):
+1. Output only the Entry: exactly one line, with no explanation, preface, closing text, or Markdown code fence.
+2. The structure must be filename[tag]: F:... | R:... | A:... | S:... with all four fields present, - for an empty field, and a space-pipe-space separator.
+3. Begin with the filename alone, meaning the final segment of the target path, with no directory prefix.
+4. Write natural-language content in en-US while preserving source paths, identifiers, APIs, and project-specific terms exactly.

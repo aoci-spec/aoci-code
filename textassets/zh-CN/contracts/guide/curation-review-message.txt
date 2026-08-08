@@ -1,0 +1,1 @@
+automation.mode=review：当前存在待语义策展文件；完成Stage与Diff后在Apply前等待用户批准。

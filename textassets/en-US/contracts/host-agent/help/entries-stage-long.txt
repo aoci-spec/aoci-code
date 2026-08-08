@@ -1,0 +1,4 @@
+Read structured JSON from a UTF-8 request file or stdin. Every candidate must come from the current agent plan.
+The request is limited to {{.EntriesMaxBodyBytes}} bytes ({{.EntriesMaxBodyHuman}}) and {{.EntriesMaxEntries}} candidates per batch.
+Use --request-file on Windows. PowerShell 5 must not pass request JSON through a text pipeline.
+Exactly one of --request-file and --stdin-json is required. Stage first commits the draft safely. With automation.mode=auto it then completes Check, Diff, P-23, and atomic Apply internally. A candidate-content error returns repair_required, and the host repairs only failed items before automatically staging the same complete batch again. stopped ends the current attempt; existing zero-write and Recovery evidence decides automatic replan, Resume, Rollback, user action, or hard block. review and legacy preserve the draft and continue at the Guide stop.

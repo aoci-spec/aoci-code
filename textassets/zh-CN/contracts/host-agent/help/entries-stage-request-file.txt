@@ -1,0 +1,1 @@
+从UTF-8普通JSON文件读取Host-Agent候选；上限{{.EntriesMaxBodyBytes}}字节(Windows推荐)

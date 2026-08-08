@@ -1,0 +1,57 @@
+# 构建产物
+/build/
+/dist/
+
+# Go相关
+*.test
+*.out
+coverage.txt
+
+# 编辑器与操作系统
+.DS_Store
+.idea/
+.vscode/
+
+# 人工操作产生的时间戳备份文件
+*.backup.*
+
+# ── AOCI本地运行时产物：只属于当前机器，不进入Git ──
+
+# 程序滚动备份
+.aoci/*.bak
+
+# 本地遥测台账：记录操作与Token，不包含密钥，但跨机器合并无意义
+.aoci/ledger.jsonl
+
+# Agent登记的不确定项与维护待办：只服务当前工作区会话
+.aoci/reports.jsonl
+
+# Verify历史快照
+.aoci/verify_history/
+
+# 本地覆盖配置：可包含个人模型端点等本机信息
+.aoci/config.local.json
+
+# Draft-first草稿区：正式Apply前不属于团队认知资产
+.aoci/drafts/
+
+# 跨进程写锁：仅在提交临界区短暂存在
+.aoci/lock
+
+# 可恢复长时任务：保存本机执行命令、检查输出与安全检查点
+.aoci/tasks/
+
+# 可恢复认知Onboarding：只保存本机确定性进度和正式Apply前工件
+.aoci/onboarding/
+
+# ── AOCI正式认知与治理资产：必须进入Git ──
+#
+# aoci.txt、Baseline、团队配置和文件级Curation决策共同构成可克隆、
+# 可审计的仓库认知状态。反忽略规则显式登记资产边界，防未来扩大
+# .aoci忽略范围时误伤正式资产。
+
+!aoci.txt
+!.aoci/baseline.json
+!.aoci/database-baseline.json
+!.aoci/config.json
+!.aoci/curation.json

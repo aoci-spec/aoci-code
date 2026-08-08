@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/help/root-long",
+      "kind": "contract",
+      "path": "contracts/help/root-long.txt",
+      "description": "Stable root-command description of AOCI local-first cognition assets and optional AI enhancement",
+      "used_by": "internal/cli/cli_help_contract.go:rootLongHelp",
+      "protocol_tokens": [
+        "aoci.txt",
+        ".aoci/",
+        "LLM Agent"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "零依赖离线工具",
+          "AI 端点"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/doctor-long",
+      "kind": "contract",
+      "path": "contracts/help/doctor-long.txt",
+      "description": "Stable Doctor help describing read-only diagnosis and explicit endpoint probing",
+      "used_by": "internal/cli/cli_help_contract.go:doctorLongHelp",
+      "protocol_tokens": [
+        "aoci doctor",
+        "--net"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "数据主权",
+          "不经第三方"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/index-long",
+      "kind": "contract",
+      "path": "contracts/help/index-long.txt",
+      "description": "Stable overview of the Index command group and its governance stages",
+      "used_by": "internal/cli/cli_help_contract.go:indexLongHelp",
+      "protocol_tokens": [
+        "inventory:",
+        "header draft:",
+        "build:",
+        "update:",
+        "entries:",
+        "score:",
+        "agent:"
+      ]
+    },
+    {
+      "id": "contracts/help/index-update-long",
+      "kind": "contract",
+      "path": "contracts/help/index-update-long.txt",
+      "description": "Stable Index Update classification and no-network dry-run contract",
+      "used_by": "internal/cli/cli_help_contract.go:indexUpdateLongHelp",
+      "protocol_tokens": [
+        "changed:",
+        "new:",
+        "curation_excluded:",
+        "pending_curation:",
+        "skipped_missing:",
+        "deleted/unbaselined:",
+        "CRLF/LF",
+        "--dry-run"
+      ]
+    },
+    {
+      "id": "contracts/help/verify-long",
+      "kind": "contract",
+      "path": "contracts/help/verify-long.txt",
+      "description": "Stable Verify contract for raw drift, Missing governance subsets, line-ending tolerance and exit codes",
+      "used_by": "internal/cli/cli_help_contract.go:verifyLongHelp",
+      "protocol_tokens": [
+        "Result.Missing",
+        "RawMissing",
+        "Actionable",
+        "CurationExcluded",
+        "Skipped",
+        "Included",
+        "Pending",
+        "line_ending_tolerance=true",
+        "LineEndingOnly",
+        "ActionableMissing",
+        "PendingCuration",
+        "Orphan",
+        "Stale",
+        "Unbaselined",
+        "exit 1",
+        "exit 0"
+      ]
+    },
+    {
+      "id": "contracts/help/check-long",
+      "kind": "contract",
+      "path": "contracts/help/check-long.txt",
+      "description": "Stable Check contract separating commit blockers from displayed non-blocking dimensions",
+      "used_by": "internal/cli/cli_help_contract.go:checkLongHelp",
+      "protocol_tokens": [
+        "ActionableMissing",
+        "PendingCurationMissing",
+        "Stale",
+        "Unbaselined",
+        "RawMissing",
+        "CurationExcludedMissing",
+        "SkippedMissing",
+        "Orphan",
+        "LineEndingOnly",
+        "tagparse Warning",
+        "aoci verify",
+        "S",
+        "E"
+      ]
+    },
+    {
+      "id": "contracts/help/scan-long",
+      "kind": "contract",
+      "path": "contracts/help/scan-long.txt",
+      "description": "Stable Scan contract for rebuilding the Baseline and preventing accidental drift laundering",
+      "used_by": "internal/cli/cli_help_contract.go:scanLongHelp",
+      "protocol_tokens": [
+        "SHA256",
+        ".aoci/baseline.json",
+        "--force"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "一键洗白"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/remove-entry-long",
+      "kind": "contract",
+      "path": "contracts/help/remove-entry-long.txt",
+      "description": "Stable Remove Entry contract for orphan cleanup, live-file deletion consequences and preview",
+      "used_by": "internal/cli/cli_help_contract.go:removeEntryLongHelp",
+      "protocol_tokens": [
+        "aoci index update",
+        "deleted",
+        "Missing",
+        "verify",
+        "--preview"
+      ]
+    }
+  ]
+}

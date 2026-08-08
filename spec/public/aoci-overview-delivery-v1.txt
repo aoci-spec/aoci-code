@@ -1,0 +1,283 @@
+AOCI Overview Delivery Integrity v1
+===================================
+
+Scope
+-----
+
+This specification defines complete Whole-Index delivery, compact checkpoint
+reads, deterministic transport framing, Host confirmation, and model cognition
+attestation through the existing `aoci_overview` MCP tool. It adds no tool,
+semantic Chunk, persistent delivery Session, or second Attestation protocol.
+
+Request modes
+-------------
+
+When `check_only` is absent or false, `request_mode=full`. A coherent formal
+snapshot is framed as:
+
+    exact start marker
+    exact formal aoci.txt bytes
+    exact end marker
+
+No directory inventory, relocation note, recall note, generated summary, or
+other display wrapper appears inside that body. Runtime repository root, Entry
+and Section counts, estimated tokens, Index SHA-256, framed-body bytes and
+SHA-256, and delivery state remain machine Metadata. Dirty or Stale cognition
+may be delivered but is unreliable as current implementation evidence.
+
+Only explicit `check_only=true` produces `request_mode=check_only`,
+`delivery_mode=checkpoint`, and no cognition body or chunk chain. Pending
+Recovery or an incoherent snapshot fails closed without mixed content.
+
+Chunk configuration
+-------------------
+
+The single project setting `overview_delivery.chunk_tokens` controls only
+Overview transport frame size. Its default is 8000 and its inclusive range is
+4000 through 24000. Missing configuration uses 8000. An invalid value fails
+explicitly and is never clamped or repaired. The setting does not participate
+in Index, Baseline, Managed Scope, cognition budget, or formal semantic
+identity. AOCI performs no Host capability detection, local override, adaptive
+retry, or automatic reduction of the configured value.
+
+If the exact framed body is estimated at no more than `chunk_tokens`, one call
+returns `delivery_mode=full`, `completed=true`, and
+`continuation_required=false`. Otherwise the first ordinary call directly
+returns Chunk 1 with `delivery_mode=chunked_full` and a `next_cursor`; it does
+not first attempt the complete oversized body. Subsequent calls use only that
+cursor until the final Chunk reports `completed=true` and
+`continuation_required=false`.
+
+Chunk formation and Receipt
+---------------------------
+
+Chunking is transport framing over one complete formal Whole-Index, not RAG.
+Every Chunk is bound to the same repository, `repository_full` cognition scope,
+Index SHA-256, immutable formal snapshot, formal Entry order, and configured
+`chunk_tokens`. The Header occurs only in Chunk 1, each Entry occurs exactly
+once and is never split, and the end marker occurs only in the final Chunk.
+Cutting is UTF-8 safe and prefers the boundary immediately before the next
+complete Entry. A Chunk body never exceeds the configured token estimate. If
+one Entry cannot fit, delivery fails with
+`overview_entry_exceeds_chunk_budget`; the Entry is not truncated.
+
+Every Chunk uses the existing `overview-chunk-receipt/v1`. Its proof includes
+the Index SHA-256, Chunk index and count, first and last Entry ordinals, Chunk
+body byte and estimated-token counts, Chunk SHA-256, `next_cursor`, and
+completion state. The first Chunk also carries the full-body receipt; middle
+Chunks carry only the minimal Receipt and body. v1 is sufficient and no v2 is
+introduced.
+
+Legacy Whole-Index uses one `formal_entry_ordinal`: the 1-based position in the
+formal Entry sequence, with valid range `1..entry_count`. Header content,
+comments, blank lines, Section markers, Overview markers, Chunk markers,
+receipts, and Metadata are excluded. Volumes scope uses the same rule over one
+canonical cognition-object sequence for that scope, in the existing canonical
+object order. `first_entry_ordinal`, `last_entry_ordinal`, Challenge ordinals,
+Attestation answer ordinals, and object coverage all consume this exact shared
+ordered sequence. There is no display ordinal, line-number ordinal, Chunk-local
+ordinal, or implicit offset.
+
+The opaque cursor binds the Index SHA-256, configured `chunk_tokens`, next Entry
+ordinal, and previous Chunk SHA-256. Invalid, missing, repeated, reordered, or
+cross-chain use fails closed. A changed Index returns
+`overview_snapshot_changed` and requires a restart at Chunk 1. A changed
+configuration returns `overview_chunk_tokens_changed` and also requires a
+restart. AOCI persists no delivery transaction or Session.
+
+Full-body receipt and Host confirmation
+---------------------------------------
+
+The aggregate body uses `overview-delivery-receipt/v1` and reports runtime
+repository root, scope, scope identity, object count, exact framed-body byte
+count, SHA-256, and both markers. Server production and Host observation are
+different facts. Host delivery becomes confirmed only when the Host reports
+the matching Receipt version, aggregate body SHA-256, byte count, and observed
+end marker. Any missing or mismatched field is incomplete.
+
+The Host assembles every Chunk in order, verifies each Chunk Receipt and the
+aggregate body, and observes the final marker before confirming delivery. Host
+truncation, a missing, duplicate, or reordered Chunk, cursor failure, Index
+change, or `chunk_tokens` change stops the cognition chain. Attestation failure
+stops complete-cognition acceptance and semantic retry. Memory, source, this Spec, historical sessions, direct `aoci.txt`
+reads, `aoci_get_entries`, `aoci_search`, scoped reads, or skipped/replayed
+Chunks cannot substitute for a complete chain or repair an Attestation. If Host
+truncation occurs, the Agent stops, reports failure, and asks the user to set
+`overview_delivery.chunk_tokens` to a smaller valid value before starting over;
+AOCI never changes it automatically.
+
+Volumes governance freshness
+----------------------------
+
+For Volumes v1, every ordinary delivery obtains `governance_aligned` from the
+same current, read-only Volume governance assessment used by Verify, Check,
+Guide, and Maintain. The assessment covers structure validity; missing,
+orphan, stale, and unbaselined Code objects; pending Curation and Managed Scope
+review; ownership conflicts; cognition budget; legal Database-absent state or
+current Database cognition and Evidence; pending transactions and Recovery;
+third-party conflict; and the current composite formal cognition identity.
+Overview does not infer alignment from a previous Receipt, Ledger event, or
+Verify History, and a clean repository does not require Verify, Check, or Guide
+to run before its first Attestation.
+
+The governance assessment observed for the first body or Chunk is bound in the
+current MCP Host session to that exact scope identity and framed-body SHA-256.
+Continuation and Attestation must observe the same governance snapshot. A
+changed formal Volume, Baseline, governed source, transaction, Recovery, or
+conflict state fails closed; current facts are never attached to an older
+Whole-Index body to grant Level 4. The binding is small in-memory session state,
+not a new Receipt version, persistent delivery database, formal asset, or MCP
+tool.
+
+The binding contains current formal asset/composite identities and the exact
+Baseline byte identity. Git HEAD is excluded: a commit-only transition with
+unchanged source, formal cognition, Baseline, and governance facts does not
+invalidate the delivery. Ledger, Verify History, and other safety-excluded
+runtime audit files are neither prerequisites nor cognition/governance identity
+inputs and do not change formal assets.
+
+Model Cognition Attestation v1
+------------------------------
+
+After the complete chain, the Host uses the existing
+`model-cognition-attestation/v1`. Its deterministic Challenge contains ten
+distributed Entry ordinals when at least ten Entries exist, or every ordinal
+for a smaller fixture. Answers bind each ordinal to exact object identity, Tag,
+and core F responsibility. The program transports and validates formal F/R/A/S
+but does not generate, summarize, compress, truncate, reorder, or rewrite it.
+The Challenge exposes only version, current Index SHA-256, current ordered
+Entry-sequence SHA-256, current Entry count, digest, and formal ordinals; it
+does not leak target paths or object identities, Tags, F, or answer summaries.
+
+The Challenge digest covers the current Index SHA-256, the SHA-256 of the full
+ordered sequence of ordinal, object identity, Tag, and core F bindings, the
+current Entry count, and the selected ordinals. The model must echo those three
+current identity facts in its Attestation. An Attestation created for a prior
+Index, prior sequence, or prior count fails even if some ordinal answers still
+match. Selection uses the current complete sequence only: each current stratum
+chooses a target by a stable object-identity key and reports that target's
+current ordinal. This reduces unrelated target churn after nearby Entry-set
+changes without caching or consulting any historical Entry set.
+
+Object identity comparison preserves one canonical machine identity. Legacy
+Entries and Volumes Code objects may be answered with the exact delivered
+repository-relative path. For a Volumes Code object, that exact path maps
+one-to-one to `code:<path>`; the assessor performs no path cleaning, case
+folding, basename lookup, or fuzzy resolution. Database objects still require
+their exact `database://source/namespace/table` identity. This is answer-format
+canonicalization, not a weaker semantic match: ordinal, Tag, and core F remain
+exact and every Challenge target must still pass.
+
+The model makes one semantic Attestation submission based only on the delivered
+Whole-Index. If that same response reports only a JSON Schema or field-format
+error, one correction may adjust field names, types, missing fields, or
+encoding without reinterpreting or changing Challenge answers. Any object,
+Tag, or F mismatch immediately yields `model_attestation=fail` and
+`cognition_assimilation=uncertain`; no semantic retry or external-information
+bypass is permitted.
+
+The assessment keeps three independent dimensions:
+
+* `delivery_integrity`: confirmed, unconfirmed, or incomplete;
+* `model_attestation`: pass, partial, fail, or not_provided;
+* `cognition_assimilation`: complete, partial, or uncertain.
+
+Passing requires the exact current Index SHA-256, Entry-sequence SHA-256, Entry
+count, Challenge version and digest, every answer once and in ordinal order, a
+matching reported Entry count, a reasonable token report, at least 95 percent
+reported coverage, no detected truncation, and all exact bindings.
+Complete assimilation additionally requires continuous 100 percent machine
+Entry coverage, confirmed Host delivery, current aligned formal cognition,
+Challenge 10/10, `governance_aligned=true`, passing Attestation, and at least 80
+percent model-reported system mastery. Mastery is a self-assessment and never
+replaces machine coverage.
+
+`system_mastery_percent` means only the model's self-assessed mastery of the
+system framework: overall architecture, module responsibilities, strong
+relationships, stable external contracts, and high-entropy safety and
+maintenance constraints. It does not mean complete source implementation,
+every conditional branch, every identifier, every test, current runtime facts,
+or permission to modify any object without reading its source. Machine Index
+coverage and framework mastery are always reported separately.
+
+Human cognition status levels
+-----------------------------
+
+Overview adds a human-oriented explanation layer without replacing any
+existing field:
+
+* Level 0, `no_cognition`: no valid Index is available;
+* Level 1, `index_loaded`: cognition content is present, but complete Host
+  delivery is not verified;
+* Level 2, `delivery_verified`: the Index is loaded and Host delivery is
+  confirmed, but strict complete-cognition verification is unfinished;
+* Level 3, `cognition_verified`: delivery is confirmed and the Attestation,
+  including Challenge 10/10, passes;
+* Level 4, `cognition_governed`: Level 3 is established and governance is
+  aligned.
+
+The additive `cognition_level`, `cognition_level_state`, and localized
+`cognition_level_message` never replace `model_full_cognition_reliable`,
+`cognition_assimilation`, or `governance_aligned`. In particular, Level 2 is
+not “no cognition”: the project cognition was loaded and its delivery proved,
+while the strict assimilation proof remains incomplete.
+
+Agent and user contract
+-----------------------
+
+On `continuation_required=true`, the Agent does not ask whether to continue,
+state a partial system conclusion, or begin the business task. It submits the
+exact `next_cursor` and continues automatically until completion. Every failure
+listed above stops the chain or acceptance; local and historical information
+must not be used to claim completion.
+
+Initial cognition still requires complete transport, continuous coverage,
+Challenge 10/10, passing Attestation, aligned governance, and sufficient
+mastery for `model_full_cognition_reliable=true`. Initial partial or failure
+blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
+but it does not prohibit honest answers or task-bound source/test inspection.
+
+For context-compaction refresh, a complete, Host-confirmed,
+governance-aligned attempt consumes the refresh generation even when
+Attestation is partial or failed. That result records an uncertain receipt and
+`delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`;
+the Host continues the existing source-bound task without a second automatic
+Overview. It does not claim complete-system cognition and must not repair the
+Attestation through local or historical information.
+
+After a successful Attestation, ordinary user communication is one concise
+natural-language sentence derived from the actual Entry, token, Chunk,
+Challenge, coverage, and mastery results. A real delivery failure is one
+concise sentence that states received versus total Chunks, approximate
+coverage, the reason, and that complete system cognition cannot be claimed.
+When delivery is confirmed but Attestation is absent, partial, or failed, the
+message instead says that project cognition was loaded and delivery verified,
+but complete cognition verification is unfinished. It must not say that no
+system cognition or understanding exists. Cursors, per-Chunk SHA, long
+Metadata, and Attestation JSON remain machine evidence by default.
+
+The default Chinese forms are:
+
+    已完整读取并校验AOCI：<entry_count>/<entry_count>条、约<estimated_tokens> tokens、共<chunk_count>块，Challenge <passed>/<total>、索引覆盖率<coverage_percent>%；我对系统框架——架构、职责、强关系、稳定契约和关键约束——的掌握度约<system_mastery_percent>%。
+
+    已加载项目认知且交付已验证，但完整认知验证尚未完成：Challenge <passed>/<total>；可以继续诚实的source-bound调查，但当前不能声称完整系统认知。
+
+    AOCI完整读取失败：已读取<received>/<total>块，索引覆盖率约<coverage>%；原因是<reason>，当前不能声称已经掌握完整系统框架。
+
+All values come from the current Receipt and Attestation and are never hard
+coded.
+
+Compatibility and safety
+------------------------
+
+The MCP surface remains exactly nine tools. Legacy no-argument calls, Volumes
+`all`, `project`, `meta`, `code`, and `database` reads, CAS, Recovery, Managed
+Scope, Migration, and Database capabilities remain supported. Overview audit
+events are runtime Metadata and never enter formal content identity.
+
+When AOCI MCP is available, the formal path is Rules, automatic Chunk chain,
+and Attestation. Direct segmented reading of `aoci.txt` without MCP remains a
+manual fallback or diagnostic only. It does not provide equivalent Chunk-chain
+integrity, governance or Baseline state, pending-transaction protection, or
+Attestation proof. v1 adds no file-read Attestation, command, tool, or second
+state machine.

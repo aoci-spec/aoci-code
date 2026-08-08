@@ -1,0 +1,1 @@
+automation.mode=review：宿主Agent应生成Header候选，完成Stage与Diff后在Apply前等待用户批准。

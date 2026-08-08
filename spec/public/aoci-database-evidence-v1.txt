@@ -1,0 +1,233 @@
+Database Evidence v1
+
+Status: R67-D0 candidate. This contract covers explicit PostgreSQL/MySQL
+metadata collection, canonical table evidence, structural fingerprints, an
+independent evidence Baseline, drift reporting, and model-facing evidence
+bundles. The Evidence subsystem itself does not create a Database Cognition
+Volume or any FRAS Entry. After explicit Baseline acceptance, the separate
+Database Cognition Bootstrap lifecycle router may consume the bound Evidence.
+
+1. Authority and boundary
+
+The executable field, validation, sorting, and hash authority is the
+internal/dbevidence package in the currently compiled AOCI binary. This Spec
+describes that contract for interoperability; collectors, tests, documentation,
+and prompts must not maintain independent normalization rules.
+
+The only ordinary v1 object is a base table. Columns, primary keys, foreign
+keys, unique constraints, checks, indexes, and partition facts are evidence
+inside one table object. Views, materialized views, triggers, procedures,
+functions, events, and multi-database transaction objects are out of scope.
+
+The collector owns deterministic facts only. It must never choose a tag,
+generate F/R/A/S, copy foreign keys into R, infer S from names, emit a semantic
+draft, truncate a candidate, or create/update/delete formal cognition.
+
+2. Explicit source configuration
+
+Team configuration may contain database_sources. Each declaration contains a
+logical source_id, engine (postgresql or mysql), database, namespaces,
+include/exclude namespace and table globs, credential_env, connect and query
+timeouts, and enabled. credential_env is an environment variable name. A DSN,
+password, token, host, IP, or username is invalid as team configuration.
+
+No source means no database connection, evidence file, database warning, or
+database Missing state. Database access occurs only for explicit database
+source inspect, database snapshot, or database verify commands.
+
+3. Read-only collection
+
+Every collection uses one connection and one repeatable-read, read-only
+transaction with context cancellation and explicit timeouts. Production query
+text is centralized in internal/dbevidence/queries.go. Except for engine version
+and case-semantics facts, queries are limited to information_schema and the
+necessary PostgreSQL pg_catalog objects. Collectors never query a user table,
+read rows, count rows, sample values, or execute DDL/DML.
+
+System namespaces are always excluded. PostgreSQL excludes information_schema,
+pg_catalog, pg_toast*, and pg_temp_*. MySQL excludes information_schema, mysql,
+performance_schema, and sys.
+
+4. Canonical object identity
+
+PostgreSQL and MySQL table identities use:
+
+  database://<source_id>/<percent-encoded-namespace>/<percent-encoded-table>
+
+source_id is restricted to a stable lower-case logical token. Namespace and
+table segments preserve the identifier spelling returned by the engine and use
+RFC 3986 path-segment escaping with upper-case hexadecimal escapes. A quoted
+identifier containing slash is therefore encoded, never treated as a path.
+
+PostgreSQL records preserve_quoted_fold_unquoted_lower. MySQL records the
+server's lower_case_table_names value (0, 1, or 2) and preserves the spelling
+returned by the catalog; the collector never unconditionally lowercases a
+name.
+
+5. Canonical Table Evidence
+
+Canonical Table Evidence is UTF-8 JSON without a BOM, with two-space indent and
+one trailing LF. Struct field order is stable. Columns sort by ordinal;
+constraints and indexes sort by name; key/FK columns and index elements retain
+ordinal order; partition children sort by canonical identity; partition
+definitions sort by ordinal. Nil repeated collections encode as empty arrays.
+Catalog text preserves engine syntax, trims surrounding whitespace, and folds
+CRLF to LF. It is never rewritten by a SQL parser or heuristic.
+
+Each table records engine/source/database/namespace identity; base-table kind;
+ordinal columns with native and canonical type, nullability, default, serial,
+identity, auto_increment, and generated facts; ordered primary, unique, and
+foreign keys with actions; checks; ordered column/expression indexes with
+uniqueness, prefix, visibility, method, and predicate facts where supported;
+and PostgreSQL/MySQL partition facts. These remain table evidence rather than
+independent FRAS objects.
+
+The version is database-evidence/v1. A complete example is:
+
+  {
+    "version": "database-evidence/v1",
+    "object_ref": "database://primary/public/users",
+    "engine": "postgresql",
+    "source_id": "primary",
+    "database": "app",
+    "namespace": "public",
+    "name": "users",
+    "kind": "base_table",
+    "columns": [
+      {
+        "ordinal": 1,
+        "name": "id",
+        "native_type": "bigint",
+        "canonical_type": "bigint",
+        "nullable": false,
+        "identity": "BY DEFAULT"
+      },
+      {
+        "ordinal": 2,
+        "name": "email",
+        "native_type": "text",
+        "canonical_type": "text",
+        "nullable": false
+      }
+    ],
+    "primary_key": {
+      "name": "users_pkey",
+      "columns": [
+        "id"
+      ]
+    },
+    "unique_constraints": [],
+    "foreign_keys": [],
+    "checks": [],
+    "indexes": []
+  }
+
+Comments are not collected in v1. Engine version is Source Manifest audit
+metadata and does not enter Table Evidence or a table fingerprint. Host,
+username, IP, DSN, credentials, capture time, row counts, sizes, statistics,
+sample values, and last-update times never enter canonical evidence.
+
+6. Fingerprints and Snapshot
+
+table_evidence_sha256 is lower-case SHA-256 over the exact canonical Table
+Evidence bytes, including the trailing LF. Seven component SHA-256 values bind
+columns, primary_key, unique_constraints, foreign_keys, checks, indexes, and
+partition independently so drift can name changed structural components
+without storing old DDL in the Baseline.
+
+source_snapshot_sha256 is lower-case SHA-256 over canonical JSON containing:
+snapshot version, evidence version, source_id, engine, database, sorted
+namespaces, sorted include/exclude namespace and table rules, case semantics,
+present/present_empty state, and sorted table records (object_ref, table
+evidence SHA, component hashes, evidence_ref). It
+does not include server patch version, connection address, user, credential,
+host, capture time, or Source Manifest bytes.
+
+No configured source is absent. A successfully collected source with zero
+included tables is present_empty. These states never collapse.
+
+Runtime files are content-addressed under:
+
+  .aoci/database/evidence/<source_id>/source.json
+  .aoci/database/evidence/<source_id>/snapshot.json
+  .aoci/database/evidence/<source_id>/tables/<table_evidence_sha256>.json
+
+They are regenerable ignored assets and never replace aoci.database.txt.
+
+7. Evidence Baseline and drift
+
+.aoci/database-baseline.json is a formal, Git-reviewable evidence identity
+asset independent from .aoci/baseline.json. It stores only version, non-secret
+source identity and case/namespace/filter semantics, source snapshot SHA,
+canonical table identities, table evidence SHA values, and component SHA values. It does
+not store DSNs, endpoints, users, credentials, raw DDL, complete Evidence, row
+data, or capture times.
+
+Only aoci database baseline accept with the exact current
+source_snapshot_sha256 may create or advance it. Snapshot, inventory, inspect,
+and verify never advance it.
+
+Drift states are unchanged, new, changed, and removed. Connection failure is
+reported as source_unavailable and invalid canonical/runtime evidence as
+evidence_invalid at the command boundary. A changed item reports baseline and
+current SHA values, changed component names, and current Evidence reference.
+Source namespace, engine, database, evidence-version, or identifier-case
+semantics differing from the accepted source are reported independently as
+source_identity_changed and keep verification non-zero even when table hashes
+match. A Baseline for another source never makes an empty source accepted.
+The program reports a possible rename only as removed plus new; it never infers
+rename similarity or changes formal cognition.
+
+Evidence drift is not Database Cognition Missing, Stale, or Orphan, and it does
+not establish overall Guide alignment.
+
+8. Evidence Bundle and D1 integration
+
+database-evidence-bundle/v1 contains canonical identity, evidence version,
+table_evidence_sha256, complete current Table Evidence, optional migration/code
+evidence references, an existing Database Entry when one exists, and fixed
+business_data_read=false and semantic_candidate_included=false facts.
+
+The terminal state is the stable machine action
+author_complete_model_authored_table_fras: Evidence is ready for a model to
+independently author one complete table-level FRAS Entry. D0 does not create a
+Database Volume or change Root/Meta. R67-D1 consumes this Bundle through the
+existing scoped Maintain and binds two facts separately: the Database
+Cognition Volume preimage and each target table_evidence_sha256. source_sha256
+does not impersonate both. See aoci-database-cognition-authoring-v1.txt.
+
+9. Real-engine acceptance evidence
+
+The integration contract runs against disposable PostgreSQL 18 and MySQL 8.4
+instances. Test-only administrators prepare schemas, permissions, structural
+changes, and sentinel rows; the product Collector receives a distinct
+read-only credential and executes only the catalog query inventory in section
+4. Test setup DDL/DML is not Collector SQL.
+
+Each engine acceptance must prove two byte-identical collections, a canonical
+representative-table Golden, explicit Baseline acceptance, unchanged replay,
+one changed table with an unrelated table fingerprint unchanged, one new table,
+one removed table, partial visibility, permission denial, credential failure,
+timeout, cancellation, connection interruption, and source_unavailable without
+new Evidence or Baseline advancement. Business-row and credential sentinels
+must be absent from Evidence, Bundles, Baseline, diagnostics, and CI logs.
+
+The reviewed files under internal/dbevidence/testdata/real are derived
+acceptance evidence only. They are neither a second canonicalization authority
+nor a source of schema rules; the versioned types and CanonicalJSON pipeline in
+internal/dbevidence remain the sole machine implementation.
+
+10. R73 access onboarding minimum
+
+R73 adds `database-access-plan/v1` and a Credential Provider boundary without
+changing Source selection or Evidence identity. The only implemented provider
+is `environment`, backed by the compatible `credential_env` reference. Source
+add may derive a default reference from `source_id`; it never derives or stores
+a credential value. `database source access` checks readiness without opening
+a connection and reports zero network and business-row access. Vault,
+Kubernetes, and cloud-secret providers are explicitly outside this version.
+
+The Lineage and Impact views consume only accepted Database Cognition Baseline
+bindings. They do not change Schema Evidence, do not become Evidence, and do
+not authorize Database Cognition writes. See
+`aoci-system-cognition-foundation-v1.txt`.

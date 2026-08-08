@@ -1,0 +1,6 @@
+# aoci MCP server(由 aoci init 写入;项目级配置)
+# 说明: Codex 仅对"受信任项目"加载项目级 .codex/config.toml,
+#       首次在本仓运行 Codex 时请按其提示信任本项目。
+[mcp_servers.aoci]
+command = "{{.BinPath}}"
+args = ["--repo", "{{.RepoRoot}}", "mcp"]

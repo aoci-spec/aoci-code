@@ -1,0 +1,1 @@
+读取指定Entry。Legacy与Code使用仓库路径或目录；Volumes v1还可使用volume_id和规范object_refs（包括database://表身份），并为每条结果返回Volume身份。Legacy实时漂移行为不变。仅用于局部不确定、Overview正文不完整或用户明确查看特定条目；不要用少量Entry替代完整Overview。不会修改正式索引或Baseline，但可能追加本地审计记录。

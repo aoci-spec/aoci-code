@@ -1,0 +1,17 @@
+#AOCI-META-VOLUME: 1
+#Object-Protocol: repository-cognition-object/v2
+#FRAS-Discipline: 2
+#FRAS-v2-Limits-Authority: machine-contract
+#S-Admission: non-inferable-and-error-preventing
+#Object-Kinds: code=file database=table
+#[Tag dictionary: code]
+#A Layer: C Code
+#B Module: D Domain
+#C Importance: 9 8 7 5 3 1
+#E Scale: L M S T
+#[Tag dictionary: database]
+#A Layer: D Database
+#B Module: B Business
+#C Importance: 9 8 7 5 3 1
+#E Scale: L M S T
+#Calibration: F is one table responsibility; R and A are selected contracts, never catalog dumps; S must pass both admission questions.

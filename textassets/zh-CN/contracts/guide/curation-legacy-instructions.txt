@@ -1,0 +1,2 @@
+legacy兼容态要求展示Diff并在curation apply前等待用户批准。
+批准后Apply并重新运行guide。

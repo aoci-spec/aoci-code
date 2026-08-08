@@ -1,0 +1,34 @@
+Target file: {{.RelPath}}
+
+Current index Header (the sole source for tag dictionaries and index rules):
+----- INDEX HEADER BEGIN -----
+{{.HeaderText}}----- INDEX HEADER END -----
+
+{{if .HasSuggestedSection}}Suggested section (for understanding the file's location only; the tool decides the actual destination): {{.SuggestedSection}}
+
+{{end}}{{if .NeighborEntries}}Existing Entries in the same section (style references only; do not copy their content):
+{{range .NeighborEntries}}  {{.}}
+{{end}}
+{{end}}{{if .IsUpdate}}Existing Entry for this file (update reference: preserve S constraints that still hold and remove obsolete ones):
+----- EXISTING ENTRY BEGIN -----
+{{.OldEntry}}----- EXISTING ENTRY END -----
+
+{{end}}{{if .Curation}}File-level include Curation context already validated by the governance pipeline:
+----- CURATION CONTEXT BEGIN -----
+Semantic role: {{.Curation.Role}}
+Include reason: {{.Curation.Reason}}
+Confidence: {{.Curation.Confidence}}
+Physical profile: {{.Curation.ProfileReason}}
+File size: {{.Curation.SizeBytes}}B
+Line count: {{.Curation.Lines}}
+Extension: {{.Curation.Ext}}
+source_sha256: {{.Curation.SourceSHA256}}
+----- CURATION CONTEXT END -----
+
+{{end}}{{if .HasSourceText}}Target file source text:
+----- SOURCE TEXT BEGIN -----
+{{.SourceText}}----- SOURCE TEXT END -----
+
+{{else if .Curation}}Target file content was not injected because the file is empty, binary, or exceeds the automatic full-text limit. Draft the Entry using only the Curation context, path, and index Header above.
+
+{{end}}Now output the Entry for this file as exactly one line, following every output constraint:

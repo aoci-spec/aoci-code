@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/help/read-observation-audit",
+      "kind": "contract",
+      "path": "contracts/help/read-observation-audit.txt",
+      "description": "Canonical boundary between formal-asset read-only behavior and local audit writes",
+      "used_by": "internal/cli/cli_help_contract.go:readObservationAuditHelp",
+      "protocol_tokens": [
+        "verify",
+        "check",
+        "index score",
+        "index inventory",
+        "Baseline",
+        "Ledger",
+        "Verify History"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "不修改正式索引",
+          "不等同于严格零文件写入",
+          "退出码与治理判据"
+        ]
+      }
+    },
+    {
+      "id": "contracts/help/verify-short",
+      "kind": "contract",
+      "path": "contracts/help/verify-short.txt",
+      "description": "Stable Verify summary with the formal-asset and local-audit boundary",
+      "used_by": "internal/cli/cli_help_contract.go:verifyShortHelp",
+      "protocol_tokens": ["Baseline"]
+    },
+    {
+      "id": "contracts/help/check-short",
+      "kind": "contract",
+      "path": "contracts/help/check-short.txt",
+      "description": "Stable Check summary with the formal-asset and local-audit boundary",
+      "used_by": "internal/cli/cli_help_contract.go:checkShortHelp",
+      "protocol_tokens": ["Baseline"]
+    },
+    {
+      "id": "contracts/help/index-score-short",
+      "kind": "contract",
+      "path": "contracts/help/index-score-short.txt",
+      "description": "Stable Index Score summary with the formal-asset and local-audit boundary",
+      "used_by": "internal/cli/cli_help_contract.go:indexScoreShortHelp",
+      "protocol_tokens": ["Baseline"]
+    },
+    {
+      "id": "contracts/help/index-inventory-short",
+      "kind": "contract",
+      "path": "contracts/help/index-inventory-short.txt",
+      "description": "Stable Index Inventory summary with the formal-asset and local-audit boundary",
+      "used_by": "internal/cli/cli_help_contract.go:indexInventoryShortHelp",
+      "protocol_tokens": ["Baseline"]
+    },
+    {
+      "id": "contracts/help/index-inventory-long",
+      "kind": "contract",
+      "path": "contracts/help/index-inventory-long.txt",
+      "description": "Stable Index Inventory observation description",
+      "used_by": "internal/cli/cli_help_contract.go:indexInventoryLongHelp",
+      "protocol_tokens": ["Entry"]
+    }
+  ]
+}

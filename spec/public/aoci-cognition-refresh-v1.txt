@@ -1,0 +1,196 @@
+AOCI Cognition Refresh Contract v1 (draft)
+
+Status: candidate contract for R67-A. This contract extends the existing
+aoci_overview input and receipt. It does not add an MCP tool, a maintenance
+workflow, an Apply state, or a persistent product state machine.
+
+1. Purpose
+
+A normal Agent Run reads Rules once and receives one complete Overview. The
+host normally reuses that cognition. AOCI can assess three checkpoint reasons:
+
+- context_compaction: the host reports compaction, or the model knows that the
+  complete repository view has been lost;
+- semantic_threshold: AOCI's current semantic-change count reaches the project
+  threshold; or
+- phase_transition: one major work phase has completed and another is about to
+  begin.
+
+A function completion, one test run, one tool call, elapsed time, token count,
+index digest change, risk path, or minor work step is not a checkpoint reason.
+Checkpoint facts advise the Agent; they do not deny an explicit cognition
+request. Only check_only=true requests compact status without a body. Every
+ordinary explicit Overview requests complete delivery of its scope.
+
+2. Project configuration
+
+The team configuration file .aoci/config.json owns:
+
+  cognition_refresh_threshold
+
+The compiled default is 30. Legal values are integers from 1 through 100000.
+A repository without the field uses the compiled default. Zero, negative,
+non-integer, and out-of-range values fail closed. config.local.json cannot
+override this team policy and SaveLocal removes an accidental local copy.
+
+The executable constants in internal/machinecontract/numeric.go are the sole
+machine authority for the default and legal range. This document records the
+candidate contract; runtime behavior must not parse numeric policy from this
+file.
+
+3. Semantic-change count
+
+The count is the size of one deduplicated set of current repository-relative
+paths. The set contains:
+
+- real semantic Stale files;
+- Actionable Missing files; and
+- Pending Curation files.
+
+Editing one path many times still counts once. Modified and new paths share the
+same set. Proven format-only and LineEndingOnly changes, Curation exclusions,
+deterministic technical skips, Git-ignored content, AOCI runtime assets, paths
+restored to Baseline, and objects outside the governance walk do not count.
+Deletion remains governed as Orphan and is not added to the semantic count.
+
+The count is derived with the existing Baseline detection, format-only proof,
+walk policy, and Curation classification. It does not create another scanner.
+
+4. Host declaration
+
+aoci_overview accepts three optional, additive inputs:
+
+- refresh_reasons: a unique array containing context_compaction and/or
+  phase_transition;
+- refresh_event_id: a host idempotency key required with refresh_reasons; and
+- stable_checkpoint: whether edits, formatting, lint, and required tests have
+  reached the nearest stable checkpoint.
+
+semantic_threshold cannot be supplied by a host. AOCI derives it. AOCI also
+cannot infer whether a host performed context compaction. Hosts without a
+native event adapter must have the Agent make the declaration explicitly.
+
+For backward compatibility, model_cognition_state=invalid paired with a
+previously reliable complete receipt is interpreted as a context_compaction
+declaration with a deterministic legacy event identifier. Initial cognition
+establishment and uncertain receipts returned by governance do not fabricate a
+host compaction event. Existing no-argument calls remain valid.
+
+5. Checkpoint outcomes and explicit delivery
+
+The executable vocabulary in internal/machinecontract/status.go is authoritative:
+
+- refresh_not_required: the checkpoint recommends reuse;
+- refresh_deferred_until_stable: a trigger exists, but semantic work has not
+  reached a stable checkpoint;
+- refresh_required: run the existing maintenance and alignment gates;
+- refresh_ready_for_overview: governance is aligned and a reliable full
+  Overview can be established after the required proof.
+
+These are check_only assessment results and metadata on ordinary delivery, not
+durable workflow states. Natural-language next actions are localized; machine
+values do not vary by Locale. check_only=true always returns compact JSON and
+never returns the cognition body.
+
+When check_only is absent or false, the call is an explicit cognition request.
+AOCI delivers the complete requested scope whenever it can form one coherent,
+verified CognitionSet. It does not suppress the body because a matching receipt
+exists, no checkpoint reason is pending, or the semantic count is below the
+threshold. Repeated ordinary calls therefore repeat the complete requested
+scope. One complete, Host-confirmed, governance-aligned Attestation attempt
+advances the receipt generation and consumes pending checkpoint reasons. A
+passing Attestation records a reliable receipt. A partial or failed Attestation
+records an uncertain receipt and disables a full-system claim without
+retriggering the same refresh generation.
+
+When formal cognition is structurally complete but source governance is Dirty
+or Stale, ordinary Overview still returns the complete formal body. It reports
+cognition_currency=dirty_or_stale and governance_aligned=false and issues no
+reliable model cognition receipt. Current source, tests, configuration, and
+database evidence remain implementation truth.
+
+Pending recovery, an unresolved partial cross-Volume commit, an invalid or
+missing declared asset, a changed asset during assembly, or any other failure
+to form a coherent snapshot stops ordinary delivery with a structured error.
+It never returns a mixed body or a compact assessment pretending to be an
+Overview.
+
+When aoci_maintain observes the machine threshold, it preserves
+semantic_threshold in the current MCP session before Apply advances the
+Baseline. Maintain and the aligned aoci_update_entry result expose the existing
+refresh_status and refresh_reasons fields additively. An aligned result reports
+refresh_ready_for_overview. The Agent completes Verify, Check, and Guide proof
+and decides whether its next phase needs an explicit Overview.
+
+6. Required order
+
+When semantic change or another governance blocker exists:
+
+  finish nearest stable work unit
+  -> formatting, lint, and tests
+  -> aoci_maintain once
+  -> resolve repair_required; classify stopped from formal-write/Recovery proof
+  -> Verify, Check, and Guide prove aligned
+  -> optionally request ordinary aoci_overview when the Agent needs the view
+  -> record any new reliable receipt
+
+Context compaction with no semantic change may recommend a direct Overview. A
+complete, Host-confirmed attempt consumes that generation even when
+Attestation is partial or failed; the Host continues an existing source-bound
+task without an automatic second Overview. A failed initial Attestation also
+blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
+but does not prohibit honest answers or task-bound source and test inspection. A
+clean phase transition does not by itself recommend retransmission. Multiple
+simultaneous reasons merge into one checkpoint assessment. A repeated
+refresh_event_id is idempotent; it does not suppress an ordinary explicit body.
+
+7. Receipt and server memory
+
+The existing cognition receipt adds optional fields:
+
+- refresh_generation;
+- last_refresh_event_id; and
+- pending_refresh_reasons.
+
+The original required fields are unchanged. During one MCP stdio session the
+server retains only receipt identity, pending reasons, bounded event IDs, and a
+generation number. It never retains the complete index body. One complete,
+Host-confirmed, aligned Attestation attempt consumes the merged event and
+starts the next counting cycle. Pass records a reliable receipt; partial or
+fail records an uncertain receipt and the existing source-bound delivery
+guidance. Dirty delivery and a compatibility fallback that omits the full body
+do not consume the event or establish a reliable complete-cognition receipt.
+
+8. Compatibility and evidence
+
+- MCP tools/list remains nine tools.
+- aoci_overview without arguments requests complete Legacy cognition or the
+  complete Volumes all scope on every ordinary call.
+- check_only always returns compact JSON and never transmits the index body.
+- repeated ordinary Overview calls return the complete requested scope.
+- an oversized Whole-Index begins the deterministic Entry-boundary continuation
+  chain at Chunk 1 according to `overview_delivery.chunk_tokens`; it does not
+  first attempt one oversized response.
+- Chunk Receipt and Attestation ordinals consume one shared canonical 1-based
+  formal Entry/object sequence; Header content, comments, blank lines, markers,
+  receipts, and Metadata are excluded.
+- a partial or failed chain or Attestation cannot be repaired with Memory,
+  source, Spec, direct aoci.txt, historical sessions, Scope, Search, or Entry
+  reads before formal acceptance.
+- Attestation is not an engineering permission system. A partial or failed
+  result prevents a complete-system claim; source-bound investigation and
+  engineering remain available under current source/test/CAS/Recovery proof.
+- the Ledger schema and existing events remain readable; existing fields
+  record tool calls, full Overview reads, semantic files, bytes, tokens, and
+  duration.
+- Locale changes natural-language descriptions only, never machine fields,
+  reasons, statuses, or numeric authority.
+
+9. Volumes v1 scope extension
+
+Volumes v1 reuses this refresh session and adds no workflow state. A receipt-v2
+scope identity is the reliability key for the requested dependency closure;
+composite identity is reported but does not invalidate an unrelated partial
+scope. Every ordinary call delivers the selected dependency closure. Only a
+complete, current all delivery establishes reliable full repository cognition.
+See aoci-cognition-volumes-v1.txt.

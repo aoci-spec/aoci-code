@@ -1,0 +1,104 @@
+AOCI Host Cognition Messaging v2
+================================
+
+Purpose
+-------
+
+This contract defines concise user-facing interpretation of the optional
+`cognition-state/v2` Overview projection. It prevents a strict Challenge
+failure from being misreported as proof that the model did not understand the
+system. It does not alter machine state, validation, governance, reliability,
+or authorization.
+
+Authority and compatibility
+---------------------------
+
+Machine fields and tokens come only from the current executable contract.
+Locale assets provide user-visible prose. The Host must use the v2 messaging
+rules only when the response contains `cognition_state_v2.version` equal to
+`cognition-state/v2`. Otherwise it follows the existing legacy messaging
+contract.
+
+The Host must not reinterpret or overwrite legacy Overview fields. Existing
+Hosts may ignore the optional projection and continue using the legacy
+contract.
+
+Messaging dimensions
+--------------------
+
+The Host treats these facts independently:
+
+* delivery: whether the complete body reached the Host intact;
+* usability: whether the current delivered cognition is operationally usable
+  by the model;
+* strict proof: whether the deterministic Challenge passed exactly;
+* governance: whether formal cognition is aligned with current governed facts;
+  and
+* current-system reliability: whether all complete-system claim conditions are
+  simultaneously established.
+
+A false value in one dimension must not be described as a false value in a
+different dimension.
+
+Required interpretations
+------------------------
+
+When `delivery_verified=false`, the Host may report that complete delivery is
+not verified. It must not claim complete cognition usability or complete-system
+reliability.
+
+When `delivery_verified=true` and `model_cognition_usable=false`, the Host says
+that project cognition was delivered but model usability is not established or
+the model reported incomplete coverage, truncation, or insufficient framework
+mastery. It does not use a generic delivery-failure sentence.
+
+When `model_cognition_usable=true` and
+`strict_attestation_verified=false`, the Host says that the delivered cognition
+is usable but strict Challenge verification did not complete or failed. It may
+name stable reason categories such as ordinal, identity, Tag, or F mismatch,
+but must not expose expected answers or claim that the model has no
+understanding.
+
+When `strict_attestation_verified=true` and `governance_aligned=false`, the Host
+says that delivery and strict proof succeeded but current formal cognition is
+dirty, stale, or otherwise not governance-aligned. It directs implementation
+claims to current source and existing governance workflows.
+
+Only `current_system_cognition_reliable=true` permits an unqualified statement
+that current complete-system cognition is reliable. This statement does not
+replace source verification for implementation details and does not authorize
+Apply.
+
+Canonical concise outcomes
+--------------------------
+
+Locale resources should express these outcomes naturally while preserving the
+same semantics:
+
+* delivered and usable, strict proof verified, governance aligned: current
+  complete-system cognition is reliable;
+* delivered and usable, strict proof not verified: cognition is usable, but
+  exact Challenge proof is unfinished or failed;
+* delivered and usable, governance not aligned: model cognition is usable, but
+  current-system reliability is unavailable until governance is aligned;
+* delivered but usability not established: cognition arrived, but the current
+  model report does not establish operational usability; and
+* delivery not verified: complete cognition delivery cannot be claimed.
+
+The generic complete-read failure sentence is reserved for an actual delivery
+fault or another terminal response that did not provide a coherent requested
+cognition body. Strict proof failure alone is not a delivery failure.
+
+Security and privacy
+--------------------
+
+User prose may include `strict_attestation_failure_reasons` tokens or localized
+categories. It must not include the expected Challenge object identity, Tag,
+core F answer, hidden target content, or data obtained through an external
+repair path.
+
+Scope exclusions
+----------------
+
+This contract does not define Bootstrap, Onboarding, Candidate authoring,
+semantic provenance, approval, Apply, or Recovery behavior.

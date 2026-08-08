@@ -1,0 +1,3 @@
+The host Agent normally investigates the project from a header_required Plan, generates a candidate, and submits it as a standard draft with header stage.
+An aligned repository may explicitly submit intent=semantic_refresh; the same Plan, Diff, P-23, CAS, Apply, and Baseline gates remain mandatory.
+The team automation.mode determines subsequent approval stops.

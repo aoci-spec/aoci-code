@@ -1,0 +1,1 @@
+automation.mode=legacy: executable Entries targets exist. Follow the existing-repository compatibility stop by completing Stage, Check, and Diff, then wait for user approval before Apply.

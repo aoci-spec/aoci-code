@@ -1,0 +1,1 @@
+automation.mode=off：当前只报告{{.Scope}}事实，不允许生成候选、Stage或Apply。

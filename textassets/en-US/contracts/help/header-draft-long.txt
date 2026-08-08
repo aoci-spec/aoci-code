@@ -1,0 +1,3 @@
+Read the current index Header and repository profile, then send one drafting request to the configured endpoint.
+The result is stored at .aoci/drafts/<run_id>/header.txt and written by apply only after human review with diff.
+Data sovereignty: the request goes only to the endpoint in base_url. It contains the existing Header and aggregate file profile, not source text.

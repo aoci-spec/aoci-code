@@ -1,0 +1,1 @@
+review allows Stage, Check, and Diff, but requires approval before Apply

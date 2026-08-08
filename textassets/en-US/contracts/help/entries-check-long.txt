@@ -1,0 +1,3 @@
+Run the same format, dictionary, quota, and E-scale checks used by Apply against an in-memory snapshot of the current draft, plus a non-blocking lightweight R-relation check.
+This does not modify the formal index or Baseline, but appends the draft SHA-256 and validation summary to manifest.reviews. If the digest cannot be computed, no review record is created.
+exit 0 when clean or Warning-only; exit 2 when Apply would reject an item. A successful Check must be followed by Diff. Apply still performs the final replacement-conflict check.

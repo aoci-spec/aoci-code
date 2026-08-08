@@ -1,0 +1,4 @@
+Answer “is this repository ready to commit?” with one aggregate check:
+  blocking: ActionableMissing / PendingCurationMissing / Stale / Unbaselined / dictionary violations / format errors / pending Entries or Curation drafts;
+  reported but non-blocking: RawMissing / CurationExcludedMissing / non-Pending SkippedMissing / Orphan / LineEndingOnly / S quota / E scale / tagparse Warning.
+Use aoci verify for the four raw states, the Missing partition, and complete Curation paths.

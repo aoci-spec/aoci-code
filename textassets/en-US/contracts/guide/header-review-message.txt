@@ -1,0 +1,1 @@
+automation.mode=review: the host Agent must generate a Header candidate, complete Stage and Diff, and wait for user approval before Apply.

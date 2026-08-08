@@ -1,0 +1,3 @@
+可以读取Plan、Verify和现有索引了解事实，但不要生成或提交语义候选。
+不得直接调用agent stage、header stage、entries apply或header apply。
+需要继续完整索引治理时，由维护者修改团队config.json中的automation.mode。

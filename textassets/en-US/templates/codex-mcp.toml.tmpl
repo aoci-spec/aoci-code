@@ -1,0 +1,6 @@
+# AOCI MCP server installed by aoci init for this project.
+# Codex loads .codex/config.toml only for trusted projects. If prompted when
+# opening this repository for the first time, review the project and grant trust.
+[mcp_servers.aoci]
+command = "{{.BinPath}}"
+args = ["--repo", "{{.RepoRoot}}", "mcp"]

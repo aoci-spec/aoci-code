@@ -1,0 +1,574 @@
+{
+  "version": 2,
+  "locale": "en-US",
+  "index_path": "aoci.txt",
+  "exclude_dirs": [
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "target",
+    ".next",
+    "coverage",
+    "tmp",
+    "uploads",
+    "backup",
+    "backups",
+    "artifacts",
+    ".output",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
+    "htmlcov"
+  ],
+  "exclude_files": [
+    "*.backup.*",
+    "*.bak",
+    ".coverage"
+  ],
+  "exclude_exts": [],
+  "curation_exclude": [],
+  "hook_strict": false,
+  "ledger_enabled": true,
+  "line_ending_tolerance": true,
+  "cognition_refresh_threshold": 30,
+  "overview_delivery": {
+    "chunk_tokens": 8000
+  },
+  "managed_scope": {
+    "version": "managed-scope-policy/v2",
+    "profile": "production",
+    "observe_change_policy": "review_required",
+    "approval_mode": "inherit",
+    "approval_thresholds": {
+      "entry_removal_count": 25,
+      "entry_removal_percent": 25
+    },
+    "rules": [
+      {
+        "rule_id": "public-en-us-runtime-assets-observe",
+        "action": "observe",
+        "pattern": "textassets/en-US/**",
+        "pattern_kind": "glob",
+        "reason": "Public locale bodies are governed by manifests and loaders; observe exact bytes without duplicating each body in Whole-Index",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 100,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-zh-cn-runtime-assets-observe",
+        "action": "observe",
+        "pattern": "textassets/zh-CN/**",
+        "pattern_kind": "glob",
+        "reason": "Public locale bodies are governed by manifests and loaders; observe exact bytes without duplicating each body in Whole-Index",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 101,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-authoringcontract-index",
+        "action": "index",
+        "pattern": "internal/authoringcontract/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 300,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-baseline-index",
+        "action": "index",
+        "pattern": "internal/baseline/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 301,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-businesssource-index",
+        "action": "index",
+        "pattern": "internal/businesssource/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 302,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-capability-index",
+        "action": "index",
+        "pattern": "internal/capability/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 303,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cognition-index",
+        "action": "index",
+        "pattern": "internal/cognition/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 304,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cognitionbaseline-index",
+        "action": "index",
+        "pattern": "internal/cognitionbaseline/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 305,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cognitionbudget-index",
+        "action": "index",
+        "pattern": "internal/cognitionbudget/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 306,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cognitiontxn-index",
+        "action": "index",
+        "pattern": "internal/cognitiontxn/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 307,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-config-index",
+        "action": "index",
+        "pattern": "internal/config/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 308,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-dbevidence-index",
+        "action": "index",
+        "pattern": "internal/dbevidence/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 309,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-index-index",
+        "action": "index",
+        "pattern": "internal/index/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 310,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-machinecontract-index",
+        "action": "index",
+        "pattern": "internal/machinecontract/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 311,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-managedscope-index",
+        "action": "index",
+        "pattern": "internal/managedscope/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 312,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-managedstate-index",
+        "action": "index",
+        "pattern": "internal/managedstate/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 313,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-scopechange-index",
+        "action": "index",
+        "pattern": "internal/scopechange/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 314,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-volumegovernance-index",
+        "action": "index",
+        "pattern": "internal/volumegovernance/**",
+        "pattern_kind": "glob",
+        "reason": "Index the core public cognition, governance, contract, evidence, and validation implementation",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 315,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-check-go-index",
+        "action": "index",
+        "pattern": "internal/cli/check.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 316,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-cognition-system-go-index",
+        "action": "index",
+        "pattern": "internal/cli/cognition_system.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 317,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-init-go-index",
+        "action": "index",
+        "pattern": "internal/cli/init.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 318,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-mcp-go-index",
+        "action": "index",
+        "pattern": "internal/cli/mcp.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 319,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-root-go-index",
+        "action": "index",
+        "pattern": "internal/cli/root.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 320,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-scan-go-index",
+        "action": "index",
+        "pattern": "internal/cli/scan.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 321,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-scope-go-index",
+        "action": "index",
+        "pattern": "internal/cli/scope.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 322,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-update-entry-go-index",
+        "action": "index",
+        "pattern": "internal/cli/update_entry.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 323,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-cli-verify-go-index",
+        "action": "index",
+        "pattern": "internal/cli/verify.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 324,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-fs-atomic-go-index",
+        "action": "index",
+        "pattern": "internal/fs/atomic.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 325,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-fs-safe-inventory-go-index",
+        "action": "index",
+        "pattern": "internal/fs/safe_inventory.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 326,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-cognition-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/cognition.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 327,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-overview-attestation-v1-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/overview_attestation_v1.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 328,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-overview-delivery-v1-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/overview_delivery_v1.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 329,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-server-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/server.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 330,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-tools-maintain-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/tools_maintain.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 331,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-tools-maintain-volumes-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/tools_maintain_volumes.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 332,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-tools-read-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/tools_read.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 333,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-tools-write-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/tools_write.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 334,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-core-internal-mcptools-tools-write-batch-go-index",
+        "action": "index",
+        "pattern": "internal/mcptools/tools_write_batch.go",
+        "pattern_kind": "file",
+        "reason": "Index a selected public CLI, MCP, or atomic filesystem contract entry point",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 335,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-go-tests-observe",
+        "action": "observe",
+        "pattern": "internal/**/*_test.go",
+        "pattern_kind": "glob",
+        "reason": "Observe test responsibilities without creating one Whole-Index Entry per test file",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 1000,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-testdata-exclude",
+        "action": "exclude",
+        "pattern": "**/testdata/**",
+        "pattern_kind": "glob",
+        "reason": "Exclude test fixtures and generated comparison bodies from public cognition semantics",
+        "source": "user",
+        "created_by": "codex-public-bootstrap",
+        "order": 1100,
+        "enabled": true
+      }
+    ]
+  },
+  "cognition_budget": {
+    "version": "cognition-budget-policy/v1",
+    "mode": "enforce",
+    "whole_index": {
+      "target_tokens": 120000,
+      "warning_tokens": 180000,
+      "max_tokens": 240000
+    },
+    "r": [
+      {
+        "min_c": 1,
+        "max_c": 4,
+        "target_tokens": 25,
+        "max_tokens": 50
+      },
+      {
+        "min_c": 5,
+        "max_c": 7,
+        "target_tokens": 45,
+        "max_tokens": 90
+      },
+      {
+        "min_c": 8,
+        "max_c": 8,
+        "target_tokens": 70,
+        "max_tokens": 140
+      },
+      {
+        "min_c": 9,
+        "max_c": 9,
+        "target_tokens": 90,
+        "max_tokens": 180
+      }
+    ],
+    "s": [
+      {
+        "min_c": 1,
+        "max_c": 4,
+        "target_tokens": 20,
+        "max_tokens": 40
+      },
+      {
+        "min_c": 5,
+        "max_c": 7,
+        "target_tokens": 40,
+        "max_tokens": 80
+      },
+      {
+        "min_c": 8,
+        "max_c": 8,
+        "target_tokens": 70,
+        "max_tokens": 140
+      },
+      {
+        "min_c": 9,
+        "max_c": 9,
+        "target_tokens": 100,
+        "max_tokens": 200
+      }
+    ]
+  },
+  "installed_agents": [
+    "codex"
+  ],
+  "automation": {
+    "mode": "auto"
+  },
+  "ai": {
+    "enabled": false,
+    "provider": "openai-compatible",
+    "base_url": "",
+    "model": "",
+    "api_key_env": "",
+    "timeout_seconds": 0,
+    "max_concurrency": 0,
+    "max_input_tokens": 0,
+    "token_accounting": "auto",
+    "prompt_snapshot": "redacted"
+  }
+}

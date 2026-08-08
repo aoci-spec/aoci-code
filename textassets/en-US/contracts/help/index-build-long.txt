@@ -1,0 +1,3 @@
+Call the user-configured endpoint to draft one single-line Entry for each target file.
+--missing reads the formal curation.json: ordinary Actionable files and valid include decisions are generated, while exclude, Pending, and technical skips are resolved before an AI Client is constructed.
+Explicit --paths may select ordinary files, but special files still require a valid include decision.

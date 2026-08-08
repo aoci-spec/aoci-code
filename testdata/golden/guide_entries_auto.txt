@@ -1,0 +1,17 @@
+MESSAGE:
+automation.mode=auto：当前存在可执行Entries目标；一次Entries Stage将在草稿提交后内部完成Check、Diff审计与原子Apply，候选内容错误由宿主自动修复。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+先运行header_show取得完整索引头、标签字典、正确示例和S配额，不得猜测取值。
+每一条标签及F/R/A/S都必须由当前模型阅读目标文件后独立生成；禁止使用AST、符号提取、import扫描、路径、文件名、扩展名、正则、模板、规则引擎或批量脚本生成、预填或改写语义。
+工具只可用于读取或分段传递源码原文、保存请求、执行校验和落盘；不得先生成语义草稿再由模型表面润色。
+逐个完整读取batch.targets源码；update目标同时核对old_entry；不得仅凭目录、文件名、符号列表或邻近条目生成候选。
+F写简短明确的核心功能锚点，通常控制在10个字以内但语义完整优先；R只列跨文件强关联且不得复制全部import；A只列本文件对外API；S只写文件名+标签+F+R+A推不出、但理解系统或修改代码必须知道的信息。
+为entries_stage_request每项填充单行FRAS候选；path和source_sha256保持原值；同一请求中的每条entry都必须由当前模型逐项生成，不得由脚本循环拼接。
+把完整entries_stage_request保存为UTF-8 JSON文件，并把commands.entries_stage中的{request_file}替换为该路径。
+Windows PowerShell 5不得用文本管道传递中文JSON；--stdin-json仅用于可靠字节流环境。
+执行entries stage并读取返回的auto_finalize；正常路径不得再调用commands.check、commands.diff或commands.apply。
+auto_finalize.status=applied时，当前批次已完成Check、Diff、P-23与原子Apply；执行verify并重新运行guide。
+auto_finalize.status=repair_required时，读取findings，只修正其中失败条目；其他候选保持原样，重写同一完整请求文件并再次执行commands.entries_stage。不得要求用户回复“继续”，不得调用Entries Check、Diff或Apply。
+auto_finalize.status=stopped时结束当前写入尝试，并检查failed_step、error、正式写入证据和recovery。auto模式下，证明零写入则记录closure并重新Plan；完整Intent与postimage可证明则Resume；策略要求Rollback且preimage精确可证明则恢复后重新Plan。只有证据不足、第三方正式字节冲突、有界重新Plan仍不收敛、需要审批或外部动作，或命中其他安全边界时才停止用户任务。不得绕过Generation Plan、P-23、CAS或写入一致性防线。
+一个批次成功不代表完整任务完成；只有guide返回complete、blocked、审批停点，或stopped已分类为user_action_required/hard_blocked时才允许结束。普通回复边界、用户提问、repair_required和可自动恢复的stopped都不是结束条件。

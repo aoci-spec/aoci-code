@@ -1,0 +1,1 @@
+automation.mode=auto：当前存在可执行Entries目标；一次Entries Stage将在草稿提交后内部完成Check、Diff审计与原子Apply，候选内容错误由宿主自动修复。

@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "contracts/guide/index-review-blocked-message",
+      "kind": "contract",
+      "path": "contracts/guide/index-review-blocked-message.txt",
+      "description": "Blocked Guide message when the formal index has changed outside the current Baseline-governed workflow",
+      "used_by": "internal/cli/index_agent_guide_stop_contract.go:indexReviewBlockedMessage",
+      "protocol_tokens": [
+        "Baseline"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "宿主Agent",
+          "停止",
+          "维护者"
+        ]
+      }
+    },
+    {
+      "id": "contracts/guide/index-review-blocked-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/index-review-blocked-instructions.txt",
+      "description": "Blocked Guide instructions preventing scan-force whitewashing and automatic index replacement",
+      "used_by": "internal/cli/index_agent_guide_stop_contract.go:indexReviewBlockedInstructions",
+      "protocol_tokens": [
+        "scan --force",
+        "aoci.txt",
+        "Plan",
+        "Git"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "维护者"
+        ]
+      }
+    },
+    {
+      "id": "contracts/guide/orphan-review-blocked-message",
+      "kind": "contract",
+      "path": "contracts/guide/orphan-review-blocked-message.txt",
+      "description": "Blocked Guide message when only orphan Entries remain",
+      "used_by": "internal/cli/index_agent_guide_stop_contract.go:orphanReviewBlockedMessage",
+      "protocol_tokens": [],
+      "locale_anchors": {
+        "zh-CN": [
+          "孤儿条目",
+          "自动工序",
+          "维护者",
+          "裁决"
+        ]
+      }
+    },
+    {
+      "id": "contracts/guide/orphan-review-blocked-instructions",
+      "kind": "contract",
+      "path": "contracts/guide/orphan-review-blocked-instructions.txt",
+      "description": "Blocked Guide instructions preventing workspace-file deletion and requiring explicit remove-entry approval",
+      "used_by": "internal/cli/index_agent_guide_stop_contract.go:orphanReviewBlockedInstructions",
+      "protocol_tokens": [
+        "orphans",
+        "remove-entry"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "工作区文件",
+          "明确裁决"
+        ]
+      }
+    }
+  ]
+}

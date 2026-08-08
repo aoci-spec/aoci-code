@@ -1,0 +1,502 @@
+#AOCI-CODE-VOLUME: 1
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/===
+.gitattributes[CG3T]: F:Normalizes repository text line endings for deterministic hashes and cross-platform collaboration | R:- | A:- | S:-
+.gitignore[CG5T]: F:Separates tracked cognition assets from ignored runtime, recovery, build, and local configuration state | R:- | A:- | S:-
+.goreleaser.yml[CG5T]: F:Defines reproducible cross-platform aoci archives, checksums, SBOMs, and disabled remote publishing | R:- | A:- | S:-
+AGENTS.md[CG8S]: F:Defines public repository rules, current machine-batch continuation, and the scope-preserving AOCI workflow for coding agents | R:- | A:- | S:-
+CHANGELOG.md[CG3T]: F:Records v0.1.0-rc1 public runtime, contract, documentation, supply-chain, and legal preparation with the 2026-08-08 availability date | R:- | A:- | S:External publication remains separately authorized
+CODE_OF_CONDUCT.md[CG3T]: F:Sets public community behavior and reporting expectations | R:- | A:- | S:-
+CONTRIBUTING.md[CG5T]: F:Explains contribution boundaries, verification gates, public contracts, and review requirements | R:- | A:- | S:-
+LICENSE[CG5S]: F:Carries FSL-1.1-MIT terms and the 2026 Liu JinShi copyright notice, including Permitted Purpose limits and the future MIT grant | R:code:NOTICE,code:scripts/check-licenses.sh | A:FSL-1.1-MIT | S:The MIT grant begins on the second anniversary of the date each version is made available
+Makefile[CG9S]: F:Defines tiered build, test, license, full-confidence, and non-publishing release gates including archive, checksum, SBOM, and manifest verification | R:code:scripts/check-licenses.sh,code:scripts/release/archive-smoke/main.go,code:scripts/release/manifest/main.go | A:make fast,make full,make release-check | S:release-check requires GoReleaser, Syft, and sha256sum, validates tool identities, and rejects dirty source through manifest generation
+NOTICE[CG3T]: F:Records AOCI-CODE v0.1.0-rc1 as FSL-1.1-MIT with Liu JinShi, copyright year 2026, and initial public availability on 2026-08-08 | R:code:LICENSE,code:PATENTS,code:TRADEMARKS,code:THIRD-PARTY-NOTICES | A:- | S:-
+PATENTS[CG3T]: F:Provides Liu JinShi as Patent/IP contact while making no patent ownership, number, application, registration, or additional-rights claim | R:code:LICENSE | A:- | S:Authorized counsel must confirm extra disclosure
+README.md[CG5L]: F:Introduces AOCI-CODE Cognition Layer, model-authored FRAS, scope-preserving batching, Code and Database Cognition, CLI/MCP onboarding, and Fair Source boundary | R:code:README.zh-CN.md | A:- | S:-
+README.zh-CN.md[CG5L]: F:Presents the Chinese AOCI-CODE overview of Cognition Layer, model-authored FRAS, scope-preserving batching, Code/Database Cognition, CLI/MCP, and Fair Source | R:code:README.md | A:- | S:-
+SECURITY.md[CG5T]: F:Defines supported security reporting, sensitive-data boundaries, and coordinated disclosure expectations | R:- | A:- | S:-
+THIRD-PARTY-NOTICES[CG3L]: F:Retains hashed root-license texts and the exact 18-module release-matrix inventory, including the MCP SDK transition and target reachability | R:code:go.mod,code:.goreleaser.yml,code:scripts/check-licenses.sh | A:- | S:MPL source and MCP license mix require review
+TRADEMARKS[CG3T]: F:Provides Liu JinShi as Trademark/IP contact while making no ownership or registration claim and limiting use to LICENSE identification | R:code:LICENSE | A:- | S:Final marks and brand policy require legal review
+go.mod[CG8T]: F:Declares the canonical public Go module and pinned direct and transitive runtime dependencies | R:- | A:- | S:-
+go.sum[CG3T]: F:Authenticates the exact Go dependency module contents used by builds | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/.github/workflows/===
+ci.yml[CG5T]: F:Runs the public pull-request and branch CI matrix for formatting, tests, builds, and contract checks | R:- | A:- | S:-
+full-confidence.yml[CG5S]: F:Runs scheduled, manual, and main-branch full-confidence jobs for pinned analysis, licensing, race, native lifecycle, and database integration | R:code:Makefile,code:scripts/check-licenses.sh | A:GitHub Actions workflow_dispatch | S:Repository permissions stay read-only, and changes to legal assets or dependency metadata trigger this gate
+release-rehearsal.yml[CG5S]: F:Exercises non-publishing release packaging and artifact verification with read-only permissions | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/cmd/aoci/===
+main.go[CG8T]: F:Starts the aoci process, delegates to the CLI root command, and maps command errors to process exits | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/docs/===
+agent-integrations.md[CG5S]: F:Documents safe Codex, Claude Code, and Cursor integration with the AOCI MCP server | R:- | A:- | S:-
+cognition-refresh.md[CG5M]: F:Defines checkpoint reasons, delivery receipts, refresh generations, and post-change cognition alignment | R:- | A:- | S:-
+cognition-volumes.md[CG5M]: F:Explains Cognition Volumes ownership, identities, authoring batches, governance, and clone-safe logical relocation for public developers | R:code:spec/public/aoci-cognition-volumes-v1.txt,code:spec/public/aoci-index-format-v1.txt,code:spec/public/aoci-code-cli-runtime-v1.txt | A:Public developer guide for Volumes layout, runtime behavior, and maintenance boundaries | S:Historical Code roots are creation coordinates; invocation roots and repository-relative CanonicalRefs stay distinct, while logical relocation preserves formal bytes and Entry order
+database-cognition-authoring.md[CG5M]: F:Documents evidence-bound model authoring and atomic application of database cognition entries | R:- | A:- | S:-
+database-evidence.md[CG5M]: F:Describes catalog-only database evidence collection, snapshots, verification, and zero-row-access rules | R:- | A:- | S:-
+getting-started.md[CG5T]: F:Guides installation, initialization, agent integration, and first aligned verification | R:- | A:- | S:-
+install.md[CG5T]: F:Documents source and artifact installation plus checksum, SBOM, signature, and provenance checks | R:- | A:- | S:-
+localization.md[CG5T]: F:Defines locale authority, asset parity, migration, and runtime text consistency rules | R:- | A:- | S:-
+managed-scope-and-budget.md[CG5T]: F:Explains index, observe, and exclude roles plus governed scope and cognition-budget transactions | R:- | A:- | S:-
+overview-delivery.md[CG5S]: F:Documents complete Overview chunk transport, challenge attestation, and cognition reliability states | R:- | A:- | S:-
+rollback.md[CG5T]: F:Provides safe binary rollback and post-rollback repository verification steps | R:- | A:- | S:-
+safe-inventory-and-scope-refresh.md[CG5T]: F:Explains Safe Inventory exclusions, scope proposals, review, and atomic refresh boundaries | R:- | A:- | S:-
+supply-chain.md[CG5T]: F:Defines non-publishing RC artifact integrity, archive-SBOM pairing, checksum/manifest verification, dependency notices, and future signing controls | R:code:scripts/release/archive-smoke/main.go,code:scripts/release/manifest/main.go,code:scripts/check-licenses.sh | A:make release-check | S:Bit-for-bit reproducibility requires a clean immutable tag, pinned Go patch, and isolated-builder comparison; signing permissions await approved publisher identity
+troubleshooting.md[CG5T]: F:Diagnoses audit writes, MCP stdio, current-batch repair and continuation, recovery, drift, and configuration problems | R:- | A:- | S:-
+uninstall.md[CG5T]: F:Explains removal of the binary, host integration, and optional repository-local AOCI assets | R:- | A:- | S:-
+upgrading.md[CG5T]: F:Defines safe binary upgrade, artifact identity, representative checks, and rollback preparation | R:- | A:- | S:-
+windows-host-agent.md[CG5L]: F:Documents Windows host integration, runtime identity, Guide execution, and PowerShell-safe workflows | R:- | A:- | S:-
+zh-cn-contract-authority.md[CG5T]: F:Defines the authority order for Chinese contracts, machine facts, Guide output, and runtime assets | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/examples/minimal-repository/===
+README.md[CG5T]: F:Explains the isolated minimal Go example used to demonstrate AOCI repository integration | R:- | A:- | S:-
+go.mod[CG5T]: F:Declares the independent minimal-example Go module | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/examples/minimal-repository/counter/===
+counter.go[CG5T]: F:Implements the small counter behavior used by the standalone example module | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/authoringcontract/===
+contract.go[CG8S]: F:Defines and validates host-model semantic authoring declarations and evidence-bound provenance | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/baseline/===
+baseline.go[CG9L]: F:Defines the versioned repository fingerprint baseline and its deterministic serialization | R:- | A:- | S:-
+detect.go[CG9M]: F:Classifies current files as aligned, stale, missing, format-only, or line-ending-only against Baseline | R:- | A:- | S:-
+hash.go[CG7M]: F:Computes raw and normalized file identities used by baseline drift and line-ending diagnostics | R:- | A:- | S:-
+scope_detect.go[CG7S]: F:Detects managed-scope policy, role, budget, and observe-fingerprint changes against Baseline receipts | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/businesssource/===
+manifest.go[CG8M]: F:Builds deterministic public-source manifests without reading excluded secrets or runtime data | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/capability/===
+manifest.go[CG8S]: F:Builds the machine capability manifest for CLI, MCP, layout, schema, and interaction contracts | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cli/===
+check.go[CG8L]: F:Runs aggregate repository checks and reports structural, governance, scope, and recovery failures | R:- | A:- | S:-
+cognition_system.go[CG8S]: F:Exposes narrow system relation, lineage, impact, and evolution projections over cognition | R:- | A:- | S:-
+init.go[CG8L]: F:Initializes Volume-first cognition, team configuration, baseline skeletons, and host integration | R:- | A:- | S:-
+mcp.go[CG8T]: F:Runs the AOCI MCP stdio server with protocol output isolated on stdout | R:- | A:- | S:-
+root.go[CG8L]: F:Constructs the aoci root command, global flags, version identity, locale, and command tree | R:- | A:- | S:-
+scan.go[CG8S]: F:Builds Safe Inventory fingerprints and establishes or refreshes the governed Baseline | R:- | A:- | S:-
+scope.go[CG8S]: F:Implements managed-scope policy, structured decision-basis input, budget, review, authorization, Apply, and recovery commands | R:- | A:- | S:-
+update_entry.go[CG8S]: F:Writes one or a batch of model-authored Entries through the shared MCP transaction pipeline | R:- | A:- | S:-
+verify.go[CG8L]: F:Verifies structural validity, source alignment, governance, relations, budgets, and recovery state | R:- | A:- | S:-
+ai.go[CG7L]: F:Implements explicit AI endpoint configuration and connectivity-test commands without storing secret values | R:- | A:- | S:-
+ai_probe_contract.go[CG7T]: F:Defines the bounded request and response contract for optional AI endpoint probes | R:- | A:- | S:-
+baseline_scope.go[CG7S]: F:Implements baseline scope refresh, approval, apply, recovery, and status CLI routing | R:- | A:- | S:-
+business_source.go[CG7T]: F:Exposes deterministic business-source manifest inspection through the CLI | R:- | A:- | S:-
+capabilities.go[CG7T]: F:Prints the versioned machine capability manifest without network access | R:- | A:- | S:-
+cli_help_contract.go[CG7M]: F:Registers localized command help while preserving machine schema and protocol authority | R:- | A:- | S:-
+cognition_bootstrap.go[CG8M]: F:Implements cognition bootstrap plan, validate, prepare, approve, apply, resume, rollback, and status commands | R:- | A:- | S:-
+cognition_layout.go[CG7T]: F:Reports read-only cognition layout planning and current layout identity | R:- | A:- | S:-
+cognition_migration.go[CG7L]: F:Implements governed Legacy-to-Volumes migration CLI workflows and recovery commands | R:- | A:- | S:-
+cognition_onboard.go[CG8M]: F:Exposes persistent model-authored onboarding start, batching, preview, apply, resume, abort, and status | R:- | A:- | S:-
+cognition_plan.go[CG7S]: F:Routes deterministic cognition bootstrap, migration, and candidate-validation planning commands | R:- | A:- | S:-
+command_localization.go[CG7M]: F:Applies localized command names, help text, and errors without changing machine tokens | R:- | A:- | S:-
+config.go[CG7M]: F:Implements strict team configuration list, get, and governed set operations | R:- | A:- | S:-
+database.go[CG7M]: F:Registers database source, evidence, snapshot, verify, baseline, and cognition command groups | R:- | A:- | S:-
+database_cognition.go[CG7S]: F:Implements evidence-bound database cognition authoring status and workflow commands | R:- | A:- | S:-
+database_evidence.go[CG7S]: F:Implements catalog-only database source inspection and evidence bundle commands | R:- | A:- | S:-
+database_snapshot.go[CG7S]: F:Implements deterministic database snapshot, verification, and baseline-acceptance commands | R:- | A:- | S:-
+doctor.go[CG7M]: F:Diagnoses binary, repository, configuration, agent integration, and optional network readiness | R:- | A:- | S:-
+hook.go[CG7S]: F:Installs and reports supported host pre-write hooks without bypassing AOCI governance | R:- | A:- | S:-
+host_interaction.go[CG7T]: F:Defines host TTY, digest confirmation, and non-interactive interaction checks | R:- | A:- | S:-
+index.go[CG7S]: F:Registers index inventory, Header, build, update, Entry, score, and Agent workflow commands | R:- | A:- | S:-
+index_agent_apply_guard.go[CG7M]: F:Validates Plan, source, draft, and approval identities immediately before Agent-driven Apply | R:- | A:- | S:-
+index_agent_automation.go[CG7S]: F:Resolves automation mode and drives safe auto continuation for Agent workflows | R:- | A:- | S:-
+index_agent_curation.go[CG7S]: F:Registers model-owned Curation planning, staging, diff, apply, and recovery commands | R:- | A:- | S:-
+index_agent_curation_apply.go[CG7M]: F:Applies reviewed Curation decisions through the guarded scope and baseline pipeline | R:- | A:- | S:-
+index_agent_curation_contract.go[CG7M]: F:Defines Curation candidate, review, and protocol structures exchanged with host Agents | R:- | A:- | S:-
+index_agent_curation_diff.go[CG7M]: F:Builds deterministic Curation physical, semantic, and risk diffs for review | R:- | A:- | S:-
+index_agent_curation_guard.go[CG7M]: F:Revalidates Curation source, policy, candidate, and formal-asset guards before writes | R:- | A:- | S:-
+index_agent_curation_guide.go[CG7S]: F:Produces stage-specific Curation Guide actions and approval stops | R:- | A:- | S:-
+index_agent_curation_protocol.go[CG7M]: F:Strictly decodes and validates host Curation stage requests and receipts | R:- | A:- | S:-
+index_agent_curation_stage.go[CG7L]: F:Stages complete model-authored Curation decisions bound to the current Plan | R:- | A:- | S:-
+index_agent_guide.go[CG8L]: F:Renders deterministic Legacy or Volumes governance state into host-executable Guide JSON, commands, bounded batch facts, and stop contracts | R:code:internal/mcptools/tools_maintain_volumes.go,code:internal/volumegovernance/facts.go | A:aoci index agent guide | S:Guide is read-only; max_entries bounds only the current machine batch and must never be treated as a Whole-Index or Managed Scope ceiling
+index_agent_guide_stop_contract.go[CG7T]: F:Maps unsafe, blocked, approval, recovery, and conflict states to exact Guide stops | R:- | A:- | S:-
+index_agent_guide_workflow.go[CG8L]: F:Selects the unique Guide workflow stage and next action from Plan and automation facts | R:- | A:- | S:-
+index_agent_header_stage.go[CG7L]: F:Stages a complete model-authored Header candidate against current source and Plan identities | R:- | A:- | S:-
+index_agent_header_stage_protocol.go[CG7M]: F:Defines and validates the host protocol for Header stage requests and completion | R:- | A:- | S:-
+index_agent_host_contract.go[CG7L]: F:Builds the stable host-Agent runtime contract and command invocation metadata | R:- | A:- | S:-
+index_agent_manifest_guard.go[CG7S]: F:Guards Agent workflows against business-source manifest drift | R:- | A:- | S:-
+index_agent_missing_view.go[CG7M]: F:Builds bounded evidence views for missing Entry authoring targets | R:- | A:- | S:-
+index_agent_plan.go[CG7L]: F:Generates deterministic Legacy host-Agent Plans and rejects unsupported layout mutation paths | R:- | A:- | S:-
+index_agent_plan_helpers.go[CG7M]: F:Provides Plan hashing, evidence, ordering, path, and stable-command helper logic | R:- | A:- | S:-
+index_agent_plan_types.go[CG7L]: F:Defines host-Agent Plan, evidence, target, budget, and authorization data structures | R:- | A:- | S:-
+index_agent_request_contract.go[CG7S]: F:Defines strict stage request envelopes and host completion contracts | R:- | A:- | S:-
+index_agent_request_input.go[CG7M]: F:Reads stage JSON from stdin or a regular request file with bounded validation | R:- | A:- | S:-
+index_agent_stage.go[CG8L]: F:Validates and stages complete model-authored Entry batches for Legacy workflows | R:- | A:- | S:-
+index_agent_stage_finalize.go[CG7M]: F:Finalizes staged Entry batches through checks, diffs, authorization, Apply, and receipts | R:- | A:- | S:-
+index_agent_stage_protocol.go[CG7L]: F:Defines and validates Entry stage request and response protocol versions | R:- | A:- | S:-
+index_agent_text_assets.go[CG7S]: F:Renders localized Agent Guide, stage, and stop text from registered runtime assets | R:- | A:- | S:-
+index_ai_helpers.go[CG7S]: F:Coordinates optional AI-assisted Header and Entry generation under deterministic plans | R:- | A:- | S:-
+index_apply_observe.go[CG7M]: F:Applies reviewed observe-fingerprint changes without creating cognition Entries | R:- | A:- | S:-
+index_apply_report.go[CG7M]: F:Defines public Apply outcome reporting for index transactions | R:- | A:- | S:-
+index_apply_report_build.go[CG7M]: F:Builds stable Apply reports from transaction, recovery, and verification evidence | R:- | A:- | S:-
+index_build.go[CG7M]: F:Coordinates full index construction from governed Header, Entry, and Curation workflows | R:- | A:- | S:-
+index_diff_report.go[CG7T]: F:Renders deterministic physical and semantic index diffs for review | R:- | A:- | S:-
+index_entries.go[CG7M]: F:Registers Entry inventory, draft, stage, check, diff, apply, report, and recovery commands | R:- | A:- | S:-
+index_entries_apply.go[CG8L]: F:Applies approved Entry drafts with source, CAS, validation, baseline, and recovery guards | R:- | A:- | S:-
+index_entries_auto.go[CG7L]: F:Runs policy-bound automatic Entry validation and Apply without self-approving model semantics | R:- | A:- | S:-
+index_entries_auto_recovery.go[CG7S]: F:Resumes or rolls back interrupted automatic Entry transactions from proven recovery evidence | R:- | A:- | S:-
+index_entries_check.go[CG7S]: F:Checks staged Entry candidates against source, dictionary, quota, relation, and scope contracts | R:- | A:- | S:-
+index_entries_check_core.go[CG7L]: F:Performs the core deterministic Entry validation and candidate-set completeness checks | R:- | A:- | S:-
+index_entries_diff.go[CG7M]: F:Builds Entry candidate physical, semantic, and risk diffs | R:- | A:- | S:-
+index_entries_recover.go[CG7L]: F:Implements Entry transaction resume and rollback commands | R:- | A:- | S:-
+index_entries_report.go[CG7T]: F:Records unresolved Entry authoring work without modifying formal cognition | R:- | A:- | S:-
+index_header.go[CG7M]: F:Registers Header show, draft, stage, check, diff, apply, review, and recovery commands | R:- | A:- | S:-
+index_header_apply.go[CG7L]: F:Applies an approved Header candidate through CAS, atomic write, baseline, and receipt steps | R:- | A:- | S:-
+index_header_recovery.go[CG7T]: F:Resumes or rolls back interrupted Header transactions from exact preimages | R:- | A:- | S:-
+index_header_review.go[CG7L]: F:Implements interactive digest-bound Header review and approval | R:- | A:- | S:-
+index_score.go[CG7S]: F:Computes and renders structural cognition index scores and coverage diagnostics | R:- | A:- | S:-
+index_update.go[CG7L]: F:Plans and executes incremental semantic index updates for changed managed files | R:- | A:- | S:-
+index_update_automation.go[CG7M]: F:Coordinates automatic update authorization, Apply, verification, and result handling | R:- | A:- | S:-
+index_update_automation_review.go[CG7M]: F:Preserves review-mode approval boundaries for automated update workflows | R:- | A:- | S:-
+index_update_render.go[CG7M]: F:Renders localized update plans, findings, diffs, and completion messages | R:- | A:- | S:-
+init_gitignore.go[CG7T]: F:Merges tracked formal and ignored runtime AOCI rules into repository gitignore files | R:- | A:- | S:-
+init_messages.go[CG7S]: F:Renders deterministic localized initialization results and next steps | R:- | A:- | S:-
+init_volumes.go[CG7S]: F:Creates parseable Root, Meta, and Code Volume skeletons for new repositories | R:- | A:- | S:-
+json_ascii.go[CG7S]: F:Encodes stable machine JSON with ASCII-safe escaping where protocol compatibility requires it | R:- | A:- | S:-
+json_error.go[CG7S]: F:Maps CLI failures to stable machine-readable error envelopes and exit codes | R:- | A:- | S:-
+locale_migration.go[CG7L]: F:Plans and applies locale changes while preserving machine tokens and runtime asset parity | R:- | A:- | S:-
+remove_entry.go[CG7T]: F:Removes an explicitly proven orphan Entry through the guarded cognition pipeline | R:- | A:- | S:-
+status.go[CG7L]: F:Reports compact or deep repository cognition, scope, drift, and recovery status | R:- | A:- | S:-
+verify_render.go[CG7M]: F:Renders stable human and JSON Verify results without altering governance criteria | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cognition/===
+authoring_boundary.go[CG7T]: F:Defines model-authoring-only boundaries and rejects program-generated cognition semantics | R:- | A:- | S:-
+authoring_example.go[CG7T]: F:Extracts and validates canonical Code and Database Entry examples from Meta | R:- | A:- | S:-
+identity.go[CG9T]: F:Computes stable identities for Root, Meta, Volumes, objects, and composite cognition sets | R:- | A:- | S:-
+impact.go[CG8L]: F:Derives bounded direct and transitive impact from validated cognition relations | R:- | A:- | S:-
+impact_graph.go[CG8S]: F:Builds deterministic relation graphs used by impact and lineage projections | R:- | A:- | S:-
+impact_types.go[CG7S]: F:Defines public impact, lineage, evidence, and projection result structures | R:- | A:- | S:-
+loader.go[CG9L]: F:Loads Legacy or Volumes cognition layouts and fails closed on invalid or mixed assets | R:- | A:- | S:-
+objects.go[CG9M]: F:Parses and orders formal cognition objects across Root, Meta, Code, and Database volumes | R:- | A:- | S:-
+ownership.go[CG7T]: F:Assigns formal assets and object identities to exactly one cognition owner | R:- | A:- | S:-
+projected.go[CG9M]: F:Validates projected Code and Database Volume postimages before any formal write | R:- | A:- | S:-
+registry.go[CG8T]: F:Defines the supported cognition Volume registry, dependencies, formats, and namespaces | R:- | A:- | S:-
+repair_findings.go[CG7T]: F:Converts deterministic projected validation errors into bounded repair findings | R:- | A:- | S:-
+system_projection.go[CG8L]: F:Builds narrow system relation, lineage, impact, and evolution views without inventing semantics | R:- | A:- | S:-
+types.go[CG7S]: F:Defines loaded cognition sets, volumes, entries, layout modes, and formal asset metadata | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cognitionbaseline/===
+build.go[CG8T]: F:Builds combined Code source and Database evidence baseline bindings for Volumes cognition | R:- | A:- | S:-
+verify.go[CG8T]: F:Verifies Volume objects against their current source or accepted database evidence bindings | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cognitionbudget/===
+policy.go[CG7S]: F:Normalizes and identifies team-owned whole-index and FRAS budget policies | R:- | A:- | S:-
+report.go[CG8M]: F:Measures Header and Entry token budgets, largest fields, and enforceable violations | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cognitiontxn/===
+transaction.go[CG9M]: F:Provides shared intent, preimage, postimage, CAS, atomic commit, and recovery transactions | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/config/===
+automation.go[CG7S]: F:Resolves legacy, off, review, and policy-bound auto authorization modes | R:- | A:- | S:-
+cognition.go[CG7T]: F:Defines cognition refresh threshold and Overview delivery configuration | R:- | A:- | S:-
+config.go[CG8L]: F:Loads, merges, validates, and atomically saves team and local AOCI configuration | R:- | A:- | S:-
+curation.go[CG7T]: F:Resolves configured Curation exclusions without reading excluded object contents | R:- | A:- | S:-
+paths.go[CG7S]: F:Defines repository-relative formal, runtime, configuration, and recovery asset paths | R:- | A:- | S:-
+scope_budget.go[CG7M]: F:Stores and validates managed-scope and cognition-budget policy configuration | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/dbevidence/===
+access.go[CG8S]: F:Enforces catalog-only access, statement allowlists, zero-row reads, and DDL/DML denial | R:- | A:- | S:-
+canonical.go[CG7L]: F:Canonicalizes database identifiers, column facts, constraints, indexes, and snapshots | R:- | A:- | S:-
+collector.go[CG8M]: F:Coordinates bounded deterministic schema evidence collection for configured sources | R:- | A:- | S:-
+collector_mysql.go[CG7M]: F:Collects MySQL catalog metadata through reviewed read-only information-schema queries | R:- | A:- | S:-
+collector_postgresql.go[CG7M]: F:Collects PostgreSQL catalog metadata through reviewed read-only catalog queries | R:- | A:- | S:-
+config.go[CG7M]: F:Validates database source configuration and credential-environment references without reading secrets | R:- | A:- | S:-
+drift.go[CG7S]: F:Compares accepted and current database evidence identities to classify schema drift | R:- | A:- | S:-
+drivers.go[CG7T]: F:Registers the reviewed pure-Go MySQL and PostgreSQL database drivers | R:- | A:- | S:-
+queries.go[CG7S]: F:Defines the fixed catalog-only SQL query set for supported database engines | R:- | A:- | S:-
+store.go[CG7L]: F:Atomically stores evidence manifests, table facts, snapshots, and accepted baselines | R:- | A:- | S:-
+types.go[CG7M]: F:Defines database source, table, column, constraint, index, evidence, and snapshot types | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/fs/===
+atomic.go[CG9L]: F:Implements durable atomic file replacement with permissions, sync, and platform-specific primitives | R:- | A:- | S:-
+safe_inventory.go[CG9L]: F:Builds the deterministic Safe Inventory while excluding secrets, runtime data, generated assets, and unsafe paths | R:- | A:- | S:-
+atomic_create_darwin.go[CG3T]: F:Creates new atomic-write staging files with Darwin-specific no-follow safety | R:- | A:- | S:-
+atomic_create_linux.go[CG3T]: F:Creates new atomic-write staging files with Linux-specific no-follow safety | R:- | A:- | S:-
+atomic_create_other.go[CG3T]: F:Provides conservative atomic staging creation on unsupported platforms | R:- | A:- | S:-
+atomic_create_windows.go[CG3T]: F:Creates atomic-write staging files using Windows-safe open semantics | R:- | A:- | S:-
+atomic_exchange_darwin.go[CG3T]: F:Uses Darwin rename exchange support for exact atomic replacement where available | R:- | A:- | S:-
+atomic_exchange_linux.go[CG3T]: F:Uses Linux renameat2 exchange support for exact atomic replacement where available | R:- | A:- | S:-
+atomic_exchange_other.go[CG3T]: F:Reports unavailable atomic exchange on platforms without a safe primitive | R:- | A:- | S:-
+atomic_exchange_windows.go[CG3T]: F:Implements Windows replacement behavior for guarded atomic writes | R:- | A:- | S:-
+countlines.go[CG7T]: F:Counts file lines consistently for inventory and cognition scale evidence | R:- | A:- | S:-
+lock.go[CG7L]: F:Provides repository write locking with owner identity, stale-lock detection, and safe release | R:- | A:- | S:-
+lock_owner_open_other.go[CG3T]: F:Reads lock-owner state on non-Windows platforms without following unsafe paths | R:- | A:- | S:-
+lock_owner_open_windows.go[CG3T]: F:Reads lock-owner state with Windows-compatible sharing semantics | R:- | A:- | S:-
+process_identity_linux.go[CG3T]: F:Captures Linux process start identity to distinguish live owners from PID reuse | R:- | A:- | S:-
+process_identity_other.go[CG3T]: F:Provides conservative process identity behavior on unsupported operating systems | R:- | A:- | S:-
+process_identity_unix.go[CG3T]: F:Probes Unix process liveness for lock ownership checks | R:- | A:- | S:-
+process_identity_windows.go[CG3T]: F:Captures Windows process identity and liveness for lock ownership checks | R:- | A:- | S:-
+safe_inventory_platform_other.go[CG3T]: F:Supplies platform-specific inventory exclusions outside Windows | R:- | A:- | S:-
+safe_inventory_platform_windows.go[CG3T]: F:Handles Windows reparse points and filesystem hazards during Safe Inventory | R:- | A:- | S:-
+safe_path.go[CG7T]: F:Validates repository-relative paths, roots, symlinks, and no-escape filesystem access | R:- | A:- | S:-
+walk.go[CG7T]: F:Walks governed repository files with configured exclusions and deterministic ordering | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/index/===
+dict.go[CG7L]: F:Parses Header and Meta tag dictionaries and validates canonical compact tag components | R:- | A:- | S:-
+editor.go[CG7M]: F:Edits or inserts one Entry while preserving section structure and unrelated index bytes | R:- | A:- | S:-
+editor_remove.go[CG7S]: F:Removes exactly one proven Entry while preserving the remaining index structure | R:- | A:- | S:-
+escale.go[CG7M]: F:Derives and validates the scale tag from governed source line-count evidence | R:- | A:- | S:-
+escale_path.go[CG7T]: F:Resolves source paths safely for scale validation without escaping the repository | R:- | A:- | S:-
+header.go[CG7M]: F:Extracts and validates the formal Header portion of a Legacy cognition index | R:- | A:- | S:-
+locale.go[CG7T]: F:Validates index locale markers and localized structural labels | R:- | A:- | S:-
+parser.go[CG8M]: F:Parses Legacy Entry sections and F/R/A/S fields into deterministic records | R:- | A:- | S:-
+query.go[CG7M]: F:Searches parsed Entries by path, directory, keyword, and tag filters | R:- | A:- | S:-
+quota.go[CG7M]: F:Enforces Entry field rune, relation-item, and importance-based S quotas | R:- | A:- | S:-
+relations.go[CG7L]: F:Parses and validates exact managed object relations and canonical identities | R:- | A:- | S:-
+types.go[CG7S]: F:Defines Header, Entry, tag, field, section, and validation data structures | R:- | A:- | S:-
+validator.go[CG8M]: F:Validates Entry syntax, required fields, tags, field limits, and semantic structure | R:- | A:- | S:-
+validator_tagparse.go[CG7T]: F:Parses canonical compact tags while retaining read compatibility for legacy dotted tags | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/machinecontract/===
+capabilities.go[CG9T]: F:Defines canonical AOCI-CODE product, repository, module, binary, MCP, and capability identities | R:- | A:- | S:-
+cognition_planner.go[CG9S]: F:Defines cognition planner, candidate, preview, provenance, and lifecycle version tokens | R:- | A:- | S:-
+lexical.go[CG7T]: F:Defines shared machine-owned lexical tokens used across validators and runtime text | R:- | A:- | S:-
+managed_scope.go[CG8S]: F:Defines managed-scope roles, structured decision bases, profiles, policy, evaluation, approval, and transaction tokens | R:- | A:- | S:-
+numeric.go[CG9S]: F:Owns cross-layer numeric limits for FRAS, batching, budgets, refresh, and delivery | R:- | A:- | S:-
+status.go[CG9M]: F:Defines stable machine status, error, recovery, and next-action vocabularies | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/managedscope/===
+evaluate.go[CG8M]: F:Evaluates Safe Inventory objects against profile, project, Curation, Git, and safety rules | R:- | A:- | S:-
+policy.go[CG8S]: F:Normalizes, validates, identifies, and stores managed-scope policies including structured scope-decision bases | R:- | A:- | S:-
+proposal.go[CG7T]: F:Builds reviewable scope proposals and role-count evidence without applying changes | R:- | A:- | S:-
+snapshot.go[CG7T]: F:Captures active scope policy, role, budget, and observe identities into Baseline receipts | R:- | A:- | S:-
+types.go[CG5T]: F:Defines managed-scope rules with decision bases, evaluations, path roles, proposals, and summaries | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/managedstate/===
+state.go[CG9S]: F:Combines configuration, cognition, baseline, scope, recovery, and drift into one deterministic state | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/mcptools/===
+cognition.go[CG8M]: F:Loads repository-bound cognition and configuration for MCP tools with strict layout handling | R:- | A:- | S:-
+overview_attestation_v1.go[CG9L]: F:Builds and verifies identity-bound Whole-Index challenge attestations and receipts | R:- | A:- | S:-
+overview_delivery_v1.go[CG9L]: F:Chunks complete formal cognition deterministically and validates continuation cursors and host receipts | R:- | A:- | S:-
+server.go[CG8S]: F:Registers the public AOCI MCP server and nine tools while carrying Code batch plans through structured failure handling | R:- | A:- | S:-
+tools_maintain.go[CG9L]: F:Implements the primary Maintain tool and routes Legacy or Volumes alignment workflows | R:- | A:- | S:-
+tools_maintain_volumes.go[CG9S]: F:Builds deterministic bounded Code and Database authoring batches with logical-plan, continuation, source, Scope, and Composite bindings | R:- | A:- | S:-
+tools_read.go[CG8L]: F:Implements MCP Rules, Overview, Header, Entry, Search, and report read routing | R:- | A:- | S:-
+tools_write.go[CG8L]: F:Routes MCP Entry writes through Legacy or Volume validation and transaction paths | R:- | A:- | S:-
+tools_write_batch.go[CG9L]: F:Validates and applies one complete semantic candidate batch across affected Volumes | R:- | A:- | S:-
+overview_cognition_level.go[CG7T]: F:Derives additive cognition delivery and verification levels without conflating governance | R:- | A:- | S:-
+overview_cognition_state_v2.go[CG8S]: F:Projects independent delivery, usability, attestation, governance, and reliability cognition state | R:- | A:- | S:-
+overview_volume_governance.go[CG7S]: F:Calculates scope-specific Volume alignment and reliability for Overview responses | R:- | A:- | S:-
+tools_auto_alignment.go[CG7M]: F:Calculates post-Apply alignment, refresh readiness, and next action for automatic tools | R:- | A:- | S:-
+tools_auto_audit.go[CG7T]: F:Appends bounded tool audit events without treating audit success as governance proof | R:- | A:- | S:-
+tools_auto_result.go[CG8M]: F:Defines and serializes compact applied, repair-required, stopped, audit, governance, and continuation results for automated MCP flows | R:code:internal/mcptools/tools_write_api.go,code:internal/codebatch/types.go | A:autoResult,renderAutoResult,autoApplyNextAction | S:Applied=0 on an idempotent duplicate is success without a new write; detailed candidate Findings must retain their structured identity while legacy findings remain strings
+tools_contract_assets.go[CG9M]: F:Loads localized MCP contract assets and constructs closed JSON Schemas for the nine public tool inputs | R:code:internal/mcptools/tools_write_api.go | A:loadMCPInputSchemas,localizedMCPSchema | S:Unknown fields fail schema validation; receipt-bound Code requests carry code_batch_id at top level and candidate_id plus source_sha256 on every complete batch item
+tools_format_only.go[CG7S]: F:Advances Baseline for proven format-only or line-ending-only changes without semantic rewrites | R:- | A:- | S:-
+tools_header.go[CG7T]: F:Implements the MCP Header dictionary reader for Legacy and Volumes layouts | R:- | A:- | S:-
+tools_maintain_curation_state.go[CG7T]: F:Handles pending, invalid, and excluded Curation state during Maintain | R:- | A:- | S:-
+tools_maintain_database.go[CG7S]: F:Builds evidence-bound Database cognition candidates without connecting to a database | R:- | A:- | S:-
+tools_read_refresh.go[CG7L]: F:Computes cognition checkpoint reasons, generations, and refresh guidance for reads | R:- | A:- | S:-
+tools_read_search.go[CG7S]: F:Searches Legacy or Volume cognition while preserving canonical object identities | R:- | A:- | S:-
+tools_read_snapshot.go[CG7T]: F:Captures coherent formal cognition snapshots and rejects mixed or recovery-pending state | R:- | A:- | S:-
+tools_read_volumes.go[CG7S]: F:Reads scoped Root, Meta, Code, and Database Volume objects for MCP responses | R:- | A:- | S:-
+tools_remove.go[CG7L]: F:Implements MCP orphan Entry removal and routes layout-specific guarded pipelines | R:- | A:- | S:-
+tools_remove_volumes.go[CG7L]: F:Proves Volume object orphan or ownership-conflict removal eligibility before transaction | R:- | A:- | S:-
+tools_report.go[CG7S]: F:Records bounded follow-up reports when evidence cannot support reliable semantic authoring | R:- | A:- | S:-
+tools_write_api.go[CG9L]: F:Registers Entry-write MCP tools and maps complete requests into atomic execution with structured applied, repair-required, or stopped outcomes | R:code:internal/mcptools/tools_contract_assets.go,code:internal/mcptools/tools_auto_result.go,code:internal/mcptools/tools_write_volume_commit.go,code:internal/mcptools/tools_write_repair_findings.go | A:aoci_update_entry,aoci_report | S:For Code machine batches code_batch_id is top-level while candidate and source bindings stay per item; repair changes only retry_scope candidates and resubmits the complete batch
+tools_write_batch_recovery.go[CG9M]: F:Persists, validates, resumes, completes, and rolls back evidence-bound atomic Entries recovery receipts | R:code:internal/mcptools/tools_write_volume_commit.go,code:internal/mcptools/tools_write_batch.go | A:UpdateEntriesAtomicRecoveryPending,CompleteUpdateEntriesAtomicRecovery,RollbackUpdateEntriesAtomicRecovery | S:Resume or rollback requires exact participant pre/post hashes, guarded Root and Meta, unchanged Baseline preimage, and the identical candidate batch; unknown bytes fail closed
+tools_write_governance_receipt.go[CG7L]: F:Builds post-write governance and cognition receipts for public tool results | R:- | A:- | S:-
+tools_write_impact.go[CG7M]: F:Computes bounded relation and downstream impact for a proposed complete Entry batch | R:- | A:- | S:-
+tools_write_repair_findings.go[CG7S]: F:Returns deterministic candidate-specific repair findings without generating replacement semantics | R:- | A:- | S:-
+tools_write_volume_commit.go[CG9L]: F:Plans and commits receipt-bound Code and Database batches through projection validation, relation closure, guarded CAS, Baseline binding, and recovery | R:code:internal/codebatch/receipt.go,code:internal/mcptools/tools_write_batch_recovery.go,code:internal/mcptools/tools_write_batch.go,code:internal/cognition/impact.go | A:- | S:A pending Code R target causes a zero-write replacement batch; each Volume and the combined Baseline or Binding postimage write at most once, while partial postimages require v4 recovery
+transaction_guard.go[CG7T]: F:Captures and revalidates source, formal asset, scope, evidence, and recovery guards | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/scopechange/===
+authorization.go[CG8S]: F:Builds and verifies managed-scope authorization while blocking automatic cognition-coverage reductions and transport-driven shrinkage | R:- | A:- | S:-
+plan.go[CG9S]: F:Builds scope-change envelopes, permits explicit Volume authoring debt, and records structured coverage-reduction risks with guarded postimages | R:- | A:- | S:-
+transaction.go[CG8L]: F:Applies scope policy, Entry, Baseline, observe, Curation, Ledger, and recovery changes atomically | R:- | A:- | S:-
+types.go[CG5T]: F:Defines scope candidates, coverage-reduction evidence, risk, Plan, Preview, authorization, transaction, and result structures | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/volumegovernance/===
+facts.go[CG9L]: F:Computes one deterministic governance fact set shared by Verify, Check, Guide, Maintain, and Overview | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/blackbox/longrun-refresh/===
+README.md[CG5T]: F:Documents the long-running refresh black-box scenarios and required final alignment evidence | R:- | A:- | S:-
+main.go[CG5L]: F:Runs deterministic long-lived cognition refresh scenarios and emits identity-bound evidence reports | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/===
+check-deps.sh[CG5S]: F:Rejects forbidden dependency directions between deterministic core and AI orchestration layers | R:- | A:- | S:-
+check-licenses.sh[CG5M]: F:Validates FSL legal metadata and exact THIRD-PARTY-NOTICES parity against reachable external packages across the six-target release matrix | R:code:.goreleaser.yml,code:THIRD-PARTY-NOTICES | A:make licenses | S:Uses pinned offline Go tooling, fails on placeholders or unknown and configured prohibited licenses, and treats release-matrix drift as a reviewed contract change
+check-public-text.sh[CG5T]: F:Runs the public-text safety scanner over release-facing source and assets | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/release/archive-smoke/===
+main.go[CG5M]: F:Rejects release archives unless they contain only the binary, public READMEs, changelog, and all five legal assets, then executes the Linux amd64 binary | R:code:.goreleaser.yml | A:go run ./scripts/release/archive-smoke --dist <dir> | S:Every entry must be regular, and exactly one Linux amd64 archive must report an aoci version
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/release/===
+clean-room-smoke.sh[CG8S]: F:Builds and exercises aoci in an isolated repository and verifies the bounded current-machine Volume Guide contract | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/scripts/release/manifest/===
+main.go[CG5L]: F:Atomically generates and offline-verifies manifest v3 bindings for source identity, toolchains, machine contracts, artifact hashes, and archive-SBOM pairs | R:code:Makefile,code:internal/machinecontract/capabilities.go,code:internal/machinecontract/managed_scope.go | A:go run ./scripts/release/manifest,go run ./scripts/release/manifest --verify <manifest> | S:Generation rejects dirty trees and placeholder tool identities; checksum subjects are verified by release-check, while legacy v2 remains verify-only compatible
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/spec/public/===
+README.md[CG8T]: F:Maps the public runtime contract set and explicitly excludes private design and commercial material | R:- | A:- | S:-
+aoci-code-cli-runtime-v1.txt[CG8T]: F:Specifies stable CLI identity, global flags, command behavior, exit status, and side-effect boundaries | R:- | A:- | S:-
+aoci-cognition-refresh-v1.txt[CG8S]: F:Specifies cognition checkpoint reasons, refresh decisions, receipts, and generation semantics | R:- | A:- | S:-
+aoci-cognition-state-v2.txt[CG8S]: F:Specifies independent delivery, usability, attestation, governance, and reliability cognition states | R:- | A:- | S:-
+aoci-cognition-volumes-v1.txt[CG8S]: F:Specifies Volume layout, deterministic multi-batch logical plans, per-batch atomicity, continuation, and cross-batch relation closure | R:- | A:- | S:-
+aoci-config-runtime-v1.txt[CG8T]: F:Specifies public configuration files, precedence, safe fields, and local-secret separation | R:- | A:- | S:-
+aoci-database-cognition-authoring-v1.txt[CG8M]: F:Specifies evidence-bound database Entry authoring, validation, repair, and atomic apply | R:- | A:- | S:-
+aoci-database-evidence-v1.txt[CG8M]: F:Specifies catalog-only database evidence identity, snapshot storage, and access prohibitions | R:- | A:- | S:-
+aoci-database-table-fras-v1.txt[CG8T]: F:Specifies database table F/R/A/S semantics and canonical object references | R:- | A:- | S:-
+aoci-host-capability-and-interaction-v1.txt[CG8S]: F:Specifies capability discovery, host interaction, TTY approval, and machine identity contracts | R:- | A:- | S:-
+aoci-host-cognition-messaging-v2.txt[CG8S]: F:Specifies concise user-facing messaging for cognition delivery and verification outcomes | R:- | A:- | S:-
+aoci-index-format-v1.txt[CG8T]: F:Defines the public text interoperability contract for Cognition assets, Entries, Volume layout, directory roots, and validation compatibility | R:code:spec/public/aoci-cognition-volumes-v1.txt,code:spec/public/aoci-code-cli-runtime-v1.txt,code:internal/index/parser.go,code:internal/index/editor.go,code:internal/cognition/objects.go | A:AOCI Public Cognition Format v1 | S:Code section absolute roots are historical structural coordinates, never runtime access paths or semantic identities; readers use the invocation root to derive repository-relative CanonicalRefs, preserve formal bytes on clone, distinguish #Volume path=, and fail closed on unsafe mapping
+aoci-managed-scope-and-budget-v1.txt[CG8S]: F:Specifies governed roles, explicit Volume authoring debt, structured coverage-reduction protection, transactions, and cognition budgets | R:- | A:- | S:-
+aoci-mcp-runtime-v1.txt[CG8T]: F:Specifies MCP server identity, stdio JSON-RPC behavior, and the stable nine-tool surface | R:- | A:- | S:-
+aoci-object-fras-v2.txt[CG8T]: F:Specifies canonical object identities, compact tags, and FRAS v2 field limits | R:- | A:- | S:-
+aoci-overview-delivery-v1.txt[CG8M]: F:Specifies complete Overview chunking, receipts, challenge ordinals, and delivery failure handling | R:- | A:- | S:-
+aoci-safe-inventory-and-scope-refresh-v1.txt[CG8S]: F:Specifies safe filesystem inventory and atomic managed-scope refresh behavior | R:- | A:- | S:-
+aoci-system-cognition-runtime-v1.txt[CG8T]: F:Specifies narrow relation, lineage, impact, and evolution projections over governed cognition | R:- | A:- | S:-
+s-field-discipline.txt[CG8S]: F:Defines the admission rule and quota discipline for non-inferable safety facts in S fields | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/textassets/===
+README.txt[CG5S]: F:Explains generated public runtime text ownership, locale layout, manifests, and embedding rules | R:- | A:- | S:-
+agents_assets.go[CG5T]: F:Embeds and validates locale-specific AGENTS templates and integration stubs | R:- | A:- | S:-
+ai_probe_assets.go[CG5T]: F:Embeds the localized prompts used only for explicit AI endpoint connectivity probes | R:- | A:- | S:-
+catalog.go[CG5L]: F:Loads the generated asset catalog and provides strict locale and manifest lookups | R:- | A:- | S:-
+cli_help_final_assets.go[CG5T]: F:Embeds finalized localized CLI help contracts registered by the command layer | R:- | A:- | S:-
+guide_assets.go[CG5S]: F:Embeds localized Guide instructions and messages for governed workflow stages | R:- | A:- | S:-
+help_assets.go[CG5T]: F:Maps localized command help assets to runtime consumers | R:- | A:- | S:-
+host_assets.go[CG5T]: F:Embeds host-agent protocol help and runtime instruction assets | R:- | A:- | S:-
+init_assets.go[CG5T]: F:Embeds initialization messages, templates, and automation-mode explanations | R:- | A:- | S:-
+maintain_assets.go[CG5T]: F:Embeds localized Maintain descriptions, actions, and failure guidance | R:- | A:- | S:-
+manifest.json[CG5L]: F:Defines the top-level generated runtime asset manifest consumed by catalog validation | R:- | A:- | S:-
+mcp_assets.go[CG5T]: F:Embeds MCP descriptions, input-schema text, and Overview attestation prompts | R:- | A:- | S:-
+model_prompt_assets.go[CG5T]: F:Embeds model authoring prompts selected by locale and authoring stage | R:- | A:- | S:-
+numeric.go[CG5T]: F:Renders machine-owned numeric limits into localized runtime text without duplicating constants | R:- | A:- | S:-
+render.go[CG5T]: F:Renders strict text templates with validated variables and deterministic output | R:- | A:- | S:-
+ui.go[CG5M]: F:Loads localized user-visible messages through the generated catalog | R:- | A:- | S:-
+validate.go[CG5L]: F:Validates locale parity, manifests, variables, protocol tokens, and duplicate fact sources | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/textassets/manifests/===
+agents.json[CG5S]: F:Enumerates AGENTS templates and host integration assets across supported locales | R:- | A:- | S:-
+ai-probe.json[CG5T]: F:Enumerates localized AI probe prompt assets | R:- | A:- | S:-
+cli-help-final.json[CG5S]: F:Enumerates finalized CLI help assets whose presence and symbols are release contracts | R:- | A:- | S:-
+cli-help.json[CG5S]: F:Enumerates the broader localized CLI help asset set | R:- | A:- | S:-
+guide-stop.json[CG5T]: F:Enumerates localized Guide stop-state instruction and message assets | R:- | A:- | S:-
+host-agent.json[CG5M]: F:Enumerates host-agent help and runtime protocol assets | R:- | A:- | S:-
+init.json[CG5S]: F:Enumerates localized initialization templates and status messages | R:- | A:- | S:-
+maintain.json[CG5T]: F:Enumerates localized Maintain tool and action assets plus required large-plan batch contract anchors | R:- | A:- | S:-
+mcp-tools.json[CG5T]: F:Enumerates localized MCP tool descriptions, schemas, and Code batch identity input anchors | R:- | A:- | S:-
+model-prompts.json[CG5M]: F:Enumerates model-authoring prompts while keeping them versioned public runtime assets | R:- | A:- | S:-
+read-observation.json[CG5T]: F:Enumerates read-operation observation and audit disclosure assets | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/bootstrapapply/===
+approval.go[CG7M]: F:Validates digest-bound human approval for a prepared cognition bootstrap envelope | R:- | A:- | S:-
+codec.go[CG7S]: F:Strictly encodes and decodes bootstrap preview, approval, intent, and receipt artifacts | R:- | A:- | S:-
+eligibility.go[CG7M]: F:Evaluates whether a bootstrap envelope qualifies for policy-bound automatic authorization | R:- | A:- | S:-
+prepare.go[CG7M]: F:Freezes bootstrap postimages, guards, risks, digests, and recovery direction before formal writes | R:- | A:- | S:-
+rollback.go[CG7S]: F:Restores an incomplete bootstrap to its proven absent or exact preimage | R:- | A:- | S:-
+status.go[CG7S]: F:Derives bootstrap transaction state from current formal assets and recovery records | R:- | A:- | S:-
+transaction.go[CG8L]: F:Applies approved Root, Meta, Volume, Baseline, and receipt postimages through guarded atomic writes | R:- | A:- | S:-
+types.go[CG7S]: F:Defines bootstrap envelopes, approvals, transaction intents, receipts, and status structures | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/codebatch/===
+receipt.go[CG9M]: F:Builds and validates deterministic receipt-bound Code authoring plans and relation-closed replacement batches | R:code:internal/codebatch/types.go,code:internal/mcptools/tools_maintain_volumes.go,code:internal/mcptools/tools_write_volume_commit.go | A:BuildPlan,ReplanForRelations,ValidateSubmission,LoadReceipt | S:Candidate identities are batch-derived; Apply requires the complete current Target set and exact Composite, Scope, Code Volume, source, and candidate bindings
+types.go[CG8T]: F:Defines machine-visible Code authoring targets, receipts, plans, candidates, and submission bindings | R:code:internal/codebatch/receipt.go,code:internal/mcptools/tools_maintain_volumes.go,code:internal/mcptools/tools_write_volume_commit.go | A:Target,Receipt,Plan,Submission | S:MaxEntries limits one machine batch; Remaining and continuation do not limit the logical plan, Whole-Index, or Managed Scope
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/cognitionplan/===
+codec.go[CG7T]: F:Strictly encodes and decodes cognition plans, candidates, mappings, previews, and receipts | R:- | A:- | S:-
+facts.go[CG7L]: F:Captures immutable filesystem, source, configuration, and evidence facts for cognition planning | R:- | A:- | S:-
+identity.go[CG7T]: F:Computes domain-separated identities for plans, candidates, evidence, and mappings | R:- | A:- | S:-
+mapping.go[CG7S]: F:Builds and validates object-to-Volume migration and bootstrap mapping decisions | R:- | A:- | S:-
+plan.go[CG8M]: F:Discovers uninitialized, Legacy, or Volumes layouts and builds deterministic bootstrap or migration plans | R:- | A:- | S:-
+provenance.go[CG8S]: F:Binds host-model semantic authoring provenance to Plan, Evidence, and complete Candidate bytes | R:- | A:- | S:-
+replay.go[CG7S]: F:Replays deterministic cognition planning from recorded evidence and identities | R:- | A:- | S:-
+types.go[CG7M]: F:Defines cognition Plan, authoring task, candidate, mapping, preview, and evidence structures | R:- | A:- | S:-
+validate.go[CG8L]: F:Validates complete candidate layouts, mappings, source guards, budgets, and approval digests | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/curation/===
+classify.go[CG7M]: F:Classifies special files for semantic inclusion, exclusion, review, or technical skip | R:- | A:- | S:-
+decode.go[CG7T]: F:Strictly decodes Curation documents and rejects duplicate or unsupported fields | R:- | A:- | S:-
+model.go[CG7S]: F:Defines Curation decisions, evidence, confidence, review, and document identity | R:- | A:- | S:-
+profile.go[CG7S]: F:Provides stable Curation profiles and rules for common repository object classes | R:- | A:- | S:-
+store.go[CG7M]: F:Loads and atomically stores reviewed Curation decisions | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/databasebootstrap/===
+prepare.go[CG7M]: F:Prepares guarded creation of a Database cognition Volume from accepted evidence | R:- | A:- | S:-
+rollback.go[CG7S]: F:Restores an interrupted Database Volume bootstrap to exact preimages | R:- | A:- | S:-
+transaction.go[CG7L]: F:Applies approved Database Volume and binding postimages atomically | R:- | A:- | S:-
+types.go[CG7T]: F:Defines Database bootstrap envelope, approval, intent, receipt, and status types | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/dbcognition/===
+receipt.go[CG7M]: F:Builds and validates database cognition authoring and application receipts | R:- | A:- | S:-
+state.go[CG7M]: F:Derives Database cognition alignment from Volume, evidence, and binding state | R:- | A:- | S:-
+types.go[CG7T]: F:Defines database cognition candidates, batches, findings, bindings, and public results | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/draft/===
+draft.go[CG7L]: F:Stores index draft candidates and their source and Plan bindings outside formal cognition | R:- | A:- | S:-
+manifest_decode.go[CG7T]: F:Strictly decodes draft manifests and rejects duplicate or malformed fields | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/hooks/===
+claude.go[CG7S]: F:Builds Claude Code hook configuration for AOCI pre-write governance | R:- | A:- | S:-
+codex.go[CG7T]: F:Builds repository-local Codex MCP configuration with an explicit AOCI binary and root | R:- | A:- | S:-
+installer.go[CG7M]: F:Installs or updates supported host integration files without overwriting unrelated configuration | R:- | A:- | S:-
+pretool.go[CG7S]: F:Implements the Claude pre-tool hook that checks AOCI governance before writes | R:- | A:- | S:-
+status.go[CG7T]: F:Inspects installed host integration state and reports drift or missing assets | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/indexgen/===
+inventory.go[CG7M]: F:Builds deterministic index inventory views from Safe Inventory and parsed cognition | R:- | A:- | S:-
+missing.go[CG7S]: F:Computes actionable missing and orphan Entry sets under current scope and Curation | R:- | A:- | S:-
+score.go[CG7L]: F:Calculates cognition coverage, structural quality, and bounded diagnostic scores | R:- | A:- | S:-
+score_types.go[CG7S]: F:Defines score categories, findings, inventories, and machine-readable result structures | R:- | A:- | S:-
+ui.go[CG7T]: F:Renders localized index inventory and score output without changing scoring facts | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/jsonstrict/===
+duplicate.go[CG7S]: F:Rejects duplicate JSON object keys before decoding governance or protocol artifacts | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/ledger/===
+ledger.go[CG7M]: F:Appends hash-chained local audit events without making Ledger a governance authority | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/llm/===
+client.go[CG7M]: F:Calls an explicitly configured OpenAI-compatible endpoint for bounded optional authoring tasks | R:- | A:- | S:-
+errors.go[CG7S]: F:Classifies endpoint, HTTP, schema, timeout, and response failures for safe caller handling | R:- | A:- | S:-
+options.go[CG7S]: F:Defines validated optional model endpoint, token, timeout, concurrency, and secret-environment settings | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/migrationapply/===
+approval.go[CG7T]: F:Validates digest-bound approval for a prepared Legacy cognition migration | R:- | A:- | S:-
+codec.go[CG7S]: F:Strictly encodes migration snapshots, mappings, envelopes, approvals, intents, and receipts | R:- | A:- | S:-
+mapping.go[CG7L]: F:Validates reviewed Legacy Entry mappings into canonical Volume object identities | R:- | A:- | S:-
+prepare.go[CG7M]: F:Freezes migration postimages, mapping, guards, risks, and recovery direction | R:- | A:- | S:-
+replay.go[CG7T]: F:Replays migration planning and candidate validation from stored deterministic artifacts | R:- | A:- | S:-
+reversal.go[CG7L]: F:Builds exact reverse operations for migration rollback and audit | R:- | A:- | S:-
+rollback.go[CG7S]: F:Restores incomplete migration writes to their proven Legacy preimages | R:- | A:- | S:-
+schema.go[CG7T]: F:Defines and validates the migration artifact schema and supported versions | R:- | A:- | S:-
+snapshot.go[CG7L]: F:Captures immutable Legacy index, baseline, configuration, and source evidence before migration | R:- | A:- | S:-
+status.go[CG7S]: F:Derives migration transaction and recovery status from disk identities | R:- | A:- | S:-
+transaction.go[CG7L]: F:Applies approved Legacy-to-Volumes postimages with CAS, atomic writes, and receipts | R:- | A:- | S:-
+types.go[CG7M]: F:Defines migration snapshots, mappings, envelopes, approvals, intents, receipts, and results | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/onboarding/===
+store.go[CG7S]: F:Persists onboarding sessions and immutable plan, evidence, candidate, and receipt artifacts | R:- | A:- | S:-
+types.go[CG7S]: F:Defines persistent onboarding sessions, batches, completion receipts, and status results | R:- | A:- | S:-
+workflow.go[CG7L]: F:Runs context-budgeted Fresh Bootstrap or Legacy Migration onboarding and safe auto continuation | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/prompt/===
+entry.go[CG7M]: F:Builds localized model prompts for evidence-bound Entry generation and updates | R:- | A:- | S:-
+header.go[CG7S]: F:Builds localized model prompts for repository Header authoring and revision | R:- | A:- | S:-
+template_helpers.go[CG7T]: F:Renders prompt templates with strict variables, normalized evidence, and bounded content | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/runmanifest/===
+runmanifest.go[CG7L]: F:Captures command, tool, repository, model, and evidence identities for reproducible runs | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/safety/===
+files.go[CG7S]: F:Selects release-facing files and forbidden content patterns for the public text scan | R:- | A:- | S:-
+safety.go[CG7T]: F:Scans public text for private paths, internal state, unsafe wording, and prohibited identity leakage | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/safetycmd/===
+main.go[CG7T]: F:Provides the standalone safety scanner entry point used by release scripts | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/scoperefresh/===
+apply.go[CG7M]: F:Applies accepted Safe Inventory scope proposals and baseline role state | R:- | A:- | S:-
+plan.go[CG7M]: F:Builds deterministic scope-refresh proposals from inventory, configuration, and current Baseline | R:- | A:- | S:-
+types.go[CG7S]: F:Defines scope refresh plans, approvals, role changes, and application results | R:- | A:- | S:-
+
+===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/internal/workflow/===
+entries.go[CG7M]: F:Coordinates model Entry generation workers, validation, staging, and cancellation | R:- | A:- | S:-
+entries_curation.go[CG7S]: F:Applies Curation decisions while selecting Entry authoring targets | R:- | A:- | S:-
+entries_worker.go[CG7M]: F:Runs bounded concurrent Entry authoring requests and preserves deterministic result ordering | R:- | A:- | S:-
+header.go[CG7M]: F:Coordinates model Header authoring requests and validates complete candidate output | R:- | A:- | S:-

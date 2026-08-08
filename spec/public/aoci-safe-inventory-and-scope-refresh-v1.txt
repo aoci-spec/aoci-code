@@ -1,0 +1,133 @@
+AOCI Safe Inventory v2 and Baseline Scope Refresh v1
+=====================================================
+
+Status and authority
+--------------------
+
+This specification defines the source-discovery safety boundary and the
+versioned transition used when the managed set of the existing Baseline
+changes. `internal/fs/safe_inventory.go` is the executable path-classification
+authority. `internal/scoperefresh` owns Plan, Preview, Apply, status, and
+Resume. The existing Baseline v1, global cognition lock, AtomicWriteCAS,
+Ledger, and cognition transaction directories remain the only persistence and
+recovery authorities.
+
+Baseline Scope Refresh v1 remains the compatibility lifecycle for legacy
+single-role projects. Managed Scope v2 is the authority for role-bearing
+Baseline changes, observe fingerprints, Entry additions/removals, Retention
+Review, and cognition budgets. It reuses this safety and persistence core; it
+does not create a second Baseline or transaction kernel. See
+`aoci-managed-scope-and-budget-v1.txt`.
+
+Safe Inventory v2
+-----------------
+
+`safe-inventory/v2` combines Git facts, project configuration, Curation, and a
+built-in hard safety boundary. A Git repository contributes tracked paths,
+non-ignored untracked paths, and ignored path names using Git's own ignore
+semantics. A non-Git repository retains a secure name-only traversal. New
+non-ignored source files remain eligible; governance is not limited to tracked
+files.
+
+Managed Scope may ask Safe Inventory to retain otherwise-safe Git-ignored
+names as policy candidates. Their bodies remain unread until a winning index
+or observe role requires a fingerprint. Hard safety exclusions always run
+first and cannot be reopened by this option.
+
+Before any candidate file is opened or hashed, the inventory rejects unsafe
+relative paths, symbolic links, junctions/reparse points exposed as unsafe
+objects, non-regular files, and cross-platform case-folding collisions. It
+then applies built-in exclusions for secret variants, private keys and
+credentials, runtime state, dependency/runtime trees, generated build/test
+output, logs/PIDs/sockets, database data files/directories, PM2 state, AOCI
+Draft/transaction/Evidence/Ledger runtime content, platform temporary files,
+binary databases, uploads, backups, cached/generated artifacts, and named
+third-party distribution output. Empty `.gitkeep` repository placeholders are
+generated artifacts. `.env.example`-style templates are not secret variants.
+`package-lock.json` is not a built-in secret or runtime exclusion.
+
+An excluded file's body is not read and no content SHA is calculated. It does
+not enter model prompts, the Baseline, Evidence, Candidates, or Ledger body.
+Receipts may contain only the path summary, safety category, rule source,
+tracked flag, and aggregate counts.
+
+A tracked excluded path remains visible in review_visible_count, but exclusion
+without opening the body is not by itself an Auto blocker. A
+project may name an exact sensitive-file path in the high-risk opt-in list,
+including a Git-ignored path; globs and unsafe paths are forbidden. Runtime,
+generated, AOCI/VCS, and unsafe filesystem objects cannot use this exception.
+Opt-in makes the sensitive file eligible, preserves the review-visible count,
+and increments auto_blocker_count because the workflow expands into a
+sensitive-data read.
+Project include/exclude and Curation decisions remain separate authorities and
+existing configuration remains readable.
+
+The deterministic summary reports Git tracked, non-ignored untracked,
+ignored, built-in sensitive, runtime, generated, configured and unsafe-object
+exclusions, final managed candidates, review_visible_count,
+auto_blocker_count, the compatibility required_human_review projection, rules
+identity, and inclusion/exclusion identity. required_human_review retains its
+v2 audit meaning for existing Managed Scope and Scope Refresh consumers; Fresh
+Auto authorization never uses it as the sole stop condition.
+
+Business Source Manifest
+------------------------
+
+`business-source-manifest/v1` is the shared read-only source identity for
+authoring, review, Migration, Auto, and tests. It contains sorted paths and one
+raw-byte SHA/size/line-ending-policy record per included file, the Safe
+Inventory rules and selection identities, Curation identity, optional Git
+HEAD, aggregate algorithm, aggregate SHA, and the Inventory summary.
+`generated_at` is audit metadata and is excluded from the aggregate identity.
+The aggregate algorithm is `sha256-nul-domain-separated-v1`. It performs no
+network access.
+
+Baseline Scope Refresh v1
+-------------------------
+
+The machine family is:
+
+* baseline-scope-plan/v1;
+* baseline-scope-preview/v1;
+* baseline-scope-approval/v1;
+* baseline-scope-apply-result/v1;
+* baseline-scope-recovery/v1; and
+* baseline-scope-status/v1.
+
+Plan binds the exact old Baseline SHA, old and new managed-set identities,
+include/exclude rules identity, Curation identity, Source identity, Safe
+Inventory receipt, Added/Removed/Preserved sets, source-byte drift, scope-only
+delta, removal safety reasons, a frozen Baseline timestamp, and the exact
+Baseline postimage SHA.
+
+Scope changes and source changes are independent. A missing formerly managed
+source or changed SHA is `source_drift` and blocks Apply. It is not converted
+to a scope removal and cannot be accepted through this protocol. Built-in
+secret/runtime/generated/unsafe exclusions are safe scope removals. The new
+Managed Set is the final Curation-selected Business Source set plus present
+formal cognition assets; a Curation exclusion is therefore an explicit
+ordinary scope removal rather than only an identity change. Project
+configuration, Curation, and other ordinary reductions are visible, counted
+separately, and require an interactive digest approval. Large ordinary reductions are
+also marked high risk. The same Preview can be approved only once for its
+exact identity.
+
+Apply replays the exact Preview, rejects source, rules, Curation, inventory, or
+Baseline drift before its Intent, acquires the existing global cognition lock,
+persists one immutable recovery Intent, and replaces the existing Baseline by
+AtomicWriteCAS. It then records one deduplicated Ledger event and archives the
+Intent. It never creates another Baseline or lifecycle state machine. Resume
+uses the same Intent and is idempotent. Unknown third-party Baseline bytes fail
+closed and are never overwritten.
+
+Compatibility
+-------------
+
+Baseline v1 remains the read/write format. Existing `config.json` excludes and
+line-ending policy continue to apply. Legacy, Volumes, Git, and non-Git
+repositories share the same safe discovery boundary. Safe Inventory does not
+alter model ownership of Root, Meta, tags, or F/R/A/S.
+
+Managed Baselines add an optional role to each fingerprint; an omitted role is
+legacy index. Existing Baseline Scope Refresh cannot wash or advance a
+role-bearing Managed Scope receipt, even with `scan --force`.

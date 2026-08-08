@@ -1,0 +1,35 @@
+#===={{.ProjectName}} Complete Index====
+#Locale: en-US
+#===Header Index===
+#[Deployment] (Describe how this project is built, deployed, and run, plus essential commands, for example: single binary via go build → build/app | bash deploy.sh | imported after pip install. The model needs this global “how does the system run?” anchor before acting.)
+#[System] {{.ProjectName}} — (State in one dense sentence what the system is, its core architecture and technology stack, and any top-level invariant that must not be broken. Prefer no text to vague text.)
+#[Overall Rules]
+#Three-part syntax: lines beginning with # are explanatory content (rules, dictionaries, and section titles) that tools do not extract but models must read | ===description/absolute/path/=== opens a directory section | every other non-empty line in a directory section is an Entry
+#Directory example: ===Backend Index{{.RepoRootSlash}}=== is “description + absolute directory path + ===” on one line and opens one directory section
+#Entry format: filename[tag]: F:function | R:relationships | A:interface | S:information; exactly one line; all four fields present; use - for an empty field
+#F scope: write one short, precise core-function anchor; semantic completeness takes priority when a few more words are needed; do not translate filenames, pile up several responsibilities, or use mass-produced sentence patterns
+#R scope: list only strong cross-file dependencies as comma-separated exact paths or module names; omit logging, generic utilities, and framework-provided dependencies; never mechanically copy import or dependency lists
+#A scope: list only APIs, entry points, or contracts exposed by this file; omit internal functions; use - when none exists
+#S discipline: write only information that cannot be inferred from filename + tag + F + R + A but that the model must know to understand the system or modify code; both tests must pass; prohibit evolution narratives and time-dependent information such as versions, dates, or repair history; quotas are declared below
+#Multiple tag systems: a large project may define an independent rule block for each technical domain, such as backend, frontend, or database, with separate A/B/D values; the same letter may mean different things across systems, but each block must define it clearly
+#[Correct Index Examples]
+#main.go[CRT9OT]: F:process entry point | R:internal/cli/root.go | A:- | S:In MCP mode stdout is reserved for the JSON-RPC protocol stream; logs must go to stderr
+#atomic.go[FAT9AT]: F:atomic write | R:- | A:AtomicWrite | S:The temporary file must be in the target directory; failure must preserve the original file
+#Note: These examples come from a real Go project and illustrate only F/R/A/S information roles and granularity; determine actual tags from the current project dictionary
+#===Index Rules===
+#[Format] filename[tag]: F:function | R:relationships | A:interface | S:information
+#[ABCDE Tags] Compact form such as [XC9M]. The values below are skeleton examples; replace and complete them for this project's actual layers (with AI configured, aoci index header draft can draft them). Only compact concatenation and dot-separated forms are valid; comma-separated tags are nonstandard
+#A Layer: (define by architectural layer, for example H-Handler S-Service P-Repository M-Model W-Middleware C-Config X-Script; a library may use C-Core T-Transport X-EntryPoint)
+#B Module: (define by business domain, for example C-Core A-Authentication O-Organization US-User; symbols must not contain digits because the first digit begins C Importance)
+#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge
+#D Trait (optional): (define by technical trait, for example J-JWT T-Transaction A-Async B-Batch; symbols must not contain digits)
+#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100 (adjust line thresholds for this project; digits and comparison operators must remain machine-readable because the machine checks each Entry's E scale)
+#S quota: C9-8≤600 C7-4≤200 C3-1≤50 (maximum S length for each C band; adjust for this project; undeclared bands use defaults and the machine enforces them)
+#===Index Rules Complete===
+#===Header Index Complete===
+
+#Code Index
+
+==={{.RepoRootSlash}}===
+
+#Code Index Complete

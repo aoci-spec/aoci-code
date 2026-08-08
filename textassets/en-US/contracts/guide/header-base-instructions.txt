@@ -1,0 +1,13 @@
+Investigate the repository structure, primary technology stack, runtime model, and system boundaries. Read representative source files in full when needed.
+The current model must draft the index Header, tag dictionaries, and rules from repository facts it has actually read. Never generate semantics from paths, extensions, regular expressions, templates, rule engines, or batch scripts.
+The Header must state that F is a short, precise core-function anchor with semantic completeness taking priority; R lists only strong relationships; A lists only APIs exposed by this file; S contains only information absent from filename + tag + F + R + A but necessary to understand the system or modify the code.
+Do not create a “negative space” block. Put system-level boundaries in [System], and govern file inclusion or exclusion through Curation.
+The Header must contain a [Correct index examples] block whose lines begin with #. These examples illustrate FRAS responsibilities and granularity and are not parsed as formal Entries.
+Example 1 is fixed as: #main.go[CRT9OT]: F:process entry point | R:internal/cli/root.go | A:- | S:In MCP mode stdout is reserved for the JSON-RPC protocol stream; logs must go to stderr
+Example 2 is fixed as: #atomic.go[FAT9AT]: F:atomic write | R:- | A:AtomicWrite | S:The temporary file must be in the target directory; failure must preserve the original file
+The example note is fixed as: #Note: These examples come from a real Go project and illustrate only F/R/A/S information roles and granularity; determine actual tags from the current project dictionary
+Fill header_stage_request.header. A candidate may contain only Header explanation lines beginning with #.
+When plan.locale_migration.active is true, also fill header_stage_request.managed_index_text with the complete target-locale index. Translate every AOCI-managed explanation and directory label after the Header, preserve directory paths and every ordinary Entry byte-for-byte, and remove exactly the receipt-bound .aoci governance Entries. Those machine governance assets are explicitly reclassified instead of translated from volatile bytes. Keep managed_index_text empty outside Locale migration.
+Save the complete header_stage_request as a UTF-8 JSON file and replace {request_file} in commands.header_stage with that path.
+On Windows PowerShell 5, do not pass request JSON through a text pipeline. --stdin-json is only for environments with a reliable byte stream.
+Run header stage and capture the actual run_id.

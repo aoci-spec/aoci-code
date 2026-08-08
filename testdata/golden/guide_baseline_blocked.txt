@@ -1,0 +1,6 @@
+MESSAGE:
+仓库已有Baseline但存在Unbaselined文件，自动工序不得用scan --force整体承认。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+停止生成流程并向维护者展示Plan中的unbaselined列表。
+不要执行scan --force；由维护者判断配置变化、补录文件或Baseline治理。

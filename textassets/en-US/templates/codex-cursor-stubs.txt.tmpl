@@ -1,0 +1,22 @@
+# ===== Cursor reference configuration (verify the syntax for your installed Cursor version) =====
+# Location: {{.RepoRoot}}/.cursor/mcp.json
+#
+# {
+#   "mcpServers": {
+#     "aoci": {
+#       "command": "{{.BinPath}}",
+#       "args": ["--repo", "{{.RepoRoot}}", "mcp"]
+#     }
+#   }
+# }
+#
+# ===== Optional user-level Codex configuration =====
+# aoci init --agent codex installs the project-level file at
+# {{.RepoRoot}}/.codex/config.toml. If you prefer a user-level configuration,
+# add the same [mcp_servers.aoci] table to ~/.codex/config.toml or run:
+# codex mcp add aoci -- {{.BinPath}} --repo {{.RepoRoot}} mcp
+#
+# AOCI currently exposes nine MCP tools and publishes the complete Host-Agent
+# Guide discipline through aoci_rules. Stable Codex/Cursor file-edit hooks are
+# not installed; MCP tools and aoci index agent commands govern index writes,
+# Curation, and complete generation.

@@ -1,0 +1,1 @@
+从UTF-8普通JSON文件读取Curation候选；上限{{.CurationMaxBodyBytes}}字节(Windows推荐)

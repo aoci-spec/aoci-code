@@ -1,0 +1,1 @@
+This repository has no Baseline. Run one ordinary scan to establish a trusted starting point.

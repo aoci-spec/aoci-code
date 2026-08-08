@@ -1,0 +1,5 @@
+为每个表候选独立创作且仅创作一条完整Database Entry：table_name[tag]: F:... | R:... | A:... | S:...。写入前阅读Root与Meta规则、当前完整Table Evidence、已有Entry（若存在），以及相关Migration、Repository、Service、API、配置和测试。Schema事实以当前Canonical Evidence高于旧Entry；业务语义仍以当前源码和测试为权威。
+
+完整标签与F/R/A/S全部由你自主选择。AOCI只提供身份、Evidence、验证、影响分析和治理，不生成、预填、重写、缩短或修复语义。F只写一个核心命题，绝不列字段。R只列安全理解或修改所需的强关系，不罗列所有外键。A只列稳定标识、访问边界和合同面，不罗列所有Repository、API、CRUD方法、字段或索引。S中的每句话必须同时满足两问：它无法由表名、标签、F、R、A或普通Schema事实推出；删除它可能导致对代码、Schema、事务、并发、生命周期、保留策略或跨表写入顺序的错误修改。不得根据deleted_at、status、tenant_id、created_at等字段名猜测S。
+
+一张基础表始终只有一条Entry。Column、Key、Constraint、Index和Partition只是Evidence，不是独立认知对象。不要把Schema Dump复制进FRAS，不要把所有外键放进R，不要把所有调用者放进A，不要自动补对称关系，也不要猜测rename。只有当前Evidence和代码仍支持时才保留旧Entry中的高熵S约束。即使只变化一个Schema事实，也必须完整重写Entry。遵守Meta字典、FRAS v2长度、R/A项目数和按重要度划分的S配额。任一目标缺乏充分业务证据时停止并报告，绝不猜写。提交返回批次中的全部候选，并原样携带batch_id与candidate_id。

@@ -1,0 +1,34 @@
+AOCI-CODE Configuration Runtime Contract v1
+===========================================
+
+Files and precedence
+--------------------
+
+Team configuration is stored in `.aoci/config.json`. Local configuration is
+stored in `.aoci/config.local.json` and is not intended for version control.
+Runtime loading applies safe defaults, then the team file, then eligible local
+overrides. Team-owned governance fields cannot be changed by the local layer.
+
+The configured `index_path` selects the cognition root. `locale` selects one
+official Locale for generated assets and process output. Inventory exclusions,
+curation exclusions, line-ending policy, cognition refresh threshold, Overview
+delivery framing, managed scope, cognition budget, automation, Database Source
+declarations, and installed Host integrations are team-owned settings.
+
+Secrets and network configuration
+---------------------------------
+
+AI support is disabled by default and has no default endpoint. `api_key_env`
+stores an environment-variable name, not a credential value. Database Source
+configuration likewise stores the credential environment-variable name rather
+than the credential. Secret values must not be persisted in configuration,
+formal cognition, Ledger records, or prompt snapshots.
+
+Compatibility and validation
+----------------------------
+
+The current `internal/config` decoder and validator are the executable field,
+default, merge, and error authority. Callers that write team configuration must
+start from the team layer rather than writing a local merged view back to disk.
+Unknown or invalid policy values fail according to the command using them; they
+do not silently weaken a safety boundary.

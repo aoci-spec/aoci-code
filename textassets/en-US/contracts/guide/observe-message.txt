@@ -1,0 +1,1 @@
+automation.mode=off: report {{.Scope}} facts only; candidate generation, Stage, and Apply are not allowed.

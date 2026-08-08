@@ -1,0 +1,3 @@
+Run header diff and show the complete diff.
+legacy compatibility mode requires approval before header apply.
+After approval, run Apply, verify, and then guide again.

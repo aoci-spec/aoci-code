@@ -1,0 +1,80 @@
+Repository Cognition Object and FRAS v2 (candidate)
+
+1. Unified object line
+
+Every governed object uses one model-authored line:
+
+  object_name[tag]: F:... | R:... | A:... | S:...
+
+New Volumes object authoring uses one physical Tag form: compact
+A+B+C+[D]+E. Each axis value comes from the current scoped Meta dictionary;
+CG7T is a legal Code example under the official starter Meta. Dotted Tags are
+retained only for Legacy read compatibility and are not emitted by new
+authoring. All consumers split Tags through index.ParseTags.
+
+Physical Volume determines object_type. Code v1 objects are files. Database v1
+objects are tables. Future API and Deployment Volumes may reuse this language
+only after defining their own object identity and evidence contract.
+
+The program may collect deterministic evidence, identify a target, compute
+fingerprints and identities, detect drift, validate format and lengths, verify
+references when their namespace is formal, and run existing governance. It
+must not select a tag or generate, prefill, summarize, compress, truncate,
+delete, reorder, rewrite, or complete F/R/A/S. A mechanically generated draft
+followed by model polishing is also prohibited. A finding requires the model
+to reread the complete evidence and regenerate the complete Entry.
+
+2. Unified semantics
+
+F is one core function or purpose proposition. It is not an inventory.
+
+R is the selected set of strong relations that must be considered to
+understand or safely modify the object. It is not a complete dependency graph.
+For new Volumes Entries and a changed R field, values are comma-delimited exact
+`code:<repository-relative-path>` or
+`database://<source>/<namespace>/<table>` identities, or `-`. A unique bare
+filename or table name is not a write alias and is never silently completed.
+Persisted bare relations remain readable for compatibility when R is unchanged;
+they are not an authoring form. Values are never explanatory prose.
+
+A is the stable access or externally relied-upon contract. It is not a list of
+all methods, fields, callers, queries, or helpers. Use - when no meaningful
+stable contract exists.
+
+S is high-entropy System Constraint cognition. Every sentence must pass both
+questions:
+
+1. Can it be inferred directly from object name, tag, F, R, or A? It is
+   admissible only when the answer is no.
+2. Could deleting it cause a model to modify code, data, or lifecycle
+   incorrectly? It is admissible only when the answer is yes.
+
+S excludes time, history, versions, former reasons, ordinary explanation,
+low-consequence detail, and repetition of F/R/A. The C9-C8, C7-C4, and C3-C1
+S quotas remain governed by the existing machine contract. Quotas are maxima,
+never writing targets.
+
+3. FRAS v2 density
+
+F has one proposition and a Unicode-character maximum. R and A each have both
+a Unicode-character maximum and a comma-delimited item maximum. Field count,
+column count, index count, foreign-key count, or caller count never expands a
+limit. The normative values are owned only by
+internal/machinecontract.ObjectFRASV2Limits and the existing S quota authority;
+Validator and model-visible findings consume those values rather than copying
+numbers into another rule source.
+
+The candidate limits were calibrated against the 875 formal code Entries at
+the R67-B2 starting identity. The recorded distribution is in
+docs/cognition-volumes.md. Limits apply strictly to Volumes v1 objects and new
+future candidates; they do not reject or rewrite Legacy v1 Entries.
+
+4. Compatibility
+
+Legacy remains filename[tag] with the same lexical and FRAS parser. Volumes v1
+reuses that lexical parser as object_name[tag]. This protocol changes the
+physical object namespace, not the meaning of an existing code Entry. No
+Legacy repository is migrated merely because a newer binary reads it.
+Persisted dotted Tags and bare R values therefore remain readable and
+migratable. The stricter compact-Tag and canonical-R rules apply only at a new
+Volume create or when the corresponding field is actually changed.

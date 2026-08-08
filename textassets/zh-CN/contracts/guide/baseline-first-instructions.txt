@@ -1,0 +1,2 @@
+执行aoci scan，不要添加--force。
+scan成功后立即重新运行guide，不要在无Baseline状态下生成语义候选。

@@ -1,0 +1,3 @@
+对目标文件调用用户配置端点起草单行Entry。
+--missing读取正式curation.json: 普通Actionable和有效include进入生成，exclude、Pending与技术跳过在AI Client构造前收敛。
+显式--paths可选择普通文件，但特殊文件仍必须有有效include决策。

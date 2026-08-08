@@ -1,0 +1,20 @@
+MESSAGE:
+automation.mode=review：宿主Agent应生成Header候选，完成Stage与Diff后在Apply前等待用户批准。
+INSTRUCTIONS:
+严格按当前instructions给出的顺序和停点执行；只有instructions明确要求时才重新运行guide，在此之前保持当前plan_id、请求中的source_sha256及本阶段返回的run_id绑定。
+调查仓库结构、主要技术栈、运行方式和系统边界；需要时完整读取代表性源码。
+索引头、标签字典及规则必须由当前模型根据已读取的仓库事实起草；禁止使用路径、扩展名、正则、模板、规则引擎或批量脚本生成语义。
+Header必须声明：F写简短明确的核心功能锚点，通常控制在10个字以内但语义完整优先；R只列强关联；A只列本文件对外API；S只写文件名+标签+F+R+A推不出、但理解系统或修改代码必须知道的信息。
+不要创建“负空间”板块；系统级边界写入【系统】，文件收录或排除交由Curation治理。
+Header必须包含以#开头的【正确索引示例】板块；示例只说明FRAS分工与颗粒度，不参与正式条目解析。
+示例1固定为：#main.go[CRT9OT]: F:进程入口 | R:internal/cli/root.go | A:- | S:MCP模式stdout仅允许JSON-RPC协议流,日志必须写stderr
+示例2固定为：#atomic.go[FAT9AT]: F:原子写 | R:- | A:AtomicWrite | S:临时文件必须与目标位于同一目录;失败时必须保留原文件
+示例说明固定为：#说明: 示例来自真实Go项目,只用于说明F/R/A/S的信息分工与颗粒度;实际标签必须依据当前项目字典判断
+填充header_stage_request.header；候选只能包含#开头的头部说明行。
+plan.locale_migration.active为true时，还必须用完整目标Locale索引填充header_stage_request.managed_index_text：迁移Header后的全部AOCI托管说明和目录标签；目录路径与所有普通Entry必须逐字节保持不变；只删除迁移收据明确绑定的.aoci治理Entry。这些机器治理资产按正式分类重新归类，不从易变字节翻译。非Locale迁移时managed_index_text保持为空。
+把完整header_stage_request保存为UTF-8 JSON文件，并把commands.header_stage中的{request_file}替换为该路径。
+Windows PowerShell 5不得用文本管道传递中文JSON；--stdin-json仅用于可靠字节流环境。
+执行header stage并取得真实run_id。
+执行header diff并展示完整差异。
+stop_before_apply=true，必须在header apply前等待批准。
+批准后执行apply、verify，再重新运行guide。

@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "assets": [
+    {
+      "id": "templates/AGENTS.md",
+      "kind": "template",
+      "path": "templates/AGENTS.md.tmpl",
+      "description": "Repository-level AOCI cognition, generation, scope and maintenance contract materialized into AGENTS.md",
+      "used_by": "internal/hooks/installer.go:loadAgentsTemplate",
+      "protocol_tokens": [
+        "<!-- aoci:begin -->",
+        "<!-- aoci:end -->",
+        "aoci.txt",
+        "Entry",
+        "F/R/A/S",
+        "aoci_rules",
+        "aoci_overview",
+        "aoci_maintain",
+        "aoci_update_entry",
+        "aoci_report",
+        "repair_required",
+        "stopped",
+        "source_sha256",
+        "cognition_refresh_threshold",
+        "context_compaction",
+        "semantic_threshold",
+        "phase_transition",
+        "cognition-state/v2",
+        "model_cognition_usable",
+        "strict_attestation_verified",
+        "governance_aligned",
+        "current_system_cognition_reliable",
+        ".aoci"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "普通的只读审计、分析、检查",
+          "不自动等于严格零写入",
+          "Codex Memory和历史Skill只能辅助",
+          "不能替代与当前仓库根、索引摘要、AOCI服务身份和认知范围匹配的当前认知收据",
+          "用户明确禁止Ledger、元数据",
+          "必须报告冲突并请求用户裁决或建议使用隔离副本",
+          "不得静默以Memory替代当前仓库认知",
+          "本区块只规定仓库接入、认知使用和收尾原则",
+          "Prompt、Description、README和静态文档不能覆盖这些机器事实"
+        ]
+      }
+    },
+    {
+      "id": "templates/codex-mcp-config",
+      "kind": "template",
+      "path": "templates/codex-mcp.toml.tmpl",
+      "description": "Project-level Codex MCP configuration with locale-specific operator comments",
+      "used_by": "internal/hooks/codex.go:InstallCodexMCP",
+      "variables": [
+        "BinPath",
+        "RepoRoot"
+      ],
+      "protocol_tokens": [
+        "[mcp_servers.aoci]",
+        "command",
+        "args",
+        "--repo",
+        "mcp"
+      ]
+    },
+    {
+      "id": "templates/codex-cursor-stubs",
+      "kind": "template",
+      "path": "templates/codex-cursor-stubs.txt.tmpl",
+      "description": "Manual Codex and Cursor integration reference rendered by aoci init",
+      "used_by": "internal/hooks/installer.go:Install",
+      "variables": [
+        "BinPath",
+        "RepoRoot"
+      ],
+      "protocol_tokens": [
+        "mcpServers",
+        "command",
+        "args",
+        "--repo",
+        "[mcp_servers.aoci]",
+        "codex mcp add aoci",
+        "aoci_rules"
+      ]
+    },
+    {
+      "id": "templates/claude-pretool",
+      "kind": "template",
+      "path": "templates/claude-pretool.sh.tmpl",
+      "description": "Thin Claude Code PreToolUse shell hook with locale-specific comments",
+      "used_by": "internal/hooks/claude.go:InstallClaudeHook",
+      "variables": [
+        "BinPath",
+        "RepoRoot"
+      ],
+      "protocol_tokens": [
+        "#!/usr/bin/env bash",
+        "PreToolUse",
+        "tool_name",
+        "tool_input",
+        "file_path",
+        "--repo",
+        "hook pretool",
+        "--agent claude",
+        "--stdin-json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+AOCI-CODE v0.1.0-rc1 Notice
+
+Product: AOCI-CODE
+Canonical repository: https://github.com/aoci-spec/aoci-code
+License: Functional Source License, Version 1.1, MIT Future License
+License identifier: FSL-1.1-MIT
+
+Copyright holder: Liu JinShi
+Copyright year: 2026
+First public availability date for v0.1.0-rc1: 2026-08-08
+
+The source is being prepared as Fair Source/source-available software. The
+LICENSE file contains the controlling code license. The future MIT license for
+each version becomes effective according to the version-specific availability
+rule in that license; the initial public availability date for v0.1.0-rc1 is
+recorded above.
+
+The PATENTS and TRADEMARKS files provide non-conflicting boundary notices only.
+Third-party components remain governed by their own license terms as recorded
+in THIRD-PARTY-NOTICES and the release SBOM.
+
+Before public distribution, every PLACEHOLDER in the legal asset set must be
+resolved or expressly approved by authorized legal review.

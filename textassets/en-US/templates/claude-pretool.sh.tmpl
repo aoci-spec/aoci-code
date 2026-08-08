@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Thin AOCI PreToolUse hook: the AOCI binary owns all JSON parsing and decisions.
+# Claude Code passes {"tool_name":...,"tool_input":{"file_path":...}} on stdin.
+exec "{{.BinPath}}" --repo "{{.RepoRoot}}" hook pretool --agent claude --stdin-json

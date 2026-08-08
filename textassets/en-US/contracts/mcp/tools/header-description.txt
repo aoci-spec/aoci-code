@@ -1,0 +1,1 @@
+Read the shared object rules, tag dictionaries, and calibration examples. Legacy returns its Header; Volumes v1 returns Meta with Root identity and never presents Root project overview as the dictionary. Call only when these rules are not already reliable or need a separate check. This does not modify formal cognition or Baseline, but may append a local audit record.

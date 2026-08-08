@@ -1,0 +1,4 @@
+Score the current index across nine quality dimensions:
+format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse.
+tagparse exposes unparseable-tag Warnings without changing check's pass policy.
+For verify, check, index score, and index inventory, “read-only” means that the formal index and Baseline are not modified; it does not mean strictly zero filesystem writes. When Ledger is enabled, all four commands may append to the local Ledger, and verify also attempts to write Verify History. An audit-write failure does not change existing exit codes or governance criteria.

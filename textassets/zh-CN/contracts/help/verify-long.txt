@@ -1,0 +1,5 @@
+纯确定性集合运算，绝不修改Baseline与正式索引。
+Result.Missing和顶层RawMissing始终保留同一份原始物理事实，并互斥分为Actionable、CurationExcluded和Skipped；Included与Pending分别是其子集。
+团队line_ending_tolerance=true时，纯CRLF/LF差异进入LineEndingOnly信息态，不计Stale或失败退出码。
+退出码按未解决治理债务判定：ActionableMissing、PendingCuration、Orphan、Stale或Unbaselined存在时exit 1；仅有已exclude、非Pending技术跳过或LineEndingOnly时exit 0。
+退出码: 0=治理终态完成 1=存在未解决治理漂移 2=索引格式损坏 3=未初始化或配置错误。

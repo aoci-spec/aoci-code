@@ -1,0 +1,60 @@
+{
+  "legacy_snapshot": "cognition-legacy-snapshot/v1",
+  "apply_grade_mapping": "cognition-migration-mapping/v2",
+  "apply_request": "cognition-migration-apply-request/v2",
+  "apply_envelope": "cognition-migration-apply-envelope/v2",
+  "approval": "cognition-migration-approval/v2",
+  "recovery": "cognition-migration-recovery/v2",
+  "receipt": "cognition-migration-receipt/v2",
+  "apply_result": "cognition-migration-apply-result/v2",
+  "transaction_status": "cognition-migration-transaction-status/v2",
+  "reversal_plan": "cognition-migration-reversal-plan/v2",
+  "reversal_approval": "cognition-migration-reversal-approval/v2",
+  "reversal_recovery": "cognition-migration-reversal-recovery/v2",
+  "operations": [
+    "migration",
+    "migration_reversal"
+  ],
+  "mapping_modes": [
+    "preserved",
+    "field_preserved",
+    "model_regenerated",
+    "structural_only"
+  ],
+  "formal_order": [
+    "meta",
+    "code",
+    "database",
+    "root",
+    "baseline",
+    "verify",
+    "receipt",
+    "ledger",
+    "archive"
+  ],
+  "pending_rollback_order": [
+    "root",
+    "baseline",
+    "database",
+    "code",
+    "meta"
+  ],
+  "reversal_order": [
+    "root",
+    "baseline",
+    "database",
+    "code",
+    "meta",
+    "verify",
+    "receipt",
+    "ledger",
+    "archive"
+  ],
+  "terminal_states": [
+    "applied",
+    "already_applied",
+    "rolled_back",
+    "reversed",
+    "already_reversed"
+  ]
+}

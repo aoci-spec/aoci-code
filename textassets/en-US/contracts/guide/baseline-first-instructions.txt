@@ -1,0 +1,2 @@
+Run aoci scan without --force.
+After scan succeeds, run guide again immediately. Do not generate semantic candidates without a Baseline.

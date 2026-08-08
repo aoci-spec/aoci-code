@@ -1,0 +1,10 @@
+#AOCI-DATABASE-VOLUME: 1
+===Synthetic primary namespace/database://fixture/public/===
+country_codes[DB3T]: F:store the supported country code lookup | R:- | A:country_code | S:-
+customers[DB7M]: F:store canonical customer account state | R:customer_profiles,orders | A:customer_id,CustomerRepository | S:Hard deletion is forbidden while retained orders identify the customer
+customer_profiles[DB5L]: F:store the customer's extended operational profile | R:customers | A:CustomerProfileRepository | S:Profile replacement must preserve fields owned by integrations that are absent from a partial update
+orders[DB9L]: F:store the authoritative commercial order aggregate | R:customers,payments,order_dependencies,audit_events | A:order_number,OrderRepository,OrderService,POST_/orders | S:Order state transitions and their ledger effects must commit in one transaction; completed orders are retained rather than deleted
+order_dependencies[DB8L]: F:bind an order to the external and internal records required for fulfillment | R:orders,customers,country_codes,customer_roles | A:OrderDependencyRepository | S:Relationship removal is allowed only after fulfillment no longer depends on the referenced record
+payments[DB9M]: F:store payment authorization and settlement state | R:orders,audit_events | A:payment_reference,PaymentRepository,PaymentService | S:Authorization,order balance update, and audit append share one transaction; retry uses the stable payment reference
+audit_events[DB8L]: F:retain immutable business and security audit events | R:customers,orders,payments | A:AuditWriter | S:Rows are append-only and must be committed in the same transaction as the audited state change
+customer_roles[DB5S]: F:associate customers with their effective roles | R:customers | A:CustomerRoleRepository | S:Removing the final administrative role requires a replacement administrator in the same transaction

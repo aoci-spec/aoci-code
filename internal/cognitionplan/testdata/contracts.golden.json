@@ -1,0 +1,80 @@
+{
+  "bootstrap_plan": "cognition-bootstrap-plan/v1",
+  "migration_plan": "cognition-migration-plan/v2",
+  "semantic_mapping": "cognition-semantic-mapping/v1",
+  "layout_candidate": "cognition-layout-candidate/v1",
+  "layout_preview": "cognition-layout-preview/v1",
+  "approval_digest": "cognition-approval-digest/v1",
+  "semantic_authoring_requirement": "semantic-authoring-requirement/v1",
+  "semantic_authoring_provenance": "semantic-authoring-provenance/v1",
+  "volume_registry": "cognition-volume-registry/v1",
+  "registry": {
+    "version": "cognition-volume-registry/v1",
+    "entries": [
+      {
+        "kind": "code",
+        "id": "code",
+        "path": "aoci.code.txt",
+        "marker": "#AOCI-CODE-VOLUME: 1",
+        "format_version": "object-fras-v2",
+        "canonical_identity_namespace": "code:",
+        "required_dependencies": [
+          "meta"
+        ],
+        "allowed_scopes": [
+          "all",
+          "code"
+        ],
+        "parser": "code-object-fras-v2",
+        "validator": "code-object-fras-v2",
+        "projected_validator": "code-object-fras-v2",
+        "baseline_participation": "managed-source",
+        "binding_participation": "source-sha256",
+        "security_boundary": "model-authored file FRAS only; repository-relative object identities"
+      },
+      {
+        "kind": "database",
+        "id": "database",
+        "path": "aoci.database.txt",
+        "marker": "#AOCI-DATABASE-VOLUME: 1",
+        "format_version": "table-fras-v2",
+        "canonical_identity_namespace": "database://",
+        "required_dependencies": [
+          "meta"
+        ],
+        "allowed_scopes": [
+          "all",
+          "database"
+        ],
+        "parser": "database-table-fras-v2",
+        "validator": "database-table-fras-v2",
+        "projected_validator": "database-table-fras-v2",
+        "baseline_participation": "evidence-snapshot",
+        "binding_participation": "database-evidence-binding",
+        "security_boundary": "model-authored table FRAS bound to local schema evidence; no row access"
+      },
+      {
+        "kind": "meta",
+        "id": "meta",
+        "path": "aoci.meta.txt",
+        "marker": "#AOCI-META-VOLUME: 1",
+        "format_version": "meta-v1",
+        "canonical_identity_namespace": "meta:",
+        "required_dependencies": [],
+        "allowed_scopes": [
+          "all",
+          "project",
+          "meta",
+          "code",
+          "database"
+        ],
+        "parser": "meta-v1",
+        "validator": "meta-v1",
+        "projected_validator": "meta-v1",
+        "baseline_participation": "asset",
+        "binding_participation": "dependency",
+        "security_boundary": "model-authored protocol and tag dictionaries only; no objects or dynamic state"
+      }
+    ]
+  }
+}

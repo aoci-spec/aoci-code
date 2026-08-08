@@ -1,0 +1,2 @@
+Curation Stage请求文件总大小上限{{.CurationMaxBodyBytes}}字节({{.CurationMaxBodyHuman}})，单批最多{{.CurationMaxDecisions}}项决策。
+role和reason中的回车、换行与连续空白会在Stage规范化为空格；请提交单段、可审计的当前语义说明。

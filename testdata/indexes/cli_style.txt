@@ -1,0 +1,8 @@
+====CLI 风格索引样例(点分标签)====
+===核心 /repo/internal/index/===
+parser.go[Index.Parse.9.Rgx.M]: F:解析器 | R:types.go | A:Parse | S:三正则语义孪生
+types.go[Index.Types.9.S]: F:结构体 | R:- | A:- | S:FullLine为canonical
+notag.go[]: F:无标签条目 | R:- | A:- | S:标签为空时TagsParsed应为空map
+===根 /repo/===
+scripts/tool.sh[Cfg.Root.3.T]: F:带目录前缀的文件名 | R:- | A:- | S:rel应为scripts/tool.sh
+====样例完毕====

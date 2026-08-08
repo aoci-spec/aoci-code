@@ -1,0 +1,9 @@
+检测索引与磁盘漂移并分类:
+  changed: 已收录文件源码变化;
+  new: 普通Actionable与有效include;
+  curation_excluded: 已完成排除裁决;
+  pending_curation: 等待include/exclude裁决;
+  skipped_missing: Pending与其他技术跳过;
+  deleted/unbaselined: 只报告。
+团队允许换行宽容时，纯CRLF/LF表示差异不进入changed。
+只有changed与new进入模型或草稿。--dry-run始终零外发。

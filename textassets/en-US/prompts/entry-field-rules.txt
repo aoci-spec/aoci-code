@@ -1,0 +1,11 @@
+Four-field writing discipline:
+- F: write one short, precise anchor for the core function, normally no more than a brief phrase. Semantic completeness takes priority when a few more words are genuinely necessary. Do not translate the filename, pile up several responsibilities, or use mass-produced patterns such as “implements X and provides Y” or “defines the behavior or data of X.”
+- R: list only strong cross-object dependencies. Under Volumes, use exact canonical object identities (`code:path/to/file` or `database://source/namespace/table`), separate multiple identities with commas, and never replace an identity with natural-language prose. Under Legacy, retain the exact path or module-name contract. Omit logging, generic utilities, and framework-provided dependencies. Never mechanically copy import, include, or dependency lists. Use - when none exists.
+- A: list only APIs, entry points, or contracts that this file exposes externally. Omit internal functions, private methods, and symbols used only within this file. Use - when none exists.
+- S: apply two tests. S contains facts absent from the first four layers (filename + tag + F + R + A) but necessary for the model to understand the system or modify the code. Before writing each sentence, ask:
+  Can this really not be inferred from the first four layers?
+  Does it materially affect understanding the system or modifying the code?
+  Write the sentence only when both answers are yes.
+  Do not write evolution narratives or time-dependent information; describe only current accumulated state.
+  The quota by C Importance is {{.SQuotaDefaultWithUnits}}. A quota is a ceiling, not a target. These are defaults; if the repository Header contains a #S quota: declaration, the Header values govern and the machine gate enforces them.
+  Use - when no information qualifies. Omit anything unsupported or uncertain in the source. A wrong S is more harmful than a missing S.

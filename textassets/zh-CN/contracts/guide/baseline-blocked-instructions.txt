@@ -1,0 +1,2 @@
+停止生成流程并向维护者展示Plan中的unbaselined列表。
+不要执行scan --force；由维护者判断配置变化、补录文件或Baseline治理。

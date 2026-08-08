@@ -1,0 +1,54 @@
+# AOCI-CODE cross-platform package configuration.
+# 索引条目: .goreleaser.yml[Dist.Root.3.Xp.T]
+# Publishing remains disabled in the public candidate; release authorization is
+# a separate explicit phase.
+version: 2
+project_name: aoci
+
+builds:
+  - id: aoci
+    main: ./cmd/aoci
+    binary: aoci
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -buildid=
+      - -X github.com/aoci-spec/aoci-code/internal/cli.version={{.Version}}
+      - -X github.com/aoci-spec/aoci-code/internal/cli.commit={{.FullCommit}}
+      - -X github.com/aoci-spec/aoci-code/internal/cli.buildDate={{.CommitDate}}
+
+archives:
+  - id: default
+    name_template: "aoci_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - NOTICE
+      - PATENTS
+      - README.md
+      - README.zh-CN.md
+      - THIRD-PARTY-NOTICES
+      - TRADEMARKS
+      - CHANGELOG.md
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: SHA256SUMS
+  algorithm: sha256
+
+sboms:
+  - id: archives
+    artifacts: archive
+    disable: false
+
+report_sizes: true
+
+release:
+  disable: true

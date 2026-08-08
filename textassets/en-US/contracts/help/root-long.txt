@@ -1,0 +1,2 @@
+aoci maintains the repository-root aoci.txt and .aoci/ state, providing LLM Agents with a maintainable, reviewable, versioned cognition layer.
+Without AI configuration it is a dependency-free offline tool. After you configure an AI endpoint, it can generate and update index content in batches.

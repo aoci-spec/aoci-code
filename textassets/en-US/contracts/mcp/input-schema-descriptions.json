@@ -1,0 +1,58 @@
+{
+  "aoci_overview": {
+    "scope": "Optional cognition scope: all, project, meta, code, or database; Volumes v1 defaults to all and Legacy no-argument behavior is unchanged",
+    "cognition_state_version": "Optional additive cognition-state projection version; use cognition-state/v2 to request independent delivery, model-usability, strict-Attestation, governance, and current-system reliability fields; omit it for the exact legacy response shape",
+    "cognition_receipt": "Optional receipt from a previous complete delivery or checkpoint",
+    "model_cognition_state": "Host assessment of current complete cognition: valid, uncertain, or invalid",
+    "scope_covered": "Whether the current task remains within the cognition scope already established",
+    "check_only": "Return only the compact checkpoint assessment; when false or absent, deliver the complete requested scope if a coherent snapshot is available",
+    "refresh_reasons": "Optional host-declared refresh reasons: context_compaction and/or phase_transition; semantic_threshold is machine-derived",
+    "refresh_event_id": "Host event idempotency key required when refresh_reasons are declared",
+    "stable_checkpoint": "Whether current edits, formatting, lint, and required tests have reached the nearest stable checkpoint",
+    "host_delivery_confirmation": "Host-observed body byte count, SHA-256, and end-marker confirmation",
+    "model_cognition_attestation": "One semantic model report and deterministic distributed challenge submission bound to the complete Overview; only one schema-only correction is allowed",
+    "model_cognition_attestation.index_sha256": "Exact current Index or requested-scope SHA-256 published with this Challenge; stale Attestation identities fail",
+    "model_cognition_attestation.entry_sequence_sha256": "Exact SHA-256 of the current ordered formal Entry or cognition-object sequence published with this Challenge",
+    "model_cognition_attestation.entry_count": "Exact current formal Entry count published with this Challenge, separate from the model-reported coverage count",
+    "model_cognition_attestation.system_mastery_percent": "Self-assessed mastery of the system framework: architecture, module responsibilities, strong relationships, stable external contracts, and high-entropy safety and maintenance constraints; not complete source, branch, identifier, test, or runtime knowledge",
+    "model_cognition_attestation.challenge_answers[].ordinal": "1-based position in the formal Entry sequence; Header, comments, blank lines, Section/Overview/Chunk markers, receipts, and Metadata are excluded, and Chunk Receipts use the same sequence",
+    "model_cognition_attestation.challenge_answers[].object_identity": "Exact canonical object identity, or for a Code object only its exact repository-relative path; no cleaning, case folding, basename lookup, or fuzzy resolution is accepted",
+    "cursor": "Exact deterministic Overview continuation cursor returned by the preceding chunk"
+  },
+  "aoci_get_entries": {
+    "paths": "Repository-relative paths of Entries to read (mutually exclusive with dir)",
+    "dir": "Repository-relative directory whose full Entry section should be read (mutually exclusive with paths)",
+    "volume_id": "Volumes v1 object Volume: code or database; omitted Legacy paths remain compatible",
+    "object_refs": "Canonical Volumes v1 object references; database tables use database://source/namespace/table identity"
+  },
+  "aoci_search": {
+    "keyword": "Case-insensitive keyword matched against the complete Entry line (provide this or tag_filter)",
+    "tag_filter": "Tag filter such as A=Index or C>=7 (provide this or keyword)",
+    "scope": "Optional Volumes v1 search scope: all, project, meta, code, or database"
+  },
+  "aoci_update_entry": {
+    "path": "Repository-relative target path for compatibility single-Entry mode",
+    "object_ref": "Canonical Database object identity for compatibility single-Entry mode",
+    "new_entry": "Complete single-line Entry for compatibility single-Entry mode",
+    "source_sha256": "Compatibility binding for Code source bytes or an existing Database object update; Database Cognition authoring uses candidate_id and batch_id instead",
+    "candidate_id": "Machine-owned Code or Database Cognition candidate identity returned by aoci_maintain; do not synthesize it or copy Evidence hashes into it",
+    "batch_id": "Machine-owned complete current Database Cognition batch identity returned by aoci_maintain",
+    "code_batch_id": "Machine-owned complete current Code Cognition batch identity returned by aoci_maintain",
+    "entries": "Submit the complete candidate set for the current machine-issued batch; continue through Maintain when remaining is nonzero",
+    "entries[].path": "Repository-relative path of the target file",
+    "entries[].object_ref": "Canonical Database object identity; use this instead of path for a table Entry",
+    "entries[].new_entry": "Complete single-line Entry: filename[tag]: F:... | R:... | A:... | S:...",
+    "entries[].source_sha256": "Source binding for a Code candidate; preserve it unchanged for a machine-issued Code batch",
+    "entries[].candidate_id": "Machine-owned identity for a Code or Database candidate; the complete current batch also requires its domain batch identity"
+  },
+  "aoci_maintain": {
+    "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible"
+  },
+  "aoci_report": {
+    "path": "Repository-relative path related to the follow-up",
+    "note": "Follow-up note describing what changed and why the Entry cannot yet be updated reliably"
+  },
+  "aoci_remove_entry": {
+    "path": "Explicit orphan identity: a Legacy repository-relative path, code:<path>, or canonical database:// object_ref returned by governance"
+  }
+}

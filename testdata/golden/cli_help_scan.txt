@@ -1,0 +1,2 @@
+Walk the repository with configured exclusions, calculate SHA256 for every included file, and write .aoci/baseline.json.
+This means “accept the current source as the new aligned starting point.” Replacing an existing Baseline requires --force so unresolved drift cannot be erased accidentally.

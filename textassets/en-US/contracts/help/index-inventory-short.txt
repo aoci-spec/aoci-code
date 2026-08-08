@@ -1,0 +1,1 @@
+List unindexed files offline (does not modify the formal index or Baseline; may write local audit data)

@@ -1,0 +1,1 @@
+Header Stage请求文件总大小上限{{.HeaderMaxBodyBytes}}字节({{.HeaderMaxBodyHuman}})，其中header字段上限{{.HeaderMaxHeaderBytes}}字节({{.HeaderMaxHeaderHuman}})。

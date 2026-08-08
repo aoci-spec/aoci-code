@@ -1,0 +1,1 @@
+按关键词和/或标签搜索Entry。Volumes v1可限定all、project、meta、code或database，并返回volume_id与规范对象身份；Legacy行为不变。用于目标路径未知、局部不确定或用户明确检索；不要用搜索结果替代完整Overview。不会修改正式索引或Baseline，但可能追加本地审计记录。

@@ -1,0 +1,4 @@
+# De-identified hand-authored Legacy fragment for Planner fixture use only.
+App.jsx[CF8S]: F:Present model-authored item state | R:code:backend/src/api.js | A:App | S:Keep UI state independent from schema transport details
+api.js[CA8S]: F:Expose the item endpoint | R:code:backend/src/service.js | A:GET /api/items | S:Do not place database credentials in route code
+service.js[CS9S]: F:Coordinate item retrieval | R:database://primary/fixture/items | A:listItems | S:Preserve the frontend to API to service to database boundary

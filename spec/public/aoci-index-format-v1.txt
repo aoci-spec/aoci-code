@@ -1,0 +1,89 @@
+AOCI Public Cognition Format v1
+===============================
+
+Scope
+-----
+
+This document defines the public text interoperability boundary for AOCI
+cognition. It describes observable syntax and compatibility; it does not
+describe Planner derivation, patent material, commercial policy, or research
+protocols. The current parser, validator, and machine contracts in the compiled
+binary remain the executable authority.
+
+Encoding and layout
+-------------------
+
+Cognition assets are UTF-8 text. Readers accept LF and CRLF; writers preserve
+the established line-ending form when the applicable write contract requires
+it. The configured `index_path` is the only discovery entry.
+
+A Legacy document contains one header followed by directory sections and
+object Entries. A Volumes root begins with the exact Root Manifest marker and
+declares versioned Root, Meta, Code, and optional Database assets. Volume paths
+are repository-relative and are validated before use. The Volumes contract
+defines layout selection and consistency rules.
+
+Code section roots and clone relocation
+---------------------------------------
+
+The absolute path token in a Legacy or Code Volume directory section header is
+the structural coordinate captured when that section family was created. It is
+historical text, not the runtime repository root, a source-access path, or a
+semantic object identity. The runtime repository root is resolved for each
+invocation; an explicit `--repo` binds it directly and takes precedence over
+repository discovery, as defined by the CLI runtime contract.
+
+Readers logically relocate directory sections from their consistent historical
+root to the current runtime root and derive repository-relative object paths. A
+Volumes Code object therefore has the canonical identity
+`code:<repository-relative-path>`. Moving or cloning a repository requires no
+index rewrite, and ordinary reads do not replace historical section roots with
+the current machine path. If the historical sections cannot be mapped safely
+and unambiguously, path resolution fails closed instead of guessing.
+
+The repository-relative requirement for a Root Manifest declaration such as
+`#Volume: ... path=aoci.code.txt ...` applies to the declared Volume asset path.
+It does not make a Code Volume directory section header a runtime path or a
+Volume declaration. Implementations and integrations must not conflate these
+two path fields.
+
+Because historical section roots remain versioned text, a repository intended
+for publication should review them for unwanted hostnames, user names, secret
+material, or other private topology before its first public commit. Such a
+review is a disclosure boundary; it does not change the logical-relocation
+contract and is not authorization to edit formal cognition assets directly.
+
+Object Entry
+------------
+
+One managed object is represented by one model-authored line:
+
+  object_name[tag]: F:... | R:... | A:... | S:...
+
+`F` records the core responsibility, `R` strong relationships, `A` externally
+observable interfaces or contracts, and `S` non-obvious maintenance
+constraints. New Volumes Tags are resolved against the active Meta dictionary.
+Dotted Tags remain a Legacy read-compatibility form. Exact object and FRAS
+rules are defined by `aoci-object-fras-v2.txt` and
+`s-field-discipline.txt`.
+
+The default S quota declaration used by the public starter contract is:
+
+#S配额: C9-8≤600 C7-4≤200 C3-1≤50
+
+Machine authority
+-----------------
+
+Numeric limits and machine vocabularies have one executable source in
+`internal/machinecontract`. Public text delegates lexical enforcement to
+`internal/machinecontract/lexical.go`, including `PublicTextTerms` and
+`EvolutionNarrativeTerms`; it does not copy the machine vocabulary into this
+document.
+
+Failure and compatibility
+-------------------------
+
+Malformed headers, sections, Tags, fields, object identities, Volume
+declarations, or unsafe paths fail validation. A reader must not combine an
+incoherent Root and Volume snapshot. A format extension requires a versioned
+machine contract and compatibility tests before public consumers rely on it.
