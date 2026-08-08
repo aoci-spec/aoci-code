@@ -213,6 +213,56 @@ func TestSignedReleaseRequiresCanonicalWorkflowAndDryRunRef(t *testing.T) {
 	}
 }
 
+func TestReleaseWorkflowUsesOneExactAttestationIdentityPolicy(t *testing.T) {
+	workflowPath := filepath.Join("..", "..", "..", ".github", "workflows", "release.yml")
+	workflow, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lines := strings.Split(string(workflow), "\n")
+	var commands []string
+	for lineIndex := 0; lineIndex < len(lines); lineIndex++ {
+		line := strings.TrimSpace(lines[lineIndex])
+		if !strings.HasPrefix(line, "gh attestation verify ") {
+			continue
+		}
+		parts := []string{line}
+		for strings.HasSuffix(line, "\\") {
+			lineIndex++
+			if lineIndex >= len(lines) {
+				t.Fatal("gh attestation verify command has an unterminated continuation")
+			}
+			line = strings.TrimSpace(lines[lineIndex])
+			parts = append(parts, line)
+		}
+		commands = append(commands, strings.Join(parts, " "))
+	}
+	if len(commands) != 2 {
+		t.Fatalf("found %d gh attestation verify commands, want 2", len(commands))
+	}
+
+	requiredArguments := []string{
+		`--repo "$EXPECTED_REPOSITORY"`,
+		`--cert-identity "$CERTIFICATE_IDENTITY"`,
+		`--cert-oidc-issuer "$EXPECTED_OIDC_ISSUER"`,
+		`--signer-digest "$SOURCE_COMMIT"`,
+		`--source-ref "$GITHUB_REF"`,
+		`--source-digest "$SOURCE_COMMIT"`,
+		`--deny-self-hosted-runners`,
+	}
+	for commandIndex, command := range commands {
+		if strings.Contains(command, "--cert-identity ") && strings.Contains(command, "--signer-workflow ") {
+			t.Fatalf("gh attestation verify command %d combines mutually exclusive identity policies: %s", commandIndex+1, command)
+		}
+		for _, argument := range requiredArguments {
+			if !strings.Contains(command, argument) {
+				t.Errorf("gh attestation verify command %d is missing %q: %s", commandIndex+1, argument, command)
+			}
+		}
+	}
+}
+
 func TestBundleRejectsMultipleLeafCertificates(t *testing.T) {
 	identity := publisherCertificateIdentity(signedFixturePublisher)
 	material := bundleVerificationMaterial{

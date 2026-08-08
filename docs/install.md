@@ -47,7 +47,6 @@ VERSION=${TAG#v}
 RELEASE_DIR="$PWD/aoci-code-$VERSION-release"
 CERTIFICATE_IDENTITY="https://github.com/$REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG"
 OIDC_ISSUER=https://token.actions.githubusercontent.com
-SIGNER_WORKFLOW=aoci-spec/aoci-code/.github/workflows/release.yml
 
 mkdir -p "$RELEASE_DIR"
 gh release download "$TAG" --repo "$REPOSITORY" --dir "$RELEASE_DIR"
@@ -100,8 +99,9 @@ cosign verify-blob \
 ```
 
 Third, resolve the annotated Tag to its commit and verify all 14 provenance
-subjects against the downloaded bundle, exact repository, workflow identity,
-Tag ref, and source commit:
+subjects against the downloaded bundle. The exact certificate identity already
+locks the repository, workflow path, and Tag ref; the remaining constraints
+also bind the issuer, source ref, and Tag commit:
 
 ```bash
 TAG_OBJECT=$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)
@@ -118,7 +118,6 @@ for subject in "${PROVENANCE_SUBJECTS[@]}"; do
     --repo "$REPOSITORY" \
     --cert-identity "$CERTIFICATE_IDENTITY" \
     --cert-oidc-issuer "$OIDC_ISSUER" \
-    --signer-workflow "$SIGNER_WORKFLOW" \
     --signer-digest "$TAG_COMMIT" \
     --source-ref "refs/tags/$TAG" \
     --source-digest "$TAG_COMMIT" \

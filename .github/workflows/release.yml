@@ -44,7 +44,6 @@ jobs:
       COSIGN_VERSION: v3.1.3
       EXPECTED_REPOSITORY: aoci-spec/aoci-code
       EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
-      EXPECTED_SIGNER_WORKFLOW: aoci-spec/aoci-code/.github/workflows/release.yml
     steps:
       - name: Check out the exact workflow ref
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -390,7 +389,6 @@ jobs:
               --bundle "${ASSET_DIR}/${PROVENANCE_NAME}" \
               --cert-identity "$CERTIFICATE_IDENTITY" \
               --cert-oidc-issuer "$EXPECTED_OIDC_ISSUER" \
-              --signer-workflow "$EXPECTED_SIGNER_WORKFLOW" \
               --signer-digest "$SOURCE_COMMIT" \
               --source-ref "$GITHUB_REF" \
               --source-digest "$SOURCE_COMMIT" \
@@ -445,7 +443,6 @@ jobs:
       COSIGN_VERSION: v3.1.3
       EXPECTED_REPOSITORY: aoci-spec/aoci-code
       EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
-      EXPECTED_SIGNER_WORKFLOW: aoci-spec/aoci-code/.github/workflows/release.yml
       TAG_NAME: ${{ needs.supply_chain.outputs.tag_name }}
       VERSION: ${{ needs.supply_chain.outputs.version }}
       SOURCE_COMMIT: ${{ needs.supply_chain.outputs.source_commit }}
@@ -616,7 +613,6 @@ jobs:
               --repo "$EXPECTED_REPOSITORY" \
               --cert-identity "$CERTIFICATE_IDENTITY" \
               --cert-oidc-issuer "$EXPECTED_OIDC_ISSUER" \
-              --signer-workflow "$EXPECTED_SIGNER_WORKFLOW" \
               --signer-digest "$SOURCE_COMMIT" \
               --source-ref "$GITHUB_REF" \
               --source-digest "$SOURCE_COMMIT" \
