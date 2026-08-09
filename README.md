@@ -1,3 +1,5 @@
+![AOCI-CODE logo — AI-Oriented Code Indexing](assets/aoci-logo-en.jpg)
+
 # AOCI-CODE
 
 **AOCI-CODE is an indexing method that establishes global software-project cognition for AI Agents and provides a persistent, governable repository cognition map.**

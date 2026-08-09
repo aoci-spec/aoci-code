@@ -1,3 +1,5 @@
+![AOCI-CODE 标志 — 面向人工智能的代码索引](assets/aoci-logo-zh-CN.jpg)
+
 # AOCI-CODE
 
 **AOCI-CODE 一种为 AI Agent 建立软件项目全局认知的索引方法，可提供持久化、可治理的代码仓库认知地图。**
