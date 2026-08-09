@@ -28,7 +28,7 @@ When model context is limited, an AI Agent can read the index first, acquire mos
 
 - **The index is not a one-time summary**: it evolves with the system and remains in the project over the long term, where it can be diffed, reviewed, versioned, and rolled back with Git.
 - **It records more than “where files are”**: AOCI-CODE also preserves object responsibilities, strong relationships, public contracts, transaction boundaries, compatibility constraints, and other information that is difficult to infer directly from code structure.
-- **AOCI-CODE is not another AI Agent**: the model understands source code and authors semantics; AOCI-CODE validates, binds to source content, and audits that Semantic Authoring Provenance while handling cognition delivery, atomic writes, and recovery.
+- **The index is portable**: the index is stored with the project and is not tied to a specific model, AI Agent, or individual session. When the index is aligned with the code version, different AI Agents and later sessions can read and reuse the same system cognition without rebuilding their understanding from scratch each time.
 - **Code and databases can be understood together**: the model can build an independent table-level index for database tables. When Code Cognition and Database Cognition are delivered together, an AI Agent can understand the software system more completely.
 
 
