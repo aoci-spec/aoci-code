@@ -1,6 +1,8 @@
+![AOCI-CODE 标志 — 面向人工智能的代码索引](assets/aoci-logo-zh-CN.jpg)
+
 # AOCI-CODE
 
-**AOCI-CODE（AI Software System Cognition Infrastructure）**提供面向 AI Agent 工作流的持久化、可治理代码仓库认知地图。
+**AOCI-CODE 是一种为 AI Agent 建立软件项目全局认知的索引方法，可提供持久化、可治理的代码仓库认知地图。**
 
 [🇺🇸 English](README.md) | 🇨🇳 简体中文
 
@@ -12,21 +14,25 @@
 > [!IMPORTANT]
 > AOCI-CODE v0.1.0-rc2 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [v0.1.0-rc2 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc2) 提供的签名包；使用前请遵循[发布验证流程](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc2/docs/install.md#signed-github-release-packages)。
 
+## AOCI 是什么？
+
+**AOCI（AI-Oriented Cognition Infrastructure）是位于 AI Agent 与软件系统之间的认知基础设施。**
+
+大模型负责推理，Agent 负责规划和执行，AOCI 则将代码、配置、测试和数据库结构整理为与当前系统版本绑定、可持续维护的系统认知，供 Agent 在行动前读取和理解。
+
 ## AOCI-CODE 是什么？
 
-**AOCI-CODE 最初源于 AI-Oriented Code Indexing，这是一种为 AI Agent 工作流建立软件项目全局认知的索引方法。**
+AOCI-CODE 源于 AOCI。简单来说，AOCI-CODE 会对源代码、数据库结构及其他真正影响 AI 理解和修改的关键信息进行压缩，形成符号与语义结合的高信息密度索引，并用纯文本表示。
 
-简单来说，AOCI-CODE 会对源代码、配置、测试以及可选的数据库结构进行语义压缩，保留真正影响理解和修改的关键信息，并用纯文本生成一张可供模型读取的项目全局地图。
+在模型上下文有限的情况下，AI Agent 可以先读取这套索引，一次性获得项目的大部分关键信息，再进入具体开发任务，从而减少反复搜索和重新理解代码的成本，提高跨任务、跨会话的开发衔接效率。
 
-AOCI-CODE 会将这些信息组织成符号与语义结合的高信息密度认知资产；这些资产共同构成 Cognition Layer（认知层）。在模型上下文有限的情况下，AI Agent 可以先读取这套索引，一次性获得项目的大部分关键信息，再进入具体开发任务，从而减少反复搜索和重新理解代码的成本，提高跨任务、跨会话的开发衔接效率。
-
-- **索引不是一次性摘要**：索引会随系统持续演进，以明文资产长期保存在项目中，可以通过 Git 比较差异、审查、版本化和回滚。
+- **索引不是一次性摘要**：索引会随系统持续演进，长期保存在项目中，可以通过 Git 比较差异、审查、版本化和回滚。
 - **不只是记录“文件在哪里”**：AOCI-CODE 还会保存对象职责、强关系、公开契约、事务边界、兼容性约束，以及其他难以从代码结构直接推断的信息。
-- **AOCI-CODE 不是另一个 AI Agent**：模型负责理解源码并创作语义；AOCI-CODE 对这种 Semantic Authoring Provenance 进行验证、源内容绑定和审计，并负责认知交付、原子写入与恢复。
+- **索引具有良好的可移植性**：索引随项目保存，不绑定特定模型、AI Agent 或单次会话。在索引与代码版本一致时，不同 AI Agent 和后续会话都可以读取并复用同一份系统认知，无需每次从头理解。
 - **代码与数据库可以统一理解**：模型可以为数据库表建立独立的表级索引。Code Cognition 和 Database Cognition 一起交付时，AI Agent 能更完整地理解整个软件系统。
 
 
-本文中的名称分工如下：**AOCI** 指索引范式和协议，**AOCI-CODE** 指承载该方法的项目与仓库，**AOCI-CODE CLI** 指当前 Go 实现，**`aoci`** 指构建出的二进制文件和命令。
+本文中的名称分工如下：**AOCI** 指认知范式和协议，**AOCI-CODE** 指承载该方法的项目与索引本身。
 
 
 ## 一键使用
@@ -45,14 +51,14 @@ AOCI-CODE 会将这些信息组织成符号与语义结合的高信息密度认�
 
 ### 0. 环境要求
 
-- 已验证的 Release 包，或 canonical AOCI-CODE 源码仓库的工作副本；
+- 经验证的 Release 软件包，或 canonical AOCI-CODE 源码仓库的工作副本；
 - `go.mod` 声明的 Go 工具链、`make` 及仓库要求的其他工具；
 - 一个受支持的 MCP 宿主，例如 Codex、Claude Code 或 Cursor；
 - 对目标仓库的正常读写权限。
 
 签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc2/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
 
-### 1. 当前 RC：使用已验证的包或从源码构建
+### 1. 当前 RC：使用经验证的软件包或从源码构建
 
 签名 Release 二进制报告 `aoci version 0.1.0-rc2`。源码构建则报告由精确
 Git checkout 派生的版本，例如 Release tag 之后的
@@ -233,7 +239,7 @@ flowchart TD
     M --> N
 ```
 
-新系统不要求从第一行代码开始就安装 AOCI。用户可以先用熟悉的 AI Agent 现有开发能力完成产品雏形；约 1—3 万行是便于理解的示例，不是硬性阈值。希望从项目早期就获得跨会话认知的团队，也可以更早接入。
+*新系统不要求从第一行代码开始就安装 AOCI-CODE。用户可以先用 AI Agent 现有开发能力完成产品雏形，建议约 1—3 万行（不是硬性阈值）；希望从项目早期就获得跨会话认知的团队，也可以更早接入。*
 
 ### 已有项目：对当前代码仓库建立索引后持续迭代
 
@@ -249,9 +255,9 @@ flowchart TD
     G --> T
 ```
 
-两个流程在首次索引完成后进入同一种日常使用方式：用户只描述业务或工程需求，AI Agent 负责结合 Whole-Index 调查当前证据、完成开发和验证，并在收尾阶段通过 MCP 维护变化对象。用户不需要学习内部 Plan、Stage、Diff、CAS 或 Baseline 命令，也不需要在每个 Prompt 中重复维护要求。
+*两个流程在首次索引完成后进入同一种日常使用方式：用户只描述业务或工程需求，AI Agent 负责结合 Whole-Index 调查当前证据、完成开发和验证，并在收尾阶段通过 MCP 维护变化对象。用户不需要学习内部 Plan、Stage、Diff、CAS 或 Baseline 命令，也不需要在每个 Prompt 中重复维护要求。*
 
-在任何正式写入开始之前，如果完整批次被拒绝，正式认知资产保持不变。正式写入开始以后若流程中断，系统会保留不可变 Intent、写入证据和 Recovery 状态，并根据可证明的后像继续 Resume，或按精确前像回滚；遇到第三方字节冲突时失败关闭，不会用“继续写完”覆盖外部修改。
+在任何正式写入开始之前，如果完整批次被拒绝，AOCI 索引保持不变。正式写入开始以后若流程中断，系统会保留不可变 Intent、写入证据和 Recovery 状态，并根据可证明的后像继续 Resume，或按精确前像回滚；遇到第三方字节冲突时失败关闭，不会用“继续写完”覆盖外部修改。
 
 最终状态会明确返回 `applied`、`repair_required` 或 `stopped`。`stopped` 不是成功，也不等于一定没有写入；应检查 `failed_step`、正式写入证据和 Guide 给出的恢复动作。
 
@@ -372,7 +378,7 @@ S: F、R、A 之外的重要补充信息
 
 ## Cognition Volumes
 
-AOCI-CODE 维护一个逻辑 Whole-Index，但不同类型的认知拥有独立资产、所有权和生命周期。
+AOCI-CODE 维护一个逻辑 Whole-Index，但不同类型的认知拥有独立的索引、所有权和生命周期。
 
 | Volume | 职责 |
 | --- | --- |

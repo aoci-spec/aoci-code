@@ -73,6 +73,30 @@
         "enabled": true
       },
       {
+        "rule_id": "public-aoci-logo-en-observe",
+        "action": "observe",
+        "pattern": "assets/aoci-logo-en.jpg",
+        "pattern_kind": "file",
+        "reason": "Track the published English logo bytes without creating a binary-image Whole-Index Entry; README and release archive configuration own its semantics",
+        "decision_basis": "semantic_density",
+        "source": "user",
+        "created_by": "codex-pr-2-integration",
+        "order": 102,
+        "enabled": true
+      },
+      {
+        "rule_id": "public-aoci-logo-zh-cn-observe",
+        "action": "observe",
+        "pattern": "assets/aoci-logo-zh-CN.jpg",
+        "pattern_kind": "file",
+        "reason": "Track the published Chinese logo bytes without creating a binary-image Whole-Index Entry; README and release archive configuration own its semantics",
+        "decision_basis": "semantic_density",
+        "source": "user",
+        "created_by": "codex-pr-2-integration",
+        "order": 103,
+        "enabled": true
+      },
+      {
         "rule_id": "public-core-internal-authoringcontract-index",
         "action": "index",
         "pattern": "internal/authoringcontract/**",
