@@ -22,7 +22,7 @@ Large models handle reasoning, Agents handle planning and execution, and AOCI or
 
 ## What is AOCI-CODE?
 
-AOCI-CODE originates from AOCI. Put simply, AOCI-CODE compresses, from source code, database structures, and other assets, the key information that materially affects AI understanding and modification, producing a high-information-density index that combines symbols and semantics and is represented in plain text.
+AOCI-CODE originates from AOCI. Put simply, AOCI-CODE distills the information from source code, database structures, and other assets that materially affects how AI understands and modifies a system into a high-information-density, plain-text index combining symbols and semantics.
 
 When model context is limited, an AI Agent can read the index first, acquire most of the project’s key information in one pass, and then enter a specific development task. This reduces repeated searching and code re-learning while improving continuity across tasks and sessions.
 
@@ -241,7 +241,7 @@ flowchart TD
     M --> N
 ```
 
-*A new system does not need AOCI-CODE installed from the first line of code. Users can first use the AI Agent's existing development capabilities for Coding to complete a product prototype; a recommended scale is roughly 10,000–30,000 lines (not a hard threshold). Teams that want cross-session cognition from an earlier stage of the project may integrate it sooner.*
+*A new system does not need AOCI-CODE installed from the first line of code. Users can first use the AI Agent's existing development capabilities to complete a product prototype; a recommended scale is roughly 10,000–30,000 lines (not a hard threshold). Teams that want cross-session cognition from an earlier stage of the project may integrate it sooner.*
 
 ### Existing project: index the current repository, then iterate continuously
 
