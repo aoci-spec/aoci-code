@@ -2,7 +2,7 @@
 # 索引条目: .goreleaser.yml[Dist.Root.3.Xp.T]
 # GoReleaser's SCM publisher stays disabled. The pinned GitHub tag workflow
 # performs keyless signing, provenance attestation, exact-asset verification,
-# and the explicitly authorized draft-to-prerelease transition.
+# and the explicitly authorized draft-to-release transition.
 version: 2
 project_name: aoci
 

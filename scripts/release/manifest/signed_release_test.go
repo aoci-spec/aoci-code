@@ -263,6 +263,159 @@ func TestReleaseWorkflowUsesOneExactAttestationIdentityPolicy(t *testing.T) {
 	}
 }
 
+func TestReleaseProfileAcceptsPrereleaseAndStableTags(t *testing.T) {
+	tests := []struct {
+		version string
+		ref     string
+	}{
+		{version: "0.1.0-rc2", ref: "refs/tags/v0.1.0-rc2"},
+		{version: "0.1.1", ref: "refs/tags/v0.1.1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.version, func(t *testing.T) {
+			profile, err := releaseProfile(tt.version, tt.ref)
+			if err != nil {
+				t.Fatalf("release profile: %v", err)
+			}
+			if profile != "tag" {
+				t.Fatalf("release profile = %q, want tag", profile)
+			}
+		})
+	}
+}
+
+func TestReleaseWorkflowDerivesGitHubReleaseChannel(t *testing.T) {
+	workflow := readRepositoryFile(t, ".github", "workflows", "release.yml")
+	required := []string{
+		"default: 0.1.0-rc2",
+		"is_prerelease: ${{ steps.identity.outputs.is_prerelease }}",
+		"is_latest: ${{ steps.identity.outputs.is_latest }}",
+		"*-*)",
+		"is_prerelease=true",
+		"is_latest=false",
+		"is_prerelease=false",
+		"is_latest=true",
+		`echo "is_prerelease=$is_prerelease"`,
+		`echo "is_latest=$is_latest"`,
+		"IS_PRERELEASE: ${{ needs.supply_chain.outputs.is_prerelease }}",
+		"IS_LATEST: ${{ needs.supply_chain.outputs.is_latest }}",
+		`test "$(jq -r .prerelease <<<"$release_json")" = "$IS_PRERELEASE"`,
+		`test "$(jq -r .isPrerelease <<<"$release_json")" = "$IS_PRERELEASE"`,
+		`if [ "$IS_LATEST" = true ]; then`,
+		`latest_tag=$(gh api "repos/${EXPECTED_REPOSITORY}/releases/latest" --jq .tag_name)`,
+		`test "$latest_tag" = "$TAG_NAME"`,
+	}
+	for _, fragment := range required {
+		requireRepositoryText(t, workflow, fragment)
+	}
+
+	requireRepositoryTextCount(t, workflow, `--prerelease="$IS_PRERELEASE"`, 2)
+	requireRepositoryTextCount(t, workflow, `--latest=false`, 1)
+	requireRepositoryTextCount(t, workflow, `--latest="$IS_LATEST"`, 1)
+	requireRepositoryTextCount(t, workflow, `test "$(jq -r .isPrerelease <<<"$release_json")" = "$IS_PRERELEASE"`, 2)
+	for _, assignment := range []string{
+		"is_prerelease=true",
+		"is_prerelease=false",
+		"is_latest=true",
+		"is_latest=false",
+	} {
+		requireRepositoryTextCount(t, workflow, assignment, 1)
+	}
+
+	for _, forbidden := range []string{
+		"default: 0.1.0-rc1",
+		"--prerelease \\",
+		`test "$(jq -r .prerelease <<<"$release_json")" = true`,
+		`test "$(jq -r .isPrerelease <<<"$release_json")" = true`,
+	} {
+		if strings.Contains(workflow, forbidden) {
+			t.Fatalf("release workflow retains hard-coded release channel fragment %q", forbidden)
+		}
+	}
+}
+
+func TestReleaseWorkflowBindsUTCBuildDateAndNonemptyChangelog(t *testing.T) {
+	workflow := readRepositoryFile(t, ".github", "workflows", "release.yml")
+	required := []string{
+		`commit_epoch=$(git show -s --format=%ct HEAD)`,
+		`build_date=$(date -u -d "@${commit_epoch}" +%Y-%m-%dT%H:%M:%SZ)`,
+		`echo "build_date=$build_date"`,
+		"BUILD_DATE: ${{ steps.identity.outputs.build_date }}",
+		`grep -Fq "$BUILD_DATE" "$strings_file"`,
+		`test "$version_output" = "aoci version ${VERSION} (commit ${SOURCE_COMMIT}, built ${BUILD_DATE})"`,
+		`--build-date "$BUILD_DATE"`,
+		`changelog_section="${RUNNER_TEMP}/release-changelog.md"`,
+		`if ! grep -Eq '[^[:space:]]' "$changelog_section"; then`,
+		`echo "CHANGELOG.md is missing a non-empty ## v${VERSION} section" >&2`,
+		`cat "$changelog_section"`,
+	}
+	for _, fragment := range required {
+		requireRepositoryText(t, workflow, fragment)
+	}
+	requireRepositoryTextCount(t, workflow, "BUILD_DATE: ${{ steps.identity.outputs.build_date }}", 2)
+	requireRepositoryTextCount(t, workflow, `commit_epoch=$(git show -s --format=%ct HEAD)`, 1)
+	requireRepositoryTextCount(t, workflow, `build_date=$(date -u -d "@${commit_epoch}" +%Y-%m-%dT%H:%M:%SZ)`, 1)
+	if strings.Contains(workflow, "git show -s --format=%cI HEAD") {
+		t.Fatal("release workflow still derives build_date from a non-normalized commit date")
+	}
+}
+
+func TestMakefileAndGoReleaserKeepCanonicalBuildIdentity(t *testing.T) {
+	makefile := readRepositoryFile(t, "Makefile")
+	for _, fragment := range []string{
+		`COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo none)`,
+		`DATE    := $(shell TZ=UTC0 git show -s --date=format-local:'%Y-%m-%dT%H:%M:%SZ' --format=%cd HEAD 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)`,
+		`--build-date "$(DATE)"`,
+	} {
+		requireRepositoryText(t, makefile, fragment)
+	}
+	for _, forbidden := range []string{
+		"git rev-parse --short HEAD",
+		"--build-date \"$$(git show -s --format=%cI HEAD)\"",
+	} {
+		if strings.Contains(makefile, forbidden) {
+			t.Fatalf("Makefile retains non-canonical build identity fragment %q", forbidden)
+		}
+	}
+
+	goreleaser := readRepositoryFile(t, ".goreleaser.yml")
+	for _, fragment := range []string{
+		"draft-to-release transition",
+		"internal/cli.commit={{.FullCommit}}",
+		"internal/cli.buildDate={{.CommitDate}}",
+		"release:\n  disable: true",
+	} {
+		requireRepositoryText(t, goreleaser, fragment)
+	}
+	if strings.Contains(goreleaser, "draft-to-prerelease transition") {
+		t.Fatal("GoReleaser release ownership comment is still prerelease-specific")
+	}
+}
+
+func readRepositoryFile(t *testing.T, elements ...string) string {
+	t.Helper()
+	path := filepath.Join(append([]string{"..", "..", ".."}, elements...)...)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	return string(data)
+}
+
+func requireRepositoryText(t *testing.T, content, fragment string) {
+	t.Helper()
+	if !strings.Contains(content, fragment) {
+		t.Fatalf("repository file is missing %q", fragment)
+	}
+}
+
+func requireRepositoryTextCount(t *testing.T, content, fragment string, want int) {
+	t.Helper()
+	if got := strings.Count(content, fragment); got != want {
+		t.Fatalf("repository file contains %q %d times, want %d", fragment, got, want)
+	}
+}
+
 func TestBundleRejectsMultipleLeafCertificates(t *testing.T) {
 	identity := publisherCertificateIdentity(signedFixturePublisher)
 	material := bundleVerificationMaterial{

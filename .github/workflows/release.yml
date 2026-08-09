@@ -6,7 +6,7 @@ on:
       version:
         description: Release version without the leading v
         required: true
-        default: 0.1.0-rc1
+        default: 0.1.0-rc2
         type: string
   push:
     tags:
@@ -31,6 +31,8 @@ jobs:
     outputs:
       version: ${{ steps.identity.outputs.version }}
       tag_name: ${{ steps.identity.outputs.tag_name }}
+      is_prerelease: ${{ steps.identity.outputs.is_prerelease }}
+      is_latest: ${{ steps.identity.outputs.is_latest }}
       source_commit: ${{ steps.identity.outputs.source_commit }}
       certificate_identity: ${{ steps.identity.outputs.certificate_identity }}
       provenance_name: ${{ steps.identity.outputs.provenance_name }}
@@ -114,12 +116,26 @@ jobs:
             exit 1
           fi
           test "$tag_name" = "v${version}"
+          case "$version" in
+            *-*)
+              is_prerelease=true
+              is_latest=false
+              ;;
+            *)
+              is_prerelease=false
+              is_latest=true
+              ;;
+          esac
           certificate_identity="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/release.yml@${GITHUB_REF}"
-          build_date=$(git show -s --format=%cI HEAD)
+          commit_epoch=$(git show -s --format=%ct HEAD)
+          case "$commit_epoch" in ''|*[!0-9]*) echo "invalid commit epoch: $commit_epoch" >&2; exit 1;; esac
+          build_date=$(date -u -d "@${commit_epoch}" +%Y-%m-%dT%H:%M:%SZ)
 
           {
             echo "version=$version"
             echo "tag_name=$tag_name"
+            echo "is_prerelease=$is_prerelease"
+            echo "is_latest=$is_latest"
             echo "source_commit=$source_commit"
             echo "build_date=$build_date"
             echo "publish=$publish"
@@ -204,6 +220,7 @@ jobs:
         env:
           VERSION: ${{ steps.identity.outputs.version }}
           SOURCE_COMMIT: ${{ steps.identity.outputs.source_commit }}
+          BUILD_DATE: ${{ steps.identity.outputs.build_date }}
         run: |
           set -euo pipefail
           mkdir "$ASSET_DIR"
@@ -251,13 +268,13 @@ jobs:
             strings "$binary" > "$strings_file"
             grep -Fq "$VERSION" "$strings_file"
             grep -Fq "$SOURCE_COMMIT" "$strings_file"
+            grep -Fq "$BUILD_DATE" "$strings_file"
           done
 
           linux_dir=$(mktemp -d)
           tar -xzf "${ASSET_DIR}/aoci_${VERSION}_linux_amd64.tar.gz" -C "$linux_dir"
           version_output=$("${linux_dir}/aoci" --version)
-          grep -Fq "aoci version ${VERSION}" <<<"$version_output"
-          grep -Fq "commit ${SOURCE_COMMIT}" <<<"$version_output"
+          test "$version_output" = "aoci version ${VERSION} (commit ${SOURCE_COMMIT}, built ${BUILD_DATE})"
 
           (
             cd "$ASSET_DIR"
@@ -445,6 +462,8 @@ jobs:
       EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
       TAG_NAME: ${{ needs.supply_chain.outputs.tag_name }}
       VERSION: ${{ needs.supply_chain.outputs.version }}
+      IS_PRERELEASE: ${{ needs.supply_chain.outputs.is_prerelease }}
+      IS_LATEST: ${{ needs.supply_chain.outputs.is_latest }}
       SOURCE_COMMIT: ${{ needs.supply_chain.outputs.source_commit }}
       PROVENANCE_NAME: ${{ needs.supply_chain.outputs.provenance_name }}
       CERTIFICATE_IDENTITY: ${{ needs.supply_chain.outputs.certificate_identity }}
@@ -501,7 +520,7 @@ jobs:
             --certificate-oidc-issuer="$EXPECTED_OIDC_ISSUER" \
             "${ASSET_DIR}/SHA256SUMS"
 
-      - name: Create or safely resume the draft pre-release
+      - name: Create or safely resume the draft release
         run: |
           set -euo pipefail
           tag_ref=$(gh api "repos/${EXPECTED_REPOSITORY}/git/ref/tags/${TAG_NAME}")
@@ -509,15 +528,22 @@ jobs:
           test "$(jq -r '.object.type' <<<"$tag_ref")" = tag
           test "$(gh api "repos/${EXPECTED_REPOSITORY}/git/tags/${tag_object}" --jq .object.sha)" = "$SOURCE_COMMIT"
 
+          changelog_section="${RUNNER_TEMP}/release-changelog.md"
+          awk -v heading="## v${VERSION}" '
+            $0 == heading { include=1; next }
+            include && /^## / { exit }
+            include { print }
+          ' CHANGELOG.md > "$changelog_section"
+          if ! grep -Eq '[^[:space:]]' "$changelog_section"; then
+            echo "CHANGELOG.md is missing a non-empty ## v${VERSION} section" >&2
+            exit 1
+          fi
+
           notes="${RUNNER_TEMP}/release-notes.md"
           {
             echo "AOCI-CODE v${VERSION} is built from \`${SOURCE_COMMIT}\`."
             echo
-            awk -v heading="## v${VERSION}" '
-              $0 == heading { include=1; next }
-              include && /^## / { exit }
-              include { print }
-            ' CHANGELOG.md
+            cat "$changelog_section"
             echo
             echo "See \`docs/install.md\` and \`docs/supply-chain.md\` for asset verification."
           } > "$notes"
@@ -535,7 +561,7 @@ jobs:
                 --repo "$EXPECTED_REPOSITORY" \
                 --verify-tag \
                 --draft \
-                --prerelease \
+                --prerelease="$IS_PRERELEASE" \
                 --latest=false \
                 --title "AOCI-CODE v${VERSION}" \
                 --notes-file "$notes"
@@ -544,7 +570,7 @@ jobs:
               release_json=$(jq -c --arg tag "$TAG_NAME" '[.[][] | select(.tag_name == $tag)][0]' <<<"$releases")
               test "$(jq -r .tag_name <<<"$release_json")" = "$TAG_NAME"
               test "$(jq -r .draft <<<"$release_json")" = true
-              test "$(jq -r .prerelease <<<"$release_json")" = true
+              test "$(jq -r .prerelease <<<"$release_json")" = "$IS_PRERELEASE"
               test "$(jq -r .name <<<"$release_json")" = "AOCI-CODE v${VERSION}"
               test "$(jq -r .body <<<"$release_json")" = "$(cat "$notes")"
 
@@ -586,7 +612,7 @@ jobs:
           set -euo pipefail
           release_json=$(gh release view "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --json assets,isDraft,isPrerelease,tagName,url)
           test "$(jq -r .isDraft <<<"$release_json")" = true
-          test "$(jq -r .isPrerelease <<<"$release_json")" = true
+          test "$(jq -r .isPrerelease <<<"$release_json")" = "$IS_PRERELEASE"
           test "$(jq -r .tagName <<<"$release_json")" = "$TAG_NAME"
           jq -r '.assets[].name' <<<"$release_json" | LC_ALL=C sort > "${RUNNER_TEMP}/remote-assets.txt"
           find "$ASSET_DIR" -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort > "${RUNNER_TEMP}/local-assets.txt"
@@ -624,17 +650,21 @@ jobs:
           verify_api_provenance "${download_dir}/SHA256SUMS"
           verify_api_provenance "${download_dir}/RELEASE-MANIFEST.json"
 
-      - name: Publish the verified draft as a pre-release
+      - name: Publish the verified draft release
         run: |
           set -euo pipefail
           gh release edit "$TAG_NAME" \
             --repo "$EXPECTED_REPOSITORY" \
             --draft=false \
-            --prerelease \
-            --latest=false \
+            --prerelease="$IS_PRERELEASE" \
+            --latest="$IS_LATEST" \
             --verify-tag
           release_json=$(gh release view "$TAG_NAME" --repo "$EXPECTED_REPOSITORY" --json assets,isDraft,isPrerelease,url)
           test "$(jq -r .isDraft <<<"$release_json")" = false
-          test "$(jq -r .isPrerelease <<<"$release_json")" = true
+          test "$(jq -r .isPrerelease <<<"$release_json")" = "$IS_PRERELEASE"
           test "$(jq '.assets | length' <<<"$release_json")" -eq 16
+          if [ "$IS_LATEST" = true ]; then
+            latest_tag=$(gh api "repos/${EXPECTED_REPOSITORY}/releases/latest" --jq .tag_name)
+            test "$latest_tag" = "$TAG_NAME"
+          fi
           echo "Release URL: $(jq -r .url <<<"$release_json")" >> "$GITHUB_STEP_SUMMARY"

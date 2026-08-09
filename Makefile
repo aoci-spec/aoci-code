@@ -3,10 +3,10 @@
 # 目标: fast 普通提交门 / full 完整信心门 / release-check 稳定版本门
 #       / build 静态编译 / test 全量测试 / vet 静态检查 / safety 公开文案扫描
 
-# 版本号: 优先取 git tag,无 tag 时用 dev+短哈希,均经 ldflags 注入 internal/cli.version
+# 版本号: 优先取 git tag,无 tag 时用 dev+短哈希;完整 commit 与 UTC commit 时间同步注入。
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
-DATE    := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo none)
+DATE    := $(shell TZ=UTC0 git show -s --date=format-local:'%Y-%m-%dT%H:%M:%SZ' --format=%cd HEAD 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -X github.com/aoci-spec/aoci-code/internal/cli.version=$(VERSION) \
            -X github.com/aoci-spec/aoci-code/internal/cli.commit=$(COMMIT) \
            -X github.com/aoci-spec/aoci-code/internal/cli.buildDate=$(DATE)
@@ -140,7 +140,7 @@ release-check: full
 		--output dist/RELEASE-MANIFEST.json \
 		--version "$(VERSION)" \
 		--source-commit "$$(git rev-parse HEAD)" \
-		--build-date "$$(git show -s --format=%cI HEAD)" \
+		--build-date "$(DATE)" \
 		--go-version "$$($(GO_BIN) version)" \
 		--goreleaser-version "$$GORELEASER_VERSION" \
 		--syft-version "$$SYFT_VERSION" \
