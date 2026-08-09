@@ -6,7 +6,7 @@ Current index Header (the sole source for tag dictionaries and index rules):
 
 {{if .HasSuggestedSection}}Suggested section (for understanding the file's location only; the tool decides the actual destination): {{.SuggestedSection}}
 
-{{end}}{{if .NeighborEntries}}Existing Entries in the same section (style references only; do not copy their content):
+{{end}}{{if .NeighborEntries}}Existing Entries in the same section (relationship and consistency context only; do not copy their content. A neighboring S:- does not determine the current object's S; decide it independently from current evidence, and keep S:- when no qualifying constraint exists):
 {{range .NeighborEntries}}  {{.}}
 {{end}}
 {{end}}{{if .IsUpdate}}Existing Entry for this file (update reference: preserve S constraints that still hold and remove obsolete ones):

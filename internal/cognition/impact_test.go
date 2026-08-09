@@ -58,6 +58,39 @@ func TestResolveImpactSingleCodeObject(t *testing.T) {
 	}
 }
 
+func TestResolveImpactAllowsHighImportanceDashAndShortS(t *testing.T) {
+	tests := []struct {
+		name          string
+		candidateLine string
+	}{
+		{
+			name:          "S_dash_when_no_constraint_qualifies",
+			candidateLine: "service.go[CD9S]: F:coordinate changed workflows | R:- | A:- | S:-",
+		},
+		{
+			name:          "S_shorter_than_F",
+			candidateLine: "service.go[CD9S]: F:coordinate changed workflows | R:- | A:- | S:x",
+		},
+	}
+	for _, current := range tests {
+		t.Run(current.name, func(t *testing.T) {
+			set, _ := loadImpactFixture(t, []string{codeImpactLine("service.go", "-")}, "")
+			result, err := resolveImpactForTest(set, []ImpactCandidate{{
+				Change:        ImpactChangeUpdate,
+				ObjectRef:     "code:src/service.go",
+				CanonicalLine: current.candidateLine,
+			}})
+			if err != nil {
+				t.Fatalf("soft-S compatible C9 candidate was rejected: %v", err)
+			}
+			if len(result.Findings) != 0 {
+				t.Fatalf("soft-S compatible C9 candidate produced findings: %#v", result.Findings)
+			}
+			assertImpactObjects(t, result.ReviewSet, "code:src/service.go")
+		})
+	}
+}
+
 func TestResolveImpactSingleDatabaseObject(t *testing.T) {
 	set, _ := loadImpactFixture(t, nil, primaryDatabaseImpact(
 		databaseImpactLine("users", "-"),

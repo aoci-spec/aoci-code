@@ -3,6 +3,7 @@ The current model must read each target file and independently generate every ta
 Tools may only read or chunk source text, save requests, validate, and write governed output. They must not generate a semantic draft for the model to polish superficially.
 Read the source of every batch.targets item in full. For an update target, also check old_entry. Never generate a candidate solely from a directory, filename, symbol list, or neighboring Entry.
 F is a short, precise core-function anchor with semantic completeness taking priority; R lists only strong cross-file relationships and never copies all imports; A lists only APIs exposed by the file; S contains only information absent from filename + tag + F + R + A but necessary to understand the system or modify the code.
+For C6-C9 objects, actively look for evidence-backed S constraints. Use S only when the constraint cannot be inferred from F/R/A and affects system understanding or modification. Keep S:- when no qualifying constraint exists.
 Fill each entries_stage_request item with a single-line FRAS candidate, preserving path and source_sha256 exactly. The current model must generate every entry in the request individually; a script loop must not assemble them.
 Save the complete entries_stage_request as a UTF-8 JSON file and replace {request_file} in commands.entries_stage with that path.
 On Windows PowerShell 5, do not pass request JSON through a text pipeline. --stdin-json is only for environments with a reliable byte stream.

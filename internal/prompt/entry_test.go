@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 func sampleEntryInput() EntryInput {
@@ -89,6 +90,61 @@ func TestEntryUserEmbedsFacts(t *testing.T) {
 		if !strings.Contains(user, fact) {
 			t.Fatalf("user 缺少事实: %q", fact)
 		}
+	}
+}
+
+func TestEntryNeighborContextDoesNotDecideCurrentS(t *testing.T) {
+	previous := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
+	tests := []struct {
+		locale    string
+		required  []string
+		forbidden []string
+	}{
+		{
+			locale: textassets.DefaultLocale,
+			required: []string{
+				"relationship and consistency context only",
+				"A neighboring S:- does not determine the current object's S",
+				"decide it independently from current evidence",
+				"keep S:- when no qualifying constraint exists",
+			},
+			forbidden: []string{"style reference", "style references"},
+		},
+		{
+			locale: textassets.LegacyLocale,
+			required: []string{
+				"仅供关系与一致性上下文",
+				"邻居的S:-不决定当前对象的S",
+				"依据当前对象证据独立判断",
+				"无合格约束时仍保持S:-",
+			},
+			forbidden: []string{"风格参照"},
+		},
+	}
+	for _, current := range tests {
+		t.Run(current.locale, func(t *testing.T) {
+			if err := textassets.SetActiveLocale(current.locale); err != nil {
+				t.Fatal(err)
+			}
+			_, user, err := BuildEntryMessages(sampleEntryInput())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(user, "other.go[MC5S]") {
+				t.Fatalf("%s neighbor context lost the actual Entry", current.locale)
+			}
+			for _, anchor := range current.required {
+				if !strings.Contains(user, anchor) {
+					t.Fatalf("%s neighbor context lacks %q: %q", current.locale, anchor, user)
+				}
+			}
+			for _, forbidden := range current.forbidden {
+				if strings.Contains(user, forbidden) {
+					t.Fatalf("%s neighbor context still treats Entries as %q", current.locale, forbidden)
+				}
+			}
+		})
 	}
 }
 

@@ -68,6 +68,50 @@ func TestBootstrapMatrixAndCompletePreview(t *testing.T) {
 	}
 }
 
+func TestBootstrapAllowsHighImportanceDashAndShortS(t *testing.T) {
+	tests := []struct {
+		name string
+		s    string
+	}{
+		{name: "S_dash_when_no_constraint_qualifies", s: "-"},
+		{name: "S_shorter_than_F", s: "x"},
+	}
+	for _, current := range tests {
+		t.Run(current.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeFile(t, root, "src/main.go", "package main\n")
+			plan, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US", TargetKinds: []string{"code"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate := validCandidate(t, root, plan)
+			replaced := false
+			for assetIndex := range candidate.Assets {
+				if candidate.Assets[assetIndex].AssetID != "code" {
+					continue
+				}
+				const oldS = "S:Keep fixture planning deterministic"
+				if strings.Count(candidate.Assets[assetIndex].Content, oldS) != 1 {
+					t.Fatalf("unexpected Code fixture candidate: %q", candidate.Assets[assetIndex].Content)
+				}
+				candidate.Assets[assetIndex].Content = strings.Replace(candidate.Assets[assetIndex].Content, oldS, "S:"+current.s, 1)
+				replaced = true
+			}
+			if !replaced {
+				t.Fatal("Bootstrap candidate lacks its Code asset")
+			}
+			attachTestHostModelProvenance(plan, candidate)
+			preview, err := ValidateCandidate(root, plan, candidate)
+			if err != nil {
+				t.Fatalf("soft-S compatible C9 Bootstrap candidate was rejected: %v", err)
+			}
+			if preview.Status != machinecontract.CognitionPlannerPreviewReady || preview.ApprovalDigest == nil {
+				t.Fatalf("soft-S compatible C9 Bootstrap candidate did not reach Preview: %#v", preview)
+			}
+		})
+	}
+}
+
 func TestBootstrapRejectsRootOwnedAssetInCodeVolume(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "main.go", "package main\n")

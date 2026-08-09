@@ -6,7 +6,7 @@
 
 {{if .HasSuggestedSection}}归段建议(仅供理解文件定位,实际落段由工具决定): {{.SuggestedSection}}
 
-{{end}}{{if .NeighborEntries}}同段既有条目样例(风格参照,不要照抄内容):
+{{end}}{{if .NeighborEntries}}同段既有条目（仅供关系与一致性上下文；不得照抄内容。邻居的S:-不决定当前对象的S；应依据当前对象证据独立判断，无合格约束时仍保持S:-）：
 {{range .NeighborEntries}}  {{.}}
 {{end}}
 {{end}}{{if .IsUpdate}}以下为该文件的现有条目(更新参照 —— 仍成立的S约束保留,失效的删除):

@@ -3,6 +3,7 @@ package authoringcontract
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -40,16 +41,72 @@ func TestOldFormalMetaBuildsCompleteCodeAndDatabaseContractsWithoutByteChanges(t
 
 func TestFreshMetaContractExamplesComeFromActualAssembly(t *testing.T) {
 	for _, locale := range []string{textassets.DefaultLocale, textassets.LegacyLocale} {
-		template, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
-		if err != nil {
-			t.Fatal(err)
-		}
-		output, err := Build([]byte(template), []string{cognition.ScopeCode, cognition.ScopeDatabase}, locale)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assertDeliveredExamples(t, []byte(template), output)
+		locale := locale
+		t.Run(locale, func(t *testing.T) {
+			template, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := Build([]byte(template), []string{cognition.ScopeCode, cognition.ScopeDatabase}, locale)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if output.AuthoringMeta != template {
+				t.Fatal("assembler changed the fresh formal Meta bytes")
+			}
+			assertFormalMetaHighImportanceDashExample(t, template)
+			assertSoftSAuthoringPolicy(t, locale, output.Instructions)
+			assertDeliveredExamples(t, []byte(template), output)
+		})
 	}
+}
+
+func assertSoftSAuthoringPolicy(t *testing.T, locale string, instructions []string) {
+	t.Helper()
+	combined := strings.Join(instructions, "\n")
+	required := map[string][]string{
+		textassets.DefaultLocale: {
+			"C6-C9 objects",
+			"actively look for evidence-backed S constraints",
+			"cannot be inferred from F/R/A",
+			"affects system understanding or modification",
+			"Keep S:- when no qualifying constraint exists",
+		},
+		textassets.LegacyLocale: {
+			"C6-C9对象应优先识别有证据支持的S约束",
+			"无法由F/R/A推导",
+			"影响系统理解或修改",
+			"不存在合格约束时保持S:-",
+		},
+	}
+	for _, anchor := range required[locale] {
+		if !strings.Contains(combined, anchor) {
+			t.Fatalf("%s authoring instructions lack soft-S policy anchor %q: %q", locale, anchor, combined)
+		}
+	}
+	if count := strings.Count(combined, "C6-C9"); count != 2 {
+		t.Fatalf("%s authoring instructions must carry the soft-S policy for both Code and Database, got %d copies", locale, count)
+	}
+}
+
+func assertFormalMetaHighImportanceDashExample(t *testing.T, meta string) {
+	t.Helper()
+	const prefix = "#Code Entry example: "
+	for _, line := range strings.Split(meta, "\n") {
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		entry, ok := index.ParseEntryLine(strings.TrimPrefix(line, prefix), 1)
+		if !ok {
+			t.Fatalf("formal Meta example is not a valid Entry: %q", line)
+		}
+		importance, err := strconv.Atoi(entry.TagsParsed["C"])
+		if err != nil || importance < 6 || entry.S != "-" {
+			t.Fatalf("formal Meta must retain its compatible high-C S:- example: %#v", entry)
+		}
+		return
+	}
+	t.Fatal("formal Meta lacks its Code Entry example")
 }
 
 func assertDeliveredExamples(t *testing.T, raw []byte, output Output) {
@@ -62,6 +119,16 @@ func assertDeliveredExamples(t *testing.T, raw []byte, output Output) {
 		entry, ok := index.ParseEntryLine(example, 1)
 		if !ok || entry.FullLine != example {
 			t.Fatalf("%s example is not one complete physical Entry: %q", domain, example)
+		}
+		importance, err := strconv.Atoi(entry.TagsParsed["C"])
+		if err != nil || importance < 6 {
+			t.Fatalf("%s example must calibrate a high-C object: %q", domain, example)
+		}
+		if strings.TrimSpace(entry.S) == "" || entry.S == "-" {
+			t.Fatalf("%s example must demonstrate a qualifying S constraint: %q", domain, example)
+		}
+		if entry.R != "-" {
+			t.Fatalf("%s calibration example must remain portable across repositories and use R:-: %q", domain, example)
 		}
 		dictionary := index.ExtractScopedTagDict(string(raw), domain)
 		if findings := cognition.ValidateVolumeAuthoringExample(domain, example, dictionary); len(findings) != 0 {

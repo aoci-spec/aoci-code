@@ -6,6 +6,7 @@ Four-field writing discipline:
   Can this really not be inferred from the first four layers?
   Does it materially affect understanding the system or modifying the code?
   Write the sentence only when both answers are yes.
+  For C6-C9 objects, actively look for evidence-backed S constraints. Use S only when the constraint cannot be inferred from F/R/A and affects system understanding or modification. Keep S:- when no qualifying constraint exists.
   Do not write evolution narratives or time-dependent information; describe only current accumulated state.
   The quota by C Importance is {{.SQuotaDefaultWithUnits}}. A quota is a ceiling, not a target. These are defaults; if the repository Header contains a #S quota: declaration, the Header values govern and the machine gate enforces them.
   Use - when no information qualifies. Omit anything unsupported or uncertain in the source. A wrong S is more harmful than a missing S.
