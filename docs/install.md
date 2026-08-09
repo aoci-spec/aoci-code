@@ -15,17 +15,17 @@ make build
 
 The build produces `build/aoci` on POSIX hosts and `build/aoci.exe` on Windows. Copy it to a stable absolute path owned by the current user or administrator, then configure hosts to call that exact path.
 
-The signed Release binary reports `aoci version 0.1.0-rc1`. A source build
+The signed Release binary reports `aoci version 0.1.0-rc2`. A source build
 reports the version derived from its exact Git checkout, such as
-`v0.1.0-rc1-1-g<short-commit>` after the Release tag, and reports that Git
+`v0.1.0-rc2-1-g<short-commit>` after the Release tag, and reports that Git
 commit separately. These are distinct build identities, not conflicting
 versions.
 
 ## Signed GitHub Release packages
 
 Published release-candidate packages are available from the
-[v0.1.0-rc1 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc1). The
-`v0.1.0-rc1` release has exactly 16 uploaded assets:
+[v0.1.0-rc2 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc2). The
+`v0.1.0-rc2` release has exactly 16 uploaded assets:
 
 - six archives: Linux, macOS, and Windows, each for amd64 and arm64;
 - six SPDX JSON SBOMs, one named after each archive with `.sbom.json`
@@ -33,7 +33,7 @@ Published release-candidate packages are available from the
 - `SHA256SUMS` and `RELEASE-MANIFEST.json`;
 - `SHA256SUMS.sigstore.json`, the keyless Cosign signature bundle for the
   original `SHA256SUMS` bytes; and
-- `AOCI-CODE_v0.1.0-rc1.provenance.sigstore.json`, the GitHub build-provenance
+- `AOCI-CODE_v0.1.0-rc2.provenance.sigstore.json`, the GitHub build-provenance
   bundle.
 
 The 12 archives and SBOMs are the checksum subjects. The 14 provenance subjects
@@ -48,7 +48,7 @@ repository:
 
 GitHub CLI commands require an authenticated session. Run `gh auth login`
 before the sequence below. For an anonymous download, use the
-[tagged Release page](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc1)
+[tagged Release page](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc2)
 in a browser to download all 16 uploaded assets;
 the later `gh api` and `gh attestation verify` steps still require GitHub CLI
 authentication.
@@ -59,7 +59,7 @@ gh auth login
 
 ```bash
 REPOSITORY=aoci-spec/aoci-code
-TAG=v0.1.0-rc1
+TAG=v0.1.0-rc2
 VERSION=${TAG#v}
 RELEASE_DIR="$PWD/aoci-code-$VERSION-release"
 CERTIFICATE_IDENTITY="https://github.com/$REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG"

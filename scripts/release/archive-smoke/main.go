@@ -25,6 +25,8 @@ var archiveDocuments = []string{
 	"PATENTS",
 	"README.md",
 	"README.zh-CN.md",
+	"assets/aoci-logo-en.jpg",
+	"assets/aoci-logo-zh-CN.jpg",
 	"THIRD-PARTY-NOTICES",
 	"TRADEMARKS",
 }

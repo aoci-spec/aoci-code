@@ -6,9 +6,12 @@ import (
 	"compress/gzip"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+var markdownDestinationPattern = regexp.MustCompile(`!?\[[^][]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
 
 func TestArchiveNames(t *testing.T) {
 	dir := t.TempDir()
@@ -29,6 +32,42 @@ func TestArchiveNames(t *testing.T) {
 	}
 	if err := requireNames(zipPath, zipEntries, archiveNames("aoci.exe")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestArchiveREADMERelativeLinksResolveInsideArchive(t *testing.T) {
+	archiveFiles := make(map[string]struct{}, len(archiveDocuments))
+	for _, name := range archiveDocuments {
+		archiveFiles[name] = struct{}{}
+	}
+	repositoryRoot := filepath.Clean(filepath.Join("..", "..", ".."))
+	for _, readme := range []string{"README.md", "README.zh-CN.md"} {
+		t.Run(readme, func(t *testing.T) {
+			if _, ok := archiveFiles[readme]; !ok {
+				t.Fatalf("packaged README is absent from archiveDocuments: %s", readme)
+			}
+			raw, err := os.ReadFile(filepath.Join(repositoryRoot, readme))
+			if err != nil {
+				t.Fatal(err)
+			}
+			matches := markdownDestinationPattern.FindAllSubmatch(raw, -1)
+			if len(matches) == 0 {
+				t.Fatalf("packaged README has no Markdown links: %s", readme)
+			}
+			for _, match := range matches {
+				destination := string(match[1])
+				if strings.HasPrefix(destination, "http://") || strings.HasPrefix(destination, "https://") || strings.HasPrefix(destination, "#") {
+					continue
+				}
+				if separator := strings.IndexAny(destination, "?#"); separator >= 0 {
+					destination = destination[:separator]
+				}
+				cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(destination)))
+				if _, ok := archiveFiles[cleaned]; !ok {
+					t.Errorf("%s relative Markdown link points outside the archive: %s", readme, string(match[1]))
+				}
+			}
+		})
 	}
 }
 
