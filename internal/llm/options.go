@@ -1,4 +1,4 @@
-// Package llm 是 AOCI-CLI 的 AI 端点适配层。
+// Package llm 是 AOCI-CODE CLI 的 AI 端点适配层。
 // 索引条目: options.go[LL9T]
 //
 // 单一职责: 只负责"如何与一个 OpenAI 兼容端点对话"(组装请求、发送、解析响应、

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-09T10:53:07Z",
+  "updated_at": "2026-08-09T12:45:49Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -91,9 +91,9 @@
       "normalized_sha256": "9e86829429193738724179195efc9fa40b5c8b69cf865fd31fbc7f7ef4c1dd60"
     },
     "README.md": {
-      "sha256": "973296d632a0281e63c66b2c9713bd399ffe33e82e64cf4ed97a0798bf81b2bd",
-      "size": 50885,
-      "normalized_sha256": "973296d632a0281e63c66b2c9713bd399ffe33e82e64cf4ed97a0798bf81b2bd"
+      "sha256": "b8e6c7e7dcbd9152fa124f349a32dc84ae5ee209e6eecc99d46625d77b6593ea",
+      "size": 53303,
+      "normalized_sha256": "b8e6c7e7dcbd9152fa124f349a32dc84ae5ee209e6eecc99d46625d77b6593ea"
     },
     "README.zh-CN.md": {
       "sha256": "deb65af38575ebf855b202c8d75dc80ca01122e9bd968e6ecfd8afe988084c94",
@@ -179,9 +179,9 @@
       "normalized_sha256": "94bebfd45f6b1a48092cc0aa7f600f09824d9d326b5b8501ccb74a046492f944"
     },
     "docs/install.md": {
-      "sha256": "d8b1e5066d2a2c9d42b560a4094a4354b87b160fbd9b6d315655c80e0a2ad05f",
-      "size": 5742,
-      "normalized_sha256": "d8b1e5066d2a2c9d42b560a4094a4354b87b160fbd9b6d315655c80e0a2ad05f"
+      "sha256": "d3337a33e8db9ea8854372304b15bfaa503bad626ff1b90763027ab14367ed9a",
+      "size": 6425,
+      "normalized_sha256": "d3337a33e8db9ea8854372304b15bfaa503bad626ff1b90763027ab14367ed9a"
     },
     "docs/localization.md": {
       "role": "index",
@@ -249,10 +249,9 @@
       "normalized_sha256": "bd732073960feb70509a08f760369f77459a480c77dd79bae9a884fdfb41a43c"
     },
     "examples/minimal-repository/README.md": {
-      "role": "index",
-      "sha256": "c83b026a861960c37dc47c4ff411b54662b55e1f57884d8ca2ec0e963d35476c",
-      "size": 431,
-      "normalized_sha256": "c83b026a861960c37dc47c4ff411b54662b55e1f57884d8ca2ec0e963d35476c"
+      "sha256": "acbe7624c5ec3dc95fdcdf66ab45548c04cfae091e8c5408307959b6c37929e2",
+      "size": 432,
+      "normalized_sha256": "acbe7624c5ec3dc95fdcdf66ab45548c04cfae091e8c5408307959b6c37929e2"
     },
     "examples/minimal-repository/counter/counter.go": {
       "role": "index",
@@ -3705,11 +3704,10 @@
       "format_kind": "gofmt"
     },
     "internal/llm/options.go": {
-      "role": "index",
-      "sha256": "9bd5a47e2206464bedede2047823e842d264cb838ced367d9d53fac02f5709cb",
-      "size": 5552,
-      "normalized_sha256": "9bd5a47e2206464bedede2047823e842d264cb838ced367d9d53fac02f5709cb",
-      "format_sha256": "9bd5a47e2206464bedede2047823e842d264cb838ced367d9d53fac02f5709cb",
+      "sha256": "e019112e27a8c231e1dc1674e31d506b82715f604a9cea5f1cc7ff593888c12d",
+      "size": 5557,
+      "normalized_sha256": "e019112e27a8c231e1dc1674e31d506b82715f604a9cea5f1cc7ff593888c12d",
+      "format_sha256": "e019112e27a8c231e1dc1674e31d506b82715f604a9cea5f1cc7ff593888c12d",
       "format_kind": "gofmt"
     },
     "internal/machinecontract/artifact_governance_test.go": {

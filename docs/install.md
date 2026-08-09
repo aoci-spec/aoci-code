@@ -1,9 +1,9 @@
 # AOCI-CODE Installation
 
-## AOCI-CODE v0.1.0-rc1 source build
+## Build from source
 
-The current release candidate is built from the canonical source using the Go
-version declared in `go.mod` and `make`. From a source checkout of
+Build the current canonical source checkout using the Go version declared in
+`go.mod` and `make`. From a source checkout of
 `github.com/aoci-spec/aoci-code`, run:
 
 ```bash
@@ -15,10 +15,16 @@ make build
 
 The build produces `build/aoci` on POSIX hosts and `build/aoci.exe` on Windows. Copy it to a stable absolute path owned by the current user or administrator, then configure hosts to call that exact path.
 
+The signed Release binary reports `aoci version 0.1.0-rc1`. A source build
+reports the version derived from its exact Git checkout, such as
+`v0.1.0-rc1-1-g<short-commit>` after the Release tag, and reports that Git
+commit separately. These are distinct build identities, not conflicting
+versions.
+
 ## Signed GitHub Release packages
 
-Published release-candidate packages are available from
-[GitHub Releases](https://github.com/aoci-spec/aoci-code/releases). The
+Published release-candidate packages are available from the
+[v0.1.0-rc1 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc1). The
 `v0.1.0-rc1` release has exactly 16 uploaded assets:
 
 - six archives: Linux, macOS, and Windows, each for amd64 and arm64;
@@ -39,6 +45,17 @@ The following verification sequence requires GitHub CLI, Cosign, Git, GNU
 `sha256sum`, and the Go version declared in `go.mod`. It pins the exact release
 workflow identity rather than accepting an arbitrary workflow in the
 repository:
+
+GitHub CLI commands require an authenticated session. Run `gh auth login`
+before the sequence below. For an anonymous download, use the
+[tagged Release page](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc1)
+in a browser to download all 16 uploaded assets;
+the later `gh api` and `gh attestation verify` steps still require GitHub CLI
+authentication.
+
+```bash
+gh auth login
+```
 
 ```bash
 REPOSITORY=aoci-spec/aoci-code
