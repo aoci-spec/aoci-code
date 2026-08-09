@@ -1,6 +1,6 @@
 # AOCI-CODE
 
-**AOCI-CODE (AI Software System Cognition Infrastructure)** provides a persistent, governable repository cognition map for AI Agent workflows.
+**AOCI-CODE is an indexing method that establishes global software-project cognition for AI Agents and provides a persistent, governable repository cognition map.**
 
 🇺🇸 English | [🇨🇳 简体中文](README.zh-CN.md)
 
@@ -12,21 +12,25 @@
 > [!IMPORTANT]
 > AOCI-CODE v0.1.0-rc1 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). Build from canonical source or use a signed package from the [v0.1.0-rc1 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc1) after following the [release verification procedure](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc1/docs/install.md#signed-github-release-packages).
 
+## What is AOCI?
+
+**AOCI (AI-Oriented Cognition Infrastructure) is cognition infrastructure positioned between AI Agents and software systems.**
+
+Large models handle reasoning, Agents handle planning and execution, and AOCI organizes code, configuration, tests, and database structures into continuously maintainable system cognition bound to the current system version, for Agents to read and understand before acting.
+
 ## What is AOCI-CODE?
 
-**AOCI-CODE originally started as AI-Oriented Code Indexing, an indexing method for establishing global software-project cognition for AI Agent workflows.**
+AOCI-CODE originates from AOCI. Put simply, AOCI-CODE compresses, from source code, database structures, and other assets, the key information that materially affects AI understanding and modification, producing a high-information-density index that combines symbols and semantics and is represented in plain text.
 
-Put simply, AOCI-CODE semantically compresses source code, configuration, tests, and optional database structures. It preserves the information that materially affects understanding and modification, then produces a plain-text global project map that a model can read.
+When model context is limited, an AI Agent can read the index first, acquire most of the project’s key information in one pass, and then enter a specific development task. This reduces repeated searching and code re-learning while improving continuity across tasks and sessions.
 
-AOCI-CODE organizes this information into high-information-density cognition assets that combine symbols with semantics; together, these assets form the Cognition Layer. When model context is limited, an AI Agent can read the index first, acquire most of the project’s key information in one pass, and then enter a specific development task. This reduces repeated searching and code re-learning while improving continuity across tasks and sessions.
-
-- **The index is not a one-time summary**: it evolves with the system and remains in the project as a long-lived plain-text asset that can be diffed, reviewed, versioned, and rolled back with Git.
+- **The index is not a one-time summary**: it evolves with the system and remains in the project over the long term, where it can be diffed, reviewed, versioned, and rolled back with Git.
 - **It records more than “where files are”**: AOCI-CODE also preserves object responsibilities, strong relationships, public contracts, transaction boundaries, compatibility constraints, and other information that is difficult to infer directly from code structure.
 - **AOCI-CODE is not another AI Agent**: the model understands source code and authors semantics; AOCI-CODE validates, binds to source content, and audits that Semantic Authoring Provenance while handling cognition delivery, atomic writes, and recovery.
 - **Code and databases can be understood together**: the model can build an independent table-level index for database tables. When Code Cognition and Database Cognition are delivered together, an AI Agent can understand the software system more completely.
 
 
-Names in this document have the following roles: **AOCI** refers to the indexing paradigm and protocol, **AOCI-CODE** refers to the project and repository that implement the method, **AOCI-CODE CLI** refers to the current Go implementation, and **`aoci`** refers to the built binary and command.
+Names in this document have the following roles: **AOCI** refers to the cognition paradigm and protocol, while **AOCI-CODE** refers to the project and the index itself that embody this method.
 
 
 ## One-step setup
@@ -235,7 +239,7 @@ flowchart TD
     M --> N
 ```
 
-A new system does not need AOCI installed from the first line of code. Users can first build a product prototype using the familiar development capabilities of their AI Agent; roughly 10,000–30,000 lines is an illustrative scale, not a hard threshold. Teams that want cross-session cognition from an earlier stage of the project may integrate AOCI sooner.
+*A new system does not need AOCI-CODE installed from the first line of code. Users can first use the AI Agent's existing development capabilities for Coding to complete a product prototype; a recommended scale is roughly 10,000–30,000 lines (not a hard threshold). Teams that want cross-session cognition from an earlier stage of the project may integrate it sooner.*
 
 ### Existing project: index the current repository, then iterate continuously
 
@@ -251,9 +255,9 @@ flowchart TD
     G --> T
 ```
 
-After the first index is complete, both flows enter the same day-to-day mode: the user describes only the business or engineering requirement; the AI Agent combines the Whole-Index with current evidence, completes development and verification, and maintains changed objects through MCP during task closing. Users do not need to learn internal Plan, Stage, Diff, CAS, or Baseline commands, nor repeat the maintenance requirement in every Prompt.
+*After the first index is complete, both flows enter the same day-to-day mode: the user describes only the business or engineering requirement; the AI Agent combines the Whole-Index with current evidence, completes development and verification, and maintains changed objects through MCP during task closing. Users do not need to learn internal Plan, Stage, Diff, CAS, or Baseline commands, nor repeat the maintenance requirement in every Prompt.*
 
-If a complete batch is rejected before any formal write begins, the formal cognition assets remain unchanged. If the workflow is interrupted after formal writes begin, the system preserves the immutable Intent, write evidence, and Recovery state, then either Resumes from a provable postimage or rolls back to the exact preimage. A third-party byte conflict fails closed instead of overwriting an external modification by “finishing the write.”
+If a complete batch is rejected before any formal write begins, the AOCI index remains unchanged. If the workflow is interrupted after formal writes begin, the system preserves the immutable Intent, write evidence, and Recovery state, then either Resumes from a provable postimage or rolls back to the exact preimage. A third-party byte conflict fails closed instead of overwriting an external modification by “finishing the write.”
 
 The final state explicitly returns `applied`, `repair_required`, or `stopped`. `stopped` is not success and does not necessarily mean that no write occurred; inspect `failed_step`, formal-write evidence, and the recovery action returned by Guide.
 
@@ -374,7 +378,7 @@ The model authors these semantics from actual source code and evidence. AOCI-COD
 
 ## Cognition Volumes
 
-AOCI-CODE maintains one logical Whole-Index, while different cognition types have independent assets, ownership, and lifecycles.
+AOCI-CODE maintains one logical Whole-Index, while different cognition types have independent indexes, ownership, and lifecycles.
 
 | Volume | Responsibility |
 | --- | --- |
