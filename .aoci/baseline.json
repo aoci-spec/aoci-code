@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-10T10:11:31Z",
+  "updated_at": "2026-08-10T10:44:15Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "626277c7eca8ed385d2ef6270c1b484aa9bb78bc18276db495c02d7f5147061c",
-      "size": 123532,
-      "normalized_sha256": "626277c7eca8ed385d2ef6270c1b484aa9bb78bc18276db495c02d7f5147061c"
+      "sha256": "4d7c5a4a9bc77c25a98f0eeff22d4c7e8e7a6e5f345d90709731020f17a1e358",
+      "size": 123633,
+      "normalized_sha256": "4d7c5a4a9bc77c25a98f0eeff22d4c7e8e7a6e5f345d90709731020f17a1e358"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3889,10 +3889,10 @@
     },
     "internal/mcptools/tools_database_cognition_test.go": {
       "role": "observe",
-      "sha256": "b7ba46b611ed24927a6ee5f90a3658dbdd8fa9640ce6b623d56aa75028b263f5",
-      "size": 31278,
-      "normalized_sha256": "b7ba46b611ed24927a6ee5f90a3658dbdd8fa9640ce6b623d56aa75028b263f5",
-      "format_sha256": "b7ba46b611ed24927a6ee5f90a3658dbdd8fa9640ce6b623d56aa75028b263f5",
+      "sha256": "75fc744aa4d20243ad37a4d2121bbb53718314aec112248febfb1d4f460b813f",
+      "size": 34418,
+      "normalized_sha256": "75fc744aa4d20243ad37a4d2121bbb53718314aec112248febfb1d4f460b813f",
+      "format_sha256": "75fc744aa4d20243ad37a4d2121bbb53718314aec112248febfb1d4f460b813f",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_format_only.go": {
@@ -3948,10 +3948,10 @@
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_maintain_database.go": {
-      "sha256": "6c817838266cb4b9a06a65fe5f100de8ece589c3bacfd841fe548d4c13107deb",
-      "size": 9109,
-      "normalized_sha256": "6c817838266cb4b9a06a65fe5f100de8ece589c3bacfd841fe548d4c13107deb",
-      "format_sha256": "6c817838266cb4b9a06a65fe5f100de8ece589c3bacfd841fe548d4c13107deb",
+      "sha256": "1a69c41842e420d43393043a4338b198160606994ef4a1693724e669789b98fa",
+      "size": 9359,
+      "normalized_sha256": "1a69c41842e420d43393043a4338b198160606994ef4a1693724e669789b98fa",
+      "format_sha256": "1a69c41842e420d43393043a4338b198160606994ef4a1693724e669789b98fa",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_maintain_file_curation_test.go": {

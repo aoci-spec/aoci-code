@@ -61,14 +61,75 @@ func TestMaintainAllReportsCodeAndDatabaseDebt(t *testing.T) {
 	if err := os.WriteFile(mainPath, []byte("package main\n\nfunc main() { println(\"changed\") }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	result := handleMaintainInput(root, "test-version", maintainIn{Scope: cognition.ScopeAll}, nil)
-	var combined allMaintainResult
-	if err := json.Unmarshal([]byte(resText(t, result)), &combined); err != nil {
+	session := connectMCPClient(t, root)
+	raw := callVolumeTool(t, session, "aoci_maintain", map[string]any{"scope": cognition.ScopeAll})
+	var maintain volumeMaintainResult
+	if err := json.Unmarshal([]byte(raw), &maintain); err != nil {
 		t.Fatal(err)
 	}
-	if combined.RequestedScope != cognition.ScopeAll || strings.Join(combined.EffectiveScopes, ",") != "code,database" ||
-		combined.Code.Aligned || combined.Database.Plan == nil || combined.Database.Assessment.Summary.Missing != 1 || combined.Aligned {
-		t.Fatalf("scope=all silently dropped Code or Database debt: %#v", combined)
+	codeCandidates, databaseCandidates := 0, 0
+	for _, candidate := range maintain.Candidates {
+		switch candidate.Domain {
+		case cognition.ScopeCode:
+			codeCandidates++
+		case cognition.ScopeDatabase:
+			databaseCandidates++
+		}
+	}
+	if maintain.RequestedScope != cognition.ScopeAll || maintain.Status != autoStatusRepairRequired || maintain.Aligned ||
+		maintain.Result != volumegovernance.ResultAuthoringRequired || strings.Join(maintain.AffectedDomains, ",") != "code,database" ||
+		codeCandidates != 1 || databaseCandidates != 1 || maintain.CodePlan == nil || maintain.DatabasePlan == nil ||
+		maintain.SemanticGenerated || maintain.NetworkAccessed || strings.Contains(raw, errVolumeReadOnly) {
+		t.Fatalf("scope=all did not return the shared actionable Volume plan: %#v raw=%s", maintain, raw)
+	}
+	for _, candidate := range maintain.Candidates {
+		if candidate.CandidateID == "" || candidate.BatchID == "" ||
+			(candidate.Domain == cognition.ScopeCode && candidate.SourceSHA256 == "") ||
+			(candidate.Domain == cognition.ScopeDatabase && candidate.EvidenceSHA256 == "") {
+			t.Fatalf("scope=all candidate lacks its source or Evidence binding: %#v", candidate)
+		}
+	}
+}
+
+func TestVolumeMaintainExplicitCodeUsesSharedGovernance(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	mainPath := filepath.Join(root, "main.go")
+	if err := os.WriteFile(mainPath, []byte("package main\n\nfunc main() { println(\"changed\") }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPClient(t, root)
+	raw := callVolumeTool(t, session, "aoci_maintain", map[string]any{"scope": cognition.ScopeCode})
+	var maintain volumeMaintainResult
+	if err := json.Unmarshal([]byte(raw), &maintain); err != nil {
+		t.Fatal(err)
+	}
+	if maintain.RequestedScope != cognition.ScopeCode || maintain.Status != autoStatusRepairRequired || maintain.Aligned ||
+		maintain.CodePlan == nil || maintain.DatabasePlan != nil || len(maintain.Candidates) != 1 ||
+		maintain.Candidates[0].Domain != cognition.ScopeCode || maintain.Candidates[0].ObjectRef != "code:main.go" ||
+		maintain.Candidates[0].SourceSHA256 == "" || maintain.Candidates[0].CandidateID == "" ||
+		maintain.Candidates[0].BatchID == "" || strings.Contains(raw, errVolumeReadOnly) {
+		t.Fatalf("scope=code did not return the shared actionable Code plan: %#v raw=%s", maintain, raw)
+	}
+}
+
+func TestVolumeMaintainExplicitAllAlignedRemainsReadOnly(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	session := connectMCPClient(t, root)
+	rootBefore := volumeFileText(t, root, "aoci.txt")
+	metaBefore := volumeFileText(t, root, "aoci.meta.txt")
+	codeBefore := volumeFileText(t, root, "aoci.code.txt")
+	raw := callVolumeTool(t, session, "aoci_maintain", map[string]any{"scope": cognition.ScopeAll})
+	var maintain volumeMaintainResult
+	if err := json.Unmarshal([]byte(raw), &maintain); err != nil {
+		t.Fatal(err)
+	}
+	if maintain.RequestedScope != cognition.ScopeAll || maintain.Status != autoStatusApplied || !maintain.Aligned ||
+		maintain.Result != volumegovernance.ResultAligned || len(maintain.Candidates) != 0 || strings.Contains(raw, errVolumeReadOnly) {
+		t.Fatalf("aligned scope=all did not remain aligned: %#v raw=%s", maintain, raw)
+	}
+	if volumeFileText(t, root, "aoci.txt") != rootBefore || volumeFileText(t, root, "aoci.meta.txt") != metaBefore ||
+		volumeFileText(t, root, "aoci.code.txt") != codeBefore {
+		t.Fatal("aligned scope=all changed formal cognition")
 	}
 }
 

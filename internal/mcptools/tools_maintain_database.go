@@ -70,8 +70,15 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	if len(input.ObjectRefs) != 0 {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_object_refs_require_cognition_optimization"})
 	}
-	if input.Scope == "" && fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
-		return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession)
+	if fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
+		switch input.Scope {
+		case "", cognition.ScopeCode, cognition.ScopeAll:
+			return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession)
+		case cognition.ScopeDatabase:
+			return handleDatabaseMaintain(root, mcpServiceVersion, input.Scope)
+		default:
+			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
+		}
 	}
 	switch input.Scope {
 	case "", cognition.ScopeCode:
