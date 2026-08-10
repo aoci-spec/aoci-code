@@ -46,7 +46,9 @@
     "entries[].candidate_id": "Machine-owned identity for a Code or Database candidate; the complete current batch also requires its domain batch identity"
   },
   "aoci_maintain": {
-    "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible"
+    "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible",
+    "intent": "Optional explicit mode. cognition_optimization is supported only for aligned Volumes v1 Code Entries; when omitted, ordinary Maintain behavior is unchanged. AOCI only selects and binds review candidates and never generates semantics, compresses Entry text, creates S, or lowers C",
+    "object_refs": "Optional canonical Code object references in code:<repository-relative-path> form that limit cognition_optimization candidate discovery; valid only with intent=cognition_optimization and never interpreted as field patches"
   },
   "aoci_report": {
     "path": "Repository-relative path related to the follow-up",

@@ -18,7 +18,10 @@
         "max_entries",
         "included",
         "remaining",
-        "continuation_required"
+        "continuation_required",
+        "intent=cognition_optimization",
+        "object_refs",
+        "aoci_update_entry"
       ],
       "locale_anchors": {
         "zh-CN": [
@@ -26,7 +29,13 @@
           "scope=database只读取已保存的Canonical Evidence",
           "不包含任何程序生成的标签或FRAS字段",
           "Database Volume缺失时稳定返回database_volume_absent",
-          "不创建Root、Meta或Database Volume"
+          "不创建Root、Meta或Database Volume",
+          "仅Volumes v1 Code",
+          "完整替换Entry或原样完整Entry",
+          "禁止字段Patch",
+          "程序绝不生成语义或S",
+          "不压缩Entry文本",
+          "不降低C"
         ]
       }
     },

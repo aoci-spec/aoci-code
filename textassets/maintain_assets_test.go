@@ -26,6 +26,13 @@ func TestMaintainToolDescriptionKeepsGovernanceFields(
 		"stopped",
 		"纯只读任务",
 		"都不要再次调用",
+		"intent=cognition_optimization",
+		"仅Volumes v1 Code",
+		"完整替换Entry或原样完整Entry",
+		"禁止字段Patch",
+		"程序绝不生成语义或S",
+		"不压缩Entry文本",
+		"不降低C",
 	} {
 		if !strings.Contains(
 			description,

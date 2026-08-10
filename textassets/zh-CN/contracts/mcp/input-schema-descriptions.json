@@ -46,7 +46,9 @@
     "entries[].candidate_id": "Code或Database候选的机器拥有身份；当前完整批次还必须提交对应domain批次身份"
   },
   "aoci_maintain": {
-    "scope": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容"
+    "scope": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容",
+    "intent": "可选显式模式。cognition_optimization只支持aligned的Volumes v1 Code Entry；省略时普通Maintain行为不变。AOCI只选择并绑定审查候选，不生成语义、不压缩Entry文本、不创建S，也不降低C",
+    "object_refs": "可选的规范Code对象引用，格式为code:<仓库相对路径>，用于限制cognition_optimization候选发现范围；仅可与intent=cognition_optimization一起使用，且绝不解释为字段Patch"
   },
   "aoci_report": {
     "path": "相关文件的仓库相对路径",

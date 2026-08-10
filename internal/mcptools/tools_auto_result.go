@@ -111,28 +111,29 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 }
 
 type autoResult struct {
-	Version                 int                    `json:"version"`
-	Status                  string                 `json:"status"`
-	Aligned                 bool                   `json:"aligned"`
-	RefreshStatus           string                 `json:"refresh_status,omitempty"`
-	RefreshReasons          []string               `json:"refresh_reasons,omitempty"`
-	Attempted               int                    `json:"attempted"`
-	Applied                 int                    `json:"applied"`
-	Remaining               int                    `json:"remaining"`
-	FormalWritesStarted     bool                   `json:"formal_writes_started"`
-	FindingCount            int                    `json:"finding_count"`
-	Receipt                 cognitionReceipt       `json:"cognition_receipt"`
-	Metrics                 autoMetrics            `json:"metrics"`
-	Audit                   *autoAudit             `json:"audit,omitempty"`
-	FormatOnlyApplied       []string               `json:"format_only_applied,omitempty"`
-	Candidates              []autoCandidate        `json:"candidates,omitempty"`
-	Findings                machineFindings        `json:"findings"`
-	PreserveOtherCandidates bool                   `json:"preserve_other_candidates"`
-	RetryScope              []string               `json:"retry_scope"`
-	NextAction              string                 `json:"next_action"`
-	ManagedGovernance       *autoManagedGovernance `json:"managed_governance,omitempty"`
-	CodePlan                *codebatch.Plan        `json:"code_plan,omitempty"`
-	Stop                    *GlobalStopFacts       `json:"stop,omitempty"`
+	Version                 int                          `json:"version"`
+	Status                  string                       `json:"status"`
+	Aligned                 bool                         `json:"aligned"`
+	RefreshStatus           string                       `json:"refresh_status,omitempty"`
+	RefreshReasons          []string                     `json:"refresh_reasons,omitempty"`
+	Attempted               int                          `json:"attempted"`
+	Applied                 int                          `json:"applied"`
+	Remaining               int                          `json:"remaining"`
+	FormalWritesStarted     bool                         `json:"formal_writes_started"`
+	FindingCount            int                          `json:"finding_count"`
+	Receipt                 cognitionReceipt             `json:"cognition_receipt"`
+	Metrics                 autoMetrics                  `json:"metrics"`
+	Audit                   *autoAudit                   `json:"audit,omitempty"`
+	FormatOnlyApplied       []string                     `json:"format_only_applied,omitempty"`
+	Candidates              []autoCandidate              `json:"candidates,omitempty"`
+	Findings                machineFindings              `json:"findings"`
+	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
+	RetryScope              []string                     `json:"retry_scope"`
+	NextAction              string                       `json:"next_action"`
+	ManagedGovernance       *autoManagedGovernance       `json:"managed_governance,omitempty"`
+	CodePlan                *codebatch.Plan              `json:"code_plan,omitempty"`
+	Stop                    *GlobalStopFacts             `json:"stop,omitempty"`
+	Optimization            *cognitionOptimizationStatus `json:"optimization,omitempty"`
 }
 
 func applyAutoRefreshOutcome(result *autoResult, session *cognitionRefreshSession) {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
@@ -304,6 +305,50 @@ func TestFourLegalVolumeLayoutsVerifyCheckAndGuideMatrix(t *testing.T) {
 						t.Fatalf("Guide did not align:\n%s", output.String())
 					}
 				})
+			}
+		})
+	}
+}
+
+func TestCognitionOptimizationCheckpointDoesNotChangeVerifyCheckOrGuide(t *testing.T) {
+	root, cfg := alignedVolumeCLIFixture(t, true, false)
+	if _, err := cognitionoptimization.Create(root, cognitionoptimization.CreateInput{
+		OptimizationID:      strings.Repeat("a", 64),
+		CurrentBatchID:      strings.Repeat("b", 64),
+		RemainingObjectRefs: []string{"code:main.go"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldRepo, oldJSON, oldQuiet := flagRepo, flagJSON, flagQuiet
+	flagRepo, flagJSON, flagQuiet = root, true, false
+	t.Cleanup(func() { flagRepo, flagJSON, flagQuiet = oldRepo, oldJSON, oldQuiet })
+
+	for name, invoke := range map[string]func(*cobra.Command) error{
+		"verify": func(cmd *cobra.Command) error { return runVerify(cmd, nil) },
+		"check":  func(cmd *cobra.Command) error { return runCheckCommand(cmd, nil) },
+		"guide":  func(cmd *cobra.Command) error { return writeVolumeAgentGuide(cmd, root, cfg, set, "codex") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			var output bytes.Buffer
+			cmd := &cobra.Command{}
+			cmd.SetOut(&output)
+			cmd.SetErr(&output)
+			if err := invoke(cmd); err != nil {
+				t.Fatalf("%s treated an optimization draft as formal governance debt: %v\n%s", name, err, output.String())
+			}
+			if !strings.Contains(output.String(), `"governance_aligned": true`) {
+				t.Fatalf("%s lost formal alignment while an optimization checkpoint was active:\n%s", name, output.String())
+			}
+			if name == "check" && !strings.Contains(output.String(), `"ok": true`) {
+				t.Fatalf("Check did not remain ok:\n%s", output.String())
+			}
+			if name == "guide" && (!strings.Contains(output.String(), `"stage": "aligned"`) ||
+				!strings.Contains(output.String(), `"next_action": "none"`)) {
+				t.Fatalf("Guide did not remain aligned:\n%s", output.String())
 			}
 		})
 	}

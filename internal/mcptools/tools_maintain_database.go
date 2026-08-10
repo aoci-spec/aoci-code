@@ -17,8 +17,12 @@ import (
 )
 
 type maintainIn struct {
-	Scope string `json:"scope,omitempty"`
+	Scope      string   `json:"scope,omitempty"`
+	Intent     string   `json:"intent,omitempty"`
+	ObjectRefs []string `json:"object_refs,omitempty"`
 }
+
+const maintainIntentCognitionOptimization = "cognition_optimization"
 
 type databaseMaintainResult struct {
 	Version           int                    `json:"version"`
@@ -48,6 +52,24 @@ type allMaintainResult struct {
 
 func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	loaded, fail := loadCognitionCtx(root)
+	if input.Intent != "" {
+		if input.Intent != maintainIntentCognitionOptimization {
+			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_intent_invalid"})
+		}
+		if fail != nil {
+			return failResult(fail)
+		}
+		if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+			return failResult(&Fail{Code: errBadArgs, Msg: "cognition_optimization_requires_volumes_v1"})
+		}
+		if input.Scope != "" && input.Scope != cognition.ScopeCode {
+			return failResult(&Fail{Code: errBadArgs, Msg: "cognition_optimization_scope_must_be_code"})
+		}
+		return handleCognitionOptimizationMaintain(root, mcpServiceVersion, input, loaded)
+	}
+	if len(input.ObjectRefs) != 0 {
+		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_object_refs_require_cognition_optimization"})
+	}
 	if input.Scope == "" && fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 		return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession)
 	}

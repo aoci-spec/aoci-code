@@ -3,6 +3,7 @@ package mcptools
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 	"unicode"
@@ -564,8 +565,33 @@ func handleMCPUpdateBatch(
 	}
 	var outcome *AtomicBatchOutcome
 	fail := bindingFail
+	var optimizationContext *cognitionOptimizationUpdateContext
 	if fail == nil {
-		outcome, fail = ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false)
+		var optimizationErr error
+		optimizationContext, optimizationErr = prepareCognitionOptimizationUpdate(root, input)
+		if optimizationErr != nil {
+			fail = &Fail{Code: errCandidateInvalid, Msg: optimizationErr.Error()}
+		}
+	}
+	if fail == nil {
+		// Keep the existing Entries recovery active until the optimization
+		// checkpoint has advanced. If that final draft CAS fails after the formal
+		// postimage is durable, retrying the same machine batch can then use the
+		// existing recovery proof instead of inventing a second transaction.
+		if optimizationContext != nil {
+			if optimizationContext.AlreadyAdvanced {
+				// The exact normalized submission was already applied and its draft
+				// progress was durably advanced. Do not enter the formal Apply path
+				// again. This minimal outcome only scopes the existing read-only
+				// Volumes alignment inspector to Code; it does not claim a write.
+				outcome = &AtomicBatchOutcome{Items: make([]*UpdateOutcome, len(input)), Volume: cognition.ScopeCode,
+					Volumes: []string{cognition.ScopeCode}, BaselineComplete: true, AlreadyApplied: true}
+			} else {
+				outcome, fail = ApplyUpdateEntriesAtomicBoundRetained(root, items, ledger.SourceAgent, false, "")
+			}
+		} else {
+			outcome, fail = ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false)
+		}
 	}
 	if fail != nil {
 		status := autoStatusStopped
@@ -641,14 +667,81 @@ func handleMCPUpdateBatch(
 			),
 		}))
 	}
-
 	aligned, remaining, findings, receipt := inspectAutoAlignment(root, mcpServiceVersion, outcome)
+	var optimization *cognitionOptimizationStatus
+	var optimizationErr error
+	if optimizationContext != nil && !aligned {
+		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch")
+	}
+	if optimizationContext != nil && !optimizationContext.AlreadyAdvanced && optimizationErr == nil {
+		// Archive the retained existing transaction proof before advancing the
+		// draft checkpoint. If the subsequent checkpoint CAS fails, the archived
+		// receipt still proves the exact postimage for an idempotent same-batch
+		// retry.
+		if cleanupErr := CompleteUpdateEntriesAtomicRecovery(root, items); cleanupErr != nil {
+			metrics := autoMetrics{DeterministicMs: elapsedMilliseconds(start), AOCIToolCalls: 1, SemanticFiles: len(input)}
+			appendAutoFinalizeEvent(root, autoStatusStopped, metrics)
+			checkpoint := optimizationContext.Checkpoint.Checkpoint
+			return textResult(renderAutoResult(autoResult{
+				Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: optimizationContext.Replaced,
+				FormalWritesStarted: optimizationContext.Replaced > 0, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+				Findings:   machineFindings{genericMachineFinding("cognition_optimization_recovery_cleanup_failed", cleanupErr.Error())},
+				NextAction: "retry_same_cognition_optimization_batch",
+				Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion,
+					OptimizationID: checkpoint.OptimizationID, State: "recovery_cleanup_required",
+					CurrentBatchID: checkpoint.CurrentBatchID,
+					TotalTargets:   checkpoint.ReviewedCount + len(checkpoint.RemainingObjectRefs), Included: len(input),
+					Reviewed: checkpoint.ReviewedCount, NoChange: checkpoint.NoChangeCount, Replaced: checkpoint.ReplacedCount,
+					Remaining: len(checkpoint.RemainingObjectRefs), ContinuationRequired: true},
+			}))
+		}
+	}
+	if optimizationErr == nil {
+		optimization, optimizationErr = advanceCognitionOptimizationUpdate(root, optimizationContext)
+	}
+	if optimizationErr != nil {
+		metrics := autoMetrics{DeterministicMs: elapsedMilliseconds(start), AOCIToolCalls: 1, SemanticFiles: len(input)}
+		applied := 0
+		if optimizationContext != nil && (outcome == nil || !outcome.AlreadyApplied) {
+			applied = optimizationContext.Replaced
+		} else if outcome != nil {
+			applied = outcome.AppliedCount
+		}
+		appendAutoFinalizeEvent(root, autoStatusStopped, metrics)
+		checkpoint := optimizationContext.Checkpoint.Checkpoint
+		return textResult(renderAutoResult(autoResult{
+			Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: applied,
+			FormalWritesStarted: applied > 0, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+			Findings:   machineFindings{genericMachineFinding("cognition_optimization_checkpoint_advance_failed", optimizationErr.Error())},
+			NextAction: "retry_same_cognition_optimization_batch",
+			Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion,
+				OptimizationID: checkpoint.OptimizationID, State: "checkpoint_recovery_required",
+				CurrentBatchID: checkpoint.CurrentBatchID,
+				TotalTargets:   checkpoint.ReviewedCount + len(checkpoint.RemainingObjectRefs), Included: len(input),
+				Reviewed: checkpoint.ReviewedCount, NoChange: checkpoint.NoChangeCount, Replaced: checkpoint.ReplacedCount,
+				Remaining: len(checkpoint.RemainingObjectRefs), ContinuationRequired: true},
+		}))
+	}
 	duplicate := 0
 	applied := 0
 	if outcome != nil {
 		applied = outcome.AppliedCount
 		if outcome.AlreadyApplied {
 			duplicate = 1
+		}
+	}
+	if optimizationContext != nil {
+		// The existing transaction reports every submitted item when a mixed
+		// Code Volume postimage is committed. Optimization exposes the narrower
+		// semantic replacement count while retaining the original atomic batch
+		// and audit evidence internally.
+		if optimizationContext.AlreadyAdvanced {
+			applied = 0
+			duplicate = 1
+		} else if outcome == nil || !outcome.AlreadyApplied {
+			applied = optimizationContext.Replaced
+		} else {
+			applied = 0
 		}
 	}
 	metrics := autoMetrics{
@@ -676,6 +769,15 @@ func handleMCPUpdateBatch(
 			applied,
 			duplicate,
 		),
+		Optimization: optimization,
+	}
+	if optimization != nil {
+		result.Remaining = optimization.Remaining
+		if optimization.ContinuationRequired {
+			result.NextAction = "call_aoci_maintain_with_cognition_optimization"
+		} else {
+			result.NextAction = "none"
+		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
 	return textResult(renderAutoResult(result))

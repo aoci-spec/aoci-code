@@ -28,7 +28,7 @@ var mcpInputSchemaFields = map[string][]string{
 		"path", "object_ref", "new_entry", "source_sha256", "candidate_id", "batch_id", "code_batch_id", "entries",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
 	},
-	"aoci_maintain":     {"scope"},
+	"aoci_maintain":     {"scope", "intent", "object_refs"},
 	"aoci_report":       {"path", "note"},
 	"aoci_remove_entry": {"path"},
 }
@@ -217,6 +217,14 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 	case "aoci_maintain":
 		return object(map[string]any{
 			"scope": map[string]any{"type": "string", "description": descriptions["scope"], "enum": []string{cognition.ScopeCode, cognition.ScopeDatabase, cognition.ScopeAll}},
+			"intent": map[string]any{
+				"type": "string", "description": descriptions["intent"],
+				"enum": []string{"cognition_optimization"},
+			},
+			"object_refs": map[string]any{
+				"type": "array", "description": descriptions["object_refs"],
+				"items": map[string]any{"type": "string", "pattern": `^code:.+`},
+			},
 		}), nil
 
 	case "aoci_overview":

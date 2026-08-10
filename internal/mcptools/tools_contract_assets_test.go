@@ -106,12 +106,69 @@ func TestMCPMaintainDescriptionDisclosesWritesAndGuideBoundary(t *testing.T) {
 			"本工具不能替代",
 			"刷新待处理",
 			"证明aligned",
+			"intent=cognition_optimization",
+			"仅Volumes v1 Code",
+			"完整替换Entry或原样完整Entry",
+			"禁止字段Patch",
+			"程序绝不生成语义或S",
+			"不压缩Entry文本",
+			"不降低C",
 		} {
 			if !strings.Contains(tool.Description, required) {
 				t.Fatalf("aoci_maintain Description缺少合同%q: %s", required, tool.Description)
 			}
 		}
 
+		return
+	}
+
+	t.Fatal("真实ListTools结果缺少aoci_maintain")
+}
+
+func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
+	var listed []struct {
+		Name        string         `json:"name"`
+		InputSchema map[string]any `json:"inputSchema"`
+	}
+	if err := json.Unmarshal(canonicalListTools(t), &listed); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tool := range listed {
+		if tool.Name != "aoci_maintain" {
+			continue
+		}
+		if _, required := tool.InputSchema["required"]; required {
+			t.Fatal("aoci_maintain additive optimization fields must remain optional")
+		}
+		properties, ok := tool.InputSchema["properties"].(map[string]any)
+		if !ok || len(properties) != 3 {
+			t.Fatalf("aoci_maintain properties changed unexpectedly: %#v", tool.InputSchema)
+		}
+		scope, ok := properties["scope"].(map[string]any)
+		if !ok || scope["type"] != "string" {
+			t.Fatalf("aoci_maintain ordinary scope schema is invalid: %#v", scope)
+		}
+		scopeEnum, ok := scope["enum"].([]any)
+		if !ok || len(scopeEnum) != 3 || scopeEnum[0] != "code" || scopeEnum[1] != "database" || scopeEnum[2] != "all" {
+			t.Fatalf("aoci_maintain ordinary scope enum changed: %#v", scope["enum"])
+		}
+		intent, ok := properties["intent"].(map[string]any)
+		if !ok || intent["type"] != "string" {
+			t.Fatalf("aoci_maintain intent schema is invalid: %#v", intent)
+		}
+		intentEnum, ok := intent["enum"].([]any)
+		if !ok || len(intentEnum) != 1 || intentEnum[0] != "cognition_optimization" {
+			t.Fatalf("aoci_maintain intent enum is invalid: %#v", intent["enum"])
+		}
+		objectRefs, ok := properties["object_refs"].(map[string]any)
+		if !ok || objectRefs["type"] != "array" {
+			t.Fatalf("aoci_maintain object_refs schema is missing: %#v", properties)
+		}
+		items, ok := objectRefs["items"].(map[string]any)
+		if !ok || items["type"] != "string" || items["pattern"] != `^code:.+` {
+			t.Fatalf("aoci_maintain object_refs items are invalid: %#v", objectRefs)
+		}
 		return
 	}
 

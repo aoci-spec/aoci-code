@@ -24,17 +24,21 @@ import (
 )
 
 type volumeMaintainCandidate struct {
-	Domain             string `json:"domain"`
-	Change             string `json:"change"`
-	ObjectRef          string `json:"object_ref"`
-	Path               string `json:"path,omitempty"`
-	ExistingEntry      string `json:"existing_entry,omitempty"`
-	SourceSHA256       string `json:"source_sha256,omitempty"`
-	EvidenceVersion    string `json:"evidence_version,omitempty"`
-	EvidenceSHA256     string `json:"evidence_sha256,omitempty"`
-	CandidateID        string `json:"candidate_id,omitempty"`
-	BatchID            string `json:"batch_id,omitempty"`
-	ModelAuthoringOnly bool   `json:"model_authoring_only"`
+	Domain              string                     `json:"domain"`
+	Change              string                     `json:"change"`
+	ObjectRef           string                     `json:"object_ref"`
+	Path                string                     `json:"path,omitempty"`
+	ExistingEntry       string                     `json:"existing_entry,omitempty"`
+	ExistingEntrySHA256 string                     `json:"existing_entry_sha256,omitempty"`
+	SourceSHA256        string                     `json:"source_sha256,omitempty"`
+	EvidenceVersion     string                     `json:"evidence_version,omitempty"`
+	EvidenceSHA256      string                     `json:"evidence_sha256,omitempty"`
+	CandidateID         string                     `json:"candidate_id,omitempty"`
+	BatchID             string                     `json:"batch_id,omitempty"`
+	ModelAuthoringOnly  bool                       `json:"model_authoring_only"`
+	Importance          int                        `json:"importance,omitempty"`
+	Cost                *cognitionOptimizationCost `json:"cost,omitempty"`
+	SelectionReason     string                     `json:"selection_reason,omitempty"`
 }
 
 type volumeMaintainSets struct {
@@ -58,26 +62,27 @@ type volumeAuthoringBatch struct {
 }
 
 type volumeMaintainResult struct {
-	Version           int                       `json:"version"`
-	Status            string                    `json:"status"`
-	Result            string                    `json:"result"`
-	Aligned           bool                      `json:"aligned"`
-	RequestedScope    string                    `json:"requested_scope"`
-	AffectedDomains   []string                  `json:"affected_domains"`
-	Candidates        []volumeMaintainCandidate `json:"candidates"`
-	OrphanRemovals    []string                  `json:"orphan_remove_candidates"`
-	Sets              volumeMaintainSets        `json:"sets"`
-	DatabasePlan      *dbcognition.Plan         `json:"database_plan,omitempty"`
-	CodePlan          *codebatch.Plan           `json:"code_plan,omitempty"`
-	Batch             volumeAuthoringBatch      `json:"authoring_batch"`
-	Governance        *volumegovernance.Facts   `json:"governance"`
-	Receipt           cognitionReceipt          `json:"cognition_receipt"`
-	Metrics           autoMetrics               `json:"metrics"`
-	SemanticGenerated bool                      `json:"semantic_generated"`
-	NetworkAccessed   bool                      `json:"network_accessed"`
-	NextAction        string                    `json:"next_action"`
-	Instructions      []string                  `json:"instructions,omitempty"`
-	AuthoringMeta     string                    `json:"authoring_meta,omitempty"`
+	Version           int                          `json:"version"`
+	Status            string                       `json:"status"`
+	Result            string                       `json:"result"`
+	Aligned           bool                         `json:"aligned"`
+	RequestedScope    string                       `json:"requested_scope"`
+	AffectedDomains   []string                     `json:"affected_domains"`
+	Candidates        []volumeMaintainCandidate    `json:"candidates"`
+	OrphanRemovals    []string                     `json:"orphan_remove_candidates"`
+	Sets              volumeMaintainSets           `json:"sets"`
+	DatabasePlan      *dbcognition.Plan            `json:"database_plan,omitempty"`
+	CodePlan          *codebatch.Plan              `json:"code_plan,omitempty"`
+	Batch             volumeAuthoringBatch         `json:"authoring_batch"`
+	Governance        *volumegovernance.Facts      `json:"governance"`
+	Receipt           cognitionReceipt             `json:"cognition_receipt"`
+	Metrics           autoMetrics                  `json:"metrics"`
+	SemanticGenerated bool                         `json:"semantic_generated"`
+	NetworkAccessed   bool                         `json:"network_accessed"`
+	NextAction        string                       `json:"next_action"`
+	Instructions      []string                     `json:"instructions,omitempty"`
+	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
+	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
 }
 
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {

@@ -220,6 +220,7 @@
         "aoci_get_entries",
         "aoci_search",
         "aoci_update_entry",
+        "aoci_maintain",
         "aoci_report",
         "aoci_remove_entry",
         "cognition_receipt",
@@ -248,6 +249,9 @@
         "batch_id",
         "code_batch_id",
         "entries",
+        "intent",
+        "cognition_optimization",
+        "object_refs",
         "note"
       ],
       "locale_anchors": {
