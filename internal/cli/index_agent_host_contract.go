@@ -332,6 +332,52 @@ func finalizeAgentGuideRuntimeContract(
 	)
 }
 
+// finalizeVolumeAgentGuideRuntimeContract binds every executable CLI command
+// in a Volumes guide to the currently running binary. MCP tool actions remain
+// machine next-actions and are not represented as shell commands here.
+func finalizeVolumeAgentGuideRuntimeContract(
+	guide *volumeAgentGuide,
+) error {
+	if guide == nil {
+		return nil
+	}
+
+	executable, err := currentAgentExecutablePath()
+	if err != nil {
+		return fmt.Errorf("%s", cliMessage(
+			"guide.executable_bind_failed",
+			localeSafeCLIDetail(err.Error()),
+		))
+	}
+
+	return finalizeVolumeAgentGuideRuntimeContractFor(
+		guide,
+		runtime.GOOS,
+		executable,
+	)
+}
+
+func finalizeVolumeAgentGuideRuntimeContractFor(
+	guide *volumeAgentGuide,
+	goos,
+	executable string,
+) error {
+	if guide == nil {
+		return nil
+	}
+
+	prefix, err := agentCommandPrefixFor(goos, executable)
+	if err != nil {
+		return fmt.Errorf("%s", cliMessage(
+			"guide.executable_bind_failed",
+			localeSafeCLIDetail(err.Error()),
+		))
+	}
+
+	bindAgentGuideCommands(&guide.Commands, prefix)
+	return nil
+}
+
 // finalizeAgentGuideRuntimeContractFor injects validated host facts. The
 // explicit OS and executable make fail-closed behavior independently testable.
 func finalizeAgentGuideRuntimeContractFor(

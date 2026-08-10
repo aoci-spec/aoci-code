@@ -329,6 +329,38 @@ func TestLocaleProtectedAndHostErrorsAreBilingual(t *testing.T) {
 	}
 }
 
+func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *testing.T) {
+	previous := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
+
+	for _, current := range []struct {
+		locale             string
+		message            string
+		hint               string
+		instruction        string
+		runtimeInstruction string
+	}{
+		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "do not run the Legacy-only", "does not by itself prove a CLI/MCP version mismatch"},
+		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "不能单独证明CLI与MCP版本不一致"},
+	} {
+		if err := textassets.SetActiveLocale(current.locale); err != nil {
+			t.Fatal(err)
+		}
+		if got := cliMessage("mcp.error.volume_read_only"); !strings.Contains(got, current.message) {
+			t.Errorf("%s volume_read_only message lost path diagnosis: %q", current.locale, got)
+		}
+		if got := cliMessage("mcp.error.volume_read_only_hint"); !strings.Contains(got, current.hint) {
+			t.Errorf("%s volume_read_only hint claimed an unproven runtime mismatch: %q", current.locale, got)
+		}
+		if got := cliMessage("guide.volumes_instruction_maintain"); !strings.Contains(got, current.instruction) {
+			t.Errorf("%s Volumes Guide did not reject the Legacy-only Plan path: %q", current.locale, got)
+		}
+		if got := cliMessage("guide.volumes_instruction_runtime_identity"); !strings.Contains(got, current.runtimeInstruction) {
+			t.Errorf("%s Volumes Guide runtime instruction claimed an unproven version mismatch: %q", current.locale, got)
+		}
+	}
+}
+
 func TestHeaderCompletionClearsAllHeaderSurfacesButKeepsOrdinaryEntryReceipt(t *testing.T) {
 	root := t.TempDir()
 	cfg := config.DefaultConfig()

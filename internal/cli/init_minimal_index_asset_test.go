@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -153,11 +154,35 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	if err := writeVolumeAgentGuide(guideCommand, root, cfg, set, "codex"); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{`"stage": "authoring_required"`, `"header_show": "aoci index header show"`,
+	for _, want := range []string{`"stage": "authoring_required"`, "index header show",
 		`"authoring_meta": "#AOCI-META-VOLUME: 1`, "CG7T", "code:path/to/file", "database://source/namespace/table",
-		machinecontract.NumericText().SQuotaDefaultCompact, line} {
+		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", line} {
 		if !strings.Contains(guideOutput.String(), want) {
 			t.Fatalf("首次Guide未自动交付作者化合同 %q:\n%s", want, guideOutput.String())
+		}
+	}
+	if strings.Contains(guideOutput.String(), `"plan"`) {
+		t.Fatalf("Volumes Guide暴露了Legacy-only Plan命令:\n%s", guideOutput.String())
+	}
+	var renderedGuide volumeAgentGuide
+	if err := json.Unmarshal(guideOutput.Bytes(), &renderedGuide); err != nil {
+		t.Fatal(err)
+	}
+	executable, err := currentAgentExecutablePath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, command := range map[string]string{
+		"guide":       renderedGuide.Commands.Guide,
+		"header_show": renderedGuide.Commands.HeaderShow,
+		"verify":      renderedGuide.Commands.Verify,
+	} {
+		if !strings.HasPrefix(command, prefix+" ") {
+			t.Fatalf("Volumes Guide %s命令未绑定当前绝对可执行文件: %q", name, command)
 		}
 	}
 }

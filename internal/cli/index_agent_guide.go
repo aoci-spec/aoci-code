@@ -27,7 +27,7 @@ const agentGuideVersion = 1
 
 type agentGuideCommands struct {
 	Guide            string `json:"guide"`
-	Plan             string `json:"plan"`
+	Plan             string `json:"plan,omitempty"`
 	Scan             string `json:"scan,omitempty"`
 	HeaderShow       string `json:"header_show,omitempty"`
 	HeaderStage      string `json:"header_stage,omitempty"`
@@ -280,7 +280,10 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		Stage: facts.Result, Complete: facts.GovernanceAligned, NextAction: facts.NextRequiredAction,
 		ExecutableTargets: len(facts.Findings), AffectedDomains: append([]string{}, facts.AffectedDomains...),
 		Findings: append([]volumegovernance.Finding{}, facts.Findings...), Governance: facts,
-		Commands: agentGuideCommands{Guide: "aoci index agent guide --agent " + agent + " --json", Plan: "aoci index agent plan --json", HeaderShow: "aoci index header show", Verify: "aoci verify --json"}}
+		Commands: agentGuideCommands{Guide: "aoci index agent guide --agent " + agent + " --json", HeaderShow: "aoci index header show", Verify: "aoci verify --json"}}
+	if !facts.GovernanceAligned {
+		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_runtime_identity"))
+	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
 		total := len(facts.CodeDrift.Missing) + len(facts.CodeDrift.Stale) + len(facts.CodeDrift.Unbaselined) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
@@ -297,10 +300,14 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 			return &ExitError{Code: ExitInvalid, Err: contractErr}
 		}
 		guide.AuthoringMeta = contract.AuthoringMeta
-		guide.Instructions = contract.Instructions
+		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_maintain"))
+		guide.Instructions = append(guide.Instructions, contract.Instructions...)
 	}
 	if facts.GovernanceAligned {
 		guide.ExecutableTargets = 0
+	}
+	if err := finalizeVolumeAgentGuideRuntimeContract(&guide); err != nil {
+		return &ExitError{Code: ExitInternal, Err: err}
 	}
 	if flagJSON {
 		encoder := json.NewEncoder(cmd.OutOrStdout())

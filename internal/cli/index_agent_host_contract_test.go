@@ -200,6 +200,49 @@ func TestFinalizeAgentGuideFailsClosedWithoutAbsoluteExecutable(
 	}
 }
 
+func TestFinalizeVolumeAgentGuideBindsSupportedCommandsAndOmitsLegacyPlan(
+	t *testing.T,
+) {
+	guide := &volumeAgentGuide{
+		Commands: agentGuideCommands{
+			Guide:      "aoci index agent guide --agent codex --json",
+			HeaderShow: "aoci index header show",
+			Verify:     "aoci verify --json",
+		},
+	}
+
+	if err := finalizeVolumeAgentGuideRuntimeContractFor(
+		guide,
+		"linux",
+		"/opt/aoci current/aoci",
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	prefix := "'/opt/aoci current/aoci'"
+	for name, command := range map[string]string{
+		"guide":       guide.Commands.Guide,
+		"header_show": guide.Commands.HeaderShow,
+		"verify":      guide.Commands.Verify,
+	} {
+		if !strings.HasPrefix(command, prefix+" ") {
+			t.Fatalf("Volumes %s command is not bound to the current executable: %q", name, command)
+		}
+	}
+	if guide.Commands.Plan != "" {
+		t.Fatalf("Volumes Guide exposed the Legacy-only Plan command: %q", guide.Commands.Plan)
+	}
+
+	rendered, err := json.Marshal(guide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(rendered, []byte(`"plan"`)) ||
+		bytes.Contains(rendered, []byte("index agent plan")) {
+		t.Fatalf("Volumes Guide JSON exposed the Legacy-only Plan command: %s", rendered)
+	}
+}
+
 func TestFinalizeAgentGuideBindsExecutableAndLimits(
 	t *testing.T,
 ) {

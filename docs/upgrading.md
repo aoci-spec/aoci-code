@@ -9,6 +9,7 @@ An AOCI upgrade is a binary replacement, not an index rewrite.
 5. Place the new binary beside the old one and run `--version` plus `doctor` against a disposable repository.
 6. Update the stable path atomically where the host permits it.
 7. Restart MCP host processes; a running server retains the old binary identity.
-8. Run `status --deep`, `verify`, and `check` on representative repositories.
+8. After restart, compare `serverInfo.version` with the exact binary's `--version`, and inspect the host process's actual executable and `--repo` command line. A `volume_read_only` response by itself identifies an unsupported command path, not a proven CLI/MCP version mismatch.
+9. Run `status --deep`, `verify`, and `check` on representative repositories.
 
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.
