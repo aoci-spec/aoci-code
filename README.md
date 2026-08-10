@@ -37,11 +37,20 @@ Names in this document have the following roles: **AOCI** refers to the cognitio
 
 ## One-step setup
 
-During the current RC stage, give the following instruction to your AI Agent to build AOCI-CODE from canonical source, initialize it, and generate an index for the current project:
+Give the following instruction to your AI Agent to download AOCI-CODE, integrate it, and build an index for the current project:
 
 ```text
-Please use the canonical source at https://github.com/aoci-spec/aoci-code to build aoci,
-initialize it for my project, integrate MCP, and build the project index.
+AOCI-CODE project: https://github.com/aoci-spec/aoci-code
+
+Download the latest release package for this operating system and CPU architecture from
+https://github.com/aoci-spec/aoci-code/releases, and follow the installation instructions
+on the Release page to verify it.
+
+After extracting the package, place aoci (aoci.exe on Windows) at a stable absolute path.
+Then initialize AOCI for my project, integrate MCP, and build the project index.
+
+If no compatible release package exists, or if I explicitly request the latest source,
+build it from the official repository.
 ```
 ## Manual integration
 

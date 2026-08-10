@@ -37,11 +37,16 @@ AOCI-CODE 源于 AOCI。简单来说，AOCI-CODE 会对源代码、数据库结�
 
 ## 一键使用
 
-当前 RC 阶段，只需在你的 AI Agent 中输入以下内容，即可从 canonical source 构建 AOCI-CODE、完成初始化并生成当前项目索引：
+把下面这段话发给你的 AI Agent，它会下载 AOCI-CODE、完成接入并为当前项目建立索引：
 
 ```text
-请使用 https://github.com/aoci-spec/aoci-code 的 canonical source 构建 aoci，
-为我的项目完成初始化和 MCP 接入，然后建立项目索引。
+AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
+
+请从 https://github.com/aoci-spec/aoci-code/releases 下载适合当前操作系统和 CPU 架构的最新发布包，并按照发布页的安装说明完成校验。
+
+解压后，请把 aoci（Windows 为 aoci.exe）放在稳定的绝对路径中，然后为我的项目完成初始化、MCP 接入和索引建立。
+
+如果没有适合当前系统的发布包，或者我明确要求使用最新源码，请从官方仓库构建。
 ```
 ## 手动接入
 
