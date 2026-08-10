@@ -285,7 +285,7 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 
 func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs []string) ([]cognitionoptimization.AlignedEntry, error) {
 	if asset == nil {
-		return nil, fmt.Errorf("Code Volume is absent")
+		return nil, fmt.Errorf("code Volume is absent")
 	}
 	wanted := map[string]bool{}
 	for _, ref := range objectRefs {
@@ -297,7 +297,7 @@ func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs 
 			continue
 		}
 		if object.Entry == nil || object.Entry.RelPath == "" {
-			return nil, fmt.Errorf("Code object %s has no repository path", object.CanonicalRef)
+			return nil, fmt.Errorf("code object %s has no repository path", object.CanonicalRef)
 		}
 		fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(object.Entry.RelPath)))
 		if err != nil {

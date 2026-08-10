@@ -130,29 +130,32 @@ func inspectCognitionVolumeAlignment(
 	}
 	findings := []string{}
 	if code := loaded.set.Volumes["code"]; code != nil && code.Document != nil {
-		snapshot, warnings, snapshotErr := baseline.Snapshot(root, loaded.cfg.WalkOptions())
-		if snapshotErr != nil {
-			return false, 1, []string{"snapshot: " + snapshotErr.Error()}, receipt
+		managed, managedErr := managedstate.Load(root, loaded.cfg)
+		if managedErr != nil {
+			return false, 1, []string{"managed_scope: " + managedErr.Error()}, receipt
 		}
-		delete(snapshot, loaded.set.Root.Descriptor.Path)
+		if managed.ScopeChangeRequired {
+			return false, 1, []string{"scope_change_required"}, receipt
+		}
+		// Match the Managed Scope-aware Code drift projection shared by ordinary
+		// Volumes governance. Formal cognition assets are guards/outputs, not
+		// Code source objects, while Observe and Exclude retain their policy roles.
+		projected := *managed
+		projected.Snapshot = make(map[string]baseline.Fingerprint, len(managed.Snapshot))
+		for rel, fingerprint := range managed.Snapshot {
+			projected.Snapshot[rel] = fingerprint
+		}
+		delete(projected.Snapshot, loaded.set.Root.Descriptor.Path)
 		for _, asset := range loaded.set.Volumes {
 			if asset != nil {
-				delete(snapshot, asset.Descriptor.Path)
+				delete(projected.Snapshot, asset.Descriptor.Path)
 			}
 		}
-		detected := baseline.DetectWith(
-			root,
-			code.Document,
-			state,
-			snapshot,
-			loaded.cfg.WalkOptions(),
-			loaded.cfg.LineEndingTolerance,
-		)
-		classification, _, _, classifyErr := curation.BuildClassification(
-			root,
-			loaded.cfg,
-			detected.Missing,
-		)
+		detected, detectErr := managedstate.Detect(root, loaded.cfg, code.Document, &projected)
+		if detectErr != nil {
+			return false, 1, []string{"snapshot: " + detectErr.Error()}, receipt
+		}
+		classification, _, _, classifyErr := curation.BuildClassification(root, loaded.cfg, detected.Missing)
 		if classifyErr != nil {
 			return false, 1, []string{"curation: " + classifyErr.Error()}, receipt
 		}
@@ -171,7 +174,18 @@ func inspectCognitionVolumeAlignment(
 		for _, pending := range classification.Pending {
 			findings = append(findings, "pending_curation: "+pending.Path)
 		}
-		for _, warning := range warnings {
+		if loaded.cfg.EffectiveManagedScope().ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
+			for _, rel := range detected.ObservedNew {
+				findings = append(findings, "observed_new: "+rel)
+			}
+			for _, rel := range detected.ObservedChanged {
+				findings = append(findings, "observed_changed: "+rel)
+			}
+			for _, rel := range detected.ObservedRemoved {
+				findings = append(findings, "observed_removed: "+rel)
+			}
+		}
+		for _, warning := range managed.Warnings {
 			findings = append(findings, "warning: "+warning)
 		}
 	}

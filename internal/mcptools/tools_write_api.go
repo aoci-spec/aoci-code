@@ -4,6 +4,7 @@ package mcptools
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 	"unicode"
@@ -517,6 +518,40 @@ func handleMCPUpdateSingle(
 	}}, refreshSessions...)
 }
 
+// cognitionOptimizationTransactionComplete recognizes only an archived v4
+// transaction whose exact formal participants remain at the committed
+// postimage. An active transaction still requires the existing recovery path;
+// absence of both active and archived evidence is a fresh Apply.
+func cognitionOptimizationTransactionComplete(
+	root string,
+	items []AtomicUpdateItem,
+	batchID string,
+) (bool, error) {
+	normalized, err := normalizeAtomicRecoveryItems(items)
+	if err != nil {
+		return false, err
+	}
+	batchKey := atomicBatchKey(normalized)
+	if _, err = loadAtomicBatchRecovery(root, batchKey); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, fmt.Errorf("cognition_optimization_transaction_invalid: %w", err)
+	}
+	recovery, err := loadEntriesRecoveryIncludingArchive(root, batchKey)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("cognition_optimization_transaction_invalid: %w", err)
+	}
+	if recovery.Version != 4 || recovery.CodeBatchID != batchID ||
+		inspectVolumeTargetStates(root, recoveryVolumeTargets(recovery)) != "postimage" ||
+		recoveryGuardMismatch(root, recovery) != "" {
+		return false, fmt.Errorf("cognition_optimization_transaction_postimage_invalid")
+	}
+	return true, nil
+}
+
 func handleMCPUpdateBatch(
 	root,
 	mcpServiceVersion string,
@@ -566,11 +601,23 @@ func handleMCPUpdateBatch(
 	var outcome *AtomicBatchOutcome
 	fail := bindingFail
 	var optimizationContext *cognitionOptimizationUpdateContext
+	optimizationTransactionComplete := false
+	optimizationRecoveryNeedsCompletion := false
+	optimizationFormalWritesStarted := false
 	if fail == nil {
 		var optimizationErr error
 		optimizationContext, optimizationErr = prepareCognitionOptimizationUpdate(root, input)
 		if optimizationErr != nil {
 			fail = &Fail{Code: errCandidateInvalid, Msg: optimizationErr.Error()}
+		}
+	}
+	if fail == nil && optimizationContext != nil && !optimizationContext.AlreadyAdvanced && optimizationContext.Replaced > 0 {
+		var transactionErr error
+		optimizationTransactionComplete, transactionErr = cognitionOptimizationTransactionComplete(
+			root, items, optimizationContext.BatchID,
+		)
+		if transactionErr != nil {
+			fail = &Fail{Code: errWriteConflict, Msg: transactionErr.Error()}
 		}
 	}
 	if fail == nil {
@@ -586,8 +633,24 @@ func handleMCPUpdateBatch(
 				// Volumes alignment inspector to Code; it does not claim a write.
 				outcome = &AtomicBatchOutcome{Items: make([]*UpdateOutcome, len(input)), Volume: cognition.ScopeCode,
 					Volumes: []string{cognition.ScopeCode}, BaselineComplete: true, AlreadyApplied: true}
+			} else if optimizationContext.Replaced == 0 || optimizationTransactionComplete {
+				// Classification and all current source/candidate/CAS bindings still
+				// pass through the existing Update planner, but an all-no_change
+				// batch and an already archived exact postimage must not reconcile or
+				// rewrite the formal Index/Baseline.
+				outcome, fail = ApplyUpdateEntriesAtomicBound(root, items, ledger.SourceAgent, true, "")
+				if fail == nil && optimizationTransactionComplete {
+					outcome.AlreadyApplied = true
+				}
 			} else {
 				outcome, fail = ApplyUpdateEntriesAtomicBoundRetained(root, items, ledger.SourceAgent, false, "")
+				if fail == nil {
+					optimizationRecoveryNeedsCompletion = true
+					// A replacement entered the formal transaction path. This remains
+					// true for postimage recovery where only a Baseline participant may
+					// need completion.
+					optimizationFormalWritesStarted = true
+				}
 			}
 		} else {
 			outcome, fail = ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false)
@@ -657,7 +720,7 @@ func handleMCPUpdateBatch(
 			Aligned:             false,
 			Attempted:           len(input),
 			Applied:             outcome.AppliedCount,
-			FormalWritesStarted: outcome.AppliedCount > 0,
+			FormalWritesStarted: outcome.AppliedCount > 0 || optimizationFormalWritesStarted,
 			Receipt:             currentWriteCognitionReceipt(root, mcpServiceVersion),
 			Metrics:             metrics,
 			Audit:               buildAutoAudit(input, outcome),
@@ -673,7 +736,7 @@ func handleMCPUpdateBatch(
 	if optimizationContext != nil && !aligned {
 		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch")
 	}
-	if optimizationContext != nil && !optimizationContext.AlreadyAdvanced && optimizationErr == nil {
+	if optimizationContext != nil && !optimizationContext.AlreadyAdvanced && optimizationRecoveryNeedsCompletion && optimizationErr == nil {
 		// Archive the retained existing transaction proof before advancing the
 		// draft checkpoint. If the subsequent checkpoint CAS fails, the archived
 		// receipt still proves the exact postimage for an idempotent same-batch
@@ -684,7 +747,7 @@ func handleMCPUpdateBatch(
 			checkpoint := optimizationContext.Checkpoint.Checkpoint
 			return textResult(renderAutoResult(autoResult{
 				Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: optimizationContext.Replaced,
-				FormalWritesStarted: optimizationContext.Replaced > 0, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+				FormalWritesStarted: optimizationFormalWritesStarted, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 				Findings:   machineFindings{genericMachineFinding("cognition_optimization_recovery_cleanup_failed", cleanupErr.Error())},
 				NextAction: "retry_same_cognition_optimization_batch",
 				Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion,
@@ -711,7 +774,7 @@ func handleMCPUpdateBatch(
 		checkpoint := optimizationContext.Checkpoint.Checkpoint
 		return textResult(renderAutoResult(autoResult{
 			Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: applied,
-			FormalWritesStarted: applied > 0, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+			FormalWritesStarted: optimizationFormalWritesStarted, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 			Findings:   machineFindings{genericMachineFinding("cognition_optimization_checkpoint_advance_failed", optimizationErr.Error())},
 			NextAction: "retry_same_cognition_optimization_batch",
 			Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion,
@@ -759,7 +822,7 @@ func handleMCPUpdateBatch(
 		Attempted:           len(input),
 		Applied:             applied,
 		Remaining:           remaining,
-		FormalWritesStarted: applied > 0,
+		FormalWritesStarted: map[bool]bool{true: optimizationFormalWritesStarted, false: applied > 0}[optimizationContext != nil],
 		Receipt:             receipt,
 		Metrics:             metrics,
 		Audit:               audit,

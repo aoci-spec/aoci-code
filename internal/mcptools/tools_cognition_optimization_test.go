@@ -15,11 +15,15 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
@@ -151,6 +155,33 @@ func TestCognitionOptimizationAllNoChangeAdvancesCheckpointAndResumes201(t *test
 	assertOrdinaryVolumeGovernanceAligned(t, root)
 }
 
+func TestCognitionOptimizationManagedScopeAllNoChangeWritesOnlyCheckpoint(t *testing.T) {
+	root := buildManagedScopeCognitionOptimizationRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(2))
+	assertOptimizationReviewBatch(t, maintain, 2, 2, 0)
+	assertManagedOptimizationRoleBehavior(t, root, maintain.Governance, 2)
+
+	formalPaths := []string{"aoci.code.txt", ".aoci/baseline.json"}
+	formalBefore := cognitionOptimizationFormalPreimages(t, root, formalPaths)
+	checkpointPath := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
+	checkpointBefore := readOptimizationTestFile(t, checkpointPath)
+	update := callCognitionOptimizationUpdate(t, session, optimizationUpdateArguments(maintain, nil))
+
+	assertOptimizationProgress(t, update.Optimization, "complete", 2, 2, 2, 0, 0, false)
+	if update.Status != autoStatusApplied || !update.Aligned || update.Applied != 0 || update.FormalWritesStarted {
+		t.Fatalf("managed all-no-change batch reported a formal write: %#v", update)
+	}
+	assertCognitionOptimizationFormalPreimages(t, root, formalBefore)
+	if checkpointAfter := readOptimizationTestFile(t, checkpointPath); reflect.DeepEqual(checkpointAfter, checkpointBefore) {
+		t.Fatal("managed all-no-change batch did not advance its draft checkpoint")
+	}
+	assertOptimizationCheckpointCounts(t, root, 2, 2, 0, true)
+	assertNoActiveOptimizationRecovery(t, root)
+	assertManagedOptimizationRoleBehavior(t, root, nil, 2)
+	assertOrdinaryVolumeGovernanceAligned(t, root)
+}
+
 func TestCognitionOptimizationCompletedNoChangeBatchRejectsAlteredReplay(t *testing.T) {
 	root := buildCognitionOptimizationRepo(t, 2)
 	session := connectMCPClient(t, root)
@@ -228,6 +259,127 @@ func TestCognitionOptimizationMixedNoChangeAndReplacementReportsCounts(t *testin
 	assertOrdinaryVolumeGovernanceAligned(t, root)
 }
 
+func TestCognitionOptimizationManagedScopeMixedBatchCompletesGovernedTransaction(t *testing.T) {
+	root := buildManagedScopeCognitionOptimizationRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(2))
+	assertOptimizationReviewBatch(t, maintain, 2, 2, 0)
+	assertManagedOptimizationRoleBehavior(t, root, maintain.Governance, 2)
+
+	formalPaths := []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"}
+	formalBefore := cognitionOptimizationFormalPreimages(t, root, formalPaths)
+	checkpointPath := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
+	checkpointBefore := readOptimizationTestFile(t, checkpointPath)
+	replacement := refinedOptimizationEntry(t, maintain.Candidates[0].ExistingEntry)
+	update := callCognitionOptimizationUpdate(t, session, optimizationUpdateArguments(maintain, func(position int, candidate optimizationCandidatePayload) string {
+		if position == 0 {
+			return replacement
+		}
+		return candidate.ExistingEntry
+	}))
+
+	assertOptimizationProgress(t, update.Optimization, "complete", 2, 2, 1, 1, 0, false)
+	if update.Status != autoStatusApplied || !update.Aligned || update.Applied != 1 || !update.FormalWritesStarted {
+		t.Fatalf("managed mixed batch did not report its one formal replacement: %#v", update)
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, "aoci.txt")); !reflect.DeepEqual(actual, formalBefore["aoci.txt"]) {
+		t.Fatal("managed mixed batch rewrote the Root manifest")
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, "aoci.meta.txt")); !reflect.DeepEqual(actual, formalBefore["aoci.meta.txt"]) {
+		t.Fatal("managed mixed batch rewrote the Meta Volume")
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, "aoci.code.txt")); reflect.DeepEqual(actual, formalBefore["aoci.code.txt"]) || !strings.Contains(string(actual), replacement) {
+		t.Fatal("managed mixed batch did not write the complete replacement to the Code Volume")
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, ".aoci", "baseline.json")); reflect.DeepEqual(actual, formalBefore[".aoci/baseline.json"]) {
+		t.Fatal("managed mixed batch changed the Index without advancing its Baseline")
+	}
+	if checkpointAfter := readOptimizationTestFile(t, checkpointPath); reflect.DeepEqual(checkpointAfter, checkpointBefore) {
+		t.Fatal("managed mixed batch did not advance its checkpoint after governed Apply")
+	}
+	assertOptimizationCheckpointCounts(t, root, 2, 1, 1, true)
+	assertNoActiveOptimizationRecovery(t, root)
+	assertManagedOptimizationRoleBehavior(t, root, nil, 2)
+	assertOrdinaryVolumeGovernanceAligned(t, root)
+}
+
+func TestCognitionOptimizationManagedScopeBudgetPressureReducesTokensWithoutGeneratingSemantics(t *testing.T) {
+	root := buildManagedScopeCognitionOptimizationRepo(t, 3)
+	const lowEntropyS = "重复重复重复重复重复重复重复重复重复重复重复重复重复重复重复重复"
+	const highEntropyS = "Preserve the exact external value and ordering because downstream recovery compares the complete postimage before advancing the draft checkpoint"
+	codeBefore := cognition.CodeVolumeMarker + "\n===Optimization fixtures" + filepath.ToSlash(filepath.Join(root, "optimized")) + "/===\n" +
+		"0000.go[CD3S]: F:represent the low-importance budget-pressure fixture | R:- | A:- | S:" + lowEntropyS + "\n" +
+		"0001.go[CD7S]: F:represent the recovery-sensitive budget-pressure fixture | R:- | A:- | S:" + highEntropyS + "\n" +
+		"0002.go[CD9S]: F:represent the high-importance fixture without hidden constraints | R:- | A:- | S:-\n"
+	writeVolumeTestFile(t, root, "aoci.code.txt", codeBefore)
+	refreshManagedCognitionOptimizationBaseline(t, root, 3)
+
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeReport, err := cognitionbudget.Build(root, []byte(codeBefore), cfg.EffectiveCognitionBudget())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if beforeReport.WholeIndexTokens >= beforeReport.MaxTokens || len(beforeReport.Violations) != 0 {
+		t.Fatalf("budget-pressure fixture is not hard-valid: %#v", beforeReport)
+	}
+
+	session := connectMCPClient(t, root)
+	maintain := callCognitionOptimizationMaintain(t, session, nil)
+	assertOptimizationReviewBatch(t, maintain, 3, 3, 0)
+	assertManagedOptimizationRoleBehavior(t, root, maintain.Governance, 3)
+	if maintain.Candidates[0].ObjectRef != "code:optimized/0000.go" ||
+		maintain.Candidates[0].SelectionReason != "c_band_target_overage" ||
+		optimizationCostValue(t, maintain.Candidates[0], "s_tokens") <= optimizationCostValue(t, maintain.Candidates[0], "s_target_tokens") {
+		t.Fatalf("low-C target-overage object was not prioritized: %#v", maintain.Candidates)
+	}
+	byRef := optimizationCandidatesByRef(maintain.Candidates)
+	if byRef["code:optimized/0000.go"].ExistingEntry != strings.Split(codeBefore, "\n")[2] ||
+		byRef["code:optimized/0001.go"].ExistingEntry != strings.Split(codeBefore, "\n")[3] ||
+		byRef["code:optimized/0002.go"].ExistingEntry != strings.Split(codeBefore, "\n")[4] {
+		t.Fatal("selector generated, truncated, or retagged existing Entry semantics")
+	}
+	if !strings.HasSuffix(byRef["code:optimized/0002.go"].ExistingEntry, " | S:-") {
+		t.Fatal("high C automatically gained an S field")
+	}
+
+	update := callCognitionOptimizationUpdate(t, session, optimizationUpdateArguments(maintain, func(_ int, candidate optimizationCandidatePayload) string {
+		if candidate.ObjectRef != "code:optimized/0000.go" {
+			return candidate.ExistingEntry
+		}
+		parsed, ok := index.ParseEntryLine(candidate.ExistingEntry, 1)
+		if !ok {
+			t.Fatalf("parse budget-pressure Entry: %q", candidate.ExistingEntry)
+		}
+		return fmt.Sprintf("%s[%s]: F:%s | R:%s | A:%s | S:-", parsed.Filename, parsed.TagsRaw, parsed.F, parsed.R, parsed.Api)
+	}))
+	assertOptimizationProgress(t, update.Optimization, "complete", 3, 3, 2, 1, 0, false)
+	if update.Status != autoStatusApplied || !update.Aligned || update.Applied != 1 || !update.FormalWritesStarted {
+		t.Fatalf("budget-pressure mixed batch did not reuse the formal Update transaction: %#v", update)
+	}
+	codeAfter := volumeFileText(t, root, "aoci.code.txt")
+	afterReport, err := cognitionbudget.Build(root, []byte(codeAfter), cfg.EffectiveCognitionBudget())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterReport.WholeIndexTokens >= beforeReport.WholeIndexTokens {
+		t.Fatalf("model-authored budget-pressure update did not reduce Whole-Index tokens: before=%d after=%d", beforeReport.WholeIndexTokens, afterReport.WholeIndexTokens)
+	}
+	if strings.Contains(codeAfter, lowEntropyS) || !strings.Contains(codeAfter, "0000.go[CD3S]: F:represent the low-importance budget-pressure fixture | R:- | A:- | S:-") {
+		t.Fatal("model-authored replacement did not remove only the repetitive low-entropy S")
+	}
+	if !strings.Contains(codeAfter, "0001.go[CD7S]: F:represent the recovery-sensitive budget-pressure fixture | R:- | A:- | S:"+highEntropyS) ||
+		!strings.Contains(codeAfter, "0002.go[CD9S]: F:represent the high-importance fixture without hidden constraints | R:- | A:- | S:-") {
+		t.Fatal("no_change review failed to preserve high-entropy S or high-C S omission")
+	}
+	assertOptimizationCheckpointCounts(t, root, 3, 2, 1, true)
+	assertNoActiveOptimizationRecovery(t, root)
+	assertManagedOptimizationRoleBehavior(t, root, nil, 3)
+	assertOrdinaryVolumeGovernanceAligned(t, root)
+}
+
 func TestCognitionOptimizationSourceDriftBlocksWithoutAdvancingCheckpoint(t *testing.T) {
 	root := buildCognitionOptimizationRepo(t, 3)
 	session := connectMCPClient(t, root)
@@ -293,7 +445,7 @@ func TestCognitionOptimizationRebindsStaleCurrentBatchAfterOrdinaryRealignment(t
 }
 
 func TestCognitionOptimizationCheckpointAdvanceFailureResumesExistingTransaction(t *testing.T) {
-	root := buildCognitionOptimizationRepo(t, 2)
+	root := buildManagedScopeCognitionOptimizationRepo(t, 2)
 	session := connectMCPClient(t, root)
 	maintain := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(2))
 	arguments := optimizationUpdateArguments(maintain, func(position int, candidate optimizationCandidatePayload) string {
@@ -304,6 +456,8 @@ func TestCognitionOptimizationCheckpointAdvanceFailureResumesExistingTransaction
 	})
 	checkpoint := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
 	checkpointBefore := readOptimizationTestFile(t, checkpoint)
+	formalPaths := []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"}
+	formalBefore := cognitionOptimizationFormalPreimages(t, root, formalPaths)
 
 	originalAdvance := advanceCognitionOptimizationCheckpoint
 	failOnce := true
@@ -324,12 +478,72 @@ func TestCognitionOptimizationCheckpointAdvanceFailureResumesExistingTransaction
 	if after := readOptimizationTestFile(t, checkpoint); !reflect.DeepEqual(after, checkpointBefore) {
 		t.Fatal("failed checkpoint CAS advanced draft progress")
 	}
+	assertOptimizationCheckpointCounts(t, root, 0, 0, 0, false)
+	if actual := readOptimizationTestFile(t, filepath.Join(root, "aoci.code.txt")); reflect.DeepEqual(actual, formalBefore["aoci.code.txt"]) {
+		t.Fatal("checkpoint failure was reported as a formal write without a durable Code postimage")
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, ".aoci", "baseline.json")); reflect.DeepEqual(actual, formalBefore[".aoci/baseline.json"]) {
+		t.Fatal("checkpoint failure was reported after Apply without a durable Baseline postimage")
+	}
+	formalAfterFailure := cognitionOptimizationFormalPreimages(t, root, formalPaths)
 
 	retry := callCognitionOptimizationUpdate(t, session, arguments)
 	assertOptimizationProgress(t, retry.Optimization, "complete", 2, 2, 1, 1, 0, false)
 	if retry.Status != autoStatusApplied || !retry.Aligned || retry.Applied != 0 || retry.FormalWritesStarted {
 		t.Fatalf("same-batch postimage retry was not idempotent: %#v", retry)
 	}
+	assertCognitionOptimizationFormalPreimages(t, root, formalAfterFailure)
+	assertOptimizationCheckpointCounts(t, root, 2, 1, 1, true)
+	assertNoActiveOptimizationRecovery(t, root)
+	assertManagedOptimizationRoleBehavior(t, root, nil, 2)
+	assertOrdinaryVolumeGovernanceAligned(t, root)
+}
+
+func TestCognitionOptimizationBaselineFailureUsesExistingRecoveryBeforeCheckpoint(t *testing.T) {
+	root := buildManagedScopeCognitionOptimizationRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(2))
+	arguments := optimizationUpdateArguments(maintain, func(position int, candidate optimizationCandidatePayload) string {
+		if position == 0 {
+			return refinedOptimizationEntry(t, candidate.ExistingEntry)
+		}
+		return candidate.ExistingEntry
+	})
+	codeBefore := readOptimizationTestFile(t, filepath.Join(root, "aoci.code.txt"))
+	baselineBefore := readOptimizationTestFile(t, filepath.Join(root, ".aoci", "baseline.json"))
+
+	originalSave := saveAtomicBaseline
+	failOnce := true
+	saveAtomicBaseline = func(root string, value *baseline.Baseline) error {
+		if failOnce {
+			failOnce = false
+			return errors.New("injected optimization Baseline failure")
+		}
+		return originalSave(root, value)
+	}
+	t.Cleanup(func() { saveAtomicBaseline = originalSave })
+	first := callCognitionOptimizationUpdate(t, session, arguments)
+	saveAtomicBaseline = originalSave
+	if first.Status != autoStatusStopped || first.Aligned || first.Applied != 0 || !first.FormalWritesStarted {
+		t.Fatalf("post-Index Baseline failure did not expose the formal recovery boundary: %#v", first)
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, "aoci.code.txt")); reflect.DeepEqual(actual, codeBefore) {
+		t.Fatal("injected Baseline failure did not leave the proven Code postimage")
+	}
+	if actual := readOptimizationTestFile(t, filepath.Join(root, ".aoci", "baseline.json")); !reflect.DeepEqual(actual, baselineBefore) {
+		t.Fatal("failed Baseline save changed durable Baseline bytes")
+	}
+	assertOptimizationCheckpointCounts(t, root, 0, 0, 0, false)
+	assertActiveOptimizationRecovery(t, root)
+
+	retry := callCognitionOptimizationUpdate(t, session, arguments)
+	assertOptimizationProgress(t, retry.Optimization, "complete", 2, 2, 1, 1, 0, false)
+	if retry.Status != autoStatusApplied || !retry.Aligned || retry.Applied != 0 || !retry.FormalWritesStarted {
+		t.Fatalf("existing Recovery did not complete Baseline before checkpoint advance: %#v", retry)
+	}
+	assertOptimizationCheckpointCounts(t, root, 2, 1, 1, true)
+	assertNoActiveOptimizationRecovery(t, root)
+	assertManagedOptimizationRoleBehavior(t, root, nil, 2)
 	assertOrdinaryVolumeGovernanceAligned(t, root)
 }
 
@@ -493,6 +707,164 @@ func buildCognitionOptimizationRepo(t *testing.T, count int) string {
 	return root
 }
 
+func buildManagedScopeCognitionOptimizationRepo(t *testing.T, count int) string {
+	t.Helper()
+	root := buildCognitionOptimizationRepo(t, count)
+	refreshManagedCognitionOptimizationBaseline(t, root, count)
+	return root
+}
+
+func refreshManagedCognitionOptimizationBaseline(t *testing.T, root string, count int) {
+	t.Helper()
+	const observePath = "optimized/optimization_test.go"
+	const excludePath = "optimized/testdata/excluded-source.txt"
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(observePath))); os.IsNotExist(err) {
+		writeVolumeTestFile(t, root, observePath, "package optimized\n\n// Observe-only optimization evidence.\n")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(excludePath))); os.IsNotExist(err) {
+		writeVolumeTestFile(t, root, excludePath, "excluded optimization evidence\n")
+	} else if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := managedscope.DefaultPolicy(machinecontract.ScopeProfileProduction)
+	policy, err = managedscope.Normalize(policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.ManagedScope = &policy
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	evaluation, err := managedscope.Build(root, policy, managedscope.BuildOptions{WalkOptions: cfg.WalkOptions()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rel, role := range map[string]string{
+		"optimized/0000.go": machinecontract.ScopeRoleIndex,
+		observePath:         machinecontract.ScopeRoleObserve,
+		excludePath:         machinecontract.ScopeRoleExclude,
+	} {
+		if actual := managedOptimizationEvaluationRole(evaluation, rel); actual != role {
+			t.Fatalf("production-like Managed Scope role for %s=%q, want %q", rel, actual, role)
+		}
+	}
+	snapshot, err := managedscope.Snapshot(root, evaluation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Formal Volumes are outside business Safe Inventory, but remain explicit
+	// Index-role fingerprints in the production Baseline contract.
+	for _, rel := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt"} {
+		fingerprint, hashErr := baseline.HashFile(filepath.Join(root, rel))
+		if hashErr != nil {
+			t.Fatal(hashErr)
+		}
+		fingerprint.Role = machinecontract.ScopeRoleIndex
+		snapshot[rel] = fingerprint
+	}
+	budgetIdentity, err := cognitionbudget.Identity(cfg.EffectiveCognitionBudget())
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := baseline.NewBaseline(snapshot)
+	value.ManagedScope = &baseline.ManagedScopeState{Version: machinecontract.ManagedScopeBaselineV1,
+		PolicyIdentity: evaluation.PolicyIdentity, ObserveChangePolicy: policy.ObserveChangePolicy,
+		BudgetPolicyIdentity: budgetIdentity}
+	if err := baseline.Save(root, value); err != nil {
+		t.Fatal(err)
+	}
+	assertManagedOptimizationRoleBehavior(t, root, nil, count)
+}
+
+func managedOptimizationEvaluationRole(evaluation *managedscope.Evaluation, rel string) string {
+	for _, group := range [][]managedscope.PathEvaluation{evaluation.Index, evaluation.Observe, evaluation.Exclude} {
+		for _, item := range group {
+			if item.Path == rel {
+				return item.Role
+			}
+		}
+	}
+	return ""
+}
+
+func assertManagedOptimizationRoleBehavior(t *testing.T, root string, supplied *volumegovernance.Facts, indexedTargets int) {
+	t.Helper()
+	facts := supplied
+	if facts == nil {
+		cfg, err := config.Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		set, err := cognition.Load(root, cfg.IndexPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		facts, err = volumegovernance.Assess(root, cfg, set)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !facts.GovernanceAligned || facts.Result != volumegovernance.ResultAligned ||
+		facts.CodeSourceCount != indexedTargets || facts.CodeEntryCount != indexedTargets ||
+		facts.ManagedScope.IndexCount < indexedTargets || facts.ManagedScope.ObserveCount != 1 || facts.ManagedScope.ExcludeCount < 1 ||
+		len(facts.CodeDrift.Missing) != 0 || len(facts.CodeDrift.Stale) != 0 ||
+		len(facts.CodeDrift.Orphan) != 0 || len(facts.CodeDrift.Unbaselined) != 0 ||
+		len(facts.CodeDrift.ObservedNew) != 0 || len(facts.CodeDrift.ObservedChanged) != 0 || len(facts.CodeDrift.ObservedRemoved) != 0 {
+		t.Fatalf("production-like Managed Scope is not aligned: %#v", facts)
+	}
+	code := volumeFileText(t, root, "aoci.code.txt")
+	if !strings.Contains(code, "0000.go[") || strings.Contains(code, "optimization_test.go[") || strings.Contains(code, "excluded-source.txt[") {
+		t.Fatalf("Index/Observe/Exclude roles leaked into the Code Volume: %s", code)
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists || state == nil {
+		t.Fatalf("managed Baseline unavailable: exists=%v err=%v", exists, err)
+	}
+	if baseline.EffectiveRole(state.Files["optimized/0000.go"]) != machinecontract.ScopeRoleIndex ||
+		baseline.EffectiveRole(state.Files["optimized/optimization_test.go"]) != machinecontract.ScopeRoleObserve {
+		t.Fatalf("managed Baseline lost Index/Observe roles: %#v", state.Files)
+	}
+	if _, exists := state.Files["optimized/testdata/excluded-source.txt"]; exists {
+		t.Fatal("Exclude object entered the formal Baseline")
+	}
+}
+
+func assertNoActiveOptimizationRecovery(t *testing.T, root string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "entries-*.json"))
+	if err != nil || len(matches) != 0 {
+		t.Fatalf("optimization left an active retained transaction: matches=%v err=%v", matches, err)
+	}
+}
+
+func assertActiveOptimizationRecovery(t *testing.T, root string) {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "entries-*.json"))
+	if err != nil || len(matches) != 1 {
+		t.Fatalf("optimization did not retain exactly one active transaction: matches=%v err=%v", matches, err)
+	}
+}
+
+func assertOptimizationCheckpointCounts(t *testing.T, root string, reviewed, noChange, replaced int, completed bool) {
+	t.Helper()
+	stored, err := cognitionoptimization.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkpoint := stored.Checkpoint
+	if checkpoint.ReviewedCount != reviewed || checkpoint.NoChangeCount != noChange ||
+		checkpoint.ReplacedCount != replaced || checkpoint.Completed != completed {
+		t.Fatalf("unexpected durable optimization checkpoint: %#v", checkpoint)
+	}
+}
+
 func cognitionOptimizationObjectRefs(count int) []string {
 	refs := make([]string, 0, count)
 	for position := 0; position < count; position++ {
@@ -603,6 +975,24 @@ func assertOptimizationCostContract(t *testing.T, candidate optimizationCandidat
 		candidate.SelectionReason == "" || candidate.SourceSHA256 == "" || candidate.CandidateID == "" {
 		t.Fatalf("candidate identity/priority metadata is incomplete: %#v", candidate)
 	}
+}
+
+func optimizationCostValue(t *testing.T, candidate optimizationCandidatePayload, field string) int {
+	t.Helper()
+	raw, ok := candidate.Cost[field]
+	var value int
+	if !ok || json.Unmarshal(raw, &value) != nil {
+		t.Fatalf("candidate %s lacks integer cost.%s: %#v", candidate.ObjectRef, field, candidate.Cost)
+	}
+	return value
+}
+
+func optimizationCandidatesByRef(candidates []optimizationCandidatePayload) map[string]optimizationCandidatePayload {
+	result := make(map[string]optimizationCandidatePayload, len(candidates))
+	for _, candidate := range candidates {
+		result[candidate.ObjectRef] = candidate
+	}
+	return result
 }
 
 func optimizationCandidateRefs(candidates []optimizationCandidatePayload) []string {
