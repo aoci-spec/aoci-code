@@ -4,6 +4,11 @@ Managed Scope assigns every Safe Inventory object one role: `index`, `observe`,
 or `exclude`. It reduces low-value index density without losing deterministic
 change awareness for test evidence.
 
+Repository-relative paths always match with Git's case-sensitive semantics,
+independent of the macOS, Linux, or Windows filesystem. Safe Inventory rejects
+case-fold collisions separately. A legacy case-insensitive identity must move
+through the ordinary governed Scope Change transaction.
+
 Use `aoci scope show`, `aoci scope explain <path>`, and `aoci scope rule list`
 to inspect policy. Add, update, remove, or reset rules with `aoci scope rule`.
 `aoci scope budget show` and `aoci scope budget set` manage the project budget;

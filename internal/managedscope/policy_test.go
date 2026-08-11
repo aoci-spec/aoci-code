@@ -1,9 +1,12 @@
 package managedscope
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/fs"
@@ -196,7 +199,7 @@ func TestHighRiskExactOptInRequiresApprovalBeforeContentRead(t *testing.T) {
 	}
 }
 
-func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
+func TestCanonicalCaseSensitiveRuleMatchingIsHostIndependent(t *testing.T) {
 	policy := DefaultPolicy(machinecontract.ScopeProfileCustom)
 	policy.Rules = []Rule{{RuleID: "unicode-path", Action: machinecontract.ScopeRoleObserve,
 		Pattern: "Src/Tests/**", PatternKind: machinecontract.ScopePatternGlob, Reason: "platform test",
@@ -205,13 +208,26 @@ func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, false)
-	if insensitive.Role != machinecontract.ScopeRoleObserve || insensitive.MatchedRule == nil {
-		t.Fatalf("case-insensitive filesystem did not match rule: %+v", insensitive)
-	}
-	sensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, true)
+	sensitive := EvaluatePath(normalized, "src/tests/CASE.go", false, false)
 	if sensitive.Role != machinecontract.ScopeRoleExclude || sensitive.MatchedRule != nil {
-		t.Fatalf("case-sensitive filesystem unexpectedly matched rule: %+v", sensitive)
+		t.Fatalf("repository path matching ignored canonical case: %+v", sensitive)
+	}
+	matched := EvaluatePath(normalized, "Src/Tests/CASE.go", false, false)
+	if matched.Role != machinecontract.ScopeRoleObserve || matched.MatchedRule == nil {
+		t.Fatalf("exact repository path case did not match rule: %+v", matched)
+	}
+}
+
+func TestAppliedIdentityKeepsCaseSensitiveV2Compatibility(t *testing.T) {
+	got := evaluationIdentity(strings.Repeat("a", 64), strings.Repeat("b", 64), []string{"fixtures/case.txt"})
+	legacyCaseSensitive := sha256.New()
+	for _, value := range []string{"managed-scope-applied-identity/v2", strings.Repeat("a", 64), strings.Repeat("b", 64), "true", "fixtures/case.txt"} {
+		_, _ = legacyCaseSensitive.Write([]byte(value))
+		_, _ = legacyCaseSensitive.Write([]byte{0})
+	}
+	want := hex.EncodeToString(legacyCaseSensitive.Sum(nil))
+	if got != want {
+		t.Fatalf("canonical identity changed for existing case-sensitive projects: got=%s want=%s", got, want)
 	}
 }
 
