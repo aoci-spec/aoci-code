@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-11T18:13:29Z",
+  "updated_at": "2026-08-11T19:34:25Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -116,9 +116,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "649c083f65a7cf18f598518e31a44ae6b4b62fd4e912039e4027dd5ce918325e",
-      "size": 139526,
-      "normalized_sha256": "649c083f65a7cf18f598518e31a44ae6b4b62fd4e912039e4027dd5ce918325e"
+      "sha256": "da42342ce07bdd7f52aa2d29afcd502cef1c19263e549df0eae335b7cca46b5c",
+      "size": 140015,
+      "normalized_sha256": "da42342ce07bdd7f52aa2d29afcd502cef1c19263e549df0eae335b7cca46b5c"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -192,10 +192,9 @@
       "normalized_sha256": "042c2503a8f15ae3505e539759f9e1fc317f2ddc9c7a872c26bcf8053741f29f"
     },
     "docs/managed-scope-and-budget.md": {
-      "role": "index",
-      "sha256": "c259fddec2d6a222448ebcd0b21fd66a64013b0acd134fab4cae7afb0e61c43a",
-      "size": 3248,
-      "normalized_sha256": "c259fddec2d6a222448ebcd0b21fd66a64013b0acd134fab4cae7afb0e61c43a"
+      "sha256": "ea8ce5a95d84d71e16a3c8b53ea2b8f532f593e182d1e5cb30a1c83ce21fb10b",
+      "size": 3923,
+      "normalized_sha256": "ea8ce5a95d84d71e16a3c8b53ea2b8f532f593e182d1e5cb30a1c83ce21fb10b"
     },
     "docs/overview-delivery.md": {
       "role": "index",
@@ -231,9 +230,9 @@
       "normalized_sha256": "16a03fde9dcc18e069bce9960f712b93ce756cb8d7e9e693db3dfab9475d2336"
     },
     "docs/upgrading.md": {
-      "sha256": "58d291b17318055fda2ade7af0bea9d680104ec710335fe221c28774a9e5f844",
-      "size": 1837,
-      "normalized_sha256": "58d291b17318055fda2ade7af0bea9d680104ec710335fe221c28774a9e5f844"
+      "sha256": "11be62f63fec6aaf9bbe30c6d3263f9a529f98d598f15edf4fc6ea85fbf4e311",
+      "size": 2407,
+      "normalized_sha256": "11be62f63fec6aaf9bbe30c6d3263f9a529f98d598f15edf4fc6ea85fbf4e311"
     },
     "docs/windows-host-agent.md": {
       "role": "index",
@@ -1911,18 +1910,18 @@
       "format_kind": "gofmt"
     },
     "internal/cli/scope.go": {
-      "sha256": "ae28d3a0064e7417277692c4432b5b6fee53d3f5131b69d1ce18ff2f4f4964c0",
-      "size": 35870,
-      "normalized_sha256": "ae28d3a0064e7417277692c4432b5b6fee53d3f5131b69d1ce18ff2f4f4964c0",
-      "format_sha256": "ae28d3a0064e7417277692c4432b5b6fee53d3f5131b69d1ce18ff2f4f4964c0",
+      "sha256": "da93ac9e951eb07c12b2ade19d9512cb07e6457e27d965f8efce29688aaa4f4a",
+      "size": 35829,
+      "normalized_sha256": "da93ac9e951eb07c12b2ade19d9512cb07e6457e27d965f8efce29688aaa4f4a",
+      "format_sha256": "da93ac9e951eb07c12b2ade19d9512cb07e6457e27d965f8efce29688aaa4f4a",
       "format_kind": "gofmt"
     },
     "internal/cli/scope_test.go": {
       "role": "observe",
-      "sha256": "0e478240115f7ff9e5378e59082616eb691c3f9271f191b664f52017c2b06ea3",
-      "size": 19212,
-      "normalized_sha256": "0e478240115f7ff9e5378e59082616eb691c3f9271f191b664f52017c2b06ea3",
-      "format_sha256": "0e478240115f7ff9e5378e59082616eb691c3f9271f191b664f52017c2b06ea3",
+      "sha256": "292d32315a1281e989f630e7d147a4620058dd1cdc98d2a4402a3d97d8b324bd",
+      "size": 23898,
+      "normalized_sha256": "292d32315a1281e989f630e7d147a4620058dd1cdc98d2a4402a3d97d8b324bd",
+      "format_sha256": "292d32315a1281e989f630e7d147a4620058dd1cdc98d2a4402a3d97d8b324bd",
       "format_kind": "gofmt"
     },
     "internal/cli/status.go": {
@@ -3681,25 +3680,25 @@
       "format_kind": "gofmt"
     },
     "internal/managedscope/evaluate.go": {
-      "sha256": "acbb6b8ebdd77a5d4729c5efd56cfa0c15d10855deaa523c63cb27c17ee7eb56",
-      "size": 10867,
-      "normalized_sha256": "acbb6b8ebdd77a5d4729c5efd56cfa0c15d10855deaa523c63cb27c17ee7eb56",
-      "format_sha256": "acbb6b8ebdd77a5d4729c5efd56cfa0c15d10855deaa523c63cb27c17ee7eb56",
+      "sha256": "e41f5123952ee8ba5cec2ff03ef56fcc52ef77dd814a6ea0c8f020fb7169fb77",
+      "size": 10025,
+      "normalized_sha256": "e41f5123952ee8ba5cec2ff03ef56fcc52ef77dd814a6ea0c8f020fb7169fb77",
+      "format_sha256": "e41f5123952ee8ba5cec2ff03ef56fcc52ef77dd814a6ea0c8f020fb7169fb77",
       "format_kind": "gofmt"
     },
     "internal/managedscope/policy.go": {
-      "sha256": "b7e9a749011427ced945d18aa048f97f3fb82f87088df8d151ff1ac6d40c6470",
-      "size": 8240,
-      "normalized_sha256": "b7e9a749011427ced945d18aa048f97f3fb82f87088df8d151ff1ac6d40c6470",
-      "format_sha256": "b7e9a749011427ced945d18aa048f97f3fb82f87088df8d151ff1ac6d40c6470",
+      "sha256": "ef9ff2f0627349621e4df823f693a4cf23acdddfca49f1aff19cbc2028144a5e",
+      "size": 8466,
+      "normalized_sha256": "ef9ff2f0627349621e4df823f693a4cf23acdddfca49f1aff19cbc2028144a5e",
+      "format_sha256": "ef9ff2f0627349621e4df823f693a4cf23acdddfca49f1aff19cbc2028144a5e",
       "format_kind": "gofmt"
     },
     "internal/managedscope/policy_test.go": {
       "role": "observe",
-      "sha256": "7a07e0dd83d36e42216736d7399bfcc32b271188b622b9cbf6d34cddfffc55b0",
-      "size": 11880,
-      "normalized_sha256": "7a07e0dd83d36e42216736d7399bfcc32b271188b622b9cbf6d34cddfffc55b0",
-      "format_sha256": "7a07e0dd83d36e42216736d7399bfcc32b271188b622b9cbf6d34cddfffc55b0",
+      "sha256": "3070426dfbd5d379d4382b96c0068867e1992d47b681bddd4a9cba6d4ba68f0c",
+      "size": 13675,
+      "normalized_sha256": "3070426dfbd5d379d4382b96c0068867e1992d47b681bddd4a9cba6d4ba68f0c",
+      "format_sha256": "3070426dfbd5d379d4382b96c0068867e1992d47b681bddd4a9cba6d4ba68f0c",
       "format_kind": "gofmt"
     },
     "internal/managedscope/proposal.go": {
@@ -4984,9 +4983,9 @@
       "normalized_sha256": "9ec65bd6caf139cb25592054e94e52844d199e751f2dfee956cb988fc18235a1"
     },
     "spec/public/aoci-managed-scope-and-budget-v1.txt": {
-      "sha256": "407ff675d6139295052a74adcf2a0181bc9983aeece1ed0a92281b1af314476f",
-      "size": 10507,
-      "normalized_sha256": "407ff675d6139295052a74adcf2a0181bc9983aeece1ed0a92281b1af314476f"
+      "sha256": "f5c9bd6b297729d7590945235c18d42a4d2c0dd38a5afc30157ddeee144d2cad",
+      "size": 10968,
+      "normalized_sha256": "f5c9bd6b297729d7590945235c18d42a4d2c0dd38a5afc30157ddeee144d2cad"
     },
     "spec/public/aoci-mcp-runtime-v1.txt": {
       "sha256": "dd04417de90f2f87685b9b073be5d84c508ba06e55a312643717e06c7ff912b9",

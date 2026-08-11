@@ -1,9 +1,12 @@
 package managedscope
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/fs"
@@ -196,7 +199,7 @@ func TestHighRiskExactOptInRequiresApprovalBeforeContentRead(t *testing.T) {
 	}
 }
 
-func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
+func TestCanonicalCaseSensitiveRuleMatchingIsHostIndependent(t *testing.T) {
 	policy := DefaultPolicy(machinecontract.ScopeProfileCustom)
 	policy.Rules = []Rule{{RuleID: "unicode-path", Action: machinecontract.ScopeRoleObserve,
 		Pattern: "Src/Tests/**", PatternKind: machinecontract.ScopePatternGlob, Reason: "platform test",
@@ -205,13 +208,58 @@ func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, false)
-	if insensitive.Role != machinecontract.ScopeRoleObserve || insensitive.MatchedRule == nil {
-		t.Fatalf("case-insensitive filesystem did not match rule: %+v", insensitive)
-	}
-	sensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, true)
+	sensitive := EvaluatePath(normalized, "src/tests/CASE.go", false, false)
 	if sensitive.Role != machinecontract.ScopeRoleExclude || sensitive.MatchedRule != nil {
-		t.Fatalf("case-sensitive filesystem unexpectedly matched rule: %+v", sensitive)
+		t.Fatalf("repository path matching ignored canonical case: %+v", sensitive)
+	}
+	matched := EvaluatePath(normalized, "Src/Tests/CASE.go", false, false)
+	if matched.Role != machinecontract.ScopeRoleObserve || matched.MatchedRule == nil {
+		t.Fatalf("exact repository path case did not match rule: %+v", matched)
+	}
+	legacyInsensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, false)
+	if legacyInsensitive.Role != machinecontract.ScopeRoleObserve || legacyInsensitive.MatchedRule == nil {
+		t.Fatalf("legacy case-insensitive inspection behavior changed: %+v", legacyInsensitive)
+	}
+}
+
+func TestBuildAlwaysUsesCaseSensitiveGitPathSemantics(t *testing.T) {
+	root := t.TempDir()
+	writeScopeFixture(t, root, "src/main.go", "package src\n")
+	result, err := Build(root, DefaultPolicy(machinecontract.ScopeProfileProduction), BuildOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.CaseSensitive {
+		t.Fatal("Managed Scope depended on the host filesystem's case behavior")
+	}
+	item, ok := evaluationForPath(result, "src/main.go")
+	if !ok || !item.CaseSensitive {
+		t.Fatalf("path evaluation did not retain canonical Git semantics: %+v", item)
+	}
+}
+
+func TestAppliedIdentityKeepsCaseSensitiveV2Compatibility(t *testing.T) {
+	policyIdentity := strings.Repeat("a", 64)
+	inventoryIdentity := strings.Repeat("b", 64)
+	curated := []string{"fixtures/case.txt"}
+	got := evaluationIdentity(policyIdentity, inventoryIdentity, curated)
+	historical := func(caseSensitive bool) string {
+		hash := sha256.New()
+		caseToken := "false"
+		if caseSensitive {
+			caseToken = "true"
+		}
+		for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryIdentity, caseToken}, curated...) {
+			_, _ = hash.Write([]byte(value))
+			_, _ = hash.Write([]byte{0})
+		}
+		return hex.EncodeToString(hash.Sum(nil))
+	}
+	if want := historical(true); got != want {
+		t.Fatalf("canonical identity changed for existing case-sensitive projects: got=%s want=%s", got, want)
+	}
+	if got == historical(false) {
+		t.Fatal("historical case-insensitive identity was silently reinterpreted")
 	}
 }
 

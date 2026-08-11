@@ -4,11 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sort"
-	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -59,8 +55,10 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 		curatedPaths = append(curatedPaths, rel)
 	}
 	sort.Strings(curatedPaths)
-	caseSensitive := filesystemCaseSensitive(repositoryRoot, inventory.ManagedCandidates)
-	identity := evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths, caseSensitive)
+	// Managed Scope paths use Git's repository-relative, case-sensitive name
+	// semantics on every host. Safe Inventory rejects case-fold collisions as
+	// an independent filesystem boundary check before evaluation.
+	identity := evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths)
 	optedIn := make(map[string]bool, len(walkOptions.HighRiskOptIn))
 	for _, rel := range walkOptions.HighRiskOptIn {
 		if clean, normalizeErr := fs.NormalizeRelPath(rel); normalizeErr == nil {
@@ -69,9 +67,9 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	}
 	result := &Evaluation{Version: machinecontract.ManagedScopeEvaluationV2, PolicyIdentity: identity,
 		SafeInventory: inventory.Summary, Index: []PathEvaluation{}, Observe: []PathEvaluation{}, Exclude: []PathEvaluation{},
-		CaseSensitive: caseSensitive}
+		CaseSensitive: true}
 	for _, rel := range inventory.ManagedCandidates {
-		evaluation := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], caseSensitive)
+		evaluation := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], true)
 		if optedIn[rel] {
 			evaluation.SafetyStatus = "high_risk_exact_opt_in"
 			evaluation.Reason = "approved high-risk exact opt-in; " + evaluation.Reason
@@ -83,7 +81,7 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 			Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety, RulePriority: sourcePriority(machinecontract.ScopeRuleSafety),
 			SafetyStatus: excluded.Category, GitStatus: gitStatus(excluded.GitTracked, excluded.Category == fs.SafetyIgnored),
 			ReadsContent: false, EntersWholeIndex: false, EntersObserveFingerprint: false,
-			Reason: excluded.RuleSource + ":" + excluded.Category, CaseSensitive: caseSensitive}
+			Reason: excluded.RuleSource + ":" + excluded.Category, CaseSensitive: true}
 		appendEvaluation(result, evaluation)
 		result.SafetyExcluded++
 	}
@@ -95,9 +93,12 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	return result, nil
 }
 
-func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated []string, caseSensitive bool) string {
+func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated []string) string {
 	hash := sha256.New()
-	for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryRulesIdentity, fmt.Sprint(caseSensitive)}, curated...) {
+	// Keep the historical case-sensitive v2 preimage so projects created on a
+	// case-sensitive host retain their active identity. Earlier case-insensitive
+	// identities intentionally require the ordinary governed Scope migration.
+	for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryRulesIdentity, "true"}, curated...) {
 		_, _ = hash.Write([]byte(value))
 		_, _ = hash.Write([]byte{0})
 	}
@@ -145,41 +146,6 @@ func EvaluatePathWithCase(policy Policy, rel string, gitTracked, gitIgnored, cur
 		ReadsContent: role != machinecontract.ScopeRoleExclude, EntersWholeIndex: role == machinecontract.ScopeRoleIndex,
 		EntersObserveFingerprint: role == machinecontract.ScopeRoleObserve, Reason: reason, CaseSensitive: caseSensitive}
 	return result
-}
-
-func filesystemCaseSensitive(root string, candidates []string) bool {
-	paths := []string{filepath.Clean(root)}
-	for _, rel := range candidates {
-		paths = append(paths, filepath.Join(root, filepath.FromSlash(rel)))
-		if len(paths) >= 9 {
-			break
-		}
-	}
-	for _, original := range paths {
-		directory, base := filepath.Dir(original), filepath.Base(original)
-		alternate := toggleASCII(base)
-		if alternate == base {
-			continue
-		}
-		originalInfo, originalErr := os.Lstat(original)
-		alternateInfo, alternateErr := os.Lstat(filepath.Join(directory, alternate))
-		if originalErr == nil && alternateErr == nil && os.SameFile(originalInfo, alternateInfo) {
-			return false
-		}
-	}
-	return runtime.GOOS != "windows"
-}
-
-func toggleASCII(value string) string {
-	for index, character := range value {
-		switch {
-		case character >= 'a' && character <= 'z':
-			return value[:index] + strings.ToUpper(string(character)) + value[index+1:]
-		case character >= 'A' && character <= 'Z':
-			return value[:index] + strings.ToLower(string(character)) + value[index+1:]
-		}
-	}
-	return value
 }
 
 func profileRules(profile string) []Rule {

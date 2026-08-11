@@ -4,6 +4,11 @@ Managed Scope assigns every Safe Inventory object one role: `index`, `observe`,
 or `exclude`. It reduces low-value index density without losing deterministic
 change awareness for test evidence.
 
+Managed Scope evaluates slash-normalized repository-relative paths with Git's
+case-sensitive path-name semantics on every host. A rule for `Src/**` does not
+match `src/**`, including on a case-insensitive macOS or Windows filesystem.
+Safe Inventory separately rejects case-fold-colliding names before evaluation.
+
 Use `aoci scope show`, `aoci scope explain <path>`, and `aoci scope rule list`
 to inspect policy. Add, update, remove, or reset rules with `aoci scope rule`.
 `aoci scope budget show` and `aoci scope budget set` manage the project budget;
@@ -28,6 +33,12 @@ direction. It is stored in the transaction Intent, so Resume does not approve
 again. `review` still uses `scope approve` in a real TTY, `legacy` retains its
 compatibility boundary, and `off` produces Plan/Preview only and writes nothing.
 Resume or roll back an interrupted transaction with the matching scope commands.
+
+Projects whose active v2 identity records the former host-dependent
+`case_sensitive=false` preimage report `scope_change_required`. Review and apply
+the ordinary Scope transaction even when it is identity-only; AOCI never
+silently rewrites that Baseline. Existing `case_sensitive=true` identities keep
+their exact historical preimage and require no migration.
 
 The Candidate Set may include a reviewed Curation postimage. A Scope Preview
 is also the single versioned Apply Envelope; its digest binds candidates,
