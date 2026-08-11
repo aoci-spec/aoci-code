@@ -20,8 +20,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
@@ -43,6 +41,10 @@ type claudeHookInput struct {
 }
 
 func init() {
+	registerCommand(newHookCmd())
+}
+
+func newHookCmd() *cobra.Command {
 	var agent, tool, path string
 	var stdinJSON bool
 
@@ -58,8 +60,8 @@ func init() {
 
 			// stdin-json 通道: 解析失败放行(容错),成功则覆盖 tool/path
 			if stdinJSON {
-				data, rerr := io.ReadAll(os.Stdin)
-				if rerr == nil && len(data) > 0 {
+				data, tooLarge, rerr := readLimitedInput(cmd.InOrStdin(), hookInputMaxBytes)
+				if rerr == nil && !tooLarge && len(data) > 0 {
 					var in claudeHookInput
 					if json.Unmarshal(data, &in) == nil {
 						if in.ToolName != "" {
@@ -106,7 +108,7 @@ func init() {
 		Hidden: true, // 人用 help 不展示,属机器通道
 	}
 	cmd.AddCommand(pretool)
-	registerCommand(cmd)
+	return cmd
 }
 
 // toRepoRel 绝对路径落在仓库根下时换算为相对路径(正斜杠);其余原样返回交内核裁决。

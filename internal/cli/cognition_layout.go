@@ -13,6 +13,10 @@ import (
 // alter formal cognition or its governance state. Missing cognition is allowed
 // only when the caller is an initialization path.
 func requireLegacyWriteLayout(root string, cfg *config.Config, allowMissing bool) error {
+	return requireLegacyLayout(root, cfg, allowMissing)
+}
+
+func requireLegacyLayout(root string, cfg *config.Config, allowMissing bool) error {
 	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
 	if err != nil {
 		if allowMissing && errors.Is(err, os.ErrNotExist) {

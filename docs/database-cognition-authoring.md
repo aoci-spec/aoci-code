@@ -177,10 +177,9 @@ echo absolute filesystem paths. The pre-existing MCP cognition receipt still use
 Project Fresh Bootstrap or explicit generic initialization activates Code-only
 Volumes, while existing Legacy and unconfigured projects retain their prior
 behavior and are never migrated implicitly. Code-only Volumes can add Database
-Cognition without Legacy Migration. `status --deep`, `index score`, and
-`index agent plan` remain
-Legacy-only; Database Cognition authoring uses ordinary no-argument Maintain
-and the complete candidate batch described above. The MCP surface remains
+Cognition without Legacy Migration. `status --deep`, `index inventory`,
+`index score`, and `index agent plan` remain Legacy-only. Database Cognition authoring uses ordinary no-argument Maintain and the complete candidate batch
+described above, then closes through Verify, Check, and the current Guide. The MCP surface remains
 nine tools, ordinary Overview still delivers the complete requested scope, and
 `check_only=true` remains compact.
 

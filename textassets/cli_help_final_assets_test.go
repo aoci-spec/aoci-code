@@ -115,7 +115,8 @@ func TestCLIHelpFinalAssetsKeepExactContent(
 			id: ContractHelpUpdateEntryLong,
 			expected: "对指定文件写入完整单行条目: 已有条目整行替换,无则插入所属目录段。\n" +
 				"条目使用共享的本地、Impact与S 字段Validator校验；--json下可修的Preview或Apply拒绝返回repair_required及与MCP相同的结构化Finding，只修retry_scope并保持其他候选不变。\n" +
-				"正式写入必须用 --source-sha256 绑定 aoci_maintain 返回的源码指纹；内部复用原子批次、Baseline完整性与重放防线。",
+				"正式写入必须用 --source-sha256 绑定 aoci_maintain 返回的源码指纹；内部复用原子批次、Baseline完整性与重放防线。\n" +
+				"--entry与--stdin只能选择一种。标准输入沿用现有16 MiB Entries请求上限；超限会在任何正式写入或Recovery写入前失败。",
 			tokens: []string{
 				"完整单行条目",
 				"整行替换",
@@ -125,6 +126,8 @@ func TestCLIHelpFinalAssetsKeepExactContent(
 				"retry_scope",
 				"--source-sha256",
 				"Baseline",
+				"--stdin",
+				"16 MiB",
 			},
 		},
 		{

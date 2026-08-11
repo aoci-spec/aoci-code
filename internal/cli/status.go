@@ -90,6 +90,11 @@ func init() {
 					Msg:  err.Error(),
 				}
 			}
+			if deep {
+				if err := requireLegacyLayout(root, cfg, false); err != nil {
+					return &ExitError{Code: ExitConfig, Err: err}
+				}
+			}
 
 			paths := config.AOCIPaths(
 				root,

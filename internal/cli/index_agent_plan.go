@@ -98,10 +98,6 @@ func newIndexAgentPlanCmd() *cobra.Command {
 					Err:  err,
 				}
 			}
-			if err := guardPendingEntriesForAgent(repoRoot); err != nil {
-				return &ExitError{Code: ExitInvalid, Err: err}
-			}
-
 			document, indexPath, err := loadIndexForCLI(
 				cmd,
 				repoRoot,
@@ -112,6 +108,9 @@ func newIndexAgentPlanCmd() *cobra.Command {
 					Code: ExitConfig,
 					Err:  err,
 				}
+			}
+			if err := guardPendingEntriesForAgent(repoRoot); err != nil {
+				return &ExitError{Code: ExitInvalid, Err: err}
 			}
 
 			plan, err := buildAgentPlan(
