@@ -21,8 +21,14 @@ SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env G
 # staticcheck 可执行文件探测: 优先 PATH,其次 GOPATH/bin(go install 默认装到此处)
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
 FAST_PACKAGES := $(shell $(GO_BIN) list ./... | grep -v '/internal/cli$$')
+HOST_OS := $(shell uname -s 2>/dev/null || echo unknown)
+ifeq ($(HOST_OS),Darwin)
+GO_TEST_ENV := TMPDIR=/private/tmp
+else
+GO_TEST_ENV :=
+endif
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps licenses textassets-check staticcheck self-governance check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -30,11 +36,11 @@ build:
 
 # 全量测试(-count=1 禁用测试缓存 —— 缓存曾掩盖默认值变更引发的回归,审查纪律)
 test:
-	$(GO_BIN) test ./... -count=1
+	$(GO_TEST_ENV) $(GO_BIN) test ./... -count=1
 
 # 独立示例仓包含自己的go.mod，不会被根模块./...自动覆盖。
 example-test:
-	cd examples/minimal-repository && $(GO_BIN) test ./... -count=1
+	cd examples/minimal-repository && $(GO_TEST_ENV) $(GO_BIN) test ./... -count=1
 
 # 静态检查(官方 vet)
 vet:
@@ -49,14 +55,14 @@ fmt:
 fmt-check:
 	@UNFMT=$$($(GOFMT_BIN) -l .) || exit $$?; if [ -n "$$UNFMT" ]; then echo "fmt-check: 以下文件未通过 gofmt:"; echo "$$UNFMT"; exit 1; else echo "fmt-check: 全部文件符合 gofmt"; fi
 
-# 公开文案禁区扫描(D3 机器闸门;脚本未就位时提示跳过不失败)
+# 公开文案禁区扫描(D3 机器闸门)。缺少脚本是门禁损坏，必须失败。
 safety:
-	@if [ -f scripts/check-public-text.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh; else echo "safety: scripts/check-public-text.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh
 
 # 依赖方向硬校验(R17/D23 机器闸门): 确定性核心层禁止 import AI 编排层。
-# 脚本仅用 go list,零新增依赖;脚本未就位时提示跳过不失败。
+# 脚本仅用 go list,零新增依赖;缺少脚本是门禁损坏，必须失败。
 check-deps:
-	@if [ -f scripts/check-deps.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh; else echo "check-deps: scripts/check-deps.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh
 
 # 可达外部Go包许可证闸；工具由CI和发布排练固定安装，不进入go.mod。
 licenses:
@@ -65,7 +71,7 @@ licenses:
 # 嵌入文本发布闸：完整正式Locale、开发中Locale现有子集、变量与协议词、
 # 清单消费符号和重复事实源检测必须共同通过。
 textassets-check:
-	$(GO_BIN) test ./textassets -count=1
+	$(GO_TEST_ENV) $(GO_BIN) test ./textassets -count=1
 
 # 深度静态分析(五重归零第五重;开发期工具,不进 go.mod)。
 # Full Confidence要求固定工具已安装，禁止把缺少工具误报为通过。
@@ -86,8 +92,8 @@ fast: fmt-check
 	@echo "★ make fast passed (Tier 0 required gate) ★"
 
 fast-test:
-	$(GO_BIN) test -short -count=1 $(FAST_PACKAGES)
-	$(GO_BIN) test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestAlignedCleanGuideMatchesGoldenByteForByte|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestEntriesAutoCleanupFailureRetryOnlyCompletesRecovery|TestHeaderApplyKeepsRecoveryWhenCASWritesThenReturnsError|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt|TestAgentPlanIDIgnoresOnlyVolatileExcludedRuntimeCounts)$$' ./internal/cli
+	$(GO_TEST_ENV) $(GO_BIN) test -short -count=1 $(FAST_PACKAGES)
+	$(GO_TEST_ENV) $(GO_BIN) test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestAlignedCleanGuideMatchesGoldenByteForByte|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestEntriesAutoCleanupFailureRetryOnlyCompletesRecovery|TestHeaderApplyKeepsRecoveryWhenCASWritesThenReturnsError|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt|TestAgentPlanIDIgnoresOnlyVolatileExcludedRuntimeCounts)$$' ./internal/cli
 
 fast-builds:
 	@mkdir -p build
@@ -95,7 +101,7 @@ fast-builds:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast.exe ./cmd/aoci
 
 race:
-	$(GO_BIN) test -race -count=1 ./...
+	$(GO_TEST_ENV) $(GO_BIN) test -race -timeout=30m -count=1 ./...
 
 vuln:
 	@VULN=$$(command -v govulncheck 2>/dev/null || echo "$$($(GO_BIN) env GOPATH)/bin/govulncheck"); \
@@ -105,13 +111,19 @@ vuln:
 # The integration tests require the explicit temporary database environment.
 # An unconfigured local run reports skips; remote Full Confidence supplies both engines.
 database-integration:
-	$(GO_BIN) test -tags=integration -count=1 ./internal/dbevidence
+	$(GO_TEST_ENV) $(GO_BIN) test -tags=integration -count=1 ./internal/dbevidence
 
 clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
+# The repository's own formal cognition must agree with source and Baseline.
+# This consumes the freshly built binary and never repairs governance state.
+self-governance: build
+	build/aoci --repo . verify --json >/dev/null
+	build/aoci --repo . check --json >/dev/null
+
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: fmt-check vet check-deps licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: fmt-check vet check-deps licenses textassets-check test example-test staticcheck safety race vuln database-integration clean-room-smoke self-governance
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
 # Compatibility alias retained for existing operators and automation.
