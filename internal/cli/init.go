@@ -21,12 +21,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
+	"github.com/aoci-spec/aoci-code/internal/onboarding"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
 )
@@ -117,6 +119,7 @@ func init() {
 	var here bool
 	var locale string
 	var scopeProfile string
+	var cognitionMode string
 
 	command := &cobra.Command{
 		Use:   "init",
@@ -125,6 +128,12 @@ func init() {
 			cmd *cobra.Command,
 			args []string,
 		) error {
+			// The registered command is reused by in-process CLI tests. Keep this
+			// additive flag from leaking into a later invocation that omitted it.
+			defer func() { cognitionMode = initCognitionDefault }()
+			if err := validateInitCognitionMode(cognitionMode); err != nil {
+				return &ExitError{Code: ExitConfig, Msg: err.Error()}
+			}
 			if scopeProfile == "" {
 				scopeProfile = "production"
 			}
@@ -201,6 +210,16 @@ func init() {
 					Msg:  err.Error(),
 				}
 			}
+			switch cognitionMode {
+			case initCognitionProject:
+				if err := preflightProjectCognitionInit(root, cfg, agent, withHooks, locale); err != nil {
+					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				}
+			case initCognitionGeneric:
+				if err := preflightGenericCognitionInit(root, cfg); err != nil {
+					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				}
+			}
 			volumeLayout, layoutErr := activeVolumeLayout(root, cfg.IndexPath)
 			if layoutErr != nil {
 				return &ExitError{Code: ExitConfig, Msg: layoutErr.Error()}
@@ -216,13 +235,21 @@ func init() {
 				}
 			}
 
-			if !configExisted {
-				if setErr := cfg.SetAutomationMode(
-					config.AutomationModeAuto,
-				); setErr != nil {
-					return &ExitError{
-						Code: ExitConfig,
-						Err:  setErr,
+			initializeNewProjectGovernance := !configExisted ||
+				(cognitionMode == initCognitionProject && cfg.ManagedScope == nil && cfg.CognitionBudget == nil)
+			if initializeNewProjectGovernance {
+				// Only a truly new config receives the historical auto default.
+				// Project mode may safely complete missing Scope/Budget in an
+				// otherwise valid config-only repository, but it preserves any
+				// existing team automation choice.
+				if !configExisted {
+					if setErr := cfg.SetAutomationMode(
+						config.AutomationModeAuto,
+					); setErr != nil {
+						return &ExitError{
+							Code: ExitConfig,
+							Err:  setErr,
+						}
 					}
 				}
 				if governanceErr := cfg.SetNewProjectGovernance(scopeProfile); governanceErr != nil {
@@ -240,7 +267,9 @@ func init() {
 						"managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision")}
 				}
 
-				newRepositoryAutomationMessage = cliMessage("init.automation_default")
+				if !configExisted {
+					newRepositoryAutomationMessage = cliMessage("init.automation_default")
+				}
 			}
 
 			paths := config.AOCIPaths(
@@ -253,7 +282,7 @@ func init() {
 			var headerDictionaryMessage string
 			var minimalIndexContent string
 			var volumeAssets initialVolumeAssets
-			if !flagQuiet {
+			if !flagQuiet && cognitionMode != initCognitionProject {
 				nextStepMessage, err = initNextStepMessage()
 				if err != nil {
 					return err
@@ -272,25 +301,27 @@ func init() {
 			); err != nil {
 				return errors.New(cliMessage("init.agents_asset_error", err))
 			}
-			if _, statErr := os.Stat(paths.IndexPath); statErr != nil {
-				if !os.IsNotExist(statErr) {
-					return statErr
-				}
-				if !configExisted {
-					volumeAssets, err = renderInitialVolumeAssets(root)
-					if err != nil {
-						return err
+			if cognitionMode != initCognitionProject {
+				if _, statErr := os.Stat(paths.IndexPath); statErr != nil {
+					if !os.IsNotExist(statErr) {
+						return statErr
 					}
-				} else {
-					if !flagQuiet {
-						headerDictionaryMessage, err = initHeaderDictionaryMessage()
+					if !configExisted || cognitionMode == initCognitionGeneric {
+						volumeAssets, err = renderInitialVolumeAssets(root)
 						if err != nil {
 							return err
 						}
-					}
-					minimalIndexContent, err = renderMinimalIndex(root)
-					if err != nil {
-						return err
+					} else {
+						if !flagQuiet {
+							headerDictionaryMessage, err = initHeaderDictionaryMessage()
+							if err != nil {
+								return err
+							}
+						}
+						minimalIndexContent, err = renderMinimalIndex(root)
+						if err != nil {
+							return err
+						}
 					}
 				}
 			}
@@ -322,7 +353,7 @@ func init() {
 					newRepositoryAutomationMessage,
 				)
 			}
-			if scopeProposal != nil {
+			if scopeProposal != nil && cognitionMode != initCognitionProject {
 				outputLines = append(outputLines, cliMessage("init.scope_proposal", scopeProposal.GitTracked,
 					scopeProposal.NewSourceFiles, scopeProposal.IndexObjects, scopeProposal.ObserveObjects,
 					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
@@ -333,12 +364,14 @@ func init() {
 
 			skeletonCreated := false
 
-			if _, statErr := os.Stat(
+			if cognitionMode == initCognitionProject {
+				outputLines = append(outputLines, cliMessage("init.project_cognition_deferred"))
+			} else if _, statErr := os.Stat(
 				paths.IndexPath,
 			); statErr == nil {
 				outputLines = append(outputLines, cliMessage("init.existing_skip", cfg.IndexPath))
 			} else {
-				if !configExisted {
+				if !configExisted || cognitionMode == initCognitionGeneric {
 					postimages, initErr := initializeVolumeFirst(root, cfg.IndexPath, volumeAssets)
 					if initErr != nil {
 						return initErr
@@ -347,6 +380,9 @@ func init() {
 						expectedPostimages[path] = fingerprint
 					}
 					outputLines = append(outputLines, cliMessage("init.skeleton_created", "aoci.txt, aoci.meta.txt, aoci.code.txt"))
+					if cognitionMode == initCognitionGeneric {
+						outputLines = append(outputLines, cliMessage("init.generic_cognition_selected"))
+					}
 				} else {
 					if writeErr := hooks.BackupThenWrite(paths.IndexPath, []byte(minimalIndexContent)); writeErr != nil {
 						return writeErr
@@ -479,12 +515,53 @@ func init() {
 				}
 			}
 
+			if scopeProposal != nil && cognitionMode == initCognitionProject {
+				// Host integration files are part of the exact Fresh Plan inventory.
+				// Recompute the user-visible proposal after those files exist so its
+				// counts describe the same repository state Onboarding will bind.
+				evaluation, evaluationErr := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
+					WalkOptions: cfg.WalkOptions(), CurationExclude: cfg.CurationExclude})
+				if evaluationErr != nil {
+					return &ExitError{Code: ExitConfig, Err: evaluationErr}
+				}
+				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
+				if proposal.RequiresHumanApproval {
+					return &ExitError{Code: ExitConfig, Err: fmt.Errorf(
+						"managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision")}
+				}
+				scopeProposal = &proposal
+				outputLines = append(outputLines, cliMessage("init.scope_proposal", scopeProposal.GitTracked,
+					scopeProposal.NewSourceFiles, scopeProposal.IndexObjects, scopeProposal.ObserveObjects,
+					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
+					scopeProposal.RequiredHumanDecisions, scopeProposal.LargestDirectories))
+			}
+
 			beforeInitBaselineAdvance()
 			if baselineNote := advanceInitBaseline(root, expectedPostimages); baselineNote != "" {
 				outputLines = append(
 					outputLines,
 					baselineNote,
 				)
+			}
+
+			if cognitionMode == initCognitionProject {
+				onboardingLocale := textassets.ActiveLocale()
+				if locale != "" {
+					onboardingLocale = locale
+				}
+				session, startErr := onboarding.Start(root, onboardingLocale, time.Now())
+				if startErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: startErr.Error()}
+				}
+				outputLines = append(outputLines, cliMessage(
+					"init.project_onboarding_started",
+					session.OnboardingSessionID,
+					session.NextAction,
+				))
+				outputLines = append(outputLines, cliMessage(
+					"init.project_onboarding_continue",
+					initProjectOnboardingCommand(root, session.NextAction),
+				))
 			}
 
 			if !flagQuiet {
@@ -497,8 +574,10 @@ func init() {
 					)
 				}
 
-				fmt.Println(nextStepMessage)
-				fmt.Println(fullIndexMessage)
+				if cognitionMode != initCognitionProject {
+					fmt.Println(nextStepMessage)
+					fmt.Println(fullIndexMessage)
+				}
 
 				if skeletonCreated {
 					fmt.Println(headerDictionaryMessage)
@@ -535,6 +614,13 @@ func init() {
 		"scope-profile",
 		"production",
 		cliMessage("cli.flag.init_scope_profile"),
+	)
+
+	command.Flags().StringVar(
+		&cognitionMode,
+		"cognition",
+		initCognitionDefault,
+		cliMessage("cli.flag.init_cognition"),
 	)
 
 	command.Flags().BoolVar(

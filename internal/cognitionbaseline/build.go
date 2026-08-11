@@ -13,12 +13,43 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
 
 func BuildVolumePostimage(root string, plan *cognitionplan.Plan, projected *cognition.Set, assets map[string]cognitionplan.CandidateAsset, timestamp string) (*baseline.Baseline, []baseline.DatabaseCognitionBinding, error) {
 	files := map[string]baseline.Fingerprint{}
-	if _, hasCode := assets["code"]; hasCode {
+	_, hasCode := assets["code"]
+	initialEvidence, hasInitialManagedScope, err := cognitionplan.InitialManagedScopeEvidenceFromPlan(plan)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := cognitionplan.ValidateInitialManagedScopeTargets(plan); err != nil {
+		return nil, nil, err
+	}
+	if hasInitialManagedScope {
+		if err := cognitionplan.ValidateExternalGuards(root, plan); err != nil {
+			return nil, nil, fmt.Errorf("cognition_initial_managed_scope_guard_invalid: %w", err)
+		}
+		for _, object := range plan.Inventory {
+			if object.ScopeRole != machinecontract.ScopeRoleIndex && object.ScopeRole != machinecontract.ScopeRoleObserve {
+				continue
+			}
+			path := filepath.Join(root, filepath.FromSlash(object.Path))
+			info, err := os.Lstat(path)
+			if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+				return nil, nil, fmt.Errorf("cognition_source_guard_invalid: %s", object.Path)
+			}
+			fingerprint, err := baseline.HashFile(path)
+			if err != nil || fingerprint.SHA256 != object.SourceSHA256 {
+				return nil, nil, fmt.Errorf("cognition_source_guard_drift: %s", object.Path)
+			}
+			fingerprint.Role = object.ScopeRole
+			files[object.Path] = fingerprint
+		}
+	} else if hasCode {
 		for _, object := range plan.Inventory {
 			if !object.Eligible {
 				continue
@@ -34,6 +65,8 @@ func BuildVolumePostimage(root string, plan *cognitionplan.Plan, projected *cogn
 			}
 			files[object.Path] = fingerprint
 		}
+	}
+	if hasCode {
 		files["aoci.code.txt"] = baseline.HashBytes("aoci.code.txt", []byte(assets["code"].Content))
 		if plan.Mapping != nil {
 			for _, record := range plan.Mapping.Records {
@@ -80,6 +113,23 @@ func BuildVolumePostimage(root string, plan *cognitionplan.Plan, projected *cogn
 	value, err := baseline.NewBaselineAt(files, timestamp)
 	if err != nil {
 		return nil, nil, err
+	}
+	if hasInitialManagedScope {
+		cfg, configErr := config.LoadReadOnly(root)
+		if configErr != nil {
+			return nil, nil, fmt.Errorf("cognition_initial_managed_scope_configuration_invalid")
+		}
+		state, stateErr := managedstate.EvaluateInitial(root, cfg)
+		if stateErr != nil {
+			return nil, nil, fmt.Errorf("cognition_initial_managed_scope_evaluation_invalid: %w", stateErr)
+		}
+		receipt, receiptErr := managedstate.InitialBaselineReceipt(cfg, state)
+		if receiptErr != nil || receipt.PolicyIdentity != initialEvidence.PolicyIdentity ||
+			receipt.BudgetPolicyIdentity != initialEvidence.BudgetPolicyIdentity ||
+			receipt.ObserveChangePolicy != initialEvidence.ObserveChangePolicy {
+			return nil, nil, fmt.Errorf("cognition_initial_managed_scope_receipt_mismatch")
+		}
+		value.ManagedScope = receipt
 	}
 	for _, binding := range bindings {
 		if err := baseline.UpdateDatabaseCognitionBinding(value, binding); err != nil {

@@ -51,6 +51,20 @@ type Manifest struct {
 }
 
 func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
+	return build(repositoryRoot, generatedAt, nil)
+}
+
+// BuildWithInitialManagedState consumes the exact desired-policy evaluation
+// already produced for Fresh Bootstrap. Ordinary callers continue through
+// Build and therefore still require an active Baseline receipt.
+func BuildWithInitialManagedState(repositoryRoot, generatedAt string, state *managedstate.State) (*Manifest, error) {
+	if state == nil || state.Evaluation == nil || state.ScopeChangeRequired {
+		return nil, fmt.Errorf("business_source_initial_managed_scope_invalid")
+	}
+	return build(repositoryRoot, generatedAt, state)
+}
+
+func build(repositoryRoot, generatedAt string, initialManagedState *managedstate.State) (*Manifest, error) {
 	root, err := filepath.Abs(repositoryRoot)
 	if err != nil {
 		return nil, fmt.Errorf("business_source_repository_invalid")
@@ -75,9 +89,13 @@ func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 	}
 	formal := map[string]bool{"aoci.txt": true, "aoci.meta.txt": true, "aoci.code.txt": true, "aoci.database.txt": true}
 	if cfg.ManagedScope != nil || cfg.CognitionBudget != nil {
-		state, stateErr := managedstate.Load(root, cfg)
-		if stateErr != nil {
-			return nil, fmt.Errorf("business_source_managed_scope_invalid: %w", stateErr)
+		state := initialManagedState
+		if state == nil {
+			var stateErr error
+			state, stateErr = managedstate.Load(root, cfg)
+			if stateErr != nil {
+				return nil, fmt.Errorf("business_source_managed_scope_invalid: %w", stateErr)
+			}
 		}
 		if state.ScopeChangeRequired {
 			return nil, fmt.Errorf("business_source_scope_change_required")

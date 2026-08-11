@@ -47,7 +47,38 @@ type Plan struct {
 }
 
 type Submission struct {
-	ObjectRef    string
-	CandidateID  string
-	SourceSHA256 string
+	CandidateIndex int
+	ObjectRef      string
+	CandidateID    string
+	SourceSHA256   string
+}
+
+// SubmissionIssue identifies one exact caller-owned binding that differs from
+// the current machine-issued Code batch. It contains no authored semantics and
+// is safe to expose as a zero-write repair diagnostic.
+type SubmissionIssue struct {
+	CandidateIndex int
+	Path           string
+	ObjectRef      string
+	Field          string
+	Expected       string
+	Actual         string
+	Code           string
+}
+
+// SubmissionError preserves structured Code batch binding evidence across the
+// codebatch/mcptools boundary. BatchID issues are top-level request repairs;
+// candidate issues identify the original 1-based submitted entry.
+type SubmissionError struct {
+	Code            string
+	ExpectedBatchID string
+	ActualBatchID   string
+	Issues          []SubmissionIssue
+}
+
+func (e *SubmissionError) Error() string {
+	if e == nil || e.Code == "" {
+		return "code_candidate_submission_mismatch"
+	}
+	return e.Code
 }

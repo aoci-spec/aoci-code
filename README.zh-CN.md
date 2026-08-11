@@ -116,21 +116,19 @@ AI Agent 应识别当前项目根目录、使用已构建二进制的稳定绝�
 
 ```bash
 AOCI=/absolute/path/to/aoci-code/build/aoci
-"$AOCI" --repo . init --locale zh-CN --agent codex
-"$AOCI" --repo . scan
+"$AOCI" --repo . init --locale zh-CN --agent codex --cognition project
 ```
 
-`init` 会写入 Locale 配置、托管的 `AGENTS.md` 规则区块、Git 边界以及语义为空的最小认知骨架；不同宿主的配置或提示方式并不相同，详见“宿主集成”。它不会根据文件名、目录或 AST 伪造业务语义。
+project 模式会写入 Locale 配置、初始治理策略、托管的 `AGENTS.md` 规则区块、Git 边界并运行所选宿主适配器，随后在不写正式认知和 Baseline 的前提下启动 Fresh Onboarding。继续执行 `init` 输出的准确 Onboarding next action；模型会在 Root-last 激活前作者化项目 Root、Meta 标签字典和 Entries。不同宿主的配置或提示方式详见“宿主集成”。
 
-对于全新仓库，首次 `scan` 会建立 Managed Baseline。对于已经拥有受治理 Baseline 的项目，新增、移除或改变受管范围应进入正式 Scope Change 流程，而不是把 `scan --force` 当作重新定义治理事实的捷径；`--force` 也不能洗掉未解决的漂移、Receipt 或 Recovery 边界。
+Bootstrap 事务会建立首个 Managed Baseline。固定通用兼容路线仍可通过显式 `--cognition generic` 后执行 `scan` 使用。对于已经拥有受治理 Baseline 的项目，新增、移除或改变受管范围应进入正式 Scope Change 流程，而不是把 `scan --force` 当作重新定义治理事实的捷径；`--force` 也不能洗掉未解决的漂移、Receipt 或 Recovery 边界。
 
 <details>
 <summary>Windows PowerShell</summary>
 
 ```powershell
 $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
-& $Aoci --repo . init --locale zh-CN --agent codex
-& $Aoci --repo . scan
+& $Aoci --repo . init --locale zh-CN --agent codex --cognition project
 ```
 
 请确认 `$Aoci` 指向稳定的绝对路径。
@@ -222,7 +220,7 @@ aoci.database.txt           Database：可选的表级认知；默认不存在
 └── ...                     草稿、Ledger、事务与恢复证据，通常不进入 Git
 ```
 
-新项目初始化时会创建 Volume Root、Meta 和一个空的 Code Volume；Database 默认不存在。AOCI-CODE 不会自动生成仓库业务语义或 Database 语义。
+项目 Fresh Bootstrap 完成后，仓库会包含模型作者化的 Root、项目专属 Meta 标签字典和 Code Volume；只有选用了已接受的数据库 Evidence 时才会包含 Database。显式 generic 初始化则会在首次 scan 前创建固定 Root、Meta 和空 Code 起始资产。
 
 
 ## 一次完整开发任务如何运行
@@ -397,6 +395,8 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 `aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置且不安装 Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效，后续任务会复用当前认知，不会机械地重复注入整个索引。
 
+新项目推荐使用 `--cognition project`：先运行所选宿主适配器，再启动现有 Fresh Onboarding，由模型作者化项目专属 Root、Meta 标签字典和 Entries，最后通过既有 Root-last 事务首次激活。该 Bootstrap 完成前不要运行 `aoci scan`。省略该参数保持既有 init 兼容行为；可在未触碰的新仓库中直接使用 `--cognition generic`，或在批准前安全中止 Fresh Session 后用它显式选择信息密度较低的固定起始模板。
+
 | 宿主 | 当前接入方式 | 边界 |
 | --- | --- | --- |
 | **Codex** | 项目级 stdio MCP 配置 | 不依赖文件编辑 Hook |
@@ -406,10 +406,10 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 | **其他 MCP Host** | 连接标准 stdio Server | 需要手工配置并完成宿主专项验证 |
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent codex
-aoci --repo /absolute/path/to/repository init --agent claude --hooks
-aoci --repo /absolute/path/to/repository init --agent opencode
-aoci --repo /absolute/path/to/repository init --agent cursor
+aoci --repo /absolute/path/to/repository init --agent codex --cognition project
+aoci --repo /absolute/path/to/repository init --agent claude --hooks --cognition project
+aoci --repo /absolute/path/to/repository init --agent opencode --cognition project
+aoci --repo /absolute/path/to/repository init --agent cursor --cognition project
 ```
 
 旧版输出保留 Level 0—4，用于兼容既有宿主和报告。当前 `cognition-state/v2` 将“模型认知可用度”表达为 Level 0—3，并把严格证明和治理事实拆成独立维度：
@@ -428,8 +428,9 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 
 | 命令 | 用途 |
 | --- | --- |
-| `aoci init` | 安装仓库合同和不含业务语义的初始 Volumes 布局 |
-| `aoci scan` | 为首次接入建立 Baseline；已有 Managed Baseline 的范围变化进入 Scope Change |
+| `aoci init --cognition project` | 安装项目接入并启动模型作者化的 Fresh Root/Meta/Entry 流程，不预建 Baseline |
+| `aoci init --cognition generic` | 显式安装固定通用起始模板，随后走普通首次 scan |
+| `aoci scan` | 为通用首次接入建立 Baseline；项目认知模式由 Bootstrap 创建首个 Baseline |
 | `aoci status --deep` | 仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线 |
 | `aoci verify` | 报告 Missing、Orphan、Stale 和 Unbaselined 事实 |
 | `aoci check` | 运行聚合治理门禁 |
@@ -440,7 +441,7 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 | `aoci database source access` | 只读检查数据库凭据引用是否已由外部环境提供，不返回凭据值 |
 | `aoci database cognition bootstrap` | 为已对齐的 Code-only Volumes 项目添加 Database Cognition |
 | `aoci cognition plan` | 只读预览 Bootstrap 或 Legacy-to-Volumes 迁移计划 |
-| `aoci cognition bootstrap` | 仅治理 Root 缺失或精确零 Entry 的兼容骨架；普通 fresh init 已创建 Code-only Volumes，成熟 Legacy 应使用 Migration |
+| `aoci cognition bootstrap` | 以 Root-last 顺序应用已批准的 Fresh 项目候选；显式 generic 初始化会直接激活固定的 Code-only Volumes 起始资产，成熟 Legacy 应使用 Migration |
 | `aoci cognition migration` | 治理 Legacy 迁移的快照、映射、批准、应用、恢复或回滚 |
 | `aoci cognition system lineage` | 派生重要认知对象的来源与绑定链 |
 | `aoci cognition system relations` | 派生当前正式 R 关系投影 |
@@ -452,9 +453,9 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 常用组合：
 
 ```bash
-# 初始化与首次 Baseline
-aoci --repo . init --locale zh-CN --agent codex
-aoci --repo . scan
+# 项目作者化初始化与首次 Baseline
+aoci --repo . init --locale zh-CN --agent codex --cognition project
+# 继续执行 init 输出的准确 cognition-onboard next action。
 
 # Cognition Volumes 的验证与治理门禁
 aoci --repo . verify --json

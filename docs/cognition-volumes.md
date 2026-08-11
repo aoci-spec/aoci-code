@@ -7,10 +7,15 @@ Volume fingerprints when it advances its owned business-source Baseline
 projection. See
 [`aoci-system-cognition-runtime-v1.txt`](../spec/public/aoci-system-cognition-runtime-v1.txt).
 
-Cognition Volumes v1 is additive. Fresh initialization now creates a semantic-
-free Code-only Volumes repository. Existing Legacy monolithic repositories
-remain supported and are not migrated automatically. Reads cover Root, Meta,
-Code, and model-authored Database table FRAS. The current contract lets the model submit deterministic
+Cognition Volumes v1 is additive. Recommended new-project integration uses
+`init --cognition project` to install policy and Agent rules and run the selected
+Host adapter first, then reuses the existing Fresh Bootstrap to author project-specific Root,
+Meta dictionaries, and Entries before Root-last activation. The existing fixed
+generic starter remains available through compatible no-mode init and explicit
+`--cognition generic`; it does not represent project-authored taxonomy. Existing
+Legacy monolithic repositories remain supported and are not migrated
+automatically. Reads cover Root, Meta, Code, and model-authored Database table
+FRAS. The current contract lets the model submit deterministic
 multi-object Code, Database, or mixed Code+Database batches within an already
 declared layout, using current source or accepted saved Evidence and the same
 existing governance transaction. Existing single-object inputs remain
@@ -28,7 +33,8 @@ It does not provide general Root/Meta editing or Volume Apply.
 
 ## Lifecycle command routing
 
-Fresh and existing Volumes repositories use the current Guide and ordinary
+After Fresh Bootstrap activates Volumes, and for existing Volumes repositories,
+maintenance uses the current Guide and ordinary
 no-argument `aoci_maintain`. The model authors the complete current
 machine-issued batch and submits it through `aoci_update_entry`; a successful
 non-final batch returns to Maintain, and the final batch closes with Verify,
@@ -154,9 +160,10 @@ body. Legacy keeps its no-argument call shape and Receipt v1.
 by scope. `aoci_get_entries` keeps Legacy/Code paths and adds Volume object
 references, including `database://source/namespace/table`.
 
-The Meta created by Volume-first `init` is the complete formal generic
-authoring authority (scheme A), not a structural placeholder that needs a
-project-specific Root/Meta authoring phase. Here “ready” means its protocol,
+The Meta created by compatible no-mode init or explicit `--cognition generic`
+is the complete formal generic authoring authority (scheme A), not a structural
+placeholder that needs a later project-specific Root/Meta authoring phase. Here
+“ready” means its protocol,
 compact Tag grammar, A/B/C/optional-D/E dictionaries, S quota authority,
 canonical relation rules, and a legal Code Entry example are complete and
 machine-parseable. Project semantics are still absent until the model authors

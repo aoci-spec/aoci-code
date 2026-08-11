@@ -42,6 +42,9 @@ func ValidateCandidate(repositoryRoot string, suppliedPlan *Plan, candidate *Lay
 	if current.Status != machinecontract.CognitionPlannerAuthoringRequired {
 		return nil, fmt.Errorf("planner_candidate_not_applicable: %s", current.Status)
 	}
+	if err := ValidateInitialManagedScopeTargets(current); err != nil {
+		return nil, err
+	}
 	preview := &Preview{
 		Version: machinecontract.CognitionLayoutPreviewV1, Operation: current.Operation,
 		Status: machinecontract.CognitionPlannerInvalid, PlanID: current.PlanID,

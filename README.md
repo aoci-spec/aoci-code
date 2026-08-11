@@ -122,21 +122,30 @@ To initialize AOCI yourself first, run the following from the target repository 
 
 ```bash
 AOCI=/absolute/path/to/aoci-code/build/aoci
-"$AOCI" --repo . init --locale en-US --agent codex
-"$AOCI" --repo . scan
+"$AOCI" --repo . init --locale en-US --agent codex --cognition project
 ```
 
-`init` writes the Locale configuration, the managed `AGENTS.md` rules block, Git boundaries, and a minimal cognition skeleton with no semantics. Configuration and prompting vary by host; see “Host Integration” for details. It does not fabricate business semantics from filenames, directories, or an AST.
+Project mode writes the Locale configuration, initial governance policy, the
+managed `AGENTS.md` rules block, Git boundaries, and the selected Host adapter,
+then starts Fresh Onboarding without writing formal cognition or a Baseline.
+Continue with the exact Onboarding next action printed by `init`; the model
+authors the project Root, Meta tag dictionary, and Entries before Root-last
+activation. Configuration and prompting vary by host; see “Host Integration”.
 
-For a new repository, the first `scan` establishes the Managed Baseline. For a project that already has a governed Baseline, adding, removing, or changing managed scope should go through the formal Scope Change workflow rather than treating `scan --force` as a shortcut for redefining governance facts. `--force` also cannot erase unresolved drift, Receipt, or Recovery boundaries.
+The Bootstrap transaction establishes the first Managed Baseline. The fixed
+generic compatibility path remains available through explicit
+`--cognition generic`, followed by `scan`. For a project that already has a
+governed Baseline, adding, removing, or changing managed scope should go through
+the formal Scope Change workflow rather than treating `scan --force` as a
+shortcut for redefining governance facts. `--force` also cannot erase unresolved
+drift, Receipt, or Recovery boundaries.
 
 <details>
 <summary>Windows PowerShell</summary>
 
 ```powershell
 $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
-& $Aoci --repo . init --locale en-US --agent codex
-& $Aoci --repo . scan
+& $Aoci --repo . init --locale en-US --agent codex --cognition project
 ```
 
 Confirm that `$Aoci` points to a stable absolute path.
@@ -228,7 +237,11 @@ aoci.database.txt           Database: optional table-level cognition; absent by 
 └── ...                     Drafts, Ledger, transactions, and recovery evidence; normally not committed to Git
 ```
 
-Initializing a new project creates the Volume Root, Meta, and an empty Code Volume; Database is absent by default. AOCI-CODE does not automatically generate repository business semantics or Database semantics.
+After project Fresh Bootstrap completes, the repository contains its
+model-authored Root, project-specific Meta tag dictionary, and Code Volume;
+Database is absent unless selected from accepted database Evidence. Explicit
+generic initialization instead creates the fixed Root, Meta, and empty Code
+starter before its first scan.
 
 
 ## How a complete development task runs
@@ -403,6 +416,14 @@ Code Volume, Database Volume, and Scope can evolve together, but they share one 
 
 `aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and does not install a Hook; Claude Code can install a `PreToolUse` Hook; OpenCode V1 receives a strict project-level `opencode.json`; Cursor only returns a reference configuration snippet and does not write project configuration. After configuration, check whether the current host session already exposes AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid, later tasks reuse current cognition instead of mechanically injecting the entire index again.
 
+For a new project, `--cognition project` runs the selected Host integration
+adapter first and then starts the existing Fresh Onboarding flow so the model authors the
+project-specific Root, Meta tag dictionary, and Entries before the first
+Root-last activation. Do not run `aoci scan` before that Bootstrap completes.
+Omitting the flag preserves existing init behavior; `--cognition generic`
+explicitly selects the fixed lower-information starter either directly in an
+untouched repository or after a safe pre-approval Fresh Session abort.
+
 | Host | Current integration | Boundary |
 | --- | --- | --- |
 | **Codex** | Project-level stdio MCP configuration | Does not depend on a file-editing Hook |
@@ -412,10 +433,10 @@ Code Volume, Database Volume, and Scope can evolve together, but they share one 
 | **Other MCP hosts** | Connect to the standard stdio Server | Require manual configuration and host-specific validation |
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent codex
-aoci --repo /absolute/path/to/repository init --agent claude --hooks
-aoci --repo /absolute/path/to/repository init --agent opencode
-aoci --repo /absolute/path/to/repository init --agent cursor
+aoci --repo /absolute/path/to/repository init --agent codex --cognition project
+aoci --repo /absolute/path/to/repository init --agent claude --hooks --cognition project
+aoci --repo /absolute/path/to/repository init --agent opencode --cognition project
+aoci --repo /absolute/path/to/repository init --agent cursor --cognition project
 ```
 
 Legacy output retains Levels 0–4 for compatibility with existing hosts and reports. The current `cognition-state/v2` expresses “model cognition usability” as Levels 0–3 and separates strict proof and governance facts into independent dimensions:
@@ -434,8 +455,9 @@ These dimensions do not substitute for one another. Attestation proves only deli
 
 | Command | Purpose |
 | --- | --- |
-| `aoci init` | Installs the repository contract and initial Volumes layout without business semantics |
-| `aoci scan` | Establishes the Baseline for first-time integration; scope changes under an existing Managed Baseline enter Scope Change |
+| `aoci init --cognition project` | Installs project integration and starts model-authored Fresh Root/Meta/Entry onboarding without a preliminary Baseline |
+| `aoci init --cognition generic` | Explicitly installs the fixed generic starter before its ordinary first scan |
+| `aoci scan` | Establishes the Baseline for generic first-time integration; project cognition mode creates it during Bootstrap |
 | `aoci status --deep` | Legacy-only deep status; not the Cognition Volumes maintenance route |
 | `aoci verify` | Reports Missing, Orphan, Stale, and Unbaselined facts |
 | `aoci check` | Runs the aggregated governance gate |
@@ -446,7 +468,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci database source access` | Read-only check of whether a database credential reference has been provided by the external environment; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
 | `aoci cognition plan` | Read-only preview of a Bootstrap or Legacy-to-Volumes migration plan |
-| `aoci cognition bootstrap` | Governs only a compatibility skeleton with a missing Root or exactly zero Entries; ordinary fresh init already creates Code-only Volumes, while a mature Legacy project should use Migration |
+| `aoci cognition bootstrap` | Applies an approved Fresh project candidate Root-last; explicit generic initialization activates the fixed Code-only Volumes starter directly, while a mature Legacy project should use Migration |
 | `aoci cognition migration` | Governs Legacy migration snapshots, mapping, approval, application, recovery, or rollback |
 | `aoci cognition system lineage` | Derives the origin and binding chain of important cognition objects |
 | `aoci cognition system relations` | Derives the current formal R-relationship projection |
@@ -458,9 +480,9 @@ These dimensions do not substitute for one another. Attestation proves only deli
 Common combinations:
 
 ```bash
-# Initialization and first Baseline
-aoci --repo . init --locale en-US --agent codex
-aoci --repo . scan
+# Project-authored initialization and first Baseline
+aoci --repo . init --locale en-US --agent codex --cognition project
+# Continue with the exact cognition-onboard next action printed by init.
 
 # Verification and governance gates for Cognition Volumes
 aoci --repo . verify --json

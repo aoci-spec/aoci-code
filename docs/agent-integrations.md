@@ -10,10 +10,17 @@ host session already exposes the AOCI tools. Refresh or reopen that project
 session only when it has not loaded the new server; hosts that support dynamic
 MCP reload do not require a blanket application restart.
 
+For a new project, add `--cognition project` to run the selected Host integration adapter
+before the existing Fresh Onboarding Plan is frozen. The current session can
+complete that CLI-governed authoring flow even when the newly written MCP
+configuration is not hot-loaded. After Bootstrap completes, verify the loaded
+server by actually calling `aoci_rules`; refresh or reopen only if that call is
+unavailable. Project mode must not run `aoci scan` before Bootstrap.
+
 ## Codex
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent codex
+aoci --repo /absolute/path/to/repository init --agent codex --cognition project
 ```
 
 This writes or extends project-level `.codex/config.toml`:
@@ -29,13 +36,13 @@ Review the repository before granting host trust. Codex integration does not ins
 ## Claude Code
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent claude
+aoci --repo /absolute/path/to/repository init --agent claude --cognition project
 ```
 
 This merges an `aoci` server into project `.mcp.json`. Add `--hooks` only if the optional Claude Code `PreToolUse` integration is desired:
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent claude --hooks
+aoci --repo /absolute/path/to/repository init --agent claude --hooks --cognition project
 ```
 
 The hook is a thin pre-write guard, not an AI Agent runtime and not a replacement governance flow.
@@ -43,7 +50,7 @@ The hook is a thin pre-write guard, not an AI Agent runtime and not a replacemen
 ## OpenCode V1
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent opencode
+aoci --repo /absolute/path/to/repository init --agent opencode --cognition project
 ```
 
 This creates or strictly merges the stable OpenCode V1 project configuration at
@@ -81,7 +88,7 @@ formats manually after reviewing the installed OpenCode version.
 ## Cursor
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent cursor
+aoci --repo /absolute/path/to/repository init --agent cursor --cognition project
 ```
 
 The current release candidate prints a reference `.cursor/mcp.json`
@@ -100,6 +107,23 @@ Cursor version before adding it manually:
 ```
 
 This limitation must remain visible in compatibility claims; a reference template is not native-host validation.
+
+## Explicit generic fallback
+
+Omitting `--cognition` preserves the existing init behavior for compatibility.
+The fixed starter may be selected directly in an untouched repository, or after
+a project-specific Fresh Session is safely aborted before approval or any
+formal transaction:
+
+```bash
+aoci --repo /absolute/path/to/repository cognition onboard abort
+aoci --repo /absolute/path/to/repository init --agent <host> --cognition generic
+aoci --repo /absolute/path/to/repository scan
+```
+
+An active Session, Baseline, formal cognition asset, approval artifact, pending
+transaction, or Recovery makes this fallback fail closed. Repairable authoring
+or copied machine-identity errors remain on the original Fresh Session.
 
 ## Deterministic offline mode
 

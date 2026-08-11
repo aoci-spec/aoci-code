@@ -174,10 +174,11 @@ Database candidate-receipt I/O diagnostics are stable machine codes and do not
 echo absolute filesystem paths. The pre-existing MCP cognition receipt still uses
 `runtime_repository_root` as repository identity.
 
-Fresh initialization creates Code-only Volumes, while existing Legacy and
-unconfigured projects retain their prior behavior and are never migrated
-implicitly. Code-only Volumes can add Database Cognition without Legacy
-Migration. `status --deep`, `index score`, and `index agent plan` remain
+Project Fresh Bootstrap or explicit generic initialization activates Code-only
+Volumes, while existing Legacy and unconfigured projects retain their prior
+behavior and are never migrated implicitly. Code-only Volumes can add Database
+Cognition without Legacy Migration. `status --deep`, `index score`, and
+`index agent plan` remain
 Legacy-only; Database Cognition authoring uses ordinary no-argument Maintain
 and the complete candidate batch described above. The MCP surface remains
 nine tools, ordinary Overview still delivers the complete requested scope, and

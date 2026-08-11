@@ -89,6 +89,14 @@ func localizeFRASCause(finding *cognition.RepairFinding) {
 		finding.Cause = writeMessage("entry.repair.cause.tag_dictionary")
 	case finding.RuleCode == "impact_candidate_duplicate":
 		finding.Cause = writeMessage("entry.repair.cause.duplicate")
+	case finding.RuleCode == "code_candidate_path_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.code_path")
+	case finding.RuleCode == "code_candidate_id_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.code_candidate_id")
+	case finding.RuleCode == "code_candidate_source_sha256_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.code_source_sha256")
+	case finding.RuleCode == "code_candidate_batch_id_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.code_batch_id")
 	}
 }
 
@@ -121,6 +129,14 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.tag")
 	case "impact_candidate_duplicate":
 		return writeMessage("entry.repair.action.duplicate")
+	case "code_candidate_path_mismatch":
+		return writeMessage("entry.repair.action.code_path")
+	case "code_candidate_id_mismatch":
+		return writeMessage("entry.repair.action.code_candidate_id")
+	case "code_candidate_source_sha256_mismatch":
+		return writeMessage("entry.repair.action.code_source_sha256")
+	case "code_candidate_batch_id_mismatch":
+		return writeMessage("entry.repair.action.code_batch_id")
 	default:
 		return writeMessage("entry.repair.action.candidate", finding.Field)
 	}
@@ -139,6 +155,9 @@ func repairRetryScope(findings []cognition.RepairFinding) []string {
 	seen := map[string]bool{}
 	result := []string{}
 	for _, finding := range findings {
+		if finding.Field == "code_batch_id" {
+			continue
+		}
 		identity := finding.CanonicalObjectIdentity
 		if identity == "" || seen[identity] {
 			continue

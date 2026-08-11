@@ -45,3 +45,20 @@ Compatibility
 Automation must consume JSON fields, schema versions, exit classes, and live
 capability output instead of parsing human prose. A public contract change that
 alters these surfaces requires matching compatibility tests.
+
+Initialization modes
+--------------------
+
+`aoci init --cognition project` is the new-project model-authored path. It
+installs configuration, initial Managed Scope and Budget policy, Agent rules,
+and runs the selected Host integration adapter (supported adapters write Host
+configuration; reference-only adapters retain their documented boundary),
+leaves formal cognition and Baseline absent,
+then starts the existing persistent Fresh Onboarding session. Its returned next
+action is authoritative; scan is not part of this pre-Bootstrap path.
+
+`aoci init --cognition generic` explicitly selects the fixed generic Volume
+starter. It fails closed when an Onboarding session has not been aborted, a
+Baseline or formal cognition asset exists, an approval artifact or pending
+transaction is present, or Recovery is pending. Omitting `--cognition`
+preserves the previous init behavior for compatibility.

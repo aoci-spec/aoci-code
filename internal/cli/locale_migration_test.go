@@ -338,10 +338,11 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 		message            string
 		hint               string
 		instruction        string
+		batchInstruction   string
 		runtimeInstruction string
 	}{
-		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "do not run the Legacy-only", "does not by itself prove a CLI/MCP version mismatch"},
-		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "不能单独证明CLI与MCP版本不一致"},
+		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "Do not run the Legacy-only", "code_batch_id must equal code_plan.batch_id", "does not by itself prove a CLI/MCP version mismatch"},
+		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "code_batch_id必须等于code_plan.batch_id", "不能单独证明CLI与MCP版本不一致"},
 	} {
 		if err := textassets.SetActiveLocale(current.locale); err != nil {
 			t.Fatal(err)
@@ -352,8 +353,9 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 		if got := cliMessage("mcp.error.volume_read_only_hint"); !strings.Contains(got, current.hint) {
 			t.Errorf("%s volume_read_only hint claimed an unproven runtime mismatch: %q", current.locale, got)
 		}
-		if got := cliMessage("guide.volumes_instruction_maintain"); !strings.Contains(got, current.instruction) {
-			t.Errorf("%s Volumes Guide did not reject the Legacy-only Plan path: %q", current.locale, got)
+		if got := cliMessage("guide.volumes_instruction_maintain"); !strings.Contains(got, current.instruction) ||
+			!strings.Contains(got, current.batchInstruction) {
+			t.Errorf("%s Volumes Guide lost the Code batch identity or Legacy-only Plan boundary: %q", current.locale, got)
 		}
 		if got := cliMessage("guide.volumes_instruction_runtime_identity"); !strings.Contains(got, current.runtimeInstruction) {
 			t.Errorf("%s Volumes Guide runtime instruction claimed an unproven version mismatch: %q", current.locale, got)

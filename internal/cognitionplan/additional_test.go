@@ -72,6 +72,151 @@ func TestManagedScopeOnboardingAuthorsOnlyIndexAndKeepsObserveAsEvidence(t *test
 	if !evidencePaths["src/main_test.go"] || evidencePaths["src/testdata/case.txt"] {
 		t.Fatalf("observe/exclude evidence selection invalid: %+v", plan.BusinessSourceManifest.OrderedPaths)
 	}
+	if _, present, err := InitialManagedScopeEvidenceFromPlan(plan); err != nil || present {
+		t.Fatalf("an already-receipted persisted plan was upgraded to Fresh project evidence: present=%t err=%v", present, err)
+	}
+	for _, task := range plan.AuthoringTasks[:2] {
+		if len(task.EvidenceRefs) != 0 {
+			t.Fatalf("legacy-compatible Root/Meta task identity changed: %+v", task)
+		}
+	}
+}
+
+func TestFreshInitialManagedScopeBindsProjectGovernanceAndRootMetaEvidence(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "src/main.go", "package main\n")
+	writeFile(t, root, "src/main_test.go", "package main\n")
+	writeFile(t, root, "src/testdata/case.txt", "fixture\n")
+	cfg := config.DefaultConfig()
+	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US", TargetKinds: []string{"code"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence, present, err := InitialManagedScopeEvidenceFromPlan(plan)
+	if err != nil || !present {
+		t.Fatalf("Fresh desired governance was not bound: evidence=%#v present=%t err=%v", evidence, present, err)
+	}
+	if evidence.PolicyIdentity == "" || evidence.BudgetPolicyIdentity == "" || evidence.AuthoringEvidenceIdentity == "" ||
+		evidence.IndexEvidenceIdentity == "" || evidence.ObserveEvidenceIdentity == "" || evidence.HighRiskOptInIdentity == "" {
+		t.Fatalf("initial Managed Scope evidence incomplete: %#v", evidence)
+	}
+	if evidence.ObserveChangePolicy != machinecontract.ObserveChangeReviewRequired {
+		t.Fatalf("production governance was not preserved: %#v", evidence)
+	}
+	inventory := map[string]InventoryObject{}
+	for _, object := range plan.Inventory {
+		inventory[object.Path] = object
+	}
+	if !inventory["src/main.go"].Eligible || inventory["src/main.go"].ScopeRole != machinecontract.ScopeRoleIndex {
+		t.Fatalf("Index role missing: %#v", inventory["src/main.go"])
+	}
+	if inventory["src/main_test.go"].Eligible || inventory["src/main_test.go"].ScopeRole != machinecontract.ScopeRoleObserve {
+		t.Fatalf("Observe role missing: %#v", inventory["src/main_test.go"])
+	}
+	if _, exists := inventory["src/testdata/case.txt"]; exists {
+		t.Fatal("Exclude role entered the authoring inventory")
+	}
+	for _, task := range plan.AuthoringTasks[:2] {
+		joined := strings.Join(task.EvidenceRefs, "\n")
+		for _, required := range []string{
+			"inventory:" + plan.InventoryIdentity,
+			"source-evidence:" + plan.SourceEvidenceIdentity,
+			"authoring-evidence:" + evidence.AuthoringEvidenceIdentity,
+			"managed-scope:" + evidence.PolicyIdentity,
+			"cognition-budget:" + evidence.BudgetPolicyIdentity,
+			"index-evidence:" + evidence.IndexEvidenceIdentity,
+			"observe-evidence:" + evidence.ObserveEvidenceIdentity,
+			"observe-change-policy:" + evidence.ObserveChangePolicy,
+			"high-risk-opt-in:" + evidence.HighRiskOptInIdentity,
+		} {
+			if !strings.Contains(joined, required) {
+				t.Fatalf("%s task lacks project evidence %q: %+v", task.TaskID, required, task.EvidenceRefs)
+			}
+		}
+	}
+	if got := plan.SemanticAuthoringRequirement.EvidenceBindingSHA256; got != SemanticAuthoringEvidenceBindingSHA256(plan) {
+		t.Fatalf("semantic provenance did not bind project evidence: %s", got)
+	}
+}
+
+func TestFreshInitialManagedScopeCannotActivateWithoutCodeTargets(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "main.go", "package main\n")
+	cfg := config.DefaultConfig()
+	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ValidateCandidate(root, plan, validCandidate(t, root, plan)); err == nil ||
+		!strings.Contains(err.Error(), "initial_managed_scope_code_target_required") {
+		t.Fatalf("Root/Meta-only Candidate could fingerprint unauthored Code objects: %v", err)
+	}
+}
+
+func TestFreshInitialManagedScopeDriftSupersedesPlanAndHighRiskReadFailsClosed(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, root, "main.go", "package main\n")
+	writeFile(t, root, "main_test.go", "package main\n")
+	cfg := config.DefaultConfig()
+	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US", TargetKinds: []string{"code"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := validCandidate(t, root, plan)
+
+	writeFile(t, root, "main_test.go", "package main\n// changed observed evidence\n")
+	preview, err := ValidateCandidate(root, plan, candidate)
+	if err != nil || preview.Status != machinecontract.CognitionPlannerSuperseded {
+		t.Fatalf("Observe drift did not supersede the Plan: preview=%#v err=%v", preview, err)
+	}
+
+	writeFile(t, root, "main_test.go", "package main\n")
+	cfg.CognitionBudget.WholeIndex.MaxTokens++
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	preview, err = ValidateCandidate(root, plan, candidate)
+	if err != nil || preview.Status != machinecontract.CognitionPlannerSuperseded {
+		t.Fatalf("Budget drift did not supersede the Plan: preview=%#v err=%v", preview, err)
+	}
+
+	cfg.CognitionBudget.WholeIndex.MaxTokens--
+	cfg.SafeInventoryHighRiskOptIn = []string{".env"}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	withoutSecret, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US", TargetKinds: []string{"code"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalEvidence, _, _ := InitialManagedScopeEvidenceFromPlan(plan)
+	highRiskEvidence, present, err := InitialManagedScopeEvidenceFromPlan(withoutSecret)
+	if err != nil || !present || highRiskEvidence.HighRiskOptInIdentity == originalEvidence.HighRiskOptInIdentity {
+		t.Fatalf("high-risk exception identity was not bound: evidence=%#v present=%t err=%v", highRiskEvidence, present, err)
+	}
+	writeFile(t, root, ".env", "TEST_ONLY_SECRET=must-not-be-read\n")
+	if _, err := BootstrapPlan(Options{RepositoryRoot: root, Locale: "en-US", TargetKinds: []string{"code"}}); err == nil ||
+		!strings.Contains(err.Error(), "managed_scope_high_risk_read_approval_required: .env") {
+		t.Fatalf("selected high-risk content did not fail closed before authoring: %v", err)
+	}
 }
 
 func TestPlanIdentityBindsBaselineCurationTargetAndCandidate(t *testing.T) {

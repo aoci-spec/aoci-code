@@ -101,6 +101,14 @@ current evidence, authors Root/Meta/tags/F/R/A/S using model judgment, supplies
 one Host-issued authoring_run_id, submits the exact v2 Completion declaration,
 and places the complete provenance receipt in Candidate v1.
 
+When project integration establishes Managed Scope and Budget policy before a
+Fresh Baseline exists, the Plan binds the exact initial policy, budget, Index
+and Observe evidence, high-risk opt-in, and authoring-evidence identities. The
+same existing Bootstrap transaction records those identities in the first
+Baseline. Excluded objects are not authored; Observe objects remain bound
+evidence without formal Entries. A policy, role, source, or Evidence change
+supersedes the Plan rather than silently changing the first governed snapshot.
+
 The Host must not ask the program to infer semantics or treat paths, AST,
 imports, Schema, regular expressions, frameworks, fixtures, or templates as a
 model-authored result. AOCI computes Plan, Evidence, Batch, and Candidate
