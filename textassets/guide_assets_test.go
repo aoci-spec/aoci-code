@@ -52,6 +52,24 @@ func TestMustRenderRemovesOneTerminalNewline(
 	}
 }
 
+func TestAlignedCleanGuideStaysWithinCognitionBoundary(t *testing.T) {
+	for _, locale := range []string{DefaultLocale, LegacyLocale} {
+		text, err := Load(locale, ContractGuideAlignedCleanInstructions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
+		if len(lines) != 2 {
+			t.Fatalf("%s aligned-clean Guide must contain exactly two cognition instructions: %q", locale, text)
+		}
+		for _, removed := range []string{"Fast", "Full Confidence", "Release Rehearsal"} {
+			if strings.Contains(text, removed) {
+				t.Fatalf("%s aligned-clean Guide retains general development method %q", locale, removed)
+			}
+		}
+	}
+}
+
 func TestRenderLinesPreservesInstructionOrder(
 	t *testing.T,
 ) {

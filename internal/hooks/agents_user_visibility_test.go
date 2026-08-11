@@ -1,4 +1,4 @@
-// 普通开发任务的宿主组合沟通合同测试。
+// AGENTS不复制通用开发沟通方法的物化合同测试。
 package hooks
 
 import (
@@ -7,41 +7,38 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-var ordinaryUserCommunicationAnchors = map[string][]string{
+var removedAgentsCommunicationMethods = map[string][]string{
 	textassets.LegacyLocale: {
-		"普通任务", "需求理解", "源码", "实现", "测试", "风险", "工作树状态",
-		"默认不主动展开", "用户主动询问", "真实阻断", "冲突", "审批", "人工裁决",
-		"安全风险", "必须如实说明必要事实",
+		"用户可见沟通应聚焦",
+		"需求理解、源码调查、实现、测试、风险",
 	},
 	textassets.DefaultLocale: {
-		"ordinary task", "understanding the request", "source investigation", "implementation",
-		"tests", "risks", "worktree state", "Do not proactively narrate", "When the user asks",
-		"real blocker", "conflict", "approval", "human decision", "safety risk",
-		"report the necessary facts accurately",
+		"User-visible communication for an ordinary task should focus",
+		"understanding the request, source investigation, implementation, tests, risks",
 	},
 }
 
-func assertOrdinaryUserCommunicationContract(t *testing.T, locale, name, text string) {
+func assertAgentsOmitsGeneralCommunicationMethods(
+	t *testing.T,
+	locale,
+	text string,
+) {
 	t.Helper()
-
-	anchors, exists := ordinaryUserCommunicationAnchors[locale]
+	removed, exists := removedAgentsCommunicationMethods[locale]
 	if !exists {
-		t.Fatalf("missing explicit user-communication assertions for %s", locale)
+		t.Fatalf("missing explicit removed communication methods for %s", locale)
 	}
-	for _, anchor := range anchors {
-		if !strings.Contains(text, anchor) {
-			t.Fatalf("%s %s contract is missing ordinary user-communication meaning %q:\n%s", locale, name, anchor, text)
+	for _, phrase := range removed {
+		if strings.Contains(text, phrase) {
+			t.Fatalf("%s AGENTS still carries general communication method %q", locale, phrase)
 		}
 	}
 }
 
-// TestComposedHostContractsKeepInternalWorkOutOfOrdinaryMessages通过真实的
-// AGENTS物化和aoci_rules构建管线分别核对三个宿主合同的稳定语义。
-func TestComposedHostContractsKeepInternalWorkOutOfOrdinaryMessages(t *testing.T) {
+func TestAgentsContractsOmitGeneralUserCommunicationMethods(t *testing.T) {
 	for _, locale := range []string{textassets.DefaultLocale, textassets.LegacyLocale} {
 		t.Run(locale, func(t *testing.T) {
 			previous := textassets.ActiveLocale()
@@ -54,27 +51,11 @@ func TestComposedHostContractsKeepInternalWorkOutOfOrdinaryMessages(t *testing.T
 			if _, err := EnsureAgentsBlock(root); err != nil {
 				t.Fatal(err)
 			}
-			agentsData, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+			data, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 			if err != nil {
 				t.Fatal(err)
 			}
-			runtimeRules, err := index.BuildRuntimeRules(nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			assertOrdinaryUserCommunicationContract(t, locale, "installed AGENTS", string(agentsData))
-			assertOrdinaryUserCommunicationContract(t, locale, "aoci_rules", runtimeRules)
-			combined := string(agentsData) + "\n" + runtimeRules
-			for _, obsolete := range []string{
-				"最终报告必须把业务文件和 AOCI 托管资产分开列出",
-				"最终报告须分开列出",
-				"the final report must list business files and AOCI-managed assets separately",
-			} {
-				if strings.Contains(combined, obsolete) {
-					t.Fatalf("%s host contracts require proactive internal-asset narration %q", locale, obsolete)
-				}
-			}
+			assertAgentsOmitsGeneralCommunicationMethods(t, locale, string(data))
 		})
 	}
 
@@ -84,6 +65,7 @@ func TestComposedHostContractsKeepInternalWorkOutOfOrdinaryMessages(t *testing.T
 	}
 	locale := configuredRepositoryLocaleForTest(t)
 	assertAgentsManagedStructure(t, string(repositoryData))
+	assertAgentsOmitsGeneralCommunicationMethods(t, locale, string(repositoryData))
 	want := strings.TrimRight(loadAgentsAssetForLocaleForTest(t, locale), "\n")
 	if got := managedAgentsBlockForTest(t, string(repositoryData)); got != want {
 		t.Fatalf("repository AGENTS managed block does not match configured %s asset", locale)

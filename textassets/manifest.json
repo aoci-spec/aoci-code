@@ -16,8 +16,6 @@
       "protocol_tokens": [
         "aoci_rules",
         "aoci_overview",
-        "aoci_get_entries",
-        "aoci_search",
         "aoci_header",
         "aoci_maintain",
         "aoci_update_entry",
@@ -64,9 +62,11 @@
       ],
       "locale_anchors": {
         "zh-CN": [
-          "Codex Memory和历史Skill只能辅助",
           "不能替代匹配当前AOCI身份的认知收据",
-          "项目AGENTS、当前AOCI身份、源码和运行事实优先",
+          "该结果保留已交付认知的实际scope和状态",
+          "只有current_system_cognition_reliable=true允许无保留地声称当前完整系统认知可靠",
+          "aoci_maintain只用于已建立索引的增量维护",
+          "只在当前布局和工具返回状态支持时使用 aoci_report",
           "Prompt只约束模型语义生成",
           "机器数值、词表与集合只由当前编译版本的internal/machinecontract提供"
         ]
