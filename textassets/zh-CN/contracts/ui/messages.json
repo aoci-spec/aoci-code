@@ -870,6 +870,8 @@
   "entry.transaction.hint.recover_header": "先用原Header run完成Baseline/Application恢复，再重试当前治理批次",
   "cli.update_entry.path_required": "--path必填，且必须是目标文件的仓库相对路径",
   "cli.update_entry.stdin_failed": "读取stdin失败: %v",
+  "cli.update_entry.stdin_too_large": "stdin Entry超过上限%d字节",
+  "cli.update_entry.stdin_conflict": "--entry与--stdin不能同时使用",
   "cli.update_entry.entry_empty": "条目内容为空：用--entry提供，或用--stdin从标准输入读取",
   "cli.update_entry.source_sha_invalid": "--source-sha256必须是aoci_maintain返回的64位源码指纹",
   "cli.update_entry.hint_prefix": "建议: ",

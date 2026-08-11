@@ -1,1 +1,1 @@
-List files that exist on disk but have no Entry in the formal index, including their profiles. Runs offline.
+List files that exist on disk but have no Entry in the formal index, including their profiles. Runs offline. This command is Legacy-only. Cognition Volumes use Verify, Check, the current Guide, and no-argument aoci_maintain.

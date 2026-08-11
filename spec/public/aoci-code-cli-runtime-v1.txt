@@ -29,6 +29,11 @@ One `--json` invocation emits at most one top-level business result or error
 envelope. Human-readable errors are written to stderr. The `aoci mcp` command
 uses a direct stdio protocol path described by the MCP runtime contract.
 
+`update-entry` accepts exactly one of `--entry` or `--stdin`. The stdin path
+uses the existing 16 MiB Entries request limit and consumes at most one byte
+beyond that limit to classify oversize input. Read failure or oversize input
+returns exit class 3 before Index, Baseline, transaction, or recovery writes.
+
 State and writes
 ----------------
 
@@ -45,6 +50,11 @@ Compatibility
 Automation must consume JSON fields, schema versions, exit classes, and live
 capability output instead of parsing human prose. A public contract change that
 alters these surfaces requires matching compatibility tests.
+
+`status --deep`, `index inventory`, `index score`, and `index agent plan` are
+Legacy-only and reject Cognition Volumes with exit class 3. Existing Legacy
+success behavior is unchanged. Volumes maintenance uses Verify, Check, the
+current Guide, and ordinary no-argument `aoci_maintain`.
 
 Initialization modes
 --------------------

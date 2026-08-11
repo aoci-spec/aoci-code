@@ -147,6 +147,16 @@ func TestCLIHelpAssetsKeepStableContracts(
 			},
 		},
 		{
+			id: ContractHelpIndexInventoryLong,
+			anchors: []string{
+				"Legacy",
+				"Verify",
+				"Check",
+				"Guide",
+				"aoci_maintain",
+			},
+		},
+		{
 			id: ContractHelpScanLong,
 			anchors: []string{
 				"SHA256",
