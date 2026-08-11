@@ -208,7 +208,7 @@ func newScopeExplainCmd() *cobra.Command {
 						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + category}
 				} else {
 					curated := containsScopePath(cfg.CurationExclude, rel)
-					item = managedscope.EvaluatePathWithCase(cfg.EffectiveManagedScope(), rel, false, false, curated, evaluation.CaseSensitive)
+					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), rel, false, curated)
 					item.GitStatus = "future_or_absent"
 				}
 			}

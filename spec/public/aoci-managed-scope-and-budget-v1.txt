@@ -36,7 +36,9 @@ forbidden reduction basis transport_constraint without parsing free-form
 reason text. The policy also owns
 count and percentage thresholds that remain risk facts for compatibility;
 reduction size alone is not an Auto approval gate. Paths are repository
-relative, slash-normalized, non-escaping, and deterministic. File, directory,
+relative, slash-normalized, non-escaping, case-sensitive under Git path-name
+semantics, and deterministic on every host filesystem. Safe Inventory rejects
+case-fold-colliding path names independently of rule matching. File, directory,
 and glob rules can match future paths. Stable last-match ordering applies within
 one source priority. The precedence is Safe Inventory hard denial, approved
 high-risk exact opt-in, user, exact Curation, profile, Git facts, then default.
@@ -176,3 +178,8 @@ tools. Volumes, Migration/Reversal, Database Evidence/Binding, Auto Onboarding,
 dual Locale, no-network core, and CGO-free builds retain their contracts.
 Ordinary Overview continues to deliver the complete formal Whole-Index; Scope,
 search, or chunks cannot substitute for it.
+
+The applied v2 identity retains the historical case-sensitive preimage. A
+project whose active identity was produced with the former host-dependent,
+case-insensitive behavior reports scope_change_required and migrates through
+the ordinary governed Scope transaction; it is never silently reinterpreted.

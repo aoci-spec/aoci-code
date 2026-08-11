@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -83,6 +85,40 @@ func runScopeCLI(t *testing.T, root string, args ...string) ([]byte, error) {
 	command.SetArgs(args)
 	err := command.Execute()
 	return output.Bytes(), err
+}
+
+func historicalCaseInsensitiveScopeIdentity(t *testing.T, root string) string {
+	t.Helper()
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{WalkOptions: cfg.WalkOptions()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	policyIdentity, err := managedscope.Identity(cfg.EffectiveManagedScope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.New()
+	for _, value := range []string{"managed-scope-applied-identity/v2", policyIdentity, evaluation.SafeInventory.RulesIdentity, "false"} {
+		_, _ = hash.Write([]byte(value))
+		_, _ = hash.Write([]byte{0})
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func setActiveScopeIdentity(t *testing.T, root, identity string) {
+	t.Helper()
+	value, exists, err := baseline.Load(root)
+	if err != nil || !exists || value.ManagedScope == nil {
+		t.Fatalf("load active Baseline: exists=%t err=%v value=%+v", exists, err, value)
+	}
+	value.ManagedScope.PolicyIdentity = identity
+	if err := baseline.Save(root, value); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestScopeStatusObservesTestsWithoutChangingWholeIndex(t *testing.T) {
@@ -278,6 +314,84 @@ func TestScopeRuleMutationRequiresRefreshWithoutIndexOrBaselineWrite(t *testing.
 	}
 	if status.Stage != "scope_change_required" || status.PolicyIdentityAligned || status.ObserveCount != 0 {
 		t.Fatalf("direct policy edit was not held for explicit Scope Change: %+v", status)
+	}
+}
+
+func TestHistoricalCaseInsensitiveIdentityRequiresScopeChangeWithoutWrites(t *testing.T) {
+	root := buildScopeCLIRepo(t)
+	legacyIdentity := historicalCaseInsensitiveScopeIdentity(t, root)
+	setActiveScopeIdentity(t, root, legacyIdentity)
+	indexBefore, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
+	baselineBefore, _ := os.ReadFile(filepath.Join(root, ".aoci", "baseline.json"))
+
+	output, err := runScopeCLI(t, root, "status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var status scopePolicyStatus
+	if err := json.Unmarshal(output, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.Stage != "scope_change_required" || status.PolicyIdentityAligned ||
+		status.ActivePolicyIdentity != legacyIdentity || status.DesiredPolicyIdentity == legacyIdentity {
+		t.Fatalf("historical case-insensitive identity was not held at Scope Change: %+v", status)
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, "aoci.txt")); !bytes.Equal(after, indexBefore) {
+		t.Fatal("identity mismatch changed Whole-Index")
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, ".aoci", "baseline.json")); !bytes.Equal(after, baselineBefore) {
+		t.Fatal("identity mismatch silently rewrote Baseline")
+	}
+}
+
+func TestHistoricalCaseInsensitiveIdentityMigratesThroughIdentityOnlyScopeApply(t *testing.T) {
+	root := buildScopeCLIRepo(t)
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetAutomationMode(config.AutomationModeAuto); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	legacyIdentity := historicalCaseInsensitiveScopeIdentity(t, root)
+	setActiveScopeIdentity(t, root, legacyIdentity)
+	indexBefore, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
+
+	candidates := scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{}}
+	preview, err := scopechange.Build(root, "2026-08-12T00:00:00Z", candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Plan.OldPolicyIdentity != legacyIdentity || preview.Plan.NewPolicyIdentity == legacyIdentity ||
+		len(preview.Plan.RoleChanges) != 0 || len(preview.Plan.EntryCreates) != 0 ||
+		len(preview.Plan.EntryUpdates) != 0 || len(preview.Plan.EntryRemoves) != 0 {
+		t.Fatalf("case-identity migration was not identity-only: %+v", preview.Plan)
+	}
+	if preview.IndexPostimage.PreimageSHA256 != preview.IndexPostimage.PostimageSHA256 ||
+		preview.BaselinePostimage.PreimageSHA256 == preview.BaselinePostimage.PostimageSHA256 {
+		t.Fatalf("identity-only migration selected the wrong formal postimages: index=%+v baseline=%+v", preview.IndexPostimage, preview.BaselinePostimage)
+	}
+	authorization, err := scopechange.NewPolicyBoundApproval(root, preview, "2026-08-12T00:01:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := scopechange.ApplyAuthorized(root, preview, nil, authorization)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != "applied" || result.PolicyIdentity != preview.Plan.NewPolicyIdentity {
+		t.Fatalf("identity-only Scope Apply did not complete: %+v", result)
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, "aoci.txt")); !bytes.Equal(after, indexBefore) {
+		t.Fatal("identity-only Scope Apply changed Whole-Index")
+	}
+	value, exists, err := baseline.Load(root)
+	if err != nil || !exists || value.ManagedScope == nil || value.ManagedScope.PolicyIdentity != preview.Plan.NewPolicyIdentity {
+		t.Fatalf("identity-only Scope Apply did not activate canonical identity: exists=%t err=%v value=%+v", exists, err, value)
 	}
 }
 

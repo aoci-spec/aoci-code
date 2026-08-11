@@ -152,6 +152,9 @@ func Match(rule Rule, rel string) bool {
 	return MatchWithCase(rule, rel, true)
 }
 
+// MatchWithCase is retained for callers that inspect legacy policy behavior.
+// Managed Scope Build always passes true because repository paths have stable,
+// case-sensitive Git semantics independent of the host filesystem.
 func MatchWithCase(rule Rule, rel string, caseSensitive bool) bool {
 	rel, err := fs.NormalizeRelPath(rel)
 	if err != nil || !rule.Enabled {
