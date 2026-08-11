@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
 )
@@ -38,6 +39,17 @@ func newCognitionBootstrapPlanCmd() *cobra.Command {
 			root, err := resolveRepoRoot()
 			if err != nil {
 				return plannerExitError(err)
+			}
+			cfg, err := config.LoadReadOnly(root)
+			if err != nil {
+				return plannerExitError(err)
+			}
+			route, active, routeErr := inspectActiveFreshRouteForCLI(root, cfg.IndexPath)
+			if routeErr != nil {
+				return activeFreshRouteInspectionExit(routeErr)
+			}
+			if active {
+				return activeFreshRouteExit(route)
 			}
 			if locale == "" {
 				locale = textassets.ActiveLocale()

@@ -20,9 +20,11 @@ const (
 )
 
 type ActiveAuthoringBatch struct {
-	BatchID       string   `json:"batch_id"`
-	TaskIDs       []string `json:"task_ids"`
-	EvidenceBytes int64    `json:"evidence_bytes"`
+	BatchID          string   `json:"batch_id"`
+	TaskIDs          []string `json:"task_ids"`
+	EvidenceBytes    int64    `json:"evidence_bytes"`
+	MaxObjects       int      `json:"max_objects,omitempty"`
+	MaxEvidenceBytes int64    `json:"max_evidence_bytes,omitempty"`
 }
 
 type DatabaseSourceProposal struct {
@@ -112,6 +114,10 @@ type AuthoringBatch struct {
 	NextAction                   string                                      `json:"next_action"`
 	SemanticGenerated            bool                                        `json:"semantic_generated"`
 	SemanticAuthoringRequirement *cognitionplan.SemanticAuthoringRequirement `json:"semantic_authoring_requirement,omitempty"`
+	PlanArtifact                 string                                      `json:"plan_artifact,omitempty"`
+	CompletionRequestTemplate    *Completion                                 `json:"completion_request_template,omitempty"`
+	CandidateDraftRequest        *CandidateDraftRequest                      `json:"candidate_draft_request,omitempty"`
+	NextActionContract           *NextActionContract                         `json:"next_action_contract,omitempty"`
 }
 
 type Completion struct {

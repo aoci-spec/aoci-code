@@ -464,6 +464,9 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
+				if routeResult := activeFreshRouteGuardResult(root); routeResult != nil {
+					return routeResult
+				}
 				if len(in.Entries) > 0 {
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
@@ -566,6 +569,9 @@ func handleMCPUpdateBatch(
 	input []updateEntryItemIn,
 	refreshSessions ...*cognitionRefreshSession,
 ) *mcp.CallToolResult {
+	if routeResult := activeFreshRouteGuardResult(root); routeResult != nil {
+		return routeResult
+	}
 	var refreshSession *cognitionRefreshSession
 	if len(refreshSessions) > 0 {
 		refreshSession = refreshSessions[0]
@@ -665,6 +671,9 @@ func handleMCPUpdateBatch(
 		}
 	}
 	if fail != nil {
+		if fail.OnboardingRoute != nil {
+			return failResult(fail)
+		}
 		status := autoStatusStopped
 		if fail.Repairable || fail.Code == errBadArgs || fail.Code == errPathUnsafe || fail.Code == errCandidateInvalid {
 			status = autoStatusRepairRequired

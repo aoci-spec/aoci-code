@@ -1567,5 +1567,7 @@
   "onboarding.progress.auto.complete": "项目认知建立完成。",
   "onboarding.progress_security": "读取业务行：%d；DDL/DML：%d；network_accessed=%t",
   "onboarding.progress_next": "下一动作：%s",
-  "onboarding.error": "认知Onboarding已安全停止：%s"
+  "onboarding.error": "认知Onboarding已安全停止：%s",
+  "onboarding.route.command_blocked": "Fresh Onboarding正在进行；当前命令不能替代活动Session，请执行返回的next_action_contract。",
+  "onboarding.route.guide_redirect": "当前Guide已重定向到活动Fresh Onboarding；请执行以下绑定命令，并只跟随其机器返回的next_action。"
 }

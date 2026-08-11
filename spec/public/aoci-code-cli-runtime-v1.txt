@@ -62,3 +62,26 @@ starter. It fails closed when an Onboarding session has not been aborted, a
 Baseline or formal cognition asset exists, an approval artifact or pending
 transaction is present, or Recovery is pending. Omitting `--cognition`
 preserves the previous init behavior for compatibility.
+
+Fresh Host transport
+--------------------
+
+The JSON returned by the active Fresh Session is the executable Host contract.
+For each action, the Host consumes the versioned `next_action_contract`, uses
+its exact command and machine-filled request template, and preserves all
+Session, Batch, Task, Plan, Evidence, and expected-preimage identities. It must
+not derive request fields from human prose or treat the compact `next_action`
+label as a complete schema.
+
+The contract remains authoritative across context-budgeted authoring batches
+and action changes. Host-authored semantic fields and the Host-issued run
+identity stay model-owned; AOCI supplies their required shape and bindings but
+does not fill them. Candidate payload binding follows the exact read-only
+validation action returned by the contract. The Host copies the resulting
+machine digest into Candidate provenance before invoking the returned Preview
+action; it neither imports AOCI implementation code nor reimplements the digest.
+
+Transport decoding is strict. A rejected request reports no formal write and
+the Host may make only the correction allowed by the returned contract. It does
+not abandon the active Session, change lifecycle routes, or substitute MCP
+tools that require an initialized formal index.

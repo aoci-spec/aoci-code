@@ -12,12 +12,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/onboarding"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
@@ -134,6 +136,57 @@ type volumeGuideStopFacts struct {
 	SafeNextAction string `json:"safe_next_action"`
 }
 
+type onboardingRedirectGuide struct {
+	Version  int               `json:"version"`
+	Agent    string            `json:"agent"`
+	Mode     string            `json:"mode"`
+	Stage    string            `json:"stage"`
+	Complete bool              `json:"complete"`
+	Route    *onboarding.Route `json:"onboarding_route"`
+}
+
+func inspectActiveFreshRouteForCLI(root, indexPath string) (*onboarding.Route, bool, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, false, fmt.Errorf("onboarding_route_executable_invalid")
+	}
+	return onboarding.InspectActiveFreshRoute(root, indexPath, executable)
+}
+
+func activeFreshRouteExit(route *onboarding.Route) error {
+	return &ExitError{
+		Code: ExitInvalid, MachineCode: errOnboardingInProgress,
+		Msg: cliMessage("onboarding.route.command_blocked"), Details: route,
+	}
+}
+
+func activeFreshRouteInspectionExit(err error) error {
+	machineCode := "onboarding_state_invalid"
+	if errors.Is(err, onboarding.ErrRouteRecoveryPending) {
+		machineCode = "cognition_recovery_pending"
+	} else if errors.Is(err, onboarding.ErrRouteRecoveryInspection) {
+		machineCode = "cognition_snapshot_unavailable"
+	}
+	return &ExitError{Code: ExitInvalid, MachineCode: machineCode, Err: err}
+}
+
+const errOnboardingInProgress = "onboarding_in_progress"
+
+func writeOnboardingRedirectGuide(cmd *cobra.Command, agent string, route *onboarding.Route) error {
+	guide := onboardingRedirectGuide{
+		Version: agentGuideVersion, Agent: agent, Mode: "redirect", Stage: "onboarding",
+		Complete: false, Route: route,
+	}
+	if flagJSON {
+		return writePlannerJSON(cmd, guide)
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.route.guide_redirect"))
+	if route != nil && route.NextActionContract != nil && route.NextActionContract.Command != nil {
+		fmt.Fprintln(cmd.OutOrStdout(), route.NextActionContract.Command.DisplayCommand)
+	}
+	return nil
+}
+
 func newIndexAgentGuideCmd() *cobra.Command {
 	var agentName string
 
@@ -165,7 +218,7 @@ func newIndexAgentGuideCmd() *cobra.Command {
 				}
 			}
 
-			cfg, err := config.Load(
+			cfg, err := config.LoadReadOnly(
 				repoRoot,
 			)
 			if err != nil {
@@ -176,6 +229,13 @@ func newIndexAgentGuideCmd() *cobra.Command {
 			}
 			if err := guardPendingEntriesForAgent(repoRoot); err != nil {
 				return &ExitError{Code: ExitInvalid, Err: err}
+			}
+			route, active, routeErr := inspectActiveFreshRouteForCLI(repoRoot, cfg.IndexPath)
+			if routeErr != nil {
+				return activeFreshRouteInspectionExit(routeErr)
+			}
+			if active {
+				return writeOnboardingRedirectGuide(cmd, agentName, route)
 			}
 			set, cognitionErr := cognition.Load(repoRoot, cfg.IndexPath)
 			if cognitionErr != nil {

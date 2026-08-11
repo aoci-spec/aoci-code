@@ -12,6 +12,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - Report exact Code candidate binding mismatches and distinguish
   `code_plan.batch_id` from the cross-domain `authoring_batch.batch_identity`
   without changing the nine-tool MCP surface or request Schema.
+- Make Fresh Onboarding self-describing for source-independent Hosts through a
+  live `next_action_contract`, machine-filled Completion and Candidate request
+  templates, read-only Candidate provenance binding, and precise zero-write
+  transport diagnostics.
 
 ## v0.1.0-rc3
 

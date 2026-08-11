@@ -55,6 +55,17 @@ actions, authors the project-specific Root, Meta tag dictionaries, and complete
 Entries, and lets the existing Root-last transaction publish the first governed
 Baseline. Project cognition mode must not run `aoci scan` before Bootstrap.
 
+For automation, Fresh Batch, Candidate-binding, and Session status JSON expose
+the versioned `next_action_contract`. Execute its exact command and populate
+only the Host-authored fields in its request template; preserve every machine
+identity unchanged. When an action result does not contain the next contract,
+query the active Onboarding status instead of guessing the transition. Do not
+guess Completion or Candidate JSON, copy an internal state machine, or call
+post-initialization MCP tools before formal cognition exists. Candidate
+provenance binding likewise uses the exact read-only validation action emitted
+by the live contract, so a Host never needs AOCI source code or an internal hash
+implementation.
+
 The lower-information generic starter may be selected directly in an untouched
 repository. If a project-specific Fresh Session has already started, it may be
 selected only after a safe abort while no approval artifact, formal write,

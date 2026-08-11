@@ -20,6 +20,8 @@ func TestOnboardingMachineContractGolden(t *testing.T) {
 		AuthoringRequirement string `json:"semantic_authoring_requirement"`
 		AuthoringProvenance  string `json:"semantic_authoring_provenance"`
 		AutoEligibility      string `json:"auto_eligibility"`
+		NextAction           string `json:"next_action"`
+		CandidateBinding     string `json:"candidate_binding"`
 		MCPToolCount         int    `json:"mcp_tool_count"`
 	}{
 		machinecontract.CognitionOnboardingSessionV1,
@@ -31,6 +33,8 @@ func TestOnboardingMachineContractGolden(t *testing.T) {
 		machinecontract.SemanticAuthoringRequirementV1,
 		machinecontract.SemanticAuthoringProvenanceV1,
 		machinecontract.CognitionBootstrapAutoEligibilityV1,
+		machinecontract.CognitionOnboardingNextActionV1,
+		machinecontract.CognitionOnboardingCandidateBindingV1,
 		len(machinecontract.MCPToolNames()),
 	}
 	data, err := json.MarshalIndent(actual, "", "  ")

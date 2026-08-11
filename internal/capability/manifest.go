@@ -68,6 +68,8 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 			machinecontract.CognitionOnboardingSessionV1, machinecontract.CognitionOnboardingSessionV2,
 			machinecontract.CognitionOnboardingBatchV1, machinecontract.CognitionOnboardingBatchV2,
 			machinecontract.CognitionOnboardingCompleteV1, machinecontract.CognitionOnboardingCompleteV2,
+			machinecontract.CognitionOnboardingNextActionV1, machinecontract.CognitionOnboardingCandidateBindingV1,
+			machinecontract.CognitionOnboardingRouteV1,
 			machinecontract.SemanticAuthoringRequirementV1, machinecontract.SemanticAuthoringProvenanceV1,
 			machinecontract.DatabaseCognitionBootstrapPreviewV1,
 			machinecontract.DatabaseCognitionBootstrapRecoveryV1,

@@ -35,6 +35,17 @@ func init() {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
+			readOnlyConfig, err := config.LoadReadOnly(root)
+			if err != nil {
+				return &ExitError{Code: ExitConfig, Msg: err.Error()}
+			}
+			route, active, routeErr := inspectActiveFreshRouteForCLI(root, readOnlyConfig.IndexPath)
+			if routeErr != nil {
+				return activeFreshRouteInspectionExit(routeErr)
+			}
+			if active {
+				return activeFreshRouteExit(route)
+			}
 			cfg, err := config.Load(root)
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}

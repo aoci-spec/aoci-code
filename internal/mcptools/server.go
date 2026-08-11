@@ -21,6 +21,7 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -36,6 +37,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/onboarding"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -51,6 +53,8 @@ const (
 	errImpactResolutionFailed       = "impact_resolution_failed"
 	errCandidateInvalid             = "candidate_invalid"
 	errCognitionSnapshotUnavailable = "cognition_snapshot_unavailable"
+	errOnboardingInProgress         = "onboarding_in_progress"
+	errOnboardingStateInvalid       = "onboarding_state_invalid"
 	errBadArgs                      = "bad_args" // 参数不合法
 	errInternal                     = "internal" // 兜底
 )
@@ -67,6 +71,7 @@ type Fail struct {
 	FormalWritesStarted bool
 	GlobalStop          *GlobalStopFacts
 	CodePlan            *codebatch.Plan
+	OnboardingRoute     *onboarding.Route
 }
 
 // GlobalStopFacts describes an asset-level prerequisite failure that no
@@ -101,7 +106,71 @@ func errResult(code, msg, hint string) *mcp.CallToolResult {
 
 // failResult Fail → MCP 错误结果的唯一渲染点
 func failResult(f *Fail) *mcp.CallToolResult {
+	if f != nil && f.OnboardingRoute != nil {
+		return onboardingRouteResult(f.OnboardingRoute, true)
+	}
 	return errResult(f.Code, f.Msg, f.Hint)
+}
+
+// onboardingRouteResult mirrors the versioned route into both MCP structured
+// content and text content. Hosts that do not yet expose structuredContent can
+// therefore follow the same machine facts without changing the nine-tool input
+// schemas or the tools/list contract.
+func onboardingRouteResult(route *onboarding.Route, isError bool) *mcp.CallToolResult {
+	data, err := json.Marshal(route)
+	if err != nil {
+		return errResult(errInternal, mcpMessage("mcp.error.internal_recovered"), "")
+	}
+	return &mcp.CallToolResult{
+		IsError:           isError,
+		StructuredContent: route,
+		Content: []mcp.Content{&mcp.TextContent{
+			Text: string(data) + "\n",
+		}},
+	}
+}
+
+// activeFreshRouteGuardResult is the fail-closed pre-input/pre-write guard for
+// MCP write orchestration. Its three outcomes are: an active Fresh route, a
+// Recovery/state-inspection error result, or nil when no onboarding state owns
+// the call. No caller may treat inspection failure as "no active route".
+func activeFreshRouteGuardResult(root string) *mcp.CallToolResult {
+	pending, err := cognitiontxn.Pending(root)
+	if err != nil {
+		return errResult(
+			errCognitionSnapshotUnavailable,
+			mcpMessage("overview.delivery.recovery_inspection_failed", localeSafeMCPDetail(err.Error())),
+			"",
+		)
+	}
+	if len(pending) != 0 {
+		return errResult(
+			errCognitionSnapshotUnavailable,
+			mcpMessage("overview.delivery.pending_recovery", pending[0].Filename),
+			mcpMessage("overview.delivery.pending_recovery_hint"),
+		)
+	}
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		return errResult(errIndexInvalid, mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())), mcpMessage("mcp.error.invalid_config_hint"))
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		return errResult(errInternal, mcpMessage("mcp.error.internal_recovered"), "")
+	}
+	paths := config.AOCIPaths(root, cfg.IndexPath)
+	route, active, err := onboarding.InspectActiveFreshRoute(root, paths.IndexPath, executable)
+	if err != nil {
+		if errors.Is(err, onboarding.ErrRouteRecoveryPending) ||
+			errors.Is(err, onboarding.ErrRouteRecoveryInspection) {
+			return errResult(errCognitionSnapshotUnavailable, localeSafeMCPDetail(err.Error()), "")
+		}
+		return errResult(errOnboardingStateInvalid, localeSafeMCPDetail(err.Error()), "")
+	}
+	if !active {
+		return nil
+	}
+	return onboardingRouteResult(route, true)
 }
 
 // guard 包裹 handler 主体: panic 恢复为 MCP error 结果,stderr 记录,进程不崩
@@ -153,6 +222,26 @@ func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
 			Msg:  mcpMessage("overview.delivery.pending_recovery", pending[0].Filename),
 			Hint: mcpMessage("overview.delivery.pending_recovery_hint"),
 		}
+	}
+	readOnlyCfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		return nil, &Fail{Code: errIndexInvalid, Msg: mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())), Hint: mcpMessage("mcp.error.invalid_config_hint")}
+	}
+	readOnlyPaths := config.AOCIPaths(root, readOnlyCfg.IndexPath)
+	executable, executableErr := os.Executable()
+	if executableErr != nil {
+		return nil, &Fail{Code: errInternal, Msg: mcpMessage("mcp.error.internal_recovered")}
+	}
+	route, active, routeErr := onboarding.InspectActiveFreshRoute(root, readOnlyPaths.IndexPath, executable)
+	if routeErr != nil {
+		if errors.Is(routeErr, onboarding.ErrRouteRecoveryPending) ||
+			errors.Is(routeErr, onboarding.ErrRouteRecoveryInspection) {
+			return nil, &Fail{Code: errCognitionSnapshotUnavailable, Msg: localeSafeMCPDetail(routeErr.Error())}
+		}
+		return nil, &Fail{Code: errOnboardingStateInvalid, Msg: localeSafeMCPDetail(routeErr.Error())}
+	}
+	if active {
+		return nil, &Fail{Code: errOnboardingInProgress, Msg: errOnboardingInProgress, OnboardingRoute: route}
 	}
 	cfg, err := config.Load(root)
 	if err != nil {

@@ -22,7 +22,7 @@ SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env G
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
 FAST_PACKAGES := $(shell $(GO_BIN) list ./... | grep -v '/internal/cli$$')
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke fresh-project-blackbox example-test vet fmt fmt-check safety check-deps licenses textassets-check staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -110,8 +110,14 @@ database-integration:
 clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
+# Fresh project Host acceptance must execute the built binary. The standalone
+# test intentionally skips without AOCI_BIN so ordinary package tests cannot
+# silently substitute an in-process implementation for this public boundary.
+fresh-project-blackbox: build
+	AOCI_BIN="$(CURDIR)/build/aoci" $(GO_BIN) test ./scripts/blackbox/fresh-project -run '^TestFreshProjectReleaseBinary$$' -count=1
+
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: fmt-check vet check-deps licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: fmt-check vet check-deps licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke fresh-project-blackbox
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
 # Compatibility alias retained for existing operators and automation.

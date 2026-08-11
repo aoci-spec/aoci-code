@@ -223,6 +223,22 @@ func TestOnboardingPersistsBatchesAndReusesBootstrapApply(t *testing.T) {
 	if err != nil || !applied.FormalComplete {
 		t.Fatalf("D2 Bootstrap did not complete before simulated crash: %#v err=%v", applied, err)
 	}
+	beforeFinalizeRoute, err := os.ReadFile(SessionPath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	finalizeRoute, active, err := InspectActiveFreshRoute(
+		root, filepath.Join(root, "aoci.txt"), filepath.Join(root, "bin", "aoci"),
+	)
+	if err != nil || !active || finalizeRoute == nil || !finalizeRoute.FormalIndexAvailable ||
+		!finalizeRoute.FormalWritesStarted || finalizeRoute.NextActionContract == nil ||
+		finalizeRoute.NextActionContract.Action != "resume" || finalizeRoute.NextActionContract.Command == nil {
+		t.Fatalf("committed Bootstrap crash did not retain finalization route: active=%t route=%#v err=%v", active, finalizeRoute, err)
+	}
+	afterFinalizeRoute, err := os.ReadFile(SessionPath(root))
+	if err != nil || string(afterFinalizeRoute) != string(beforeFinalizeRoute) {
+		t.Fatalf("finalization route changed the persisted crash state: %v", err)
+	}
 	final, err := Resume(root)
 	if err != nil || final.Status != "completed" || final.TransactionState != "applied" || final.NextAction != "none" ||
 		!final.StructureValid || !final.GovernanceAligned || !final.CheckOK || final.GuideStage != "aligned" ||
@@ -559,6 +575,17 @@ func TestOnboardingExplicitReviewStillRequiresHumanTTY(t *testing.T) {
 	if _, err := Preview(root, candidateData, nil); err != nil {
 		t.Fatal(err)
 	}
+	previewed, err := LoadRequired(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepareContract := BuildOnboardingNextActionContract(root, filepath.Join(root, "aoci"), previewed)
+	if prepareContract == nil || prepareContract.Action != "prepare" || prepareContract.SchemaVersion != machinecontract.HostInteractionV1 ||
+		prepareContract.Command == nil || !contains(prepareContract.Command.Arguments, "prepare") ||
+		prepareContract.SuccessNextAction != "human_tty_digest_confirmation" || prepareContract.TTYRequired ||
+		prepareContract.AutomaticallyRetryable {
+		t.Fatalf("review status did not navigate to the existing Prepare interaction: %#v", prepareContract)
+	}
 	if _, err := Prepare(root); err != nil {
 		t.Fatal(err)
 	}
@@ -566,6 +593,14 @@ func TestOnboardingExplicitReviewStillRequiresHumanTTY(t *testing.T) {
 	if err != nil || prepared.ApprovalState != "interaction_required" || prepared.NextAction != "human_tty_digest_confirmation" ||
 		prepared.ApprovalArtifact != "" || prepared.AuthorizationProjection != nil {
 		t.Fatalf("explicit review no longer stops at human TTY: session=%#v err=%v", prepared, err)
+	}
+	interactionContract := BuildOnboardingNextActionContract(root, filepath.Join(root, "aoci"), prepared)
+	if interactionContract == nil || interactionContract.Action != "human_tty_digest_confirmation" ||
+		interactionContract.SchemaVersion != machinecontract.HostInteractionV1 || interactionContract.Command == nil ||
+		!contains(interactionContract.Command.Arguments, "prepare") || contains(interactionContract.Command.Arguments, "status") ||
+		interactionContract.SuccessNextAction != "human_tty_digest_confirmation" || interactionContract.TTYRequired ||
+		interactionContract.AutomaticallyRetryable {
+		t.Fatalf("review interaction was collapsed back into status navigation: %#v", interactionContract)
 	}
 }
 

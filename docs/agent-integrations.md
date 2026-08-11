@@ -17,6 +17,15 @@ configuration is not hot-loaded. After Bootstrap completes, verify the loaded
 server by actually calling `aoci_rules`; refresh or reopen only if that call is
 unavailable. Project mode must not run `aoci scan` before Bootstrap.
 
+During Fresh Onboarding, consume the current JSON `next_action_contract` as the
+complete transport instruction. Use its exact command and request template,
+preserve its machine identities, fill only its declared Host-authored fields,
+and continue from the contract returned by the next response. Do not guess a
+Completion or Candidate shape, reproduce the lifecycle in a wrapper, inspect
+AOCI source, or implement the Candidate digest. The live contract supplies the
+read-only binding action before Preview. If an action result does not include a
+new contract, query the active Onboarding status rather than infer a transition.
+
 ## Codex
 
 ```bash
@@ -163,10 +172,16 @@ aoci --repo /absolute/path/to/repository --json capabilities
 It reports the exact nine-tool surface, lifecycle and recovery support, current
 schema versions, layout, TTY boundary, Database boundary, and Overview delivery
 modes. Machine Guide results then provide a complete `next_action_contract`
-with the exact command, `--agent`, request schema/file, expected preimage,
-Plan/Run identity, retry rule, and success continuation. Hosts should correct
+with the exact command, `--agent`, applicable action payload schema and request
+file, expected preimage, Plan/Run identity, retry rule, and success
+continuation. Hosts should correct
 at most one purely transport-schema mismatch; semantic repair still follows
 the normal model-owned path.
+
+Fresh Onboarding returns the same style of executable contract directly from
+its active Session. A Host loops only by consuming each newly returned
+contract; it does not infer a Fresh state transition from prose or from a
+previous response.
 
 Protected approval commands expose `aoci-host-interaction/v1` when no real TTY
 is attached. A PTY-capable Host can use its exact command and confirmation

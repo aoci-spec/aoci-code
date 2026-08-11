@@ -1567,5 +1567,7 @@
   "onboarding.progress.auto.complete": "Project cognition established.",
   "onboarding.progress_security": "Business rows read: %d; DDL/DML: %d; network_accessed=%t",
   "onboarding.progress_next": "Next action: %s",
-  "onboarding.error": "Cognition onboarding stopped safely: %s"
+  "onboarding.error": "Cognition onboarding stopped safely: %s",
+  "onboarding.route.command_blocked": "Fresh Onboarding is in progress; this command cannot replace the active Session. Execute the returned next_action_contract.",
+  "onboarding.route.guide_redirect": "The current Guide is redirected to active Fresh Onboarding. Execute the bound command below and follow only its machine-issued next_action."
 }
