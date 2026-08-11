@@ -171,13 +171,14 @@ response; it is empty for absent scopes and token fallback.
 
 7. Shared daily governance facts
 
-Volumes Verify, Check, Guide, and no-argument Maintain consume one private,
-deterministic read-only assessment over the current CognitionSet, managed
-scope, safe business-source inventory, existing Baseline and Database Binding,
+Volumes Status --deep, Inventory, Score, Verify, Check, Guide, and no-argument
+Maintain consume one private, deterministic read-only assessment over the
+current CognitionSet, managed scope, safe business-source inventory, existing
+Baseline and Database Binding,
 accepted saved Database Evidence, cognition budget, relations, and current
 transaction/recovery state. The assessment is not a new public protocol
 family, Baseline, or authority. Given identical formal bytes, Baseline,
-configuration, and Evidence, all four consumers must agree on layout, enabled
+configuration, and Evidence, all seven consumers must agree on layout, enabled
 domains, structural validity, governance alignment, object/source/binding
 counts, drift, Evidence and Binding state, budget, pending work, blockers, and
 the one next required action. It always reports network_accessed=false.
@@ -195,6 +196,13 @@ budget, transaction, recovery, or third-party blocker remains. Guide collapses
 the same facts into exactly aligned, authoring_required, evidence_required, or
 blocked. It does not create a state for each finding and does not write formal
 state.
+
+Volume Inventory and Score return a volumes-read-projection/v1 envelope that
+binds layout_mode and composite_identity to the shared governance facts while
+retaining the established inventory and nine-dimension score payloads. Formal
+Root, Meta, Code, and Database assets are not business-source Inventory items.
+Status --deep projects the same drift, Managed Scope, budget, and governance
+facts without returning volume_read_only.
 
 Whenever authoring is required, Volume Guide and ordinary no-argument Maintain
 use one runtime assembler to deliver the exact current formal Meta bytes (the

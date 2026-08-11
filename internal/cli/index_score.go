@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/indexgen"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -63,17 +64,32 @@ func newIndexScoreCmd() *cobra.Command {
 				}
 			}
 
-			doc, _, err := loadIndexForCLI(cmd, repoRoot, cfg)
-			if err != nil {
-				return &ExitError{Code: ExitConfig, Err: err}
-			}
-
 			start := time.Now()
 			var score *indexgen.Score
-			if dimName == "" {
-				score, err = indexgen.BuildScore(repoRoot, cfg, doc)
+			var projection *volumeReadProjection
+			set, err := cognition.Load(repoRoot, cfg.IndexPath)
+			if err != nil {
+				code := ExitConfig
+				if set != nil && set.LayoutMode == cognition.LayoutVolumesV1 {
+					code = ExitInvalid
+				}
+				return &ExitError{Code: code, Err: err}
+			}
+			if set.LayoutMode == cognition.LayoutVolumesV1 {
+				projection, err = buildVolumeReadProjection(repoRoot, cfg, set)
+				if err == nil {
+					score = projection.Score
+				}
 			} else {
-				score, err = indexgen.BuildScoreWithLimit(repoRoot, cfg, doc, 0)
+				doc, _, loadErr := loadIndexForCLI(cmd, repoRoot, cfg)
+				if loadErr != nil {
+					return &ExitError{Code: ExitConfig, Err: loadErr}
+				}
+				if dimName == "" {
+					score, err = indexgen.BuildScore(repoRoot, cfg, doc)
+				} else {
+					score, err = indexgen.BuildScoreWithLimit(repoRoot, cfg, doc, 0)
+				}
 			}
 			if err != nil {
 				return &ExitError{Code: ExitInternal, Err: err}
@@ -120,6 +136,9 @@ func newIndexScoreCmd() *cobra.Command {
 			if flagJSON {
 				encoder := json.NewEncoder(out)
 				encoder.SetIndent("", "  ")
+				if projection != nil {
+					return encoder.Encode(projection.scoreReport())
+				}
 				return encoder.Encode(score)
 			}
 

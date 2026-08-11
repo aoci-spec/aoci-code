@@ -24,6 +24,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,7 @@ type deepCounts struct {
 	ActivePolicyIdentity  string                  `json:"active_scope_policy_identity,omitempty"`
 	ObserveReviewRequired bool                    `json:"observe_review_required"`
 	CognitionBudget       *cognitionbudget.Report `json:"cognition_budget,omitempty"`
+	VolumeGovernance      *volumegovernance.Facts `json:"volume_governance,omitempty"`
 }
 
 func init() {
@@ -102,7 +104,9 @@ func init() {
 			}
 
 			// 索引条目数。索引缺失时保持0，由输出提示init。
+			var cognitionSet *cognition.Set
 			if set, readErr := cognition.Load(root, cfg.IndexPath); readErr == nil {
+				cognitionSet = set
 				report.IndexEntries = set.Root.ObjectCount
 				if set.LayoutMode == cognition.LayoutVolumesV1 {
 					report.IndexEntries = volumeObjectCount(set)
@@ -187,6 +191,7 @@ func init() {
 						root,
 						paths.IndexPath,
 						cfg,
+						cognitionSet,
 					)
 				if deepErr != nil {
 					if errors.Is(
@@ -317,16 +322,36 @@ func buildStatusDeepCounts(
 	root string,
 	indexPath string,
 	cfg *config.Config,
+	sets ...*cognition.Set,
 ) (
 	*deepCounts,
 	error,
 ) {
-	set, loadErr := cognition.Load(root, cfg.IndexPath)
-	if loadErr != nil {
-		return nil, loadErr
+	var set *cognition.Set
+	if len(sets) > 0 {
+		set = sets[0]
+	}
+	if set == nil {
+		var loadErr error
+		set, loadErr = cognition.Load(root, cfg.IndexPath)
+		if loadErr != nil {
+			return nil, loadErr
+		}
 	}
 	if set.LayoutMode == cognition.LayoutVolumesV1 {
-		return nil, errors.New(cliMessage("mcp.error.volume_read_only"))
+		projection, err := buildVolumeReadProjection(root, cfg, set)
+		if err != nil {
+			return nil, errors.New(cliMessage("status.snapshot_error", err))
+		}
+		facts := projection.Governance
+		return &deepCounts{Missing: len(facts.CodeDrift.Missing), Orphan: len(facts.CodeDrift.Orphan),
+			Stale: len(facts.CodeDrift.Stale), Unbaselined: len(facts.CodeDrift.Unbaselined),
+			LineEndingOnly: len(facts.CodeDrift.LineEndingOnly), ObservedNew: len(facts.CodeDrift.ObservedNew),
+			ObservedChanged: len(facts.CodeDrift.ObservedChanged), ObservedRemoved: len(facts.CodeDrift.ObservedRemoved),
+			ScopeChangeRequired: facts.ManagedScope.ScopeChangeRequired,
+			ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity, ActivePolicyIdentity: facts.ManagedScope.ActivePolicyIdentity,
+			ObserveReviewRequired: projection.Score.ManagedScope.ObserveReviewRequired,
+			CognitionBudget:       projection.Score.CognitionBudget, VolumeGovernance: facts}, nil
 	}
 	data, err := os.ReadFile(indexPath)
 	if err != nil {

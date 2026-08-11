@@ -472,6 +472,29 @@ func alignedVolumeCLIFixture(t *testing.T, code, database bool) (string, *config
 	return root, cfg
 }
 
+func TestVolumeStatusInventoryAndScoreShareReadProjection(t *testing.T) {
+	root, _ := alignedVolumeCLIFixture(t, true, false)
+	for _, invocation := range [][]string{
+		{"--repo", root, "--json", "status", "--deep"},
+		{"--repo", root, "--json", "index", "inventory"},
+		{"--repo", root, "--json", "index", "score"},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := executeCLI(invocation, &stdout, &stderr); code != ExitOK {
+			t.Fatalf("%v failed: code=%d\nstdout=%s\nstderr=%s", invocation, code, stdout.String(), stderr.String())
+		}
+		combined := stdout.String() + stderr.String()
+		if !strings.Contains(combined, `"layout_mode": "volumes-v1"`) ||
+			!strings.Contains(combined, `"composite_identity":`) ||
+			!strings.Contains(combined, `"governance_aligned": true`) {
+			t.Fatalf("%v did not expose the shared Volumes projection:\n%s", invocation, combined)
+		}
+		if strings.Contains(combined, "volume_read_only") {
+			t.Fatalf("%v retained the obsolete read-only rejection:\n%s", invocation, combined)
+		}
+	}
+}
+
 func TestDoctorReadsVolumeLayoutWithoutLegacyDocument(t *testing.T) {
 	root := t.TempDir()
 	fixture := filepath.Join("..", "..", "testdata", "volumes", "database-quality")

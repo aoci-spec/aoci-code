@@ -231,8 +231,11 @@ governance path is unchanged and no parallel system exists.
 
 ## Daily governance
 
-Verify, Check, Guide, and no-argument Maintain consume one private deterministic
-facts assessment. Root+Meta, Code-only, Database-only, and Code+Database are
+Status --deep, Inventory, Score, Verify, Check, Guide, and no-argument Maintain
+consume one private deterministic facts assessment. Inventory and Score expose
+the versioned `volumes-read-projection/v1` envelope with layout and Composite
+identity while retaining their established inventory and score fields.
+Root+Meta, Code-only, Database-only, and Code+Database are
 all complete legal layouts; an undeclared domain is `not_applicable` and adds
 no debt. Verify distinguishes structural validity from governance alignment.
 Check is successful for aligned Volumes instead of returning a read-only

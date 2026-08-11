@@ -90,25 +90,33 @@ func newIndexInventoryCmd() *cobra.Command {
 				}
 			}
 
-			doc, _, err := loadIndexForCLI(
-				cmd,
-				repoRoot,
-				cfg,
-			)
-			if err != nil {
-				return &ExitError{
-					Code: ExitConfig,
-					Err:  err,
-				}
-			}
-
 			start := time.Now()
-			inventory, err :=
-				indexgen.BuildInventory(
+			set, err := cognition.Load(repoRoot, cfg.IndexPath)
+			if err != nil {
+				code := ExitConfig
+				if set != nil && set.LayoutMode == cognition.LayoutVolumesV1 {
+					code = ExitInvalid
+				}
+				return &ExitError{Code: code, Err: err}
+			}
+			var projection *volumeReadProjection
+			var inventory *indexgen.Inventory
+			if set.LayoutMode == cognition.LayoutVolumesV1 {
+				projection, err = buildVolumeReadProjection(repoRoot, cfg, set)
+				if err == nil {
+					inventory = projection.Inventory
+				}
+			} else {
+				doc, _, loadErr := loadIndexForCLI(cmd, repoRoot, cfg)
+				if loadErr != nil {
+					return &ExitError{Code: ExitConfig, Err: loadErr}
+				}
+				inventory, err = indexgen.BuildInventory(
 					repoRoot,
 					cfg,
 					doc,
 				)
+			}
 			if err != nil {
 				return &ExitError{
 					Code: ExitInternal,
@@ -131,6 +139,9 @@ func newIndexInventoryCmd() *cobra.Command {
 			if flagJSON {
 				encoder := json.NewEncoder(out)
 				encoder.SetIndent("", "  ")
+				if projection != nil {
+					return encoder.Encode(projection.inventoryReport())
+				}
 				return encoder.Encode(inventory)
 			}
 
