@@ -78,3 +78,11 @@ func IsCodexMCPInstalled(root string) bool {
 	}
 	return hasCodexTable(string(data))
 }
+
+// IsOpenCodeMCPInstalled 判断项目级 opencode.json 是否含与当前绝对
+// executable/repository 绑定完全一致的 OpenCode V1 mcp.aoci 配置。
+// JSONC、V2、冲突或解析失败均返回 false；写入端复用同一 Prepare 判据。
+func IsOpenCodeMCPInstalled(root string) bool {
+	plan, err := prepareOpenCodeMCP(root)
+	return err == nil && plan.Current
+}

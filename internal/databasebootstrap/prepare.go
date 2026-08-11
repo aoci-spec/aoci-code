@@ -35,6 +35,71 @@ func Prepare(root string, now time.Time) (*Preview, error) {
 	return prepare(root, now.UTC().Truncate(time.Second))
 }
 
+// Diagnose converts an internal Bootstrap failure into a redacted action for
+// CLI consumers. The outer CLI error code remains database_bootstrap_stopped;
+// this projection only prevents distinct readiness and recovery causes from
+// being collapsed into one opaque message.
+func Diagnose(err error) Diagnostic {
+	cause := bootstrapCauseCode(err)
+	action := machinecontract.DatabaseCognitionActionReviewFindings
+	switch cause {
+	case "database_bootstrap_code_governance_not_ready":
+		action = machinecontract.DatabaseCognitionActionMaintain
+	case "database_bootstrap_evidence_baseline_required", "database_bootstrap_evidence_not_ready":
+		action = machinecontract.DatabaseCognitionActionSnapshotOrRepair
+	case "database_bootstrap_not_required":
+		action = machinecontract.DatabaseCognitionActionNoActionRequired
+	}
+	return Diagnostic{CauseCode: cause, SafeNextAction: action}
+}
+
+func bootstrapCauseCode(err error) string {
+	if err == nil {
+		return "database_bootstrap_stopped"
+	}
+	message := err.Error()
+	if prefix := ErrNotReady.Error() + ": "; strings.HasPrefix(message, prefix) {
+		message = strings.TrimPrefix(message, prefix)
+	}
+	for _, cause := range []string{
+		"database_bootstrap_recovery_state_unavailable",
+		"database_bootstrap_recovery_pending",
+		"database_bootstrap_recovery_ambiguous",
+		"database_bootstrap_recovery_conflict",
+		"database_bootstrap_repository_root_invalid",
+		"database_bootstrap_configuration_invalid",
+		"database_bootstrap_layout_invalid",
+		"database_bootstrap_not_required",
+		"database_bootstrap_code_cognition_required",
+		"database_bootstrap_baseline_required",
+		"database_bootstrap_code_governance_not_ready",
+		"database_bootstrap_source_configuration_invalid",
+		"database_bootstrap_evidence_baseline_required",
+		"database_bootstrap_evidence_not_ready",
+		"database_bootstrap_enabled_source_required",
+		"database_bootstrap_projected_layout_invalid",
+		"database_bootstrap_baseline_invalid",
+		"database_bootstrap_baseline_postimage_invalid",
+		"database_bootstrap_evidence_baseline_invalid",
+		"database_bootstrap_descriptor_conflict",
+		"database_bootstrap_root_descriptors_missing",
+		"database_bootstrap_preview_invalid",
+		"database_bootstrap_preview_digest_invalid",
+		"database_bootstrap_preview_replay_mismatch",
+		"database_bootstrap_database_conflict",
+		"database_bootstrap_root_conflict",
+		"database_bootstrap_baseline_conflict",
+		"database_bootstrap_write_order_conflict",
+		"database_bootstrap_guard_changed",
+		"database_bootstrap_evidence_guard_changed",
+	} {
+		if message == cause || strings.HasPrefix(message, cause+":") || strings.HasPrefix(message, cause+"[") {
+			return cause
+		}
+	}
+	return "database_bootstrap_stopped"
+}
+
 func prepare(root string, preparedAt time.Time) (*Preview, error) {
 	absRoot, err := filepath.Abs(root)
 	if err != nil {

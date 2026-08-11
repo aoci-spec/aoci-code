@@ -294,6 +294,95 @@ func TestDatabaseHelpFollowsBothOfficialLocales(t *testing.T) {
 	}
 }
 
+func TestDatabaseBootstrapErrorKeepsOuterCodeAndAddsSafeDiagnostic(t *testing.T) {
+	for _, locale := range []string{"en-US", "zh-CN"} {
+		t.Run(locale, func(t *testing.T) {
+			root := databaseCLIRepo(t)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Locale = locale
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			code := executeCLI([]string{"--repo", root, "--json", "database", "cognition", "bootstrap"}, &stdout, &stderr)
+			if code != ExitInvalid || stderr.Len() != 0 {
+				t.Fatalf("bootstrap error transport changed: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+			}
+			var envelope struct {
+				ErrorCode string                       `json:"error_code"`
+				Message   string                       `json:"message"`
+				Details   databasebootstrap.Diagnostic `json:"details"`
+			}
+			if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.ErrorCode != "database_bootstrap_stopped" ||
+				envelope.Details.CauseCode != "database_bootstrap_layout_invalid" ||
+				envelope.Details.SafeNextAction != "review_database_cognition_findings" {
+				t.Fatalf("bootstrap diagnostic missing: %#v", envelope)
+			}
+			for _, token := range []string{envelope.Details.CauseCode, envelope.Details.SafeNextAction} {
+				if !strings.Contains(envelope.Message, token) {
+					t.Fatalf("localized message omitted %q: %s", token, envelope.Message)
+				}
+			}
+		})
+	}
+}
+
+func TestDatabaseCredentialMissingGuidanceIsSafeAndLocalized(t *testing.T) {
+	tests := []struct {
+		locale string
+		want   []string
+	}{
+		{locale: "en-US", want: []string{"outside the Agent conversation", "Host's inherited environment", "relaunch the Host only if", "Never paste the credential value"}},
+		{locale: "zh-CN", want: []string{"Agent对话", "Host的继承环境", "仅当当前Host无法刷新", "不要把凭据值粘贴"}},
+	}
+	for _, test := range tests {
+		t.Run(test.locale, func(t *testing.T) {
+			root := databaseCLIRepo(t)
+			configureDatabaseCLISource(t, root)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Locale = test.locale
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("AOCI_DB_PRIMARY_DSN", "")
+			var stdout, stderr bytes.Buffer
+			code := executeCLI([]string{"--repo", root, "--json", "database", "source", "inspect", "--source", "primary"}, &stdout, &stderr)
+			if code != ExitConfig || stderr.Len() != 0 {
+				t.Fatalf("missing credential transport changed: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+			}
+			var envelope struct {
+				ErrorCode string `json:"error_code"`
+				Message   string `json:"message"`
+			}
+			if err := json.Unmarshal(stdout.Bytes(), &envelope); err != nil {
+				t.Fatal(err)
+			}
+			if envelope.ErrorCode != "database_credential_env_missing" {
+				t.Fatalf("wrong missing credential code: %#v", envelope)
+			}
+			for _, want := range test.want {
+				if !strings.Contains(envelope.Message, want) {
+					t.Fatalf("credential guidance omitted %q: %s", want, envelope.Message)
+				}
+			}
+			for _, forbidden := range []string{"postgres://", "password=", "secret-value"} {
+				if strings.Contains(stdout.String()+stderr.String(), forbidden) {
+					t.Fatalf("credential guidance leaked %q", forbidden)
+				}
+			}
+		})
+	}
+}
+
 func TestDatabaseCognitionStatusIsOfflineAndNoConfigurationHasNoDebt(t *testing.T) {
 	root := databaseCLIRepo(t)
 	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {

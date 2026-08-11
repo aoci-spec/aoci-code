@@ -41,21 +41,74 @@ are those 12 files plus `SHA256SUMS` and `RELEASE-MANIFEST.json`. The signature
 bundle is not included in the file it signs, and the provenance bundle is not a
 subject of its own attestation.
 
-The following verification sequence requires GitHub CLI, Cosign, Git, GNU
-`sha256sum`, and the Go version declared in `go.mod`. It pins the exact release
-workflow identity rather than accepting an arbitrary workflow in the
-repository:
+The extracted `aoci` executable has no runtime dependency on GitHub CLI,
+Cosign, Git, Go, or an SBOM reader. Those programs are verification tools for
+the assurance levels below; not having one does not prevent a checksum-verified
+binary from starting.
 
-GitHub CLI commands require an authenticated session. Run `gh auth login`
-before the sequence below. For an anonymous download, use the
-[tagged Release page](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc3)
-in a browser to download all 16 uploaded assets;
-the later `gh api` and `gh attestation verify` steps still require GitHub CLI
-authentication.
+### Basic installation: archive checksum and binary identity
+
+Download the archive for the current operating system and CPU architecture plus
+`SHA256SUMS` from the tagged Release page. Verify the matching archive line,
+extract it, place `aoci` (`aoci.exe` on Windows) at a stable absolute path, and
+run `aoci --version`.
+
+For a downloaded POSIX archive:
 
 ```bash
-gh auth login
+ARCHIVE=aoci_0.1.0-rc3_linux_amd64.tar.gz # choose the actual platform asset
+grep "  ${ARCHIVE}$" SHA256SUMS | sha256sum -c -
 ```
+
+For a downloaded Windows archive, compare the matching `SHA256SUMS` value with:
+
+```powershell
+$Archive = "aoci_0.1.0-rc3_windows_amd64.zip" # choose the actual architecture
+$Expected = ((Select-String -Path .\SHA256SUMS -Pattern "  $([regex]::Escape($Archive))$").Line -split '\s+')[0]
+$Actual = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLowerInvariant()
+if ($Actual -ne $Expected) { throw "archive checksum mismatch" }
+```
+
+This basic level detects damaged or substituted archive bytes relative to the
+downloaded checksum list. It does not authenticate who published that list.
+
+### Recommended installation: authenticate the checksum publisher
+
+Also download `SHA256SUMS.sigstore.json` and use Cosign to verify that the exact
+`SHA256SUMS` bytes were signed by the Tag release workflow through the GitHub
+Actions OIDC issuer. This does not require GitHub CLI:
+
+```bash
+TAG=v0.1.0-rc3
+REPOSITORY=aoci-spec/aoci-code
+CERTIFICATE_IDENTITY="https://github.com/$REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG"
+OIDC_ISSUER=https://token.actions.githubusercontent.com
+
+cosign verify-blob \
+  --bundle SHA256SUMS.sigstore.json \
+  --certificate-identity "$CERTIFICATE_IDENTITY" \
+  --certificate-oidc-issuer "$OIDC_ISSUER" \
+  SHA256SUMS
+```
+
+### Full supply-chain verification
+
+The full sequence verifies all 16 assets, all 12 checksum subjects, publisher
+signature, 14 provenance subjects, the selected SBOM, and the release manifest.
+It requires GitHub CLI, Cosign, Git, GNU `sha256sum`, and the Go version declared
+in `go.mod`; those remain verifier dependencies rather than AOCI runtime
+dependencies.
+
+The browser and public Release URLs can download public assets without a GitHub
+login. `gh release download` and `gh api` use the GitHub API and may require
+`gh auth login` under the installed CLI version, local policy, or API limits.
+`gh attestation verify --bundle` verifies the downloaded provenance bundle
+without a GitHub API login. By default it may still use the network to obtain
+the Sigstore trusted root; a fully offline verification requires supplying an
+appropriate trusted root explicitly. Login and trusted-root network access are
+separate concerns. If that tooling or trust material is unavailable, full
+verification is incomplete; the basic or recommended installation result
+remains a separate, explicitly lower assurance level.
 
 ```bash
 REPOSITORY=aoci-spec/aoci-code
@@ -103,9 +156,8 @@ test "$(wc -l < SHA256SUMS | tr -d ' ')" -eq 12
 sha256sum -c SHA256SUMS
 ```
 
-Second, verify that the exact `SHA256SUMS` bytes were signed by the Tag release
-workflow through the GitHub Actions OIDC issuer. No long-lived signing key is
-used:
+Second, repeat the recommended publisher verification against the complete
+downloaded asset set. No long-lived signing key is used:
 
 ```bash
 cosign verify-blob \

@@ -81,3 +81,12 @@ type Result struct {
 	NextAction         string `json:"next_action"`
 	ResultDigest       string `json:"result_digest"`
 }
+
+// Diagnostic is the redacted, machine-readable explanation for a stopped
+// Database Cognition Bootstrap. CauseCode is derived only from the package's
+// stable error token; it never includes a source ID, path, credential, or
+// wrapped error text.
+type Diagnostic struct {
+	CauseCode      string `json:"cause_code"`
+	SafeNextAction string `json:"safe_next_action"`
+}

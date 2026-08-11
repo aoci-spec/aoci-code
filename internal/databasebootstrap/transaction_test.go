@@ -2,6 +2,7 @@ package databasebootstrap
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,7 +27,8 @@ func TestApplyAddsOnlyDatabaseLifecycleAssets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if result.Status != StatusApplied || !result.DatabaseReady || result.DatabaseEntryCount != 0 ||
-		result.NetworkAccessed || result.BusinessDataRead || result.DDLDMLStatements != 0 {
+		result.NetworkAccessed || result.BusinessDataRead || result.DDLDMLStatements != 0 ||
+		result.NextAction != "call_no_argument_aoci_maintain_for_current_machine_batch" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
 	if string(mustRead(t, filepath.Join(root, "aoci.code.txt"))) != string(codeBefore) {
@@ -45,6 +47,55 @@ func TestApplyAddsOnlyDatabaseLifecycleAssets(t *testing.T) {
 	}
 	if matches, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "migration-*.json")); len(matches) != 0 {
 		t.Fatalf("Database Bootstrap created a Migration transaction: %v", matches)
+	}
+}
+
+func TestDiagnoseReportsSafeBootstrapCauseWithoutDynamicDetails(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		cause  string
+		action string
+	}{
+		{
+			name:  "code governance",
+			err:   fmt.Errorf("%w: database_bootstrap_code_governance_not_ready", ErrNotReady),
+			cause: "database_bootstrap_code_governance_not_ready", action: "call_no_argument_aoci_maintain_for_current_machine_batch",
+		},
+		{
+			name:  "baseline missing",
+			err:   fmt.Errorf("%w: database_bootstrap_baseline_required", ErrNotReady),
+			cause: "database_bootstrap_baseline_required", action: "review_database_cognition_findings",
+		},
+		{
+			name:  "database evidence",
+			err:   fmt.Errorf("%w: database_bootstrap_evidence_not_ready[database_bootstrap_secret_source]", ErrNotReady),
+			cause: "database_bootstrap_evidence_not_ready", action: "snapshot_or_repair_evidence",
+		},
+		{
+			name:  "recovery",
+			err:   errors.New("database_bootstrap_recovery_conflict: C:/secret/project/aoci.txt"),
+			cause: "database_bootstrap_recovery_conflict", action: "review_database_cognition_findings",
+		},
+		{
+			name:  "unknown",
+			err:   errors.New("database_bootstrap_secret_source: postgres://user:password@example/db"),
+			cause: "database_bootstrap_stopped", action: "review_database_cognition_findings",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			diagnostic := Diagnose(test.err)
+			if diagnostic.CauseCode != test.cause || diagnostic.SafeNextAction != test.action {
+				t.Fatalf("unexpected diagnostic: %#v", diagnostic)
+			}
+			encoded := diagnostic.CauseCode + diagnostic.SafeNextAction
+			for _, forbidden := range []string{"database_bootstrap_secret_source", "C:/secret", "postgres://", "password"} {
+				if strings.Contains(encoded, forbidden) {
+					t.Fatalf("diagnostic leaked %q: %#v", forbidden, diagnostic)
+				}
+			}
+		})
 	}
 }
 

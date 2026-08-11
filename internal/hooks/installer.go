@@ -7,7 +7,8 @@
 //   - 全部模板渲染产物先过 safety.CheckForbiddenClaims 再落盘;
 //   - 幂等: 目标文件内容为准(已含 aoci 配置即跳过),config.InstalledAgents 仅作记录;
 //   - claude 全量(MCP 配置 + 可选 hook);codex 写项目级 MCP 配置(hook 待上游稳定,
-//     见 codex.go 说明);cursor 只输出参考片段(诚实占位)。
+//     见 codex.go 说明);opencode 严格合并项目级 V1 opencode.json;
+//     cursor 只输出参考片段(诚实占位)。
 //
 // 路径形态(Windows 真机教训): TplData 的 BinPath/RepoRoot 统一转正斜杠 ——
 // 反斜杠路径进 TOML/JSON 双引号字符串会被当转义序列(\t=制表符 \a=响铃),
@@ -226,12 +227,21 @@ func Detect(root string) []string {
 	if dirExists(filepath.Join(root, ".cursor")) {
 		found = append(found, "cursor")
 	}
+	// opencode: 项目级根配置或嵌套配置实物；单独的 .opencode 目录可能只含
+	// skills/commands，不足以证明 MCP 配置环境，不能据此误报。
+	if fileExists(filepath.Join(root, "opencode.json")) ||
+		fileExists(filepath.Join(root, "opencode.jsonc")) ||
+		fileExists(filepath.Join(root, ".opencode", "opencode.json")) ||
+		fileExists(filepath.Join(root, ".opencode", "opencode.jsonc")) {
+		found = append(found, "opencode")
+	}
 	return found
 }
 
 // Install 安装指定 agent 的接入。
 // claude: 全量(MCP 配置合并写入 + 可选 PreToolUse hook);
 // codex: 写项目级 .codex/config.toml 的 [mcp_servers.aoci](hook 不装,理由见 codex.go);
+// opencode: 严格创建/合并项目级 OpenCode V1 opencode.json;
 // cursor: 输出参考配置片段(诚实占位,不写文件)。
 // 返回面向用户的多行结果说明。
 func Install(root, agent string, withHooks bool) (string, error) {
@@ -263,6 +273,8 @@ func Install(root, agent string, withHooks bool) (string, error) {
 			b.WriteString(hookMessage("hook.codex_hook_deferred"))
 		}
 		return strings.TrimRight(b.String(), "\n"), nil
+	case "opencode":
+		return InstallOpenCodeMCP(root)
 	case "cursor":
 		out, err := renderLocaleTemplate(
 			"codex-cursor-stubs.txt.tmpl",

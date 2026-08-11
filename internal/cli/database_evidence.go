@@ -41,7 +41,7 @@ func newDatabaseBaselineAcceptCmd() *cobra.Command {
 			}
 			bootstrapResult, err := autoBootstrapDatabaseCognition(root)
 			if err != nil {
-				return &ExitError{Code: ExitInvalid, MachineCode: "database_bootstrap_stopped", Msg: cliMessage("database.error.bootstrap_stopped")}
+				return databaseBootstrapExitError(err)
 			}
 			result := struct {
 				Version              int                       `json:"version"`

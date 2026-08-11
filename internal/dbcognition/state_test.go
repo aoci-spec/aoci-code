@@ -21,6 +21,9 @@ func TestAssessDatabaseCognitionLifecycle(t *testing.T) {
 	if assessment.Summary.Missing != 1 || assessment.Summary.Unbaselined != 1 || assessment.CognitionCurrent {
 		t.Fatalf("unexpected initial state: %#v", assessment)
 	}
+	if assessment.NextAction != "call_no_argument_aoci_maintain_for_current_machine_batch" {
+		t.Fatalf("database debt did not route to ordinary no-argument Maintain: %q", assessment.NextAction)
+	}
 	users := itemByRef(t, assessment, "database://primary/public/users")
 	if err := baseline.UpdateDatabaseCognitionBinding(state, baseline.DatabaseCognitionBinding{
 		ObjectRef: users.ObjectRef, SourceID: users.SourceID, EvidenceVersion: users.EvidenceVersion,

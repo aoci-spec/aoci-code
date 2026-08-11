@@ -50,7 +50,7 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 ```
 ## 手动接入
 
-请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)验证校验和、GitHub Actions keyless 发布者身份、provenance 和 Release Manifest。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
+请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)选择基础、推荐或完整校验层级，并准确说明已完成的层级。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor、OpenCode 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
 
 首次生成完整认知所需时间取决于仓库规模。正常接入过程包括：准备二进制文件、让 AI Agent 或用户初始化目标仓库、在宿主中提出“建立索引”、验证对齐。后续开发不需要在每个需求末尾重复提醒“维护索引”；项目规则和 AOCI MCP 工作流会在受管对象变化后引导 AI Agent 完成增量认知维护。
 
@@ -58,7 +58,7 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 
 - 经验证的 Release 软件包，或 canonical AOCI-CODE 源码仓库的工作副本；
 - `go.mod` 声明的 Go 工具链、`make` 及仓库要求的其他工具；
-- 一个受支持的 MCP 宿主，例如 Codex、Claude Code 或 Cursor；
+- 一个受支持的 MCP 宿主，例如 Codex、Claude Code、Cursor 或 OpenCode；
 - 对目标仓库的正常读写权限。
 
 签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
@@ -118,7 +118,6 @@ AI Agent 应识别当前项目根目录、使用已构建二进制的稳定绝�
 AOCI=/absolute/path/to/aoci-code/build/aoci
 "$AOCI" --repo . init --locale zh-CN --agent codex
 "$AOCI" --repo . scan
-"$AOCI" --repo . status --deep
 ```
 
 `init` 会写入 Locale 配置、托管的 `AGENTS.md` 规则区块、Git 边界以及语义为空的最小认知骨架；不同宿主的配置或提示方式并不相同，详见“宿主集成”。它不会根据文件名、目录或 AST 伪造业务语义。
@@ -132,7 +131,6 @@ AOCI=/absolute/path/to/aoci-code/build/aoci
 $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 & $Aoci --repo . init --locale zh-CN --agent codex
 & $Aoci --repo . scan
-& $Aoci --repo . status --deep
 ```
 
 请确认 `$Aoci` 指向稳定的绝对路径。
@@ -164,7 +162,6 @@ $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 ```bash
 "$AOCI" --repo . verify
 "$AOCI" --repo . check
-"$AOCI" --repo . status --deep
 ```
 
 预期结果是正式认知与当前受管源码重新收敛到 `aligned`。如果未对齐，请先查看实时 Guide，不要在包装脚本中复制内部状态机：
@@ -398,18 +395,20 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 ## 宿主集成
 
-`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置且不安装 Hook；Claude Code 可以安装 `PreToolUse` Hook；Cursor 只返回参考配置片段，不写入项目配置。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效，后续任务会复用当前认知，不会机械地重复注入整个索引。
+`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置且不安装 Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效，后续任务会复用当前认知，不会机械地重复注入整个索引。
 
 | 宿主 | 当前接入方式 | 边界 |
 | --- | --- | --- |
 | **Codex** | 项目级 stdio MCP 配置 | 不依赖文件编辑 Hook |
 | **Claude Code** | 项目级 MCP；可选 `PreToolUse` 薄守卫 | Hook 只负责写前提示或 Stale 守卫，不是 AI Agent runtime |
+| **OpenCode V1** | 通过 `--agent opencode` 写入严格的项目根 `opencode.json` | 工具已加载可直接继续；否则刷新或重新打开项目会话 |
 | **Cursor** | 返回 MCP 参考配置片段 | 不写入项目配置，仍需按宿主手工完成接入 |
 | **其他 MCP Host** | 连接标准 stdio Server | 需要手工配置并完成宿主专项验证 |
 
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
+aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
 ```
 
@@ -431,7 +430,7 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 | --- | --- |
 | `aoci init` | 安装仓库合同和不含业务语义的初始 Volumes 布局 |
 | `aoci scan` | 为首次接入建立 Baseline；已有 Managed Baseline 的范围变化进入 Scope Change |
-| `aoci status --deep` | 查看对齐状态与当前漂移 |
+| `aoci status --deep` | 仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线 |
 | `aoci verify` | 报告 Missing、Orphan、Stale 和 Unbaselined 事实 |
 | `aoci check` | 运行聚合治理门禁 |
 | `aoci index agent guide` | 进入确定性的宿主智能体工作流 |
@@ -457,8 +456,7 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 aoci --repo . init --locale zh-CN --agent codex
 aoci --repo . scan
 
-# 状态、验证与治理门禁
-aoci --repo . status --deep
+# Cognition Volumes 的验证与治理门禁
 aoci --repo . verify --json
 aoci --repo . check --json
 
@@ -672,9 +670,12 @@ AOCI-CODE 不要求 Neo4j、向量数据库、长期 Daemon 或 AOCI 云服务�
 
 ## 常见问题
 
-### 为什么 `status --deep` 仍显示漂移？
+### 为什么 Legacy `status --deep` 仍显示漂移？
 
-先运行实时 Guide，让宿主根据当前机器状态继续流程。不要直接修改 Baseline，也不要跳过源码绑定或恢复步骤。
+`status --deep`、`index score` 和 `index agent plan` 仅用于 Legacy。对于
+Cognition Volumes 仓库，应先运行实时 Guide，让宿主调用普通无参数
+`aoci_maintain`，通过 `aoci_update_entry` 提交完整当前批次，并以 Verify、
+Check、Guide 收口。不要直接修改 Baseline，也不要跳过源码绑定或恢复步骤。
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

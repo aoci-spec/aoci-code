@@ -230,6 +230,10 @@ func databaseSourceExitError(err error) error {
 	if sourceErr.Code == "configuration_invalid" || sourceErr.Code == "credential_env_missing" || sourceErr.Code == "source_disabled" {
 		code = ExitConfig
 	}
+	if sourceErr.Code == "credential_env_missing" {
+		return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code,
+			Msg: cliMessage("database.error.credential_env_missing", sourceErr.SourceID)}
+	}
 	return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code, Msg: cliMessage("database.error.source", sourceErr.SourceID, sourceErr.Code)}
 }
 

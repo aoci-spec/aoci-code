@@ -43,13 +43,21 @@ git add .
 git commit -m "initial example"
 /absolute/path/to/aoci --repo . init --locale en-US --agent codex
 /absolute/path/to/aoci --repo . scan
-/absolute/path/to/aoci --repo . status --deep
 ```
 
 `init` creates Root, Meta, and an empty Code Volume; Database remains absent.
 It never invents repository or Database semantics. A host AI Agent must follow the
 installed repository contract and current AOCI Guide to build complete
 cognition.
+
+Fresh initialization uses Code-only Cognition Volumes. In that layout the host
+follows the live Guide, calls ordinary no-argument `aoci_maintain`, submits every
+candidate in the complete current machine-issued batch through
+`aoci_update_entry`, and finishes with Verify, Check, and Guide. Repeat Maintain
+only when a successful batch reports remaining work.
+
+`status --deep`, `index score`, and `index agent plan` are Legacy-only workflow
+commands. They are not the Fresh/Volumes onboarding or maintenance path.
 
 ## Choose an execution mode
 

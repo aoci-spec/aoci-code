@@ -42,7 +42,15 @@ go run ./scripts/release/manifest --verify dist/RELEASE-MANIFEST.json
 manifest's independent digest, size, and archive-to-SBOM bindings. The signed
 Tag workflow additionally fails closed if any of the 16 declared Release assets
 is missing, extra, misclassified, or inconsistent with the provenance subject
-set. Consumers should verify the checksum, signature, provenance, and manifest.
+set.
+
+Consumer assurance is layered. Basic installation verifies the selected
+archive against `SHA256SUMS` and checks the extracted binary identity.
+Recommended installation also verifies the keyless publisher signature over
+the checksum file. Full supply-chain verification additionally checks all
+provenance subjects, the selected SBOM, and the manifest. GitHub CLI, Cosign,
+Git, Go, and SBOM tools support those verification layers; none is an AOCI
+runtime dependency.
 
 ## Reproducible-build posture
 
@@ -126,11 +134,13 @@ commit. A separate `v*`-Tag-only publish job has `contents: write` and
 `attestations: read`, but no OIDC signing permission. This split prevents the
 dry-run path from obtaining Release publication authority.
 
-The executable consumer verification order is documented in
-[Installation](install.md): download all 16 assets, verify `SHA256SUMS`, verify
-its exact keyless publisher identity with Cosign, verify the 14 GitHub
-provenance subjects, inspect the matching SBOM, and perform offline manifest
-verification.
+The executable consumer verification levels are documented in
+[Installation](install.md). Full verification downloads all 16 assets, verifies
+`SHA256SUMS`, authenticates its exact keyless publisher identity with Cosign,
+verifies the 14 GitHub provenance subjects, inspects the matching SBOM, and
+performs offline manifest verification. Browser or public-URL download is
+separate from GitHub CLI/API authentication, and local bundle verification is
+separate from AOCI runtime requirements.
 
 Artifact attestations establish who built particular bytes, from which
 repository, workflow, ref, and commit. They are not a guarantee that the

@@ -7,9 +7,10 @@ Volume fingerprints when it advances its owned business-source Baseline
 projection. See
 [`aoci-system-cognition-runtime-v1.txt`](../spec/public/aoci-system-cognition-runtime-v1.txt).
 
-Cognition Volumes v1 is additive. The default repository
-remains Legacy monolithic. Reads cover Root, Meta, Code, and model-authored
-Database table FRAS. The current contract lets the model submit deterministic
+Cognition Volumes v1 is additive. Fresh initialization now creates a semantic-
+free Code-only Volumes repository. Existing Legacy monolithic repositories
+remain supported and are not migrated automatically. Reads cover Root, Meta,
+Code, and model-authored Database table FRAS. The current contract lets the model submit deterministic
 multi-object Code, Database, or mixed Code+Database batches within an already
 declared layout, using current source or accepted saved Evidence and the same
 existing governance transaction. Existing single-object inputs remain
@@ -24,6 +25,19 @@ The narrow Database Cognition Bootstrap is a separate lifecycle exception: an
 aligned Code-only layout with explicitly accepted Schema Evidence may add only
 the Database descriptor, marker-only Database Volume, and Baseline fingerprint.
 It does not provide general Root/Meta editing or Volume Apply.
+
+## Lifecycle command routing
+
+Fresh and existing Volumes repositories use the current Guide and ordinary
+no-argument `aoci_maintain`. The model authors the complete current
+machine-issued batch and submits it through `aoci_update_entry`; a successful
+non-final batch returns to Maintain, and the final batch closes with Verify,
+Check, and Guide.
+
+`status --deep`, `index score`, and `index agent plan` remain Legacy-only. They
+must not be used as fallback maintenance commands for a Volumes repository.
+Existing Legacy repositories retain those commands and their established
+contracts; this compatibility does not make Legacy the Fresh default.
 
 The four responsibilities are deliberately singular:
 

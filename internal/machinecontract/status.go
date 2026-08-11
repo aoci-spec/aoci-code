@@ -8,6 +8,10 @@ const (
 	AutoStatusStopped        = "stopped"
 )
 
+// ActionCallNoArgumentMaintainForCurrentMachineBatch is shared by Guide and
+// domain status projections so every ordinary Maintain route uses one token.
+const ActionCallNoArgumentMaintainForCurrentMachineBatch = "call_no_argument_aoci_maintain_for_current_machine_batch"
+
 // Database Cognition values are the shared machine vocabulary for local
 // Evidence-to-FRAS authoring. They describe cognition state only; Database
 // Evidence Baseline drift remains a separate contract.
@@ -31,7 +35,7 @@ const (
 	DatabaseCognitionActionNoActionRequired       = "no_action_required"
 	DatabaseCognitionActionSnapshotOrRepair       = "snapshot_or_repair_evidence"
 	DatabaseCognitionActionBootstrapVolume        = "bootstrap_database_cognition"
-	DatabaseCognitionActionMaintain               = "aoci_maintain_scope_database"
+	DatabaseCognitionActionMaintain               = ActionCallNoArgumentMaintainForCurrentMachineBatch
 	DatabaseCognitionActionReviewFindings         = "review_database_cognition_findings"
 	DatabaseCognitionActionReviewAllScopes        = "review_code_and_database_maintain_results"
 	DatabaseCognitionActionAuthorCompleteBatch    = "author_complete_fras_and_submit_entire_batch"

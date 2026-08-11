@@ -293,7 +293,7 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		}
 		guide.Batch = &volumeGuideBatch{TotalTargets: total, MaxEntries: machinecontract.EntriesBatchMaxItems,
 			Included: included, Remaining: total - included, ContinuationRequired: total > included,
-			NextAction: "call_no_argument_aoci_maintain_for_current_machine_batch"}
+			NextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch}
 		guide.NextAction = guide.Batch.NextAction
 		contract, contractErr := authoringcontract.Build(set.Meta.Raw, facts.AffectedDomains, textassets.ActiveLocale())
 		if contractErr != nil {

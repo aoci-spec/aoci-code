@@ -44,6 +44,8 @@ func initAgentCandidatePaths(agent string) []string {
 		return []string{".mcp.json", ".claude/settings.json"}
 	case "codex":
 		return []string{".codex/config.toml"}
+	case "opencode":
+		return []string{"opencode.json"}
 	default:
 		return nil
 	}
@@ -99,13 +101,13 @@ func initAgentGuideCommand(
 	agent string,
 ) string {
 	switch agent {
-	case "claude", "codex", "cursor":
+	case "claude", "codex", "cursor", "opencode":
 		return "aoci index agent guide --agent " +
 			agent +
 			" --json"
 	default:
 		return "aoci index agent guide --agent " +
-			"<codex|claude|cursor> --json"
+			"<codex|claude|cursor|opencode> --json"
 	}
 }
 
@@ -139,7 +141,7 @@ func init() {
 				}
 			}
 			switch agent {
-			case "", "claude", "codex", "cursor", "all":
+			case "", "claude", "codex", "cursor", "opencode", "all":
 			default:
 				return &ExitError{
 					Code: ExitConfig,
@@ -162,6 +164,14 @@ func init() {
 				root, err = filepath.Abs(".")
 				if err != nil {
 					return err
+				}
+			}
+			// OpenCode has two incompatible configuration shapes in active use.
+			// Validate the project file before init creates any repository asset,
+			// so JSONC/V2/conflicts fail closed with a zero-write repository tree.
+			if agent == "opencode" {
+				if preflightErr := hooks.ValidateOpenCodeMCPInstall(root); preflightErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: preflightErr.Error()}
 				}
 			}
 

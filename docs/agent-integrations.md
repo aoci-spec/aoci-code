@@ -5,6 +5,11 @@ understanding; AOCI-CODE supplies persistent cognition and deterministic
 governance. Host configuration must use the same absolute binary and repository
 root whose identity was verified.
 
+After writing or changing an MCP configuration, first check whether the current
+host session already exposes the AOCI tools. Refresh or reopen that project
+session only when it has not loaded the new server; hosts that support dynamic
+MCP reload do not require a blanket application restart.
+
 ## Codex
 
 ```bash
@@ -34,6 +39,44 @@ aoci --repo /absolute/path/to/repository init --agent claude --hooks
 ```
 
 The hook is a thin pre-write guard, not an AI Agent runtime and not a replacement governance flow.
+
+## OpenCode V1
+
+```bash
+aoci --repo /absolute/path/to/repository init --agent opencode
+```
+
+This creates or strictly merges the stable OpenCode V1 project configuration at
+the repository root, `opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "aoci": {
+      "type": "local",
+      "command": [
+        "/absolute/path/to/aoci",
+        "--repo",
+        "/absolute/path/to/repository",
+        "mcp"
+      ],
+      "enabled": true
+    }
+  }
+}
+```
+
+If the current OpenCode project session already exposes the AOCI tools, no
+restart is required. Otherwise refresh or reopen that project session and then
+verify the loaded server. OpenCode may display MCP tool names with the server
+prefix, for example `aoci_aoci_rules`; the AOCI Server itself still exposes the
+same nine tool identities.
+
+The first implementation intentionally does not merge OpenCode V2
+`mcp.servers` documents or JSONC configuration. It fails closed instead of
+creating a competing configuration or stripping comments; configure those
+formats manually after reviewing the installed OpenCode version.
 
 ## Cursor
 

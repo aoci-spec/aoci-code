@@ -54,7 +54,7 @@ build it from the official repository.
 ```
 ## Manual integration
 
-Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, verify its checksum, the keyless GitHub Actions publisher identity, provenance, and release manifest as described in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages). Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, or Cursor. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
+Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, follow the basic, recommended, or full verification level in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages), and report which level completed. Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, Cursor, or OpenCode. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
 
 The time required to generate complete cognition for the first time depends on repository size. A normal integration consists of preparing the binary, having the AI Agent or user initialize the target repository, asking the host to “build the index,” and verifying alignment. Subsequent development does not require a repeated “maintain the index” reminder at the end of every request; project rules and the AOCI MCP workflow guide the AI Agent through incremental cognition maintenance after managed objects change.
 
@@ -62,7 +62,7 @@ The time required to generate complete cognition for the first time depends on r
 
 - A verified release package or a checkout of the canonical AOCI-CODE source repository;
 - The Go toolchain declared by `go.mod`, `make`, and any other tools required by the repository;
-- A supported MCP host, such as Codex, Claude Code, or Cursor;
+- A supported MCP host, such as Codex, Claude Code, Cursor, or OpenCode;
 - Normal read and write access to the target repository.
 
 The signed-package route and executable verification commands are in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages). The source-build route remains available below.
@@ -124,7 +124,6 @@ To initialize AOCI yourself first, run the following from the target repository 
 AOCI=/absolute/path/to/aoci-code/build/aoci
 "$AOCI" --repo . init --locale en-US --agent codex
 "$AOCI" --repo . scan
-"$AOCI" --repo . status --deep
 ```
 
 `init` writes the Locale configuration, the managed `AGENTS.md` rules block, Git boundaries, and a minimal cognition skeleton with no semantics. Configuration and prompting vary by host; see “Host Integration” for details. It does not fabricate business semantics from filenames, directories, or an AST.
@@ -138,7 +137,6 @@ For a new repository, the first `scan` establishes the Managed Baseline. For a p
 $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 & $Aoci --repo . init --locale en-US --agent codex
 & $Aoci --repo . scan
-& $Aoci --repo . status --deep
 ```
 
 Confirm that `$Aoci` points to a stable absolute path.
@@ -170,7 +168,6 @@ After onboarding completes, run:
 ```bash
 "$AOCI" --repo . verify
 "$AOCI" --repo . check
-"$AOCI" --repo . status --deep
 ```
 
 The expected result is for formal cognition and the current managed source code to converge back to `aligned`. If they do not, consult the live Guide first; do not duplicate the internal state machine in a wrapper script:
@@ -404,18 +401,20 @@ Code Volume, Database Volume, and Scope can evolve together, but they share one 
 
 ## Host integration
 
-`aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and does not install a Hook; Claude Code can install a `PreToolUse` Hook; Cursor only returns a reference configuration snippet and does not write project configuration. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid, later tasks reuse current cognition instead of mechanically injecting the entire index again.
+`aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and does not install a Hook; Claude Code can install a `PreToolUse` Hook; OpenCode V1 receives a strict project-level `opencode.json`; Cursor only returns a reference configuration snippet and does not write project configuration. After configuration, check whether the current host session already exposes AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid, later tasks reuse current cognition instead of mechanically injecting the entire index again.
 
 | Host | Current integration | Boundary |
 | --- | --- | --- |
 | **Codex** | Project-level stdio MCP configuration | Does not depend on a file-editing Hook |
 | **Claude Code** | Project-level MCP; optional thin `PreToolUse` guard | The Hook only provides a pre-write reminder or Stale guard; it is not the AI Agent runtime |
+| **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; integration must still be completed manually for the host |
 | **Other MCP hosts** | Connect to the standard stdio Server | Require manual configuration and host-specific validation |
 
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
+aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
 ```
 
@@ -437,7 +436,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | --- | --- |
 | `aoci init` | Installs the repository contract and initial Volumes layout without business semantics |
 | `aoci scan` | Establishes the Baseline for first-time integration; scope changes under an existing Managed Baseline enter Scope Change |
-| `aoci status --deep` | Shows alignment status and current drift |
+| `aoci status --deep` | Legacy-only deep status; not the Cognition Volumes maintenance route |
 | `aoci verify` | Reports Missing, Orphan, Stale, and Unbaselined facts |
 | `aoci check` | Runs the aggregated governance gate |
 | `aoci index agent guide` | Enters the deterministic host-agent workflow |
@@ -463,8 +462,7 @@ Common combinations:
 aoci --repo . init --locale en-US --agent codex
 aoci --repo . scan
 
-# Status, verification, and governance gates
-aoci --repo . status --deep
+# Verification and governance gates for Cognition Volumes
 aoci --repo . verify --json
 aoci --repo . check --json
 
@@ -678,9 +676,13 @@ AOCI-CODE does not require Neo4j, a vector database, a long-running Daemon, or a
 
 ## FAQ
 
-### Why does `status --deep` still show drift?
+### Why does Legacy `status --deep` still show drift?
 
-Run the live Guide first and let the host continue from current machine state. Do not modify the Baseline directly or skip source-binding and recovery steps.
+`status --deep`, `index score`, and `index agent plan` are Legacy-only. For a
+Cognition Volumes repository, run the live Guide and let the host use ordinary
+no-argument `aoci_maintain`, submit the complete current batch through
+`aoci_update_entry`, and close with Verify, Check, and Guide. Do not modify the
+Baseline directly or skip source-binding and recovery steps.
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

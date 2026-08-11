@@ -96,7 +96,12 @@ func writeDatabaseBootstrapResult(cmd *cobra.Command, result *databasebootstrap.
 }
 
 func databaseBootstrapExitError(err error) error {
-	return &ExitError{Code: ExitInvalid, MachineCode: "database_bootstrap_stopped", Msg: cliMessage("database.error.bootstrap_stopped")}
+	diagnostic := databasebootstrap.Diagnose(err)
+	return &ExitError{
+		Code: ExitInvalid, MachineCode: "database_bootstrap_stopped",
+		Msg:     cliMessage("database.error.bootstrap_stopped", diagnostic.CauseCode, diagnostic.SafeNextAction),
+		Details: diagnostic,
+	}
 }
 
 func newDatabaseCognitionStatusCmd() *cobra.Command {
