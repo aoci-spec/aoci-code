@@ -49,14 +49,14 @@ fmt:
 fmt-check:
 	@UNFMT=$$($(GOFMT_BIN) -l .) || exit $$?; if [ -n "$$UNFMT" ]; then echo "fmt-check: 以下文件未通过 gofmt:"; echo "$$UNFMT"; exit 1; else echo "fmt-check: 全部文件符合 gofmt"; fi
 
-# 公开文案禁区扫描(D3 机器闸门;脚本未就位时提示跳过不失败)
+# 公开文案禁区扫描(D3 机器闸门)。缺少脚本是门禁损坏，必须失败。
 safety:
-	@if [ -f scripts/check-public-text.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh; else echo "safety: scripts/check-public-text.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh
 
 # 依赖方向硬校验(R17/D23 机器闸门): 确定性核心层禁止 import AI 编排层。
-# 脚本仅用 go list,零新增依赖;脚本未就位时提示跳过不失败。
+# 脚本仅用 go list,零新增依赖;缺少脚本是门禁损坏，必须失败。
 check-deps:
-	@if [ -f scripts/check-deps.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh; else echo "check-deps: scripts/check-deps.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh
 
 # 可达外部Go包许可证闸；工具由CI和发布排练固定安装，不进入go.mod。
 licenses:

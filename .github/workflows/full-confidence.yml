@@ -6,31 +6,6 @@ on:
     - cron: '23 2 * * *'
   push:
     branches: [main]
-    paths:
-      - 'scripts/check-licenses.sh'
-      - 'LICENSE'
-      - 'NOTICE'
-      - 'PATENTS'
-      - 'TRADEMARKS'
-      - 'THIRD-PARTY-NOTICES'
-      - 'README.md'
-      - 'README.zh-CN.md'
-      - 'go.mod'
-      - 'go.sum'
-      - 'scripts/release/clean-room-smoke.sh'
-      - 'internal/fs/**'
-      - 'internal/baseline/**'
-      - 'internal/cognitiontxn/**'
-      - 'internal/migrationapply/**'
-      - 'internal/bootstrapapply/**'
-      - 'internal/scopechange/**'
-      - 'internal/mcptools/**'
-      - 'internal/dbevidence/**'
-      - 'internal/machinecontract/**'
-      - 'internal/managedscope/**'
-      - 'internal/managedstate/**'
-      - 'internal/cognitionbudget/**'
-      - '.github/workflows/**'
 
 permissions:
   contents: read
@@ -44,8 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.26.5'
           cache: true
@@ -94,8 +69,8 @@ jobs:
         os: [windows-latest, macos-15-intel, macos-15]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.26.5'
           cache: true
@@ -113,8 +88,8 @@ jobs:
   postgresql-integration:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.26.5'
           cache: true
@@ -148,8 +123,8 @@ jobs:
           --health-cmd "mysqladmin ping -h 127.0.0.1"
           --health-interval 5s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: '1.26.5'
           cache: true
