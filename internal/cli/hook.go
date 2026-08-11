@@ -20,11 +20,10 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/spf13/cobra"
 )
 
@@ -58,8 +57,8 @@ func init() {
 
 			// stdin-json 通道: 解析失败放行(容错),成功则覆盖 tool/path
 			if stdinJSON {
-				data, rerr := io.ReadAll(os.Stdin)
-				if rerr == nil && len(data) > 0 {
+				data, tooLarge, rerr := readLimitedInput(cmd.InOrStdin(), machinecontract.HeaderRequestMaxBytes)
+				if rerr == nil && !tooLarge && len(data) > 0 {
 					var in claudeHookInput
 					if json.Unmarshal(data, &in) == nil {
 						if in.ToolName != "" {

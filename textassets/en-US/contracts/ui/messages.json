@@ -856,6 +856,7 @@
   "entry.transaction.hint.recover_header": "Use the original Header run to complete Baseline and Application recovery before retrying this governance batch",
   "cli.update_entry.path_required": "--path is required and must name a repository-relative target file",
   "cli.update_entry.stdin_failed": "Could not read stdin: %v",
+  "cli.update_entry.stdin_too_large": "stdin Entry exceeds the %d-byte limit",
   "cli.update_entry.entry_empty": "Entry content is empty; provide it with --entry or read it from standard input with --stdin",
   "cli.update_entry.source_sha_invalid": "--source-sha256 must be the 64-character source fingerprint returned by aoci_maintain",
   "cli.update_entry.hint_prefix": "Next step: ",

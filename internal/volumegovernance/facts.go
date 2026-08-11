@@ -176,7 +176,7 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 
 	manifest, manifestErr := businesssource.Build(root, "")
 	if manifestErr != nil {
-		facts.Findings = append(facts.Findings, Finding{Code: "business_source_manifest_invalid"})
+		facts.Findings = append(facts.Findings, Finding{Code: "business_source_manifest_invalid", Cause: manifestErr.Error()})
 	} else {
 		facts.BusinessSourceSHA256 = manifest.AggregateSHA256
 	}

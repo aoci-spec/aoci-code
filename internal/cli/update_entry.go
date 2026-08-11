@@ -13,13 +13,12 @@ package cli
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/mcptools"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
@@ -73,9 +72,12 @@ func newUpdateEntryCmd() *cobra.Command {
 			// 条目来源: --entry 或 --stdin(二选一,stdin 优先级由显式 flag 决定)
 			raw := entry
 			if useStdin {
-				data, rerr := io.ReadAll(os.Stdin)
+				data, tooLarge, rerr := readLimitedInput(cmd.InOrStdin(), machinecontract.EntriesRequestMaxBytes)
 				if rerr != nil {
 					return fmt.Errorf("%s", cliMessage("cli.update_entry.stdin_failed", rerr))
+				}
+				if tooLarge {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("cli.update_entry.stdin_too_large", machinecontract.EntriesRequestMaxBytes)}
 				}
 				raw = string(data)
 			}
@@ -145,6 +147,7 @@ func newUpdateEntryCmd() *cobra.Command {
 var cliUpdateEntryMessageArguments = map[string][]any{
 	"cli.update_entry.path_required":        nil,
 	"cli.update_entry.stdin_failed":         {fmt.Errorf("read")},
+	"cli.update_entry.stdin_too_large":      {machinecontract.EntriesRequestMaxBytes},
 	"cli.update_entry.entry_empty":          nil,
 	"cli.update_entry.source_sha_invalid":   nil,
 	"cli.update_entry.hint_prefix":          nil,
