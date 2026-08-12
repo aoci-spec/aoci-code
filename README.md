@@ -14,13 +14,13 @@
 > [!IMPORTANT]
 > AOCI-CODE v0.1.0-rc3 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). Build from canonical source or use a signed package from the [v0.1.0-rc3 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc3) after following the [release verification procedure](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages).
 
-## What is AOCI?
+## 🧠 What is AOCI?
 
 **AOCI (AI-Oriented Cognition Infrastructure) is cognition infrastructure positioned between AI Agents and software systems.**
 
 Large models handle reasoning, Agents handle planning and execution, and AOCI organizes code, configuration, tests, and database structures into continuously maintainable system cognition bound to the current system version, for Agents to read and understand before acting.
 
-## What is AOCI-CODE?
+## 🗺️ What is AOCI-CODE?
 
 AOCI-CODE originates from AOCI. Put simply, AOCI-CODE distills the information from source code, database structures, and other assets that materially affects how AI understands and modifies a system into a high-information-density, plain-text index combining symbols and semantics.
 
@@ -35,7 +35,7 @@ When model context is limited, an AI Agent can read the index first, acquire mos
 Names in this document have the following roles: **AOCI** refers to the cognition paradigm and protocol, while **AOCI-CODE** refers to the project and the index itself that embody this method.
 
 
-## One-step setup
+## 🚀 One-step setup
 
 Give the following instruction to your AI Agent to download AOCI-CODE, integrate it, and build an index for the current project:
 
@@ -52,22 +52,22 @@ Then initialize AOCI for my project, integrate MCP, and build the project index.
 If no compatible release package exists, or if I explicitly request the latest source,
 build it from the official repository.
 ```
-## Manual integration
+## 🔌 Manual integration
 
 Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, follow the basic, recommended, or full verification level in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages), and report which level completed. Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, Cursor, or OpenCode. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
 
 The time required to generate complete cognition for the first time depends on repository size. A normal integration consists of preparing the binary, having the AI Agent or user initialize the target repository, asking the host to “build the index,” and verifying alignment. Subsequent development does not require a repeated “maintain the index” reminder at the end of every request; project rules and the AOCI MCP workflow guide the AI Agent through incremental cognition maintenance after managed objects change.
 
-### 0. Requirements
+### 0. 🧰 Requirements
 
 - A verified release package or a checkout of the canonical AOCI-CODE source repository;
-- The Go toolchain declared by `go.mod`, `make`, and any other tools required by the repository;
+- For source builds only, the Go toolchain declared by `go.mod`, `make`, and the other tools required by the repository;
 - A supported MCP host, such as Codex, Claude Code, Cursor, or OpenCode;
 - Normal read and write access to the target repository.
 
 The signed-package route and executable verification commands are in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages). The source-build route remains available below.
 
-### 1. Current RC: use a verified package or build from source
+### 1. 📦 Current RC: use a verified package or build from source
 
 The signed Release binary identifies itself as `aoci version 0.1.0-rc3`. A
 source build identifies the exact checkout instead and may report a development
@@ -97,13 +97,14 @@ make build
 ./build/aoci --version
 ```
 
-On Windows, build `aoci.exe` from the same canonical source in PowerShell:
+On Windows, build the same canonical source in PowerShell:
 
 ```powershell
 git clone https://github.com/aoci-spec/aoci-code.git
 Set-Location .\aoci-code
 New-Item -ItemType Directory -Force .\build | Out-Null
 make build
+Copy-Item .\build\aoci .\build\aoci.exe -Force
 .\build\aoci.exe --version
 ```
 
@@ -116,7 +117,7 @@ to initialize AOCI for the current project, integrate MCP, and then build the in
 
 The AI Agent should identify the current project root, use a stable absolute path to the built binary, perform the initialization appropriate for the current host, and clearly tell the user when a host restart or genuine human approval is required. The build output may remain in the AOCI-CODE source checkout or be placed in a shared stable tools directory, provided that the MCP configuration references the correct absolute path.
 
-### 2. Manual initialization path
+### 2. ⚙️ Manual initialization path
 
 To initialize AOCI yourself first, run the following from the target repository root, or pass an explicit path through `--repo`:
 
@@ -143,7 +144,7 @@ Confirm that `$Aoci` points to a stable absolute path.
 
 </details>
 
-### 3. Have the AI Agent establish cognition for the first time (important)
+### 3. 🤖 Have the AI Agent establish cognition for the first time (important)
 
 Enter the following in the AI Agent for the target project:
 
@@ -161,7 +162,7 @@ Add priorities to tasks, including the frontend, backend, database, and test cha
 
 Users do not need to append “maintain the AOCI index at the end.” Project rules and MCP make the AI Agent check cognition changes after development is complete and code and tests are stable, then maintain affected Entries through the formal workflow. When the project uses `automation.mode=auto`, AOCI-CODE should interrupt the user only when genuine human approval is required, an external action must be performed, Recovery cannot be proven, a safety check fails, or a third-party concurrency conflict is found. Other automation modes follow their respective runtime contracts.
 
-### 4. Verify alignment
+### 4. ✅ Verify alignment
 
 After onboarding completes, run:
 
@@ -176,7 +177,7 @@ The expected result is for formal cognition and the current managed source code 
 "$AOCI" --repo . index agent guide --agent codex --json
 ```
 
-### 5. Run basic diagnostics
+### 5. 🩺 Run basic diagnostics
 
 ```bash
 "$AOCI" --repo . capabilities
@@ -208,11 +209,11 @@ mkdir -p build
 CGO_ENABLED=0 go build -o build/aoci ./cmd/aoci
 ```
 
-The AOCI-CODE CLI is a CGO-free, single-binary Go program; its Windows output is `build/aoci.exe`. Before a release or delivery, rely on the actual output of `./build/aoci --version`, `./build/aoci capabilities`, and the formal Release Manifest rather than only on a version string in the README.
+The AOCI-CODE CLI is a CGO-free, single-binary Go program. The current `make build` target writes `build/aoci`; the PowerShell example copies that Windows PE output to the conventional `build/aoci.exe` name. Before a release or delivery, rely on the actual binary's `--version` and `capabilities` output and on the formal Release Manifest rather than only on a version string in the README.
 
 </details>
 
-## What appears after initialization?
+## 📁 What appears after initialization?
 
 A typical Volume-first repository contains these formal cognition assets:
 
@@ -231,11 +232,11 @@ aoci.database.txt           Database: optional table-level cognition; absent by 
 Initializing a new project creates the Volume Root, Meta, and an empty Code Volume; Database is absent by default. AOCI-CODE does not automatically generate repository business semantics or Database semantics.
 
 
-## How a complete development task runs
+## 🔄 How a complete development task runs
 
 The following two diagrams describe the workflow users actually experience; they do not explain AOCI’s internal implementation.
 
-### New project: build a simple system first, then integrate AOCI for continuous evolution
+### 🆕 New project: build a simple system first, then integrate AOCI for continuous evolution
 
 ```mermaid
 flowchart TD
@@ -249,7 +250,7 @@ flowchart TD
 
 *A new system does not need AOCI-CODE installed from the first line of code. Users can first use the AI Agent's existing development capabilities to complete a product prototype; a recommended scale is roughly 10,000–30,000 lines (not a hard threshold). Teams that want cross-session cognition from an earlier stage of the project may integrate it sooner.*
 
-### Existing project: index the current repository, then iterate continuously
+### ♻️ Existing project: index the current repository, then iterate continuously
 
 ```mermaid
 flowchart TD
@@ -269,9 +270,9 @@ If a complete batch is rejected before any formal write begins, the AOCI index r
 
 The final state explicitly returns `applied`, `repair_required`, or `stopped`. `stopped` is not success and does not necessarily mean that no write occurred; inspect `failed_step`, formal-write evidence, and the recovery action returned by Guide.
 
-## How the model and AOCI-CODE divide responsibilities
+## 🤝 How the model and AOCI-CODE divide responsibilities
 
-### The model owns semantics
+### 🧠 The model owns semantics
 
 The host model reads source code, tests, configuration, documentation, and necessary evidence, then determines:
 
@@ -282,7 +283,7 @@ The host model reads source code, tests, configuration, documentation, and neces
 
 AOCI-CODE does not assemble FRAS automatically from filenames, paths, extensions, ASTs, or templates, and it does not silently rewrite model-authored semantics.
 
-### AOCI-CODE owns governance
+### 🛡️ AOCI-CODE owns governance
 
 AOCI-CODE is responsible for:
 
@@ -298,13 +299,13 @@ AOCI-CODE is responsible for:
 
 All-green machine results mean only that the encoded structural and governance contracts hold; **they do not mean that every model-authored semantic statement is absolutely correct**.
 
-## How is an AOCI index organized?
+## 🗂️ How is an AOCI index organized?
 
 Conceptually, an AOCI index has two layers: “index rules” and “index Entries.” The current product supports two physical layouts, and they must not be treated as a single file format:
 
 
 
-### Volumes v1 layout
+### 🧱 Volumes v1 layout
 
 A Volume-first project separates responsibilities:
 
@@ -322,7 +323,7 @@ Think of it as a map:
 - Root is the **catalog and version entry point** for the current map set;
 - A Volume is a **separate volume** governed by the same protocol but with a different evidence source and lifecycle.
 
-### What do the index rules define?
+### 📐 What do the index rules define?
 
 | Rule | Purpose |
 | --- | --- |
@@ -337,7 +338,7 @@ In Volumes v1, the project’s Meta Volume stores these rules; in the Legacy lay
 
 The README only explains how to read these rules. For concrete, executable rules, defer to the current project’s Meta or Legacy Header, AOCI Guide, and formal specification.
 
-## What does one index Entry record? (FRAS)
+## 🧾 What does one index Entry record? (FRAS)
 
 After the rules are established, the model writes one index Entry for every managed object with the `index` role. The `observe` role participates only in change observation, while the `exclude` role creates explicit negative space; neither owns a formal Entry. AOCI uses **FRAS** to organize the four most important categories of semantics in an Entry:
 
@@ -384,7 +385,7 @@ Compact tags give each object coordinates for architectural layer, functional do
 
 The model authors these semantics from actual source code and evidence. AOCI-CODE validates Entry structure, binds the source file, and governs how the Entry enters the formal index.
 
-## Cognition Volumes
+## 📚 Cognition Volumes
 
 AOCI-CODE maintains one logical Whole-Index, while different cognition types have independent indexes, ownership, and lifecycles.
 
@@ -399,7 +400,7 @@ Each object has exactly one valid Owner. Placing an object in the wrong Volume c
 
 Code Volume, Database Volume, and Scope can evolve together, but they share one governed commit boundary. Applying a single Domain must not discard another Domain’s existing Baseline projection. Volume Apply, Baseline updates, and related Scope projections must be published as one consistent Cognition Transaction result or enter provable Recovery, rather than leaving a half-complete state in which “the file succeeded but another Volume has no baseline.”
 
-## Host integration
+## 🔌 Host integration
 
 `aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and does not install a Hook; Claude Code can install a `PreToolUse` Hook; OpenCode V1 receives a strict project-level `opencode.json`; Cursor only returns a reference configuration snippet and does not write project configuration. After configuration, check whether the current host session already exposes AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid, later tasks reuse current cognition instead of mechanically injecting the entire index again.
 
@@ -430,7 +431,7 @@ Legacy output retains Levels 0–4 for compatibility with existing hosts and rep
 
 These dimensions do not substitute for one another. Attestation proves only delivery coverage and identity consistency for the current material; it does not mean the AI Agent has fully understood every possible future task. Only `current_system_cognition_reliable=true` permits an unqualified claim of complete current-system cognition.
 
-## Common CLI commands
+## ⌨️ Common CLI commands
 
 | Command | Purpose |
 | --- | --- |
@@ -449,7 +450,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci cognition bootstrap` | Governs only a compatibility skeleton with a missing Root or exactly zero Entries; ordinary fresh init already creates Code-only Volumes, while a mature Legacy project should use Migration |
 | `aoci cognition migration` | Governs Legacy migration snapshots, mapping, approval, application, recovery, or rollback |
 | `aoci cognition system lineage` | Derives the origin and binding chain of important cognition objects |
-| `aoci cognition system relations` | Derives the current formal R-relationship projection |
+| `aoci cognition system relations` | Derives the narrow relation projection: Volume containment and dependencies plus resolved model-authored R relationships |
 | `aoci cognition system impact` | Queries Code Cognition objects potentially reached by a database change along explicit formal R relationships |
 | `aoci cognition system snapshot` | Outputs a read-only snapshot projection of the current CognitionSet |
 | `aoci cognition system evolution` | Compares a historical Snapshot supplied by the caller with the current projection |
@@ -489,13 +490,13 @@ aoci --repo . mcp
 
 Plan, Stage, Check, Diff, Apply, Curation, Scope Change, Bootstrap, Migration, and recovery commands still exist. Regular users should follow the Guide returned by the running binary rather than copying the internal state machine into scripts.
 
-### About “read-only” commands
+### 🔒 About “read-only” commands
 
 For verify, check, index score, and index inventory, “read-only” means that the formal index and Baseline are not modified; it does not mean strictly zero filesystem writes. When Ledger is enabled, all four commands may append to the local Ledger, and verify also attempts to write Verify History. An audit-write failure does not change existing exit codes or governance criteria.
 
-If a strict zero-file-write operation is required, use an isolated copy or explicitly disable all runtime audit writes; all four may append to the local Ledger, and `verify` also attempts to write Verify History. System Cognition commands do not create a second formal state, but ordinary CLI calls still follow the current version’s runtime contract for Ledger and local history records.
+If a strict zero-file-write operation is required, use an isolated copy; the current public CLI does not expose a blanket switch that disables every Ledger and Verify History write. System Cognition commands do not create a second formal state, but ordinary CLI calls still follow the current version’s runtime contract for Ledger and local history records.
 
-## MCP Server
+## 🧩 MCP Server
 
 `aoci mcp` does not require a resident Daemon and exposes exactly nine tools over stdio:
 
@@ -509,7 +510,7 @@ In MCP mode, stdout is reserved for JSON-RPC, while logs and diagnostics go to s
 
 The current AOCI-CODE release provides the System Cognition capabilities through the existing CLI and governance kernel. They do not add a tenth MCP tool or change the names, purposes, or stdio contract of the existing nine tools.
 
-## Long-running sessions and Whole-Index delivery
+## ⏳ Long-running sessions and Whole-Index delivery
 
 At the beginning of a new conversation, an AI Agent normally loads one complete Overview to establish system cognition matching the current repository, Index version, and AOCI service identity. As long as the model can still use that cognition reliably, it need not reload mechanically before every task or tool call.
 
@@ -529,7 +530,7 @@ When an Overview exceeds the project’s Chunk budget:
 
 The cognition refresh threshold defaults to 30 distinct semantic paths and can also be configured per project. For exact counting rules, defer to the Cognition Refresh documentation and runtime contract.
 
-## Database Cognition
+## 🗄️ Database Cognition
 
 AOCI-CODE can bring database structure into the same cognition and evolution governance, but the access boundary is explicit and narrow:
 
@@ -551,7 +552,7 @@ Explicit database command
 
 The Database Volume may be absent by default. It enters the Whole-Index only after the project explicitly enables Database Cognition and completes Evidence, Binding, and lifecycle governance.
 
-### Database Access Onboarding: users do not need to understand DSN details
+### 🔐 Database Access Onboarding: users do not need to understand DSN details
 
 Regular users only need to declare a non-sensitive identity for a database Source. If `--credential-env` is omitted, AOCI derives a stable environment-variable reference from the Source ID; for example, `primary` maps to `AOCI_DB_PRIMARY_DSN`:
 
@@ -575,7 +576,7 @@ The current release candidate provides only the Environment Credential Provider.
 
 This division of responsibility keeps account formats, DSN encoding, and Secret lifecycle management away from regular users while preserving explicit authorization: AOCI does not discover credentials automatically, scan `.env`, read Secret files, or bypass a database administrator’s authorization boundary.
 
-## System Cognition Foundation
+## 🌐 System Cognition Foundation
 
 AOCI-CODE provides a set of **derived System Cognition observations** on top of Code Cognition and Database Cognition. They answer questions such as “where did this object come from?”, “which Code Cognition objects might a database change affect?”, and “what changed as cognition evolved from a historical observation to the present?”, but they do not establish a new layer of authoritative facts.
 
@@ -583,7 +584,7 @@ AOCI-CODE provides a set of **derived System Cognition observations** on top of 
 # Cognition-object origin and its Evidence and Receipt bindings
 aoci --repo . cognition system lineage
 
-# R relationships authored by the current model and admitted to a formal Volume
+# Volume containment and dependencies plus resolved model-authored R relationships
 aoci --repo . cognition system relations
 
 # Find code impact from a database object along formal R relationships
@@ -598,21 +599,21 @@ aoci --repo . cognition system evolution \
   --snapshot-file previous.json
 ```
 
-### Authority boundary
+### ⚖️ Authority boundary
 
 | Capability | Data source | Persists new facts? | Key boundary |
 | --- | --- | --- | --- |
 | **Lineage** | Cognition, Evidence, Receipt, and Baseline bindings | No | Explains the origin chain; does not become an independent Provenance database |
-| **Relations** | Canonical R values model-authored in formal Entries | No | Projects only relationships accepted through governance |
+| **Relations** | CognitionSet structure plus canonical R values model-authored in formal Entries | No | Projects Volume containment, Root dependencies, and resolved model-authored relationships accepted through governance |
 | **Impact** | Current formal R relationships and resolvable object identities | No | Does not infer business semantics automatically from SQL, imports, paths, or names |
 | **Snapshot** | Deterministic observation of current authoritative assets | No | Output is stored by the caller and is not a Baseline or Recovery asset |
 | **Evolution** | Caller-supplied old Snapshot and current projection | No | Compares observations without advancing an independent lifecycle |
 
-Every projection should explicitly report `authoritative=false`. Cognition Volumes, Schema Evidence, Receipts, the Baseline, and Lineage Bindings remain authoritative sources. Unresolved R relationships produce an incomplete result or diagnostics instead of being guessed and filled in by the program.
+Every System Cognition result reports `derived=true`; the relation projection additionally reports `authoritative=false`. Cognition Volumes, Schema Evidence bindings, Baseline fingerprints, and receipt-bound identities remain the underlying authorities. Unresolved R relationships produce an incomplete result or diagnostics instead of being guessed and filled in by the program.
 
 **AOCI-CODE is not a knowledge-graph system.** Narrow System Relation Projection can be understood as a convenient relationship view, but it does not own a second state-management system, an independent write path, or a new fact store. Derived output can be deleted and recomputed from current authoritative assets. If a projection conflicts with authoritative assets, the latter prevail.
 
-## Execution modes, privacy, and data boundaries
+## 🔒 Execution modes, privacy, and data boundaries
 
 | Mode | Behavior |
 | --- | --- |
@@ -626,7 +627,7 @@ Every projection should explicitly report `authoritative=false`. Cognition Volum
 - Ledger, drafts, transactions, and recovery evidence are stored under `.aoci/` by default and are normally ignored by Git; formal cognition and team-governance assets may be committed to Git.
 - System Cognition Projection is computed locally from existing authoritative assets and requires no graph database, vector database, or remote graph service.
 
-## Why not just a Repo Map or RAG?
+## 🔍 Why not just a Repo Map or RAG?
 
 Ordinary search, ASTs, LSP, code graphs, and RAG are good at answering structural or retrieval questions. AOCI-CODE’s distinct role is to maintain a versioned cognition asset that covers the managed scope and evolves incrementally with the software.
 
@@ -640,9 +641,9 @@ Ordinary search, ASTs, LSP, code graphs, and RAG are good at answering structura
 | **Governed Updates** | Candidates enter formal assets through source binding, Plan, validation, Review, CAS, atomic writes, Baseline, and recovery workflows |
 | **Delivery Attestation** | Uses Chunk, Cursor, Receipt, and Challenge to prove that the Whole-Index was delivered in full |
 | **Database Cognition** | Establishes and governs table-level cognition from explicitly accepted PostgreSQL/MySQL Schema Evidence |
-| **System Intelligence Projection** | Derives Lineage, Impact, and Evolution observations from formal R relationships and governance evidence without duplicating authoritative state |
+| **System Intelligence Projection** | Derives Lineage, narrow Relations, database-to-code Impact, Snapshot, and Evolution observations from authoritative cognition and bindings without duplicating authoritative state; Impact traverses only explicit model-authored R relationships |
 
-## Relationship to other code-understanding methods
+## 🔗 Relationship to other code-understanding methods
 
 AOCI-CODE complements existing tools rather than replacing them.
 
@@ -654,11 +655,11 @@ AOCI-CODE complements existing tools rather than replacing them.
 | **Ordinary Repo Map / summary** | What is the project’s shape or a quick one-time overview? | Applies source binding, drift detection, incremental maintenance, Review, recovery, and auditing to managed objects |
 | **AI Agent** | How to inspect source, devise a plan, modify code, and run tools | Sits below the AI Agent to provide persistent cognition and govern how cognition evolves with the software |
 
-The recommended combination is: AOCI-CODE provides the global semantic prior; code graphs, LSP, search, and source provide precise evidence; tests and runtime results provide final acceptance. AOCI’s Relations projection does not replace a precise call graph; it expresses only strong relationships that the model explicitly authored in formal FRAS and that governance accepted.
+The recommended combination is: AOCI-CODE provides the global semantic prior; code graphs, LSP, search, and source provide precise evidence; tests and runtime results provide final acceptance. AOCI’s Relations projection does not replace a precise call graph: it exposes structural Volume containment and Root dependency edges, while its semantic edges are limited to strong relationships that the model explicitly authored in formal FRAS and that governance accepted.
 
 
 
-## Technology stack
+## 🛠️ Technology stack
 
 | Area | Implementation |
 | --- | --- |
@@ -674,9 +675,9 @@ The recommended combination is: AOCI-CODE provides the global semantic prior; co
 
 AOCI-CODE does not require Neo4j, a vector database, a long-running Daemon, or an AOCI cloud service. When Database Cognition is enabled, the target database is only an explicit, read-only source of Schema Evidence, not AOCI’s own state store.
 
-## FAQ
+## ❓ FAQ
 
-### Why does Legacy `status --deep` still show drift?
+### 🧭 Why does Legacy `status --deep` still show drift?
 
 `status --deep`, `index score`, and `index agent plan` are Legacy-only. For a
 Cognition Volumes repository, run the live Guide and let the host use ordinary
@@ -688,7 +689,7 @@ Baseline directly or skip source-binding and recovery steps.
 aoci --repo . index agent guide --agent codex --json
 ```
 
-### Why did the host start the wrong AOCI?
+### ⚠️ Why did the host start the wrong AOCI?
 
 Inspect the executable path in the project-level MCP configuration and ensure it is a stable absolute path, then run:
 
@@ -699,24 +700,24 @@ Inspect the executable path in the project-level MCP configuration and ensure it
 
 To verify the loaded stdio Server rather than only the file on disk, also inspect the host process’s actual executable, command-line `--repo`, and post-restart process identity.
 
-### Must regular users create a database account and provide a DSN themselves?
+### 🔐 Must regular users create a database account and provide a DSN themselves?
 
 Regular users do not need to understand DSN syntax and should not transmit Secrets in chat. After the user declares a non-sensitive Source identity, AOCI provides a stable environment-variable reference. A database administrator must still create an external, least-privilege account with read-only system-catalog access and provide that reference to the runtime environment. The current version does not create a database account on an organization’s behalf or read a Secret Store automatically.
 
-### Can it run in CI?
+### ⚙️ Can it run in CI?
 
 Scanning, verification, governance gates, and deterministic checks can run without authoring new semantics. For exact commands, audit writes, and exit codes, defer to the current binary’s `--help`, JSON Schema, and project CI documentation.
 
-### Does an all-green AOCI result prove that the semantics are correct?
+### ✅ Does an all-green AOCI result prove that the semantics are correct?
 
 No. A green result proves that the encoded structural and governance conditions hold. Model-authored semantics must still be verified against source code, Schema, tests, runtime results, and human review.
 
-### Is the System Cognition Graph a new source of truth?
+### 🕸️ Is the System Cognition Graph a new source of truth?
 
 No. The current capability is Narrow Relation Projection, not an independent graph platform. It computes results only from formal Cognition, Evidence, Receipts, and Baseline, and does not persist new authoritative facts. The program also does not generate semantic relationships automatically from imports, SQL, filenames, or similarity.
 
 
-## Documentation
+## 📖 Documentation
 
 | Topic | Document |
 | --- | --- |
@@ -736,7 +737,7 @@ No. The current capability is Narrow Relation Projection, not an independent gra
 > remain valid when this README is read from a binary Release archive, which
 > does not include the repository's `docs/` or `spec/public/` directories.
 
-## Research, intellectual property, and license
+## ⚖️ Research, intellectual property, and license
 
 AOCI-CODE research papers and Artifacts may publicly describe released methods, experimental protocols, and results. Patent applications, granted scope, legal status, owners, and territorial effect are legal facts and should not be added to product descriptions based only on an internal README, a historical version number, or an unverified retelling.
 
@@ -745,7 +746,7 @@ If a specific patent number, grant date, or scope must be disclosed in the futur
 <details>
 <summary>Contributions, security, and license</summary>
 
-The project is not currently open to general external contributions. Read [CONTRIBUTING.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/CONTRIBUTING.md) before submitting changes. Until the rights holder approves a public contribution policy, inbound-licensing boundaries may restrict the acceptance and use of pull requests.
+Focused external contributions may be submitted through the process in [CONTRIBUTING.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/CONTRIBUTING.md). Contributors must have the right to submit their work; accepted contributions are governed by the repository license and any published inbound terms, and maintainers may require additional contributor documentation before merging.
 
 Do not disclose suspected vulnerabilities in public Issues. Follow [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/SECURITY.md); a monitored private reporting channel and clear response ownership remain prerequisites for a public Release.
 
