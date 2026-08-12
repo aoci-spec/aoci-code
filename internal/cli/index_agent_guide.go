@@ -285,6 +285,7 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_runtime_identity"))
 	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
+		guide.Commands.Check = "aoci check --json"
 		total := len(facts.CodeDrift.Missing) + len(facts.CodeDrift.Stale) + len(facts.CodeDrift.Unbaselined) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
 		included := total

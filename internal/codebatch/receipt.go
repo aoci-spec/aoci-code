@@ -124,6 +124,9 @@ func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, c
 		return Receipt{}, fmt.Errorf("code_candidate_batch_mismatch")
 	}
 	if len(issues) > 0 {
+		if !receiptSourcesCurrent(root, receipt) {
+			return Receipt{}, fmt.Errorf("code_candidate_plan_stale")
+		}
 		return Receipt{}, &SubmissionError{Code: "code_candidate_binding_mismatch", Issues: issues}
 	}
 	return receipt, nil

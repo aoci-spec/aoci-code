@@ -207,6 +207,7 @@ func TestFinalizeVolumeAgentGuideBindsSupportedCommandsAndOmitsLegacyPlan(
 		Commands: agentGuideCommands{
 			Guide:      "aoci index agent guide --agent codex --json",
 			HeaderShow: "aoci index header show",
+			Check:      "aoci check --json",
 			Verify:     "aoci verify --json",
 		},
 	}
@@ -223,6 +224,7 @@ func TestFinalizeVolumeAgentGuideBindsSupportedCommandsAndOmitsLegacyPlan(
 	for name, command := range map[string]string{
 		"guide":       guide.Commands.Guide,
 		"header_show": guide.Commands.HeaderShow,
+		"check":       guide.Commands.Check,
 		"verify":      guide.Commands.Verify,
 	} {
 		if !strings.HasPrefix(command, prefix+" ") {

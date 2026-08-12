@@ -1504,7 +1504,7 @@
   "guide.render.curation_batch": "Curation本批: %d / 剩余: %d / 上限: %d\n",
   "guide.render.json_hint": "机器请求模板和完整命令请使用--json。\n",
   "guide.volumes_summary": "AOCI Volumes Guide: stage=%s complete=%t next_action=%s affected_domains=%s\n",
-  "guide.volumes_instruction_maintain": "Volumes v1普通维护请在当前MCP会话调用无参数aoci_maintain，并按其返回的完整candidate/batch使用aoci_update_entry。Code的code_batch_id必须等于code_plan.batch_id和每个Code candidate.batch_id；authoring_batch.batch_identity不能填入此字段。不要运行仅适用于Legacy布局的aoci index agent plan。",
+  "guide.volumes_instruction_maintain": "Volumes v1普通维护请在当前MCP会话调用无参数aoci_maintain，并按其返回的完整candidate/batch使用aoci_update_entry。Code的code_batch_id必须等于code_plan.batch_id和每个Code candidate.batch_id；authoring_batch.batch_identity不能填入此字段。若已应用批次的remaining非零，请基于新preimage再次调用aoci_maintain，尚不要执行终态证明。最后一个正式写入批次成功且remaining=0后，依次执行commands.verify、commands.check（Aggregate Check）和commands.guide；不得再次Maintain或写入，只报告它们的实际返回结果。不要运行仅适用于Legacy布局的aoci index agent plan。",
   "guide.volumes_instruction_runtime_identity": "volume_read_only只说明所调用的CLI兼容路径不支持Volumes写入，不能单独证明CLI与MCP版本不一致；升级诊断必须核对运行中serverInfo和实际进程二进制。",
   "plan.read_index_failed": "读取当前索引文本失败: %s",
   "plan.snapshot_failed": "生成宿主Agent计划时采集磁盘快照失败: %s",

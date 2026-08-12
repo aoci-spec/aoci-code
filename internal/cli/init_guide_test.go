@@ -79,7 +79,9 @@ func TestInitAutomationGuideHint(
 			wants: []string{
 				"严格按当前 Guide 阶段连续执行",
 				"Entries Stage 内部完成 Check、Diff、P-23 与原子 Apply",
-				"applied 后执行 Verify 并重新 Guide",
+				"任何写入批次applied后都按当前Guide返回的后续命令继续",
+				"Volumes中remaining非零时继续Maintain",
+				"最终批次remaining=0后依次执行Verify、Aggregate Check和Guide",
 				"repair_required 时只修失败条目并自动重新 Stage",
 				"不要求用户继续",
 				"只有审批/外部动作边界、不可证明Recovery、第三方冲突或其他真实安全故障才停止用户任务",
@@ -176,7 +178,9 @@ func TestInitOutputPointsToConcreteCodexGuide(
 		"automation.mode=auto",
 		"auto follows the current Guide stage continuously and exactly",
 		"Entries Stage completes Check, Diff, P-23, and atomic Apply internally",
-		"After applied, run Verify and request Guide again",
+		"After any applied write batch, follow the next commands returned by the current Guide",
+		"For Volumes, continue Maintain while remaining is nonzero",
+		"after the final remaining=0 batch, run Verify, aggregate Check, and Guide",
 		"On repair_required, fix only the failed Entries",
 		"without asking the user to continue",
 	} {

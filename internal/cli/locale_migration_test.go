@@ -339,10 +339,12 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 		hint               string
 		instruction        string
 		batchInstruction   string
+		continuation       string
+		terminalProof      string
 		runtimeInstruction string
 	}{
-		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "Do not run the Legacy-only", "code_batch_id must equal code_plan.batch_id", "does not by itself prove a CLI/MCP version mismatch"},
-		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "code_batch_id必须等于code_plan.batch_id", "不能单独证明CLI与MCP版本不一致"},
+		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "Do not run the Legacy-only", "code_batch_id must equal code_plan.batch_id", "remaining nonzero", "commands.verify, commands.check (the aggregate Check), and commands.guide in that order", "does not by itself prove a CLI/MCP version mismatch"},
+		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "code_batch_id必须等于code_plan.batch_id", "remaining非零", "依次执行commands.verify、commands.check（Aggregate Check）和commands.guide", "不能单独证明CLI与MCP版本不一致"},
 	} {
 		if err := textassets.SetActiveLocale(current.locale); err != nil {
 			t.Fatal(err)
@@ -354,8 +356,9 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 			t.Errorf("%s volume_read_only hint claimed an unproven runtime mismatch: %q", current.locale, got)
 		}
 		if got := cliMessage("guide.volumes_instruction_maintain"); !strings.Contains(got, current.instruction) ||
-			!strings.Contains(got, current.batchInstruction) {
-			t.Errorf("%s Volumes Guide lost the Code batch identity or Legacy-only Plan boundary: %q", current.locale, got)
+			!strings.Contains(got, current.batchInstruction) || !strings.Contains(got, current.continuation) ||
+			!strings.Contains(got, current.terminalProof) {
+			t.Errorf("%s Volumes Guide lost the Code batch identity, continuation, terminal proof, or Legacy-only Plan boundary: %q", current.locale, got)
 		}
 		if got := cliMessage("guide.volumes_instruction_runtime_identity"); !strings.Contains(got, current.runtimeInstruction) {
 			t.Errorf("%s Volumes Guide runtime instruction claimed an unproven version mismatch: %q", current.locale, got)

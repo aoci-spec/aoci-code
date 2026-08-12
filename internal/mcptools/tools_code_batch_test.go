@@ -84,6 +84,50 @@ func TestVolumeCodeCandidateBindingTypoReturnsExactZeroWriteRepairAndSameBatchSu
 	}
 }
 
+func TestVolumeCodeCandidateBindingTypoWithSourceDriftStaysStopped(t *testing.T) {
+	tests := []struct {
+		name  string
+		alter func(map[string]any)
+	}{
+		{name: "candidate_id", alter: func(entry map[string]any) {
+			entry["candidate_id"] = oneHexTypo(entry["candidate_id"].(string))
+		}},
+		{name: "source_sha256", alter: func(entry map[string]any) {
+			entry["source_sha256"] = oneHexTypo(entry["source_sha256"].(string))
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := buildLargeCodeCandidateRepo(t, 2)
+			session := connectMCPClient(t, root)
+			maintain := maintainVolumeBatch(t, session)
+			if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 {
+				t.Fatalf("expected two Code candidates: %#v", maintain.CodePlan)
+			}
+			arguments := codeBatchArguments(maintain.CodePlan)
+			test.alter(arguments["entries"].([]map[string]any)[1])
+			driftPath := filepath.Join(root, filepath.FromSlash(maintain.CodePlan.Candidates[0].Path))
+			data, err := os.ReadFile(driftPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(driftPath, append(data, []byte("// drift\n")...), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+			baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+
+			rejected := applyVolumeBatch(t, session, arguments)
+			if rejected.Status != autoStatusStopped || rejected.Applied != 0 || rejected.FormalWritesStarted ||
+				rejected.PreserveOtherCandidates || len(rejected.RetryScope) != 0 {
+				t.Fatalf("source drift with a binding typo was downgraded to repair: %#v", rejected)
+			}
+			assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
+			assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+		})
+	}
+}
+
 func TestVolumeCodeConflictingValidBindingsRequireUniqueSourceAnchor(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 2)
 	session := connectMCPClient(t, root)

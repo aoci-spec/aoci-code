@@ -109,6 +109,9 @@ func TestRootMetaVolumesVerifyCheckAndGuideAlign(t *testing.T) {
 			if name == "guide" && (!strings.Contains(output.String(), `"stage": "aligned"`) || !strings.Contains(output.String(), `"next_action": "none"`)) {
 				t.Fatalf("Guide did not align:\n%s", output.String())
 			}
+			if name == "guide" && strings.Contains(output.String(), `"check"`) {
+				t.Fatalf("aligned Volumes Guide exposed a terminal Check command:\n%s", output.String())
+			}
 		})
 	}
 }

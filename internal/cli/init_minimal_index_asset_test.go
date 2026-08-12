@@ -156,7 +156,8 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	}
 	for _, want := range []string{`"stage": "authoring_required"`, "index header show",
 		`"authoring_meta": "#AOCI-META-VOLUME: 1`, "CG7T", "code:path/to/file", "database://source/namespace/table",
-		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", line} {
+		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", "remaining nonzero",
+		"commands.verify, commands.check (the aggregate Check), and commands.guide in that order", line} {
 		if !strings.Contains(guideOutput.String(), want) {
 			t.Fatalf("首次Guide未自动交付作者化合同 %q:\n%s", want, guideOutput.String())
 		}
@@ -179,6 +180,7 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	for name, command := range map[string]string{
 		"guide":       renderedGuide.Commands.Guide,
 		"header_show": renderedGuide.Commands.HeaderShow,
+		"check":       renderedGuide.Commands.Check,
 		"verify":      renderedGuide.Commands.Verify,
 	} {
 		if !strings.HasPrefix(command, prefix+" ") {
@@ -315,5 +317,8 @@ func TestVolumeGuideRoutesUnusableMetaWithoutCodeReplan(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "author_complete_candidate_batch") || strings.Contains(output.String(), "generic replan") {
 		t.Fatalf("Meta Guide route requested an unchanged Code batch:\n%s", output.String())
+	}
+	if strings.Contains(output.String(), `"check"`) {
+		t.Fatalf("blocked Volumes Guide exposed a terminal Check command:\n%s", output.String())
 	}
 }

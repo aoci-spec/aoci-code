@@ -6,7 +6,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 - Report exact Code candidate binding mismatches and distinguish
   `code_plan.batch_id` from the cross-domain `authoring_batch.batch_identity`
-  without changing the nine-tool MCP surface or request Schema.
+  without changing the nine-tool MCP surface or request Schema; actual source
+  drift remains a stopped replan condition instead of a copied-field repair.
+- Expose the aggregate Check command in an authoring-required Volumes Guide and
+  close the final successful batch through Verify, Check, and Guide while
+  preserving intermediate-batch and Legacy Entries Stage behavior.
 
 ## v0.1.0-rc3
 
