@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-12T07:24:36Z",
+  "updated_at": "2026-08-12T09:01:06Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -88,14 +88,14 @@
       "normalized_sha256": "9e86829429193738724179195efc9fa40b5c8b69cf865fd31fbc7f7ef4c1dd60"
     },
     "README.md": {
-      "sha256": "b5845bb7696c64c925255ff281d84840dc32091da0dbc2ff52030781f34c30c0",
-      "size": 54416,
-      "normalized_sha256": "b5845bb7696c64c925255ff281d84840dc32091da0dbc2ff52030781f34c30c0"
+      "sha256": "5cd08cddf5ae01c9e099190ee0197908cb3b72dd7355e57e42e8d504f2831109",
+      "size": 55265,
+      "normalized_sha256": "5cd08cddf5ae01c9e099190ee0197908cb3b72dd7355e57e42e8d504f2831109"
     },
     "README.zh-CN.md": {
-      "sha256": "f6b499efba8df8069124eea2131a34a9d24d7c1db24fb9505159122b9b3dd78a",
-      "size": 46571,
-      "normalized_sha256": "f6b499efba8df8069124eea2131a34a9d24d7c1db24fb9505159122b9b3dd78a"
+      "sha256": "5ef928f87efc1f7a0e82ecf8409f7189838342ab3b10bc31fb6e65b2e9b27db6",
+      "size": 47429,
+      "normalized_sha256": "5ef928f87efc1f7a0e82ecf8409f7189838342ab3b10bc31fb6e65b2e9b27db6"
     },
     "SECURITY.md": {
       "role": "index",
@@ -134,13 +134,13 @@
     },
     "assets/aoci-logo-en.jpg": {
       "role": "observe",
-      "sha256": "9c15090e7c317cc96f2688edaedb00344e863188a58acc069cc2828aa4647090",
-      "size": 449385
+      "sha256": "74524711996909377d3db3340ded16d60a8cb09365759035de762157c39c8cc0",
+      "size": 155005
     },
     "assets/aoci-logo-zh-CN.jpg": {
       "role": "observe",
-      "sha256": "b93a92975edfe2cc4b94ecf9f35da275f73c3581a5a914aecb0503f66e04680b",
-      "size": 235392
+      "sha256": "4258f471c398d669fbf39a23e5ff4883e1d9dfa7356bcaab34674623d58687d0",
+      "size": 161131
     },
     "cmd/aoci/main.go": {
       "sha256": "f79f25ae4004395a1b61bd5817964f377cdddf5062c14d189b85211580118df2",
