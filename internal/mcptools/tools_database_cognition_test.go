@@ -36,6 +36,7 @@ func TestDatabaseMaintainPresentEmptyMultiTableApplyAndRetry(t *testing.T) {
 	if first.Status != autoStatusApplied || !first.Aligned || first.Applied != 2 {
 		t.Fatalf("database batch did not apply atomically: %#v", first)
 	}
+	assertVolumeTerminalProofAction(t, first.NextAction, false)
 	set, err := cognition.Load(root, "aoci.txt")
 	if err != nil || set.Volumes["database"].ObjectCount != 2 {
 		t.Fatalf("database Volume is invalid after apply: set=%#v err=%v", set, err)
@@ -52,6 +53,22 @@ func TestDatabaseMaintainPresentEmptyMultiTableApplyAndRetry(t *testing.T) {
 	retry := decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", input))
 	if retry.Status != autoStatusApplied || !retry.Aligned || retry.Applied != 0 || retry.Metrics.DuplicateApplies != 1 {
 		t.Fatalf("identical retry was not idempotent: %#v", retry)
+	}
+	assertVolumeTerminalProofAction(t, retry.NextAction, true)
+}
+
+func assertVolumeTerminalProofAction(t *testing.T, action string, duplicate bool) {
+	t.Helper()
+	for _, token := range []string{"remaining=0", "aoci_maintain", "Verify", "Aggregate Check", "Guide", "next_action=none"} {
+		if !strings.Contains(action, token) {
+			t.Fatalf("final Volumes Apply action is missing %q: %q", token, action)
+		}
+	}
+	if duplicate != strings.Contains(action, "正式写入为0") {
+		t.Fatalf("final Volumes Apply action has the wrong duplicate-write fact: duplicate=%t action=%q", duplicate, action)
+	}
+	if strings.Contains(action, "无需继续调用") {
+		t.Fatalf("final Volumes Apply must not stop before terminal proof: %q", action)
 	}
 }
 
@@ -216,6 +233,13 @@ func TestDatabaseMaintainPagesDeterministicallyUntilCurrent(t *testing.T) {
 		}
 		if page < len(wantTargets)-1 && applied.Aligned {
 			t.Fatalf("page %d claimed alignment with remaining tables", page+1)
+		}
+		if page < len(wantTargets)-1 {
+			if !strings.Contains(applied.NextAction, "aoci_maintain") || strings.Contains(applied.NextAction, "Aggregate Check") {
+				t.Fatalf("page %d must continue Maintain instead of terminal proof: %q", page+1, applied.NextAction)
+			}
+		} else {
+			assertVolumeTerminalProofAction(t, applied.NextAction, false)
 		}
 	}
 	final := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase))

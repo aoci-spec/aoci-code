@@ -89,10 +89,13 @@ func TestObserveAcknowledgeAcceptsDatabaseBootstrapAndEvidenceBeforeScopePlan(t 
 		t.Fatal(err)
 	}
 	activeAfterBootstrap, exists, err := baseline.Load(root)
-	if err != nil || !exists || activeAfterBootstrap.Files["aoci.txt"].SHA256 != beforeBootstrap.Files["aoci.txt"].SHA256 ||
-		activeAfterBootstrap.Files["aoci.txt"].SHA256 == rootAfterBootstrap.SHA256 {
-		t.Fatalf("fixture did not preserve the historical Root fingerprint after legal Bootstrap: exists=%t err=%v baseline=%#v", exists, err, activeAfterBootstrap)
+	if err != nil || !exists || activeAfterBootstrap.Files["aoci.txt"].SHA256 != rootAfterBootstrap.SHA256 {
+		t.Fatalf("new Bootstrap did not advance the Root Baseline binding: exists=%t err=%v baseline=%#v", exists, err, activeAfterBootstrap)
 	}
+	// Recreate the exact on-disk state left by Database Bootstrap versions that
+	// predated the Root/Baseline binding fix. Scope remains responsible for
+	// recognizing this historical postimage without accepting arbitrary drift.
+	activeAfterBootstrap.Files["aoci.txt"] = beforeBootstrap.Files["aoci.txt"]
 	if err := baseline.UpdateDatabaseCognitionBinding(activeAfterBootstrap, baseline.DatabaseCognitionBinding{
 		ObjectRef: "database://primary/public/users", SourceID: "primary", EvidenceVersion: dbevidence.EvidenceVersion,
 		TableEvidenceSHA256: strings.Repeat("a", 64), EntrySHA256: strings.Repeat("b", 64),

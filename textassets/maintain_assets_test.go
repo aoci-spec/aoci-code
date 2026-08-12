@@ -110,3 +110,36 @@ func TestMaintainDictionaryMessagesKeepRecoveryCommands(
 		}
 	}
 }
+
+func TestMaintainFinalApplyActionsRequireBilingualTerminalProof(t *testing.T) {
+	tests := []struct {
+		locale    string
+		id        ID
+		duplicate bool
+	}{
+		{DefaultLocale, ContractMaintainActionApplyFinalProof, false},
+		{LegacyLocale, ContractMaintainActionApplyFinalProof, false},
+		{DefaultLocale, ContractMaintainActionApplyDuplicateFinalProof, true},
+		{LegacyLocale, ContractMaintainActionApplyDuplicateFinalProof, true},
+	}
+	for _, current := range tests {
+		t.Run(current.locale+"/"+string(current.id), func(t *testing.T) {
+			action := MustRender(current.locale, current.id, nil)
+			for _, token := range []string{"remaining=0", "aoci_maintain", "Verify", "Aggregate Check", "Guide", "next_action=none"} {
+				if !strings.Contains(action, token) {
+					t.Fatalf("terminal proof action is missing %q: %q", token, action)
+				}
+			}
+			formalWriteToken := "formal cognition write"
+			if current.locale == LegacyLocale {
+				formalWriteToken = "正式认知写入"
+			}
+			if !strings.Contains(action, formalWriteToken) {
+				t.Fatalf("terminal proof action must distinguish formal cognition writes from audit writes: %q", action)
+			}
+			if current.duplicate != (strings.Contains(action, "zero formal writes") || strings.Contains(action, "正式写入为0")) {
+				t.Fatalf("duplicate action has the wrong write fact: duplicate=%t action=%q", current.duplicate, action)
+			}
+		})
+	}
+}

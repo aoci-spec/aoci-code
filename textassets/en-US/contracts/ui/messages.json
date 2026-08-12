@@ -5,7 +5,7 @@
   "overview.refresh.not_required": "Reuse the current complete cognition. For a local uncertainty, inspect source and use local retrieval only when needed.",
   "overview.refresh.deferred": "Keep the current work unit stable first. Do not read the old full Overview or maintain while edits and checks are still unstable.",
   "overview.refresh.maintain_required": "At this stable checkpoint, run aoci_maintain once; resolve repair_required or stopped exactly as returned, then prove alignment before requesting Overview again.",
-  "overview.refresh.ready": "The checkpoint is aligned. Do not maintain again. Run Verify, Check, and Guide to prove alignment; the Agent then decides whether its next phase needs an ordinary complete Overview.",
+  "overview.refresh.ready": "The checkpoint is aligned. Do not maintain again. Run Verify, Aggregate Check, and Guide in order to prove alignment; only after Guide proves complete=true with next_action=none does the Agent decide whether its next phase needs an ordinary complete Overview.",
   "overview.delivery.pending_recovery": "full cognition delivery stopped because unresolved recovery evidence exists: %s",
   "overview.delivery.pending_atomic_write": "full cognition delivery stopped because an AtomicWrite recovery asset exists for %s",
   "overview.delivery.pending_recovery_hint": "complete or safely resolve the existing recovery before requesting full Overview; check_only remains available",

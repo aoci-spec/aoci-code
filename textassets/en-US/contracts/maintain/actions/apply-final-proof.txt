@@ -1,0 +1,1 @@
+The final Volumes batch is applied with remaining=0; do not call aoci_maintain or perform another formal cognition write. Run Verify, Aggregate Check, and Guide in order for terminal proof; stop only after Guide proves complete=true with next_action=none

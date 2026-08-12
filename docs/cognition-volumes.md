@@ -23,7 +23,13 @@ multi-Volume lifecycle updates remain unavailable.
 
 The narrow Database Cognition Bootstrap is a separate lifecycle exception: an
 aligned Code-only layout with explicitly accepted Schema Evidence may add only
-the Database descriptor, marker-only Database Volume, and Baseline fingerprint.
+the Database descriptor, marker-only Database Volume, and Baseline fingerprints.
+When the active Baseline already contains the Root, Bootstrap requires that
+binding to match the exact Root preimage and advances it to the descriptor-bearing
+Root postimage in the same transaction without changing its Managed Scope role.
+An unmanaged Root is not enrolled by Bootstrap. A later Scope Change may reconcile
+the one canonical historical Root/Baseline state produced by older Bootstrap
+versions, but arbitrary Root drift remains a stopped conflict.
 It does not provide general Root/Meta editing or Volume Apply.
 
 ## Lifecycle command routing
@@ -32,7 +38,7 @@ Fresh and existing Volumes repositories use the current Guide and ordinary
 no-argument `aoci_maintain`. The model authors the complete current
 machine-issued batch and submits it through `aoci_update_entry`; a successful
 non-final batch returns to Maintain, and the final batch closes with Verify,
-Check, and Guide.
+Aggregate Check, and Guide.
 
 `status --deep`, `index score`, and `index agent plan` remain Legacy-only. They
 must not be used as fallback maintenance commands for a Volumes repository.

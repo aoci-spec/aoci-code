@@ -526,7 +526,7 @@ func validateSourceGuards(root string, intent *RecoveryIntent) error {
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
 	}
-	formalVolumeGuards, err := cognitionVolumeBaselineGuards(root, cfg.IndexPath, activeBaseline)
+	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, activeBaseline)
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
 	}

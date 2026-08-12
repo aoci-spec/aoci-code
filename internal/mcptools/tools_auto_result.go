@@ -192,6 +192,7 @@ func mustJSONText(value string) string {
 // 重复批次的请求处理成功不等于发生正式写入，必须显式说明Applied=0，
 // 禁止宿主从Attempted或首次应用数量推断本次写入数。
 func autoApplyNextAction(
+	volumes bool,
 	aligned bool,
 	applied,
 	duplicateApplies int,
@@ -199,6 +200,16 @@ func autoApplyNextAction(
 	if !aligned {
 		return mcpContract(
 			textassets.ContractMaintainActionApplyRemaining,
+		)
+	}
+	if volumes {
+		if applied == 0 && duplicateApplies > 0 {
+			return mcpContract(
+				textassets.ContractMaintainActionApplyDuplicateFinalProof,
+			)
+		}
+		return mcpContract(
+			textassets.ContractMaintainActionApplyFinalProof,
 		)
 	}
 	if applied == 0 && duplicateApplies > 0 {

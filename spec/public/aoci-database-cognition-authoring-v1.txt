@@ -57,6 +57,16 @@ the Database Cognition Bootstrap contract. D1 does not create, delete, or
 declare a Volume; write Root or Meta; migrate a Legacy repository; infer a
 layout; or perform D2 Bootstrap.
 
+Database Cognition Bootstrap publishes Database, Root, and Baseline in one
+guarded lifecycle transaction. If the active Baseline already contains the
+Root path, its raw fingerprint must equal the exact Root preimage and the
+Baseline postimage advances that same binding to the Root postimage while
+preserving its existing Managed Scope role. Bootstrap does not enroll a Root
+path absent from the active Baseline and never treats a mismatched Root binding
+as permission to repair or overwrite governance state. A later Managed Scope
+transaction may reconcile only the exact canonical Root-plus-Database state
+left by an older Bootstrap version; unrelated Root drift remains a conflict.
+
 3. Cognition Binding state
 
 Database Evidence Baseline and Database Cognition Binding are independent:

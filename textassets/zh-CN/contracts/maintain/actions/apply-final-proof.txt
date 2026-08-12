@@ -1,0 +1,1 @@
+最后一个Volumes批次已应用且remaining=0；不得再次调用aoci_maintain或执行正式认知写入。现在依次执行Verify、Aggregate Check和Guide完成终态证明；只有Guide证明complete=true且next_action=none后才结束

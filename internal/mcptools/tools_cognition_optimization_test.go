@@ -75,6 +75,7 @@ type optimizationUpdatePayload struct {
 	Applied             int                          `json:"applied"`
 	FormalWritesStarted bool                         `json:"formal_writes_started"`
 	Optimization        *optimizationProgressPayload `json:"optimization"`
+	NextAction          string                       `json:"next_action"`
 }
 
 func TestCognitionOptimizationOrdinaryMaintainDoesNotCreateCheckpoint(t *testing.T) {
@@ -139,6 +140,9 @@ func TestCognitionOptimizationAllNoChangeAdvancesCheckpointAndResumes201(t *test
 	if firstUpdate.Status != autoStatusApplied || firstUpdate.Applied != 0 || firstUpdate.FormalWritesStarted {
 		t.Fatalf("identical complete Entries were not recorded as no_change: %#v", firstUpdate)
 	}
+	if firstUpdate.NextAction != "call_aoci_maintain_with_cognition_optimization" {
+		t.Fatalf("in-progress optimization lost its dedicated continuation action: %#v", firstUpdate)
+	}
 
 	second := callCognitionOptimizationMaintain(t, session, nil)
 	assertOptimizationReviewBatch(t, second, 201, 1, 0)
@@ -150,6 +154,9 @@ func TestCognitionOptimizationAllNoChangeAdvancesCheckpointAndResumes201(t *test
 	assertOptimizationProgress(t, secondUpdate.Optimization, "complete", 201, 201, 201, 0, 0, false)
 	if secondUpdate.Status != autoStatusApplied || secondUpdate.Applied != 0 || secondUpdate.FormalWritesStarted {
 		t.Fatalf("final no_change batch did not close cleanly: %#v", secondUpdate)
+	}
+	if secondUpdate.NextAction != "none" {
+		t.Fatalf("completed optimization changed its dedicated terminal action: %#v", secondUpdate)
 	}
 
 	assertOrdinaryVolumeGovernanceAligned(t, root)

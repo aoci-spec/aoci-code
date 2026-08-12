@@ -5,7 +5,7 @@
   "overview.refresh.not_required": "继续复用当前完整认知；局部不确定时先调查源码，只在必要时使用局部召回。",
   "overview.refresh.deferred": "先把当前最小工作单元稳定下来；修改和检查仍不稳定时，不要读取旧完整Overview，也不要维护索引。",
   "overview.refresh.maintain_required": "在该稳定检查点调用一次 aoci_maintain；严格处理其 repair_required 或 stopped，再证明aligned后重新请求Overview。",
-  "overview.refresh.ready": "checkpoint已经aligned；不要再次Maintain。先运行Verify、Check和Guide证明对齐，再由Agent决定下一阶段是否需要普通完整Overview。",
+  "overview.refresh.ready": "checkpoint已经aligned；不要再次Maintain。先依次运行Verify、Aggregate Check和Guide证明对齐；只有Guide证明complete=true且next_action=none后，才由Agent决定下一阶段是否需要普通完整Overview。",
   "overview.delivery.pending_recovery": "完整认知交付已停止，因为存在尚未解决的恢复证据：%s",
   "overview.delivery.pending_atomic_write": "完整认知交付已停止，因为%s存在AtomicWrite恢复资产",
   "overview.delivery.pending_recovery_hint": "先完成或安全解决现有恢复，再请求完整Overview；check_only仍可使用",

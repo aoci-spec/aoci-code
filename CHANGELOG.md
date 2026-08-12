@@ -16,8 +16,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   without changing the nine-tool MCP surface or request Schema; actual source
   drift remains a stopped replan condition instead of a copied-field repair.
 - Expose the aggregate Check command in an authoring-required Volumes Guide and
-  close the final successful batch through Verify, Check, and Guide while
+  close the final successful batch through Verify, Aggregate Check, and Guide while
   preserving intermediate-batch and Legacy Entries Stage behavior.
+- Return the same Verify, Aggregate Check, and Guide closure directly from a
+  successful final Volumes Apply, while leaving paged, Legacy, and Cognition
+  Optimization actions unchanged.
+- Advance an already-managed Root fingerprint in the same Database Cognition
+  Bootstrap Baseline postimage as the Root descriptor update, and narrowly
+  reconcile the canonical historical state left by earlier Bootstrap versions.
 
 ## v0.1.0-rc3
 

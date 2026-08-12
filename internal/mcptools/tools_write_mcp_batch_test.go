@@ -68,7 +68,7 @@ func TestMCPBatchAppliesOnceAndReturnsAligned(t *testing.T) {
 		t.Fatalf("重复调用必须零写入且可观测: %+v", second)
 	}
 	if !strings.Contains(second.NextAction, "请求处理成功，但正式写入为0") ||
-		strings.Contains(second.NextAction, "正式写入为3") {
+		strings.Contains(second.NextAction, "正式写入为3") || strings.Contains(second.NextAction, "Aggregate Check") {
 		t.Fatalf("模型可见说明必须与Applied=0同源: %q", second.NextAction)
 	}
 }

@@ -1,6 +1,7 @@
 package databasebootstrap
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -11,8 +12,10 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
 func TestApplyAddsOnlyDatabaseLifecycleAssets(t *testing.T) {
@@ -44,6 +47,11 @@ func TestApplyAddsOnlyDatabaseLifecycleAssets(t *testing.T) {
 	state, exists, err := baseline.Load(root)
 	if err != nil || !exists || state.Files["aoci.database.txt"].SHA256 != set.Volumes[cognition.ScopeDatabase].SHA256 {
 		t.Fatalf("Database Volume is not Baseline-bound: exists=%t err=%v state=%#v", exists, err, state)
+	}
+	wantRoot := baseline.HashBytes("aoci.txt", mustRead(t, filepath.Join(root, "aoci.txt")))
+	wantRoot.Role = machinecontract.ScopeRoleIndex
+	if state.Files["aoci.txt"] != wantRoot {
+		t.Fatalf("Root Baseline binding was not atomically advanced with its role preserved: got=%#v want=%#v", state.Files["aoci.txt"], wantRoot)
 	}
 	if matches, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "migration-*.json")); len(matches) != 0 {
 		t.Fatalf("Database Bootstrap created a Migration transaction: %v", matches)
@@ -101,22 +109,28 @@ func TestDiagnoseReportsSafeBootstrapCauseWithoutDynamicDetails(t *testing.T) {
 
 func TestResumeAndRollbackUseBoundPostimages(t *testing.T) {
 	for _, test := range []struct {
-		name     string
-		rollback bool
+		name       string
+		faultPoint string
+		rollback   bool
 	}{
-		{name: "resume"},
-		{name: "rollback", rollback: true},
+		{name: "resume after Database", faultPoint: "after_publish_aoci.database.txt"},
+		{name: "resume after Root", faultPoint: "after_publish_aoci.txt"},
+		{name: "resume after Baseline", faultPoint: "after_publish_baseline.json"},
+		{name: "rollback after Database", faultPoint: "after_publish_aoci.database.txt", rollback: true},
+		{name: "rollback after Root", faultPoint: "after_publish_aoci.txt", rollback: true},
+		{name: "rollback after Baseline", faultPoint: "after_publish_baseline.json", rollback: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := codeOnlyFixture(t)
 			rootBefore := mustRead(t, filepath.Join(root, "aoci.txt"))
+			baselineBefore := mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))
 			preview, err := Prepare(root, time.Unix(1_700_000_000, 0))
 			if err != nil {
 				t.Fatal(err)
 			}
 			originalFault := transactionFault
 			transactionFault = func(point string) error {
-				if point == "after_publish_aoci.txt" {
+				if point == test.faultPoint {
 					return errors.New("injected interruption")
 				}
 				return nil
@@ -135,6 +149,9 @@ func TestResumeAndRollbackUseBoundPostimages(t *testing.T) {
 				if string(mustRead(t, filepath.Join(root, "aoci.txt"))) != string(rootBefore) {
 					t.Fatal("rollback did not restore the exact Root preimage")
 				}
+				if string(mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))) != string(baselineBefore) {
+					t.Fatal("rollback did not restore the exact Baseline preimage")
+				}
 				if _, err := os.Stat(filepath.Join(root, "aoci.database.txt")); !os.IsNotExist(err) {
 					t.Fatalf("rollback left the Database Volume active: %v", err)
 				}
@@ -143,6 +160,178 @@ func TestResumeAndRollbackUseBoundPostimages(t *testing.T) {
 			result, err := Resume(root, preview.PreviewDigest[:32])
 			if err != nil || result.Status != StatusApplied {
 				t.Fatalf("resume failed: result=%#v err=%v", result, err)
+			}
+			state, exists, err := baseline.Load(root)
+			if err != nil || !exists || state.Files["aoci.txt"].SHA256 != preview.RootPostimageSHA256 {
+				t.Fatalf("resume did not complete the frozen Root Baseline binding: exists=%t err=%v state=%#v", exists, err, state)
+			}
+		})
+	}
+}
+
+func TestBootstrapDoesNotEnrollUnmanagedRootInBaseline(t *testing.T) {
+	root := codeOnlyFixture(t)
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	delete(state.Files, "aoci.txt")
+	if err := baseline.Save(root, state); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := Prepare(root, time.Unix(1_700_000_000, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Apply(root, preview)
+	if err != nil || result.Status != StatusApplied {
+		t.Fatalf("Apply failed: result=%#v err=%v", result, err)
+	}
+	state, exists, err = baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load postimage Baseline: exists=%t err=%v", exists, err)
+	}
+	if _, enrolled := state.Files["aoci.txt"]; enrolled {
+		t.Fatal("Database Bootstrap enrolled an unmanaged Root")
+	}
+}
+
+func TestBootstrapPreservesLegacyOmittedRootRole(t *testing.T) {
+	root := codeOnlyFixture(t)
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	fingerprint := state.Files["aoci.txt"]
+	fingerprint.Role = ""
+	state.Files["aoci.txt"] = fingerprint
+	if err := baseline.Save(root, state); err != nil {
+		t.Fatal(err)
+	}
+	preview, err := Prepare(root, time.Unix(1_700_000_000, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := Apply(root, preview)
+	if err != nil || result.Status != StatusApplied {
+		t.Fatalf("Apply failed: result=%#v err=%v", result, err)
+	}
+	state, exists, err = baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load postimage Baseline: exists=%t err=%v", exists, err)
+	}
+	want := baseline.HashBytes("aoci.txt", mustRead(t, filepath.Join(root, "aoci.txt")))
+	if state.Files["aoci.txt"] != want || state.Files["aoci.txt"].Role != "" {
+		t.Fatalf("legacy omitted Root role was not preserved: got=%#v want=%#v", state.Files["aoci.txt"], want)
+	}
+}
+
+func TestPrepareRejectsMismatchedManagedRootBaseline(t *testing.T) {
+	root := codeOnlyFixture(t)
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	fingerprint := state.Files["aoci.txt"]
+	fingerprint.SHA256 = strings.Repeat("a", 64)
+	state.Files["aoci.txt"] = fingerprint
+	if err := baseline.Save(root, state); err != nil {
+		t.Fatal(err)
+	}
+	rootBefore := mustRead(t, filepath.Join(root, "aoci.txt"))
+	baselineBefore := mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))
+	if _, err := Prepare(root, time.Unix(1_700_000_000, 0)); err == nil || err.Error() != "database_bootstrap_baseline_conflict" {
+		t.Fatalf("mismatched managed Root did not fail closed: %v", err)
+	}
+	if string(mustRead(t, filepath.Join(root, "aoci.txt"))) != string(rootBefore) ||
+		string(mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))) != string(baselineBefore) {
+		t.Fatal("failed Prepare changed a formal preimage")
+	}
+	if _, err := os.Stat(filepath.Join(root, "aoci.database.txt")); !os.IsNotExist(err) {
+		t.Fatalf("failed Prepare created Database Volume: %v", err)
+	}
+}
+
+func TestRecoveryHonorsLegacyFrozenRootBaselinePostimage(t *testing.T) {
+	for _, rollback := range []bool{false, true} {
+		name := "resume"
+		if rollback {
+			name = "rollback"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := codeOnlyFixture(t)
+			rootBefore := mustRead(t, filepath.Join(root, "aoci.txt"))
+			baselineBefore := mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))
+			preview, err := Prepare(root, time.Unix(1_700_000_000, 0))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var before, post baseline.Baseline
+			if err := json.Unmarshal([]byte(preview.BaselinePreimage), &before); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal([]byte(preview.BaselinePostimage), &post); err != nil {
+				t.Fatal(err)
+			}
+			post.Files["aoci.txt"] = before.Files["aoci.txt"]
+			legacyBaselinePostimage, err := baseline.MarshalExact(&post)
+			if err != nil {
+				t.Fatal(err)
+			}
+			preview.BaselinePostimage = string(legacyBaselinePostimage)
+			preview.BaselinePostimageSHA256 = cognitiontxn.SHA256(legacyBaselinePostimage)
+			preview.PreviewDigest, err = previewDigest(preview)
+			if err != nil {
+				t.Fatal(err)
+			}
+			transactionID := preview.PreviewDigest[:32]
+			staging, err := cognitiontxn.Stage(root, Operation, transactionID, []cognitiontxn.Postimage{
+				{Path: preview.DatabasePath, SHA: preview.DatabasePostimageSHA256, Data: []byte(preview.DatabasePostimage)},
+				{Path: preview.RootPath, SHA: preview.RootPostimageSHA256, Data: []byte(preview.RootPostimage)},
+				{Path: preview.BaselinePath, SHA: preview.BaselinePostimageSHA256, Data: []byte(preview.BaselinePostimage)},
+			}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			intent := &RecoveryIntent{Version: machinecontract.DatabaseCognitionBootstrapRecoveryV1,
+				TransactionID: transactionID, Preview: *preview, Staging: staging, CreatedAt: preview.PreparedAt}
+			intent.RecoveryDigest, err = recoveryDigest(intent)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := saveIntent(intentPath(root, transactionID), intent); err != nil {
+				t.Fatal(err)
+			}
+			if rollback {
+				if err := publishCreate(root, intent, preview.DatabasePath, preview.DatabasePostimageSHA256); err != nil {
+					t.Fatal(err)
+				}
+				if err := publishReplace(root, intent, preview.RootPath, preview.RootPreimageSHA256, preview.RootPostimageSHA256); err != nil {
+					t.Fatal(err)
+				}
+				if err := publishReplace(root, intent, preview.BaselinePath, preview.BaselinePreimageSHA256, preview.BaselinePostimageSHA256); err != nil {
+					t.Fatal(err)
+				}
+				result, err := Rollback(root, transactionID)
+				if err != nil || result.Status != StatusRolledBack {
+					t.Fatalf("legacy pending Rollback failed: result=%#v err=%v", result, err)
+				}
+				if string(mustRead(t, filepath.Join(root, "aoci.txt"))) != string(rootBefore) ||
+					string(mustRead(t, filepath.Join(root, ".aoci", "baseline.json"))) != string(baselineBefore) {
+					t.Fatal("legacy pending Rollback did not restore its exact frozen preimages")
+				}
+				return
+			}
+			result, err := Resume(root, transactionID)
+			if err != nil || result.Status != StatusApplied {
+				t.Fatalf("legacy pending Resume failed: result=%#v err=%v", result, err)
+			}
+			state, exists, err := baseline.Load(root)
+			if err != nil || !exists {
+				t.Fatalf("load resumed Baseline: exists=%t err=%v", exists, err)
+			}
+			if state.Files["aoci.txt"] != before.Files["aoci.txt"] {
+				t.Fatalf("legacy frozen Baseline postimage was reinterpreted: got=%#v want=%#v", state.Files["aoci.txt"], before.Files["aoci.txt"])
 			}
 		})
 	}
@@ -195,10 +384,13 @@ func codeOnlyFixture(t *testing.T) string {
 		t.Fatal(err)
 	}
 	state := baseline.NewBaseline(nil)
-	for _, rel := range []string{"main.go", "aoci.code.txt"} {
+	for _, rel := range []string{"aoci.txt", "main.go", "aoci.code.txt"} {
 		fingerprint, err := baseline.HashFile(filepath.Join(root, rel))
 		if err != nil {
 			t.Fatal(err)
+		}
+		if rel == "aoci.txt" {
+			fingerprint.Role = machinecontract.ScopeRoleIndex
 		}
 		state.Files[rel] = fingerprint
 	}

@@ -118,7 +118,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	// projected Baseline. Observe-only acknowledgement intentionally preserves
 	// indexed cognition debt in that Baseline, so it is not a source snapshot.
 	sourceGuard := cloneFingerprints(desiredSnapshot)
-	formalVolumeGuards, err := cognitionVolumeBaselineGuards(root, cfg.IndexPath, oldBaseline)
+	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, oldBaseline)
 	if err != nil {
 		return nil, err
 	}
@@ -580,12 +580,20 @@ func baselineRolesExcept(value *baseline.Baseline, excluded map[string]baseline.
 	return result
 }
 
-// cognitionVolumeBaselineGuards returns only formal Volume fingerprints that
+// FormalCognitionBaselineGuards returns only formal Cognition fingerprints that
 // already belong to the active Baseline. It never enrolls a new formal asset:
 // Bootstrap, Migration, or Database Bootstrap remain the sole lifecycle
 // owners. A stored fingerprint must still match the live asset so Scope Change
 // cannot preserve stale formal state or hide a concurrent Volume update.
-func cognitionVolumeBaselineGuards(root, indexPath string, active *baseline.Baseline) (map[string]baseline.Fingerprint, error) {
+//
+// Database Bootstrap versions before the Root/Baseline binding fix advanced the
+// live Root by one canonical Database descriptor while leaving the old Root
+// fingerprint in Baseline. That historical state is accepted only when removing
+// that exact descriptor reconstructs the stored Root bytes and the declared
+// Database Volume itself is already present and Baseline-current. The Scope
+// transaction then advances only the Root fingerprint; arbitrary Root drift
+// still fails closed.
+func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Baseline) (map[string]baseline.Fingerprint, error) {
 	result := map[string]baseline.Fingerprint{}
 	if active == nil {
 		return result, nil
@@ -612,7 +620,99 @@ func cognitionVolumeBaselineGuards(root, indexPath string, active *baseline.Base
 		}
 		result[asset.Descriptor.Path] = stored
 	}
+	storedRoot, rootManaged := active.Files[indexPath]
+	if !rootManaged {
+		return result, nil
+	}
+	currentRoot, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(indexPath)))
+	if hashErr != nil {
+		return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", indexPath)
+	}
+	if currentRoot.SHA256 == storedRoot.SHA256 {
+		storedRoot.Role = machinecontract.ScopeRoleIndex
+		result[indexPath] = storedRoot
+		return result, nil
+	}
+	if !legacyDatabaseBootstrapRootAdvance(set, active, indexPath, storedRoot) {
+		return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", indexPath)
+	}
+	currentRoot.Role = machinecontract.ScopeRoleIndex
+	result[indexPath] = currentRoot
 	return result, nil
+}
+
+func legacyDatabaseBootstrapRootAdvance(set *cognition.Set, active *baseline.Baseline, indexPath string, storedRoot baseline.Fingerprint) bool {
+	if set == nil || active == nil || set.LayoutMode != cognition.LayoutVolumesV1 || set.Root.State != cognition.AssetPresent {
+		return false
+	}
+	database := set.Volumes[cognition.ScopeDatabase]
+	if database == nil || database.State != cognition.AssetPresent || database.Descriptor.ID != cognition.ScopeDatabase ||
+		database.Descriptor.Kind != cognition.ScopeDatabase || database.Descriptor.Path != "aoci.database.txt" ||
+		database.Descriptor.FormatVersion != "table-fras-v2" || database.Descriptor.State != machinecontract.CognitionVolumeEnabled ||
+		len(database.Descriptor.DependsOn) != 1 || database.Descriptor.DependsOn[0] != cognition.ScopeMeta {
+		return false
+	}
+	databaseBaseline, exists := active.Files[database.Descriptor.Path]
+	if !exists || databaseBaseline.SHA256 != database.SHA256 {
+		return false
+	}
+	separator := "\n"
+	if bytes.Contains(set.Root.Raw, []byte("\r\n")) {
+		separator = "\r\n"
+	}
+	descriptor := "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled"
+	parts := bytes.Split(set.Root.Raw, []byte(separator))
+	descriptorIndex := -1
+	for index, part := range parts {
+		if string(part) != descriptor {
+			continue
+		}
+		if descriptorIndex >= 0 {
+			return false
+		}
+		descriptorIndex = index
+	}
+	if descriptorIndex < 0 {
+		return false
+	}
+	preimageParts := append([][]byte{}, parts[:descriptorIndex]...)
+	preimageParts = append(preimageParts, parts[descriptorIndex+1:]...)
+	preimage := bytes.Join(preimageParts, []byte(separator))
+	if baseline.HashBytes(indexPath, preimage).SHA256 != storedRoot.SHA256 {
+		return false
+	}
+	replayed, err := replayLegacyDatabaseDescriptor(preimage)
+	return err == nil && bytes.Equal(replayed, set.Root.Raw)
+}
+
+// replayLegacyDatabaseDescriptor intentionally mirrors the historical
+// Database Bootstrap insertion algorithm. Compatibility is granted only when
+// that exact transition reproduces the live Root bytes; moving the canonical
+// line elsewhere is not treated as an old transaction postimage.
+func replayLegacyDatabaseDescriptor(root []byte) ([]byte, error) {
+	text := string(root)
+	const descriptor = "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled"
+	if strings.Contains(text, "id=database") || strings.Contains(text, descriptor) {
+		return nil, errors.New("Database descriptor conflict")
+	}
+	separator := "\n"
+	if strings.Contains(text, "\r\n") {
+		separator = "\r\n"
+	}
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	insert := -1
+	for index, line := range lines {
+		if strings.HasPrefix(line, "#Volume:") {
+			insert = index + 1
+		}
+	}
+	if insert < 0 {
+		return nil, errors.New("Root descriptors missing")
+	}
+	lines = append(lines, "")
+	copy(lines[insert+1:], lines[insert:])
+	lines[insert] = descriptor
+	return []byte(strings.Join(lines, separator)), nil
 }
 
 func validateSourcesPresent(root string, active *baseline.Baseline, desired map[string]string) error {

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -106,6 +107,82 @@ func TestScopeStatusObservesTestsWithoutChangingWholeIndex(t *testing.T) {
 	indexAfter, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
 	if !bytes.Equal(indexBefore, indexAfter) {
 		t.Fatal("scope status changed Whole-Index")
+	}
+}
+
+func TestScopeStatusUsesCodeVolumeAndExcludesFormalVolumeDrift(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, content string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rootPreimage := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: en-US\n" +
+		"#Project: Scope status Volumes fixture\n#Global-Invariants: deterministic fixture bytes\n" +
+		"#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled\n" +
+		"#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled\n"
+	write("aoci.txt", rootPreimage+"#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled\n")
+	write("aoci.meta.txt", cognition.MetaVolumeMarker+"\n#Object-Protocol: repository-cognition-object/v2\n#FRAS-Discipline: 2\n"+
+		"#FRAS-v2-Limits-Authority: machine-contract\n#S-Admission: non-inferable-and-error-preventing\n"+
+		"#Object-Kinds: code=file database=table\n#[Tag dictionary: code]\n#A Layer: C Code\n#B Module: D Domain\n"+
+		"#C Importance: 9 8 7 5 3 1\n#E Scale: L M S T\n#[Tag dictionary: database]\n#A Layer: D Database\n"+
+		"#B Module: B Business\n#C Importance: 9 8 7 5 3 1\n#E Scale: L M S T\n")
+	write("main.go", "package main\n")
+	write("aoci.code.txt", cognition.CodeVolumeMarker+"\n===Go sources"+filepath.ToSlash(root)+"/===\n"+
+		"main.go[CD7T]: F:run the deterministic fixture | R:- | A:main | S:Execution remains deterministic\n")
+	write("aoci.database.txt", cognition.DatabaseMarker+"\n")
+	cfg := config.DefaultConfig()
+	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{WalkOptions: cfg.WalkOptions()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	files, err := managedscope.Snapshot(root, evaluation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a completed pre-fix Database Bootstrap: the live Root and formal
+	// Volumes are current, while only the Root Baseline binding is historical.
+	files["aoci.txt"] = baseline.HashBytes("aoci.txt", []byte(rootPreimage))
+	value := baseline.NewBaseline(files)
+	budgetIdentity, err := cognitionbudget.Identity(cfg.EffectiveCognitionBudget())
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.ManagedScope = &baseline.ManagedScopeState{Version: machinecontract.ManagedScopeBaselineV1,
+		PolicyIdentity: evaluation.PolicyIdentity, ObserveChangePolicy: machinecontract.ObserveChangeReviewRequired,
+		BudgetPolicyIdentity: budgetIdentity, BudgetPolicy: cfg.CognitionBudget}
+	if err := baseline.Save(root, value); err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := runScopeCLI(t, root, "status")
+	if err != nil {
+		t.Fatalf("Volumes Scope status failed: %v: %s", err, output)
+	}
+	var status scopePolicyStatus
+	if err := json.Unmarshal(output, &status); err != nil {
+		t.Fatalf("decode %s: %v", output, err)
+	}
+	if status.Stage != "aligned" || status.Drift == nil || len(status.Drift.Missing) != 0 ||
+		len(status.Drift.Orphan) != 0 || len(status.Drift.Stale) != 0 || len(status.Drift.Unbaselined) != 0 {
+		t.Fatalf("formal Volumes were misclassified as Code source drift: %+v", status)
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), []byte(cognition.CodeVolumeMarker+"\n# unrelated drift\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := buildScopePolicyStatus(root, true); err == nil || err.Error() != "managed_scope_formal_volume_baseline_drift: aoci.code.txt" {
+		t.Fatalf("Scope status hid unproven formal Volume drift: %v", err)
 	}
 }
 

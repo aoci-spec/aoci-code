@@ -576,6 +576,8 @@ func handleMCPUpdateBatch(
 		textassets.ContractMaintainActionBaselineReplay,
 		textassets.ContractMaintainActionApplyRemaining,
 		textassets.ContractMaintainActionApplyDuplicate,
+		textassets.ContractMaintainActionApplyFinalProof,
+		textassets.ContractMaintainActionApplyDuplicateFinalProof,
 		textassets.ContractMaintainActionAligned,
 	); err != nil {
 		return errResult(errInternal, localeSafeWriteDetail(err.Error()), writeMessage("entry.write.hint.contract_assets"))
@@ -836,6 +838,7 @@ func handleMCPUpdateBatch(
 		Audit:               audit,
 		Findings:            genericMachineFindings(findings),
 		NextAction: autoApplyNextAction(
+			outcome != nil && len(outcome.Volumes) > 0,
 			aligned,
 			applied,
 			duplicate,

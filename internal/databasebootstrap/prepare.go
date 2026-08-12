@@ -188,6 +188,9 @@ func prepare(root string, preparedAt time.Time) (*Preview, error) {
 	}
 	copyState.UpdatedAt = preparedAt.Format(time.RFC3339)
 	baseline.UpdateOne(copyState, "aoci.database.txt", baseline.HashBytes("aoci.database.txt", databasePost))
+	if err := advanceRootBaselineBinding(copyState, set.Root.SHA256, rootPost); err != nil {
+		return nil, err
+	}
 	baselinePost, err := baseline.MarshalExact(copyState)
 	if err != nil {
 		return nil, fmt.Errorf("database_bootstrap_baseline_postimage_invalid")
@@ -218,6 +221,25 @@ func prepare(root string, preparedAt time.Time) (*Preview, error) {
 		return nil, err
 	}
 	return preview, nil
+}
+
+// advanceRootBaselineBinding keeps the Root manifest and its existing
+// Baseline membership in one Database Bootstrap postimage. A Baseline that
+// does not already manage the Root is intentionally left alone: Bootstrap is
+// not a Scope-enrolment operation. The raw SHA is the authoritative CAS
+// identity, while the existing role is preserved byte-for-byte.
+func advanceRootBaselineBinding(state *baseline.Baseline, rootPreimageSHA string, rootPostimage []byte) error {
+	current, managed := state.Files["aoci.txt"]
+	if !managed {
+		return nil
+	}
+	if current.SHA256 != rootPreimageSHA {
+		return fmt.Errorf("database_bootstrap_baseline_conflict")
+	}
+	advanced := baseline.HashBytes("aoci.txt", rootPostimage)
+	advanced.Role = current.Role
+	baseline.UpdateOne(state, "aoci.txt", advanced)
+	return nil
 }
 
 func addDatabaseDescriptor(root []byte) ([]byte, error) {

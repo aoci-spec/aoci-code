@@ -211,6 +211,50 @@
       }
     },
     {
+      "id": "contracts/maintain/actions/apply-final-proof",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/apply-final-proof.txt",
+      "description": "Final Volumes Apply action requiring terminal Verify, Aggregate Check, and Guide proof",
+      "used_by": "internal/mcptools/tools_auto_result.go:autoApplyNextAction",
+      "protocol_tokens": [
+        "remaining=0",
+        "aoci_maintain",
+        "Verify",
+        "Aggregate Check",
+        "Guide",
+        "next_action=none"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "不得再次调用",
+          "正式认知写入",
+          "终态证明"
+        ]
+      }
+    },
+    {
+      "id": "contracts/maintain/actions/apply-duplicate-final-proof",
+      "kind": "contract",
+      "path": "contracts/maintain/actions/apply-duplicate-final-proof.txt",
+      "description": "Duplicate final Volumes Apply action preserving zero-write facts while requiring terminal proof",
+      "used_by": "internal/mcptools/tools_auto_result.go:autoApplyNextAction",
+      "protocol_tokens": [
+        "remaining=0",
+        "aoci_maintain",
+        "Verify",
+        "Aggregate Check",
+        "Guide",
+        "next_action=none"
+      ],
+      "locale_anchors": {
+        "zh-CN": [
+          "正式写入为0",
+          "正式认知写入",
+          "不得再次调用"
+        ]
+      }
+    },
+    {
       "id": "contracts/maintain/actions/apply-duplicate",
       "kind": "contract",
       "path": "contracts/maintain/actions/apply-duplicate.txt",

@@ -16,7 +16,7 @@ func TestRenderAutoResultKeepsCriticalZeroCounts(t *testing.T) {
 		Aligned:    true,
 		Receipt:    cognitionReceipt{},
 		Metrics:    autoMetrics{},
-		NextAction: autoApplyNextAction(true, 0, 0),
+		NextAction: autoApplyNextAction(false, true, 0, 0),
 	})
 	assertAutoMachineCounts(t, raw, 0, 0, 0, 0, 0)
 	for _, field := range []string{
@@ -130,6 +130,11 @@ func TestMaintainCarriesSemanticThresholdThroughAlignedApply(t *testing.T) {
 		applied.NextAction != refreshNextAction(machinecontract.RefreshStatusReadyForOverview) {
 		t.Fatalf("aligned Apply未交付一次Overview的机器下一步: %+v", applied)
 	}
+	for _, token := range []string{"Verify", "Aggregate Check", "Guide"} {
+		if !strings.Contains(applied.NextAction, token) {
+			t.Fatalf("刷新动作不得覆盖Volumes终态证明步骤%q: %q", token, applied.NextAction)
+		}
+	}
 
 	repository, fail = loadRepoCtx(root)
 	if fail != nil {
@@ -183,7 +188,7 @@ func TestMaintainBelowThresholdKeepsOrdinaryTerminalResult(t *testing.T) {
 		session,
 	))
 	if !applied.Aligned || applied.RefreshStatus != "" || len(applied.RefreshReasons) != 0 ||
-		applied.NextAction != autoApplyNextAction(true, 1, 0) {
+		applied.NextAction != autoApplyNextAction(false, true, 1, 0) {
 		t.Fatalf("低于阈值的Apply不应要求Overview: %+v", applied)
 	}
 }

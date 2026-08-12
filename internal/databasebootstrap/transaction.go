@@ -284,11 +284,64 @@ func verifyPostimage(root string, preview *Preview) (*cognition.Set, error) {
 	if err != nil || !exists || state.Files[preview.DatabasePath].SHA256 != preview.DatabasePostimageSHA256 {
 		return nil, fmt.Errorf("database_bootstrap_baseline_binding_failed")
 	}
+	rootBinding, err := classifyRootBaselinePostimage(preview)
+	if err != nil {
+		return nil, fmt.Errorf("database_bootstrap_baseline_binding_failed")
+	}
+	if rootBinding.required {
+		actual, managed := state.Files[preview.RootPath]
+		if !managed || actual != rootBinding.expected {
+			return nil, fmt.Errorf("database_bootstrap_baseline_binding_failed")
+		}
+	}
 	evidenceRaw, err := readRegular(dbevidence.BaselinePath(root))
 	if err != nil || cognitiontxn.SHA256(evidenceRaw) != preview.EvidenceBaselineSHA256 {
 		return nil, fmt.Errorf("database_bootstrap_evidence_guard_changed")
 	}
 	return set, nil
+}
+
+type rootBaselinePostimage struct {
+	required bool
+	expected baseline.Fingerprint
+}
+
+// classifyRootBaselinePostimage derives the Root binding contract from the
+// frozen Preview instead of introducing a new recovery-schema field. This
+// keeps pending v1 transactions created by an older binary resumable: their
+// Baseline postimage retained the exact Root preimage fingerprint. New
+// previews bind an already-managed Root to its postimage, while repositories
+// that did not manage Root remain unenrolled.
+func classifyRootBaselinePostimage(preview *Preview) (rootBaselinePostimage, error) {
+	var before, after baseline.Baseline
+	if err := json.Unmarshal([]byte(preview.BaselinePreimage), &before); err != nil || before.Files == nil {
+		return rootBaselinePostimage{}, errors.New("invalid Baseline preimage")
+	}
+	if err := json.Unmarshal([]byte(preview.BaselinePostimage), &after); err != nil || after.Files == nil {
+		return rootBaselinePostimage{}, errors.New("invalid Baseline postimage")
+	}
+	preFingerprint, preManaged := before.Files[preview.RootPath]
+	postFingerprint, postManaged := after.Files[preview.RootPath]
+	if !preManaged && !postManaged {
+		return rootBaselinePostimage{}, nil
+	}
+	if !preManaged || !postManaged || preFingerprint.SHA256 != preview.RootPreimageSHA256 ||
+		preFingerprint.Role != postFingerprint.Role {
+		return rootBaselinePostimage{}, errors.New("invalid Root Baseline transition")
+	}
+
+	expected := baseline.HashBytes(preview.RootPath, []byte(preview.RootPostimage))
+	expected.Role = preFingerprint.Role
+	if postFingerprint == expected {
+		return rootBaselinePostimage{required: true, expected: expected}, nil
+	}
+	// Compatibility for an already-pending recovery created before Root and
+	// Baseline were advanced together. Its immutable postimage is honored,
+	// never silently rewritten during Resume or Rollback.
+	if postFingerprint == preFingerprint {
+		return rootBaselinePostimage{}, nil
+	}
+	return rootBaselinePostimage{}, errors.New("invalid Root Baseline transition")
 }
 
 func recoveryDigest(intent *RecoveryIntent) (string, error) {

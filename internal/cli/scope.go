@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
@@ -855,7 +856,44 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 	}
 	document, _ := index.Parse(string(raw))
 	index.ResolveRelPaths(document, root)
-	status.Drift = baseline.DetectManagedScope(root, document, currentBaseline, snapshot,
+	driftBaseline := currentBaseline
+	if layout, layoutErr := cognition.DetectLayout(raw); layoutErr != nil {
+		return nil, layoutErr
+	} else if layout == cognition.LayoutVolumesV1 {
+		set, loadErr := cognition.Load(root, cfg.IndexPath)
+		if loadErr != nil {
+			return nil, loadErr
+		}
+		if _, guardErr := scopechange.FormalCognitionBaselineGuards(root, cfg.IndexPath, currentBaseline); guardErr != nil {
+			return nil, guardErr
+		}
+		code := set.Volumes[cognition.ScopeCode]
+		if code == nil || code.State != cognition.AssetPresent || code.Document == nil {
+			return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
+		}
+		document = code.Document
+		filteredSnapshot := make(map[string]baseline.Fingerprint, len(snapshot))
+		for path, fingerprint := range snapshot {
+			filteredSnapshot[path] = fingerprint
+		}
+		filteredBaseline := *currentBaseline
+		filteredBaseline.Files = make(map[string]baseline.Fingerprint, len(currentBaseline.Files))
+		for path, fingerprint := range currentBaseline.Files {
+			filteredBaseline.Files[path] = fingerprint
+		}
+		formalPaths := map[string]bool{cfg.IndexPath: true}
+		for _, id := range set.DeclaredOrder {
+			if asset := set.Volumes[id]; asset != nil {
+				formalPaths[asset.Descriptor.Path] = true
+			}
+		}
+		for path := range formalPaths {
+			delete(filteredSnapshot, path)
+			delete(filteredBaseline.Files, path)
+		}
+		snapshot, driftBaseline = filteredSnapshot, &filteredBaseline
+	}
+	status.Drift = baseline.DetectManagedScope(root, document, driftBaseline, snapshot,
 		afs.WalkOptions{HighRiskOptIn: cfg.SafeInventoryHighRiskOptIn}, cfg.LineEndingTolerance)
 	status.ObservedPendingReview = len(status.Drift.ObservedNew) + len(status.Drift.ObservedChanged) + len(status.Drift.ObservedRemoved)
 	status.AuthoringTargets = len(status.Drift.Missing)

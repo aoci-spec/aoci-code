@@ -80,6 +80,13 @@ func TestVolumeCodeCandidateBindingTypoReturnsExactZeroWriteRepairAndSameBatchSu
 			if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 2 {
 				t.Fatalf("corrected unchanged machine batch did not apply: %#v", applied)
 			}
+			assertVolumeTerminalProofAction(t, applied.NextAction, false)
+			duplicate := applyVolumeBatch(t, session, corrected)
+			if duplicate.Status != autoStatusApplied || !duplicate.Aligned || duplicate.Applied != 0 ||
+				duplicate.Metrics.DuplicateApplies != 1 {
+				t.Fatalf("repeated final Code batch was not idempotent: %#v", duplicate)
+			}
+			assertVolumeTerminalProofAction(t, duplicate.NextAction, true)
 		})
 	}
 }
