@@ -103,6 +103,11 @@ func Assemble(input Input) (Output, error) {
 		return Output{}, err
 	}
 	output.Instructions = append(output.Instructions, metaInstruction)
+	batchInstruction, err := textassets.Message(input.Locale, "volumes.authoring.batch_identity")
+	if err != nil {
+		return Output{}, err
+	}
+	output.Instructions = append(output.Instructions, batchInstruction)
 	for _, domain := range orderedDomains(input.Domains) {
 		dictionary := input.Meta.Dictionaries[domain]
 		if dictionary == nil || !dictionary.HasObjectContract() {

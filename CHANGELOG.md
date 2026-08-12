@@ -2,6 +2,12 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Report exact Code candidate binding mismatches and distinguish
+  `code_plan.batch_id` from the cross-domain `authoring_batch.batch_identity`
+  without changing the nine-tool MCP surface or request Schema.
+
 ## v0.1.0-rc3
 
 - Add an explicit `cognition_optimization` intent to `aoci_maintain` so a user
