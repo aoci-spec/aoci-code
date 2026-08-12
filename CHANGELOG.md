@@ -2,21 +2,6 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
-
-- Add an explicit project cognition init mode that runs the selected Host integration adapter
-  before reusing Fresh Bootstrap for model-authored project Root, Meta tag
-  dictionaries, Entries, and the initial Managed Scope/Budget Baseline.
-- Keep the fixed generic starter as an explicit fail-closed fallback and retain
-  compatible no-mode init behavior.
-- Report exact Code candidate binding mismatches and distinguish
-  `code_plan.batch_id` from the cross-domain `authoring_batch.batch_identity`
-  without changing the nine-tool MCP surface or request Schema.
-- Make Fresh Onboarding self-describing for source-independent Hosts through a
-  live `next_action_contract`, machine-filled Completion and Candidate request
-  templates, read-only Candidate provenance binding, and precise zero-write
-  transport diagnostics.
-
 ## v0.1.0-rc3
 
 - Add an explicit `cognition_optimization` intent to `aoci_maintain` so a user

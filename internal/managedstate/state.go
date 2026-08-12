@@ -5,8 +5,6 @@
 package managedstate
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"sort"
 
@@ -14,9 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
-	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
-	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
 
@@ -80,112 +76,6 @@ func Load(root string, cfg *config.Config) (*State, error) {
 	approved := len(cfg.SafeInventoryHighRiskOptIn) == 0 || value.ManagedScope.HighRiskApprovalDigest != ""
 	state.Snapshot, err = managedscope.Snapshot(root, evaluation, managedscope.SnapshotOptions{HighRiskContentApproved: approved})
 	return state, err
-}
-
-// LoadInitial evaluates the desired Managed Scope and Cognition Budget for a
-// Fresh Bootstrap before any Baseline exists. It is deliberately separate
-// from Load: every mature repository must continue to require an active
-// Baseline receipt before a desired policy can govern formal cognition.
-func LoadInitial(root string, cfg *config.Config) (*State, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("managed_state_configuration_required")
-	}
-	if _, exists, err := baseline.Load(root); err != nil {
-		return nil, err
-	} else if exists {
-		return nil, fmt.Errorf("managed_state_initial_baseline_present")
-	}
-	return EvaluateInitial(root, cfg)
-}
-
-// EvaluateInitial deterministically replays the pre-Baseline desired policy.
-// Bootstrap recovery uses it after partial Root-last publication as well, so
-// it intentionally ignores any Baseline that the same transaction may already
-// have published. High-risk exact opt-ins still fail before content hashing
-// unless their selected path is absent or excluded by policy.
-func EvaluateInitial(root string, cfg *config.Config) (*State, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("managed_state_configuration_required")
-	}
-	if cfg.ManagedScope == nil && cfg.CognitionBudget == nil {
-		return nil, fmt.Errorf("managed_state_initial_policy_required")
-	}
-	curationExclude, err := CurationExclusions(root, cfg, nil)
-	if err != nil {
-		return nil, err
-	}
-	evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
-		WalkOptions: cfg.WalkOptions(), CurationExclude: curationExclude})
-	if err != nil {
-		return nil, err
-	}
-	budgetIdentity, err := cognitionbudget.Identity(cfg.EffectiveCognitionBudget())
-	if err != nil {
-		return nil, err
-	}
-	snapshot, err := managedscope.Snapshot(root, evaluation, managedscope.SnapshotOptions{HighRiskContentApproved: false})
-	if err != nil {
-		return nil, err
-	}
-	return &State{
-		ScopeChangeRequired: false, PolicyAligned: true, BudgetAligned: true,
-		DesiredPolicyIdentity: evaluation.PolicyIdentity, DesiredBudgetIdentity: budgetIdentity,
-		Evaluation: evaluation, Snapshot: snapshot, Baseline: nil, Warnings: []string{},
-	}, nil
-}
-
-// InitialBaselineReceipt materializes the existing managed-scope Baseline
-// contract from a previously evaluated Fresh state. It is shared by scan and
-// Cognition Bootstrap so both initial governance paths record identical policy
-// and budget authority without introducing another receipt format.
-func InitialBaselineReceipt(cfg *config.Config, state *State) (*baseline.ManagedScopeState, error) {
-	if cfg == nil || state == nil || state.Evaluation == nil {
-		return nil, fmt.Errorf("managed_state_initial_evaluation_required")
-	}
-	budgetPolicy := cfg.EffectiveCognitionBudget()
-	budgetIdentity, err := cognitionbudget.Identity(budgetPolicy)
-	if err != nil {
-		return nil, err
-	}
-	if state.ScopeChangeRequired || state.DesiredPolicyIdentity == "" ||
-		state.DesiredPolicyIdentity != state.Evaluation.PolicyIdentity ||
-		state.DesiredBudgetIdentity != budgetIdentity {
-		return nil, fmt.Errorf("managed_state_initial_identity_mismatch")
-	}
-	return &baseline.ManagedScopeState{
-		Version:              machinecontract.ManagedScopeBaselineV1,
-		PolicyIdentity:       state.DesiredPolicyIdentity,
-		ObserveChangePolicy:  cfg.EffectiveManagedScope().ObserveChangePolicy,
-		BudgetPolicyIdentity: budgetIdentity,
-		BudgetPolicy:         &budgetPolicy,
-	}, nil
-}
-
-// HighRiskOptInIdentity binds the exact normalized exception list even when it
-// is empty. Safe Inventory's rules identity also includes these paths; this
-// focused identity makes their Bootstrap guard explicit without reading them.
-func HighRiskOptInIdentity(paths []string) (string, error) {
-	normalized := make([]string, 0, len(paths))
-	for _, value := range paths {
-		path, err := afs.NormalizeRelPath(value)
-		if err != nil {
-			return "", fmt.Errorf("managed_state_high_risk_path_invalid")
-		}
-		normalized = append(normalized, path)
-	}
-	sort.Strings(normalized)
-	deduplicated := normalized[:0]
-	for _, path := range normalized {
-		if len(deduplicated) == 0 || deduplicated[len(deduplicated)-1] != path {
-			deduplicated = append(deduplicated, path)
-		}
-	}
-	hash := sha256.New()
-	for _, value := range append([]string{"managed-scope-high-risk-opt-in/v1"}, deduplicated...) {
-		_, _ = hash.Write([]byte(value))
-		_, _ = hash.Write([]byte{0})
-	}
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 func Detect(root string, cfg *config.Config, document *index.Document, state *State) (*baseline.DetectResult, error) {

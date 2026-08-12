@@ -49,7 +49,7 @@
     "name": "aoci_header"
   },
   {
-    "description": "受管理内容达到最终稳定状态后，领取下一个机器签发的当前完整创作批次。Legacy行为保持兼容：可证明的format-only可能前移Baseline，调用可能追加本地Ledger审计记录。repair_required或stopped必须完整处理；纯只读任务、不稳定中间态或已经aligned时都不要再次调用。刷新待处理时，先由Verify、Check和Guide证明aligned。新仓或不完整索引必须使用当前Guide，本工具不能替代该流程。Volumes v1普通路径省略scope，由共享治理事实确定aligned、authoring_required、evidence_required或blocked。面对大型logical plan，Maintain按确定顺序最多返回max_entries=200个候选，并明确logical_plan、batch_identity、total_targets、included、remaining、continuation_required、Composite/Scope身份、每项目Source或Evidence绑定及精确Guide action。Code提交把code_plan.batch_id原样填入aoci_update_entry.code_batch_id；该值等于每个返回的Code candidate.batch_id。authoring_batch.batch_identity标识跨domain作者化封装，不是Code或Database写入批次身份。这是当前批次的完整候选集合，不是Host可任意修改的前缀，也不是Whole-Index上限。当前批次原子Apply后，remaining非零则基于新preimage重新调用Maintain。只有remaining、missing、stale、unbaselined、orphan、Scope债务与Recovery全部归零才允许Whole-Index aligned。Maintain只可能写机器候选收据和本地Ledger审计，不创作Tag或F/R/A/S，不连接数据库，不改变Scope，也不因transport上限缩减Index覆盖。Orphan仍是显式remove候选，Root和Meta仍为Guard；scope=database只读取已保存的Canonical Evidence，不包含任何程序生成的标签或FRAS字段，Database Volume缺失时稳定返回database_volume_absent，且不创建Root、Meta或Database Volume。显式Cognition Optimization请求是aligned Entry规则的唯一例外：仅Volumes v1 Code可设置intent=cognition_optimization，并可选用object_refs取得绑定的审查候选。对于每个候选，Host必须审查当前完整Entry、源码及必要关系，再通过既有aoci_update_entry批次提交完整替换Entry或原样完整Entry；禁止字段Patch。AOCI只选择和绑定候选：程序绝不生成语义或S、不压缩Entry文本、不降低C。此模式不适用于Legacy或Database认知。",
+    "description": "受管理内容达到最终稳定状态后，领取下一个机器签发的当前完整创作批次。Legacy行为保持兼容：可证明的format-only可能前移Baseline，调用可能追加本地Ledger审计记录。repair_required或stopped必须完整处理；纯只读任务、不稳定中间态或已经aligned时都不要再次调用。刷新待处理时，先由Verify、Check和Guide证明aligned。新仓或不完整索引必须使用当前Guide，本工具不能替代该流程。Volumes v1普通路径省略scope，由共享治理事实确定aligned、authoring_required、evidence_required或blocked。面对大型logical plan，Maintain按确定顺序最多返回max_entries=200个候选，并明确logical_plan、batch_identity、total_targets、included、remaining、continuation_required、Composite/Scope身份、每项目Source或Evidence绑定及精确Guide action。这是当前批次的完整候选集合，不是Host可任意修改的前缀，也不是Whole-Index上限。当前批次原子Apply后，remaining非零则基于新preimage重新调用Maintain。只有remaining、missing、stale、unbaselined、orphan、Scope债务与Recovery全部归零才允许Whole-Index aligned。Maintain只可能写机器候选收据和本地Ledger审计，不创作Tag或F/R/A/S，不连接数据库，不改变Scope，也不因transport上限缩减Index覆盖。Orphan仍是显式remove候选，Root和Meta仍为Guard；scope=database只读取已保存的Canonical Evidence，不包含任何程序生成的标签或FRAS字段，Database Volume缺失时稳定返回database_volume_absent，且不创建Root、Meta或Database Volume。显式Cognition Optimization请求是aligned Entry规则的唯一例外：仅Volumes v1 Code可设置intent=cognition_optimization，并可选用object_refs取得绑定的审查候选。对于每个候选，Host必须审查当前完整Entry、源码及必要关系，再通过既有aoci_update_entry批次提交完整替换Entry或原样完整Entry；禁止字段Patch。AOCI只选择和绑定候选：程序绝不生成语义或S、不压缩Entry文本、不降低C。此模式不适用于Legacy或Database认知。",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -577,7 +577,7 @@
     "name": "aoci_search"
   },
   {
-    "description": "通过既有Impact、Projected Validation、Diff、CAS、AtomicWrite、Baseline/Database Binding、Receipt、Ledger和Recovery管线正式写入机器签发的当前完整模型创作Entry批次。Volumes Code创作必须原样携带无参数aoci_maintain返回的code_batch_id、每项candidate_id、path与source_sha256：aoci_update_entry.code_batch_id必须等于code_plan.batch_id和每个返回的Code candidate.batch_id；authoring_batch.batch_identity是不同的跨domain封装身份，绝不能填入code_batch_id。Database候选原样携带顶层batch_id和每项candidate_id，不得把Database Volume或Table Evidence哈希复制到source_sha256。max_entries只限制本次请求和原子事务，不限制logical plan、Whole-Index或Managed Scope。entries必须等于当前机器签发批次的完整候选集合，Host不得自行截取Maintain输出。AOCI在写入前验证全部候选及Source/Evidence、Scope、Composite、关系、Tag、FRAS、R/S和投影Budget绑定，使Code最多写一次、Database最多写一次、Baseline/Binding最多写一次。若R引用后续尚未写入的Code目标，机器零写入签发包含所需关系闭包的替代批次；不得删除或机械改写模型创作的R。成功批次若remaining非零，不得宣称Whole-Index aligned，应基于新preimage重新调用Maintain继续。可修拒绝一次返回全部确定性Finding，包含candidate_index、canonical_object_identity、rule_code与safe_repair_action；repair_required只修retry_scope并重提同一当前完整批次。既有直接单条、Legacy和兼容Code source_sha256输入保持支持。Root和Meta仅为Guard。证据不足时不要猜写，不得因transport上限缩减Scope或提交机器批次的子集。",
+    "description": "通过既有Impact、Projected Validation、Diff、CAS、AtomicWrite、Baseline/Database Binding、Receipt、Ledger和Recovery管线正式写入机器签发的当前完整模型创作Entry批次。Volumes Code创作必须原样携带无参数aoci_maintain返回的code_batch_id、每项candidate_id、path与source_sha256；Database候选原样携带顶层batch_id和每项candidate_id，不得把Database Volume或Table Evidence哈希复制到source_sha256。max_entries只限制本次请求和原子事务，不限制logical plan、Whole-Index或Managed Scope。entries必须等于当前机器签发批次的完整候选集合，Host不得自行截取Maintain输出。AOCI在写入前验证全部候选及Source/Evidence、Scope、Composite、关系、Tag、FRAS、R/S和投影Budget绑定，使Code最多写一次、Database最多写一次、Baseline/Binding最多写一次。若R引用后续尚未写入的Code目标，机器零写入签发包含所需关系闭包的替代批次；不得删除或机械改写模型创作的R。成功批次若remaining非零，不得宣称Whole-Index aligned，应基于新preimage重新调用Maintain继续。可修拒绝一次返回全部确定性Finding，包含candidate_index、canonical_object_identity、rule_code与safe_repair_action；repair_required只修retry_scope并重提同一当前完整批次。既有直接单条、Legacy和兼容Code source_sha256输入保持支持。Root和Meta仅为Guard。证据不足时不要猜写，不得因transport上限缩减Scope或提交机器批次的子集。",
     "inputSchema": {
       "additionalProperties": false,
       "properties": {
@@ -590,7 +590,7 @@
           "type": "string"
         },
         "code_batch_id": {
-          "description": "aoci_maintain返回的精确code_plan.batch_id；它等于每个Code candidate.batch_id。绝不能在此使用authoring_batch.batch_identity",
+          "description": "aoci_maintain返回的机器拥有当前完整Code Cognition批次身份",
           "type": "string"
         },
         "entries": {
@@ -673,7 +673,7 @@
             ],
             "properties": {
               "candidate_id": {
-                "description": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对",
+                "description": "Code或Database候选的机器拥有身份；当前完整批次还必须提交对应domain批次身份",
                 "type": "string"
               },
               "new_entry": {

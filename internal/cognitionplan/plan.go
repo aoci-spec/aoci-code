@@ -11,37 +11,6 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// InitialManagedScopeEvidence is carried by the existing Root and Meta task
-// EvidenceRefs rather than by a new Plan schema field. This keeps persisted
-// Plan and Migration envelope schemas byte-compatible while binding every
-// Fresh project policy and evidence identity to PlanID and model provenance.
-type InitialManagedScopeEvidence struct {
-	InventoryIdentity         string
-	SourceEvidenceIdentity    string
-	AuthoringEvidenceIdentity string
-	PolicyIdentity            string
-	BudgetPolicyIdentity      string
-	IndexEvidenceIdentity     string
-	ObserveEvidenceIdentity   string
-	ObserveChangePolicy       string
-	HighRiskOptInIdentity     string
-}
-
-var initialManagedScopeEvidencePrefixes = []struct {
-	prefix string
-	value  func(*InitialManagedScopeEvidence) *string
-}{
-	{"inventory:", func(value *InitialManagedScopeEvidence) *string { return &value.InventoryIdentity }},
-	{"source-evidence:", func(value *InitialManagedScopeEvidence) *string { return &value.SourceEvidenceIdentity }},
-	{"authoring-evidence:", func(value *InitialManagedScopeEvidence) *string { return &value.AuthoringEvidenceIdentity }},
-	{"managed-scope:", func(value *InitialManagedScopeEvidence) *string { return &value.PolicyIdentity }},
-	{"cognition-budget:", func(value *InitialManagedScopeEvidence) *string { return &value.BudgetPolicyIdentity }},
-	{"index-evidence:", func(value *InitialManagedScopeEvidence) *string { return &value.IndexEvidenceIdentity }},
-	{"observe-evidence:", func(value *InitialManagedScopeEvidence) *string { return &value.ObserveEvidenceIdentity }},
-	{"observe-change-policy:", func(value *InitialManagedScopeEvidence) *string { return &value.ObserveChangePolicy }},
-	{"high-risk-opt-in:", func(value *InitialManagedScopeEvidence) *string { return &value.HighRiskOptInIdentity }},
-}
-
 // BootstrapPlan discovers an uninitialized repository and returns only a
 // deterministic authoring request. It never writes candidates or formal assets.
 func BootstrapPlan(options Options) (*Plan, error) {
@@ -126,7 +95,7 @@ func MigrationPlan(options Options) (*Plan, error) {
 }
 
 func basePlan(version, operation, status, nextAction string, kinds []string, facts *repositoryFacts) *Plan {
-	plan := &Plan{
+	return &Plan{
 		Version: version, Operation: operation, Status: status, Layout: facts.layout,
 		RepositoryIdentity: facts.repositoryIdentity, LayoutIdentity: facts.layoutIdentity,
 		BaselineIdentity: facts.baselineIdentity, InventoryIdentity: facts.inventoryIdentity,
@@ -138,7 +107,6 @@ func basePlan(version, operation, status, nextAction string, kinds []string, fac
 		AuthoringTasks: []AuthoringTask{}, CandidateFrameworks: []CandidateFramework{}, Warnings: []cognition.Finding{},
 		FormalAssetProof: facts.formalProof, NetworkAccessed: false, NextAction: nextAction,
 	}
-	return plan
 }
 
 func normalizeTargetKinds(values []string) ([]string, error) {
@@ -184,7 +152,7 @@ func validateSelectedKinds(kinds []string, facts *repositoryFacts) error {
 }
 
 func bootstrapAuthoringTasks(kinds []string, facts *repositoryFacts) []AuthoringTask {
-	tasks := rootAndMetaTasks(facts, authoringEvidenceDigest(kinds, facts.inventory, facts.evidence))
+	tasks := rootAndMetaTasks()
 	for _, kind := range kinds {
 		switch kind {
 		case "code":
@@ -206,94 +174,15 @@ func bootstrapAuthoringTasks(kinds []string, facts *repositoryFacts) []Authoring
 	return tasks
 }
 
-func rootAndMetaTasks(facts *repositoryFacts, authoringEvidenceIdentity string) []AuthoringTask {
-	evidenceRefs := []string{}
-	if facts != nil && facts.initialManagedScope != nil {
-		evidence := initialManagedScopeEvidence(facts.initialManagedScope, facts.inventoryIdentity,
-			facts.sourceEvidenceIdentity, authoringEvidenceIdentity)
-		for _, item := range initialManagedScopeEvidencePrefixes {
-			evidenceRefs = append(evidenceRefs, item.prefix+*item.value(evidence))
-		}
-	}
+func rootAndMetaTasks() []AuthoringTask {
 	return []AuthoringTask{
-		{TaskID: "root:project", AssetID: "root", ObjectKind: "project", EvidenceRefs: append([]string{}, evidenceRefs...), RequiredSemantic: []string{"project_identity", "project_overview", "global_invariants"}, Reason: "model_semantics_required"},
-		{TaskID: "meta:governance", AssetID: "meta", ObjectKind: "meta", EvidenceRefs: append([]string{}, evidenceRefs...), RequiredSemantic: []string{"rules", "tag_dictionary_code", "tag_dictionary_database"}, Reason: "model_semantics_required"},
+		{TaskID: "root:project", AssetID: "root", ObjectKind: "project", EvidenceRefs: []string{}, RequiredSemantic: []string{"project_identity", "project_overview", "global_invariants"}, Reason: "model_semantics_required"},
+		{TaskID: "meta:governance", AssetID: "meta", ObjectKind: "meta", EvidenceRefs: []string{}, RequiredSemantic: []string{"rules", "tag_dictionary_code", "tag_dictionary_database"}, Reason: "model_semantics_required"},
 	}
-}
-
-// InitialManagedScopeEvidenceFromPlan validates and returns the project-only
-// governance evidence shared by Root and Meta tasks. Empty refs retain the
-// exact legacy/Fresh compatibility path.
-func InitialManagedScopeEvidenceFromPlan(plan *Plan) (*InitialManagedScopeEvidence, bool, error) {
-	if plan == nil {
-		return nil, false, fmt.Errorf("initial_managed_scope_plan_required")
-	}
-	var rootRefs, metaRefs []string
-	for _, task := range plan.AuthoringTasks {
-		switch task.TaskID {
-		case "root:project":
-			rootRefs = task.EvidenceRefs
-		case "meta:governance":
-			metaRefs = task.EvidenceRefs
-		}
-	}
-	if len(rootRefs) == 0 && len(metaRefs) == 0 {
-		return nil, false, nil
-	}
-	if len(rootRefs) != len(initialManagedScopeEvidencePrefixes) || !equalStrings(rootRefs, metaRefs) {
-		return nil, false, fmt.Errorf("initial_managed_scope_evidence_incomplete")
-	}
-	result := &InitialManagedScopeEvidence{}
-	for index, item := range initialManagedScopeEvidencePrefixes {
-		if !strings.HasPrefix(rootRefs[index], item.prefix) {
-			return nil, false, fmt.Errorf("initial_managed_scope_evidence_invalid")
-		}
-		value := strings.TrimPrefix(rootRefs[index], item.prefix)
-		if value == "" {
-			return nil, false, fmt.Errorf("initial_managed_scope_evidence_invalid")
-		}
-		*item.value(result) = value
-	}
-	return result, true, nil
-}
-
-// ValidateInitialManagedScopeTargets prevents the first governed Baseline from
-// fingerprinting Index-role files without also creating their Code Volume and
-// Entries. Discovery may still use an empty target set to compute recommended
-// kinds; Candidate validation and Baseline construction enforce this boundary.
-func ValidateInitialManagedScopeTargets(plan *Plan) error {
-	_, present, err := InitialManagedScopeEvidenceFromPlan(plan)
-	if err != nil || !present {
-		return err
-	}
-	hasIndex := false
-	for _, object := range plan.Inventory {
-		hasIndex = hasIndex || object.Eligible || object.ScopeRole == machinecontract.ScopeRoleIndex
-	}
-	hasCode := false
-	for _, kind := range plan.TargetKinds {
-		hasCode = hasCode || kind == "code"
-	}
-	if hasIndex && !hasCode {
-		return fmt.Errorf("initial_managed_scope_code_target_required")
-	}
-	return nil
-}
-
-func equalStrings(left, right []string) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for index := range left {
-		if left[index] != right[index] {
-			return false
-		}
-	}
-	return true
 }
 
 func migrationAuthoringTasks(kinds []string, facts *repositoryFacts, mapping *SemanticMapping) []AuthoringTask {
-	tasks := rootAndMetaTasks(facts, "")
+	tasks := rootAndMetaTasks()
 	for _, record := range mapping.Records {
 		if record.Mode != machinecontract.CognitionMappingModelRegenerationRequired {
 			continue
@@ -347,14 +236,6 @@ func planIdentity(plan *Plan) string {
 		{"curation_identity", plan.CurationIdentity}, {"locale", plan.Locale}, {"registry_identity", plan.RegistryIdentity},
 	} {
 		identity.field(pair[0], pair[1])
-	}
-	for _, task := range plan.AuthoringTasks {
-		if task.TaskID != "root:project" && task.TaskID != "meta:governance" {
-			continue
-		}
-		for _, evidenceRef := range task.EvidenceRefs {
-			identity.field("project_authoring_evidence_ref", evidenceRef)
-		}
 	}
 	for _, kind := range plan.TargetKinds {
 		identity.field("target_kind", kind)

@@ -1,1 +1,1 @@
-Correct only the exact fields referenced by findings, preserve every other candidate, then resubmit the same complete batch; a code_batch_id finding changes only that top-level field to code_plan.batch_id
+Correct only the candidates referenced by findings, then resubmit the same complete batch

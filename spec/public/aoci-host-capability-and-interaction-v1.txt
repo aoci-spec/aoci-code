@@ -101,36 +101,6 @@ current evidence, authors Root/Meta/tags/F/R/A/S using model judgment, supplies
 one Host-issued authoring_run_id, submits the exact v2 Completion declaration,
 and places the complete provenance receipt in Candidate v1.
 
-Fresh Batch, Candidate binding, and Session views expose the current action as
-a versioned `next_action_contract`. The Host consumes its exact command,
-applicable action payload schema, machine-filled request template, expected
-preimage, and success continuation; the short `next_action` label and
-surrounding prose are not request schemas. When an action result does not
-itself carry the next contract,
-the Host obtains the active Session status rather than inferring the transition.
-Machine-filled Session, Batch, Task, Plan, and Evidence identities are copied
-unchanged. Only fields explicitly marked for Host authoring are supplied by the
-Host. A multi-batch run repeats the emitted contract until the live response
-changes the action; wrappers do not infer that transition or copy an internal
-state machine.
-
-Candidate provenance uses the binding action emitted by that same live
-contract. The Host first validates its complete Candidate through the exact
-read-only CLI action, copies the returned machine-computed candidate payload
-digest into the provenance receipt, and then executes the emitted Preview
-action. A Host does not import an AOCI implementation package, reproduce an
-internal hashing algorithm, inspect AOCI source, or guess a transport object to
-obtain that binding. Preview and failed transport validation do not start
-formal writes.
-
-When project integration establishes Managed Scope and Budget policy before a
-Fresh Baseline exists, the Plan binds the exact initial policy, budget, Index
-and Observe evidence, high-risk opt-in, and authoring-evidence identities. The
-same existing Bootstrap transaction records those identities in the first
-Baseline. Excluded objects are not authored; Observe objects remain bound
-evidence without formal Entries. A policy, role, source, or Evidence change
-supersedes the Plan rather than silently changing the first governed snapshot.
-
 The Host must not ask the program to infer semantics or treat paths, AST,
 imports, Schema, regular expressions, frameworks, fixtures, or templates as a
 model-authored result. AOCI computes Plan, Evidence, Batch, and Candidate
@@ -175,8 +145,7 @@ Compatibility
 -------------
 
 Existing nine MCP tools and Legacy/Volumes lifecycle behavior remain intact.
-Capability, Guide, and Fresh `next_action_contract` fields are additive machine
-surfaces. Existing input schema versions remain valid. Executable machine
+Capability and Guide fields are additive machine surfaces. Executable machine
 constants remain the single token authority; docs and Locale assets describe
 them without copying mutable numeric sets.
 

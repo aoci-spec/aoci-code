@@ -113,8 +113,8 @@ func planCognitionVolumeUpdates(
 				if item.candidateID == "" || item.batchID != codeBatchID || !validRecoverySHA256(item.sourceSHA256) {
 					return nil, &Fail{Code: errBadArgs, Msg: "code_candidate_batch_fields_invalid"}
 				}
-				submissions = append(submissions, codebatch.Submission{CandidateIndex: item.originalCandidateIndex,
-					ObjectRef: "code:" + item.rel, CandidateID: item.candidateID, SourceSHA256: item.sourceSHA256})
+				submissions = append(submissions, codebatch.Submission{ObjectRef: "code:" + item.rel,
+					CandidateID: item.candidateID, SourceSHA256: item.sourceSHA256})
 			}
 			facts, factsErr := volumegovernance.Assess(root, loaded.cfg, loaded.set)
 			if factsErr != nil {
@@ -125,12 +125,6 @@ func planCognitionVolumeUpdates(
 			receipt, err := codebatch.ValidateSubmission(root, codeBatchID, facts.CompositeIdentity,
 				facts.ManagedScope.PolicyIdentity, facts.Code.Path, facts.Code.SHA256, submissions, allowPostimage)
 			if err != nil {
-				var submissionErr *codebatch.SubmissionError
-				if errors.As(err, &submissionErr) {
-					findings := codeSubmissionRepairFindings(root, submissionErr)
-					return nil, &Fail{Code: errCandidateInvalid, Msg: submissionErr.Error(),
-						Findings: findings, Repairable: len(findings) > 0}
-				}
 				return nil, &Fail{Code: errWriteConflict, Msg: localeSafeWriteDetail(err.Error()), Hint: writeMessage("entry.batch.hint.replan")}
 			}
 			codeReceipt = &receipt
@@ -399,35 +393,6 @@ func planCognitionVolumeUpdates(
 			recovery: recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
 		batchKey: batchKey, start: start,
 	}, nil
-}
-
-func codeSubmissionRepairFindings(root string, mismatch *codebatch.SubmissionError) []cognition.RepairFinding {
-	if mismatch == nil {
-		return nil
-	}
-	result := make([]cognition.RepairFinding, 0, len(mismatch.Issues)+1)
-	for _, issue := range mismatch.Issues {
-		if issue.CandidateIndex < 1 || issue.Path == "" || issue.ObjectRef == "" || issue.Field == "" ||
-			issue.Expected == "" || issue.Actual == "" || issue.Code == "" {
-			continue
-		}
-		result = append(result, cognition.RepairFinding{CandidateIndex: issue.CandidateIndex,
-			Path: issue.Path, CanonicalObjectIdentity: issue.ObjectRef, Domain: cognition.ScopeCode,
-			Field: issue.Field, RuleCode: issue.Code, Expected: issue.Expected, Actual: issue.Actual,
-			Code: issue.Code, ObjectRef: issue.ObjectRef})
-	}
-	if mismatch.Code == "code_candidate_batch_id_mismatch" && mismatch.ExpectedBatchID != "" && mismatch.ActualBatchID != "" {
-		if receipt, err := codebatch.LoadReceipt(root, mismatch.ExpectedBatchID); err == nil && len(receipt.Targets) > 0 {
-			target := receipt.Targets[0]
-			result = append(result, cognition.RepairFinding{CandidateIndex: 1, Path: target.Path,
-				CanonicalObjectIdentity: target.ObjectRef, Domain: cognition.ScopeCode, Field: "code_batch_id",
-				RuleCode: mismatch.Code,
-				Expected: "code_plan.batch_id=" + mismatch.ExpectedBatchID + "; candidates[].batch_id=" + mismatch.ExpectedBatchID,
-				Actual:   "code_batch_id=" + mismatch.ActualBatchID + "; authoring_batch.batch_identity is not a Code batch id",
-				Code:     mismatch.Code, ObjectRef: target.ObjectRef})
-		}
-	}
-	return result
 }
 
 func recoveryVolumeTargets(recovery *atomicBatchRecovery) []cognitionVolumeWriteTarget {

@@ -3,15 +3,12 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/bootstrapapply"
-	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/jsonstrict"
 	"github.com/aoci-spec/aoci-code/internal/migrationapply"
 	"github.com/aoci-spec/aoci-code/internal/onboarding"
@@ -22,7 +19,7 @@ import (
 func newCognitionOnboardCmd() *cobra.Command {
 	command := &cobra.Command{Use: "onboard", Short: cliMessage("cli.short.cognition_onboard")}
 	command.AddCommand(newOnboardStartCmd(), newOnboardStatusCmd(), newOnboardNextCmd(), newOnboardResumeCmd(),
-		newOnboardCandidateCmd(), newOnboardPreviewCmd(), newOnboardPrepareCmd(), newOnboardApplyCmd(), newOnboardAbortCmd())
+		newOnboardPreviewCmd(), newOnboardPrepareCmd(), newOnboardApplyCmd(), newOnboardAbortCmd())
 	return command
 }
 
@@ -77,8 +74,7 @@ func newOnboardNextCmd() *cobra.Command {
 			}
 			var completion onboarding.Completion
 			if err := decodeOnboardingCLI(data, &completion); err != nil {
-				return onboardingExitError(onboardingStrictContractError("submit_authoring_completion", "completion_file", err,
-					[]string{"version", "onboarding_session_id", "batch_id", "completed_task_ids", "semantic_authoring_declaration"}))
+				return onboardingExitError(err)
 			}
 			if _, err := onboarding.CompleteTasks(root, completion); err != nil {
 				return onboardingExitError(err)
@@ -106,9 +102,6 @@ func newOnboardNextCmd() *cobra.Command {
 		if err != nil {
 			return onboardingExitError(err)
 		}
-		if err := decorateOnboardingBatchContract(root, batch, maxObjects, maxEvidence); err != nil {
-			return onboardingExitError(err)
-		}
 		if flagJSON {
 			return writePlannerJSON(cmd, batch)
 		}
@@ -120,51 +113,6 @@ func newOnboardNextCmd() *cobra.Command {
 	command.Flags().IntVar(&maxObjects, "max-objects", 25, cliMessage("onboarding.flag.max_objects"))
 	command.Flags().Int64Var(&maxEvidence, "max-evidence-bytes", 256*1024, cliMessage("onboarding.flag.max_evidence"))
 	command.Flags().BoolVar(&collectDatabase, "collect-database", false, cliMessage("onboarding.flag.collect_database"))
-	return command
-}
-
-func newOnboardCandidateCmd() *cobra.Command {
-	command := &cobra.Command{Use: "candidate"}
-	command.AddCommand(newOnboardCandidateBindCmd())
-	return command
-}
-
-func newOnboardCandidateBindCmd() *cobra.Command {
-	var candidatePayloadFile string
-	command := &cobra.Command{Use: "bind", RunE: func(cmd *cobra.Command, _ []string) error {
-		root, err := resolveRepoRoot()
-		if err != nil {
-			return onboardingExitError(err)
-		}
-		candidatePayloadFile, err = filepath.Abs(candidatePayloadFile)
-		if err != nil {
-			return onboardingExitError(err)
-		}
-		data, err := readPlannerInput(candidatePayloadFile)
-		if err != nil {
-			return onboardingExitError(err)
-		}
-		binding, err := onboarding.BindCandidate(root, data)
-		if err != nil {
-			if diagnostic := onboardingCandidateDecodeDiagnostic("bind_candidate_payload", "candidate_payload_file", err); diagnostic != nil {
-				return onboardingExitError(diagnostic)
-			}
-			return onboardingExitError(err)
-		}
-		if err := decorateCandidateBindingContract(root, candidatePayloadFile, binding); err != nil {
-			return onboardingExitError(err)
-		}
-		if flagJSON {
-			return writePlannerJSON(cmd, binding)
-		}
-		fmt.Fprintf(cmd.OutOrStdout(), "candidate_payload_sha256=%s\n", binding.CandidatePayloadSHA256)
-		if binding.NextActionContract != nil && binding.NextActionContract.Command != nil {
-			fmt.Fprintln(cmd.OutOrStdout(), binding.NextActionContract.Command.DisplayCommand)
-		}
-		return nil
-	}}
-	command.Flags().StringVar(&candidatePayloadFile, "candidate-payload-file", "", cliMessage("cognition.plan.flag.candidate_file"))
-	_ = command.MarkFlagRequired("candidate-payload-file")
 	return command
 }
 
@@ -183,52 +131,15 @@ func newOnboardResumeCmd() *cobra.Command {
 }
 
 func newOnboardPreviewCmd() *cobra.Command {
-	var candidateFile, candidatePayloadFile, provenanceFile, mappingFile string
+	var candidateFile, mappingFile string
 	command := &cobra.Command{Use: "preview", Short: cliMessage("cli.short.cognition_onboard_preview"), RunE: func(cmd *cobra.Command, _ []string) error {
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return onboardingExitError(err)
 		}
-		var candidate []byte
-		usingCompleteCandidate := candidateFile != ""
-		usingSplitCandidate := candidatePayloadFile != "" || provenanceFile != ""
-		if usingCompleteCandidate == usingSplitCandidate || usingSplitCandidate && (candidatePayloadFile == "" || provenanceFile == "") {
-			return onboardingExitError(&onboarding.ContractError{Stage: "preview", Field: "candidate_input", CauseCode: "onboarding_candidate_input_mode_invalid",
-				Expected: "exactly one of --candidate-file or (--candidate-payload-file and --provenance-file)", Actual: "invalid flag combination", FormalWritesStarted: false})
-		}
-		if usingCompleteCandidate {
-			candidate, err = readPlannerInput(candidateFile)
-			if err != nil {
-				return onboardingExitError(err)
-			}
-		} else {
-			payloadData, readErr := readPlannerInput(candidatePayloadFile)
-			if readErr != nil {
-				return onboardingExitError(readErr)
-			}
-			payload, decodeErr := cognitionplan.DecodeCandidate(payloadData)
-			if decodeErr != nil {
-				return onboardingExitError(onboardingStrictContractError("preview", "candidate_payload_file", decodeErr,
-					[]string{"version", "plan_id", "assets", "mapping_resolutions", "semantic_authoring_provenance"}))
-			}
-			if payload.SemanticAuthoringProvenance != nil {
-				return onboardingExitError(&onboarding.ContractError{Stage: "preview", Field: "semantic_authoring_provenance", CauseCode: "onboarding_candidate_payload_provenance_present",
-					Expected: "field omitted from payload file", Actual: "present", FormalWritesStarted: false})
-			}
-			provenanceData, readErr := readPlannerInput(provenanceFile)
-			if readErr != nil {
-				return onboardingExitError(readErr)
-			}
-			var provenance cognitionplan.SemanticAuthoringProvenance
-			if decodeErr := decodeOnboardingCLI(provenanceData, &provenance); decodeErr != nil {
-				return onboardingExitError(onboardingStrictContractError("preview", "provenance_file", decodeErr,
-					[]string{"version", "origin", "authoring_run_id", "plan_id", "evidence_binding_sha256", "candidate_payload_sha256"}))
-			}
-			payload.SemanticAuthoringProvenance = &provenance
-			candidate, err = json.Marshal(payload)
-			if err != nil {
-				return onboardingExitError(err)
-			}
+		candidate, err := readPlannerInput(candidateFile)
+		if err != nil {
+			return onboardingExitError(err)
 		}
 		var mapping []byte
 		if mappingFile != "" {
@@ -244,9 +155,8 @@ func newOnboardPreviewCmd() *cobra.Command {
 		return writePlannerJSON(cmd, preview)
 	}}
 	command.Flags().StringVar(&candidateFile, "candidate-file", "", cliMessage("cognition.plan.flag.candidate_file"))
-	command.Flags().StringVar(&candidatePayloadFile, "candidate-payload-file", "", cliMessage("cognition.plan.flag.candidate_file"))
-	command.Flags().StringVar(&provenanceFile, "provenance-file", "", cliMessage("cognition.plan.flag.candidate_file"))
 	command.Flags().StringVar(&mappingFile, "mapping-file", "", cliMessage("cognition.migration.flag.mapping_file"))
+	_ = command.MarkFlagRequired("candidate-file")
 	return command
 }
 
@@ -340,11 +250,7 @@ func newOnboardAbortCmd() *cobra.Command {
 
 func writeOnboardingSession(cmd *cobra.Command, root string, session *onboarding.Session) error {
 	if flagJSON {
-		view, err := newOnboardingSessionView(root, session)
-		if err != nil {
-			return err
-		}
-		return writePlannerJSON(cmd, view)
+		return writePlannerJSON(cmd, session)
 	}
 	policy := onboarding.EffectiveAutomationPolicy(session)
 	if session.Operation == "bootstrap" && policy.Mode == "auto" {
@@ -394,65 +300,5 @@ func decodeOnboardingCLI(data []byte, target any) error {
 }
 
 func onboardingExitError(err error) error {
-	result := &ExitError{Code: ExitInvalid, MachineCode: "cognition_onboarding_invalid", Msg: cliMessage("onboarding.error", textassets.DiagnosticFacts(err.Error()))}
-	var contractErr *onboarding.ContractError
-	if errors.As(err, &contractErr) {
-		result.Details = contractErr
-	}
-	return result
-}
-
-func onboardingStrictContractError(stage, field string, err error, allowed []string) *onboarding.ContractError {
-	failedField, causeCode := strictOnboardingDiagnostic(field, err)
-	return &onboarding.ContractError{Stage: stage, Field: failedField, CauseCode: causeCode,
-		Expected: "strict versioned JSON contract", Actual: err.Error(), AllowedFields: append([]string{}, allowed...),
-		FormalWritesStarted: false, Cause: err}
-}
-
-func onboardingCandidateDecodeDiagnostic(stage, field string, err error) *onboarding.ContractError {
-	var contractErr *onboarding.ContractError
-	if !errors.As(err, &contractErr) || contractErr.CauseCode != "onboarding_candidate_payload_invalid" || contractErr.Cause == nil {
-		return nil
-	}
-	return onboardingStrictContractError(stage, field, contractErr.Cause,
-		[]string{"version", "plan_id", "assets", "mapping_resolutions", "semantic_authoring_provenance"})
-}
-
-func strictOnboardingDiagnostic(inputField string, err error) (string, string) {
-	failedField := inputField
-	appendField := func(path string) {
-		path = strings.TrimSpace(path)
-		if path != "" {
-			failedField += "." + path
-		}
-	}
-
-	var duplicate *jsonstrict.DuplicateKeyError
-	if errors.As(err, &duplicate) {
-		appendField(duplicate.Path)
-		return failedField, "onboarding_transport_duplicate_key"
-	}
-	var typeError *json.UnmarshalTypeError
-	if errors.As(err, &typeError) {
-		appendField(typeError.Field)
-		return failedField, "onboarding_transport_type_mismatch"
-	}
-	message := err.Error()
-	const unknownPrefix = `json: unknown field "`
-	if position := strings.Index(message, unknownPrefix); position >= 0 {
-		unknown := message[position+len(unknownPrefix):]
-		if end := strings.Index(unknown, `"`); end >= 0 {
-			unknown = unknown[:end]
-		}
-		appendField(unknown)
-		return failedField, "onboarding_transport_unknown_field"
-	}
-	if message == "onboarding_transport_trailing_json" || strings.Contains(message, "trailing JSON value") {
-		return failedField, "onboarding_transport_trailing_json"
-	}
-	var syntaxError *json.SyntaxError
-	if errors.As(err, &syntaxError) || errors.Is(err, io.ErrUnexpectedEOF) {
-		return failedField, "onboarding_transport_syntax_invalid"
-	}
-	return failedField, "onboarding_transport_schema_invalid"
+	return &ExitError{Code: ExitInvalid, MachineCode: "cognition_onboarding_invalid", Msg: cliMessage("onboarding.error", textassets.DiagnosticFacts(err.Error()))}
 }

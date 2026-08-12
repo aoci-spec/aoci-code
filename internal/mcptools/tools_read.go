@@ -13,8 +13,7 @@
 //   - 基线缺失用UNBASELINED措辞区分，绝不误报STALE;
 //   - dir模式上限50条，search结果上限30条;
 //   - 全部path入参先过NormalizeRelPath;
-//   - 正式索引读取落Ledger；Fresh route-only rules保持纯只读，避免把
-//     引导导航误记为成熟治理历史。
+//   - 四工具全落Ledger。
 //
 // Overview transport never selects, summarizes, compresses, or rewrites FRAS.
 // Chunking is only a transport frame over the same ordered Whole-Index bytes.
@@ -22,7 +21,6 @@ package mcptools
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 	"time"
 
@@ -30,7 +28,6 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
-	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -104,27 +101,6 @@ func registerReadTools(
 
 					loaded, fail := loadCognitionCtx(root)
 					if fail != nil {
-						if fail.OnboardingRoute != nil {
-							cfg, configErr := config.LoadReadOnly(root)
-							if configErr != nil {
-								return failResult(&Fail{Code: errIndexInvalid, Msg: localeSafeMCPDetail(configErr.Error())})
-							}
-							output, resourceErr := index.BuildRuntimeRules(
-								nil,
-								cfg.CognitionRefreshThreshold,
-								cfg.OverviewDelivery.ChunkTokens,
-							)
-							if resourceErr != nil {
-								return errResult(errInternal, resourceErr.Error(), mcpMessage("mcp.asset.retry_hint"))
-							}
-							routeJSON, marshalErr := json.Marshal(fail.OnboardingRoute)
-							if marshalErr != nil {
-								return errResult(errInternal, mcpMessage("mcp.error.internal_recovered"), "")
-							}
-							result := textResult(output + "\nAOCI_ONBOARDING_ROUTE_JSON:\n" + string(routeJSON) + "\n")
-							result.StructuredContent = fail.OnboardingRoute
-							return result
-						}
 						return failResult(fail)
 					}
 

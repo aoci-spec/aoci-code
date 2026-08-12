@@ -33,9 +33,6 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionStateV2) ||
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionOnboardingSessionV1) ||
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionOnboardingSessionV2) ||
-		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionOnboardingNextActionV1) ||
-		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionOnboardingCandidateBindingV1) ||
-		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionOnboardingRouteV1) ||
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.SemanticAuthoringRequirementV1) ||
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.SemanticAuthoringProvenanceV1) ||
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionBootstrapAutoEligibilityV1) ||

@@ -37,13 +37,13 @@
     "source_sha256": "Code源码字节或既有Database对象更新的兼容绑定；Database Cognition创作改用candidate_id与batch_id",
     "candidate_id": "aoci_maintain返回的机器拥有Code或Database Cognition候选身份；不得合成，也不得在此手工复制Evidence哈希",
     "batch_id": "aoci_maintain返回的机器拥有当前完整Database Cognition批次身份",
-    "code_batch_id": "aoci_maintain返回的精确code_plan.batch_id；它等于每个Code candidate.batch_id。绝不能在此使用authoring_batch.batch_identity",
+    "code_batch_id": "aoci_maintain返回的机器拥有当前完整Code Cognition批次身份",
     "entries": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取",
     "entries[].path": "目标文件的仓库相对路径",
     "entries[].object_ref": "Database表Entry的规范对象身份；与path二选一",
     "entries[].new_entry": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
     "entries[].source_sha256": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
-    "entries[].candidate_id": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对"
+    "entries[].candidate_id": "Code或Database候选的机器拥有身份；当前完整批次还必须提交对应domain批次身份"
   },
   "aoci_maintain": {
     "scope": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容",

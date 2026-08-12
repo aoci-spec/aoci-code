@@ -5,12 +5,9 @@ maintained Cognition Layer beneath AI Agents. It persists high-value
 responsibilities, relationships, public contracts, and constraints in a
 governed, Git-reviewable `aoci.txt`.
 
-For a new Agent-integrated project, the recommended path first installs the
-Host integration and then uses the existing Fresh Bootstrap to author a
-project-specific Root, Meta tag dictionary, and Entries before activating the
-Volumes layout. The fixed generic starter remains an explicit compatibility
-fallback. A governed Legacy repository uses the live `aoci cognition` Guide
-and capability manifest. Public command and write classes are defined by the
+New projects start directly in a semantic-free Code-only Volumes layout. A
+governed Legacy repository uses the live `aoci cognition` Guide and capability
+manifest. Public command and write classes are defined by the
 [`AOCI-CODE CLI Runtime Contract`](../spec/public/aoci-code-cli-runtime-v1.txt).
 
 AOCI-CODE is not an AI Agent, RAG replacement, AST replacement, CodeGraph
@@ -44,47 +41,20 @@ Copy [`examples/minimal-repository`](../examples/minimal-repository) to a direct
 git init
 git add .
 git commit -m "initial example"
-/absolute/path/to/aoci --repo . init --locale en-US --agent codex --cognition project
-```
-
-Project cognition mode writes configuration, Managed Scope and Budget policy,
-`AGENTS.md`, and runs the selected Host integration adapter before starting the existing
-Fresh Onboarding session. It does not create Root, Meta, Code, Database, or a
-Baseline before Bootstrap Apply. The Host follows the returned Onboarding next
-actions, authors the project-specific Root, Meta tag dictionaries, and complete
-Entries, and lets the existing Root-last transaction publish the first governed
-Baseline. Project cognition mode must not run `aoci scan` before Bootstrap.
-
-For automation, Fresh Batch, Candidate-binding, and Session status JSON expose
-the versioned `next_action_contract`. Execute its exact command and populate
-only the Host-authored fields in its request template; preserve every machine
-identity unchanged. When an action result does not contain the next contract,
-query the active Onboarding status instead of guessing the transition. Do not
-guess Completion or Candidate JSON, copy an internal state machine, or call
-post-initialization MCP tools before formal cognition exists. Candidate
-provenance binding likewise uses the exact read-only validation action emitted
-by the live contract, so a Host never needs AOCI source code or an internal hash
-implementation.
-
-The lower-information generic starter may be selected directly in an untouched
-repository. If a project-specific Fresh Session has already started, it may be
-selected only after a safe abort while no approval artifact, formal write,
-pending transaction, Baseline, or Recovery exists:
-
-```bash
-/absolute/path/to/aoci --repo . cognition onboard abort
-/absolute/path/to/aoci --repo . init --locale en-US --agent codex --cognition generic
+/absolute/path/to/aoci --repo . init --locale en-US --agent codex
 /absolute/path/to/aoci --repo . scan
 ```
 
-Generic fallback reuses the fixed starter taxonomy. It is not a substitute for
-repairing a candidate, source/CAS drift, an approval boundary, or Recovery.
+`init` creates Root, Meta, and an empty Code Volume; Database remains absent.
+It never invents repository or Database semantics. A host AI Agent must follow the
+installed repository contract and current AOCI Guide to build complete
+cognition.
 
-After either Fresh Bootstrap or the explicit generic path has activated
-Code-only Cognition Volumes, later maintenance follows the live Guide: the Host
-calls ordinary no-argument `aoci_maintain`, submits complete machine-issued
-batches through `aoci_update_entry`, and finishes with Verify, Check, and Guide.
-Repeat Maintain only when a successful batch reports remaining work.
+Fresh initialization uses Code-only Cognition Volumes. In that layout the host
+follows the live Guide, calls ordinary no-argument `aoci_maintain`, submits every
+candidate in the complete current machine-issued batch through
+`aoci_update_entry`, and finishes with Verify, Check, and Guide. Repeat Maintain
+only when a successful batch reports remaining work.
 
 `status --deep`, `index score`, and `index agent plan` are Legacy-only workflow
 commands. They are not the Fresh/Volumes onboarding or maintenance path.

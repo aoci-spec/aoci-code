@@ -1,1 +1,1 @@
-只修正findings明确指出的字段并保持其他候选不变，再重提同一完整批次；code_batch_id finding只把该顶层字段改为code_plan.batch_id
+只修正findings涉及的候选后重提同一完整批次

@@ -151,9 +151,6 @@ func handleMaintainWithVersion(
 
 	repository, fail := loadRepoCtx(root)
 	if fail != nil {
-		if fail.OnboardingRoute != nil {
-			return failResult(fail)
-		}
 		return maintainStoppedResult(
 			root, mcpServiceVersion, "", start,
 			"["+fail.Code+"] "+fail.Msg,

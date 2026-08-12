@@ -175,8 +175,7 @@ func validateSession(session *Session) error {
 	}
 	if session.ActiveAuthoringBatch != nil {
 		if session.ActiveAuthoringBatch.BatchID == "" || len(session.ActiveAuthoringBatch.TaskIDs) == 0 ||
-			!sort.StringsAreSorted(session.ActiveAuthoringBatch.TaskIDs) || session.ActiveAuthoringBatch.EvidenceBytes < 0 ||
-			session.ActiveAuthoringBatch.MaxObjects < 0 || session.ActiveAuthoringBatch.MaxEvidenceBytes < 0 {
+			!sort.StringsAreSorted(session.ActiveAuthoringBatch.TaskIDs) || session.ActiveAuthoringBatch.EvidenceBytes < 0 {
 			return fmt.Errorf("onboarding_session_active_batch_invalid")
 		}
 	}

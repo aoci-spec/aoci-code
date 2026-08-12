@@ -51,13 +51,7 @@ type allMaintainResult struct {
 }
 
 func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
-	if routeResult := activeFreshRouteGuardResult(root); routeResult != nil {
-		return routeResult
-	}
 	loaded, fail := loadCognitionCtx(root)
-	if fail != nil && fail.OnboardingRoute != nil {
-		return failResult(fail)
-	}
 	if input.Intent != "" {
 		if input.Intent != maintainIntentCognitionOptimization {
 			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_intent_invalid"})

@@ -307,63 +307,6 @@ func TestBootstrapApplyRootMetaAndCodeMatrix(t *testing.T) {
 	}
 }
 
-func TestFreshManagedScopeBootstrapPublishesReceiptAndObserveFingerprintAtomically(t *testing.T) {
-	root := t.TempDir()
-	writeBootstrapFile(t, root, "main.go", "package main\n")
-	writeBootstrapFile(t, root, "main_test.go", "package main\n")
-	writeBootstrapFile(t, root, "testdata/case.txt", "excluded fixture\n")
-	cfg := config.DefaultConfig()
-	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	envelope, approval := preparedFixture(t, root, []string{"code"})
-	evidence, present, err := cognitionplan.InitialManagedScopeEvidenceFromPlan(&envelope.Plan)
-	if err != nil || !present {
-		t.Fatalf("Fresh Bootstrap envelope lacks initial Managed Scope evidence: evidence=%#v present=%t err=%v", evidence, present, err)
-	}
-	previousFault := bootstrapFault
-	bootstrapFault = func(point string) error {
-		if point == "after_publish_baseline" {
-			return fmt.Errorf("test-only interruption after managed Baseline")
-		}
-		return nil
-	}
-	t.Cleanup(func() { bootstrapFault = previousFault })
-	if _, err := Apply(root, envelope, approval); err == nil {
-		t.Fatal("expected interruption after the Root and managed Baseline postimages")
-	}
-	pending, err := Pending(root)
-	if err != nil || len(pending) != 1 {
-		t.Fatalf("interrupted managed Bootstrap has no Recovery intent: pending=%v err=%v", pending, err)
-	}
-	bootstrapFault = previousFault
-	result, err := Resume(root, pending[0])
-	if err != nil || result.Status != StatusApplied {
-		t.Fatalf("managed Fresh Bootstrap Resume failed: result=%#v err=%v", result, err)
-	}
-	value, exists, err := baseline.Load(root)
-	if err != nil || !exists || value.ManagedScope == nil {
-		t.Fatalf("atomic Baseline receipt missing: value=%#v exists=%t err=%v", value, exists, err)
-	}
-	if value.ManagedScope.PolicyIdentity != evidence.PolicyIdentity ||
-		value.ManagedScope.BudgetPolicyIdentity != evidence.BudgetPolicyIdentity {
-		t.Fatalf("published governance differs from the Plan: %#v", value.ManagedScope)
-	}
-	if value.Files["main.go"].Role != machinecontract.ScopeRoleIndex ||
-		value.Files["main_test.go"].Role != machinecontract.ScopeRoleObserve {
-		t.Fatalf("Index/Observe roles not published together: %#v", value.Files)
-	}
-	if _, exists := value.Files["testdata/case.txt"]; exists {
-		t.Fatal("excluded fixture entered the atomic Baseline")
-	}
-	if pendingAfter, err := Pending(root); err != nil || len(pendingAfter) != 0 {
-		t.Fatalf("successful Root-last Apply left Recovery: pending=%v err=%v", pendingAfter, err)
-	}
-}
-
 func TestBootstrapApplyDatabaseAndCodeDatabaseMatrix(t *testing.T) {
 	for _, kinds := range [][]string{{"database"}, {"code", "database"}} {
 		t.Run(strings.Join(kinds, "+"), func(t *testing.T) {

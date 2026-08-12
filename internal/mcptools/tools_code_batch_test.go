@@ -1,13 +1,11 @@
 package mcptools
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -19,131 +17,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
-
-func TestVolumeCodeCandidateBindingTypoReturnsExactZeroWriteRepairAndSameBatchSucceeds(t *testing.T) {
-	tests := []struct {
-		name  string
-		field string
-		alter func(map[string]any) string
-	}{
-		{name: "path", field: "path", alter: func(entry map[string]any) string {
-			actual := entry["path"].(string) + "x"
-			entry["path"] = actual
-			return actual
-		}},
-		{name: "candidate_id", field: "candidate_id", alter: func(entry map[string]any) string {
-			actual := oneHexTypo(entry["candidate_id"].(string))
-			entry["candidate_id"] = actual
-			return actual
-		}},
-		{name: "source_sha256", field: "source_sha256", alter: func(entry map[string]any) string {
-			actual := oneHexTypo(entry["source_sha256"].(string))
-			entry["source_sha256"] = actual
-			return actual
-		}},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			root := buildLargeCodeCandidateRepo(t, 2)
-			session := connectMCPClient(t, root)
-			maintain := maintainVolumeBatch(t, session)
-			if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 {
-				t.Fatalf("expected two Code candidates: %#v", maintain.CodePlan)
-			}
-			arguments := codeBatchArguments(maintain.CodePlan)
-			entries := arguments["entries"].([]map[string]any)
-			expectedCandidate := maintain.CodePlan.Candidates[1]
-			actual := test.alter(entries[1])
-			codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
-			baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
-
-			rejected := applyVolumeBatch(t, session, arguments)
-			if rejected.Status != autoStatusRepairRequired || rejected.Applied != 0 || rejected.FormalWritesStarted ||
-				len(rejected.Findings) != 1 || !rejected.PreserveOtherCandidates {
-				t.Fatalf("binding typo did not return one zero-write repair: %#v", rejected)
-			}
-			finding := rejected.Findings[0]
-			if finding.CandidateIndex != 2 || finding.Path != expectedCandidate.Path ||
-				finding.CanonicalObjectIdentity != expectedCandidate.ObjectRef || finding.Domain != cognition.ScopeCode ||
-				finding.Field != test.field || finding.Expected == "" || finding.Actual != actual ||
-				finding.Cause == "" || finding.SafeRepairAction == "" {
-				t.Fatalf("binding typo diagnostic is incomplete or ambiguous: %+v", finding)
-			}
-			if len(rejected.RetryScope) != 1 || rejected.RetryScope[0] != expectedCandidate.ObjectRef {
-				t.Fatalf("binding typo repair scope is not exact: %#v", rejected.RetryScope)
-			}
-			assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
-			assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
-
-			corrected := codeBatchArguments(maintain.CodePlan)
-			applied := applyVolumeBatch(t, session, corrected)
-			if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 2 {
-				t.Fatalf("corrected unchanged machine batch did not apply: %#v", applied)
-			}
-		})
-	}
-}
-
-func TestVolumeCodeAuthoringEnvelopeIdentityExplainsDomainBatchAndStaysZeroWrite(t *testing.T) {
-	root := buildLargeCodeCandidateRepo(t, 1)
-	session := connectMCPClient(t, root)
-	maintain := maintainVolumeBatch(t, session)
-	if maintain.CodePlan == nil || maintain.Batch.BatchIdentity == "" ||
-		maintain.Batch.BatchIdentity == maintain.CodePlan.BatchID {
-		t.Fatalf("fixture did not expose distinct envelope and Code batch identities: %#v", maintain)
-	}
-	arguments := codeBatchArguments(maintain.CodePlan)
-	arguments["code_batch_id"] = maintain.Batch.BatchIdentity
-	codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
-	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
-
-	rejected := applyVolumeBatch(t, session, arguments)
-	if rejected.Status != autoStatusRepairRequired || rejected.Applied != 0 || rejected.FormalWritesStarted ||
-		len(rejected.Findings) != 1 || !rejected.PreserveOtherCandidates || len(rejected.RetryScope) != 0 {
-		t.Fatalf("envelope identity misuse did not return a top-level zero-write repair: %#v", rejected)
-	}
-	finding := rejected.Findings[0]
-	if finding.CandidateIndex != 1 || finding.Path != maintain.CodePlan.Candidates[0].Path ||
-		finding.Field != "code_batch_id" || finding.RuleCode != "code_candidate_batch_id_mismatch" ||
-		!strings.Contains(finding.Expected, "code_plan.batch_id="+maintain.CodePlan.BatchID) ||
-		!strings.Contains(finding.Expected, "candidates[].batch_id="+maintain.CodePlan.BatchID) ||
-		!strings.Contains(finding.Actual, "code_batch_id="+maintain.Batch.BatchIdentity) ||
-		!strings.Contains(finding.Actual, "authoring_batch.batch_identity") || finding.Cause == "" ||
-		finding.SafeRepairAction == "" {
-		t.Fatalf("envelope identity diagnostic did not name both identities: %+v", finding)
-	}
-	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
-	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
-
-	applied := applyVolumeBatch(t, session, codeBatchArguments(maintain.CodePlan))
-	if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 1 {
-		t.Fatalf("same machine batch did not apply after correcting only code_batch_id: %#v", applied)
-	}
-}
-
-func oneHexTypo(value string) string {
-	if strings.HasSuffix(value, "0") {
-		return strings.TrimSuffix(value, "0") + "1"
-	}
-	return value[:len(value)-1] + "0"
-}
-
-func readCodeBatchFormalAsset(t *testing.T, root, rel string) []byte {
-	t.Helper()
-	value, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return value
-}
-
-func assertCodeBatchFormalAssetUnchanged(t *testing.T, root, rel string, before []byte) {
-	t.Helper()
-	after := readCodeBatchFormalAsset(t, root, rel)
-	if !bytes.Equal(before, after) {
-		t.Fatalf("zero-write repair changed formal asset %s", rel)
-	}
-}
 
 func TestVolumeCode201CandidatesApplyAs200PlusOne(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)

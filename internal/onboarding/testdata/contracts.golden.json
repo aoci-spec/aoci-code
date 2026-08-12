@@ -8,7 +8,5 @@
   "semantic_authoring_requirement": "semantic-authoring-requirement/v1",
   "semantic_authoring_provenance": "semantic-authoring-provenance/v1",
   "auto_eligibility": "cognition-bootstrap-auto-eligibility/v1",
-  "next_action": "cognition-onboarding-next-action/v1",
-  "candidate_binding": "cognition-onboarding-candidate-binding/v1",
   "mcp_tool_count": 9
 }

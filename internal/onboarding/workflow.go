@@ -316,7 +316,12 @@ func Next(root string, maxObjects int, maxEvidenceBytes int64) (*AuthoringBatch,
 	if err != nil {
 		return nil, err
 	}
-	maxObjects, maxEvidenceBytes = effectiveAuthoringLimits(session.ActiveAuthoringBatch, maxObjects, maxEvidenceBytes)
+	if maxObjects <= 0 {
+		maxObjects = 25
+	}
+	if maxEvidenceBytes <= 0 {
+		maxEvidenceBytes = 256 * 1024
+	}
 	pending := make(map[string]bool, len(session.PendingAuthoringTargets))
 	for _, id := range session.PendingAuthoringTargets {
 		pending[id] = true
@@ -376,8 +381,7 @@ func Next(root string, maxObjects int, maxEvidenceBytes int64) (*AuthoringBatch,
 				taskIDs = append(taskIDs, task.TaskID)
 			}
 			sort.Strings(taskIDs)
-			session.ActiveAuthoringBatch = &ActiveAuthoringBatch{BatchID: batchID, TaskIDs: taskIDs, EvidenceBytes: evidenceBytes,
-				MaxObjects: maxObjects, MaxEvidenceBytes: maxEvidenceBytes}
+			session.ActiveAuthoringBatch = &ActiveAuthoringBatch{BatchID: batchID, TaskIDs: taskIDs, EvidenceBytes: evidenceBytes}
 			session.Revision++
 			session.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
 			if err := save(root, session); err != nil {
@@ -385,59 +389,12 @@ func Next(root string, maxObjects int, maxEvidenceBytes int64) (*AuthoringBatch,
 			}
 		}
 	}
-	batch := &AuthoringBatch{
+	return &AuthoringBatch{
 		Version: batchVersion, OnboardingSessionID: session.OnboardingSessionID,
 		BatchID: batchID, Tasks: tasks, ObjectCount: len(tasks), EvidenceBytes: evidenceBytes,
 		CompletedCount: len(session.CompletedAuthoringTargets), PendingCount: len(session.PendingAuthoringTargets),
 		NextAction: next, SemanticGenerated: false, SemanticAuthoringRequirement: requirement,
-	}
-	if session.Version == SessionVersion {
-		batch.PlanArtifact = session.PlanArtifact
-		batch.CompletionRequestTemplate = completionTemplate(session, batchID, tasks, requirement)
-		if len(tasks) == 0 {
-			batch.CandidateDraftRequest = candidateDraftRequest(session, plan)
-		}
-		batch.NextActionContract = &NextActionContract{
-			Version: machinecontract.CognitionOnboardingNextActionV1,
-			Action:  next, SchemaVersion: CompletionVersion,
-			OnboardingSessionID: session.OnboardingSessionID, PlanID: plan.PlanID,
-			BatchID: batchID, ExpectedPreimage: session.PreimageSHA256,
-			TTYRequired: false, AutomaticallyRetryable: false,
-			TransportSchemaCorrectionLimit: 1,
-			SuccessNextAction:              "authoring_next", FormalWritesStarted: false,
-		}
-		if len(tasks) == 0 {
-			batch.NextActionContract.Action = "bind_candidate_payload"
-			batch.NextActionContract.SchemaVersion = machinecontract.CognitionLayoutCandidateV1
-			batch.NextActionContract.SuccessNextAction = "preview"
-			batch.NextActionContract.AutomaticallyRetryable = true
-		} else if len(tasks) == len(session.PendingAuthoringTargets) {
-			batch.NextActionContract.SuccessNextAction = "bind_candidate_payload"
-		}
-	}
-	return batch, nil
-}
-
-func effectiveAuthoringLimits(active *ActiveAuthoringBatch, maxObjects int, maxEvidenceBytes int64) (int, int64) {
-	if active != nil {
-		if active.MaxObjects > 0 {
-			maxObjects = active.MaxObjects
-		} else {
-			maxObjects = 25
-		}
-		if active.MaxEvidenceBytes > 0 {
-			maxEvidenceBytes = active.MaxEvidenceBytes
-		} else {
-			maxEvidenceBytes = 256 * 1024
-		}
-	}
-	if maxObjects <= 0 {
-		maxObjects = 25
-	}
-	if maxEvidenceBytes <= 0 {
-		maxEvidenceBytes = 256 * 1024
-	}
-	return maxObjects, maxEvidenceBytes
+	}, nil
 }
 
 func CompleteTasks(root string, completion Completion) (*Session, error) {
@@ -449,33 +406,22 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 		return nil, fmt.Errorf("onboarding_automation_off_authoring_forbidden")
 	}
 	if completion.SessionID != session.OnboardingSessionID {
-		return nil, contractFailure("submit_authoring_completion", "onboarding_session_id", "onboarding_completion_identity_invalid", session.OnboardingSessionID, completion.SessionID, nil)
+		return nil, fmt.Errorf("onboarding_completion_identity_invalid")
 	}
 	plan, err := loadPlan(root, session)
 	if err != nil {
 		return nil, err
 	}
 	if session.Version == SessionVersion {
-		if completion.Version != CompletionVersion {
-			return nil, contractFailure("submit_authoring_completion", "version", "onboarding_completion_version_mismatch", CompletionVersion, completion.Version, nil)
-		}
-		if session.ActiveAuthoringBatch == nil {
-			return nil, contractFailure("submit_authoring_completion", "batch_id", "onboarding_completion_active_batch_missing", "active machine batch", completion.BatchID, nil)
-		}
-		if completion.BatchID != session.ActiveAuthoringBatch.BatchID {
-			return nil, contractFailure("submit_authoring_completion", "batch_id", "onboarding_completion_batch_mismatch", session.ActiveAuthoringBatch.BatchID, completion.BatchID, nil)
-		}
-		if !sameStringSet(completion.CompletedTasks, session.ActiveAuthoringBatch.TaskIDs) {
-			expected, _ := json.Marshal(session.ActiveAuthoringBatch.TaskIDs)
-			actual, _ := json.Marshal(completion.CompletedTasks)
-			return nil, contractFailure("submit_authoring_completion", "completed_task_ids", "onboarding_completion_tasks_mismatch", string(expected), string(actual), nil)
+		if completion.Version != CompletionVersion || session.ActiveAuthoringBatch == nil ||
+			completion.BatchID != session.ActiveAuthoringBatch.BatchID || !sameStringSet(completion.CompletedTasks, session.ActiveAuthoringBatch.TaskIDs) {
+			return nil, fmt.Errorf("onboarding_completion_contract_mismatch")
 		}
 		if err := cognitionplan.ValidateSemanticAuthoringDeclaration(plan, completion.SemanticAuthoringDeclaration); err != nil {
-			field := semanticDeclarationErrorField(err.Error())
-			return nil, contractFailure("submit_authoring_completion", field, "onboarding_"+err.Error(), "current semantic authoring requirement", err.Error(), err)
+			return nil, fmt.Errorf("onboarding_%w", err)
 		}
 		if session.SemanticAuthoringDeclaration != nil && !sameSemanticAuthoringDeclaration(session.SemanticAuthoringDeclaration, completion.SemanticAuthoringDeclaration) {
-			return nil, contractFailure("submit_authoring_completion", "semantic_authoring_declaration", "onboarding_semantic_authoring_run_mismatch", "same declaration as prior batch", "declaration changed", nil)
+			return nil, fmt.Errorf("onboarding_semantic_authoring_run_mismatch")
 		}
 	} else if completion.Version != LegacyCompletionVersion || completion.BatchID != "" || completion.SemanticAuthoringDeclaration != nil {
 		return nil, fmt.Errorf("onboarding_completion_contract_mismatch")
@@ -490,7 +436,7 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 	}
 	for _, id := range completion.CompletedTasks {
 		if !pending[id] {
-			return nil, contractFailure("submit_authoring_completion", "completed_task_ids", "onboarding_completion_target_invalid", "current active task id", id, nil)
+			return nil, fmt.Errorf("onboarding_completion_target_invalid")
 		}
 		delete(pending, id)
 		completed[id] = true
@@ -514,23 +460,6 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 		return nil, err
 	}
 	return session, nil
-}
-
-func semanticDeclarationErrorField(code string) string {
-	switch {
-	case strings.Contains(code, "version"):
-		return "semantic_authoring_declaration.version"
-	case strings.Contains(code, "origin"):
-		return "semantic_authoring_declaration.origin"
-	case strings.Contains(code, "run_id"):
-		return "semantic_authoring_declaration.authoring_run_id"
-	case strings.Contains(code, "plan"):
-		return "semantic_authoring_declaration.discovery_plan_id"
-	case strings.Contains(code, "evidence"):
-		return "semantic_authoring_declaration.evidence_binding_sha256"
-	default:
-		return "semantic_authoring_declaration"
-	}
 }
 
 func RecordHostDelivery(root string, receipt HostDeliveryReceipt) (*Session, error) {
@@ -558,25 +487,6 @@ func Preview(root string, candidateData, mappingData []byte) (*cognitionplan.Pre
 	if err != nil {
 		return nil, err
 	}
-	if session.NextAction != "preview" {
-		return nil, contractFailure("preview", "next_action", "onboarding_preview_phase_invalid", "preview", session.NextAction, nil)
-	}
-	if session.TransactionState != "not_started" {
-		return nil, contractFailure("preview", "transaction_state", "onboarding_preview_transaction_started", "not_started", session.TransactionState, nil)
-	}
-	for _, artifact := range []struct {
-		field string
-		value string
-	}{
-		{field: "envelope_artifact", value: session.EnvelopeArtifact},
-		{field: "approval_artifact", value: session.ApprovalArtifact},
-		{field: "result_artifact", value: session.ResultArtifact},
-		{field: "transaction_id", value: session.TransactionID},
-	} {
-		if artifact.value != "" {
-			return nil, contractFailure("preview", artifact.field, "onboarding_preview_transaction_artifact_present", "absent", "present", nil)
-		}
-	}
 	if EffectiveAutomationPolicy(session).Mode == config.AutomationModeOff {
 		return nil, fmt.Errorf("onboarding_automation_off_authoring_forbidden")
 	}
@@ -592,15 +502,14 @@ func Preview(root string, candidateData, mappingData []byte) (*cognitionplan.Pre
 		return nil, err
 	}
 	if session.Version == SessionVersion && !cognitionplan.SemanticAuthoringDeclarationMatchesReceipt(session.SemanticAuthoringDeclaration, candidate.SemanticAuthoringProvenance) {
-		return nil, contractFailure("preview", "semantic_authoring_provenance", "onboarding_semantic_authoring_candidate_declaration_mismatch", "exact persisted Host declaration", "candidate provenance differs", nil)
+		return nil, fmt.Errorf("onboarding_semantic_authoring_candidate_declaration_mismatch")
 	}
 	preview, err := cognitionplan.ValidateCandidate(root, plan, candidate)
 	if err != nil {
 		return nil, err
 	}
 	if preview.Status != machinecontract.CognitionPlannerPreviewReady || preview.ApprovalDigest == nil {
-		risks, _ := json.Marshal(preview.Risks)
-		return nil, contractFailure("preview", "candidate_payload", "onboarding_preview_not_ready", "preview_ready with zero risks", string(risks), nil)
+		return nil, fmt.Errorf("onboarding_preview_not_ready")
 	}
 	if session.Operation == cognitionplan.OperationMigration {
 		if len(mappingData) == 0 {

@@ -1,1 +1,1 @@
-Read each current candidate and submit the complete machine-issued batch in one aoci_update_entry.entries call. For Code, set code_batch_id=code_plan.batch_id=candidate.batch_id; never use authoring_batch.batch_identity there. When remaining is nonzero, Apply then call Maintain again
+Read each current candidate and submit the complete machine-issued batch in one aoci_update_entry.entries call; when remaining is nonzero, Apply then call Maintain again

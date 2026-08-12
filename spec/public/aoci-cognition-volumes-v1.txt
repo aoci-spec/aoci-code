@@ -75,27 +75,15 @@ Maintain/Guide/Apply rules, credentials, or independently copied machine
 defaults. The init S quota declaration is rendered directly from machinecontract
 and remains one machine-owned fact rather than a separately maintained copy.
 
-The recommended new-project integration mode installs Config, Managed Scope and
-Budget policy, Agent rules, and runs the selected Host integration adapter before
-freezing the existing Fresh Bootstrap Plan. Only adapters that support managed
-writes install Host configuration. It leaves Root, Meta, object Volumes, and Baseline absent.
-The Host authors the complete project-specific Root, Meta dictionaries, and
-object Entries from the Plan-bound inventory and Evidence. The existing
-Bootstrap transaction publishes those assets Root-last and creates the first
-Baseline with the same initial Managed Scope and Budget identities. Project
-mode must not create a preliminary Baseline or run scan before Bootstrap.
-
-The official generic init Meta, selected by compatible no-mode init or explicit
-generic fallback, is a complete formal generic authoring authority, not a
-placeholder awaiting a later project-specific Root/Meta semantic authoring.
-“Ready” means that its object protocol, compact tag grammar,
+The official Volume-first init Meta is a complete formal generic authoring
+authority, not a placeholder awaiting project-specific Root/Meta semantic
+authoring. “Ready” means that its object protocol, compact tag grammar,
 A/B/C/optional-D/E dictionaries, S quota authority, relation identity contract,
 and legal calibration Entry are complete and machine-parseable. It does not
 mean that project Code semantics already exist. Root remains the structural
 repository entry and ordinary project semantics may initially reside entirely
 in model-authored Code objects. No extra Root/Meta authoring phase is required
-or defined after this generic layout has been activated and before its first
-Code batch.
+or defined before the first Code batch.
 
 ParseTags is the single lexical tag splitter. New object authoring emits the
 compact A+B+C+[D]+E physical form; with the official starter Code dictionary,
@@ -273,10 +261,7 @@ represented as a repository file path. Existing single-object and C3 inputs
 remain compatible. No new MCP tool is added. AOCI derives the internal Change
 Envelope from the complete current batch and current CognitionSet. Code
 machine batches add code_batch_id and per-target candidate_id to the existing
-path/source_sha256 binding. For a Code batch,
-aoci_update_entry.code_batch_id is exactly code_plan.batch_id and every returned
-Code candidate.batch_id. authoring_batch.batch_identity identifies the shared
-cross-domain authoring envelope and is never a Code or Database write batch id.
+path/source_sha256 binding.
 
 Candidate validation has one machine-facing Repair Finding schema shared by
 single-entry CLI Preview, batch Preview/Stage, Impact, MCP update, Auto
@@ -306,17 +291,6 @@ preserve_other_candidates=true, retry_scope, and next_action. The action is to
 repair only the listed candidates, preserve every other candidate, and
 resubmit the same complete batch without asking the user to continue. The
 program never shortens, deletes, or rewrites model-authored F/R/A/S.
-
-A copied, non-empty Code path, candidate_id, or source_sha256 that differs from
-the current receipt is a pre-write repair finding when that receipt and original
-candidate position are unambiguous. It reports the exact 1-based candidate
-index, path, failed binding field, expected machine value, and submitted value.
-Likewise, a wrong top-level code_batch_id is repairable only when the complete
-submitted candidate bindings uniquely identify one current receipt; its action
-changes only code_batch_id and preserves all Entries. A missing, stale,
-ambiguous, incomplete, or otherwise unprovable receipt remains stopped. Actual
-source, Scope, Composite, CAS, or Recovery drift is never reclassified as a
-copied-field repair.
 
 When current Meta is valid but a candidate tag uses invalid syntax or an
 undeclared A/B/C/D/E value, the result is candidate-level repair_required. The

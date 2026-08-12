@@ -10,26 +10,10 @@ host session already exposes the AOCI tools. Refresh or reopen that project
 session only when it has not loaded the new server; hosts that support dynamic
 MCP reload do not require a blanket application restart.
 
-For a new project, add `--cognition project` to run the selected Host integration adapter
-before the existing Fresh Onboarding Plan is frozen. The current session can
-complete that CLI-governed authoring flow even when the newly written MCP
-configuration is not hot-loaded. After Bootstrap completes, verify the loaded
-server by actually calling `aoci_rules`; refresh or reopen only if that call is
-unavailable. Project mode must not run `aoci scan` before Bootstrap.
-
-During Fresh Onboarding, consume the current JSON `next_action_contract` as the
-complete transport instruction. Use its exact command and request template,
-preserve its machine identities, fill only its declared Host-authored fields,
-and continue from the contract returned by the next response. Do not guess a
-Completion or Candidate shape, reproduce the lifecycle in a wrapper, inspect
-AOCI source, or implement the Candidate digest. The live contract supplies the
-read-only binding action before Preview. If an action result does not include a
-new contract, query the active Onboarding status rather than infer a transition.
-
 ## Codex
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent codex --cognition project
+aoci --repo /absolute/path/to/repository init --agent codex
 ```
 
 This writes or extends project-level `.codex/config.toml`:
@@ -45,13 +29,13 @@ Review the repository before granting host trust. Codex integration does not ins
 ## Claude Code
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent claude --cognition project
+aoci --repo /absolute/path/to/repository init --agent claude
 ```
 
 This merges an `aoci` server into project `.mcp.json`. Add `--hooks` only if the optional Claude Code `PreToolUse` integration is desired:
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent claude --hooks --cognition project
+aoci --repo /absolute/path/to/repository init --agent claude --hooks
 ```
 
 The hook is a thin pre-write guard, not an AI Agent runtime and not a replacement governance flow.
@@ -59,7 +43,7 @@ The hook is a thin pre-write guard, not an AI Agent runtime and not a replacemen
 ## OpenCode V1
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent opencode --cognition project
+aoci --repo /absolute/path/to/repository init --agent opencode
 ```
 
 This creates or strictly merges the stable OpenCode V1 project configuration at
@@ -97,7 +81,7 @@ formats manually after reviewing the installed OpenCode version.
 ## Cursor
 
 ```bash
-aoci --repo /absolute/path/to/repository init --agent cursor --cognition project
+aoci --repo /absolute/path/to/repository init --agent cursor
 ```
 
 The current release candidate prints a reference `.cursor/mcp.json`
@@ -116,23 +100,6 @@ Cursor version before adding it manually:
 ```
 
 This limitation must remain visible in compatibility claims; a reference template is not native-host validation.
-
-## Explicit generic fallback
-
-Omitting `--cognition` preserves the existing init behavior for compatibility.
-The fixed starter may be selected directly in an untouched repository, or after
-a project-specific Fresh Session is safely aborted before approval or any
-formal transaction:
-
-```bash
-aoci --repo /absolute/path/to/repository cognition onboard abort
-aoci --repo /absolute/path/to/repository init --agent <host> --cognition generic
-aoci --repo /absolute/path/to/repository scan
-```
-
-An active Session, Baseline, formal cognition asset, approval artifact, pending
-transaction, or Recovery makes this fallback fail closed. Repairable authoring
-or copied machine-identity errors remain on the original Fresh Session.
 
 ## Deterministic offline mode
 
@@ -172,16 +139,10 @@ aoci --repo /absolute/path/to/repository --json capabilities
 It reports the exact nine-tool surface, lifecycle and recovery support, current
 schema versions, layout, TTY boundary, Database boundary, and Overview delivery
 modes. Machine Guide results then provide a complete `next_action_contract`
-with the exact command, `--agent`, applicable action payload schema and request
-file, expected preimage, Plan/Run identity, retry rule, and success
-continuation. Hosts should correct
+with the exact command, `--agent`, request schema/file, expected preimage,
+Plan/Run identity, retry rule, and success continuation. Hosts should correct
 at most one purely transport-schema mismatch; semantic repair still follows
 the normal model-owned path.
-
-Fresh Onboarding returns the same style of executable contract directly from
-its active Session. A Host loops only by consuming each newly returned
-contract; it does not infer a Fresh state transition from prose or from a
-previous response.
 
 Protected approval commands expose `aoci-host-interaction/v1` when no real TTY
 is attached. A PTY-capable Host can use its exact command and confirmation

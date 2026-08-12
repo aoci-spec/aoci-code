@@ -12,7 +12,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/businesssource"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
-	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
@@ -22,17 +21,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
-
-type initialManagedScopeBinding struct {
-	PolicyIdentity             string
-	ObserveChangePolicy        string
-	BudgetPolicyIdentity       string
-	BudgetPolicy               cognitionbudget.Policy
-	SafeInventoryRulesIdentity string
-	IndexEvidenceIdentity      string
-	ObserveEvidenceIdentity    string
-	HighRiskOptInIdentity      string
-}
 
 type repositoryFacts struct {
 	root                   string
@@ -48,8 +36,6 @@ type repositoryFacts struct {
 	sourceEvidenceIdentity string
 	repositoryIdentity     string
 	registryIdentity       string
-	initialManagedState    *managedstate.State
-	initialManagedScope    *initialManagedScopeBinding
 	inventory              []InventoryObject
 	safeInventory          afs.SafeInventorySummary
 	businessSource         businesssource.Manifest
@@ -68,7 +54,6 @@ type ExternalGuardFacts struct {
 	SourceEvidenceIdentity string
 	CurationIdentity       string
 	RegistryIdentity       string
-	InitialManagedScope    *InitialManagedScopeEvidence
 	Locale                 string
 }
 
@@ -85,18 +70,7 @@ func ValidateExternalGuards(repositoryRoot string, plan *Plan) error {
 	if err != nil {
 		return fmt.Errorf("configuration_invalid: %w", err)
 	}
-	expectedInitial, hasInitialManagedScope, err := InitialManagedScopeEvidenceFromPlan(plan)
-	if err != nil {
-		return err
-	}
-	var initialManagedState *managedstate.State
-	if hasInitialManagedScope {
-		initialManagedState, err = managedstate.EvaluateInitial(root, cfg)
-		if err != nil {
-			return fmt.Errorf("initial_managed_scope_guard_invalid: %w", err)
-		}
-	}
-	inventory, safeInventory, curationIdentity, err := buildInventory(root, cfg, initialManagedState)
+	inventory, safeInventory, curationIdentity, err := buildInventory(root, cfg)
 	if err != nil {
 		return err
 	}
@@ -105,12 +79,7 @@ func ValidateExternalGuards(repositoryRoot string, plan *Plan) error {
 		return err
 	}
 	inventoryIdentity := inventoryDigest(inventory, safeInventory)
-	var manifest *businesssource.Manifest
-	if initialManagedState != nil {
-		manifest, err = businesssource.BuildWithInitialManagedState(root, "", initialManagedState)
-	} else {
-		manifest, err = businesssource.Build(root, "")
-	}
+	manifest, err := businesssource.Build(root, "")
 	if err != nil {
 		return err
 	}
@@ -122,18 +91,9 @@ func ValidateExternalGuards(repositoryRoot string, plan *Plan) error {
 	if err != nil {
 		return fmt.Errorf("volume_registry_invalid")
 	}
-	var initialManagedScope *InitialManagedScopeEvidence
-	if initialManagedState != nil {
-		binding, bindingErr := buildInitialManagedScopeBinding(cfg, initialManagedState, inventory)
-		if bindingErr != nil {
-			return bindingErr
-		}
-		initialManagedScope = initialManagedScopeEvidence(binding, inventoryIdentity, sourceEvidence.sum(), authoringEvidenceDigest(plan.TargetKinds, inventory, evidence))
-	}
 	current := ExternalGuardFacts{
 		InventoryIdentity: inventoryIdentity, SourceEvidenceIdentity: sourceEvidence.sum(),
-		CurationIdentity: curationIdentity, RegistryIdentity: hashBytes(registryData),
-		InitialManagedScope: initialManagedScope, Locale: plan.Locale,
+		CurationIdentity: curationIdentity, RegistryIdentity: hashBytes(registryData), Locale: plan.Locale,
 	}
 	if current.InventoryIdentity != plan.InventoryIdentity {
 		return fmt.Errorf("inventory_guard_drift")
@@ -146,9 +106,6 @@ func ValidateExternalGuards(repositoryRoot string, plan *Plan) error {
 	}
 	if current.RegistryIdentity != plan.RegistryIdentity {
 		return fmt.Errorf("registry_guard_drift")
-	}
-	if !reflect.DeepEqual(current.InitialManagedScope, expectedInitial) {
-		return fmt.Errorf("initial_managed_scope_guard_drift")
 	}
 	return nil
 }
@@ -193,14 +150,7 @@ func collectFacts(options Options) (*repositoryFacts, error) {
 	if err := rejectPendingRecovery(root); err != nil {
 		return nil, err
 	}
-	if (facts.config.ManagedScope != nil || facts.config.CognitionBudget != nil) &&
-		facts.layout == machinecontract.CognitionPlannerUninitialized && !facts.baselineExists {
-		facts.initialManagedState, err = managedstate.LoadInitial(root, facts.config)
-		if err != nil {
-			return nil, fmt.Errorf("initial_managed_scope_invalid: %w", err)
-		}
-	}
-	facts.inventory, facts.safeInventory, facts.curationIdentity, err = buildInventory(root, facts.config, facts.initialManagedState)
+	facts.inventory, facts.safeInventory, facts.curationIdentity, err = buildInventory(root, facts.config)
 	if err != nil {
 		return nil, err
 	}
@@ -209,12 +159,7 @@ func collectFacts(options Options) (*repositoryFacts, error) {
 		return nil, err
 	}
 	facts.inventoryIdentity = inventoryDigest(facts.inventory, facts.safeInventory)
-	var manifest *businesssource.Manifest
-	if facts.initialManagedState != nil {
-		manifest, err = businesssource.BuildWithInitialManagedState(root, "", facts.initialManagedState)
-	} else {
-		manifest, err = businesssource.Build(root, "")
-	}
+	manifest, err := businesssource.Build(root, "")
 	if err != nil {
 		return nil, err
 	}
@@ -230,21 +175,12 @@ func collectFacts(options Options) (*repositoryFacts, error) {
 		return nil, fmt.Errorf("volume_registry_invalid")
 	}
 	facts.registryIdentity = hashBytes(registryData)
-	if facts.initialManagedState != nil {
-		facts.initialManagedScope, err = buildInitialManagedScopeBinding(facts.config, facts.initialManagedState, facts.inventory)
-		if err != nil {
-			return nil, err
-		}
-	}
 	facts.recommendedKinds = recommendedKinds(facts.inventory, facts.evidence, facts.config.DatabaseSources)
 	repository := newIdentity("repository")
 	repository.field("layout_identity", facts.layoutIdentity)
 	repository.field("inventory_identity", facts.inventoryIdentity)
 	repository.field("source_evidence_identity", facts.sourceEvidenceIdentity)
 	repository.field("curation_identity", facts.curationIdentity)
-	if facts.initialManagedScope != nil {
-		repository.field("initial_managed_scope_identity", initialManagedScopeBindingIdentity(facts.initialManagedScope))
-	}
 	facts.repositoryIdentity = repository.sum()
 	after, err := snapshotFormalAssets(root)
 	if err != nil {
@@ -367,19 +303,15 @@ func rejectPendingRecovery(root string) error {
 	return nil
 }
 
-func buildInventory(root string, cfg *config.Config, initialManagedState *managedstate.State) ([]InventoryObject, afs.SafeInventorySummary, string, error) {
+func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.SafeInventorySummary, string, error) {
 	document, _, curationSHA, err := curation.Load(root)
 	if err != nil {
 		return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("curation_invalid")
 	}
 	if cfg.ManagedScope != nil || cfg.CognitionBudget != nil {
-		state := initialManagedState
-		if state == nil {
-			var stateErr error
-			state, stateErr = managedstate.Load(root, cfg)
-			if stateErr != nil {
-				return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("managed_scope_inventory_invalid: %w", stateErr)
-			}
+		state, stateErr := managedstate.Load(root, cfg)
+		if stateErr != nil {
+			return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("managed_scope_inventory_invalid: %w", stateErr)
 		}
 		if state.ScopeChangeRequired {
 			return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("scope_change_required")
@@ -540,103 +472,6 @@ func evidenceDigest(evidence []EvidenceObject) string {
 		identity.field("evidence_ref", object.EvidenceRef)
 	}
 	return identity.sum()
-}
-
-func authoringEvidenceDigest(kinds []string, inventory []InventoryObject, evidence []EvidenceObject) string {
-	identity := newIdentity("authoring-evidence")
-	selected := map[string]bool{}
-	for _, kind := range kinds {
-		selected[kind] = true
-	}
-	if selected["code"] {
-		for _, object := range inventory {
-			if !object.Eligible {
-				continue
-			}
-			identity.field("code_object", object.Path)
-			identity.field("code_source_sha256", object.SourceSHA256)
-		}
-	}
-	if selected["database"] {
-		for _, object := range evidence {
-			if strings.HasSuffix(object.ObjectRef, "/-") {
-				continue
-			}
-			identity.field("database_object", object.ObjectRef)
-			identity.field("database_evidence_sha256", object.TableEvidenceSHA256)
-		}
-	}
-	return identity.sum()
-}
-
-func buildInitialManagedScopeBinding(cfg *config.Config, state *managedstate.State, inventory []InventoryObject) (*initialManagedScopeBinding, error) {
-	receipt, err := managedstate.InitialBaselineReceipt(cfg, state)
-	if err != nil {
-		return nil, fmt.Errorf("initial_managed_scope_receipt_invalid: %w", err)
-	}
-	highRiskIdentity, err := managedstate.HighRiskOptInIdentity(cfg.SafeInventoryHighRiskOptIn)
-	if err != nil {
-		return nil, err
-	}
-	indexIdentity := newIdentity("initial-managed-scope-index-evidence")
-	observeIdentity := newIdentity("initial-managed-scope-observe-evidence")
-	for _, object := range inventory {
-		var identity *identityEncoder
-		switch object.ScopeRole {
-		case machinecontract.ScopeRoleIndex:
-			identity = indexIdentity
-		case machinecontract.ScopeRoleObserve:
-			identity = observeIdentity
-		default:
-			continue
-		}
-		identity.field("path", object.Path)
-		identity.field("source_sha256", object.SourceSHA256)
-	}
-	return &initialManagedScopeBinding{
-		PolicyIdentity:             receipt.PolicyIdentity,
-		ObserveChangePolicy:        receipt.ObserveChangePolicy,
-		BudgetPolicyIdentity:       receipt.BudgetPolicyIdentity,
-		BudgetPolicy:               *receipt.BudgetPolicy,
-		SafeInventoryRulesIdentity: state.Evaluation.SafeInventory.RulesIdentity,
-		IndexEvidenceIdentity:      indexIdentity.sum(),
-		ObserveEvidenceIdentity:    observeIdentity.sum(),
-		HighRiskOptInIdentity:      highRiskIdentity,
-	}, nil
-}
-
-func initialManagedScopeBindingIdentity(binding *initialManagedScopeBinding) string {
-	if binding == nil {
-		return ""
-	}
-	identity := newIdentity("initial-managed-scope-binding")
-	identity.field("policy_identity", binding.PolicyIdentity)
-	identity.field("observe_change_policy", binding.ObserveChangePolicy)
-	identity.field("budget_policy_identity", binding.BudgetPolicyIdentity)
-	budget, _ := canonicalJSON(binding.BudgetPolicy)
-	identity.field("budget_policy", string(budget))
-	identity.field("safe_inventory_rules_identity", binding.SafeInventoryRulesIdentity)
-	identity.field("index_evidence_identity", binding.IndexEvidenceIdentity)
-	identity.field("observe_evidence_identity", binding.ObserveEvidenceIdentity)
-	identity.field("high_risk_opt_in_identity", binding.HighRiskOptInIdentity)
-	return identity.sum()
-}
-
-func initialManagedScopeEvidence(binding *initialManagedScopeBinding, inventoryIdentity, sourceEvidenceIdentity, authoringEvidenceIdentity string) *InitialManagedScopeEvidence {
-	if binding == nil {
-		return nil
-	}
-	return &InitialManagedScopeEvidence{
-		InventoryIdentity:         inventoryIdentity,
-		SourceEvidenceIdentity:    sourceEvidenceIdentity,
-		AuthoringEvidenceIdentity: authoringEvidenceIdentity,
-		PolicyIdentity:            binding.PolicyIdentity,
-		BudgetPolicyIdentity:      binding.BudgetPolicyIdentity,
-		IndexEvidenceIdentity:     binding.IndexEvidenceIdentity,
-		ObserveEvidenceIdentity:   binding.ObserveEvidenceIdentity,
-		ObserveChangePolicy:       binding.ObserveChangePolicy,
-		HighRiskOptInIdentity:     binding.HighRiskOptInIdentity,
-	}
 }
 
 func recommendedKinds(inventory []InventoryObject, evidence []EvidenceObject, sources []dbevidence.SourceConfig) []string {

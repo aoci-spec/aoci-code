@@ -95,11 +95,6 @@ func ReplanForRelations(root string, receipt Receipt, requiredObjectRefs []strin
 func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, submissions []Submission, allowPostimage bool) (Receipt, error) {
 	receipt, err := LoadReceipt(root, batchID)
 	if err != nil {
-		if expected, ok := resolveExactSubmissionReceipt(root, compositeIdentity, scopePolicyIdentity,
-			codeVolumePath, codeVolumeSHA256, submissions, allowPostimage); ok {
-			return Receipt{}, &SubmissionError{Code: "code_candidate_batch_id_mismatch",
-				ExpectedBatchID: expected.BatchID, ActualBatchID: batchID}
-		}
 		return Receipt{}, err
 	}
 	if !allowPostimage && (receipt.CompositeIdentity != compositeIdentity || receipt.ScopePolicyIdentity != scopePolicyIdentity ||
@@ -110,116 +105,19 @@ func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, c
 		return Receipt{}, fmt.Errorf("code_candidate_batch_incomplete")
 	}
 	submitted := map[string]Submission{}
-	for index, item := range submissions {
-		if item.CandidateIndex == 0 {
-			item.CandidateIndex = index + 1
-		}
+	for _, item := range submissions {
 		if item.ObjectRef == "" || item.CandidateID == "" || item.SourceSHA256 == "" || submitted[item.ObjectRef].ObjectRef != "" {
 			return Receipt{}, fmt.Errorf("code_candidate_duplicate_or_invalid")
 		}
 		submitted[item.ObjectRef] = item
 	}
-	issues, matched := submissionIssues(receipt, submissions)
-	if !matched {
-		return Receipt{}, fmt.Errorf("code_candidate_batch_mismatch")
-	}
-	if len(issues) > 0 {
-		return Receipt{}, &SubmissionError{Code: "code_candidate_binding_mismatch", Issues: issues}
+	for _, target := range receipt.Targets {
+		item, ok := submitted[target.ObjectRef]
+		if !ok || item.CandidateID != target.CandidateID || item.SourceSHA256 != target.SourceSHA256 {
+			return Receipt{}, fmt.Errorf("code_candidate_batch_mismatch")
+		}
 	}
 	return receipt, nil
-}
-
-// resolveExactSubmissionReceipt recognizes only a unique current receipt for
-// which every per-candidate binding is already exact. This lets the caller
-// distinguish a copied authoring_batch.batch_identity from the Code domain's
-// actual batch id without accepting a guessed or stale receipt.
-func resolveExactSubmissionReceipt(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, submissions []Submission, allowPostimage bool) (Receipt, bool) {
-	directory := filepath.Join(root, ".aoci", "drafts", "code-cognition")
-	entries, err := os.ReadDir(directory)
-	if err != nil {
-		return Receipt{}, false
-	}
-	var matched Receipt
-	matchCount := 0
-	for _, entry := range entries {
-		name := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(name, "candidate-") || !strings.HasSuffix(name, ".json") {
-			continue
-		}
-		candidateBatchID := strings.TrimSuffix(strings.TrimPrefix(name, "candidate-"), ".json")
-		receipt, loadErr := LoadReceipt(root, candidateBatchID)
-		if loadErr != nil || receipt.CompositeIdentity != compositeIdentity ||
-			receipt.ScopePolicyIdentity != scopePolicyIdentity || receipt.CodeVolumePath != codeVolumePath ||
-			(!allowPostimage && receipt.CodeVolumeSHA256 != codeVolumeSHA256) || !submissionExactlyMatches(receipt, submissions) {
-			continue
-		}
-		matched = receipt
-		matchCount++
-	}
-	return matched, matchCount == 1
-}
-
-func submissionExactlyMatches(receipt Receipt, submissions []Submission) bool {
-	if len(submissions) != len(receipt.Targets) {
-		return false
-	}
-	targets := make(map[string]Target, len(receipt.Targets))
-	for _, target := range receipt.Targets {
-		targets[target.ObjectRef] = target
-	}
-	for _, item := range submissions {
-		target, ok := targets[item.ObjectRef]
-		if !ok || item.CandidateID != target.CandidateID || item.SourceSHA256 != target.SourceSHA256 {
-			return false
-		}
-		delete(targets, item.ObjectRef)
-	}
-	return len(targets) == 0
-}
-
-func submissionIssues(receipt Receipt, submissions []Submission) ([]SubmissionIssue, bool) {
-	byObject := make(map[string]Target, len(receipt.Targets))
-	byCandidate := make(map[string]Target, len(receipt.Targets))
-	for _, target := range receipt.Targets {
-		byObject[target.ObjectRef] = target
-		byCandidate[target.CandidateID] = target
-	}
-	used := map[string]bool{}
-	issues := []SubmissionIssue{}
-	for index, item := range submissions {
-		candidateIndex := item.CandidateIndex
-		if candidateIndex == 0 {
-			candidateIndex = index + 1
-		}
-		target, ok := byObject[item.ObjectRef]
-		if !ok {
-			target, ok = byCandidate[item.CandidateID]
-		}
-		if !ok || used[target.ObjectRef] {
-			return nil, false
-		}
-		used[target.ObjectRef] = true
-		base := SubmissionIssue{CandidateIndex: candidateIndex, Path: target.Path, ObjectRef: target.ObjectRef}
-		if item.ObjectRef != target.ObjectRef {
-			issue := base
-			issue.Field, issue.Expected, issue.Actual, issue.Code = "path", target.Path,
-				strings.TrimPrefix(item.ObjectRef, "code:"), "code_candidate_path_mismatch"
-			issues = append(issues, issue)
-		}
-		if item.CandidateID != target.CandidateID {
-			issue := base
-			issue.Field, issue.Expected, issue.Actual, issue.Code = "candidate_id", target.CandidateID,
-				item.CandidateID, "code_candidate_id_mismatch"
-			issues = append(issues, issue)
-		}
-		if item.SourceSHA256 != target.SourceSHA256 {
-			issue := base
-			issue.Field, issue.Expected, issue.Actual, issue.Code = "source_sha256", target.SourceSHA256,
-				item.SourceSHA256, "code_candidate_source_sha256_mismatch"
-			issues = append(issues, issue)
-		}
-	}
-	return issues, len(used) == len(receipt.Targets)
 }
 
 func LoadReceipt(root, batchID string) (Receipt, error) {

@@ -8,17 +8,12 @@ host-agent contracts; `.aoci/config.local.json` cannot override it.
 ## Commands
 
 ```text
-aoci init --cognition project                         # new project, en-US
-aoci init --locale zh-CN --cognition project          # new Chinese project
+aoci init                         # new project, en-US
+aoci init --locale zh-CN          # new Chinese project
 aoci config get locale
 aoci config set locale en-US
 aoci config set locale zh-CN
 ```
-
-Omitting `--cognition` preserves compatible existing init behavior; on a new
-repository it uses the fixed generic starter rather than project-authored
-taxonomy. Use explicit `--cognition generic` when deliberately selecting that
-fallback.
 
 Only `en-US` and `zh-CN` are accepted. An unknown value fails explicitly. The
 CLI invocation reads the project Locale before constructing command help and

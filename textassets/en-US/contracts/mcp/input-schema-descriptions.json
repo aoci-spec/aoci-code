@@ -37,13 +37,13 @@
     "source_sha256": "Compatibility binding for Code source bytes or an existing Database object update; Database Cognition authoring uses candidate_id and batch_id instead",
     "candidate_id": "Machine-owned Code or Database Cognition candidate identity returned by aoci_maintain; do not synthesize it or copy Evidence hashes into it",
     "batch_id": "Machine-owned complete current Database Cognition batch identity returned by aoci_maintain",
-    "code_batch_id": "Exact code_plan.batch_id returned by aoci_maintain; it equals every returned Code candidate.batch_id. Never use authoring_batch.batch_identity here",
+    "code_batch_id": "Machine-owned complete current Code Cognition batch identity returned by aoci_maintain",
     "entries": "Submit the complete candidate set for the current machine-issued batch; continue through Maintain when remaining is nonzero",
     "entries[].path": "Repository-relative path of the target file",
     "entries[].object_ref": "Canonical Database object identity; use this instead of path for a table Entry",
     "entries[].new_entry": "Complete single-line Entry: filename[tag]: F:... | R:... | A:... | S:...",
     "entries[].source_sha256": "Source binding for a Code candidate; preserve it unchanged for a machine-issued Code batch",
-    "entries[].candidate_id": "Machine-owned identity for a Code or Database candidate; preserve it exactly. A Code entry is paired with top-level code_batch_id=code_plan.batch_id=candidate.batch_id"
+    "entries[].candidate_id": "Machine-owned identity for a Code or Database candidate; the complete current batch also requires its domain batch identity"
   },
   "aoci_maintain": {
     "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible",

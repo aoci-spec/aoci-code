@@ -14,9 +14,12 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/spf13/cobra"
 )
@@ -34,17 +37,6 @@ func init() {
 			root, err := config.FindRepoRoot(".", flagRepo)
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
-			}
-			readOnlyConfig, err := config.LoadReadOnly(root)
-			if err != nil {
-				return &ExitError{Code: ExitConfig, Msg: err.Error()}
-			}
-			route, active, routeErr := inspectActiveFreshRouteForCLI(root, readOnlyConfig.IndexPath)
-			if routeErr != nil {
-				return activeFreshRouteInspectionExit(routeErr)
-			}
-			if active {
-				return activeFreshRouteExit(route)
 			}
 			cfg, err := config.Load(root)
 			if err != nil {
@@ -89,19 +81,26 @@ func init() {
 				if exists {
 					return &ExitError{Code: ExitConfig, Msg: cliMessage("scan.managed_scope_transaction_required")}
 				}
-				state, stateErr := managedstate.LoadInitial(root, cfg)
+				state, stateErr := managedstate.Load(root, cfg)
 				if stateErr != nil || state.Evaluation == nil {
 					if stateErr == nil {
 						stateErr = errors.New("managed_scope_evaluation_unavailable")
 					}
 					return errors.New(cliMessage("scan.snapshot_error", stateErr))
 				}
-				snap = state.Snapshot
-				inventorySummary = state.Evaluation.SafeInventory
-				managedReceipt, err = managedstate.InitialBaselineReceipt(cfg, state)
+				snap, err = managedscope.Snapshot(root, state.Evaluation, managedscope.SnapshotOptions{HighRiskContentApproved: false})
 				if err != nil {
 					return errors.New(cliMessage("scan.snapshot_error", err))
 				}
+				inventorySummary = state.Evaluation.SafeInventory
+				budgetPolicy := cfg.EffectiveCognitionBudget()
+				budgetIdentity, identityErr := cognitionbudget.Identity(budgetPolicy)
+				if identityErr != nil {
+					return errors.New(cliMessage("scan.snapshot_error", identityErr))
+				}
+				managedReceipt = &baseline.ManagedScopeState{Version: machinecontract.ManagedScopeBaselineV1,
+					PolicyIdentity: state.DesiredPolicyIdentity, ObserveChangePolicy: cfg.EffectiveManagedScope().ObserveChangePolicy,
+					BudgetPolicyIdentity: budgetIdentity, BudgetPolicy: &budgetPolicy}
 			} else {
 				var inventory *afs.SafeInventory
 				snap, warns, inventory, err = baseline.SnapshotWithInventory(root, cfg.WalkOptions())

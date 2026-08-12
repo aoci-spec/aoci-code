@@ -162,10 +162,6 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.repair.cause.volume":                                   nil,
 	"entry.repair.cause.tag_dictionary":                           nil,
 	"entry.repair.cause.duplicate":                                nil,
-	"entry.repair.cause.code_path":                                nil,
-	"entry.repair.cause.code_candidate_id":                        nil,
-	"entry.repair.cause.code_source_sha256":                       nil,
-	"entry.repair.cause.code_batch_id":                            nil,
 	"entry.repair.action.f_runes":                                 {160},
 	"entry.repair.action.r_items":                                 {8},
 	"entry.repair.action.r_runes":                                 {360},
@@ -178,10 +174,6 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.repair.action.identity":                                nil,
 	"entry.repair.action.volume":                                  nil,
 	"entry.repair.action.duplicate":                               nil,
-	"entry.repair.action.code_path":                               nil,
-	"entry.repair.action.code_candidate_id":                       nil,
-	"entry.repair.action.code_source_sha256":                      nil,
-	"entry.repair.action.code_batch_id":                           nil,
 	"entry.repair.action.candidate":                               {"FRAS"},
 	"entry.transaction.read_failed":                               {"detail"},
 	"entry.transaction.pending_header":                            nil,
@@ -464,9 +456,6 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
-				if routeResult := activeFreshRouteGuardResult(root); routeResult != nil {
-					return routeResult
-				}
 				if len(in.Entries) > 0 {
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
@@ -569,9 +558,6 @@ func handleMCPUpdateBatch(
 	input []updateEntryItemIn,
 	refreshSessions ...*cognitionRefreshSession,
 ) *mcp.CallToolResult {
-	if routeResult := activeFreshRouteGuardResult(root); routeResult != nil {
-		return routeResult
-	}
 	var refreshSession *cognitionRefreshSession
 	if len(refreshSessions) > 0 {
 		refreshSession = refreshSessions[0]
@@ -671,9 +657,6 @@ func handleMCPUpdateBatch(
 		}
 	}
 	if fail != nil {
-		if fail.OnboardingRoute != nil {
-			return failResult(fail)
-		}
 		status := autoStatusStopped
 		if fail.Repairable || fail.Code == errBadArgs || fail.Code == errPathUnsafe || fail.Code == errCandidateInvalid {
 			status = autoStatusRepairRequired
