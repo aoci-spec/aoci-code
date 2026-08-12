@@ -30,6 +30,8 @@ func TestOldFormalMetaBuildsCompleteCodeAndDatabaseContractsWithoutByteChanges(t
 			if output.AuthoringMeta != string(raw) {
 				t.Fatal("assembler changed the old formal Meta bytes")
 			}
+			assertExampleTag(t, output.Examples[cognition.ScopeCode], "CG7T")
+			assertExampleTag(t, output.Examples[cognition.ScopeDatabase], "DS7T")
 			assertDeliveredExamples(t, raw, output)
 			codeIndex, databaseIndex := instructionIndex(output.Instructions, output.Examples[cognition.ScopeCode]), instructionIndex(output.Instructions, output.Examples[cognition.ScopeDatabase])
 			if codeIndex < 0 || databaseIndex <= codeIndex {
@@ -54,10 +56,58 @@ func TestFreshMetaContractExamplesComeFromActualAssembly(t *testing.T) {
 			if output.AuthoringMeta != template {
 				t.Fatal("assembler changed the fresh formal Meta bytes")
 			}
+			assertExampleTag(t, output.Examples[cognition.ScopeCode], "EG7T")
+			assertExampleTag(t, output.Examples[cognition.ScopeDatabase], "EI7T")
 			assertFormalMetaHighImportanceDashExample(t, template)
 			assertSoftSAuthoringPolicy(t, locale, output.Instructions)
+			assertStarterClassificationPolicy(t, locale, output.Instructions)
 			assertDeliveredExamples(t, []byte(template), output)
 		})
+	}
+}
+
+func assertStarterClassificationPolicy(t *testing.T, locale string, instructions []string) {
+	t.Helper()
+	combined := strings.Join(instructions, "\n")
+	required := map[string][]string{
+		textassets.DefaultLocale: {"official starter dictionary", "genuinely cross-domain", "insufficient evidence is not Z", "never enter S", "Under the official starter dictionary, a test file", "B=Q only for test or quality infrastructure", "Custom formal Meta meanings remain authoritative"},
+		textassets.LegacyLocale:  {"官方初始字典", "真正跨域", "证据不足不属于Z", "绝不写入S", "在官方初始字典中，测试文件", "只有测试或质量基础设施本身才使用B=Q", "自定义正式Meta的含义始终具有权威"},
+	}
+	for _, anchor := range required[locale] {
+		if !strings.Contains(combined, anchor) {
+			t.Fatalf("%s authoring instructions lack starter classification policy %q: %q", locale, anchor, combined)
+		}
+	}
+}
+
+func TestCustomMetaLetterReuseDoesNotAcquireStarterMeanings(t *testing.T) {
+	raw := []byte("#AOCI-META-VOLUME: 1\n" +
+		"#Object-Protocol: repository-cognition-object/v2\n" +
+		"#FRAS-Discipline: 2\n#FRAS-v2-Limits-Authority: machine-contract\n" +
+		"#S-Admission: non-inferable-and-error-preventing\n#Object-Kinds: code=file database=table\n" +
+		"#[Tag dictionary: code]\n#A Layer: E-Engine A-Application\n#B Module: G-Gateway B-Business\n" +
+		"#C Importance: 7-high\n#E Scale: T-tiny<100\n" +
+		"#[Tag dictionary: database]\n#A Layer: E-Event A-Archive\n#B Module: I-Integration B-Business\n" +
+		"#C Importance: 7-high\n#E Scale: T-tiny<100\n")
+	output, err := Build(raw, []string{cognition.ScopeCode, cognition.ScopeDatabase}, textassets.DefaultLocale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertExampleTag(t, output.Examples[cognition.ScopeCode], "AB7T")
+	assertExampleTag(t, output.Examples[cognition.ScopeDatabase], "AB7T")
+	if output.AuthoringMeta != string(raw) {
+		t.Fatal("assembler changed custom formal Meta bytes")
+	}
+}
+
+func assertExampleTag(t *testing.T, example, want string) {
+	t.Helper()
+	entry, ok := index.ParseEntryLine(example, 1)
+	if !ok {
+		t.Fatalf("calibration example is not a valid Entry: %q", example)
+	}
+	if entry.TagsRaw != want {
+		t.Fatalf("unexpected calibration tag: got=%q want=%q example=%q", entry.TagsRaw, want, example)
 	}
 }
 

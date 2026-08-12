@@ -158,6 +158,12 @@ func TestScopedVolumeTagDictionaryContractCoversEveryAxis(t *testing.T) {
 	if got := ValidateTagAgainstDict(ParseTags("CG7T"), "CG7T", dictionary); len(got) != 0 {
 		t.Fatalf("canonical compact tag was rejected: %#v", got)
 	}
+	if definition, ok := dictionary.Definition("A", "C"); !ok || definition != "-Code" {
+		t.Fatalf("scoped dictionary lost the exact A definition: definition=%q ok=%t", definition, ok)
+	}
+	if _, ok := dictionary.Definition("B", "missing"); ok {
+		t.Fatal("scoped dictionary fabricated a missing symbol definition")
+	}
 	for _, test := range []struct {
 		tag  string
 		axis string

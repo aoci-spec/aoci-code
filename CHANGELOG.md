@@ -4,6 +4,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Expand the fixed general-purpose Code and Database starter A/B dictionaries,
+  make all C importance digits from 1 through 9 available, retain optional D
+  grammar and the existing E scale, and use `EG7T` as the starter Code example.
+- Reserve starter `G` for genuinely cross-domain objects and `Z` for understood
+  objects that fit no named category; evidence gaps do not become `Z` or S
+  constraints. The new defaults affect only fresh initialization and do not
+  migrate or retag repositories with an existing formal Meta.
 - Report exact Code candidate binding mismatches and distinguish
   `code_plan.batch_id` from the cross-domain `authoring_batch.batch_identity`
   without changing the nine-tool MCP surface or request Schema; actual source

@@ -84,8 +84,8 @@ func TestReadObservationContractIsSharedByHelpAndDocs(t *testing.T) {
 	}
 	for _, anchor := range []string{
 		"strict zero-file-write operation",
-		"all four may append to the local Ledger",
-		"verify` also attempts to write Verify History",
+		"all four commands may append to the local Ledger",
+		"verify also attempts to write Verify History",
 	} {
 		if !strings.Contains(string(englishREADME), anchor) {
 			t.Fatalf("English README contract is missing %q", anchor)

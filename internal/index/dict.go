@@ -139,6 +139,17 @@ func (d *TagDict) Contract() string {
 	}, ";")
 }
 
+// Definition returns the exact parsed meaning bound to one axis symbol. It is
+// used only when a consumer must distinguish an official semantic calibration
+// from a custom dictionary that happens to reuse the same letters.
+func (d *TagDict) Definition(axis, symbol string) (string, bool) {
+	if d == nil || d.definitions[axis] == nil {
+		return "", false
+	}
+	definition, ok := d.definitions[axis][symbol]
+	return definition, ok
+}
+
 func (d *TagDict) axis(axis string) map[string]bool {
 	switch axis {
 	case "A":

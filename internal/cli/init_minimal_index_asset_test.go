@@ -65,6 +65,79 @@ func TestMinimalIndexProductionOutputMatchesCompatibilityDigest(
 	}
 }
 
+func TestVolumeMetaTemplatesExposeExpandedFixedDictionaries(t *testing.T) {
+	type expectedMeta struct {
+		codeExample string
+		codeA       string
+		codeB       string
+		importance  string
+		codeE       string
+		databaseA   string
+		databaseB   string
+		databaseE   string
+	}
+	expected := map[string]expectedMeta{
+		textassets.DefaultLocale: {
+			codeExample: "#Code Entry example: file.go[EG7T]: F:Runs the example application | R:- | A:- | S:-",
+			codeA:       "#A Layer: C-SharedFoundation E-EntryBoundary A-ApplicationOrchestration D-DomainLogic K-AlgorithmComputation M-Middleware P-Persistence I-IntegrationAdapter R-RuntimeFoundation L-LibrarySDK F-DeclarativeConfiguration O-OperationsDelivery T-TestValidation S-DocumentationSpecification X-DevelopmentTooling Z-Other",
+			codeB:       "#B Module: G-CrossDomain U-UserInteraction B-CoreBusiness D-DataState I-IdentityAccess N-NetworkProtocol M-MessageEvent S-SecurityPrivacy C-ConfigurationPolicy O-Observability R-ReliabilityRecovery P-PerformanceResource W-WorkflowScheduling A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityAssurance E-ExtensionPlugin Z-Other",
+			importance:  "#C Importance: 9-highest 8-very-high 7-high 6-above-average 5-medium 4-below-average 3-low 2-very-low 1-lowest",
+			codeE:       "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100",
+			databaseA:   "#A Layer: E-EntityMaster T-TransactionFact R-RelationMapping M-DetailDependent C-ReferenceDictionary S-StateStorage H-HistoryVersion L-LogAudit Q-QueueOutbox A-AggregateProjection K-KeyValueConfiguration B-DocumentLargeObject Z-Other",
+			databaseB:   "#B Module: G-CrossDomain B-CoreBusiness I-IdentityAccess T-OrganizationTenant U-UserExperience F-FinanceBilling K-ContentKnowledge C-ConfigurationPolicy W-WorkflowTask M-MessageEvent N-ExternalIntegration S-SecurityPrivacy O-ObservabilityAudit R-ReliabilityRecovery P-PerformanceResource A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityTesting E-ExtensionPlugin Z-Other",
+			databaseE:   "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100",
+		},
+		textassets.LegacyLocale: {
+			codeExample: "#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:- | A:- | S:-",
+			codeA:       "#A Layer: C-共享基础 E-入口边界 A-应用编排 D-领域逻辑 K-算法计算 M-中间件 P-持久化 I-集成适配 R-运行基础 L-库与SDK F-声明配置 O-运维交付 T-测试验证 S-文档规范 X-开发工具 Z-其他",
+			codeB:       "#B Module: G-跨域通用 U-用户交互 B-核心业务 D-数据状态 I-身份权限 N-网络协议 M-消息事件 S-安全隐私 C-配置策略 O-可观测性 R-可靠性恢复 P-性能资源 W-流程调度 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量保障 E-扩展插件 Z-其他",
+			importance:  "#C Importance: 9-最高 8-很高 7-高 6-较高 5-中等 4-较低 3-低 2-很低 1-最低",
+			codeE:       "#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100",
+			databaseA:   "#A Layer: E-实体主表 T-事务事实 R-关联映射 M-明细从属 C-参考字典 S-状态存储 H-历史版本 L-日志审计 Q-队列发件 A-聚合投影 K-键值配置 B-文档大对象 Z-其他",
+			databaseB:   "#B Module: G-跨域通用 B-核心业务 I-身份权限 T-组织租户 U-用户体验 F-财务计费 K-内容知识 C-配置策略 W-流程任务 M-消息事件 N-外部集成 S-安全隐私 O-可观测审计 R-可靠性恢复 P-性能资源 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量测试 E-扩展插件 Z-其他",
+			databaseE:   "#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100",
+		},
+	}
+
+	for locale, want := range expected {
+		locale, want := locale, want
+		t.Run(locale, func(t *testing.T) {
+			meta, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, line := range []string{want.codeExample, want.codeA, want.codeB, want.databaseA, want.databaseB} {
+				if strings.Count(meta, line) != 1 {
+					t.Fatalf("%s Meta must contain exactly one line %q:\n%s", locale, line, meta)
+				}
+			}
+			if strings.Count(meta, want.importance) != 2 {
+				t.Fatalf("%s Meta must use the complete 9-1 importance line for both domains:\n%s", locale, meta)
+			}
+			if strings.Count(meta, want.codeE) != 2 || want.codeE != want.databaseE {
+				t.Fatalf("%s Meta changed or split the existing E-scale contract:\n%s", locale, meta)
+			}
+			for _, domain := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
+				dictionary := index.ExtractScopedTagDict(meta, domain)
+				if dictionary == nil || !dictionary.HasObjectContract() {
+					t.Fatalf("%s %s dictionary is not a complete object contract: %#v", locale, domain, dictionary)
+				}
+				if len(dictionary.D) != 0 {
+					t.Fatalf("%s %s dictionary unexpectedly declares D: %#v", locale, domain, dictionary.D)
+				}
+				for importance := 1; importance <= 9; importance++ {
+					if !dictionary.C[fmt.Sprintf("%d", importance)] {
+						t.Fatalf("%s %s dictionary lacks C=%d: %#v", locale, domain, importance, dictionary.C)
+					}
+				}
+				if len(dictionary.C) != 9 {
+					t.Fatalf("%s %s dictionary must expose exactly C=1..9: %#v", locale, domain, dictionary.C)
+				}
+			}
+		})
+	}
+}
+
 func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	t *testing.T,
 ) {
@@ -120,7 +193,7 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	if dictionary == nil || !dictionary.HasObjectContract() {
 		t.Fatalf("init Meta不是完整可解析的Code作者化权威: %#v", dictionary)
 	}
-	for _, want := range []string{"#Canonical-Tag-Authoring: compact A+B+C+[D]+E", "CG7T", "code:path/to/file.go", "#S quota:"} {
+	for _, want := range []string{"#Canonical-Tag-Authoring: compact A+B+C+[D]+E", "EG7T", "code:path/to/file.go", "#S quota:"} {
 		if !strings.Contains(string(actualMeta), want) {
 			t.Fatalf("init Meta缺少首次作者化合同 %q:\n%s", want, actualMeta)
 		}
@@ -155,7 +228,7 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 		t.Fatal(err)
 	}
 	for _, want := range []string{`"stage": "authoring_required"`, "index header show",
-		`"authoring_meta": "#AOCI-META-VOLUME: 1`, "CG7T", "code:path/to/file", "database://source/namespace/table",
+		`"authoring_meta": "#AOCI-META-VOLUME: 1`, "EG7T", "code:path/to/file", "database://source/namespace/table",
 		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", "remaining nonzero",
 		"commands.verify, commands.check (the aggregate Check), and commands.guide in that order", line} {
 		if !strings.Contains(guideOutput.String(), want) {
@@ -283,7 +356,7 @@ func TestVolumeGuideRoutesUnusableMetaWithoutCodeReplan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broken := strings.Replace(string(meta), "#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge", "#C Importance: none", 1)
+	broken := strings.Replace(string(meta), "#C Importance: 9-highest 8-very-high 7-high 6-above-average 5-medium 4-below-average 3-low 2-very-low 1-lowest", "#C Importance: none", 1)
 	if err := os.WriteFile(metaPath, []byte(broken), 0o644); err != nil {
 		t.Fatal(err)
 	}

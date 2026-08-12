@@ -162,7 +162,18 @@ canonical relation rules, and a legal Code Entry example are complete and
 machine-parseable. Project semantics are still absent until the model authors
 Code objects; Root may remain the structural repository entry.
 
-New Tags have one canonical physical form: compact `A+B+C+[D]+E`; `CG7T` is a
+For a new Volume-first `init`, the starter Meta supplies fixed, general-purpose
+expanded A and B vocabularies for both Code and Database, every C importance
+digit from 1 through 9, no D dictionary, and the unchanged E L/M/S/T scale. D
+remains available in the compact grammar when a repository's formal Meta
+declares it. In the starter B vocabulary, `G` means genuinely cross-domain;
+`Z` in starter A or B means the evidence is understood but no named category
+fits. Neither unknown nor insufficient evidence may be hidden as `Z`, and a
+classification gap is not an S constraint. These defaults affect only new
+initializations. Existing repositories retain their formal Meta and Entries
+without automatic migration or retagging.
+
+New Tags have one canonical physical form: compact `A+B+C+[D]+E`; `EG7T` is a
 legal example under the starter Code dictionary. Dotted Tags remain Legacy read
 compatibility only. `ParseTags`, the scoped Meta dictionary parser, normal Entry
 validation, loaded object validation, candidate validation, and projected

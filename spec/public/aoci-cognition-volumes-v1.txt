@@ -85,9 +85,20 @@ repository entry and ordinary project semantics may initially reside entirely
 in model-authored Code objects. No extra Root/Meta authoring phase is required
 or defined before the first Code batch.
 
+The official starter Meta provides fixed, general-purpose expanded A and B
+vocabularies for Code and Database, the complete C range 1 through 9, no D
+dictionary, and the existing E L/M/S/T scale. D remains part of the compact
+grammar only when the current formal Meta declares it. G in the starter B
+vocabulary is selected only for genuinely cross-domain objects. Z in either
+starter A or B is selected only when the bound evidence is understood and none
+of the named categories applies; it must not hide missing or insufficient
+evidence, and classification gaps are not written into S. These starter
+defaults apply only to a new Volume-first init. Existing repositories keep
+their current formal Meta and Entries without automatic migration or retagging.
+
 ParseTags is the single lexical tag splitter. New object authoring emits the
 compact A+B+C+[D]+E physical form; with the official starter Code dictionary,
-CG7T is one legal example. Dotted tags remain read compatibility for existing
+EG7T is one legal example. Dotted tags remain read compatibility for existing
 Legacy Entries and are not a second authoring form. The scoped Meta dictionary
 parser and the ordinary Entry, candidate, loaded Volume, and projected Volume
 validators all decide the same parsed A/B/C/optional-D/E values. Missing,

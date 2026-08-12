@@ -113,7 +113,7 @@ func Assemble(input Input) (Output, error) {
 		if dictionary == nil || !dictionary.HasObjectContract() {
 			return Output{}, fmt.Errorf("meta_tag_dictionary_invalid: domain=%s", domain)
 		}
-		tag, tagErr := calibrationTag(dictionary)
+		tag, tagErr := calibrationTag(domain, dictionary)
 		if tagErr != nil {
 			return Output{}, fmt.Errorf("meta_tag_dictionary_invalid: domain=%s; %w", domain, tagErr)
 		}
@@ -166,7 +166,7 @@ func orderedDomains(domains []string) []string {
 	return ordered
 }
 
-func calibrationTag(dictionary *index.TagDict) (string, error) {
+func calibrationTag(domain string, dictionary *index.TagDict) (string, error) {
 	axis := func(values map[string]bool, preferred string) (string, error) {
 		if values[preferred] {
 			return preferred, nil
@@ -181,11 +181,12 @@ func calibrationTag(dictionary *index.TagDict) (string, error) {
 		}
 		return keys[0], nil
 	}
-	a, err := axis(dictionary.A, "")
+	preferredA, preferredB := starterCalibrationSymbols(domain, dictionary)
+	a, err := axis(dictionary.A, preferredA)
 	if err != nil {
 		return "", err
 	}
-	b, err := axis(dictionary.B, "")
+	b, err := axis(dictionary.B, preferredB)
 	if err != nil {
 		return "", err
 	}
@@ -198,4 +199,32 @@ func calibrationTag(dictionary *index.TagDict) (string, error) {
 		return "", err
 	}
 	return a + b + c + e, nil
+}
+
+func starterCalibrationSymbols(domain string, dictionary *index.TagDict) (string, string) {
+	definitionIs := func(axis, symbol string, expected ...string) bool {
+		actual, ok := dictionary.Definition(axis, symbol)
+		if !ok {
+			return false
+		}
+		for _, value := range expected {
+			if actual == value {
+				return true
+			}
+		}
+		return false
+	}
+	switch domain {
+	case cognition.ScopeCode:
+		if definitionIs("A", "E", "-EntryBoundary", "-入口边界") &&
+			definitionIs("B", "G", "-CrossDomain", "-跨域通用") {
+			return "E", "G"
+		}
+	case cognition.ScopeDatabase:
+		if definitionIs("A", "E", "-EntityMaster", "-实体主表") &&
+			definitionIs("B", "I", "-IdentityAccess", "-身份权限") {
+			return "E", "I"
+		}
+	}
+	return "", ""
 }

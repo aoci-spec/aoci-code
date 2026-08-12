@@ -8,9 +8,20 @@ Every governed object uses one model-authored line:
 
 New Volumes object authoring uses one physical Tag form: compact
 A+B+C+[D]+E. Each axis value comes from the current scoped Meta dictionary;
-CG7T is a legal Code example under the official starter Meta. Dotted Tags are
+EG7T is a legal Code example under the official starter Meta. Dotted Tags are
 retained only for Legacy read compatibility and are not emitted by new
 authoring. All consumers split Tags through index.ParseTags.
+
+The official starter Meta uses fixed, general-purpose expanded A and B
+vocabularies for both Code and Database, C digits 1 through 9, no D dictionary,
+and the existing E L/M/S/T scale. The compact grammar still permits D when the
+current formal Meta declares it. In the starter B vocabulary, G means genuinely
+cross-domain rather than an unknown classification. Starter A and B each
+reserve Z for evidence that is understood but does not fit a named category;
+missing or insufficient evidence is not Z and a dictionary gap is not an S
+constraint. The expanded starter dictionaries affect only repositories created
+by a new Volume-first init. An older valid formal Meta remains authoritative
+for its repository and is never migrated or retagged automatically.
 
 Physical Volume determines object_type. Code v1 objects are files. Database v1
 objects are tables. Future API and Deployment Volumes may reuse this language
