@@ -514,16 +514,24 @@ def suite_governance(rep, work):
 
 # ---------------------------------------------------------------- M suites
 def opencode_run(fx, model, prompt, timeout_s, artifact):
+    # 超时在进程内强制 (subprocess timeout), 不依赖 coreutils timeout(1), macOS 可用
     t0 = time.time()
-    r = subprocess.run(["timeout", str(timeout_s), OPENCODE, "run", prompt, "-m", model,
-                        "--dir", fx, "--auto", "--format", "json",
-                        "--title", f"aoci-lifecycle-{os.path.basename(fx)}"],
-                       capture_output=True, text=True)
+    try:
+        r = subprocess.run([OPENCODE, "run", prompt, "-m", model,
+                            "--dir", fx, "--auto", "--format", "json",
+                            "--title", f"aoci-lifecycle-{os.path.basename(fx)}"],
+                           capture_output=True, text=True, timeout=timeout_s)
+        rc, out, err = r.returncode, r.stdout, r.stderr
+    except subprocess.TimeoutExpired as e:
+        rc = 124
+        out = (e.stdout or b"").decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
+        err = (e.stderr or b"").decode("utf-8", "replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+        err += "\n===TIMEOUT===\n"
     with open(artifact, "w") as f:
-        f.write(r.stdout)
-        if r.stderr:
-            f.write("\n===STDERR===\n" + r.stderr[-8000:])
-    return r.returncode, time.time() - t0, r.stdout
+        f.write(out)
+        if err:
+            f.write("\n===STDERR===\n" + err[-8000:])
+    return rc, time.time() - t0, out
 
 
 def m_establish(rep, work, model, timeout_s, artifacts):

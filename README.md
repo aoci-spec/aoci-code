@@ -767,6 +767,31 @@ No. The current capability is Narrow Relation Projection, not an independent gra
 > remain valid when this README is read from a binary Release archive, which
 > does not include the repository's `docs/` or `spec/public/` directories.
 
+## 🧪 Black-box verification suites
+
+The repository ships three standalone black-box suites under
+[`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) that exercise a built `aoci`
+binary strictly from outside the process, over the public stdio MCP protocol
+and CLI only:
+
+- **Protocol conformance** — 44 read-only checks of the MCP wire surface;
+- **Fault-injection scenarios** — 22 scenarios covering cursor tampering,
+  crash recovery, and racing writers on disposable fixture repositories;
+- **Lifecycle over frozen real projects** — full `init`-to-realignment
+  lifecycles on two committed fixture projects (TypeScript; Python + MySQL),
+  with an optional model track that drives a real AI agent — any model your
+  OpenCode installation exposes — through the same repositories and scores the
+  end state from public surfaces.
+
+They need only Python 3 and git on top of a built binary (Docker for the MySQL
+suite; OpenCode plus your own model subscription for the model track), so a
+repository clone can verify its own build, a platform port, or a fork — and
+`AOCI_BIN` can point the conformance and scenario suites at any alternative
+binary that claims the public contracts in `spec/public/`. These suites live
+in the repository clone; binary Release archives do not include them. See
+[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) for commands and
+result interpretation.
+
 ## ⚖️ Research, intellectual property, and license
 
 AOCI-CODE research papers and Artifacts may publicly describe released methods, experimental protocols, and results. Patent applications, granted scope, legal status, owners, and territorial effect are legal facts and should not be added to product descriptions based only on an internal README, a historical version number, or an unverified retelling.

@@ -737,6 +737,26 @@ aoci --repo . index agent guide --agent codex --json
 > 上述文档和公开合同链接固定到 `v0.1.0-rc3`，因此即使从不包含 `docs/` 和
 > `spec/public/` 的 Release archive 中阅读本 README，链接仍然有效。
 
+## 🧪 黑盒验证套件
+
+仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) 内置三套独立黑盒套件，
+全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
+
+- **协议一致性** —— 44 项只读检查，覆盖 MCP 线协议表面；
+- **故障注入场景** —— 22 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+  并发写入者的安全性；
+- **冻结真实项目生命周期** —— 在两个随仓库冻结的真实小项目（TypeScript；
+  Python + MySQL）上走完从 `init` 到漂移重对齐的完整生命周期，可选的模型轨
+  用真实 AI Agent（你的 OpenCode 所暴露的任意模型）驱动同样的仓库，并从公开
+  表面判定终态。
+
+在构建好的二进制之上只需 Python 3 与 git（MySQL 套件需 Docker；模型轨需
+OpenCode 与你自己的模型订阅），因此克隆仓库即可验证自己的构建、平台移植或
+fork；`AOCI_BIN` 也可以把一致性与场景套件指向任何声称实现了 `spec/public/`
+公开合同的其他二进制。这些套件随仓库克隆分发，二进制 Release archive 不包含
+它们。命令与结果解读见
+[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md)。
+
 ## ⚖️ 研究、知识产权与许可证
 
 AOCI-CODE 的研究论文和 Artifact 可以公开描述已发布的方法、实验协议与结果。专利申请、授权范围、法律状态、权利人和地域效力则属于法律事实，不应仅依据内部 README、历史版本号或未经核验的转述写入产品介绍。
