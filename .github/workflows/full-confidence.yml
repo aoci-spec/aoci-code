@@ -243,12 +243,12 @@ jobs:
             "ssl_cert_file = '/aoci-tls/server.crt'" \
             "ssl_key_file = '/aoci-tls/server.key'" \
             "ssl_ca_file = '/aoci-tls/ca.crt'")"
-          admin_dsn="postgres://omm:${password}@127.0.0.1:5433/postgres?sslmode=verify-full&sslrootcert=${client_tls_dir}/ca.crt"
+          admin_dsn="postgres://gaussdb:${password}@127.0.0.1:5433/postgres?sslmode=verify-full&sslrootcert=${client_tls_dir}/ca.crt"
           echo "::add-mask::${admin_dsn}"
           echo "AOCI_TEST_OPENGAUSS_ADMIN_DSN=${admin_dsn}" >> "$GITHUB_ENV"
           echo "AOCI_TEST_OPENGAUSS_ADMIN_PASSWORD=${password}" >> "$GITHUB_ENV"
           echo 'AOCI_TEST_OPENGAUSS_ADMIN_ADDR=127.0.0.1:5433' >> "$GITHUB_ENV"
-          echo 'AOCI_TEST_OPENGAUSS_ADMIN_USER=omm' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_OPENGAUSS_ADMIN_USER=gaussdb' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_OPENGAUSS_ADMIN_DATABASE=postgres' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_OPENGAUSS_DISPOSABLE=1' >> "$GITHUB_ENV"
           docker run -d --privileged \
