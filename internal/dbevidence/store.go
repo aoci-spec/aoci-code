@@ -385,7 +385,7 @@ func validateSourceManifest(manifest SourceManifest) error {
 	if manifest.Version != SourceManifestVersion || !sourceIDPattern.MatchString(manifest.SourceID) || manifest.Database == "" {
 		return fmt.Errorf("invalid source manifest identity")
 	}
-	if manifest.Engine != EnginePostgreSQL && manifest.Engine != EngineMySQL {
+	if !supportedEngine(manifest.Engine) {
 		return fmt.Errorf("invalid source manifest engine")
 	}
 	if manifest.BusinessDataRead {
@@ -406,7 +406,7 @@ func validateSnapshot(snapshot Snapshot) error {
 	if snapshot.Version != SnapshotVersion || snapshot.EvidenceVersion != EvidenceVersion || !sourceIDPattern.MatchString(snapshot.SourceID) || snapshot.Database == "" {
 		return fmt.Errorf("invalid database snapshot identity")
 	}
-	if snapshot.Engine != EnginePostgreSQL && snapshot.Engine != EngineMySQL {
+	if !supportedEngine(snapshot.Engine) {
 		return fmt.Errorf("invalid database snapshot engine")
 	}
 	if snapshot.BusinessDataRead {
@@ -453,7 +453,7 @@ func validateBaseline(baseline Baseline) error {
 		if source.SourceID <= lastSource || !sourceIDPattern.MatchString(source.SourceID) || source.Database == "" || source.EvidenceVersion != EvidenceVersion || !validSHA256(source.SourceSnapshotSHA256) {
 			return fmt.Errorf("invalid Baseline source identity")
 		}
-		if source.Engine != EnginePostgreSQL && source.Engine != EngineMySQL {
+		if !supportedEngine(source.Engine) {
 			return fmt.Errorf("invalid Baseline source engine")
 		}
 		for _, values := range [][]string{source.Namespaces, source.IncludeNamespaces, source.ExcludeNamespaces, source.IncludeTables, source.ExcludeTables} {

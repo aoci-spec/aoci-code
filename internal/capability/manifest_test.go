@@ -1,6 +1,7 @@
 package capability
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -24,6 +25,13 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 	if manifest.MCPToolCount != 9 || len(manifest.MCPTools) != 9 {
 		t.Fatalf("tool contract changed: %#v", manifest.MCPTools)
 	}
+	wantTools := []string{
+		"aoci_get_entries", "aoci_header", "aoci_maintain", "aoci_overview", "aoci_remove_entry",
+		"aoci_report", "aoci_rules", "aoci_search", "aoci_update_entry",
+	}
+	if !reflect.DeepEqual(manifest.MCPTools, wantTools) {
+		t.Fatalf("nine-tool surface changed: got=%#v want=%#v", manifest.MCPTools, wantTools)
+	}
 	if manifest.NetworkAccessed || manifest.TTY.YesFlagAllowed || manifest.TTY.ModelSelfApproval || !manifest.TTY.DigestRequired {
 		t.Fatalf("unsafe capability contract: %#v", manifest)
 	}
@@ -42,6 +50,7 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.CLILifecycleCapabilities, "fresh_bootstrap_semantic_authoring_v2") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "cognition_lineage_v1") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "database_to_code_impact_v1") ||
+		!containsCapability(manifest.DatabaseCapabilities, "opengauss_schema_evidence") ||
 		!containsCapability(manifest.InputSchemaVersions, cognition.CognitionEvolutionV1) ||
 		manifest.TTY.Mechanism != machinecontract.ApprovalMechanismInteractiveDigestConfirmation {
 		t.Fatalf("authorization contracts missing: %#v", manifest)

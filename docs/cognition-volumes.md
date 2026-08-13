@@ -291,10 +291,12 @@ changed.
 - Database Volume declaration or creation by Maintain or Entry Apply;
 - automatic database FRAS generation.
 
-PostgreSQL/MySQL connections, Canonical Schema Evidence, an independent
-evidence Baseline, and drift detection remain in the explicit CLI Database
-Evidence Layer. Database Cognition authoring consumes only saved local Evidence
-and never connects during Maintain/Apply. See
+PostgreSQL/MySQL/openGauss connections, Canonical Schema Evidence, an
+independent evidence Baseline, and drift detection remain in the explicit CLI
+Database Evidence Layer. The initial openGauss profile is limited to 6.0.5 LTS
+in A/PG compatibility mode and ordinary non-partitioned base tables; unsupported
+catalog features fail closed. Database Cognition authoring consumes only saved
+local Evidence and never connects during Maintain/Apply. See
 [`database-evidence.md`](database-evidence.md) and
 [`database-cognition-authoring.md`](database-cognition-authoring.md).
 

@@ -443,7 +443,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci index agent guide` | Enters the deterministic host-agent workflow |
 | `aoci capabilities` | Shows capabilities provided by the current binary |
 | `aoci doctor` | Diagnoses repository and host integration |
-| `aoci database` | Explicitly configures and validates PostgreSQL/MySQL Schema Evidence |
+| `aoci database` | Explicitly configures and validates PostgreSQL/MySQL/openGauss Schema Evidence |
 | `aoci database source access` | Read-only check of whether a database credential reference has been provided by the external environment; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
 | `aoci cognition plan` | Read-only preview of a Bootstrap or Legacy-to-Volumes migration plan |
@@ -536,7 +536,7 @@ AOCI-CODE can bring database structure into the same cognition and evolution gov
 
 ```text
 Explicit database command
-  → Read-only PostgreSQL/MySQL system catalogs
+  → Read-only PostgreSQL/MySQL/openGauss system catalogs
   → Canonical Schema Evidence
   → Human acceptance of the Evidence Hash
   → The host model authors table-level FRAS from complete evidence
@@ -549,6 +549,29 @@ Explicit database command
 - Hostnames, usernames, DSNs, and credential values are not written into cognition assets;
 - Database Cognition Apply runs offline and does not reconnect to the database while writing;
 - The program preserves and compares structural Evidence, but the model still authors table responsibilities, relationships, and high-value constraints.
+
+The initial openGauss profile is deliberately limited to openGauss 6.0.5 LTS
+in A/PG compatibility mode and ordinary non-partitioned base tables. Unsupported
+catalog features fail closed instead of being silently reduced to PostgreSQL
+facts; this does not claim support for MogDB, GaussDB, Dolphin/B/MySQL mode,
+partitions or subpartitions, column-store, MOT, foreign or temporary tables,
+views, routines, or triggers.
+
+Here, fail-closed detection applies to selected visible table-like objects with
+unsupported semantics. Routines and triggers remain outside the v1 table-object
+domain and are never represented as table facts.
+
+The openGauss path uses AOCI's reviewed local patch over the official Connector
+v1.0.8 source. Its strict parser accepts only the reviewed connection
+parameters and does not consume ambient `PG*`, service, password-file,
+home-directory, or logger configuration. A TCP connection outside a numeric
+loopback address must explicitly use `sslmode=verify-full` (and an absolute
+trusted-root path in `sslrootcert` when supplied), with TLS 1.2 as the minimum;
+TLS downgrade modes are rejected.
+`sslmode=disable` is accepted only for an explicit Unix socket or numeric
+loopback address used as a local/test boundary. Database administrators remain
+responsible for supplying that DSN outside the conversation and provisioning
+the least-privilege account.
 
 The Database Volume may be absent by default. It enters the Whole-Index only after the project explicitly enables Database Cognition and completes Evidence, Binding, and lifecycle governance.
 
@@ -640,7 +663,7 @@ Ordinary search, ASTs, LSP, code graphs, and RAG are good at answering structura
 | **Drift Detection** | Distinguishes Missing, Orphan, Stale, Unbaselined, line-ending changes, and curation differences |
 | **Governed Updates** | Candidates enter formal assets through source binding, Plan, validation, Review, CAS, atomic writes, Baseline, and recovery workflows |
 | **Delivery Attestation** | Uses Chunk, Cursor, Receipt, and Challenge to prove that the Whole-Index was delivered in full |
-| **Database Cognition** | Establishes and governs table-level cognition from explicitly accepted PostgreSQL/MySQL Schema Evidence |
+| **Database Cognition** | Establishes and governs table-level cognition from explicitly accepted PostgreSQL/MySQL/openGauss Schema Evidence |
 | **System Intelligence Projection** | Derives Lineage, narrow Relations, database-to-code Impact, Snapshot, and Evolution observations from authoritative cognition and bindings without duplicating authoritative state; Impact traverses only explicit model-authored R relationships |
 
 ## 🔗 Relationship to other code-understanding methods
@@ -669,7 +692,7 @@ The recommended combination is: AOCI-CODE provides the global semantic prior; co
 | **Formal cognition** | UTF-8 plain-text Cognition Volumes, diffable and versionable with Git |
 | **Machine state** | JSON/JSONL, SHA-256, Baseline, Manifest, Receipt, Ledger, and Recovery |
 | **Write safety** | Cross-process locks, CAS, same-directory temporary files, platform-atomic replacement, and fail-closed behavior |
-| **Database** | Core operation does not depend on a business database; optional PostgreSQL/MySQL Schema Evidence uses pure-Go drivers |
+| **Database** | Core operation does not depend on a business database; optional PostgreSQL/MySQL/openGauss Schema Evidence uses pure-Go drivers |
 | **System cognition** | Lineage, Relations, Impact, Snapshot, and Evolution projections derived on demand from authoritative assets |
 | **Execution modes** | Agent-native, Endpoint-native, Deterministic-only |
 

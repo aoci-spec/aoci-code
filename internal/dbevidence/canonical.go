@@ -45,7 +45,7 @@ func CanonicalTable(table TableEvidence) (TableEvidence, []byte, string, Compone
 	if table.ObjectRef != wantRef {
 		return TableEvidence{}, nil, "", ComponentHashes{}, fmt.Errorf("object_ref %q does not match canonical identity %q", table.ObjectRef, wantRef)
 	}
-	if table.Engine != EnginePostgreSQL && table.Engine != EngineMySQL {
+	if !supportedEngine(table.Engine) {
 		return TableEvidence{}, nil, "", ComponentHashes{}, fmt.Errorf("unsupported engine %q", table.Engine)
 	}
 	if table.Kind != "base_table" {

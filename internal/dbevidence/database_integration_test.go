@@ -5,12 +5,19 @@ package dbevidence
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
+	"math/big"
 	"net"
 	"net/url"
 	"os"
@@ -20,6 +27,7 @@ import (
 	"testing"
 	"time"
 
+	opengauss "gitcode.com/opengauss/openGauss-connector-go-pq"
 	mysqlDriver "github.com/go-sql-driver/mysql"
 )
 
@@ -38,6 +46,14 @@ type realAcceptanceEngineGold struct {
 	SourceSnapshotSHA256 string       `json:"source_snapshot_sha256"`
 	TableCount           int          `json:"table_count"`
 	Drift                DriftSummary `json:"drift"`
+}
+
+func TestOpenGaussRandomCredentialContract(t *testing.T) {
+	first := openGaussRandomCredential(t)
+	second := openGaussRandomCredential(t)
+	if first == second || len(first) != 26 || len(second) != 26 {
+		t.Fatal("openGauss fixture credentials are not bounded and randomized")
+	}
 }
 
 func TestPostgreSQLRealCatalogCollectionAndDrift(t *testing.T) {
@@ -206,6 +222,652 @@ func TestMySQLRealCatalogCollectionAndDrift(t *testing.T) {
 	assertNoIntegrationSentinels(t, manifest, second, secondFiles, credentialSentinel)
 }
 
+func TestOpenGaussRealCatalogCollectionAndDrift(t *testing.T) {
+	adminDSN := openGaussAdminDSN(t)
+	if os.Getenv("AOCI_TEST_OPENGAUSS_DISPOSABLE") != "1" {
+		t.Fatal("AOCI_TEST_OPENGAUSS_DISPOSABLE=1 is required before destructive openGauss fixture setup")
+	}
+	credentialSentinel := openGaussRandomCredential(t)
+	partialCredential := openGaussRandomCredential(t)
+	admin, err := sql.Open("opengauss", adminDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer admin.Close()
+	if err := admin.PingContext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	const (
+		aDatabase   = "aoci_og_accept_a"
+		pgDatabase  = "aoci_og_accept_pg"
+		readerUser  = "aoci_og_reader"
+		partialUser = "aoci_og_partial"
+	)
+	for _, database := range []string{aDatabase, pgDatabase} {
+		openGaussDropDatabase(t, admin, database)
+	}
+	execIntegrationSQL(t, admin, []string{
+		`DROP USER IF EXISTS ` + readerUser,
+		`DROP USER IF EXISTS ` + partialUser,
+		`CREATE USER ` + readerUser + ` PASSWORD '` + credentialSentinel + `'`,
+		`CREATE USER ` + partialUser + ` PASSWORD '` + partialCredential + `'`,
+	})
+	t.Cleanup(func() {
+		cleanup, err := sql.Open("opengauss", adminDSN)
+		if err != nil {
+			t.Errorf("temporary openGauss cleanup connection failed: %v", err)
+			return
+		}
+		defer cleanup.Close()
+		for _, database := range []string{aDatabase, pgDatabase} {
+			openGaussDropDatabase(t, cleanup, database)
+		}
+		for _, statement := range []string{`DROP USER IF EXISTS ` + readerUser, `DROP USER IF EXISTS ` + partialUser} {
+			if _, err := cleanup.ExecContext(context.Background(), statement); err != nil {
+				t.Errorf("temporary openGauss user cleanup failed: %v", err)
+			}
+		}
+	})
+	execIntegrationSQL(t, admin, []string{
+		`CREATE DATABASE ` + aDatabase + ` DBCOMPATIBILITY 'A'`,
+		`CREATE DATABASE ` + pgDatabase + ` DBCOMPATIBILITY 'PG'`,
+		`GRANT CONNECT ON DATABASE ` + aDatabase + ` TO ` + readerUser,
+		`GRANT CONNECT ON DATABASE ` + aDatabase + ` TO ` + partialUser,
+		`GRANT CONNECT ON DATABASE ` + pgDatabase + ` TO ` + readerUser,
+		`GRANT CONNECT ON DATABASE ` + pgDatabase + ` TO ` + partialUser,
+	})
+
+	for _, profile := range []struct {
+		compatibility string
+		database      string
+		sourceID      string
+	}{
+		{compatibility: "A", database: aDatabase, sourceID: "ogatempc"},
+		{compatibility: "PG", database: pgDatabase, sourceID: "ogpgtemp"},
+	} {
+		profile := profile
+		t.Run(profile.compatibility, func(t *testing.T) {
+			databaseDSN := openGaussDatabaseDSN(t, adminDSN, profile.database)
+			openGaussRunProfileAcceptance(t, databaseDSN,
+				openGaussUserDSN(t, databaseDSN, readerUser, credentialSentinel),
+				openGaussUserDSN(t, databaseDSN, partialUser, partialCredential),
+				credentialSentinel, profile)
+		})
+	}
+}
+
+func openGaussRunProfileAcceptance(t *testing.T, databaseDSN, readerDSN, partialDSN, credentialSentinel string, profile struct {
+	compatibility string
+	database      string
+	sourceID      string
+}) {
+	t.Helper()
+	database, err := sql.Open("opengauss", databaseDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	execIntegrationSQL(t, database, []string{
+		`CREATE SCHEMA aoci_og`,
+		`CREATE SCHEMA aoci_hidden`,
+		`CREATE SCHEMA "Quoted Schema"`,
+		`CREATE TABLE aoci_hidden.no_schema_usage (id integer PRIMARY KEY)`,
+		`CREATE TABLE aoci_hidden.partition_without_schema_usage (id bigint, occurred_at date) PARTITION BY RANGE (occurred_at) (PARTITION p2026 VALUES LESS THAN ('2027-01-01'))`,
+		`CREATE TABLE aoci_og.accounts (id bigserial, email varchar(255) NOT NULL, status varchar(20) NOT NULL DEFAULT 'active', amount numeric(12,2), CONSTRAINT accounts_pk PRIMARY KEY (id, email), CONSTRAINT accounts_email_key UNIQUE (email), CONSTRAINT accounts_status_check CHECK (status IN ('active','disabled')))`,
+		`CREATE TABLE aoci_og.orders (account_id bigint NOT NULL, account_email varchar(255) NOT NULL, seq integer NOT NULL, note text, CONSTRAINT orders_pk PRIMARY KEY (account_id, seq), CONSTRAINT orders_account_fk FOREIGN KEY (account_id, account_email) REFERENCES aoci_og.accounts(id, email) ON UPDATE CASCADE ON DELETE RESTRICT)`,
+		`CREATE INDEX orders_note_idx ON aoci_og.orders (note)`,
+		`CREATE INDEX accounts_status_desc_idx ON aoci_og.accounts (status DESC)`,
+		`CREATE TABLE "Quoted Schema".accounts (id integer NOT NULL PRIMARY KEY, note text)`,
+		`INSERT INTO aoci_og.accounts(email, status, amount) VALUES ('` + businessSentinel + `', 'active', 1.00)`,
+		`GRANT USAGE ON SCHEMA aoci_og, "Quoted Schema" TO aoci_og_reader`,
+		`GRANT SELECT ON ALL TABLES IN SCHEMA aoci_og, "Quoted Schema" TO aoci_og_reader`,
+		`GRANT USAGE ON SCHEMA aoci_og TO aoci_og_partial`,
+		`GRANT SELECT ON aoci_og.accounts TO aoci_og_partial`,
+		`GRANT SELECT ON aoci_hidden.no_schema_usage TO aoci_og_partial`,
+		`GRANT SELECT ON aoci_hidden.partition_without_schema_usage TO aoci_og_partial`,
+	})
+	reader, err := sql.Open("opengauss", readerDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	if _, err := reader.ExecContext(context.Background(), `INSERT INTO aoci_og.accounts(email, status) VALUES ('must_not_write', 'active')`); err == nil {
+		t.Fatal("openGauss Evidence credential was not read-only")
+	}
+
+	const credentialEnv = "AOCI_TEST_DATABASE_DSN"
+	t.Setenv(credentialEnv, readerDSN)
+	source := SourceConfig{
+		SourceID: profile.sourceID, Engine: EngineOpenGauss, Database: profile.database,
+		Namespaces:    []string{"Quoted Schema", "aoci_hidden", "aoci_og", "information_schema", "pg_catalog", "dbe_perf", "db4ai"},
+		CredentialEnv: credentialEnv, Enabled: true,
+	}
+	collector := NewCollector()
+	manifest, first, files, err := collector.Snapshot(context.Background(), source)
+	if err != nil {
+		if sourceErrorCode(err) == "catalog_query_failed" {
+			openGaussDiagnoseIndexFailure(t, database, source)
+		}
+		t.Fatal(err)
+	}
+	if manifest.Engine != EngineOpenGauss || !strings.Contains(manifest.ServerVersion, "6.0.5") || !strings.Contains(manifest.ServerVersion, "deployment OpenSourceCentralized") || !strings.Contains(manifest.ServerVersion, "compatibility "+profile.compatibility) {
+		t.Fatalf("unexpected openGauss profile identity: %+v", manifest)
+	}
+	assertIntegrationEvidence(t, manifest, first, files, 3, credentialSentinel)
+	assertEvidenceContains(t, files,
+		`database://`+profile.sourceID+`/Quoted%20Schema/accounts`,
+		`database://`+profile.sourceID+`/aoci_og/accounts`,
+		`"serial": true`, `accounts_email_key`, `accounts_status_check`, `orders_account_fk`,
+		`"update_action": "cascade"`, `"delete_action": "restrict"`,
+		`accounts_status_desc_idx`, `"descending": true`, `"visible": true`)
+	assertSystemNamespacesExcluded(t, first, "information_schema", "pg_catalog", "dbe_perf", "db4ai")
+	_, repeated, repeatedFiles, err := collector.Snapshot(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRepeatedSnapshotBytes(t, first, files, repeated, repeatedFiles)
+	assertOpenGaussPartialVisibility(t, collector, source, partialDSN)
+	assertOpenGaussPartialPartitionVisibility(t, database, collector, source, partialDSN)
+	assertOpenGaussCatalogProfileDefaults(t, database)
+	assertRealContextBoundaries(t, collector, source)
+
+	root := t.TempDir()
+	baseline, baselineBytes := acceptRealSnapshot(t, root, manifest, first, files)
+	unchanged := CompareSnapshot(repeated, baseline, true)
+	if unchanged.Summary.Unchanged != len(first.Tables) || unchanged.Summary.New+unchanged.Summary.Changed+unchanged.Summary.Removed != 0 {
+		t.Fatalf("unexpected openGauss unchanged report: %+v", unchanged.Summary)
+	}
+	assertOpenGaussSourceFaults(t, collector, source, databaseDSN, credentialSentinel)
+	assertOpenGaussCatalogPermissionDenial(t, database, collector, source)
+	assertOpenGaussCollectorInterruption(t, database, readerDSN, collector, source)
+	if openGaussUsesTLS(t, readerDSN) {
+		assertOpenGaussTLSBoundaries(t, readerDSN, collector, source, first, files)
+	}
+	assertSavedEvidenceSurvivesFailure(t, root, collector, source, first.SourceSnapshotSHA256)
+	execIntegrationSQL(t, database, []string{
+		`ALTER TABLE aoci_og.accounts ADD COLUMN display_name text`,
+		`CREATE TABLE aoci_og.new_table (id bigint PRIMARY KEY)`,
+		`GRANT SELECT ON aoci_og.new_table TO aoci_og_reader`,
+		`DROP TABLE "Quoted Schema".accounts`,
+	})
+	_, second, secondFiles, err := collector.Snapshot(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := CompareSnapshot(second, baseline, true)
+	if report.Summary.Changed != 1 || report.Summary.New != 1 || report.Summary.Removed != 1 {
+		t.Fatalf("unexpected openGauss drift: %+v", report)
+	}
+	assertUnrelatedTableStable(t, first, second, "database://"+profile.sourceID+"/aoci_og/orders")
+	assertBaselineUnchanged(t, root, baselineBytes)
+	assertNoIntegrationSentinels(t, manifest, second, secondFiles, credentialSentinel)
+	logRealAcceptance(t, "opengauss", first, baseline, report, "database://"+profile.sourceID+"/aoci_og/accounts", files)
+
+	execIntegrationSQL(t, database, []string{
+		`CREATE VIEW aoci_og.accounts_view AS SELECT id, email FROM aoci_og.accounts`,
+		`GRANT SELECT ON aoci_og.accounts_view TO aoci_og_reader`,
+	})
+	_, unsupported, unsupportedFiles, err := collector.Snapshot(context.Background(), source)
+	if sourceErrorCode(err) != "unsupported_catalog_feature" || len(unsupported.Tables) != 0 || len(unsupportedFiles) != 0 {
+		t.Fatalf("openGauss selected view did not fail closed: snapshot=%+v files=%d err=%v", unsupported, len(unsupportedFiles), err)
+	}
+	execIntegrationSQL(t, database, []string{`DROP VIEW aoci_og.accounts_view`})
+	assertBaselineUnchanged(t, root, baselineBytes)
+
+	execIntegrationSQL(t, database, []string{
+		`CREATE TABLE aoci_og.unsupported_check (id integer, CONSTRAINT unsupported_check_state CHECK (id > 0) NO INHERIT)`,
+		`GRANT SELECT ON aoci_og.unsupported_check TO aoci_og_reader`,
+	})
+	_, unsupported, unsupportedFiles, err = collector.Snapshot(context.Background(), source)
+	if sourceErrorCode(err) != "unsupported_catalog_feature" || len(unsupported.Tables) != 0 || len(unsupportedFiles) != 0 {
+		t.Fatalf("openGauss CHECK NO INHERIT did not fail closed: snapshot=%+v files=%d err=%v", unsupported, len(unsupportedFiles), err)
+	}
+	execIntegrationSQL(t, database, []string{`DROP TABLE aoci_og.unsupported_check`})
+	assertBaselineUnchanged(t, root, baselineBytes)
+
+	execIntegrationSQL(t, database, []string{
+		`CREATE TABLE aoci_og.partitioned_events (id bigint, occurred_at date) PARTITION BY RANGE (occurred_at) (PARTITION p2026 VALUES LESS THAN ('2027-01-01'))`,
+		`GRANT SELECT ON aoci_og.partitioned_events TO aoci_og_reader`,
+	})
+	_, unsupported, unsupportedFiles, err = collector.Snapshot(context.Background(), source)
+	if sourceErrorCode(err) != "unsupported_catalog_feature" || len(unsupported.Tables) != 0 || len(unsupportedFiles) != 0 {
+		t.Fatalf("openGauss partition did not fail closed: snapshot=%+v files=%d err=%v", unsupported, len(unsupportedFiles), err)
+	}
+	execIntegrationSQL(t, database, []string{`DROP TABLE aoci_og.partitioned_events`})
+	assertBaselineUnchanged(t, root, baselineBytes)
+
+	execIntegrationSQL(t, database, []string{
+		`CREATE SCHEMA aoci_chain WITH BLOCKCHAIN`,
+		`CREATE TABLE aoci_chain.chain_table (id integer PRIMARY KEY)`,
+		`GRANT USAGE ON SCHEMA aoci_chain TO aoci_og_reader`,
+		`GRANT SELECT ON aoci_chain.chain_table TO aoci_og_reader`,
+	})
+	blockchainSource := source
+	blockchainSource.Namespaces = append(append([]string(nil), source.Namespaces...), "aoci_chain")
+	_, unsupported, unsupportedFiles, err = collector.Snapshot(context.Background(), blockchainSource)
+	if sourceErrorCode(err) != "unsupported_catalog_feature" || len(unsupported.Tables) != 0 || len(unsupportedFiles) != 0 {
+		t.Fatalf("openGauss blockchain schema did not fail closed: snapshot=%+v files=%d err=%v", unsupported, len(unsupportedFiles), err)
+	}
+	assertBaselineUnchanged(t, root, baselineBytes)
+}
+
+func assertOpenGaussCatalogProfileDefaults(t *testing.T, database *sql.DB) {
+	t.Helper()
+	var unsupportedOrdinaryConstraints int
+	err := database.QueryRowContext(context.Background(), `
+SELECT count(*)
+FROM pg_catalog.pg_constraint AS k
+JOIN pg_catalog.pg_class AS c ON c.oid = k.conrelid
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'aoci_og'
+  AND (k.condeferrable OR k.condeferred OR NOT k.convalidated
+       OR (k.contype = 'f' AND k.confmatchtype <> 'u')
+       OR k.condisable OR k.consoft OR k.conopt
+       OR COALESCE(pg_catalog.array_length(k.conincluding, 1), 0) <> 0
+       OR (k.contype = 'c' AND k.connoinherit)
+       OR NOT k.conislocal OR k.coninhcount <> 0)`).Scan(&unsupportedOrdinaryConstraints)
+	if err != nil || unsupportedOrdinaryConstraints != 0 {
+		t.Fatalf("ordinary openGauss constraint defaults left the supported profile: count=%d err=%v", unsupportedOrdinaryConstraints, err)
+	}
+	var blockchain bool
+	if err := database.QueryRowContext(context.Background(), `SELECT nspblockchain FROM pg_catalog.pg_namespace WHERE nspname = 'aoci_og'`).Scan(&blockchain); err != nil || blockchain {
+		t.Fatalf("ordinary openGauss schema has unexpected blockchain state: blockchain=%t err=%v", blockchain, err)
+	}
+}
+
+func assertOpenGaussPartialPartitionVisibility(t *testing.T, database *sql.DB, collector *Collector, source SourceConfig, partialDSN string) {
+	t.Helper()
+	partial := source
+	partial.CredentialEnv = "AOCI_TEST_OPENGAUSS_PARTIAL_PARTITION_DSN"
+	t.Setenv(partial.CredentialEnv, partialDSN)
+	revoked := false
+	defer func() {
+		if !revoked {
+			if _, err := database.ExecContext(context.Background(), `REVOKE USAGE ON SCHEMA aoci_hidden FROM aoci_og_partial`); err != nil {
+				t.Errorf("openGauss partial partition visibility recovery failed: %v", err)
+			}
+		}
+	}()
+	if _, err := database.ExecContext(context.Background(), `GRANT USAGE ON SCHEMA aoci_hidden TO aoci_og_partial`); err != nil {
+		t.Fatalf("openGauss partial partition visibility setup failed: %v", err)
+	}
+	_, snapshot, files, err := collector.Snapshot(context.Background(), partial)
+	if sourceErrorCode(err) != "unsupported_catalog_feature" || len(snapshot.Tables) != 0 || len(files) != 0 {
+		t.Fatalf("visible openGauss partition did not fail closed: code=%s tables=%d files=%d", sourceErrorCode(err), len(snapshot.Tables), len(files))
+	}
+	if _, err := database.ExecContext(context.Background(), `REVOKE USAGE ON SCHEMA aoci_hidden FROM aoci_og_partial`); err != nil {
+		t.Fatalf("openGauss partial partition visibility restoration failed: %v", err)
+	}
+	revoked = true
+}
+
+func assertOpenGaussCatalogPermissionDenial(t *testing.T, database *sql.DB, collector *Collector, source SourceConfig) {
+	t.Helper()
+	const relation = "pg_catalog.pg_partition"
+	var before string
+	if err := database.QueryRowContext(context.Background(), `
+SELECT c.relacl::text
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'pg_catalog' AND c.relname = 'pg_partition'`).Scan(&before); err != nil {
+		t.Fatalf("openGauss catalog PUBLIC ACL inspection failed: %v", err)
+	}
+	publicSelect := false
+	for _, entry := range strings.Split(strings.Trim(before, "{}"), ",") {
+		if strings.HasPrefix(entry, "=r/") {
+			publicSelect = true
+			break
+		}
+	}
+	if !publicSelect {
+		t.Fatalf("openGauss catalog permission fixture requires an exact PUBLIC SELECT precondition: %s", before)
+	}
+
+	restored := false
+	restore := func() error {
+		if _, err := database.ExecContext(context.Background(), `GRANT SELECT ON `+relation+` TO PUBLIC`); err != nil {
+			return err
+		}
+		var after string
+		if err := database.QueryRowContext(context.Background(), `
+SELECT c.relacl::text
+FROM pg_catalog.pg_class AS c
+JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+WHERE n.nspname = 'pg_catalog' AND c.relname = 'pg_partition'`).Scan(&after); err != nil {
+			return err
+		}
+		if after != before {
+			return fmt.Errorf("catalog ACL was not restored exactly: before=%s after=%s", before, after)
+		}
+		return nil
+	}
+	defer func() {
+		if !restored {
+			if err := restore(); err != nil {
+				t.Errorf("openGauss catalog PUBLIC ACL recovery failed: %v", err)
+			}
+		}
+	}()
+	if _, err := database.ExecContext(context.Background(), `REVOKE SELECT ON `+relation+` FROM PUBLIC`); err != nil {
+		t.Fatalf("openGauss catalog permission denial setup failed: %v", err)
+	}
+	_, snapshot, files, err := collector.Snapshot(context.Background(), source)
+	if sourceErrorCode(err) != "permission_denied" || len(snapshot.Tables) != 0 || len(files) != 0 {
+		t.Fatalf("openGauss catalog permission denial was not fail-closed: code=%s tables=%d files=%d", sourceErrorCode(err), len(snapshot.Tables), len(files))
+	}
+	if err := restore(); err != nil {
+		t.Fatalf("openGauss catalog PUBLIC ACL restoration failed: %v", err)
+	}
+	restored = true
+}
+
+func openGaussUsesTLS(t *testing.T, dsn string) bool {
+	t.Helper()
+	configuration, err := opengauss.ParseConfigStrict(dsn)
+	if err != nil {
+		t.Fatal("openGauss integration DSN does not satisfy the strict runtime contract")
+	}
+	return configuration.TLSConfig != nil
+}
+
+func assertOpenGaussTLSBoundaries(t *testing.T, readerDSN string, collector *Collector, source SourceConfig, first Snapshot, firstFiles map[string][]byte) {
+	t.Helper()
+	wrongCAPath := openGaussWrongCA(t)
+	wrongCADSN := openGaussDSNQueryParameter(t, readerDSN, "sslrootcert", wrongCAPath)
+	wrongCASource := source
+	wrongCASource.CredentialEnv = "AOCI_TEST_OPENGAUSS_WRONG_CA_DSN"
+	wrongCACollector := &Collector{
+		getenv: func(string) string { return wrongCADSN },
+		open:   openDatabase,
+	}
+
+	configuration, err := opengauss.ParseConfigStrict(readerDSN)
+	if err != nil || configuration.TLSConfig == nil {
+		t.Fatal("openGauss TLS hostname fixture could not parse the verified connection")
+	}
+	addresses, err := net.DefaultResolver.LookupHost(context.Background(), configuration.Host)
+	if err != nil || len(addresses) == 0 {
+		t.Fatal("openGauss TLS hostname fixture could not resolve the verified host")
+	}
+	const wrongHostname = "aoci-invalid-hostname.example"
+	configuration.Host = wrongHostname
+	configuration.TLSConfig = configuration.TLSConfig.Clone()
+	configuration.TLSConfig.ServerName = wrongHostname
+	configuration.LookupFunc = func(context.Context, string) ([]string, error) {
+		return append([]string(nil), addresses...), nil
+	}
+	wrongHostnameConnector, err := opengauss.NewConnectorConfig(configuration)
+	if err != nil {
+		t.Fatal("openGauss TLS hostname fixture could not construct its connector")
+	}
+	wrongHostnameSource := source
+	wrongHostnameSource.CredentialEnv = "AOCI_TEST_OPENGAUSS_WRONG_HOSTNAME_DSN"
+	wrongHostnameCollector := &Collector{
+		getenv: func(string) string { return readerDSN },
+		open: func(driverName, _ string) (*sql.DB, error) {
+			if driverName != "opengauss" {
+				return nil, fmt.Errorf("unexpected driver")
+			}
+			return sql.OpenDB(wrongHostnameConnector), nil
+		},
+	}
+
+	var (
+		wrongCAErr       error
+		wrongHostnameErr error
+		openErr          error
+		pingErr          error
+		cancelErr        error
+		recoveryErr      error
+		recollectionErr  error
+		recoveredValue   int
+		recollected      Snapshot
+		recollectedFiles map[string][]byte
+		cancelElapsed    time.Duration
+	)
+	stdout := captureIntegrationStdout(t, func() {
+		wrongCAErr = snapshotError(wrongCACollector, wrongCASource)
+		wrongHostnameErr = snapshotError(wrongHostnameCollector, wrongHostnameSource)
+
+		var database *sql.DB
+		database, openErr = openOpenGaussDatabase(readerDSN, nil)
+		if openErr != nil {
+			return
+		}
+		defer database.Close()
+		database.SetMaxOpenConns(1)
+		database.SetMaxIdleConns(1)
+		pingErr = database.PingContext(context.Background())
+		if pingErr != nil {
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+		started := time.Now()
+		_, cancelErr = database.ExecContext(ctx, `SELECT pg_catalog.pg_sleep(30)`)
+		cancelElapsed = time.Since(started)
+		cancel()
+		recoveryErr = database.QueryRowContext(context.Background(), `SELECT 1`).Scan(&recoveredValue)
+		_, recollected, recollectedFiles, recollectionErr = collector.Snapshot(context.Background(), source)
+	})
+
+	if stdout != "" {
+		t.Fatalf("openGauss TLS negative/cancel paths wrote %d bytes to stdout", len(stdout))
+	}
+	if sourceErrorCode(wrongCAErr) != "connection_failed" {
+		t.Fatalf("openGauss TLS wrong-CA failure code=%s want=connection_failed", sourceErrorCode(wrongCAErr))
+	}
+	if sourceErrorCode(wrongHostnameErr) != "connection_failed" {
+		t.Fatalf("openGauss TLS wrong-hostname failure code=%s want=connection_failed", sourceErrorCode(wrongHostnameErr))
+	}
+	if openErr != nil || pingErr != nil {
+		t.Fatal("openGauss verified TLS connection was not usable before cancellation")
+	}
+	if cancelErr == nil || cancelElapsed > 5*time.Second {
+		t.Fatalf("openGauss TLS long query was not cancelled promptly: elapsed=%s", cancelElapsed)
+	}
+	if recoveryErr != nil || recoveredValue != 1 {
+		t.Fatal("openGauss connection pool was not reusable after TLS cancellation")
+	}
+	if recollectionErr != nil {
+		t.Fatal("openGauss Collector was not reusable after TLS cancellation")
+	}
+	assertRepeatedSnapshotBytes(t, first, firstFiles, recollected, recollectedFiles)
+}
+
+func openGaussWrongCA(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal("openGauss wrong-CA fixture generation failed")
+	}
+	now := time.Now()
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "AOCI unrelated openGauss test CA"},
+		NotBefore:             now.Add(-time.Hour),
+		NotAfter:              now.Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	certificate, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal("openGauss wrong-CA fixture generation failed")
+	}
+	path := filepath.Join(t.TempDir(), "wrong-ca.crt")
+	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate}), 0600); err != nil {
+		t.Fatal("openGauss wrong-CA fixture write failed")
+	}
+	return path
+}
+
+func openGaussDSNQueryParameter(t *testing.T, dsn, name, value string) string {
+	t.Helper()
+	parsed, err := url.Parse(dsn)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		t.Fatal("openGauss TLS integration requires a URL-form admin DSN")
+	}
+	query := parsed.Query()
+	query.Set(name, value)
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func captureIntegrationStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal("stdout capture setup failed")
+	}
+	original := os.Stdout
+	os.Stdout = writer
+	type captured struct {
+		data []byte
+		err  error
+	}
+	result := make(chan captured, 1)
+	go func() {
+		data, readErr := io.ReadAll(reader)
+		result <- captured{data: data, err: readErr}
+	}()
+	fn()
+	os.Stdout = original
+	if err := writer.Close(); err != nil {
+		t.Fatal("stdout capture close failed")
+	}
+	got := <-result
+	if err := reader.Close(); err != nil || got.err != nil {
+		t.Fatal("stdout capture read failed")
+	}
+	return string(got.data)
+}
+
+func assertOpenGaussCollectorInterruption(t *testing.T, admin *sql.DB, readerDSN string, collector *Collector, source SourceConfig) {
+	t.Helper()
+	parsed, err := url.Parse(readerDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	query := parsed.Query()
+	applicationName := "aoci_og_interrupt_" + strings.ToLower(strings.ReplaceAll(source.SourceID, "_", ""))
+	query.Set("application_name", applicationName)
+	parsed.RawQuery = query.Encode()
+	interrupted := source
+	interrupted.CredentialEnv = "AOCI_TEST_OPENGAUSS_INTERRUPTED_DSN"
+	t.Setenv(interrupted.CredentialEnv, parsed.String())
+	type result struct {
+		snapshot Snapshot
+		files    map[string][]byte
+		err      error
+	}
+	resultChannel := make(chan result, 1)
+	go func() {
+		_, snapshot, files, err := collector.Snapshot(context.Background(), interrupted)
+		resultChannel <- result{snapshot: snapshot, files: files, err: err}
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	terminated := false
+	for time.Now().Before(deadline) {
+		var processID int
+		err := admin.QueryRowContext(context.Background(), `SELECT pid FROM pg_catalog.pg_stat_activity WHERE application_name = $1 AND xact_start IS NOT NULL LIMIT 1`, applicationName).Scan(&processID)
+		if err == nil {
+			if _, err := admin.ExecContext(context.Background(), `SELECT pg_catalog.pg_terminate_backend($1)`, processID); err != nil {
+				t.Fatalf("temporary openGauss connection termination failed: %v", err)
+			}
+			terminated = true
+			break
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("temporary openGauss activity inspection failed: %v", err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !terminated {
+		t.Fatal("temporary openGauss collector connection was not observed")
+	}
+	select {
+	case got := <-resultChannel:
+		if got.err == nil || len(got.snapshot.Tables) != 0 || len(got.files) != 0 {
+			t.Fatal("interrupted openGauss collection produced Evidence")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("interrupted openGauss collection did not return")
+	}
+}
+
+func openGaussDiagnoseIndexFailure(t *testing.T, database *sql.DB, source SourceConfig) {
+	t.Helper()
+	tx, err := database.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		t.Fatalf("openGauss index diagnostic transaction failed: %v", err)
+	}
+	defer tx.Rollback()
+	tables, err := openGaussTables(context.Background(), tx, source)
+	if err == nil {
+		err = openGaussColumns(context.Background(), tx, source, tables)
+	}
+	if err == nil {
+		err = openGaussIndexes(context.Background(), tx, source, tables)
+	}
+	if err != nil {
+		t.Fatalf("openGauss index catalog decode failed: %v", err)
+	}
+	t.Fatal("openGauss index stage failed outside its dedicated loader")
+}
+
+func assertOpenGaussPartialVisibility(t *testing.T, collector *Collector, source SourceConfig, partialDSN string) {
+	t.Helper()
+	partial := source
+	partial.CredentialEnv = "AOCI_TEST_OPENGAUSS_PARTIAL_DSN"
+	t.Setenv(partial.CredentialEnv, partialDSN)
+	_, snapshot, files, err := collector.Snapshot(context.Background(), partial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "database://" + source.SourceID + "/aoci_og/accounts"
+	if len(snapshot.Tables) != 1 || len(files) != 1 || snapshot.Tables[0].ObjectRef != want {
+		t.Fatalf("openGauss partial reader crossed its grants: %+v", snapshot.Tables)
+	}
+}
+
+func assertOpenGaussSourceFaults(t *testing.T, collector *Collector, source SourceConfig, adminDSN, credential string) {
+	t.Helper()
+	missing := source
+	missing.CredentialEnv = "AOCI_TEST_OPENGAUSS_MISSING_DSN"
+	t.Setenv(missing.CredentialEnv, "")
+	assertSourceErrorCode(t, collector, missing, "credential_env_missing")
+
+	disabled := source
+	disabled.Enabled = false
+	assertSourceErrorCode(t, collector, disabled, "source_disabled")
+
+	auth := source
+	auth.CredentialEnv = "AOCI_TEST_OPENGAUSS_WRONG_AUTH_DSN"
+	t.Setenv(auth.CredentialEnv, wrongCredentialDSN(t, EngineOpenGauss, os.Getenv(source.CredentialEnv)))
+	authErr := assertSourceErrorCode(t, collector, auth, "permission_denied")
+
+	unknown := source
+	unknown.CredentialEnv = "AOCI_TEST_OPENGAUSS_UNKNOWN_DB_DSN"
+	t.Setenv(unknown.CredentialEnv, nonexistentDatabaseDSN(t, EngineOpenGauss, adminDSN))
+	unknownErr := assertSourceErrorCode(t, collector, unknown, "connection_failed")
+
+	for _, value := range []string{credential, os.Getenv(source.CredentialEnv), os.Getenv(auth.CredentialEnv)} {
+		for _, err := range []error{authErr, unknownErr} {
+			if value != "" && strings.Contains(err.Error(), value) {
+				t.Fatal("openGauss source error leaked credential or connection material")
+			}
+		}
+	}
+}
+
+func openGaussDropDatabase(t *testing.T, admin *sql.DB, database string) {
+	t.Helper()
+	if _, err := admin.ExecContext(context.Background(), `DROP DATABASE IF EXISTS `+database); err != nil {
+		t.Fatalf("temporary openGauss database cleanup failed: %v", err)
+	}
+}
+
 func assertRepeatedSnapshotBytes(t *testing.T, first Snapshot, firstFiles map[string][]byte, second Snapshot, secondFiles map[string][]byte) {
 	t.Helper()
 	firstBytes, err := CanonicalJSON(first)
@@ -336,7 +998,7 @@ func assertRealAcceptanceGolden(t *testing.T, engine string, snapshot Snapshot, 
 		t.Fatalf("invalid real acceptance Golden: %v", err)
 	}
 	for _, candidate := range golden.Engines {
-		if candidate.Engine != engine {
+		if candidate.Engine != engine || candidate.ObjectRef != objectRef {
 			continue
 		}
 		record := snapshotRecord(t, snapshot, objectRef)
@@ -605,7 +1267,7 @@ func mysqlNoDefaultDatabaseDSN(t *testing.T, original string) string {
 
 func wrongCredentialDSN(t *testing.T, engine Engine, original string) string {
 	t.Helper()
-	if engine == EnginePostgreSQL {
+	if engine == EnginePostgreSQL || engine == EngineOpenGauss {
 		parsed, err := url.Parse(original)
 		if err != nil {
 			t.Fatal(err)
@@ -623,7 +1285,7 @@ func wrongCredentialDSN(t *testing.T, engine Engine, original string) string {
 
 func nonexistentDatabaseDSN(t *testing.T, engine Engine, original string) string {
 	t.Helper()
-	if engine == EnginePostgreSQL {
+	if engine == EnginePostgreSQL || engine == EngineOpenGauss {
 		parsed, err := url.Parse(original)
 		if err != nil {
 			t.Fatal(err)
@@ -641,7 +1303,7 @@ func nonexistentDatabaseDSN(t *testing.T, engine Engine, original string) string
 
 func strictTLSDSN(t *testing.T, engine Engine, original string) string {
 	t.Helper()
-	if engine == EnginePostgreSQL {
+	if engine == EnginePostgreSQL || engine == EngineOpenGauss {
 		parsed, err := url.Parse(original)
 		if err != nil {
 			t.Fatal(err)
@@ -692,12 +1354,16 @@ func blackholeDSN(t *testing.T, engine Engine, original string) string {
 
 func replaceDSNAddress(t *testing.T, engine Engine, original, address string) string {
 	t.Helper()
-	if engine == EnginePostgreSQL {
+	if engine == EnginePostgreSQL || engine == EngineOpenGauss {
 		parsed, err := url.Parse(original)
 		if err != nil {
 			t.Fatal(err)
 		}
 		parsed.Host = address
+		query := parsed.Query()
+		query.Del("host")
+		query.Del("port")
+		parsed.RawQuery = query.Encode()
 		return parsed.String()
 	}
 	parsed, err := mysqlDriver.ParseDSN(original)
@@ -760,14 +1426,17 @@ func assertIntegrationEvidence(t *testing.T, manifest SourceManifest, snapshot S
 	assertNoIntegrationSentinels(t, manifest, snapshot, files, credential)
 }
 
-func assertNoIntegrationSentinels(t *testing.T, manifest SourceManifest, snapshot Snapshot, files map[string][]byte, credential string) {
+func assertNoIntegrationSentinels(t *testing.T, manifest SourceManifest, snapshot Snapshot, files map[string][]byte, credentials ...string) {
 	t.Helper()
 	data, _ := CanonicalJSON(struct {
 		Manifest SourceManifest    `json:"manifest"`
 		Snapshot Snapshot          `json:"snapshot"`
 		Files    map[string][]byte `json:"files"`
 	}{manifest, snapshot, files})
-	for _, sentinel := range []string{businessSentinel, credential} {
+	for _, sentinel := range append([]string{businessSentinel}, credentials...) {
+		if sentinel == "" {
+			continue
+		}
 		if strings.Contains(string(data), sentinel) {
 			t.Fatal("database evidence leaked a protected sentinel")
 		}
@@ -776,7 +1445,7 @@ func assertNoIntegrationSentinels(t *testing.T, manifest SourceManifest, snapsho
 
 func randomCredential(t *testing.T) string {
 	t.Helper()
-	raw := make([]byte, 24)
+	raw := make([]byte, 10)
 	if _, err := rand.Read(raw); err != nil {
 		t.Fatal(err)
 	}
@@ -830,6 +1499,68 @@ func mysqlAdminDSN(t *testing.T) string {
 	configuration.Addr = address
 	configuration.DBName = database
 	return configuration.FormatDSN()
+}
+
+func openGaussAdminDSN(t *testing.T) string {
+	t.Helper()
+	if direct := os.Getenv("AOCI_TEST_OPENGAUSS_ADMIN_DSN"); direct != "" {
+		return direct
+	}
+	password := os.Getenv("AOCI_TEST_OPENGAUSS_ADMIN_PASSWORD")
+	address := os.Getenv("AOCI_TEST_OPENGAUSS_ADMIN_ADDR")
+	user := os.Getenv("AOCI_TEST_OPENGAUSS_ADMIN_USER")
+	database := os.Getenv("AOCI_TEST_OPENGAUSS_ADMIN_DATABASE")
+	if password == "" && address == "" && user == "" && database == "" {
+		t.Skip("temporary openGauss admin connection is not configured")
+	}
+	if password == "" || address == "" || user == "" || database == "" {
+		t.Fatal("temporary openGauss split admin connection is incomplete")
+	}
+	parsed := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(user, password),
+		Host:   address,
+		Path:   "/" + database,
+	}
+	query := parsed.Query()
+	query.Set("sslmode", "disable")
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func openGaussDatabaseDSN(t *testing.T, adminDSN, database string) string {
+	t.Helper()
+	parsed, err := url.Parse(adminDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed.Path = "/" + database
+	return parsed.String()
+}
+
+func openGaussUserDSN(t *testing.T, databaseDSN, username, password string) string {
+	t.Helper()
+	parsed, err := url.Parse(databaseDSN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed.User = url.UserPassword(username, password)
+	return parsed.String()
+}
+
+func openGaussRandomCredential(t *testing.T) string {
+	t.Helper()
+	raw := make([]byte, 10)
+	if _, err := rand.Read(raw); err != nil {
+		t.Fatal(err)
+	}
+	credential := "Aoci9!" + hex.EncodeToString(raw)
+	if len(credential) != 26 || !strings.ContainsAny(credential, "ABCDEFGHIJKLMNOPQRSTUVWXYZ") ||
+		!strings.ContainsAny(credential, "abcdefghijklmnopqrstuvwxyz") ||
+		!strings.ContainsAny(credential, "0123456789") || !strings.ContainsAny(credential, "!@#$%^&*") {
+		t.Fatal("generated openGauss credential violates the 8-32 character complexity contract")
+	}
+	return credential
 }
 
 func postgresqlUserDSN(t *testing.T, adminDSN, username, password string) string {

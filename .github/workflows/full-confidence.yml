@@ -7,7 +7,10 @@ on:
   push:
     branches: [main]
     paths:
+      - 'Makefile'
       - 'scripts/check-licenses.sh'
+      - 'scripts/check-deps.sh'
+      - 'scripts/check-opengauss-connector.sh'
       - 'LICENSE'
       - 'NOTICE'
       - 'PATENTS'
@@ -15,8 +18,15 @@ on:
       - 'THIRD-PARTY-NOTICES'
       - 'README.md'
       - 'README.zh-CN.md'
+      - 'docs/database-evidence.md'
+      - 'docs/cognition-volumes.md'
+      - 'docs/supply-chain.md'
+      - 'spec/public/aoci-database-*.txt'
+      - 'textassets/en-US/contracts/ui/messages.json'
+      - 'textassets/zh-CN/contracts/ui/messages.json'
       - 'go.mod'
       - 'go.sum'
+      - 'third_party/**'
       - 'scripts/release/clean-room-smoke.sh'
       - 'internal/fs/**'
       - 'internal/baseline/**'
@@ -54,6 +64,17 @@ jobs:
           go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
           go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
           go install github.com/google/go-licenses@v1.6.0
+      - name: reproduce and test the patched openGauss Connector
+        run: |
+          make opengauss-connector
+          test -z "$(gofmt -l \
+            third_party/openGauss-connector-go-pq/config.go \
+            third_party/openGauss-connector-go-pq/conn.go \
+            third_party/openGauss-connector-go-pq/conn_go18.go \
+            third_party/openGauss-connector-go-pq/connector.go \
+            third_party/openGauss-connector-go-pq/logger.go \
+            third_party/openGauss-connector-go-pq/ssl.go \
+            third_party/openGauss-connector-go-pq/aoci_security_patch_test.go)"
       - name: cold-cache cross-platform license inventory
         env:
           GOMODCACHE: ${{ runner.temp }}/aoci-license-modcache
@@ -159,3 +180,109 @@ jobs:
           AOCI_TEST_MYSQL_ADMIN_USER: root
           AOCI_TEST_MYSQL_ADMIN_DATABASE: aoci_test
         run: go test -v -tags=integration -count=1 -run TestMySQLRealCatalogCollectionAndDrift ./internal/dbevidence
+
+  opengauss-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OPENGAUSS_DOCKER_URL: https://opengauss.obs.cn-south-1.myhuaweicloud.com/6.0.5/openGauss-Docker-6.0.5-x86_64.tar
+      OPENGAUSS_DOCKER_SHA256: f3fa6ca5add4d25b035aa5542ed08452792f73e587339d58905bff900ce578c6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: load verified official openGauss 6.0.5 image
+        run: |
+          image_tar="${RUNNER_TEMP}/openGauss-Docker-6.0.5-x86_64.tar"
+          curl --fail --location --retry 3 --output "${image_tar}" "${OPENGAUSS_DOCKER_URL}"
+          printf '%s  %s\n' "${OPENGAUSS_DOCKER_SHA256}" "${image_tar}" | sha256sum --check --strict
+          docker load --input "${image_tar}"
+          docker image inspect opengauss:6.0.5 --format '{{json .RepoTags}}' | grep -F 'opengauss:6.0.5'
+      - name: start isolated openGauss
+        run: |
+          password="Aoci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}!"
+          echo "::add-mask::${password}"
+          server_tls_dir="${RUNNER_TEMP}/aoci-opengauss-server-tls"
+          client_tls_dir="${RUNNER_TEMP}/aoci-opengauss-client-tls"
+          mkdir -p "${server_tls_dir}" "${client_tls_dir}"
+          openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=AOCI openGauss CI CA' \
+            -keyout "${server_tls_dir}/ca.key" \
+            -out "${server_tls_dir}/ca.crt" >/dev/null 2>&1
+          openssl req -new -newkey rsa:2048 -sha256 -nodes \
+            -subj '/CN=localhost' \
+            -keyout "${server_tls_dir}/server.key" \
+            -out "${server_tls_dir}/server.csr" >/dev/null 2>&1
+          printf '%s\n' \
+            'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            'extendedKeyUsage=serverAuth' > "${server_tls_dir}/server.ext"
+          openssl x509 -req -sha256 -days 1 \
+            -in "${server_tls_dir}/server.csr" \
+            -CA "${server_tls_dir}/ca.crt" \
+            -CAkey "${server_tls_dir}/ca.key" \
+            -CAcreateserial \
+            -extfile "${server_tls_dir}/server.ext" \
+            -out "${server_tls_dir}/server.crt" >/dev/null 2>&1
+          cp "${server_tls_dir}/ca.crt" "${client_tls_dir}/ca.crt"
+          rm -f \
+            "${server_tls_dir}/ca.key" \
+            "${server_tls_dir}/ca.srl" \
+            "${server_tls_dir}/server.csr" \
+            "${server_tls_dir}/server.ext"
+          chmod 0600 "${server_tls_dir}/ca.crt" "${server_tls_dir}/server.crt" "${server_tls_dir}/server.key"
+          chmod 0600 "${client_tls_dir}/ca.crt"
+          container_uid="$(docker run --rm --entrypoint id opengauss:6.0.5 -u omm)"
+          container_gid="$(docker run --rm --entrypoint id opengauss:6.0.5 -g omm)"
+          test "${container_uid}:${container_gid}" = '70:70'
+          sudo chown -R "${container_uid}:${container_gid}" "${server_tls_dir}"
+          tls_config="$(printf '%s\n' \
+            'password_encryption_type = 2' \
+            'ssl = on' \
+            "ssl_cert_file = '/aoci-tls/server.crt'" \
+            "ssl_key_file = '/aoci-tls/server.key'" \
+            "ssl_ca_file = '/aoci-tls/ca.crt'")"
+          admin_dsn="postgres://omm:${password}@127.0.0.1:5433/postgres?sslmode=verify-full&sslrootcert=${client_tls_dir}/ca.crt"
+          echo "::add-mask::${admin_dsn}"
+          echo "AOCI_TEST_OPENGAUSS_ADMIN_DSN=${admin_dsn}" >> "$GITHUB_ENV"
+          echo "AOCI_TEST_OPENGAUSS_ADMIN_PASSWORD=${password}" >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_OPENGAUSS_ADMIN_ADDR=127.0.0.1:5433' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_OPENGAUSS_ADMIN_USER=omm' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_OPENGAUSS_ADMIN_DATABASE=postgres' >> "$GITHUB_ENV"
+          echo 'AOCI_TEST_OPENGAUSS_DISPOSABLE=1' >> "$GITHUB_ENV"
+          docker run -d --privileged \
+            --name "aoci-opengauss-${GITHUB_RUN_ID}" \
+            -p 5433:5432 \
+            -v "${server_tls_dir}:/aoci-tls:ro" \
+            -e GS_PASSWORD="${password}" \
+            -e GS_HOST_AUTH_METHOD=sha256 \
+            -e OTHER_PG_CONF="${tls_config}" \
+            opengauss:6.0.5 >/dev/null
+          ready=false
+          for attempt in $(seq 1 90); do
+            if docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
+              gsql -d postgres -U omm -p 5432 -c 'select 1' >/dev/null 2>&1; then
+              ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "${ready}" != true ]; then
+            docker logs "aoci-opengauss-${GITHUB_RUN_ID}"
+            exit 1
+          fi
+          encryption_type="$(docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
+            gsql -At -d postgres -U omm -p 5432 -c 'show password_encryption_type' | tr -d '[:space:]')"
+          test "${encryption_type}" = 2
+          ssl_enabled="$(docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
+            gsql -At -d postgres -U omm -p 5432 -c 'show ssl' | tr -d '[:space:]')"
+          test "${ssl_enabled}" = on
+      - name: openGauss read-only Evidence integration
+        run: |
+          test_name=TestOpenGaussRealCatalogCollectionAndDrift
+          go test -tags=integration -list "^${test_name}$" ./internal/dbevidence | grep -Fx "${test_name}"
+          go test -v -tags=integration -count=1 -run "^${test_name}$" ./internal/dbevidence
+      - name: stop isolated openGauss
+        if: always()
+        run: docker rm -f "aoci-opengauss-${GITHUB_RUN_ID}" >/dev/null 2>&1 || true

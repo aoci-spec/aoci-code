@@ -4,6 +4,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Add a narrow openGauss 6.0.5 LTS A/PG Schema Evidence collector, backed by a
+  reproducibly patched official Connector v1.0.8, strict remote `verify-full`
+  TLS, fail-closed unsupported catalog handling, and disposable real-engine
+  acceptance without changing Evidence v1 or the nine-tool MCP surface.
 - Expand the fixed general-purpose Code and Database starter A/B dictionaries,
   make all C importance digits from 1 through 9 available, retain optional D
   grammar and the existing E scale, and use `EG7T` as the starter Code example.

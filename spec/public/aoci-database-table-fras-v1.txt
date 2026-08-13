@@ -1,9 +1,9 @@
 Database Table FRAS v1 (candidate evidence and cognition contract)
 
-Status: R67-D1 connects R67-D0 canonical PostgreSQL/MySQL Evidence to complete
-model-authored table FRAS in an already declared and present Database Volume.
-Automatic table cognition generation and formal Database Volume creation still
-do not exist. See aoci-database-evidence-v1.txt and
+Status: R67-D1 connects R67-D0 canonical PostgreSQL/MySQL/openGauss Evidence to
+complete model-authored table FRAS in an already declared and present Database
+Volume. Automatic table cognition generation and formal Database Volume
+creation still do not exist. See aoci-database-evidence-v1.txt and
 aoci-database-cognition-authoring-v1.txt.
 
 1. Object identity and section

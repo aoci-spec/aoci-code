@@ -8,6 +8,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	opengauss "gitcode.com/opengauss/openGauss-connector-go-pq"
 )
 
 type SourceError struct {
@@ -26,10 +28,17 @@ type catalogStageFailure struct {
 	err  error
 }
 
+type unsupportedCatalogFeature struct {
+	feature string
+}
+
 func (err *catalogQueryFailure) Error() string { return "catalog query " + err.name + " failed" }
 func (err *catalogQueryFailure) Unwrap() error { return err.err }
 func (err *catalogStageFailure) Error() string { return "catalog stage " + err.kind + " failed" }
 func (err *catalogStageFailure) Unwrap() error { return err.err }
+func (err *unsupportedCatalogFeature) Error() string {
+	return "unsupported catalog feature " + err.feature
+}
 
 func wrapCatalogQuery(name string, err error) error {
 	if err == nil {
@@ -51,7 +60,26 @@ type Collector struct {
 }
 
 func NewCollector() *Collector {
-	return &Collector{getenv: os.Getenv, open: sql.Open, credentialProvider: NewEnvironmentCredentialProvider(os.Getenv)}
+	return &Collector{getenv: os.Getenv, open: openDatabase, credentialProvider: NewEnvironmentCredentialProvider(os.Getenv)}
+}
+
+func openDatabase(driverName, dsn string) (*sql.DB, error) {
+	if driverName != "opengauss" {
+		return sql.Open(driverName, dsn)
+	}
+	return openOpenGaussDatabase(dsn, os.Getenv)
+}
+
+func openOpenGaussDatabase(dsn string, _ func(string) string) (*sql.DB, error) {
+	config, err := opengauss.ParseConfigStrict(dsn)
+	if err != nil {
+		return nil, err
+	}
+	connector, err := opengauss.NewConnectorConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return sql.OpenDB(connector), nil
 }
 
 func (collector *Collector) Inspect(ctx context.Context, source SourceConfig) (Inspection, error) {
@@ -105,9 +133,9 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	if credentialErr != nil || strings.TrimSpace(dsn) == "" {
 		return SourceManifest{}, nil, &SourceError{Code: "credential_env_missing", SourceID: source.SourceID, Op: "connect"}
 	}
-	driverName := "pgx"
-	if source.Engine == EngineMySQL {
-		driverName = "mysql"
+	driverName, err := driverNameForEngine(source.Engine)
+	if err != nil {
+		return SourceManifest{}, nil, &SourceError{Code: "configuration_invalid", SourceID: source.SourceID, Op: "driver_select"}
 	}
 	database, err := collector.open(driverName, dsn)
 	if err != nil {
@@ -136,13 +164,19 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		BusinessDataRead: false,
 	}
 	var tables []TableEvidence
-	if source.Engine == EnginePostgreSQL {
+	switch source.Engine {
+	case EnginePostgreSQL:
 		manifest.CaseSemantics = CaseSemantics{IdentifierCase: "preserve_quoted_fold_unquoted_lower"}
 		manifest.ServerVersion, tables, err = collectPostgreSQL(txCtx, tx, source, inspectOnly)
-	} else {
+	case EngineMySQL:
 		var lowerCase int
 		manifest.ServerVersion, lowerCase, tables, err = collectMySQL(txCtx, tx, source, inspectOnly)
 		manifest.CaseSemantics = CaseSemantics{IdentifierCase: "server_lower_case_table_names", LowerCaseTableNames: &lowerCase}
+	case EngineOpenGauss:
+		manifest.CaseSemantics = CaseSemantics{IdentifierCase: "preserve_quoted_fold_unquoted_lower"}
+		manifest.ServerVersion, tables, err = collectOpenGauss(txCtx, tx, source, inspectOnly)
+	default:
+		err = fmt.Errorf("unsupported engine")
 	}
 	if err != nil {
 		_ = tx.Rollback()
@@ -155,6 +189,10 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		if errors.As(err, &stageFailure) {
 			op += "_" + stageFailure.kind
 		}
+		var unsupported *unsupportedCatalogFeature
+		if errors.As(err, &unsupported) {
+			return SourceManifest{}, nil, &SourceError{Code: "unsupported_catalog_feature", SourceID: source.SourceID, Op: op + "_" + unsupported.feature}
+		}
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, op, err)
 	}
 	manifest.ServerVersion = normalizeCatalogText(manifest.ServerVersion)
@@ -162,6 +200,19 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, "commit_read_only", err)
 	}
 	return manifest, tables, nil
+}
+
+func driverNameForEngine(engine Engine) (string, error) {
+	switch engine {
+	case EnginePostgreSQL:
+		return "pgx", nil
+	case EngineMySQL:
+		return "mysql", nil
+	case EngineOpenGauss:
+		return "opengauss", nil
+	default:
+		return "", fmt.Errorf("unsupported engine")
+	}
 }
 
 func classifySourceError(parent context.Context, sourceID, op string, err error) error {

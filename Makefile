@@ -21,8 +21,20 @@ SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env G
 # staticcheck 可执行文件探测: 优先 PATH,其次 GOPATH/bin(go install 默认装到此处)
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
 FAST_PACKAGES := $(shell $(GO_BIN) list ./... | grep -v '/internal/cli$$')
+# GNU Make-native recursive wildcard keeps fmt-check usable under its
+# failure-closed minimal-PATH test; do not add a parse-time dependency on find.
+rwildcard = $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
+MAIN_GO_FILES := $(filter-out ./third_party/%,$(call rwildcard,./,*.go))
+OPENGAUSS_PATCH_GO_FILES := \
+	third_party/openGauss-connector-go-pq/config.go \
+	third_party/openGauss-connector-go-pq/conn.go \
+	third_party/openGauss-connector-go-pq/conn_go18.go \
+	third_party/openGauss-connector-go-pq/connector.go \
+	third_party/openGauss-connector-go-pq/logger.go \
+	third_party/openGauss-connector-go-pq/ssl.go \
+	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps opengauss-connector licenses textassets-check staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -40,14 +52,15 @@ example-test:
 vet:
 	$(GO_BIN) vet ./...
 
-# 格式化(列出并原地修正不合规文件)
+# 格式化主模块和AOCI拥有的connector补丁文件。未修改的完整上游镜像必须保持
+# v1.0.8字节不变，不能把整个third_party目录交给递归gofmt。
 fmt:
-	$(GOFMT_BIN) -l -w .
+	$(GOFMT_BIN) -l -w $(MAIN_GO_FILES) $(OPENGAUSS_PATCH_GO_FILES)
 
 # 格式检查闸(零副作用,供 check 调用;有未格式化文件即失败并列出清单)
 # 闸门教训(2026-07-09): check 曾长期缺失 fmt 口径,注释格式债静默积累 18 文件才暴露。
 fmt-check:
-	@UNFMT=$$($(GOFMT_BIN) -l .) || exit $$?; if [ -n "$$UNFMT" ]; then echo "fmt-check: 以下文件未通过 gofmt:"; echo "$$UNFMT"; exit 1; else echo "fmt-check: 全部文件符合 gofmt"; fi
+	@UNFMT=$$($(GOFMT_BIN) -l $(MAIN_GO_FILES) $(OPENGAUSS_PATCH_GO_FILES)) || exit $$?; if [ -n "$$UNFMT" ]; then echo "fmt-check: 以下文件未通过 gofmt:"; echo "$$UNFMT"; exit 1; else echo "fmt-check: 全部文件符合 gofmt"; echo "fmt-check: 主模块与AOCI connector补丁文件已检查，上游镜像未被递归改写"; fi
 
 # 公开文案禁区扫描(D3 机器闸门;脚本未就位时提示跳过不失败)
 safety:
@@ -57,6 +70,12 @@ safety:
 # 脚本仅用 go list,零新增依赖;脚本未就位时提示跳过不失败。
 check-deps:
 	@if [ -f scripts/check-deps.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh; else echo "check-deps: scripts/check-deps.sh 尚未生成,跳过"; fi
+
+# 固定openGauss Connector上游身份，重放AOCI安全补丁并逐字节比较完整本地模块；
+# 聚焦测试不会启动或访问数据库。
+opengauss-connector:
+	@GO_BIN="$(GO_BIN)" bash scripts/check-opengauss-connector.sh
+	@cd third_party/openGauss-connector-go-pq && $(GO_BIN) test -count=1 -run '^(TestParseConfigStrict.*|TestConnectorContextBoundsTLSStartup|TestNewPrintfLoggerWritesToStderr|TestBadClientCertificateDoesNotWriteStdout|TestCancelTLSFailureUsesOnlyCancelConnection|TestServerPBKDF2IterationBounds|TestAuthenticationPayloadAndIterationFailuresAreDriverErrors)$$' .
 
 # 可达外部Go包许可证闸；工具由CI和发布排练固定安装，不进入go.mod。
 licenses:
@@ -111,7 +130,7 @@ clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: fmt-check vet check-deps licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
 # Compatibility alias retained for existing operators and automation.

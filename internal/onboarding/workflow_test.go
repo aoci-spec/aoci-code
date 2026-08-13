@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/bootstrapapply"
+	"github.com/aoci-spec/aoci-code/internal/businesssource"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/config"
@@ -33,6 +35,41 @@ type fixedSnapshotCollector struct {
 	files        map[string][]byte
 	calls        int
 	mutateSecond bool
+}
+
+func TestDatabaseSourceProposalRecognizesCanonicalOpenGaussCandidate(t *testing.T) {
+	proposal := buildDatabaseSourceProposal(&cognitionplan.Plan{BusinessSourceManifest: businesssource.Manifest{
+		Files: []businesssource.File{{Path: "deploy/opengauss.conf"}},
+	}})
+	if proposal == nil || len(proposal.EngineCandidates) != 1 || proposal.EngineCandidates[0] != "opengauss" {
+		t.Fatalf("canonical openGauss candidate was not recognized: %#v", proposal)
+	}
+	if !proposal.SourceIDRequired || !proposal.DatabaseRequired || !proposal.CredentialEnvRequired || proposal.CredentialValueStored {
+		t.Fatalf("openGauss proposal weakened source safety requirements: %#v", proposal)
+	}
+}
+
+func TestDatabaseSourceProposalOffersOpenGaussForGenericSchemaEvidence(t *testing.T) {
+	proposal := buildDatabaseSourceProposal(&cognitionplan.Plan{BusinessSourceManifest: businesssource.Manifest{
+		Files: []businesssource.File{{Path: "database/schema.sql"}},
+	}})
+	want := []string{"mysql", "opengauss", "postgresql"}
+	if proposal == nil || !reflect.DeepEqual(proposal.EngineCandidates, want) {
+		t.Fatalf("generic schema candidates = %#v, want %#v", proposal, want)
+	}
+}
+
+func TestDatabaseSourceProposalDoesNotTreatOpenGaussAliasesAsCanonical(t *testing.T) {
+	for _, path := range []string{"deploy/gaussdb.conf", "deploy/og.conf", "deploy/open_gauss.conf"} {
+		t.Run(path, func(t *testing.T) {
+			proposal := buildDatabaseSourceProposal(&cognitionplan.Plan{BusinessSourceManifest: businesssource.Manifest{
+				Files: []businesssource.File{{Path: path}},
+			}})
+			if proposal != nil {
+				t.Fatalf("non-canonical openGauss alias was recognized: path=%q proposal=%#v", path, proposal)
+			}
+		})
+	}
 }
 
 func TestOnboardingAcceptsOfficialLocaleRuntimeBoundaryWithoutRewrite(t *testing.T) {

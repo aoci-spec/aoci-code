@@ -2,6 +2,34 @@
   "version": "database-real-acceptance/v1",
   "engines": [
     {
+      "engine": "opengauss",
+      "object_ref": "database://ogatempc/aoci_og/accounts",
+      "canonical_evidence_ref": "testdata/real/opengauss_a_accounts.json",
+      "table_evidence_sha256": "563e92b64b3144d03455026ca03b9aa0f7ecced003809da4b61d7d7ab148fca6",
+      "source_snapshot_sha256": "89870e0189e3ff8d44504c255082827215930b3fed014398337ea885c962e1d6",
+      "table_count": 3,
+      "drift": {
+        "unchanged": 1,
+        "new": 1,
+        "changed": 1,
+        "removed": 1
+      }
+    },
+    {
+      "engine": "opengauss",
+      "object_ref": "database://ogpgtemp/aoci_og/accounts",
+      "canonical_evidence_ref": "testdata/real/opengauss_pg_accounts.json",
+      "table_evidence_sha256": "4a215f5154e9140ac36167a4aaba565746c84f46fdf47f1c97ceeedff8fda81f",
+      "source_snapshot_sha256": "f4c7268f57cdb7a6842ada4cb73c427ab247c8a5fb4df619ca569365be52409f",
+      "table_count": 3,
+      "drift": {
+        "unchanged": 1,
+        "new": 1,
+        "changed": 1,
+        "removed": 1
+      }
+    },
+    {
       "engine": "mysql",
       "object_ref": "database://mysqltemp/aoci_test/accounts",
       "canonical_evidence_ref": "testdata/real/mysql_accounts.json",

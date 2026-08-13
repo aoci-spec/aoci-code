@@ -185,7 +185,7 @@ func TestOrdinaryScopeChangeRejectsPreimageThatOldBootstrapWouldHaveRejected(t *
 	root, rootPreimage := buildLegacyDatabaseBootstrapScopeFixture(t)
 	rootPreimage = bytes.Replace(rootPreimage, []byte("#Global-Invariants: deterministic fixture bytes"),
 		[]byte("#Global-Invariants: reserved id=database text"), 1)
-	liveRoot, err := replayLegacyDatabaseDescriptor(rootPreimage)
+	_, err := replayLegacyDatabaseDescriptor(rootPreimage)
 	if err == nil {
 		t.Fatal("test precondition failed: historical Bootstrap would not accept this preimage")
 	}
@@ -200,7 +200,7 @@ func TestOrdinaryScopeChangeRejectsPreimageThatOldBootstrapWouldHaveRejected(t *
 		t.Fatal("fixture Code descriptor has no line ending")
 	}
 	insertAt += lineEnd + 1
-	liveRoot = append([]byte{}, rootPreimage[:insertAt]...)
+	liveRoot := append([]byte{}, rootPreimage[:insertAt]...)
 	liveRoot = append(liveRoot, []byte(legacyBootstrapDatabaseDescriptor)...)
 	liveRoot = append(liveRoot, rootPreimage[insertAt:]...)
 	if err := os.WriteFile(filepath.Join(root, "aoci.txt"), liveRoot, 0o644); err != nil {

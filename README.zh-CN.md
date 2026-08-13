@@ -437,7 +437,7 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 | `aoci index agent guide` | 进入确定性的宿主智能体工作流 |
 | `aoci capabilities` | 查看当前二进制提供的能力 |
 | `aoci doctor` | 诊断仓库和宿主集成 |
-| `aoci database` | 显式配置并验证 PostgreSQL/MySQL Schema Evidence |
+| `aoci database` | 显式配置并验证 PostgreSQL/MySQL/openGauss Schema Evidence |
 | `aoci database source access` | 只读检查数据库凭据引用是否已由外部环境提供，不返回凭据值 |
 | `aoci database cognition bootstrap` | 为已对齐的 Code-only Volumes 项目添加 Database Cognition |
 | `aoci cognition plan` | 只读预览 Bootstrap 或 Legacy-to-Volumes 迁移计划 |
@@ -530,7 +530,7 @@ AOCI-CODE 可以将数据库结构纳入同一套认知和演进治理，但访�
 
 ```text
 显式 database 命令
-  → 只读 PostgreSQL/MySQL 系统目录
+  → 只读 PostgreSQL/MySQL/openGauss 系统目录
   → Canonical Schema Evidence
   → 人工接受 Evidence Hash
   → 宿主模型根据完整证据创作表级 FRAS
@@ -543,6 +543,12 @@ AOCI-CODE 可以将数据库结构纳入同一套认知和演进治理，但访�
 - 不将主机、用户名、DSN 或凭据值写入认知资产；
 - Database Cognition Apply 离线运行，写入时不重新连接数据库；
 - 程序保存并比较结构 Evidence，但表的职责、关系和高价值约束仍由模型创作。
+
+openGauss 首发支持范围被刻意限定为 openGauss 6.0.5 LTS、A/PG 兼容模式和普通非分区 base table。不支持的目录特性会失败关闭，不会被静默降级为 PostgreSQL 事实；这不代表支持 MogDB、GaussDB、Dolphin/B/MySQL 模式、分区或子分区、列存、MOT、外表、临时表、视图、例程或触发器。
+
+其中，失败关闭适用于被选中的可见 table-like 对象及其不受支持语义；例程和触发器处于 v1 表对象域外，不会被选择为表对象，也不会被伪装成表事实。
+
+openGauss 路径使用基于官方 Connector v1.0.8 源码、由 AOCI 审查并在仓内维护的补丁版本。其严格解析器只接受受审连接参数，不读取环境中的 `PG*`、service、密码文件、HOME 文件或 logger 配置。数值回环地址以外的 TCP 连接必须显式使用 `sslmode=verify-full`（提供 `sslrootcert` 时必须是可信根证书的绝对路径），最低 TLS 版本为 1.2，并拒绝 TLS 降级模式；只有显式 Unix Socket 或数值回环地址的本地/测试边界可以使用 `sslmode=disable`。数据库管理员仍负责在对话外提供该 DSN 并创建最小权限账号。
 
 Database Volume 默认可以不存在。只有项目明确启用数据库认知并完成 Evidence、Binding 和生命周期治理后，它才进入 Whole-Index。
 
@@ -634,7 +640,7 @@ aoci --repo . cognition system evolution \
 | **Drift Detection** | 区分 Missing、Orphan、Stale、Unbaselined、换行变化和策展差异 |
 | **Governed Updates** | 候选经源码绑定、Plan、校验、Review、CAS、原子写入、Baseline 与恢复流程进入正式资产 |
 | **Delivery Attestation** | 通过 Chunk、Cursor、Receipt 与 Challenge 证明 Whole-Index 确已完整交付 |
-| **Database Cognition** | 根据显式接受的 PostgreSQL/MySQL Schema Evidence 形成并治理表级认知 |
+| **Database Cognition** | 根据显式接受的 PostgreSQL/MySQL/openGauss Schema Evidence 形成并治理表级认知 |
 | **System Intelligence Projection** | 从权威 Cognition 及其绑定派生 Lineage、窄 Relations、Database-to-Code Impact、Snapshot 与 Evolution，不复制权威状态；Impact 仅沿模型明确创作的 R 关系遍历 |
 
 ## 🔗 与其他代码理解方法的关系
@@ -663,7 +669,7 @@ AOCI-CODE 与现有工具互补，不替代它们。
 | **正式认知** | UTF-8 明文 Cognition Volumes，可由 Git diff 和版本管理 |
 | **机器状态** | JSON/JSONL、SHA-256、Baseline、Manifest、Receipt、Ledger 与 Recovery |
 | **写入安全** | 跨进程锁、CAS、同目录临时文件、平台原子替换和失败关闭 |
-| **数据库** | 核心运行不依赖业务数据库；可选 PostgreSQL/MySQL Schema Evidence 使用纯 Go 驱动 |
+| **数据库** | 核心运行不依赖业务数据库；可选 PostgreSQL/MySQL/openGauss Schema Evidence 使用纯 Go 驱动 |
 | **系统认知** | 从权威资产即时派生的 Lineage、Relations、Impact、Snapshot 与 Evolution 投影 |
 | **运行方式** | Agent-native、Endpoint-native、Deterministic-only |
 

@@ -1,0 +1,1031 @@
+diff --git a/AOCI-PATCHES.md b/AOCI-PATCHES.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..ebff90c6a4ac4a3dceb6f740227a337116f31dc5
+--- /dev/null
++++ b/AOCI-PATCHES.md
+@@ -0,0 +1,22 @@
++# AOCI connector patch set
++
++This module is based on the official
++`gitcode.com/opengauss/openGauss-connector-go-pq` v1.0.8 source release. AOCI
++keeps the upstream module path and legacy `ParseConfig` behavior while applying
++the following narrowly scoped production hardening:
++
++- reserve process stdout for the host protocol and send the default connector
++  logger to stderr;
++- perform TLS query cancellation on the dedicated cancel socket without
++  closing or upgrading the main connection;
++- provide `ParseConfigStrict`, an opt-in deterministic configuration entrypoint
++  that does not consume ambient libpq or home-directory configuration and does
++  not permit TLS downgrade or multi-host fallback, rejects unknown parameters,
++  requires an absolute explicit CA path when supplied, and enforces TLS 1.2 or
++  later;
++- keep dial, TLS negotiation, authentication, and startup reads within the
++  caller's connection context; and
++- reject truncated SHA256/SM3 authentication challenges and server-controlled
++  PBKDF2 iteration counts outside `1..1,000,000` before parsing or computation.
++
++The upstream `LICENSE.md` remains authoritative for this vendored module.
+diff --git a/aoci_security_patch_test.go b/aoci_security_patch_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..0cd1b7827a9bed253e48b9d452f89fd8ad806c88
+--- /dev/null
++++ b/aoci_security_patch_test.go
+@@ -0,0 +1,425 @@
++package pq
++
++import (
++	"context"
++	"crypto/tls"
++	"encoding/binary"
++	"errors"
++	"io"
++	"net"
++	"os"
++	"path/filepath"
++	"runtime"
++	"strings"
++	"testing"
++	"time"
++)
++
++func TestParseConfigStrictIgnoresAmbientConfiguration(t *testing.T) {
++	ambient := map[string]string{
++		"HOME":                 t.TempDir(),
++		"PGHOST":               "ambient.invalid",
++		"PGPORT":               "1",
++		"PGDATABASE":           "ambient_database",
++		"PGUSER":               "ambient_user",
++		"PGPASSWORD":           "ambient_password",
++		"PGPASSFILE":           filepath.Join(t.TempDir(), "ambient.pgpass"),
++		"PGAPPNAME":            "ambient_application",
++		"PGCONNECT_TIMEOUT":    "999",
++		"PGSSLMODE":            "disable",
++		"PGSSLKEY":             filepath.Join(t.TempDir(), "ambient.key"),
++		"PGSSLCERT":            filepath.Join(t.TempDir(), "ambient.crt"),
++		"PGSSLROOTCERT":        filepath.Join(t.TempDir(), "ambient-root.crt"),
++		"PGTARGETSESSIONATTRS": "read-only",
++		"PGSERVICE":            "ambient_service",
++		"PGSERVICEFILE":        filepath.Join(t.TempDir(), "ambient-service.conf"),
++		"PGLOGGERLEVEL":        "trace",
++	}
++	for name, value := range ambient {
++		setenvForTest(t, name, value)
++	}
++
++	config, err := ParseConfigStrict("host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=verify-full")
++	if err != nil {
++		t.Fatalf("ParseConfigStrict returned an error: %v", err)
++	}
++	if config.Host != "db.example.test" || config.Port != 5432 || config.Database != "app" || config.User != "reader" || config.Password != "secret" {
++		t.Fatalf("strict config used ambient connection settings: %#v", config)
++	}
++	if config.ConnectTimeout != 0 {
++		t.Fatalf("strict config used ambient connect timeout: %v", config.ConnectTimeout)
++	}
++	if config.Logger != nil || config.LogLevel != 0 {
++		t.Fatalf("strict config used ambient logger settings: logger=%T level=%v", config.Logger, config.LogLevel)
++	}
++	if got := config.RuntimeParams[paramApplicationName]; got != "" {
++		t.Fatalf("strict config used ambient application name: %q", got)
++	}
++	if config.TLSConfig == nil || config.TLSConfig.InsecureSkipVerify || config.TLSConfig.ServerName != "db.example.test" {
++		t.Fatalf("strict config did not preserve verify-full: %#v", config.TLSConfig)
++	}
++	if len(config.Fallbacks) != 0 {
++		t.Fatalf("strict config created fallback connections: %#v", config.Fallbacks)
++	}
++}
++
++func TestParseConfigStrictRequiresExplicitConnectionFields(t *testing.T) {
++	tests := []struct {
++		name string
++		dsn  string
++		want string
++	}{
++		{"host", "port=5432 dbname=app user=reader password=secret sslmode=disable", "host must be explicitly provided"},
++		{"port", "host=localhost dbname=app user=reader password=secret sslmode=disable", "port must be explicitly provided"},
++		{"database", "host=localhost port=5432 user=reader password=secret sslmode=disable", "database must be explicitly provided"},
++		{"user", "host=localhost port=5432 dbname=app password=secret sslmode=disable", "user must be explicitly provided"},
++		{"password", "host=localhost port=5432 dbname=app user=reader sslmode=disable", "password must be explicitly provided"},
++		{"sslmode", "host=localhost port=5432 dbname=app user=reader password=secret", "sslmode must be explicitly provided"},
++	}
++
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			_, err := ParseConfigStrict(test.dsn)
++			if err == nil || !strings.Contains(err.Error(), test.want) {
++				t.Fatalf("ParseConfigStrict error = %v, want substring %q", err, test.want)
++			}
++		})
++	}
++}
++
++func TestParseConfigStrictRejectsAmbientFileAndLoggerFeatures(t *testing.T) {
++	for _, parameter := range []string{
++		paramService, paramServiceFile, paramPassFile, paramLoggerLevel,
++		paramConnectTimeout, paramTargetSessionAttrs, paramKrbSrvName,
++		paramClientEncoding, paramMinReadBufferSize, "search_path",
++	} {
++		t.Run(parameter, func(t *testing.T) {
++			dsn := "host=localhost port=5432 dbname=app user=reader password=secret sslmode=disable " + parameter + "=forbidden"
++			_, err := ParseConfigStrict(dsn)
++			if err == nil || !strings.Contains(err.Error(), parameter+" is not permitted") {
++				t.Fatalf("ParseConfigStrict error = %v, want forbidden %s", err, parameter)
++			}
++		})
++	}
++}
++
++func TestParseConfigStrictTLSPolicy(t *testing.T) {
++	tests := []struct {
++		name    string
++		dsn     string
++		wantErr string
++		wantTLS bool
++	}{
++		{"remote verify-full", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=verify-full", "", true},
++		{"localhost disable", "host=localhost port=5432 dbname=app user=reader password=secret sslmode=disable", "numeric loopback", false},
++		{"IPv4 loopback disable", "host=127.0.0.1 port=5432 dbname=app user=reader password=secret sslmode=disable", "", false},
++		{"IPv6 loopback disable", "host=::1 port=5432 dbname=app user=reader password=secret sslmode=disable", "", false},
++		{"Unix socket disable", "host=/tmp port=5432 dbname=app user=reader password=secret sslmode=disable", "", false},
++		{"remote disable", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=disable", "numeric loopback", false},
++		{"allow", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=allow", "not permitted", false},
++		{"prefer", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=prefer", "not permitted", false},
++		{"require", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=require", "not permitted", false},
++		{"verify-ca", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=verify-ca", "not permitted", false},
++		{"Unix socket verify-full", "host=/tmp port=5432 dbname=app user=reader password=secret sslmode=verify-full", "must use sslmode=disable", false},
++		{"multiple hosts", "host=localhost,127.0.0.1 port=5432 dbname=app user=reader password=secret sslmode=disable", "multiple hosts", false},
++		{"multiple ports", "host=localhost port=5432,5433 dbname=app user=reader password=secret sslmode=disable", "multiple hosts", false},
++		{"MogDB URL", "mogdb://reader:secret@127.0.0.1:5432/app?sslmode=disable", "protocol mogdb", false},
++		{"unknown URL", "https://reader:secret@127.0.0.1:5432/app?sslmode=disable", "protocol https", false},
++		{"relative CA", "host=db.example.test port=5432 dbname=app user=reader password=secret sslmode=verify-full sslrootcert=relative-ca.pem", "absolute path", false},
++	}
++
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			config, err := ParseConfigStrict(test.dsn)
++			if test.wantErr != "" {
++				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
++					t.Fatalf("ParseConfigStrict error = %v, want substring %q", err, test.wantErr)
++				}
++				return
++			}
++			if err != nil {
++				t.Fatalf("ParseConfigStrict returned an error: %v", err)
++			}
++			if got := config.TLSConfig != nil; got != test.wantTLS {
++				t.Fatalf("TLSConfig presence = %v, want %v", got, test.wantTLS)
++			}
++			if config.TLSConfig != nil && config.TLSConfig.MinVersion != tls.VersionTLS12 {
++				t.Fatalf("strict TLS minimum version = %d, want TLS 1.2", config.TLSConfig.MinVersion)
++			}
++			if len(config.Fallbacks) != 0 {
++				t.Fatalf("strict config created fallback connections: %#v", config.Fallbacks)
++			}
++		})
++	}
++}
++
++func TestConnectorContextBoundsTLSStartup(t *testing.T) {
++	config, err := ParseConfigStrict("host=127.0.0.1 port=5432 dbname=app user=reader password=secret sslmode=verify-full")
++	if err != nil {
++		t.Fatal(err)
++	}
++	client, server := net.Pipe()
++	t.Cleanup(func() { _ = server.Close() })
++	config.DialFunc = func(context.Context, string, string) (net.Conn, error) { return client, nil }
++	connector, err := NewConnectorConfig(config)
++	if err != nil {
++		t.Fatal(err)
++	}
++	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
++	defer cancel()
++	started := time.Now()
++	connection, err := connector.Connect(ctx)
++	if err == nil {
++		if connection != nil {
++			_ = connection.Close()
++		}
++		t.Fatal("TLS blackhole unexpectedly produced a connection")
++	}
++	if !errors.Is(err, context.DeadlineExceeded) {
++		t.Fatalf("TLS blackhole error = %v, want context deadline", err)
++	}
++	if elapsed := time.Since(started); elapsed > time.Second {
++		t.Fatalf("TLS blackhole ignored context for %v", elapsed)
++	}
++}
++
++func TestNewPrintfLoggerWritesToStderr(t *testing.T) {
++	logger, ok := NewPrintfLogger(LogLevelInfo).(*printfLogger)
++	if !ok {
++		t.Fatalf("NewPrintfLogger returned %T", logger)
++	}
++	if logger.l.Writer() != os.Stderr {
++		t.Fatalf("NewPrintfLogger writer = %T, want os.Stderr", logger.l.Writer())
++	}
++}
++
++func TestBadClientCertificateDoesNotWriteStdout(t *testing.T) {
++	tempDir := t.TempDir()
++	certBytes, err := os.ReadFile(filepath.Join("certs", "server.crt"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	keyBytes, err := os.ReadFile(filepath.Join("certs", "postgresql.key"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	certPath := filepath.Join(tempDir, "client.crt")
++	keyPath := filepath.Join(tempDir, "client.key")
++	if err := os.WriteFile(certPath, certBytes, 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(keyPath, keyBytes, 0600); err != nil {
++		t.Fatal(err)
++	}
++
++	output := captureStdout(t, func() {
++		_, err = configTLSStrict(map[string]string{
++			paramHost:    "db.example.test",
++			paramSSLMode: "verify-full",
++			paramSSLCert: certPath,
++			paramSSLKey:  keyPath,
++		})
++	})
++	if err == nil {
++		t.Fatal("configTLSStrict accepted a mismatched client certificate and key")
++	}
++	if output != "" {
++		t.Fatalf("configTLSStrict wrote to stdout: %q", output)
++	}
++}
++
++func TestCancelTLSFailureUsesOnlyCancelConnection(t *testing.T) {
++	mainConnection := &recordingConn{}
++	cancelConnection := &recordingConn{writeErr: errors.New("cancel TLS write failed")}
++	cn := &conn{
++		c: mainConnection,
++		config: &Config{
++			DialFunc: func(context.Context, string, string) (net.Conn, error) {
++				return cancelConnection, nil
++			},
++			minReadBufferSize: 8,
++		},
++		fallbackConfig: &FallbackConfig{
++			Host:      "localhost",
++			Port:      5432,
++			TLSConfig: &tls.Config{},
++		},
++	}
++
++	err := cn.cancel(context.Background())
++	if err == nil || !strings.Contains(err.Error(), "cancel TLS write failed") {
++		t.Fatalf("cancel error = %v, want cancel TLS failure", err)
++	}
++	if mainConnection.writes != 0 || mainConnection.closed {
++		t.Fatalf("cancel touched main connection: writes=%d closed=%v", mainConnection.writes, mainConnection.closed)
++	}
++	if cancelConnection.writes == 0 || !cancelConnection.closed {
++		t.Fatalf("cancel connection was not used and closed: writes=%d closed=%v", cancelConnection.writes, cancelConnection.closed)
++	}
++}
++
++func TestCancelContextBoundsTLSStartupAndServerEOF(t *testing.T) {
++	for _, test := range []struct {
++		name      string
++		tlsConfig *tls.Config
++		drain     bool
++	}{
++		{name: "TLS response stall", tlsConfig: &tls.Config{}},
++		{name: "server EOF stall", drain: true},
++	} {
++		t.Run(test.name, func(t *testing.T) {
++			client, server := net.Pipe()
++			if test.drain {
++				go func() { _, _ = io.Copy(io.Discard, server) }()
++			}
++			t.Cleanup(func() { _ = server.Close() })
++			cn := &conn{
++				config: &Config{
++					DialFunc:          func(context.Context, string, string) (net.Conn, error) { return client, nil },
++					minReadBufferSize: 8,
++				},
++				fallbackConfig: &FallbackConfig{Host: "127.0.0.1", Port: 5432, TLSConfig: test.tlsConfig},
++			}
++			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
++			defer cancel()
++			started := time.Now()
++			err := cn.cancel(ctx)
++			if !errors.Is(err, context.DeadlineExceeded) {
++				t.Fatalf("cancel stall error = %v, want context deadline", err)
++			}
++			if elapsed := time.Since(started); elapsed > time.Second {
++				t.Fatalf("cancel stall ignored context for %v", elapsed)
++			}
++		})
++	}
++}
++
++func TestServerPBKDF2IterationBounds(t *testing.T) {
++	for _, iterations := range []int{1, maxServerPBKDF2Iterations} {
++		if err := validateServerPBKDF2Iterations(iterations); err != nil {
++			t.Fatalf("validateServerPBKDF2Iterations(%d) = %v", iterations, err)
++		}
++	}
++	for _, iterations := range []int{-1, 0, maxServerPBKDF2Iterations + 1} {
++		if err := validateServerPBKDF2Iterations(iterations); err == nil {
++			t.Fatalf("validateServerPBKDF2Iterations(%d) unexpectedly succeeded", iterations)
++		}
++	}
++}
++
++func TestAuthenticationPayloadAndIterationFailuresAreDriverErrors(t *testing.T) {
++	tests := []struct {
++		name    string
++		payload []byte
++		want    string
++	}{
++		{"short SHA256 method", authPayload(AuthReqSha256, nil), "invalid SHA256 authentication method payload"},
++		{"short SHA256 challenge", authPayload(AuthReqSha256, int32Bytes(Sha256Password)), "invalid SHA256 authentication challenge payload"},
++		{"zero SHA256 iterations", challengePayload(AuthReqSha256, Sha256Password, 0), "PBKDF2 iteration count 0"},
++		{"excessive SHA256 iterations", challengePayload(AuthReqSha256, Sha256Password, maxServerPBKDF2Iterations+1), "outside the permitted range"},
++		{"short SM3 method", authPayload(AuthReqSm3, nil), "invalid SM3 authentication method payload"},
++		{"short SM3 challenge", authPayload(AuthReqSm3, int32Bytes(Sm3Password)), "invalid SM3 authentication challenge payload"},
++		{"zero SM3 iterations", challengePayload(AuthReqSm3, Sm3Password, 0), "PBKDF2 iteration count 0"},
++	}
++
++	for _, test := range tests {
++		t.Run(test.name, func(t *testing.T) {
++			cn := &conn{config: &Config{Password: "secret"}}
++			buf := readBuf(test.payload)
++			got := recoverAuthPanic(func() { cn.auth(&buf) })
++			if got == nil {
++				t.Fatal("auth unexpectedly succeeded")
++			}
++			if _, ok := got.(runtime.Error); ok {
++				t.Fatalf("auth panicked with runtime error: %v", got)
++			}
++			err, ok := got.(error)
++			if !ok || !strings.Contains(err.Error(), test.want) {
++				t.Fatalf("auth panic = %#v, want driver error containing %q", got, test.want)
++			}
++		})
++	}
++}
++
++func authPayload(code int, payload []byte) []byte {
++	result := int32Bytes(code)
++	return append(result, payload...)
++}
++
++func challengePayload(code, method, iterations int) []byte {
++	payload := int32Bytes(method)
++	payload = append(payload, make([]byte, 64+8)...)
++	payload = append(payload, int32Bytes(iterations)...)
++	return authPayload(code, payload)
++}
++
++func int32Bytes(value int) []byte {
++	result := make([]byte, 4)
++	binary.BigEndian.PutUint32(result, uint32(value))
++	return result
++}
++
++func recoverAuthPanic(fn func()) (recovered interface{}) {
++	defer func() { recovered = recover() }()
++	fn()
++	return nil
++}
++
++func captureStdout(t *testing.T, fn func()) string {
++	t.Helper()
++	reader, writer, err := os.Pipe()
++	if err != nil {
++		t.Fatal(err)
++	}
++	original := os.Stdout
++	os.Stdout = writer
++	defer func() { os.Stdout = original }()
++
++	fn()
++	if err := writer.Close(); err != nil {
++		t.Fatal(err)
++	}
++	data, err := io.ReadAll(reader)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := reader.Close(); err != nil {
++		t.Fatal(err)
++	}
++	return string(data)
++}
++
++func setenvForTest(t *testing.T, name, value string) {
++	t.Helper()
++	original, present := os.LookupEnv(name)
++	if err := os.Setenv(name, value); err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() {
++		if present {
++			_ = os.Setenv(name, original)
++		} else {
++			_ = os.Unsetenv(name)
++		}
++	})
++}
++
++type recordingConn struct {
++	writes   int
++	closed   bool
++	writeErr error
++}
++
++func (c *recordingConn) Read([]byte) (int, error)         { return 0, io.EOF }
++func (c *recordingConn) Write(p []byte) (int, error)      { c.writes++; return len(p), c.writeErr }
++func (c *recordingConn) Close() error                     { c.closed = true; return nil }
++func (c *recordingConn) LocalAddr() net.Addr              { return dummyAddr("local") }
++func (c *recordingConn) RemoteAddr() net.Addr             { return dummyAddr("remote") }
++func (c *recordingConn) SetDeadline(time.Time) error      { return nil }
++func (c *recordingConn) SetReadDeadline(time.Time) error  { return nil }
++func (c *recordingConn) SetWriteDeadline(time.Time) error { return nil }
++
++type dummyAddr string
++
++func (a dummyAddr) Network() string { return string(a) }
++func (a dummyAddr) String() string  { return string(a) }
+diff --git a/config.go b/config.go
+index 0911176c2782403a4d1f6aa6bf653d13a75b5da9..6455a95c07e5d0c9a8317d3728b7c2216c22b129 100644
+--- a/config.go
++++ b/config.go
+@@ -247,6 +247,131 @@ func ParseConfig(connString string) (*Config, error) {
+ 		settings = mergeSettings(defaultSettings, envSettings, serviceSettings, connStringSettings)
+ 	}
+ 
++	return parseConfigSettings(connString, settings, false)
++}
++
++// ParseConfigStrict builds a Config exclusively from connString. Unlike
++// ParseConfig, it never reads libpq environment variables, the OS user,
++// service files, passfiles, or implicit client certificates from the user's
++// home directory. It also forbids TLS downgrade and multi-host fallback.
++//
++// The connection string must explicitly provide host, port, database (or
++// dbname), user, password, and sslmode. TCP connections must use verify-full,
++// except that disable is accepted for numeric loopback IP addresses. Unix
++// domain sockets must use disable. Only the fixed connection, CA, and
++// application-name parameters used by AOCI are accepted.
++func ParseConfigStrict(connString string) (*Config, error) {
++	if separator := strings.Index(connString, "://"); separator >= 0 {
++		scheme := strings.ToLower(strings.TrimSpace(connString[:separator]))
++		if scheme != "postgres" && scheme != "postgresql" && scheme != "opengauss" {
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        fmt.Sprintf("connection protocol %s is not permitted by strict configuration", scheme),
++			}
++		}
++	}
++	connStringSettings, err := ParseURLToMap(connString)
++	if err != nil {
++		return nil, err
++	}
++
++	allowedParameters := map[string]struct{}{
++		paramHost: {}, paramPort: {}, paramDatabase: {}, paramUser: {},
++		paramPassword: {}, paramSSLMode: {}, paramSSLRootCert: {},
++		paramApplicationName: {},
++	}
++	for parameter := range connStringSettings {
++		if _, permitted := allowedParameters[parameter]; !permitted {
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        fmt.Sprintf("%s is not permitted by strict configuration", parameter),
++			}
++		}
++	}
++	if rootCertificate, present := connStringSettings[paramSSLRootCert]; present {
++		if strings.TrimSpace(rootCertificate) == "" || !filepath.IsAbs(rootCertificate) {
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        "sslrootcert must be an absolute path in strict configuration",
++			}
++		}
++	}
++
++	for _, parameter := range []string{
++		paramHost,
++		paramPort,
++		paramDatabase,
++		paramUser,
++		paramPassword,
++		paramSSLMode,
++	} {
++		if strings.TrimSpace(connStringSettings[parameter]) == "" {
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        fmt.Sprintf("%s must be explicitly provided by strict configuration", parameter),
++			}
++		}
++	}
++
++	host := connStringSettings[paramHost]
++	if strings.Contains(host, ",") || strings.Contains(connStringSettings[paramPort], ",") {
++		return nil, &parseConfigError{
++			connString: connString,
++			msg:        "multiple hosts are not permitted by strict configuration",
++		}
++	}
++
++	sslmode := connStringSettings[paramSSLMode]
++	network, _ := NetworkAddress(host, 1)
++	if network == "unix" {
++		if sslmode != "disable" {
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        "Unix domain sockets must use sslmode=disable in strict configuration",
++			}
++		}
++	} else {
++		switch sslmode {
++		case "verify-full":
++		case "disable":
++			if !isStrictNumericLoopbackHost(host) {
++				return nil, &parseConfigError{
++					connString: connString,
++					msg:        "sslmode=disable is permitted only for a numeric loopback IP address",
++				}
++			}
++		case "allow", "prefer", "require", "verify-ca":
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        fmt.Sprintf("sslmode=%s is not permitted by strict configuration", sslmode),
++			}
++		default:
++			return nil, &parseConfigError{
++				connString: connString,
++				msg:        fmt.Sprintf("unknown sslmode value: %s", sslmode),
++			}
++		}
++	}
++
++	settings := mergeSettings(
++		map[string]string{
++			paramTargetSessionAttrs: "any",
++			paramMinReadBufferSize:  "8192",
++			paramCpBufferSize:       "65536",
++		},
++		connStringSettings,
++	)
++
++	return parseConfigSettings(connString, settings, true)
++}
++
++func isStrictNumericLoopbackHost(host string) bool {
++	ip := net.ParseIP(strings.Trim(host, "[]"))
++	return ip != nil && ip.IsLoopback()
++}
++
++func parseConfigSettings(connString string, settings map[string]string, strict bool) (*Config, error) {
++
+ 	minReadBufferSize, err := strconv.ParseInt(settings[paramMinReadBufferSize], 10, 32)
+ 	if err != nil {
+ 		return nil, &parseConfigError{connString: connString, msg: "cannot parse min_read_buffer_size", err: err}
+@@ -361,7 +486,11 @@ func ParseConfig(connString string) (*Config, error) {
+ 			tlsConfigs = append(tlsConfigs, nil)
+ 		} else {
+ 			var err error
+-			tlsConfigs, err = configTLS(settings)
++			if strict {
++				tlsConfigs, err = configTLSStrict(settings)
++			} else {
++				tlsConfigs, err = configTLS(settings)
++			}
+ 			if err != nil {
+ 				return nil, &parseConfigError{connString: connString, msg: "failed to configure TLS", err: err}
+ 			}
+@@ -383,14 +512,16 @@ func ParseConfig(connString string) (*Config, error) {
+ 	config.TLSConfig = fallbacks[0].TLSConfig
+ 	config.Fallbacks = fallbacks[1:]
+ 
+-	passFile, err := pgpassfile.ReadPassfile(settings[paramPassFile])
+-	if err == nil {
+-		if config.Password == "" {
+-			host := config.Host
+-			if network, _ := NetworkAddress(config.Host, config.Port); network == "unix" {
+-				host = "localhost"
++	if !strict {
++		passFile, err := pgpassfile.ReadPassfile(settings[paramPassFile])
++		if err == nil {
++			if config.Password == "" {
++				host := config.Host
++				if network, _ := NetworkAddress(config.Host, config.Port); network == "unix" {
++					host = "localhost"
++				}
++				config.Password = passFile.FindPassword(host, strconv.Itoa(int(config.Port)), config.Database, config.User)
+ 			}
+-			config.Password = passFile.FindPassword(host, strconv.Itoa(int(config.Port)), config.Database, config.User)
+ 		}
+ 	}
+ 
+diff --git a/conn.go b/conn.go
+index 71854093780b423e0ea09d9bcb6f7d0dff4364df..c00db00472164a3b675ceb7a0cf7179934fbef26 100644
+--- a/conn.go
++++ b/conn.go
+@@ -56,6 +56,8 @@ const (
+ 
+ 	Sm3Password = 3
+ 
++	maxServerPBKDF2Iterations = 1000000
++
+ 	ClientEncoding        = "client_encoding"
+ 	ServerEncoding        = "server_encoding"
+ 	ServerVersion         = "server_version"
+@@ -855,6 +857,7 @@ func (cn *conn) startup() {
+ }
+ 
+ func (cn *conn) auth(r *readBuf) {
++	requireAuthenticationPayload(r, 4, "authentication request")
+ 	switch code := r.int32(); code {
+ 	case AuthReqOk:
+ 		// OK
+@@ -935,15 +938,20 @@ func (cn *conn) auth(r *readBuf) {
+ 		}
+ 	case AuthReqSha256:
+ 		// 这里在openGauss为sha256加密办法，主要代码流程来自jdbc相关实现
++		requireAuthenticationPayload(r, 4, "SHA256 authentication method")
+ 		passwordStoredMethod := r.int32()
+ 		digest := ""
+ 		if len(cn.config.Password) == 0 {
+ 			errorf("The server requested password-based authentication, but no password was provided.")
+ 		}
+ 		if passwordStoredMethod == PlainPassword || passwordStoredMethod == Sha256Password {
++			requireAuthenticationPayload(r, 76, "SHA256 authentication challenge")
+ 			random64code := string(r.next(64))
+ 			token := string(r.next(8))
+ 			serverIteration := r.int32()
++			if err := validateServerPBKDF2Iterations(serverIteration); err != nil {
++				errorf("invalid SHA256 authentication challenge: %v", err)
++			}
+ 			result := RFC5802Algorithm(cn.config.Password, random64code, token, "", serverIteration, "sha256")
+ 			if len(result) == 0 {
+ 				errorf("Invalid username/password,login denied.")
+@@ -962,11 +970,13 @@ func (cn *conn) auth(r *readBuf) {
+ 				errorf("unexpected password response: %q", t)
+ 			}
+ 
++			requireAuthenticationPayload(r, 4, "SHA256 authentication response")
+ 			if r.int32() != 0 {
+ 				errorf("unexpected authentication response: %q", t)
+ 			}
+ 			// return
+ 		} else if passwordStoredMethod == Md5Password {
++			requireAuthenticationPayload(r, 4, "MD5 authentication challenge")
+ 			s := string(r.next(4))
+ 			digest = "md5" + md5s(md5s(cn.config.Password+cn.config.User)+s)
+ 			w := cn.writeBuf('p')
+@@ -979,6 +989,7 @@ func (cn *conn) auth(r *readBuf) {
+ 				errorf("unexpected password response: %q", t)
+ 			}
+ 
++			requireAuthenticationPayload(r, 4, "MD5 authentication response")
+ 			if r.int32() != 0 {
+ 				errorf("unexpected authentication response: %q", t)
+ 			}
+@@ -986,6 +997,7 @@ func (cn *conn) auth(r *readBuf) {
+ 			errorf("The  password-stored method is not supported ,must be plain, md5 or sha256.")
+ 		}
+ 	case AuthReqMd5Sha256:
++		requireAuthenticationPayload(r, 68, "MD5-SHA256 authentication challenge")
+ 		random64code := string(r.next(64))
+ 		md5Salt := r.next(4)
+ 		result := Md5Sha256encode(cn.config.Password, random64code, md5Salt)
+@@ -1003,15 +1015,24 @@ func (cn *conn) auth(r *readBuf) {
+ 			errorf("unexpected password response: %q", t)
+ 		}
+ 
++		requireAuthenticationPayload(r, 4, "MD5-SHA256 authentication response")
+ 		if r.int32() != 0 {
+ 			errorf("unexpected authentication response: %q", t)
+ 		}
+ 	case AuthReqSm3: // sm3
++		requireAuthenticationPayload(r, 4, "SM3 authentication method")
+ 		passwordStoredMethod := r.int32()
+ 		if passwordStoredMethod == Sm3Password {
++			if len(cn.config.Password) == 0 {
++				errorf("The server requested password-based authentication, but no password was provided.")
++			}
++			requireAuthenticationPayload(r, 76, "SM3 authentication challenge")
+ 			random64code := string(r.next(64))
+ 			token := string(r.next(8))
+ 			serverIteration := r.int32()
++			if err := validateServerPBKDF2Iterations(serverIteration); err != nil {
++				errorf("invalid SM3 authentication challenge: %v", err)
++			}
+ 
+ 			result := RFC5802Algorithm(cn.config.Password, random64code, token, "", serverIteration, "sm3")
+ 			if len(result) == 0 {
+@@ -1032,6 +1053,7 @@ func (cn *conn) auth(r *readBuf) {
+ 				errorf("unexpected password response: %q", t)
+ 			}
+ 
++			requireAuthenticationPayload(r, 4, "SM3 authentication response")
+ 			if r.int32() != 0 {
+ 				errorf("unexpected authentication response: %q", t)
+ 			}
+@@ -1043,6 +1065,19 @@ func (cn *conn) auth(r *readBuf) {
+ 	}
+ }
+ 
++func requireAuthenticationPayload(r *readBuf, required int, field string) {
++	if required < 0 || len(*r) < required {
++		errorf("invalid %s payload: got %d bytes, need at least %d", field, len(*r), required)
++	}
++}
++
++func validateServerPBKDF2Iterations(iterations int) error {
++	if iterations < 1 || iterations > maxServerPBKDF2Iterations {
++		return fmt.Errorf("PBKDF2 iteration count %d is outside the permitted range 1..%d", iterations, maxServerPBKDF2Iterations)
++	}
++	return nil
++}
++
+ type format int
+ 
+ const formatText format = 0
+@@ -1225,10 +1260,10 @@ func (cn *conn) parseComplete(commandTag string) (driver.Result, string) {
+ // QuoteIdentifier quotes an "identifier" (e.g. a table or a column name) to be
+ // used as part of an SQL statement.  For example:
+ //
+-//    tblname := "my_table"
+-//    data := "my_data"
+-//    quoted := pq.QuoteIdentifier(tblname)
+-//    err := db.Exec(fmt.Sprintf("INSERT INTO %s VALUES ($1)", quoted), data)
++//	tblname := "my_table"
++//	data := "my_data"
++//	quoted := pq.QuoteIdentifier(tblname)
++//	err := db.Exec(fmt.Sprintf("INSERT INTO %s VALUES ($1)", quoted), data)
+ //
+ // Any double quotes in name will be escaped.  The quoted identifier will be
+ // case sensitive when used in a query.  If the input string contains a zero
+@@ -1245,8 +1280,8 @@ func QuoteIdentifier(name string) string {
+ // to DDL and other statements that do not accept parameters) to be used as part
+ // of an SQL statement.  For example:
+ //
+-//    exp_date := pq.QuoteLiteral("2023-01-05 15:00:00Z")
+-//    err := db.Exec(fmt.Sprintf("CREATE ROLE my_user VALID UNTIL %s", exp_date))
++//	exp_date := pq.QuoteLiteral("2023-01-05 15:00:00Z")
++//	err := db.Exec(fmt.Sprintf("CREATE ROLE my_user VALID UNTIL %s", exp_date))
+ //
+ // Any single quotes in name will be escaped. Any backslashes (i.e. "\") will be
+ // replaced by two backslashes (i.e. "\\") and the C-style escape identifier
+diff --git a/conn_go18.go b/conn_go18.go
+index d6d7798250a24c50895d0f42fdcda21d252bf8ac..84551e3840068f88325618d435bd6884eac0db49 100644
+--- a/conn_go18.go
++++ b/conn_go18.go
+@@ -141,7 +141,12 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
+ 	return nil
+ }
+ 
+-func (cn *conn) cancel(ctx context.Context) error {
++func (cn *conn) cancel(ctx context.Context) (err error) {
++	defer func() {
++		if err != nil {
++			err = normalizeConnectionContextError(ctx, err)
++		}
++	}()
+ 	// Create a new values map (copy). This makes sure the connection created
+ 	// in this method cannot write to the same underlying data, which could
+ 	// cause a concurrent map write panic. This is necessary because cancel
+@@ -153,14 +158,20 @@ func (cn *conn) cancel(ctx context.Context) error {
+ 		return err
+ 	}
+ 	defer c.Close()
++	if deadline, exists := ctx.Deadline(); exists {
++		if err := c.SetDeadline(deadline); err != nil {
++			return err
++		}
++	}
++	stopContextWatch := context.AfterFunc(ctx, func() { _ = c.Close() })
++	defer stopContextWatch()
+ 	{
+ 		can := conn{
+ 			c: c,
+ 		}
+ 		can.scratch = make([]byte, cn.config.minReadBufferSize)
+ 		if cn.fallbackConfig.TLSConfig != nil {
+-			if err := cn.startTLS(cn.fallbackConfig.TLSConfig); err != nil {
+-				cn.c.Close()
++			if err := can.startTLS(cn.fallbackConfig.TLSConfig); err != nil {
+ 				return err
+ 			}
+ 		}
+@@ -176,7 +187,7 @@ func (cn *conn) cancel(ctx context.Context) error {
+ 	// Read until EOF to ensure that the server received the cancel.
+ 	{
+ 		_, err := io.Copy(ioutil.Discard, c)
+-		return err
++		return normalizeConnectionContextError(ctx, err)
+ 	}
+ }
+ 
+diff --git a/connector.go b/connector.go
+index 04a5c1b6febfefefcc5de237122b78abaa1f7a81..bfc1323e2fc0974f141ca321e2497be8c25286f7 100644
+--- a/connector.go
++++ b/connector.go
+@@ -149,11 +149,11 @@ func (c *Connector) connect(ctx context.Context, config *Config) (cn *conn, err
+ 	// ConnectTimeout restricts the whole connection process.
+ 	defer errRecoverNoErrBadConn(&err)
+ 
+-	// if config.ConnectTimeout != 0 {
+-	// 	var cancel context.CancelFunc
+-	// 	ctx, cancel = context.WithTimeout(ctx, time.Second*2)
+-	// 	defer cancel()
+-	// }
++	if config.ConnectTimeout != 0 {
++		var cancel context.CancelFunc
++		ctx, cancel = context.WithTimeout(ctx, config.ConnectTimeout)
++		defer cancel()
++	}
+ 	// Simplify usage by treating primary config and fallbacks the same.
+ 	fallbackConfigs := []*FallbackConfig{
+ 		{
+@@ -216,6 +216,11 @@ func (c *Connector) connect(ctx context.Context, config *Config) (cn *conn, err
+ func (c *Connector) connectFallbackConfig(
+ 	ctx context.Context, config *Config, fallbackConfig *FallbackConfig,
+ ) (cn *conn, err error) {
++	defer func() {
++		if err != nil {
++			err = normalizeConnectionContextError(ctx, err)
++		}
++	}()
+ 	cn = &conn{
+ 		config:         config,
+ 		logLevel:       config.LogLevel,
+@@ -232,8 +237,18 @@ func (c *Connector) connectFallbackConfig(
+ 	if err != nil {
+ 		return nil, &connectError{config: config, msg: "dial error", err: err, fallbackConfig: fallbackConfig}
+ 	}
++	transport := cn.c
++	if deadline, exists := ctx.Deadline(); exists {
++		if err := transport.SetDeadline(deadline); err != nil {
++			transport.Close()
++			return nil, &connectError{config: config, msg: "connection deadline error", err: err, fallbackConfig: fallbackConfig}
++		}
++	}
++	stopContextWatch := context.AfterFunc(ctx, func() { _ = transport.Close() })
++	defer stopContextWatch()
+ 	if fallbackConfig.TLSConfig != nil {
+ 		if err := cn.startTLS(fallbackConfig.TLSConfig); err != nil {
++			stopContextWatch()
+ 			cn.c.Close()
+ 			return nil, &connectError{config: config, msg: "tls error", err: err, fallbackConfig: fallbackConfig}
+ 		}
+@@ -249,14 +264,33 @@ func (c *Connector) connectFallbackConfig(
+ 	defer cn.errRecover(&err) // 捕获panic
+ 	cn.startup()
+ 
+-	// reset the deadline, in case one was set (see dial)
+-	if c.config.ConnectTimeout.Seconds() > 0 {
+-		err = cn.c.SetDeadline(time.Time{})
++	if !stopContextWatch() {
++		cn.c.Close()
++		if ctxErr := ctx.Err(); ctxErr != nil {
++			return nil, &connectError{config: config, msg: "connection context ended", err: ctxErr, fallbackConfig: fallbackConfig}
++		}
++		return nil, &connectError{config: config, msg: "connection context watcher ended", err: errors.New("connection closed during startup"), fallbackConfig: fallbackConfig}
++	}
++	// Reset the context deadline only after the complete TLS, authentication,
++	// and startup sequence has succeeded.
++	if err = transport.SetDeadline(time.Time{}); err != nil {
++		cn.c.Close()
++		return nil, &connectError{config: config, msg: "connection deadline reset error", err: err, fallbackConfig: fallbackConfig}
+ 	}
+ 	panicking = false
+ 	return cn, err
+ }
+ 
++func normalizeConnectionContextError(ctx context.Context, err error) error {
++	if ctxErr := ctx.Err(); ctxErr != nil {
++		return ctxErr
++	}
++	if deadline, exists := ctx.Deadline(); exists && !time.Now().Before(deadline) {
++		return context.DeadlineExceeded
++	}
++	return err
++}
++
+ func expandWithIPs(ctx context.Context, lookupFn LookupFunc, fallbacks []*FallbackConfig) ([]*FallbackConfig, error) {
+ 	var configs []*FallbackConfig
+ 
+diff --git a/logger.go b/logger.go
+index 1112ece39eb12fe925b3e9c9f26c4c7f75b0f79e..56207c65e3f045763c047a83a13dc4270643017c 100644
+--- a/logger.go
++++ b/logger.go
+@@ -53,6 +53,7 @@ type Logger interface {
+ // LogLevelFromString converts log level string to constant
+ //
+ // Valid levels:
++//
+ //	trace
+ //	debug
+ //	info
+@@ -130,7 +131,7 @@ func formatString(numKeysAndValues int) string {
+ }
+ func NewPrintfLogger(level LogLevel) Logger {
+ 	l := &printfLogger{
+-		l:     log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds|log.Lshortfile),
++		l:     log.New(os.Stderr, "", log.LstdFlags|log.Lmicroseconds|log.Lshortfile),
+ 		level: level,
+ 	}
+ 	return l
+diff --git a/ssl.go b/ssl.go
+index bc3ecc55f20a6375e8937d87d56b073e2065f345..6e67a01c4f252654bc182a10a79400caf47c0168 100644
+--- a/ssl.go
++++ b/ssl.go
+@@ -18,6 +18,23 @@ import (
+ // necessary to allow returning multiple TLS configs as sslmode "allow" and
+ // "prefer" allow fallback.
+ func configTLS(settings map[string]string) ([]*tls.Config, error) {
++	return configTLSWithOptions(settings, true)
++}
++
++func configTLSStrict(settings map[string]string) ([]*tls.Config, error) {
++	configs, err := configTLSWithOptions(settings, false)
++	if err != nil {
++		return nil, err
++	}
++	for _, config := range configs {
++		if config != nil {
++			config.MinVersion = tls.VersionTLS12
++		}
++	}
++	return configs, nil
++}
++
++func configTLSWithOptions(settings map[string]string, allowHomeClientCertificate bool) ([]*tls.Config, error) {
+ 	host := settings[paramHost]
+ 	sslmode := settings[paramSSLMode]
+ 	sslrootcert := settings[paramSSLRootCert]
+@@ -112,7 +129,7 @@ func configTLS(settings map[string]string) ([]*tls.Config, error) {
+ 		return nil, fmterrorf(`both "sslcert" and "sslkey" are required`)
+ 	}
+ 
+-	err := sslClientCertificates(tlsConfig, settings)
++	err := sslClientCertificatesWithOptions(tlsConfig, settings, allowHomeClientCertificate)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -265,6 +282,10 @@ func ssl(o values) (func(net.Conn) (net.Conn, error), error) {
+ // in the user's home directory. The configured files must exist and have
+ // the correct permissions.
+ func sslClientCertificates(tlsConf *tls.Config, o values) error {
++	return sslClientCertificatesWithOptions(tlsConf, o, true)
++}
++
++func sslClientCertificatesWithOptions(tlsConf *tls.Config, o values, allowHomeDefaults bool) error {
+ 	var (
+ 		sslCertBytes []byte
+ 		sslKeyBytes  []byte
+@@ -279,14 +300,17 @@ func sslClientCertificates(tlsConf *tls.Config, o values) error {
+ 		// user.Current() might fail when cross-compiling. We have to ignore the
+ 		// error and continue without home directory defaults, since we wouldn't
+ 		// know from where to load them.
+-		user, _ := user.Current()
++		var currentUser *user.User
++		if allowHomeDefaults {
++			currentUser, _ = user.Current()
++		}
+ 
+ 		// In libpq, the client certificate is only loaded if the setting is not blank.
+ 		//
+ 		// https://github.com/postgres/postgres/blob/REL9_6_2/src/interfaces/libpq/fe-secure-openssl.c#L1036-L1037
+ 		sslCert := o[paramSSLCert]
+-		if len(sslCert) == 0 && user != nil {
+-			sslCert = path.Join(user.HomeDir, ".postgresql", "postgresql.crt")
++		if len(sslCert) == 0 && currentUser != nil {
++			sslCert = path.Join(currentUser.HomeDir, ".postgresql", "postgresql.crt")
+ 		}
+ 		// https://github.com/postgres/postgres/blob/REL9_6_2/src/interfaces/libpq/fe-secure-openssl.c#L1045
+ 		if len(sslCert) == 0 {
+@@ -303,8 +327,8 @@ func sslClientCertificates(tlsConf *tls.Config, o values) error {
+ 		//
+ 		// https://github.com/postgres/postgres/blob/REL9_6_2/src/interfaces/libpq/fe-secure-openssl.c#L1123-L1222
+ 		sslKey := o[paramSSLKey]
+-		if len(sslKey) == 0 && user != nil {
+-			sslKey = path.Join(user.HomeDir, ".postgresql", "postgresql.key")
++		if len(sslKey) == 0 && currentUser != nil {
++			sslKey = path.Join(currentUser.HomeDir, ".postgresql", "postgresql.key")
+ 		}
+ 
+ 		if len(sslKey) > 0 {
+@@ -343,7 +367,6 @@ func sslClientCertificates(tlsConf *tls.Config, o values) error {
+ 	}
+ 	cert, err := tls.X509KeyPair(sslCertBytes, sslKeyBytes)
+ 	if err != nil {
+-		fmt.Println("2", err)
+ 		return err
+ 	}
+ 

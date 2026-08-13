@@ -693,7 +693,7 @@ func replayLegacyDatabaseDescriptor(root []byte) ([]byte, error) {
 	text := string(root)
 	const descriptor = "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled"
 	if strings.Contains(text, "id=database") || strings.Contains(text, descriptor) {
-		return nil, errors.New("Database descriptor conflict")
+		return nil, errors.New("database descriptor conflict")
 	}
 	separator := "\n"
 	if strings.Contains(text, "\r\n") {
@@ -707,7 +707,7 @@ func replayLegacyDatabaseDescriptor(root []byte) ([]byte, error) {
 		}
 	}
 	if insert < 0 {
-		return nil, errors.New("Root descriptors missing")
+		return nil, errors.New("root descriptors missing")
 	}
 	lines = append(lines, "")
 	copy(lines[insert+1:], lines[insert:])

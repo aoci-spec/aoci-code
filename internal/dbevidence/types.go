@@ -17,6 +17,7 @@ type Engine string
 const (
 	EnginePostgreSQL Engine = "postgresql"
 	EngineMySQL      Engine = "mysql"
+	EngineOpenGauss  Engine = "opengauss"
 )
 
 type SourceConfig struct {

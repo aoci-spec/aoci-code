@@ -78,6 +78,45 @@ func TestDatabaseSourceCLIDefaultsCredentialReferenceAndReportsAccessPlan(t *tes
 	}
 }
 
+func TestDatabaseSourceCLIAcceptsCanonicalOpenGaussEngine(t *testing.T) {
+	root := databaseCLIRepo(t)
+	var stdout, stderr bytes.Buffer
+	args := []string{"--repo", root, "--json", "database", "source", "add",
+		"--source-id", "warehouse", "--engine", "opengauss", "--database-name", "analytics"}
+	if code := executeCLI(args, &stdout, &stderr); code != ExitOK {
+		t.Fatalf("openGauss source add failed: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.DatabaseSources) != 1 || cfg.DatabaseSources[0].Engine != dbevidence.EngineOpenGauss ||
+		len(cfg.DatabaseSources[0].Namespaces) != 1 || cfg.DatabaseSources[0].Namespaces[0] != "public" {
+		t.Fatalf("canonical openGauss source was not stored: %+v", cfg.DatabaseSources)
+	}
+}
+
+func TestDatabaseSourceCLIRejectsUnknownAndOpenGaussAliases(t *testing.T) {
+	for _, engine := range []string{"openGauss", "gaussdb", "open_gauss", "og", "postgres", "unknown"} {
+		t.Run(engine, func(t *testing.T) {
+			root := databaseCLIRepo(t)
+			var stdout, stderr bytes.Buffer
+			args := []string{"--repo", root, "--json", "database", "source", "add",
+				"--source-id", "warehouse", "--engine", engine, "--database-name", "analytics"}
+			if code := executeCLI(args, &stdout, &stderr); code != ExitConfig {
+				t.Fatalf("engine %q was accepted: code=%d stdout=%s stderr=%s", engine, code, stdout.String(), stderr.String())
+			}
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(cfg.DatabaseSources) != 0 {
+				t.Fatalf("rejected engine %q changed configuration: %+v", engine, cfg.DatabaseSources)
+			}
+		})
+	}
+}
+
 func TestDatabaseSourceCLIInvalidInputIsRedacted(t *testing.T) {
 	root := databaseCLIRepo(t)
 	secret := "postgres://secret-user:secret-password@secret-host/app"

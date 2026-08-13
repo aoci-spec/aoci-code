@@ -57,6 +57,56 @@ func TestDatabaseSourceRejectsConnectionStringInTeamConfig(t *testing.T) {
 	}
 }
 
+func TestOpenGaussDatabaseSourceRoundTripsInTeamConfig(t *testing.T) {
+	root := t.TempDir()
+	cfg := DefaultConfig()
+	cfg.DatabaseSources = []dbevidence.SourceConfig{{
+		SourceID: "warehouse", Engine: dbevidence.EngineOpenGauss, Database: "analytics",
+		CredentialEnv: "AOCI_DB_WAREHOUSE_DSN", Enabled: true,
+	}}
+	if err := Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.DatabaseSources) != 1 {
+		t.Fatalf("openGauss source count changed after round trip: %+v", loaded.DatabaseSources)
+	}
+	got := loaded.DatabaseSources[0]
+	if got.SourceID != "warehouse" || got.Engine != dbevidence.EngineOpenGauss || got.Database != "analytics" ||
+		got.CredentialEnv != "AOCI_DB_WAREHOUSE_DSN" || !got.Enabled ||
+		len(got.Namespaces) != 1 || got.Namespaces[0] != "public" {
+		t.Fatalf("openGauss source changed after round trip: %+v", got)
+	}
+
+	data, err := os.ReadFile(FilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stringContains(string(data), `"engine": "opengauss"`) {
+		t.Fatalf("team config did not preserve canonical openGauss engine: %s", data)
+	}
+}
+
+func TestDatabaseSourceConfigRejectsUnknownAndOpenGaussAliases(t *testing.T) {
+	for _, engine := range []string{"openGauss", "gaussdb", "open_gauss", "og", "postgres", "unknown"} {
+		t.Run(engine, func(t *testing.T) {
+			root := t.TempDir()
+			cfg := DefaultConfig()
+			cfg.DatabaseSources = []dbevidence.SourceConfig{{
+				SourceID: "warehouse", Engine: dbevidence.Engine(engine), Database: "analytics",
+				CredentialEnv: "AOCI_DB_WAREHOUSE_DSN", Enabled: true,
+			}}
+			if err := Save(root, cfg); err == nil {
+				t.Fatalf("non-canonical database engine %q was accepted", engine)
+			}
+		})
+	}
+}
+
 func stringContains(value, target string) bool {
 	for index := 0; index+len(target) <= len(value); index++ {
 		if value[index:index+len(target)] == target {

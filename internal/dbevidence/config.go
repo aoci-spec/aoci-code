@@ -60,8 +60,8 @@ func NormalizeSource(source *SourceConfig) error {
 	if !sourceIDPattern.MatchString(source.SourceID) {
 		return fmt.Errorf("source_id must match %s and be a logical non-secret name", sourceIDPattern)
 	}
-	if source.Engine != EnginePostgreSQL && source.Engine != EngineMySQL {
-		return fmt.Errorf("engine must be postgresql or mysql")
+	if !supportedEngine(source.Engine) {
+		return fmt.Errorf("engine must be postgresql, mysql, or opengauss")
 	}
 	if looksCredentialLike(source.Database) {
 		return fmt.Errorf("database must be a name, not connection or credential material")
@@ -90,7 +90,7 @@ func NormalizeSource(source *SourceConfig) error {
 		return err
 	}
 	if len(source.Namespaces) == 0 {
-		if source.Engine == EnginePostgreSQL {
+		if source.Engine == EnginePostgreSQL || source.Engine == EngineOpenGauss {
 			source.Namespaces = []string{"public"}
 		} else {
 			source.Namespaces = []string{source.Database}
@@ -218,6 +218,13 @@ func systemNamespace(engine Engine, namespace string) bool {
 	case EnginePostgreSQL:
 		return namespace == "information_schema" || namespace == "pg_catalog" ||
 			strings.HasPrefix(namespace, "pg_toast") || strings.HasPrefix(namespace, "pg_temp_")
+	case EngineOpenGauss:
+		switch namespace {
+		case "information_schema", "pg_catalog", "cstore", "pkg_service", "dbe_perf", "snapshot",
+			"blockchain", "db4ai", "dbe_pldebugger", "dbe_pldeveloper", "sqladvisor", "coverage", "dbe_sql_util":
+			return true
+		}
+		return strings.HasPrefix(namespace, "pg_toast") || strings.HasPrefix(namespace, "pg_temp_")
 	case EngineMySQL:
 		switch strings.ToLower(namespace) {
 		case "information_schema", "mysql", "performance_schema", "sys":
@@ -225,6 +232,15 @@ func systemNamespace(engine Engine, namespace string) bool {
 		}
 	}
 	return false
+}
+
+func supportedEngine(engine Engine) bool {
+	switch engine {
+	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
+		return true
+	default:
+		return false
+	}
 }
 
 func containsExact(values []string, value string) bool {

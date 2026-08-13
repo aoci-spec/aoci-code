@@ -55,6 +55,35 @@ func TestSystemNamespacesAreAlwaysExcluded(t *testing.T) {
 	if Included(mysql, "mysql", "user") {
 		t.Fatal("mysql system namespace boundary failed")
 	}
+	openGauss := SourceConfig{SourceID: "primary", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"public", "dbe_perf", "db4ai", "cstore"}, CredentialEnv: "AOCI_DB_DSN", Enabled: true}
+	if err := NormalizeSource(&openGauss); err != nil {
+		t.Fatal(err)
+	}
+	for _, namespace := range []string{"dbe_perf", "db4ai", "cstore"} {
+		if Included(openGauss, namespace, "system_table") {
+			t.Fatalf("openGauss system namespace %s entered Evidence", namespace)
+		}
+	}
+	if !Included(openGauss, "public", "users") {
+		t.Fatal("openGauss user namespace was excluded")
+	}
+}
+
+func TestOpenGaussDefaultsToPublicAndRejectsAliases(t *testing.T) {
+	source := SourceConfig{SourceID: "primary", Engine: EngineOpenGauss, Database: "app", CredentialEnv: "AOCI_DB_DSN", Enabled: true}
+	if err := NormalizeSource(&source); err != nil {
+		t.Fatal(err)
+	}
+	if len(source.Namespaces) != 1 || source.Namespaces[0] != "public" {
+		t.Fatalf("unexpected openGauss default namespaces: %v", source.Namespaces)
+	}
+	for _, alias := range []Engine{"openGauss", "mogdb", "gaussdb", "pg"} {
+		candidate := source
+		candidate.Engine = alias
+		if err := NormalizeSource(&candidate); err == nil {
+			t.Fatalf("openGauss alias %q was accepted", alias)
+		}
+	}
 }
 
 func TestTableFiltersTreatSlashAsIdentifierText(t *testing.T) {

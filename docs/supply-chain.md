@@ -63,12 +63,13 @@ builders produce identical archives.
 
 ## Database driver dependency audit
 
-Database Evidence support uses two reviewed pure-Go direct dependencies:
+Database Evidence support uses three reviewed pure-Go direct dependencies:
 
 | Module | Pinned version | License | Purpose |
 | --- | --- | --- | --- |
 | `github.com/jackc/pgx/v5` | `v5.10.0` | MIT | PostgreSQL `database/sql` driver |
 | `github.com/go-sql-driver/mysql` | `v1.10.0` | MPL-2.0 | MySQL `database/sql` driver |
+| `gitcode.com/opengauss/openGauss-connector-go-pq` | `v1.0.8` + reviewed AOCI patch | MIT | openGauss `database/sql` driver; the complete patched module is carried under `third_party/` |
 
 The pinned `go-licenses` v1.6.0 gate enumerates every reachable external Go
 package after `go mod verify` across the complete Linux, macOS, and Windows
@@ -78,11 +79,43 @@ union to match `THIRD-PARTY-NOTICES`. Local AOCI packages can be reported as
 `Unknown` because dependency scanners do not classify the main module; those
 rows are not interpreted as third-party dependency licenses.
 
-The current release-binary union contains 18 modules. The authoritative pinned
+The current release-binary union contains 22 modules. The authoritative pinned
 inventory, license-file hashes, retained license texts, and the MCP Go SDK's
 Apache-2.0 transition with residual MIT contributions and CC-BY-4.0
-documentation classification are recorded in `THIRD-PARTY-NOTICES`. Both
+documentation classification are recorded in `THIRD-PARTY-NOTICES`. All three
 database-driver paths build with `CGO_ENABLED=0`.
+
+The root module requires the official openGauss Connector v1.0.8 identity but
+replaces it with the complete reviewed tree at
+`third_party/openGauss-connector-go-pq`. This is not represented as pristine
+upstream source: the local patch reserves stdout for the host protocol, fixes
+TLS cancellation isolation, adds an allowlisted deterministic strict
+configuration path with no ambient files or TLS downgrade, and bounds malformed
+authentication work. The upstream module path and MIT `LICENSE.md` remain
+unchanged. `third_party/openGauss-connector-go-pq.PROVENANCE.md` binds the tag
+commit, Go module sums, upstream license, canonical patch, and both complete
+trees. `scripts/check-opengauss-connector.sh` downloads that exact tag, verifies
+the origin and checksums, applies the canonical patch to a fresh upstream tree,
+and requires a byte-for-byte match with the checked-in module. `go mod verify`
+alone is explicitly insufficient because it does not verify a local `replace`.
+
+The openGauss Connector notice retains the upstream pq Contributors and Blake
+Mizerany attribution; its reachable `gmsm`, `x/crypto`, and `x/xerrors` modules
+are audited as part of the same release-binary closure. Release source archives
+carry the patched module, patch, provenance, and unchanged upstream license so
+the built source is reviewable without relying on an unrecorded fork.
+
+The live openGauss acceptance job loads the official 6.0.5 LTS x86_64 Docker
+tar from
+`https://opengauss.obs.cn-south-1.myhuaweicloud.com/6.0.5/openGauss-Docker-6.0.5-x86_64.tar`.
+Before `docker load`, CI verifies the publisher-provided and workflow-pinned
+SHA-256
+`f3fa6ca5add4d25b035aa5542ed08452792f73e587339d58905bff900ce578c6`.
+This is an artifact checksum, not a registry OCI digest, and the workflow does
+not replace it with a floating registry tag. The same job provisions an
+ephemeral CA and loopback certificate and exercises the real collector through
+`sslmode=verify-full`; plaintext is permitted only for an explicit Unix socket
+or numeric loopback local/test boundary, not as a remote fallback.
 
 MPL-2.0 is file-level and compatible with this dependency use, but binary
 distribution must still carry the required third-party notices and a compliant

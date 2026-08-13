@@ -14,11 +14,16 @@ import (
 var registerMockCatalogDriver sync.Once
 
 type mockCatalogState struct {
-	engine   Engine
-	queries  []string
-	readOnly bool
-	pingErr  error
-	queryErr error
+	engine                      Engine
+	queries                     []string
+	readOnly                    bool
+	pingErr                     error
+	queryErr                    error
+	openDriverName              string
+	openGaussVersion            string
+	openGaussDeployment         string
+	openGaussCompatibility      string
+	openGaussUnsupportedFeature string
 }
 
 type mockCatalogDriver struct{}
@@ -207,9 +212,144 @@ func TestMySQLCollectorPreservesCaseModeAndIndexFactsOffline(t *testing.T) {
 	}
 }
 
+func TestOpenGaussCollectorUsesDedicatedDriverAndCatalog(t *testing.T) {
+	registerMockCatalogDriver.Do(func() { sql.Register("aoci_mock_catalog", mockCatalogDriver{}) })
+	state := &mockCatalogState{engine: EngineOpenGauss}
+	activeMockCatalogState = state
+	database, _ := sql.Open("aoci_mock_catalog", "credential_sentinel")
+	collector := newCollectorForTest(func(string) string { return "host=secret-host user=reader password=credential_sentinel dbname=app" }, func(driverName, _ string) (*sql.DB, error) {
+		state.openDriverName = driverName
+		return database, nil
+	})
+	source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"public"}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
+	manifest, snapshot, files, err := collector.Snapshot(context.Background(), source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.openDriverName != "opengauss" || !state.readOnly || manifest.Engine != EngineOpenGauss || len(snapshot.Tables) != 1 {
+		t.Fatalf("openGauss routing failed: driver=%s readOnly=%t manifest=%+v snapshot=%+v", state.openDriverName, state.readOnly, manifest, snapshot)
+	}
+	var table TableEvidence
+	if err := decodeStrict(files[snapshot.Tables[0].ObjectRef], &table); err != nil {
+		t.Fatal(err)
+	}
+	if table.Engine != EngineOpenGauss || table.PrimaryKey == nil || strings.Join(table.PrimaryKey.Columns, ",") != "id,email" || len(table.Indexes) != 1 {
+		t.Fatalf("openGauss evidence lost catalog semantics: %+v", table)
+	}
+	if table.Indexes[0].Visible == nil || !*table.Indexes[0].Visible || len(table.Indexes[0].Elements) != 2 || table.Indexes[0].Elements[0].Descending || !table.Indexes[0].Elements[1].Descending {
+		t.Fatalf("openGauss index direction or visibility was lost: %+v", table.Indexes[0])
+	}
+	want := map[string]struct{}{}
+	for _, query := range catalogQueries() {
+		if query.Engine == EngineOpenGauss {
+			want[query.SQL] = struct{}{}
+		}
+	}
+	for _, query := range state.queries {
+		if _, exists := want[query]; !exists {
+			t.Fatalf("openGauss collector executed an unregistered query:\n%s", query)
+		}
+		delete(want, query)
+	}
+	if len(want) != 0 {
+		t.Fatalf("openGauss collector skipped registered queries: %d", len(want))
+	}
+}
+
+func TestOpenGaussCollectorRejectsUnsupportedCatalogFeatures(t *testing.T) {
+	registerMockCatalogDriver.Do(func() { sql.Register("aoci_mock_catalog", mockCatalogDriver{}) })
+	state := &mockCatalogState{engine: EngineOpenGauss}
+	activeMockCatalogState = state
+	database, _ := sql.Open("aoci_mock_catalog", "credential_sentinel")
+	collector := newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
+	source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"partitioned"}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
+	_, _, _, err := collector.Snapshot(context.Background(), source)
+	var sourceErr *SourceError
+	if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" || !strings.Contains(sourceErr.Op, "partitioned_table") {
+		t.Fatalf("unsupported openGauss partition was not rejected stably: %v", err)
+	}
+
+	state = &mockCatalogState{engine: EngineOpenGauss, openGaussUnsupportedFeature: "foreign_table"}
+	activeMockCatalogState = state
+	database, _ = sql.Open("aoci_mock_catalog", "credential_sentinel")
+	collector = newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
+	source.Namespaces = []string{"public"}
+	_, _, _, err = collector.Snapshot(context.Background(), source)
+	if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" || !strings.Contains(sourceErr.Op, "foreign_table") {
+		t.Fatalf("unsupported openGauss foreign table was not rejected stably: %v", err)
+	}
+
+	for _, feature := range []string{"blockchain_schema", "constraint_state", "view", "materialized_view", "mot_table"} {
+		state = &mockCatalogState{engine: EngineOpenGauss, openGaussUnsupportedFeature: feature}
+		activeMockCatalogState = state
+		database, _ = sql.Open("aoci_mock_catalog", "credential_sentinel")
+		collector = newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
+		_, _, _, err = collector.Snapshot(context.Background(), source)
+		if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" || !strings.Contains(sourceErr.Op, feature) {
+			t.Fatalf("unsupported openGauss %s was not rejected stably: %v", feature, err)
+		}
+	}
+}
+
+func TestOpenGaussCollectorRejectsUnsupportedServerProfiles(t *testing.T) {
+	registerMockCatalogDriver.Do(func() { sql.Register("aoci_mock_catalog", mockCatalogDriver{}) })
+	for _, test := range []struct {
+		name, version, deployment, compatibility, feature string
+	}{
+		{"version", "6.0.4", "OpenSourceCentralized", "A", "opengauss_version"},
+		{"deployment", "6.0.5", "OpenSourceDistributed", "A", "deployment_mode"},
+		{"compatibility", "6.0.5", "OpenSourceCentralized", "B", "compatibility_mode"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			state := &mockCatalogState{engine: EngineOpenGauss, openGaussVersion: test.version, openGaussDeployment: test.deployment, openGaussCompatibility: test.compatibility}
+			activeMockCatalogState = state
+			database, _ := sql.Open("aoci_mock_catalog", "credential_sentinel")
+			collector := newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
+			source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"public"}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
+			_, _, _, err := collector.Snapshot(context.Background(), source)
+			var sourceErr *SourceError
+			if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" || !strings.Contains(sourceErr.Op, test.feature) {
+				t.Fatalf("unsupported openGauss profile was not rejected stably: %v", err)
+			}
+		})
+	}
+}
+
+func TestOpenGaussCollectorAcceptsAAndPGProfiles(t *testing.T) {
+	registerMockCatalogDriver.Do(func() { sql.Register("aoci_mock_catalog", mockCatalogDriver{}) })
+	for _, compatibility := range []string{"A", "PG"} {
+		t.Run(compatibility, func(t *testing.T) {
+			state := &mockCatalogState{engine: EngineOpenGauss, openGaussCompatibility: compatibility}
+			activeMockCatalogState = state
+			database, _ := sql.Open("aoci_mock_catalog", "credential_sentinel")
+			collector := newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
+			source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"public"}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
+			manifest, _, _, err := collector.Snapshot(context.Background(), source)
+			if err != nil || !strings.Contains(manifest.ServerVersion, "compatibility "+compatibility) {
+				t.Fatalf("supported openGauss compatibility profile was rejected: manifest=%+v err=%v", manifest, err)
+			}
+		})
+	}
+}
+
+func TestDriverNameForEngineFailsClosed(t *testing.T) {
+	for engine, want := range map[Engine]string{EnginePostgreSQL: "pgx", EngineMySQL: "mysql", EngineOpenGauss: "opengauss"} {
+		got, err := driverNameForEngine(engine)
+		if err != nil || got != want {
+			t.Fatalf("engine %s routed to %q: %v", engine, got, err)
+		}
+	}
+	if _, err := driverNameForEngine("oracle"); err == nil {
+		t.Fatal("unknown engine received a driver")
+	}
+}
+
 func mockCatalogResult(engine Engine, query string) ([]string, [][]driver.Value) {
 	if engine == EngineMySQL {
 		return mockMySQLResult(query)
+	}
+	if engine == EngineOpenGauss {
+		return mockOpenGaussResult(query)
 	}
 	switch query {
 	case postgresFactsSQL:
@@ -237,6 +377,53 @@ func mockCatalogResult(engine Engine, query string) ([]string, [][]driver.Value)
 		return []string{"schema", "table", "method", "expression"}, nil
 	case postgresPartitionChildrenSQL:
 		return []string{"schema", "table", "parent_schema", "parent_table", "bound"}, nil
+	default:
+		return []string{"unexpected"}, nil
+	}
+}
+
+func mockOpenGaussResult(query string) ([]string, [][]driver.Value) {
+	switch query {
+	case openGaussFactsSQL:
+		version, deployment, compatibility := "6.0.5", "OpenSourceCentralized", "A"
+		if activeMockCatalogState.openGaussVersion != "" {
+			version = activeMockCatalogState.openGaussVersion
+		}
+		if activeMockCatalogState.openGaussDeployment != "" {
+			deployment = activeMockCatalogState.openGaussDeployment
+		}
+		if activeMockCatalogState.openGaussCompatibility != "" {
+			compatibility = activeMockCatalogState.openGaussCompatibility
+		}
+		return []string{"opengauss_version", "server_version", "deployment", "compatibility", "database"}, [][]driver.Value{{version, "9.2.4", deployment, compatibility, "app"}}
+	case openGaussTablesSQL:
+		return []string{"schema", "table"}, [][]driver.Value{{"public", "accounts"}}
+	case openGaussUnsupportedSQL:
+		if activeMockCatalogState.openGaussUnsupportedFeature != "" {
+			return []string{"schema", "table", "feature"}, [][]driver.Value{{"public", "accounts", activeMockCatalogState.openGaussUnsupportedFeature}}
+		}
+		return []string{"schema", "table", "feature"}, [][]driver.Value{{"partitioned", "events", "partitioned_table"}}
+	case openGaussPartitionsSQL:
+		return []string{"schema", "table", "parttype", "partstrategy"}, nil
+	case openGaussColumnsSQL:
+		return []string{"schema", "table", "ordinal", "column", "native_type", "canonical_type", "nullable", "default", "serial", "generated", "generation"}, [][]driver.Value{
+			{"public", "accounts", int64(2), "email", "text", "text", false, nil, false, "NEVER", nil},
+			{"public", "accounts", int64(1), "id", "bigint", "bigint", false, "nextval('accounts_id_seq'::regclass)", true, "NEVER", nil},
+		}
+	case openGaussKeysSQL:
+		return []string{"schema", "table", "name", "kind", "column", "vector"}, [][]driver.Value{
+			{"public", "accounts", "accounts_pk", "p", "email", "1 2"},
+			{"public", "accounts", "accounts_pk", "p", "id", "1 2"},
+		}
+	case openGaussForeignKeysSQL:
+		return []string{"schema", "table", "name", "local_attnum", "column", "ref_schema", "ref_table", "ref_attnum", "ref_column", "update", "delete", "local_vector", "ref_vector"}, nil
+	case openGaussChecksSQL:
+		return []string{"schema", "table", "name", "expression"}, nil
+	case openGaussIndexesSQL:
+		return []string{"schema", "table", "name", "unique", "primary", "method", "column", "vector", "definition", "predicate", "key_count", "total_count", "options", "visible", "usable", "valid", "ready", "exclusion", "immediate"}, [][]driver.Value{
+			{"public", "accounts", "accounts_pk", true, true, "btree", "email", "1 2", "CREATE UNIQUE INDEX accounts_pk ON accounts USING btree (id, email DESC)", "", int64(2), int64(2), "0 3", true, true, true, true, false, true},
+			{"public", "accounts", "accounts_pk", true, true, "btree", "id", "1 2", "CREATE UNIQUE INDEX accounts_pk ON accounts USING btree (id, email DESC)", "", int64(2), int64(2), "0 3", true, true, true, true, false, true},
+		}
 	default:
 		return []string{"unexpected"}, nil
 	}

@@ -860,6 +860,8 @@ func buildDatabaseSourceProposal(plan *cognitionplan.Plan) *DatabaseSourcePropos
 	for _, file := range plan.BusinessSourceManifest.Files {
 		lower := strings.ToLower(file.Path)
 		switch {
+		case strings.Contains(lower, "opengauss"):
+			engines["opengauss"] = true
 		case strings.Contains(lower, "mysql"):
 			engines["mysql"] = true
 		case strings.Contains(lower, "postgres") || strings.Contains(lower, "pgsql"):
@@ -877,7 +879,7 @@ func buildDatabaseSourceProposal(plan *cognitionplan.Plan) *DatabaseSourcePropos
 	}
 	engineValues := mapKeys(engines)
 	if len(engineValues) == 0 {
-		engineValues = []string{"mysql", "postgresql"}
+		engineValues = []string{"mysql", "opengauss", "postgresql"}
 	}
 	return &DatabaseSourceProposal{Version: "database-source-proposal/v1", EvidencePaths: paths,
 		EngineCandidates: engineValues, SourceIDRequired: true, DatabaseRequired: true,

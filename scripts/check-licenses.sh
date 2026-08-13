@@ -24,6 +24,28 @@ export PATH="$(dirname -- "${go_bin_path}"):${PATH}"
 legal_findings=0
 dependency_findings=0
 
+# go mod verify does not cover a local replacement. Bind the license audit to
+# the checked-in patched tree, its exact upstream MIT text, and its provenance
+# checksums before enumerating reachable packages. Full Confidence separately
+# performs the networked upstream download and complete patch replay.
+if ! GO_BIN="${go_bin_path}" bash scripts/check-opengauss-connector.sh --local-only; then
+  echo "[check-licenses] local openGauss Connector provenance check failed" >&2
+  exit 1
+fi
+
+file_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return
+  fi
+  echo "[check-licenses] no SHA-256 utility is available" >&2
+  return 1
+}
+
 require_marker() {
   local file_path="$1"
   local marker="$2"
@@ -173,13 +195,42 @@ done
 LC_ALL=C sort -u "${raw_report_path}" >"${report_path}"
 LC_ALL=C sort -u "${raw_module_inventory_path}" >"${module_inventory_path}"
 
+# go-licenses v1.6.0 identifies the locally replaced connector's unchanged MIT
+# text but reports a blank or Unknown license URL because the module uses a
+# local replacement and the upstream file is named LICENSE.md. Keep this a
+# narrow, provenance- and content-bound exception instead of accepting an
+# arbitrary missing source.
+opengauss_connector_module="gitcode.com/opengauss/openGauss-connector-go-pq"
+opengauss_connector_version="v1.0.8"
+opengauss_connector_license_sha256="3e2d79d27727d59ab1c9752f57654733d6c8824936c22800594dccfe8864ec28"
+opengauss_connector_record="$(env \
+  GOTOOLCHAIN=local \
+  GOWORK=off \
+  GOPROXY=off \
+  GOFLAGS="${readonly_go_flags}" \
+  "${go_bin_path}" list -m -f '{{.Dir}} {{.Version}}' \
+  "${opengauss_connector_module}" 2>/dev/null || true)"
+opengauss_connector_dir="${opengauss_connector_record% *}"
+opengauss_connector_resolved_version="${opengauss_connector_record##* }"
+opengauss_connector_license_verified=false
+if [ -z "${opengauss_connector_dir}" ] ||
+  [ "${opengauss_connector_resolved_version}" != "${opengauss_connector_version}" ] ||
+  [ "${opengauss_connector_dir}" != "${repo_root}/third_party/openGauss-connector-go-pq" ] ||
+  [ ! -f "${opengauss_connector_dir}/LICENSE.md" ] ||
+  [ "$(file_sha256 "${opengauss_connector_dir}/LICENSE.md")" != "${opengauss_connector_license_sha256}" ]; then
+  echo "[check-licenses] pinned openGauss Connector MIT license evidence is missing or changed" >&2
+  dependency_findings=$((dependency_findings + 1))
+else
+  opengauss_connector_license_verified=true
+fi
+
 # The distributable notice must describe exactly the modules reachable from
 # the release binary matrix. A detector result without a matching notice is
 # not sufficient release metadata, and stale extra inventory rows are also
 # rejected so removals receive the same review as additions.
 awk '
   NF == 2 &&
-  $1 ~ /^(filippo\.io|github\.com|golang\.org)\// &&
+  $1 ~ /^(filippo\.io|gitcode\.com|github\.com|golang\.org)\// &&
   $2 ~ /^v[0-9]/ { print $1 " " $2 }
 ' THIRD-PARTY-NOTICES | LC_ALL=C sort -u >"${notice_inventory_path}"
 if ! cmp -s "${module_inventory_path}" "${notice_inventory_path}"; then
@@ -197,6 +248,12 @@ while IFS=, read -r package_path license_url license_name; do
 
   normalized_license_name="$(printf '%s' "${license_name}" | tr '[:lower:]' '[:upper:]')"
   normalized_license_url="$(printf '%s' "${license_url}" | tr '[:lower:]' '[:upper:]')"
+  if [ "${package_path}" = "${opengauss_connector_module}" ] &&
+    [ "${normalized_license_name}" = "MIT" ] &&
+    { [ -z "${normalized_license_url}" ] || [ "${normalized_license_url}" = "UNKNOWN" ]; } &&
+    [ "${opengauss_connector_license_verified}" = true ]; then
+    normalized_license_url="LOCAL-PATCHED-MODULE-LICENSE.MD-PROVENANCE-VERIFIED"
+  fi
   case "${normalized_license_name}" in
     ""|UNKNOWN|NOASSERTION|NONE|UNLICENSED|PROPRIETARY)
       echo "[check-licenses] invalid external license state: ${package_path} (${license_name:-missing name})" >&2

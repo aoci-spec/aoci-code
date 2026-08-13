@@ -1,11 +1,12 @@
 Database Evidence v1
 
-Status: R67-D0 candidate. This contract covers explicit PostgreSQL/MySQL
-metadata collection, canonical table evidence, structural fingerprints, an
-independent evidence Baseline, drift reporting, and model-facing evidence
-bundles. The Evidence subsystem itself does not create a Database Cognition
-Volume or any FRAS Entry. After explicit Baseline acceptance, the separate
-Database Cognition Bootstrap lifecycle router may consume the bound Evidence.
+Status: R67-D0 candidate with additive openGauss 6.0.5 LTS support. This
+contract covers explicit PostgreSQL, MySQL, and openGauss metadata collection,
+canonical table evidence, structural fingerprints, an independent evidence
+Baseline, drift reporting, and model-facing evidence bundles. The Evidence
+subsystem itself does not create a Database Cognition Volume or any FRAS Entry.
+After explicit Baseline acceptance, the separate Database Cognition Bootstrap
+lifecycle router may consume the bound Evidence.
 
 1. Authority and boundary
 
@@ -26,7 +27,7 @@ draft, truncate a candidate, or create/update/delete formal cognition.
 2. Explicit source configuration
 
 Team configuration may contain database_sources. Each declaration contains a
-logical source_id, engine (postgresql or mysql), database, namespaces,
+logical source_id, engine (postgresql, mysql, or opengauss), database, namespaces,
 include/exclude namespace and table globs, credential_env, connect and query
 timeouts, and enabled. credential_env is an environment variable name. A DSN,
 password, token, host, IP, or username is invalid as team configuration.
@@ -35,22 +36,45 @@ No source means no database connection, evidence file, database warning, or
 database Missing state. Database access occurs only for explicit database
 source inspect, database snapshot, or database verify commands.
 
+For openGauss, the externally supplied DSN is parsed through an explicit
+connection-parameter allowlist without ambient PG* environment, service,
+password-file, HOME, or logger configuration. Host, port, database, user,
+password, and sslmode are explicit. TCP outside a numeric loopback address
+requires sslmode=verify-full with TLS 1.2 or later, and an sslrootcert value is
+an absolute path. Downgrade modes are rejected; sslmode=disable is
+limited to an explicit Unix socket or numeric loopback address used as a
+local/test boundary. This connection policy does not add a persisted Source
+field.
+
 3. Read-only collection
 
 Every collection uses one connection and one repeatable-read, read-only
 transaction with context cancellation and explicit timeouts. Production query
-text is centralized in internal/dbevidence/queries.go. Except for engine version
-and case-semantics facts, queries are limited to information_schema and the
-necessary PostgreSQL pg_catalog objects. Collectors never query a user table,
-read rows, count rows, sample values, or execute DDL/DML.
+text is centralized in the engine-specific query inventories under
+internal/dbevidence. Except for engine version, compatibility mode, and
+case-semantics facts, queries are limited to information_schema and the
+necessary PostgreSQL or openGauss pg_catalog objects. Collectors never query a
+user table, read rows, count rows, sample values, or execute DDL/DML.
 
 System namespaces are always excluded. PostgreSQL excludes information_schema,
 pg_catalog, pg_toast*, and pg_temp_*. MySQL excludes information_schema, mysql,
-performance_schema, and sys.
+performance_schema, and sys. openGauss excludes information_schema,
+pg_catalog, pg_toast*, pg_temp_*, and the engine-owned administration,
+performance, snapshot, and service schemas recognized by the executable
+authority. A configured include rule cannot re-admit a system namespace.
+
+The initial openGauss support profile is deliberately narrow: openGauss 6.0.5
+LTS in A/PG compatibility mode and ordinary non-partitioned base tables.
+MogDB, GaussDB, Dolphin/B/MySQL compatibility mode, views, foreign or temporary
+tables, column-store, MOT, partitions, subpartitions, and openGauss-specific
+local/global index semantics are not aliases or best-effort inputs. When a
+visible selected object uses an unsupported catalog feature, collection fails
+closed with unsupported_catalog_feature; it never silently omits or rewrites
+that fact as PostgreSQL evidence.
 
 4. Canonical object identity
 
-PostgreSQL and MySQL table identities use:
+PostgreSQL, MySQL, and openGauss table identities use:
 
   database://<source_id>/<percent-encoded-namespace>/<percent-encoded-table>
 
@@ -59,10 +83,12 @@ table segments preserve the identifier spelling returned by the engine and use
 RFC 3986 path-segment escaping with upper-case hexadecimal escapes. A quoted
 identifier containing slash is therefore encoded, never treated as a path.
 
-PostgreSQL records preserve_quoted_fold_unquoted_lower. MySQL records the
-server's lower_case_table_names value (0, 1, or 2) and preserves the spelling
-returned by the catalog; the collector never unconditionally lowercases a
-name.
+PostgreSQL and supported openGauss records use
+preserve_quoted_fold_unquoted_lower. MySQL records the server's
+lower_case_table_names value (0, 1, or 2) and preserves the spelling returned
+by the catalog; the collector never unconditionally lowercases a name. The
+openGauss collector verifies the supported engine version and A/PG
+compatibility mode before accepting those case semantics.
 
 5. Canonical Table Evidence
 
@@ -79,8 +105,11 @@ ordinal columns with native and canonical type, nullability, default, serial,
 identity, auto_increment, and generated facts; ordered primary, unique, and
 foreign keys with actions; checks; ordered column/expression indexes with
 uniqueness, prefix, visibility, method, and predicate facts where supported;
-and PostgreSQL/MySQL partition facts. These remain table evidence rather than
-independent FRAS objects.
+and the partition facts supported by the applicable engine profile. These
+remain table evidence rather than independent FRAS objects. The initial
+openGauss profile accepts only non-partitioned tables, so it cannot emit an
+apparently complete v1 table after discarding openGauss partition or index
+semantics.
 
 The version is database-evidence/v1. A complete example is:
 
@@ -198,19 +227,32 @@ does not impersonate both. See aoci-database-cognition-authoring-v1.txt.
 
 9. Real-engine acceptance evidence
 
-The integration contract runs against disposable PostgreSQL 18 and MySQL 8.4
-instances. Test-only administrators prepare schemas, permissions, structural
-changes, and sentinel rows; the product Collector receives a distinct
-read-only credential and executes only the catalog query inventory in section
-4. Test setup DDL/DML is not Collector SQL.
+The integration contract runs against disposable PostgreSQL 18, MySQL 8.4,
+and openGauss 6.0.5 LTS instances. Test-only administrators prepare schemas,
+permissions, structural changes, and sentinel rows; the product Collector
+receives a distinct runtime-randomized read-only credential and executes only
+the applicable catalog query inventory. Test setup DDL/DML is not Collector
+SQL.
 
 Each engine acceptance must prove two byte-identical collections, a canonical
 representative-table Golden, explicit Baseline acceptance, unchanged replay,
 one changed table with an unrelated table fingerprint unchanged, one new table,
 one removed table, partial visibility, permission denial, credential failure,
 timeout, cancellation, connection interruption, and source_unavailable without
-new Evidence or Baseline advancement. Business-row and credential sentinels
-must be absent from Evidence, Bundles, Baseline, diagnostics, and CI logs.
+new Evidence or Baseline advancement. openGauss acceptance additionally proves
+the exact 6.0.5 engine profile and A/PG compatibility-mode guard, system-schema
+exclusion, and unsupported-feature failure without partial Evidence. Business-
+row and credential sentinels must be absent from Evidence, Bundles, Baseline,
+diagnostics, and CI logs.
+
+The openGauss CI instance is loaded from the official 6.0.5 x86_64 Docker tar
+published by the openGauss project. The workflow pins and verifies the
+publisher-provided tar SHA-256 before docker load; it does not substitute a
+floating registry tag or claim a registry OCI digest that the publisher did
+not provide for this artifact. The disposable server receives an ephemeral CA
+and loopback certificate, and the collector runs through verify-full. Wrong
+trust or host-identity evidence must fail without plaintext fallback or
+Baseline advancement.
 
 The reviewed files under internal/dbevidence/testdata/real are derived
 acceptance evidence only. They are neither a second canonicalization authority
@@ -231,3 +273,19 @@ The Lineage and Impact views consume only accepted Database Cognition Baseline
 bindings. They do not change Schema Evidence, do not become Evidence, and do
 not authorize Database Cognition writes. See
 `aoci-system-cognition-foundation-v1.txt`.
+
+11. Compatibility
+
+openGauss is an additive explicit Source engine value; it does not change the
+database-evidence/v1 JSON shape, canonical table identity, Evidence Bundle,
+Baseline lifecycle, or model-authored Database Cognition contract. Existing
+table identities remain
+database://<source_id>/<percent-encoded-namespace>/<percent-encoded-table> and
+do not gain an engine-specific URI scheme. Changing the engine behind a reused
+source_id remains source_identity_changed rather than an object rename.
+
+This extension does not add an MCP tool or an engine field to any MCP input
+schema. Database Cognition continues through the existing scoped Maintain and
+Apply flow, and the exact nine-tool MCP name identity remains unchanged. An
+older binary that does not recognize opengauss must reject that Source instead
+of treating it as PostgreSQL or MySQL.

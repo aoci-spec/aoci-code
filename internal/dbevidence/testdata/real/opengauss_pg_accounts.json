@@ -1,0 +1,109 @@
+{
+  "version": "database-evidence/v1",
+  "object_ref": "database://ogpgtemp/aoci_og/accounts",
+  "engine": "opengauss",
+  "source_id": "ogpgtemp",
+  "database": "aoci_og_accept_pg",
+  "namespace": "aoci_og",
+  "name": "accounts",
+  "kind": "base_table",
+  "columns": [
+    {
+      "ordinal": 1,
+      "name": "id",
+      "native_type": "bigint",
+      "canonical_type": "bigint",
+      "nullable": false,
+      "default_expression": "nextval('aoci_og.accounts_id_seq'::regclass)",
+      "serial": true
+    },
+    {
+      "ordinal": 2,
+      "name": "email",
+      "native_type": "character varying(255)",
+      "canonical_type": "character varying",
+      "nullable": false
+    },
+    {
+      "ordinal": 3,
+      "name": "status",
+      "native_type": "character varying(20)",
+      "canonical_type": "character varying",
+      "nullable": false,
+      "default_expression": "'active'::character varying"
+    },
+    {
+      "ordinal": 4,
+      "name": "amount",
+      "native_type": "numeric(12,2)",
+      "canonical_type": "numeric",
+      "nullable": true
+    }
+  ],
+  "primary_key": {
+    "name": "accounts_pk",
+    "columns": [
+      "id",
+      "email"
+    ]
+  },
+  "unique_constraints": [
+    {
+      "name": "accounts_email_key",
+      "columns": [
+        "email"
+      ]
+    }
+  ],
+  "foreign_keys": [],
+  "checks": [
+    {
+      "name": "accounts_status_check",
+      "expression": "CHECK (status::text = ANY (ARRAY['active'::character varying, 'disabled'::character varying]::text[]))"
+    }
+  ],
+  "indexes": [
+    {
+      "name": "accounts_email_key",
+      "unique": true,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "email"
+        }
+      ]
+    },
+    {
+      "name": "accounts_pk",
+      "unique": true,
+      "primary": true,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "id"
+        },
+        {
+          "position": 2,
+          "column": "email"
+        }
+      ]
+    },
+    {
+      "name": "accounts_status_desc_idx",
+      "unique": false,
+      "visible": true,
+      "method": "btree",
+      "elements": [
+        {
+          "position": 1,
+          "column": "status",
+          "descending": true
+        }
+      ]
+    }
+  ]
+}

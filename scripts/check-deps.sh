@@ -44,6 +44,7 @@ AI_PKGS=(
 # 缺失的原子路径交换、Windows Job Object与Linux subreaper系统调用封装；
 # 不引入联网、服务或AI运行时。
 EXPECTED_DIRECT_MODULES=(
+  "gitcode.com/opengauss/openGauss-connector-go-pq"
   "github.com/go-sql-driver/mysql"
   "github.com/jackc/pgx/v5"
   "github.com/modelcontextprotocol/go-sdk"
@@ -79,6 +80,22 @@ if [ "${direct_modules}" != "${expected_direct_modules}" ]; then
   echo "[check-deps] 违规: go.mod直接依赖集合与架构契约不一致。"
   echo "             期望: $(printf '%s' "${expected_direct_modules}" | tr '\n' ' ')"
   echo "             实际: $(printf '%s' "${direct_modules}" | tr '\n' ' ')"
+  violations=$((violations + 1))
+fi
+
+# The reviewed openGauss connector is intentionally carried as a complete
+# in-repository module plus a reproducible patch. A version-only require is not
+# sufficient: without this exact replace, a build could silently return to the
+# unpatched upstream TLS/cancellation/stdout behavior.
+opengauss_module="gitcode.com/opengauss/openGauss-connector-go-pq"
+opengauss_local_module="third_party/openGauss-connector-go-pq"
+if ! grep -Fqx -- "replace ${opengauss_module} => ./${opengauss_local_module}" go.mod; then
+  echo "[check-deps] 违规: go.mod缺少openGauss Connector的受审本地replace。"
+  violations=$((violations + 1))
+fi
+if [ ! -f "${opengauss_local_module}/go.mod" ] ||
+  [ "$(sed -n '1p' "${opengauss_local_module}/go.mod" 2>/dev/null)" != "module ${opengauss_module}" ]; then
+  echo "[check-deps] 违规: 本地openGauss Connector模块身份缺失或不一致。"
   violations=$((violations + 1))
 fi
 

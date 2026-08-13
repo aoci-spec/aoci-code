@@ -91,7 +91,7 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 		RequiredAgentFields: []string{"agent", "schema_version", "request_file", "expected_preimage", "plan_or_run_identity"},
 		TTY: TTYRequirement{RequiredFor: []string{"bootstrap_review_apply", "migration_apply", "migration_reversal", "ordinary_legacy_scope_reduction", "managed_scope_review", "high_risk_exact_opt_in", "budget_relaxation_review"},
 			Mechanism: machinecontract.ApprovalMechanismInteractiveDigestConfirmation, DigestRequired: true, YesFlagAllowed: false, ModelSelfApproval: false},
-		DatabaseCapabilities:  []string{"postgresql_schema_evidence", "mysql_schema_evidence", "database_cognition", "independent_database_cognition_bootstrap", "environment_credential_provider", "database_access_preflight_v1", "database_to_code_impact_v1", "business_rows_read_zero", "ddl_dml_zero"},
+		DatabaseCapabilities:  []string{"postgresql_schema_evidence", "opengauss_schema_evidence", "mysql_schema_evidence", "database_cognition", "independent_database_cognition_bootstrap", "environment_credential_provider", "database_access_preflight_v1", "database_to_code_impact_v1", "business_rows_read_zero", "ddl_dml_zero"},
 		OverviewDeliveryModes: []string{"full", "checkpoint", "blocked", "scope_absent", "chunked_full"},
 		CompatibilityStrategy: []string{"legacy_monolithic_read", "volumes_v1_read_write", "baseline_v1_read", "additive_json_fields", "fail_closed_unknown_schema"},
 		NetworkAccessed:       false,
