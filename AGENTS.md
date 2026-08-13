@@ -2,7 +2,8 @@
 
 - Public runtime contracts live under `spec/public/`.
 - Contract authority and conflict handling are documented in
-  `docs/zh-cn-contract-authority.md`.
+  `docs/contract-authority.md` (English rendering of the original
+  `docs/zh-cn-contract-authority.md`).
 - Keep the binary name `aoci`, preserve the nine-tool MCP surface, and reserve
   MCP stdio stdout for JSON-RPC.
 - Do not add private design, patent, commercial, research, or experimental

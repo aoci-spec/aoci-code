@@ -2,6 +2,8 @@
 
 本文档定义AOCI-CODE CLI在Windows、Codex Desktop和Windows PowerShell 5环境中的稳定调用方式。它是Host-Agent自动化协议的一部分。
 
+> English rendering: [windows-host-agent.en.md](windows-host-agent.en.md).
+>
 > 范围说明：本文档的Entries/Header/Curation Stage流水线（第5-13节与16.3节）适用于Legacy单体索引仓库。Volume-first新仓库（当前默认初始化布局）的Windows流程是当前Guide + 普通无参数aoci_maintain + aoci_update_entry，见[cognition-volumes.md](cognition-volumes.md)；安装、认知复用、PowerShell与双指纹章节对两种布局均适用。
 
 ## 1. 稳定安装路径

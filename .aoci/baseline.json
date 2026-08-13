@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T14:43:56Z",
+  "updated_at": "2026-08-13T15:19:38Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -47,9 +47,9 @@
       "normalized_sha256": "85f11b770047cd97ba335fe4f9a4b3f5d7a8b5085fb1da9982e25b62732754e3"
     },
     "AGENTS.md": {
-      "sha256": "fb3a3ccb9bf420af6d2425a4843379edaf381bab511783ca57dd303a7a2cffa6",
-      "size": 14329,
-      "normalized_sha256": "fb3a3ccb9bf420af6d2425a4843379edaf381bab511783ca57dd303a7a2cffa6"
+      "sha256": "abf3b793a3149a4481c239d2127c0e07368dab5cd85eeb6c492e2d162f7073ff",
+      "size": 14396,
+      "normalized_sha256": "abf3b793a3149a4481c239d2127c0e07368dab5cd85eeb6c492e2d162f7073ff"
     },
     "CHANGELOG.md": {
       "sha256": "0377ccc572125d4c1d1d9eb65320372f98b38e511f35f6260692c07d717bdc2e",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "5fe14c978dd230dcda646d559c7d764a7bc8753953c62d6b6b0b13903c45b7fc",
-      "size": 156279,
-      "normalized_sha256": "5fe14c978dd230dcda646d559c7d764a7bc8753953c62d6b6b0b13903c45b7fc"
+      "sha256": "73767e017999dda8a68039966afa9fa256e3bf0efca4ca0272b0f572b92b071e",
+      "size": 157207,
+      "normalized_sha256": "73767e017999dda8a68039966afa9fa256e3bf0efca4ca0272b0f572b92b071e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -166,6 +166,11 @@
       "sha256": "f6edfefba274b651e7d6e8bbc6ac543aa8e36d63e593743ef3a083c62c2d4086",
       "size": 19050,
       "normalized_sha256": "f6edfefba274b651e7d6e8bbc6ac543aa8e36d63e593743ef3a083c62c2d4086"
+    },
+    "docs/contract-authority.md": {
+      "sha256": "1bd548032054e5d0802aa1a6815d8c29c946b716987e255859317c8f848350fb",
+      "size": 4479,
+      "normalized_sha256": "1bd548032054e5d0802aa1a6815d8c29c946b716987e255859317c8f848350fb"
     },
     "docs/database-cognition-authoring.md": {
       "sha256": "9179966be3d302bcd62daa8d3497fc85a9786d374a81177c5675dff007d2d567",
@@ -222,9 +227,9 @@
       "normalized_sha256": "117062cebe21ff5ded431cd2d52f4ed647cd488646613acef3c25a77876ef5bd"
     },
     "docs/troubleshooting.md": {
-      "sha256": "6ce355a37d9e74a103d951b42185d4ee9e9b97fcfc035f2964a02e81484e8219",
-      "size": 3545,
-      "normalized_sha256": "6ce355a37d9e74a103d951b42185d4ee9e9b97fcfc035f2964a02e81484e8219"
+      "sha256": "44fb8995e7d32d0b790f38d6524f4dbb93ca806d51d2cb7ec7854a65a446b362",
+      "size": 3634,
+      "normalized_sha256": "44fb8995e7d32d0b790f38d6524f4dbb93ca806d51d2cb7ec7854a65a446b362"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -237,10 +242,15 @@
       "size": 1837,
       "normalized_sha256": "58d291b17318055fda2ade7af0bea9d680104ec710335fe221c28774a9e5f844"
     },
+    "docs/windows-host-agent.en.md": {
+      "sha256": "df8235b4d5629c353be362db46861c0d4b6485fe673be9877f2091958df0cab1",
+      "size": 14183,
+      "normalized_sha256": "df8235b4d5629c353be362db46861c0d4b6485fe673be9877f2091958df0cab1"
+    },
     "docs/windows-host-agent.md": {
-      "sha256": "3fa7c48d1a9fe7dc98ca4717ab2f7b41ad98fbd612c586bd81f67de08172fb3c",
-      "size": 22816,
-      "normalized_sha256": "3fa7c48d1a9fe7dc98ca4717ab2f7b41ad98fbd612c586bd81f67de08172fb3c"
+      "sha256": "78a10553ba0a1bf4a5348ca7e72e0c5963d31afde5c1a5651a0f59c591c510e1",
+      "size": 22893,
+      "normalized_sha256": "78a10553ba0a1bf4a5348ca7e72e0c5963d31afde5c1a5651a0f59c591c510e1"
     },
     "docs/zh-cn-contract-authority.md": {
       "sha256": "a452c214ab0d2cb743d343da4191f36ae62cb320cce75ab5b4fe0b363f0bc364",
@@ -4838,9 +4848,9 @@
       "format_kind": "gofmt"
     },
     "spec/public/README.md": {
-      "sha256": "ba74a2ea01e17772f3d8aefae50150171a47b8b0db6aa13b4466072508453ed2",
-      "size": 1261,
-      "normalized_sha256": "ba74a2ea01e17772f3d8aefae50150171a47b8b0db6aa13b4466072508453ed2"
+      "sha256": "74ed0ffa26595cc4bc9193b94a9d01b09631287b425b7632bcfc04658abdab10",
+      "size": 1330,
+      "normalized_sha256": "74ed0ffa26595cc4bc9193b94a9d01b09631287b425b7632bcfc04658abdab10"
     },
     "spec/public/aoci-code-cli-runtime-v1.txt": {
       "sha256": "1174ad84c4c5910f627a656930a9fc69d1237de3a52b93ca96b5b452b7c92c19",
@@ -4926,6 +4936,11 @@
       "sha256": "c6bd26c9da00fd5d771b37efae0cb504224b994708ab1ff317e7a98ac712824e",
       "size": 1441,
       "normalized_sha256": "c6bd26c9da00fd5d771b37efae0cb504224b994708ab1ff317e7a98ac712824e"
+    },
+    "spec/public/s-field-discipline.en.txt": {
+      "sha256": "b9b2670a03ddb88411126b7b01ceb0b5b2a6b5b86939cdc54fbf39a8ab0e43cb",
+      "size": 7883,
+      "normalized_sha256": "b9b2670a03ddb88411126b7b01ceb0b5b2a6b5b86939cdc54fbf39a8ab0e43cb"
     },
     "spec/public/s-field-discipline.txt": {
       "sha256": "42569403c02cd2d977cb9945abad9252710a5b5e7a374b46efd4abe0dd13ba57",

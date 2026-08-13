@@ -39,7 +39,7 @@ Stop at the reported failed step and follow its recovery evidence. Do not bypass
 
 ## Windows host cannot start MCP
 
-Use an absolute `.exe` path and explicit `--repo` path. Avoid PowerShell 5 text pipelines for signed or non-ASCII JSON. See [`windows-host-agent.md`](windows-host-agent.md).
+Use an absolute `.exe` path and explicit `--repo` path. Avoid PowerShell 5 text pipelines for signed or non-ASCII JSON. See [`windows-host-agent.en.md`](windows-host-agent.en.md) (English) or the Chinese original [`windows-host-agent.md`](windows-host-agent.md).
 
 ## AI endpoint fails
 
