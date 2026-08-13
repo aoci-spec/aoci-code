@@ -2,6 +2,8 @@
 
 本文档定义AOCI-CODE CLI在Windows、Codex Desktop和Windows PowerShell 5环境中的稳定调用方式。它是Host-Agent自动化协议的一部分。
 
+> 范围说明：本文档的Entries/Header/Curation Stage流水线（第5-13节与16.3节）适用于Legacy单体索引仓库。Volume-first新仓库（当前默认初始化布局）的Windows流程是当前Guide + 普通无参数aoci_maintain + aoci_update_entry，见[cognition-volumes.md](cognition-volumes.md)；安装、认知复用、PowerShell与双指纹章节对两种布局均适用。
+
 ## 1. 稳定安装路径
 
 推荐固定安装位置：
@@ -36,7 +38,7 @@ aoci_rules
 aoci_overview
 ~~~
 
-aoci_overview在规模阈值内返回完整AOCI索引正文，使模型一次性建立：
+aoci_overview返回完整AOCI索引正文（超过传输阈值时按continuation_required分块连续交付，语义不变），使模型一次性建立：
 
 - 系统架构；
 - 文件职责；
@@ -92,7 +94,7 @@ refresh_ready_for_overview。check_only=true始终只返回紧凑JSON；普通�
 
 全局MEMORY、历史会话和外部资料只能辅助。系统级架构以当前完整索引为主要依据，具体实现以当前源码为依据。
 
-如果aoci_overview超过阈值而未附完整正文，再按工具指引使用aoci_get_entries或aoci_search补充。不得用少量Entry代替完整系统认知。
+超过传输阈值的索引由aoci_overview按continuation_required分块连续交付，Host必须自动提交cursor直到completed=true；aoci_get_entries与aoci_search只用于完整认知建立后的局部问题。不得用少量Entry代替完整系统认知。
 
 ## 3. 用户文件范围与AOCI托管资产
 
@@ -102,6 +104,7 @@ AOCI为保持认知一致性而更新的托管资产不属于业务越界，例�
 
 ~~~text
 aoci.txt
+aoci.meta.txt aoci.code.txt aoci.database.txt (Volumes仓库)
 .aoci/baseline.json
 .aoci/curation.json
 ~~~
@@ -244,7 +247,7 @@ F：
 - 写简短明确的核心功能锚点；
 - 通常控制在10个字以内；
 - 语义完整优先；
-- 长度不产生机器Warning或硬拒。
+- 长度不产生机器Warning或硬拒（仅Legacy v1条目；Volumes v1对象受FRAS v2硬限F≤160 rune，权威为internal/machinecontract）。
 
 R：
 
@@ -292,6 +295,8 @@ confidence = -1
 - 不复用旧命令、旧plan_id、旧run_id或旧摘要。
 
 ## 8. Entries Auto三态
+
+（Legacy Stage流水线的终态契约；Volumes仓库的对应终态见aoci_update_entry的applied/repair_required/stopped结果，语义一致。）
 
 automation.mode=auto时，Entries Stage先保存标准草稿，再在内部执行机器预检和自动收口。
 
@@ -387,6 +392,8 @@ auto_finalize.status = stopped
 ~~~
 
 才表示自动流程无法安全继续。
+
+当前版本对stopped写入尝试另有证据驱动的自动闭合：已证零写入自动关闭旧Run并重新Plan；完整Intent带可证postimage自动Resume；策略选择的Rollback带精确preimage自动回滚后重排。只有审批边界、不可证恢复状态、第三方字节冲突等真实安全边界才停给用户。
 
 必须停止并报告：
 
@@ -554,6 +561,8 @@ Curation Stage：
 
 ## 12. Missing机器字段兼容
 
+（本节字段分类适用于Legacy单体仓库；Volumes verify返回layout_mode/volumes/governance结构。）
+
 Verify：
 
 ~~~text
@@ -618,7 +627,7 @@ stopped
 - 不得仅凭退出码0判断已经Apply；
 - repair_required读取findings后自动重新Stage；
 - Warning-only批次允许Auto Apply；
-- F长度与措辞质量不是机器阻断项。
+- F长度与措辞质量不是机器阻断项（仅Legacy v1；Volumes v1受FRAS v2硬限）。
 
 ## 14. LF与CRLF双指纹
 
@@ -670,9 +679,11 @@ stopped
 
 ### 16.2 纯模型语义
 
+（Legacy Stage验收项；Volumes仓库以Guide+Maintain批次验收。）
+
 - Header、标签、FRAS和Curation逐项由模型生成；
 - 不用AST、路径、模板或脚本代写；
-- F长度不产生机器阻断；
+- F长度不产生机器阻断（仅Legacy v1；Volumes v1受FRAS v2硬限）；
 - confidence=-1未替换时拒绝。
 
 ### 16.3 Entries Auto修复

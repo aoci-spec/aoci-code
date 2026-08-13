@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T14:39:51Z",
+  "updated_at": "2026-08-13T14:43:56Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "8e2730cb0d249cb921351b3cbb496eec387bbf07ff8e4cc1c14096686ce7ef54",
-      "size": 156075,
-      "normalized_sha256": "8e2730cb0d249cb921351b3cbb496eec387bbf07ff8e4cc1c14096686ce7ef54"
+      "sha256": "5fe14c978dd230dcda646d559c7d764a7bc8753953c62d6b6b0b13903c45b7fc",
+      "size": 156279,
+      "normalized_sha256": "5fe14c978dd230dcda646d559c7d764a7bc8753953c62d6b6b0b13903c45b7fc"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -238,10 +238,9 @@
       "normalized_sha256": "58d291b17318055fda2ade7af0bea9d680104ec710335fe221c28774a9e5f844"
     },
     "docs/windows-host-agent.md": {
-      "role": "index",
-      "sha256": "f46ab30db125bd6bb4307a1f849454819acf90d427d78b334b1301b63a5f8d9f",
-      "size": 21310,
-      "normalized_sha256": "f46ab30db125bd6bb4307a1f849454819acf90d427d78b334b1301b63a5f8d9f"
+      "sha256": "3fa7c48d1a9fe7dc98ca4717ab2f7b41ad98fbd612c586bd81f67de08172fb3c",
+      "size": 22816,
+      "normalized_sha256": "3fa7c48d1a9fe7dc98ca4717ab2f7b41ad98fbd612c586bd81f67de08172fb3c"
     },
     "docs/zh-cn-contract-authority.md": {
       "sha256": "a452c214ab0d2cb743d343da4191f36ae62cb320cce75ab5b4fe0b363f0bc364",
