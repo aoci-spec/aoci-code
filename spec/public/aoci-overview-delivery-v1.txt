@@ -256,13 +256,13 @@ but complete cognition verification is unfinished. It must not say that no
 system cognition or understanding exists. Cursors, per-Chunk SHA, long
 Metadata, and Attestation JSON remain machine evidence by default.
 
-The default Chinese forms are:
-
-    已完整读取并校验AOCI：<entry_count>/<entry_count>条、约<estimated_tokens> tokens、共<chunk_count>块，Challenge <passed>/<total>、索引覆盖率<coverage_percent>%；我对系统框架——架构、职责、强关系、稳定契约和关键约束——的掌握度约<system_mastery_percent>%。
-
-    已加载项目认知且交付已验证，但完整认知验证尚未完成：Challenge <passed>/<total>；可以继续诚实的source-bound调查，但当前不能声称完整系统认知。
-
-    AOCI完整读取失败：已读取<received>/<total>块，索引覆盖率约<coverage>%；原因是<reason>，当前不能声称已经掌握完整系统框架。
+The concrete localized sentence forms are owned by the official Locale text
+assets and are not duplicated in this contract: the success and failure
+one-liners are defined in `textassets/<locale>/contracts/runtime-rules.txt`,
+and the delivery-verified partial form is the corresponding
+`overview.cognition_level` message in
+`textassets/<locale>/contracts/ui/messages.json`. Both official locales,
+`en-US` and `zh-CN`, carry parallel forms with identical placeholders.
 
 All values come from the current Receipt and Attestation and are never hard
 coded.

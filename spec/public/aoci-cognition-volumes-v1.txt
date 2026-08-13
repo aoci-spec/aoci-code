@@ -142,10 +142,10 @@ receipts but partial-scope reliability is decided by scope identity.
 5. Overview scope
 
 The existing aoci_overview tool accepts the optional scope values all, project,
-code, and database. No tool is added. Volumes defaults to all. Legacy calls
-without scope retain their input shape and receipt-v1 contract.
+meta, code, and database. No tool is added. Volumes defaults to all. Legacy
+calls without scope retain their input shape and receipt-v1 contract.
 
-- project delivers Root + Meta;
+- project and meta each deliver Root + Meta;
 - code delivers Root + Meta + Code;
 - database delivers Root + Meta + Database;
 - all delivers Root + Meta + every declared valid object Volume.
@@ -233,6 +233,18 @@ an advanced compatibility diagnostic. Maintain returns the complete model
 authoring targets and exact Review, Write, and Guard closure, but no generated
 tag or F/R/A/S and no formal write. Relations may expand Review and Guard only.
 Orphans are explicit removal candidates and are never silently deleted.
+
+Maintain also accepts the additive optional input intent=cognition_optimization
+with an optional object_refs filter of canonical code: references. It is valid
+only for an aligned Volumes v1 Code layout with no budget violation: Maintain
+then selects already-aligned Code Entries for explicit model review by
+deterministic Entry cost and C-band budget facts, transports the current
+complete Entries, and records resumable checkpoint progress. The program still
+generates no semantics, truncates nothing, and lowers no C value; review
+batches close through the existing Update, Baseline, and Recovery authorities,
+an all-no-change batch advances with zero formal writes, and an altered replay
+of a completed batch fails before Apply. Ordinary no-argument Maintain
+behavior is unchanged, and no MCP tool is added.
 
 8. Other reads and writes
 
@@ -453,7 +465,7 @@ introduced.
 ## R73 derived System Cognition
 
 R73 preserves the same Volume and governance authorities while adding the
-read-only contracts in `aoci-system-cognition-foundation-v1.txt`. Lineage,
+read-only contracts in `aoci-system-cognition-runtime-v1.txt`. Lineage,
 database-to-code impact, evolution, and the narrow relation projection are
 rebuilt from the current CognitionSet and Baseline bindings. They are not
 Volumes, are never declared by Root, have no persisted state, and cannot enter

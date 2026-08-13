@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T14:30:09Z",
+  "updated_at": "2026-08-13T14:34:46Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "32a7c2683d4fb2fee4d6117e54eed9d9b6db2ded0e960403b6165e7279aa41e4",
-      "size": 155991,
-      "normalized_sha256": "32a7c2683d4fb2fee4d6117e54eed9d9b6db2ded0e960403b6165e7279aa41e4"
+      "sha256": "8e2730cb0d249cb921351b3cbb496eec387bbf07ff8e4cc1c14096686ce7ef54",
+      "size": 156075,
+      "normalized_sha256": "8e2730cb0d249cb921351b3cbb496eec387bbf07ff8e4cc1c14096686ce7ef54"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4859,9 +4859,9 @@
       "normalized_sha256": "bfc219ba93e78ff06b912d02b88afbae1668427d9a6acdebf3876a48624375f9"
     },
     "spec/public/aoci-cognition-volumes-v1.txt": {
-      "sha256": "f0938e5ecccf4682800304e687887ca0761e835219db0ab8ad2c5f7a8e7105dc",
-      "size": 28270,
-      "normalized_sha256": "f0938e5ecccf4682800304e687887ca0761e835219db0ab8ad2c5f7a8e7105dc"
+      "sha256": "3a1b2e6f3319e832da97ea3b1552fa93acfad107851c311563856ff422dad302",
+      "size": 29098,
+      "normalized_sha256": "3a1b2e6f3319e832da97ea3b1552fa93acfad107851c311563856ff422dad302"
     },
     "spec/public/aoci-config-runtime-v1.txt": {
       "sha256": "1eeab821fb3fbd95377004ee0083f868f28bb9f1b462d8bf4b6d3fae4dc9de28",
@@ -4869,14 +4869,14 @@
       "normalized_sha256": "1eeab821fb3fbd95377004ee0083f868f28bb9f1b462d8bf4b6d3fae4dc9de28"
     },
     "spec/public/aoci-database-cognition-authoring-v1.txt": {
-      "sha256": "814269d603dc42e0d9b867267dc466c7bd24ab0e69162284ce6126477aae0ddd",
-      "size": 15262,
-      "normalized_sha256": "814269d603dc42e0d9b867267dc466c7bd24ab0e69162284ce6126477aae0ddd"
+      "sha256": "b196e5e8c60dcc502c37d197f8c85ad07cb9a857f3fc27122eecf3afca72945d",
+      "size": 15480,
+      "normalized_sha256": "b196e5e8c60dcc502c37d197f8c85ad07cb9a857f3fc27122eecf3afca72945d"
     },
     "spec/public/aoci-database-evidence-v1.txt": {
-      "sha256": "33e1c5087b86e7dbf5514a6ef672a44104fa180ee54f1de02e96141815ae5857",
-      "size": 14706,
-      "normalized_sha256": "33e1c5087b86e7dbf5514a6ef672a44104fa180ee54f1de02e96141815ae5857"
+      "sha256": "853e7bd1cb082c0bc146c972982070c00c5e524914ca92b216589e7ec602721e",
+      "size": 14703,
+      "normalized_sha256": "853e7bd1cb082c0bc146c972982070c00c5e524914ca92b216589e7ec602721e"
     },
     "spec/public/aoci-database-table-fras-v1.txt": {
       "sha256": "7c8c024d78b7ba3e0dc5b69dacc08bc34bacddd1f0c7fb4296833cdf30060097",
@@ -4914,9 +4914,9 @@
       "normalized_sha256": "73a65b0c5eaa05e019f5d2d110bf739282a7a38e9520d249eda6457201a078ba"
     },
     "spec/public/aoci-overview-delivery-v1.txt": {
-      "sha256": "bda19ce90fadaf407626be165c6fbf6da2c565576b8456d7bdd14386eecfcff8",
-      "size": 15914,
-      "normalized_sha256": "bda19ce90fadaf407626be165c6fbf6da2c565576b8456d7bdd14386eecfcff8"
+      "sha256": "bf204396698724b63360b9d33045fbe5647824da7527b1a8fb7b8d1710b86657",
+      "size": 15667,
+      "normalized_sha256": "bf204396698724b63360b9d33045fbe5647824da7527b1a8fb7b8d1710b86657"
     },
     "spec/public/aoci-safe-inventory-and-scope-refresh-v1.txt": {
       "sha256": "f7a42939aee17259e7e5b7380b8ddf97154efbf6210b4778006fb6d7dd28b898",
@@ -4929,9 +4929,9 @@
       "normalized_sha256": "c6bd26c9da00fd5d771b37efae0cb504224b994708ab1ff317e7a98ac712824e"
     },
     "spec/public/s-field-discipline.txt": {
-      "sha256": "ebc187b176a16aa4e7bd20b3d07c46de591cea51381a9704fc9fc89f2e3166ff",
-      "size": 6532,
-      "normalized_sha256": "ebc187b176a16aa4e7bd20b3d07c46de591cea51381a9704fc9fc89f2e3166ff"
+      "sha256": "42569403c02cd2d977cb9945abad9252710a5b5e7a374b46efd4abe0dd13ba57",
+      "size": 7406,
+      "normalized_sha256": "42569403c02cd2d977cb9945abad9252710a5b5e7a374b46efd4abe0dd13ba57"
     },
     "textassets/README.txt": {
       "role": "index",

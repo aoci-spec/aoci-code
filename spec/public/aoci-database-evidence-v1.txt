@@ -272,7 +272,7 @@ Kubernetes, and cloud-secret providers are explicitly outside this version.
 The Lineage and Impact views consume only accepted Database Cognition Baseline
 bindings. They do not change Schema Evidence, do not become Evidence, and do
 not authorize Database Cognition writes. See
-`aoci-system-cognition-foundation-v1.txt`.
+`aoci-system-cognition-runtime-v1.txt`.
 
 11. Compatibility
 

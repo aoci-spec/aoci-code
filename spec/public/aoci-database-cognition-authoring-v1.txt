@@ -108,7 +108,10 @@ network access.
 4. Offline Maintain discovery
 
 The existing aoci_maintain accepts optional scope values code, database, and
-all. In a Volumes repository, absent scope is the ordinary path and uses the
+all, plus the additive optional intent=cognition_optimization input with its
+object_refs filter, which applies only to aligned Volumes v1 Code Entries and
+never to Database assessment (see `aoci-cognition-volumes-v1.txt`). In a
+Volumes repository, absent scope is the ordinary path and uses the
 shared governance facts to select Code, Database, both, or aligned. Explicit
 scope remains an advanced compatibility diagnostic. In Legacy, absent scope
 and code retain established behavior. Database assessment reads only accepted

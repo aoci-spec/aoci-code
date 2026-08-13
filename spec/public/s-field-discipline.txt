@@ -3,6 +3,19 @@ S 字段与条目写作纪律
 EvolutionNarrativeTerms定义,internal/index/validator.go直接消费该集合。
 本文与Prompt解释写作目的并提供非穷举示例,不复制机器词表。
 
+[Authority and scope — English note] This file is the normative S-field and
+Entry writing discipline; its prose is Chinese. English readers can obtain the
+load-bearing rules from approved English sources without a second authority:
+the S admission rule (non-inferable and error-preventing), FRAS v2 field
+limits, and the compact tag grammar are specified in
+`aoci-object-fras-v2.txt`; the S quota values are owned by
+`internal/machinecontract/numeric.go`; the evolution-narrative warning
+vocabulary is owned by `internal/machinecontract/lexical.go`; and the runtime
+authoring contracts served by Guide and `aoci_maintain` carry the same rules
+in the project Locale. A repository Header may declare quotas with the English
+`#S quota` form or the equivalent Chinese form; the dictionary parser treats
+them identically. This note adds no rule beyond the Chinese text below.
+
 〇、总则
 AOCI 索引是给模型看的: 模型通过索引头部规则 + 每段条目的总和来完整理解整个系统。
 条目五层 = 文件名 + 标签 + F + R + A,S 承载五层之外的必要信息。
