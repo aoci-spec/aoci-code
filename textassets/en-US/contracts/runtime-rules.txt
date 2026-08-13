@@ -8,7 +8,7 @@ Authority boundary: this contract defines only session-level principles for esta
 
 Fresh Bootstrap authoring boundary: use the current persistent Onboarding progression. The Host model authors the semantic artifacts required by the current Plan and Guide from bound evidence, supplies its authoring-run declaration, and binds it to the current Plan, Evidence, and complete Candidate. AOCI may compute bindings and validate the receipt but must never set origin=host_model, manufacture a Host receipt, or generate semantic content. Internal batches proceed automatically and are not user decisions; the existing approval, safety, drift, CAS, and Recovery boundaries remain authoritative.
 
-1. Establishing, reusing, and restoring cognition
+Section 1. Establishing, reusing, and restoring cognition
 
 1. At the start of a normal Agent Run, read aoci_rules once and request aoci_overview. When it reports continuation_required=true, do not ask the user, state a partial system conclusion, or start the business task. Submit the exact next_cursor and continue automatically until completed=true. Stop the cognition chain on Host truncation, a missing, duplicate, or reordered Chunk, cursor error, Index change, or chunk_tokens change. Before Attestation completes, never use Memory, source, Spec, aoci.txt, historical sessions, scope, search, or Entry reads to repair or supplement Whole-Index cognition. If Host truncation occurs, tell the user to set overview_delivery.chunk_tokens to a smaller valid value and restart; do not change it automatically. The challenge ordinal is the 1-based position in the formal Entry sequence. Header content, comments, blank lines, Section/Overview/Chunk markers, receipts, and Metadata are excluded; Chunk Receipt first_entry_ordinal and last_entry_ordinal use the same sequence. The Attestation must echo the Challenge's exact current index_sha256, entry_sequence_sha256, and entry_count; a prior Index, Entry sequence, count, or Attestation is invalid. After all Chunks, submit the existing model-cognition-attestation/v1 once. One correction is allowed only for a same-response JSON Schema or field-format error and must not change semantic answers. An object, Tag, or F mismatch means model_attestation=fail and cognition_assimilation=uncertain, with no semantic retry or information bypass. It disables an unqualified complete-system claim. During initial cognition it also blocks Root/Meta, Migration, layout-wide, and other unbound system decisions. The result retains delivered cognition's reported scope and state. A context-compaction refresh with complete transport, unchanged cognition identity, aligned governance, and no Recovery or third-party conflict consumes its generation even when Attestation is partial or failed and does not trigger another automatic Overview. system_mastery_percent self-assesses only system-framework mastery—architecture, module responsibilities, strong relationships, stable external contracts, and high-entropy safety and maintenance constraints. Keep machine Index coverage separate. On success, normally say only: “Fully read and verified AOCI: <entry_count>/<entry_count> Entries, about <estimated_tokens> tokens, <chunk_count> Chunks, Challenge <passed>/<total>, Index coverage <coverage_percent>%; my system-framework mastery—architecture, responsibilities, strong relationships, stable contracts, and critical constraints—is about <system_mastery_percent>%.” On failure, normally say only: “AOCI complete read failed: received <received>/<total> Chunks, Index coverage about <coverage>% because <reason>; complete system-framework cognition cannot currently be claimed.” A successful full response establishes a cognition receipt bound to runtime_repository_root, index_sha256, mcp_service_version, and cognition_scope. Codex Memory and historical Skills cannot replace a cognition receipt matching the current AOCI identity.
 
@@ -22,21 +22,21 @@ Fresh Bootstrap authoring boundary: use the current persistent Onboarding progre
 
 4. The host or Agent declares context_compaction and phase_transition through the optional aoci_overview input and supplies refresh_event_id for idempotency. AOCI does not pretend to detect host compaction. semantic_threshold is machine-derived and cannot be declared by the host. Multiple simultaneous reasons merge into one checkpoint assessment.
 
-5. The unique semantic count is current real Stale files plus Actionable Missing files plus Pending Curation files, deduplicated by repository-relative path. Proven format-only and LineEndingOnly changes, Curation exclusions, deterministic technical skips, Git-ignored files, AOCI runtime assets, files restored to Baseline, and objects outside governance do not count. The project value is reported as the cognition_refresh_threshold machine fact below; repositories without the field use the machine default.
+4a. The unique semantic count is current real Stale files plus Actionable Missing files plus Pending Curation files, deduplicated by repository-relative path. Proven format-only and LineEndingOnly changes, Curation exclusions, deterministic technical skips, Git-ignored files, AOCI runtime assets, files restored to Baseline, and objects outside governance do not count. The project value is reported as the cognition_refresh_threshold machine fact below; repositories without the field use the machine default.
 
-6. If checkpoint facts show semantic changes or other alignment blockers, wait until the managed objects have reached a stable state, call aoci_maintain once, handle repair_required or stopped exactly as returned, and prove alignment through Verify, Check, and Guide. An ordinary Overview may still deliver the complete formal cognition while dirty; its content retains the reported scope while its reliability state remains explicit. Never maintain repeatedly while managed objects are still changing.
+4b. If checkpoint facts show semantic changes or other alignment blockers, wait until the managed objects have reached a stable state, call aoci_maintain once, handle repair_required or stopped exactly as returned, and prove alignment through Verify, Check, and Guide. An ordinary Overview may still deliver the complete formal cognition while dirty; its content retains the reported scope while its reliability state remains explicit. Never maintain repeatedly while managed objects are still changing.
 
-7. Machine checkpoint results use refresh_not_required, refresh_required, refresh_deferred_until_stable, or refresh_ready_for_overview. Only check_only=true returns those compact facts without a cognition body. Every ordinary explicit aoci_overview call delivers the complete requested scope when a coherent snapshot is available, even when the same receipt already exists or no reason is pending. One complete, host-confirmed and governance-aligned Attestation attempt consumes the merged reasons and advances the generation. A passing Attestation records a reliable receipt; a partial or failed Attestation records an uncertain receipt and delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed. Neither outcome automatically loops Overview in the same generation.
+4c. Machine checkpoint results use refresh_not_required, refresh_required, refresh_deferred_until_stable, or refresh_ready_for_overview. Only check_only=true returns those compact facts without a cognition body. Every ordinary explicit aoci_overview call delivers the complete requested scope when a coherent snapshot is available, even when the same receipt already exists or no reason is pending. One complete, host-confirmed and governance-aligned Attestation attempt consumes the merged reasons and advances the generation. A passing Attestation records a reliable receipt; a partial or failed Attestation records an uncertain receipt and delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed. Neither outcome automatically loops Overview in the same generation.
 
-8. Reliable complete cognition remains reusable without retransmission. Dirty or stale formal cognition remains described by its reported scope and state. Pending recovery or an incoherent cognition snapshot fails closed without a mixed cognition body.
+4d. Reliable complete cognition remains reusable without retransmission. Dirty or stale formal cognition remains described by its reported scope and state. Pending recovery or an incoherent cognition snapshot fails closed without a mixed cognition body.
 
-2. When complete cognition is unavailable
+Section 2. When complete cognition is unavailable
 
 5. When the formal index needs to be established or completed, use the current AOCI Guide. aoci_maintain is for incremental maintenance of an established index.
 
 6. For full-index establishment, enter the current AOCI Guide and let Guide choose the next stage from actual repository state. Execute only the bound commands and safety stops returned by the current Guide. Do not guess PATH or reconstruct the state machine. Follow the relevant Guide, tool description, and `--help` for platform invocation, request encoding, batch limits, and recovery details.
 
-3. Model-generated, model-read cognition
+Section 3. Model-generated, model-read cognition
 
 7. AOCI uses a model-generated, model-read cognition loop. When generating or revising the Header, the model follows the current Guide to investigate repository facts and establish project rules, tag dictionaries, and calibration examples. When generating or updating an Entry, the model first reads the current Header, then the target source, tests, configuration, database structure, other managed facts, and necessary related evidence, and generates cognition item by item.
 
@@ -44,11 +44,11 @@ Fresh Bootstrap authoring boundary: use the current persistent Onboarding progre
 
 9. The complete index establishes a high-density cognition map of system position, responsibilities, relationships, contracts, and non-obvious constraints. Differences discovered during later AOCI authoring or maintenance are handled through the current Guide and machine state.
 
-4. AOCI-managed write boundaries
+Section 4. AOCI-managed write boundaries
 
 10. When the user limits only business-file scope and does not explicitly forbid repository-managed assets, AOCI closing may update managed assets such as aoci.txt and Baseline. When the user explicitly forbids changes to aoci.txt, .aoci, metadata, or any additional file, do not write and report remaining inconsistency accurately.
 
-5. Incremental maintenance
+Section 5. Incremental maintenance
 
 11. A purely read-only question, analysis, version check, or task that changes no AOCI-managed object does not require a maintenance-tool call.
 
@@ -62,7 +62,7 @@ Fresh Bootstrap authoring boundary: use the current persistent Onboarding progre
 
 16. When evidence bound to an AOCI semantic decision is insufficient, do not guess. Use aoci_report only when the current layout and returned tool state support it; it does not replace Curation, orphan decisions, or failure recovery. If any managed object changes after maintenance completes, the previous result is invalid; complete closing again from the new final stable state.
 
-6. Specialized contracts
+Section 6. Specialized contracts
 
 17. For the detailed formats, stages, requests, platform differences, and commands of full-index generation, Header, Entries, Curation, human review, orphan decisions, and failure recovery, follow only the current Guide, tool descriptions, model Prompt, and CLI Help. This contract does not duplicate those specialized manuals and must not reconstruct their state machines.
 

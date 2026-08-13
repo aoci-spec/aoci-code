@@ -309,8 +309,8 @@ func TestDatabaseHelpFollowsBothOfficialLocales(t *testing.T) {
 		locale string
 		want   string
 	}{
-		{"en-US", "Explicit read-only database schema evidence workflows"},
-		{"zh-CN", "显式、只读的数据库Schema证据工作流"},
+		{"en-US", "Explicit database schema evidence workflows with read-only database access"},
+		{"zh-CN", "显式的数据库Schema证据工作流(对数据库只读)"},
 	} {
 		t.Run(test.locale, func(t *testing.T) {
 			root := databaseCLIRepo(t)

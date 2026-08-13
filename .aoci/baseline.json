@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T14:34:46Z",
+  "updated_at": "2026-08-13T14:39:51Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -774,10 +774,10 @@
     },
     "internal/cli/database_test.go": {
       "role": "observe",
-      "sha256": "7e4779e865ea97b8bdd9851af09fea5e4181392644e63e875f5dd823c9461cfd",
-      "size": 23483,
-      "normalized_sha256": "7e4779e865ea97b8bdd9851af09fea5e4181392644e63e875f5dd823c9461cfd",
-      "format_sha256": "7e4779e865ea97b8bdd9851af09fea5e4181392644e63e875f5dd823c9461cfd",
+      "sha256": "6eb4f98f425952145f09b6d1f64b4fc8301ce14cd105d8a23999047025690217",
+      "size": 23515,
+      "normalized_sha256": "6eb4f98f425952145f09b6d1f64b4fc8301ce14cd105d8a23999047025690217",
+      "format_sha256": "6eb4f98f425952145f09b6d1f64b4fc8301ce14cd105d8a23999047025690217",
       "format_kind": "gofmt"
     },
     "internal/cli/doctor.go": {
@@ -5689,15 +5689,15 @@
     },
     "textassets/en-US/contracts/runtime-rules.txt": {
       "role": "observe",
-      "sha256": "5fec2df5788bc589abbd5709bdda2b495a254017fcb0931a5c98cb741ea3134e",
-      "size": 15459,
-      "normalized_sha256": "5fec2df5788bc589abbd5709bdda2b495a254017fcb0931a5c98cb741ea3134e"
+      "sha256": "5bff2e38cd3e70bbdb24de1a4a8801318fd3f3614cc209596896f1909484e511",
+      "size": 15511,
+      "normalized_sha256": "5bff2e38cd3e70bbdb24de1a4a8801318fd3f3614cc209596896f1909484e511"
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "4ccbe14adbbb7b66fd9315712d890bac445210816d2502678d84f81f3490914e",
-      "size": 167598,
-      "normalized_sha256": "4ccbe14adbbb7b66fd9315712d890bac445210816d2502678d84f81f3490914e"
+      "sha256": "5653aac3a238576d1d555d0675f43f3c5e6eac196c5c496a2d0c75dfb227e526",
+      "size": 167638,
+      "normalized_sha256": "5653aac3a238576d1d555d0675f43f3c5e6eac196c5c496a2d0c75dfb227e526"
     },
     "textassets/en-US/prompts/ai-probe-system.txt": {
       "role": "observe",
@@ -6771,15 +6771,15 @@
     },
     "textassets/zh-CN/contracts/runtime-rules.txt": {
       "role": "observe",
-      "sha256": "66e72cc9cfaa993e844215be527973ea4e148439ef45d8ecd42188788a2bedc8",
-      "size": 13254,
-      "normalized_sha256": "66e72cc9cfaa993e844215be527973ea4e148439ef45d8ecd42188788a2bedc8"
+      "sha256": "5caf64beafca5d07418ca33e871599d47d88755e786f24c45e36f7305875aaaa",
+      "size": 13258,
+      "normalized_sha256": "5caf64beafca5d07418ca33e871599d47d88755e786f24c45e36f7305875aaaa"
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "d79e816e677a75522f9119681e51617cfa35ff8561c58fef05ec476605115769",
-      "size": 151938,
-      "normalized_sha256": "d79e816e677a75522f9119681e51617cfa35ff8561c58fef05ec476605115769"
+      "sha256": "e87bd9c86bf1adeac0f6fdd5f3da1e65d1a835ffb9a2da45c8c7c16ba1b407f6",
+      "size": 151972,
+      "normalized_sha256": "e87bd9c86bf1adeac0f6fdd5f3da1e65d1a835ffb9a2da45c8c7c16ba1b407f6"
     },
     "textassets/zh-CN/prompts/ai-probe-system.txt": {
       "role": "observe",
