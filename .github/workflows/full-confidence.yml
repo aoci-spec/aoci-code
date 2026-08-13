@@ -259,24 +259,32 @@ jobs:
             -e GS_HOST_AUTH_METHOD=sha256 \
             -e OTHER_PG_CONF="${tls_config}" \
             opengauss:6.0.5 >/dev/null
+          run_gsql() {
+            docker exec --user omm \
+              -e HOME=/home/omm \
+              -e GAUSSHOME=/usr/local/opengauss \
+              -e PATH=/usr/local/opengauss/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+              -e LD_LIBRARY_PATH=/usr/local/opengauss/lib:/scws/lib \
+              "aoci-opengauss-${GITHUB_RUN_ID}" \
+              /usr/local/opengauss/bin/gsql "$@"
+          }
           ready=false
           for attempt in $(seq 1 90); do
-            if docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
-              gsql -d postgres -U omm -p 5432 -c 'select 1' >/dev/null 2>&1; then
+            if run_gsql -d postgres -U omm -p 5432 -c 'select 1' >/dev/null 2>&1; then
               ready=true
               break
             fi
             sleep 2
           done
           if [ "${ready}" != true ]; then
+            docker inspect --format '{{json .State}}' "aoci-opengauss-${GITHUB_RUN_ID}"
+            run_gsql -d postgres -U omm -p 5432 -c 'select 1' || true
             docker logs "aoci-opengauss-${GITHUB_RUN_ID}"
             exit 1
           fi
-          encryption_type="$(docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
-            gsql -At -d postgres -U omm -p 5432 -c 'show password_encryption_type' | tr -d '[:space:]')"
+          encryption_type="$(run_gsql -At -d postgres -U omm -p 5432 -c 'show password_encryption_type' | tr -d '[:space:]')"
           test "${encryption_type}" = 2
-          ssl_enabled="$(docker exec "aoci-opengauss-${GITHUB_RUN_ID}" \
-            gsql -At -d postgres -U omm -p 5432 -c 'show ssl' | tr -d '[:space:]')"
+          ssl_enabled="$(run_gsql -At -d postgres -U omm -p 5432 -c 'show ssl' | tr -d '[:space:]')"
           test "${ssl_enabled}" = on
       - name: openGauss read-only Evidence integration
         run: |
