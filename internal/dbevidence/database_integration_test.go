@@ -1206,12 +1206,28 @@ func assertMySQLCollectorInterruption(t *testing.T, admin *sql.DB, adminDSN, cre
 		_, snapshot, files, err := collector.Snapshot(context.Background(), interrupted)
 		resultChannel <- result{snapshot: snapshot, files: files, err: err}
 	}()
+	accountLocked := false
+	defer func() {
+		if !accountLocked {
+			return
+		}
+		if _, err := admin.ExecContext(context.Background(), `ALTER USER 'aoci_d0_interrupt'@'%' ACCOUNT UNLOCK`); err != nil {
+			t.Errorf("temporary MySQL interrupt account unlock failed: %v", err)
+		}
+	}()
 	deadline := time.Now().Add(5 * time.Second)
 	terminated := false
 	for time.Now().Before(deadline) {
 		var processID int64
 		err := admin.QueryRowContext(context.Background(), `SELECT ID FROM information_schema.PROCESSLIST WHERE USER = 'aoci_d0_interrupt' LIMIT 1`).Scan(&processID)
 		if err == nil {
+			// The collector pings before opening its read-only transaction. Lock
+			// the test account before killing the observed connection so the SQL
+			// driver cannot transparently reconnect in that narrow interval.
+			if _, err := admin.ExecContext(context.Background(), `ALTER USER 'aoci_d0_interrupt'@'%' ACCOUNT LOCK`); err != nil {
+				t.Fatal("temporary MySQL interrupt account lock failed")
+			}
+			accountLocked = true
 			if _, err := admin.ExecContext(context.Background(), fmt.Sprintf("KILL CONNECTION %d", processID)); err != nil {
 				t.Fatal("temporary MySQL connection termination failed")
 			}
