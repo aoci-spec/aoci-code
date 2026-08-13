@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T17:54:16Z",
+  "updated_at": "2026-08-13T18:47:52Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -34,9 +34,9 @@
       "normalized_sha256": "85fca2a52a4dea88c2cdf9e9d7736203cdd9b941a2dbe315413671796d130cb8"
     },
     ".gitignore": {
-      "sha256": "c66e1ec6aa206fb219a130bdce27e6f2fe30b884a75b362fb666474b1bd0a3f3",
-      "size": 2253,
-      "normalized_sha256": "c66e1ec6aa206fb219a130bdce27e6f2fe30b884a75b362fb666474b1bd0a3f3"
+      "sha256": "50641fe39d0595503b05bd79c95cce1be9bf20652ff39fa0d7c3aa363a153d61",
+      "size": 2390,
+      "normalized_sha256": "50641fe39d0595503b05bd79c95cce1be9bf20652ff39fa0d7c3aa363a153d61"
     },
     ".goreleaser.yml": {
       "role": "index",
@@ -5080,6 +5080,12 @@
       "sha256": "4e67308ecfe1c599da37e94f500f2c5ce56ef68478cb53d81574619865911c9a",
       "size": 12636,
       "normalized_sha256": "4e67308ecfe1c599da37e94f500f2c5ce56ef68478cb53d81574619865911c9a"
+    },
+    "scripts/blackbox/mcp_lifecycle.py": {
+      "role": "observe",
+      "sha256": "9e4528afb058f55176cceec90ba19765a470c0338036de679a6d6ba927ccb5af",
+      "size": 36008,
+      "normalized_sha256": "9e4528afb058f55176cceec90ba19765a470c0338036de679a6d6ba927ccb5af"
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "observe",

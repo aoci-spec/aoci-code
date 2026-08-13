@@ -1,0 +1,118 @@
+{
+  "users": [
+    {
+      "id": "user_01J1GZ4Q0RVAHT3M8W2E9XKCPD",
+      "name": "Ada Lovelace",
+      "email": "ada@example.com",
+      "role": "admin",
+      "active": true,
+      "createdAt": "2026-07-15T08:00:00.000Z"
+    },
+    {
+      "id": "user_01J1GZ4Q0SB7N2XWYE5DKTHFMR",
+      "name": "Grace Hopper",
+      "email": "grace@example.com",
+      "role": "member",
+      "active": true,
+      "createdAt": "2026-07-15T08:05:00.000Z"
+    },
+    {
+      "id": "user_01J1GZ4Q0TC8P3YDZF6EMVJGNS",
+      "name": "Katherine Johnson",
+      "email": "katherine@example.com",
+      "role": "member",
+      "active": true,
+      "createdAt": "2026-07-16T09:30:00.000Z"
+    },
+    {
+      "id": "user_01J1GZ4Q0VD9Q4ZEAG7FNWKHPT",
+      "name": "Edsger Dijkstra",
+      "email": "edsger@example.com",
+      "role": "member",
+      "active": false,
+      "createdAt": "2026-07-16T10:00:00.000Z"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task_01J1H2M8X0AB1CD2EF3GH4JK5M",
+      "title": "Wire CI status badge into README",
+      "description": "Badge should reflect the main branch pipeline.",
+      "status": "todo",
+      "priority": "low",
+      "assigneeId": null,
+      "createdAt": "2026-08-01T09:15:00.000Z",
+      "updatedAt": "2026-08-01T09:15:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X1NP6QR7ST8VW9XY0Z",
+      "title": "Rate-limit the transition endpoint",
+      "description": "Burst of retries from the mobile client floods 409s.",
+      "status": "todo",
+      "priority": "high",
+      "assigneeId": "user_01J1GZ4Q0SB7N2XWYE5DKTHFMR",
+      "createdAt": "2026-08-02T11:40:00.000Z",
+      "updatedAt": "2026-08-02T11:40:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X2A1B2C3D4E5F6G7H8",
+      "title": "Redact cookie header in request logs",
+      "description": "Session cookies were visible in the staging log stream.",
+      "status": "doing",
+      "priority": "high",
+      "assigneeId": "user_01J1GZ4Q0RVAHT3M8W2E9XKCPD",
+      "createdAt": "2026-08-03T14:05:00.000Z",
+      "updatedAt": "2026-08-05T16:22:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X3J8K9M0N1P2Q3R4S5",
+      "title": "Document the bearer token format",
+      "description": "Support keeps asking how to mint tokens for curl.",
+      "status": "doing",
+      "priority": "medium",
+      "assigneeId": "user_01J1GZ4Q0TC8P3YDZF6EMVJGNS",
+      "createdAt": "2026-08-04T10:10:00.000Z",
+      "updatedAt": "2026-08-06T09:01:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X4T5V6W7X8Y9Z0A1B2",
+      "title": "Add uptime to the health payload",
+      "description": "",
+      "status": "done",
+      "priority": "low",
+      "assigneeId": "user_01J1GZ4Q0SB7N2XWYE5DKTHFMR",
+      "createdAt": "2026-07-28T13:00:00.000Z",
+      "updatedAt": "2026-07-30T15:45:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X5C3D4E5F6G7H8J9K0",
+      "title": "Reject empty PATCH bodies",
+      "description": "An empty patch used to bump updatedAt for no reason.",
+      "status": "done",
+      "priority": "medium",
+      "assigneeId": "user_01J1GZ4Q0RVAHT3M8W2E9XKCPD",
+      "createdAt": "2026-07-29T08:20:00.000Z",
+      "updatedAt": "2026-08-01T12:30:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X6M1N2P3Q4R5S6T7V8",
+      "title": "Seed script for demo environments",
+      "description": "POST this file's contents into a fresh instance.",
+      "status": "todo",
+      "priority": "medium",
+      "assigneeId": "user_01J1GZ4Q0TC8P3YDZF6EMVJGNS",
+      "createdAt": "2026-08-07T09:00:00.000Z",
+      "updatedAt": "2026-08-07T09:00:00.000Z"
+    },
+    {
+      "id": "task_01J1H2M8X7W9X0Y1Z2A3B4C5D6",
+      "title": "Graceful shutdown drains keep-alive sockets",
+      "description": "SIGTERM should not drop in-flight board refreshes.",
+      "status": "doing",
+      "priority": "high",
+      "assigneeId": "user_01J1GZ4Q0RVAHT3M8W2E9XKCPD",
+      "createdAt": "2026-08-08T15:30:00.000Z",
+      "updatedAt": "2026-08-11T10:12:00.000Z"
+    }
+  ]
+}
