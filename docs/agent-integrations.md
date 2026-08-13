@@ -10,6 +10,15 @@ host session already exposes the AOCI tools. Refresh or reopen that project
 session only when it has not loaded the new server; hosts that support dynamic
 MCP reload do not require a blanket application restart.
 
+The host configuration files written by `aoci init --agent` (`.mcp.json`,
+`.claude/settings.json`, `.codex/config.toml`, `opencode.json`) embed
+machine-bound absolute binary and repository paths. Add them to the
+repository's `.gitignore` and do not commit them: a committed copy is broken on
+every other machine, and because each installer detects an existing entry by
+key presence, re-running `init` there silently keeps the broken paths. In an
+AOCI-governed repository the ignore entry also keeps these files out of
+Managed Scope, so they create no index debt.
+
 ## Codex
 
 ```bash
@@ -149,38 +158,23 @@ is attached. A PTY-capable Host can use its exact command and confirmation
 phrase. AOCI preserves the TTY and no-self-approval guard; this is not evidence
 that Codex Desktop or another external Host automatically allocates a PTY.
 
-For every host, obtain `aoci_rules` once and establish one complete Overview at
-the start of a normal task. If it reports `continuation_required=true`, submit
-the exact `next_cursor` automatically through the final Chunk before beginning
-the task or stating a system conclusion. Do not ask the user to continue and do
-not replace missing Chunks or failed Attestation with Memory, source, Spec,
-direct `aoci.txt`, historical sessions, scoped reads, Search, or Entry lookup.
-Stop the cognition chain on Host truncation, missing/duplicate/reordered
-Chunks, cursor error, or Index/configuration change. Attestation failure stops
-complete-cognition acceptance and semantic retry, not honest answers or a
-source-bound task. The formal ordinal is the
-1-based position in the shared Entry/object sequence; Header content, comments,
-blank lines, markers, receipts, and Metadata are excluded. After the chain,
-submit the existing model cognition Attestation once; only one schema-only
-correction is allowed. Normally expose only one concise result sentence that
-separates machine Index coverage from self-assessed framework mastery. Keep
-reusing the resulting cognition while reliable. Context compaction,
-the project semantic threshold, and a major phase transition are checkpoint
-facts; they advise but do not decide whether the AI Agent needs the system-wide
-view. `check_only=true` returns only compact status. Every ordinary explicit
-Overview delivers the complete requested scope when a coherent snapshot is
-available. Local doubts should still prefer source investigation,
-`aoci_get_entries`, or `aoci_search`.
-
-For a complete, Host-confirmed and governance-aligned compaction refresh,
-partial or failed Attestation consumes the current generation, leaves the
-receipt uncertain, disables a full-system claim, and returns source-bound
-continuation guidance. Do not loop Overview in the same generation. In a
+For every host, obtain `aoci_rules` once and establish one complete Overview
+at the start of a normal task, then keep reusing that cognition while it
+remains reliable. The binding rules for chunk continuation, Attestation, the
+single same-response schema-only correction, prohibited cognition supplements,
+and the prescribed one-sentence result are carried by the `aoci_rules`
+contract and documented in [`overview-delivery.md`](overview-delivery.md);
+this page does not restate them. Checkpoint facts (context compaction, the
+project semantic threshold, a major phase transition) advise but never decide
+whether the AI Agent needs the system-wide view; `check_only=true` returns
+only compact status, and every ordinary explicit Overview delivers the
+complete requested scope when a coherent snapshot is available. In a
 long-running auto task, answer non-control questions briefly and resume the
 existing next action; only explicit stop/pause/cancel/rollback/scope or
-commit/Push changes control execution. A stopped write attempt is replanned,
-resumed, or rolled back only when existing formal-write and Recovery evidence
-proves that action. These are Host rules, not another persistent Task state.
+commit/Push changes control execution, and a stopped write attempt is
+replanned, resumed, or rolled back only on proven formal-write and Recovery
+evidence. Local doubts should still prefer source investigation,
+`aoci_get_entries`, or `aoci_search`.
 
 When checkpoint facts show semantic drift, follow the live Maintain and Guide
 path to alignment. A dirty ordinary Overview may expose the complete formal

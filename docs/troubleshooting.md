@@ -9,6 +9,18 @@ reconnect that project's MCP integration, or reopen the project session when
 the Host requires it. A matching binary on disk does not prove that the active
 server is using those bytes.
 
+## Host config points to a moved binary or repository
+
+After the `aoci` binary or the repository moves, host configs written by
+`aoci init --agent` keep the old absolute paths: the MCP server fails to start
+while `aoci doctor` still reports the Claude or Codex integration as installed,
+because doctor and the installers check entry presence, not path validity.
+OpenCode instead fails closed with an `mcp.aoci` conflict. Remove the stale
+`aoci` entry (`mcpServers.aoci` in `.mcp.json`, the `[mcp_servers.aoci]` table
+in `.codex/config.toml`, `mcp.aoci` in `opencode.json`, and any stale
+`PreToolUse` command in `.claude/settings.json`), then re-run
+`aoci --repo <root> init --agent <name>` from the new location.
+
 ## MCP closes with EOF
 
 stdio MCP is incremental. Keep stdin open, send `initialize`, wait for its response, send `notifications/initialized`, and only then send requests such as `tools/list`. MCP stdout must contain JSON-RPC only; inspect stderr for diagnostics.

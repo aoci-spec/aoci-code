@@ -1,4 +1,4 @@
-![AOCI-CODE 标志 — 面向人工智能的代码索引](assets/aoci-logo-zh-CN.jpg)
+![AOCI-CODE 标志 — 面向 AI 的认知基础设施](assets/aoci-logo-zh-CN.jpg)
 
 # AOCI-CODE
 
@@ -224,6 +224,8 @@ aoci.database.txt           Database：可选的表级认知；默认不存在
 ```
 
 新项目初始化时会创建 Volume Root、Meta 和一个空的 Code Volume；Database 默认不存在。AOCI-CODE 不会自动生成仓库业务语义或 Database 语义。
+
+`aoci init --agent <name>` 还会写入宿主集成配置（`.mcp.json`、`.claude/settings.json`、`.codex/config.toml` 或 `opencode.json`），其中的命令与仓库路径是本机绑定的绝对路径。请把这些文件加入仓库的 `.gitignore` 且不要提交：提交后的副本在任何其他机器上都会失效，而安装器按条目是否存在做幂等判断，在那台机器上重跑 `init` 会静默保留坏路径。
 
 
 ## 🔄 一次完整开发任务如何运行
@@ -488,7 +490,7 @@ Plan、Stage、Check、Diff、Apply、Curation、Scope Change、Bootstrap、Migr
 
 verify、check、index score 与 index inventory 的“只读”仅表示不修改正式索引或Baseline，不等同于严格零文件写入：Ledger启用时四者都可能追加本地Ledger，verify还会尝试写入Verify History；审计写入失败不改变既有退出码与治理判据。
 
-如果必须保证零文件写入，请使用隔离副本。System Cognition 命令不会创建第二套正式状态，但其普通 CLI 调用仍应遵循当前版本对 Ledger 和本地历史记录的运行时合同。
+如果必须保证零文件写入，请使用隔离副本。System Cognition 命令不会创建第二套正式状态，但其普通 CLI 调用仍应遵循当前版本对 Ledger 和本地历史记录的运行时合同。当前公开 CLI 不提供一次性关闭所有 Ledger 与 Verify History 写入的总开关。
 
 ## 🧩 MCP Server
 

@@ -1,4 +1,4 @@
-![AOCI-CODE logo — AI-Oriented Code Indexing](assets/aoci-logo-en.jpg)
+![AOCI-CODE logo — AI-Oriented Cognition Infrastructure](assets/aoci-logo-en.jpg)
 
 # AOCI-CODE
 
@@ -230,6 +230,13 @@ aoci.database.txt           Database: optional table-level cognition; absent by 
 ```
 
 Initializing a new project creates the Volume Root, Meta, and an empty Code Volume; Database is absent by default. AOCI-CODE does not automatically generate repository business semantics or Database semantics.
+
+`aoci init --agent <name>` additionally writes host integration configuration
+(`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, or `opencode.json`)
+whose command and repository paths are machine-bound absolute paths. Add those
+files to the repository's `.gitignore` and do not commit them: a committed copy
+breaks on every other machine, and because the installers detect an existing
+entry by key presence, re-running `init` there silently keeps the broken paths.
 
 
 ## 🔄 How a complete development task runs

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T11:34:45Z",
+  "updated_at": "2026-08-13T14:30:09Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -91,14 +91,14 @@
       "normalized_sha256": "9e86829429193738724179195efc9fa40b5c8b69cf865fd31fbc7f7ef4c1dd60"
     },
     "README.md": {
-      "sha256": "6cbead853aa5729563d347e109c2fc80e8313fc8bf5243bdf1f8b9f015544269",
-      "size": 56682,
-      "normalized_sha256": "6cbead853aa5729563d347e109c2fc80e8313fc8bf5243bdf1f8b9f015544269"
+      "sha256": "33569eb0ce9aad7f3a385f8bbdca73ae02ddfcc928a946931282428b3f22b98c",
+      "size": 57169,
+      "normalized_sha256": "33569eb0ce9aad7f3a385f8bbdca73ae02ddfcc928a946931282428b3f22b98c"
     },
     "README.zh-CN.md": {
-      "sha256": "f0b8b651ad5cc051b21e80199ae105972f72b4bf13890a5f639127a845910029",
-      "size": 48667,
-      "normalized_sha256": "f0b8b651ad5cc051b21e80199ae105972f72b4bf13890a5f639127a845910029"
+      "sha256": "1d0c737b4d1a36007f01f2b55d3b64faa57642b6cf765b0b1c8a8f8d50ec2af9",
+      "size": 49203,
+      "normalized_sha256": "1d0c737b4d1a36007f01f2b55d3b64faa57642b6cf765b0b1c8a8f8d50ec2af9"
     },
     "SECURITY.md": {
       "role": "index",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "2b1ffbc8e59efe99de498d0a6e2c20008c748112e19c119ae129e453a64c539b",
-      "size": 155932,
-      "normalized_sha256": "2b1ffbc8e59efe99de498d0a6e2c20008c748112e19c119ae129e453a64c539b"
+      "sha256": "32a7c2683d4fb2fee4d6117e54eed9d9b6db2ded0e960403b6165e7279aa41e4",
+      "size": 155991,
+      "normalized_sha256": "32a7c2683d4fb2fee4d6117e54eed9d9b6db2ded0e960403b6165e7279aa41e4"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -152,9 +152,9 @@
       "format_kind": "gofmt"
     },
     "docs/agent-integrations.md": {
-      "sha256": "77f1885f804cb604e4032fd77aebd053eefa377a6db5f06a2a0563ebfdc723c1",
-      "size": 8426,
-      "normalized_sha256": "77f1885f804cb604e4032fd77aebd053eefa377a6db5f06a2a0563ebfdc723c1"
+      "sha256": "1990a0ead289c78cc790071a613f03093dbd69f47e2243fe3e79e04823d27d2e",
+      "size": 7923,
+      "normalized_sha256": "1990a0ead289c78cc790071a613f03093dbd69f47e2243fe3e79e04823d27d2e"
     },
     "docs/cognition-refresh.md": {
       "role": "index",
@@ -178,14 +178,14 @@
       "normalized_sha256": "0bdc70ef78e2154255e014ef0e1c083ef6f222f5a8e9df3e226dd807d2f1844b"
     },
     "docs/getting-started.md": {
-      "sha256": "3c9929c106ba566a26bb783dd960b04e3a666819d22fdd6f3be68b6e4121deb9",
-      "size": 3165,
-      "normalized_sha256": "3c9929c106ba566a26bb783dd960b04e3a666819d22fdd6f3be68b6e4121deb9"
+      "sha256": "adbb39ad6008440641cd5814ab8d861aa5d024c8416668d1e2023b96ac802697",
+      "size": 3174,
+      "normalized_sha256": "adbb39ad6008440641cd5814ab8d861aa5d024c8416668d1e2023b96ac802697"
     },
     "docs/install.md": {
-      "sha256": "c2e69b2a115a83326674370a3dab27cadcc172038678124dfc6922e4942cdd08",
-      "size": 8876,
-      "normalized_sha256": "c2e69b2a115a83326674370a3dab27cadcc172038678124dfc6922e4942cdd08"
+      "sha256": "9673751501da536e4f39193c013c26f95e9409cdc5b39733803ffa664a07afaa",
+      "size": 9130,
+      "normalized_sha256": "9673751501da536e4f39193c013c26f95e9409cdc5b39733803ffa664a07afaa"
     },
     "docs/localization.md": {
       "role": "index",
@@ -217,14 +217,14 @@
       "normalized_sha256": "062d3baf7d7f38250635b8dac9161778a510b1dd3d24077c73e30d9383465cfe"
     },
     "docs/supply-chain.md": {
-      "sha256": "ce464aa1da6ea404c6a0a7ac67c11983d7a2093cf05b0d1d481c46aca7f67688",
-      "size": 10345,
-      "normalized_sha256": "ce464aa1da6ea404c6a0a7ac67c11983d7a2093cf05b0d1d481c46aca7f67688"
+      "sha256": "117062cebe21ff5ded431cd2d52f4ed647cd488646613acef3c25a77876ef5bd",
+      "size": 10559,
+      "normalized_sha256": "117062cebe21ff5ded431cd2d52f4ed647cd488646613acef3c25a77876ef5bd"
     },
     "docs/troubleshooting.md": {
-      "sha256": "ea6b5c26cf04453ee7e617089aaf9dfe81694a57dfa16ac99e38054e6874dbeb",
-      "size": 2831,
-      "normalized_sha256": "ea6b5c26cf04453ee7e617089aaf9dfe81694a57dfa16ac99e38054e6874dbeb"
+      "sha256": "6ce355a37d9e74a103d951b42185d4ee9e9b97fcfc035f2964a02e81484e8219",
+      "size": 3545,
+      "normalized_sha256": "6ce355a37d9e74a103d951b42185d4ee9e9b97fcfc035f2964a02e81484e8219"
     },
     "docs/uninstall.md": {
       "role": "index",

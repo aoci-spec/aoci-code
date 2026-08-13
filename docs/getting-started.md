@@ -1,7 +1,7 @@
 # Getting Started
 
-AOCI-CODE (AI Software System Cognition Infrastructure) provides a local-first,
-maintained Cognition Layer beneath AI Agents. It persists high-value
+AOCI-CODE, built on AOCI (AI-Oriented Cognition Infrastructure), provides a
+local-first, maintained Cognition Layer beneath AI Agents. It persists high-value
 responsibilities, relationships, public contracts, and constraints in a
 governed, Git-reviewable `aoci.txt`.
 

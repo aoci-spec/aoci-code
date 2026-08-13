@@ -49,8 +49,10 @@ archive against `SHA256SUMS` and checks the extracted binary identity.
 Recommended installation also verifies the keyless publisher signature over
 the checksum file. Full supply-chain verification additionally checks all
 provenance subjects, the selected SBOM, and the manifest. GitHub CLI, Cosign,
-Git, Go, and SBOM tools support those verification layers; none is an AOCI
-runtime dependency.
+Go, and SBOM tools support those verification layers; none is an AOCI
+runtime dependency. Git is a verification tool here as well, but it is also a
+runtime requirement for scanning Git working trees: Safe Inventory consults the
+host `git` executable for tracked/ignored authority and fails closed without it.
 
 ## Reproducible-build posture
 

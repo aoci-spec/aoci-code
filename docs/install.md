@@ -42,9 +42,12 @@ bundle is not included in the file it signs, and the provenance bundle is not a
 subject of its own attestation.
 
 The extracted `aoci` executable has no runtime dependency on GitHub CLI,
-Cosign, Git, Go, or an SBOM reader. Those programs are verification tools for
+Cosign, Go, or an SBOM reader. Those programs are verification tools for
 the assurance levels below; not having one does not prevent a checksum-verified
-binary from starting.
+binary from starting. Git is different: the binary starts and non-Git
+directories work without it, but scanning a repository that contains `.git`
+invokes the host `git` executable for tracked/ignored authority and fails
+closed (`safe_inventory_git_unavailable`) when it is absent.
 
 ### Basic installation: archive checksum and binary identity
 
