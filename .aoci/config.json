@@ -97,6 +97,18 @@
         "enabled": true
       },
       {
+        "rule_id": "public-blackbox-mcp-harness-observe",
+        "action": "observe",
+        "pattern": "scripts/blackbox/mcp_*.py",
+        "pattern_kind": "glob",
+        "reason": "Blackbox MCP harnesses are protocol evidence driven as a real stdio client; observe exact bytes without adding two large Python bodies to Whole-Index context",
+        "decision_basis": "semantic_density",
+        "source": "user",
+        "created_by": "alkor2000",
+        "order": 104,
+        "enabled": true
+      },
+      {
         "rule_id": "public-core-internal-authoringcontract-index",
         "action": "index",
         "pattern": "internal/authoringcontract/**",

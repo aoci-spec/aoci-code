@@ -72,3 +72,6 @@ opencode.jsonc
 !.aoci/database-baseline.json
 !.aoci/config.json
 !.aoci/curation.json
+
+# Python 黑盒 harness 的字节码缓存(scripts/blackbox) —— 本地运行产物,永不入库
+__pycache__/

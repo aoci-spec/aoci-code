@@ -22,8 +22,13 @@ than the configured budget fails without truncation.
 The existing `overview-chunk-receipt/v1` proves Chunk order, Entry ordinals,
 bytes, token estimate, SHA, cursor, and completion. A cursor binds the Index,
 Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
-replayed, reordered, cross-Index, or cross-configuration chains fail closed.
-No persistent delivery Session or transaction is created.
+reordered, cross-Index, or cross-configuration chains fail closed; an exact
+replay of a genuine cursor idempotently re-serves the identical Chunk.
+No persistent delivery Session or transaction is created. Because a cursor is
+deterministically re-derivable from those bound facts, an unchanged Index and
+Chunk budget accept the same cursor across MCP process restarts; the Volumes
+governance binding below remains in-memory session state and does not carry
+across processes.
 
 For Volumes v1, Overview reads live governance from the same read-only facts
 calculator as Verify, Check, Guide, and Maintain. It does not reuse a prior

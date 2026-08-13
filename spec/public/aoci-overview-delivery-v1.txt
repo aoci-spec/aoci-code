@@ -79,11 +79,15 @@ ordered sequence. There is no display ordinal, line-number ordinal, Chunk-local
 ordinal, or implicit offset.
 
 The opaque cursor binds the Index SHA-256, configured `chunk_tokens`, next Entry
-ordinal, and previous Chunk SHA-256. Invalid, missing, repeated, reordered, or
-cross-chain use fails closed. A changed Index returns
+ordinal, and previous Chunk SHA-256. Invalid, missing, reordered, or cross-chain
+use fails closed; an exact replay of a genuine cursor idempotently re-serves
+the identical Chunk bytes. A changed Index returns
 `overview_snapshot_changed` and requires a restart at Chunk 1. A changed
 configuration returns `overview_chunk_tokens_changed` and also requires a
-restart. AOCI persists no delivery transaction or Session.
+restart. AOCI persists no delivery transaction or Session. The cursor is
+deterministically re-derivable from the bound facts alone, so an unchanged
+Index and `chunk_tokens` accept the same cursor across MCP process restarts;
+the Volumes governance binding remains in-memory session state.
 
 Full-body receipt and Host confirmation
 ---------------------------------------
