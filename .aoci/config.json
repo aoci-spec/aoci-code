@@ -579,7 +579,8 @@
   },
   "installed_agents": [
     "codex",
-    "claude"
+    "claude",
+    "opencode"
   ],
   "automation": {
     "mode": "auto"
