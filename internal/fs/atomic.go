@@ -6,12 +6,14 @@
 // hooks 安装器要写 ~/.claude 等仓外文件,固定 tmp 目录在跨文件系统场景会 EXDEV 失败。
 // 临时文件名带 .aoci-tmp- 前缀便于识别清理。
 //
-// Windows 语义: Go 的 os.Rename 在 Windows 使用 MOVEFILE_REPLACE_EXISTING,
-// 正常即可覆盖已存在目标;"先删目标再 rename"会制造目标暂不存在的非原子窗口,
-// 因此仅作为 rename 失败后的兜底重试,绝不作为默认路径(审查修正)。
+// Windows fallback semantics: the normal rename can replace an existing target.
+// If it fails, move the target to a same-directory backup before retrying, then
+// restore it when the retry fails. If restoration also fails, retain both the
+// prepared temp file and the backup for recovery.
 //
-// 失败语义: 任一步失败即清理临时文件并保留原文件原样 —— 防 agent 回写中途
-// 进程被杀留半截事实源。
+// Failure semantics: preparation failures remove the temp file and preserve the
+// original target. The exceptional Windows rollback failure follows the recovery
+// preservation rule above.
 // 持久性取舍(记录): 不对父目录做 fsync —— 极端掉电场景 rename 可能回退到旧文件,
 // 但两个状态均完整(一致性无损),换取写路径简洁,属标准取舍。
 package fs
@@ -424,7 +426,8 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tmpName := tmp.Name()
-	// 任何失败路径都清理临时文件
+	// Preparation failures clean up the temp file. The publication fallback may
+	// deliberately retain recovery files after an unsuccessful rollback.
 	cleanup := func() {
 		tmp.Close()
 		os.Remove(tmpName)
@@ -447,19 +450,40 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		os.Remove(tmpName)
 		return fmt.Errorf("设置权限失败: %w", err)
 	}
-	// rename 优先(POSIX 与 Windows 正常路径均原子覆盖)
+	// Prefer rename; on Windows this describes only the normal overwrite path,
+	// because Go does not guarantee atomic rename semantics on non-Unix systems.
 	if err := os.Rename(tmpName, targetPath); err != nil {
-		// Windows 兜底: 个别文件系统/句柄占用场景覆盖失败时,删目标后重试一次。
-		// 该兜底窗口非原子,仅在主路径已失败时作为最后手段。
+		// On Windows, preserve the target before retrying an overwrite that failed
+		// because of filesystem behavior or an open handle. This last-resort path
+		// is not atomic.
 		if runtime.GOOS == "windows" {
-			if rmErr := os.Remove(targetPath); rmErr == nil {
-				if err2 := os.Rename(tmpName, targetPath); err2 == nil {
-					return nil
-				}
-			}
+			return windowsRenameFallback(tmpName, targetPath)
 		}
 		os.Remove(tmpName)
 		return fmt.Errorf("rename 落盘失败: %w", err)
 	}
+	return nil
+}
+
+// windowsRenameFallback derives a same-directory backup from the random temp
+// name and restores the old target when the retry fails.
+func windowsRenameFallback(tmpName, targetPath string) error {
+	return windowsRenameFallbackWithRename(tmpName, targetPath, os.Rename)
+}
+
+func windowsRenameFallbackWithRename(tmpName, targetPath string, rename func(string, string) error) error {
+	backupName := tmpName + ".bak"
+	if err := rename(targetPath, backupName); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	if err := rename(tmpName, targetPath); err != nil {
+		if restoreErr := rename(backupName, targetPath); restoreErr != nil {
+			return restoreErr
+		}
+		os.Remove(tmpName)
+		return err
+	}
+	os.Remove(backupName)
 	return nil
 }
