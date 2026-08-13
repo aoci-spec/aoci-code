@@ -451,3 +451,47 @@ func assertWindowsStageLimits(
 		}
 	}
 }
+
+func TestDeliveryAndVolumesDocsMatchMachineAuthority(t *testing.T) {
+	// Prose may render numbers with thousands separators ("8,000"); normalize
+	// before matching so the binding accepts both spellings.
+	normalize := func(content string) string {
+		return strings.ReplaceAll(content, ",", "")
+	}
+	deliveryTexts := map[string]string{
+		"overview delivery doc":  normalize(readRepositoryFile(t, "docs", "overview-delivery.md")),
+		"overview delivery spec": normalize(readRepositoryFile(t, "spec", "public", "aoci-overview-delivery-v1.txt")),
+	}
+	for name, content := range deliveryTexts {
+		for _, value := range []int{
+			machinecontract.OverviewChunkTokensDefault,
+			machinecontract.OverviewChunkTokensMin,
+			machinecontract.OverviewChunkTokensMax,
+		} {
+			if !strings.Contains(content, fmt.Sprint(value)) {
+				t.Errorf("%s is missing machine chunk-token value %d", name, value)
+			}
+		}
+	}
+
+	volumesDoc := readRepositoryFile(t, "docs", "cognition-volumes.md")
+	for _, anchor := range []string{
+		fmt.Sprintf("%d Unicode characters", machinecontract.ObjectFRASV2FMaxRunes),
+		fmt.Sprintf("%d characters", machinecontract.ObjectFRASV2RMaxRunes),
+		fmt.Sprintf("%d items", machinecontract.ObjectFRASV2RMaxItems),
+		fmt.Sprintf("%d characters", machinecontract.ObjectFRASV2AMaxRunes),
+		fmt.Sprintf("%d items", machinecontract.ObjectFRASV2AMaxItems),
+		fmt.Sprintf("%d exact model authoring targets", machinecontract.EntriesBatchMaxItems),
+	} {
+		if !strings.Contains(volumesDoc, anchor) {
+			t.Errorf("cognition-volumes doc is missing machine anchor %q", anchor)
+		}
+	}
+
+	englishDiscipline := readRepositoryFile(t, "spec", "public", "s-field-discipline.en.txt")
+	for _, band := range machinecontract.DefaultSQuotaBands() {
+		if !strings.Contains(englishDiscipline, fmt.Sprint(band.MaxRunes)) {
+			t.Errorf("English S discipline is missing machine quota value %d", band.MaxRunes)
+		}
+	}
+}

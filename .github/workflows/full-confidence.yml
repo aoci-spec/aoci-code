@@ -268,11 +268,22 @@ jobs:
               "aoci-opengauss-${GITHUB_RUN_ID}" \
               /usr/local/opengauss/bin/gsql "$@"
           }
+          # Readiness must prove the applied final configuration, not merely an
+          # accepting socket: openGauss first boot can answer `select 1` and then
+          # restart to apply OTHER_PG_CONF, so probe `show ssl` (only `on` after
+          # the config is live) and require three consecutive successes.
           ready=false
+          stable=0
           for attempt in $(seq 1 90); do
-            if run_gsql -d postgres -U omm -p 5432 -c 'select 1' >/dev/null 2>&1; then
-              ready=true
-              break
+            ssl_probe="$(run_gsql -At -d postgres -U omm -p 5432 -c 'show ssl' 2>/dev/null | tr -d '[:space:]')" || ssl_probe=""
+            if [ "${ssl_probe}" = on ]; then
+              stable=$((stable + 1))
+              if [ "${stable}" -ge 3 ]; then
+                ready=true
+                break
+              fi
+            else
+              stable=0
             fi
             sleep 2
           done

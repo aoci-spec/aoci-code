@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T15:19:38Z",
+  "updated_at": "2026-08-13T15:23:25Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -16,9 +16,9 @@
       "normalized_sha256": "638ef12d4d78a8fa1e795d0575da0e7fd40893e24df6dc22bad1cbad0ce9268f"
     },
     ".github/workflows/full-confidence.yml": {
-      "sha256": "c3c1e60a4a8e77b642ddd048e6907c6e1574416bbdcd76c4d347466e19581059",
-      "size": 12938,
-      "normalized_sha256": "c3c1e60a4a8e77b642ddd048e6907c6e1574416bbdcd76c4d347466e19581059"
+      "sha256": "d6f93f821148b84a6dec153fbcadcb525ee2cdd71ca668c9429a0b6d21f13512",
+      "size": 13503,
+      "normalized_sha256": "d6f93f821148b84a6dec153fbcadcb525ee2cdd71ca668c9429a0b6d21f13512"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
@@ -118,9 +118,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "73767e017999dda8a68039966afa9fa256e3bf0efca4ca0272b0f572b92b071e",
-      "size": 157207,
-      "normalized_sha256": "73767e017999dda8a68039966afa9fa256e3bf0efca4ca0272b0f572b92b071e"
+      "sha256": "d3e04000c15bd788a0bfae2767b81b019f699eae201b0b11fdd071e8df5829f9",
+      "size": 157244,
+      "normalized_sha256": "d3e04000c15bd788a0bfae2767b81b019f699eae201b0b11fdd071e8df5829f9"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3315,10 +3315,10 @@
     },
     "internal/index/query_runtime_rules_asset_test.go": {
       "role": "observe",
-      "sha256": "f96899a754460603b1763a6f56e0aa7d109efe355cd647013f160ccdf5e5fd68",
-      "size": 764,
-      "normalized_sha256": "f96899a754460603b1763a6f56e0aa7d109efe355cd647013f160ccdf5e5fd68",
-      "format_sha256": "f96899a754460603b1763a6f56e0aa7d109efe355cd647013f160ccdf5e5fd68",
+      "sha256": "3dea743ed470ed043bd8ff26283f35c674beb92669bfccc684bebb542eef08be",
+      "size": 1580,
+      "normalized_sha256": "3dea743ed470ed043bd8ff26283f35c674beb92669bfccc684bebb542eef08be",
+      "format_sha256": "3dea743ed470ed043bd8ff26283f35c674beb92669bfccc684bebb542eef08be",
       "format_kind": "gofmt"
     },
     "internal/index/quota.go": {
@@ -3602,10 +3602,10 @@
     },
     "internal/machinecontract/cross_layer_test.go": {
       "role": "observe",
-      "sha256": "6dbb6bee0ce0c3a6c9df18c44d0aa98bd37f042d5260bf308ff745267f6e83e6",
-      "size": 14980,
-      "normalized_sha256": "6dbb6bee0ce0c3a6c9df18c44d0aa98bd37f042d5260bf308ff745267f6e83e6",
-      "format_sha256": "6dbb6bee0ce0c3a6c9df18c44d0aa98bd37f042d5260bf308ff745267f6e83e6",
+      "sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
+      "size": 16872,
+      "normalized_sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
+      "format_sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
       "format_kind": "gofmt"
     },
     "internal/machinecontract/lexical.go": {
