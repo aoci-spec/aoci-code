@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T05:33:02Z",
+  "updated_at": "2026-08-13T06:37:35Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -71,9 +71,9 @@
       "normalized_sha256": "477120c114236a9a7ed4aa28bc4017ff327585de7375933ccf78878d75373cc1"
     },
     "Makefile": {
-      "sha256": "23779348e7acff69f9233ac4b67c9abb6ba22d5c48b00701b480e16e552a75a9",
-      "size": 11048,
-      "normalized_sha256": "23779348e7acff69f9233ac4b67c9abb6ba22d5c48b00701b480e16e552a75a9"
+      "sha256": "c152177bd610a2a96409554b36be1321b5a33f9dbfa8d93c9d03c5558d40d6e2",
+      "size": 11061,
+      "normalized_sha256": "c152177bd610a2a96409554b36be1321b5a33f9dbfa8d93c9d03c5558d40d6e2"
     },
     "NOTICE": {
       "sha256": "6f0618496a90dcf5455b9e9a12a6da4954cc019bf2511ce1173e587621f42e89",
@@ -114,9 +114,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "acc3377eee45b8c5d2c39d0e5dc662b4c26e676d89e327a1542229c9037745a3",
-      "size": 155434,
-      "normalized_sha256": "acc3377eee45b8c5d2c39d0e5dc662b4c26e676d89e327a1542229c9037745a3"
+      "sha256": "7399d6aa5b5b5dfbb07d1c8c1410c14e0809eb83db288f90c9a0d66950199130",
+      "size": 155659,
+      "normalized_sha256": "7399d6aa5b5b5dfbb07d1c8c1410c14e0809eb83db288f90c9a0d66950199130"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4793,9 +4793,9 @@
       "format_kind": "gofmt"
     },
     "scripts/release/clean-room-smoke.sh": {
-      "sha256": "c54f7ff585709df6aaf9763a547b6dd67a03a4d2fb8d3ba598d09a36428032c4",
+      "sha256": "7cac530b4ffc294eb575f458ee0e1beb4d4f997545efdccf38f4a6cbdff34ab1",
       "size": 6057,
-      "normalized_sha256": "c54f7ff585709df6aaf9763a547b6dd67a03a4d2fb8d3ba598d09a36428032c4"
+      "normalized_sha256": "7cac530b4ffc294eb575f458ee0e1beb4d4f997545efdccf38f4a6cbdff34ab1"
     },
     "scripts/release/manifest/main.go": {
       "sha256": "32c736a95653269ad7c323a6515ccc97d65214d5884368fc7cf37cddffb8afb9",

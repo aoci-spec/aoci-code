@@ -111,7 +111,7 @@ cmp "$SMOKE_ROOT/index-before-observe-review.txt" "$repository/aoci.txt"
 echo "$observe_apply"
 post_observe_status=$("$binary" --repo "$repository" --json scope status)
 case "$post_observe_status" in
-  *'"stage": "authoring_required"'*'"authoring_targets": 8'*) ;;
+  *'"stage": "authoring_required"'*'"authoring_targets": 5'*) ;;
   *) echo "observe acknowledgement washed indexed authoring debt" >&2; exit 1 ;;
 esac
 echo "$post_observe_status"

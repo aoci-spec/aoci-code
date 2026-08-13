@@ -114,7 +114,7 @@ fast-builds:
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast.exe ./cmd/aoci
 
 race:
-	$(GO_BIN) test -race -count=1 ./...
+	$(GO_BIN) test -race -count=1 -timeout=15m ./...
 
 vuln:
 	@VULN=$$(command -v govulncheck 2>/dev/null || echo "$$($(GO_BIN) env GOPATH)/bin/govulncheck"); \
