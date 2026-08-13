@@ -44,6 +44,23 @@ coverage.txt
 # 可恢复认知Onboarding：只保存本机确定性进度和正式Apply前工件
 .aoci/onboarding/
 
+# ── Agent宿主集成配置：由aoci init生成，只属于当前机器，不进入Git ──
+#
+# 这些文件的command/args来自NewTplData的BinPath与RepoRoot，两者都是绝对路径，
+# 跨机器一律失效。且各安装判据只检查条目存在与否、不校验路径是否属于本机
+# （IsClaudeMCPInstalled只看mcpServers.aoci这个key，IsClaudeHookInstalled只看
+# command是否引用claude-pretool.sh），所以误提交后他人的init会幂等早退、静默
+# 空转，配置永远修不好。.aoci/下的产物(含hooks/claude-pretool.sh)不在此列，
+# 已由.aoci/.gitignore的默认拒绝边界覆盖。
+
+.mcp.json
+.claude/settings.json
+.codex/config.toml
+.cursor/mcp.json
+opencode.json
+opencode.jsonc
+.opencode/
+
 # ── AOCI正式认知与治理资产：必须进入Git ──
 #
 # aoci.txt、Baseline、团队配置和文件级Curation决策共同构成可克隆、

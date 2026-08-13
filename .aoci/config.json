@@ -578,7 +578,8 @@
     ]
   },
   "installed_agents": [
-    "codex"
+    "codex",
+    "claude"
   ],
   "automation": {
     "mode": "auto"
