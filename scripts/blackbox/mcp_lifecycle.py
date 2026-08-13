@@ -615,8 +615,11 @@ def m_attest(rep, work, model, timeout_s, artifacts):
 # ---------------------------------------------------------------- compare
 def compare(pa, pb):
     A, B = json.load(open(pa)), json.load(open(pb))
-    ia = {(r["suite"], r["name"]): r for r in A["records"]}
-    ib = {(r["suite"], r["name"]): r for r in B["records"]}
+    # 跨模型对比: 把 establish[claude-sonnet-5] 归一成 establish[*] 使行对齐
+    def key(r):
+        return (re.sub(r"\[[^\]]+\]$", "[*]", r["suite"]), r["name"])
+    ia = {key(r): r for r in A["records"]}
+    ib = {key(r): r for r in B["records"]}
     print(f"A: {A['meta'].get('models') or 'deterministic'} @ {A['meta'].get('mcp_version')}")
     print(f"B: {B['meta'].get('models') or 'deterministic'} @ {B['meta'].get('mcp_version')}")
     for k in sorted(set(ia) | set(ib)):

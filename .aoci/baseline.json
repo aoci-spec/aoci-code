@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-13T18:47:52Z",
+  "updated_at": "2026-08-13T19:05:47Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -5083,9 +5083,9 @@
     },
     "scripts/blackbox/mcp_lifecycle.py": {
       "role": "observe",
-      "sha256": "9e4528afb058f55176cceec90ba19765a470c0338036de679a6d6ba927ccb5af",
-      "size": 36008,
-      "normalized_sha256": "9e4528afb058f55176cceec90ba19765a470c0338036de679a6d6ba927ccb5af"
+      "sha256": "3e605b3ed68b3f9ef676d3d754dab1814a83480c2534391cb3ee4c8d9c2ba997",
+      "size": 36150,
+      "normalized_sha256": "3e605b3ed68b3f9ef676d3d754dab1814a83480c2534391cb3ee4c8d9c2ba997"
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "observe",
