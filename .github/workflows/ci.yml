@@ -15,12 +15,13 @@ concurrency:
 
 jobs:
   build-and-unit:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -42,12 +43,13 @@ jobs:
         run: echo "build-and-unit_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
   contracts-and-safety:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -62,12 +64,13 @@ jobs:
         run: echo "contracts-and-safety_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
   lifecycle-smoke:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -80,12 +83,13 @@ jobs:
         run: echo "lifecycle-smoke_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
   cli-and-static:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -103,12 +107,13 @@ jobs:
         run: echo "cli-and-static_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
   blackbox-protocol:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -127,12 +132,13 @@ jobs:
         run: echo "blackbox-protocol_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
   windows-compile:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: start timer
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
@@ -142,16 +148,32 @@ jobs:
         if: always()
         run: echo "windows-compile_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
+  # PR 阶段就验证 Darwin 平台文件能编译, 不必等夜间 macOS 真机测试才发现。
+  darwin-compile:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Darwin amd64 and arm64 CGO-free compile
+        run: |
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o "$RUNNER_TEMP/aoci-darwin-amd64" ./cmd/aoci
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o "$RUNNER_TEMP/aoci-darwin-arm64" ./cmd/aoci
+
   # 真机 Windows 上跑协议一致性套件: 此前 Windows 只有交叉编译证明"能编译",
   # 公开 MCP 表面从未在 Windows 实测过。conformance 是三套里唯一纯只读、
   # 零 Docker、纯标准库的一套, 放到 windows-latest 成本最低、盲区收益最大。
   windows-conformance:
+    timeout-minutes: 25
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: build the binary under test
         shell: bash

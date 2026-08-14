@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   package:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.26.5'
+          go-version-file: go.mod
           cache: true
       - name: install pinned SBOM generator
         run: go install github.com/anchore/syft/cmd/syft@v1.44.0
@@ -54,6 +55,7 @@ jobs:
           retention-days: 14
 
   native-package-smoke:
+    timeout-minutes: 20
     needs: package
     strategy:
       fail-fast: false

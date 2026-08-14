@@ -2,6 +2,8 @@ module github.com/aoci-spec/aoci-code
 
 go 1.26
 
+toolchain go1.26.5
+
 require (
 	gitcode.com/opengauss/openGauss-connector-go-pq v1.0.8
 	github.com/go-sql-driver/mysql v1.10.0
