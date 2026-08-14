@@ -24,6 +24,8 @@
 
 AOCI-CODE 源于 AOCI。简单来说，AOCI-CODE 会对源代码、数据库结构及其他真正影响 AI 理解和修改的关键信息进行压缩，形成符号与语义结合的高信息密度索引，并用纯文本表示。
 
+AOCI-CODE 通过 `aoci` CLI 和 MCP Server 将这套方法落实到项目中。
+
 在模型上下文有限的情况下，AI Agent 可以先读取这套索引，一次性获得项目的大部分关键信息，再进入具体开发任务，从而减少反复搜索和重新理解代码的成本，提高跨任务、跨会话的开发衔接效率。
 
 - **索引不是一次性摘要**：索引会随系统持续演进，长期保存在项目中，可以通过 Git 比较差异、审查、版本化和回滚。
@@ -36,9 +38,20 @@ AOCI-CODE 源于 AOCI。简单来说，AOCI-CODE 会对源代码、数据库结�
 
 ## ⚙️ AOCI 如何工作
 
+在当前 Volume-first 布局中，AOCI-CODE 将索引组织为随项目保存、受治理的纯文本认知资产：
+
+- **Root（`aoci.txt`）**：声明当前 CognitionSet 的组成和激活入口；
+- **Meta（`aoci.meta.txt`）**：保存标签字典、FRAS 规则与模型创作约束；
+- **Code（`aoci.code.txt`）**：保存代码及其他仓库资产的模型创作认知；
+- **Database（`aoci.database.txt`）**：启用 Database Cognition 时保存可选的表级认知。
+
+Root、Meta 与参与其中的对象 Volume 共同组成当前 Whole-Index。在这些资产之上，工作流分为三个阶段：
+
 1. **建立受治理的认知**：模型读取源代码和已接受的证据；AOCI-CODE 治理 Managed Scope，以及模型为具有 `index` 角色的受管对象创作的认知。
 2. **行动前交付认知**：Agent 读取 Rules、实时 Guide 和当前 Whole-Index，再针对当前任务核对源码与其他证据。
 3. **在变更验证后维护认知**：代码与测试稳定后，项目 Rules 和 AOCI MCP 工作流会引导 Agent 更新受影响的 Entries，并让正式认知回到 `aligned`。
+
+这些纯文本认知资产随项目保存并可由 Git 版本化。当认知与当前系统版本保持一致时，不同 AI Agent 和后续会话可以读取并复用同一份 Whole-Index。
 
 ## 🚀 一键使用
 
@@ -385,6 +398,33 @@ S: F、R、A 之外的重要补充信息
 - 写入失败时必须保留原始文件。
 
 模型负责根据真实源码和证据编写这些语义；AOCI-CODE 负责验证条目结构、绑定源文件，并治理它如何进入正式索引。
+
+### 🏷️ 阅读初始标签字典
+
+下面内容从当前 [`zh-CN` Volume Meta 模板](textassets/zh-CN/templates/volume-meta.txt.tmpl)逐字引用。这是一份初始字典，不是所有项目通用的固定词表：每个仓库仍以自身正式 Meta 为准。初始模板没有声明 D 字典；D 仍是可选维度，只有当前正式 Meta 声明后才能使用。
+
+<details>
+<summary>查看受治理的初始字典</summary>
+
+```text
+#Canonical-Tag-Authoring: compact A+B+C+[D]+E; dotted形态仅用于读取兼容
+#Code canonical identity example: code:path/to/file.go
+#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:- | A:- | S:-
+#[Tag dictionary: code]
+#A Layer: C-共享基础 E-入口边界 A-应用编排 D-领域逻辑 K-算法计算 M-中间件 P-持久化 I-集成适配 R-运行基础 L-库与SDK F-声明配置 O-运维交付 T-测试验证 S-文档规范 X-开发工具 Z-其他
+#B Module: G-跨域通用 U-用户交互 B-核心业务 D-数据状态 I-身份权限 N-网络协议 M-消息事件 S-安全隐私 C-配置策略 O-可观测性 R-可靠性恢复 P-性能资源 W-流程调度 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量保障 E-扩展插件 Z-其他
+#C Importance: 9-最高 8-很高 7-高 6-较高 5-中等 4-较低 3-低 2-很低 1-最低
+#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100
+#[Tag dictionary: database]
+#A Layer: E-实体主表 T-事务事实 R-关联映射 M-明细从属 C-参考字典 S-状态存储 H-历史版本 L-日志审计 Q-队列发件 A-聚合投影 K-键值配置 B-文档大对象 Z-其他
+#B Module: G-跨域通用 B-核心业务 I-身份权限 T-组织租户 U-用户体验 F-财务计费 K-内容知识 C-配置策略 W-流程任务 M-消息事件 N-外部集成 S-安全隐私 O-可观测审计 R-可靠性恢复 P-性能资源 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量测试 E-扩展插件 Z-其他
+#C Importance: 9-最高 8-很高 7-高 6-较高 5-中等 4-较低 3-低 2-很低 1-最低
+#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100
+```
+
+</details>
+
+按照初始 Code 字典，`[CG9L]` 表示 `C` 共享基础、`G` 跨域通用、`9` 最高重要度、`L` 大规模；其中没有 D 值。这段内容只解释如何阅读现有 Entry，不规定模型应该怎样分配标签。模型仍须依据源码和已接受证据，从当前项目 Meta 中选择标签。
 
 ## 📚 Cognition Volumes
 
