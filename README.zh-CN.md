@@ -34,6 +34,11 @@ AOCI-CODE 源于 AOCI。简单来说，AOCI-CODE 会对源代码、数据库结�
 
 本文中的名称分工如下：**AOCI** 指认知范式和协议，**AOCI-CODE** 指承载该方法的项目与索引本身。
 
+## ⚙️ AOCI 如何工作
+
+1. **建立受治理的认知**：模型读取源代码和已接受的证据；AOCI-CODE 治理 Managed Scope，以及模型为具有 `index` 角色的受管对象创作的认知。
+2. **行动前交付认知**：Agent 读取 Rules、实时 Guide 和当前 Whole-Index，再针对当前任务核对源码与其他证据。
+3. **在变更验证后维护认知**：代码与测试稳定后，项目 Rules 和 AOCI MCP 工作流会引导 Agent 更新受影响的 Entries，并让正式认知回到 `aligned`。
 
 ## 🚀 一键使用
 

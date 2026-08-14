@@ -34,6 +34,11 @@ When model context is limited, an AI Agent can read the index first, acquire mos
 
 Names in this document have the following roles: **AOCI** refers to the cognition paradigm and protocol, while **AOCI-CODE** refers to the project and the index itself that embody this method.
 
+## ⚙️ How AOCI works
+
+1. **Establish governed cognition**: The model reads source code and accepted evidence, while AOCI-CODE governs Managed Scope and model-authored cognition for managed objects with the `index` role.
+2. **Deliver cognition before action**: The Agent reads the Rules, live Guide, and current Whole-Index, then checks source and other evidence for the task at hand.
+3. **Maintain cognition after verified change**: Once code and tests are stable, project Rules and the AOCI MCP workflow guide the Agent to update affected Entries and return formal cognition to `aligned`.
 
 ## 🚀 One-step setup
 
