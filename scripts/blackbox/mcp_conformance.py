@@ -146,7 +146,29 @@ ok("search.no_error_and_hit", (not err) and "collector_opengauss.go" in t)
 t, err = text_of(s.call("aoci_get_entries", {"paths":["internal/fs/atomic.go"]}))
 ok("get_entries.no_error_and_hit", (not err) and "AtomicWrite" in t)
 t, err = text_of(s.call("aoci_maintain"))
-ok("maintain.aligned_no_candidates", (not err) and '"aligned":true' in t.replace(" ",""), t[:200])
+def maintain_diag(text):
+    """截断的整包 JSON 无法定位阻塞原因; 只提取有界的关键治理事实。"""
+    try:
+        d = json.loads(text)
+    except Exception:
+        return text[:200]
+    gov = d.get("governance") or {}
+    cd = gov.get("code_drift") or {}
+    ms = gov.get("managed_scope") or {}
+    return json.dumps({
+        "result": d.get("result"),
+        "findings": [f.get("code") for f in (gov.get("findings") or [])][:8],
+        "stale_n": len(cd.get("stale") or []), "stale": (cd.get("stale") or [])[:3],
+        "missing_n": len(cd.get("missing") or []), "missing": (cd.get("missing") or [])[:3],
+        "orphan_n": len(cd.get("orphan") or []), "unbaselined_n": len(cd.get("unbaselined") or []),
+        "observed_pending_review": ms.get("observed_pending_review"),
+        "scope_change_required": ms.get("scope_change_required"),
+        "policy_match": ms.get("policy_identity") == ms.get("active_policy_identity"),
+        "recovery_pending": gov.get("recovery_pending"),
+        "third_party_conflict": gov.get("third_party_conflict"),
+        "budget_status": (gov.get("budget") or {}).get("status"),
+    }, ensure_ascii=False)
+ok("maintain.aligned_no_candidates", (not err) and '"aligned":true' in t.replace(" ",""), maintain_diag(t))
 
 # negative paths (same session)
 bad = s.call("aoci_overview", {"cursor":"deadbeef:8000:1:deadbeef"})
