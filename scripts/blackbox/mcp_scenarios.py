@@ -39,7 +39,7 @@ class Session:
     def __init__(self, repo):
         self.p = subprocess.Popen([BIN, "--repo", repo, "mcp"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            text=True, bufsize=1)
+            text=True, encoding="utf-8", bufsize=1)
         self.next_id = 1
         self.rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                                 "clientInfo": {"name": "aoci-scenarios", "version": "1.0"}})

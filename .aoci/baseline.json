@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-14T15:39:50Z",
+  "updated_at": "2026-08-14T15:49:19Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -5155,9 +5155,9 @@
     },
     "scripts/blackbox/mcp_conformance.py": {
       "role": "observe",
-      "sha256": "4e67308ecfe1c599da37e94f500f2c5ce56ef68478cb53d81574619865911c9a",
-      "size": 12636,
-      "normalized_sha256": "4e67308ecfe1c599da37e94f500f2c5ce56ef68478cb53d81574619865911c9a"
+      "sha256": "936922689d0bc5e72a0e0c42ae4499d04cf67b2f263cfc19af6a378189b822ba",
+      "size": 12684,
+      "normalized_sha256": "936922689d0bc5e72a0e0c42ae4499d04cf67b2f263cfc19af6a378189b822ba"
     },
     "scripts/blackbox/mcp_lifecycle.py": {
       "role": "observe",
@@ -5167,9 +5167,9 @@
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "observe",
-      "sha256": "97996e35ac95060aba68a22271c0e299a9e306f5e143496055c2196f75f3f1e1",
-      "size": 24153,
-      "normalized_sha256": "97996e35ac95060aba68a22271c0e299a9e306f5e143496055c2196f75f3f1e1"
+      "sha256": "7135566ae47d579404d09bdb4084d89d6fea94031632643ce8a955e3a3cd265a",
+      "size": 24171,
+      "normalized_sha256": "7135566ae47d579404d09bdb4084d89d6fea94031632643ce8a955e3a3cd265a"
     },
     "scripts/check-deps.sh": {
       "role": "index",

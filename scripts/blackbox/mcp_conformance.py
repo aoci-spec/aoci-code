@@ -28,7 +28,8 @@ def ok(name, cond, detail=""):
 class Session:
     def __init__(self):
         self.p = subprocess.Popen([BIN, "--repo", REPO, "mcp"],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", bufsize=1)
         self.next_id = 1
         self.nonjson_stdout = []
     def send_raw(self, line):
@@ -213,7 +214,7 @@ s2.close()
 
 # ---------- Session 3: malformed input line -> orderly fail-closed shutdown ----------
 import subprocess as sp
-p3 = sp.Popen([BIN,"--repo",REPO,"mcp"], stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, text=True, bufsize=1)
+p3 = sp.Popen([BIN,"--repo",REPO,"mcp"], stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, text=True, encoding="utf-8", bufsize=1)
 p3.stdin.write(json.dumps({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"h3","version":"1"}}})+"\n"); p3.stdin.flush()
 p3.stdout.readline()
 p3.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n'); p3.stdin.flush()
