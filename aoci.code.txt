@@ -1,7 +1,7 @@
 #AOCI-CODE-VOLUME: 1
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/===
-.gitattributes[CG3T]: F:Normalizes repository text line endings for deterministic hashes and cross-platform collaboration | R:- | A:- | S:-
+.gitattributes[CG3T]: F:Normalizes repository text line endings for deterministic hashes and cross-platform collaboration | R:- | A:- | S:autocrlf rewrites would mark the whole tree stale
 .gitignore[CG5T]: F:Separates tracked cognition assets from ignored runtime, recovery, build, agent host integration, and local configuration state | R:code:internal/hooks/installer.go,code:internal/hooks/claude.go | A:- | S:Never track the agent host configs listed here: their paths are machine-bound and installers early-return on a key-presence check, so a committed copy silently no-ops another machine's init
 .goreleaser.yml[CG5T]: F:Defines six CGO-free trimmed aoci archives with legal documents, bilingual READMEs and logos, checksums, and per-archive SBOM generation | R:code:.github/workflows/release.yml,code:scripts/release/archive-smoke/main.go | A:GoReleaser v2 configuration | S:Remote publishing remains disabled; the signed workflow rebuilds SHA256SUMS after adding all six SBOMs
 AGENTS.md[CG8S]: F:Defines repository integration plus AOCI cognition establishment, reuse, maintenance, and task-closing rules for agents | R:code:docs/contract-authority.md,code:docs/zh-cn-contract-authority.md | A:- | S:Live Guide, tool schema, Spec, and Validator remain authoritative over this integration block; historical memory never substitutes for a current repository-bound cognition receipt
