@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-14T17:33:02Z",
+  "updated_at": "2026-08-14T17:36:13Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -127,9 +127,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "c5db1c4f3d1a1e23e9c6682e805f54c1c76aff67bc3d4d11a8184fb5ded7be4c",
-      "size": 161973,
-      "normalized_sha256": "c5db1c4f3d1a1e23e9c6682e805f54c1c76aff67bc3d4d11a8184fb5ded7be4c"
+      "sha256": "b21752e6616b48713f90de94f06b6634722ec6c1523fec1f94988f5ea119c8db",
+      "size": 162018,
+      "normalized_sha256": "b21752e6616b48713f90de94f06b6634722ec6c1523fec1f94988f5ea119c8db"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2993,10 +2993,10 @@
       "format_kind": "gofmt"
     },
     "internal/fs/atomic.go": {
-      "sha256": "9f2b5d1b9be06d893bf86ce164f2d9f4e590d51f5676e20649cdbe0a97ec46de",
-      "size": 18764,
-      "normalized_sha256": "9f2b5d1b9be06d893bf86ce164f2d9f4e590d51f5676e20649cdbe0a97ec46de",
-      "format_sha256": "9f2b5d1b9be06d893bf86ce164f2d9f4e590d51f5676e20649cdbe0a97ec46de",
+      "sha256": "8d54334b86fdf7c068012ff8a392cfc2e0058ea88be5d3d223ad45649edf99c5",
+      "size": 19111,
+      "normalized_sha256": "8d54334b86fdf7c068012ff8a392cfc2e0058ea88be5d3d223ad45649edf99c5",
+      "format_sha256": "8d54334b86fdf7c068012ff8a392cfc2e0058ea88be5d3d223ad45649edf99c5",
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_cas_test.go": {
@@ -3089,10 +3089,10 @@
     },
     "internal/fs/atomic_publish_test.go": {
       "role": "observe",
-      "sha256": "84d2bb7875b09599e569e554ef72b515c076b81dc87c427bb4871bcfa4bd8071",
-      "size": 3483,
-      "normalized_sha256": "84d2bb7875b09599e569e554ef72b515c076b81dc87c427bb4871bcfa4bd8071",
-      "format_sha256": "84d2bb7875b09599e569e554ef72b515c076b81dc87c427bb4871bcfa4bd8071",
+      "sha256": "ee6425a6790723c126d90b985af337c969764005b0f112a9be3ccbc15466b04d",
+      "size": 6139,
+      "normalized_sha256": "ee6425a6790723c126d90b985af337c969764005b0f112a9be3ccbc15466b04d",
+      "format_sha256": "ee6425a6790723c126d90b985af337c969764005b0f112a9be3ccbc15466b04d",
       "format_kind": "gofmt"
     },
     "internal/fs/countlines.go": {

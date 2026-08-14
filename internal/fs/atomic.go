@@ -7,8 +7,8 @@
 // 临时文件名带 .aoci-tmp- 前缀便于识别清理。
 //
 // Windows 语义: Go 的 os.Rename 在 Windows 使用 MOVEFILE_REPLACE_EXISTING,
-// 正常即可覆盖已存在目标;"先删目标再 rename"会制造目标暂不存在的非原子窗口,
-// 因此仅作为 rename 失败后的兜底重试,绝不作为默认路径(审查修正)。
+// 正常即可覆盖已存在目标;覆盖失败时的兜底把目标改名为同目录备份后重试,
+// 重试失败自动还原 —— 旧字节任何一步都不被销毁(采纳 PR #7),绝不作为默认路径。
 //
 // 失败语义: 任一步失败即清理临时文件并保留原文件原样 —— 防 agent 回写中途
 // 进程被杀留半截事实源。
@@ -452,12 +452,12 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 }
 
 // publishAtomicRename 收尾发布:正常 rename;仅 Windows 在 rename 失败后允许
-// "删目标再重试一次"的非原子兜底。
+// 一次非原子兜底。
 //
-// 数据保全铁律: 一旦目标已被删除而二次 rename 仍失败,新内容就只剩临时文件
-// 这一份 —— 此时绝不能再清理它,否则新旧两份同时消失(审查修正:该路径此前
-// 会删掉临时文件,是不需要崩溃就能触发的纯错误路径数据丢失)。错误里回报
-// 临时文件路径,让操作者能取回内容。
+// 数据保全铁律(采纳 PR #7 的备份语义,替换此前的"删目标再重试"): 旧字节从头到尾
+// 不被销毁 —— 先把目标改名为同目录备份,重试 rename;重试失败就把备份还原回去,
+// 目标完好如初;只有连还原都失败的极端情况才把新旧两份都保留,并在错误里回报
+// 两个路径让操作者手工处置。相比删除,改名让崩溃在任何一步发生都留有旧字节。
 // rename/remove 作为参数注入,使非 Windows 平台也能测到 Windows 分支。
 func publishAtomicRename(tmpName, targetPath, goos string,
 	rename func(string, string) error, remove func(string) error) error {
@@ -466,11 +466,18 @@ func publishAtomicRename(tmpName, targetPath, goos string,
 		return nil
 	}
 	if goos == "windows" {
-		if rmErr := remove(targetPath); rmErr == nil {
+		backupName := tmpName + ".bak"
+		if bakErr := rename(targetPath, backupName); bakErr == nil {
 			if retryErr := rename(tmpName, targetPath); retryErr == nil {
+				remove(backupName)
 				return nil
 			}
-			return fmt.Errorf("rename 落盘失败且目标已删除,新内容保留在 %s(请手工取回): %w", tmpName, err)
+			if restoreErr := rename(backupName, targetPath); restoreErr != nil {
+				return fmt.Errorf("rename 落盘失败且备份还原失败,旧内容在 %s,新内容在 %s(请手工处置): %w",
+					backupName, tmpName, err)
+			}
+			remove(tmpName)
+			return fmt.Errorf("rename 落盘失败(目标已从备份还原): %w", err)
 		}
 	}
 	remove(tmpName)
