@@ -448,18 +448,31 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		return fmt.Errorf("设置权限失败: %w", err)
 	}
 	// rename 优先(POSIX 与 Windows 正常路径均原子覆盖)
-	if err := os.Rename(tmpName, targetPath); err != nil {
-		// Windows 兜底: 个别文件系统/句柄占用场景覆盖失败时,删目标后重试一次。
-		// 该兜底窗口非原子,仅在主路径已失败时作为最后手段。
-		if runtime.GOOS == "windows" {
-			if rmErr := os.Remove(targetPath); rmErr == nil {
-				if err2 := os.Rename(tmpName, targetPath); err2 == nil {
-					return nil
-				}
-			}
-		}
-		os.Remove(tmpName)
-		return fmt.Errorf("rename 落盘失败: %w", err)
+	return publishAtomicRename(tmpName, targetPath, runtime.GOOS, os.Rename, os.Remove)
+}
+
+// publishAtomicRename 收尾发布:正常 rename;仅 Windows 在 rename 失败后允许
+// "删目标再重试一次"的非原子兜底。
+//
+// 数据保全铁律: 一旦目标已被删除而二次 rename 仍失败,新内容就只剩临时文件
+// 这一份 —— 此时绝不能再清理它,否则新旧两份同时消失(审查修正:该路径此前
+// 会删掉临时文件,是不需要崩溃就能触发的纯错误路径数据丢失)。错误里回报
+// 临时文件路径,让操作者能取回内容。
+// rename/remove 作为参数注入,使非 Windows 平台也能测到 Windows 分支。
+func publishAtomicRename(tmpName, targetPath, goos string,
+	rename func(string, string) error, remove func(string) error) error {
+	err := rename(tmpName, targetPath)
+	if err == nil {
+		return nil
 	}
-	return nil
+	if goos == "windows" {
+		if rmErr := remove(targetPath); rmErr == nil {
+			if retryErr := rename(tmpName, targetPath); retryErr == nil {
+				return nil
+			}
+			return fmt.Errorf("rename 落盘失败且目标已删除,新内容保留在 %s(请手工取回): %w", tmpName, err)
+		}
+	}
+	remove(tmpName)
+	return fmt.Errorf("rename 落盘失败: %w", err)
 }

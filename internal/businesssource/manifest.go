@@ -7,8 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -199,8 +197,7 @@ func aggregate(manifest *Manifest) string {
 }
 
 func gitHead(root string) string {
-	command := exec.Command("git", "-C", root, "rev-parse", "HEAD")
-	command.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+	command := afs.UntrustedRepositoryGitCommand(root, "rev-parse", "HEAD")
 	data, err := command.Output()
 	if err != nil {
 		return ""

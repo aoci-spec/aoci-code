@@ -378,6 +378,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			Version: machinecontract.ManagedScopeBaselineV1, PolicyIdentity: policyIdentity,
 			ObserveChangePolicy: policy.ObserveChangePolicy, BudgetPolicyIdentity: budgetIdentity,
 			BudgetPolicy:           cloneBudgetPolicy(budgetPolicy),
+			ApplyAuthorizationMode: authorizationPolicy.EffectiveMode,
 			HighRiskApprovalDigest: highRiskApprovalDigest},
 		DatabaseCognition: cloneDatabaseBindings(oldBaseline.DatabaseCognition)}
 	if _, indexed := postBaseline.Files[cfg.IndexPath]; indexed {
@@ -396,7 +397,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		plan.InteractionRequired = true
 	case machinecontract.ApplyAuthorizationLegacy:
 		plan.InteractionRequired = len(plan.EntryRemoves) > 0 || plan.Risk.LargeReduction || plan.Risk.HighRiskOptIn ||
-			plan.Risk.BudgetPolicyChange || plan.Risk.BudgetRelaxation
+			plan.Risk.BudgetPolicyChange || plan.Risk.BudgetRelaxation || plan.Risk.ApprovalPolicyRelaxation
 	case machinecontract.ApplyAuthorizationAuto, machinecontract.ApplyAuthorizationOff:
 		plan.InteractionRequired = false
 	default:
@@ -1072,11 +1073,57 @@ func buildRisk(plan Plan, cfg *config.Config, old *baseline.Baseline) Risk {
 			risk.BudgetRelaxation = budgetRelaxed(*old.ManagedScope.BudgetPolicy, cfg.EffectiveCognitionBudget())
 		}
 	}
+	risk.ApprovalPolicyRelaxation = approvalRelaxed(old, plan.AuthorizationPolicy.EffectiveMode)
 	if risk.EntryRemovalCount > 0 || risk.LargeReduction || risk.RootOrPrimaryReduction || risk.HighRiskOptIn ||
-		risk.BudgetPolicyChange || risk.BudgetRelaxation || risk.CognitionCoverageReduction {
+		risk.BudgetPolicyChange || risk.BudgetRelaxation || risk.ApprovalPolicyRelaxation ||
+		risk.CognitionCoverageReduction {
 		risk.Level = "high"
 	}
 	return risk
+}
+
+// applyAuthorizationStrength 给生效授权模式排序,用于证明模式跃迁的方向。
+// off 完全禁止 Apply,review 要求真人确认,legacy 只在高风险面确认,auto 不确认。
+func applyAuthorizationStrength(mode string) int {
+	switch mode {
+	case machinecontract.ApplyAuthorizationOff:
+		return 3
+	case machinecontract.ApplyAuthorizationReview:
+		return 2
+	case machinecontract.ApplyAuthorizationLegacy:
+		return 1
+	case machinecontract.ApplyAuthorizationAuto:
+		return 0
+	}
+	return -1
+}
+
+// approvalRelaxed 判定本次事务是否在放松治理姿态本身。
+//
+// 授权是在生效模式下做出的,所以"改模式"这件事必须按上一份收据记录的模式来
+// 判定,否则 review→auto 的跃迁会在新的 auto 模式下自我批准 —— 无人参与即可
+// 解除团队的复核姿态(审查修正)。
+//
+// 迁移边界(明示取舍): 尚未建立受管收据、或收据早于本字段(留空)时,上一次的
+// 姿态不可知,此处不追溯阻断 —— 治理是流程控制而非操作系统级边界,若为不可知
+// 的历史收据一律失败关闭,每个存量仓库升级后的第一笔事务都会突然要求真人批准,
+// 代价真实而收益有限。保护从第一份记录了模式的收据开始严格生效,而当前事务
+// 本身就会写入该字段。反过来,收据里出现无法识别的模式属篡改或未来格式,
+// 方向不可证,失败关闭。
+func approvalRelaxed(old *baseline.Baseline, effectiveMode string) bool {
+	if old == nil || old.ManagedScope == nil {
+		return false
+	}
+	previous := old.ManagedScope.ApplyAuthorizationMode
+	if previous == "" {
+		return false
+	}
+	previousStrength := applyAuthorizationStrength(previous)
+	currentStrength := applyAuthorizationStrength(effectiveMode)
+	if previousStrength < 0 || currentStrength < 0 {
+		return true
+	}
+	return currentStrength < previousStrength
 }
 
 func budgetRelaxed(oldPolicy, newPolicy cognitionbudget.Policy) bool {

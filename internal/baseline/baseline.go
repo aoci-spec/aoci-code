@@ -62,12 +62,17 @@ type Baseline struct {
 }
 
 type ManagedScopeState struct {
-	Version                string                  `json:"version"`
-	PolicyIdentity         string                  `json:"policy_identity"`
-	ObserveChangePolicy    string                  `json:"observe_change_policy"`
-	BudgetPolicyIdentity   string                  `json:"budget_policy_identity,omitempty"`
-	BudgetPolicy           *cognitionbudget.Policy `json:"budget_policy,omitempty"`
-	HighRiskApprovalDigest string                  `json:"high_risk_approval_digest,omitempty"`
+	Version              string                  `json:"version"`
+	PolicyIdentity       string                  `json:"policy_identity"`
+	ObserveChangePolicy  string                  `json:"observe_change_policy"`
+	BudgetPolicyIdentity string                  `json:"budget_policy_identity,omitempty"`
+	BudgetPolicy         *cognitionbudget.Policy `json:"budget_policy,omitempty"`
+	// ApplyAuthorizationMode 记录产生本收据的那次事务所处的生效授权模式。
+	// 团队配置只表达"期望";只有这里的收据才是"当前生效"的治理姿态,因此模式
+	// 跃迁的方向可以被证明 —— 放松(review→auto 等)必须由真人复核,而不能在
+	// 新模式下自我批准。旧收据没有该字段,方向不可证,按失败关闭处理。
+	ApplyAuthorizationMode string `json:"apply_authorization_mode,omitempty"`
+	HighRiskApprovalDigest string `json:"high_risk_approval_digest,omitempty"`
 }
 
 // DatabaseCognitionBinding proves which complete model-authored table Entry

@@ -229,8 +229,7 @@ func gitInventory(root string) (tracked, untracked, ignored []string, gitReposit
 		}
 		return nil, nil, nil, false, fmt.Errorf("safe_inventory_git_boundary_unavailable")
 	}
-	probe := exec.Command("git", "-C", root, "rev-parse", "--show-toplevel")
-	probe.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+	probe := UntrustedRepositoryGitCommand(root, "rev-parse", "--show-toplevel")
 	probeOutput, probeErr := probe.Output()
 	var executableError *exec.Error
 	if errors.As(probeErr, &executableError) {
@@ -246,8 +245,7 @@ func gitInventory(root string) (tracked, untracked, ignored []string, gitReposit
 		return nil, nil, nil, true, fmt.Errorf("safe_inventory_git_boundary_mismatch")
 	}
 	run := func(args ...string) ([]string, error) {
-		command := exec.Command("git", append([]string{"-C", root, "-c", "core.quotepath=false"}, args...)...)
-		command.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+		command := UntrustedRepositoryGitCommand(root, append([]string{"-c", "core.quotepath=false"}, args...)...)
 		data, commandErr := command.Output()
 		if commandErr != nil {
 			return nil, fmt.Errorf("safe_inventory_git_query_failed")

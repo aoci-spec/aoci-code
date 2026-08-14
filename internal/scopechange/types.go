@@ -115,6 +115,7 @@ type Risk struct {
 	HighRiskOptIn                 bool   `json:"high_risk_opt_in"`
 	BudgetPolicyChange            bool   `json:"budget_policy_change"`
 	BudgetRelaxation              bool   `json:"budget_relaxation"`
+	ApprovalPolicyRelaxation      bool   `json:"approval_policy_relaxation"`
 	EntryRemovalCount             int    `json:"entry_removal_count"`
 	P0                            int    `json:"p0"`
 	P1                            int    `json:"p1"`

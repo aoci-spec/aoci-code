@@ -21,6 +21,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
+	"github.com/aoci-spec/aoci-code/internal/scopechange"
 	"github.com/spf13/cobra"
 )
 
@@ -98,9 +99,15 @@ func init() {
 				if identityErr != nil {
 					return errors.New(cliMessage("scan.snapshot_error", identityErr))
 				}
+				// 首份收据同样记录生效授权模式,后续 Scope Change 才能证明模式跃迁方向。
+				authorizationMode, modeErr := scopechange.EffectiveApplyAuthorizationMode(cfg)
+				if modeErr != nil {
+					return errors.New(cliMessage("scan.snapshot_error", modeErr))
+				}
 				managedReceipt = &baseline.ManagedScopeState{Version: machinecontract.ManagedScopeBaselineV1,
 					PolicyIdentity: state.DesiredPolicyIdentity, ObserveChangePolicy: cfg.EffectiveManagedScope().ObserveChangePolicy,
-					BudgetPolicyIdentity: budgetIdentity, BudgetPolicy: &budgetPolicy}
+					BudgetPolicyIdentity: budgetIdentity, BudgetPolicy: &budgetPolicy,
+					ApplyAuthorizationMode: authorizationMode}
 			} else {
 				var inventory *afs.SafeInventory
 				snap, warns, inventory, err = baseline.SnapshotWithInventory(root, cfg.WalkOptions())

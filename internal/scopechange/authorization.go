@@ -14,6 +14,34 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
+// EffectiveApplyAuthorizationMode 解析当前团队配置下的生效授权模式。
+// Scope Change 与首次 Baseline 建立共用同一解析,收据里记录的模式才能与
+// 事务授权时使用的模式严格同源。
+func EffectiveApplyAuthorizationMode(cfg *config.Config) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
+	}
+	if cfg.EffectiveAutomationMode() == config.AutomationModeOff {
+		return machinecontract.ApplyAuthorizationOff, nil
+	}
+	switch cfg.EffectiveManagedScope().ApprovalMode {
+	case machinecontract.ScopeApprovalModeAuto:
+		return machinecontract.ApplyAuthorizationAuto, nil
+	case machinecontract.ScopeApprovalModeReview:
+		return machinecontract.ApplyAuthorizationReview, nil
+	case machinecontract.ScopeApprovalModeInherit:
+		switch cfg.EffectiveAutomationMode() {
+		case config.AutomationModeAuto:
+			return machinecontract.ApplyAuthorizationAuto, nil
+		case config.AutomationModeReview:
+			return machinecontract.ApplyAuthorizationReview, nil
+		case config.AutomationModeLegacy:
+			return machinecontract.ApplyAuthorizationLegacy, nil
+		}
+	}
+	return "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
+}
+
 func resolveApplyAuthorizationPolicy(cfg *config.Config) (ApplyAuthorizationPolicy, string, error) {
 	if cfg == nil {
 		return ApplyAuthorizationPolicy{}, "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
@@ -25,29 +53,11 @@ func resolveApplyAuthorizationPolicy(cfg *config.Config) (ApplyAuthorizationPoli
 		AutomationMode:    cfg.EffectiveAutomationMode(),
 		ScopeApprovalMode: policy.ApprovalMode,
 	}
-	if value.AutomationMode == config.AutomationModeOff {
-		value.EffectiveMode = machinecontract.ApplyAuthorizationOff
-	} else {
-		switch value.ScopeApprovalMode {
-		case machinecontract.ScopeApprovalModeAuto:
-			value.EffectiveMode = machinecontract.ApplyAuthorizationAuto
-		case machinecontract.ScopeApprovalModeReview:
-			value.EffectiveMode = machinecontract.ApplyAuthorizationReview
-		case machinecontract.ScopeApprovalModeInherit:
-			switch value.AutomationMode {
-			case config.AutomationModeAuto:
-				value.EffectiveMode = machinecontract.ApplyAuthorizationAuto
-			case config.AutomationModeReview:
-				value.EffectiveMode = machinecontract.ApplyAuthorizationReview
-			case config.AutomationModeLegacy:
-				value.EffectiveMode = machinecontract.ApplyAuthorizationLegacy
-			default:
-				return ApplyAuthorizationPolicy{}, "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
-			}
-		default:
-			return ApplyAuthorizationPolicy{}, "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
-		}
+	mode, err := EffectiveApplyAuthorizationMode(cfg)
+	if err != nil {
+		return ApplyAuthorizationPolicy{}, "", err
 	}
+	value.EffectiveMode = mode
 	identity, err := digestJSON(value)
 	if err != nil {
 		return ApplyAuthorizationPolicy{}, "", err
@@ -224,6 +234,9 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 	}
 	if preview.Plan.Risk.BudgetRelaxation {
 		reasons = append(reasons, "budget_policy_relaxation")
+	}
+	if preview.Plan.Risk.ApprovalPolicyRelaxation {
+		reasons = append(reasons, "approval_policy_relaxation")
 	}
 	if preview.Plan.Risk.P0 != 0 || preview.Plan.Risk.P1 != 0 {
 		reasons = append(reasons, "p0_or_p1")
