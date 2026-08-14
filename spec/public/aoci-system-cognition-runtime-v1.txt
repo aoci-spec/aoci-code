@@ -31,6 +31,9 @@ Observable safety properties
 
 The projection is deterministic for the same coherent cognition and Baseline
 inputs, is sorted before identity calculation, does not access the network,
-and does not read business rows. Findings report incomplete or unresolved
-bindings instead of inventing relations. The public JSON structs and command
+and does not read business rows. The projection never judges or invents
+relations: an R annotation that resolves to no managed object, or to several,
+simply contributes no edge and no Finding, because relations are model-authored
+semantics. The findings field remains in the public shape for compatibility and
+stays empty for relation content. The public JSON structs and command
 tests are the field-level executable contract.

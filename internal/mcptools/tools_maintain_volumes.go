@@ -83,6 +83,9 @@ type volumeMaintainResult struct {
 	Instructions      []string                     `json:"instructions,omitempty"`
 	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
 	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
+	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
+	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
+	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
 }
 
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
@@ -101,7 +104,8 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		Sets:       volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta"}},
 		Governance: facts, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
-		NextAction: facts.NextRequiredAction,
+		ServiceBinaryReplacedOnDisk: serviceBinaryReplacedOnDisk(),
+		NextAction:                  facts.NextRequiredAction,
 		Batch: volumeAuthoringBatch{MaxEntries: entriesBatchLimit,
 			CompositeIdentity: facts.CompositeIdentity, ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity},
 	}

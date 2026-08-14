@@ -117,6 +117,12 @@ func registerReadTools(
 						)
 					}
 
+					// 磁盘二进制已替换而进程未重启时, 在会话契约末尾附上机器事实,
+					// 让新会话第一时间知道自己连着一个过时的服务进程。
+					if serviceBinaryReplacedOnDisk() {
+						output += "\nservice_binary_replaced_on_disk: true\n"
+					}
+
 					ledger.Append(
 						root,
 						loaded.cfg.LedgerEnabled,

@@ -51,6 +51,18 @@ Spec, platform, or Header cognition, update formal Entries when needed, then
 run `aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
 opened and produces no drift.
 
+## Scale boundary
+
+The Whole-Index budget defaults to 120000 target / 180000 warning / 240000 max
+tokens, and every Entry the model reads back rides that budget. At the density
+this repository averages (~115 tokens per Entry), the hard ceiling corresponds
+to roughly two thousand managed objects. Repositories approaching it should
+first spend the existing levers — tighter S under the C-driven quotas, an
+explicit `cognition_optimization` review pass, and Scope roles that keep
+non-cognition files out of Index — before asking for a larger budget. Splitting
+the Code Volume itself into partitions is deliberately not supported in v1;
+treat the ceiling as a real architectural boundary rather than a tunable.
+
 For the normative lifecycle, retention dispositions, safety boundaries,
 transaction order, and token gates, see
 [`aoci-managed-scope-and-budget-v1.txt`](../spec/public/aoci-managed-scope-and-budget-v1.txt).

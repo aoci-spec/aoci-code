@@ -222,6 +222,13 @@ candidates are applied in memory before Code, Database, and the combined
 Baseline/Binding are each written at most once. The model-authored R is never
 dropped or rewritten to fit transport.
 
+Machine maintenance watches source bytes, so an Entry whose file did not change
+can still go semantically stale when the system around it moves — a removed
+mechanism its S still cites, a renamed contract its F still describes. After a
+system-level semantic change lands, run one explicit `cognition_optimization`
+pass (or read the Whole-Index and update the affected Entries directly) so that
+class of drift gets a model review instead of rotting silently.
+
 The projected CognitionSet must pass the same loader, FRAS-v2, Volume boundary,
 Meta dictionary, identity, and single-Entry relation form checks before the existing Diff/P-23,
 write lock, CAS, AtomicWrite, Baseline, Ledger, governance receipt, and Recovery

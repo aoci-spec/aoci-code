@@ -357,6 +357,11 @@ func renderOverviewMetadata(
 		encoded, _ := json.Marshal(state)
 		fmt.Fprintf(&builder, "cognition_state_v2: %s\n", encoded)
 	}
+	// 咨询事实: 磁盘二进制已替换而本进程未重启。只在漂移时出现, 提醒这份认知
+	// 来自一个即将过时的服务进程。
+	if serviceBinaryReplacedOnDisk() {
+		builder.WriteString("service_binary_replaced_on_disk: true\n")
+	}
 	fmt.Fprintf(&builder, "%s: %s\n", receiptLabel, receiptJSON)
 	return builder.String()
 }

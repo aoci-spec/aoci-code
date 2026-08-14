@@ -438,8 +438,10 @@ offline Maintain, and status contract is
 aoci-database-cognition-authoring-v1.txt.
 
 The existing aoci_remove_entry also accepts an explicit Code or Database
-Volume orphan identity. Ordinary orphan removal re-proves orphan state and
-rejects any still-valid R reference. It guards Root/Meta/Volumes/Evidence and
+Volume orphan identity. Ordinary orphan removal re-proves orphan state from
+shared governance facts; R references from other Entries never block it, and
+any dangling annotation they leave behind stays model-owned until the model's
+next Whole-Index read. It guards Root/Meta/Volumes/Evidence and
 exact preimages, never deletes source files or database objects, and uses the
 existing CAS, Baseline, Ledger, lock, and Entries recovery path. Maintain never
 invokes it implicitly.

@@ -9,6 +9,21 @@ reconnect that project's MCP integration, or reopen the project session when
 the Host requires it. A matching binary on disk does not prove that the active
 server is using those bytes.
 
+The running server also watches its own binary: when the on-disk file no longer
+matches what the process started from, `aoci_maintain`, `aoci_rules`, and the
+final Overview metadata carry `service_binary_replaced_on_disk: true`. The fact
+is advisory only — nothing blocks — and it means exactly one thing: restart the
+host MCP integration to load the replaced binary.
+
+## Section roots show an old absolute path
+
+Code Volume section headers such as `===/old/machine/path/project/===` are
+historical structural coordinates, not runtime paths. The public index format
+defines them that way: after a clone or relocation the formal bytes are
+preserved, and every reader derives repository-relative identities from the
+invocation root, never from the recorded prefix. An outdated prefix is
+expected, harmless, and not worth a formal write to rewrite.
+
 ## Host config points to a moved binary or repository
 
 After the `aoci` binary or the repository moves, host configs written by

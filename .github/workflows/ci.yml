@@ -141,3 +141,23 @@ jobs:
       - name: timing
         if: always()
         run: echo "windows-compile_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
+  # 真机 Windows 上跑协议一致性套件: 此前 Windows 只有交叉编译证明"能编译",
+  # 公开 MCP 表面从未在 Windows 实测过。conformance 是三套里唯一纯只读、
+  # 零 Docker、纯标准库的一套, 放到 windows-latest 成本最低、盲区收益最大。
+  windows-conformance:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: build the binary under test
+        shell: bash
+        run: CGO_ENABLED=0 go build -o build/aoci.exe ./cmd/aoci
+      - name: MCP protocol conformance on Windows
+        shell: bash
+        env:
+          AOCI_BIN: ${{ github.workspace }}\build\aoci.exe
+        run: python scripts/blackbox/mcp_conformance.py

@@ -234,6 +234,11 @@ func localeSafeMCPDetail(detail string) string {
 // RunStdio 启动 stdio MCP server(阻塞至 ctx 取消或对端关闭)。
 // root 在启动时定死(来自 aoci mcp 的工作目录或 --repo);version 经 CLI 注入。
 func RunStdio(ctx context.Context, root, version string) error {
+	// 记录自身二进制的磁盘身份, 之后治理面用它暴露"磁盘已替换、进程未重启"。
+	// os.Executable 失败时自检静默关闭, 绝不影响服务启动。
+	if executable, err := os.Executable(); err == nil {
+		RecordServiceBinaryIdentity(executable)
+	}
 	srv, err := newMCPServer(root, version)
 	if err != nil {
 		return err

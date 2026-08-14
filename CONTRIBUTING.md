@@ -33,6 +33,11 @@ rehearsal.
   regular expressions, fixed templates, or rule engines.
 - Do not refresh Golden files solely to make tests pass. A Golden change needs
   an intentional behavior change and production-path evidence.
+- Persisted artifacts (receipts, plans, recovery intents, Baseline, sessions)
+  are decoded strictly, so any field addition or removal must ship its
+  compatibility path in the same change: a test proving pre-change artifacts
+  still load, and an explicit statement of how an older binary behaves when it
+  meets the new state mid-flight.
 - Keep private security details, credentials, proprietary source, research
   archives, and non-public design material out of issues and pull requests.
 
