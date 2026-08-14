@@ -155,6 +155,8 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.repair.cause.tag":                                      nil,
 	"entry.repair.cause.tag_compact":                              {"C.G.7.T"},
 	"entry.repair.cause.relation_canonical":                       {"main.go"},
+	"entry.repair.cause.field_budget":                             {"S", 82, 80},
+	"entry.repair.action.field_budget":                            {"S", 80},
 	"entry.repair.cause.identity":                                 nil,
 	"entry.repair.cause.volume":                                   nil,
 	"entry.repair.cause.tag_dictionary":                           nil,

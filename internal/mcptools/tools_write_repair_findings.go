@@ -70,6 +70,9 @@ func localizeFRASCause(finding *cognition.RepairFinding) {
 		finding.Cause = writeMessage("entry.repair.cause.tag")
 	case finding.RuleCode == "impact_candidate_tag_not_compact":
 		finding.Cause = writeMessage("entry.repair.cause.tag_compact", finding.Actual)
+	case finding.RuleCode == "entry_field_budget_exceeded":
+		finding.Cause = writeMessage("entry.repair.cause.field_budget", finding.Field,
+			repairMachineValue(finding.Actual), repairMachineValue(finding.Expected))
 	case finding.RuleCode == "impact_candidate_relation_not_canonical":
 		finding.Cause = writeMessage("entry.repair.cause.relation_canonical", finding.Actual)
 	case finding.RuleCode == "impact_object_identity_invalid":
@@ -112,6 +115,8 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.tag")
 	case "impact_candidate_relation_not_canonical":
 		return writeMessage("entry.repair.action.r_relation")
+	case "entry_field_budget_exceeded":
+		return writeMessage("entry.repair.action.field_budget", finding.Field, repairMachineValue(finding.Expected))
 	case "impact_object_identity_invalid":
 		return writeMessage("entry.repair.action.identity")
 	case "impact_candidate_volume_mismatch":

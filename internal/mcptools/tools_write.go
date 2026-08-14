@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
@@ -136,10 +137,28 @@ func prepareUpdateEntry(
 	)
 	if rc.cfg.CognitionBudget != nil {
 		if budgetViolations := cognitionbudget.ValidateEntry(line, rc.cfg.EffectiveCognitionBudget()); len(budgetViolations) > 0 {
+			// 逐字段超档是候选可修问题: 附带定位与精确 token 事实的 Finding,
+			// 调用方补上 candidate_index。策略本身不可解析时保持不可修停止。
+			findings := []cognition.RepairFinding{}
+			repairable := true
+			for _, violation := range budgetViolations {
+				if violation.Code != "entry_field_budget_exceeded" {
+					repairable = false
+					continue
+				}
+				findings = append(findings, cognition.RepairFinding{
+					Path: rel, CanonicalObjectIdentity: "code:" + rel, ObjectRef: "code:" + rel,
+					Domain: cognition.ScopeCode, Field: violation.Field,
+					Code: violation.Code, RuleCode: violation.Code,
+					Expected: fmt.Sprintf("max_tokens=%d", violation.Maximum),
+					Actual:   fmt.Sprintf("actual_tokens=%d", violation.Actual),
+				})
+			}
 			detail, _ := json.Marshal(budgetViolations)
 			return nil, "", &Fail{Code: errCandidateInvalid,
-				Msg:  writeMessage("entry.write.budget_failed", budgetViolations[0].Code, string(detail)),
-				Hint: writeMessage("entry.write.hint.budget_reauthor")}
+				Msg:      writeMessage("entry.write.budget_failed", budgetViolations[0].Code, string(detail)),
+				Hint:     writeMessage("entry.write.hint.budget_reauthor"),
+				Findings: findings, Repairable: repairable && len(findings) > 0}
 		}
 	}
 

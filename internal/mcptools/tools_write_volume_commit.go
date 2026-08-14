@@ -9,12 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
@@ -236,6 +238,11 @@ func planCognitionVolumeUpdates(
 			sourceFingerprints[item.rel] = fingerprint
 			outcome, nextText, itemFail := prepareUpdateEntry(root, item.rel, item.newEntry, codeContext)
 			if itemFail != nil {
+				for index := range itemFail.Findings {
+					if itemFail.Findings[index].CandidateIndex == 0 {
+						itemFail.Findings[index].CandidateIndex = item.originalCandidateIndex
+					}
+				}
 				return nil, itemFail
 			}
 			projected["code"] = []byte(nextText)
@@ -289,7 +296,19 @@ func planCognitionVolumeUpdates(
 	}
 	projectedBudget := volumegovernance.AssessProjectedBudget(loaded.cfg, projectedSet)
 	if projectedBudget.Mode == machinecontract.BudgetModeEnforce && len(projectedBudget.Violations) != 0 {
-		return nil, &Fail{Code: errCandidateInvalid, Msg: writeMessage("entry.write.budget_failed", projectedBudget.Violations[0].Code, projectedBudget.WholeIndexTokens), Hint: writeMessage("entry.write.hint.budget_reauthor")}
+		// 逐条字段超档是候选可修问题, 必须以结构化 Finding 返回; 全索引超限与
+		// 批外条目的历史违规不是本批任何字段能修的, 保持批级停止。
+		// (审查修正: 此前这里把 WholeIndexTokens 的 int 传给 %s 模板, 严格资产
+		// 渲染失败触发 writeMessage panic, 预算违规被升级成不可定位的内部错误。)
+		findings, unmatched := budgetRepairFindings(projectedBudget.Violations, normalized)
+		if len(unmatched) == 0 {
+			return nil, &Fail{Code: errCandidateInvalid,
+				Msg:  writeMessage("entry.write.budget_failed", "entry_field_budget_exceeded", strconv.Itoa(projectedBudget.WholeIndexTokens)),
+				Hint: writeMessage("entry.write.hint.budget_reauthor"), Findings: findings, Repairable: true}
+		}
+		return nil, &Fail{Code: errCandidateInvalid,
+			Msg:  writeMessage("entry.write.budget_failed", budgetViolationDetail(unmatched[0]), strconv.Itoa(projectedBudget.WholeIndexTokens)),
+			Hint: writeMessage("entry.write.hint.budget_reauthor"), Findings: findings}
 	}
 
 	participants := make([]cognitionVolumeWriteTarget, 0, len(envelope.WriteSet))
@@ -442,7 +461,59 @@ func recoveryVolumeTargets(recovery *atomicBatchRecovery) []cognitionVolumeWrite
 	return targets
 }
 
+// budgetRepairFindings 把逐条 token 预算违规映射成候选可修的结构化 Finding。
+// AssessProjectedBudget 的 Violation.Path 是规范对象身份, 与本批候选精确对得上;
+// 命中即产出带 candidate_index 与精确 token 事实的 Finding。whole-index 超限与
+// 未命中本批候选的历史违规归入第二个返回值, 由调用方保持批级停止。
+func budgetRepairFindings(violations []cognitionbudget.Violation, normalized []normalizedAtomicItem) ([]cognition.RepairFinding, []cognitionbudget.Violation) {
+	byRef := make(map[string]normalizedAtomicItem, len(normalized))
+	for _, item := range normalized {
+		if item.rel != "" {
+			byRef["code:"+item.rel] = item
+		} else if item.objectRef != "" {
+			byRef[item.objectRef] = item
+		}
+	}
+	findings := []cognition.RepairFinding{}
+	unmatched := []cognitionbudget.Violation{}
+	for _, violation := range violations {
+		item, matched := byRef[violation.Path]
+		if violation.Code != "entry_field_budget_exceeded" || !matched {
+			unmatched = append(unmatched, violation)
+			continue
+		}
+		domain, path := cognition.ScopeCode, item.rel
+		if item.rel == "" {
+			domain, path = cognition.ScopeDatabase, item.objectRef
+		}
+		findings = append(findings, cognition.RepairFinding{
+			CandidateIndex: item.originalCandidateIndex, Path: path,
+			CanonicalObjectIdentity: violation.Path, ObjectRef: violation.Path, Domain: domain,
+			Field: violation.Field, Code: "entry_field_budget_exceeded", RuleCode: "entry_field_budget_exceeded",
+			Expected: fmt.Sprintf("max_tokens=%d", violation.Maximum),
+			Actual:   fmt.Sprintf("actual_tokens=%d", violation.Actual),
+		})
+	}
+	return findings, unmatched
+}
+
+// budgetViolationDetail 把一条不可候选修复的违规压成机器事实串(模板只收字符串)。
+func budgetViolationDetail(violation cognitionbudget.Violation) string {
+	detail := violation.Code
+	if violation.Path != "" {
+		detail += " path=" + violation.Path
+	}
+	if violation.Field != "" {
+		detail += " field=" + violation.Field
+	}
+	if violation.Maximum > 0 {
+		detail += fmt.Sprintf(" actual_tokens=%d max_tokens=%d", violation.Actual, violation.Maximum)
+	}
+	return detail
+}
+
 // canonicalProjectedRoot upgrades only the legacy five-field descriptor form
+
 // in memory so the strict projected-set validator can evaluate an active
 // Volumes v1 layout. Root remains a Guard and is never written by this path.
 func canonicalProjectedRoot(raw []byte) []byte {

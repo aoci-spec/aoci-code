@@ -314,6 +314,11 @@ func planUpdateEntriesAtomic(
 			&workingContext,
 		)
 		if itemFail != nil {
+			for findingIndex := range itemFail.Findings {
+				if itemFail.Findings[findingIndex].CandidateIndex == 0 {
+					itemFail.Findings[findingIndex].CandidateIndex = item.originalCandidateIndex
+				}
+			}
 			itemFail.Msg = writeMessage(
 				"entry.batch.item_plan_failed",
 				itemIndex+1,
