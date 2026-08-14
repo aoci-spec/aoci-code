@@ -102,7 +102,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		Governance: facts, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		NextAction: facts.NextRequiredAction,
-		Batch: volumeAuthoringBatch{MaxEntries: machinecontract.EntriesBatchMaxItems,
+		Batch: volumeAuthoringBatch{MaxEntries: entriesBatchLimit,
 			CompositeIdentity: facts.CompositeIdentity, ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity},
 	}
 	requested := map[string]bool{cognition.ScopeCode: requestedScope == "" || requestedScope == cognition.ScopeAll || requestedScope == cognition.ScopeCode,
@@ -113,7 +113,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 			buildVolumeCodeCandidates(root, loaded, &result)
 		}
 		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
-			buildVolumeDatabaseCandidates(root, loaded, &result, machinecontract.EntriesBatchMaxItems-len(result.Candidates))
+			buildVolumeDatabaseCandidates(root, loaded, &result, entriesBatchLimit-len(result.Candidates))
 		}
 	}
 	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested)
@@ -239,7 +239,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	}
 	plan, err := codebatch.BuildPlan(root, result.Governance.CompositeIdentity,
 		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, machinecontract.EntriesBatchMaxItems)
+		result.Governance.Code.SHA256, all, entriesBatchLimit)
 	if err != nil {
 		return
 	}

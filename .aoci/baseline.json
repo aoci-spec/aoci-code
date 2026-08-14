@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-14T05:59:51Z",
+  "updated_at": "2026-08-14T07:07:17Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -120,9 +120,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "59fc8555361b298cc318f9a4ffcb7f4d818e1d4aefab6574acd451bc0ca39916",
-      "size": 159148,
-      "normalized_sha256": "59fc8555361b298cc318f9a4ffcb7f4d818e1d4aefab6574acd451bc0ca39916"
+      "sha256": "eb4360f6a542a43a6e647d7d9332aab09c6ec1a4a3706e71778debe81c252194",
+      "size": 159662,
+      "normalized_sha256": "eb4360f6a542a43a6e647d7d9332aab09c6ec1a4a3706e71778debe81c252194"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2111,27 +2111,40 @@
       "format_kind": "gofmt"
     },
     "internal/codebatch/receipt.go": {
-      "role": "index",
-      "sha256": "4aa30f9fd1485705b072ed8d3b4015b4e0c9037a9e9b73b0c405731e4cca3334",
-      "size": 17142,
-      "normalized_sha256": "4aa30f9fd1485705b072ed8d3b4015b4e0c9037a9e9b73b0c405731e4cca3334",
-      "format_sha256": "4aa30f9fd1485705b072ed8d3b4015b4e0c9037a9e9b73b0c405731e4cca3334",
+      "sha256": "d77fad304a4d8d295ab705bffc6d24193a73be652466a67100e9c28362fd2fb5",
+      "size": 18450,
+      "normalized_sha256": "d77fad304a4d8d295ab705bffc6d24193a73be652466a67100e9c28362fd2fb5",
+      "format_sha256": "d77fad304a4d8d295ab705bffc6d24193a73be652466a67100e9c28362fd2fb5",
       "format_kind": "gofmt"
     },
     "internal/codebatch/receipt_test.go": {
       "role": "observe",
-      "sha256": "7da6d2062c737fc2c8543b512489ff57d3dee964182cffcd164e0d9b5e1d4eee",
-      "size": 3973,
-      "normalized_sha256": "7da6d2062c737fc2c8543b512489ff57d3dee964182cffcd164e0d9b5e1d4eee",
-      "format_sha256": "7da6d2062c737fc2c8543b512489ff57d3dee964182cffcd164e0d9b5e1d4eee",
+      "sha256": "7d119b48414109810b6691a01110b7e58aea2aa9b7e208fbd59ef3ddeb60ffd0",
+      "size": 4060,
+      "normalized_sha256": "7d119b48414109810b6691a01110b7e58aea2aa9b7e208fbd59ef3ddeb60ffd0",
+      "format_sha256": "7d119b48414109810b6691a01110b7e58aea2aa9b7e208fbd59ef3ddeb60ffd0",
+      "format_kind": "gofmt"
+    },
+    "internal/codebatch/relations.go": {
+      "sha256": "8bab7a60414c69ca60b7a499cbf1ac68fcfeba120366d1c3b32b10a9b7dbdb84",
+      "size": 16360,
+      "normalized_sha256": "8bab7a60414c69ca60b7a499cbf1ac68fcfeba120366d1c3b32b10a9b7dbdb84",
+      "format_sha256": "8bab7a60414c69ca60b7a499cbf1ac68fcfeba120366d1c3b32b10a9b7dbdb84",
+      "format_kind": "gofmt"
+    },
+    "internal/codebatch/relations_test.go": {
+      "role": "observe",
+      "sha256": "d472a74683bbcfaf75dd07dd11bc7db7e85a8038b89f6afaab2a9b823ad52172",
+      "size": 6637,
+      "normalized_sha256": "d472a74683bbcfaf75dd07dd11bc7db7e85a8038b89f6afaab2a9b823ad52172",
+      "format_sha256": "d472a74683bbcfaf75dd07dd11bc7db7e85a8038b89f6afaab2a9b823ad52172",
       "format_kind": "gofmt"
     },
     "internal/codebatch/types.go": {
-      "role": "index",
-      "sha256": "bfe1145d5db26072c2be7e3cfae42ce648230f0216f151a1664936d6ff909656",
-      "size": 3112,
-      "normalized_sha256": "bfe1145d5db26072c2be7e3cfae42ce648230f0216f151a1664936d6ff909656",
-      "format_sha256": "bfe1145d5db26072c2be7e3cfae42ce648230f0216f151a1664936d6ff909656",
+      "sha256": "7c0acd8cfe06d3876ce1901a4742b013467cc36511b04f695371fc0bfc1b0896",
+      "size": 3561,
+      "normalized_sha256": "7c0acd8cfe06d3876ce1901a4742b013467cc36511b04f695371fc0bfc1b0896",
+      "format_sha256": "7c0acd8cfe06d3876ce1901a4742b013467cc36511b04f695371fc0bfc1b0896",
       "format_kind": "gofmt"
     },
     "internal/cognition/authoring_boundary.go": {
@@ -4307,11 +4320,10 @@
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_maintain_volumes.go": {
-      "role": "index",
-      "sha256": "60b35ac42ad8a041245d9fcdb0d92dc8fd0cf22510acac80b2e64413b022062f",
-      "size": 16375,
-      "normalized_sha256": "60b35ac42ad8a041245d9fcdb0d92dc8fd0cf22510acac80b2e64413b022062f",
-      "format_sha256": "60b35ac42ad8a041245d9fcdb0d92dc8fd0cf22510acac80b2e64413b022062f",
+      "sha256": "6cf2dfbab9bfdc6febbda1ca1211d983885af580542bef2e1e32aea53fb723fd",
+      "size": 16318,
+      "normalized_sha256": "6cf2dfbab9bfdc6febbda1ca1211d983885af580542bef2e1e32aea53fb723fd",
+      "format_sha256": "6cf2dfbab9bfdc6febbda1ca1211d983885af580542bef2e1e32aea53fb723fd",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_read.go": {
@@ -4554,6 +4566,14 @@
       "format_sha256": "0967765c757155e7cf7aea3a45372a90f1e0d917b94b416110d45d0606c07f60",
       "format_kind": "gofmt"
     },
+    "internal/mcptools/tools_write_relation_closure_test.go": {
+      "role": "observe",
+      "sha256": "d80a3c820512a0c2fdf635d1c603b2772484e215fb7b674711eea5d0c6698f6c",
+      "size": 6328,
+      "normalized_sha256": "d80a3c820512a0c2fdf635d1c603b2772484e215fb7b674711eea5d0c6698f6c",
+      "format_sha256": "d80a3c820512a0c2fdf635d1c603b2772484e215fb7b674711eea5d0c6698f6c",
+      "format_kind": "gofmt"
+    },
     "internal/mcptools/tools_write_relations_test.go": {
       "role": "observe",
       "sha256": "7d6b24864a8c94600a3a4a666f7bbb3cb9c1ddcdea209eff87a074d58ddb9f9e",
@@ -4571,10 +4591,10 @@
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_write_volume_commit.go": {
-      "sha256": "c7cf4d0009ba0b04a620ba6496d1177fb38f75524b887731b639119cfe9ae481",
-      "size": 47827,
-      "normalized_sha256": "c7cf4d0009ba0b04a620ba6496d1177fb38f75524b887731b639119cfe9ae481",
-      "format_sha256": "c7cf4d0009ba0b04a620ba6496d1177fb38f75524b887731b639119cfe9ae481",
+      "sha256": "ea487ab3c6d48006317379256964e415b270b808c18c63fbcb1b4c28ab939474",
+      "size": 50259,
+      "normalized_sha256": "ea487ab3c6d48006317379256964e415b270b808c18c63fbcb1b4c28ab939474",
+      "format_sha256": "ea487ab3c6d48006317379256964e415b270b808c18c63fbcb1b4c28ab939474",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_write_volume_test.go": {

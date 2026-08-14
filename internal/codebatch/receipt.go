@@ -32,64 +32,75 @@ func BuildPlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, cod
 	if len(selected) > limit {
 		selected = selected[:limit]
 	}
-	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, nil, limit)
 }
 
-// ReplanForRelations issues a replacement current batch containing every
-// submitted source whose model-authored R references a not-yet-written plan
-// target plus those targets. Other targets fill the batch deterministically.
-// No formal cognition is written by this operation.
-func ReplanForRelations(root string, receipt Receipt, requiredObjectRefs []string, limit int) (Plan, error) {
+// ReplanForRelations issues a replacement current batch that is closed under
+// the accumulated model-authored relations. No formal cognition is written.
+//
+// 计划阶段拿不到关系图,因此这里把本次观察到的关系边合并进收据累积的事实,
+// 再在"已知图"上按强连通分量装箱 —— 逆拓扑前缀天然自闭合。最小不可拆成分
+// 超过上限时显式失败并带出精确事实,绝不丢弃 R 或改写模型语义。
+// issuedBatchIDs 是本计划谱系已签发过的批次身份,用于兜底检测不收敛。
+func ReplanForRelations(root string, receipt Receipt, observed []ObservedRelation,
+	issuedBatchIDs []string, limit int) (Plan, ClosureDiagnostic, error) {
 	if err := validateReceipt(receipt); err != nil {
-		return Plan{}, err
+		return Plan{}, ClosureDiagnostic{}, err
 	}
-	required := map[string]bool{}
-	for _, ref := range requiredObjectRefs {
-		ref = strings.TrimSpace(ref)
-		if ref != "" {
-			required[ref] = true
-		}
+	merged := MergeObservedRelations(receipt.ObservedRelations, observed)
+	known := make(map[string][]string, len(merged))
+	for _, relation := range merged {
+		known[relation.SourceObjectRef] = relation.TargetObjectRefs
 	}
-	if len(required) == 0 || len(required) > limit {
-		return Plan{}, fmt.Errorf("code_candidate_relation_closure_exceeds_batch_limit")
-	}
-	selectedTargets := make([]Target, 0, limit)
+	// change != create 的目标在当前卷里已经存在,其关系无需同批解析。
+	resolved := map[string]bool{}
 	for _, target := range receipt.AllTargets {
-		if required[target.ObjectRef] {
-			selectedTargets = append(selectedTargets, target)
-			delete(required, target.ObjectRef)
+		if target.Change != "create" {
+			resolved[target.ObjectRef] = true
 		}
 	}
-	if len(required) != 0 {
-		return Plan{}, fmt.Errorf("code_candidate_relation_target_not_in_plan")
+	// 已被观察过关系的对象 —— 只有它们不会再带来意外的跨批边。
+	observedRefs := make(map[string]bool, len(merged))
+	for _, relation := range merged {
+		observedRefs[relation.SourceObjectRef] = true
 	}
-	selectedSet := map[string]bool{}
-	for _, target := range selectedTargets {
-		selectedSet[target.ObjectRef] = true
+	selectedTargets, diagnostic, err := SelectRelationClosedBatch(receipt.AllTargets, known, resolved, observedRefs, limit)
+	if err != nil {
+		return Plan{}, diagnostic, err
 	}
+	if len(selectedTargets) == 0 {
+		return Plan{}, diagnostic, fmt.Errorf("code_candidate_relation_target_not_in_plan")
+	}
+	candidateByRef := map[string]Candidate{}
 	for _, target := range receipt.AllTargets {
-		if len(selectedTargets) >= limit {
-			break
-		}
-		if !selectedSet[target.ObjectRef] {
-			selectedTargets = append(selectedTargets, target)
-			selectedSet[target.ObjectRef] = true
-		}
+		candidateByRef[target.ObjectRef] = Candidate{Target: target}
 	}
 	allCandidates := make([]Candidate, 0, len(receipt.AllTargets))
-	selectedCandidates := make([]Candidate, 0, len(selectedTargets))
-	selectedWanted := map[string]bool{}
-	for _, target := range selectedTargets {
-		selectedWanted[target.ObjectRef] = true
-	}
 	for _, target := range receipt.AllTargets {
-		candidate := Candidate{Target: target}
-		allCandidates = append(allCandidates, candidate)
-		if selectedWanted[target.ObjectRef] {
-			selectedCandidates = append(selectedCandidates, candidate)
+		allCandidates = append(allCandidates, candidateByRef[target.ObjectRef])
+	}
+	selectedCandidates := make([]Candidate, 0, len(selectedTargets))
+	for _, target := range selectedTargets {
+		selectedCandidates = append(selectedCandidates, candidateByRef[target.ObjectRef])
+	}
+	// 兜底: 算法正确时不会重复签发同一批次;真的发生说明存在未预见的边界,
+	// 此时立刻停下并报出不收敛,而不是继续消耗宿主的创作时间。
+	planned := plannedBatchIdentity(receipt, selectedCandidates)
+	for _, issued := range issuedBatchIDs {
+		if issued == planned {
+			return Plan{}, diagnostic, fmt.Errorf("code_candidate_relation_replan_not_converging")
 		}
 	}
-	return savePlan(root, receipt.CompositeIdentity, receipt.ScopePolicyIdentity, receipt.CodeVolumePath, receipt.CodeVolumeSHA256, allCandidates, selectedCandidates, limit)
+	plan, err := savePlan(root, receipt.CompositeIdentity, receipt.ScopePolicyIdentity, receipt.CodeVolumePath,
+		receipt.CodeVolumeSHA256, allCandidates, selectedCandidates, merged, limit)
+	return plan, diagnostic, err
+}
+
+// plannedBatchIdentity 预演 savePlan 的批次身份推导,用于落盘前的重复检测。
+// PlanID 由全集派生且已被 validateReceipt 核对过,这里直接复用。
+func plannedBatchIdentity(receipt Receipt, selected []Candidate) string {
+	return receiptHash("code-cognition-batch/v1", receipt.PlanID,
+		encodeTargets(targetsWithoutCandidateIDs(selected), false))
 }
 
 func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, submissions []Submission, allowPostimage bool) (Receipt, error) {
@@ -281,7 +292,7 @@ func LoadReceipt(root, batchID string) (Receipt, error) {
 	return receipt, nil
 }
 
-func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, limit int) (Plan, error) {
+func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, observed []ObservedRelation, limit int) (Plan, error) {
 	allTargets := targetsWithoutCandidateIDs(all)
 	planID := receiptHash("code-cognition-plan/v1", compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, encodeTargets(allTargets, false))
 	selectedTargets := targetsWithoutCandidateIDs(selected)
@@ -300,7 +311,7 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 	}
 	receipt := Receipt{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
-		AllTargets: allTargets, Targets: selectedTargets}
+		AllTargets: allTargets, Targets: selectedTargets, ObservedRelations: observed}
 	if err := saveReceipt(root, receipt); err != nil {
 		return Plan{}, err
 	}

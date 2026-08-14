@@ -80,7 +80,8 @@ func TestRelationReplanKeepsPendingTargetsAndExistingSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	replanned, err := ReplanForRelations(root, receipt, []string{"code:0000.go", "code:0200.go"}, 200)
+	observed := []ObservedRelation{{SourceObjectRef: "code:0000.go", TargetObjectRefs: []string{"code:0200.go"}}}
+	replanned, _, err := ReplanForRelations(root, receipt, observed, nil, 200)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -26,6 +26,11 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
+// entriesBatchLimit 是 Code 授权批次的单批上限。它来自 machinecontract 机器事实,
+// 这里留一个变量接缝, 让多批与关系闭包路径可以在小规模夹具上被完整覆盖 ——
+// 生产路径永远取机器契约值。
+var entriesBatchLimit = machinecontract.EntriesBatchMaxItems
+
 var (
 	saveVolumeGovernanceReceipt = saveCompletedEntriesGovernanceReceipt
 	ensureVolumeLedger          = func(root string, enabled bool, event ledger.Event) error {
@@ -135,6 +140,13 @@ func planCognitionVolumeUpdates(
 			}
 			codeReceipt = &receipt
 			if replan, needed, relationErr := replanCodeRelationClosure(root, receipt, normalized); relationErr != nil {
+				// 闭包超限与不收敛不是候选字段问题,宿主改哪个字段都没用: 硬停并
+				// 交出机器事实,由人决定复核 R 纪律还是走产品语义。
+				if errors.Is(relationErr, codebatch.ErrRelationClosureExceedsBatchLimit) ||
+					strings.Contains(relationErr.Error(), "relation_replan_not_converging") {
+					return nil, &Fail{Code: errWriteConflict, Msg: relationErr.Error(),
+						Hint: writeMessage("entry.batch.hint.replan")}
+				}
 				return nil, &Fail{Code: errCandidateInvalid, Msg: relationErr.Error(), Repairable: true}
 			} else if needed {
 				return nil, &Fail{Code: errWriteConflict, Msg: "code_candidate_relation_replan_required", CodePlan: &replan}
@@ -442,15 +454,25 @@ func recoveryVolumeTargets(recovery *atomicBatchRecovery) []cognitionVolumeWrite
 	return targets
 }
 
+// replanCodeRelationClosure 观察本批提交的模型创作关系,判断是否需要一个自闭合的
+// 替代批次,并把观察到的关系事实交给装箱器累积。
+//
+// 计划阶段拿不到关系图,只能这样逐批学习;此前这里把学到的事实丢掉、只看一跳,
+// 于是在关系稠密的 Fresh Bootstrap 上会确定性地反复重排而不收敛(审查修正)。
+// 只有 change=create 的目标才必须同批 —— 指向已存在对象的关系在当前卷里本来
+// 就能解析。
 func replanCodeRelationClosure(root string, receipt codebatch.Receipt, normalized []normalizedAtomicItem) (codebatch.Plan, bool, error) {
-	all, current := map[string]bool{}, map[string]bool{}
+	pending, current := map[string]bool{}, map[string]bool{}
 	for _, target := range receipt.AllTargets {
-		all[target.ObjectRef] = true
+		if target.Change == "create" {
+			pending[target.ObjectRef] = true
+		}
 	}
 	for _, target := range receipt.Targets {
 		current[target.ObjectRef] = true
 	}
-	required := map[string]bool{}
+	observed := make([]codebatch.ObservedRelation, 0, len(normalized))
+	replanRequired := false
 	for _, item := range normalized {
 		if item.rel == "" || item.batchID != receipt.BatchID {
 			continue
@@ -459,25 +481,41 @@ func replanCodeRelationClosure(root string, receipt codebatch.Receipt, normalize
 		if !ok {
 			continue
 		}
+		targets := []string{}
 		for _, relation := range strings.Split(entry.R, ",") {
 			ref := strings.TrimSpace(relation)
-			if !strings.HasPrefix(ref, "code:") || !all[ref] || current[ref] {
+			if !strings.HasPrefix(ref, "code:") {
 				continue
 			}
-			required["code:"+item.rel] = true
-			required[ref] = true
+			targets = append(targets, ref)
+			if pending[ref] && !current[ref] {
+				replanRequired = true
+			}
 		}
+		// 即使 R 为 "-" 也要记录: "该对象没有关系约束"同样是事实,而且是装箱时
+		// 最有价值的一条 —— 少了它, 装箱器永远不知道全图已经看全。
+		sort.Strings(targets)
+		observed = append(observed, codebatch.ObservedRelation{
+			SourceObjectRef: "code:" + item.rel, TargetObjectRefs: targets})
 	}
-	if len(required) == 0 {
+	if !replanRequired {
 		return codebatch.Plan{}, false, nil
 	}
-	refs := make([]string, 0, len(required))
-	for ref := range required {
-		refs = append(refs, ref)
+	issued := codebatch.IssuedBatchIdentities(root, receipt.PlanID)
+	plan, diagnostic, err := codebatch.ReplanForRelations(root, receipt, observed, issued, entriesBatchLimit)
+	if errors.Is(err, codebatch.ErrRelationClosureExceedsBatchLimit) {
+		return codebatch.Plan{}, false, relationClosureLimitError(diagnostic)
 	}
-	sort.Strings(refs)
-	plan, err := codebatch.ReplanForRelations(root, receipt, refs, machinecontract.EntriesBatchMaxItems)
 	return plan, err == nil, err
+}
+
+// relationClosureLimitError 把"最小不可拆关系成分超过单批上限"变成可定位的机器事实。
+// 宿主据此复核 R 的强关系纪律或走产品语义,而不是被通用 write_conflict 挡住。
+func relationClosureLimitError(diagnostic codebatch.ClosureDiagnostic) error {
+	sample := strings.Join(diagnostic.ComponentSample, ",")
+	return fmt.Errorf("%w: largest_component=%d batch_limit=%d component_sample=%s",
+		codebatch.ErrRelationClosureExceedsBatchLimit, diagnostic.LargestComponent,
+		diagnostic.BatchLimit, sample)
 }
 
 // canonicalProjectedRoot upgrades only the legacy five-field descriptor form

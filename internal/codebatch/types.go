@@ -22,6 +22,11 @@ type Receipt struct {
 	CodeVolumeSHA256    string   `json:"code_volume_sha256"`
 	AllTargets          []Target `json:"all_targets"`
 	Targets             []Target `json:"targets"`
+	// ObservedRelations 累积本计划谱系中已观察到的模型创作关系边。计划阶段
+	// 拿不到关系图,只能在每次提交时观察;重排继承并合并这份事实,才能在已知图上
+	// 挑出自闭合批次而不是反复失忆重排。它不参与 Plan/Batch/Candidate 任何身份
+	// 推导,旧收据缺该字段时退化为零知识路径。
+	ObservedRelations []ObservedRelation `json:"observed_relations,omitempty"`
 }
 
 type Candidate struct {
