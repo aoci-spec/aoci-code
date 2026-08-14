@@ -79,6 +79,53 @@ jobs:
         if: always()
         run: echo "lifecycle-smoke_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
+  cli-and-static:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      # internal/cli 是仓库最大的包(约 400 个测试), 此前 PR 门只跑 11 个具名用例,
+      # 回归会绿着合入再炸夜间门。整包 -short 只要约 40 秒, 值得挡在 PR 前。
+      - name: internal/cli short tests
+        run: go test -short -count=1 ./internal/cli
+      # staticcheck 版本与 full confidence 门完全一致, 两处判定不会分叉。
+      - name: pinned staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@v0.7.0
+          "$(go env GOPATH)/bin/staticcheck" ./...
+      - name: timing
+        if: always()
+        run: echo "cli-and-static_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
+  blackbox-protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+          cache: true
+      - name: start timer
+        run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
+      - name: build the binary under test
+        run: make build
+      # 这两套只走公开 stdio MCP 与 CLI 表面, 是外部承诺的可执行判定;
+      # 没有自动化跑它们就会静默腐烂。生命周期与规模套件在 full confidence。
+      - name: MCP protocol conformance
+        run: python3 scripts/blackbox/mcp_conformance.py
+      - name: fault-injection scenarios
+        run: python3 scripts/blackbox/mcp_scenarios.py
+      - name: prove the suites left the repository untouched
+        run: git diff --exit-code
+      - name: timing
+        if: always()
+        run: echo "blackbox-protocol_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
+
   windows-compile:
     runs-on: ubuntu-latest
     steps:

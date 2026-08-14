@@ -1,0 +1,26 @@
+# 依赖更新自动化 —— 只提议,不自动合并。
+#
+# 本仓库只有六个直接 Go 依赖(由 scripts/check-deps.sh 钉死), 并且携带一份
+# 本地替换的 openGauss 连接器: 连接器的版本、补丁与整树哈希由
+# scripts/check-opengauss-connector.sh 单独证明, 不能由自动更新推进,
+# 因此 gomod 更新仍需人工复核 THIRD-PARTY-NOTICES 与许可清单。
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # 本地 replace 的连接器由专用供应链门证明,不接受自动升级提议。
+      - dependency-name: "gitcode.com/opengauss/openGauss-connector-go-pq"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "chore(actions)"

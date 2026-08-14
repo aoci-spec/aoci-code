@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-14T08:11:54Z",
+  "updated_at": "2026-08-14T08:46:19Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -9,17 +9,25 @@
       "size": 26,
       "normalized_sha256": "e9a7eadcbb2b4861fbfba9839734ed365fb364ae46c8720d3420d4c790948b93"
     },
+    ".github/PULL_REQUEST_TEMPLATE.md": {
+      "sha256": "ddf3c64c1984bd08bf40c3d7c418c5ae47c11f0089d5df99fd082836ac701d57",
+      "size": 1376,
+      "normalized_sha256": "ddf3c64c1984bd08bf40c3d7c418c5ae47c11f0089d5df99fd082836ac701d57"
+    },
+    ".github/dependabot.yml": {
+      "sha256": "215d0210e70254fe44cdc25a38bc2739a37c6ded565ef07bddd3cda7b85ca70b",
+      "size": 946,
+      "normalized_sha256": "215d0210e70254fe44cdc25a38bc2739a37c6ded565ef07bddd3cda7b85ca70b"
+    },
     ".github/workflows/ci.yml": {
-      "role": "index",
-      "sha256": "638ef12d4d78a8fa1e795d0575da0e7fd40893e24df6dc22bad1cbad0ce9268f",
-      "size": 3913,
-      "normalized_sha256": "638ef12d4d78a8fa1e795d0575da0e7fd40893e24df6dc22bad1cbad0ce9268f"
+      "sha256": "30b7f66ec8f367b255a4980c14a0cff6963794036e663ef00023112938b807be",
+      "size": 5864,
+      "normalized_sha256": "30b7f66ec8f367b255a4980c14a0cff6963794036e663ef00023112938b807be"
     },
     ".github/workflows/full-confidence.yml": {
-      "role": "index",
-      "sha256": "d6f93f821148b84a6dec153fbcadcb525ee2cdd71ca668c9429a0b6d21f13512",
-      "size": 13503,
-      "normalized_sha256": "d6f93f821148b84a6dec153fbcadcb525ee2cdd71ca668c9429a0b6d21f13512"
+      "sha256": "a31d292f8a930d01908d993a566a85910280c9d4eaf2b637d164c879bdb29803",
+      "size": 14528,
+      "normalized_sha256": "a31d292f8a930d01908d993a566a85910280c9d4eaf2b637d164c879bdb29803"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
@@ -120,9 +128,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "cdc44a7fae75699295f93ff63a341786ded3df5645876c9e19878c1aefbb7010",
-      "size": 160105,
-      "normalized_sha256": "cdc44a7fae75699295f93ff63a341786ded3df5645876c9e19878c1aefbb7010"
+      "sha256": "c1143394cad5efa0140f0c224457e1b9b7d18c248e36425569cf06d6dcc38e4a",
+      "size": 160706,
+      "normalized_sha256": "c1143394cad5efa0140f0c224457e1b9b7d18c248e36425569cf06d6dcc38e4a"
     },
     "aoci.meta.txt": {
       "role": "index",

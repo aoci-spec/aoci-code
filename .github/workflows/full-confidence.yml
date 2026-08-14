@@ -102,6 +102,25 @@ jobs:
           git diff --exit-code -- go.mod go.sum
       - name: full confidence gate
         run: make full
+      # 生命周期与规模套件走真实二进制、跨进程、真实单批上限(200): 多批滚动、
+      # 关系闭包收敛、以及"不可拆成分超限"必须精确报错而不是无限重排。
+      # database 套件自带 mysql:8.4 容器, 由套件自己起停。
+      - name: black-box lifecycle and scale suites
+        run: |
+          make build
+          python3 scripts/blackbox/mcp_lifecycle.py
+          git diff --exit-code
+      # 覆盖率是可见性而非门禁: 让安全核心包的薄弱处暴露在构建摘要里。
+      - name: coverage snapshot
+        run: |
+          go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >/dev/null
+          {
+            echo '### Coverage by package (safety core first)'
+            echo '```'
+            go tool cover -func="$RUNNER_TEMP/coverage.out" \
+              | grep -E 'cognitiontxn|runmanifest|managedstate|cognitionbaseline|codebatch|total:' | tail -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: large migration and 10,000-object planner performance fixtures
         run: |
           go test -run '^$' -bench '^BenchmarkMigrationScale$/^objects-(1|100|1000)$/' -benchtime=1x ./internal/migrationapply
