@@ -11,6 +11,8 @@
     database     MySQL 证据全链: source→snapshot→accept→bootstrap→
                  模板表FRAS→v2 ALTER 漂移→重对齐 (含 inventory 离线语义) (repo-b)
     governance   Curation 探针(空/超限/二进制)不得成为普通候选     (repo-a)
+    scale        453 对象的多批滚动 + 关系闭包三模式(无关系/分层DAG/
+                 大强连通簇), 全部跑在真实单批上限 200 上         (repo-c)
 
   模型轨 (真 agent 经 OpenCode/Zen 驱动, 统计性结果):
     establish    真模型从零建立全索引到 aligned                  (repo-a)
@@ -39,7 +41,7 @@ BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
 OPENCODE = os.environ.get("AOCI_OPENCODE", os.path.expanduser("~/.opencode/bin/opencode"))
 FIXTURES = os.path.join(_HERE, "fixtures")
 RESULTS_DEFAULT = os.path.join(_HERE, "results")
-D_SUITES = ["bringup", "incremental", "database", "governance"]
+D_SUITES = ["bringup", "incremental", "database", "governance", "scale"]
 M_SUITES = ["establish", "dbauthor", "attest"]
 
 PROMPT_ESTABLISH = (
@@ -116,7 +118,11 @@ CURATION_EXCLUDE = {
 
 
 def repo_key_of(fx):
-    return "b" if fx.rstrip("/").endswith("repo-b") else "a"
+    tail = fx.rstrip("/")
+    for key in ("b", "c"):
+        if tail.endswith(f"repo-{key}"):
+            return key
+    return "a"
 
 
 def init_and_scan(fx, locale="en-US", agent=None, curation_exclude="default"):
@@ -470,6 +476,155 @@ def suite_database(rep, work, image, run_id, keep_box=False):
             box.stop()
 
 
+# repo-c 的冻结身份 —— 场景断言以此为基准。夹具被误改时立刻失败, 而不是静默跑偏。
+SCALE_FIXTURE_FILES = 453
+SCALE_BATCH_LIMIT = 200
+
+
+def scale_fixture_files():
+    root = os.path.join(FIXTURES, "repo-c")
+    return sum(len(names) for _, _, names in os.walk(root))
+
+
+def domain_of(path):
+    """pkg 路径 -> (域, 层); 非领域文件返回 (None, None)。"""
+    parts = path.split("/")
+    if len(parts) >= 4 and parts[0] == "src" and parts[1] == "domains":
+        return parts[2], os.path.splitext(parts[3])[0]
+    return None, None
+
+
+# 分层 DAG: 上层指向下层, model 与基础设施是汇点。这是真实项目里 R 的自然形状。
+LAYER_BELOW = {"handler": "service", "service": "repository", "repository": "model",
+               "validator": "model", "mapper": "model", "policy": None, "model": None}
+
+
+def scale_entry(path, mode, cyclic_ring):
+    """按关系模式生成条目。夹具内容不含关系, 关系形状完全由这里决定。"""
+    base = os.path.basename(path)
+    stem = os.path.splitext(base)[0]
+    domain, layer = domain_of(path)
+    relation = "-"
+    if mode == "layered" and domain and LAYER_BELOW.get(layer):
+        relation = f"code:src/domains/{domain}/{LAYER_BELOW[layer]}.ts"
+    elif mode == "cyclic" and path in cyclic_ring:
+        relation = cyclic_ring[path]
+    words = re.sub(r"[^A-Za-z0-9]+", " ", f"{domain or 'runtime'} {stem}").strip()
+    return f"{base}[CG5T]: F:Carries the {words} responsibility | R:{relation} | A:- | S:-"
+
+
+def build_cyclic_ring(paths, size):
+    """在前 size 个领域文件上构造一个互引环 —— 一个 size 节点的强连通分量。"""
+    members = [p for p in sorted(paths) if domain_of(p)[0]][:size]
+    return {member: "code:" + members[(index + 1) % len(members)]
+            for index, member in enumerate(members)}
+
+
+def scale_author_rounds(fx, mode, cyclic_ring, max_rounds=12):
+    """按机器指定的批次逐轮授权, 跟随替代计划; 返回 (结局, 轮次记录)。"""
+    rounds, follow, applied_total = [], None, 0
+    for attempt in range(1, max_rounds + 1):
+        s = Session(fx)
+        if follow is None:
+            m, t, err = maintain(s)
+            plan = m.get("code_plan") or {}
+            cands = m.get("candidates") or []
+            if m.get("aligned") is True and not cands:
+                s.close()
+                return ("aligned", rounds, applied_total)
+        else:
+            plan, cands = follow, (follow.get("candidates") or [])
+        if not cands:
+            s.close()
+            return ("no_candidates", rounds, applied_total)
+        entries = [{"path": c["path"], "source_sha256": c["source_sha256"],
+                    "candidate_id": c["candidate_id"],
+                    "new_entry": scale_entry(c["path"], mode, cyclic_ring)} for c in cands]
+        tw, err = text_of(s.call("aoci_update_entry",
+                                 {"code_batch_id": plan.get("batch_id"), "entries": entries},
+                                 timeout=900))
+        r = jload(tw)
+        s.close()
+        applied_total += r.get("applied") or 0
+        rounds.append({"batch": (plan.get("batch_id") or "")[:8], "n": len(cands),
+                       "status": r.get("status"), "applied": r.get("applied"),
+                       "remaining": r.get("remaining")})
+        blob = json.dumps(r, ensure_ascii=False)
+        if "relation_closure_exceeds_batch_limit" in blob:
+            return ("closure_exceeds_limit:" + blob.split("largest_component=")[-1][:24], rounds, applied_total)
+        if "relation_replan_not_converging" in blob:
+            return ("not_converging", rounds, applied_total)
+        if r.get("status") == "repair_required":
+            return ("repair_required", rounds, applied_total)
+        follow = r.get("code_plan") or None
+        if follow is None and r.get("status") != "applied":
+            return (f"stopped:{r.get('status')}", rounds, applied_total)
+    return ("round_budget_exhausted", rounds, applied_total)
+
+
+def suite_scale(rep, work):
+    g = "scale"
+    files = scale_fixture_files()
+    rep.rec(g, "fixture-identity", "PASS" if files == SCALE_FIXTURE_FILES else "FAIL",
+            f"files={files} expected={SCALE_FIXTURE_FILES}")
+    if files != SCALE_FIXTURE_FILES:
+        return
+
+    # 无关系: 纯多批滚动, 必须写满全部对象并对齐。
+    fx = deploy("c", work, "scale-none")
+    init_and_scan(fx)
+    started = time.time()
+    outcome, rounds, applied = scale_author_rounds(fx, "none", {})
+    al, _ = aligned(fx)
+    batches = [r for r in rounds if r["status"] == "applied"]
+    ok = outcome == "aligned" and al and len(batches) >= 3
+    rep.rec(g, "multi-batch-rolling", "PASS" if ok else "FAIL",
+            f"outcome={outcome} batches={len(batches)} applied={applied} aligned={al}",
+            duration_s=round(time.time() - started), rounds=len(rounds))
+    if ok:
+        rc, v, _, _ = cli(fx, "verify", expect_ok=False)
+        tokens = ((v.get("governance") or {}).get("budget") or {}).get("whole_index_tokens")
+        rep.rec(g, "budget-at-scale", "PASS" if tokens else "CHAR", f"whole_index_tokens={tokens}")
+        s = Session(fx)
+        started = time.time()
+        t, err = text_of(s.call("aoci_overview"))
+        meta, _ = meta_and_body(t)
+        s.close()
+        chunked = bool(meta.get("next_cursor")) or (meta.get("chunk_count") or 0) > 1
+        rep.rec(g, "overview-chunked-at-scale", "PASS" if chunked else "CHAR",
+                f"chunk_count={meta.get('chunk_count')} entries={meta.get('entry_count')}",
+                duration_s=round(time.time() - started))
+
+    # 分层 DAG: 关系有解, 必须在有限轮内收敛写入(修复前会无限重排)。
+    fx = deploy("c", work, "scale-layered")
+    init_and_scan(fx)
+    started = time.time()
+    outcome, rounds, applied = scale_author_rounds(fx, "layered", {})
+    al, _ = aligned(fx)
+    ok = outcome == "aligned" and al
+    rep.rec(g, "layered-relations-converge", "PASS" if ok else "FAIL",
+            f"outcome={outcome} rounds={len(rounds)} applied={applied} aligned={al}",
+            duration_s=round(time.time() - started), rounds=len(rounds))
+
+    # 大强连通簇: 不可拆成分 > 上限, 必须一次显式报出精确事实且不振荡。
+    fx = deploy("c", work, "scale-cyclic")
+    init_and_scan(fx)
+    ring = build_cyclic_ring([os.path.relpath(os.path.join(base, name), fx)
+                              for base, _, names in os.walk(os.path.join(fx, "src"))
+                              for name in names], SCALE_BATCH_LIMIT + 10)
+    started = time.time()
+    outcome, rounds, applied = scale_author_rounds(fx, "cyclic", ring)
+    # 先把不受约束的对象正常写入、再精确报出无法拆分的成分, 是正确行为:
+    # 取得真实进展, 并把"这堵墙有多大"作为机器事实交给人决定。
+    reported = outcome.startswith("closure_exceeds_limit") and "210" in outcome
+    rep.rec(g, "oversized-component-reported", "PASS" if reported else "FAIL",
+            f"outcome={outcome[:80]} rounds={len(rounds)} applied={applied}",
+            duration_s=round(time.time() - started), rounds=len(rounds), applied=applied)
+    batch_ids = [r["batch"] for r in rounds]
+    rep.rec(g, "no-batch-identity-repeat", "PASS" if len(batch_ids) == len(set(batch_ids)) else "FAIL",
+            f"batches={batch_ids}")
+
+
 def suite_governance(rep, work):
     g = "governance"
     # 无排除: 三个探针必须以 pending_curation 阻塞授权 (机器强制人道决策)
@@ -684,6 +839,8 @@ def main():
                     suite_database(rep, work, args.mysql_image, run_id)
                 elif s == "governance":
                     suite_governance(rep, work)
+                elif s == "scale":
+                    suite_scale(rep, work)
                 elif s in M_SUITES:
                     for model in args.model or []:
                         if s == "establish":

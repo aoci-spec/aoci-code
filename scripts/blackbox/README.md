@@ -9,7 +9,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | --- | --- | --- | --- |
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
-| `mcp_lifecycle.py` | Complete lifecycles on two frozen realistic projects (TypeScript service; Python + MySQL service), from `init` through incremental maintenance, database Evidence, drift, and re-alignment. An optional model track drives a real AI agent through the same repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
+| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects (a TypeScript service, a Python + MySQL service, and a 453-file layered service), from `init` through incremental maintenance, database Evidence, drift, and re-alignment. The large fixture additionally exercises multi-batch authoring and relation-closure replanning at the real machine batch limit. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 
 ## Running
 
@@ -37,7 +37,13 @@ Lifecycle, deterministic track only (no AI involved; `database` pulls
 ```bash
 python3 scripts/blackbox/mcp_lifecycle.py
 python3 scripts/blackbox/mcp_lifecycle.py --suites bringup,incremental,governance
+python3 scripts/blackbox/mcp_lifecycle.py --suites scale     # 453 objects, no Docker needed
 ```
+
+The `scale` suite is the only one that reaches the real batch limit: it authors 454
+objects in three rolling batches, then repeats the run with a layered relation DAG
+(which must converge) and with an oversized mutually-referencing cluster (which must
+be reported as `largest_component=210 batch_limit=200` instead of replanning forever).
 
 Lifecycle model track — a real agent authors real cognition over the frozen
 fixtures. Install [OpenCode](https://opencode.ai), authenticate once
@@ -73,6 +79,9 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   copies them to a temporary directory, so "reset to a clean repository" is
   implicit. Do not edit the masters casually — scenario expectations (file
   counts, curation probes, schema drift sets) are frozen with them.
+- `fixtures/repo-c` was produced once by `generate_repo_c.py` and frozen. The
+  generator exists for deliberate rebuilds only: regenerating changes the fixture
+  identity, and the `scale` suite asserts the frozen file count before it runs.
 - Primary platform is Linux (including WSL2). macOS works for all suites; the
   model track enforces its timeout in-process, so GNU coreutils is not
   required. Windows is untested for the Python runners.

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-14T07:07:17Z",
+  "updated_at": "2026-08-14T08:11:54Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -120,9 +120,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "eb4360f6a542a43a6e647d7d9332aab09c6ec1a4a3706e71778debe81c252194",
-      "size": 159662,
-      "normalized_sha256": "eb4360f6a542a43a6e647d7d9332aab09c6ec1a4a3706e71778debe81c252194"
+      "sha256": "cdc44a7fae75699295f93ff63a341786ded3df5645876c9e19878c1aefbb7010",
+      "size": 160105,
+      "normalized_sha256": "cdc44a7fae75699295f93ff63a341786ded3df5645876c9e19878c1aefbb7010"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2108,6 +2108,14 @@
       "size": 3208,
       "normalized_sha256": "8296af60e21862cf764ad561b1e24f4d2a2c38f23d88aaef1113fed1dcf4a0ef",
       "format_sha256": "8296af60e21862cf764ad561b1e24f4d2a2c38f23d88aaef1113fed1dcf4a0ef",
+      "format_kind": "gofmt"
+    },
+    "internal/codebatch/legacy_receipt_check_test.go": {
+      "role": "observe",
+      "sha256": "2bb58abb1d10abb8875fc9c65f9394bfa000679ffa56bd8ba960fc980698e6e6",
+      "size": 1822,
+      "normalized_sha256": "2bb58abb1d10abb8875fc9c65f9394bfa000679ffa56bd8ba960fc980698e6e6",
+      "format_sha256": "2bb58abb1d10abb8875fc9c65f9394bfa000679ffa56bd8ba960fc980698e6e6",
       "format_kind": "gofmt"
     },
     "internal/codebatch/receipt.go": {
@@ -5130,9 +5138,14 @@
       "format_kind": "gofmt"
     },
     "scripts/blackbox/README.md": {
-      "sha256": "6b6b3472fdb04a6fddf80b3734b3b902c8d700e969d880895c34e66ebb74e888",
-      "size": 4102,
-      "normalized_sha256": "6b6b3472fdb04a6fddf80b3734b3b902c8d700e969d880895c34e66ebb74e888"
+      "sha256": "9908612966d41dc600ef94826204d3c524008217e49a9e405de2709a626acea7",
+      "size": 4942,
+      "normalized_sha256": "9908612966d41dc600ef94826204d3c524008217e49a9e405de2709a626acea7"
+    },
+    "scripts/blackbox/generate_repo_c.py": {
+      "sha256": "821a17c80a58b522d46bd9125610eb353517be0541993ca32e9c98d54015d405",
+      "size": 32768,
+      "normalized_sha256": "821a17c80a58b522d46bd9125610eb353517be0541993ca32e9c98d54015d405"
     },
     "scripts/blackbox/longrun-refresh/README.md": {
       "role": "index",
@@ -5156,9 +5169,9 @@
     },
     "scripts/blackbox/mcp_lifecycle.py": {
       "role": "observe",
-      "sha256": "79676a46182702c7753ccc4465e7076baa404347df60f131eb4baa1e56b7c6c7",
-      "size": 36610,
-      "normalized_sha256": "79676a46182702c7753ccc4465e7076baa404347df60f131eb4baa1e56b7c6c7"
+      "sha256": "3719c4062e05cb7a524840f0d1140d0513cf7658c8262a6ac140d7c7fb2f539e",
+      "size": 44344,
+      "normalized_sha256": "3719c4062e05cb7a524840f0d1140d0513cf7658c8262a6ac140d7c7fb2f539e"
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "observe",
@@ -8056,6 +8069,7 @@
           "max_tokens": 200
         }
       ]
-    }
+    },
+    "apply_authorization_mode": "auto"
   }
 }
