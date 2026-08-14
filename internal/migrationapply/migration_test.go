@@ -900,7 +900,7 @@ func TestMigrationEligibilityAndMixedLayoutFailClosed(t *testing.T) {
 		edit func(string) string
 	}{
 		{name: "illegal_tag", edit: func(raw string) string { return strings.Replace(raw, "main.go[CD9S]", "main.go[ZZZZ]", 1) }},
-		{name: "dangling_relation", edit: func(raw string) string { return strings.Replace(raw, "R:-", "R:./missing.go", 1) }},
+		{name: "empty_relation_item", edit: func(raw string) string { return strings.Replace(raw, "R:-", "R:a.go,,b.go", 1) }},
 	} {
 		t.Run(damaged.name, func(t *testing.T) {
 			root := migrationFixture(t, false)
@@ -914,6 +914,25 @@ func TestMigrationEligibilityAndMixedLayoutFailClosed(t *testing.T) {
 				t.Fatalf("damaged Legacy became Apply eligible: %#v err=%v", snapshot, err)
 			}
 		})
+	}
+}
+
+// 历史索引里指不到的 R 遍地都是。那不是损坏, 迁移必须照常放行 —— 机器不核对
+// 一条索引的关系指向谁。
+func TestMigrationEligibleWhenLegacyRelationsDangle(t *testing.T) {
+	root := migrationFixture(t, false)
+	path := filepath.Join(root, "aoci.txt")
+	raw := strings.Replace(string(mustRead(t, path)), "R:-", "R:./missing.go", 1)
+	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refreshLegacyBaseline(t, root)
+	snapshot, err := CaptureSnapshot(root, "en-US", []string{"code"}, "2026-07-30T00:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Eligibility == machinecontract.CognitionMigrationEligibilityIneligible {
+		t.Fatalf("悬空关系不应阻止迁移: %#v", snapshot.Findings)
 	}
 }
 

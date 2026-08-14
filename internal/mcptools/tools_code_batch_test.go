@@ -466,7 +466,12 @@ func TestVolumeCodeSecondBatchRecoveryDoesNotReplayFirstBatch(t *testing.T) {
 	}
 }
 
-func TestVolumeCodeRelationToPendingTargetTriggersMachineReplan(t *testing.T) {
+// 指向"下一批才会创作"的对象是完全正常的创作行为: 模型是按批看到代码的, 它
+// 当然会写下还没落地的关系。机器既不重排也不阻断, 两批照常滚完, 索引照常建成。
+//
+// 这条曾经是反的 —— 那时一次跨批的 R 会触发零写重排, 于是在关系稠密的真仓上
+// 反复重排、永不收敛, 直接把 400+ 文件仓库的索引建立卡死。
+func TestVolumeCodeRelationToLaterBatchAppliesWithoutReplan(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
@@ -474,39 +479,61 @@ func TestVolumeCodeRelationToPendingTargetTriggersMachineReplan(t *testing.T) {
 	entries := arguments["entries"].([]map[string]any)
 	entries[0]["new_entry"] = filepath.Base(entries[0]["path"].(string)) +
 		"[CD5S]: F:implement fixture behavior | R:code:generated/0200.go | A:- | S:Keep the fixture deterministic"
-	replanResult := applyVolumeBatch(t, session, arguments)
-	if replanResult.Status != autoStatusStopped || replanResult.FormalWritesStarted || replanResult.CodePlan == nil ||
-		replanResult.CodePlan.Included != 200 || replanResult.CodePlan.Remaining != 1 {
-		t.Fatalf("pending relation did not issue a zero-write replan: %#v", replanResult)
-	}
-	seenSource, seenTarget := false, false
-	for _, candidate := range replanResult.CodePlan.Candidates {
-		seenSource = seenSource || candidate.ObjectRef == "code:generated/0000.go"
-		seenTarget = seenTarget || candidate.ObjectRef == "code:generated/0200.go"
-	}
-	if !seenSource || !seenTarget {
-		t.Fatalf("relation closure is incomplete: %#v", replanResult.CodePlan)
-	}
-	replannedArguments := codeBatchArguments(replanResult.CodePlan)
-	for _, entry := range replannedArguments["entries"].([]map[string]any) {
-		if entry["path"] == "generated/0000.go" {
-			entry["new_entry"] = "0000.go[CD5S]: F:implement fixture behavior | R:code:generated/0200.go | A:- | S:Keep the fixture deterministic"
-		}
-	}
-	if applied := applyVolumeBatch(t, session, replannedArguments); applied.Status != autoStatusApplied || applied.Aligned || applied.Applied != 200 {
-		t.Fatalf("relation-closed batch failed: %#v", applied)
+	applied := applyVolumeBatch(t, session, arguments)
+	if applied.Status != autoStatusApplied || applied.Aligned || applied.Applied != 200 || applied.CodePlan != nil {
+		t.Fatalf("跨批关系不应触发重排: %#v", applied)
 	}
 	last := maintainVolumeBatch(t, session)
 	if last.CodePlan == nil || last.CodePlan.Included != 1 {
-		t.Fatalf("last relation plan is invalid: %#v", last)
+		t.Fatalf("末批计划不对: %#v", last)
 	}
 	if applied := applyVolumeBatch(t, session, codeBatchArguments(last.CodePlan)); !applied.Aligned || applied.Applied != 1 {
-		t.Fatalf("last relation batch failed: %#v", applied)
+		t.Fatalf("末批失败: %#v", applied)
 	}
 	set, err := cognition.Load(root, "aoci.txt")
 	if err != nil || len(set.Warnings) != 0 || set.Volumes[cognition.ScopeCode].ObjectCount != 202 {
-		t.Fatalf("final relation projection is incomplete: warnings=%#v count=%d err=%v",
+		t.Fatalf("最终索引不完整: warnings=%#v count=%d err=%v",
 			set.Warnings, set.Volumes[cognition.ScopeCode].ObjectCount, err)
+	}
+}
+
+// 环形互指是真实代码里的常态(A 调 B, B 回调 A)。整个环远大于单批上限时, 旧机制
+// 会报"最小不可拆成分 203 > 200"并彻底停下 —— 那正是用户真仓的死局。现在关系
+// 不再是排程约束, 同样的形状必须一路滚完。
+func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.T) {
+	root := buildLargeCodeCandidateRepo(t, 260)
+	session := connectMCPClient(t, root)
+	total := 0
+	for round := 0; round < 4; round++ {
+		plan := maintainVolumeBatch(t, session)
+		if plan.CodePlan == nil {
+			break
+		}
+		arguments := codeBatchArguments(plan.CodePlan)
+		entries := arguments["entries"].([]map[string]any)
+		// 每条都指向全集里的下一个对象, 首尾相接 —— 一个跨越所有批次的大环。
+		for _, entry := range entries {
+			path := entry["path"].(string)
+			var index int
+			if _, err := fmt.Sscanf(filepath.Base(path), "%04d.go", &index); err != nil {
+				t.Fatal(err)
+			}
+			entry["new_entry"] = fmt.Sprintf("%s[CD5S]: F:implement fixture behavior | R:code:generated/%04d.go | A:- | S:Keep the fixture deterministic",
+				filepath.Base(path), (index+1)%260)
+		}
+		applied := applyVolumeBatch(t, session, arguments)
+		if applied.Status == autoStatusStopped || applied.CodePlan != nil {
+			t.Fatalf("第 %d 批被关系环卡住: %#v", round, applied)
+		}
+		total += applied.Applied
+		if applied.Aligned {
+			break
+		}
+	}
+	set, err := cognition.Load(root, "aoci.txt")
+	if err != nil || set.Volumes[cognition.ScopeCode].ObjectCount != 261 {
+		t.Fatalf("大环仓库未能建成索引: applied=%d count=%d err=%v",
+			total, set.Volumes[cognition.ScopeCode].ObjectCount, err)
 	}
 }
 

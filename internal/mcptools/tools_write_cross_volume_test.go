@@ -449,19 +449,26 @@ func TestCrossVolumeBaselineFailureRetainsRecoveryEvidence(t *testing.T) {
 	}
 }
 
-func TestCrossVolumeProjectedRelationFailureIsZeroWrite(t *testing.T) {
+// 跨卷指向一个不存在的对象只是模型的语义选择, 写入照常完成, 而且只动它自己
+// 那个卷 —— 关系既不阻断写入, 也不把别的卷卷进来。
+func TestCrossVolumeDanglingRelationWritesOnlyItsOwnVolume(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	codeBefore := volumeFileText(t, root, "aoci.code.txt")
-	databaseBefore := volumeFileText(t, root, "aoci.database.txt")
 	line := "users[DB9S]: F:store changed user state | R:code:missing.go | A:user_id | S:-"
-	_, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
+	result, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		ObjectRef: "database://primary/public/users", NewEntry: line, SourceSHA256: volumeSourceSHA(t, root, "aoci.database.txt"),
 	}}, ledger.SourceAgent, false)
-	if fail == nil || fail.Code != errImpactResolutionFailed {
-		t.Fatalf("dangling projected relation was accepted: %+v", fail)
+	if fail != nil {
+		t.Fatalf("悬空关系不应阻断写入: %+v", fail)
 	}
-	if volumeFileText(t, root, "aoci.code.txt") != codeBefore || volumeFileText(t, root, "aoci.database.txt") != databaseBefore {
-		t.Fatal("projected-state failure modified formal cognition")
+	if result == nil || result.AppliedCount != 1 {
+		t.Fatalf("写入未生效: %+v", result)
+	}
+	if volumeFileText(t, root, "aoci.code.txt") != codeBefore {
+		t.Fatal("关系把无关的卷改了")
+	}
+	if !strings.Contains(volumeFileText(t, root, "aoci.database.txt"), "R:code:missing.go") {
+		t.Fatal("模型写下的关系没有被原样保留")
 	}
 }
 

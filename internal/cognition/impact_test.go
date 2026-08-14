@@ -346,7 +346,9 @@ func TestResolveImpactStructuralChangesUpgradeFullSet(t *testing.T) {
 	}
 }
 
-func TestResolveImpactAmbiguousRelationFailsClosed(t *testing.T) {
+// 同名多义的关系不再是缺陷: 机器不猜, 也不阻断。写入照常完成, 只是这条标注
+// 不产生 Review 边 —— 到底指的是哪个 users, 由读全量索引的模型自己判断。
+func TestResolveImpactAcceptsAmbiguousRelationWithoutGuessing(t *testing.T) {
 	database := primaryDatabaseImpact(databaseImpactLine("users", "-")) +
 		"===Warehouse public tables/database://warehouse/public/===\n" + databaseImpactLine("users", "-") + "\n"
 	set, _ := loadImpactFixture(t,
@@ -357,25 +359,31 @@ func TestResolveImpactAmbiguousRelationFailsClosed(t *testing.T) {
 		Change: ImpactChangeUpdate, ObjectRef: "code:src/service.go",
 		CanonicalLine: "service.go[CD9S]: F:coordinate user workflows | R:users | A:UserService | S:-",
 	}})
-	if err == nil {
-		t.Fatal("ambiguous relation was accepted")
+	if err != nil {
+		t.Fatalf("多义关系不应阻断写入: %v (%#v)", err, result.Findings)
 	}
-	if !hasImpactFinding(result.Findings, "impact_relation_ambiguous") {
-		t.Fatalf("missing ambiguity finding: %#v", result.Findings)
+	if len(result.Findings) != 0 {
+		t.Fatalf("关系不应产生任何诊断: %#v", result.Findings)
 	}
-	if len(result.WriteSet) != 0 || len(result.GuardSet) != 0 {
-		t.Fatalf("failed analysis returned authoritative sets: %#v", result)
+	for _, object := range result.ReviewSet {
+		if strings.HasPrefix(object.Object, "database://") {
+			t.Fatalf("机器不应替模型在多义关系里选边: %#v", result.ReviewSet)
+		}
 	}
 }
 
-func TestResolveImpactInvalidOrUnresolvedRelationFailsClosed(t *testing.T) {
+// 指不到、语法不规整的关系同样不阻断: 单条索引一旦生成, 机器只管它的形式与
+// 预算, 条目之间的关系交给注意力机制。这是"400+ 文件仓库能不能建成索引"的
+// 根因所在 —— 关系一旦成为机器约束, 就会在关系稠密的真仓上把创作彻底卡死。
+func TestResolveImpactNeverBlocksOnRelationContent(t *testing.T) {
 	for _, test := range []struct {
-		name, relation, finding string
+		name, relation string
 	}{
-		{"unresolved", "code:src/missing.go", "impact_relation_unresolved"},
-		{"empty item", "code:src/repository.go,,database://primary/public/users", "impact_relation_invalid"},
-		{"mixed placeholder", "-,code:src/repository.go", "impact_relation_invalid"},
-		{"full width separator", "code:src/repository.go，database://primary/public/users", "impact_relation_invalid"},
+		{"unresolved", "code:src/missing.go"},
+		{"not yet authored", "code:src/planned_next_batch.go"},
+		{"empty item", "code:src/repository.go,,database://primary/public/users"},
+		{"mixed placeholder", "-,code:src/repository.go"},
+		{"full width separator", "code:src/repository.go，database://primary/public/users"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			set, _ := loadImpactFixture(t,
@@ -387,8 +395,11 @@ func TestResolveImpactInvalidOrUnresolvedRelationFailsClosed(t *testing.T) {
 			)
 			candidateLine := "service.go[CD9S]: F:coordinate user workflows | R:" + test.relation + " | A:UserService | S:-"
 			result, err := resolveImpactForTest(set, []ImpactCandidate{{Change: ImpactChangeUpdate, ObjectRef: "code:src/service.go", CanonicalLine: candidateLine}})
-			if err == nil || !hasImpactFinding(result.Findings, test.finding) {
-				t.Fatalf("relation was not rejected: err=%v findings=%#v", err, result.Findings)
+			if err != nil || len(result.Findings) != 0 {
+				t.Fatalf("关系内容不应阻断写入: err=%v findings=%#v", err, result.Findings)
+			}
+			if !containsString(result.WriteSet, "code") {
+				t.Fatalf("写入集应照常成立: %#v", result)
 			}
 		})
 	}
@@ -424,7 +435,10 @@ func TestResolveImpactUsesNumericCandidateFindingOrder(t *testing.T) {
 	}
 }
 
-func TestResolveImpactDeleteIncludesIncomingReference(t *testing.T) {
+// 删掉一个被别处引用的对象会留下悬空的 R —— 那不是缺陷, 而是模型下次读全量
+// 索引时自己会看到的事实。机器不阻断, 但要把引用方拉进 Review 面, 让模型有机会
+// 顺手更新它。
+func TestResolveImpactDeleteSurfacesIncomingReferenceWithoutBlocking(t *testing.T) {
 	set, _ := loadImpactFixture(t,
 		[]string{codeImpactLine("user_repository.go", "database://primary/public/users")},
 		primaryDatabaseImpact(databaseImpactLine("users", "-")),
@@ -432,11 +446,17 @@ func TestResolveImpactDeleteIncludesIncomingReference(t *testing.T) {
 	result, err := resolveImpactForTest(set, []ImpactCandidate{{
 		Change: ImpactChangeDelete, ObjectRef: "database://primary/public/users",
 	}})
-	if err == nil {
-		t.Fatal("delete leaving a post-state dangling relation was accepted")
+	if err != nil || len(result.Findings) != 0 {
+		t.Fatalf("悬空关系不应阻断删除: err=%v findings=%#v", err, result.Findings)
 	}
-	if !hasImpactFinding(result.Findings, "impact_relation_unresolved") {
-		t.Fatalf("missing dangling relation finding: %#v", result.Findings)
+	referenced := false
+	for _, object := range result.ReviewSet {
+		if object.Object == "code:src/user_repository.go" {
+			referenced = true
+		}
+	}
+	if !referenced {
+		t.Fatalf("引用方未进入 Review 面: %#v", result.ReviewSet)
 	}
 }
 
@@ -521,12 +541,6 @@ func TestResolveImpactProjectedCognitionValidation(t *testing.T) {
 			candidate: ImpactCandidate{Change: ImpactChangeUpdate, ObjectRef: "database://primary/public/users",
 				CanonicalLine: "users[DC9S]: F:store user state | R:- | A:- | S:-"},
 			finding: "impact_candidate_tag_dictionary_violation",
-		},
-		{
-			name: "relation existence",
-			candidate: ImpactCandidate{Change: ImpactChangeUpdate, ObjectRef: "database://primary/public/users",
-				CanonicalLine: "users[DB9S]: F:store user state | R:code:src/missing.go | A:- | S:-"},
-			finding: "impact_relation_unresolved",
 		},
 	}
 	for _, test := range tests {

@@ -384,15 +384,19 @@ Projected validation must complete before any formal write; a rejected normal
 candidate batch leaves Index, Volumes, Baseline, Binding, and successful
 Application state unchanged.
 
-Only model candidates add a Volume to Write. Canonical forward and reverse R
-relations add objects to Review and may add their Volumes to Guard, but never
-generate or rewrite another Entry. When a current Code candidate refers to a
-new Code target later in the same logical plan, AOCI performs no formal write
-and issues a replacement current batch containing the submitted relation
-source and required pending target closure. Cycles converge under the same
-rule. A closure larger than max_entries fails explicitly instead of dropping
-R, persisting a dangling relation, or mechanically changing model semantics.
-Allowed Write Sets remain [code],
+Only model candidates add a Volume to Write. R is model-authored semantics, not
+a machine constraint: AOCI never checks one Entry's relations against another
+Entry. A relation that names an object which does not exist, is not managed, is
+scheduled for a later batch, or matches several objects by bare name is accepted
+and persisted exactly as written. It is never repaired, dropped, rewritten, or
+turned into a Finding, and it never blocks, replans, or reorders a batch.
+Relations that do resolve to a managed object add that object to Review and may
+add its Volume to Guard; that projection is a convenience and never generates or
+rewrites another Entry. Whole-system understanding is established by the model
+reading the Whole-Index, not by any machine-computed relation graph. What the
+machine does enforce for each Entry is its own form and budget: FRAS structure,
+tag dictionary, the C-driven S quota, per-field length and item limits, canonical
+identity, and source binding. Allowed Write Sets remain [code],
 [database], and [code,database]. Root and Meta are Guard-only after Bootstrap;
 layout and Volume create/delete/rename/lifecycle changes still fail closed.
 
@@ -446,7 +450,7 @@ the same machine finding with `code`, `cause`, `expected_owner`, `actual_owner`,
 Code, the safe action is the existing explicit `aoci_remove_entry` operation
 on `code:aoci.txt`. That operation removes only the incorrect Code Volume
 Entry. It must not delete or rewrite the Root file, any source file, or any
-Database object. This is the only relation-protection exception: the current
+Database object. This is the only machine-initiated Entry removal: the current
 machine finding must prove different expected and actual owners, the expected
 formal owner must exist, structure must be valid, Recovery and third-party
 conflict facts must be clear, and the exact safe action must name the target.

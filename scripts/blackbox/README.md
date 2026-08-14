@@ -9,7 +9,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | --- | --- | --- | --- |
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
-| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects (a TypeScript service, a Python + MySQL service, and a 453-file layered service), from `init` through incremental maintenance, database Evidence, drift, and re-alignment. The large fixture additionally exercises multi-batch authoring and relation-closure replanning at the real machine batch limit. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
+| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects (a TypeScript service, a Python + MySQL service, and a 453-file layered service), from `init` through incremental maintenance, database Evidence, drift, and re-alignment. The large fixture additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 
 ## Running
 
@@ -41,9 +41,11 @@ python3 scripts/blackbox/mcp_lifecycle.py --suites scale     # 453 objects, no D
 ```
 
 The `scale` suite is the only one that reaches the real batch limit: it authors 454
-objects in three rolling batches, then repeats the run with a layered relation DAG
-(which must converge) and with an oversized mutually-referencing cluster (which must
-be reported as `largest_component=210 batch_limit=200` instead of replanning forever).
+objects in three rolling batches, then repeats the run twice more with relations
+the model would realistically write — a layered dependency DAG, and a 210-object
+ring whose members reference each other across every batch. All three must reach
+`aligned` in the same three batches: relations are model-authored semantics and
+never constrain how the machine schedules a batch.
 
 Lifecycle model track — a real agent authors real cognition over the frozen
 fixtures. Install [OpenCode](https://opencode.ai), authenticate once

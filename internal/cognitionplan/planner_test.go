@@ -322,7 +322,9 @@ func TestDamagedLegacyDoesNotProduceApproval(t *testing.T) {
 	}
 }
 
-func TestMigrationProjectedRelationClosureFailsClosed(t *testing.T) {
+// 迁移不因为旧索引里的悬空 R 而卡住。历史索引里指不到的关系遍地都是 —— 那是
+// 模型当年写下的语义线索, 迁移的职责是把它原样搬过去, 不是替模型核对。
+func TestMigrationCarriesDanglingRelationsThroughWithoutRisk(t *testing.T) {
 	root := legacyFixture(t, false)
 	path := filepath.Join(root, "aoci.txt")
 	raw, err := os.ReadFile(path)
@@ -343,8 +345,8 @@ func TestMigrationProjectedRelationClosureFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if preview.ApprovalDigest != nil || !hasRisk(preview.Risks, "impact_relation_unresolved") {
-		t.Fatalf("dangling relation was accepted: %#v", preview)
+	if hasRisk(preview.Risks, "impact_relation_unresolved") || preview.ApprovalDigest == nil {
+		t.Fatalf("悬空关系不应成为迁移风险: %#v", preview)
 	}
 }
 

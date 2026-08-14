@@ -401,15 +401,20 @@ func TestSingleCodeVolumeUpdateUsesCrossVolumeGuardWithoutWritingDatabase(t *tes
 	}
 }
 
-func TestSingleCodeVolumeExplicitDatabaseRefFailsWhenDatabaseIsAbsent(t *testing.T) {
+// 只有 Code 卷的仓库里, 模型照样可以在 R 里提到数据库对象 —— 那是它对系统的
+// 理解, 不是对机器的断言。写入照常完成, 关系原样保留。
+func TestSingleCodeVolumeKeepsDatabaseRelationWhenDatabaseIsAbsent(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	line := "main.go[CD9S]: F:run the updated fixture | R:database://primary/public/users | A:main | S:Keep execution deterministic"
-	_, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
+	result, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		Path: "main.go", NewEntry: line,
 		SourceSHA256: volumeSourceSHA(t, root, "main.go"),
 	}}, ledger.SourceAgent, false)
-	if fail == nil || fail.Code != errImpactResolutionFailed {
-		t.Fatalf("explicit relation to an absent Database did not fail closed: %+v", fail)
+	if fail != nil || result == nil || result.AppliedCount != 1 {
+		t.Fatalf("指向缺席数据库的关系不应阻断写入: fail=%+v result=%+v", fail, result)
+	}
+	if !strings.Contains(volumeFileText(t, root, "aoci.code.txt"), "R:database://primary/public/users") {
+		t.Fatal("模型写下的关系没有被原样保留")
 	}
 }
 
@@ -537,7 +542,8 @@ func TestSingleVolumeEnvelopeAcceptsExistingDatabaseUpdate(t *testing.T) {
 	}
 }
 
-func TestSingleCodeVolumeUpdateFailsClosedOnAmbiguousRelation(t *testing.T) {
+// 同名多义的关系不再失败: 到底指的是哪个 helper.go, 由读全量索引的模型判断。
+func TestSingleCodeVolumeAcceptsAmbiguousRelation(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	writeVolumeTestFile(t, root, "dir1/helper.go", "package helper\n")
 	writeVolumeTestFile(t, root, "dir2/helper.go", "package helper\n")
@@ -548,17 +554,16 @@ func TestSingleCodeVolumeUpdateFailsClosedOnAmbiguousRelation(t *testing.T) {
 			"helper.go[CD9S]: F:provide the first helper | R:- | A:- | S:-\n"+
 			"===Second"+filepath.ToSlash(filepath.Join(root, "dir2"))+"/===\n"+
 			"helper.go[CD9S]: F:provide the second helper | R:- | A:- | S:-\n")
-	before := volumeFileText(t, root, "aoci.code.txt")
 	line := "main.go[CD9S]: F:run the updated fixture | R:helper.go | A:main | S:Keep execution deterministic"
-	_, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
+	result, fail := ApplyUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		Path: "main.go", NewEntry: line,
 		SourceSHA256: volumeSourceSHA(t, root, "main.go"),
 	}}, ledger.SourceAgent, false)
-	if fail == nil || fail.Code != errImpactResolutionFailed || !strings.Contains(fail.Msg, "impact_relation_ambiguous") {
-		t.Fatalf("ambiguous relation did not fail closed: %+v", fail)
+	if fail != nil || result == nil || result.AppliedCount != 1 {
+		t.Fatalf("多义关系不应阻断写入: fail=%+v result=%+v", fail, result)
 	}
-	if volumeFileText(t, root, "aoci.code.txt") != before {
-		t.Fatal("ambiguous relation failure modified the Code Volume")
+	if !strings.Contains(volumeFileText(t, root, "aoci.code.txt"), "F:run the updated fixture | R:helper.go") {
+		t.Fatal("模型写下的关系没有被原样保留")
 	}
 }
 

@@ -526,10 +526,6 @@ func TestDatabaseCandidateFailuresLeaveWholeBatchUnchanged(t *testing.T) {
 			input[0].NewEntry = "orders[DB7S]: F:coordinate durable purchase lifecycle | R:- | A:- | S:" + strings.Repeat("x", 201)
 			return input
 		}, autoStatusRepairRequired},
-		{"dangling_relation", func(input []updateEntryItemIn) []updateEntryItemIn {
-			input[0].NewEntry = "orders[DB7S]: F:coordinate durable purchase lifecycle | R:database://primary/public/ghost | A:order identity | S:-"
-			return input
-		}, autoStatusRepairRequired},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			root := databaseCognitionWriteFixture(t, []string{"orders", "users"})
@@ -559,6 +555,27 @@ func TestDatabaseCandidateFailuresLeaveWholeBatchUnchanged(t *testing.T) {
 				t.Fatal("rejected batch changed the formal Database Volume")
 			}
 		})
+	}
+}
+
+// 数据库条目的 R 指向一个不存在的表照样写得进去: 那是模型对系统的理解, 可能
+// 指着一张即将建的表, 也可能指着一张已经下线的表。机器只管这条索引的形式与
+// 长度预算, 不核对它指向谁。
+func TestDatabaseCandidateWithDanglingRelationApplies(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"orders", "users"})
+	maintain := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase))
+	input := databaseCandidateInput(maintain.Plan)
+	input[0].NewEntry = "orders[DB7S]: F:coordinate durable purchase lifecycle | R:database://primary/public/ghost | A:order identity | S:-"
+	result := decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", input))
+	if result.Status != autoStatusApplied || result.Applied != len(input) {
+		t.Fatalf("悬空关系不应阻断数据库批: %#v", result)
+	}
+	after, err := os.ReadFile(filepath.Join(root, "aoci.database.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(after), "R:database://primary/public/ghost") {
+		t.Fatal("模型写下的关系没有被原样保留")
 	}
 }
 

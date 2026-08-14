@@ -188,24 +188,22 @@ func buildLineageRecord(set *Set, state *baseline.Baseline, object Object, volum
 	return record
 }
 
+// appendExplicitRelations 把 R 里能对上受管对象的标注投影成一张可看的图。
+//
+// 这是投影而不是校验: 对不上的标注既不是缺陷也不产生 Finding, 因为 R 是模型写
+// 给模型的语义线索, 允许指向尚未创作、已经移除或不受管的东西。真正的系统认知
+// 由模型读全量索引后用注意力机制建立, 这张图只是它的一个便利切片。
 func appendExplicitRelations(projection *SystemProjection, registry impactRegistry) {
 	nameIndex, namespaceIndex := buildImpactNameIndexes(registry)
 	for _, sourceRef := range sortedObjectRefs(registry) {
 		source := registry[sourceRef]
-		tokens, invalid := splitImpactRelations(source.Entry)
-		for _, token := range invalid {
-			projection.Findings = append(projection.Findings, Finding{Code: "relation_invalid", AssetID: sourceRef,
-				Message: fmt.Sprintf("relation %q does not use the canonical relation grammar", token)})
-		}
-		for _, token := range tokens {
-			targets, issue := resolveImpactRelation(source, token, registry, nameIndex, namespaceIndex)
-			if issue != "" {
-				projection.Findings = append(projection.Findings, Finding{Code: issue, AssetID: sourceRef,
-					Message: fmt.Sprintf("relation %q cannot be projected unambiguously", token)})
+		for _, token := range splitImpactRelations(source.Entry) {
+			target := resolveImpactRelation(source, token, registry, nameIndex, namespaceIndex)
+			if target == "" {
 				continue
 			}
 			projection.Relations = append(projection.Relations, SystemRelation{
-				From: sourceRef, To: targets[0], Kind: "cognition_relation", Authority: "model_authored_R",
+				From: sourceRef, To: target, Kind: "cognition_relation", Authority: "model_authored_R",
 			})
 		}
 	}

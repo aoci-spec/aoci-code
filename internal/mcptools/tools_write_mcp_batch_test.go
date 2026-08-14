@@ -217,17 +217,25 @@ func TestMCPBatchReplayRechecksSourceBindingInsideLockBeforeBaselineFastPath(t *
 	}
 }
 
-func TestMCPBatchReturnsRelationWarningsInAudit(t *testing.T) {
+// 紧凑审计摘要里不应再出现对R指向的评判: 那不是机器的事。
+func TestMCPBatchDoesNotAuditRelationTargets(t *testing.T) {
 	root := buildRepo(t)
 	writeBatchSource(t, root, "src/b.go")
 	result := decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", []updateEntryItemIn{{
 		Path:         "src/b.go",
 		SourceSHA256: sourceSHA256(t, root, "src/b.go"),
-		NewEntry: "b.go[X.Y.5.T]: F:批量R审计 | " +
+		NewEntry: "b.go[X.Y.5.T]: F:批量R指向尚未创作的对象 | " +
 			"R:src/missing.go | A:- | S:-",
 	}}))
-	if result.Status != autoStatusApplied || result.Audit == nil || len(result.Audit.Warnings) != 1 {
-		t.Fatalf("关系Warning必须保留在紧凑审计摘要: %+v", result)
+	if result.Status != autoStatusApplied {
+		t.Fatalf("R指向不应阻断批次: %+v", result)
+	}
+	if result.Audit != nil {
+		for _, warning := range result.Audit.Warnings {
+			if strings.Contains(warning, "R目标") {
+				t.Fatalf("审计摘要仍在评判R指向: %+v", result.Audit.Warnings)
+			}
+		}
 	}
 }
 

@@ -1,7 +1,10 @@
 // Package codebatch binds one machine-issued Code authoring batch to the
 // current Volumes cognition and Managed Scope preimages. It owns candidate
-// transport receipts only; it never authors or rewrites Tag or F/R/A/S text.
+// transport receipts only; it never authors or rewrites Tag or F/R/A/S text,
+// and it never reads or reasons about the relations those entries declare.
 package codebatch
+
+import "encoding/json"
 
 type Target struct {
 	CandidateID   string `json:"candidate_id"`
@@ -22,11 +25,11 @@ type Receipt struct {
 	CodeVolumeSHA256    string   `json:"code_volume_sha256"`
 	AllTargets          []Target `json:"all_targets"`
 	Targets             []Target `json:"targets"`
-	// ObservedRelations 累积本计划谱系中已观察到的模型创作关系边。计划阶段
-	// 拿不到关系图,只能在每次提交时观察;重排继承并合并这份事实,才能在已知图上
-	// 挑出自闭合批次而不是反复失忆重排。它不参与 Plan/Batch/Candidate 任何身份
-	// 推导,旧收据缺该字段时退化为零知识路径。
-	ObservedRelations []ObservedRelation `json:"observed_relations,omitempty"`
+	// LegacyObservedRelations 只为让旧收据继续可读而存在。收据加载拒绝未知字段,
+	// 而升级前签发的收据里可能带着这个字段 —— 丢掉它会让升级瞬间把进行中的计划
+	// 卡死。机器不再从 R 推导任何东西,因此这份数据被解码后即丢弃:不参与身份推导,
+	// 不参与装箱,新收据也不再写出。
+	LegacyObservedRelations json.RawMessage `json:"observed_relations,omitempty"`
 }
 
 type Candidate struct {

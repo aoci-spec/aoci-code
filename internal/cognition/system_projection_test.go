@@ -70,19 +70,26 @@ func testLineSHA256(value string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-func TestSystemProjectionMarksUnresolvedRelationsIncomplete(t *testing.T) {
+// 系统投影是投影而不是校验: 指不到受管对象的 R 只是投不出边, 既不是缺陷,
+// 也不让投影"不完整"。R 允许指向尚未创作、已经移除或不受管的东西。
+func TestSystemProjectionSkipsUnresolvableRelationsWithoutFindings(t *testing.T) {
 	set, _ := loadImpactFixture(t, []string{codeImpactLine("repository.go", "database://primary/public/missing")},
 		primaryDatabaseImpact(databaseImpactLine("orders", "-")))
 	projection, err := BuildSystemProjection(set, baseline.NewBaseline(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, relation := range projection.Relations {
+		if relation.To == "database://primary/public/missing" {
+			t.Fatalf("投影不应凭空造出对象: %#v", projection.Relations)
+		}
+	}
 	impact, err := ResolveDatabaseImpact(projection, "database://primary/public/orders")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if impact.Complete || len(impact.Findings) != 1 || impact.Findings[0].Code != "impact_relation_unresolved" {
-		t.Fatalf("unresolved relation was presented as complete: %#v", impact)
+	if !impact.Complete || len(impact.Findings) != 0 {
+		t.Fatalf("关系指不到不应让投影不完整: %#v", impact)
 	}
 }
 

@@ -514,7 +514,6 @@ func buildLogicalDiff(plan *Plan, projected *cognition.Set, mapping *SemanticMap
 	}
 	if projected != nil {
 		changes = append(changes, LogicalChange{Kind: "composite_identity", TargetRef: projected.CompositeIdentity, Mode: "projected"})
-		changes = append(changes, LogicalChange{Kind: "relation_closure", TargetRef: projected.CompositeIdentity, Mode: "validated"})
 	}
 	sort.SliceStable(changes, func(i, j int) bool {
 		left := changes[i].Kind + "\x00" + changes[i].SourceRef + "\x00" + changes[i].TargetRef

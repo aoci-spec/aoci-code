@@ -550,12 +550,14 @@ def scale_author_rounds(fx, mode, cyclic_ring, max_rounds=12):
                        "status": r.get("status"), "applied": r.get("applied"),
                        "remaining": r.get("remaining")})
         blob = json.dumps(r, ensure_ascii=False)
-        if "relation_closure_exceeds_batch_limit" in blob:
-            return ("closure_exceeds_limit:" + blob.split("largest_component=")[-1][:24], rounds, applied_total)
-        if "relation_replan_not_converging" in blob:
-            return ("not_converging", rounds, applied_total)
+        # 机器不得因为条目之间的关系而重排或停下: 出现这类信号即为回归。
+        for marker in ("relation_closure_exceeds_batch_limit", "relation_replan",
+                       "impact_relation_unresolved", "impact_relation_ambiguous"):
+            if marker in blob:
+                return ("relation_machinery_returned:" + marker, rounds, applied_total)
         if r.get("status") == "repair_required":
-            return ("repair_required", rounds, applied_total)
+            codes = sorted({f.get("rule_code") for f in (r.get("findings") or [])})
+            return ("repair_required:" + ",".join(c for c in codes if c), rounds, applied_total)
         follow = r.get("code_plan") or None
         if follow is None and r.get("status") != "applied":
             return (f"stopped:{r.get('status')}", rounds, applied_total)
@@ -595,7 +597,7 @@ def suite_scale(rep, work):
                 f"chunk_count={meta.get('chunk_count')} entries={meta.get('entry_count')}",
                 duration_s=round(time.time() - started))
 
-    # 分层 DAG: 关系有解, 必须在有限轮内收敛写入(修复前会无限重排)。
+    # 分层 DAG: 关系稠密但有解。机器不看关系, 必须照常一路滚完。
     fx = deploy("c", work, "scale-layered")
     init_and_scan(fx)
     started = time.time()
@@ -606,7 +608,9 @@ def suite_scale(rep, work):
             f"outcome={outcome} rounds={len(rounds)} applied={applied} aligned={al}",
             duration_s=round(time.time() - started), rounds=len(rounds))
 
-    # 大强连通簇: 不可拆成分 > 上限, 必须一次显式报出精确事实且不振荡。
+    # 跨批大环: 210 个对象首尾互指, 远超单批上限。这是真实代码的常态形状
+    # (A 调 B, B 回调 A), 曾经会被"关系闭包"机制判成不可拆成分而彻底卡死整个
+    # 索引的建立。关系是模型写给模型的语义, 不是机器的排程约束, 必须照常建成。
     fx = deploy("c", work, "scale-cyclic")
     init_and_scan(fx)
     ring = build_cyclic_ring([os.path.relpath(os.path.join(base, name), fx)
@@ -614,11 +618,10 @@ def suite_scale(rep, work):
                               for name in names], SCALE_BATCH_LIMIT + 10)
     started = time.time()
     outcome, rounds, applied = scale_author_rounds(fx, "cyclic", ring)
-    # 先把不受约束的对象正常写入、再精确报出无法拆分的成分, 是正确行为:
-    # 取得真实进展, 并把"这堵墙有多大"作为机器事实交给人决定。
-    reported = outcome.startswith("closure_exceeds_limit") and "210" in outcome
-    rep.rec(g, "oversized-component-reported", "PASS" if reported else "FAIL",
-            f"outcome={outcome[:80]} rounds={len(rounds)} applied={applied}",
+    al, _ = aligned(fx)
+    ok = outcome == "aligned" and al
+    rep.rec(g, "oversized-cycle-still-builds-the-index", "PASS" if ok else "FAIL",
+            f"outcome={outcome[:80]} rounds={len(rounds)} applied={applied} aligned={al}",
             duration_s=round(time.time() - started), rounds=len(rounds), applied=applied)
     batch_ids = [r["batch"] for r in rounds]
     rep.rec(g, "no-batch-identity-repeat", "PASS" if len(batch_ids) == len(set(batch_ids)) else "FAIL",

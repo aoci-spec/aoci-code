@@ -102,17 +102,18 @@ func planVolumeRemoveEntry(root, objectRef string, _ bool) (*removePlan, *Fail) 
 	}
 	guardSet := []string{}
 	if ownershipFinding != nil {
-		// A machine-produced ownership finding proves that the R target remains
-		// valid through the preserved formal owner. The ordinary orphan path
-		// below deliberately retains its ResolveImpact relation rejection.
+		// A machine-produced ownership finding proves the object survives under a
+		// preserved formal owner, so the ordinary Impact pass has nothing to add.
 		guardSet = append(guardSet, cognition.OwnerRoot, cognition.OwnerMeta)
 		guardSet = append(guardSet, loaded.set.DeclaredOrder...)
 	} else {
+		// 别处的 R 仍然指着这个对象不是拒绝理由: 删除会留下悬空的语义标注, 那
+		// 由模型下次读全量索引时自行处置。Impact 只负责算出该锁哪些卷。
 		impact, impactErr := cognition.ResolveImpact(loaded.set, []cognition.ImpactCandidate{{
 			Change: cognition.ImpactChangeDelete, ObjectRef: objectRef, OriginalCandidateIndex: 1,
 		}})
 		if impactErr != nil {
-			return nil, &Fail{Code: errBadArgs, Msg: "remove_orphan_relation_still_valid", Hint: "remove_or_update_valid_relations_first"}
+			return nil, &Fail{Code: errBadArgs, Msg: "remove_orphan_impact_resolution_failed"}
 		}
 		guardSet = impact.GuardSet
 	}

@@ -1,4 +1,7 @@
-// Entries Check的R关系轻量Warning测试。
+// Entries Check的R形式Warning测试。
+//
+// 指向不存在目标的R不再产生任何提示: 机器不核对R指向谁。仍会提示的只有这一行
+// 本身读不通的情况(空片段、占位符混用等), 而且永远只是Warning。
 package cli
 
 import (
@@ -11,13 +14,13 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
-func TestEntriesCheckCoreWarnsMissingRelationWithoutRejecting(
+func TestEntriesCheckCoreAcceptsRelationToMissingTargetWithoutWarning(
 	t *testing.T,
 ) {
 	root, runID := buildEntriesRepo(
 		t,
 		map[string]string{
-			"g.go": "g.go[XUT5T]: F:R关系异常候选 | " +
+			"g.go": "g.go[XUT5T]: F:R指向尚未创作的对象 | " +
 				"R:./missing.go | A:- | S:-",
 		},
 	)
@@ -46,40 +49,31 @@ func TestEntriesCheckCoreWarnsMissingRelationWithoutRejecting(
 
 	if result == nil ||
 		result.Review.Passed != 1 ||
-		result.Review.Warned != 1 ||
+		result.Review.Warned != 0 ||
 		result.Review.Rejected != 0 ||
 		len(result.Items) != 1 {
 		t.Fatalf(
-			"R关系Warning摘要不符: %+v",
+			"指向不存在目标的R不应产生Warning: %+v",
 			result,
 		)
 	}
 
 	item := result.Items[0]
-	if item.Outcome != "warned" ||
+	if item.Outcome != "passed" ||
 		len(item.Errors) != 0 ||
-		len(item.Warnings) != 1 ||
-		item.Warnings[0].Code != "relation" ||
-		!strings.Contains(
-			item.Warnings[0].Message,
-			"R目标不存在",
-		) {
+		len(item.Warnings) != 0 {
 		t.Fatalf(
-			"R关系Warning分类不符: %+v",
+			"机器不应评判R指向: %+v",
 			item,
 		)
 	}
 
-	if !strings.Contains(
+	if strings.Contains(
 		output.String(),
 		"[relation]",
-	) ||
-		!strings.Contains(
-			output.String(),
-			"R目标不存在",
-		) {
+	) {
 		t.Fatalf(
-			"人读输出缺少relation Warning: %s",
+			"人读输出不应出现关系评判: %s",
 			output.String(),
 		)
 	}
@@ -94,10 +88,10 @@ func TestEntriesCheckCoreWarnsMissingRelationWithoutRejecting(
 
 	if len(manifest.Reviews) != 1 ||
 		manifest.Reviews[0].Passed != 1 ||
-		manifest.Reviews[0].Warned != 1 ||
+		manifest.Reviews[0].Warned != 0 ||
 		manifest.Reviews[0].Rejected != 0 {
 		t.Fatalf(
-			"R关系Warning审阅记录不符: %+v",
+			"审阅记录不符: %+v",
 			manifest.Reviews,
 		)
 	}

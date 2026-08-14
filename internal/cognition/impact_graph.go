@@ -1,18 +1,20 @@
 package cognition
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
+// buildImpactGraph 只把 R 当作已经落在文本里的语义标注来读: 能对上一个受管对象
+// 就记一条边用于扩大 Review 面, 对不上就什么也不发生。
+//
+// R 是模型写给模型看的线索, 条目之间的关系由读全量索引的注意力机制建立, 不由
+// 程序核对。这里既不判定 R 指向是否"存在", 也不判定其是否"唯一", 更不会因此
+// 阻断写入 —— 机器只管单条形式与预算, 跨条目的语义一律交给模型。
 func buildImpactGraph(current, projected impactRegistry) impactGraph {
-	graph := impactGraph{
-		out: map[string][]impactEdge{}, in: map[string][]impactEdge{},
-		issuesBySource: map[string][]relationIssue{}, issuesByCandidate: map[string][]relationIssue{},
-	}
+	graph := impactGraph{out: map[string][]impactEdge{}, in: map[string][]impactEdge{}}
 	edgeSeen := map[string]bool{}
 	for _, stage := range []struct {
 		name     string
@@ -22,21 +24,11 @@ func buildImpactGraph(current, projected impactRegistry) impactGraph {
 		refs := sortedObjectRefs(stage.registry)
 		for _, sourceRef := range refs {
 			source := stage.registry[sourceRef]
-			tokens, invalidTokens := splitImpactRelations(source.Entry)
-			for _, token := range invalidTokens {
-				graph.issuesBySource[sourceRef] = append(graph.issuesBySource[sourceRef], relationIssue{code: "impact_relation_invalid", source: sourceRef, token: token})
-			}
-			for _, token := range tokens {
-				targets, issueCode := resolveImpactRelation(source, token, stage.registry, nameIndex, namespaceIndex)
-				if issueCode != "" {
-					issue := relationIssue{code: issueCode, source: sourceRef, token: token, candidates: append([]string(nil), targets...)}
-					graph.issuesBySource[sourceRef] = append(graph.issuesBySource[sourceRef], issue)
-					for _, target := range targets {
-						graph.issuesByCandidate[target] = append(graph.issuesByCandidate[target], issue)
-					}
+			for _, token := range splitImpactRelations(source.Entry) {
+				target := resolveImpactRelation(source, token, stage.registry, nameIndex, namespaceIndex)
+				if target == "" {
 					continue
 				}
-				target := targets[0]
 				key := sourceRef + "\x00" + target + "\x00" + stage.name
 				if edgeSeen[key] {
 					continue
@@ -58,23 +50,15 @@ func buildImpactGraph(current, projected impactRegistry) impactGraph {
 	return graph
 }
 
-func resolveImpactClosure(graph impactGraph, direct map[string]map[string]bool) (map[string]map[string]bool, []ImpactFinding) {
+func resolveImpactClosure(graph impactGraph, direct map[string]map[string]bool) map[string]map[string]bool {
 	review := map[string]map[string]bool{}
 	queue := sortedKeys(direct)
 	for ref, reasons := range direct {
 		review[ref] = copyStringSet(reasons)
 	}
-	findingsByKey := map[string]ImpactFinding{}
 	for len(queue) > 0 {
 		ref := queue[0]
 		queue = queue[1:]
-		for _, issue := range append(append([]relationIssue(nil), graph.issuesBySource[ref]...), graph.issuesByCandidate[ref]...) {
-			key := issue.code + "\x00" + issue.source + "\x00" + issue.token
-			findingsByKey[key] = ImpactFinding{
-				Code: issue.code, ObjectRef: issue.source, Relation: issue.token, Candidates: append([]string(nil), issue.candidates...),
-				Message: impactRelationMessage(issue),
-			}
-		}
 		for _, edge := range graph.out[ref] {
 			if review[edge.to] == nil {
 				review[edge.to] = map[string]bool{}
@@ -90,35 +74,29 @@ func resolveImpactClosure(graph impactGraph, direct map[string]map[string]bool) 
 			review[edge.from]["reverse_relation"] = true
 		}
 	}
-	findings := make([]ImpactFinding, 0, len(findingsByKey))
-	for _, finding := range findingsByKey {
-		findings = append(findings, finding)
-	}
-	return review, findings
+	return review
 }
 
-func resolveImpactRelation(source Object, token string, registry impactRegistry, nameIndex map[string][]string, namespaceIndex map[string]string) ([]string, string) {
+// resolveImpactRelation 尽力把一个 R 标注对上一个受管对象, 对不上就返回空串。
+// 对不上不是错误: 关系可以指向尚未创作的对象、已经删除的对象、或者根本不在
+// Managed Scope 里的东西 —— 那都是模型的语义自由, 机器不评判。同名多义时同样
+// 不猜: 不产生边, 也不产生任何诊断。
+func resolveImpactRelation(source Object, token string, registry impactRegistry, nameIndex map[string][]string, namespaceIndex map[string]string) string {
 	if strings.HasPrefix(token, "code:") || strings.HasPrefix(token, "database://") {
 		if _, ok := registry[token]; ok {
-			return []string{token}, ""
+			return token
 		}
-		return nil, "impact_relation_unresolved"
+		return ""
 	}
 	if source.VolumeID == "database" && source.Namespace != "" {
 		if local := namespaceIndex[source.Namespace+"\x00"+token]; local != "" {
-			return []string{local}, ""
+			return local
 		}
 	}
-	matches := append([]string(nil), nameIndex[token]...)
-	sort.Strings(matches)
-	switch len(matches) {
-	case 0:
-		return nil, "impact_relation_unresolved"
-	case 1:
-		return matches, ""
-	default:
-		return matches, "impact_relation_ambiguous"
+	if matches := nameIndex[token]; len(matches) == 1 {
+		return matches[0]
 	}
+	return ""
 }
 
 func buildImpactNameIndexes(registry impactRegistry) (map[string][]string, map[string]string) {
@@ -136,34 +114,25 @@ func buildImpactNameIndexes(registry impactRegistry) (map[string][]string, map[s
 	return nameIndex, namespaceIndex
 }
 
-func splitImpactRelations(entry *index.Entry) ([]string, []string) {
+// splitImpactRelations 把 R 拆成可读的标注序列。空、"-" 与空片段都只是"没有可
+// 对上的标注", 直接跳过 —— 读取侧一律宽容, 单条形式的严格判定属于创作边界。
+func splitImpactRelations(entry *index.Entry) []string {
 	if entry == nil {
-		return nil, nil
+		return nil
 	}
 	value := strings.TrimSpace(entry.R)
-	if value == "-" {
-		return nil, nil
-	}
-	if value == "" {
-		return nil, []string{"<empty>"}
-	}
-	if strings.Contains(value, "，") {
-		return nil, []string{value}
+	if value == "" || value == "-" {
+		return nil
 	}
 	parts := strings.Split(value, ",")
 	relations := make([]string, 0, len(parts))
-	var invalid []string
 	for _, part := range parts {
-		relation := strings.TrimSpace(part)
-		if relation == "" || relation == "-" {
-			invalid = append(invalid, relation)
-			continue
+		if relation := strings.TrimSpace(part); relation != "" && relation != "-" {
+			relations = append(relations, relation)
 		}
-		relations = append(relations, relation)
 	}
 	sort.Strings(relations)
-	sort.Strings(invalid)
-	return relations, invalid
+	return relations
 }
 
 func sortImpactEdges(edges []impactEdge) {
@@ -176,14 +145,4 @@ func sortImpactEdges(edges []impactEdge) {
 		}
 		return edges[i].stage < edges[j].stage
 	})
-}
-
-func impactRelationMessage(issue relationIssue) string {
-	if issue.code == "impact_relation_ambiguous" {
-		return fmt.Sprintf("relation %q from %s matches multiple canonical cognition objects", issue.token, issue.source)
-	}
-	if issue.code == "impact_relation_invalid" {
-		return fmt.Sprintf("relation %q from %s does not use the canonical comma-delimited relation grammar", issue.token, issue.source)
-	}
-	return fmt.Sprintf("relation %q from %s does not resolve to a managed canonical cognition object", issue.token, issue.source)
 }

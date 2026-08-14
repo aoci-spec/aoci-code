@@ -213,16 +213,17 @@ first. Only explicit candidates enter Write: `[code]`, `[database]`, or
 `[code,database]`. Canonical forward/reverse relations may add objects to
 Review and their Volumes to Guard, but never synthesize another candidate. Root
 and Meta always guard a Volume update. A relation-crossing single-Volume update
-also guards the related object Volume. Dangling or ambiguous relations fail
-closed. All Code and Database candidates are applied in memory before Code,
-Database, and the combined Baseline/Binding are each written at most once.
-If a Code relation names a later target in the same logical plan, AOCI writes
-nothing and issues a replacement current batch containing the relation source
-and required pending target closure. The model-authored R is never dropped or
-rewritten to fit transport.
+also guards the related object Volume. Relations that name a missing, unmanaged,
+later-batch, or ambiguous target simply contribute no edge: they are accepted
+and persisted exactly as written, produce no Finding, and never trigger a replan.
+The machine never compares one Entry's relations against another Entry — that
+graph is what the model builds by reading the Whole-Index. All Code and Database
+candidates are applied in memory before Code, Database, and the combined
+Baseline/Binding are each written at most once. The model-authored R is never
+dropped or rewritten to fit transport.
 
 The projected CognitionSet must pass the same loader, FRAS-v2, Volume boundary,
-Meta dictionary, identity, and relation checks before the existing Diff/P-23,
+Meta dictionary, identity, and single-Entry relation form checks before the existing Diff/P-23,
 write lock, CAS, AtomicWrite, Baseline, Ledger, governance receipt, and Recovery
 pipeline is entered. Target files require their exact planned preimages. A
 second-Volume failure never reports success: the existing Entries recovery

@@ -87,22 +87,15 @@ type impactEdge struct {
 	stage string
 }
 
-type relationIssue struct {
-	code       string
-	source     string
-	token      string
-	candidates []string
-}
-
 type indexedImpactCandidate struct {
 	candidate ImpactCandidate
 	index     int
 }
 
+// impactGraph 是一张只读的关系投影, 用于决定哪些对象值得一并复核。它没有诊断
+// 通道: 关系永远不会让一次写入失败。
 type impactGraph struct {
 	out                map[string][]impactEdge
 	in                 map[string][]impactEdge
-	issuesBySource     map[string][]relationIssue
-	issuesByCandidate  map[string][]relationIssue
 	allRelationReasons []ImpactReason
 }

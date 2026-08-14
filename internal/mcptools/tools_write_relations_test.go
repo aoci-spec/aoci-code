@@ -1,4 +1,6 @@
-// 单条与原子批量共享R关系Warning测试。
+// 单条与原子批量共享的R形式约定测试。
+//
+// 指向不存在目标的R既不阻断写入, 也不再产生Warning: 机器不核对R指向谁。
 package mcptools
 
 import (
@@ -8,7 +10,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
-func TestApplyUpdateEntryRelationWarningDoesNotBlock(
+func TestApplyUpdateEntryRelationToMissingTargetIsSilentAndApplies(
 	t *testing.T,
 ) {
 	root := buildRepo(t)
@@ -16,39 +18,27 @@ func TestApplyUpdateEntryRelationWarningDoesNotBlock(
 	outcome, fail := ApplyUpdateEntry(
 		root,
 		"src/a.go",
-		"a.go[X.Y.5.T]: F:单条R警告仍写入 | "+
+		"a.go[X.Y.5.T]: F:单条R指向尚未创作的对象 | "+
 			"R:src/missing.go | A:- | S:-",
 		ledger.SourceAgent,
 		false,
 	)
 	if fail != nil {
 		t.Fatalf(
-			"单条R异常只应Warning，不得阻断写入: %+v",
+			"R指向不应阻断写入: %+v",
 			fail,
 		)
 	}
-	if outcome == nil ||
-		len(outcome.Warnings) == 0 {
-		t.Fatalf(
-			"单条写入应返回R Warning: %+v",
-			outcome,
-		)
+	if outcome == nil {
+		t.Fatal("单条写入未返回结果")
 	}
-
-	foundWarning := false
 	for _, warning := range outcome.Warnings {
-		if strings.Contains(
-			warning,
-			"R目标不存在",
-		) {
-			foundWarning = true
+		if strings.Contains(warning, "R目标") {
+			t.Fatalf(
+				"机器不应评判R指向: %+v",
+				outcome.Warnings,
+			)
 		}
-	}
-	if !foundWarning {
-		t.Fatalf(
-			"单条结果缺少R目标不存在Warning: %+v",
-			outcome.Warnings,
-		)
 	}
 
 	indexText := readBatchIndex(
@@ -57,16 +47,16 @@ func TestApplyUpdateEntryRelationWarningDoesNotBlock(
 	)
 	if !strings.Contains(
 		indexText,
-		"F:单条R警告仍写入",
+		"R:src/missing.go",
 	) {
 		t.Fatalf(
-			"单条R Warning不应阻断正式写入:\n%s",
+			"模型写下的关系没有被原样保留:\n%s",
 			indexText,
 		)
 	}
 }
 
-func TestAtomicBatchRelationWarningStillApplies(
+func TestAtomicBatchRelationToMissingTargetIsSilentAndApplies(
 	t *testing.T,
 ) {
 	root := buildRepo(t)
@@ -81,7 +71,7 @@ func TestAtomicBatchRelationWarningStillApplies(
 		[]AtomicUpdateItem{
 			{
 				Path: "src/b.go",
-				NewEntry: "b.go[X.Y.5.T]: F:Auto批量R警告仍写入 | " +
+				NewEntry: "b.go[X.Y.5.T]: F:Auto批量R指向尚未创作的对象 | " +
 					"R:src/missing.go | A:- | S:-",
 			},
 		},
@@ -90,33 +80,20 @@ func TestAtomicBatchRelationWarningStillApplies(
 	)
 	if fail != nil {
 		t.Fatalf(
-			"Auto批量R异常只应Warning，不得阻断Apply: %+v",
+			"R指向不应阻断Apply: %+v",
 			fail,
 		)
 	}
-	if outcome == nil ||
-		len(outcome.Items) != 1 ||
-		len(outcome.Items[0].Warnings) == 0 {
-		t.Fatalf(
-			"Auto批量结果缺少R Warning: %+v",
-			outcome,
-		)
+	if outcome == nil || len(outcome.Items) != 1 {
+		t.Fatalf("Auto批量未返回结果: %+v", outcome)
 	}
-
-	foundWarning := false
 	for _, warning := range outcome.Items[0].Warnings {
-		if strings.Contains(
-			warning,
-			"R目标不存在",
-		) {
-			foundWarning = true
+		if strings.Contains(warning, "R目标") {
+			t.Fatalf(
+				"机器不应评判R指向: %+v",
+				outcome.Items[0].Warnings,
+			)
 		}
-	}
-	if !foundWarning {
-		t.Fatalf(
-			"Auto批量结果缺少R目标不存在Warning: %+v",
-			outcome.Items[0].Warnings,
-		)
 	}
 
 	indexText := readBatchIndex(
@@ -125,10 +102,10 @@ func TestAtomicBatchRelationWarningStillApplies(
 	)
 	if !strings.Contains(
 		indexText,
-		"F:Auto批量R警告仍写入",
+		"R:src/missing.go",
 	) {
 		t.Fatalf(
-			"Auto批量R Warning不应阻断正式Apply:\n%s",
+			"模型写下的关系没有被原样保留:\n%s",
 			indexText,
 		)
 	}
@@ -149,7 +126,7 @@ func TestAtomicBatchRelationWarningStillApplies(
 	}
 	if !foundSuccess {
 		t.Fatalf(
-			"带R Warning的Auto Apply仍应记录成功事件: %+v",
+			"Auto Apply仍应记录成功事件: %+v",
 			events,
 		)
 	}

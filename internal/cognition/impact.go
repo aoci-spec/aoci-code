@@ -96,25 +96,9 @@ func ResolveImpact(set *Set, candidates []ImpactCandidate) (AffectedCognitionSet
 	for ref, object := range projected {
 		allObjects[ref] = object
 	}
-	reviewReasons, graphFindings := resolveImpactClosure(graph, direct)
-	if len(graphFindings) > 0 {
-		candidatesByRef := make(map[string]indexedImpactCandidate, len(orderedCandidates))
-		for _, candidate := range orderedCandidates {
-			candidatesByRef[candidate.candidate.ObjectRef] = candidate
-		}
-		for index := range graphFindings {
-			candidate, ok := candidatesByRef[graphFindings[index].ObjectRef]
-			if !ok {
-				continue
-			}
-			graphFindings[index].CandidateIndex = candidate.index
-			bindImpactCandidateFinding(&graphFindings[index], candidate.candidate)
-			bindImpactRelationFinding(&graphFindings[index])
-		}
-		SortRepairFindings(graphFindings)
-		result.Findings = graphFindings
-		return result, &ImpactValidationError{Findings: graphFindings}
-	}
+	// R 只用来扩大 Review 面, 从不产生诊断: 指不到、指多义、指向尚未创作的对象
+	// 都不是缺陷。条目之间的关系由读全量索引的注意力机制建立, 机器不参与核对。
+	reviewReasons := resolveImpactClosure(graph, direct)
 
 	guardVolumes := map[string]bool{}
 	if set.LayoutMode == LayoutLegacyMonolithic {
@@ -621,22 +605,6 @@ func bindImpactCandidateFinding(finding *ImpactFinding, candidate ImpactCandidat
 	}
 	if finding.Cause == "" {
 		finding.Cause = finding.Message
-	}
-}
-
-func bindImpactRelationFinding(finding *ImpactFinding) {
-	if finding == nil || !strings.HasPrefix(finding.Code, "impact_relation_") {
-		return
-	}
-	finding.Field = "R"
-	finding.Expected = "relation_target=managed_canonical_object"
-	switch finding.Code {
-	case "impact_relation_unresolved":
-		finding.Actual = "relation_target=missing"
-	case "impact_relation_ambiguous":
-		finding.Actual = "relation_target=ambiguous"
-	case "impact_relation_invalid":
-		finding.Actual = "relation_format=invalid"
 	}
 }
 

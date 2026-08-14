@@ -23,9 +23,6 @@ func repairableImpactFindings(findings []cognition.RepairFinding) bool {
 			"impact_candidate_relation_not_canonical",
 			"impact_candidate_volume_mismatch",
 			"impact_object_identity_invalid",
-			"impact_relation_unresolved",
-			"impact_relation_ambiguous",
-			"impact_relation_invalid",
 			"impact_candidate_duplicate":
 		default:
 			return false
@@ -73,12 +70,6 @@ func localizeFRASCause(finding *cognition.RepairFinding) {
 		finding.Cause = writeMessage("entry.repair.cause.tag")
 	case finding.RuleCode == "impact_candidate_tag_not_compact":
 		finding.Cause = writeMessage("entry.repair.cause.tag_compact", finding.Actual)
-	case finding.RuleCode == "impact_relation_unresolved":
-		finding.Cause = writeMessage("entry.repair.cause.relation_unresolved", finding.Relation)
-	case finding.RuleCode == "impact_relation_ambiguous":
-		finding.Cause = writeMessage("entry.repair.cause.relation_ambiguous", finding.Relation)
-	case finding.RuleCode == "impact_relation_invalid":
-		finding.Cause = writeMessage("entry.repair.cause.relation_invalid", finding.Relation)
 	case finding.RuleCode == "impact_candidate_relation_not_canonical":
 		finding.Cause = writeMessage("entry.repair.cause.relation_canonical", finding.Actual)
 	case finding.RuleCode == "impact_object_identity_invalid":
@@ -119,7 +110,7 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.structure", finding.Field)
 	case "fras_tag_invalid", "impact_candidate_tag_not_compact":
 		return writeMessage("entry.repair.action.tag")
-	case "impact_relation_unresolved", "impact_relation_ambiguous", "impact_relation_invalid", "impact_candidate_relation_not_canonical":
+	case "impact_candidate_relation_not_canonical":
 		return writeMessage("entry.repair.action.r_relation")
 	case "impact_object_identity_invalid":
 		return writeMessage("entry.repair.action.identity")

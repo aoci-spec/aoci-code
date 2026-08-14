@@ -126,7 +126,9 @@ func TestVolumeOwnershipRepairRemovesOnlyRootEntryFromCodeVolume(t *testing.T) {
 	}
 }
 
-func TestVolumeOrphanRemoveRejectsStillValidRelationAndGuardDrift(t *testing.T) {
+// 孤儿删除只证明"源文件确实没了", 不看别处的 R 是否还指着它 —— 留下悬空标注
+// 是模型的语义领域。真正必须挡住的是 Guard 漂移: 写之前卷变了就零写停下。
+func TestVolumeOrphanRemoveIgnoresIncomingRelationButBlocksGuardDrift(t *testing.T) {
 	root := buildVolumeRepo(t, true, false)
 	writeVolumeTestFile(t, root, "live.go", "package main\n")
 	writeVolumeTestFile(t, root, "aoci.code.txt", cognition.CodeVolumeMarker+"\n===Go sources"+filepath.ToSlash(root)+"/===\n"+
@@ -140,13 +142,10 @@ func TestVolumeOrphanRemoveRejectsStillValidRelationAndGuardDrift(t *testing.T) 
 	if err := os.Remove(filepath.Join(root, "main.go")); err != nil {
 		t.Fatal(err)
 	}
-	if _, fail := planRemoveEntry(root, "code:main.go", true); fail == nil || fail.Msg != "remove_orphan_relation_still_valid" {
-		t.Fatalf("still-valid R relation did not block removal: %+v", fail)
+	if _, fail := planRemoveEntry(root, "code:main.go", true); fail != nil {
+		t.Fatalf("指向该对象的 R 不应阻止孤儿删除: %+v", fail)
 	}
 
-	writeVolumeTestFile(t, root, "aoci.code.txt", cognition.CodeVolumeMarker+"\n===Go sources"+filepath.ToSlash(root)+"/===\n"+
-		"main.go[CD9S]: F:run the fixture | R:- | A:main | S:Keep execution deterministic\n"+
-		"live.go[CD9S]: F:retain the fixture | R:- | A:- | S:-\n")
 	snapshot, _, _ = baseline.Snapshot(root, cfg.WalkOptions())
 	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
 		t.Fatal(err)
