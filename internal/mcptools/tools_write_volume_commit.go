@@ -121,7 +121,7 @@ func planCognitionVolumeUpdates(
 				return nil, &Fail{Code: errInternal, Msg: "code_candidate_governance_unavailable"}
 			}
 			allowPostimage := recovery != nil && recovery.Version == 4 && recovery.CodeBatchID == codeBatchID &&
-				inspectVolumeTargetStates(root, recoveryVolumeTargets(recovery)) == "postimage"
+				codeRecoveryPostimage(root, recovery)
 			receipt, err := codebatch.ValidateSubmission(root, codeBatchID, facts.CompositeIdentity,
 				facts.ManagedScope.PolicyIdentity, facts.Code.Path, facts.Code.SHA256, submissions, allowPostimage)
 			if err != nil {
@@ -721,6 +721,28 @@ func targetByPath(targets []cognitionVolumeWriteTarget, path string) *cognitionV
 	return nil
 }
 
+// codeRecoveryPostimage 只判定 Code 卷是否已处于本次恢复收据的 postimage,
+// 与 databaseRecoveryPostimage 对称。
+//
+// 跨卷批次先写 Code 后写 Database,若在两次卷写之间中断,只有 Code 到达
+// postimage。此前这里沿用"全部资产都到 postimage"的判据,部分状态永远不满足,
+// 同批重交因而卡在 code_candidate_plan_stale 上,rollback、maintain 与读取同时
+// 被挡,只能手工处理 .aoci/transactions(审查修正)。提交环本就跳过已到
+// postimage 的卷,逐卷判定即可让重交接着写完剩余卷。
+func codeRecoveryPostimage(root string, recovery *atomicBatchRecovery) bool {
+	if recovery == nil || recovery.Version != 4 {
+		return false
+	}
+	for _, asset := range recovery.Assets {
+		if asset.VolumeID != "code" {
+			continue
+		}
+		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(asset.Path)))
+		return err == nil && current.SHA256 == asset.PostSHA256
+	}
+	return false
+}
+
 func databaseRecoveryPostimage(root string, recovery *atomicBatchRecovery) bool {
 	if recovery == nil || (recovery.Version != 3 && recovery.Version != 4) {
 		return false
@@ -915,9 +937,12 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 
 func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPlan) *Fail {
 	if volumePlan.codeReceipt != nil {
+		// 与提交前的 allowPostimage 同一判据: 只问 Code 卷自己是否已到本次恢复的
+		// postimage。跨卷部分写之后 Composite 与 Code 卷 SHA 必然已经改变,用全资产
+		// 判据会把可恢复的重交误判成收据陈旧。
 		recoveredPostimage := volumePlan.recovery != nil && volumePlan.recovery.Version == 4 &&
 			volumePlan.recovery.CodeBatchID == volumePlan.codeReceipt.BatchID &&
-			inspectVolumeTargetStates(root, volumePlan.targets) == "postimage"
+			codeRecoveryPostimage(root, volumePlan.recovery)
 		if !recoveredPostimage {
 			cfg, err := config.Load(root)
 			if err != nil {

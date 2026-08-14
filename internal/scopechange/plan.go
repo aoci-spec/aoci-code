@@ -415,7 +415,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		Evaluation: *evaluation, SourceGuard: sourceGuard, IndexPostimage: formalImage(cfg.IndexPath, indexBytes, projectedBytes),
 		ConfigPostimage:   formalImage(".aoci/config.json", configBytes, configBytes),
 		BaselinePostimage: formalImage(".aoci/baseline.json", baselineBytes, baselinePostBytes), Baseline: postBaseline,
-		NetworkAccessed: false}
+		CurationExclusions: append([]string{}, curationExclude...), NetworkAccessed: false}
 	if curationExists {
 		image := formalImage(".aoci/curation.json", curationBytes, curationPostBytes)
 		preview.CurationPostimage = &image

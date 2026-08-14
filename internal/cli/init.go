@@ -236,8 +236,8 @@ func init() {
 				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
 				scopeProposal = &proposal
 				if proposal.RequiresHumanApproval {
-					return &ExitError{Code: ExitConfig, Err: fmt.Errorf(
-						"managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision")}
+					return &ExitError{Code: ExitConfig, MachineCode: "managed_scope_auto_authorization_blocked",
+						Msg: initialScopeBlockedDetail(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))}
 				}
 
 				newRepositoryAutomationMessage = cliMessage("init.automation_default")
@@ -580,3 +580,41 @@ func contains(
 
 	return false
 }
+
+// initialScopeBlockedDetail 把"首次范围需要人来决定"翻译成可执行的诊断。
+//
+// 该阻塞此前只回一行机器码,既不说是哪一类原因、也不点名任何路径,而且没有
+// 别的命令能在 init 之前复现它(pre-init 的 scope show 评估的是 legacy 策略),
+// 用户只能靠读源码定位(审查修正)。三类触发条件各有各的出路,这里分别给出。
+func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile string, highRiskOptIns int) string {
+	if highRiskOptIns > 0 {
+		return cliMessage("init.scope_blocked_high_risk", highRiskOptIns)
+	}
+	if evaluation != nil && evaluation.RequiredHumanReview > 0 {
+		named := make([]string, 0, initialScopeBlockedPathSample)
+		for _, item := range evaluation.Exclude {
+			// RequiredHumanReview 只由"被跟踪却被安全规则排除"的路径累加,
+			// 这里点名的就是这一类。
+			if item.GitStatus != "tracked" {
+				continue
+			}
+			named = append(named, item.Path)
+			if len(named) == initialScopeBlockedPathSample {
+				break
+			}
+		}
+		sample := strings.Join(named, ", ")
+		if remaining := evaluation.RequiredHumanReview - len(named); remaining > 0 && len(named) > 0 {
+			sample += fmt.Sprintf(" (+%d)", remaining)
+		}
+		return cliMessage("init.scope_blocked_tracked_sensitive", evaluation.RequiredHumanReview, sample)
+	}
+	candidates := 0
+	if evaluation != nil {
+		candidates = evaluation.SafeInventory.FinalManagedCandidates
+	}
+	return cliMessage("init.scope_blocked_no_index", scopeProfile, candidates)
+}
+
+// 诊断里最多点名的路径数量 —— 足够定位,又不至于把一整棵目录树刷到终端。
+const initialScopeBlockedPathSample = 5

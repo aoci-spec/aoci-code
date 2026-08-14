@@ -307,18 +307,43 @@ func postgresqlPartitionChildren(ctx context.Context, tx *sql.Tx, source SourceC
 		if err != nil {
 			return &catalogStageFailure{kind: "identity", err: err}
 		}
-		if child := tables[tableKey(namespace, tableName)]; child != nil {
-			child.Partition = &Partition{Partitioned: false, ParentObject: parentRef, Bound: bound.String}
-		}
-		if parent := tables[tableKey(parentNamespace, parentTable)]; parent != nil {
-			if parent.Partition == nil {
-				parent.Partition = &Partition{Partitioned: true, ChildObjects: []string{}}
-			}
-			parent.Partition.ChildObjects = append(parent.Partition.ChildObjects, childRef)
-		}
+		attachPartitionParent(tables[tableKey(namespace, tableName)], parentRef, bound.String)
+		appendPartitionChild(tables[tableKey(parentNamespace, parentTable)], childRef)
 	}
 	if err := rows.Err(); err != nil {
 		return &catalogStageFailure{kind: "iterate", err: err}
 	}
 	return nil
+}
+
+// attachPartitionParent 记录本表所属的父分区,并保留它自身可能已经成立的
+// "本表也是分区父表"事实。
+//
+// 多级分区里的中间层表既是分区又是父表,分区父表阶段已经为它写入
+// Partitioned/Method/Expression。此前这里整体覆盖成 {Partitioned:false},
+// 中间层表被记成非分区、丢掉分区方法,ChildObjects 还会随子表名的字典序
+// 决定是否幸存 —— 同一套 schema 可以哈希出两份不同的规范证据,直接违背
+// 证据的确定性承诺(审查修正)。
+func attachPartitionParent(table *TableEvidence, parentRef, bound string) {
+	if table == nil {
+		return
+	}
+	if table.Partition == nil {
+		table.Partition = &Partition{ChildObjects: []string{}}
+	}
+	table.Partition.ParentObject = parentRef
+	table.Partition.Bound = bound
+}
+
+// appendPartitionChild 把子分区登记到父表;父表可能尚未被分区父表阶段命中,
+// 此时按分区父表建立,方法留空由该阶段补齐。
+func appendPartitionChild(table *TableEvidence, childRef string) {
+	if table == nil {
+		return
+	}
+	if table.Partition == nil {
+		table.Partition = &Partition{Partitioned: true, ChildObjects: []string{}}
+	}
+	table.Partition.Partitioned = true
+	table.Partition.ChildObjects = append(table.Partition.ChildObjects, childRef)
 }

@@ -180,23 +180,29 @@ type FormalImage struct {
 }
 
 type Preview struct {
-	Version            string                          `json:"version"`
-	EnvelopeVersion    string                          `json:"envelope_version"`
-	PreviewID          string                          `json:"preview_id"`
-	Plan               Plan                            `json:"plan"`
-	CandidateSet       CandidateSet                    `json:"candidate_set"`
-	Evaluation         managedscope.Evaluation         `json:"managed_scope_evaluation"`
-	SourceGuard        map[string]baseline.Fingerprint `json:"source_guard,omitempty"`
-	IndexPostimage     FormalImage                     `json:"index_postimage"`
-	ConfigPostimage    FormalImage                     `json:"config_postimage"`
-	CurationPostimage  *FormalImage                    `json:"curation_postimage,omitempty"`
-	BaselinePostimage  FormalImage                     `json:"baseline_postimage"`
-	Baseline           baseline.Baseline               `json:"baseline"`
-	PhysicalDiffSHA256 string                          `json:"physical_diff_sha256"`
-	SemanticDiffSHA256 string                          `json:"semantic_diff_sha256"`
-	RiskDiffSHA256     string                          `json:"risk_diff_sha256"`
-	EnvelopeDigest     string                          `json:"envelope_digest"`
-	NetworkAccessed    bool                            `json:"network_accessed"`
+	Version           string                          `json:"version"`
+	EnvelopeVersion   string                          `json:"envelope_version"`
+	PreviewID         string                          `json:"preview_id"`
+	Plan              Plan                            `json:"plan"`
+	CandidateSet      CandidateSet                    `json:"candidate_set"`
+	Evaluation        managedscope.Evaluation         `json:"managed_scope_evaluation"`
+	SourceGuard       map[string]baseline.Fingerprint `json:"source_guard,omitempty"`
+	IndexPostimage    FormalImage                     `json:"index_postimage"`
+	ConfigPostimage   FormalImage                     `json:"config_postimage"`
+	CurationPostimage *FormalImage                    `json:"curation_postimage,omitempty"`
+	BaselinePostimage FormalImage                     `json:"baseline_postimage"`
+	Baseline          baseline.Baseline               `json:"baseline"`
+	// CurationExclusions 是计划时生效的 Curation 排除集合。发布 postimage 之后
+	// 无法再从磁盘上的 Baseline 复原它 —— 被排除的路径已经不在新 Baseline 里,
+	// 决策的 SHA 绑定随之失配,内部验证会算出另一个评估身份并把已经完成的事务
+	// 判成陈旧。验证必须回放这份计划时事实(审查修正)。旧信封没有该字段,此时
+	// 退回按当前 Baseline 重算,保持兼容。
+	CurationExclusions []string `json:"curation_exclusions,omitempty"`
+	PhysicalDiffSHA256 string   `json:"physical_diff_sha256"`
+	SemanticDiffSHA256 string   `json:"semantic_diff_sha256"`
+	RiskDiffSHA256     string   `json:"risk_diff_sha256"`
+	EnvelopeDigest     string   `json:"envelope_digest"`
+	NetworkAccessed    bool     `json:"network_accessed"`
 }
 
 type Approval struct {

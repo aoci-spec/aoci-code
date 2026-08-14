@@ -499,6 +499,14 @@ func capturePreimages(root string, preview *Preview) ([]FormalImage, error) {
 }
 
 func validateSourceGuards(root string, intent *RecoveryIntent) error {
+	return validateSourceGuardsWithCurationBasis(root, intent, false)
+}
+
+// replayPlanTimeCuration=true 表示调用发生在 postimage 已经发布之后。此时被
+// Curation 排除的路径已不在磁盘上的 Baseline 里,按当前 Baseline 重算会得到
+// 另一份排除集合与评估身份,把一笔已经完成的事务判成陈旧、且再也无法归档
+// (审查修正)。发布后必须回放信封里的计划时事实。
+func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, replayPlanTimeCuration bool) error {
 	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_config_invalid")
@@ -516,6 +524,9 @@ func validateSourceGuards(root string, intent *RecoveryIntent) error {
 	// the exact Build input instead of projecting only exclusions that happened
 	// to produce a PathEvaluation.
 	curationExclude := activeCurationExclusions(cfg.CurationExclude, curationDocument, activeBaseline)
+	if replayPlanTimeCuration && intent.Preview.CurationExclusions != nil {
+		curationExclude = append([]string{}, intent.Preview.CurationExclusions...)
+	}
 	evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
 		WalkOptions: cfg.WalkOptions(), CurationExclude: curationExclude})
 	if err != nil || evaluation.PolicyIdentity != intent.Preview.Evaluation.PolicyIdentity {
@@ -586,7 +597,7 @@ func equalFingerprints(left, right map[string]baseline.Fingerprint) bool {
 }
 
 func internalVerify(root string, intent *RecoveryIntent) error {
-	if err := validateSourceGuards(root, intent); err != nil {
+	if err := validateSourceGuardsWithCurationBasis(root, intent, true); err != nil {
 		return err
 	}
 	cfg, err := config.LoadReadOnly(root)
