@@ -64,6 +64,11 @@ type Evaluation struct {
 	SafetyExcluded      int                     `json:"safety_excluded_count"`
 	RequiredHumanReview int                     `json:"required_human_review"`
 	CaseSensitive       bool                    `json:"case_sensitive"`
+	// AlternatePolicyIdentity 是同一份应用范围在相反大小写语义下的身份, 只在机器
+	// 逐路径证明两种语义给出完全相同的角色分配时才存在。它让在大小写敏感文件系统
+	// 上建立的 Baseline 能被大小写不敏感平台(如 Windows)原样接受, 反之亦然; 任何
+	// 真实的匹配差异都会让它保持为空, 跨平台仍走人工 Scope Change。
+	AlternatePolicyIdentity string `json:"alternate_policy_identity,omitempty"`
 }
 
 func LegacyPolicy() Policy {

@@ -135,7 +135,11 @@ Apply reuses the global cognition
 lock, CAS, AtomicWrite, Baseline, Ledger, receipt/archive, and recovery pipeline.
 The Preview is also a managed-scope-change-envelope/v2 document through its
 explicit envelope_version and digest. Desired configuration is a CAS guard;
-the Baseline receipt is the active policy identity. The envelope source guard
+the Baseline receipt is the active policy identity. Filesystem case
+sensitivity participates in that identity, and a receipt established under
+the opposite case semantics is accepted only when the machine proves, path by
+path, that both semantics assign identical roles and fingerprint
+participation; any real divergence keeps scope_change_required. The envelope source guard
 binds the live managed-source snapshot at Plan time, separately from the
 projected Baseline; Apply accepts only its own bound Root postimage and rejects
 any other post-Plan source drift. Apply advances aoci.txt,

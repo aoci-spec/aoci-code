@@ -70,13 +70,28 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	result := &Evaluation{Version: machinecontract.ManagedScopeEvaluationV2, PolicyIdentity: identity,
 		SafeInventory: inventory.Summary, Index: []PathEvaluation{}, Observe: []PathEvaluation{}, Exclude: []PathEvaluation{},
 		CaseSensitive: caseSensitive}
+	// 大小写语义等价证明: 逐路径用相反语义重评一次, 只有全部角色与指纹参与
+	// 完全一致时, 相反语义下的身份才是本次应用范围的合法替代身份。这允许
+	// Linux 建立的 Baseline 被 Windows 检出原样接受; 真实的匹配差异保持空值。
+	caseEquivalent := true
 	for _, rel := range inventory.ManagedCandidates {
 		evaluation := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], caseSensitive)
+		if caseEquivalent {
+			alternate := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], !caseSensitive)
+			if alternate.Role != evaluation.Role ||
+				alternate.EntersWholeIndex != evaluation.EntersWholeIndex ||
+				alternate.EntersObserveFingerprint != evaluation.EntersObserveFingerprint {
+				caseEquivalent = false
+			}
+		}
 		if optedIn[rel] {
 			evaluation.SafetyStatus = "high_risk_exact_opt_in"
 			evaluation.Reason = "approved high-risk exact opt-in; " + evaluation.Reason
 		}
 		appendEvaluation(result, evaluation)
+	}
+	if caseEquivalent {
+		result.AlternatePolicyIdentity = evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths, !caseSensitive)
 	}
 	for _, excluded := range inventory.Exclusions {
 		evaluation := PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: excluded.PathSummary,

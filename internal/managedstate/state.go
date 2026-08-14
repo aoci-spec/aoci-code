@@ -65,6 +65,14 @@ func Load(root string, cfg *config.Config) (*State, error) {
 		state.ActiveBudgetIdentity = value.ManagedScope.BudgetPolicyIdentity
 	}
 	state.PolicyAligned = exists && state.ActivePolicyIdentity == state.DesiredPolicyIdentity
+	// 跨大小写语义的收据接受: Baseline 在另一种文件系统语义下建立, 且机器已经
+	// 逐路径证明两种语义的角色分配完全一致时, 收据身份就是本范围的合法身份。
+	// 采纳收据身份为当前身份, 让计划与提交在两个平台间共享同一个标识。
+	if !state.PolicyAligned && exists && evaluation.AlternatePolicyIdentity != "" &&
+		state.ActivePolicyIdentity == evaluation.AlternatePolicyIdentity {
+		state.PolicyAligned = true
+		state.DesiredPolicyIdentity = state.ActivePolicyIdentity
+	}
 	// Empty is accepted only as the compatibility identity of an early
 	// managed-scope receipt that predated the budget field. Once an identity is
 	// recorded, direct policy edits are detected normally.
