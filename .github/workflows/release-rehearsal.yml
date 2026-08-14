@@ -46,7 +46,7 @@ jobs:
             --tools-list-sha256 "$(sha256sum testdata/golden/mcp_list_tools.json | awk '{print $1}')"
           (cd dist && sha256sum -c SHA256SUMS)
           go run ./scripts/release/manifest --verify dist/RELEASE-MANIFEST.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: aoci-release-rehearsal-${{ github.sha }}
           path: dist/
