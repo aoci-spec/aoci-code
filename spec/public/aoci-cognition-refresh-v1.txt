@@ -194,3 +194,37 @@ composite identity is reported but does not invalidate an unrelated partial
 scope. Every ordinary call delivers the selected dependency closure. Only a
 complete, current all delivery establishes reliable full repository cognition.
 See aoci-cognition-volumes-v1.txt.
+
+10. Session cognition line on read tools
+
+In Volumes v1, aoci_search, aoci_get_entries, and aoci_header append one
+advisory machine line built only from in-process session facts, never from a
+filesystem scan:
+
+  cognition: refresh_status=refresh_not_required generation=N
+
+The line is a fact, never a command, and identity drift alone never raises it:
+after this session's own governance-aligned writes it stays
+refresh_not_required through the cached aligned identity. It escalates only on
+the real signals — no delivery yet in this process, or pending declared
+reasons — and then names the next step. When the live index identity has moved
+past everything the session has assessed, the line does not fabricate a
+refresh_status verdict; it reports checkpoint=recommended and points at
+check_only, forming a cheap-line → checkpoint → full-recall ladder in which
+each level gates the next. Legacy layouts carry no line.
+
+11. Cognition probe
+
+check_only=true accepts two optional, mutually exclusive inputs. probe=true
+returns cognition_probe: a deterministic two-question sample of the current
+formal Entry sequence, stable within one (index identity, generation) and
+bound by a digest. probe_answers submits memory-only answers to exactly that
+probe; grading uses the same identity, tag, and core-F criteria as the full
+Attestation and returns probe_result pass, fail, or stale. A pass is machine
+proof that retained cognition makes a re-delivery unnecessary. A fail is the
+machine evidence on which the host declares context_compaction through the
+existing refresh_reasons contract; the probe itself never advances the
+generation, never records a reason, and never changes any receipt. A stale
+result means the index moved since issuance and is not evidence of loss.
+Consulting Search or Get Entries between probe and answer defeats the
+measurement and is forbidden exactly as during Attestation.

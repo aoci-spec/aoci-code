@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -11,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -29,6 +31,11 @@ type cognitionRefreshSession struct {
 	// governanceSnapshots binds a delivered Whole-Index body to the live,
 	// commit-independent governance facts observed for that delivery.
 	governanceSnapshots map[string]string
+	// alignedIdentity 缓存"本会话最近一次昂贵治理评估证明对齐"的 scope 身份。
+	// 模型自己的写入会让收据身份前移, 但写入路径当场证明了新身份对齐; 廉价的
+	// 读工具据此仍能诚实报告 refresh_not_required, 而不是把自己的写当成陌生
+	// 漂移。它只是缓存, 不参与任何身份推导或刷新判据。
+	alignedIdentity string
 }
 
 func newCognitionRefreshSession() *cognitionRefreshSession {
@@ -356,6 +363,79 @@ func receiptReliable(receipt cognitionReceipt) bool {
 	return receipt.ModelFullReliable
 }
 
+// noteAlignedIdentity 在已持有 session.mu 的路径上记录或撤销对齐缓存。
+func (session *cognitionRefreshSession) noteAlignedIdentity(identity string, aligned bool) {
+	if aligned {
+		session.alignedIdentity = identity
+		return
+	}
+	if session.alignedIdentity == identity {
+		session.alignedIdentity = ""
+	}
+}
+
+// RecordAlignedIdentity 供未持锁的治理路径(maintain/写入)调用。
+func (session *cognitionRefreshSession) RecordAlignedIdentity(identity string, aligned bool) {
+	if session == nil || identity == "" {
+		return
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	session.noteAlignedIdentity(identity, aligned)
+}
+
+// cognitionStatusLine 用纯会话级事实(零文件系统扫描)渲染一行认知状态, 贴在
+// search/get_entries/header 响应尾部。
+//
+// 设计约束: 这一行绝不能诱发过度召回。收据身份漂移本身不是刷新理由(规则 §2),
+// 所以身份越过会话所知时, 这一行不伪造 refresh_status 判定, 只用独立的
+// checkpoint=recommended 建议一次廉价的 check_only —— 形成 行→checkpoint→召回
+// 的三级阶梯, 每级挡住下一级的滥用。常态输出是 refresh_not_required, 它是
+// "不需要召回"的许可证。
+func (session *cognitionRefreshSession) cognitionStatusLine(current cognitionReceipt) string {
+	if session == nil {
+		return ""
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	generation := session.generation
+	pending := session.pendingReasonList()
+	identityMatches := session.established && receiptReliable(session.lastReceipt) &&
+		receiptIdentityMatches(session.lastReceipt, current)
+	const checkpointHint = "; next: call aoci_overview with check_only=true for the exact checkpoint"
+	const overviewHint = "; next: call no-argument aoci_overview and follow next_cursor until completed=true"
+	switch {
+	case !session.established:
+		return fmt.Sprintf("cognition: refresh_status=%s generation=%d%s\n",
+			machinecontract.RefreshStatusReadyForOverview, generation, overviewHint)
+	case len(pending) > 0 && identityMatches:
+		return fmt.Sprintf("cognition: refresh_status=%s generation=%d reasons=%s%s\n",
+			machinecontract.RefreshStatusReadyForOverview, generation, strings.Join(pending, ","), overviewHint)
+	case len(pending) > 0:
+		return fmt.Sprintf("cognition: refresh_status=%s generation=%d reasons=%s%s\n",
+			machinecontract.RefreshStatusRequired, generation, strings.Join(pending, ","), checkpointHint)
+	case identityMatches:
+		return fmt.Sprintf("cognition: refresh_status=%s generation=%d\n",
+			machinecontract.RefreshStatusNotRequired, generation)
+	case session.alignedIdentity != "" && session.alignedIdentity == current.ScopeIdentity:
+		return fmt.Sprintf("cognition: refresh_status=%s generation=%d\n",
+			machinecontract.RefreshStatusNotRequired, generation)
+	default:
+		// 身份越过了会话所知: 不伪造判定, 只建议一次廉价 checkpoint。
+		return fmt.Sprintf("cognition: checkpoint=recommended generation=%d%s\n",
+			generation, checkpointHint)
+	}
+}
+
+// sessionCognitionSuffix 为 Volumes v1 读工具响应生成会话认知行后缀。
+// Legacy 布局或缺会话时返回空串, 读工具原样输出。
+func sessionCognitionSuffix(root, serviceVersion string, set *cognition.Set, session *cognitionRefreshSession) string {
+	if session == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
+		return ""
+	}
+	return session.cognitionStatusLine(newVolumeCognitionReceipt(root, serviceVersion, set, mustVolumeScope(set)))
+}
+
 func (session *cognitionRefreshSession) pendingReasonList() []string {
 	reasons := make([]string, 0, len(session.pendingReasons))
 	for reason := range session.pendingReasons {
@@ -408,6 +488,9 @@ func (session *cognitionRefreshSession) evaluate(
 	if facts.Count >= facts.Threshold {
 		session.pendingReasons[machinecontract.RefreshReasonSemanticThreshold] = true
 	}
+
+	// 昂贵评估已经算出对齐事实, 缓存给廉价的读工具行复用(调用方持锁)。
+	session.noteAlignedIdentity(current.ScopeIdentity, facts.GovernanceAligned && facts.Count == 0)
 
 	reasons := session.pendingReasonList()
 	stable := input.StableCheckpoint != nil && *input.StableCheckpoint

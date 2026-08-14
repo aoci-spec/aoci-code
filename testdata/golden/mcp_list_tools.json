@@ -454,6 +454,61 @@
           "description": "宿主对当前完整认知的判断: valid、uncertain或invalid",
           "type": "string"
         },
+        "probe": {
+          "description": "仅限check_only：请求一个从当前正式Entry序列抽样的两题认知探针；凭记忆作答即可证明认知仍在，而不必重传全量索引",
+          "type": "boolean"
+        },
+        "probe_answers": {
+          "additionalProperties": false,
+          "properties": {
+            "answers": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "core_f": {
+                    "maxLength": 16384,
+                    "type": "string"
+                  },
+                  "object_identity": {
+                    "maxLength": 4096,
+                    "type": "string"
+                  },
+                  "ordinal": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "tag": {
+                    "maxLength": 256,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "ordinal",
+                  "object_identity",
+                  "tag",
+                  "core_f"
+                ],
+                "type": "object"
+              },
+              "maxItems": 4,
+              "type": "array"
+            },
+            "digest": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "version": {
+              "const": "cognition-probe/v1",
+              "type": "string"
+            }
+          },
+          "required": [
+            "version",
+            "digest",
+            "answers"
+          ],
+          "type": "object"
+        },
         "refresh_event_id": {
           "description": "声明refresh_reasons时必填的宿主事件幂等键",
           "type": "string"

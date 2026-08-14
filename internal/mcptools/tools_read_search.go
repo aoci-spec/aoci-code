@@ -12,7 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
-func handleSearch(root string, input searchIn) *mcp.CallToolResult {
+func handleSearch(root, mcpServiceVersion string, input searchIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	start := time.Now()
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
@@ -22,7 +22,7 @@ func handleSearch(root string, input searchIn) *mcp.CallToolResult {
 		return failResult(deliveryFail)
 	}
 	if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
-		return handleVolumeSearch(root, input, loaded, start)
+		return handleVolumeSearch(root, mcpServiceVersion, input, loaded, refreshSession, start)
 	}
 	repository := loaded.legacyRepo()
 	matched, skipped, err := index.Search(repository.doc, input.Keyword, input.TagFilter)
@@ -62,7 +62,7 @@ func handleSearch(root string, input searchIn) *mcp.CallToolResult {
 	return textResult(mcpMessage("mcp.search.summary", len(matched)) + builder.String())
 }
 
-func handleVolumeSearch(root string, input searchIn, loaded *cognitionRepoCtx, start time.Time) *mcp.CallToolResult {
+func handleVolumeSearch(root, mcpServiceVersion string, input searchIn, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession, start time.Time) *mcp.CallToolResult {
 	if _, _, err := index.Search(&index.Document{}, input.Keyword, input.TagFilter); err != nil {
 		return errResult(errBadArgs, localeSafeMCPDetail(err.Error()), mcpMessage("mcp.search.bad_query_hint"))
 	}
@@ -105,7 +105,8 @@ func handleVolumeSearch(root string, input searchIn, loaded *cognitionRepoCtx, s
 		builder.WriteString(mcpMessage("mcp.search.no_matches"))
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "search", PathsCount: len(matched), TagFilter: input.TagFilter, DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent, AOCIToolCalls: 1, LocalRecalls: 1})
-	return textResult(mcpMessage("mcp.search.summary", len(matched)) + builder.String())
+	return textResult(mcpMessage("mcp.search.summary", len(matched)) + builder.String() +
+		sessionCognitionSuffix(root, mcpServiceVersion, loaded.set, refreshSession))
 }
 
 func relBase(relativePath string) string {

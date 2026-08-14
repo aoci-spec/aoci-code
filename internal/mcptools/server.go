@@ -275,7 +275,7 @@ func newMCPServer(root, version string) (*mcp.Server, error) {
 	registerReadTools(srv, root, version, descriptions, inputSchemas, refreshSession)
 	registerWriteTools(srv, root, version, descriptions, inputSchemas, refreshSession)
 	registerRemoveTool(srv, root, descriptions, inputSchemas)
-	registerHeaderTool(srv, root, descriptions)
+	registerHeaderTool(srv, root, version, descriptions, refreshSession)
 	registerMaintainTool(srv, root, version, descriptions, inputSchemas, refreshSession)
 	return srv, nil
 }

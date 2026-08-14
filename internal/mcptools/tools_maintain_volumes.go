@@ -97,6 +97,9 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
 	}
+	refreshSession.RecordAlignedIdentity(
+		newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)).ScopeIdentity,
+		facts.GovernanceAligned)
 	result := volumeMaintainResult{
 		Version: 1, Status: autoStatusStopped, Result: facts.Result, Aligned: facts.GovernanceAligned,
 		RequestedScope: requestedScope, AffectedDomains: append([]string{}, facts.AffectedDomains...),

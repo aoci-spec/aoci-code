@@ -73,11 +73,13 @@ func TestGetEntriesLineEndingTolerance(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{
 					"src/a.go",
 				},
 			},
+			nil,
 		),
 	)
 
@@ -139,11 +141,13 @@ func TestGetEntriesLineEndingTolerance(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{
 					"src/a.go",
 				},
 			},
+			nil,
 		),
 	)
 
@@ -179,11 +183,13 @@ func TestGetEntriesLineEndingTolerance(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{
 					"src/a.go",
 				},
 			},
+			nil,
 		),
 	)
 

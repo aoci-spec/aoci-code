@@ -39,9 +39,23 @@ func handleVolumeOverview(
 	defer refreshSession.mu.Unlock()
 	assessment := refreshSession.evaluate(input, current, semantic, hostReasons, eventID)
 	if input.CheckOnly {
+		var probe *cognitionProbe
+		var probeResult *cognitionProbeResult
+		if input.Probe || input.ProbeAnswers != nil {
+			_, sequence, sequenceErr := buildVolumeOverviewBody(view)
+			if sequenceErr != nil {
+				return errResult(errInternal, sequenceErr.Error(), "")
+			}
+			if input.Probe {
+				probe = buildCognitionProbe(view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
+			} else {
+				probeResult = gradeCognitionProbe(input.ProbeAnswers, view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
+			}
+		}
 		compact := renderOverviewCheckpoint(
 			assessment, input,
 			view.EffectiveScope == cognition.ScopeAll,
+			probe, probeResult,
 		)
 		ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{
 			Op: "cognition_check", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent,

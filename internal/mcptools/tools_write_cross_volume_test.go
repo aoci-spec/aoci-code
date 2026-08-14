@@ -194,7 +194,7 @@ func TestCrossVolumeIntermediatePostimageIsHiddenFromOrdinaryReads(t *testing.T)
 			return err
 		}
 		if filepath.Base(target) == "aoci.code.txt" {
-			searchResult = handleSearch(root, searchIn{Keyword: "cross-volume"})
+			searchResult = handleSearch(root, "test-version", searchIn{Keyword: "cross-volume"}, nil)
 		}
 		if filepath.Base(target) == "aoci.database.txt" {
 			return errors.New("simulated Database Volume write failure")

@@ -404,11 +404,11 @@ func TestVolumeRulesAndAbsentLocalReads(t *testing.T) {
 	if !strings.Contains(rules, "cognition_refresh_threshold:") {
 		t.Fatalf("Volume Rules did not return the existing runtime contract:\n%s", rules)
 	}
-	search := resText(t, handleSearch(root, searchIn{Keyword: "user", Scope: "database"}))
+	search := resText(t, handleSearch(root, "test-version", searchIn{Keyword: "user", Scope: "database"}, nil))
 	if !strings.Contains(search, "asset_state=absent") {
 		t.Fatalf("absent database search was not explicit: %s", search)
 	}
-	entries := resText(t, handleGetEntries(root, getEntriesIn{VolumeID: "database", ObjectRefs: []string{"database://primary/public/users"}}))
+	entries := resText(t, handleGetEntries(root, "test-version", getEntriesIn{VolumeID: "database", ObjectRefs: []string{"database://primary/public/users"}}, nil))
 	if !strings.Contains(entries, "asset_state=absent") {
 		t.Fatalf("absent database object lookup was not explicit: %s", entries)
 	}
@@ -423,19 +423,19 @@ func TestVolumeHeaderSearchAndGetEntries(t *testing.T) {
 	if meta := volumeFileText(t, root, "aoci.meta.txt"); !strings.HasSuffix(header, meta) {
 		t.Fatalf("aoci_header altered the formal Meta contract:\nheader=%s\nmeta=%s", header, meta)
 	}
-	search := resText(t, handleSearch(root, searchIn{Keyword: "canonical user", Scope: "database"}))
+	search := resText(t, handleSearch(root, "test-version", searchIn{Keyword: "canonical user", Scope: "database"}, nil))
 	if !strings.Contains(search, "volume_id=database object_ref=database://primary/public/users") || strings.Contains(search, "main.go") {
 		t.Fatalf("database search failed:\n%s", search)
 	}
-	entries := resText(t, handleGetEntries(root, getEntriesIn{VolumeID: "database", ObjectRefs: []string{"database://primary/public/users"}}))
+	entries := resText(t, handleGetEntries(root, "test-version", getEntriesIn{VolumeID: "database", ObjectRefs: []string{"database://primary/public/users"}}, nil))
 	if !strings.Contains(entries, "users[DB9S]") || strings.Contains(entries, "Not indexed") {
 		t.Fatalf("database object lookup failed:\n%s", entries)
 	}
-	invalid := handleGetEntries(root, getEntriesIn{VolumeID: "database", ObjectRefs: []string{"users\nforged"}})
+	invalid := handleGetEntries(root, "test-version", getEntriesIn{VolumeID: "database", ObjectRefs: []string{"users\nforged"}}, nil)
 	if !invalid.IsError || !strings.Contains(resText(t, invalid), errBadArgs) {
 		t.Fatalf("non-canonical database reference was accepted: %s", resText(t, invalid))
 	}
-	code := resText(t, handleGetEntries(root, getEntriesIn{Paths: []string{"main.go"}}))
+	code := resText(t, handleGetEntries(root, "test-version", getEntriesIn{Paths: []string{"main.go"}}, nil))
 	if !strings.Contains(code, "volume_id=code object_ref=code:main.go") {
 		t.Fatalf("compatible code path lookup failed:\n%s", code)
 	}

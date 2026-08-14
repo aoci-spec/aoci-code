@@ -96,14 +96,17 @@ type overviewCheckpointEnvelope struct {
 	HostDeliveryStatus     string                     `json:"host_delivery_status"`
 	Assessment             cognitionRefreshAssessment `json:"assessment"`
 	CognitionStateV2       *overviewCognitionStateV2  `json:"cognition_state_v2,omitempty"`
+	CognitionProbe         *cognitionProbe            `json:"cognition_probe,omitempty"`
+	ProbeResult            *cognitionProbeResult      `json:"probe_result,omitempty"`
 }
 
-func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overviewIn, fullScope bool) string {
+func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overviewIn, fullScope bool,
+	probe *cognitionProbe, probeResult *cognitionProbeResult) string {
 	envelope := overviewCheckpointEnvelope{
 		RequestMode: overviewRequestCheckOnly, DeliveryMode: overviewDeliveryCheckpoint,
 		FullTextIncluded: false, Reason: "explicit_check_only",
 		ServerDeliveryComplete: true, HostDeliveryStatus: hostDeliveryIncomplete,
-		Assessment: assessment,
+		Assessment: assessment, CognitionProbe: probe, ProbeResult: probeResult,
 	}
 	if cognitionStateV2Requested(input) {
 		state := assessOverviewCognitionStateV2(

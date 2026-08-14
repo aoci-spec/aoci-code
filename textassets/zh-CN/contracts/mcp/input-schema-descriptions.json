@@ -1,60 +1,62 @@
 {
-  "aoci_overview": {
-    "scope": "可选认知scope：all、project、meta、code或database；Volumes v1默认all，Legacy无参数行为保持不变",
-    "cognition_state_version": "可选的增量认知状态投影版本；传入cognition-state/v2可请求相互独立的交付、模型可用性、严格Attestation、治理与当前系统可靠性字段；省略时保持精确Legacy响应形状",
-    "cognition_receipt": "可选的上次完整交付或checkpoint凭据",
-    "model_cognition_state": "宿主对当前完整认知的判断: valid、uncertain或invalid",
-    "scope_covered": "当前任务是否仍在已掌握认知范围内",
-    "check_only": "仅返回紧凑checkpoint判定；为false或未设置时，在snapshot一致时完整交付请求scope",
-    "refresh_reasons": "宿主可选声明的刷新原因：context_compaction和/或phase_transition；semantic_threshold仅由机器计算",
-    "refresh_event_id": "声明refresh_reasons时必填的宿主事件幂等键",
-    "stable_checkpoint": "当前修改、格式化、Lint与必要测试是否已经到达最近稳定检查点",
-    "host_delivery_confirmation": "宿主观察到的正文字节数、SHA-256和结束标记确认",
-    "model_cognition_attestation": "绑定完整Overview的一次正式模型语义自报与确定性分布式Challenge提交；只允许一次纯Schema格式修正",
-    "model_cognition_attestation.index_sha256": "本次Challenge发布的当前完整Index或请求scope精确SHA-256；旧Attestation身份必须失败",
-    "model_cognition_attestation.entry_sequence_sha256": "本次Challenge发布的当前正式Entry或认知对象有序序列精确SHA-256",
-    "model_cognition_attestation.entry_count": "本次Challenge发布的当前正式Entry精确数量；与模型自报覆盖数量分开",
-    "model_cognition_attestation.system_mastery_percent": "模型对系统框架的自评掌握度：整体架构、模块职责、强关系、稳定外部契约以及高熵安全和维护约束；不表示掌握全部源码、分支、标识符、测试或运行实况",
-    "model_cognition_attestation.challenge_answers[].ordinal": "正式Entry序列中的1-based位置；Header、注释、空行、Section/Overview/Chunk Marker、Receipt与Metadata均不计数，Chunk Receipt使用同一序列",
-    "model_cognition_attestation.challenge_answers[].object_identity": "精确规范对象身份；只有Code对象也可使用其精确仓库相对路径，不接受路径清理、大小写折叠、basename查找或模糊解析",
-    "cursor": "上一块返回的确定性Overview连续读取cursor，必须原样使用"
-  },
   "aoci_get_entries": {
-    "paths": "要读取条目的文件相对路径列表(与 dir 二选一)",
     "dir": "要整段读取的目录相对路径(与 paths 二选一)",
-    "volume_id": "Volumes v1对象卷：code或database；省略时Legacy paths保持兼容",
-    "object_refs": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份"
-  },
-  "aoci_search": {
-    "keyword": "关键词,大小写不敏感,匹配条目整行(与 tag_filter 至少给一个)",
-    "tag_filter": "标签过滤器,如 A=Index 或 C>=7(与 keyword 至少给一个)",
-    "scope": "可选Volumes v1检索scope：all、project、meta、code或database"
-  },
-  "aoci_update_entry": {
-    "path": "兼容单条模式的仓库相对路径",
-    "object_ref": "兼容单条模式的规范Database对象身份",
-    "new_entry": "兼容单条模式的完整单行条目",
-    "source_sha256": "Code源码字节或既有Database对象更新的兼容绑定；Database Cognition创作改用candidate_id与batch_id",
-    "candidate_id": "aoci_maintain返回的机器拥有Code或Database Cognition候选身份；不得合成，也不得在此手工复制Evidence哈希",
-    "batch_id": "aoci_maintain返回的机器拥有当前完整Database Cognition批次身份",
-    "code_batch_id": "aoci_maintain返回的精确code_plan.batch_id；它等于每个Code candidate.batch_id。绝不能在此使用authoring_batch.batch_identity",
-    "entries": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取",
-    "entries[].path": "目标文件的仓库相对路径",
-    "entries[].object_ref": "Database表Entry的规范对象身份；与path二选一",
-    "entries[].new_entry": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
-    "entries[].source_sha256": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
-    "entries[].candidate_id": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对"
+    "object_refs": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份",
+    "paths": "要读取条目的文件相对路径列表(与 dir 二选一)",
+    "volume_id": "Volumes v1对象卷：code或database；省略时Legacy paths保持兼容"
   },
   "aoci_maintain": {
-    "scope": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容",
     "intent": "可选显式模式。cognition_optimization只支持aligned的Volumes v1 Code Entry；省略时普通Maintain行为不变。AOCI只选择并绑定审查候选，不生成语义、不压缩Entry文本、不创建S，也不降低C",
-    "object_refs": "可选的规范Code对象引用，格式为code:<仓库相对路径>，用于限制cognition_optimization候选发现范围；仅可与intent=cognition_optimization一起使用，且绝不解释为字段Patch"
+    "object_refs": "可选的规范Code对象引用，格式为code:<仓库相对路径>，用于限制cognition_optimization候选发现范围；仅可与intent=cognition_optimization一起使用，且绝不解释为字段Patch",
+    "scope": "可选高级诊断scope。普通Volumes v1维护应省略，由AOCI自动选择Code、Database、两者、aligned、evidence_required或blocked；显式code、database和all保持兼容"
   },
-  "aoci_report": {
-    "path": "相关文件的仓库相对路径",
-    "note": "待办说明: 改了什么/为何没把握更新条目"
+  "aoci_overview": {
+    "check_only": "仅返回紧凑checkpoint判定；为false或未设置时，在snapshot一致时完整交付请求scope",
+    "cognition_receipt": "可选的上次完整交付或checkpoint凭据",
+    "cognition_state_version": "可选的增量认知状态投影版本；传入cognition-state/v2可请求相互独立的交付、模型可用性、严格Attestation、治理与当前系统可靠性字段；省略时保持精确Legacy响应形状",
+    "cursor": "上一块返回的确定性Overview连续读取cursor，必须原样使用",
+    "host_delivery_confirmation": "宿主观察到的正文字节数、SHA-256和结束标记确认",
+    "model_cognition_attestation": "绑定完整Overview的一次正式模型语义自报与确定性分布式Challenge提交；只允许一次纯Schema格式修正",
+    "model_cognition_attestation.challenge_answers[].object_identity": "精确规范对象身份；只有Code对象也可使用其精确仓库相对路径，不接受路径清理、大小写折叠、basename查找或模糊解析",
+    "model_cognition_attestation.challenge_answers[].ordinal": "正式Entry序列中的1-based位置；Header、注释、空行、Section/Overview/Chunk Marker、Receipt与Metadata均不计数，Chunk Receipt使用同一序列",
+    "model_cognition_attestation.entry_count": "本次Challenge发布的当前正式Entry精确数量；与模型自报覆盖数量分开",
+    "model_cognition_attestation.entry_sequence_sha256": "本次Challenge发布的当前正式Entry或认知对象有序序列精确SHA-256",
+    "model_cognition_attestation.index_sha256": "本次Challenge发布的当前完整Index或请求scope精确SHA-256；旧Attestation身份必须失败",
+    "model_cognition_attestation.system_mastery_percent": "模型对系统框架的自评掌握度：整体架构、模块职责、强关系、稳定外部契约以及高熵安全和维护约束；不表示掌握全部源码、分支、标识符、测试或运行实况",
+    "model_cognition_state": "宿主对当前完整认知的判断: valid、uncertain或invalid",
+    "probe": "仅限check_only：请求一个从当前正式Entry序列抽样的两题认知探针；凭记忆作答即可证明认知仍在，而不必重传全量索引",
+    "probe_answers": "仅限check_only：对先前就当前索引签发的探针凭记忆作答；机器判定，失败即为声明context_compaction的证据",
+    "refresh_event_id": "声明refresh_reasons时必填的宿主事件幂等键",
+    "refresh_reasons": "宿主可选声明的刷新原因：context_compaction和/或phase_transition；semantic_threshold仅由机器计算",
+    "scope": "可选认知scope：all、project、meta、code或database；Volumes v1默认all，Legacy无参数行为保持不变",
+    "scope_covered": "当前任务是否仍在已掌握认知范围内",
+    "stable_checkpoint": "当前修改、格式化、Lint与必要测试是否已经到达最近稳定检查点"
   },
   "aoci_remove_entry": {
     "path": "治理返回的显式Orphan身份：Legacy仓库相对路径、code:<path>或canonical database:// object_ref"
+  },
+  "aoci_report": {
+    "note": "待办说明: 改了什么/为何没把握更新条目",
+    "path": "相关文件的仓库相对路径"
+  },
+  "aoci_search": {
+    "keyword": "关键词,大小写不敏感,匹配条目整行(与 tag_filter 至少给一个)",
+    "scope": "可选Volumes v1检索scope：all、project、meta、code或database",
+    "tag_filter": "标签过滤器,如 A=Index 或 C>=7(与 keyword 至少给一个)"
+  },
+  "aoci_update_entry": {
+    "batch_id": "aoci_maintain返回的机器拥有当前完整Database Cognition批次身份",
+    "candidate_id": "aoci_maintain返回的机器拥有Code或Database Cognition候选身份；不得合成，也不得在此手工复制Evidence哈希",
+    "code_batch_id": "aoci_maintain返回的精确code_plan.batch_id；它等于每个Code candidate.batch_id。绝不能在此使用authoring_batch.batch_identity",
+    "entries": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取",
+    "entries[].candidate_id": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对",
+    "entries[].new_entry": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
+    "entries[].object_ref": "Database表Entry的规范对象身份；与path二选一",
+    "entries[].path": "目标文件的仓库相对路径",
+    "entries[].source_sha256": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
+    "new_entry": "兼容单条模式的完整单行条目",
+    "object_ref": "兼容单条模式的规范Database对象身份",
+    "path": "兼容单条模式的仓库相对路径",
+    "source_sha256": "Code源码字节或既有Database对象更新的兼容绑定；Database Cognition创作改用candidate_id与batch_id"
   }
 }

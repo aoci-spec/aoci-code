@@ -45,7 +45,9 @@ func BuildHeaderText(root, source string) (string, *Fail) {
 func registerHeaderTool(
 	srv *mcp.Server,
 	root string,
+	mcpServiceVersion string,
 	descriptions mcpToolDescriptions,
+	refreshSession *cognitionRefreshSession,
 ) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "aoci_header",
@@ -56,13 +58,17 @@ func registerHeaderTool(
 			if fail != nil {
 				return failResult(fail)
 			}
+			suffix := ""
+			if loaded, loadFail := loadCognitionCtx(root); loadFail == nil {
+				suffix = sessionCognitionSuffix(root, mcpServiceVersion, loaded.set, refreshSession)
+			}
 			if header == "" {
 				if err := validateMCPContracts(textassets.ContractMCPHeaderEmptyMessage); err != nil {
 					return errResult(errInternal, err.Error(), mcpMessage("mcp.asset.retry_hint"))
 				}
-				return textResult(mcpContract(textassets.ContractMCPHeaderEmptyMessage))
+				return textResult(mcpContract(textassets.ContractMCPHeaderEmptyMessage) + suffix)
 			}
-			return textResult(header)
+			return textResult(header + suffix)
 		})
 		return res, nil, nil
 	})

@@ -200,6 +200,8 @@ func (session *cognitionRefreshSession) autoRefreshOutcome(
 	}
 	session.mu.Lock()
 	defer session.mu.Unlock()
+	// 写入/维护路径当场证明了新身份的对齐状态, 缓存给廉价读工具行复用。
+	session.noteAlignedIdentity(receipt.ScopeIdentity, aligned)
 	reasons := session.pendingReasonList()
 	if len(reasons) == 0 {
 		return receipt, "", nil

@@ -21,6 +21,7 @@ var mcpInputSchemaFields = map[string][]string{
 		"model_cognition_attestation.index_sha256", "model_cognition_attestation.entry_sequence_sha256", "model_cognition_attestation.entry_count",
 		"model_cognition_attestation.system_mastery_percent", "model_cognition_attestation.challenge_answers[].ordinal",
 		"model_cognition_attestation.challenge_answers[].object_identity", "cursor",
+		"probe", "probe_answers",
 	},
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
@@ -355,6 +356,20 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 				},
 			}, "version", "index_sha256", "entry_sequence_sha256", "entry_count", "challenge_digest", "reported_entry_count", "reported_estimated_tokens", "coverage_percent", "system_mastery_percent", "confidence_percent", "truncation_detected", "unseen_sections", "uncertainty_reasons", "challenge_answers"),
 			"cursor": stringProperty("cursor"),
+			"probe":  booleanProperty("probe"),
+			"probe_answers": object(map[string]any{
+				"version": map[string]any{"type": "string", "const": cognitionProbeV1},
+				"digest":  map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+				"answers": map[string]any{
+					"type": "array", "maxItems": 4,
+					"items": object(map[string]any{
+						"ordinal":         map[string]any{"type": "integer", "minimum": 1},
+						"object_identity": map[string]any{"type": "string", "maxLength": 4096},
+						"tag":             map[string]any{"type": "string", "maxLength": 256},
+						"core_f":          map[string]any{"type": "string", "maxLength": 16384},
+					}, "ordinal", "object_identity", "tag", "core_f"),
+				},
+			}, "version", "digest", "answers"),
 		}), nil
 	}
 

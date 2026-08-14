@@ -143,8 +143,45 @@ t, err = text_of(s.call("aoci_header"))
 ok("header.no_error_and_meta", (not err) and "#AOCI-META-VOLUME: 1" in t)
 t, err = text_of(s.call("aoci_search", {"keyword":"openGauss"}))
 ok("search.no_error_and_hit", (not err) and "collector_opengauss.go" in t)
+ok("search.session_cognition_line", "cognition: " in t.splitlines()[-1])
 t, err = text_of(s.call("aoci_get_entries", {"paths":["internal/fs/atomic.go"]}))
 ok("get_entries.no_error_and_hit", (not err) and "AtomicWrite" in t)
+# cognition probe roundtrip: issue questions, answer from the delivered formal
+# sequence (the harness IS the model here), expect a machine pass; a wrong tag
+# must fail. Section roots are historical coordinates: repo-relative identities
+# derive from the first (root) section prefix per the index-format contract.
+entry_seq, hist_root, cur_rel = [], None, None
+for ln in whole.split("\n"):
+    st = ln.strip()
+    if st.startswith("===") and st.endswith("==="):
+        path = st.strip("=")
+        if hist_root is None or len(path) < len(hist_root):
+            hist_root = path
+        cur_rel = path[len(hist_root):] if hist_root and path.startswith(hist_root) else ""
+        continue
+    m = re.match(r"^(\S[^\[]*)\[([A-Za-z0-9]+)\]: F:(.*?) \| R:", st)
+    if m and cur_rel is not None:
+        entry_seq.append(((cur_rel or "") + m.group(1), m.group(2), m.group(3)))
+pt, perr = text_of(s.call("aoci_overview", {"check_only": True, "probe": True}))
+probe = (json.loads(pt) if not perr else {}).get("cognition_probe") or {}
+probe_ok = probe.get("version") == "cognition-probe/v1" and len(probe.get("ordinals") or []) == 2 \
+    and len(entry_seq) == meta0["entry_count"]
+ok("probe.issued", probe_ok, pt[:160])
+if probe_ok:
+    answers = []
+    for o in probe["ordinals"]:
+        ident, tag, coref = entry_seq[o-1]
+        answers.append({"ordinal": o, "object_identity": ident, "tag": tag, "core_f": coref})
+    gt, gerr = text_of(s.call("aoci_overview", {"check_only": True, "probe_answers":
+        {"version": "cognition-probe/v1", "digest": probe["digest"], "answers": answers}}))
+    graded = (json.loads(gt) if not gerr else {}).get("probe_result") or {}
+    ok("probe.correct_answers_pass", graded.get("result") == "pass", gt[:200])
+    answers[0]["tag"] = "ZZ1Z"
+    bt, berr = text_of(s.call("aoci_overview", {"check_only": True, "probe_answers":
+        {"version": "cognition-probe/v1", "digest": probe["digest"], "answers": answers}}))
+    bad = (json.loads(bt) if not berr else {}).get("probe_result") or {}
+    ok("probe.wrong_answer_fails", bad.get("result") == "fail", bt[:200])
+
 t, err = text_of(s.call("aoci_maintain"))
 def maintain_diag(text):
     """截断的整包 JSON 无法定位阻塞原因; 只提取有界的关键治理事实。"""

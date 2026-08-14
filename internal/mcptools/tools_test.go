@@ -115,9 +115,11 @@ func TestGetEntriesStaleWarning(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{"src/a.go"},
 			},
+			nil,
 		),
 	)
 
@@ -137,9 +139,11 @@ func TestGetEntriesStaleWarning(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{"src/a.go"},
 			},
+			nil,
 		),
 	)
 
@@ -159,9 +163,11 @@ func TestGetEntriesStaleWarning(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{"src/n.go"},
 			},
+			nil,
 		),
 	)
 
@@ -179,9 +185,11 @@ func TestGetEntriesPathEscape(
 		t,
 		handleGetEntries(
 			root,
+			"test-version",
 			getEntriesIn{
 				Paths: []string{"../etc/passwd"},
 			},
+			nil,
 		),
 	)
 
@@ -406,13 +414,10 @@ func TestSearchAndOverview(
 
 	output := resText(
 		t,
-		handleSearch(
-			root,
-			searchIn{
-				Keyword:   "必读",
-				TagFilter: "C>=5",
-			},
-		),
+		handleSearch(root, "test-version", searchIn{
+			Keyword:   "必读",
+			TagFilter: "C>=5",
+		}, nil),
 	)
 
 	if !strings.Contains(
@@ -427,10 +432,7 @@ func TestSearchAndOverview(
 
 	output = resText(
 		t,
-		handleSearch(
-			root,
-			searchIn{},
-		),
+		handleSearch(root, "test-version", searchIn{}, nil),
 	)
 
 	if !strings.Contains(

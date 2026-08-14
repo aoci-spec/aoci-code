@@ -54,6 +54,8 @@ type overviewIn struct {
 	HostConfirmation      *overviewHostConfirmation `json:"host_delivery_confirmation,omitempty"`
 	ModelAttestation      *overviewModelAttestation `json:"model_cognition_attestation,omitempty"`
 	Cursor                string                    `json:"cursor,omitempty"`
+	Probe                 bool                      `json:"probe,omitempty"`
+	ProbeAnswers          *overviewProbeAnswers     `json:"probe_answers,omitempty"`
 }
 
 type getEntriesIn struct {
@@ -167,6 +169,12 @@ func registerReadTools(
 							"",
 						)
 					}
+					if (input.Probe || input.ProbeAnswers != nil) && !input.CheckOnly {
+						return errResult(errBadArgs, "cognition_probe_requires_check_only", "")
+					}
+					if input.Probe && input.ProbeAnswers != nil {
+						return errResult(errBadArgs, "cognition_probe_request_and_answers_conflict", "")
+					}
 
 					loaded, fail := loadCognitionCtx(root)
 					if fail != nil {
@@ -199,7 +207,20 @@ func registerReadTools(
 						eventID,
 					)
 					if input.CheckOnly {
-						compact := renderOverviewCheckpoint(assessment, input, true)
+						var probe *cognitionProbe
+						var probeResult *cognitionProbeResult
+						if input.Probe || input.ProbeAnswers != nil {
+							sequence, sequenceErr := legacyOverviewSequence(repository.doc, repository.text)
+							if sequenceErr != nil {
+								return errResult(errInternal, sequenceErr.Error(), "")
+							}
+							if input.Probe {
+								probe = buildCognitionProbe(currentReceipt.IndexSHA256, assessment.Receipt.RefreshGeneration, sequence)
+							} else {
+								probeResult = gradeCognitionProbe(input.ProbeAnswers, currentReceipt.IndexSHA256, assessment.Receipt.RefreshGeneration, sequence)
+							}
+						}
+						compact := renderOverviewCheckpoint(assessment, input, true, probe, probeResult)
 						ledger.Append(root, repository.cfg.LedgerEnabled, ledger.Event{
 							Op:              "cognition_check",
 							DurationMs:      time.Since(start).Milliseconds(),
@@ -284,7 +305,9 @@ func registerReadTools(
 				func() *mcp.CallToolResult {
 					return handleGetEntries(
 						root,
+						mcpServiceVersion,
 						input,
+						refreshSession,
 					)
 				},
 			), nil, nil
@@ -311,7 +334,9 @@ func registerReadTools(
 				func() *mcp.CallToolResult {
 					return handleSearch(
 						root,
+						mcpServiceVersion,
 						input,
+						refreshSession,
 					)
 				},
 			), nil, nil
@@ -320,8 +345,9 @@ func registerReadTools(
 }
 
 func handleGetEntries(
-	root string,
+	root, mcpServiceVersion string,
 	input getEntriesIn,
+	refreshSession *cognitionRefreshSession,
 ) *mcp.CallToolResult {
 	start := time.Now()
 
@@ -343,7 +369,7 @@ func handleGetEntries(
 		return failResult(deliveryFail)
 	}
 	if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
-		return handleVolumeGetEntries(root, input, loaded, start)
+		return handleVolumeGetEntries(root, mcpServiceVersion, input, loaded, refreshSession, start)
 	}
 	repository := loaded.legacyRepo()
 
@@ -507,7 +533,7 @@ func handleGetEntries(
 	return textResult(mcpMessage("mcp.entries.summary", count) + builder.String())
 }
 
-func handleVolumeGetEntries(root string, input getEntriesIn, loaded *cognitionRepoCtx, start time.Time) *mcp.CallToolResult {
+func handleVolumeGetEntries(root, mcpServiceVersion string, input getEntriesIn, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession, start time.Time) *mcp.CallToolResult {
 	volumeID := strings.ToLower(strings.TrimSpace(input.VolumeID))
 	if volumeID == "" && (len(input.Paths) > 0 || input.Dir != "") {
 		volumeID = "code"
@@ -584,5 +610,6 @@ func handleVolumeGetEntries(root string, input getEntriesIn, loaded *cognitionRe
 		count++
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "get_entries", PathsCount: count, DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent, AOCIToolCalls: 1, LocalRecalls: count})
-	return textResult(mcpMessage("mcp.entries.summary", count) + builder.String())
+	return textResult(mcpMessage("mcp.entries.summary", count) + builder.String() +
+		sessionCognitionSuffix(root, mcpServiceVersion, loaded.set, refreshSession))
 }

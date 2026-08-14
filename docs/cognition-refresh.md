@@ -234,3 +234,19 @@ The exact additive schema and compatibility rules are in
 [`spec/aoci-cognition-refresh-v1.txt`](../spec/public/aoci-cognition-refresh-v1.txt).
 The isolated end-to-end runner and its evidence fields are documented in
 [`scripts/blackbox/longrun-refresh`](../scripts/blackbox/longrun-refresh/README.md).
+
+## Session line and probe
+
+Volumes read tools (`aoci_search`, `aoci_get_entries`, `aoci_header`) end with
+one advisory line such as `cognition: refresh_status=refresh_not_required
+generation=1`, built from in-process session facts at zero scan cost. Its
+default is a license *not* to recall; it escalates only on real signals, and
+when the index has moved past everything the session assessed it recommends a
+cheap `check_only` checkpoint instead of fabricating a verdict.
+
+`check_only` additionally accepts `probe=true` — a deterministic two-question
+sample of the current Entry sequence — and `probe_answers` for memory-only
+answers graded with the Attestation's criteria. Passing proves retained
+cognition without re-reading ~50k tokens; failing is the machine evidence for
+declaring `context_compaction`. The probe never advances the refresh
+generation and never records a reason.
