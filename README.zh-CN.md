@@ -12,7 +12,7 @@
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
 > [!IMPORTANT]
-> AOCI-CODE v0.1.0-rc3 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [v0.1.0-rc3 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc3) 提供的签名包；使用前请遵循[发布验证流程](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)。
+> AOCI-CODE v0.1.0-rc4 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [v0.1.0-rc4 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc4) 提供的签名包；使用前请遵循[发布验证流程](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md#signed-github-release-packages)。
 
 ## 🧠 AOCI 是什么？
 
@@ -68,7 +68,7 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 ```
 ## 🔌 手动接入
 
-请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)选择基础、推荐或完整校验层级，并准确说明已完成的层级。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor、OpenCode 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
+请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md#signed-github-release-packages)选择基础、推荐或完整校验层级，并准确说明已完成的层级。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor、OpenCode 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
 
 首次生成完整认知所需时间取决于仓库规模。正常接入过程包括：准备二进制文件、让 AI Agent 或用户初始化目标仓库、在宿主中提出“建立索引”、验证对齐。后续开发不需要在每个需求末尾重复提醒“维护索引”；项目规则和 AOCI MCP 工作流会在受管对象变化后引导 AI Agent 完成增量认知维护。
 
@@ -79,24 +79,24 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 - 一个受支持的 MCP 宿主，例如 Codex、Claude Code、Cursor 或 OpenCode；
 - 对目标仓库的正常读写权限。
 
-签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
+签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
 
 ### 1. 📦 当前 RC：使用经验证的软件包或从源码构建
 
-签名 Release 二进制报告 `aoci version 0.1.0-rc3`。源码构建则报告由精确
+签名 Release 二进制报告 `aoci version 0.1.0-rc4`。源码构建则报告由精确
 Git checkout 派生的版本，例如 Release tag 之后的
-`v0.1.0-rc3-1-g<short-commit>`；工作树不干净时还会带 `-dirty`，并单独报告
+`v0.1.0-rc4-1-g<short-commit>`；工作树不干净时还会带 `-dirty`，并单独报告
 Git commit。二者表示不同构建输入，不是版本冲突。
 
 使用 GitHub CLI 下载前先完成认证，再下载带 tag 的 Release 资产：
 
 ```bash
 gh auth login
-gh release download v0.1.0-rc3 --repo aoci-spec/aoci-code
+gh release download v0.1.0-rc4 --repo aoci-spec/aoci-code
 ```
 
 如需匿名下载，请在浏览器中打开
-[v0.1.0-rc3 Release 页面](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc3)，
+[v0.1.0-rc4 Release 页面](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc4)，
 并下载所需 archive 与验证资产。
 
 克隆 canonical 仓库、构建二进制，并保持构建结果的路径稳定：
@@ -767,19 +767,19 @@ aoci --repo . index agent guide --agent codex --json
 
 | 主题 | 文档 |
 | --- | --- |
-| 第一次使用 | [Getting Started](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/getting-started.md) |
-| 安装、升级与回滚 | [Install](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/install.md) · [Upgrade](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/upgrading.md) · [Rollback](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/rollback.md) · [Uninstall](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/uninstall.md) |
-| AI Agent 与宿主 | [Agent Integrations](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/agent-integrations.md) · [Windows Host Agent](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/windows-host-agent.md) |
-| Whole-Index 与刷新 | [Overview Delivery](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/overview-delivery.md) · [Cognition Refresh](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/cognition-refresh.md) |
-| Cognition Volumes | [Volumes](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/cognition-volumes.md) · [Volumes Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/spec/public/aoci-cognition-volumes-v1.txt) |
-| System Cognition | [System Cognition Runtime Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/spec/public/aoci-system-cognition-runtime-v1.txt) |
-| Managed Scope | [Managed Scope and Budget](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/managed-scope-and-budget.md) · [Safe Inventory](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/safe-inventory-and-scope-refresh.md) |
-| Database | [Database Evidence](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/database-evidence.md) · [Database Cognition Authoring](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/database-cognition-authoring.md) |
-| 生命周期 | [Getting Started](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/getting-started.md) · [Upgrade](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/upgrading.md) · [Cognition Refresh](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/cognition-refresh.md) |
-| 格式与协议 | [Index Format](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/spec/public/aoci-index-format-v1.txt) · [Cognition Volumes Spec](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/spec/public/aoci-cognition-volumes-v1.txt) · [Object FRAS v2](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/spec/public/aoci-object-fras-v2.txt) |
-| 研究与发布 | [Supply Chain](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/docs/supply-chain.md) |
+| 第一次使用 | [Getting Started](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/getting-started.md) |
+| 安装、升级与回滚 | [Install](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md) · [Upgrade](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/upgrading.md) · [Rollback](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/rollback.md) · [Uninstall](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/uninstall.md) |
+| AI Agent 与宿主 | [Agent Integrations](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/agent-integrations.md) · [Windows Host Agent](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/windows-host-agent.md) |
+| Whole-Index 与刷新 | [Overview Delivery](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/overview-delivery.md) · [Cognition Refresh](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/cognition-refresh.md) |
+| Cognition Volumes | [Volumes](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/cognition-volumes.md) · [Volumes Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-cognition-volumes-v1.txt) |
+| System Cognition | [System Cognition Runtime Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-system-cognition-runtime-v1.txt) |
+| Managed Scope | [Managed Scope and Budget](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/managed-scope-and-budget.md) · [Safe Inventory](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/safe-inventory-and-scope-refresh.md) |
+| Database | [Database Evidence](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/database-evidence.md) · [Database Cognition Authoring](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/database-cognition-authoring.md) |
+| 生命周期 | [Getting Started](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/getting-started.md) · [Upgrade](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/upgrading.md) · [Cognition Refresh](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/cognition-refresh.md) |
+| 格式与协议 | [Index Format](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-index-format-v1.txt) · [Cognition Volumes Spec](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-cognition-volumes-v1.txt) · [Object FRAS v2](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-object-fras-v2.txt) |
+| 研究与发布 | [Supply Chain](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/supply-chain.md) |
 
-> 上述文档和公开合同链接固定到 `v0.1.0-rc3`，因此即使从不包含 `docs/` 和
+> 上述文档和公开合同链接固定到 `v0.1.0-rc4`，因此即使从不包含 `docs/` 和
 > `spec/public/` 的 Release archive 中阅读本 README，链接仍然有效。
 
 ## 🧪 黑盒验证套件
@@ -811,11 +811,11 @@ AOCI-CODE 的研究论文和 Artifact 可以公开描述已发布的方法、实
 <details>
 <summary>贡献、安全与许可证</summary>
 
-外部贡献者可以按照 [CONTRIBUTING.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/CONTRIBUTING.md) 提交聚焦的改进。贡献者必须有权提交相关工作；被接受的贡献受仓库许可证和已发布的 inbound terms 约束，维护者也可能在合并前要求补充贡献者文件。
+外部贡献者可以按照 [CONTRIBUTING.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/CONTRIBUTING.md) 提交聚焦的改进。贡献者必须有权提交相关工作；被接受的贡献受仓库许可证和已发布的 inbound terms 约束，维护者也可能在合并前要求补充贡献者文件。
 
-请勿在公开 Issue 中披露疑似漏洞。请遵循 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc3/SECURITY.md)；受监控的私密报告渠道和明确响应责任仍是公开 Release 的必要条件。
+请勿在公开 Issue 中披露疑似漏洞。请遵循 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/SECURITY.md)；受监控的私密报告渠道和明确响应责任仍是公开 Release 的必要条件。
 
-AOCI-CODE v0.1.0-rc3 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件。适用条款见 [LICENSE](LICENSE)。
+AOCI-CODE v0.1.0-rc4 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件。适用条款见 [LICENSE](LICENSE)。
 
 </details>
 

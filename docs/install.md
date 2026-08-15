@@ -15,17 +15,17 @@ make build
 
 The build produces `build/aoci` on POSIX hosts and `build/aoci.exe` on Windows. Copy it to a stable absolute path owned by the current user or administrator, then configure hosts to call that exact path.
 
-The signed Release binary reports `aoci version 0.1.0-rc3`. A source build
+The signed Release binary reports `aoci version 0.1.0-rc4`. A source build
 reports the version derived from its exact Git checkout, such as
-`v0.1.0-rc3-1-g<short-commit>` after the Release tag, and reports that Git
+`v0.1.0-rc4-1-g<short-commit>` after the Release tag, and reports that Git
 commit separately. These are distinct build identities, not conflicting
 versions.
 
 ## Signed GitHub Release packages
 
 Published release-candidate packages are available from the
-[v0.1.0-rc3 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc3). The
-`v0.1.0-rc3` release has exactly 16 uploaded assets:
+[v0.1.0-rc4 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc4). The
+`v0.1.0-rc4` release has exactly 16 uploaded assets:
 
 - six archives: Linux, macOS, and Windows, each for amd64 and arm64;
 - six SPDX JSON SBOMs, one named after each archive with `.sbom.json`
@@ -33,7 +33,7 @@ Published release-candidate packages are available from the
 - `SHA256SUMS` and `RELEASE-MANIFEST.json`;
 - `SHA256SUMS.sigstore.json`, the keyless Cosign signature bundle for the
   original `SHA256SUMS` bytes; and
-- `AOCI-CODE_v0.1.0-rc3.provenance.sigstore.json`, the GitHub build-provenance
+- `AOCI-CODE_v0.1.0-rc4.provenance.sigstore.json`, the GitHub build-provenance
   bundle.
 
 The 12 archives and SBOMs are the checksum subjects. The 14 provenance subjects
@@ -59,14 +59,14 @@ run `aoci --version`.
 For a downloaded POSIX archive:
 
 ```bash
-ARCHIVE=aoci_0.1.0-rc3_linux_amd64.tar.gz # choose the actual platform asset
+ARCHIVE=aoci_0.1.0-rc4_linux_amd64.tar.gz # choose the actual platform asset
 grep "  ${ARCHIVE}$" SHA256SUMS | sha256sum -c -
 ```
 
 For a downloaded Windows archive, compare the matching `SHA256SUMS` value with:
 
 ```powershell
-$Archive = "aoci_0.1.0-rc3_windows_amd64.zip" # choose the actual architecture
+$Archive = "aoci_0.1.0-rc4_windows_amd64.zip" # choose the actual architecture
 $Expected = ((Select-String -Path .\SHA256SUMS -Pattern "  $([regex]::Escape($Archive))$").Line -split '\s+')[0]
 $Actual = (Get-FileHash -Algorithm SHA256 $Archive).Hash.ToLowerInvariant()
 if ($Actual -ne $Expected) { throw "archive checksum mismatch" }
@@ -82,7 +82,7 @@ Also download `SHA256SUMS.sigstore.json` and use Cosign to verify that the exact
 Actions OIDC issuer. This does not require GitHub CLI:
 
 ```bash
-TAG=v0.1.0-rc3
+TAG=v0.1.0-rc4
 REPOSITORY=aoci-spec/aoci-code
 CERTIFICATE_IDENTITY="https://github.com/$REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG"
 OIDC_ISSUER=https://token.actions.githubusercontent.com
@@ -115,7 +115,7 @@ remains a separate, explicitly lower assurance level.
 
 ```bash
 REPOSITORY=aoci-spec/aoci-code
-TAG=v0.1.0-rc3
+TAG=v0.1.0-rc4
 VERSION=${TAG#v}
 RELEASE_DIR="$PWD/aoci-code-$VERSION-release"
 CERTIFICATE_IDENTITY="https://github.com/$REPOSITORY/.github/workflows/release.yml@refs/tags/$TAG"

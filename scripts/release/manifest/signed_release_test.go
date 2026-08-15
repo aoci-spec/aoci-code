@@ -287,7 +287,7 @@ func TestReleaseProfileAcceptsPrereleaseAndStableTags(t *testing.T) {
 func TestReleaseWorkflowDerivesGitHubReleaseChannel(t *testing.T) {
 	workflow := readRepositoryFile(t, ".github", "workflows", "release.yml")
 	required := []string{
-		"default: 0.1.0-rc3",
+		"default: 0.1.0-rc4",
 		"is_prerelease: ${{ steps.identity.outputs.is_prerelease }}",
 		"is_latest: ${{ steps.identity.outputs.is_latest }}",
 		"*-*)",

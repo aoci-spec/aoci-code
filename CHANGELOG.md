@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc4
 
 - Add a narrow openGauss 6.0.5 LTS A/PG Schema Evidence collector, backed by a
   reproducibly patched official Connector v1.0.8, strict remote `verify-full`
@@ -20,14 +20,259 @@ All notable public changes to AOCI-CODE will be documented in this file.
   without changing the nine-tool MCP surface or request Schema; actual source
   drift remains a stopped replan condition instead of a copied-field repair.
 - Expose the aggregate Check command in an authoring-required Volumes Guide and
-  close the final successful batch through Verify, Aggregate Check, and Guide while
-  preserving intermediate-batch and Legacy Entries Stage behavior.
+  close the final successful batch through Verify, Aggregate Check, and Guide
+  while preserving intermediate-batch and Legacy Entries Stage behavior.
 - Return the same Verify, Aggregate Check, and Guide closure directly from a
   successful final Volumes Apply, while leaving paged, Legacy, and Cognition
   Optimization actions unchanged.
 - Advance an already-managed Root fingerprint in the same Database Cognition
   Bootstrap Baseline postimage as the Root descriptor update, and narrowly
   reconcile the canonical historical state left by earlier Bootstrap versions.
+- Add a session cognition line to `aoci_search`, `aoci_get_entries`, and
+  `aoci_header`, and an optional two-question cognition probe on a
+  `check_only` Overview, so a Host can tell whether it still holds the
+  delivered Whole-Index instead of re-requesting it. The line is computed from
+  session facts with no repository scan, receipt identity drift never raises
+  it, and the probe measures recall without advancing the refresh generation.
+- Grade the Whole-Index Attestation as assimilation rather than verbatim
+  recall: the Challenge passes at 80 percent or better with at most one object
+  identity miss, core F is judged by normalized token similarity that splits
+  Han, Kana, and Hangul into character bigrams so every Locale meets the same
+  floor, and object identity and Tag stay exact. `fail` is reserved for a
+  foreign envelope or no correct ordinal; every other shortfall records
+  `partial`, so an honest complete-coverage claim can no longer grade below
+  the same answers submitted with a hedged one.
+- Accept `host_delivery_confirmation` and `model_cognition_attestation` in one
+  call or in separate calls in either order. Both halves bind the same
+  delivered body, so the session remembers each half per body and grades the
+  merged evidence; an explicitly carried half supersedes the remembered one,
+  and a fresh complete delivery resets that memory.
+- Size one authoring batch for the Host tool-result window. The team key
+  `code_cognition_batch_entries` (machine default 20, wire ceiling 200) sets
+  how many candidates one Maintain asks the model to author inline, and
+  Maintain keeps per-item governance enumerations to a leading sample with
+  complete counts under `governance.list_truncation` and `sets.review_total`.
+  Candidates, plans, and receipts stay complete, `aoci verify` and `aoci check`
+  still list every item, and the Database Evidence byte gate defaults to
+  64 KiB.
+- Return structured repair findings instead of an internal error when an
+  enforce-mode cognition budget rejects an Entry: every violated field carries
+  `candidate_index`, `field`, `actual_tokens`, and `max_tokens`, whole-index
+  excess and violations outside the batch stay a batch-level stop, and a CJK
+  `S` field that crosses its token band is now a locatable repair.
+- Accept model-authored `R` exactly as written: AOCI never checks one Entry's
+  relations against another Entry, so a relation whose target is missing,
+  unmanaged, scheduled for a later batch, or ambiguous by bare name is
+  persisted unchanged and produces no Finding. `aoci_update_entry` no longer
+  returns `impact_relation_unresolved`, `impact_relation_ambiguous`, or
+  `impact_relation_invalid`; per-Entry FRAS structure, the tag dictionary, the
+  C-driven S quota, source binding, and the projected budget stay enforced,
+  and a newly authored or changed relation must still use a canonical `code:`
+  or `database://` identity.
+- Stop letting `R` reschedule a Code authoring batch: a submitted batch is no
+  longer answered with a zero-write `code_candidate_relation_replan_required`
+  replacement plan, so a repository whose Entries reference each other across
+  batches, including a mutually-referencing cluster larger than the machine
+  Code batch size, now reaches `aligned` in the ordinary rolling batches
+  instead of replanning. Receipts issued before this change still load, so a
+  plan already in flight survives the upgrade.
+- Keep `R` references from other Entries from blocking ordinary
+  `aoci_remove_entry` orphan removal, which no longer fails with
+  `remove_orphan_relation_still_valid`, and from making a legacy `aoci.txt`
+  Index `ineligible` in `aoci cognition migration snapshot` when one relation
+  names a path that is gone. Any dangling annotation left behind stays
+  model-owned until the model's next Whole-Index read; orphan proof, Guard,
+  exact preimages, and the existing Entries recovery path are unchanged.
+- Report `R` problems only from the Entry line itself: `aoci index entries
+  check` still warns about that line's own form, such as an empty item, a
+  placeholder mixed with real targets, or a full-width comma, and those
+  warnings still never reject an Entry; it no longer resolves targets on disk
+  to warn that one is missing, duplicated, self-referencing, or not a regular
+  file, and `aoci cognition system relations` reports no relation `findings`.
+  The hard safety gate on the actual write `path` is unchanged.
+- Carry the `aoci scan` remediation in a blocked Volumes Guide that has no
+  Baseline: the response adds the `scan` command, a `baseline_missing` stop
+  with cause and safe next action, and the instruction to author nothing
+  before a Baseline exists. An initialized Volumes repository with zero
+  Entries is completed through scan, Guide, and no-argument Maintain;
+  `aoci cognition bootstrap` governs only an uninitialized repository or the
+  exact zero-Entry Legacy minimal skeleton.
+- Roll a partially written `[code,database]` receipt batch forward when the
+  identical evidence-bound candidates are resubmitted, so an interruption
+  between the Code and Database writes finishes the remaining Volume instead
+  of stopping at `code_candidate_plan_stale` behind a pending
+  `.aoci/transactions` receipt; the roll-forward still requires a version-4
+  recovery receipt proving that Volume's own postimage, and the fixed
+  Code-then-Database order, `[code]`, and `[database]` batches are unchanged.
+- Carry the plan-time Curation exclusions in the managed-scope-change envelope
+  as `curation_exclusions` and replay them when verifying after publication,
+  so a reviewed `curation.json` exclude decision for an already baselined path
+  applies and archives as one transaction instead of leaving a complete
+  transaction that can never be archived; envelopes without the field keep
+  recomputing exclusions from the current Baseline, and `envelope_version` is
+  unchanged.
+- Keep the partition facts of mid-level tables when linking multi-level
+  PostgreSQL partitioning: a table that is both a partition and a partition
+  parent now records `parent_object` and `bound` while retaining
+  `partitioned`, `method`, `expression`, and any `child_objects` already
+  linked to it, instead of being rewritten as a non-partitioned leaf; the
+  narrow non-partitioned openGauss profile and Evidence v1 are unchanged.
+- Name the cause when `aoci init` stops with
+  `managed_scope_auto_authorization_blocked`: the bilingual message now
+  separates tracked paths excluded by a built-in safety rule (up to five
+  named, the rest as a +N remainder) from a profile that assigns no path to
+  the index role and from configured exact high-risk opt-ins, pointing the
+  first two at `aoci scope safety` and `--scope-profile production`; `--json`
+  reports `error_code` as that machine code instead of the generic `config`,
+  and the exit code is unchanged.
+- Record the effective apply authorization mode in the Managed Scope Baseline
+  receipt as `apply_authorization_mode`, and raise
+  `approval_policy_relaxation` when a Scope Change runs under a mode weaker
+  than the one that receipt records; that risk is `high`, blocks
+  `policy_bound_auto`, and forces interaction under `legacy`, so a team's
+  review posture can no longer be lowered and self-ratified inside the same
+  transaction. A receipt written before this field is not retroactively
+  blocked, so the guarantee starts at the first receipt that records a mode;
+  an unrecognized recorded mode fails closed.
+- Accept a Managed Scope Baseline receipt recorded under the opposite
+  filesystem case semantics when every managed path provably takes the same
+  role and the same fingerprint participation under both, so a Baseline
+  established on a case-sensitive checkout no longer stops a case-insensitive
+  one with `scope_change_required`. The receipted value becomes the reported
+  `desired_policy_identity`; any real case divergence leaves
+  `alternate_policy_identity` empty and keeps the stop.
+- Route every read-only Git query against a scanned repository through one
+  hardened invocation that disables `core.fsmonitor`, `core.hooksPath`, and
+  `core.pager` on the command line, so a target repository's own `.git/config`
+  can no longer point those reads at a program for Git to run while it walks
+  the working tree. Safe Inventory collection and business-source manifest
+  building both use it; file listing still passes `core.quotepath=false`,
+  every call still sets `GIT_OPTIONAL_LOCKS=0`, and the reported tracked,
+  untracked, and ignored facts are unchanged.
+- Stop the Windows-only non-atomic overwrite fallback of `AtomicWrite` from
+  destroying the previous content by renaming the target to a same-directory
+  backup before the retry, restoring that backup when the retry fails, and
+  keeping both copies with both paths named in the error only when even the
+  restore fails; the fallback still runs only after a normal atomic rename
+  has failed and never on other platforms.
+- Pin `* text=auto eol=lf` in `.gitattributes` so a source checkout is
+  byte-identical on every platform: the Windows default `core.autocrlf=true`
+  can no longer rewrite tracked text to CRLF, so a Windows checkout still
+  matches the raw-byte Baseline instead of leaving `aoci_maintain` blocked on
+  the whole tree. Every tracked text file is already LF, so the
+  repository-wide renormalization changes no committed bytes.
+- Report `service_binary_replaced_on_disk: true` in the Volumes
+  `aoci_maintain` result, `aoci_rules`, and the final Overview metadata when
+  the service binary's on-disk size or mtime no longer matches what the
+  running process started from, so restarting the host MCP integration
+  becomes a machine fact instead of manual diagnosis. The fact is advisory:
+  it blocks nothing, is absent when there is no drift, counts a vanished
+  binary as replaced, stays off when the startup probe records no identity,
+  and does not change the nine-tool MCP surface.
+- State where the running version and binary path come from in the Runtime
+  Rules and the AGENTS integration block: the service version is
+  `cognition_receipt.mcp_service_version` in any `check_only` Overview or
+  Maintain response, the binary path is the `command` in the project's
+  `.mcp.json`, and the CLI need not be on `PATH`, so a missing shell command
+  never means AOCI is absent.
+- Add three standalone black-box suites under `scripts/blackbox/` that drive a
+  built `aoci` binary as a real stdio MCP client and never import internal
+  packages: `mcp_conformance.py` makes 58 read-only checks of the handshake,
+  the nine-tool registry, input Schemas, response shapes, and malformed input;
+  `mcp_scenarios.py` runs 30 fault-injection scenarios for cursor replay and
+  tampering, write-lifecycle rejection, crash injection, and racing writers
+  over disposable fixtures; and `mcp_lifecycle.py` takes three frozen fixture
+  projects, including a 453-object one, from `init` through incremental
+  maintenance, Database Evidence acceptance, schema drift, multi-batch
+  authoring, and re-alignment, with an optional real-agent model track. Every
+  suite now also asserts that no non-Overview tool response exceeds 64 KB
+  under default configuration, so a response can never grow past what an
+  ordinary Host displays inline. All three need only Python 3, git, and a
+  binary, honor `AOCI_BIN`, and ship with a repository clone rather than with
+  Release archives.
+- Correct the public delivery contract in
+  `spec/public/aoci-overview-delivery-v1.txt` and `docs/overview-delivery.md`:
+  an exact replay of a genuine cursor idempotently re-serves the identical
+  Chunk bytes, and because a cursor is re-derivable from its bound facts
+  alone, an unchanged Index and `chunk_tokens` accept the same cursor across
+  MCP process restarts. Invalid, missing, reordered, and cross-chain use
+  still fails closed, `overview_snapshot_changed` and
+  `overview_chunk_tokens_changed` still require a restart at Chunk 1, no
+  delivery Session or transaction is persisted, and the Volumes governance
+  binding remains in-memory session state that does not carry across
+  processes.
+- Correct the `aoci_remove_entry` description and the Volumes and system
+  cognition Specs to state the behavior the machine actually has: an R
+  reference from another Entry never blocks orphan removal, a dangling
+  annotation left behind is model-owned semantics handled on the next
+  Whole-Index read, and relation content produces no Finding, so `findings`
+  stays in the public shape and stays empty. Removal and projection behavior
+  is unchanged.
+- Document the shipped `meta` scope of `aoci_overview` and the additive
+  `aoci_maintain` input `intent=cognition_optimization` with its optional
+  `object_refs` filter of canonical `code:` references in
+  `aoci-cognition-volumes-v1.txt`, and cross-reference that intent from
+  `aoci-database-cognition-authoring-v1.txt`, where it never applies to
+  Database assessment. `project` and `meta` each deliver Root + Meta, no MCP
+  tool is added, and ordinary no-argument Maintain is unchanged.
+- Renumber the first-section items of the `aoci_rules` runtime-rules contract
+  from `5.`-`8.` to `4a.`-`4d.` and prefix the `en-US` section headings with
+  `Section `, so an item number no longer collides with the deliberate global
+  `5.`-`18.` sequence of the later sections or with a section number. Item
+  bodies stay byte-identical in both official locales.
+- Stop the `aoci cognition` and `aoci database` group help from claiming
+  read-only behavior neither group has: `cli.short.cognition` now names
+  governed Apply workflows next to layout planning, since the group carries
+  `aoci cognition bootstrap apply` and `aoci cognition onboard apply`, and
+  `cli.short.database` scopes its read-only claim to database access, since
+  those workflows write local Schema Evidence and advance the evidence
+  Baseline. Both official locales change together; no command, flag, or
+  runtime behavior changes.
+- Correct the Git claim in `docs/install.md` and `docs/supply-chain.md`: the
+  binary starts and non-Git directories are scanned without it, but Safe
+  Inventory invokes the host `git` executable in any root holding `.git` for
+  tracked and ignored authority and fails closed with
+  `safe_inventory_git_unavailable` when that executable is absent. GitHub CLI,
+  Cosign, Go, and SBOM readers remain verification-only with no runtime
+  dependency.
+- Document that the host configuration written by `aoci init --agent <name>`
+  (`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`,
+  `opencode.json`) embeds machine-bound absolute paths and belongs in
+  `.gitignore`, and add a moved-binary-or-repository troubleshooting entry:
+  the Claude and Codex installers detect an existing entry by key presence,
+  so re-running `init` keeps the stale paths and `aoci doctor` still reports
+  those integrations as installed while the server fails to start, whereas
+  OpenCode fails closed on an `mcp.aoci` conflict; recovery is to remove the
+  stale `mcpServers.aoci`, `[mcp_servers.aoci]`, `mcp.aoci`, and `PreToolUse`
+  entries and re-run `init` from the new location.
+- Scope the Windows Host-Agent guide to the layout it describes, marking its
+  Entries/Header/Curation Stage sections Legacy, routing Volume-first
+  repositories to the live Guide with ordinary no-argument `aoci_maintain` and
+  `aoci_update_entry`, replacing the old `aoci_overview` size-threshold
+  fallback with the current `continuation_required` chunked delivery, and
+  recording the evidence-driven automatic replan, Resume, and Rollback
+  closures for a `stopped` write. The "F length is never machine-blocked" rule
+  now covers Legacy v1 Entries only, because FRAS v2 hard-limits a Volumes v1
+  object's `F` to 160 runes.
+- Add English renderings of three Chinese-only documents:
+  `docs/contract-authority.md`, `spec/public/s-field-discipline.en.txt`, and
+  `docs/windows-host-agent.en.md`, reachable from `AGENTS.md`,
+  `spec/public/README.md`, `docs/troubleshooting.md`, and a new pointer in
+  `docs/windows-host-agent.md`. The Chinese files remain the normative
+  originals; the renderings carry no machine-scanned declaration and open no
+  second rule authority.
+- Expand both public READMEs with the Volume-first layout, the three-stage
+  workflow, cross-Agent and cross-session reuse of one Whole-Index, and a
+  verbatim excerpt of the starter tag dictionary with a worked reading of one
+  compact tag; each repository's formal Meta remains authoritative.
+- Build every gate and the signed release from the single `go.mod` toolchain
+  directive, now `go1.26.6`, so release archives carry the same patched
+  standard library that fast CI, full confidence, and the rehearsal verify.
+- Preserve the nine MCP tool names and their stable identity, FRAS v2, and the
+  existing Index and Baseline formats; every response change in this release
+  is an additive field.
+
+The first public availability date for v0.1.0-rc4 is 2026-08-15.
 
 ## v0.1.0-rc3
 
