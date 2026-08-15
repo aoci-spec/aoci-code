@@ -4,6 +4,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Carry the `aoci scope acknowledge` remediation in a blocked Volumes Guide whose
+  Observe evidence is pending review. `observe_change_policy` defaults to
+  `review_required`, so an ordinary edit to any Observe-role file blocks
+  authoring; the Legacy Plan already routed that state to acknowledgement, while
+  the Volumes Guide reported a bare `observed_pending` finding with no command.
+  The response now adds the scope status and acknowledge commands, an
+  `observed_pending` stop with cause and safe next action, and the instruction to
+  review the reported evidence before acknowledging.
 - Show the index header both public READMEs previously only described: the Root
   manifest that declares each participating Volume with its kind, path, format,
   dependency, and activation state, and the Meta header that carries the object
