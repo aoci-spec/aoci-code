@@ -334,13 +334,15 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 // baseline_first stage with exactly this remediation all along. The stage stays
 // "blocked"; the stop facts, the scan command, and the instructions are additive.
 func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
-	baselineMissing, scopeChange := false, false
+	baselineMissing, scopeChange, observedPending := false, false, false
 	for _, finding := range facts.Findings {
 		switch finding.Code {
 		case "baseline_missing":
 			baselineMissing = true
 		case "scope_change_required":
 			scopeChange = true
+		case "observed_pending":
+			observedPending = true
 		}
 	}
 	locale := textassets.ActiveLocale()
@@ -359,6 +361,26 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 	if scopeChange {
 		guide.Commands.ScopePreview = "aoci scope status --json"
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_scope_change"))
+	}
+	// observe_change_policy defaults to review_required, so an ordinary change to
+	// any Observe-role file blocks authoring. The Legacy Plan already routes that
+	// state to scope acknowledge; without this the Volumes Guide reported a bare
+	// observed_pending finding and no command, which is the same dead end as
+	// baseline_missing was before issue #8.
+	if observedPending {
+		instructions := []string{
+			cliMessage("guide.observed_review_instruction_evidence"),
+			cliMessage("guide.observed_review_instruction_ack"),
+		}
+		guide.Commands.ScopeStatus = "aoci scope status --json"
+		guide.Commands.ScopeAcknowledge = "aoci scope acknowledge --reviewed-by {agent} --json"
+		guide.Stop = &volumeGuideStopFacts{
+			AffectedAsset: ".aoci/baseline.json", Field: "observe", RuleCode: "observed_pending",
+			Expected: "observe_fingerprints_reviewed_and_acknowledged", Actual: "observe=pending_review",
+			Cause:          cliMessage("guide.observed_review_required"),
+			SafeNextAction: strings.Join(instructions, " "),
+		}
+		guide.Instructions = append(guide.Instructions, instructions...)
 	}
 }
 
