@@ -80,13 +80,15 @@ func init() {
 				fmt.Println(cfg.CognitionRefreshThreshold)
 			case "overview_delivery.chunk_tokens":
 				fmt.Println(cfg.OverviewDelivery.ChunkTokens)
+			case "code_cognition_batch_entries":
+				fmt.Println(cfg.CodeCognitionBatchLimit())
 			default:
 				return &ExitError{
 					Code: ExitConfig,
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens",
+						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries",
 					),
 				}
 			}
@@ -194,6 +196,18 @@ func init() {
 						machinecontract.OverviewChunkTokensMax,
 					)}
 				}
+			case "code_cognition_batch_entries":
+				parsed, parseErr := strconv.Atoi(value)
+				if parseErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_integer", value)}
+				}
+				if setErr := cfg.SetCodeCognitionBatchEntries(parsed); setErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage(
+						"config.code_cognition_batch_entries_range",
+						machinecontract.CodeCognitionBatchEntriesMin,
+						machinecontract.CodeCognitionBatchEntriesMax,
+					)}
+				}
 			case "installed_agents":
 				return &ExitError{
 					Code: ExitConfig,
@@ -205,7 +219,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens",
+						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries",
 					),
 				}
 			}

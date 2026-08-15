@@ -43,8 +43,13 @@ type volumeMaintainCandidate struct {
 
 type volumeMaintainSets struct {
 	Review []string `json:"review"`
-	Write  []string `json:"write"`
-	Guard  []string `json:"guard"`
+	// ReviewTotal is the complete review-closure size when Review was cut to
+	// the transport sample; zero means Review is complete. On an update batch
+	// the relation closure routinely spans the Whole-Index, and that fact is
+	// a count, not a path list the model must scroll.
+	ReviewTotal int      `json:"review_total,omitempty"`
+	Write       []string `json:"write"`
+	Guard       []string `json:"guard"`
 }
 
 type volumeAuthoringBatch struct {
@@ -109,7 +114,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		ServiceBinaryReplacedOnDisk: serviceBinaryReplacedOnDisk(),
 		NextAction:                  facts.NextRequiredAction,
-		Batch: volumeAuthoringBatch{MaxEntries: entriesBatchLimit,
+		Batch: volumeAuthoringBatch{MaxEntries: codeBatchLimit(loaded.cfg),
 			CompositeIdentity: facts.CompositeIdentity, ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity},
 	}
 	requested := map[string]bool{cognition.ScopeCode: requestedScope == "" || requestedScope == cognition.ScopeAll || requestedScope == cognition.ScopeCode,
@@ -120,7 +125,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 			buildVolumeCodeCandidates(root, loaded, &result)
 		}
 		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
-			buildVolumeDatabaseCandidates(root, loaded, &result, entriesBatchLimit-len(result.Candidates))
+			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
 		}
 	}
 	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested)
@@ -185,11 +190,28 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
+	boundMaintainTransport(&result)
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
 	}
 	return textResult(string(data) + "\n")
+}
+
+// boundMaintainTransport keeps a Maintain response inside ordinary host
+// tool-result windows regardless of repository size: per-item governance
+// enumerations and the review closure keep a leading sample plus complete
+// counts. Candidates, plans, receipts, and every scalar fact are untouched,
+// so nothing the model must act on is ever cut. (A 453-file fresh repository
+// otherwise answered its first Maintain with 212 KB, three times a common host
+// window; the host spilled it to disk and the model fell back to scripting.)
+func boundMaintainTransport(result *volumeMaintainResult) {
+	limit := machinecontract.MaintainTransportListLimit
+	if len(result.Sets.Review) > limit {
+		result.Sets.ReviewTotal = len(result.Sets.Review)
+		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
+	}
+	result.Governance = volumegovernance.BoundListsForTransport(result.Governance, limit)
 }
 
 func candidateDomains(candidates []volumeMaintainCandidate) []string {
@@ -246,7 +268,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	}
 	plan, err := codebatch.BuildPlan(root, result.Governance.CompositeIdentity,
 		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, entriesBatchLimit)
+		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg))
 	if err != nil {
 		return
 	}

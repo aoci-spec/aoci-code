@@ -679,6 +679,7 @@ func TestCognitionOptimizationIntentBoundariesFailClosedWithoutFormalWrites(t *t
 func buildCognitionOptimizationRepo(t *testing.T, count int) string {
 	t.Helper()
 	root := buildVolumeRepo(t, true, false)
+	setTeamCodeBatchEntries(t, root, machinecontract.EntriesBatchMaxItems)
 	if err := os.Remove(filepath.Join(root, "main.go")); err != nil {
 		t.Fatal(err)
 	}
@@ -945,7 +946,7 @@ func assertOptimizationReviewBatch(t *testing.T, payload optimizationMaintainPay
 	t.Helper()
 	if payload.Status != autoStatusApplied || !payload.Aligned || payload.CodePlan == nil || payload.Governance == nil ||
 		!payload.Governance.GovernanceAligned || len(payload.Candidates) != included || payload.CodePlan.Included != included ||
-		payload.CodePlan.Included > 200 || payload.Batch.MaxEntries != 200 || payload.Optimization == nil {
+		payload.CodePlan.Included > machinecontract.EntriesBatchMaxItems || payload.Batch.MaxEntries != machinecontract.EntriesBatchMaxItems || payload.Optimization == nil {
 		t.Fatalf("invalid aligned optimization batch: %#v", payload)
 	}
 	assertOptimizationProgress(t, payload.Optimization, "review_required", total,

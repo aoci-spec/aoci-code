@@ -13,7 +13,11 @@ The configured `index_path` selects the cognition root. `locale` selects one
 official Locale for generated assets and process output. Inventory exclusions,
 curation exclusions, line-ending policy, cognition refresh threshold, Overview
 delivery framing, managed scope, cognition budget, automation, Database Source
-declarations, and installed Host integrations are team-owned settings.
+declarations, authoring batch sizes (`code_cognition_batch_entries`,
+`database_cognition_batch_objects`, `database_cognition_batch_evidence_bytes`),
+and installed Host integrations are team-owned settings. A batch size is a
+shared authoring contract between the machine and every Host that maintains
+the repository, so the local layer cannot change it.
 
 Secrets and network configuration
 ---------------------------------

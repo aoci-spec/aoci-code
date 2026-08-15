@@ -213,6 +213,12 @@ numeric authority is `internal/machinecontract/numeric.go`; Guide and CLI Help
 derive from that contract at runtime, and the Chinese original of this
 document is locked to it by cross-layer equivalence tests.
 
+### 11.1 Volumes authoring batches are sized for the Host window; no staging files
+
+Below those caps, each Volumes Maintain issues one current machine batch of the team size `code_cognition_batch_entries` (default 20, never above the 200 ceiling). The batch is sized to be authored inline as one `aoci_update_entry` call, and the Maintain response cuts per-file governance enumerations to a sample plus complete counts (`governance.list_truncation`, `sets.review_total`), so it reads inline in any Host; candidates, plans, and receipts are always complete. A lost context is recovered by calling Maintain again, which reproduces the same batch and candidate identities.
+
+Never move candidate or Entry text through helper scripts or shell command lines. The real failure chain: an oversized batch → the Host spills the tool result to its own data directory (for Claude Code `%USERPROFILE%\.claude\projects\<project>\…\tool-results\`, not written by aoci) → the model writes Python to parse and merge → on Chinese Windows `open()` defaults to GBK and mis-reads UTF-8, quotes inside `python -c "…"` break bash, temporary paths do not exist. If a model still runs Python, set `PYTHONUTF8=1` and pass `encoding='utf-8'` to every `open()`; aoci itself writes only `.aoci/` and the formal Volume files inside the repository (its only write outside is a tiny CAS lock file under the temp directory).
+
 ## 12. Missing machine-field compatibility (Legacy)
 
 Legacy Verify reports `result.missing = raw_missing`; Score/Check and

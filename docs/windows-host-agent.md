@@ -559,6 +559,12 @@ Curation Stage：
 这些是协议硬上限，不表示模型必须处理到上限。
 数值权威位于 `internal/machinecontract/numeric.go`；Guide 与 CLI Help 在运行时从该合同派生，本文由跨层等价测试锁定。
 
+### 11.1 Volumes 授权批次按宿主窗口标定，不需要中间文件
+
+上限之下，Volumes 的每次 Maintain 只发一个当前机器批次，大小取团队配置 `code_cognition_batch_entries`（默认 20，不高于上限 200）。批次按"模型能在一次 `aoci_update_entry` 调用里内联写完"标定，Maintain 响应也把逐文件的治理清单裁成样本加总数（`governance.list_truncation`、`sets.review_total`），因此在任何宿主里都能内联阅读；候选、计划与受据永远完整。上下文丢失时再次调用 Maintain 即可拿回同一批次与同一候选身份。
+
+不要把候选或条目文本搬进辅助脚本或 shell 命令行。真实事故链是：批次过大 → 宿主把超限的工具结果落盘到自己的数据目录（Claude Code 是 `%USERPROFILE%\.claude\projects\<项目>\…\tool-results\`，不是 aoci 写的）→ 模型改写 Python 解析与合并 → 中文 Windows 上 `open()` 默认 GBK 与 UTF-8 互读、`python -c "…"` 里的引号被 bash 截断、临时路径不存在。如果模型仍需运行 Python，请设置 `PYTHONUTF8=1` 并在每个 `open()` 显式 `encoding='utf-8'`；aoci 自身只写仓库内的 `.aoci/` 与正式卷文件（唯一的仓外写入是临时目录下几十字节的 CAS 锁文件）。
+
 本文件解释Windows宿主接入，不是另一套状态机。当前Plan的命令顺序与停点只取当前Guide，机器字段与治理判据取真实Schema、公开Spec、Validator和确定性状态机；Prompt与MCP Description不能覆盖这些结果。完整分层见 `docs/zh-cn-contract-authority.md`。
 
 ## 12. Missing机器字段兼容

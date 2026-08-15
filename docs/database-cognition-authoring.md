@@ -112,8 +112,11 @@ the complete canonical Evidence-byte sum. Machine defaults and bounds live only
 in `internal/machinecontract`; optional team keys
 `database_cognition_batch_objects` and
 `database_cognition_batch_evidence_bytes` may tune large projects, while local
-configuration cannot override them. One oversized table is returned alone;
-Evidence is never truncated and no token predictor is used.
+configuration cannot override them. The byte default (64 KiB) is the
+operative gate at real table sizes: a few KB per canonical table keeps a page
+inside a Host tool-result window while narrow tables still reach the object
+count. One oversized table is returned alone; Evidence is never truncated and
+no token predictor is used.
 
 Every target must appear exactly once. Candidate order is irrelevant, but a
 missing, duplicate, additional, invalid, or stale item rejects the whole page.

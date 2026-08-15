@@ -264,14 +264,30 @@ Check is successful for aligned Volumes instead of returning a read-only
 placeholder. Guide returns one of `aligned`, `authoring_required`,
 `evidence_required`, or `blocked`.
 
-No-argument Maintain selects the affected domain automatically and emits at
-most 200 exact model authoring targets plus Review/Write/Guard closure and the
-affected-domain authoring contract. The response separates the logical plan
-from the complete current machine batch with `total_targets`, `max_entries`,
-`included`, `remaining`, batch and Composite/Scope identities, and a
-continuation action. The limit is per request and atomic Apply, never per
+No-argument Maintain selects the affected domain automatically and emits one
+current machine batch of exact model authoring targets — the team batch size
+`code_cognition_batch_entries` (default 20, ceiling 200; set it with
+`aoci config set code_cognition_batch_entries N`) — plus Review/Write/Guard
+closure and the affected-domain authoring contract. The response separates the
+logical plan from the complete current machine batch with `total_targets`,
+`max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
+and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
+
+The batch is sized so the model authors it inline as the arguments of one
+`aoci_update_entry` call: no intermediate files, helper scripts, or shell
+staging are needed, and a lost context is recovered by calling Maintain again,
+which reproduces the same batch and candidate identities from the unchanged
+repository. The Maintain response itself stays inside ordinary Host tool-result
+windows regardless of repository size: candidates, plans, and receipts are
+always complete, while per-item governance enumerations (`governance.findings`,
+`governance.code_drift.*`, `sets.review`) keep a leading sample of 20 and
+report complete counts under `governance.list_truncation` and
+`sets.review_total`; `aoci verify --json` and `aoci check --json` still list
+every item. Raise the batch only when both the Host window and the model can
+carry it — a 1,400-file repository at 200 per batch answered its first Maintain
+with roughly 330 KB, which no Host displays inline.
 Database candidates include accepted Evidence identities
 and a complete legal Database example without requiring a preliminary explicit
 scope call. Maintain creates no semantic candidate and performs no formal

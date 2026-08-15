@@ -46,14 +46,34 @@ const (
 	OverviewChunkTokensMin     = 4000
 	OverviewChunkTokensMax     = 24000
 
+	// Code Cognition authoring batches: how many candidates one Maintain asks
+	// the model to author in a single aoci_update_entry call. The ceiling is
+	// the wire maximum a call may carry (EntriesBatchMaxItems); the default is
+	// sized for what a model authors inline in one call and for a Maintain
+	// response that fits ordinary host tool-result windows. A team raises it
+	// through configuration when its host and model can carry more.
+	CodeCognitionBatchEntriesDefault = 20
+	CodeCognitionBatchEntriesMin     = 1
+	CodeCognitionBatchEntriesMax     = EntriesBatchMaxItems
+
+	// MaintainTransportListLimit bounds the per-item enumerations Maintain
+	// carries for situational awareness (governance findings, drift lists,
+	// review closure). Beyond it the response keeps the leading sample plus the
+	// complete count; the actionable list is always the candidate set, and
+	// Verify and Check keep reporting every item.
+	MaintainTransportListLimit = 20
+
 	// Database Cognition batches are bounded by object count and the exact
 	// canonical Evidence bytes delivered to the model. The planner never
 	// truncates Evidence or predicts model tokens; a single oversized table is
 	// returned alone so the host can make an explicit decision with full facts.
+	// The byte default is the operative gate under real table sizes: at a
+	// few KB per canonical table it keeps a batch inside a host window while
+	// narrow tables still reach the object count.
 	DatabaseCognitionBatchObjectsDefault       = 20
 	DatabaseCognitionBatchObjectsMin           = 1
 	DatabaseCognitionBatchObjectsMax           = 200
-	DatabaseCognitionBatchEvidenceBytesDefault = 512 << 10
+	DatabaseCognitionBatchEvidenceBytesDefault = 64 << 10
 	DatabaseCognitionBatchEvidenceBytesMin     = 32 << 10
 	DatabaseCognitionBatchEvidenceBytesMax     = 16 << 20
 )

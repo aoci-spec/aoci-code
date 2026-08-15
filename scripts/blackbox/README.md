@@ -19,13 +19,13 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (56 checks, read-only):
+Protocol conformance (57 checks, read-only):
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (22 scenarios, disposable fixtures in a temp dir):
+Fault-injection scenarios (29 scenarios, disposable fixtures in a temp dir):
 
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py
@@ -40,12 +40,16 @@ python3 scripts/blackbox/mcp_lifecycle.py --suites bringup,incremental,governanc
 python3 scripts/blackbox/mcp_lifecycle.py --suites scale     # 453 objects, no Docker needed
 ```
 
-The `scale` suite is the only one that reaches the real batch limit: it authors 454
-objects in three rolling batches, then repeats the run twice more with relations
-the model would realistically write — a layered dependency DAG, and a 210-object
-ring whose members reference each other across every batch. All three must reach
-`aligned` in the same three batches: relations are model-authored semantics and
-never constrain how the machine schedules a batch.
+The `scale` suite first authors the 454 objects under the machine-default team
+batch (20 per Maintain, about 23 rolling rounds) and asserts every Maintain
+response stays under 64 KB — the first Maintain of a fresh 453-file repository
+used to weigh 212 KB, which no Host displays inline. It then pins the team batch
+at the 200 wire ceiling (`code_cognition_batch_entries`) and is the only suite
+that reaches it: 454 objects in three rolling batches, repeated twice more with
+relations the model would realistically write — a layered dependency DAG, and a
+210-object ring whose members reference each other across every batch. All three
+must reach `aligned` in the same three batches: relations are model-authored
+semantics and never constrain how the machine schedules a batch.
 
 Lifecycle model track — a real agent authors real cognition over the frozen
 fixtures. Install [OpenCode](https://opencode.ai), authenticate once

@@ -537,9 +537,27 @@ func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.
 	}
 }
 
+// setTeamCodeBatchEntries 把夹具的团队批量设成给定值。大批量夹具专门检验线上上限
+// (EntriesBatchMaxItems)处的多批滚动、恢复与替代计划语义, 而机器默认批量已按宿主
+// 窗口降为 20 —— 这些夹具因此显式把批量拉到上限, 默认值本身由 transport 测试钉住。
+func setTeamCodeBatchEntries(t *testing.T, root string, entries int) {
+	t.Helper()
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetCodeCognitionBatchEntries(entries); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func buildLargeCodeCandidateRepo(t *testing.T, count int) string {
 	t.Helper()
 	root := buildVolumeRepo(t, true, false)
+	setTeamCodeBatchEntries(t, root, machinecontract.EntriesBatchMaxItems)
 	for index := 0; index < count; index++ {
 		path := filepath.Join(root, "generated", fmt.Sprintf("%04d.go", index))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

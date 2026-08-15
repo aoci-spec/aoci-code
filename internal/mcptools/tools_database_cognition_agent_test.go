@@ -19,6 +19,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
@@ -656,6 +657,10 @@ func buildDatabaseAgentNativeRepo(t *testing.T) (string, map[string][]dbevidence
 	cfg.DatabaseSources = []dbevidence.SourceConfig{
 		{SourceID: "pgtemp", Engine: dbevidence.EnginePostgreSQL, Database: "postgres", Namespaces: []string{"aoci_d0"}, CredentialEnv: "AOCI_D1_TEST_PG_DSN", ConnectTimeoutSeconds: 10, QueryTimeoutSeconds: 30, Enabled: true},
 		{SourceID: "mysqltemp", Engine: dbevidence.EngineMySQL, Database: "aoci_test", Namespaces: []string{"aoci_test"}, CredentialEnv: "AOCI_D1_TEST_MYSQL_DSN", ConnectTimeoutSeconds: 10, QueryTimeoutSeconds: 30, Enabled: true},
+	}
+	// 混合 100 对象批检验的是上限处的原子写入, 不是默认批量。
+	if err := cfg.SetCodeCognitionBatchEntries(machinecontract.EntriesBatchMaxItems); err != nil {
+		t.Fatal(err)
 	}
 	if err := config.Save(root, cfg); err != nil {
 		t.Fatal(err)

@@ -288,11 +288,14 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		guide.Commands.Check = "aoci check --json"
 		total := len(facts.CodeDrift.Missing) + len(facts.CodeDrift.Stale) + len(facts.CodeDrift.Unbaselined) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
+		// Guide projects the same team batch size Maintain will plan with, so
+		// the model sees one number for how much a round asks of it.
+		batchLimit := cfg.CodeCognitionBatchLimit()
 		included := total
-		if included > machinecontract.EntriesBatchMaxItems {
-			included = machinecontract.EntriesBatchMaxItems
+		if included > batchLimit {
+			included = batchLimit
 		}
-		guide.Batch = &volumeGuideBatch{TotalTargets: total, MaxEntries: machinecontract.EntriesBatchMaxItems,
+		guide.Batch = &volumeGuideBatch{TotalTargets: total, MaxEntries: batchLimit,
 			Included: included, Remaining: total - included, ContinuationRequired: total > included,
 			NextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch}
 		guide.NextAction = guide.Batch.NextAction

@@ -108,6 +108,11 @@ func Assemble(input Input) (Output, error) {
 		return Output{}, err
 	}
 	output.Instructions = append(output.Instructions, batchInstruction)
+	transportInstruction, err := textassets.Message(input.Locale, "volumes.authoring.transport")
+	if err != nil {
+		return Output{}, err
+	}
+	output.Instructions = append(output.Instructions, transportInstruction)
 	for _, domain := range orderedDomains(input.Domains) {
 		dictionary := input.Meta.Dictionaries[domain]
 		if dictionary == nil || !dictionary.HasObjectContract() {

@@ -123,6 +123,66 @@ type Facts struct {
 	AffectedDomains      []string               `json:"affected_domains"`
 	NextRequiredAction   string                 `json:"next_required_action"`
 	Findings             []Finding              `json:"findings"`
+	// ListTruncation is present only on a transport projection produced by
+	// BoundListsForTransport: it names every enumeration that was cut to the
+	// leading sample and carries the complete counts. Verify, Check, and Guide
+	// never set it; their lists stay complete.
+	ListTruncation *ListTruncation `json:"list_truncation,omitempty"`
+}
+
+// ListTruncation reports the sample bound applied to per-item enumerations
+// and the full count of every list that exceeded it.
+type ListTruncation struct {
+	Limit  int            `json:"limit"`
+	Totals map[string]int `json:"totals"`
+}
+
+// BoundListsForTransport returns a copy of facts whose per-item enumerations
+// keep at most limit leading items, recording each cut list's complete count
+// in ListTruncation. Findings, drift lists, relation findings, and Database
+// cognition items are situational awareness in a Maintain response; the
+// actionable set is the candidate list, and the complete enumerations remain
+// available from Verify and Check. Counts and every scalar fact are unchanged,
+// so the projection never alters a governance decision.
+func BoundListsForTransport(facts *Facts, limit int) *Facts {
+	if facts == nil || limit <= 0 {
+		return facts
+	}
+	bounded := *facts
+	totals := map[string]int{}
+	cutStrings := func(name string, values []string) []string {
+		if len(values) <= limit {
+			return values
+		}
+		totals[name] = len(values)
+		return append([]string{}, values[:limit]...)
+	}
+	bounded.CodeDrift = Drift{
+		Missing:         cutStrings("code_drift.missing", facts.CodeDrift.Missing),
+		Orphan:          cutStrings("code_drift.orphan", facts.CodeDrift.Orphan),
+		Stale:           cutStrings("code_drift.stale", facts.CodeDrift.Stale),
+		Unbaselined:     cutStrings("code_drift.unbaselined", facts.CodeDrift.Unbaselined),
+		LineEndingOnly:  cutStrings("code_drift.line_ending_only", facts.CodeDrift.LineEndingOnly),
+		ObservedNew:     cutStrings("code_drift.observed_new", facts.CodeDrift.ObservedNew),
+		ObservedChanged: cutStrings("code_drift.observed_changed", facts.CodeDrift.ObservedChanged),
+		ObservedRemoved: cutStrings("code_drift.observed_removed", facts.CodeDrift.ObservedRemoved),
+	}
+	if len(facts.Findings) > limit {
+		totals["findings"] = len(facts.Findings)
+		bounded.Findings = append([]Finding{}, facts.Findings[:limit]...)
+	}
+	if len(facts.RelationFindings) > limit {
+		totals["relation_findings"] = len(facts.RelationFindings)
+		bounded.RelationFindings = append([]cognition.Finding{}, facts.RelationFindings[:limit]...)
+	}
+	if len(facts.DatabaseCognition.Items) > limit {
+		totals["database_cognition.items"] = len(facts.DatabaseCognition.Items)
+		bounded.DatabaseCognition.Items = append([]dbcognition.Item{}, facts.DatabaseCognition.Items[:limit]...)
+	}
+	if len(totals) > 0 {
+		bounded.ListTruncation = &ListTruncation{Limit: limit, Totals: totals}
+	}
+	return &bounded
 }
 
 // Assess consumes an already validated CognitionSet and current local

@@ -257,9 +257,11 @@ object_refs for canonical Volume objects. A table name is never represented as
 a repository file path.
 
 For authoring, a logical plan is the complete set of currently actionable
-targets under one Managed Scope and Composite preimage. It may exceed 200 and
-is not an atomic-write boundary. Maintain deterministically issues one current
-machine batch with at most EntriesBatchMaxItems=200 targets and reports
+targets under one Managed Scope and Composite preimage. It may exceed one batch
+and is not an atomic-write boundary. Maintain deterministically issues one
+current machine batch of at most the team batch size — the configuration key
+`code_cognition_batch_entries`, machine default 20, never above the wire
+ceiling EntriesBatchMaxItems=200 — and reports
 logical_plan, batch_identity, total_targets, max_entries, included, remaining,
 continuation_required, Composite and Scope identities, exact candidates,
 source or Evidence bindings, and next_action. "Complete candidate set" means
@@ -270,7 +272,13 @@ authorizes the Host to take an arbitrary slice of Maintain output.
 Each current batch is an independent atomic Apply. A successful Apply advances
 the formal Volume and Baseline to a new preimage. If remaining is nonzero, the
 Host calls no-argument Maintain again and receives the next complete current
-batch. Missing, Stale, or Unbaselined targets keep Guide and Maintain
+batch. The batch is sized so the model authors it inline as one
+aoci_update_entry call; a Maintain response keeps its candidates, plans, and
+receipts complete while per-item governance enumerations (findings, drift
+lists, the review closure) carry a leading sample plus complete counts under
+`list_truncation` / `review_total`, so the response fits ordinary Host
+tool-result windows regardless of repository size. Verify and Check keep
+reporting every item. Missing, Stale, or Unbaselined targets keep Guide and Maintain
 authoring_required; neither may report Whole-Index aligned until remaining and
 all governance debt are zero. Source, Scope, Composite, or candidate-receipt
 drift invalidates only the outstanding batch. Earlier successful batches stay

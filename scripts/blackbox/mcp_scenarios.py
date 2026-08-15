@@ -132,7 +132,10 @@ def sh(cwd, *args):
     return r.stdout
 
 # ---------------------------------------------------------------- fixture
-def make_fixture(name, nfiles):
+def make_fixture(name, nfiles, batch_entries=None):
+    """Fresh Volumes fixture with nfiles source files. `batch_entries` pins the
+    team Code batch size (a scenario that wants one call to carry the whole
+    fixture sets the 200 wire ceiling); None keeps the machine default."""
     d = os.path.join(WORK, name)
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(os.path.join(d, "pkg"))
@@ -146,6 +149,9 @@ def make_fixture(name, nfiles):
     sh(d, "git", "commit", "-q", "-m", "fixture")
     rc, _, out, errs = cli(d, "init", "--locale", "en-US")
     if rc != 0: raise RuntimeError(f"init failed: {out[:200]} {errs[:200]}")
+    if batch_entries is not None:
+        rc, _, out, errs = cli(d, "config", "set", "code_cognition_batch_entries", str(batch_entries))
+        if rc != 0: raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
     rc, _, out, errs = cli(d, "scan")
     if rc != 0: raise RuntimeError(f"scan failed: {out[:200]} {errs[:200]}")
     return d
@@ -244,7 +250,9 @@ def group_a():
 def group_b():
     g = "B"
     NF = 160
-    fx = make_fixture("fx-life", NF)
+    # One call establishing the whole fixture is deliberately a wire-ceiling
+    # scenario; the machine default batch is 20 and is exercised by group E.
+    fx = make_fixture("fx-life", NF, batch_entries=200)
 
     # B1: full establishment through MCP: maintain -> complete batch -> aligned
     s = Session(fx)
@@ -477,6 +485,68 @@ def group_d(bigfx=None):
             record(g, "D3.baseline-only-mid-chain", "FAIL", t[:150])
     sC.close()
 
+def group_e():
+    """Large fresh repository, machine-default batch: the first Maintain must
+    fit an ordinary Host tool-result window and stay actionable inline. This is
+    the failure a real user hit — a ~1400-file repository answered its first
+    Maintain with ~330 KB at 200 per batch, the Host spilled it to disk, and the
+    model fell back to scripts that broke on encoding, quoting, and paths."""
+    g = "E"
+    NF = 260
+    fx = make_fixture("fx-large", NF)
+    s = Session(fx)
+    m, t, err = maintain(s)
+    plan = m.get("code_plan") or {}
+    total = NF + 1  # init-generated AGENTS.md is a target too
+    ok = (not err) and plan.get("max_entries") == 20 and plan.get("included") == 20 \
+        and plan.get("remaining") == total - 20 and len(m.get("candidates") or []) == 20
+    record(g, "E1.default-batch-is-20", "PASS" if ok else "FAIL",
+           f"max_entries={plan.get('max_entries')} included={plan.get('included')} remaining={plan.get('remaining')} cands={len(m.get('candidates') or [])}")
+    size = len(t.encode("utf-8"))
+    gov = m.get("governance") or {}
+    trunc = gov.get("list_truncation") or {}
+    totals = trunc.get("totals") or {}
+    findings = gov.get("findings") or []
+    missing = (gov.get("code_drift") or {}).get("missing") or []
+    ok = size < 64 * 1024 and len(findings) == 20 and len(missing) == 20 \
+        and totals.get("findings") == total and totals.get("code_drift.missing") == total and trunc.get("limit") == 20
+    record(g, "E2.first-maintain-fits-host-window", "PASS" if ok else "FAIL",
+           f"bytes={size} findings={len(findings)}/{totals.get('findings')} missing={len(missing)}/{totals.get('code_drift.missing')} limit={trunc.get('limit')}")
+    instr = " ".join(m.get("instructions") or [])
+    ok = "aoci_update_entry" in instr and "governance.budget" in instr and "aoci_maintain again" in instr
+    record(g, "E3.instructions-say-inline-tokens-remaintain", "PASS" if ok else "FAIL", instr[-200:])
+    # candidates and plan stay complete and actionable: author the batch inline.
+    r, tw, err = submit_batch(s, m)
+    ok = r.get("status") == "applied" and r.get("applied") == 20 and r.get("remaining") == total - 20 \
+        and "maintain" in (r.get("next_action") or "").lower()
+    record(g, "E4.batch-applies-and-continues", "PASS" if ok else "FAIL",
+           f"status={r.get('status')} applied={r.get('applied')} remaining={r.get('remaining')} next={str(r.get('next_action'))[:80]}")
+    # the next Maintain issues the next 20 against the new preimage, same size, same shape
+    m2, t2, _ = maintain(s)
+    p2 = m2.get("code_plan") or {}
+    ok = p2.get("included") == 20 and p2.get("remaining") == total - 40 and len(t2.encode("utf-8")) < 64 * 1024
+    record(g, "E4b.next-maintain-pages-next-batch", "PASS" if ok else "FAIL",
+           f"included={p2.get('included')} remaining={p2.get('remaining')} bytes={len(t2.encode('utf-8'))}")
+    s.close()
+    # Verify keeps the complete enumeration: the transport bound is Maintain-only.
+    rc, v, _, _ = cli(fx, "verify", expect_ok=False)
+    vmissing = ((v.get("governance") or {}).get("code_drift") or {}).get("missing") or []
+    vtrunc = (v.get("governance") or {}).get("list_truncation")
+    ok = len(vmissing) == total - 20 and vtrunc is None
+    record(g, "E5.verify-lists-every-item", "PASS" if ok else "FAIL", f"verify.missing={len(vmissing)} truncation={vtrunc}")
+    # Team configuration moves the batch; out-of-range values are rejected.
+    rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", "50")
+    s = Session(fx)
+    m2, t2, err2 = maintain(s)
+    s.close()
+    p2 = m2.get("code_plan") or {}
+    rc0, _, _, e0 = cli(fx, "config", "set", "code_cognition_batch_entries", "0", expect_ok=False)
+    rc201, _, _, e201 = cli(fx, "config", "set", "code_cognition_batch_entries", "201", expect_ok=False)
+    ok = rc == 0 and p2.get("max_entries") == 50 and p2.get("included") == 50 and rc0 != 0 and rc201 != 0
+    record(g, "E6.batch-configurable-and-bounded", "PASS" if ok else "FAIL",
+           f"set50 rc={rc} max_entries={p2.get('max_entries')} included={p2.get('included')} set0_rc={rc0} set201_rc={rc201}")
+
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
@@ -484,6 +554,7 @@ if __name__ == "__main__":
     bigfx = group_b()
     group_c()
     group_d(bigfx)
+    group_e()
     print()
     npass = sum(1 for r in RESULTS if r[2] == "PASS")
     nchar = sum(1 for r in RESULTS if r[2] == "CHAR")

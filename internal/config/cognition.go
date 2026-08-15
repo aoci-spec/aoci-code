@@ -64,6 +64,37 @@ func (c *Config) DatabaseCognitionBatchLimits() (objects, evidenceBytes int) {
 	return objects, evidenceBytes
 }
 
+// CodeCognitionBatchLimit resolves the team batch size for Code authoring:
+// zero means the machine default.
+func (c *Config) CodeCognitionBatchLimit() int {
+	if c == nil || c.CodeCognitionBatchEntries == 0 {
+		return machinecontract.CodeCognitionBatchEntriesDefault
+	}
+	return c.CodeCognitionBatchEntries
+}
+
+// SetCodeCognitionBatchEntries stores a validated team batch size; the wire
+// ceiling stays EntriesBatchMaxItems.
+func (c *Config) SetCodeCognitionBatchEntries(entries int) error {
+	if entries < machinecontract.CodeCognitionBatchEntriesMin ||
+		entries > machinecontract.CodeCognitionBatchEntriesMax {
+		return fmt.Errorf("code_cognition_batch_entries_out_of_range(value=%d,min=%d,max=%d)",
+			entries, machinecontract.CodeCognitionBatchEntriesMin, machinecontract.CodeCognitionBatchEntriesMax)
+	}
+	c.CodeCognitionBatchEntries = entries
+	return nil
+}
+
+func validateCodeCognitionBatchEntries(cfg *Config) error {
+	entries := cfg.CodeCognitionBatchLimit()
+	if entries < machinecontract.CodeCognitionBatchEntriesMin ||
+		entries > machinecontract.CodeCognitionBatchEntriesMax {
+		return fmt.Errorf("code_cognition_batch_entries_out_of_range(value=%d,min=%d,max=%d)",
+			entries, machinecontract.CodeCognitionBatchEntriesMin, machinecontract.CodeCognitionBatchEntriesMax)
+	}
+	return nil
+}
+
 func validateDatabaseCognitionBatchLimits(cfg *Config) error {
 	objects, evidenceBytes := cfg.DatabaseCognitionBatchLimits()
 	if objects < machinecontract.DatabaseCognitionBatchObjectsMin ||

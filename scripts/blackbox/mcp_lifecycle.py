@@ -125,10 +125,14 @@ def repo_key_of(fx):
     return "a"
 
 
-def init_and_scan(fx, locale="en-US", agent=None, curation_exclude="default"):
+def init_and_scan(fx, locale="en-US", agent=None, curation_exclude="default", batch_entries=None):
     rc, _, out, errs = cli(fx, "init", "--locale", locale)
     if rc != 0:
         raise RuntimeError(f"init failed: {out[:200]} {errs[:200]}")
+    if batch_entries is not None:
+        rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", str(batch_entries))
+        if rc != 0:
+            raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
     if curation_exclude == "default":
         curation_exclude = CURATION_EXCLUDE.get(repo_key_of(fx))
     if curation_exclude:
@@ -525,8 +529,10 @@ def scale_author_rounds(fx, mode, cyclic_ring, max_rounds=12):
     rounds, follow, applied_total = [], None, 0
     for attempt in range(1, max_rounds + 1):
         s = Session(fx)
+        resp_bytes = None
         if follow is None:
             m, t, err = maintain(s)
+            resp_bytes = len(t.encode("utf-8"))
             plan = m.get("code_plan") or {}
             cands = m.get("candidates") or []
             if m.get("aligned") is True and not cands:
@@ -548,7 +554,8 @@ def scale_author_rounds(fx, mode, cyclic_ring, max_rounds=12):
         applied_total += r.get("applied") or 0
         rounds.append({"batch": (plan.get("batch_id") or "")[:8], "n": len(cands),
                        "status": r.get("status"), "applied": r.get("applied"),
-                       "remaining": r.get("remaining")})
+                       "remaining": r.get("remaining"), "max_entries": plan.get("max_entries"),
+                       "maintain_bytes": resp_bytes})
         blob = json.dumps(r, ensure_ascii=False)
         # 机器不得因为条目之间的关系而重排或停下: 出现这类信号即为回归。
         for marker in ("relation_closure_exceeds_batch_limit", "relation_replan",
@@ -572,9 +579,28 @@ def suite_scale(rep, work):
     if files != SCALE_FIXTURE_FILES:
         return
 
+    # 机器默认批量(20)下的真实首轮: 453 文件的新仓库, 首次 Maintain 必须装进普通
+    # 宿主的工具结果窗口, 逐轮滚动直到对齐。这是真实用户撞到的形状 —— 200/批时
+    # 首次 Maintain 约 212 KB, 宿主落盘, 模型退回脚本旁路; 现在必须一路内联。
+    fx = deploy("c", work, "scale-default")
+    init_and_scan(fx)
+    started = time.time()
+    outcome, rounds, applied = scale_author_rounds(fx, "none", {}, max_rounds=40)
+    al, _ = aligned(fx)
+    batches = [r for r in rounds if r["status"] == "applied"]
+    sizes = [r["maintain_bytes"] for r in rounds if r.get("maintain_bytes")]
+    ok = outcome == "aligned" and al and len(batches) >= 20 \
+        and all(r.get("max_entries") == 20 for r in rounds) \
+        and sizes and max(sizes) < 64 * 1024
+    rep.rec(g, "default-batch-fits-host-window", "PASS" if ok else "FAIL",
+            f"outcome={outcome} batches={len(batches)} applied={applied} aligned={al} max_maintain_bytes={max(sizes) if sizes else None}",
+            duration_s=round(time.time() - started), rounds=len(rounds))
+
+    # 下面三轮显式把团队批量拉到线上上限 200: 它们检验的是"关系永不排程"在真实
+    # 上限处的多批语义, 环的大小(210)也是按上限设计的。
     # 无关系: 纯多批滚动, 必须写满全部对象并对齐。
     fx = deploy("c", work, "scale-none")
-    init_and_scan(fx)
+    init_and_scan(fx, batch_entries=SCALE_BATCH_LIMIT)
     started = time.time()
     outcome, rounds, applied = scale_author_rounds(fx, "none", {})
     al, _ = aligned(fx)
@@ -599,7 +625,7 @@ def suite_scale(rep, work):
 
     # 分层 DAG: 关系稠密但有解。机器不看关系, 必须照常一路滚完。
     fx = deploy("c", work, "scale-layered")
-    init_and_scan(fx)
+    init_and_scan(fx, batch_entries=SCALE_BATCH_LIMIT)
     started = time.time()
     outcome, rounds, applied = scale_author_rounds(fx, "layered", {})
     al, _ = aligned(fx)
@@ -612,7 +638,7 @@ def suite_scale(rep, work):
     # (A 调 B, B 回调 A), 曾经会被"关系闭包"机制判成不可拆成分而彻底卡死整个
     # 索引的建立。关系是模型写给模型的语义, 不是机器的排程约束, 必须照常建成。
     fx = deploy("c", work, "scale-cyclic")
-    init_and_scan(fx)
+    init_and_scan(fx, batch_entries=SCALE_BATCH_LIMIT)
     ring = build_cyclic_ring([os.path.relpath(os.path.join(base, name), fx)
                               for base, _, names in os.walk(os.path.join(fx, "src"))
                               for name in names], SCALE_BATCH_LIMIT + 10)

@@ -22,7 +22,6 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
-	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
@@ -118,7 +117,7 @@ func handleCognitionOptimizationMaintain(
 	} else {
 		selection, err = selectOptimizationTargets(root, loaded, input.ObjectRefs)
 		if err == nil && selection.TotalTargets > 0 {
-			plan, _, err = buildOptimizationCodePlan(root, facts, selection.Batch)
+			plan, _, err = buildOptimizationCodePlan(root, codeBatchLimit(loaded.cfg), facts, selection.Batch)
 		}
 		if err == nil && selection.TotalTargets > 0 {
 			orderedRefs := optimizationSelectionRefs(selection)
@@ -165,7 +164,7 @@ func handleCognitionOptimizationMaintain(
 	result.Batch = volumeAuthoringBatch{
 		LogicalPlan: orderedPlan.PlanID, BatchIdentity: orderedPlan.BatchID,
 		TotalTargets: checkpoint.Checkpoint.ReviewedCount + len(checkpoint.Checkpoint.RemainingObjectRefs),
-		MaxEntries:   machinecontract.EntriesBatchMaxItems, Included: len(selection.Batch),
+		MaxEntries:   codeBatchLimit(loaded.cfg), Included: len(selection.Batch),
 		Remaining:            len(checkpoint.Checkpoint.RemainingObjectRefs) - len(selection.Batch),
 		CompleteCandidateSet: true,
 		ContinuationRequired: len(checkpoint.Checkpoint.RemainingObjectRefs) > len(selection.Batch),
@@ -184,6 +183,7 @@ func handleCognitionOptimizationMaintain(
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledger.ResultOK, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
+	boundMaintainTransport(&result)
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
@@ -201,6 +201,7 @@ func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cogni
 		SemanticGenerated: false, NetworkAccessed: false, NextAction: "none",
 		Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion, State: "complete"},
 	}
+	boundMaintainTransport(&result)
 	data, err := json.Marshal(result)
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
@@ -214,12 +215,12 @@ func selectOptimizationTargets(root string, loaded *cognitionRepoCtx, objectRefs
 		return cognitionoptimization.Selection{}, err
 	}
 	return cognitionoptimization.Select(entries, loaded.cfg.EffectiveCognitionBudget(), cognitionoptimization.SelectOptions{
-		ObjectRefs: objectRefs, MaxEntries: machinecontract.EntriesBatchMaxItems,
+		ObjectRefs: objectRefs, MaxEntries: codeBatchLimit(loaded.cfg),
 	})
 }
 
 func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, remaining []string) (codebatch.Plan, cognitionoptimization.Selection, error) {
-	limit := machinecontract.EntriesBatchMaxItems
+	limit := codeBatchLimit(loaded.cfg)
 	if len(remaining) < limit {
 		limit = len(remaining)
 	}
@@ -238,7 +239,7 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}
 	ordered := reorderOptimizationSelection(measured, refs)
-	plan, _, err := buildOptimizationCodePlan(root, facts, ordered.Batch)
+	plan, _, err := buildOptimizationCodePlan(root, codeBatchLimit(loaded.cfg), facts, ordered.Batch)
 	return plan, ordered, err
 }
 
@@ -274,7 +275,7 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 	plan := codebatch.Plan{Version: receipt.Version, PlanID: receipt.PlanID, BatchID: receipt.BatchID,
 		CompositeIdentity: receipt.CompositeIdentity, ScopePolicyIdentity: receipt.ScopePolicyIdentity,
 		CodeVolumePath: receipt.CodeVolumePath, CodeVolumeSHA256: receipt.CodeVolumeSHA256,
-		TotalTargets: len(receipt.Targets), MaxEntries: machinecontract.EntriesBatchMaxItems,
+		TotalTargets: len(receipt.Targets), MaxEntries: codeBatchLimit(loaded.cfg),
 		Included: len(receipt.Targets), CompleteCandidateSetForBatch: true,
 		Candidates: make([]codebatch.Candidate, 0, len(receipt.Targets)), NextAction: "author_complete_current_machine_batch"}
 	for _, target := range receipt.Targets {
@@ -309,7 +310,7 @@ func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs 
 	return result, nil
 }
 
-func buildOptimizationCodePlan(root string, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
+func buildOptimizationCodePlan(root string, batchLimit int, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
 	values := make([]codebatch.Candidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		values = append(values, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
@@ -317,7 +318,7 @@ func buildOptimizationCodePlan(root string, facts *volumegovernance.Facts, candi
 			ExistingEntry: candidate.ExistingEntry}})
 	}
 	plan, err := codebatch.BuildPlan(root, facts.CompositeIdentity, facts.ManagedScope.PolicyIdentity,
-		facts.Code.Path, facts.Code.SHA256, values, machinecontract.EntriesBatchMaxItems)
+		facts.Code.Path, facts.Code.SHA256, values, batchLimit)
 	return plan, values, err
 }
 

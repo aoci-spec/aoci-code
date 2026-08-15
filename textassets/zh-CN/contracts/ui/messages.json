@@ -494,6 +494,7 @@
   "config.installed_agents_managed": "installed_agents 由 aoci init 维护,不支持手工 set",
   "config.locale_migration_pending": "正式认知语言迁移尚未完成（Header: %t，Entries: %d，Curation: %d）。完整托管表面覆盖报告见aoci index agent guide；全部完成前项目不得报告 aligned。",
   "config.overview_chunk_tokens_range": "overview_delivery.chunk_tokens 必须介于 %d 与 %d 之间",
+  "config.code_cognition_batch_entries_range": "code_cognition_batch_entries 必须介于 %d 与 %d 之间",
   "config.restart_mcp": "请重启所有正在运行的 AOCI MCP 进程后再使用新Locale。",
   "config.saved": "已写入 %s",
   "config.unknown_key": "未知配置键 %q(可用: %s)",
@@ -1564,5 +1565,6 @@
   "volumes.authoring.code.example": "main.go[%s]: F:启动aoci进程 | R:- | A:- | S:MCP模式下stdout仅用于JSON-RPC协议流，日志必须写入stderr",
   "volumes.authoring.database.contract": "Database作者化合同：使用%s及当前字典%s。仅对官方初始字典，G表示真正跨域，Z表示证据充分且对象已理解但没有命名类别适用；证据不足不属于Z，必须报告。分类或字典缺口绝不写入S。自定义正式Meta的含义始终具有权威。FRAS v2上限为F<=%d字、R<=%d字/%d项、A<=%d字/%d项。S只准入不可推断且能防止错误的事实，配额为%s。C6-C9对象应优先识别有证据支持的S约束；只有无法由F/R/A推导且影响系统理解或修改的重要约束才写入S。不存在合格约束时保持S:-。R只接受%s或%s等精确托管身份，多项用%q分隔，无强关系用%q。点分Tag和裸关系名只保留读取兼容，不得新写。示例仅校准字段分工，不得照抄其语义。",
   "volumes.authoring.database.example": "users[%s]: F:存储用户账户记录 | R:- | A:user_id | S:保留的所有权历史依赖稳定的账户标识，因此禁止硬删除",
-  "volumes.authoring.meta": "作者化任何受影响Volume候选前必须读取authoring_meta。它是aoci_header返回的正式aoci.meta.txt精确原文；运行时instructions只补齐兼容作者化合同，不修改或替代这些字节。"
+  "volumes.authoring.meta": "作者化任何受影响Volume候选前必须读取authoring_meta。它是aoci_header返回的正式aoci.meta.txt精确原文；运行时instructions只补齐兼容作者化合同，不修改或替代这些字节。",
+  "volumes.authoring.transport": "每个候选都直接作为 aoci_update_entry 的参数内联创作：本批次的大小已按单次调用标定，不需要中间文件、辅助脚本或 shell 暂存，也不需要把候选事实复制到别处。R 与 S 除 rune 配额外还受 token 档位约束：token 按 UTF-8 字节/3 计，一个中日韩字符即一个 token，governance.budget 里按 C 分档的 r/s 上限对 CJK 文本先于 rune 配额生效。如果批次中途丢失上下文，再次调用 aoci_maintain 即可：仓库未变时会得到同一批次与同一候选身份。"
 }

@@ -28,10 +28,12 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
-// entriesBatchLimit 是 Code 授权批次的单批上限。它来自 machinecontract 机器事实,
-// 这里留一个变量接缝, 让多批与关系闭包路径可以在小规模夹具上被完整覆盖 ——
-// 生产路径永远取机器契约值。
-var entriesBatchLimit = machinecontract.EntriesBatchMaxItems
+// codeBatchLimit 是一次 Maintain 请模型创作的 Code 候选数: 团队配置
+// code_cognition_batch_entries, 未配置取机器默认。它决定计划切批与
+// Maintain 响应的候选体量; 单次调用可携带的线上上限仍是 EntriesBatchMaxItems。
+func codeBatchLimit(cfg *config.Config) int {
+	return cfg.CodeCognitionBatchLimit()
+}
 
 var (
 	saveVolumeGovernanceReceipt = saveCompletedEntriesGovernanceReceipt
