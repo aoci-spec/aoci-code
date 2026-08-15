@@ -117,7 +117,7 @@ esac
 echo "$post_observe_status"
 guide=$("$binary" --repo "$repository" --json index agent guide --agent codex)
 case "$guide" in
-  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"database_volume_state": "absent"'*'"max_entries": 200'*'"included": 5'*'"remaining": 0'*) ;;
+  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"database_volume_state": "absent"'*'"max_entries": 20'*'"included": 5'*'"remaining": 0'*) ;;
   *) echo "Guide did not return the unique current Volume-first authoring action" >&2; exit 1 ;;
 esac
 case "$guide" in

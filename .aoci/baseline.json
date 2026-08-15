@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-15T11:07:11Z",
+  "updated_at": "2026-08-15T11:30:44Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -122,9 +122,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "dff142392489fd0e9bfff3d983c0d7ff321854aa618c1948466a66c3a5b68cc6",
-      "size": 164113,
-      "normalized_sha256": "dff142392489fd0e9bfff3d983c0d7ff321854aa618c1948466a66c3a5b68cc6"
+      "sha256": "5be2be5d571a975dfea9c627510e0b96c87880334f933a6393c7fb16eccfad0e",
+      "size": 164144,
+      "normalized_sha256": "5be2be5d571a975dfea9c627510e0b96c87880334f933a6393c7fb16eccfad0e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5248,10 +5248,9 @@
       "format_kind": "gofmt"
     },
     "scripts/release/clean-room-smoke.sh": {
-      "role": "index",
-      "sha256": "7cac530b4ffc294eb575f458ee0e1beb4d4f997545efdccf38f4a6cbdff34ab1",
-      "size": 6057,
-      "normalized_sha256": "7cac530b4ffc294eb575f458ee0e1beb4d4f997545efdccf38f4a6cbdff34ab1"
+      "sha256": "1fb1ac6f126fb2b897817efa8edc98e667428eddd1cd8c901be35b671758f3b3",
+      "size": 6056,
+      "normalized_sha256": "1fb1ac6f126fb2b897817efa8edc98e667428eddd1cd8c901be35b671758f3b3"
     },
     "scripts/release/manifest/main.go": {
       "role": "index",
@@ -6091,9 +6090,9 @@
     },
     "textassets/en-US/contracts/maintain/tool-description.txt": {
       "role": "observe",
-      "sha256": "cfc427db7e9a27843bf85924a05785bbdf7d29ec0d7aa197a17b14d5557cb938",
-      "size": 2739,
-      "normalized_sha256": "cfc427db7e9a27843bf85924a05785bbdf7d29ec0d7aa197a17b14d5557cb938"
+      "sha256": "b6895ebc6307b3d6dbd6e70edc350fd8e8ccfdd02ce17c1c05009b945fa712c4",
+      "size": 2806,
+      "normalized_sha256": "b6895ebc6307b3d6dbd6e70edc350fd8e8ccfdd02ce17c1c05009b945fa712c4"
     },
     "textassets/en-US/contracts/mcp/header-empty-message.txt": {
       "role": "observe",
@@ -7179,9 +7178,9 @@
     },
     "textassets/zh-CN/contracts/maintain/tool-description.txt": {
       "role": "observe",
-      "sha256": "4e731217a0cb1400e2a04f6a3095899b3f8cde342cfb09ab152ea5fb6ff147c1",
-      "size": 2401,
-      "normalized_sha256": "4e731217a0cb1400e2a04f6a3095899b3f8cde342cfb09ab152ea5fb6ff147c1"
+      "sha256": "30d9b38ba4b7729ed30dd182912c0c4cbdff591cfe7058033a54d4aad09a2fdd",
+      "size": 2469,
+      "normalized_sha256": "30d9b38ba4b7729ed30dd182912c0c4cbdff591cfe7058033a54d4aad09a2fdd"
     },
     "textassets/zh-CN/contracts/mcp/header-empty-message.txt": {
       "role": "observe",
