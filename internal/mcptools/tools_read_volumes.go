@@ -105,6 +105,7 @@ func handleVolumeOverview(
 		EntryCount: view.ObjectCount, SectionCount: countVolumeSections(view),
 		EstimatedTokens: volumeScopeBytes(view) / 3,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
+		Session: refreshSession,
 	}, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 	if renderErr != nil {
 		return errResult(errBadArgs, renderErr.Error(), "")
@@ -115,7 +116,7 @@ func handleVolumeOverview(
 	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceIdentity); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
-	refreshSession.recordAttestedDelivery(delivered, input, delivery.Attestation, markDelivered)
+	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	return textResult(delivery.Output)
 }

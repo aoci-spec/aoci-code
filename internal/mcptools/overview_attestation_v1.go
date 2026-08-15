@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/index"
@@ -34,6 +35,19 @@ const (
 
 	attestationCoverageComplete = 95.0
 	attestationMasteryComplete  = 80.0
+
+	// The Challenge measures assimilation, not verbatim recall. Delivery
+	// integrity is already proven by the host receipt over the exact bytes, so
+	// the answers only need to show that the model holds the sequence: at least
+	// this share of ordinals fully correct, with object identity — the one
+	// discrete fact that has no paraphrase — missed at most once. Core F is
+	// judged as a semantic match (see overviewCoreFMatches); Tag stays exact.
+	attestationChallengePassPercent = 80
+	attestationIdentityMissMax      = 1
+	// Jaccard similarity floor over normalized core-F tokens. A paraphrase or a
+	// dropped trailing clause of the recalled responsibility stays well above
+	// it; a different Entry's F, even a formulaic sibling, stays well below.
+	attestationCoreFSimilarityMin = 0.6
 )
 
 type overviewChallengeAnswer struct {
@@ -87,6 +101,7 @@ type overviewAttestationResult struct {
 	ChallengeAnswersComplete bool
 	ChallengeAnswersOrdered  bool
 	ObjectIdentityMismatch   bool
+	ObjectIdentityMissCount  int
 	TagMismatch              bool
 	CoreFMismatch            bool
 	ReportedEntryCountMatch  bool
@@ -288,7 +303,10 @@ func assessOverviewAttestation(
 		}
 		identityMatches := overviewAnswerIdentityMatches(answer.ObjectIdentity, target.ObjectIdentity)
 		tagMatches := answer.Tag == target.Tag
-		coreFMatches := strings.TrimSpace(answer.CoreF) == strings.TrimSpace(target.CoreF)
+		coreFMatches := overviewCoreFMatches(answer.CoreF, target.CoreF)
+		if !identityMatches {
+			result.ObjectIdentityMissCount++
+		}
 		result.ObjectIdentityMismatch = result.ObjectIdentityMismatch || !identityMatches
 		result.TagMismatch = result.TagMismatch || !tagMatches
 		result.CoreFMismatch = result.CoreFMismatch || !coreFMatches
@@ -297,21 +315,30 @@ func assessOverviewAttestation(
 		}
 	}
 	result.ChallengeAnswersOrdered = ordered
-	countMatches := report.ReportedEntryCount == expectedEntryCount
+	countMatches := reportedEntryCountMatch(report.ReportedEntryCount, expectedEntryCount)
 	tokensMatch := estimatedTokensMatch(report.ReportedEstimatedTokens, expectedTokens)
 	result.ReportedEntryCountMatch = countMatches
 	result.ReportedTokensMatch = tokensMatch
-	challengeComplete := result.ChallengePassed == result.ChallengeTotal && ordered
+	challengeMet := ordered &&
+		challengePassRatioMet(result.ChallengePassed, result.ChallengeTotal) &&
+		result.ObjectIdentityMissCount <= attestationIdentityMissMax
 	claimsComplete := report.CoveragePercent >= attestationCoverageComplete &&
 		!report.TruncationDetected && countMatches
-	if validEnvelope && challengeComplete && countMatches && tokensMatch && claimsComplete {
+	// fail is reserved for an Attestation that proves nothing: a foreign or
+	// malformed envelope, or not one ordinal recalled. Every other shortfall is
+	// partial — including an honest complete-coverage claim that misses the
+	// pass ratio, which must never grade below the same answers submitted with
+	// a hedged coverage claim.
+	if validEnvelope && challengeMet && countMatches && tokensMatch && claimsComplete {
 		result.ModelAttestation = modelAttestationPass
-	} else if !validEnvelope || result.ChallengePassed == 0 || claimsComplete {
+	} else if !validEnvelope || result.ChallengePassed == 0 {
 		result.ModelAttestation = modelAttestationFail
 	} else {
 		result.ModelAttestation = modelAttestationPartial
 	}
-	result.StrictFailureReasons = strictAttestationFailureReasons(result, report)
+	if result.ModelAttestation != modelAttestationPass {
+		result.StrictFailureReasons = strictAttestationFailureReasons(result, report)
+	}
 
 	if result.DeliveryIntegrity != deliveryIntegrityConfirmed || !governanceAligned ||
 		result.ModelAttestation == modelAttestationFail || result.ModelAttestation == modelAttestationNotProvided {
@@ -397,12 +424,109 @@ func validPercent(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0 && value <= 100
 }
 
+// challengePassRatioMet applies the pass share to whatever Challenge size the
+// sequence allowed: 8 of 10 ordinarily, every ordinal for a tiny Index.
+func challengePassRatioMet(passed, total int) bool {
+	return total > 0 && passed*100 >= total*attestationChallengePassPercent
+}
+
+// reportedEntryCountMatch treats the model's own count as the self-report it
+// is: one percent, never less than one Entry, of slack. The exact machine count
+// is still bound through the echoed envelope entry_count.
+func reportedEntryCountMatch(reported, expected int) bool {
+	tolerance := expected / 100
+	if tolerance < 1 {
+		tolerance = 1
+	}
+	return reported >= expected-tolerance && reported <= expected+tolerance
+}
+
 func estimatedTokensMatch(reported, expected int) bool {
 	tolerance := expected / 20
 	if tolerance < 1024 {
 		tolerance = 1024
 	}
 	return reported >= expected-tolerance && reported <= expected+tolerance
+}
+
+// overviewCoreFMatches accepts the exact core F first, then a normalized
+// token-set similarity, so a paraphrase or a dropped clause of the recalled
+// responsibility still counts as recall while a different Entry's F does not.
+// Object identity and Tag are never judged this way: they are discrete facts
+// with no paraphrase, and the identity miss cap guards the sequence position.
+func overviewCoreFMatches(answer, target string) bool {
+	answer, target = strings.TrimSpace(answer), strings.TrimSpace(target)
+	if answer == target {
+		return true
+	}
+	answerTokens, targetTokens := coreFTokenSet(answer), coreFTokenSet(target)
+	if len(answerTokens) == 0 || len(targetTokens) == 0 {
+		return false
+	}
+	shared := 0
+	for token := range answerTokens {
+		if _, ok := targetTokens[token]; ok {
+			shared++
+		}
+	}
+	union := len(answerTokens) + len(targetTokens) - shared
+	return float64(shared) >= attestationCoreFSimilarityMin*float64(union)
+}
+
+// coreFTokenSet lowercases and splits on anything that is not a letter or
+// digit. Space-delimited scripts contribute whole words (single letters and a
+// few English function words dropped as noise); Han, Kana, and Hangul runs,
+// which carry no word boundaries, contribute character bigrams instead so the
+// same similarity floor works for zh-CN, ja, and ko Entries.
+func coreFTokenSet(text string) map[string]struct{} {
+	tokens := map[string]struct{}{}
+	var word, ideographs []rune
+	flushWord := func() {
+		if len(word) >= 2 {
+			lowered := strings.ToLower(string(word))
+			if _, noise := coreFNoiseWords[lowered]; !noise {
+				tokens[lowered] = struct{}{}
+			}
+		}
+		word = word[:0]
+	}
+	flushIdeographs := func() {
+		switch len(ideographs) {
+		case 0:
+		case 1:
+			tokens[string(ideographs)] = struct{}{}
+		default:
+			for i := 0; i+1 < len(ideographs); i++ {
+				tokens[string(ideographs[i:i+2])] = struct{}{}
+			}
+		}
+		ideographs = ideographs[:0]
+	}
+	for _, r := range text {
+		switch {
+		case unicode.Is(unicode.Han, r) || unicode.Is(unicode.Hiragana, r) ||
+			unicode.Is(unicode.Katakana, r) || unicode.Is(unicode.Hangul, r):
+			flushWord()
+			ideographs = append(ideographs, r)
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			flushIdeographs()
+			word = append(word, r)
+		default:
+			flushWord()
+			flushIdeographs()
+		}
+	}
+	flushWord()
+	flushIdeographs()
+	return tokens
+}
+
+// coreFNoiseWords are English function words that carry no responsibility
+// meaning; dropping them keeps two unrelated F sentences from looking alike.
+var coreFNoiseWords = map[string]struct{}{
+	"a": {}, "an": {}, "the": {}, "and": {}, "or": {}, "of": {}, "to": {}, "for": {},
+	"in": {}, "into": {}, "with": {}, "by": {}, "on": {}, "at": {}, "from": {}, "as": {},
+	"is": {}, "are": {}, "its": {}, "that": {}, "this": {}, "over": {}, "through": {},
 }
 
 func formatChallengeOrdinals(ordinals []int) string {

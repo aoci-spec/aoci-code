@@ -141,7 +141,9 @@ to repair or supplement cognition.
 ## Initial establishment versus compaction refresh
 
 Initial cognition keeps the strict acceptance gate. Complete transport,
-100-percent object coverage, Challenge 10/10, passing Attestation, aligned
+100-percent object coverage, a passing Challenge (at least 80 percent of
+ordinals fully correct with at most one object identity miss), passing
+Attestation, aligned
 governance, and sufficient framework mastery are all required before
 `model_full_cognition_reliable=true`. A partial or failed initial Attestation
 cannot be repaired from source or local retrieval and cannot authorize
@@ -152,8 +154,8 @@ inspection.
 The additive cognition level keeps that distinction visible: `no_cognition`
 means there is no valid Index, `index_loaded` means content exists without
 confirmed complete delivery, `delivery_verified` means delivery is confirmed
-while strict Attestation is unfinished, `cognition_verified` adds Challenge
-10/10, and `cognition_governed` adds governance alignment. These labels do not
+while strict Attestation is unfinished, `cognition_verified` adds a passing
+Challenge, and `cognition_governed` adds governance alignment. These labels do not
 replace `model_full_cognition_reliable`, `cognition_assimilation`, or
 `governance_aligned`. A confirmed delivery with failed Attestation is therefore
 reported as loaded and delivery-verified, not as absence of system cognition.
@@ -162,9 +164,9 @@ After a previously accepted cognition cycle, context compaction uses the same
 Overview and Attestation protocols but a slimmer control rule. When all Chunks
 arrive, the Host confirms the body, the cognition identity is unchanged,
 governance is aligned, and neither Recovery nor third-party conflict is
-pending, the Attestation attempt consumes that refresh generation. Challenge
-10/10 restores a reliable complete-system claim; 7/10 or 0/10 leaves the
-receipt uncertain and returns
+pending, the Attestation attempt consumes that refresh generation. A passing
+Challenge (8/10 or better with at most one identity miss) restores a reliable
+complete-system claim; 7/10 or 0/10 leaves the receipt uncertain and returns
 `delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`.
 The AI Agent continues the existing source-bound task without a second automatic
 Overview. If repository semantics changed, it first stabilizes code and tests,
@@ -195,7 +197,7 @@ This table is documentation and test traceability, not runtime state.
 | --- | --- | --- | --- | --- | --- |
 | User progress, timing, explanation, or architecture question | Host could end the turn and lose the task | None | continue; answer then resume `next_action` | Runtime Rules and AGENTS Host contract | textasset/cross-layer contract tests; longrun black box |
 | Explicit stop, pause, cancel, rollback, or scope change | Inconsistent Host inference | User changed authority | user action or replan | Runtime Rules and AGENTS Host contract | contract anchors and black-box scenario |
-| Context compaction, Challenge 10/10 | Full refresh then continue | Lost framework recall | continue with reliable receipt | Existing refresh session | Overview refresh tests |
+| Context compaction, Challenge passing (8/10 or better) | Full refresh then continue | Lost framework recall | continue with reliable receipt | Existing refresh session | Overview refresh tests |
 | Context compaction, Challenge 7/10 or 0/10 | Absolute task stop and repeated ready status | Only complete-system claim is unproven | continue source-bound; uncertain receipt; consume generation | `recordAttestedDelivery` and delivery guidance | `TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt` |
 | Host truncation, missing/reordered Chunk, cursor, Index, or config change | Stop | Incomplete or mixed formal body | hard block cognition chain | Existing Chunk and snapshot validation | Overview delivery and cursor tests |
 | Dirty repository during refresh | Could refresh repeatedly before stable work | Formal cognition is stale | finish work, Maintain once, Verify/Check/Guide, then optional refresh | Existing semantic facts and Guide | refresh threshold tests; longrun black box |

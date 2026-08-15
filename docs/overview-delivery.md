@@ -106,9 +106,18 @@ Attestation can validate against the new Index.
 For a Code object, the Attestation accepts either the exact delivered
 repository-relative path or its one-to-one `code:<path>` canonical identity.
 It performs no path cleaning, case folding, basename lookup, or fuzzy
-resolution. Database objects still require the exact `database://` identity;
-Tag and core F matching remain exact, so Challenge acceptance is still 10/10
-or failure.
+resolution. Database objects still require the exact `database://` identity
+and Tag matching remains exact. Core F is judged as a semantic match (a
+paraphrase or dropped clause of the delivered F still counts; another Entry's F
+does not), and the Challenge passes at 80 percent or better with at most one
+object identity miss — the Challenge measures assimilation, while the Host
+receipt already proves the bytes arrived. Below the pass share the Attestation
+grades partial; fail is reserved for a foreign envelope or no correct answer.
+
+`host_delivery_confirmation` and `model_cognition_attestation` bind the same
+delivered body and may be submitted together or in separate calls in either
+order; the server remembers each half for the delivery until both are present,
+and a fresh complete delivery attempt resets that memory.
 
 `system_mastery_percent` is a self-assessment of system-framework knowledge:
 architecture, module responsibilities, strong relationships, stable external

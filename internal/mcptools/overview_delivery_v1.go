@@ -163,6 +163,10 @@ type overviewRenderContext struct {
 	Receipt           cognitionReceipt
 	Assessment        cognitionRefreshAssessment
 	Sequence          []overviewChallengeTarget
+	// Session, when present, remembers the host confirmation and the model
+	// Attestation per delivered body so the two may arrive in separate calls
+	// in either order; nil keeps rendering a pure function of the input.
+	Session *cognitionRefreshSession
 }
 
 type overviewDeliveryFacts struct {
@@ -197,9 +201,18 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	challenge := buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence)
 	framed := frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
+	report := input.ModelAttestation
+	if input.HostConfirmation == nil && input.ModelAttestation == nil && input.Cursor == "" {
+		// A fresh complete delivery attempt takes its own evidence; the previous
+		// attempt's confirmation does not vouch for this transmission.
+		ctx.Session.resetDeliveryEvidence(framed.Receipt.BodySHA256)
+	}
+	// The two proof halves each bind this exact body, so the half missing from
+	// this call may be the one an earlier call already delivered.
+	hostStatus, report = ctx.Session.mergeDeliveryEvidence(framed.Receipt.BodySHA256, hostStatus, report)
 	attestation := assessOverviewAttestation(
 		challenge, ctx.EntryCount, ctx.EstimatedTokens,
-		hostStatus, ctx.Assessment.Semantic.GovernanceAligned, input.ModelAttestation,
+		hostStatus, ctx.Assessment.Semantic.GovernanceAligned, report,
 	)
 	facts := overviewDeliveryFacts{
 		IndexSHA256: ctx.ScopeIdentity, IndexBytes: ctx.ContentBytes,

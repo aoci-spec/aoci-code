@@ -19,7 +19,7 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (48 checks, read-only):
+Protocol conformance (56 checks, read-only):
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py

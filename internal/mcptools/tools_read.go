@@ -258,7 +258,7 @@ func registerReadTools(
 						EntryCount: entryCount, SectionCount: sectionCount,
 						EstimatedTokens: len(repository.text) / 3,
 						Receipt:         deliveredReceipt, Assessment: assessment,
-						Sequence: sequence,
+						Sequence: sequence, Session: refreshSession,
 					}, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 					if resourceErr != nil {
 						return errResult(errBadArgs, resourceErr.Error(), "")
@@ -267,7 +267,7 @@ func registerReadTools(
 						return failResult(snapshotFail)
 					}
 					refreshSession.recordAttestedDelivery(
-						deliveredReceipt, input, delivery.Attestation, markDelivered,
+						deliveredReceipt, delivery.Attestation, markDelivered,
 					)
 
 					ledger.Append(

@@ -375,11 +375,13 @@ func TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt(t 
 		t.Fatal(err)
 	}
 	attestedText := resText(t, attested)
+	// 7/10 低于通过比例(且三处都是身份失手, 超过身份上限): partial 而非 fail ——
+	// 诚实的完整覆盖声明不再判得比保守声明更重。
 	for _, want := range []string{
 		"delivery_integrity: confirmed",
 		"challenge_passed: 7/10",
-		"model_attestation: fail",
-		"cognition_assimilation: uncertain",
+		"model_attestation: partial",
+		"cognition_assimilation: partial",
 		"cognition_level: 2",
 		"cognition_level_state: delivery_verified",
 		"cognition_level_message: ",

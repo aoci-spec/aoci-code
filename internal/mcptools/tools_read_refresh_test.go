@@ -481,8 +481,8 @@ func TestRefreshSessionPartialAttestationConsumesEventWithoutGrantingReliability
 	delivered := session.deliveredReceipt(current, "compact-partial")
 	session.recordAttestedDelivery(
 		delivered,
-		overviewIn{ModelAttestation: &overviewModelAttestation{}},
 		overviewAttestationResult{
+			ReportProvided:        true,
 			DeliveryIntegrity:     deliveryIntegrityConfirmed,
 			ModelAttestation:      modelAttestationFail,
 			CognitionAssimilation: cognitionAssimilationUncertain,

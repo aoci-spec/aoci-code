@@ -36,6 +36,21 @@ type cognitionRefreshSession struct {
 	// 读工具据此仍能诚实报告 refresh_not_required, 而不是把自己的写当成陌生
 	// 漂移。它只是缓存, 不参与任何身份推导或刷新判据。
 	alignedIdentity string
+	// deliveryEvidence 按交付 body 记住本会话已到达的两半证据: 宿主交付确认与
+	// 模型认证。两半各自密码学绑定同一 body(确认绑 body sha 与字节数, 认证绑
+	// index sha、序列 sha、数量与 challenge digest), 到达先后不携带任何信息,
+	// 所以允许分次、任意顺序提交: 任一半到达时若另一半已在场即闩住, 与同一
+	// 调用合并提交完全等价。一次全新的完整交付(不带任一字段、无游标)重置该
+	// body 的证据, 使每次交付尝试仍各自取证。
+	deliveryEvidence map[string]*overviewDeliveryEvidence
+}
+
+// overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存
+// 原始模型报告而非评分结果: 评分依赖交付完整性, 另一半到达时按当时的完整性
+// 重新评分, 而不是复用一份在"未确认"前提下算出的旧结论。
+type overviewDeliveryEvidence struct {
+	confirmed   bool
+	attestation *overviewModelAttestation
 }
 
 func newCognitionRefreshSession() *cognitionRefreshSession {
@@ -44,6 +59,7 @@ func newCognitionRefreshSession() *cognitionRefreshSession {
 		pendingEvents:       map[string]bool{},
 		consumedEvents:      map[string]bool{},
 		governanceSnapshots: map[string]string{},
+		deliveryEvidence:    map[string]*overviewDeliveryEvidence{},
 	}
 }
 
@@ -631,17 +647,70 @@ func (session *cognitionRefreshSession) pendingEventReceiptID() string {
 	}
 }
 
+// mergeDeliveryEvidence 把本次调用携带的证据半边并入会话记忆, 并返回对该
+// body 生效的宿主交付状态与模型报告: 本次没带的那一半, 若此前已针对同一 body
+// 到达, 就从记忆补上。只有经 hostDeliveryStatus 对当前 framed body 校验为
+// confirmed 的确认才会被记住; 报告则原样保存, 由调用方对当前 Challenge 重新
+// 评分, 身份不符的旧报告会在那里被 envelope 校验拒绝。
+//
+// 与本文件其他交付路径方法一样, 调用方(Overview 处理器)已持有 session.mu。
+func (session *cognitionRefreshSession) mergeDeliveryEvidence(
+	bodySHA256 string,
+	hostStatus string,
+	report *overviewModelAttestation,
+) (string, *overviewModelAttestation) {
+	if session == nil || bodySHA256 == "" {
+		return hostStatus, report
+	}
+	if session.deliveryEvidence == nil {
+		session.deliveryEvidence = map[string]*overviewDeliveryEvidence{}
+	}
+	evidence := session.deliveryEvidence[bodySHA256]
+	if evidence == nil {
+		evidence = &overviewDeliveryEvidence{}
+		session.deliveryEvidence[bodySHA256] = evidence
+	}
+	// 本次调用明确携带的一半永远以最新为准(一份不匹配的确认表示宿主现在
+	// 说"没收全", 它压过更早的确认); 记忆只填补本次没带的那一半。
+	switch hostStatus {
+	case hostDeliveryConfirmed:
+		evidence.confirmed = true
+	case hostDeliveryIncomplete:
+		evidence.confirmed = false
+	default:
+		if evidence.confirmed {
+			hostStatus = hostDeliveryConfirmed
+		}
+	}
+	if report != nil {
+		evidence.attestation = report
+	} else {
+		report = evidence.attestation
+	}
+	return hostStatus, report
+}
+
+// resetDeliveryEvidence 在一次全新的完整交付开始时丢弃该 body 的旧证据:
+// 每次交付尝试各自取证, 旧确认不为新一轮传输作证。
+func (session *cognitionRefreshSession) resetDeliveryEvidence(bodySHA256 string) {
+	if session == nil {
+		return
+	}
+	delete(session.deliveryEvidence, bodySHA256)
+}
+
 // recordAttestedDelivery consumes one complete, host-confirmed delivery
 // attempt. A failed or partial model Attestation advances the generation but
 // deliberately records an uncertain receipt, preventing refresh loops without
-// granting permission to claim complete system cognition.
+// granting permission to claim complete system cognition. The attestation
+// result already reflects merged session evidence, so a confirmation and an
+// Attestation submitted in separate calls latch here exactly like one call.
 func (session *cognitionRefreshSession) recordAttestedDelivery(
 	delivered cognitionReceipt,
-	input overviewIn,
 	attestation overviewAttestationResult,
 	eligible bool,
 ) {
-	if !eligible || input.ModelAttestation == nil ||
+	if !eligible || !attestation.ReportProvided ||
 		attestation.DeliveryIntegrity != deliveryIntegrityConfirmed {
 		return
 	}

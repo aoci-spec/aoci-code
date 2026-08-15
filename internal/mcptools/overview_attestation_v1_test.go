@@ -360,11 +360,54 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryIncomplete, want: modelAttestationPartial, assim: cognitionAssimilationUncertain,
 		},
 		{
-			name: "model falsely reports one hundred percent",
+			// 认证测的是消化而非逐字复述: 十题里一处身份失手仍在通过比例内, 且
+			// 身份失手数未超上限。
+			name: "one identity slip inside the pass ratio",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[5].ObjectIdentity = "internal/pkg/not-seen.go"
 			},
-			hostStatus: hostDeliveryConfirmed, want: modelAttestationFail, assim: cognitionAssimilationUncertain,
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
+		},
+		{
+			// 身份是唯一没有"复述误差"的离散事实: 两处身份失手即便还在 8/10 之
+			// 内, 也说明序列位置认知有洞, 不得通过。
+			name: "two identity misses exceed the identity cap",
+			mutate: func(report *overviewModelAttestation) {
+				report.ChallengeAnswers[2].ObjectIdentity = "internal/pkg/not-seen-a.go"
+				report.ChallengeAnswers[7].ObjectIdentity = "internal/pkg/not-seen-b.go"
+			},
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
+		},
+		{
+			// 倒挂修正: 诚实声称看全但三题失手, 是 partial 而不是 fail —— 同一组
+			// 答案配上保守的覆盖率声明也只会是 partial, 完整声明不能判得更重。
+			name: "complete claim with three misses is partial not fail",
+			mutate: func(report *overviewModelAttestation) {
+				report.ChallengeAnswers[1].Tag = "WRONG"
+				report.ChallengeAnswers[4].Tag = "WRONG"
+				report.ChallengeAnswers[8].CoreF = "an unrelated responsibility altogether"
+			},
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
+		},
+		{
+			// F 按语义等价判: 释义与截去尾句都算召回, 掉换成别的职责不算。
+			name: "paraphrased and truncated core F still match",
+			mutate: func(report *overviewModelAttestation) {
+				report.ChallengeAnswers[0].CoreF = "Owns the " + strings.TrimPrefix(report.ChallengeAnswers[0].CoreF, "owns ")
+				report.ChallengeAnswers[9].CoreF = "owns responsibility"
+			},
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
+		},
+		{
+			// 语义等价不是放水: 只差一个编号的兄弟 F 相似度落在门槛之下, 三处
+			// 这样的错答把通过率拉到 7/10。
+			name: "three sibling core F texts are not recall",
+			mutate: func(report *overviewModelAttestation) {
+				report.ChallengeAnswers[1].CoreF = "owns responsibility 999"
+				report.ChallengeAnswers[4].CoreF = "owns responsibility 998"
+				report.ChallengeAnswers[8].CoreF = "owns responsibility 997"
+			},
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
 			name: "entry count correct but challenge wrong",
@@ -384,18 +427,20 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
+			// 顺序是可修正的格式问题, 不是认知缺失: partial, 修正格式后重提。
 			name: "challenge answers reordered",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[3], report.ChallengeAnswers[4] = report.ChallengeAnswers[4], report.ChallengeAnswers[3]
 			},
-			hostStatus: hostDeliveryConfirmed, want: modelAttestationFail, assim: cognitionAssimilationUncertain,
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
-			name: "object exists but tag is wrong",
+			// Tag 保持精确匹配, 但一处 Tag 失手只计入通过比例。
+			name: "object exists but one tag is wrong",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[4].Tag = "WRONG"
 			},
-			hostStatus: hostDeliveryConfirmed, want: modelAttestationFail, assim: cognitionAssimilationUncertain,
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
 		},
 	}
 	for _, test := range tests {

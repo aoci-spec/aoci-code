@@ -150,18 +150,24 @@ ok("get_entries.no_error_and_hit", (not err) and "AtomicWrite" in t)
 # sequence (the harness IS the model here), expect a machine pass; a wrong tag
 # must fail. Section roots are historical coordinates: repo-relative identities
 # derive from the first (root) section prefix per the index-format contract.
-entry_seq, hist_root, cur_rel = [], None, None
-for ln in whole.split("\n"):
-    st = ln.strip()
-    if st.startswith("===") and st.endswith("==="):
-        path = st.strip("=")
-        if hist_root is None or len(path) < len(hist_root):
-            hist_root = path
-        cur_rel = path[len(hist_root):] if hist_root and path.startswith(hist_root) else ""
-        continue
-    m = re.match(r"^(\S[^\[]*)\[([A-Za-z0-9]+)\]: F:(.*?) \| R:", st)
-    if m and cur_rel is not None:
-        entry_seq.append(((cur_rel or "") + m.group(1), m.group(2), m.group(3)))
+def parse_entry_seq(body):
+    """Formal Entry sequence as (repo-relative identity, tag, core F), by the
+    index-format contract: section roots are historical coordinates and the
+    shortest root is the repository root."""
+    seq, hist_root, cur_rel = [], None, None
+    for ln in body.split("\n"):
+        st = ln.strip()
+        if st.startswith("===") and st.endswith("==="):
+            path = st.strip("=")
+            if hist_root is None or len(path) < len(hist_root):
+                hist_root = path
+            cur_rel = path[len(hist_root):] if hist_root and path.startswith(hist_root) else ""
+            continue
+        m = re.match(r"^(\S[^\[]*)\[([A-Za-z0-9]+)\]: F:(.*?) \| R:", st)
+        if m and cur_rel is not None:
+            seq.append(((cur_rel or "") + m.group(1), m.group(2), m.group(3)))
+    return seq
+entry_seq = parse_entry_seq(whole)
 pt, perr = text_of(s.call("aoci_overview", {"check_only": True, "probe": True}))
 probe = (json.loads(pt) if not perr else {}).get("cognition_probe") or {}
 probe_ok = probe.get("version") == "cognition-probe/v1" and len(probe.get("ordinals") or []) == 2 \
@@ -181,6 +187,35 @@ if probe_ok:
         {"version": "cognition-probe/v1", "digest": probe["digest"], "answers": answers}}))
     bad = (json.loads(bt) if not berr else {}).get("probe_result") or {}
     ok("probe.wrong_answer_fails", bad.get("result") == "fail", bt[:200])
+
+# split proof halves, order A: attestation alone grades pass but cannot latch
+# (delivery unconfirmed); the later confirmation-only call must pick that pass
+# up from session memory and latch reliability.
+def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False, mastery=90):
+    answers = []
+    for i, o in enumerate(ords):
+        ident, tag, coref = seq[o-1]
+        if bare: ident = ident.rsplit("/", 1)[-1]
+        if i in wreck_ident: ident = "internal/definitely/not/this.go"
+        if i in wreck_f: coref = "totally wrong responsibility"
+        answers.append({"ordinal": o, "object_identity": ident, "tag": tag, "core_f": coref})
+    return {"version": "model-cognition-attestation/v1",
+        "index_sha256": mfin["challenge_index_sha256"],
+        "entry_sequence_sha256": mfin["challenge_entry_sequence_sha256"],
+        "entry_count": mfin["challenge_entry_count"], "challenge_digest": mfin["challenge_digest"],
+        "reported_entry_count": m0["entry_count"], "reported_estimated_tokens": m0["estimated_tokens"],
+        "coverage_percent": 100, "system_mastery_percent": mastery, "confidence_percent": 90,
+        "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
+        "challenge_answers": answers}
+ords1 = metaL["challenge_ordinals"] if isinstance(metaL["challenge_ordinals"], list) else [int(x) for x in str(metaL["challenge_ordinals"]).split(",")]
+confirmation1 = {"version": "overview-delivery-receipt/v1", "body_sha256": meta0["body_sha256"],
+                 "body_bytes": meta0["body_utf8_bytes"], "end_marker_observed": True}
+at, aerr = text_of(s.call("aoci_overview", {"model_cognition_attestation": attestation_for(metaL, meta0, entry_seq, ords1)}))
+ok("attestation.alone_passes_but_unlatched", (not aerr) and "model_attestation: pass" in at
+   and "delivery_integrity: unconfirmed" in at and "model_full_cognition_reliable: false" in at, at[:240])
+ct, cerr = text_of(s.call("aoci_overview", {"host_delivery_confirmation": confirmation1}))
+ok("attestation.confirmation_after_attestation_latches", (not cerr) and "model_full_cognition_reliable: true" in ct
+   and "cognition_level: 4" in ct, ct[:240])
 
 t, err = text_of(s.call("aoci_maintain"))
 def maintain_diag(text):
@@ -236,38 +271,35 @@ for i in range(1, 12):
 mfin = c2[-1][0]; m0 = c2[0][0]
 whole2 = "".join(b for _,b in c2)
 ords = mfin["challenge_ordinals"] if isinstance(mfin["challenge_ordinals"], list) else [int(x) for x in str(mfin["challenge_ordinals"]).split(",")]
-ents2 = []
-for ln in whole2.split("\n"):
-    st = ln.strip()
-    if st and not st.startswith(("#","===","<<<","──","AOCI Cognition Asset:")) and re.match(r"^\S+\[[A-Za-z0-9]+\]: F:", st):
-        ents2.append(st)
-def answer(ordinal, wreck=False):
-    e = ents2[ordinal-1]
-    mm = re.match(r"^(\S+)\[([A-Za-z0-9]+)\]: F:(.*?) \| R:", e)
-    name, tag, f = mm.group(1), mm.group(2), mm.group(3)
-    if wreck: f = "totally wrong responsibility"
-    return {"ordinal": ordinal, "object_identity": name, "tag": tag, "core_f": f}
-def attest(sess, wreck_first):
-    answers = [answer(o, wreck=(wreck_first and i==0)) for i,o in enumerate(ords)]
-    return text_of(sess.call("aoci_overview", {
-        "host_delivery_confirmation": {"version":"overview-delivery-receipt/v1",
-            "body_sha256": m0["body_sha256"], "body_bytes": m0["body_utf8_bytes"], "end_marker_observed": True},
-        "model_cognition_attestation": {"version":"model-cognition-attestation/v1",
-            "index_sha256": mfin["challenge_index_sha256"],
-            "entry_sequence_sha256": mfin["challenge_entry_sequence_sha256"],
-            "entry_count": mfin["challenge_entry_count"],
-            "challenge_digest": mfin["challenge_digest"],
-            "reported_entry_count": m0["entry_count"], "reported_estimated_tokens": m0["estimated_tokens"],
-            "coverage_percent": 100, "system_mastery_percent": 50, "confidence_percent": 50,
-            "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
-            "challenge_answers": answers}}))
-# NOTE: object_identity uses the entry's file name; the contract requires the full
-# repo-relative path for Code objects — the bare-name variant in the wrong-answer
-# session ALSO probes identity strictness. For the pass session we must map names
-# to full paths via section headers.
-t, err = text_of(s2.call("aoci_rules"))  # keep session alive semantics
-wt, werr = attest(s2, wreck_first=True)
-ok("attestation.wrong_answer_fails", ("model_attestation: fail" in wt) or ("fail" in wt and "10/10" not in wt), wt[:200])
+seq2 = parse_entry_seq(whole2)
+ok("overview.session2_entry_parse_count", len(seq2) == m0["entry_count"], f"{len(seq2)} vs {m0['entry_count']}")
+confirmation2 = {"version": "overview-delivery-receipt/v1", "body_sha256": m0["body_sha256"],
+                 "body_bytes": m0["body_utf8_bytes"], "end_marker_observed": True}
+def attest2(**kw):
+    return text_of(s2.call("aoci_overview", {"host_delivery_confirmation": confirmation2,
+        "model_cognition_attestation": attestation_for(mfin, m0, seq2, ords, **kw)}))
+# split proof halves, order B: confirmation first, attestation second.
+ct, cerr = text_of(s2.call("aoci_overview", {"host_delivery_confirmation": confirmation2}))
+ok("attestation.confirmation_alone_is_level_2", (not cerr) and "host_delivery_status: host_delivery_confirmed" in ct
+   and "cognition_level: 2" in ct and "model_full_cognition_reliable: false" in ct, ct[:240])
+at, aerr = text_of(s2.call("aoci_overview", {"model_cognition_attestation": attestation_for(mfin, m0, seq2, ords)}))
+ok("attestation.attestation_after_confirmation_latches", (not aerr) and "model_full_cognition_reliable: true" in at
+   and "challenge_passed: 10/10" in at, at[:240])
+# grading ladder: bare file names miss every identity (fail); 7/10 is below the
+# pass share (partial, never fail for an honest complete claim); two identity
+# misses exceed the identity cap even at 8/10 (partial); two core-F misses at
+# 8/10 pass because F is judged semantically and identity is intact.
+wt, werr = attest2(bare=True)
+ok("attestation.wrong_answer_fails", (not werr) and "model_attestation: fail" in wt, wt[:200])
+pt, perr = attest2(wreck_f=(0,1,2))
+ok("attestation.seven_of_ten_is_partial", (not perr) and "challenge_passed: 7/10" in pt
+   and "model_attestation: partial" in pt and "model_full_cognition_reliable: false" in pt, pt[:240])
+it, ierr = attest2(wreck_ident=(0,1))
+ok("attestation.two_identity_misses_partial", (not ierr) and "challenge_passed: 8/10" in it
+   and "model_attestation: partial" in it, it[:240])
+et, eerr = attest2(wreck_f=(0,1))
+ok("attestation.eight_of_ten_passes", (not eerr) and "challenge_passed: 8/10" in et
+   and "model_attestation: pass" in et and "model_full_cognition_reliable: true" in et, et[:240])
 ok("stdout.purity.session2", not s2.nonjson_stdout)
 s2.close()
 

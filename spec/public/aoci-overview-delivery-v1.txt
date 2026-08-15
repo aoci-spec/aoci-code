@@ -169,16 +169,44 @@ repository-relative path. For a Volumes Code object, that exact path maps
 one-to-one to `code:<path>`; the assessor performs no path cleaning, case
 folding, basename lookup, or fuzzy resolution. Database objects still require
 their exact `database://source/namespace/table` identity. This is answer-format
-canonicalization, not a weaker semantic match: ordinal, Tag, and core F remain
-exact and every Challenge target must still pass.
+canonicalization, not a weaker semantic match: ordinal, object identity, and
+Tag remain exact.
+
+Core F is judged as a semantic match rather than a byte match: the exact
+delivered F passes, and so does a paraphrase or a dropped clause whose
+normalized token set stays similar enough (Jaccard at least 0.6 over
+lowercased words, with Han, Kana, and Hangul runs split into character bigrams
+so every locale meets the same floor). A different Entry's F, including a
+formulaic sibling that differs in its distinguishing words, stays below the
+floor. The Challenge measures assimilation, not verbatim recall: delivery
+integrity is already proven by the Host receipt over the exact bytes.
+
+The Challenge passes when at least 80 percent of its ordinals are fully correct
+(ordinal, object identity, Tag, and core F together) and object identity, the
+one discrete fact without paraphrase, is missed at most once. Every ordinal
+counts as pass when fewer than five exist. A shortfall grades partial; fail is
+reserved for a foreign or malformed envelope or an Attestation with no correct
+ordinal. A complete-coverage claim that misses the pass share grades partial,
+never lower than the same answers submitted with a hedged coverage claim.
 
 The model makes one semantic Attestation submission based only on the delivered
 Whole-Index. If that same response reports only a JSON Schema or field-format
 error, one correction may adjust field names, types, missing fields, or
-encoding without reinterpreting or changing Challenge answers. Any object,
-Tag, or F mismatch immediately yields `model_attestation=fail` and
-`cognition_assimilation=uncertain`; no semantic retry or external-information
-bypass is permitted.
+encoding without reinterpreting or changing Challenge answers. A partial or
+failed grade records an uncertain receipt without permission to claim
+complete-system cognition; no semantic retry or external-information bypass is
+permitted.
+
+`host_delivery_confirmation` and `model_cognition_attestation` are two proof
+halves bound to the same delivered body: the confirmation to its SHA-256 and
+byte count, the Attestation to the current Index SHA-256, Entry-sequence
+SHA-256, Entry count, and Challenge digest. Their arrival order carries no
+information, so they may be submitted in one call or in separate calls in
+either order. The server remembers each half per delivered body for the
+session and grades the merged evidence; a half carried explicitly in a call
+always supersedes the remembered one, and a fresh complete delivery attempt
+(no confirmation, no Attestation, no cursor) resets the remembered evidence
+for that body so every transmission takes its own proof.
 
 The assessment keeps three independent dimensions:
 
@@ -188,12 +216,13 @@ The assessment keeps three independent dimensions:
 
 Passing requires the exact current Index SHA-256, Entry-sequence SHA-256, Entry
 count, Challenge version and digest, every answer once and in ordinal order, a
-matching reported Entry count, a reasonable token report, at least 95 percent
-reported coverage, no detected truncation, and all exact bindings.
+reported Entry count within one percent (never less than one Entry) of the
+machine count, a reasonable token report, at least 95 percent reported
+coverage, no detected truncation, and the Challenge pass share above.
 Complete assimilation additionally requires continuous 100 percent machine
 Entry coverage, confirmed Host delivery, current aligned formal cognition,
-Challenge 10/10, `governance_aligned=true`, passing Attestation, and at least 80
-percent model-reported system mastery. Mastery is a self-assessment and never
+a passing Challenge, `governance_aligned=true`, passing Attestation, and at
+least 80 percent model-reported system mastery. Mastery is a self-assessment and never
 replaces machine coverage.
 
 `system_mastery_percent` means only the model's self-assessed mastery of the
@@ -216,7 +245,7 @@ existing field:
 * Level 2, `delivery_verified`: the Index is loaded and Host delivery is
   confirmed, but strict complete-cognition verification is unfinished;
 * Level 3, `cognition_verified`: delivery is confirmed and the Attestation,
-  including Challenge 10/10, passes;
+  including the Challenge pass share, passes;
 * Level 4, `cognition_governed`: Level 3 is established and governance is
   aligned.
 
@@ -235,8 +264,8 @@ exact `next_cursor` and continues automatically until completion. Every failure
 listed above stops the chain or acceptance; local and historical information
 must not be used to claim completion.
 
-Initial cognition still requires complete transport, continuous coverage,
-Challenge 10/10, passing Attestation, aligned governance, and sufficient
+Initial cognition still requires complete transport, continuous coverage, a
+passing Challenge, passing Attestation, aligned governance, and sufficient
 mastery for `model_full_cognition_reliable=true`. Initial partial or failure
 blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
 but it does not prohibit honest answers or task-bound source/test inspection.
