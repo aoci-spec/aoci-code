@@ -412,7 +412,7 @@ The model authors these semantics from actual source code and evidence. AOCI-COD
 
 ### 🏷️ Reading the starter tag dictionary
 
-The following excerpt is copied verbatim from the current [`en-US` Volume Meta template](textassets/en-US/templates/volume-meta.txt.tmpl). It is a starter dictionary, not a universal vocabulary: each repository's formal Meta remains authoritative. The starter declares no D dictionary; D remains an optional axis and may be used only when the current formal Meta declares it.
+The following excerpt is copied verbatim from the current `en-US` Volume Meta template (`textassets/en-US/templates/volume-meta.txt.tmpl`). It is a starter dictionary, not a universal vocabulary: each repository's formal Meta remains authoritative. The starter declares no D dictionary; D remains an optional axis and may be used only when the current formal Meta declares it.
 
 <details>
 <summary>Show the governed starter dictionary</summary>

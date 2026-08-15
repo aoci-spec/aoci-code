@@ -401,7 +401,7 @@ S: F、R、A 之外的重要补充信息
 
 ### 🏷️ 阅读初始标签字典
 
-下面内容从当前 [`zh-CN` Volume Meta 模板](textassets/zh-CN/templates/volume-meta.txt.tmpl)逐字引用。这是一份初始字典，不是所有项目通用的固定词表：每个仓库仍以自身正式 Meta 为准。初始模板没有声明 D 字典；D 仍是可选维度，只有当前正式 Meta 声明后才能使用。
+下面内容从当前 `zh-CN` Volume Meta 模板（`textassets/zh-CN/templates/volume-meta.txt.tmpl`）逐字引用。这是一份初始字典，不是所有项目通用的固定词表：每个仓库仍以自身正式 Meta 为准。初始模板没有声明 D 字典；D 仍是可选维度，只有当前正式 Meta 声明后才能使用。
 
 <details>
 <summary>查看受治理的初始字典</summary>
