@@ -482,6 +482,7 @@ func TestDeliveryAndVolumesDocsMatchMachineAuthority(t *testing.T) {
 		fmt.Sprintf("%d characters", machinecontract.ObjectFRASV2AMaxRunes),
 		fmt.Sprintf("%d items", machinecontract.ObjectFRASV2AMaxItems),
 		fmt.Sprintf("%d exact model authoring targets", machinecontract.EntriesBatchMaxItems),
+		fmt.Sprintf("%d exact model authoring targets", machinecontract.CodeCognitionBatchEntriesDefault),
 	} {
 		if !strings.Contains(volumesDoc, anchor) {
 			t.Errorf("cognition-volumes doc is missing machine anchor %q", anchor)

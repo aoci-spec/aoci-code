@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-15T07:44:59Z",
+  "updated_at": "2026-08-15T08:04:57Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -171,9 +171,9 @@
       "normalized_sha256": "7f927dd364e189d3ffe014a76b5d24cee364a300008d032c082d3c9bc109274b"
     },
     "docs/cognition-volumes.md": {
-      "sha256": "bc6f3520db943415d3689a41a17d9f3ab651e2304626bf6b1cdf0547f30bbc82",
-      "size": 20758,
-      "normalized_sha256": "bc6f3520db943415d3689a41a17d9f3ab651e2304626bf6b1cdf0547f30bbc82"
+      "sha256": "53f9b893f8a00a1c8d82cc529ef0848c8d5ad48b519b2a9790636d2aa7acf690",
+      "size": 20859,
+      "normalized_sha256": "53f9b893f8a00a1c8d82cc529ef0848c8d5ad48b519b2a9790636d2aa7acf690"
     },
     "docs/contract-authority.md": {
       "role": "index",
@@ -3858,10 +3858,10 @@
     },
     "internal/machinecontract/cross_layer_test.go": {
       "role": "observe",
-      "sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
-      "size": 16872,
-      "normalized_sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
-      "format_sha256": "488c3710832e409c84f66ca7083e239aac4993051937796195ea1173abd277c5",
+      "sha256": "2572fe2ca48fcf915efb0a45fa1978af6a8a2d22cb417a2fbfe50ac783156659",
+      "size": 16973,
+      "normalized_sha256": "2572fe2ca48fcf915efb0a45fa1978af6a8a2d22cb417a2fbfe50ac783156659",
+      "format_sha256": "2572fe2ca48fcf915efb0a45fa1978af6a8a2d22cb417a2fbfe50ac783156659",
       "format_kind": "gofmt"
     },
     "internal/machinecontract/lexical.go": {

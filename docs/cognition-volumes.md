@@ -265,9 +265,11 @@ placeholder. Guide returns one of `aligned`, `authoring_required`,
 `evidence_required`, or `blocked`.
 
 No-argument Maintain selects the affected domain automatically and emits one
-current machine batch of exact model authoring targets — the team batch size
-`code_cognition_batch_entries` (default 20, ceiling 200; set it with
-`aoci config set code_cognition_batch_entries N`) — plus Review/Write/Guard
+current machine batch of exact model authoring targets:
+by default 20 exact model authoring targets, and never more than
+200 exact model authoring targets (the wire ceiling). The team batch size
+`code_cognition_batch_entries` moves it (`aoci config set
+code_cognition_batch_entries N`). The batch comes with Review/Write/Guard
 closure and the affected-domain authoring contract. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
