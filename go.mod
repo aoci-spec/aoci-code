@@ -10,7 +10,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/sys v0.44.0
+	golang.org/x/sys v0.47.0
 )
 
 replace gitcode.com/opengauss/openGauss-connector-go-pq => ./third_party/openGauss-connector-go-pq
