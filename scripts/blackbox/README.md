@@ -19,13 +19,13 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (57 checks, read-only):
+Protocol conformance (58 checks, read-only):
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (29 scenarios, disposable fixtures in a temp dir):
+Fault-injection scenarios (30 scenarios, disposable fixtures in a temp dir):
 
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py

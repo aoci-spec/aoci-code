@@ -34,9 +34,59 @@ def record(group, name, status, detail=""):
     RESULTS.append((group, name, status, detail))
     print(f"{status:4} [{group}] {name}" + (f" | {detail[:160]}" if detail else ""))
 
+# ---------------------------------------------------------------- host window
+# Every tool result any host displays inline must fit that host's tool-result
+# window; Claude Code spills anything past ~25k tokens to a file on disk, and a
+# real user's index build collapsed into scripts and encoding errors on exactly
+# that spill. The ledger records the UTF-8 size of every tools/call result the
+# suites receive; the gate at the end asserts no non-Overview response crossed
+# HOST_WINDOW_BYTES. Overview is chunked by its own configured budget and is
+# reported but not gated here.
+HOST_WINDOW_BYTES = 64 * 1024
+RESPONSE_SIZES = []  # (tool, utf8 bytes, gated)
+# Repositories whose team configuration deliberately raised the Code batch
+# above the machine default (the wire-ceiling scenarios). A team that asks for
+# 200 candidates a call has opted out of the default window; their responses
+# are still measured and reported, just not gated.
+TEAM_RAISED_BATCH_REPOS = set()
+
+
+def mark_team_raised_batch(repo):
+    TEAM_RAISED_BATCH_REPOS.add(os.path.abspath(repo))
+
+
+def record_response_size(tool, resp, repo=None):
+    try:
+        text = "".join(c.get("text", "") for c in (resp.get("result") or {}).get("content") or []
+                       if isinstance(c, dict))
+    except Exception:
+        text = ""
+    gated = repo is None or os.path.abspath(repo) not in TEAM_RAISED_BATCH_REPOS
+    RESPONSE_SIZES.append((tool, len(text.encode("utf-8")), gated))
+
+
+def host_window_summary(limit=HOST_WINDOW_BYTES):
+    """Return (ok, detail): the largest response per tool under default team
+    configuration and whether every non-Overview tool stayed under the host
+    window; ceiling-configured repositories are reported separately."""
+    peak, raised = {}, {}
+    for tool, size, gated in RESPONSE_SIZES:
+        target = peak if gated else raised
+        target[tool] = max(target.get(tool, 0), size)
+    gated = {t: b for t, b in peak.items() if t != "aoci_overview"}
+    worst = max(gated.values()) if gated else 0
+    detail = "limit=%d calls=%d default-config peak: %s" % (limit, len(RESPONSE_SIZES),
+             " ".join(f"{t.replace('aoci_', '')}={b}" for t, b in sorted(peak.items())))
+    if raised:
+        detail += " | team-raised-batch peak (not gated): " + \
+            " ".join(f"{t.replace('aoci_', '')}={b}" for t, b in sorted(raised.items()))
+    return worst <= limit, detail
+
+
 # ---------------------------------------------------------------- MCP client
 class Session:
     def __init__(self, repo):
+        self.repo = repo
         self.p = subprocess.Popen([BIN, "--repo", repo, "mcp"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", bufsize=1)
@@ -66,7 +116,9 @@ class Session:
         if params is not None: msg["params"] = params
         self.send_raw(json.dumps(msg))
     def call(self, tool, args=None, timeout=180):
-        return self.rpc("tools/call", {"name": tool, "arguments": args or {}}, timeout)
+        resp = self.rpc("tools/call", {"name": tool, "arguments": args or {}}, timeout)
+        record_response_size(tool, resp, self.repo)
+        return resp
     def send_call_noread(self, tool, args):
         """Fire a tools/call without reading the response (for crash injection)."""
         rid = self.next_id; self.next_id += 1
@@ -152,6 +204,7 @@ def make_fixture(name, nfiles, batch_entries=None):
     if batch_entries is not None:
         rc, _, out, errs = cli(d, "config", "set", "code_cognition_batch_entries", str(batch_entries))
         if rc != 0: raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
+        mark_team_raised_batch(d)
     rc, _, out, errs = cli(d, "scan")
     if rc != 0: raise RuntimeError(f"scan failed: {out[:200]} {errs[:200]}")
     return d
@@ -555,6 +608,8 @@ if __name__ == "__main__":
     group_c()
     group_d(bigfx)
     group_e()
+    ok, detail = host_window_summary()
+    record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()
     npass = sum(1 for r in RESULTS if r[2] == "PASS")
     nchar = sum(1 for r in RESULTS if r[2] == "CHAR")

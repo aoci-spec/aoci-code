@@ -50,7 +50,7 @@ Fresh Bootstrap创作边界：复用当前持久Onboarding流程。Host模型根
 
 五、增量维护
 
-11. 纯只读问答、分析、版本核验，或没有产生受AOCI管理对象变化的任务，不需要调用维护工具。
+11. 纯只读问答、分析、版本核验，或没有产生受AOCI管理对象变化的任务，不需要调用维护工具。要回答当前使用的AOCI版本，读取任意aoci_overview check_only或aoci_maintain响应里的cognition_receipt.mcp_service_version，它就是正在运行的MCP服务版本；二进制路径是项目.mcp.json（或等价的Host配置）里的command；aoci CLI不一定在PATH上，shell里找不到命令绝不意味着AOCI未安装。
 
 12. 发生受管理对象变化时，待它们达到本次任务最终稳定状态后，只调用一次 aoci_maintain。不要在中间状态逐文件维护。
 

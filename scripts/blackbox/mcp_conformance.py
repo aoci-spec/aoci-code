@@ -25,6 +25,10 @@ def ok(name, cond, detail=""):
     (PASS if cond else FAIL).append((name, detail))
     print(("PASS " if cond else "FAIL ") + name + ((" | " + detail[:140]) if detail and not cond else ""))
 
+# host-window ledger: (tool, utf8 bytes) for every tools/call result received.
+RESPONSE_SIZES = []
+HOST_WINDOW_BYTES = 64 * 1024
+
 class Session:
     def __init__(self):
         self.p = subprocess.Popen([BIN, "--repo", REPO, "mcp"],
@@ -60,7 +64,14 @@ class Session:
         if params is not None: msg["params"] = params
         self.send_raw(json.dumps(msg))
     def call(self, tool, args=None, timeout=180):
-        return self.rpc("tools/call", {"name": tool, "arguments": args or {}}, timeout)
+        resp = self.rpc("tools/call", {"name": tool, "arguments": args or {}}, timeout)
+        try:
+            text = "".join(c.get("text", "") for c in (resp.get("result") or {}).get("content") or []
+                           if isinstance(c, dict))
+            RESPONSE_SIZES.append((tool, len(text.encode("utf-8"))))
+        except Exception:
+            pass
+        return resp
     def close(self):
         try:
             self.p.stdin.close(); self.p.wait(timeout=10)
@@ -325,6 +336,16 @@ except Exception:
 ok("malformed.orderly_exit_code_1", p3.returncode == 1, str(p3.returncode))
 ok("malformed.stderr_diagnostic", "invalid character" in err3)
 ok("malformed.stdout_stays_pure", out3.strip() == "", repr(out3[:80]))
+
+# ---------- host window: every non-Overview tool result fits an ordinary host window ----------
+# Claude Code spills tool results past ~25k tokens to a file; a real user's index
+# build collapsed on exactly that. Overview is chunked by its own budget and only reported.
+_peak = {}
+for _t, _b in RESPONSE_SIZES:
+    _peak[_t] = max(_peak.get(_t, 0), _b)
+_worst = max([b for t, b in _peak.items() if t != "aoci_overview"] or [0])
+ok("host_window.non_overview_responses_le_64k", _worst <= HOST_WINDOW_BYTES,
+   "peak: " + " ".join(f"{t.replace('aoci_', '')}={b}" for t, b in sorted(_peak.items())))
 
 print()
 print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed")

@@ -50,7 +50,7 @@ Section 4. AOCI-managed write boundaries
 
 Section 5. Incremental maintenance
 
-11. A purely read-only question, analysis, version check, or task that changes no AOCI-managed object does not require a maintenance-tool call.
+11. A purely read-only question, analysis, version check, or task that changes no AOCI-managed object does not require a maintenance-tool call. To answer which AOCI version is in use, read cognition_receipt.mcp_service_version from any aoci_overview check_only or aoci_maintain response: it names the running MCP service. The binary path is the command in the project's .mcp.json (or the equivalent Host configuration); the aoci CLI is not necessarily on PATH, so a missing shell command never means AOCI is not installed.
 
 12. When managed objects change, call aoci_maintain exactly once after they reach the task's final stable state. Do not maintain files one by one in an intermediate state.
 

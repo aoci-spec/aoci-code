@@ -34,7 +34,7 @@ import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, time, 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 os.environ.setdefault("AOCI_SCENARIO_WORK", tempfile.mkdtemp(prefix="aoci-lifecycle-lib-"))
-from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain  # noqa: E402
+from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain, host_window_summary, mark_team_raised_batch  # noqa: E402
 
 REPO = os.environ.get("AOCI_REPO", os.path.dirname(os.path.dirname(_HERE)))
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -133,6 +133,7 @@ def init_and_scan(fx, locale="en-US", agent=None, curation_exclude="default", ba
         rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", str(batch_entries))
         if rc != 0:
             raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
+        mark_team_raised_batch(fx)
     if curation_exclude == "default":
         curation_exclude = CURATION_EXCLUDE.get(repo_key_of(fx))
     if curation_exclude:
@@ -881,6 +882,10 @@ def main():
                             m_attest(rep, work, model, args.model_timeout, rep.artifacts)
             except Exception:
                 rep.rec(s, "suite-exception", "FAIL", traceback.format_exc()[-350:])
+        # Host-window gate over every tools/call the deterministic suites made:
+        # no non-Overview response may exceed what an ordinary host shows inline.
+        ok, detail = host_window_summary()
+        rep.rec("host-window", "every-non-overview-response-fits", "PASS" if ok else "FAIL", detail)
     finally:
         path, counts = rep.save()
         print(f"\nLIFECYCLE: {counts} -> {path}")

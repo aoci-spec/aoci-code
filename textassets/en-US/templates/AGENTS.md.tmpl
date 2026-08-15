@@ -72,7 +72,7 @@ This managed block defines only repository integration, cognition use, and task-
 
 ### Task closing and cognition maintenance
 
-5. A purely read-only question, analysis, version check, or task that changes no AOCI-managed object does not require a maintenance-tool call.
+5. A purely read-only question, analysis, version check, or task that changes no AOCI-managed object does not require a maintenance-tool call. The AOCI version in use is `cognition_receipt.mcp_service_version` in any `aoci_overview` check_only or `aoci_maintain` response; the binary path is the `command` in the project's `.mcp.json`, and the CLI need not be on PATH.
 
 6. When AOCI-managed objects change, call `aoci_maintain` once after they reach the task's final stable state. Do not maintain files individually after each intermediate edit.
 
