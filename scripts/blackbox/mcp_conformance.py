@@ -2,8 +2,9 @@
 """AOCI MCP stdio conformance harness — drives build/aoci mcp as a real client.
 Protocol-level tests only; zero formal writes expected (verified afterward by git/verify).
 
-MCP stdio 一致性检查（44项）：以真实客户端身份走 initialize→tools 全链路，
+MCP stdio 一致性检查（46项）：以真实客户端身份走 initialize→tools 全链路，
 只读不写，跑完用 git status / aoci verify 复核零写入。
+本脚本跑完会核对公开文档里公布的检查数与本次实跑一致，防止文档悄悄漂移。
 
 Usage:  python3 scripts/blackbox/mcp_conformance.py
 Env:    AOCI_REPO / AOCI_BIN 覆盖仓库与二进制路径（默认取本脚本所在仓库）;
@@ -112,20 +113,35 @@ ok("rules.no_error", not err)
 ok("rules.new_numbering", "Section 1. Establishing" in rules_text and "4a." in rules_text and "4d." in rules_text)
 ok("rules.machine_facts", "cognition_refresh_threshold: 30" in rules_text)
 
-# Full overview chain with byte-level integrity verification
+# Full overview chain with byte-level integrity verification.
+# The per-chunk results are printed individually but tallied as two aggregate
+# checks: the chain length depends on the index size of whatever repository
+# AOCI_REPO points at, and a check count that scales with the target would make
+# the published number meaningless (and would redden CI the day this repository
+# crosses a chunk boundary).
 chunks, cursor, meta0 = [], None, None
+chunk_errors, chunk_sha_mismatches = [], []
 for i in range(1, 12):
     args = {"cursor": cursor} if cursor else {}
     t, err = text_of(s.call("aoci_overview", args))
-    ok(f"overview.chunk{i}.no_error", not err)
+    if err:
+        chunk_errors.append(f"chunk{i}")
+    print(("PASS " if not err else "FAIL ") + f"overview.chunk{i}.no_error")
     meta, body = meta_and_body(t)
     if meta0 is None: meta0 = meta
     chunks.append((meta, body))
     # per-chunk sha256 must match the exact body bytes
     got = hashlib.sha256(body.encode()).hexdigest()
-    ok(f"overview.chunk{i}.sha", got == meta["chunk_sha256"], f"got={got[:12]} want={meta['chunk_sha256'][:12]}")
+    matched = got == meta["chunk_sha256"]
+    if not matched:
+        chunk_sha_mismatches.append(f"chunk{i}: got={got[:12]} want={meta['chunk_sha256'][:12]}")
+    print(("PASS " if matched else "FAIL ") + f"overview.chunk{i}.sha")
     if meta.get("completed"): break
     cursor = meta["next_cursor"]
+ok("overview.every_chunk_no_error", not chunk_errors,
+   f"{len(chunks)} chunks; failed: " + ", ".join(chunk_errors))
+ok("overview.every_chunk_sha", not chunk_sha_mismatches,
+   f"{len(chunks)} chunks; " + ("; ".join(chunk_sha_mismatches) or "all bodies match"))
 
 metaL = chunks[-1][0]
 ok("overview.chunk_count", len(chunks) == meta0["chunk_count"], f"{len(chunks)} vs {meta0['chunk_count']}")
@@ -184,6 +200,9 @@ probe = (json.loads(pt) if not perr else {}).get("cognition_probe") or {}
 probe_ok = probe.get("version") == "cognition-probe/v1" and len(probe.get("ordinals") or []) == 2 \
     and len(entry_seq) == meta0["entry_count"]
 ok("probe.issued", probe_ok, pt[:160])
+# Graded unconditionally: an unissued probe must fail these, not silently remove
+# them from the tally, or the published check count would depend on the outcome.
+graded, bad, grade_detail = {}, {}, "probe not issued"
 if probe_ok:
     answers = []
     for o in probe["ordinals"]:
@@ -192,12 +211,14 @@ if probe_ok:
     gt, gerr = text_of(s.call("aoci_overview", {"check_only": True, "probe_answers":
         {"version": "cognition-probe/v1", "digest": probe["digest"], "answers": answers}}))
     graded = (json.loads(gt) if not gerr else {}).get("probe_result") or {}
-    ok("probe.correct_answers_pass", graded.get("result") == "pass", gt[:200])
+    grade_detail = gt[:200]
     answers[0]["tag"] = "ZZ1Z"
     bt, berr = text_of(s.call("aoci_overview", {"check_only": True, "probe_answers":
         {"version": "cognition-probe/v1", "digest": probe["digest"], "answers": answers}}))
     bad = (json.loads(bt) if not berr else {}).get("probe_result") or {}
-    ok("probe.wrong_answer_fails", bad.get("result") == "fail", bt[:200])
+    grade_detail = (gt + " || " + bt)[:200]
+ok("probe.correct_answers_pass", graded.get("result") == "pass", grade_detail)
+ok("probe.wrong_answer_fails", bad.get("result") == "fail", grade_detail)
 
 # split proof halves, order A: attestation alone grades pass but cannot latch
 # (delivery unconfirmed); the later confirmation-only call must pick that pass
@@ -347,8 +368,45 @@ _worst = max([b for t, b in _peak.items() if t != "aoci_overview"] or [0])
 ok("host_window.non_overview_responses_le_64k", _worst <= HOST_WINDOW_BYTES,
    "peak: " + " ".join(f"{t.replace('aoci_', '')}={b}" for t, b in sorted(_peak.items())))
 
+# ---------- documentation binding: the published check count must match this run ----------
+# Three separate documents advertise this number to downstream verifiers, and
+# nothing used to hold them to it: README.md, README.zh-CN.md and this suite's
+# own README all drifted to a stale 44 while the suite grew. The run is the
+# authority, so the run enforces the documents.
+#
+# This binding deliberately stays outside PASS/FAIL: the published number counts
+# checks of the MCP wire surface, and counting a documentation check among them
+# would make the number describe itself.
+_TOTAL_CHECKS = len(PASS) + len(FAIL)
+_DOC_COUNTS = {
+    "README.md": r"\*\*Protocol conformance\*\* — (\d+) read-only checks",
+    "README.zh-CN.md": r"\*\*协议一致性\*\* —— (\d+) 项只读检查",
+    os.path.join("scripts", "blackbox", "README.md"): r"Protocol conformance \((\d+) checks, read-only\)",
+    os.path.join("scripts", "blackbox", "mcp_conformance.py"): r"一致性检查（(\d+)项）",
+}
+#
+# The documents belong to this script's own repository, never to AOCI_REPO: the
+# suite is documented as runnable against any target, and a foreign target has
+# no reason to carry these files.
+_doc_drift = []
+for _rel, _pattern in (_DOC_COUNTS.items() if REPO == _REPO_DEFAULT else []):
+    try:
+        with open(os.path.join(_REPO_DEFAULT, _rel), encoding="utf-8") as _fh:
+            _match = re.search(_pattern, _fh.read())
+    except OSError as _err:
+        _doc_drift.append(f"{_rel}: unreadable ({_err})")
+        continue
+    if _match is None:
+        _doc_drift.append(f"{_rel}: no documented check count found")
+    elif int(_match.group(1)) != _TOTAL_CHECKS:
+        _doc_drift.append(f"{_rel}: documents {_match.group(1)}, this run has {_TOTAL_CHECKS}")
+print(("PASS " if not _doc_drift else "FAIL ") + "docs.published_check_count_matches_this_run"
+      + ((" | " + "; ".join(_doc_drift)) if _doc_drift else f" | {_TOTAL_CHECKS}"))
+
 print()
 print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed")
 for n, d in FAIL:
     print("  FAILED:", n, "|", d[:200])
-sys.exit(1 if FAIL else 0)
+if _doc_drift:
+    print("  FAILED: docs.published_check_count_matches_this_run |", "; ".join(_doc_drift))
+sys.exit(1 if (FAIL or _doc_drift) else 0)

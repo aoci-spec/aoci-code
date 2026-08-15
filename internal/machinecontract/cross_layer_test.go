@@ -496,3 +496,66 @@ func TestDeliveryAndVolumesDocsMatchMachineAuthority(t *testing.T) {
 		}
 	}
 }
+
+// The public READMEs show the index header a reader actually gets from
+// `aoci init`: the Root manifest and the Meta header, with the tag dictionary
+// quoted further down the same document. Bind every rendered line to its
+// template so a template edit, a locale key rename, or a machine S-quota
+// change cannot leave the published example describing a header that the
+// binary no longer writes.
+func TestPublicReadmesShowTheRenderedIndexHeader(t *testing.T) {
+	// The README example names this project; the template renders whatever the
+	// repository directory is called, so the test must supply the same value.
+	data := struct {
+		ProjectName          string
+		SQuotaDefaultCompact string
+	}{
+		ProjectName:          "my-service",
+		SQuotaDefaultCompact: machinecontract.NumericText().SQuotaDefaultCompact,
+	}
+
+	readmes := []struct {
+		name   string
+		locale string
+		file   string
+	}{
+		{"English README", textassets.DefaultLocale, "README.md"},
+		{"Chinese README", textassets.LegacyLocale, "README.zh-CN.md"},
+	}
+
+	for _, target := range readmes {
+		t.Run(target.name, func(t *testing.T) {
+			readme := readRepositoryFile(t, target.file)
+			for _, id := range []textassets.ID{
+				textassets.TemplateVolumeRoot,
+				textassets.TemplateVolumeMeta,
+			} {
+				rendered, err := textassets.Render(target.locale, id, data)
+				if err != nil {
+					t.Fatalf("render %s: %v", id, err)
+				}
+				for _, line := range strings.Split(strings.TrimSpace(rendered), "\n") {
+					if line == "" {
+						continue
+					}
+					if !strings.Contains(readme, line) {
+						t.Errorf("%s does not quote %s line %q", target.name, id, line)
+					}
+				}
+			}
+		})
+	}
+
+	// The README tells the reader that enabling Database Cognition adds one
+	// more Root line. That sentence is only true while it matches the exact
+	// descriptor the bootstrap writes.
+	databaseDescriptor := "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled"
+	if !strings.Contains(readRepositoryFile(t, "internal", "databasebootstrap", "prepare.go"), databaseDescriptor) {
+		t.Fatalf("database bootstrap no longer writes the descriptor the READMEs publish: %q", databaseDescriptor)
+	}
+	for _, file := range []string{"README.md", "README.zh-CN.md"} {
+		if !strings.Contains(readRepositoryFile(t, file), databaseDescriptor) {
+			t.Errorf("%s is missing the Database Volume Root descriptor", file)
+		}
+	}
+}
