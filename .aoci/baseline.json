@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-15T09:20:06Z",
+  "updated_at": "2026-08-15T10:39:44Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -34,10 +34,9 @@
       "normalized_sha256": "e48eb749d0ff6688cef3afa2ea6c68d8b2d7c5c74c61426b0b3a94d2e2fdbecf"
     },
     ".github/workflows/release.yml": {
-      "role": "index",
-      "sha256": "85fca2a52a4dea88c2cdf9e9d7736203cdd9b941a2dbe315413671796d130cb8",
-      "size": 29630,
-      "normalized_sha256": "85fca2a52a4dea88c2cdf9e9d7736203cdd9b941a2dbe315413671796d130cb8"
+      "sha256": "32ff5809fee6496cade63447cf9503df0af2dd5654033dfe67bc9a715b6aac88",
+      "size": 29556,
+      "normalized_sha256": "32ff5809fee6496cade63447cf9503df0af2dd5654033dfe67bc9a715b6aac88"
     },
     ".gitignore": {
       "sha256": "50641fe39d0595503b05bd79c95cce1be9bf20652ff39fa0d7c3aa363a153d61",
@@ -125,9 +124,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "32dcfd462b87861596f23175103d25178b7006ad710da2bd8cdb8251e917af8a",
-      "size": 163940,
-      "normalized_sha256": "32dcfd462b87861596f23175103d25178b7006ad710da2bd8cdb8251e917af8a"
+      "sha256": "62b9d31a5516ee0019e2a518e2e968187b8ac786fc04a6b79272a852075dc955",
+      "size": 164014,
+      "normalized_sha256": "62b9d31a5516ee0019e2a518e2e968187b8ac786fc04a6b79272a852075dc955"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -299,9 +298,9 @@
       "normalized_sha256": "8fcb92241c1550943d759c9f3600bb4d04087af3cfabb609076f5da9a2923daa"
     },
     "go.mod": {
-      "sha256": "8ac4374239d4856573e2308ed730cdad9b8ac2a542aa779747a406f9e8a3ad8c",
+      "sha256": "6bbde8e92ac89be3819020e44460f7c00a0b95c33ec5c2bb86075ea835098de5",
       "size": 1245,
-      "normalized_sha256": "8ac4374239d4856573e2308ed730cdad9b8ac2a542aa779747a406f9e8a3ad8c"
+      "normalized_sha256": "6bbde8e92ac89be3819020e44460f7c00a0b95c33ec5c2bb86075ea835098de5"
     },
     "go.sum": {
       "role": "index",

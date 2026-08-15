@@ -40,7 +40,6 @@ jobs:
       attestation_url: ${{ steps.provenance.outputs.attestation-url }}
       artifact_name: aoci-signed-release-${{ steps.identity.outputs.source_commit }}
     env:
-      GO_VERSION: '1.26.5'
       GORELEASER_VERSION: v2.17.1
       SYFT_VERSION: v1.44.0
       COSIGN_VERSION: v3.1.3
@@ -58,7 +57,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Bind the isolated release asset directory
@@ -456,7 +455,6 @@ jobs:
       contents: write
       attestations: read
     env:
-      GO_VERSION: '1.26.5'
       COSIGN_VERSION: v3.1.3
       EXPECTED_REPOSITORY: aoci-spec/aoci-code
       EXPECTED_OIDC_ISSUER: https://token.actions.githubusercontent.com
@@ -480,7 +478,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Bind the isolated release asset directory
