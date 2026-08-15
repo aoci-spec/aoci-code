@@ -50,6 +50,12 @@ It never invents repository or Database semantics. A host AI Agent must follow t
 installed repository contract and current AOCI Guide to build complete
 cognition.
 
+`scan` is not optional: it establishes the governed Baseline that every later
+step binds to. Without it the Guide reports `blocked` with a `baseline_missing`
+stop and a `scan` command, and no authoring path exists yet — an initialized
+Volumes repository with zero Entries is not a Bootstrap or Legacy Plan target;
+its only path is scan, then Guide, then no-argument Maintain.
+
 Fresh initialization uses Code-only Cognition Volumes. In that layout the host
 follows the live Guide, calls ordinary no-argument `aoci_maintain`, submits every
 candidate in the complete current machine-issued batch through

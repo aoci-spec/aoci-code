@@ -284,6 +284,9 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 	if !facts.GovernanceAligned {
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_runtime_identity"))
 	}
+	if facts.Result == volumegovernance.ResultBlocked {
+		applyVolumeBlockedRemediation(&guide, facts)
+	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
 		guide.Commands.Check = "aoci check --json"
 		total := len(facts.CodeDrift.Missing) + len(facts.CodeDrift.Stale) + len(facts.CodeDrift.Unbaselined) +
@@ -321,6 +324,42 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 	_, err = fmt.Fprint(cmd.OutOrStdout(), cliMessage("guide.volumes_summary",
 		guide.Stage, guide.Complete, guide.NextAction, strings.Join(guide.AffectedDomains, ",")))
 	return err
+}
+
+// applyVolumeBlockedRemediation turns a blocked Volumes Guide into an
+// executable one for the blockers a host can clear itself. Without it a fresh
+// Volumes v1 repository that was initialized but never scanned answered Guide
+// with bare finding codes (baseline_missing, scope_change_required) and no
+// command — the dead end of issue #8, while the Legacy Guide has carried a
+// baseline_first stage with exactly this remediation all along. The stage stays
+// "blocked"; the stop facts, the scan command, and the instructions are additive.
+func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
+	baselineMissing, scopeChange := false, false
+	for _, finding := range facts.Findings {
+		switch finding.Code {
+		case "baseline_missing":
+			baselineMissing = true
+		case "scope_change_required":
+			scopeChange = true
+		}
+	}
+	locale := textassets.ActiveLocale()
+	if baselineMissing {
+		instructions := renderGuideLines(locale, textassets.ContractGuideBaselineFirstInstructions, nil)
+		guide.Commands.Scan = "aoci scan"
+		guide.Stop = &volumeGuideStopFacts{
+			AffectedAsset: ".aoci/baseline.json", Field: "baseline", RuleCode: "baseline_missing",
+			Expected: "governed_baseline_present", Actual: "baseline=absent",
+			Cause:          renderGuideText(locale, textassets.ContractGuideBaselineFirstMessage, nil),
+			SafeNextAction: strings.Join(instructions, " "),
+		}
+		guide.Instructions = append(guide.Instructions, instructions...)
+		return
+	}
+	if scopeChange {
+		guide.Commands.ScopePreview = "aoci scope status --json"
+		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_scope_change"))
+	}
 }
 
 func volumeMetaDictionaryStop(err error) *volumeGuideStopFacts {

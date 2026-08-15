@@ -459,7 +459,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci database source access` | Read-only check of whether a database credential reference has been provided by the external environment; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
 | `aoci cognition plan` | Read-only preview of a Bootstrap or Legacy-to-Volumes migration plan |
-| `aoci cognition bootstrap` | Governs only a compatibility skeleton with a missing Root or exactly zero Entries; ordinary fresh init already creates Code-only Volumes, while a mature Legacy project should use Migration |
+| `aoci cognition bootstrap` | Governs only an uninitialized repository or the exact zero-Entry Legacy minimal skeleton that an older `init` wrote; it never targets an initialized Volumes v1 repository — a Volumes skeleton with zero Entries is built through `aoci scan`, then Guide and no-argument `aoci_maintain` — and a mature Legacy project should use Migration |
 | `aoci cognition migration` | Governs Legacy migration snapshots, mapping, approval, application, recovery, or rollback |
 | `aoci cognition system lineage` | Derives the origin and binding chain of important cognition objects |
 | `aoci cognition system relations` | Derives the narrow relation projection: Volume containment and dependencies plus resolved model-authored R relationships |
