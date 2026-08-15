@@ -4,6 +4,19 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Split the one-step setup instruction in both public READMEs into the two turns
+  it always was. The index is authored through AOCI's MCP tools, and the server
+  `init` writes is not loaded in the session that wrote it, so the old single
+  prompt asked the Agent to finish work it could not reach. The first
+  instruction now runs `init` and `scan`, asks for any configuration a host does
+  not write itself, and stops with an explicit restart hand-off; the second
+  confirms the MCP server and builds the index. `scan`, which establishes the
+  Baseline every later step needs, was missing from the one-step path entirely.
+- Say in both READMEs how to tell which AOCI a host is actually connected to:
+  `cognition_receipt.mcp_service_version` and `runtime_repository_root` from any
+  Overview `check_only` response or any Maintain response, and the `command` in
+  the project's `.mcp.json` or the equivalent host configuration for the binary
+  path. Replacing bytes on disk does not change a running MCP process.
 - Carry the `aoci scope acknowledge` remediation in a blocked Volumes Guide whose
   Observe evidence is pending review. `observe_change_policy` defaults to
   `review_required`, so an ordinary edit to any Observe-role file blocks

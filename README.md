@@ -55,21 +55,37 @@ These plain-text cognition assets are stored with the project and can be version
 
 ## 🚀 One-step setup
 
-Give the following instruction to your AI Agent to download AOCI-CODE, integrate it, and build an index for the current project:
+Give the following instruction to your AI Agent to download AOCI-CODE and integrate it; after restarting the Agent, send the second instruction to build the index:
 
 ```text
 AOCI-CODE project: https://github.com/aoci-spec/aoci-code
 
 Download the latest release package for this operating system and CPU architecture from
 https://github.com/aoci-spec/aoci-code/releases, and follow the installation instructions
-on the Release page to verify it.
+on the Release page to verify it. If no compatible release package exists, or if I
+explicitly request the latest source, build it from the official repository.
 
 After extracting the package, place aoci (aoci.exe on Windows) at a stable absolute path.
-Then initialize AOCI for my project, integrate MCP, and build the project index.
+Then use that absolute path to do the following for my project:
 
-If no compatible release package exists, or if I explicitly request the latest source,
-build it from the official repository.
+1. Run init to initialize AOCI and integrate MCP for the current host; if this host does
+   not write project configuration (Cursor, for example), give me the configuration I
+   need to paste myself
+2. Run scan
+3. Tell me to restart the Agent so the newly written MCP server takes effect
+
+Stop after those three steps and do not build the index yet — I will tell you to continue
+after the restart.
 ```
+
+After restarting the Agent, send this one:
+
+```text
+First confirm the AOCI MCP server is connected, then build the AOCI index for this project.
+```
+
+The index is authored through AOCI's MCP tools, and the MCP server that `init` has just written was not loaded in the session that wrote it, so index building has to follow the restart. A host that loads MCP servers dynamically may not need one; “Host integration” explains how to tell.
+
 ## 🔌 Manual integration
 
 Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, follow the basic, recommended, or full verification level in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md#signed-github-release-packages), and report which level completed. Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, Cursor, or OpenCode. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
@@ -130,7 +146,8 @@ Then provide this README to an AI Agent that you already trust for the project a
 
 ```text
 Read this AOCI-CODE README and use the built aoci binary at its stable absolute path
-to initialize AOCI for the current project, integrate MCP, and then build the index.
+to initialize AOCI for the current project, integrate MCP, and run scan. Stop there and
+tell me to restart the Agent; I will ask you to build the index afterwards.
 ```
 
 The AI Agent should identify the current project root, use a stable absolute path to the built binary, perform the initialization appropriate for the current host, and clearly tell the user when a host restart or genuine human approval is required. The build output may remain in the AOCI-CODE source checkout or be placed in a shared stable tools directory, provided that the MCP configuration references the correct absolute path.
@@ -164,10 +181,10 @@ Confirm that `$Aoci` points to a stable absolute path.
 
 ### 3. 🤖 Have the AI Agent establish cognition for the first time (important)
 
-Enter the following in the AI Agent for the target project:
+Once initialization and `scan` are done, check whether the Agent session already exposes the AOCI tools; refresh or restart it if not. Then enter the following in the AI Agent for the target project:
 
 ```text
-Build an index for this project.
+First confirm the AOCI MCP server is connected, then build the AOCI index for this project.
 ```
 
 The host should read the project’s AOCI Rules and live Guide, inspect source code, tests, configuration, and relevant evidence, and then author FRAS candidates for managed objects whose role is `index`. Regular users do not need to orchestrate Plan, Stage, Check, Diff, CAS, or Apply manually.
@@ -201,6 +218,8 @@ The expected result is for formal cognition and the current managed source code 
 "$AOCI" --repo . capabilities
 "$AOCI" --repo . doctor
 ```
+
+To confirm which AOCI the host is actually connected to, read what the server reports about itself rather than what is on disk: in any `aoci_overview` `check_only` response or any `aoci_maintain` response, `cognition_receipt.mcp_service_version` is the running version and `runtime_repository_root` is the repository it governs. The matching binary path is the `command` in the project's `.mcp.json` or the equivalent host configuration — `.codex/config.toml`, `opencode.json`, or `.cursor/mcp.json`. Replacing bytes on disk does not change a running MCP process, so recheck against those facts after an upgrade or a rollback.
 
 For a one-off walkthrough, use `examples/minimal-repository` in the repository.
 

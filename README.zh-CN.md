@@ -55,17 +55,30 @@ Root、Meta 与参与其中的对象 Volume 共同组成当前 Whole-Index。在
 
 ## 🚀 一键使用
 
-把下面这段话发给你的 AI Agent，它会下载 AOCI-CODE、完成接入并为当前项目建立索引：
+把下面这段话发给你的 AI Agent，它会下载 AOCI-CODE 并完成接入；重启 Agent 后，再发第二段让它建立索引：
 
 ```text
 AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 
-请从 https://github.com/aoci-spec/aoci-code/releases 下载适合当前操作系统和 CPU 架构的最新发布包，并按照发布页的安装说明完成校验。
+请从 https://github.com/aoci-spec/aoci-code/releases 下载适合当前操作系统和 CPU 架构的最新发布包，并按照发布页的安装说明完成校验。如果没有适合当前系统的发布包，或者我明确要求使用最新源码，请从官方仓库构建。
 
-解压后，请把 aoci（Windows 为 aoci.exe）放在稳定的绝对路径中，然后为我的项目完成初始化、MCP 接入和索引建立。
+解压后，请把 aoci（Windows 为 aoci.exe）放在稳定的绝对路径中，然后用这个绝对路径为我的项目完成以下任务：
 
-如果没有适合当前系统的发布包，或者我明确要求使用最新源码，请从官方仓库构建。
+1. 运行 init，完成初始化并接入当前宿主的 MCP；如果这个宿主不写入项目配置（例如 Cursor），请把需要我手工粘贴的配置给我
+2. 运行 scan
+3. 提示我重启 Agent，让新写入的 MCP server 生效
+
+这三步做完就停下，先不要建立索引 —— 重启后我会让你继续。
 ```
+
+重启 Agent 之后，再发这一段：
+
+```text
+先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引。
+```
+
+索引由 AOCI 的 MCP 工具创作，而 `init` 刚写入的 MCP server 在当时那个会话里还没有加载，所以建立索引必须放在重启之后。支持动态加载 MCP 的宿主可能不必重启；判断方法见“宿主集成”。
+
 ## 🔌 手动接入
 
 请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md#signed-github-release-packages)选择基础、推荐或完整校验层级，并准确说明已完成的层级。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor、OpenCode 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
@@ -124,7 +137,8 @@ Copy-Item .\build\aoci .\build\aoci.exe -Force
 
 ```text
 请阅读这份 AOCI-CODE README，使用已构建 aoci 二进制的稳定绝对路径，
-为当前项目完成 AOCI 初始化和 MCP 接入，然后建立索引。
+为当前项目完成 AOCI 初始化和 MCP 接入，并运行 scan。做完就停下并提示我重启
+Agent，重启后我会让你建立索引。
 ```
 
 AI Agent 应识别当前项目根目录、使用已构建二进制的稳定绝对路径、执行适合当前宿主的初始化，并在需要宿主重启或真实人工批准时明确提示用户。构建结果可以保留在 AOCI-CODE 源码工作区，也可以放到统一的稳定工具目录，只要 MCP 配置引用正确的绝对路径。
@@ -158,10 +172,10 @@ $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 
 ### 3. 🤖 让 AI Agent 建立第一次认知（重要）
 
-在目标项目的 AI Agent 中输入：
+初始化和 `scan` 完成后，先看当前 Agent 会话里有没有出现 AOCI 工具；没有就刷新或重启它。然后在目标项目的 AI Agent 中输入：
 
 ```text
-请为这个项目建立索引。
+先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引。
 ```
 
 宿主应读取项目内的 AOCI Rules 和实时 Guide，调查源码、测试、配置及相关证据，然后为 `index` 角色的受管对象创作 FRAS 候选。普通用户无需手工编排 Plan、Stage、Check、Diff、CAS 或 Apply。
@@ -195,6 +209,8 @@ $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 "$AOCI" --repo . capabilities
 "$AOCI" --repo . doctor
 ```
+
+要确认宿主此刻真正连着哪一个 AOCI，看服务端自报的身份，而不是磁盘上的文件：任何 `aoci_overview` 的 `check_only` 响应、或任何 `aoci_maintain` 响应里，`cognition_receipt.mcp_service_version` 是正在运行的版本，`runtime_repository_root` 是它治理的仓库。对应的二进制路径是项目 `.mcp.json` 或等价宿主配置（`.codex/config.toml`、`opencode.json`、`.cursor/mcp.json`）里的 `command`。替换磁盘上的字节不会改变已在运行的 MCP 进程，因此升级或回滚后要按这些事实复核。
 
 如需一次性演练，可使用仓库中的 `examples/minimal-repository`。
 
