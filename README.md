@@ -24,6 +24,8 @@ Large models handle reasoning, Agents handle planning and execution, and AOCI or
 
 AOCI-CODE originates from AOCI. Put simply, AOCI-CODE distills the information from source code, database structures, and other assets that materially affects how AI understands and modifies a system into a high-information-density, plain-text index combining symbols and semantics.
 
+AOCI-CODE applies this method to projects through the `aoci` CLI and MCP Server.
+
 When model context is limited, an AI Agent can read the index first, acquire most of the project’s key information in one pass, and then enter a specific development task. This reduces repeated searching and code re-learning while improving continuity across tasks and sessions.
 
 - **The index is not a one-time summary**: it evolves with the system and remains in the project over the long term, where it can be diffed, reviewed, versioned, and rolled back with Git.
@@ -36,9 +38,20 @@ Names in this document have the following roles: **AOCI** refers to the cognitio
 
 ## ⚙️ How AOCI works
 
+In the current Volume-first layout, AOCI-CODE organizes the index as governed, plain-text cognition assets stored with the project:
+
+- **Root (`aoci.txt`)**: declares the composition and activation entry point of the current CognitionSet;
+- **Meta (`aoci.meta.txt`)**: stores the tag dictionary, FRAS rules, and model-authoring constraints;
+- **Code (`aoci.code.txt`)**: stores model-authored cognition for code and other repository assets;
+- **Database (`aoci.database.txt`)**: stores optional table-level cognition when Database Cognition is enabled.
+
+Root, Meta, and participating object Volumes together form the current Whole-Index. On top of these assets, the workflow has three stages:
+
 1. **Establish governed cognition**: The model reads source code and accepted evidence, while AOCI-CODE governs Managed Scope and model-authored cognition for managed objects with the `index` role.
 2. **Deliver cognition before action**: The Agent reads the Rules, live Guide, and current Whole-Index, then checks source and other evidence for the task at hand.
 3. **Maintain cognition after verified change**: Once code and tests are stable, project Rules and the AOCI MCP workflow guide the Agent to update affected Entries and return formal cognition to `aligned`.
+
+These plain-text cognition assets are stored with the project and can be versioned with Git. When cognition remains aligned with the current system version, different AI Agents and later sessions can read and reuse the same Whole-Index.
 
 ## 🚀 One-step setup
 
@@ -396,6 +409,33 @@ Compact tags give each object coordinates for architectural layer, functional do
 - the original file must be preserved after a write failure.
 
 The model authors these semantics from actual source code and evidence. AOCI-CODE validates Entry structure, binds the source file, and governs how the Entry enters the formal index.
+
+### 🏷️ Reading the starter tag dictionary
+
+The following excerpt is copied verbatim from the current `en-US` Volume Meta template (`textassets/en-US/templates/volume-meta.txt.tmpl`). It is a starter dictionary, not a universal vocabulary: each repository's formal Meta remains authoritative. The starter declares no D dictionary; D remains an optional axis and may be used only when the current formal Meta declares it.
+
+<details>
+<summary>Show the governed starter dictionary</summary>
+
+```text
+#Canonical-Tag-Authoring: compact A+B+C+[D]+E; dotted form is read compatibility only
+#Code canonical identity example: code:path/to/file.go
+#Code Entry example: file.go[EG7T]: F:Runs the example application | R:- | A:- | S:-
+#[Tag dictionary: code]
+#A Layer: C-SharedFoundation E-EntryBoundary A-ApplicationOrchestration D-DomainLogic K-AlgorithmComputation M-Middleware P-Persistence I-IntegrationAdapter R-RuntimeFoundation L-LibrarySDK F-DeclarativeConfiguration O-OperationsDelivery T-TestValidation S-DocumentationSpecification X-DevelopmentTooling Z-Other
+#B Module: G-CrossDomain U-UserInteraction B-CoreBusiness D-DataState I-IdentityAccess N-NetworkProtocol M-MessageEvent S-SecurityPrivacy C-ConfigurationPolicy O-Observability R-ReliabilityRecovery P-PerformanceResource W-WorkflowScheduling A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityAssurance E-ExtensionPlugin Z-Other
+#C Importance: 9-highest 8-very-high 7-high 6-above-average 5-medium 4-below-average 3-low 2-very-low 1-lowest
+#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100
+#[Tag dictionary: database]
+#A Layer: E-EntityMaster T-TransactionFact R-RelationMapping M-DetailDependent C-ReferenceDictionary S-StateStorage H-HistoryVersion L-LogAudit Q-QueueOutbox A-AggregateProjection K-KeyValueConfiguration B-DocumentLargeObject Z-Other
+#B Module: G-CrossDomain B-CoreBusiness I-IdentityAccess T-OrganizationTenant U-UserExperience F-FinanceBilling K-ContentKnowledge C-ConfigurationPolicy W-WorkflowTask M-MessageEvent N-ExternalIntegration S-SecurityPrivacy O-ObservabilityAudit R-ReliabilityRecovery P-PerformanceResource A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityTesting E-ExtensionPlugin Z-Other
+#C Importance: 9-highest 8-very-high 7-high 6-above-average 5-medium 4-below-average 3-low 2-very-low 1-lowest
+#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100
+```
+
+</details>
+
+Under the starter Code dictionary, `[CG9L]` means `C` SharedFoundation, `G` CrossDomain, `9` highest importance, and `L` large scale; no D value is present. This explains how to read the existing Entry, not how the model should assign tags. The model must still choose tags from the current project Meta based on source and accepted evidence.
 
 ## 📚 Cognition Volumes
 
