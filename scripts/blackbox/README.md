@@ -9,7 +9,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | --- | --- | --- | --- |
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
-| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects (a TypeScript service, a Python + MySQL service, and a 453-file layered service), from `init` through incremental maintenance, database Evidence, drift, and re-alignment. The large fixture additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
+| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, and re-alignment, while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 
 ## Running
 
@@ -19,7 +19,7 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (58 checks, read-only):
+Protocol conformance (46 checks, read-only):
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py

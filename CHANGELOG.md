@@ -2,6 +2,39 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Show the index header both public READMEs previously only described: the Root
+  manifest that declares each participating Volume with its kind, path, format,
+  dependency, and activation state, and the Meta header that carries the object
+  protocol, the FRAS discipline, the machine limits authority, S admission, and
+  the S quota. Each locale quotes what its own `aoci init` writes, and a
+  cross-layer test binds every quoted line to the rendered template and the
+  machine S quota, so a template or limits change cannot leave the published
+  example describing a header the binary no longer produces.
+- Correct published facts in the release-facing READMEs: the status badge named
+  the superseded `v0.1.0-rc3`, the black-box suites were advertised as 44
+  conformance checks, 22 fault-injection scenarios, and two lifecycle fixtures
+  when they are 46, 30, and three, the English documentation map linked the
+  Chinese Windows host-agent original instead of its English rendering, and the
+  one worked FRAS example separated `A` items with semicolons where the public
+  contract and every shipped Entry use commas.
+- Make the conformance check count a property of the suite rather than of the
+  repository it is pointed at. The Overview chain is tallied as two aggregate
+  checks instead of two per chunk, and the probe pair is graded unconditionally,
+  so the published number no longer moves when an index crosses a chunk boundary
+  or a probe is not issued, and `AOCI_REPO` runs against a foreign target no
+  longer look for this repository's documents.
+- Carry the issue #8 `aoci cognition bootstrap` correction into the Chinese
+  README, which had kept the pre-fix wording: bootstrap never targets an
+  initialized Volumes v1 repository, and a Volumes skeleton with zero Entries is
+  established through `aoci scan`, then Guide and no-argument `aoci_maintain`.
+- Make the black-box suites enforce their own published numbers. Conformance and
+  scenarios now fail when the count printed by the run disagrees with any
+  document that advertises it, and the lifecycle suite fails when a committed
+  fixture is not named where the suites are advertised, so these counts cannot
+  drift silently again.
+
 ## v0.1.0-rc4
 
 - Add a narrow openGauss 6.0.5 LTS A/PG Schema Evidence collector, backed by a

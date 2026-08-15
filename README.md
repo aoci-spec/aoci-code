@@ -6,7 +6,7 @@
 
 🇺🇸 English | [🇨🇳 简体中文](README.zh-CN.md)
 
-![Status](https://img.shields.io/badge/status-v0.1.0--rc3-orange)
+![Status](https://img.shields.io/badge/status-v0.1.0--rc4-orange)
 ![Runtime](https://img.shields.io/badge/runtime-local--first-blue)
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
@@ -348,6 +348,40 @@ Think of it as a map:
 - Root is the **catalog and version entry point** for the current map set;
 - A Volume is a **separate volume** governed by the same protocol but with a different evidence source and lifecycle.
 
+### 🧾 What the index header looks like
+
+Root and Meta each open with machine-read header lines. This is what `aoci init` writes for a new `en-US` project named `my-service`, starting with the Root, which is the activation entry point:
+
+```text
+#AOCI-ROOT-MANIFEST: 1
+#Format-Version: cognition-volumes/v1
+#Locale: en-US
+#Project: my-service
+#Global-Invariants: -
+#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled
+#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled
+```
+
+Each `#Volume:` line declares one participating Volume with its identity, kind, path, format, dependency, and activation state. A Volume that is not declared here is not part of the current CognitionSet, whatever else the working tree happens to contain. Enabling Database Cognition adds one more line, `#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled`.
+
+Meta then opens with the rules that govern every Entry:
+
+```text
+#AOCI-META-VOLUME: 1
+#Object-Protocol: repository-cognition-object/v2
+#FRAS-Discipline: 2
+#FRAS-v2-Limits-Authority: machine-contract
+#S-Admission: non-inferable-and-error-preventing
+#S quota: C9-8≤600 C7-4≤200 C3-1≤50
+#Object-Kinds: code=file database=table
+```
+
+`#FRAS-v2-Limits-Authority: machine-contract` is the load-bearing line: the field limits belong to the binary, not to this text, so a project cannot widen them by editing its own Meta. `#S-Admission` and `#S quota` govern the S field specifically — what may be recorded there at all, and how many characters each importance band may spend. The tag dictionary follows immediately after these lines; it is shown in full further below.
+
+The Code Volume opens with a single line, `#AOCI-CODE-VOLUME: 1`, and everything after it is directory sections and Entries.
+
+These are the values a new project starts from, not fixed protocol constants. Each repository's own Root and Meta are authoritative afterwards: an older project may carry a custom tag dictionary, and a project initialized with `--locale zh-CN` writes `#Locale: zh-CN` and localizes the `#S quota:` key accordingly.
+
 ### 📐 What do the index rules define?
 
 | Rule | Purpose |
@@ -375,7 +409,7 @@ After the rules are established, the model writes one index Entry for every mana
 For example, inside the `===.../internal/fs/===` directory section, an Entry uses the basename:
 
 ```text
-atomic.go[CG9L]: F:Provides durable replace CAS, create CAS, atomic writes, and no-clobber recovery moves | R:code:internal/fs/atomic_exchange_linux.go,code:internal/fs/atomic_exchange_windows.go,code:internal/fs/lock.go | A:AtomicWrite;AtomicWriteCAS;AtomicCreateCAS;AtomicMoveCAS | S:Native publication never degrades to an overwriting rename; on a race, unsafe type, or unverifiable bytes, preserve third-party state and fail closed
+atomic.go[CG9L]: F:Provides durable replace CAS, create CAS, atomic writes, and no-clobber recovery moves | R:code:internal/fs/atomic_exchange_linux.go,code:internal/fs/atomic_exchange_windows.go,code:internal/fs/lock.go | A:AtomicWrite,AtomicWriteCAS,AtomicCreateCAS,AtomicMoveCAS | S:Native publication never degrades to an overwriting rename; on a race, unsafe type, or unverifiable bytes, preserve third-party state and fail closed
 ```
 
 The directory section and basename resolve to a Code object identity. For cross-Volume or system projections, it can be expanded into a canonical identity such as `code:internal/fs/atomic.go`. A Database object uses its own canonical identity, such as `database://primary/public/orders`.
@@ -798,7 +832,7 @@ No. The current capability is Narrow Relation Projection, not an independent gra
 | --- | --- |
 | First use | [Getting Started](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/getting-started.md) |
 | Installation, upgrade, and rollback | [Install](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/install.md) · [Upgrade](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/upgrading.md) · [Rollback](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/rollback.md) · [Uninstall](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/uninstall.md) |
-| AI Agents and hosts | [Agent Integrations](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/agent-integrations.md) · [Windows Host Agent](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/windows-host-agent.md) |
+| AI Agents and hosts | [Agent Integrations](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/agent-integrations.md) · [Windows Host Agent](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/windows-host-agent.en.md) |
 | Whole-Index and refresh | [Overview Delivery](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/overview-delivery.md) · [Cognition Refresh](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/cognition-refresh.md) |
 | Cognition Volumes | [Volumes](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/docs/cognition-volumes.md) · [Volumes Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-cognition-volumes-v1.txt) |
 | System Cognition | [System Cognition Runtime Contract](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc4/spec/public/aoci-system-cognition-runtime-v1.txt) |
@@ -819,14 +853,16 @@ The repository ships three standalone black-box suites under
 binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
-- **Protocol conformance** — 44 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 22 scenarios covering cursor tampering,
+- **Protocol conformance** — 46 read-only checks of the MCP wire surface;
+- **Fault-injection scenarios** — 30 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
-- **Lifecycle over frozen real projects** — full `init`-to-realignment
-  lifecycles on two committed fixture projects (TypeScript; Python + MySQL),
-  with an optional model track that drives a real AI agent — any model your
-  OpenCode installation exposes — through the same repositories and scores the
-  end state from public surfaces.
+- **Lifecycle over frozen real projects** — three committed fixture projects:
+  `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full
+  `init`-to-realignment lifecycle, and `repo-c` (a 453-file layered service)
+  additionally drives multi-batch authoring at the machine batch limit. An
+  optional model track puts a real AI agent — any model your OpenCode
+  installation exposes — through the two small repositories and scores the end
+  state from public surfaces.
 
 They need only Python 3 and git on top of a built binary (Docker for the MySQL
 suite; OpenCode plus your own model subscription for the model track), so a

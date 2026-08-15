@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""AOCI lifecycle harness — frozen dual-fixture, real-agent, model-swappable.
+"""AOCI lifecycle harness — frozen fixtures, real-agent, model-swappable.
 
-生命周期黑盒：两个冻结的真实小项目（repo-a TypeScript 无库 / repo-b Python+MySQL）
-从 scripts/blackbox/fixtures/ 复制到临时工作副本后完整走 AOCI 生命周期。母本永不
-被写，"重置"即复制，无需清洗。场景分两轨：
+生命周期黑盒：三个冻结的真实项目（repo-a TypeScript 无库 / repo-b Python+MySQL /
+repo-c 453 文件分层服务）从 scripts/blackbox/fixtures/ 复制到临时工作副本后走 AOCI
+生命周期。母本永不被写，"重置"即复制，无需清洗。repo-a 与 repo-b 走完整的
+init→漂移→重对齐全程；repo-c 只到 aligned，不注入漂移，它换来的是多批创作覆盖。
+场景分两轨：
 
   确定性轨 (免模型、结果二值):
     bringup      init 双语/agent 集成/doctor/scan/治理初态       (repo-a + repo-b)
@@ -12,7 +14,8 @@
                  模板表FRAS→v2 ALTER 漂移→重对齐 (含 inventory 离线语义) (repo-b)
     governance   Curation 探针(空/超限/二进制)不得成为普通候选     (repo-a)
     scale        453 对象的多批滚动 + 关系闭包三模式(无关系/分层DAG/
-                 大强连通簇), 全部跑在真实单批上限 200 上         (repo-c)
+                 大强连通簇); 团队批量显式抬到线上上限 200 后跑，
+                 同一套件另行验证机器默认批量 20 装得进宿主窗口   (repo-c)
 
   模型轨 (真 agent 经 OpenCode/Zen 驱动, 统计性结果):
     establish    真模型从零建立全索引到 aligned                  (repo-a)
@@ -491,6 +494,32 @@ def scale_fixture_files():
     return sum(len(names) for _, _, names in os.walk(root))
 
 
+def published_fixture_drift():
+    """Every committed fixture must be named where the suites are advertised.
+
+    The public READMEs invite downstream users to run these suites; when repo-c
+    landed, all three documents still described two fixtures, so a forker got an
+    unexplained 453-file run. Binding by name rather than by count means adding
+    a fixture fails here until the documents catch up.
+    """
+    fixtures = sorted(
+        name for name in os.listdir(FIXTURES)
+        if os.path.isdir(os.path.join(FIXTURES, name))
+    )
+    drift = []
+    for rel in ("README.md", "README.zh-CN.md", os.path.join("scripts", "blackbox", "README.md")):
+        try:
+            with open(os.path.join(REPO, rel), encoding="utf-8") as handle:
+                text = handle.read()
+        except OSError as err:
+            drift.append(f"{rel}: unreadable ({err})")
+            continue
+        missing = [name for name in fixtures if name not in text]
+        if missing:
+            drift.append(f"{rel}: does not name {', '.join(missing)}")
+    return fixtures, drift
+
+
 def domain_of(path):
     """pkg 路径 -> (域, 层); 非领域文件返回 (None, None)。"""
     parts = path.split("/")
@@ -886,6 +915,9 @@ def main():
         # no non-Overview response may exceed what an ordinary host shows inline.
         ok, detail = host_window_summary()
         rep.rec("host-window", "every-non-overview-response-fits", "PASS" if ok else "FAIL", detail)
+        fixtures, fixture_drift = published_fixture_drift()
+        rep.rec("docs", "published-fixtures-are-named", "PASS" if not fixture_drift else "FAIL",
+                "; ".join(fixture_drift) if fixture_drift else ", ".join(fixtures))
     finally:
         path, counts = rep.save()
         print(f"\nLIFECYCLE: {counts} -> {path}")

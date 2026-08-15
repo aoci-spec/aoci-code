@@ -6,7 +6,7 @@
 
 [🇺🇸 English](README.md) | 🇨🇳 简体中文
 
-![Status](https://img.shields.io/badge/status-v0.1.0--rc3-orange)
+![Status](https://img.shields.io/badge/status-v0.1.0--rc4-orange)
 ![Runtime](https://img.shields.io/badge/runtime-local--first-blue)
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
@@ -337,6 +337,40 @@ Code 和 Database Volume 继续复用同一套 FRAS 词法结构，但它们拥�
 - Root 相当于当前地图集的**目录和版本入口**；
 - Volume 相当于由同一治理协议管理、但证据来源和生命周期不同的**分册**。
 
+### 🧾 索引头长什么样
+
+Root 与 Meta 都以机器读取的头部行开始。下面是 `aoci init` 为一个名为 `my-service` 的新 `zh-CN` 项目写出的内容，先看作为激活入口的 Root：
+
+```text
+#AOCI-ROOT-MANIFEST: 1
+#Format-Version: cognition-volumes/v1
+#Locale: zh-CN
+#Project: my-service
+#Global-Invariants: -
+#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled
+#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled
+```
+
+每一行 `#Volume:` 声明一个参与其中的 Volume，带上它的身份、种类、路径、格式、依赖和激活状态。没有在这里声明的 Volume 就不属于当前 CognitionSet —— 无论工作树里还放着什么。启用 Database Cognition 会再加一行：`#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled`。
+
+Meta 随后以约束每一条 Entry 的规则开头：
+
+```text
+#AOCI-META-VOLUME: 1
+#Object-Protocol: repository-cognition-object/v2
+#FRAS-Discipline: 2
+#FRAS-v2-Limits-Authority: machine-contract
+#S-Admission: non-inferable-and-error-preventing
+#S配额: C9-8≤600 C7-4≤200 C3-1≤50
+#Object-Kinds: code=file database=table
+```
+
+其中最吃劲的是 `#FRAS-v2-Limits-Authority: machine-contract`：字段上限归二进制所有，而不归这段文本，所以项目无法靠改自己的 Meta 把上限放宽。`#S-Admission` 与 `#S配额` 专门约束 S 字段 —— 什么才允许写进去，以及每个重要度档位能花多少字符。标签字典紧跟在这些行之后，完整内容在下文展示。
+
+Code Volume 只以一行 `#AOCI-CODE-VOLUME: 1` 开头，其后全是目录段与 Entry。
+
+这些是新项目的起始值，不是固定的协议常量。此后以每个仓库自己的 Root 和 Meta 为准：老项目可能带着自定义标签字典，而用 `--locale en-US` 初始化的项目会写 `#Locale: en-US`，配额那一行的键名也随之变成英文的 `#S quota:`。
+
 ### 📐 索引规则定义什么？
 
 | 规则 | 作用 |
@@ -364,7 +398,7 @@ README 只介绍这些规则的阅读方法。具体、可执行的规则应以�
 例如，在 `===.../internal/fs/===` 目录段内，Entry 使用 basename：
 
 ```text
-atomic.go[CG9L]: F:提供持久化替换 CAS、创建 CAS、原子写入和禁止覆盖的恢复移动 | R:code:internal/fs/atomic_exchange_linux.go,code:internal/fs/atomic_exchange_windows.go,code:internal/fs/lock.go | A:AtomicWrite;AtomicWriteCAS;AtomicCreateCAS;AtomicMoveCAS | S:原生发布绝不会降级为覆盖式重命名；遇到竞态、不安全类型或无法验证的字节时，必须保留第三方状态并失败关闭
+atomic.go[CG9L]: F:提供持久化替换 CAS、创建 CAS、原子写入和禁止覆盖的恢复移动 | R:code:internal/fs/atomic_exchange_linux.go,code:internal/fs/atomic_exchange_windows.go,code:internal/fs/lock.go | A:AtomicWrite,AtomicWriteCAS,AtomicCreateCAS,AtomicMoveCAS | S:原生发布绝不会降级为覆盖式重命名；遇到竞态、不安全类型或无法验证的字节时，必须保留第三方状态并失败关闭
 ```
 
 目录段和 basename 共同解析出 Code 对象身份；在需要跨 Volume 或系统投影时，可展开为规范身份，例如 `code:internal/fs/atomic.go`。Database 对象使用自己的规范身份，例如 `database://primary/public/orders`。
@@ -488,7 +522,7 @@ aoci --repo /absolute/path/to/repository init --agent cursor
 | `aoci database source access` | 只读检查数据库凭据引用是否已由外部环境提供，不返回凭据值 |
 | `aoci database cognition bootstrap` | 为已对齐的 Code-only Volumes 项目添加 Database Cognition |
 | `aoci cognition plan` | 只读预览 Bootstrap 或 Legacy-to-Volumes 迁移计划 |
-| `aoci cognition bootstrap` | 仅治理 Root 缺失或精确零 Entry 的兼容骨架；普通 fresh init 已创建 Code-only Volumes，成熟 Legacy 应使用 Migration |
+| `aoci cognition bootstrap` | 仅治理未初始化的仓库，或旧版 `init` 写出的精确零 Entry Legacy 最小骨架；它绝不针对已初始化的 Volumes v1 仓库 —— 零 Entry 的 Volumes 骨架要先跑 `aoci scan`，再走 Guide 和无参数 `aoci_maintain` —— 成熟的 Legacy 项目则应使用 Migration |
 | `aoci cognition migration` | 治理 Legacy 迁移的快照、映射、批准、应用、恢复或回滚 |
 | `aoci cognition system lineage` | 派生重要认知对象的来源与绑定链 |
 | `aoci cognition system relations` | 派生 Root/Volume 结构关系和当前正式 R 关系投影 |
@@ -787,13 +821,14 @@ aoci --repo . index agent guide --agent codex --json
 仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) 内置三套独立黑盒套件，
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
-- **协议一致性** —— 44 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 22 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
+- **故障注入场景** —— 30 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
-- **冻结真实项目生命周期** —— 在两个随仓库冻结的真实小项目（TypeScript；
-  Python + MySQL）上走完从 `init` 到漂移重对齐的完整生命周期，可选的模型轨
-  用真实 AI Agent（你的 OpenCode 所暴露的任意模型）驱动同样的仓库，并从公开
-  表面判定终态。
+- **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
+  与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，
+  `repo-c`（453 个文件的分层服务）额外在机器批量上限处检验多批创作。可选的
+  模型轨用真实 AI Agent（你的 OpenCode 所暴露的任意模型）驱动那两个小仓库，
+  并从公开表面判定终态。
 
 在构建好的二进制之上只需 Python 3 与 git（MySQL 套件需 Docker；模型轨需
 OpenCode 与你自己的模型订阅），因此克隆仓库即可验证自己的构建、平台移植或

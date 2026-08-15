@@ -10,6 +10,11 @@ Groups:
   B  write lifecycle         (fixture: missing/stale/repair/binding/orphan)
   C  crash recovery          (fixture: kill server mid-operation, prove no wedge)
   D  concurrency             (fixture: racing writers, snapshot-change mid-chain)
+  E  authoring batch size    (fixture: team batch config, bounded transport)
+  W  host window             (every non-Overview response fits an ordinary host)
+
+The run also checks that the scenario count published in the public READMEs and
+in scripts/blackbox/README.md matches this run, so those numbers cannot drift.
 
 Usage:  python3 scripts/blackbox/mcp_scenarios.py
 Env:    AOCI_REPO / AOCI_BIN 覆盖仓库与二进制路径（默认取本脚本所在仓库）;
@@ -600,6 +605,29 @@ def group_e():
            f"set50 rc={rc} max_entries={p2.get('max_entries')} included={p2.get('included')} set0_rc={rc0} set201_rc={rc201}")
 
 
+# ---------------------------------------------------------------- documentation binding
+def verify_published_scenario_count(total):
+    """Return a list of drift descriptions; empty means every document agrees."""
+    patterns = {
+        "README.md": r"\*\*Fault-injection scenarios\*\* — (\d+) scenarios",
+        "README.zh-CN.md": r"\*\*故障注入场景\*\* —— (\d+) 个场景",
+        os.path.join("scripts", "blackbox", "README.md"): r"Fault-injection scenarios \((\d+) scenarios",
+    }
+    drift = []
+    for rel, pattern in patterns.items():
+        try:
+            with open(os.path.join(REAL, rel), encoding="utf-8") as fh:
+                match = re.search(pattern, fh.read())
+        except OSError as err:
+            drift.append(f"{rel}: unreadable ({err})")
+            continue
+        if match is None:
+            drift.append(f"{rel}: no documented scenario count found")
+        elif int(match.group(1)) != total:
+            drift.append(f"{rel}: documents {match.group(1)}, this run has {total}")
+    return drift
+
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
@@ -614,10 +642,23 @@ if __name__ == "__main__":
     npass = sum(1 for r in RESULTS if r[2] == "PASS")
     nchar = sum(1 for r in RESULTS if r[2] == "CHAR")
     nfail = sum(1 for r in RESULTS if r[2] == "FAIL")
+
+    # Documentation binding. README.md, README.zh-CN.md and this suite's own
+    # README all advertise the scenario count to downstream verifiers, and all
+    # three had drifted to a stale 22. The run is the authority, so it enforces
+    # them. Kept out of RESULTS: the published number counts safety scenarios,
+    # and counting a documentation check among them would make it self-describing.
+    doc_drift = verify_published_scenario_count(len(RESULTS))
+    print(("PASS " if not doc_drift else "FAIL ")
+          + "[docs] published-scenario-count-matches-this-run | "
+          + ("; ".join(doc_drift) if doc_drift else str(len(RESULTS))))
+
     print(f"SCENARIOS: {npass} PASS, {nchar} CHARACTERIZED, {nfail} FAIL")
     for grp, name, st, d in RESULTS:
         if st != "PASS":
             print(f"  {st} [{grp}] {name} | {d[:220]}")
+    for drift in doc_drift:
+        print(f"  FAIL [docs] {drift}")
     if not _KEEP_WORK:
         shutil.rmtree(WORK, ignore_errors=True)
-    sys.exit(1 if nfail else 0)
+    sys.exit(1 if (nfail or doc_drift) else 0)
