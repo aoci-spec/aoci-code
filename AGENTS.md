@@ -9,6 +9,38 @@
 - Do not add private design, patent, commercial, research, or experimental
   material to the public tree.
 
+## Verification obligations
+
+`make fast` is the Tier-0 gate and is never sufficient evidence on its own.
+These gates run **only** under `make full`, so a green `make fast` says nothing
+about them: `clean-room-smoke`, `licenses`, `race`, `vuln`,
+`database-integration`. Changing a machine default has broken `clean-room-smoke`
+alone before, with every fast gate green.
+
+| Changed | Run before closing |
+| --- | --- |
+| Anything | `make fast` |
+| MCP tool surface, input schemas, response shapes | `python3 scripts/blackbox/mcp_conformance.py` |
+| Write lifecycle, recovery, cursors, concurrent writers | `python3 scripts/blackbox/mcp_scenarios.py` |
+| `init`, `scan`, authoring lifecycle, Managed Scope roles | `python3 scripts/blackbox/mcp_lifecycle.py` |
+| Machine defaults, release assets, licensing, dependencies | `make full` |
+| Public text in `README*`, `docs/`, or `spec/` | `bash scripts/check-public-text.sh` |
+
+The three black-box suites drive a built binary from outside the process and
+have their own preconditions; `scripts/blackbox/README.md` documents them.
+Report the gates actually run and their real output, and never report a gate
+that was not run.
+
+## Cognition index admission
+
+A test earns a Whole-Index Entry only when it is an executable contract someone
+must run by name — a harness or suite with its own preconditions. Ordinary
+package tests that `make fast` or `make full` already run stay `observe`: at
+roughly 110 tokens per Entry, indexing them would more than double the
+Whole-Index and buy nothing a reader cannot reach from the package under test.
+When a test locks a fact, record the lock in the locked object's `S` rather than
+as a new Entry.
+
 <!-- aoci:begin -->
 ## AOCI Repository Cognition
 

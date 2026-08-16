@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-16T04:49:04Z",
+  "updated_at": "2026-08-16T05:25:42Z",
   "files": {
     ".gitattributes": {
       "sha256": "21fa16a2122e2b0360b47502c577428b645437e08e9e87ffba661f84853cb476",
@@ -50,14 +50,14 @@
       "normalized_sha256": "9042f34135fd0476c45b47b11b9b98464b28a39f63970bda998598162b93da0e"
     },
     "AGENTS.md": {
-      "sha256": "ba845b2baf97528f2278b600959f37c8243fec0c5643b2b56919b27272e91923",
-      "size": 14717,
-      "normalized_sha256": "ba845b2baf97528f2278b600959f37c8243fec0c5643b2b56919b27272e91923"
+      "sha256": "0f4de1ffa061d4362864a244b10bd3a81a403427e808d6a6b317f4d84c3ac1f6",
+      "size": 16398,
+      "normalized_sha256": "0f4de1ffa061d4362864a244b10bd3a81a403427e808d6a6b317f4d84c3ac1f6"
     },
     "CHANGELOG.md": {
-      "sha256": "e52396377a7df85209d67138d3bd07bdf39a7149992741a92d9c1b539de07c31",
-      "size": 25768,
-      "normalized_sha256": "e52396377a7df85209d67138d3bd07bdf39a7149992741a92d9c1b539de07c31"
+      "sha256": "cffc85dc01844b915a32fbb4fd4d3bfc0a251263c3ccd59d16991ff8d11c63df",
+      "size": 26560,
+      "normalized_sha256": "cffc85dc01844b915a32fbb4fd4d3bfc0a251263c3ccd59d16991ff8d11c63df"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -122,9 +122,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "c1ea3f49882668f0753bc7b944a8a97f0076fd6c0e06540eed4ed3d13942fe2b",
-      "size": 164918,
-      "normalized_sha256": "c1ea3f49882668f0753bc7b944a8a97f0076fd6c0e06540eed4ed3d13942fe2b"
+      "sha256": "bd3e4880013942bb2f4b66e44473a36bcf2ecea141b19c1324dfa5603d96cdaf",
+      "size": 165060,
+      "normalized_sha256": "bd3e4880013942bb2f4b66e44473a36bcf2ecea141b19c1324dfa5603d96cdaf"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3878,6 +3878,14 @@
       "size": 19388,
       "normalized_sha256": "b1aa3088e5e9d4585125d4f9c298b21fec85c66e187ea4dab91116442b83e9c2",
       "format_sha256": "b1aa3088e5e9d4585125d4f9c298b21fec85c66e187ea4dab91116442b83e9c2",
+      "format_kind": "gofmt"
+    },
+    "internal/machinecontract/index_admission_test.go": {
+      "role": "observe",
+      "sha256": "8b9cc16bda662423382893e069ca93b228a933c6f5630cbb64c58f1e0e1afc50",
+      "size": 2852,
+      "normalized_sha256": "8b9cc16bda662423382893e069ca93b228a933c6f5630cbb64c58f1e0e1afc50",
+      "format_sha256": "8b9cc16bda662423382893e069ca93b228a933c6f5630cbb64c58f1e0e1afc50",
       "format_kind": "gofmt"
     },
     "internal/machinecontract/lexical.go": {

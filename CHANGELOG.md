@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- State the repository's verification obligations and its Whole-Index admission
+  rule in `AGENTS.md`, where every Agent session reads them. The gate table maps
+  a kind of change to the gate that actually covers it, and it records the fact
+  no gate output carries: `clean-room-smoke`, `licenses`, `race`, `vuln`, and
+  `database-integration` run only under `make full`, so a green `make fast`
+  proves nothing about them. The admission rule states that a test earns an
+  Entry only when it is an executable contract run by name with its own
+  preconditions; ordinary package tests stay `observe`, and a test that locks a
+  fact is recorded in the locked object's `S`. A cross-layer test now fails when
+  any `*_test.go` acquires an Entry and when either rule is dropped from
+  `AGENTS.md`.
 - Have `aoci init` add the agent host configuration it just wrote to the
   repository's `.gitignore`. Those files carry machine-bound absolute paths, and
   a committed copy silently no-ops another machine's `init` because every
