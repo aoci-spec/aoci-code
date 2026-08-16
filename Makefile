@@ -34,7 +34,7 @@ OPENGAUSS_PATCH_GO_FILES := \
 	third_party/openGauss-connector-go-pq/ssl.go \
 	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps opengauss-connector licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -71,14 +71,45 @@ safety:
 check-deps:
 	@if [ -f scripts/check-deps.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh; else echo "check-deps: scripts/check-deps.sh 尚未生成,跳过"; fi
 
+# 底座工具链预检。licenses 与 opengauss-connector 在 GOTOOLCHAIN=local 下跑 Go,
+# 使审计只报告 GO_BIN 选定的那一个 Go 身份;该钉法下 Go 不会下载工具链,底座低于
+# go.mod 时它们直接失败。而 check-opengauss-connector.sh 把 go mod download 的任何
+# 失败都包装成"could not download the pinned upstream module",于是一个补丁版落后
+# 会被读成供应链故障。这里用毫秒级比较把它翻译成人话,并在 full 的最前面失败。
+# 比较用 >= 而非 ==:更新的底座本来就满足每个钉点,不该被拦。
+toolchain-preflight:
+	@want=$$(awk '$$1=="go"{print $$2; exit}' go.mod); \
+	base=$$(env GOTOOLCHAIN=local "$(GO_BIN)" version 2>/dev/null | awk '{print $$3}'); base=$${base#go}; \
+	if [ -z "$$want" ]; then echo "toolchain-preflight: go.mod declares no go directive" >&2; exit 1; fi; \
+	if [ -z "$$base" ]; then echo "toolchain-preflight: could not run '$(GO_BIN) version'; set GO_BIN to a Go executable" >&2; exit 1; fi; \
+	if awk -v have="$$base" -v want="$$want" 'BEGIN{n=split(have,h,".");m=split(want,w,".");for(i=1;i<=3;i++){hv=(i<=n)?h[i]+0:0;wv=(i<=m)?w[i]+0:0;if(hv>wv)exit 0;if(hv<wv)exit 1}exit 0}'; then exit 0; fi; \
+	{ echo "toolchain-preflight: the base Go toolchain is older than go.mod requires."; \
+	  echo ""; \
+	  echo "  go.mod 'go' directive : $$want"; \
+	  echo "  base toolchain        : $$base   (env GOTOOLCHAIN=local $(GO_BIN) version)"; \
+	  echo ""; \
+	  echo "A plain 'go version' can report a newer Go: under the default GOTOOLCHAIN=auto"; \
+	  echo "the go command re-executes a downloaded toolchain. The licenses and"; \
+	  echo "opengauss-connector gates pin GOTOOLCHAIN=local so the audit reports one Go"; \
+	  echo "identity for the toolchain GO_BIN selects, here and in CI. Under that pin Go"; \
+	  echo "downloads nothing, so those gates stop with:"; \
+	  echo "  go: go.mod requires go >= $$want (running go $$base; GOTOOLCHAIN=local)"; \
+	  echo ""; \
+	  echo "Do one of these, then re-run:"; \
+	  echo "  1. Install Go $$want or newer as the base toolchain (https://go.dev/dl/)."; \
+	  echo "     Replacing /usr/local/go needs root."; \
+	  echo "  2. Point this build at a base toolchain already on this machine:"; \
+	  echo "       make full GO_BIN=/path/to/go/bin/go"; \
+	} >&2; exit 1
+
 # 固定openGauss Connector上游身份，重放AOCI安全补丁并逐字节比较完整本地模块；
 # 聚焦测试不会启动或访问数据库。
-opengauss-connector:
+opengauss-connector: toolchain-preflight
 	@GO_BIN="$(GO_BIN)" bash scripts/check-opengauss-connector.sh
 	@cd third_party/openGauss-connector-go-pq && $(GO_BIN) test -count=1 -run '^(TestParseConfigStrict.*|TestConnectorContextBoundsTLSStartup|TestNewPrintfLoggerWritesToStderr|TestBadClientCertificateDoesNotWriteStdout|TestCancelTLSFailureUsesOnlyCancelConnection|TestServerPBKDF2IterationBounds|TestAuthenticationPayloadAndIterationFailuresAreDriverErrors)$$' .
 
 # 可达外部Go包许可证闸；工具由CI和发布排练固定安装，不进入go.mod。
-licenses:
+licenses: toolchain-preflight
 	@GO_BIN="$(GO_BIN)" bash scripts/check-licenses.sh
 
 # 嵌入文本发布闸：完整正式Locale、开发中Locale现有子集、变量与协议词、
@@ -130,7 +161,7 @@ clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: toolchain-preflight fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
 # Compatibility alias retained for existing operators and automation.

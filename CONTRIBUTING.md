@@ -19,6 +19,19 @@ gate. `make full` is required for stable freezes and high-risk changes when
 requested by maintainers. `make release-check` is reserved for package
 rehearsal.
 
+"The Go version declared in `go.mod`" means the *base* installation, not what
+`go version` prints. Under the default `GOTOOLCHAIN=auto` the go command
+re-executes a newer downloaded toolchain, so ordinary builds and tests succeed
+while the base install is older. The `licenses` and `opengauss-connector` gates
+pin `GOTOOLCHAIN=local` so the audit reports one Go identity for the toolchain
+`GO_BIN` selects, and under that pin nothing is downloaded. `make full` checks
+this first and names both versions if the base is behind. To use a Go that is
+already on the machine without replacing the base install, pass it explicitly:
+
+```bash
+make full GO_BIN=/path/to/go/bin/go
+```
+
 ## Change rules
 
 - Preserve MCP stdio stdout for JSON-RPC and send diagnostics to stderr.

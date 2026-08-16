@@ -4,6 +4,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Say when the base Go toolchain is older than `go.mod` requires, instead of
+  reporting it as a supply-chain fault. The `licenses` and
+  `opengauss-connector` gates pin `GOTOOLCHAIN=local` so the audit reports one
+  Go identity, and under that pin an older base install stops them — but
+  `check-opengauss-connector.sh` wraps every `go mod download` failure into
+  "could not download the pinned upstream module", so a base install one patch
+  behind read as a compromised or unreachable upstream. `make full` now
+  compares the base toolchain against the `go` directive first and, when it is
+  older, names both versions, explains why a plain `go version` can disagree,
+  and offers either installing the newer Go or pointing `GO_BIN` at one already
+  on the machine. The comparison is `>=`, so a newer base install is never
+  blocked.
 - Show the confirmation prompt before the phrase is read, not after the command
   has exited. The library entry point buffers both writers into memory and
   flushes them once Execute returns, so every TTY digest confirmation wrote its
