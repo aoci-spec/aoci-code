@@ -4,6 +4,32 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Stop treating a line-ending rewrite as a reason to stop governing a
+  repository. `internal/volumegovernance` compared formal Volumes by raw
+  SHA-256, making it the one consumer in the repository that bypassed
+  `baseline.EquivalentFingerprints` — the function whose own contract declares
+  it the single entry point for that judgement — and therefore the one place
+  that ignored `line_ending_tolerance`, which defaults to true. `core.autocrlf`
+  is the Git for Windows default, so an ordinary Windows checkout rewrote every
+  Volume and hard-blocked the Guide over a difference the team policy already
+  calls equivalent, while identical rewrites of business sources stayed
+  authorable. Such a difference is now reported as
+  `code_volume_line_ending_only` (with `root_`, `meta_`, and `database_`
+  siblings) carrying the repair, and does not block.
+- Refuse a `scan` that would publish a Baseline without the Volumes it governs.
+  Scan takes its inventory from Git, so a formal cognition asset covered by
+  `.gitignore`, `.git/info/exclude`, or `core.excludesFile` was silently absent
+  from the Baseline; the repository then failed far away on a blocked Guide that
+  named neither the rule nor the file. The refusal names both, and `--dry-run`
+  reports it rather than promising a scan that would fail.
+- Report Root and Meta drift. Nothing checked them, so a repository was aligned
+  according to Verify and Guide while every Scope Change refused over the same
+  bytes, and only one of those authorities named a file. Both now use the
+  vocabulary the Code and Database Volumes already use, under the same condition
+  a Scope Change refuses on.
+- Give new repositories the line-ending protection AOCI applies to itself.
+  `init` writes a `.gitattributes` normalizing text to LF, and never rewrites an
+  existing one.
 - Say when the base Go toolchain is older than `go.mod` requires, instead of
   reporting it as a supply-chain fault. The `licenses` and
   `opengauss-connector` gates pin `GOTOOLCHAIN=local` so the audit reports one

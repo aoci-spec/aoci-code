@@ -18,6 +18,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
@@ -211,6 +212,13 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 		facts.Findings = append(facts.Findings, Finding{Code: "baseline_missing"})
 	}
 
+	// Root and Meta are checked here because nothing else did. Their drift was
+	// invisible to Guide and Verify while internal/scopechange/plan.go refused
+	// every Scope Change over it, so two authorities described the same
+	// repository differently and only one of them named a file.
+	assessFormalAsset(root, cfg, state, set.Root.Descriptor.Path, "root", facts)
+	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
+
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
@@ -226,8 +234,18 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 			facts.DatabaseBindingCount = len(state.DatabaseCognition.Entries)
 		}
 		assessDatabase(root, cfg, facts)
-		if !baselineMatches(root, state, asset.Descriptor.Path) {
-			facts.Findings = append(facts.Findings, Finding{Code: "database_volume_unbaselined", Domain: cognition.ScopeDatabase, Target: asset.Descriptor.Path})
+		switch matched, lineEndingOnly := baselineMatches(root, cfg, state, asset.Descriptor.Path); {
+		case matched && lineEndingOnly:
+			facts.Findings = append(facts.Findings, Finding{
+				Code: "database_volume_line_ending_only", Domain: cognition.ScopeDatabase, Target: asset.Descriptor.Path,
+				Cause:            "line_ending_rewrite",
+				SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
+			})
+		case !matched:
+			facts.Findings = append(facts.Findings, Finding{
+				Code: "database_volume_unbaselined", Domain: cognition.ScopeDatabase, Target: asset.Descriptor.Path,
+				SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, state),
+			})
 		}
 	} else {
 		facts.DatabaseCognition = dbcognition.Assess(root, nil, set, state)
@@ -371,9 +389,84 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	if facts.ManagedScope.ObservedPendingReview > 0 {
 		facts.Findings = append(facts.Findings, Finding{Code: "observed_pending", Domain: cognition.ScopeCode})
 	}
-	if !baselineMatches(root, baselineState, asset.Descriptor.Path) {
-		facts.Findings = append(facts.Findings, Finding{Code: "code_volume_unbaselined", Domain: cognition.ScopeCode, Target: asset.Descriptor.Path})
+	switch matched, lineEndingOnly := baselineMatches(root, cfg, baselineState, asset.Descriptor.Path); {
+	case matched && lineEndingOnly:
+		// Equivalent under the team's own tolerance, so it neither blocks nor
+		// creates authoring debt. It is still reported, because the raw bytes did
+		// move and a Scope Change will refuse until they are restored.
+		facts.Findings = append(facts.Findings, Finding{
+			Code: "code_volume_line_ending_only", Domain: cognition.ScopeCode, Target: asset.Descriptor.Path,
+			Cause:            "line_ending_rewrite",
+			SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
+		})
+	case !matched:
+		facts.Findings = append(facts.Findings, Finding{
+			Code: "code_volume_unbaselined", Domain: cognition.ScopeCode, Target: asset.Descriptor.Path,
+			SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, baselineState),
+		})
 	}
+}
+
+// assessFormalAsset reports Root and Meta drift with the same vocabulary the
+// Code and Database Volumes use, so one repository cannot be aligned according
+// to Guide and drifted according to Scope.
+func assessFormalAsset(
+	root string,
+	cfg *config.Config,
+	state *baseline.Baseline,
+	rel string,
+	kind string,
+	facts *Facts,
+) {
+	if strings.TrimSpace(rel) == "" || state == nil {
+		return
+	}
+	// Only a record that exists and no longer matches is reported. That is the
+	// exact condition internal/scopechange/plan.go refuses a Scope Change over,
+	// and matching it is the whole point: a repository must not be aligned
+	// according to Guide and drifted according to Scope. An absent binding is
+	// skipped there too, and several legal layouts never bind Root or Meta.
+	if _, recorded := state.Files[rel]; !recorded {
+		return
+	}
+	// Both outcomes are informational. The defect being fixed is invisibility,
+	// not insufficient blocking: internal/scopechange/plan.go refuses a Scope
+	// Change over this drift while Verify and Guide said nothing, so one
+	// repository had two authorities and only one of them named a file. Guide now
+	// names it too. Turning it into a stop instead would invent a new hard state
+	// in flows that legitimately reach it, and no domain is attributed because
+	// Root and Meta belong to none.
+	switch matched, lineEndingOnly := baselineMatches(root, cfg, state, rel); {
+	case matched && lineEndingOnly:
+		facts.Findings = append(facts.Findings, Finding{
+			Code: kind + "_volume_line_ending_only", Target: rel,
+			Cause:            "line_ending_rewrite",
+			SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
+		})
+	case !matched:
+		facts.Findings = append(facts.Findings, Finding{
+			Code: kind + "_volume_baseline_drift", Target: rel,
+			SafeRepairAction: volumeUnbaselinedRepairAction(root, rel, state),
+		})
+	}
+}
+
+// volumeUnbaselinedRepairAction names why the Volume is not in the Baseline, so
+// the operator never has to read source to find out.
+//
+// The two causes need opposite fixes and nothing else distinguishes them: a
+// Volume absent from the Baseline was hidden from Git when the Baseline was
+// built, while a Volume present but mismatched has had its bytes rewritten.
+func volumeUnbaselinedRepairAction(root, rel string, state *baseline.Baseline) string {
+	if state != nil {
+		if _, recorded := state.Files[rel]; recorded {
+			return "this Volume's bytes changed after the Baseline was established; restore them, or re-establish cognition through the governed Scope Change flow"
+		}
+	}
+	if ignored, _ := afs.PathIgnoredByGit(root, rel); ignored {
+		return "this Volume is hidden from Git, so scan never recorded it; remove the ignore rule covering it and run scan again"
+	}
+	return "this Volume has no Baseline record; run scan on a repository where the Volume is visible to Git"
 }
 
 func assessDatabase(root string, cfg *config.Config, facts *Facts) {
@@ -490,13 +583,38 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 		S: append([]cognitionbudget.FieldBand{}, policy.S...), Violations: violations}
 }
 
-func baselineMatches(root string, state *baseline.Baseline, rel string) bool {
+// baselineMatches judges a formal Volume against its Baseline record through
+// baseline.EquivalentFingerprints, which its own doc comment declares the single
+// entry point for fingerprint equivalence.
+//
+// This used to compare raw SHA-256 directly, which made it the one consumer in
+// the repository that bypassed that entry point — and therefore the one place
+// that ignored line_ending_tolerance, a setting that defaults to true. A Windows
+// checkout under the default core.autocrlf rewrites every line ending, so the
+// volume that governs the whole repository was hard-blocked by a difference the
+// team policy already calls equivalent, while ordinary business sources under
+// the identical rewrite stayed authorable.
+func baselineMatches(
+	root string,
+	cfg *config.Config,
+	state *baseline.Baseline,
+	rel string,
+) (
+	matched bool,
+	lineEndingOnly bool,
+) {
 	if state == nil {
-		return false
+		return false, false
 	}
 	stored, ok := state.Files[rel]
+	if !ok {
+		return false, false
+	}
 	current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(rel)))
-	return err == nil && ok && stored.SHA256 == current.SHA256
+	if err != nil {
+		return false, false
+	}
+	return baseline.EquivalentFingerprints(stored, current, cfg.LineEndingTolerance)
 }
 
 func cloneSnapshot(input map[string]baseline.Fingerprint) map[string]baseline.Fingerprint {
@@ -547,6 +665,13 @@ func finalize(facts *Facts) {
 			domains[finding.Domain] = true
 		}
 		switch {
+		// Informational findings must be named explicitly. The default arm below
+		// means blocked, so a new code that nobody classifies silently becomes a
+		// hard stop — which is exactly how code_volume_unbaselined wedged
+		// repositories over a difference the tolerance policy calls equivalent.
+		case finding.Code == "code_volume_line_ending_only" || finding.Code == "database_volume_line_ending_only" ||
+			finding.Code == "root_volume_line_ending_only" || finding.Code == "meta_volume_line_ending_only" ||
+			finding.Code == "root_volume_baseline_drift" || finding.Code == "meta_volume_baseline_drift":
 		case strings.HasPrefix(finding.Code, "database_evidence") || strings.Contains(finding.Code, "evidence_unavailable") || strings.Contains(finding.Code, "evidence_invalid"):
 			evidence = true
 		case finding.Code == "code_missing" || finding.Code == "code_stale" || finding.Code == "code_unbaselined" ||

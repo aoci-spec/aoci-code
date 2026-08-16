@@ -11,6 +11,7 @@ Groups:
   C  crash recovery          (fixture: kill server mid-operation, prove no wedge)
   D  concurrency             (fixture: racing writers, snapshot-change mid-chain)
   E  authoring batch size    (fixture: team batch config, bounded transport)
+  F  cognition-layer visibility (fixture: git-hidden Volumes, line-ending rewrite)
   W  host window             (every non-Overview response fits an ordinary host)
 
 The run also checks that the scenario count published in the public READMEs and
@@ -189,6 +190,11 @@ def sh(cwd, *args):
     return r.stdout
 
 # ---------------------------------------------------------------- fixture
+# init generates governed sources of its own: the AGENTS.md contract block and
+# the .gitattributes that keeps a Windows checkout from rewriting every Volume.
+# Both are ordinary authoring targets, so fixture expectations count them.
+INIT_GENERATED_TARGETS = 2
+
 def make_fixture(name, nfiles, batch_entries=None):
     """Fresh Volumes fixture with nfiles source files. `batch_entries` pins the
     team Code batch size (a scenario that wants one call to carry the whole
@@ -316,12 +322,12 @@ def group_b():
     s = Session(fx)
     m, t, err = maintain(s)
     n = len(m.get("candidates") or [])
-    if n != NF + 1:  # fixtures + init-generated AGENTS.md
-        record(g, "B1.maintain-missing", "FAIL", f"expected {NF+1} candidates, got {n}: {t[:150]}"); s.close(); return None
-    record(g, "B1.maintain-missing", "PASS", f"{n} create candidates (incl AGENTS.md)")
+    if n != NF + INIT_GENERATED_TARGETS:
+        record(g, "B1.maintain-missing", "FAIL", f"expected {NF+INIT_GENERATED_TARGETS} candidates, got {n}: {t[:150]}"); s.close(); return None
+    record(g, "B1.maintain-missing", "PASS", f"{n} create candidates (incl init-generated targets)")
     r, t, err = submit_batch(s, m)
-    ok = r.get("status") == "applied" and r.get("applied") == NF + 1 and r.get("remaining") == 0
-    record(g, "B1.apply-batch", "PASS" if ok else "FAIL", t[:200] if not ok else f"applied={NF+1}")
+    ok = r.get("status") == "applied" and r.get("applied") == NF + INIT_GENERATED_TARGETS and r.get("remaining") == 0
+    record(g, "B1.apply-batch", "PASS" if ok else "FAIL", t[:200] if not ok else f"applied={NF+INIT_GENERATED_TARGETS}")
     al, v = fixture_aligned(fx)
     record(g, "B1.verify-aligned", "PASS" if al else "FAIL")
 
@@ -555,7 +561,7 @@ def group_e():
     s = Session(fx)
     m, t, err = maintain(s)
     plan = m.get("code_plan") or {}
-    total = NF + 1  # init-generated AGENTS.md is a target too
+    total = NF + INIT_GENERATED_TARGETS
     ok = (not err) and plan.get("max_entries") == 20 and plan.get("included") == 20 \
         and plan.get("remaining") == total - 20 and len(m.get("candidates") or []) == 20
     record(g, "E1.default-batch-is-20", "PASS" if ok else "FAIL",
@@ -605,6 +611,98 @@ def group_e():
            f"set50 rc={rc} max_entries={p2.get('max_entries')} included={p2.get('included')} set0_rc={rc0} set201_rc={rc201}")
 
 
+# ================================================================ GROUP F
+def group_f():
+    """The cognition layer must stay visible to Git, and a checkout that only
+    rewrites line endings must not read as drift.
+
+    Both classes were reported from a real project. Hiding the formal assets from
+    Git made scan publish a Baseline that could never govern the Volumes it left
+    out; the failure surfaced much later as a blocked Guide naming neither the
+    rule nor the file. The line-ending class needs no ignore rule at all: Git for
+    Windows defaults to core.autocrlf=true, so an ordinary clone rewrote every
+    Volume and hard-blocked a repository whose own tolerance policy calls that
+    difference equivalent."""
+    g = "F"
+    d = os.path.join(WORK, "fx-visibility")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    with open(os.path.join(d, "pkg", "a.go"), "w") as f:
+        f.write("package pkg\n\nfunc A() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+
+    # F4: init must hand the repository the line-ending protection AOCI uses on
+    # itself, because nothing else stops a Windows checkout from rewriting the
+    # Volumes it governs.
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    if rc != 0:
+        record(g, "F1.scan-refuses-hidden-cognition", "FAIL", f"init failed: {out[:150]} {errs[:150]}")
+        return
+    attributes_path = os.path.join(d, ".gitattributes")
+    has_normalization = False
+    if os.path.exists(attributes_path):
+        with open(attributes_path, encoding="utf-8") as fh:
+            has_normalization = "text=auto eol=lf" in fh.read()
+    record(g, "F4.init-writes-line-ending-protection",
+           "PASS" if has_normalization else "FAIL",
+           "init wrote .gitattributes normalizing to LF" if has_normalization
+           else "init left the repository exposed to autocrlf rewrites")
+
+    # F1/F2: a formal asset hidden from Git must stop scan, naming the asset and
+    # the rule, and --dry-run must report the same thing rather than promising a
+    # scan that would fail.
+    with open(os.path.join(d, ".git", "info", "exclude"), "a", encoding="utf-8") as fh:
+        fh.write("\naoci.txt\naoci.meta.txt\naoci.code.txt\n")
+    rc, _, out, errs = cli(d, "scan", expect_ok=False)
+    blob = (out or "") + (errs or "")
+    named = "aoci.code.txt" in blob and "exclude" in blob
+    record(g, "F1.scan-refuses-hidden-cognition", "PASS" if rc != 0 and named else "FAIL",
+           f"rc={rc} names_asset_and_rule={named} | {blob[:160]}")
+    baseline_path = os.path.join(d, ".aoci", "baseline.json")
+    record(g, "F1b.refused-scan-writes-no-baseline",
+           "PASS" if not os.path.exists(baseline_path) else "FAIL",
+           "no Baseline published" if not os.path.exists(baseline_path)
+           else "a refused scan still published a Baseline")
+    rc_dry, _, out_dry, errs_dry = cli(d, "scan", "--dry-run", expect_ok=False)
+    record(g, "F2.dry-run-reports-the-same-refusal", "PASS" if rc_dry != 0 else "FAIL",
+           f"rc={rc_dry} | {((out_dry or '') + (errs_dry or ''))[:160]}")
+
+    # F3: with the assets visible, scan succeeds; a pure line-ending rewrite of
+    # every Volume afterwards must stay authorable and name its own repair.
+    exclude_path = os.path.join(d, ".git", "info", "exclude")
+    with open(exclude_path, encoding="utf-8") as fh:
+        kept = [line for line in fh.read().splitlines()
+                if line.strip() not in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt")]
+    with open(exclude_path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(kept) + "\n")
+    rc, _, out, errs = cli(d, "scan")
+    if rc != 0:
+        record(g, "F3.line-ending-rewrite-is-not-a-lockout", "FAIL",
+               f"scan failed once assets were visible: {out[:150]} {errs[:150]}")
+        return
+    for rel in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt"):
+        target = os.path.join(d, rel)
+        with open(target, "rb") as fh:
+            body = fh.read()
+        with open(target, "wb") as fh:
+            fh.write(body.replace(b"\n", b"\r\n"))
+    rc, guide, out, errs = cli(d, "index", "agent", "guide", "--agent", "scenario")
+    findings = guide.get("findings") or []
+    codes = {f.get("code") for f in findings}
+    repairs = [f.get("safe_repair_action") or "" for f in findings
+               if str(f.get("code", "")).endswith("_line_ending_only")]
+    not_blocked = guide.get("stage") != "blocked" and "code_volume_unbaselined" not in codes
+    reported = any(str(code).endswith("_line_ending_only") for code in codes)
+    actionable = any("eol=lf" in text or "LF" in text for text in repairs)
+    record(g, "F3.line-ending-rewrite-is-not-a-lockout",
+           "PASS" if not_blocked and reported and actionable else "FAIL",
+           f"stage={guide.get('stage')} reported={reported} actionable={actionable} codes={sorted(c for c in codes if 'volume' in str(c))}")
+
+
 # ---------------------------------------------------------------- documentation binding
 def verify_published_scenario_count(total):
     """Return a list of drift descriptions; empty means every document agrees."""
@@ -636,6 +734,7 @@ if __name__ == "__main__":
     group_c()
     group_d(bigfx)
     group_e()
+    group_f()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()

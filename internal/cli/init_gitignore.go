@@ -26,6 +26,36 @@ import (
 // aoci.txt位于仓库根，不由本文件管理。
 // reports.jsonl、ledger.jsonl、drafts、verify_history、lock、hooks、tmp、
 // 备份文件及未来未知文件都会被首行*默认忽略。
+// gitattributesContent是AOCI给新仓库的行尾规范化,与本仓库自用的同一行。
+//
+// AOCI以原始字节为准建立Baseline,而core.autocrlf=true是Git for Windows的
+// 默认值:一次Windows检出会重写全树行尾,连三个形式认知卷一起判成漂移。本仓库
+// 早就用这一行保护自己,却没有把同样的保护交给用户仓库。
+const gitattributesContent = "" +
+	"# AOCI baselines exact raw bytes, so a checkout must be byte-identical on\n" +
+	"# every platform: text always checks out LF, overriding any autocrlf rewrite\n" +
+	"# (the Windows default) that would otherwise mark the whole tree stale.\n" +
+	"# Binaries are auto-detected and left untouched.\n" +
+	"* text=auto eol=lf\n"
+
+// ensureGitattributes在仓库根尚无.gitattributes时写入行尾规范化。
+//
+// 已存在时无条件跳过。维护者文件绝不改写,这条纪律高于本保护:一个已有
+// .gitattributes的仓库有它自己的规则,AOCI无权推断哪一条该让位。缺失的保护
+// 不再是致命的——行尾差异现在是可读的非阻塞发现,不是硬阻塞。
+func ensureGitattributes(root string) (string, error) {
+	targetPath := filepath.Join(root, ".gitattributes")
+	if _, err := os.Lstat(targetPath); err == nil {
+		return "", nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", errors.New(cliMessage("init.gitattributes_error", err))
+	}
+	if err := fs.AtomicWrite(targetPath, []byte(gitattributesContent)); err != nil {
+		return "", errors.New(cliMessage("init.gitattributes_error", err))
+	}
+	return cliMessage("init.gitattributes_written"), nil
+}
+
 // ensureAOCIRuntimeGitignore确保.aoci/.gitignore首次初始化时就位。
 //
 // 已存在时无条件跳过，防止覆盖维护者自定义策略。

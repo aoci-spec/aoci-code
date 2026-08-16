@@ -72,6 +72,12 @@ Then use that absolute path to do the following for my project:
    not write project configuration (Cursor, for example), give me the configuration I
    need to paste myself
 2. Run scan
+
+   scan takes its file inventory from Git, so do not add the cognition assets
+   init writes (aoci.txt, aoci.meta.txt, aoci.code.txt, AGENTS.md) to .gitignore
+   or .git/info/exclude — an ignored asset is silently skipped and the index
+   cannot be built. Leave the host-config ignore init writes for itself as it is.
+
 3. Tell me to restart the Agent so the newly written MCP server takes effect
 
 Stop after those three steps and do not build the index yet — I will tell you to continue
@@ -873,7 +879,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 30 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 35 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full
