@@ -38,6 +38,15 @@ it. From the next transaction onward the receipt reads the relaxed posture and
 ordinary changes are automatic again. A posture is therefore reversible through
 the same governed path that tightened it, at the cost of exactly one review.
 
+Pass `--out-file` to `scope approve` so the approval it mints lands in a file
+that `scope apply --approval-file` can read. Without it the artifact goes to
+stdout and has to be redirected by hand; forgetting the redirect discards a
+confirmation that cannot be reused. The file is created only if nothing is
+already there, and is written readable by its owner alone, because until the
+change is applied anything that can read it can stand in for the human who
+typed the phrase. `scope safety approve` and `baseline scope approve` take the
+same flag.
+
 The Candidate Set may include a reviewed Curation postimage. A Scope Preview
 is also the single versioned Apply Envelope; its digest binds candidates,
 policy and budget identities, exact formal pre/postimages, risks, guards, and

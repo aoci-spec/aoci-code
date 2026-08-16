@@ -64,8 +64,11 @@ func newBaselineScopePlanCmd(previewMode bool) *cobra.Command {
 }
 
 func newBaselineScopeApproveCmd() *cobra.Command {
-	var previewFile, actor string
+	var previewFile, actor, outFile string
 	command := &cobra.Command{Use: "approve", Short: cliMessage("cli.short.baseline_scope_approve"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := validatePlannerOutput(outFile); err != nil {
+			return scopeExitError(err)
+		}
 		data, err := readPlannerInput(previewFile)
 		if err != nil {
 			return scopeExitError(err)
@@ -85,10 +88,11 @@ func newBaselineScopeApproveCmd() *cobra.Command {
 		if err != nil {
 			return scopeExitError(err)
 		}
-		return writePlannerJSON(cmd, approval)
+		return writePlannerArtifact(cmd, approval, outFile)
 	}}
 	command.Flags().StringVar(&previewFile, "preview-file", "", cliMessage("baseline.scope.flag.preview_file"))
 	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("baseline.scope.flag.out_file"))
 	_ = command.MarkFlagRequired("preview-file")
 	_ = command.MarkFlagRequired("actor")
 	return command

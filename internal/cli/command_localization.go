@@ -18,6 +18,7 @@ var localizedFlagNames = []string{
 	"snapshot-file", "plan-file", "candidate-file", "mapping-file", "preview-file", "baseline-timestamp",
 	"envelope-file", "approval-file", "actor", "transaction",
 	"action", "pattern", "pattern-kind", "reason", "created-by", "order", "enabled", "scope-profile", "reviewed-by", "safety-approval-file",
+	"out-file",
 }
 
 var commandShortMessages = map[string]string{

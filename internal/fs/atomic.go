@@ -183,6 +183,17 @@ func AtomicMoveCAS(sourcePath, recoveryPath, expectedSHA256 string) error {
 	return fmt.Errorf("%w: captured third-party bytes retained at %s", ErrAtomicCASRecovery, absRecovery)
 }
 
+// ValidateCreateTarget reports whether AtomicCreateCASMode would accept
+// absTarget, without creating or touching anything.
+//
+// It exists so a caller can refuse a bad output path *before* asking a human to
+// confirm something. Discovering the path is unusable only after the phrase has
+// been typed wastes a confirmation that cannot be reused. The atomic create
+// still re-checks at publication, so this is an early answer, not the guarantee.
+func ValidateCreateTarget(absTarget string) error {
+	return validateAtomicCreateTarget(absTarget)
+}
+
 func validateAtomicCreateTarget(absTarget string) error {
 	parent := filepath.Dir(absTarget)
 	volume := filepath.VolumeName(parent)

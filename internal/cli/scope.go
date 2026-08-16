@@ -537,8 +537,11 @@ func newScopeSafetyMutationCmd(add bool) *cobra.Command {
 }
 
 func newScopeSafetyApproveCmd() *cobra.Command {
-	var actor string
+	var actor, outFile string
 	command := &cobra.Command{Use: "approve", Short: cliMessage("cli.short.scope_safety_approve"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := validatePlannerOutput(outFile); err != nil {
+			return managedScopeExitError(err)
+		}
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return managedScopeExitError(err)
@@ -570,9 +573,10 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writePlannerJSON(cmd, approval)
+		return writePlannerArtifact(cmd, approval, outFile)
 	}}
 	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("scope.flag.safety_out_file"))
 	_ = command.MarkFlagRequired("actor")
 	return command
 }
@@ -607,8 +611,11 @@ func newScopeStatusCmd() *cobra.Command {
 }
 
 func newScopeApproveCmd() *cobra.Command {
-	var previewFile, actor string
+	var previewFile, actor, outFile string
 	command := &cobra.Command{Use: "approve", Short: cliMessage("cli.short.scope_approve"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := validatePlannerOutput(outFile); err != nil {
+			return managedScopeExitError(err)
+		}
 		data, err := readPlannerInput(previewFile)
 		if err != nil {
 			return managedScopeExitError(err)
@@ -631,10 +638,11 @@ func newScopeApproveCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writePlannerJSON(cmd, approval)
+		return writePlannerArtifact(cmd, approval, outFile)
 	}}
 	command.Flags().StringVar(&previewFile, "preview-file", "", cliMessage("scope.flag.preview_file"))
 	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("scope.flag.out_file"))
 	_ = command.MarkFlagRequired("preview-file")
 	_ = command.MarkFlagRequired("actor")
 	return command

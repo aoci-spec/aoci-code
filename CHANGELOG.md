@@ -4,6 +4,27 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Show the confirmation prompt before the phrase is read, not after the command
+  has exited. The library entry point buffers both writers into memory and
+  flushes them once Execute returns, so every TTY digest confirmation wrote its
+  prompt into a buffer and then blocked on stdin with nothing on screen. The
+  prompt carries the exact phrase the operator has to type, so the one thing
+  they needed was the one thing they could not see: they typed blind or gave up,
+  and the phrase appeared only alongside the failure. The prompt now goes
+  straight to the process stderr the confirmed branch has already proven is a
+  terminal. Every `scope approve`, `scope safety approve`, `baseline scope
+  approve`, `cognition bootstrap`, and `cognition migration` confirmation is
+  affected.
+- Let an approval land in a file instead of being carried by hand. `scope
+  approve`, `scope safety approve`, and `baseline scope approve` take
+  `--out-file`, so the artifact `scope apply --approval-file` needs is written
+  where it is wanted rather than printed to stdout for the operator to
+  redirect. Forgetting that redirect silently discarded a confirmation that
+  cannot be reused. The path is checked before the human is asked, so a bad
+  path never costs a confirmation; the file is created only when nothing is
+  already there, and is readable by its owner alone, because until the change is
+  applied anything that can read it can stand in for the human who typed the
+  phrase.
 - Give a Managed Scope posture relaxation the reviewer it always needed. Auto
   authorization correctly refuses to let a posture ratify its own weakening, but
   refusing was only half the contract: `interaction_required` was derived from

@@ -3,6 +3,7 @@ package cli
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strings"
@@ -33,6 +34,29 @@ type hostInteractionError struct {
 
 func (e *hostInteractionError) Error() string { return "human_tty_digest_confirmation_required" }
 
+// humanPromptWriter is where a TTY confirmation prompt goes, and it is
+// deliberately the process's own stderr rather than the cobra writer.
+//
+// The library entry point buffers both cobra writers into memory and flushes
+// them only after Execute returns, so a prompt written through cmd.ErrOrStderr
+// stayed invisible until the command had already finished. The prompt carries
+// the exact phrase the operator has to type, which made the confirmation
+// unreadable at the only moment it mattered: they typed blind or gave up. The
+// branch below has already proven stdin is a character device, so the prompt
+// and the read belong on the same unbuffered process-level pair.
+//
+// Tests redirect this; nothing else may. It is package-private, reachable from
+// no flag and no environment variable.
+var humanPromptWriter io.Writer = os.Stderr
+
+// stdinIsCharDevice decides whether a real human can answer at all. Keeping it
+// a variable lets the confirmed path be tested; it stays package-private so no
+// caller outside this package can claim a TTY it does not have.
+var stdinIsCharDevice = func() bool {
+	info, err := os.Stdin.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
+}
+
 func requireHumanPhrase(
 	cmd *cobra.Command,
 	phrase,
@@ -42,8 +66,7 @@ func requireHumanPhrase(
 	safeSummary,
 	resumeAction string,
 ) error {
-	info, err := os.Stdin.Stat()
-	if err != nil || info.Mode()&os.ModeCharDevice == 0 {
+	if !stdinIsCharDevice() {
 		return &hostInteractionError{State: hostInteractionRequired{
 			Version: hostInteractionVersion, InteractionRequired: true,
 			InteractionKind: "human_tty_digest_confirmation", ExactCommand: exactCommand,
@@ -52,7 +75,7 @@ func requireHumanPhrase(
 			FormalWritesStarted: false,
 		}}
 	}
-	fmt.Fprintln(cmd.ErrOrStderr(), prompt)
+	fmt.Fprintln(humanPromptWriter, prompt)
 	line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
 	if err != nil || strings.TrimSpace(line) != phrase {
 		return fmt.Errorf("human_tty_digest_confirmation_not_confirmed")

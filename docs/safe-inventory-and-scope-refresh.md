@@ -51,9 +51,13 @@ assets, so a Curation exclusion is shown as an ordinary removal. An ordinary
 configured or curated reduction requires one exact TTY confirmation:
 
 ```text
-aoci baseline scope approve --preview-file preview.json --actor HUMAN_ID
+aoci baseline scope approve --preview-file preview.json --actor HUMAN_ID --out-file approval.json
 aoci baseline scope apply --preview-file preview.json --approval-file approval.json
 ```
+
+`--out-file` is what connects the two lines. Without it the approval is printed
+to stdout and the second command has no `approval.json` to read, so the
+confirmation the human just gave is lost and has to be given again.
 
 If the process stops after its immutable Intent, inspect and resume the same
 transaction:
