@@ -12,12 +12,20 @@ MCP reload do not require a blanket application restart.
 
 The host configuration files written by `aoci init --agent` (`.mcp.json`,
 `.claude/settings.json`, `.codex/config.toml`, `opencode.json`) embed
-machine-bound absolute binary and repository paths. Add them to the
-repository's `.gitignore` and do not commit them: a committed copy is broken on
-every other machine, and because each installer detects an existing entry by
-key presence, re-running `init` there silently keeps the broken paths. In an
-AOCI-governed repository the ignore entry also keeps these files out of
-Managed Scope, so they create no index debt.
+machine-bound absolute binary and repository paths, and must not be committed:
+a committed copy is broken on every other machine, and because each installer
+detects an existing entry by key presence, re-running `init` there silently
+keeps the broken paths.
+
+`init` adds the files it just wrote to the repository's `.gitignore` under its
+own marked block, so an ordinary `init` then `scan` leaves them out of Git and
+out of Managed Scope. It only ever appends, never rewrites maintainer content,
+and it skips any path that Git already tracks — a tracked host configuration is
+a decision `init` will not reverse for you. The timing matters: Managed Scope
+roles are fixed by the first `scan`, `scan --force` cannot advance them, and
+removing a path afterwards is a coverage reduction that requires an approved
+Scope Change. If you configure a host by hand, add its file to `.gitignore`
+before the first `scan`.
 
 ## Codex
 

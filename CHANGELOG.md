@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Have `aoci init` add the agent host configuration it just wrote to the
+  repository's `.gitignore`. Those files carry machine-bound absolute paths, and
+  a committed copy silently no-ops another machine's `init` because every
+  installer detects an existing entry by key presence. The timing is what made
+  this worth fixing in `init` rather than in prose: Managed Scope roles are fixed
+  by the first `scan`, `scan --force` cannot advance them, and removing a path
+  afterwards is a coverage reduction that needs an approved Scope Change — so a
+  default `init` then `scan` used to leave a machine-bound file as a permanent
+  authoring target. `init` appends under its own marked block, never rewrites
+  maintainer content, skips any path Git already tracks, and does nothing when no
+  host configuration was written.
 - Split the one-step setup instruction in both public READMEs into the two turns
   it always was. The index is authored through AOCI's MCP tools, and the server
   `init` writes is not loaded in the session that wrote it, so the old single
