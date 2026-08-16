@@ -53,6 +53,21 @@ func DecodeApproval(data []byte) (*Approval, error) {
 	return &value, nil
 }
 
+// applyAuthorizationBranch selects the mechanism that actually authorizes this
+// transaction.
+//
+// A posture relaxation is planned under the weaker desired mode but has to be
+// authorized under the stronger receipted one, or the change would ratify
+// itself. plan.InteractionRequired already carries that decision, so an auto
+// plan that still demands interaction is routed to the interactive branch
+// instead of the policy-bound one. Every other plan keeps its declared mode.
+func applyAuthorizationBranch(effectiveMode string, interactionRequired bool) string {
+	if effectiveMode == machinecontract.ApplyAuthorizationAuto && interactionRequired {
+		return machinecontract.ApplyAuthorizationReview
+	}
+	return effectiveMode
+}
+
 func approvalIdentity(value Approval) (string, error) {
 	value.ApprovalDigest = ""
 	return digestJSON(value)
@@ -129,7 +144,7 @@ func ApplyAuthorized(repositoryRoot string, preview *Preview, approval *Approval
 	if err := validateAuthorizationPolicyBinding(preview, authorizationPolicy, authorizationIdentity); err != nil {
 		return nil, err
 	}
-	switch authorizationPolicy.EffectiveMode {
+	switch applyAuthorizationBranch(authorizationPolicy.EffectiveMode, preview.Plan.InteractionRequired) {
 	case machinecontract.ApplyAuthorizationAuto:
 		if approval != nil {
 			return nil, fmt.Errorf("managed_scope_human_approval_not_authoritative_in_auto")

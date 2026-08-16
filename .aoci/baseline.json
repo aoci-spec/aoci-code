@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-16T06:03:31Z",
+  "updated_at": "2026-08-16T10:35:45Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -64,9 +64,9 @@
       "normalized_sha256": "0f4de1ffa061d4362864a244b10bd3a81a403427e808d6a6b317f4d84c3ac1f6"
     },
     "CHANGELOG.md": {
-      "sha256": "ae1775051640c694157662085a84c0c7019809514a23c98b07ef1ec18ce346f4",
-      "size": 27560,
-      "normalized_sha256": "ae1775051640c694157662085a84c0c7019809514a23c98b07ef1ec18ce346f4"
+      "sha256": "84c3c830dc845defcd7e5c0ab88a2ab2f8683b230f84a5b6e21e0d75f53c3e42",
+      "size": 29220,
+      "normalized_sha256": "84c3c830dc845defcd7e5c0ab88a2ab2f8683b230f84a5b6e21e0d75f53c3e42"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -135,9 +135,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "b048af545e0c8dc62d6f578b43c982d12e9391eaa97e816eae55db89d9709aba",
-      "size": 167090,
-      "normalized_sha256": "b048af545e0c8dc62d6f578b43c982d12e9391eaa97e816eae55db89d9709aba"
+      "sha256": "7e18202d332f2e6c238d9c420c6ede6aea252c2de19b806451f3853d67528b72",
+      "size": 167777,
+      "normalized_sha256": "7e18202d332f2e6c238d9c420c6ede6aea252c2de19b806451f3853d67528b72"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -224,10 +224,9 @@
       "normalized_sha256": "ffe6b0c67ebcae7516777dfff986b0e28013057c480ae70771a2056a81c3edb5"
     },
     "docs/managed-scope-and-budget.md": {
-      "role": "index",
-      "sha256": "106e010da6d1798344407bef55e9f1ceebd40987952766a8a9dc51adde655993",
-      "size": 3962,
-      "normalized_sha256": "106e010da6d1798344407bef55e9f1ceebd40987952766a8a9dc51adde655993"
+      "sha256": "4c957a00371c366666927147cfc869c1cbed024eb34600d3ac2f765dedaf43b8",
+      "size": 4599,
+      "normalized_sha256": "4c957a00371c366666927147cfc869c1cbed024eb34600d3ac2f765dedaf43b8"
     },
     "docs/overview-delivery.md": {
       "role": "index",
@@ -2050,11 +2049,18 @@
       "format_kind": "gofmt"
     },
     "internal/cli/scope.go": {
-      "role": "index",
-      "sha256": "ccc22bd5e4018dec19ea84575c75785830e32192c67124e591422493416806d9",
-      "size": 37353,
-      "normalized_sha256": "ccc22bd5e4018dec19ea84575c75785830e32192c67124e591422493416806d9",
-      "format_sha256": "ccc22bd5e4018dec19ea84575c75785830e32192c67124e591422493416806d9",
+      "sha256": "5096240525f1dea26fa4d00f658c03601b254d3a6ecbcfbe9b3d91c56aac6676",
+      "size": 39131,
+      "normalized_sha256": "5096240525f1dea26fa4d00f658c03601b254d3a6ecbcfbe9b3d91c56aac6676",
+      "format_sha256": "5096240525f1dea26fa4d00f658c03601b254d3a6ecbcfbe9b3d91c56aac6676",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/scope_approval_effect_test.go": {
+      "role": "observe",
+      "sha256": "1d1f3c51626996d12b7d73d57ee76ebe348050197945f49c9cad2528d1368cec",
+      "size": 2593,
+      "normalized_sha256": "1d1f3c51626996d12b7d73d57ee76ebe348050197945f49c9cad2528d1368cec",
+      "format_sha256": "1d1f3c51626996d12b7d73d57ee76ebe348050197945f49c9cad2528d1368cec",
       "format_kind": "gofmt"
     },
     "internal/cli/scope_test.go": {
@@ -5058,11 +5064,10 @@
       "format_kind": "gofmt"
     },
     "internal/scopechange/authorization.go": {
-      "role": "index",
-      "sha256": "7f4635aa4d13976e76efce7aa9229206dc70ca377565ca8098ab1863f905e9ce",
-      "size": 15985,
-      "normalized_sha256": "7f4635aa4d13976e76efce7aa9229206dc70ca377565ca8098ab1863f905e9ce",
-      "format_sha256": "7f4635aa4d13976e76efce7aa9229206dc70ca377565ca8098ab1863f905e9ce",
+      "sha256": "8e31eeffd54b3b64d5efb70b5bb1901bb292572c904f3b8645c5929da8544a6e",
+      "size": 16190,
+      "normalized_sha256": "8e31eeffd54b3b64d5efb70b5bb1901bb292572c904f3b8645c5929da8544a6e",
+      "format_sha256": "8e31eeffd54b3b64d5efb70b5bb1901bb292572c904f3b8645c5929da8544a6e",
       "format_kind": "gofmt"
     },
     "internal/scopechange/authorization_test.go": {
@@ -5098,11 +5103,18 @@
       "format_kind": "gofmt"
     },
     "internal/scopechange/plan.go": {
-      "role": "index",
-      "sha256": "fc00fc95382db54a40841027ccb7dff91cd3a98b01f5bbbf3b7b078e7a4acd09",
-      "size": 54628,
-      "normalized_sha256": "fc00fc95382db54a40841027ccb7dff91cd3a98b01f5bbbf3b7b078e7a4acd09",
-      "format_sha256": "fc00fc95382db54a40841027ccb7dff91cd3a98b01f5bbbf3b7b078e7a4acd09",
+      "sha256": "9d6a0a529dfd056ad21dc7199e825bff6b015ca88457bfeb0517f2058baf82d7",
+      "size": 56169,
+      "normalized_sha256": "9d6a0a529dfd056ad21dc7199e825bff6b015ca88457bfeb0517f2058baf82d7",
+      "format_sha256": "9d6a0a529dfd056ad21dc7199e825bff6b015ca88457bfeb0517f2058baf82d7",
+      "format_kind": "gofmt"
+    },
+    "internal/scopechange/posture_relaxation_test.go": {
+      "role": "observe",
+      "sha256": "cbcd06dfe5f544e907b931ed8d3013a56e9ae4d1f299254baf6b8c16ac7abc24",
+      "size": 4885,
+      "normalized_sha256": "cbcd06dfe5f544e907b931ed8d3013a56e9ae4d1f299254baf6b8c16ac7abc24",
+      "format_sha256": "cbcd06dfe5f544e907b931ed8d3013a56e9ae4d1f299254baf6b8c16ac7abc24",
       "format_kind": "gofmt"
     },
     "internal/scopechange/source_guard_test.go": {
@@ -5113,12 +5125,19 @@
       "format_sha256": "d5577b80004e12012bc65e9f890941d0e7523ea8b11485470d5c233e56db324a",
       "format_kind": "gofmt"
     },
+    "internal/scopechange/stale_baseline_reduction_test.go": {
+      "role": "observe",
+      "sha256": "3ca213fe091c209854bb0f6f37e0b52c176e12198fb328896981885ee830d789",
+      "size": 5221,
+      "normalized_sha256": "3ca213fe091c209854bb0f6f37e0b52c176e12198fb328896981885ee830d789",
+      "format_sha256": "3ca213fe091c209854bb0f6f37e0b52c176e12198fb328896981885ee830d789",
+      "format_kind": "gofmt"
+    },
     "internal/scopechange/transaction.go": {
-      "role": "index",
-      "sha256": "8b229b3fe2412c17533d263d74c82b94f38a8ed41994bec1c409834d2f664df0",
-      "size": 28733,
-      "normalized_sha256": "8b229b3fe2412c17533d263d74c82b94f38a8ed41994bec1c409834d2f664df0",
-      "format_sha256": "8b229b3fe2412c17533d263d74c82b94f38a8ed41994bec1c409834d2f664df0",
+      "sha256": "6a35a4c7a3f11bd08e60774da80dd116d2329cb79880dfd95206ef50ff6ff1df",
+      "size": 29527,
+      "normalized_sha256": "6a35a4c7a3f11bd08e60774da80dd116d2329cb79880dfd95206ef50ff6ff1df",
+      "format_sha256": "6a35a4c7a3f11bd08e60774da80dd116d2329cb79880dfd95206ef50ff6ff1df",
       "format_kind": "gofmt"
     },
     "internal/scopechange/transaction_test.go": {
@@ -5284,16 +5303,19 @@
       "format_kind": "gofmt"
     },
     "scripts/blackbox/mcp_conformance.py": {
+      "role": "index",
       "sha256": "194d7ccccdc03a4e79e93ea18c247846431933bb7be5268c5d2efe7b49ca243b",
       "size": 23456,
       "normalized_sha256": "194d7ccccdc03a4e79e93ea18c247846431933bb7be5268c5d2efe7b49ca243b"
     },
     "scripts/blackbox/mcp_lifecycle.py": {
+      "role": "index",
       "sha256": "c2de04c6a79ba6f36d8c457ceb0a53192ee34d185ed46aa6b234443ca5d0d728",
       "size": 48396,
       "normalized_sha256": "c2de04c6a79ba6f36d8c457ceb0a53192ee34d185ed46aa6b234443ca5d0d728"
     },
     "scripts/blackbox/mcp_scenarios.py": {
+      "role": "index",
       "sha256": "98914bb7363432991e0c66ccc8f9e1bb080c6bd3bb589076ec1d9fe9ef0cbcc6",
       "size": 33821,
       "normalized_sha256": "98914bb7363432991e0c66ccc8f9e1bb080c6bd3bb589076ec1d9fe9ef0cbcc6"
@@ -5457,10 +5479,9 @@
       "normalized_sha256": "9ec65bd6caf139cb25592054e94e52844d199e751f2dfee956cb988fc18235a1"
     },
     "spec/public/aoci-managed-scope-and-budget-v1.txt": {
-      "role": "index",
-      "sha256": "a552ec65c24220672d3410e1bd864734270e31a343277d7590e7e02f6ae6a6ca",
-      "size": 10805,
-      "normalized_sha256": "a552ec65c24220672d3410e1bd864734270e31a343277d7590e7e02f6ae6a6ca"
+      "sha256": "d7daf7e286be07d8f8cf910e43d8f8c5d5f7da5ea8422809117ab69c67617ff7",
+      "size": 11542,
+      "normalized_sha256": "d7daf7e286be07d8f8cf910e43d8f8c5d5f7da5ea8422809117ab69c67617ff7"
     },
     "spec/public/aoci-mcp-runtime-v1.txt": {
       "role": "index",
@@ -6266,9 +6287,9 @@
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "dd9babddd6ea681f674b41402b70a0b79d2fb82f377240cbab3e239bfa274dae",
-      "size": 169871,
-      "normalized_sha256": "dd9babddd6ea681f674b41402b70a0b79d2fb82f377240cbab3e239bfa274dae"
+      "sha256": "62cf61af9d9f90095a199b300313759b930843dc080dd38ac69169430bcebf22",
+      "size": 170320,
+      "normalized_sha256": "62cf61af9d9f90095a199b300313759b930843dc080dd38ac69169430bcebf22"
     },
     "textassets/en-US/prompts/ai-probe-system.txt": {
       "role": "observe",
@@ -6672,10 +6693,10 @@
     },
     "textassets/ui_test.go": {
       "role": "observe",
-      "sha256": "f172841f4a63ae36e14043b813d63dded7c158ea5af0cd33ea579d9bb71e184b",
-      "size": 4664,
-      "normalized_sha256": "f172841f4a63ae36e14043b813d63dded7c158ea5af0cd33ea579d9bb71e184b",
-      "format_sha256": "f172841f4a63ae36e14043b813d63dded7c158ea5af0cd33ea579d9bb71e184b",
+      "sha256": "ab293203c67eaa0fd7ebc2cf265a0dbf443038deba6bd34a52ab8652362945ad",
+      "size": 5384,
+      "normalized_sha256": "ab293203c67eaa0fd7ebc2cf265a0dbf443038deba6bd34a52ab8652362945ad",
+      "format_sha256": "ab293203c67eaa0fd7ebc2cf265a0dbf443038deba6bd34a52ab8652362945ad",
       "format_kind": "gofmt"
     },
     "textassets/validate.go": {
@@ -7354,9 +7375,9 @@
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "9db146105344745866d12868628ab814be33702147c388d76e872d93a0c1a225",
-      "size": 154125,
-      "normalized_sha256": "9db146105344745866d12868628ab814be33702147c388d76e872d93a0c1a225"
+      "sha256": "a10e9be08cef08b876da3f75d3333a44ca153e6fdd126786d57007a4fae97bc0",
+      "size": 154565,
+      "normalized_sha256": "a10e9be08cef08b876da3f75d3333a44ca153e6fdd126786d57007a4fae97bc0"
     },
     "textassets/zh-CN/prompts/ai-probe-system.txt": {
       "role": "observe",
@@ -8125,7 +8146,7 @@
   },
   "managed_scope": {
     "version": "managed-scope-baseline/v1",
-    "policy_identity": "3769cd972b8be0e9f60fcde17ad66edd2f5dc477a3549b46c8bb25e72e226a1f",
+    "policy_identity": "7b0e1fd657ec2e3703d38aaacbcf599275f74cb848437b32f655f841c276b28d",
     "observe_change_policy": "review_required",
     "budget_policy_identity": "5c4b33ae5c6b8b6c3004a825fd5a83d0c6bc380f85b2b3eb97e4dbb0899d2ac8",
     "budget_policy": {
@@ -8189,6 +8210,6 @@
         }
       ]
     },
-    "apply_authorization_mode": "review"
+    "apply_authorization_mode": "auto"
   }
 }

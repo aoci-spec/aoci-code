@@ -64,6 +64,22 @@ func TestVolumeRuntimeMessagesExistInEveryOfficialLocale(t *testing.T) {
 	}
 }
 
+func TestPostureEffectMessageNamesOneModeInEveryOfficialLocale(t *testing.T) {
+	// The cross-locale signature check compares argument arity, and "%[1]s to
+	// %[1]s" still consumes exactly one argument, so it would pass while the
+	// prompt told the approver that auto becomes auto. Only the rendered text
+	// shows that, so assert on the rendering.
+	for _, locale := range []string{DefaultLocale, LegacyLocale} {
+		message, err := Message(locale, "scope.approval_effect.posture", "auto")
+		if err != nil {
+			t.Fatalf("load posture effect message for %s: %v", locale, err)
+		}
+		if strings.Count(message, "auto") != 1 {
+			t.Errorf("posture effect for %s must name the destination once: %q", locale, message)
+		}
+	}
+}
+
 func TestRefreshReadyMessageRequiresAlignmentProofBeforeOverview(t *testing.T) {
 	for _, locale := range []string{DefaultLocale, LegacyLocale} {
 		message, err := Message(locale, "overview.refresh.ready")

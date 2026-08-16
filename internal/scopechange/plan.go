@@ -222,8 +222,13 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 					basis = item.MatchedRule.DecisionBasis
 				}
 			}
-			state := coverageAuthoringState(rel, entries, oldBaseline, desiredSnapshot)
-			if state != "current" || basis == machinecontract.ScopeDecisionTransportConstraint {
+			_, inInventory := evaluationsByPath[rel]
+			state := coverageAuthoringState(rel, entries, oldBaseline, desiredSnapshot, inInventory)
+			// An absent source has neither an Entry nor bytes left to lose, so
+			// retiring its stale Baseline record is bookkeeping rather than a
+			// coverage reduction. A transport-constraint basis still reports,
+			// because that basis is never an admissible reduction reason.
+			if (state != "current" && state != "absent") || basis == machinecontract.ScopeDecisionTransportConstraint {
 				plan.CoverageReductions = append(plan.CoverageReductions, CoverageReduction{Path: rel, OldRole: oldRole,
 					NewRole: newRole, AuthoringState: state, DecisionBasis: basis, RuleID: ruleID})
 			}
@@ -398,7 +403,15 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	case machinecontract.ApplyAuthorizationLegacy:
 		plan.InteractionRequired = len(plan.EntryRemoves) > 0 || plan.Risk.LargeReduction || plan.Risk.HighRiskOptIn ||
 			plan.Risk.BudgetPolicyChange || plan.Risk.BudgetRelaxation || plan.Risk.ApprovalPolicyRelaxation
-	case machinecontract.ApplyAuthorizationAuto, machinecontract.ApplyAuthorizationOff:
+	case machinecontract.ApplyAuthorizationAuto:
+		// A relaxation of the receipted posture must never ratify itself, which is
+		// why autoAuthorizationBlockers refuses it. But refusing is only half the
+		// contract: the Spec's pattern is that a blocked fact is handed to
+		// independent review, not to a dead end. Without this the weaker desired
+		// mode would also decide that no reviewer is needed, so the block would
+		// have no approver and auto would become unreachable once left.
+		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation
+	case machinecontract.ApplyAuthorizationOff:
 		plan.InteractionRequired = false
 	default:
 		return nil, fmt.Errorf("managed_scope_apply_authorization_policy_invalid")
@@ -1015,8 +1028,21 @@ func managedScopeEvaluationsByPath(evaluation *managedscope.Evaluation) map[stri
 	return result
 }
 
-func coverageAuthoringState(path string, entries map[string]*index.Entry, old *baseline.Baseline, desired map[string]baseline.Fingerprint) string {
+// coverageAuthoringState reports how much cognition a role reduction would
+// actually cost for one path.
+//
+// inInventory says whether the current Safe Inventory still sees the path. It
+// distinguishes the two cases that both look like a missing Entry: a file that
+// exists and simply has no Entry yet is real authoring debt being dropped,
+// while a path that only survives as a stale Baseline record for a file already
+// deleted from the tree carries no source and no Entry, so dropping it costs
+// nothing. Excluded paths remain in the evaluation, so only a genuinely
+// vanished file reports absent.
+func coverageAuthoringState(path string, entries map[string]*index.Entry, old *baseline.Baseline, desired map[string]baseline.Fingerprint, inInventory bool) string {
 	if entries[path] == nil {
+		if !inInventory {
+			return "absent"
+		}
 		return "missing"
 	}
 	if old == nil {

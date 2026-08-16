@@ -4,6 +4,29 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Give a Managed Scope posture relaxation the reviewer it always needed. Auto
+  authorization correctly refuses to let a posture ratify its own weakening, but
+  refusing was only half the contract: `interaction_required` was derived from
+  the weaker desired mode, so desiring `auto` also decided that no reviewer was
+  needed and the blocked change had no approver at all. Once left, `auto` could
+  not be re-entered by any governed path. A relaxation now reports
+  `interaction_required` and is authorized under the posture the current
+  Baseline receipt proves, so exactly one `scope approve` ratifies it while
+  `policy_bound_auto` still refuses it and ordinary auto plans stay fully
+  automatic.
+- Stop counting a deleted file's stale Baseline record as a cognition coverage
+  reduction. A path the current Safe Inventory no longer sees has neither an
+  Entry nor source bytes left to lose, so retiring its record is bookkeeping;
+  excluded paths remain in the evaluation, so an existing source that still owes
+  an Entry is unaffected and keeps raising P1. Previously one such record — a
+  file deleted three weeks earlier — forced a pure policy change to high risk and
+  demanded a human approval that protected nothing.
+- Say what a Managed Scope confirmation actually approves. The prompt now leads
+  with the effects that matter — cognition Entries removed, files losing Index
+  coverage, a weakened posture, a relaxed budget, high-risk content admitted —
+  and states plainly when a change carries none of them. A confirmation phrase
+  binds the approval to one exact plan; it was never meant to be the only thing
+  the approver could read.
 - Index the three MCP black-box harnesses. They are executable contracts run by
   name with their own preconditions, which is exactly what the admission rule
   admits, and each Entry now carries the precondition a reader needs: conformance

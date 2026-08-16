@@ -621,8 +621,9 @@ func newScopeApproveCmd() *cobra.Command {
 			return managedScopeExitError(fmt.Errorf("managed_scope_approval_not_required"))
 		}
 		exact := hostInteractionCommand("scope", "approve", "--preview-file", previewFile, "--actor", actor, "--json")
+		effect := managedScopeApprovalEffect(preview)
 		if err := requireHumanPhrase(cmd, preview.Plan.ConfirmationPhrase,
-			cliMessage("scope.approval_prompt", preview.Plan.PlanID, preview.Plan.ConfirmationPhrase), exact,
+			cliMessage("scope.approval_prompt", effect, preview.Plan.PlanID, preview.Plan.ConfirmationPhrase), exact,
 			preview.Plan.PlanID, fmt.Sprintf("entry_removals=%d", len(preview.Plan.EntryRemoves)), "managed scope apply"); err != nil {
 			return managedScopeExitError(err)
 		}
@@ -958,4 +959,42 @@ func managedScopeCurationExclusions(root string, cfg *config.Config) ([]string, 
 
 func managedScopeExitError(err error) error {
 	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: cliMessage("scope.error", err.Error())}
+}
+
+// managedScopeApprovalEffect renders what a human is actually being asked to
+// approve.
+//
+// A 64-hex confirmation phrase proves the approval is bound to one exact plan,
+// but it tells the approver nothing about the consequence. A confirmation that
+// cannot be understood is not a decision, so the prompt leads with the effects
+// that matter — destroyed cognition, lost coverage, a weakened posture — and
+// says so plainly when a change carries none of them.
+func managedScopeApprovalEffect(preview *scopechange.Preview) string {
+	plan := preview.Plan
+	effects := []string{}
+	if count := len(plan.EntryRemoves); count > 0 {
+		effects = append(effects, cliMessage("scope.approval_effect.entry_removes", count))
+	}
+	if count := len(plan.CoverageReductions); count > 0 {
+		effects = append(effects, cliMessage("scope.approval_effect.coverage", count))
+	}
+	if plan.Risk.ApprovalPolicyRelaxation {
+		// Only the destination is named. Preview.Baseline is the postimage, so it
+		// already carries the new posture and reading the origin from it would
+		// print the same mode twice; the preimage mode is not part of the public
+		// plan shape, and widening that shape to decorate one prompt is not worth
+		// it when the approver already knows what they are leaving.
+		effects = append(effects, cliMessage("scope.approval_effect.posture",
+			plan.AuthorizationPolicy.EffectiveMode))
+	}
+	if plan.Risk.BudgetRelaxation {
+		effects = append(effects, cliMessage("scope.approval_effect.budget"))
+	}
+	if plan.Risk.HighRiskOptIn {
+		effects = append(effects, cliMessage("scope.approval_effect.high_risk"))
+	}
+	if len(effects) == 0 {
+		return cliMessage("scope.approval_effect.none")
+	}
+	return strings.Join(effects, "; ")
 }

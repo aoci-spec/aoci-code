@@ -108,12 +108,23 @@ count is not independently blocking.
 An Index-to-Observe/Exclude transition for a Missing, Stale, or Unbaselined
 authoring target is a cognition_coverage_reduction. It is recorded with path,
 old/new role, authoring state, rule identity, and structured decision basis,
-raises P1, and cannot receive policy_bound_auto authorization. A transport,
-batch, payload, token, or single-request limit is never an admissible automatic
-coverage-reduction basis; decision_basis=transport_constraint adds the explicit
+raises P1, and cannot receive policy_bound_auto authorization. A path the
+current Safe Inventory no longer sees has neither an Entry nor source bytes left
+to lose, so retiring its stale Baseline record is bookkeeping rather than a
+reduction; excluded paths remain in the evaluation, so only a deleted source
+reports that state. A transport, batch, payload, token, or single-request limit
+is never an admissible automatic coverage-reduction basis;
+decision_basis=transport_constraint adds the explicit
 transport_constraint_not_allowed blocker. Independent Scope review may still
 authorize normal evidence-backed density changes. Existing complete Entry
 retirement retains its prior disposition and authorization contract.
+
+Lowering the applied authorization posture is an approval_policy_relaxation.
+It cannot receive policy_bound_auto authorization, because a posture may never
+ratify its own weakening, and the weaker desired posture never decides that no
+reviewer is needed: the transition is authorized under the posture the current
+Baseline receipt proves, so exactly one independent Scope review can ratify it.
+A posture is therefore tightened and relaxed through the same governed path.
 
 Auto fails with blocked facts rather than falling back to a confirmation phrase
 for sensitive-content inclusion, source-file writes, unsafe filesystem

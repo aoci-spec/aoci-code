@@ -29,6 +29,15 @@ again. `review` still uses `scope approve` in a real TTY, `legacy` retains its
 compatibility boundary, and `off` produces Plan/Preview only and writes nothing.
 Resume or roll back an interrupted transaction with the matching scope commands.
 
+Tightening the posture needs nothing special, but **lowering** it — for example
+`review` back to `auto` — is an `approval_policy_relaxation`. A posture may not
+ratify its own weakening, so `policy_bound_auto` refuses it and the transition
+is authorized under the posture the current Baseline receipt proves: the plan
+reports `interaction_required`, and one `scope approve` in a real TTY ratifies
+it. From the next transaction onward the receipt reads the relaxed posture and
+ordinary changes are automatic again. A posture is therefore reversible through
+the same governed path that tightened it, at the cost of exactly one review.
+
 The Candidate Set may include a reviewed Curation postimage. A Scope Preview
 is also the single versioned Apply Envelope; its digest binds candidates,
 policy and budget identities, exact formal pre/postimages, risks, guards, and

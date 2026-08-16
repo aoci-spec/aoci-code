@@ -368,7 +368,12 @@ func validateIntentAuthorization(intent *RecoveryIntent) error {
 	if err != nil || wantIdentity != intent.Preview.Plan.AuthorizationPolicyIdentity {
 		return fmt.Errorf("managed_scope_apply_authorization_policy_identity_invalid")
 	}
-	switch intent.Preview.Plan.AuthorizationPolicy.EffectiveMode {
+	// Resume and idempotent re-apply must reach the same verdict as the original
+	// Apply, so the branch is selected the same way.
+	switch applyAuthorizationBranch(
+		intent.Preview.Plan.AuthorizationPolicy.EffectiveMode,
+		intent.Preview.Plan.InteractionRequired,
+	) {
 	case machinecontract.ApplyAuthorizationAuto:
 		if intent.Approval != nil {
 			return fmt.Errorf("managed_scope_recovery_authorization_invalid")
