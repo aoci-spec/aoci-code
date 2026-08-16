@@ -27,7 +27,7 @@ jobs:
       - name: install pinned SBOM generator
         run: go install github.com/anchore/syft/cmd/syft@v1.44.0
       - name: build snapshot archives, checksums, and SBOMs
-        uses: goreleaser/goreleaser-action@v7.2.1
+        uses: goreleaser/goreleaser-action@v7.2.3
         with:
           distribution: goreleaser
           version: v2.17.1
