@@ -25,7 +25,7 @@ Protocol conformance (46 checks, read-only):
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (30 scenarios, disposable fixtures in a temp dir):
+Fault-injection scenarios (35 scenarios, disposable fixtures in a temp dir):
 
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py

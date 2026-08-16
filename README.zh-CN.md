@@ -66,6 +66,9 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 
 1. 运行 init，完成初始化并接入当前宿主的 MCP；如果这个宿主不写入项目配置（例如 Cursor），请把需要我手工粘贴的配置给我
 2. 运行 scan
+
+   scan 按 git 的忽略权威取文件，所以不要把 init 写入的认知资产（aoci.txt、aoci.meta.txt、aoci.code.txt、AGENTS.md）加进 .gitignore 或 .git/info/exclude —— 被忽略的会被静默跳过，索引建不起来。init 自己写的宿主配置忽略项保持原样。
+
 3. 提示我重启 Agent，让新写入的 MCP server 生效
 
 这三步做完就停下，先不要建立索引 —— 重启后我会让你继续。
@@ -838,7 +841,7 @@ aoci --repo . index agent guide --agent codex --json
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 30 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **故障注入场景** —— 35 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

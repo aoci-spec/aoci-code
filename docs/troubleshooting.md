@@ -76,3 +76,43 @@ the Guide is bound to current repository evidence.
 repositories only. A `volume_read_only` response from one of those commands
 means the command is not the Volumes route; it does not by itself prove that the
 CLI and running MCP Server have different versions.
+
+## The cognition layer must be visible to Git
+
+`scan` takes its file inventory from Git. A formal cognition asset covered by
+`.gitignore`, `.git/info/exclude`, or `core.excludesFile` is therefore absent
+from the Baseline it publishes, and the Volume it governs can never align.
+`scan` refuses with `formal_cognition_assets_git_ignored` and names both the
+asset and the rule that hides it; remove the rule and run `scan` again.
+
+`aoci.txt`, `aoci.meta.txt`, `aoci.code.txt`, and `AGENTS.md` are versioned
+cognition meant to be committed, exactly as this repository commits its own.
+Only the host integration file `init` writes — `opencode.json`, `.mcp.json`,
+`.codex/config.toml` — carries machine-bound absolute paths and belongs in
+`.gitignore`, which `init` arranges by itself.
+
+## A Volume reports line-ending-only difference
+
+`core.autocrlf=true` is the Git for Windows default, so an ordinary checkout can
+rewrite every line ending in the repository. AOCI baselines exact raw bytes, so
+those Volumes differ from their Baseline records while carrying identical
+content. Under the default `line_ending_tolerance` this is reported as
+`code_volume_line_ending_only` (or its `root_`, `meta_`, `database_` siblings)
+and does not block authoring, but a Scope Change still requires the original
+bytes. Restore LF endings, or set `* text=auto eol=lf` in `.gitattributes` and
+check the files out again. `init` writes that file for new repositories and
+never rewrites an existing one.
+
+## The repository must keep a clean working tree
+
+Some build tooling refuses to run while the tree is dirty. AOCI cannot be made
+invisible to Git without breaking the Baseline, so the honest options are:
+
+- commit the cognition layer, and do authoring in a dedicated window — each
+  authoring batch writes `aoci.code.txt` and `.aoci/baseline.json`, so the tree
+  is dirty until those are committed;
+- run authoring in a separate `git worktree`, leaving the primary tree clean;
+- do not use AOCI in that repository.
+
+Adding the cognition assets to an ignore file is not among them: it produces a
+Baseline that omits the Volumes it governs.

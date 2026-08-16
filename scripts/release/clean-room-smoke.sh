@@ -36,6 +36,12 @@ CGO_ENABLED=0 "$go_bin" build -trimpath \
 
 mkdir -p "$repository"
 cp -R examples/minimal-repository/. "$repository/"
+# The fixture's authoring targets are its business sources plus the governed
+# files init generates: the AGENTS.md contract block and the .gitattributes that
+# keeps a Windows checkout from rewriting every Volume. Naming the number once
+# keeps a change to what init writes from scattering across this gate.
+EXPECTED_AUTHORING_TARGETS=6
+
 mkdir -p "$repository/tests/fixtures"
 printf '{}\n' >"$repository/tests/fixtures/case.json"
 git -C "$repository" init --quiet
@@ -111,13 +117,13 @@ cmp "$SMOKE_ROOT/index-before-observe-review.txt" "$repository/aoci.txt"
 echo "$observe_apply"
 post_observe_status=$("$binary" --repo "$repository" --json scope status)
 case "$post_observe_status" in
-  *'"stage": "authoring_required"'*'"authoring_targets": 5'*) ;;
+  *'"stage": "authoring_required"'*"\"authoring_targets\": ${EXPECTED_AUTHORING_TARGETS}"*) ;;
   *) echo "observe acknowledgement washed indexed authoring debt" >&2; exit 1 ;;
 esac
 echo "$post_observe_status"
 guide=$("$binary" --repo "$repository" --json index agent guide --agent codex)
 case "$guide" in
-  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"database_volume_state": "absent"'*'"max_entries": 20'*'"included": 5'*'"remaining": 0'*) ;;
+  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"database_volume_state": "absent"'*'"max_entries": 20'*"\"included\": ${EXPECTED_AUTHORING_TARGETS}"*'"remaining": 0'*) ;;
   *) echo "Guide did not return the unique current Volume-first authoring action" >&2; exit 1 ;;
 esac
 case "$guide" in

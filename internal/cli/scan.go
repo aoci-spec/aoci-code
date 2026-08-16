@@ -11,9 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
@@ -121,6 +125,17 @@ func init() {
 			for _, w := range warns {
 				fmt.Fprintln(os.Stderr, cliMessage("scan.warning"), localeSafeCLIDetail(w))
 			}
+			// A formal cognition asset hidden from Git never enters the Baseline,
+			// and the Baseline this scan is about to publish is what makes that
+			// durable. The failure then surfaces far away as a blocked Guide over
+			// code_volume_unbaselined, which names neither the ignore rule nor the
+			// file that carries it. Refuse here, while the fix is still one line.
+			//
+			// This runs before the --dry-run return on purpose, so a dry run
+			// reports the same fact instead of promising a scan that would fail.
+			if err := refuseGitHiddenFormalAssets(root, cfg, snap); err != nil {
+				return err
+			}
 			result := struct {
 				Version          string                   `json:"version"`
 				DryRun           bool                     `json:"dry_run"`
@@ -160,4 +175,84 @@ func init() {
 	cmd.Flags().BoolVar(&force, "force", false, cliMessage("cli.flag.scan_force"))
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, cliMessage("cli.flag.scan_dry_run"))
 	registerCommand(cmd)
+}
+
+// refuseGitHiddenFormalAssets stops a scan that would publish a Baseline missing
+// a formal cognition asset because Git hides it.
+//
+// Scan takes its inventory from Git, so an ignored asset is simply absent — no
+// error, no warning, just a Baseline that can never govern the Volume it left
+// out. Every later symptom points somewhere else, and the recorded case cost a
+// capable operator a dozen rounds to trace back to one line in
+// .git/info/exclude.
+//
+// Only assets that exist on disk are checked: an absent Volume is a different
+// condition with its own loud reporting.
+func refuseGitHiddenFormalAssets(
+	root string,
+	cfg *config.Config,
+	snapshot map[string]baseline.Fingerprint,
+) error {
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil || set == nil {
+		// Cognition that cannot be loaded is not this guard's finding to make.
+		return nil
+	}
+	hidden := make([]string, 0, 4)
+	rules := make([]string, 0, 4)
+	for _, rel := range formalAssetPaths(set) {
+		if _, recorded := snapshot[rel]; recorded {
+			continue
+		}
+		if _, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(rel))); statErr != nil {
+			continue
+		}
+		ignored, rule := afs.PathIgnoredByGit(root, rel)
+		if !ignored {
+			continue
+		}
+		hidden = append(hidden, rel)
+		if rule != "" {
+			rules = append(rules, rule)
+		}
+	}
+	if len(hidden) == 0 {
+		return nil
+	}
+	return &ExitError{
+		Code:        ExitConfig,
+		MachineCode: "formal_cognition_assets_git_ignored",
+		Msg: cliMessage("scan.formal_assets_git_ignored",
+			len(hidden), strings.Join(hidden, ", "),
+			localeSafeCLIDetail(strings.Join(rules, "; "))),
+	}
+}
+
+// formalAssetPaths lists the cognition assets whose absence from the Baseline
+// makes the repository ungovernable, in a stable order.
+func formalAssetPaths(set *cognition.Set) []string {
+	paths := make([]string, 0, 4)
+	for _, candidate := range []string{set.Root.Descriptor.Path, set.Meta.Descriptor.Path} {
+		if strings.TrimSpace(candidate) != "" {
+			paths = append(paths, candidate)
+		}
+	}
+	for _, volume := range set.Volumes {
+		if volume == nil || strings.TrimSpace(volume.Descriptor.Path) == "" {
+			continue
+		}
+		paths = append(paths, volume.Descriptor.Path)
+	}
+	return sortedUniqueStrings(paths)
+}
+
+func sortedUniqueStrings(values []string) []string {
+	sort.Strings(values)
+	result := values[:0]
+	for index, value := range values {
+		if index == 0 || value != result[len(result)-1] {
+			result = append(result, value)
+		}
+	}
+	return result
 }

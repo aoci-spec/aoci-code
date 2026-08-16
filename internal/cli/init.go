@@ -316,6 +316,16 @@ func init() {
 				outputLines,
 				gitignoreMessage,
 			)
+			gitattributesMessage, gitattributesErr := ensureGitattributes(root)
+			if gitattributesErr != nil {
+				return gitattributesErr
+			}
+			if gitattributesMessage != "" {
+				outputLines = append(
+					outputLines,
+					gitattributesMessage,
+				)
+			}
 			if newRepositoryAutomationMessage != "" {
 				outputLines = append(
 					outputLines,

@@ -298,6 +298,76 @@ def suite_bringup(rep, work):
     ag = os.path.join(fxz, "AGENTS.md")
     ok = rc == 0 and os.path.exists(ag) and any("一" <= ch <= "鿿" for ch in open(ag, encoding="utf-8").read())
     rep.rec(g, "repo-a.init-zh-CN", "PASS" if ok else "FAIL")
+    suite_cognition_visibility(rep, work)
+
+
+def suite_cognition_visibility(rep, work):
+    """The cognition layer must reach the Baseline, on both real-project fixtures.
+
+    Reported from a real integration: an agent protected the working tree by
+    hiding AOCI's own assets from Git before init, so scan published a Baseline
+    that could never govern the Volumes it omitted. The failure appeared many
+    steps later as a blocked Guide naming neither the rule nor the file. The
+    second class needs no rule at all — Git for Windows defaults to
+    core.autocrlf=true, and that rewrite alone used to hard-block a repository
+    over a difference the team tolerance policy calls equivalent.
+
+    Run on repo-a and repo-b because this is a property of bringing up a real
+    project, not of any one language or toolchain.
+    """
+    g = "bringup"
+    for key in ("a", "b"):
+        fx = deploy(key, work, f"visibility-{key}")
+        rc, _, out, errs = cli(fx, "init", "--locale", "en-US")
+        if rc != 0:
+            rep.rec(g, f"repo-{key}.cognition-visible-to-git", "FAIL", (out + errs)[:150])
+            continue
+
+        # init must hand the project the line-ending protection AOCI applies to
+        # itself; nothing else keeps a Windows checkout from rewriting Volumes.
+        attributes = os.path.join(fx, ".gitattributes")
+        normalized = os.path.exists(attributes) and "text=auto eol=lf" in open(attributes, encoding="utf-8").read()
+        rep.rec(g, f"repo-{key}.init-normalizes-line-endings", "PASS" if normalized else "FAIL",
+                "" if normalized else "no .gitattributes normalization; a Windows checkout rewrites every Volume")
+
+        # Hiding the formal assets must stop scan, naming the asset and the rule,
+        # and must not leave a half-governed Baseline behind.
+        with open(os.path.join(fx, ".git", "info", "exclude"), "a", encoding="utf-8") as fh:
+            fh.write("\naoci.txt\naoci.meta.txt\naoci.code.txt\n")
+        rc, _, out, errs = cli(fx, "scan", expect_ok=False)
+        blob = (out or "") + (errs or "")
+        named = "aoci.code.txt" in blob and "exclude" in blob
+        no_baseline = not os.path.exists(os.path.join(fx, ".aoci", "baseline.json"))
+        rep.rec(g, f"repo-{key}.scan-refuses-hidden-cognition",
+                "PASS" if rc != 0 and named and no_baseline else "FAIL",
+                f"rc={rc} named={named} no_baseline={no_baseline} | {blob[:140]}")
+
+        # With the assets visible the bring-up proceeds, and a pure line-ending
+        # rewrite afterwards stays authorable with its own repair named.
+        exclude_path = os.path.join(fx, ".git", "info", "exclude")
+        kept = [line for line in open(exclude_path, encoding="utf-8").read().splitlines()
+                if line.strip() not in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt")]
+        open(exclude_path, "w", encoding="utf-8").write("\n".join(kept) + "\n")
+        rc, _, out, errs = cli(fx, "scan")
+        if rc != 0:
+            rep.rec(g, f"repo-{key}.line-ending-rewrite-stays-authorable", "FAIL",
+                    f"scan failed once assets were visible: {(out + errs)[:140]}")
+            continue
+        for rel in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt"):
+            target = os.path.join(fx, rel)
+            body = open(target, "rb").read()
+            open(target, "wb").write(body.replace(b"\n", b"\r\n"))
+        rc, guide, out, errs = cli(fx, "index", "agent", "guide", "--agent", "lifecycle")
+        findings = guide.get("findings") or []
+        codes = {f.get("code") for f in findings}
+        repairs = [f.get("safe_repair_action") or "" for f in findings
+                   if str(f.get("code", "")).endswith("_line_ending_only")]
+        ok = (guide.get("stage") != "blocked"
+              and "code_volume_unbaselined" not in codes
+              and any(str(code).endswith("_line_ending_only") for code in codes)
+              and any("eol=lf" in text or "LF" in text for text in repairs))
+        rep.rec(g, f"repo-{key}.line-ending-rewrite-stays-authorable", "PASS" if ok else "FAIL",
+                f"stage={guide.get('stage')} codes={sorted(c for c in codes if 'volume' in str(c))}")
 
 
 def suite_incremental(rep, work):
