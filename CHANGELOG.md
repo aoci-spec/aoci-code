@@ -4,6 +4,19 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Index the three MCP black-box harnesses. They are executable contracts run by
+  name with their own preconditions, which is exactly what the admission rule
+  admits, and each Entry now carries the precondition a reader needs: conformance
+  expects an established repository and zero formal writes, scenarios writes only
+  disposable fixtures, and lifecycle needs Docker for the database suite while
+  `repo-c` reaches aligned without drift. The earlier exclusion rested on a wrong
+  cost model — an Entry is about 110 tokens of FRAS, never the Python body — so
+  its recorded reason is corrected rather than deleted. Three Entries cost about
+  700 tokens against a 120k target.
+- Managed Scope approval mode is now `review`: applying the harness change
+  required independent human review, because any Scope Change re-evaluates every
+  role and a Baseline record for a file deleted in `82120db` therefore appears as
+  a coverage reduction. Policy-bound auto authorization correctly refused it.
 - State the repository's verification obligations and its Whole-Index admission
   rule in `AGENTS.md`, where every Agent session reads them. The gate table maps
   a kind of change to the gate that actually covers it, and it records the fact
