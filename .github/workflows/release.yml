@@ -6,7 +6,7 @@ on:
       version:
         description: Release version without the leading v
         required: true
-        default: 0.1.0-rc4
+        default: 0.1.0-rc5
         type: string
   push:
     tags:

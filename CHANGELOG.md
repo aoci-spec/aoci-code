@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc5
 
 - Stop treating a line-ending rewrite as a reason to stop governing a
   repository. `internal/volumegovernance` compared formal Volumes by raw
@@ -172,6 +172,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   document that advertises it, and the lifecycle suite fails when a committed
   fixture is not named where the suites are advertised, so these counts cannot
   drift silently again.
+
+The first public availability date for v0.1.0-rc5 is 2026-08-17.
 
 ## v0.1.0-rc4
 
