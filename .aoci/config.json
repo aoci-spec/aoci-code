@@ -44,7 +44,7 @@
     "version": "managed-scope-policy/v2",
     "profile": "production",
     "observe_change_policy": "review_required",
-    "approval_mode": "inherit",
+    "approval_mode": "review",
     "approval_thresholds": {
       "entry_removal_count": 25,
       "entry_removal_percent": 25
@@ -98,10 +98,10 @@
       },
       {
         "rule_id": "public-blackbox-mcp-harness-observe",
-        "action": "observe",
+        "action": "index",
         "pattern": "scripts/blackbox/mcp_*.py",
         "pattern_kind": "glob",
-        "reason": "Blackbox MCP harnesses are protocol evidence driven as a real stdio client; observe exact bytes without adding two large Python bodies to Whole-Index context",
+        "reason": "Each MCP harness is an executable contract run by name with its own preconditions, so it earns a Whole-Index Entry; an Entry costs about 110 tokens of FRAS and never the Python body, so the earlier exclusion rested on a wrong cost model",
         "decision_basis": "semantic_density",
         "source": "user",
         "created_by": "alkor2000",
