@@ -446,6 +446,33 @@ func init() {
 					}
 				}
 
+				// 必须在首次scan之前: 错过这个时机, 机器绑定的宿主配置就以
+				// index角色进了Managed Scope, 而那之后--force不能推进角色,
+				// 摘除要走覆盖缩减的Scope Change审批。
+				hostIgnoreCandidates := []string{}
+				for _, agentName := range agents {
+					hostIgnoreCandidates = append(
+						hostIgnoreCandidates,
+						initAgentCandidatePaths(agentName)...,
+					)
+				}
+				hostIgnoreMessage, hostIgnoreErr := ensureHostConfigGitignore(
+					root,
+					hostIgnoreCandidates,
+				)
+				if hostIgnoreErr != nil {
+					return hostIgnoreErr
+				}
+				if hostIgnoreMessage != "" {
+					outputLines = append(
+						outputLines,
+						hostIgnoreMessage,
+					)
+					if fingerprint, ok := fingerprintInitPath(root, ".gitignore"); ok {
+						expectedPostimages[".gitignore"] = fingerprint
+					}
+				}
+
 				if withHooks &&
 					agent != "claude" &&
 					agent != "all" {
