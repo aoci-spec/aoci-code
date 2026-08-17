@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-17T06:30:03Z",
+  "updated_at": "2026-08-17T07:41:40Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -129,9 +129,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "062a18d3fe284813ca823ca42aca5d547bf72fbfc4628f136bad2a110f45e4ba",
-      "size": 170272,
-      "normalized_sha256": "062a18d3fe284813ca823ca42aca5d547bf72fbfc4628f136bad2a110f45e4ba"
+      "sha256": "30b2603c72ac6dff1042049ff9694a146a0c0f8549aceaabfb8e32b96c14d1a7",
+      "size": 170262,
+      "normalized_sha256": "30b2603c72ac6dff1042049ff9694a146a0c0f8549aceaabfb8e32b96c14d1a7"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -244,9 +244,9 @@
       "normalized_sha256": "be4efd95321a32483684e23852aed6c38245f0d87fe02bb0713cb49ff6969f7b"
     },
     "docs/troubleshooting.md": {
-      "sha256": "90dcbadc07611db691c70bc7ca076a0f06cc51866b261856f2cfecdefaed3b4d",
-      "size": 7388,
-      "normalized_sha256": "90dcbadc07611db691c70bc7ca076a0f06cc51866b261856f2cfecdefaed3b4d"
+      "sha256": "6b040266bb43140967397f3606cf198454b6c378206bb84de2fc90e5e3301724",
+      "size": 8291,
+      "normalized_sha256": "6b040266bb43140967397f3606cf198454b6c378206bb84de2fc90e5e3301724"
     },
     "docs/uninstall.md": {
       "role": "index",

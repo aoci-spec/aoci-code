@@ -103,6 +103,22 @@ bytes. Restore LF endings, or set `* text=auto eol=lf` in `.gitattributes` and
 check the files out again. `init` writes that file for new repositories and
 never rewrites an existing one.
 
+## A tree-wide digest must exclude `.aoci/`
+
+Reproducible-build proofs, release attestations, and review records often hash
+the whole tree and commit the result back. `.aoci/baseline.json` is tracked by
+design, so a digest that covers it forms a fixed point: the digest depends on
+the Baseline, and the Baseline records the fingerprint of the file holding the
+digest. No pair of contents satisfies both, and the repository is left with one
+permanently stale Entry that reappears after every maintenance round.
+
+Exclude `.aoci/` from any such digest. This is what AOCI does internally —
+`internal/fs/walk.go` excludes `.aoci` and `.git` unconditionally, and the
+Business Source manifest therefore never contains a governance asset. Nothing
+under `.aoci/` participates in a build or in the source a review covers, so
+excluding it makes the digest answer its intended question rather than weakening
+it.
+
 ## The repository must keep a clean working tree
 
 Some build tooling refuses to run while the tree is dirty. AOCI cannot be made
