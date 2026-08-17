@@ -12,6 +12,7 @@ Groups:
   D  concurrency             (fixture: racing writers, snapshot-change mid-chain)
   E  authoring batch size    (fixture: team batch config, bounded transport)
   F  cognition-layer visibility (fixture: git-hidden Volumes, line-ending rewrite)
+  T  human confirmation      (fixture: real pty, prompt must precede the read)
   W  host window             (every non-Overview response fits an ordinary host)
 
 The run also checks that the scenario count published in the public READMEs and
@@ -25,7 +26,7 @@ Requires: a built binary; group A additionally needs the host repository to hold
 an established multi-chunk overview (chunk_tokens 8000). Fixtures set their own
 git identity; the host repository is never written.
 """
-import hashlib, json, os, random, re, shutil, subprocess, sys, tempfile, time
+import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
 
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REAL = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
@@ -741,6 +742,94 @@ def group_f():
            f"offers_scan={offers_scan} names_scope={names_scope} | {instructions[:130]}")
 
 
+def group_t():
+    """A TTY confirmation must be readable before the operator has to answer it.
+
+    The prompt carries the exact phrase they are required to type, and the
+    library entry point buffers both cobra writers until Execute returns. That
+    held the prompt until after the command had already failed, so operators
+    typed blind or gave up. Unit tests inject the prompt writer, which proves the
+    prompt reaches *a* writer; only a real process on a real terminal proves it
+    reaches the operator before the read blocks, which is why this lives here.
+    """
+    g = "T"
+    if not hasattr(os, "openpty"):
+        record(g, "T1.confirmation-prompt-precedes-the-read", "CHAR", "no pty on this platform")
+        return
+    import pty
+
+    d = os.path.join(WORK, "fx-tty")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    with open(os.path.join(d, "pkg", "a.go"), "w") as f:
+        f.write("package pkg\n\nfunc A() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    for args in (("init", "--locale", "en-US"), ("scan",),
+                 ("config", "set", "automation_mode", "review")):
+        rc, _, out, errs = cli(d, *args)
+        if rc != 0:
+            record(g, "T1.confirmation-prompt-precedes-the-read", "FAIL",
+                   f"fixture setup failed at {args[0]}: {(out + errs)[:150]}")
+            return
+
+    # Under review every plan demands a human, so the smallest candidate set
+    # produces a preview that reaches the prompt.
+    candidate_path = os.path.join(d, "candidates.json")
+    with open(candidate_path, "w", encoding="utf-8") as fh:
+        json.dump({"version": "managed-scope-candidate-set/v1", "entries": [], "dispositions": []}, fh)
+    rc, preview, out, errs = cli(d, "scope", "preview", "--candidate-file", candidate_path)
+    plan = (preview or {}).get("plan") or {}
+    phrase = plan.get("confirmation_phrase") or ""
+    if rc != 0 or not plan.get("interaction_required") or not phrase:
+        record(g, "T1.confirmation-prompt-precedes-the-read", "FAIL",
+               f"fixture did not produce a preview demanding a human: rc={rc} {(out + errs)[:130]}")
+        return
+    preview_path = os.path.join(d, "preview.json")
+    with open(preview_path, "w", encoding="utf-8") as fh:
+        json.dump(preview, fh)
+
+    master, slave = pty.openpty()
+    process = subprocess.Popen(
+        [BIN, "scope", "approve", "--preview-file", preview_path, "--actor", "scenario"],
+        cwd=d, stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+    os.close(slave)
+    # Read for a bounded window WITHOUT writing anything. Whatever arrives here is
+    # exactly what a human would have on screen when deciding what to type.
+    deadline, before = time.time() + 5.0, b""
+    while time.time() < deadline:
+        readable, _, _ = select.select([master], [], [], 0.2)
+        if not readable:
+            continue
+        try:
+            chunk = os.read(master, 65536)
+        except OSError:
+            break
+        if not chunk:
+            break
+        before += chunk
+        if phrase.encode() in before:
+            break
+    visible = phrase in before.decode("utf-8", errors="replace")
+    try:
+        os.write(master, b"WRONG PHRASE\n")
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=15)
+    except Exception:
+        process.kill()
+    try:
+        os.close(master)
+    except OSError:
+        pass
+    record(g, "T1.confirmation-prompt-precedes-the-read", "PASS" if visible else "FAIL",
+           f"bytes_before_input={len(before)} phrase_visible={visible}")
+
+
 # ---------------------------------------------------------------- documentation binding
 def verify_published_scenario_count(total):
     """Return a list of drift descriptions; empty means every document agrees."""
@@ -773,6 +862,7 @@ if __name__ == "__main__":
     group_d(bigfx)
     group_e()
     group_f()
+    group_t()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()
