@@ -131,3 +131,24 @@ func TestDiagnosticFactsPreserveMachineTokensWithoutEnglishProse(t *testing.T) {
 		}
 	}
 }
+
+func TestScopeChangeRemediationNeverAdvisesScanInEveryOfficialLocale(t *testing.T) {
+	// The Guide reaches this instruction only after the baseline-missing branch
+	// has returned, so a Baseline always exists here and scan always refuses.
+	// The old text ended by offering scan anyway, which sent a blocked operator
+	// at a command that cannot help them.
+	for _, locale := range []string{DefaultLocale, LegacyLocale} {
+		message, err := Message(locale, "guide.volumes_instruction_scope_change")
+		if err != nil {
+			t.Fatalf("load scope-change instruction for %s: %v", locale, err)
+		}
+		if strings.Contains(message, "aoci scan") {
+			t.Errorf("scope-change remediation for %s still offers scan: %q", locale, message)
+		}
+		for _, required := range []string{"scope", "Baseline"} {
+			if !strings.Contains(message, required) {
+				t.Errorf("scope-change remediation for %s must mention %s: %q", locale, required, message)
+			}
+		}
+	}
+}

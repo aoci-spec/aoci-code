@@ -2,6 +2,24 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Report one blocker per root cause. A Managed Scope policy that no longer
+  matches its receipt already reports `scope_change_required`, but the business
+  source manifest refuses to build in that state, and every manifest failure
+  collapsed into one generic `business_source_manifest_invalid` whichever cause
+  produced it. A reported project received both codes, and the second one named
+  a subsystem that was working — so the operator investigated it and found
+  nothing, because there was nothing to find. The derived report is dropped, and
+  every other cause now carries its exact machine token instead of being erased.
+  The cause is recognised through a sentinel rather than message text, so the
+  rule survives a wording change.
+- Hand back a remediation the repository can actually run. The Volumes Guide
+  reaches its scope-change instruction only after the baseline-missing branch has
+  returned, so a Baseline always exists there and `scan` always refuses — yet the
+  instruction ended by offering `scan` anyway. It now states that a Baseline is
+  present and names the governed Scope Change as the path.
+
 ## v0.1.0-rc5
 
 - Stop treating a line-ending rewrite as a reason to stop governing a

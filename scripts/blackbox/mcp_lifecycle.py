@@ -369,6 +369,35 @@ def suite_cognition_visibility(rep, work):
         rep.rec(g, f"repo-{key}.line-ending-rewrite-stays-authorable", "PASS" if ok else "FAIL",
                 f"stage={guide.get('stage')} codes={sorted(c for c in codes if 'volume' in str(c))}")
 
+        # One root cause must produce one blocker, and the remediation handed
+        # back must be one this repository can run. A reported project received
+        # scope_change_required together with business_source_manifest_invalid
+        # and went to investigate a subsystem that was working; the Guide then
+        # offered scan, which a repository with a Baseline cannot use.
+        for rel in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt"):
+            target = os.path.join(fx, rel)
+            body = open(target, "rb").read()
+            open(target, "wb").write(body.replace(b"\r\n", b"\n"))
+        baseline_path = os.path.join(fx, ".aoci", "baseline.json")
+        state = json.load(open(baseline_path, encoding="utf-8"))
+        receipt = state.get("managed_scope")
+        if not isinstance(receipt, dict):
+            rep.rec(g, f"repo-{key}.scope-drift-reports-one-blocker", "CHAR",
+                    "fixture carries no Managed Scope receipt")
+            continue
+        receipt["policy_identity"] = "a" * 64
+        json.dump(state, open(baseline_path, "w", encoding="utf-8"), indent=2)
+        rc, check, out, errs = cli(fx, "check", expect_ok=False)
+        codes = {f.get("code") for f in (check.get("findings") or [])}
+        single = "scope_change_required" in codes and "business_source_manifest_invalid" not in codes
+        rep.rec(g, f"repo-{key}.scope-drift-reports-one-blocker", "PASS" if single else "FAIL",
+                f"codes={sorted(str(c) for c in codes)}")
+        rc, guide, out, errs = cli(fx, "index", "agent", "guide", "--agent", "lifecycle", expect_ok=False)
+        instructions = " ".join(guide.get("instructions") or [])
+        runnable = "scope" in instructions and "aoci scan" not in instructions
+        rep.rec(g, f"repo-{key}.scope-drift-remediation-is-runnable", "PASS" if runnable else "FAIL",
+                f"offers_scan={'aoci scan' in instructions}")
+
 
 def suite_incremental(rep, work):
     g = "incremental"

@@ -4,6 +4,7 @@
 package volumegovernance
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -252,11 +253,21 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 		facts.DatabaseEvidence.State = "not_applicable"
 	}
 
-	manifest, manifestErr := businesssource.Build(root, "")
-	if manifestErr != nil {
-		facts.Findings = append(facts.Findings, Finding{Code: "business_source_manifest_invalid"})
-	} else {
+	// A manifest failure used to collapse into one generic blocker no matter what
+	// caused it, which was worst for the most common cause: a Managed Scope policy
+	// that no longer matches its receipt already reports scope_change_required, and
+	// naming it a second time as a business-source failure sent operators to look
+	// in a subsystem that was working. The derived report is dropped, and every
+	// other cause now carries the exact machine token instead of being erased.
+	switch manifest, manifestErr := businesssource.Build(root, ""); {
+	case manifestErr == nil:
 		facts.BusinessSourceSHA256 = manifest.AggregateSHA256
+	case errors.Is(manifestErr, businesssource.ErrScopeChangeRequired):
+	default:
+		facts.Findings = append(facts.Findings, Finding{
+			Code:  "business_source_manifest_invalid",
+			Cause: businessSourceCause(manifestErr),
+		})
 	}
 
 	facts.Budget = AssessProjectedBudget(cfg, set)
@@ -405,6 +416,27 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 			SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, baselineState),
 		})
 	}
+}
+
+// businessSourceCause keeps the stable machine token a manifest failure already
+// carries, and nothing after it.
+//
+// Every error the builder returns starts with a business_source_* token and may
+// append a path or a wrapped error. The token is what tells an operator which
+// subsystem to look at; the remainder can name a repository path, so it stays
+// out of a governance fact.
+func businessSourceCause(err error) string {
+	if err == nil {
+		return ""
+	}
+	token := err.Error()
+	if separator := strings.IndexAny(token, ": "); separator > 0 {
+		token = token[:separator]
+	}
+	if !strings.HasPrefix(token, "business_source_") {
+		return "business_source_unavailable"
+	}
+	return token
 }
 
 // assessFormalAsset reports Root and Meta drift with the same vocabulary the
