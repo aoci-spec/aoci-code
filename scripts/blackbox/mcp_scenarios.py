@@ -702,6 +702,44 @@ def group_f():
            "PASS" if not_blocked and reported and actionable else "FAIL",
            f"stage={guide.get('stage')} reported={reported} actionable={actionable} codes={sorted(c for c in codes if 'volume' in str(c))}")
 
+    # F5: one root cause must produce one blocker. A Managed Scope policy that no
+    # longer matches its receipt already reports scope_change_required; a real
+    # operator also received business_source_manifest_invalid, went to look at a
+    # subsystem that was working, and found nothing there because nothing was
+    # wrong with it.
+    import json as _json
+    for rel in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt"):
+        target = os.path.join(d, rel)
+        with open(target, "rb") as fh:
+            body = fh.read()
+        with open(target, "wb") as fh:
+            fh.write(body.replace(b"\r\n", b"\n"))
+    baseline_path = os.path.join(d, ".aoci", "baseline.json")
+    with open(baseline_path, encoding="utf-8") as fh:
+        state = _json.load(fh)
+    scope_receipt = state.get("managed_scope")
+    if not isinstance(scope_receipt, dict):
+        record(g, "F5.scope-drift-reports-one-blocker", "CHAR", "fixture carries no Managed Scope receipt")
+        return
+    scope_receipt["policy_identity"] = "a" * 64
+    with open(baseline_path, "w", encoding="utf-8") as fh:
+        _json.dump(state, fh, indent=2)
+    rc, check, out, errs = cli(d, "check", expect_ok=False)
+    codes = {f.get("code") for f in (check.get("findings") or [])}
+    single = "scope_change_required" in codes and "business_source_manifest_invalid" not in codes
+    record(g, "F5.scope-drift-reports-one-blocker", "PASS" if single else "FAIL",
+           f"codes={sorted(str(c) for c in codes)}")
+
+    # F6: the remediation the Guide hands back must be one this repository can
+    # actually run. It reaches this instruction only after the baseline-missing
+    # branch returned, so a Baseline exists and scan always refuses.
+    rc, guide, out, errs = cli(d, "index", "agent", "guide", "--agent", "scenario", expect_ok=False)
+    instructions = " ".join(guide.get("instructions") or [])
+    offers_scan = "aoci scan" in instructions
+    names_scope = "scope" in instructions
+    record(g, "F6.scope-drift-remediation-is-runnable", "PASS" if names_scope and not offers_scan else "FAIL",
+           f"offers_scan={offers_scan} names_scope={names_scope} | {instructions[:130]}")
+
 
 # ---------------------------------------------------------------- documentation binding
 def verify_published_scenario_count(total):

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -48,6 +49,16 @@ type Manifest struct {
 	NetworkAccessed            bool                     `json:"network_accessed"`
 }
 
+// ErrScopeChangeRequired reports that the manifest could not be built because
+// the desired Managed Scope policy no longer matches the active Baseline
+// receipt.
+//
+// It is a sentinel because a caller must be able to recognise this cause without
+// matching text: the condition is already reported to the operator as
+// scope_change_required, and repeating it under a name that points at the
+// business-source subsystem sends them to look in the wrong place.
+var ErrScopeChangeRequired = errors.New("business_source_scope_change_required")
+
 func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 	root, err := filepath.Abs(repositoryRoot)
 	if err != nil {
@@ -78,7 +89,7 @@ func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 			return nil, fmt.Errorf("business_source_managed_scope_invalid: %w", stateErr)
 		}
 		if state.ScopeChangeRequired {
-			return nil, fmt.Errorf("business_source_scope_change_required")
+			return nil, ErrScopeChangeRequired
 		}
 		if state.Evaluation == nil {
 			return nil, fmt.Errorf("business_source_managed_scope_unavailable")

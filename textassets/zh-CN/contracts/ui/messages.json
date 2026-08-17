@@ -994,7 +994,7 @@
   "guide.stage_unknown": "未知Agent Plan阶段: %q",
   "guide.volumes_instruction_maintain": "Volumes v1普通维护请在当前MCP会话调用无参数aoci_maintain，并按其返回的完整candidate/batch使用aoci_update_entry。Code的code_batch_id必须等于code_plan.batch_id和每个Code candidate.batch_id；authoring_batch.batch_identity不能填入此字段。若已应用批次的remaining非零，请基于新preimage再次调用aoci_maintain，尚不要执行终态证明。最后一个正式写入批次成功且remaining=0后，依次执行commands.verify、commands.check（Aggregate Check）和commands.guide；不得再次Maintain或写入，只报告它们的实际返回结果。不要运行仅适用于Legacy布局的aoci index agent plan。",
   "guide.volumes_instruction_runtime_identity": "volume_read_only只说明所调用的CLI兼容路径不支持Volumes写入，不能单独证明CLI与MCP版本不一致；升级诊断必须核对运行中serverInfo和实际进程二进制。",
-  "guide.volumes_instruction_scope_change": "期望的 Managed Scope 策略或预算与生效的 Baseline 收据不一致，Scope Change 经审阅并应用前不能授权创作：先运行 scope_preview 命令，再按其输出执行 aoci scope acknowledge / approve；新仓库先运行 aoci scan 即可清除该阻塞。",
+  "guide.volumes_instruction_scope_change": "期望的 Managed Scope 策略或预算与生效的 Baseline 收据不一致，Scope Change 经审阅并应用前不能授权创作：先运行 scope_preview 命令，再按其输出执行 aoci scope acknowledge / approve / apply。本仓库已有 Baseline，scan 不能清除该阻塞。",
   "guide.volumes_summary": "AOCI Volumes Guide: stage=%s complete=%t next_action=%s affected_domains=%s\n",
   "header.apply.already_completed": "头部事务已完成：run %s（重复调用零写入）\n",
   "header.apply.application_incomplete": "header与Baseline已写入但Application审计未完成：%s；用同一run重试。",
