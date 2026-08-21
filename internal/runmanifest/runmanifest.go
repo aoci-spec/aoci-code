@@ -77,13 +77,18 @@ type ApplicationRecord struct {
 // preserves the draft while allowing a fresh Plan without pretending that a
 // post-write recovery or supersession occurred.
 type ZeroWriteClosure struct {
-	Version           int    `json:"version"`
-	At                string `json:"at"`
-	Step              string `json:"step"`
-	Reason            string `json:"reason"`
-	DraftHash         string `json:"draft_hash"`
-	PreIndexSHA256    string `json:"pre_index_sha256"`
-	FormalAssetWrites int    `json:"formal_asset_writes"`
+	Version               int      `json:"version"`
+	At                    string   `json:"at"`
+	Step                  string   `json:"step"`
+	Reason                string   `json:"reason"`
+	DraftHash             string   `json:"draft_hash"`
+	PreIndexSHA256        string   `json:"pre_index_sha256"`
+	CurrentIndexSHA256    string   `json:"current_index_sha256,omitempty"`
+	CurrentBaselineSHA256 string   `json:"current_baseline_sha256,omitempty"`
+	RepositorySHA256      string   `json:"repository_sha256,omitempty"`
+	StagedTransactionID   string   `json:"staged_transaction_id,omitempty"`
+	GovernanceReceipts    []string `json:"governance_receipts,omitempty"`
+	FormalAssetWrites     int      `json:"formal_asset_writes"`
 }
 
 // ResolutionRecord is the append-only terminal proof for a post-write failure.
@@ -227,11 +232,30 @@ func Decode(data []byte, expectedRunID string) (*Manifest, error) {
 // surrounding Manifest supplies the generation bindings checked by
 // ZeroWriteClosed.
 func ValidateZeroWriteClosure(record ZeroWriteClosure) error {
-	if record.Version != 1 || record.Step != ZeroWriteStepGenerationPlan ||
+	if (record.Version != 1 && record.Version != 2) ||
+		record.Step != ZeroWriteStepGenerationPlan ||
 		(record.Reason != ZeroWriteReasonPlanGuard && record.Reason != ZeroWriteReasonRecovery) ||
 		record.FormalAssetWrites != 0 ||
 		!validSHA256(record.DraftHash) || !validSHA256(record.PreIndexSHA256) {
 		return fmt.Errorf("entries_zero_write_closure_invalid")
+	}
+	if record.Version == 1 && (record.CurrentIndexSHA256 != "" ||
+		record.CurrentBaselineSHA256 != "" || record.RepositorySHA256 != "" ||
+		record.StagedTransactionID != "" || len(record.GovernanceReceipts) != 0) {
+		return fmt.Errorf("entries_zero_write_closure_invalid")
+	}
+	if record.Version == 2 && (record.Reason != ZeroWriteReasonRecovery ||
+		!validSHA256(record.CurrentIndexSHA256) ||
+		record.CurrentIndexSHA256 == record.PreIndexSHA256 ||
+		!validSHA256(record.CurrentBaselineSHA256) ||
+		!validSHA256(record.RepositorySHA256) ||
+		!validSHA256(record.StagedTransactionID) || len(record.GovernanceReceipts) == 0) {
+		return fmt.Errorf("entries_zero_write_closure_invalid")
+	}
+	for _, receiptID := range record.GovernanceReceipts {
+		if !validSHA256(receiptID) {
+			return fmt.Errorf("entries_zero_write_closure_invalid")
+		}
 	}
 	if _, err := time.Parse(time.RFC3339Nano, record.At); err != nil {
 		return fmt.Errorf("entries_zero_write_closure_timestamp_invalid: %w", err)
@@ -252,6 +276,44 @@ func ZeroWriteClosed(manifest *Manifest) (ZeroWriteClosure, bool) {
 	if ValidateZeroWriteClosure(record) != nil ||
 		record.DraftHash != manifest.GenerationHash ||
 		record.PreIndexSHA256 != manifest.IndexSHA256 {
+		return ZeroWriteClosure{}, false
+	}
+	return record, true
+}
+
+// StoredZeroWriteClosed verifies the completed governance chain carried by a
+// v2 recovery closure. Legacy v1 closures remain self-contained.
+func StoredZeroWriteClosed(root string, manifest *Manifest) (ZeroWriteClosure, bool) {
+	record, ok := ZeroWriteClosed(manifest)
+	if !ok || record.Version == 1 {
+		return record, ok
+	}
+	createdAt, err := time.Parse(time.RFC3339, manifest.CreatedAt)
+	if err != nil {
+		return ZeroWriteClosure{}, false
+	}
+	closedAt, err := time.Parse(time.RFC3339Nano, record.At)
+	if err != nil {
+		return ZeroWriteClosure{}, false
+	}
+	current := record.PreIndexSHA256
+	previousAt := createdAt
+	seen := map[string]bool{}
+	for position, receiptID := range record.GovernanceReceipts {
+		if seen[receiptID] {
+			return ZeroWriteClosure{}, false
+		}
+		seen[receiptID] = true
+		receipt, completedAt, err := loadStoredGovernanceReceipt(root, receiptID)
+		if err != nil || receipt.PreIndexSHA256 != current ||
+			(position == 0 && receipt.TransactionID == record.StagedTransactionID) ||
+			!completedAt.After(previousAt) || completedAt.After(closedAt) {
+			return ZeroWriteClosure{}, false
+		}
+		current = receipt.PostIndexSHA256
+		previousAt = completedAt
+	}
+	if current != record.CurrentIndexSHA256 {
 		return ZeroWriteClosure{}, false
 	}
 	return record, true
@@ -333,45 +395,9 @@ func StoredTerminalResolution(root string, manifest *Manifest) (ResolutionRecord
 	}
 	current := record.PostIndexSHA256
 	for _, receiptID := range record.GovernanceReceipts {
-		if !validSHA256(receiptID) {
+		receipt, _, err := loadStoredGovernanceReceipt(root, receiptID)
+		if err != nil || receipt.PreIndexSHA256 != current {
 			return ResolutionRecord{}, false
-		}
-		data, err := os.ReadFile(filepath.Join(root, ".aoci", "governance", "entries-"+receiptID+".json"))
-		if err != nil {
-			return ResolutionRecord{}, false
-		}
-		var receipt struct {
-			Version         int      `json:"version"`
-			ReceiptID       string   `json:"receipt_id"`
-			Kind            string   `json:"kind"`
-			TransactionID   string   `json:"transaction_id"`
-			PreIndexSHA256  string   `json:"pre_index_sha256"`
-			PostIndexSHA256 string   `json:"post_index_sha256"`
-			Paths           []string `json:"paths"`
-			CompletedAt     string   `json:"completed_at"`
-		}
-		if decodeStrictEvidence(data, &receipt) != nil || receipt.Version != 1 ||
-			receipt.Kind != "entries" || receipt.ReceiptID != receiptID ||
-			!validSHA256(receipt.TransactionID) || len(receipt.Paths) == 0 ||
-			receipt.PreIndexSHA256 != current || !validSHA256(receipt.PostIndexSHA256) ||
-			receipt.PreIndexSHA256 == receipt.PostIndexSHA256 ||
-			receipt.ReceiptID != governanceReceiptID(
-				receipt.Version, receipt.Kind, receipt.TransactionID,
-				receipt.PreIndexSHA256, receipt.PostIndexSHA256,
-				receipt.Paths, receipt.CompletedAt,
-			) {
-			return ResolutionRecord{}, false
-		}
-		if _, err := time.Parse(time.RFC3339Nano, receipt.CompletedAt); err != nil {
-			return ResolutionRecord{}, false
-		}
-		seenPaths := map[string]bool{}
-		for _, rel := range receipt.Paths {
-			normalized, err := afs.NormalizeRelPath(rel)
-			if err != nil || normalized != rel || seenPaths[rel] {
-				return ResolutionRecord{}, false
-			}
-			seenPaths[rel] = true
 		}
 		current = receipt.PostIndexSHA256
 	}
@@ -379,6 +405,56 @@ func StoredTerminalResolution(root string, manifest *Manifest) (ResolutionRecord
 		return ResolutionRecord{}, false
 	}
 	return record, true
+}
+
+type storedGovernanceReceipt struct {
+	Version         int      `json:"version"`
+	ReceiptID       string   `json:"receipt_id"`
+	Kind            string   `json:"kind"`
+	TransactionID   string   `json:"transaction_id"`
+	PreIndexSHA256  string   `json:"pre_index_sha256"`
+	PostIndexSHA256 string   `json:"post_index_sha256"`
+	Paths           []string `json:"paths"`
+	CompletedAt     string   `json:"completed_at"`
+}
+
+func loadStoredGovernanceReceipt(
+	root,
+	receiptID string,
+) (*storedGovernanceReceipt, time.Time, error) {
+	if !validSHA256(receiptID) {
+		return nil, time.Time{}, fmt.Errorf("entries_governance_receipt_id_invalid")
+	}
+	data, err := os.ReadFile(filepath.Join(root, ".aoci", "governance", "entries-"+receiptID+".json"))
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	var receipt storedGovernanceReceipt
+	if decodeStrictEvidence(data, &receipt) != nil || receipt.Version != 1 ||
+		receipt.Kind != "entries" || receipt.ReceiptID != receiptID ||
+		!validSHA256(receipt.TransactionID) || len(receipt.Paths) == 0 ||
+		!validSHA256(receipt.PreIndexSHA256) || !validSHA256(receipt.PostIndexSHA256) ||
+		receipt.PreIndexSHA256 == receipt.PostIndexSHA256 ||
+		receipt.ReceiptID != governanceReceiptID(
+			receipt.Version, receipt.Kind, receipt.TransactionID,
+			receipt.PreIndexSHA256, receipt.PostIndexSHA256,
+			receipt.Paths, receipt.CompletedAt,
+		) {
+		return nil, time.Time{}, fmt.Errorf("entries_governance_receipt_invalid")
+	}
+	completedAt, err := time.Parse(time.RFC3339Nano, receipt.CompletedAt)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	seenPaths := map[string]bool{}
+	for _, rel := range receipt.Paths {
+		normalized, err := afs.NormalizeRelPath(rel)
+		if err != nil || normalized != rel || seenPaths[rel] {
+			return nil, time.Time{}, fmt.Errorf("entries_governance_receipt_path_invalid")
+		}
+		seenPaths[rel] = true
+	}
+	return &receipt, completedAt, nil
 }
 
 func decodeStrictEvidence(data []byte, target any) error {
@@ -463,7 +539,7 @@ func LatestPending(root, kind string) (string, error) {
 			}
 			return runIDs[position], nil
 		}
-		if safeZeroWriteRejection(manifest) {
+		if safeZeroWriteRejection(root, manifest) {
 			continue
 		}
 		if manifest.AppliedAt != "" {
@@ -483,12 +559,12 @@ func LatestPending(root, kind string) (string, error) {
 // A Check rejection is safe only when it is the newest Review and no Apply was
 // attempted. An Apply rejection is safe only when every Application proves a
 // whole-batch zero-write rejection and none carries a post-write failure kind.
-func safeZeroWriteRejection(manifest *Manifest) bool {
+func safeZeroWriteRejection(root string, manifest *Manifest) bool {
 	if manifest == nil || manifest.Kind != KindEntries || manifest.AppliedAt != "" ||
 		len(manifest.Resolutions) != 0 {
 		return false
 	}
-	if _, closed := ZeroWriteClosed(manifest); closed {
+	if _, closed := StoredZeroWriteClosed(root, manifest); closed {
 		return true
 	}
 	if len(manifest.ZeroWriteClosures) != 0 {

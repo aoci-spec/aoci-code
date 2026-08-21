@@ -15,6 +15,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/draft"
+	"github.com/aoci-spec/aoci-code/internal/indexgen"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/mcptools"
 	"github.com/spf13/cobra"
@@ -120,6 +121,58 @@ func applySupersedingGovernance(t *testing.T, root string, samePath bool) {
 	)
 	if fail != nil || outcome == nil || !outcome.BaselineComplete || outcome.AppliedCount != 1 {
 		t.Fatalf("后续合法治理失败: fail=%+v outcome=%+v", fail, outcome)
+	}
+}
+
+func buildStageOnlyEntriesRun(t *testing.T) (string, string) {
+	t.Helper()
+	root := buildAgentPlanMixedRepo(t, true, true)
+	r65ConfigureHostAgentMode(t, root, config.AutomationModeAuto)
+	manualAtomicWriteFile(t, root, "orphan.go", "package main\n")
+	fixtureCfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtureSnapshot, warnings, err := baseline.Snapshot(root, fixtureCfg.WalkOptions())
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("stage-only fixture snapshot failed: err=%v warnings=%v", err, warnings)
+	}
+	if err := baseline.Save(root, baseline.NewBaseline(fixtureSnapshot)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, ".aoci", "baseline.json.bak")); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	request := r65HostAgentRequest(
+		t, root, "new.go", "new.go[XAP7T]: F:待关闭旧草稿 | R:- | A:- | S:-",
+	)
+	cfg, doc, indexPath := agentPlanLoadDocument(t, root)
+	staged, err := stageAgentEntries(root, cfg, doc, indexPath, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root, staged.RunID
+}
+
+func applyStageOnlySupersedingGovernance(t *testing.T, root string) {
+	t.Helper()
+	const path = "c.go"
+	manualAtomicWriteFile(t, root, path, "package main\n\nvar LaterGovernance = true\n")
+	fingerprint, err := baseline.HashFile(filepath.Join(root, path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, fail := mcptools.ApplyUpdateEntriesAtomic(
+		root,
+		[]mcptools.AtomicUpdateItem{{
+			Path: path, NewEntry: "c.go[XAP3T]: F:后续合法职责 | R:- | A:- | S:-",
+			SourceSHA256: fingerprint.SHA256,
+		}},
+		ledger.SourceAgent,
+		false,
+	)
+	if fail != nil || outcome == nil || !outcome.BaselineComplete || outcome.AppliedCount != 1 {
+		t.Fatalf("stage-only superseding governance failed: fail=%+v outcome=%+v", fail, outcome)
 	}
 }
 
@@ -239,6 +292,151 @@ func TestEntriesRecoverPreApplyRunFailsClosedAfterIndexDrift(t *testing.T) {
 	manifest, err := draft.LoadManifest(root, staged.RunID)
 	if err != nil || len(manifest.ZeroWriteClosures) != 0 {
 		t.Fatalf("failed proof must not create a terminal claim: err=%v manifest=%+v", err, manifest)
+	}
+}
+
+func TestEntriesRecoverClosesStageOnlyRunAfterProvenLaterGovernance(t *testing.T) {
+	root, runID := buildStageOnlyEntriesRun(t)
+	applyStageOnlySupersedingGovernance(t, root)
+	indexPath := filepath.Join(root, "aoci.txt")
+	baselinePath := filepath.Join(root, ".aoci", "baseline.json")
+	indexBefore := fileDigest(t, indexPath)
+	baselineBefore := fileDigest(t, baselinePath)
+	cfg, doc, _ := agentPlanLoadDocument(t, root)
+	score, err := indexgen.BuildScore(root, cfg, doc)
+	if err != nil || score.Drift.ActionableMissing == 0 {
+		t.Fatalf("fixture must retain actionable Missing: err=%v drift=%+v", err, score.Drift)
+	}
+
+	result, err := recoverEntriesRun(root, runID, ledger.SourceHuman)
+	if err != nil || result == nil || result.Status != draft.RunResolutionZeroWrite ||
+		result.Applied != 0 || result.Recovered != 0 || result.AlreadyResolved ||
+		result.CurrentIndexSHA256 == result.PreIndexSHA256 ||
+		result.CurrentBaselineSHA256 == "" || result.RepositorySHA256 == "" ||
+		len(result.GovernanceReceipts) == 0 {
+		t.Fatalf("proven later governance must close stage-only run: err=%v result=%+v", err, result)
+	}
+	if fileDigest(t, indexPath) != indexBefore || fileDigest(t, baselinePath) != baselineBefore {
+		t.Fatal("stage-only recovery must not rewrite Index or Baseline")
+	}
+	manifest, err := draft.LoadManifest(root, runID)
+	if err != nil || len(manifest.ZeroWriteClosures) != 1 {
+		t.Fatalf("v2 closure missing: err=%v manifest=%+v", err, manifest)
+	}
+	closure := manifest.ZeroWriteClosures[0]
+	if closure.Version != 2 || closure.StagedTransactionID == "" ||
+		closure.CurrentIndexSHA256 != result.CurrentIndexSHA256 ||
+		!reflect.DeepEqual(closure.GovernanceReceipts, result.GovernanceReceipts) {
+		t.Fatalf("v2 closure proof incomplete: %+v", closure)
+	}
+	events, corrupt := ledger.Recent(root, 0)
+	if corrupt != 0 {
+		t.Fatalf("v2 recovery Ledger is corrupt: %d", corrupt)
+	}
+	ledgerBound := false
+	for _, event := range events {
+		if matchesEntriesZeroWriteClosureEvent(event, runID, closure) {
+			ledgerBound = true
+			break
+		}
+	}
+	if !ledgerBound {
+		t.Fatalf("v2 recovery Ledger is not bound to the closure: %+v", events)
+	}
+	repeated, err := recoverEntriesRun(root, runID, ledger.SourceHuman)
+	if err != nil || repeated == nil || !repeated.AlreadyResolved {
+		t.Fatalf("v2 recovery must be idempotent: err=%v result=%+v", err, repeated)
+	}
+	receiptPath := filepath.Join(
+		root, ".aoci", "governance", "entries-"+closure.GovernanceReceipts[0]+".json",
+	)
+	if err := os.Remove(receiptPath); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := draft.LatestPendingRun(root, draft.KindEntries); err != nil || pending != runID {
+		t.Fatalf("missing stored receipt must restore pending state: run=%q err=%v", pending, err)
+	}
+}
+
+func TestEntriesRecoverRejectsStageOnlyReceiptOwnedByStagedBatch(t *testing.T) {
+	root, runID := buildStageOnlyEntriesRun(t)
+	manifest, err := draft.LoadManifest(root, runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := loadEntryDraftSnapshot(root, runID, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, err := atomicItemsFromReviewedSnapshot(&entriesCheckResult{
+		Manifest: manifest, Snapshot: snapshot,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	outcome, fail := mcptools.ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false)
+	if fail != nil || outcome == nil || !outcome.BaselineComplete || outcome.AppliedCount != len(items) {
+		t.Fatalf("fixture staged transaction apply failed: fail=%+v outcome=%+v", fail, outcome)
+	}
+
+	result, recoverErr := recoverEntriesRun(root, runID, ledger.SourceHuman)
+	if recoverErr == nil || result == nil || result.Status != draft.RunResolutionPending ||
+		!strings.Contains(recoverErr.Error(), "staged_transaction_ambiguous") {
+		t.Fatalf("receipt owned by staged batch must fail closed: err=%v result=%+v", recoverErr, result)
+	}
+	manifest, err = draft.LoadManifest(root, runID)
+	if err != nil || len(manifest.ZeroWriteClosures) != 0 {
+		t.Fatalf("ambiguous staged Apply must not create closure: err=%v manifest=%+v", err, manifest)
+	}
+}
+
+func TestEntriesRecoverStageOnlyTamperedReceiptRestoresPending(t *testing.T) {
+	root, runID := buildStageOnlyEntriesRun(t)
+	applyStageOnlySupersedingGovernance(t, root)
+	if _, err := recoverEntriesRun(root, runID, ledger.SourceHuman); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := draft.LoadManifest(root, runID)
+	if err != nil || len(manifest.ZeroWriteClosures) != 1 ||
+		len(manifest.ZeroWriteClosures[0].GovernanceReceipts) == 0 {
+		t.Fatalf("fixture has no v2 governance proof: err=%v manifest=%+v", err, manifest)
+	}
+	receiptPath := filepath.Join(
+		root, ".aoci", "governance",
+		"entries-"+manifest.ZeroWriteClosures[0].GovernanceReceipts[0]+".json",
+	)
+	receiptData, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := bytes.Replace(receiptData, []byte(`"kind": "entries"`), []byte(`"kind": "tampered"`), 1)
+	if bytes.Equal(tampered, receiptData) {
+		t.Fatal("fixture receipt did not contain expected kind")
+	}
+	if err := os.WriteFile(receiptPath, tampered, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := draft.LatestPendingRun(root, draft.KindEntries); err != nil || pending != runID {
+		t.Fatalf("tampered stored receipt must restore pending state: run=%q err=%v", pending, err)
+	}
+}
+
+func TestEntriesRecoverRejectsStageOnlyRunWithApplyLedgerEvidence(t *testing.T) {
+	root, runID := buildStageOnlyEntriesRun(t)
+	applyStageOnlySupersedingGovernance(t, root)
+	ledger.Append(root, true, ledger.Event{
+		Op: "entries_apply", Source: ledger.SourceAgent, Result: ledger.ResultError,
+		DraftRunID: runID,
+	})
+
+	result, recoverErr := recoverEntriesRun(root, runID, ledger.SourceHuman)
+	if recoverErr == nil || result == nil || result.Status != draft.RunResolutionPending ||
+		!strings.Contains(recoverErr.Error(), "pre_apply_ledger_conflict") {
+		t.Fatalf("Apply ledger evidence must reject zero-write closure: err=%v result=%+v", recoverErr, result)
+	}
+	manifest, err := draft.LoadManifest(root, runID)
+	if err != nil || len(manifest.ZeroWriteClosures) != 0 {
+		t.Fatalf("Apply ledger conflict must remain pending: err=%v manifest=%+v", err, manifest)
 	}
 }
 
