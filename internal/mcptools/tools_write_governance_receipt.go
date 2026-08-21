@@ -46,6 +46,15 @@ type EntriesGovernanceProof struct {
 	GovernanceReceipts []string
 }
 
+// EntriesZeroWriteGovernanceProof proves that a staged batch did not own the
+// completed governance chain which moved its preimage to the current Index.
+type EntriesZeroWriteGovernanceProof struct {
+	StagedTransactionID string
+	PreIndexSHA256      string
+	CurrentIndexSHA256  string
+	GovernanceReceipts  []string
+}
+
 func governanceReceiptID(receipt entriesGovernanceReceipt) string {
 	payload, _ := json.Marshal(struct {
 		Version         int      `json:"version"`
@@ -325,6 +334,90 @@ func ProveEntriesGovernanceSupersession(
 		PostIndexSHA256:    recovery.PostIndexSHA256,
 		CurrentIndexSHA256: currentIndexSHA256,
 		GovernanceReceipts: chain,
+	}, nil
+}
+
+// ProveEntriesZeroWriteGovernance accepts only one complete, time-ordered
+// governance chain whose first transaction is distinct from the staged batch.
+// The caller must hold the Index lock for the duration of this proof.
+func ProveEntriesZeroWriteGovernance(
+	root,
+	indexPath string,
+	items []AtomicUpdateItem,
+	preIndexSHA256,
+	stagedAt,
+	closedAt string,
+) (*EntriesZeroWriteGovernanceProof, error) {
+	if !validRecoverySHA256(preIndexSHA256) {
+		return nil, fmt.Errorf("entries_zero_write_preimage_invalid")
+	}
+	createdAt, err := time.Parse(time.RFC3339, stagedAt)
+	if err != nil {
+		return nil, fmt.Errorf("entries_zero_write_stage_timestamp_invalid: %w", err)
+	}
+	closureAt, err := time.Parse(time.RFC3339Nano, closedAt)
+	if err != nil || closureAt.Before(createdAt) {
+		return nil, fmt.Errorf("entries_zero_write_closure_timestamp_invalid")
+	}
+	normalized, err := normalizeAtomicRecoveryItems(items)
+	if err != nil {
+		return nil, err
+	}
+	stagedTransactionID := atomicBatchKey(normalized)
+	indexData, err := os.ReadFile(indexPath)
+	if err != nil {
+		return nil, err
+	}
+	currentIndexSHA256 := governanceBytesSHA256(indexData)
+	if currentIndexSHA256 == preIndexSHA256 {
+		return nil, fmt.Errorf("entries_zero_write_later_governance_missing")
+	}
+	if err := rejectOtherPendingGovernanceAssets(root, indexPath, ""); err != nil {
+		return nil, err
+	}
+	receipts, err := loadAllEntriesGovernanceReceipts(root)
+	if err != nil {
+		return nil, fmt.Errorf("entries_later_governance_receipts_unreadable: %w", err)
+	}
+	current := preIndexSHA256
+	previousAt := createdAt
+	chain := []string{}
+	seen := map[string]bool{}
+	for current != currentIndexSHA256 {
+		matches := []entriesGovernanceReceipt{}
+		for _, receipt := range receipts {
+			if receipt.PreIndexSHA256 == current {
+				matches = append(matches, receipt)
+			}
+		}
+		if len(matches) != 1 {
+			return nil, fmt.Errorf(
+				"entries_governance_chain_gap_or_fork: sha=%s matches=%d",
+				current,
+				len(matches),
+			)
+		}
+		receipt := matches[0]
+		completedAt, parseErr := time.Parse(time.RFC3339Nano, receipt.CompletedAt)
+		if parseErr != nil || !completedAt.After(previousAt) || completedAt.After(closureAt) {
+			return nil, fmt.Errorf("entries_zero_write_governance_time_invalid")
+		}
+		if len(chain) == 0 && receipt.TransactionID == stagedTransactionID {
+			return nil, fmt.Errorf("entries_zero_write_staged_transaction_ambiguous")
+		}
+		if seen[receipt.ReceiptID] {
+			return nil, fmt.Errorf("entries_governance_chain_cycle")
+		}
+		seen[receipt.ReceiptID] = true
+		chain = append(chain, receipt.ReceiptID)
+		current = receipt.PostIndexSHA256
+		previousAt = completedAt
+	}
+	return &EntriesZeroWriteGovernanceProof{
+		StagedTransactionID: stagedTransactionID,
+		PreIndexSHA256:      preIndexSHA256,
+		CurrentIndexSHA256:  currentIndexSHA256,
+		GovernanceReceipts:  chain,
 	}, nil
 }
 
