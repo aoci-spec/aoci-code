@@ -523,7 +523,7 @@ func TestDatabaseCandidateFailuresLeaveWholeBatchUnchanged(t *testing.T) {
 			return input
 		}, autoStatusRepairRequired},
 		{"s_over_limit", func(input []updateEntryItemIn) []updateEntryItemIn {
-			input[0].NewEntry = "orders[DB7S]: F:coordinate durable purchase lifecycle | R:- | A:- | S:" + strings.Repeat("x", 201)
+			input[0].NewEntry = "orders[DB7S]: F:coordinate durable purchase lifecycle | R:- | A:- | S:" + strings.Repeat("x", machinecontract.SQuotaMidRunes+1)
 			return input
 		}, autoStatusRepairRequired},
 	} {

@@ -42,6 +42,8 @@ This managed block defines only repository integration, cognition use, and task-
 
    Reuse complete cognition directly while it remains reliable. Local uncertainty does not by itself require mechanically rereading the system-wide view.
 
+   A Run that resumes from a known Host context compaction, including a Host-injected compaction summary, must treat prior model cognition as unreliable. The compacted handoff must not retain or summarize the formal Whole-Index or any Overview Header, Entry, Chunk, Challenge, or Attestation body; it may retain only receipt identity, unfinished write or Recovery state needed for safe continuation, and an instruction to reload immediately. Whole-Index semantics or a receipt copied into that handoff cannot prove that the resumed model's current cognition is reliable. If the runtime contract is no longer reliably present, call `aoci_rules` first. Before continuing the business task, make an ordinary complete Whole-Index `aoci_overview` request (`check_only` absent or false) with `refresh_reasons=["context_compaction"]` and a fresh `refresh_event_id`; do not use `check_only` or a cognition probe. Follow every exact `next_cursor` through `completed=true`, confirm delivery, and submit one Attestation based only on the newly delivered body. After that fresh complete transport, a partial or failed Attestation consumes the generation and permits the existing source-bound continuation without another automatic Overview.
+
    AOCI can report checkpoint and cognition-status facts for `context_compaction`, the machine `semantic_threshold` under the project `cognition_refresh_threshold`, or a major `phase_transition`. Use `check_only=true` when only those compact facts are needed. They advise the Agent but do not decide whether the model needs the system-wide view.
 
    When the Agent explicitly calls ordinary `aoci_overview` (`check_only` absent or false), AOCI must deliver the complete requested scope whenever a coherent CognitionSet can be formed. It must not suppress that body because a receipt already exists, a threshold was not reached, or no refresh reason is pending. Dirty or stale formal cognition is still delivered but is marked unreliable. Pending recovery or an incoherent snapshot fails closed without a mixed body.
@@ -64,10 +66,10 @@ This managed block defines only repository integration, cognition use, and task-
 
 4. During a long-running task, the model is responsible for preserving the current cognition receipt and using the refresh gate correctly:
 
-   - when the model knows the system-wide view was lost, declare `context_compaction`; AOCI cannot infer the host event;
+   - when the Host reports context compaction or the model knows the system-wide view was lost, follow the mandatory `context_compaction` reload rule above; AOCI cannot infer the Host event;
    - when entering a genuinely major phase, declare `phase_transition`, not a function, test run, or small step;
    - at a plausible stable checkpoint, use `check_only=true` to obtain the machine semantic count when that fact is useful;
-   - decide whether the current task needs another explicit scoped or complete Overview; and
+   - except for the mandatory known-compaction reload, decide whether the current task needs another explicit scoped or complete Overview; and
    - keep the Dirty or Stale reliability state reported by AOCI until maintenance and alignment complete.
 
 ### Task closing and cognition maintenance

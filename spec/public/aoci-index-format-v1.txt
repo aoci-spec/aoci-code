@@ -69,7 +69,7 @@ rules are defined by `aoci-object-fras-v2.txt` and
 
 The default S quota declaration used by the public starter contract is:
 
-#S配额: C9-8≤600 C7-4≤200 C3-1≤50
+#S配额: C9-8≤600 C7-4≤500 C3-1≤50
 
 Machine authority
 -----------------

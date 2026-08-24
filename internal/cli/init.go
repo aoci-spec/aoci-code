@@ -174,6 +174,14 @@ func init() {
 					return &ExitError{Code: ExitConfig, Msg: preflightErr.Error()}
 				}
 			}
+			// Codex compaction integration also has user-owned configuration
+			// conflicts. Prove it installable before init creates any repository
+			// asset; hooks.Install repeats this check at the write boundary.
+			if withHooks && (agent == "codex" || agent == "all") {
+				if preflightErr := hooks.ValidateCodexCompactionInstall(root); preflightErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: preflightErr.Error()}
+				}
+			}
 
 			outputLines := []string{}
 			configExisted := true
@@ -415,10 +423,8 @@ func init() {
 							beforeInstall[relativePath] = fingerprint
 						}
 					}
-					useHooks :=
-						withHooks &&
-							agentName ==
-								"claude"
+					useHooks := withHooks &&
+						(agentName == "claude" || agentName == "codex")
 
 					message, installErr :=
 						hooks.Install(
@@ -485,6 +491,7 @@ func init() {
 
 				if withHooks &&
 					agent != "claude" &&
+					agent != "codex" &&
 					agent != "all" {
 					outputLines = append(
 						outputLines,

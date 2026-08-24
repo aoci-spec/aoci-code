@@ -10,7 +10,7 @@ const (
 	SQuotaHighRunes = 600
 	SQuotaMidMinC   = 4
 	SQuotaMidMaxC   = 7
-	SQuotaMidRunes  = 200
+	SQuotaMidRunes  = 500
 	SQuotaLowMinC   = 1
 	SQuotaLowMaxC   = 3
 	SQuotaLowRunes  = 50

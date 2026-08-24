@@ -4,7 +4,9 @@ Start a normal task with one complete AOCI Overview, then keep using it while
 it remains useful and reliable. AOCI can report checkpoint facts when the host
 reports context compaction, the current deduplicated semantic-change count
 reaches the project threshold, or the work crosses a genuinely major phase
-boundary. Those facts advise the AI Agent; they do not veto an explicit Overview.
+boundary. Semantic-threshold and phase-transition facts advise the AI Agent;
+known Host context compaction requires the complete reload described below.
+None of these facts vetoes an explicit Overview.
 
 This is a refresh gate around the existing Overview and Maintain tools. It is
 not an AI Agent runtime, watcher, daemon, or second maintenance workflow.
@@ -73,10 +75,27 @@ function, a single test run, or a small checklist item. The same event ID may be
 retried safely. When context compaction, the semantic threshold, and a phase
 change coincide, AOCI merges all three reasons.
 
+A known Host context-compaction event is not a local-recall uncertainty. Its
+compacted handoff must not retain or summarize the formal Whole-Index or any
+Overview Header, Entry, Chunk, Challenge, or Attestation body. It may retain
+only receipt identity, unfinished write or Recovery state needed for safe
+continuation, and an instruction to reload immediately. Index semantics or a
+receipt copied into the handoff cannot prove that the resumed model's current
+cognition is reliable.
+
+If `aoci_rules` is no longer reliably present, read it first. Before continuing
+the business task, declare `context_compaction` with a fresh
+`refresh_event_id` and make an ordinary complete Whole-Index Overview request,
+not `check_only` and not a cognition probe. Follow every exact `next_cursor`
+through `completed=true`, confirm delivery, and submit one Attestation from the
+newly delivered body. After that fresh complete transport, a partial or failed
+Attestation still consumes the generation and permits the existing source-bound
+continuation without an automatic second Overview.
+
 `check_only` is the inexpensive probe: it always returns compact JSON. Calling
 without `check_only` asks AOCI to deliver the complete selected scope. The
-AI Agent decides when it needs that view; the checkpoint status does not make the
-decision for it.
+AI Agent decides when it needs that view except after known Host compaction,
+where the ordinary complete Overview is mandatory.
 
 In the Volumes v1 layout, `aoci_overview` also accepts `project`,
 `code`, and `database` scopes. Scope selection changes delivery identity, not
@@ -160,8 +179,9 @@ replace `model_full_cognition_reliable`, `cognition_assimilation`, or
 `governance_aligned`. A confirmed delivery with failed Attestation is therefore
 reported as loaded and delivery-verified, not as absence of system cognition.
 
-After a previously accepted cognition cycle, context compaction uses the same
-Overview and Attestation protocols but a slimmer control rule. When all Chunks
+After a previously accepted cognition cycle, known Host context compaction
+first takes the mandatory ordinary Overview path above. It then uses the same
+Overview and Attestation protocols but a slimmer post-attempt control rule. When all Chunks
 arrive, the Host confirms the body, the cognition identity is unchanged,
 governance is aligned, and neither Recovery nor third-party conflict is
 pending, the Attestation attempt consumes that refresh generation. A passing
@@ -226,11 +246,21 @@ systems.
 
 ## Host boundary
 
-The current Codex, Claude Code, and Cursor integrations configure AOCI as an MCP
-stdio server. They do not install a host-specific compaction event adapter.
-Where the host does not expose a deterministic event, the AI Agent must explicitly
-declare that it knows the complete repository view was lost. Test harnesses may
-simulate that declaration, but their reports must label it as a simulation.
+The ordinary Codex, Claude Code, and Cursor integrations configure AOCI as an
+MCP stdio server. For Codex, `aoci init --agent codex --hooks` additionally
+installs a project `compact_prompt` and a `SessionStart` hook for the `compact`
+source. The compact prompt limits the handoff to receipt identity, unfinished
+write or Recovery state, and the immediate reload instruction; the session hook
+reasserts that instruction when Codex resumes. Project hooks run only after the
+user reviews and trusts them through Codex `/hooks`.
+
+A `PreCompact` hook cannot inject text into, or delete history from, the Host's
+compaction input. It therefore cannot enforce this boundary by itself and is
+not a substitute for the installed `compact_prompt` plus `SessionStart(compact)`
+pair. Where a Host does not expose a deterministic compaction event, the AI
+Agent must explicitly declare that it knows the complete repository view was
+lost. Test harnesses may simulate that declaration, but their reports must
+label it as a simulation.
 
 The exact additive schema and compatibility rules are in
 [`spec/aoci-cognition-refresh-v1.txt`](../spec/public/aoci-cognition-refresh-v1.txt).
@@ -251,4 +281,7 @@ sample of the current Entry sequence — and `probe_answers` for memory-only
 answers graded with the Attestation's criteria. Passing proves retained
 cognition without re-reading ~50k tokens; failing is the machine evidence for
 declaring `context_compaction`. The probe never advances the refresh
-generation and never records a reason.
+generation and never records a reason. It is available only when no Host
+compaction event is known. After known compaction, do not issue or answer it;
+answers reconstructed from a compacted handoff or summary are not retained
+cognition.

@@ -2,11 +2,14 @@
 // 索引条目: hook.go[CHK8S]
 //
 // 契约: shell 模板零逻辑只 exec 本命令;JSON 解析与判断全在 Go 内可测。
-// 输入双通道:
+// pretool 输入双通道:
 //
 //	--path 显式传参(通用/测试通道);
 //	--stdin-json 从 stdin 读 agent 的 hook JSON(Claude Code 通道:
 //	  {"tool_name":"Edit","tool_input":{"file_path":"..."}}),取 tool_name 与 file_path。
+//
+// codex-compact 不读取仓库状态，只输出带唯一 refresh_event_id 的模型上下文，
+// 供同步 SessionStart(source=compact) 在压缩后的下一次模型请求前注入。
 //
 // 退出码映射:
 //
@@ -18,10 +21,13 @@
 package cli
 
 import (
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"sync/atomic"
+	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
@@ -33,6 +39,8 @@ const (
 	ExitHookBlock       = 4
 	ExitHookBlockClaude = 2
 )
+
+var codexCompactRefreshSequence atomic.Uint64
 
 // claudeHookInput Claude Code hook stdin JSON 的最小解析结构
 type claudeHookInput struct {
@@ -105,8 +113,51 @@ func init() {
 		Short:  cliMessage("cli.short.hook_runtime"),
 		Hidden: true, // 人用 help 不展示,属机器通道
 	}
-	cmd.AddCommand(pretool)
+	cmd.AddCommand(pretool, newCodexCompactCmd(cryptorand.Reader))
 	registerCommand(cmd)
+}
+
+func newCodexCompactCmd(entropy io.Reader) *cobra.Command {
+	return &cobra.Command{
+		Use:    "codex-compact",
+		Hidden: true,
+		Args:   cobra.NoArgs,
+		// This leaf-level hook deliberately bypasses the repository recovery
+		// gate: it only emits context and must not inspect repository state.
+		PersistentPreRunE: func(*cobra.Command, []string) error { return nil },
+		Run: func(cmd *cobra.Command, _ []string) {
+			_, _ = fmt.Fprintln(
+				cmd.OutOrStdout(),
+				codexCompactDeveloperContext(
+					newCodexCompactRefreshEventID(entropy),
+				),
+			)
+		},
+	}
+}
+
+func newCodexCompactRefreshEventID(entropy io.Reader) string {
+	sequence := codexCompactRefreshSequence.Add(1)
+	var random [16]byte
+	if entropy != nil {
+		if _, err := io.ReadFull(entropy, random[:]); err == nil {
+			return fmt.Sprintf("aoci-compact-%x-%016x", random, sequence)
+		}
+	}
+	return fmt.Sprintf(
+		"aoci-compact-fallback-%x-%x-%016x",
+		time.Now().UnixNano(),
+		os.Getpid(),
+		sequence,
+	)
+}
+
+func codexCompactDeveloperContext(refreshEventID string) string {
+	return cliMessage(
+		"hook.codex_compact_context",
+		refreshEventID,
+		refreshEventID,
+	)
 }
 
 // toRepoRel 绝对路径落在仓库根下时换算为相对路径(正斜杠);其余原样返回交内核裁决。

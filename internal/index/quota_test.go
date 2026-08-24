@@ -229,7 +229,7 @@ func TestEffectiveSQuotaContractUsesDefaultsAndFormalOverrides(t *testing.T) {
 		t.Fatalf("old Meta did not receive the current machine fallback: got=%q want=%q", got, want)
 	}
 	got := EffectiveSQuotaContract("#S quota: C9≤321 C5≤123\n")
-	for _, want := range []string{"C9≤321", "C8≤600", "C7-6≤200", "C5≤123", "C4≤200", "C3-1≤50"} {
+	for _, want := range []string{"C9≤321", "C8≤600", "C7-6≤500", "C5≤123", "C4≤500", "C3-1≤50"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("effective quota contract missing %q: %s", want, got)
 		}

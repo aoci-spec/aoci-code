@@ -6,8 +6,9 @@
 //   - 安装前备份目标文件(file.backup.时间戳.内容摘要,R7 纪律进产品行为);
 //   - 全部模板渲染产物先过 safety.CheckForbiddenClaims 再落盘;
 //   - 幂等: 目标文件内容为准(已含 aoci 配置即跳过),config.InstalledAgents 仅作记录;
-//   - claude 全量(MCP 配置 + 可选 hook);codex 写项目级 MCP 配置(hook 待上游稳定,
-//     见 codex.go 说明);opencode 严格合并项目级 V1 opencode.json;
+//   - claude 全量(MCP 配置 + 可选 hook);codex 写项目级 MCP 配置,
+//     --hooks 时额外安装 compact_prompt + SessionStart(compact) hook;
+//     opencode 严格合并项目级 V1 opencode.json;
 //     cursor 只输出参考片段(诚实占位)。
 //
 // 路径形态(Windows 真机教训): TplData 的 BinPath/RepoRoot 统一转正斜杠 ——
@@ -44,16 +45,26 @@ func hookMessage(key string, args ...any) string {
 
 // TplData 模板渲染数据(路径字段恒为正斜杠形态)
 type TplData struct {
-	BinPath              string // aoci 二进制绝对路径(正斜杠)
-	RepoRoot             string // 仓库根绝对路径(正斜杠)
-	ProjectName          string // 仓库目录名
-	RepoRootSlash        string // 仓库根 + 尾斜杠(索引目录段头用)
-	SQuotaDefaultCompact string
+	BinPath                    string // aoci 二进制绝对路径(正斜杠)
+	RepoRoot                   string // 仓库根绝对路径(正斜杠)
+	ProjectName                string // 仓库目录名
+	RepoRootSlash              string // 仓库根 + 尾斜杠(索引目录段头用)
+	SQuotaDefaultCompact       string
+	CodexCompactCommand        string // POSIX shell command, arguments safely quoted
+	CodexCompactCommandWindows string // PowerShell 5 command, arguments safely quoted
 }
 
 // toSlash 反斜杠统一转正斜杠(TOML/JSON 转义安全 + 协议内正斜杠约定)
 func toSlash(p string) string {
 	return strings.ReplaceAll(p, "\\", "/")
+}
+
+func quotePOSIXShellArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func quotePowerShellArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 // NewTplData 构造模板数据(BinPath 取当前进程可执行文件;全路径转正斜杠)
@@ -62,13 +73,22 @@ func NewTplData(root string) TplData {
 	if err != nil {
 		bin = "aoci" // 兜底: 依赖 PATH
 	}
+	binSlash := toSlash(bin)
 	rootSlash := toSlash(root)
+	posixCommand := quotePOSIXShellArgument(binSlash) +
+		" --repo " + quotePOSIXShellArgument(rootSlash) +
+		" hook codex-compact"
+	windowsCommand := "powershell.exe -NoProfile -NonInteractive -Command \"& " +
+		quotePowerShellArgument(binSlash) + " --repo " +
+		quotePowerShellArgument(rootSlash) + " hook codex-compact\""
 	return TplData{
-		BinPath:              toSlash(bin),
-		RepoRoot:             rootSlash,
-		ProjectName:          filepath.Base(root),
-		RepoRootSlash:        strings.TrimRight(rootSlash, "/") + "/",
-		SQuotaDefaultCompact: machinecontract.NumericText().SQuotaDefaultCompact,
+		BinPath:                    binSlash,
+		RepoRoot:                   rootSlash,
+		ProjectName:                filepath.Base(root),
+		RepoRootSlash:              strings.TrimRight(rootSlash, "/") + "/",
+		SQuotaDefaultCompact:       machinecontract.NumericText().SQuotaDefaultCompact,
+		CodexCompactCommand:        posixCommand,
+		CodexCompactCommandWindows: windowsCommand,
 	}
 }
 
@@ -240,7 +260,8 @@ func Detect(root string) []string {
 
 // Install 安装指定 agent 的接入。
 // claude: 全量(MCP 配置合并写入 + 可选 PreToolUse hook);
-// codex: 写项目级 .codex/config.toml 的 [mcp_servers.aoci](hook 不装,理由见 codex.go);
+// codex: 写项目级 .codex/config.toml 的 [mcp_servers.aoci],--hooks 时同时安装
+// compact_prompt 与 SessionStart(compact) hook;
 // opencode: 严格创建/合并项目级 OpenCode V1 opencode.json;
 // cursor: 输出参考配置片段(诚实占位,不写文件)。
 // 返回面向用户的多行结果说明。
@@ -263,6 +284,13 @@ func Install(root, agent string, withHooks bool) (string, error) {
 		return strings.TrimRight(b.String(), "\n"), nil
 	case "codex":
 		var b strings.Builder
+		// 冲突预检必须在 MCP 写入前完成,保证用户自定义压缩策略
+		// 与 --hooks 冲突时整个 Codex 安装零改动。
+		if withHooks {
+			if err := ValidateCodexCompactionInstall(root); err != nil {
+				return "", err
+			}
+		}
 		msg, err := InstallCodexMCP(root)
 		if err != nil {
 			return "", err
@@ -270,7 +298,11 @@ func Install(root, agent string, withHooks bool) (string, error) {
 		b.WriteString(msg + "\n")
 		b.WriteString(hookMessage("hook.codex_native"))
 		if withHooks {
-			b.WriteString(hookMessage("hook.codex_hook_deferred"))
+			hmsg, herr := InstallCodexCompaction(root)
+			if herr != nil {
+				return "", herr
+			}
+			b.WriteString(hmsg + "\n")
 		}
 		return strings.TrimRight(b.String(), "\n"), nil
 	case "opencode":

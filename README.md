@@ -397,7 +397,7 @@ Meta then opens with the rules that govern every Entry:
 #FRAS-Discipline: 2
 #FRAS-v2-Limits-Authority: machine-contract
 #S-Admission: non-inferable-and-error-preventing
-#S quota: C9-8≤600 C7-4≤200 C3-1≤50
+#S quota: C9-8≤600 C7-4≤500 C3-1≤50
 #Object-Kinds: code=file database=table
 ```
 
@@ -513,11 +513,11 @@ Code Volume, Database Volume, and Scope can evolve together, but they share one 
 
 ## 🔌 Host integration
 
-`aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and does not install a Hook; Claude Code can install a `PreToolUse` Hook; OpenCode V1 receives a strict project-level `opencode.json`; Cursor only returns a reference configuration snippet and does not write project configuration. After configuration, check whether the current host session already exposes AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid, later tasks reuse current cognition instead of mechanically injecting the entire index again.
+`aoci init` always writes managed AI Agent rules, but host integration behavior differs: Codex writes project-level MCP configuration and can optionally install a context-compaction prompt plus `SessionStart(compact)` with `--hooks`; it still installs no file-edit Hook. Claude Code can install a `PreToolUse` Hook; OpenCode V1 receives a strict project-level `opencode.json`; Cursor only returns a reference configuration snippet and does not write project configuration. After configuration, check whether the current host session already exposes AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads Rules and the Whole-Index once. As long as cognition identity remains valid and no known Host compaction occurred, later tasks reuse current cognition instead of mechanically injecting the entire index again.
 
 | Host | Current integration | Boundary |
 | --- | --- | --- |
-| **Codex** | Project-level stdio MCP configuration | Does not depend on a file-editing Hook |
+| **Codex** | Project-level stdio MCP; optional `--hooks` compaction prompt and `SessionStart(compact)` | Requires review and trust through Codex `/hooks`; installs no file-edit Hook |
 | **Claude Code** | Project-level MCP; optional thin `PreToolUse` guard | The Hook only provides a pre-write reminder or Stale guard; it is not the AI Agent runtime |
 | **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; integration must still be completed manually for the host |
@@ -525,10 +525,18 @@ Code Volume, Database Volume, and Scope can evolve together, but they share one 
 
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
+aoci --repo /absolute/path/to/repository init --agent codex --hooks
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
 ```
+
+Codex `--hooks` limits a compaction handoff to receipt identity, unfinished
+write or Recovery state, and an immediate reload instruction; it must not retain
+or summarize Whole-Index or Overview/Attestation bodies. A `PreCompact` hook
+cannot inject into, or delete history from, the Host compaction input, so it
+cannot enforce this alone. Review and trust the installed project hook through
+Codex `/hooks` before relying on it.
 
 Legacy output retains Levels 0–4 for compatibility with existing hosts and reports. The current `cognition-state/v2` expresses “model cognition usability” as Levels 0–3 and separates strict proof and governance facts into independent dimensions:
 
@@ -625,7 +633,9 @@ The current AOCI-CODE release provides the System Cognition capabilities through
 
 At the beginning of a new conversation, an AI Agent normally loads one complete Overview to establish system cognition matching the current repository, Index version, and AOCI service identity. As long as the model can still use that cognition reliably, it need not reload mechanically before every task or tool call.
 
-During the same conversation, the model decides whether to load again based on its own cognition state. When the conversation is long, context is compacted, the system evolves substantially, an important phase begins, or the model can no longer establish reliable complete-system cognition from the current context, it should independently decide whether to read local evidence, perform a compact check, or reload the complete Overview. AOCI can provide refresh thresholds, Checkpoints, and identity facts, but the model decides whether system-level cognition must be restored in light of the current task.
+During the same conversation, the model decides whether to load again based on its own cognition state, except after a known Host context compaction. A compacted handoff may preserve only receipt identity, unfinished write or Recovery state, and an immediate reload instruction; it must not retain or summarize Whole-Index or Overview Header, Entry, Chunk, Challenge, or Attestation bodies. Index semantics or a receipt copied into that handoff cannot prove current model cognition reliable.
+
+Before continuing business work after known compaction, the Agent reloads Rules if they are no longer reliably present, declares `context_compaction` with a fresh event ID, and completes one ordinary full Overview cursor, confirmation, and Attestation sequence. `check_only` and the cognition probe are not substitutes. After fresh complete transport, the existing partial or failed Attestation rule still permits source-bound continuation without a second automatic Overview. For semantic change or a major phase boundary without known compaction, AOCI provides refresh thresholds, Checkpoints, and identity facts while the model decides whether system-level cognition must be restored for the task.
 
 The body of each complete Overview consists of a start marker, the exact content of the current formal index, and an end marker.
 

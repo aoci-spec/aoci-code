@@ -22,6 +22,14 @@ Checkpoint facts advise the Agent; they do not deny an explicit cognition
 request. Only check_only=true requests compact status without a body. Every
 ordinary explicit Overview requests complete delivery of its scope.
 
+A known Host context-compaction event is not a local-recall uncertainty. The
+Host's compacted handoff must not retain or summarize the formal Whole-Index or
+any Overview Header, Entry, Chunk, Challenge, or Attestation body. It may retain
+only receipt identity, unfinished write or Recovery state needed for safe
+continuation, and an instruction to reload immediately. Index semantics or a
+receipt copied into that handoff cannot prove that the resumed model's current
+cognition is reliable.
+
 2. Project configuration
 
 The team configuration file .aoci/config.json owns:
@@ -75,6 +83,15 @@ previously reliable complete receipt is interpreted as a context_compaction
 declaration with a deterministic legacy event identifier. Initial cognition
 establishment and uncertain receipts returned by governance do not fabricate a
 host compaction event. Existing no-argument calls remain valid.
+
+When Host compaction is known, the Host-Agent declares context_compaction
+directly with a fresh refresh_event_id. If aoci_rules is no longer reliably
+present in current context, it first reads aoci_rules. Before continuing the
+business task, it then makes an ordinary complete Whole-Index aoci_overview
+request, not check_only and not a cognition probe, follows every exact
+next_cursor through completed=true, confirms delivery, and submits one
+Attestation from that newly delivered body. Neither the compacted handoff nor a
+prior receipt substitutes for this sequence.
 
 5. Checkpoint outcomes and explicit delivery
 
@@ -134,10 +151,11 @@ When semantic change or another governance blocker exists:
   -> optionally request ordinary aoci_overview when the Agent needs the view
   -> record any new reliable receipt
 
-Context compaction with no semantic change may recommend a direct Overview. A
-complete, Host-confirmed attempt consumes that generation even when
-Attestation is partial or failed; the Host continues an existing source-bound
-task without an automatic second Overview. A failed initial Attestation also
+Known Host context compaction with no semantic change requires the direct
+ordinary Overview sequence above. A complete, Host-confirmed attempt consumes
+that generation even when Attestation is partial or failed; after that fresh
+complete transport the Host continues an existing source-bound task without an
+automatic second Overview. A failed initial Attestation also
 blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
 but does not prohibit honest answers or task-bound source and test inspection. A
 clean phase transition does not by itself recommend retransmission. Multiple
@@ -228,3 +246,9 @@ generation, never records a reason, and never changes any receipt. A stale
 result means the index moved since issuance and is not evidence of loss.
 Consulting Search or Get Entries between probe and answer defeats the
 measurement and is forbidden exactly as during Attestation.
+
+The probe is available only when no Host compaction event is known. It must not
+be issued or answered after a Host compaction, and an answer reconstructed from
+a compacted handoff or summary is not retained cognition. A known event takes
+the direct declaration and ordinary Overview path above regardless of how much
+index-shaped text the handoff appears to contain.

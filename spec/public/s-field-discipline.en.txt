@@ -90,7 +90,7 @@ its own file and never substitutes for the Header or Curation.
 
 Default values (the fallback when the repository declares none) are owned by
 internal/machinecontract/numeric.go: C9-C8 up to 600 characters, C7-C4 up to
-200, C3-C1 up to 50. A repository may declare its own bands in the index
+500, C3-C1 up to 50. A repository may declare its own bands in the index
 Header with an English "#S quota" line or the equivalent Chinese declaration;
 declared bands use the declared value and undeclared bands fall back to the
 machine defaults (gaps are filled, the declaration does not fail as a whole).

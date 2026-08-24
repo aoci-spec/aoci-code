@@ -41,7 +41,31 @@ command = "/absolute/path/to/aoci"
 args = ["--repo", "/absolute/path/to/repository", "mcp"]
 ```
 
-Review the repository before granting host trust. Codex integration does not install a file-edit hook; MCP tools and the Guide govern cognition writes.
+Add `--hooks` to install the optional context-compaction integration:
+
+```bash
+aoci --repo /absolute/path/to/repository init --agent codex --hooks
+```
+
+This installs a project `compact_prompt` plus a `SessionStart` hook for the
+`compact` source. The compact prompt permits the handoff to retain only AOCI
+receipt identity, unfinished write or Recovery state, and an immediate reload
+instruction; it must not retain or summarize Whole-Index or Overview Header,
+Entry, Chunk, Challenge, or Attestation bodies. `SessionStart(compact)` reasserts
+the reload instruction after the Host resumes.
+
+Codex treats `compact_prompt` as a complete override, not an appended fragment.
+AOCI therefore preserves the Codex 0.149 default handoff instructions in its
+managed prompt and adds the AOCI exclusion rule. If the project already defines
+`compact_prompt` or `experimental_compact_prompt_file` outside the AOCI marker,
+installation stops without changing the file so the operator can merge the
+policies deliberately.
+
+Review the repository and inspect the installed hook before granting trust with
+Codex `/hooks`; project hooks do not run until trusted. A `PreCompact` hook
+cannot inject text into, or delete history from, the Host's compaction input, so
+it cannot enforce this boundary by itself. Codex still receives no file-edit
+hook: MCP tools and the Guide govern cognition writes.
 
 ## Claude Code
 
@@ -168,13 +192,24 @@ that Codex Desktop or another external Host automatically allocates a PTY.
 
 For every host, obtain `aoci_rules` once and establish one complete Overview
 at the start of a normal task, then keep reusing that cognition while it
-remains reliable. The binding rules for chunk continuation, Attestation, the
+remains reliable. On a known Host context compaction, a compacted summary may
+retain receipt identity and unfinished write or Recovery state but no
+Whole-Index semantics or Overview/Attestation body. Neither summary semantics
+nor its receipt proves current model cognition reliable. If Rules are no longer
+reliably present, reload them; then, before business continuation, declare
+`context_compaction` with a fresh event ID and complete one ordinary Overview
+cursor, confirmation, and Attestation sequence. Do not substitute `check_only`
+or a cognition probe. Once fresh transport completes, the existing partial or
+failed Attestation rule permits source-bound continuation without a second
+automatic Overview.
+
+The binding rules for chunk continuation, Attestation, the
 single same-response schema-only correction, prohibited cognition supplements,
 and the prescribed one-sentence result are carried by the `aoci_rules`
 contract and documented in [`overview-delivery.md`](overview-delivery.md);
-this page does not restate them. Checkpoint facts (context compaction, the
-project semantic threshold, a major phase transition) advise but never decide
-whether the AI Agent needs the system-wide view; `check_only=true` returns
+this page does not restate them. Semantic-threshold and phase-transition
+checkpoint facts advise but never decide whether the AI Agent needs the
+system-wide view; `check_only=true` returns
 only compact status, and every ordinary explicit Overview delivers the
 complete requested scope when a coherent snapshot is available. In a
 long-running auto task, answer non-control questions briefly and resume the

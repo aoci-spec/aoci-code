@@ -1,5 +1,5 @@
 // aoci init 基线前移测试: 三条设计裁决的回归防线(v2.6 悬账 P1-3,D51 同族)
-// + P-04 防呆三防线(裸目录--here/agent白名单/hooks吞参明示)。
+// + P-04 防呆三防线(裸目录--here/agent白名单/hooks支持边界明示)。
 // 索引条目待补: init_test.go
 //
 // 锁定行为:
@@ -13,7 +13,7 @@
 //	四、裸目录硬拒(P-04): 定位失败且无 --here 时 ExitConfig 且零写入 ——
 //	    clone 失败后误把父目录初始化成仓的事故防线;--here 显式放行;
 //	五、agent 白名单(P-04): 拼错的 --agent 值 ExitConfig 且零写入;
-//	六、hooks 吞参明示(P-04): codex+--hooks 必须输出"仅支持 claude"提示。
+//	六、hooks 支持边界(P-04): codex+--hooks 必须真实安装压缩生命周期接入。
 //
 // 测试工程纪律: init 的 --agent/--hooks/--here 为包级闭包变量,同进程多次
 // Execute 会残留上次取值 —— 每次调用必须显式传 --agent 与 --hooks 取值
@@ -373,8 +373,8 @@ func TestInitNewRepositoryOutputOrder(t *testing.T) {
 	}
 }
 
-// TestInitCodexHooksNotice hooks 吞参明示(P-04 防呆三): codex+--hooks 必须
-// 输出"仅支持 claude"提示 —— 旧版把 codex 排除在提示条件外,静默吞参。
+// TestInitCodexHooksNotice hooks 支持边界(P-04 防呆三): codex+--hooks 必须
+// 真实写入压缩提示与压缩后重载 hook,不得再静默吞参。
 // 输出走 fmt.Println(os.Stdout),须 os.Pipe 截获且 flagQuiet=false;
 // 本用例置于文件末尾: --hooks 残留 true 不再影响后续 init 用例(同文件内无后继)。
 func TestInitCodexHooksNotice(t *testing.T) {
@@ -405,9 +405,63 @@ func TestInitCodexHooksNotice(t *testing.T) {
 		t.Fatal(rerr)
 	}
 	if execErr != nil {
-		t.Fatalf("init --agent=codex --hooks 应成功(hook 忽略但接入照常): %v", execErr)
+		t.Fatalf("init --agent=codex --hooks 应成功安装压缩接入: %v", execErr)
 	}
-	if !strings.Contains(string(data), "仅支持 claude") {
-		t.Fatalf("codex+--hooks 应明示 hook 已忽略: %s", data)
+	if strings.Contains(string(data), "已忽略") {
+		t.Fatalf("codex+--hooks 不得再静默忽略: %s", data)
+	}
+	configData, readErr := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	configText := string(configData)
+	if !strings.Contains(configText, "compact_prompt") ||
+		!strings.Contains(configText, "[[hooks.SessionStart]]") ||
+		!strings.Contains(configText, "hook codex-compact") {
+		t.Fatalf("codex+--hooks 未完整安装压缩接入:\n%s", configText)
+	}
+}
+
+func TestInitCodexHooksConflictIsZeroWrite(t *testing.T) {
+	for _, agent := range []string{"codex", "all"} {
+		t.Run(agent, func(t *testing.T) {
+			root := t.TempDir()
+			configDir := filepath.Join(root, ".codex")
+			if err := os.MkdirAll(configDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			const existing = "model = \"o4-mini\"\ncompact_prompt = \"keep mine\"\n"
+			configPath := filepath.Join(configDir, "config.toml")
+			if err := os.WriteFile(configPath, []byte(existing), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			_, err := runInit(t, root, "--agent="+agent, "--hooks=true")
+			if err == nil || !strings.Contains(err.Error(), "compact_prompt") {
+				t.Fatalf("init --agent=%s --hooks 应在自定义 compact_prompt 上失败: %v", agent, err)
+			}
+
+			data, readErr := os.ReadFile(configPath)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if string(data) != existing {
+				t.Fatalf("冲突预检改写了用户配置:\n%s", data)
+			}
+			rootEntries, readErr := os.ReadDir(root)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if len(rootEntries) != 1 || rootEntries[0].Name() != ".codex" {
+				t.Fatalf("冲突预检前发生了仓库写入: %v", rootEntries)
+			}
+			codexEntries, readErr := os.ReadDir(configDir)
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if len(codexEntries) != 1 || codexEntries[0].Name() != "config.toml" {
+				t.Fatalf("冲突预检产生了 Codex 备份或其他文件: %v", codexEntries)
+			}
+		})
 	}
 }

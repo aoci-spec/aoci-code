@@ -380,7 +380,7 @@ Meta 随后以约束每一条 Entry 的规则开头：
 #FRAS-Discipline: 2
 #FRAS-v2-Limits-Authority: machine-contract
 #S-Admission: non-inferable-and-error-preventing
-#S配额: C9-8≤600 C7-4≤200 C3-1≤50
+#S配额: C9-8≤600 C7-4≤500 C3-1≤50
 #Object-Kinds: code=file database=table
 ```
 
@@ -496,11 +496,11 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 ## 🔌 宿主集成
 
-`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置且不安装 Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效，后续任务会复用当前认知，不会机械地重复注入整个索引。
+`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置，并可通过 `--hooks` 选择安装上下文压缩prompt与 `SessionStart(compact)`，但仍不安装文件编辑Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效且没有发生已知Host上下文压缩，后续任务会复用当前认知，不会机械地重复注入整个索引。
 
 | 宿主 | 当前接入方式 | 边界 |
 | --- | --- | --- |
-| **Codex** | 项目级 stdio MCP 配置 | 不依赖文件编辑 Hook |
+| **Codex** | 项目级 stdio MCP；可选 `--hooks` 压缩prompt与 `SessionStart(compact)` | 必须通过Codex `/hooks` 审查并信任；不安装文件编辑Hook |
 | **Claude Code** | 项目级 MCP；可选 `PreToolUse` 薄守卫 | Hook 只负责写前提示或 Stale 守卫，不是 AI Agent runtime |
 | **OpenCode V1** | 通过 `--agent opencode` 写入严格的项目根 `opencode.json` | 工具已加载可直接继续；否则刷新或重新打开项目会话 |
 | **Cursor** | 返回 MCP 参考配置片段 | 不写入项目配置，仍需按宿主手工完成接入 |
@@ -508,10 +508,13 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
+aoci --repo /absolute/path/to/repository init --agent codex --hooks
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
 ```
+
+Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recovery状态，以及立即重载指令；不得保留或摘要Whole-Index或Overview/Attestation正文。`PreCompact` Hook不能向宿主压缩输入注入文本，也不能从中删除历史，因此无法单独落实该边界。依赖此能力前，应通过Codex `/hooks` 审查并信任安装的项目Hook。
 
 旧版输出保留 Level 0—4，用于兼容既有宿主和报告。当前 `cognition-state/v2` 将“模型认知可用度”表达为 Level 0—3，并把严格证明和治理事实拆成独立维度：
 
@@ -608,7 +611,9 @@ MCP 模式下，stdout 仅用于 JSON-RPC，日志和诊断写入 stderr。运�
 
 在一次新对话开始时，AI Agent 通常会加载一次完整 Overview，以建立与当前仓库、Index 版本和 AOCI 服务身份匹配的系统认知。只要模型仍能可靠使用这份认知，就不需要在每个任务或每次工具调用前机械重复加载。
 
-在同一对话过程中，模型会根据自身认知状态按需决定是否再次加载。当对话很长、发生上下文压缩、系统经历较大演进、进入重要阶段，或者模型已经无法从现有上下文建立可靠的完整系统认知时，模型应自主判断是读取局部证据、进行紧凑检查，还是重新加载完整 Overview。AOCI 可以提供刷新阈值、Checkpoint 和身份事实，但是否需要恢复系统级认知由模型结合当前任务判断。
+在同一对话过程中，除已知Host上下文压缩外，模型会根据自身认知状态按需决定是否再次加载。压缩handoff只能保留receipt身份、未完成write或Recovery状态，以及立即重载指令；不得保留或摘要Whole-Index，也不得保留或摘要Overview Header、Entry、Chunk、Challenge或Attestation正文。复制进handoff的索引语义或receipt不能证明当前模型认知可靠。
+
+已知发生压缩后，继续业务工作前，Agent在Rules已无法可靠保留时先重新读取Rules，再使用新的事件ID声明 `context_compaction`，并完成一次普通完整Overview的cursor、确认与Attestation序列。`check_only`和认知probe不能替代该流程。完成新的完整传输后，即使Attestation为partial或fail，也继续按既有规则执行source-bound任务，不再自动调用第二次Overview。对于没有已知压缩的语义变化或主要阶段边界，AOCI提供刷新阈值、Checkpoint和身份事实，由模型结合当前任务判断是否恢复系统级认知。
 
 每次完整 Overview 的正文都由起始标记、当前正式索引的精确内容和结束标记组成。
 
