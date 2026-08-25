@@ -27,6 +27,39 @@ const (
 	codeTargetReusePrefix = "#Target-Reuse: "
 )
 
+// CodeTargetIndexOutcome is the CLI-neutral result of finalizing the fixed
+// repository target. OutputJSON is the same compact contract returned by MCP.
+type CodeTargetIndexOutcome struct {
+	OutputJSON     string
+	Applied        bool
+	RepairRequired bool
+}
+
+// ApplyCodeTargetIndex finalizes aoci.code.target.txt without an MCP client.
+// It reuses the exact target binding and atomic Apply implementation below;
+// only the transport metrics are changed from one MCP call to one shell call.
+func ApplyCodeTargetIndex(root, serviceVersion string) (CodeTargetIndexOutcome, error) {
+	result := handleMCPApplyCodeTarget(root, serviceVersion, codeTargetIndexPath, nil)
+	if result == nil || result.IsError || len(result.Content) != 1 {
+		return CodeTargetIndexOutcome{}, fmt.Errorf("code_target_result_invalid")
+	}
+	content, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		return CodeTargetIndexOutcome{}, fmt.Errorf("code_target_result_invalid")
+	}
+	var parsed autoResult
+	if err := json.Unmarshal([]byte(content.Text), &parsed); err != nil {
+		return CodeTargetIndexOutcome{}, fmt.Errorf("code_target_result_invalid: %w", err)
+	}
+	parsed.Metrics.AOCIToolCalls = 0
+	parsed.Metrics.ShellAOCICalls = 1
+	return CodeTargetIndexOutcome{
+		OutputJSON:     renderAutoResult(parsed),
+		Applied:        parsed.Status == autoStatusApplied,
+		RepairRequired: parsed.Status == autoStatusRepairRequired,
+	}, nil
+}
+
 func handleMCPApplyCodeTarget(
 	root, mcpServiceVersion, targetPath string,
 	refreshSession *cognitionRefreshSession,

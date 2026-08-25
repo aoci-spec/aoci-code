@@ -92,7 +92,7 @@ func TestUpdateEntryCLIProductionOutputFollowsProjectLocale(t *testing.T) {
 
 	var jsonOutput, jsonError bytes.Buffer
 	code := executeCLI(
-		[]string{"--repo", root, "--json", "update-entry"},
+		[]string{"--repo", root, "--json", "update-entry", "--entry", entry},
 		&jsonOutput,
 		&jsonError,
 	)
@@ -100,6 +100,96 @@ func TestUpdateEntryCLIProductionOutputFollowsProjectLocale(t *testing.T) {
 		t.Fatalf("en-US JSON rejection mismatch: code=%d stdout=%s stderr=%s", code, jsonOutput.String(), jsonError.String())
 	}
 	assertNoHanCLIOutput(t, "en-US JSON", jsonOutput.String()+jsonError.String())
+}
+
+func TestUpdateEntryCLIDefaultFinalizesCodeTargetWithoutMCP(t *testing.T) {
+	root, _ := alignedVolumeCLIFixture(t, true, false)
+	formalPath := filepath.Join(root, "aoci.code.txt")
+	formalBefore, err := os.ReadFile(formalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := strings.Replace(
+		string(formalBefore),
+		"run the deterministic CLI fixture",
+		"run the finalized CLI target fixture",
+		1,
+	)
+	if target == string(formalBefore) {
+		t.Fatal("target fixture did not change the formal Entry")
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.target.txt"), []byte(target), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mainPath := filepath.Join(root, "main.go")
+	mainBefore, err := os.ReadFile(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mainPath, append(mainBefore, []byte("// finalized\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldRepo, oldJSON, oldQuiet := flagRepo, flagJSON, flagQuiet
+	flagRepo, flagJSON, flagQuiet = root, true, false
+	t.Cleanup(func() {
+		flagRepo, flagJSON, flagQuiet = oldRepo, oldJSON, oldQuiet
+	})
+	partial := newUpdateEntryCmd()
+	partial.SilenceUsage = true
+	partial.SilenceErrors = true
+	partial.SetArgs([]string{"--entry", ""})
+	var exitErr *ExitError
+	if err := partial.Execute(); !errors.As(err, &exitErr) || exitErr.Code != ExitConfig {
+		t.Fatalf("explicit empty single-Entry input must not enter target mode: %v", err)
+	}
+	if currentFormal, err := os.ReadFile(formalPath); err != nil || !bytes.Equal(currentFormal, formalBefore) {
+		t.Fatal("partial single-Entry input changed formal Code")
+	}
+	command := newUpdateEntryCmd()
+	command.SilenceUsage = true
+	command.SilenceErrors = true
+	var output bytes.Buffer
+	command.SetOut(&output)
+	if err := command.Execute(); err != nil {
+		t.Fatalf("default target finalization failed: %v\n%s", err, output.String())
+	}
+	var report struct {
+		Status  string `json:"status"`
+		Aligned bool   `json:"aligned"`
+		Metrics struct {
+			AOCIToolCalls  int `json:"aoci_tool_calls"`
+			ShellAOCICalls int `json:"shell_aoci_calls"`
+		} `json:"metrics"`
+	}
+	if err := json.Unmarshal(output.Bytes(), &report); err != nil {
+		t.Fatalf("default target output is not one JSON result: %v\n%s", err, output.String())
+	}
+	if report.Status != "applied" || !report.Aligned || report.Metrics.AOCIToolCalls != 0 || report.Metrics.ShellAOCICalls != 1 {
+		t.Fatalf("default target result mismatch: %+v", report)
+	}
+	formalAfter, err := os.ReadFile(formalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetAfter, err := os.ReadFile(filepath.Join(root, "aoci.code.target.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(formalAfter) != target || !bytes.Equal(targetAfter, formalAfter) {
+		t.Fatal("formal Code and consumed target were not synchronized")
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatal(err)
+	}
+	current, err := baseline.HashFile(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Files["main.go"].SHA256 != current.SHA256 {
+		t.Fatal("default target finalization did not bind the final source hash")
+	}
 }
 
 func TestUpdateEntryCLIChinesePreviewRemainsChinese(t *testing.T) {

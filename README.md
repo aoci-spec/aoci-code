@@ -568,7 +568,8 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci database source access` | Read-only check of whether a database credential reference has been provided by the external environment; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
 | `aoci cognition plan` | Read-only Bootstrap or Legacy migration planning and complete target Code Volume comparison |
-| `aoci cognition plan diff --target-index <file>` | Read-only comparison of formal Code with a complete non-authoritative target; final source-bound promotion is available only through `aoci_update_entry.target_index` |
+| `aoci cognition plan diff --target-index <file>` | Read-only comparison of formal Code with a complete non-authoritative target |
+| `aoci update-entry` | With no single-Entry arguments, finalize the fixed `aoci.code.target.txt` into formal Code without a model; explicit single-Entry arguments retain the existing source-bound mode |
 | `aoci cognition bootstrap` | Governs only an uninitialized repository or the exact zero-Entry Legacy minimal skeleton that an older `init` wrote; it never targets an initialized Volumes v1 repository — a Volumes skeleton with zero Entries is built through `aoci scan`, then Guide and no-argument `aoci_maintain` — and a mature Legacy project should use Migration |
 | `aoci cognition migration` | Governs Legacy migration snapshots, mapping, approval, application, recovery, or rollback |
 | `aoci cognition system lineage` | Derives the origin and binding chain of important cognition objects |
@@ -582,10 +583,11 @@ A mature Legacy index upgrades through `aoci cognition onboard start`, which
 preserves the existing model-authored mapping and human digest-approval
 boundary. Once Apply reaches an aligned Code-bearing Volumes v1 layout,
 `aoci_rules` can use `module_path` immediately; there is no additional module
-index format. Target Diff is not Apply; after implementation stabilizes, the
-exclusive `aoci_update_entry` `target_index=aoci.code.target.txt` mode lets Go
-bind final source hashes and apply one complete batch without another model
-authoring pass.
+index format. Target Diff is not Apply; after implementation stabilizes, run
+`aoci update-entry` directly to finalize the fixed `aoci.code.target.txt`.
+Agents can use the equivalent exclusive `aoci_update_entry`
+`target_index=aoci.code.target.txt` mode. Both routes bind final source hashes
+and apply one complete batch without another model-authoring pass.
 
 Common combinations:
 

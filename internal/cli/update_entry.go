@@ -1,8 +1,9 @@
-// aoci update-entry —— 人用单条回写命令(MCP aoci_update_entry 的 CLI 对等入口)
+// aoci update-entry —— 默认目标索引收尾或人用单条回写命令
 // 索引条目: update_entry.go[CUE7T]
 //
-// 与 MCP 共用 mcptools.ApplyUpdateEntry 同一条管线(校验→替换/插入→原子落盘→基线前移),
-// 写路径不依赖 MCP client 即可人测;ledger 记 source=human;--preview 只渲染 diff 不落盘。
+// 无单条输入时固定收尾 aoci.code.target.txt；与 MCP 复用同一目标绑定、整批 Apply
+// 和正式索引回写管线。显式单条模式继续复用原子落盘与 Baseline 管线；
+// ledger 记 source=human，--preview 只渲染 diff 不落盘。
 // 退出码按 Fail.Code 分流(审查修正,此前一律 3 与 root.go 契约不符):
 //
 //	index_invalid → 2(索引损坏);internal → 10(内部错);
@@ -66,6 +67,16 @@ func newUpdateEntryCmd() *cobra.Command {
 			root, err := config.FindRepoRoot(".", flagRepo)
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
+			}
+			singleEntryInput := false
+			for _, name := range []string{"path", "entry", "source-sha256", "stdin", "preview"} {
+				if cmd.Flags().Changed(name) {
+					singleEntryInput = true
+					break
+				}
+			}
+			if !singleEntryInput {
+				return runDefaultCodeTargetUpdate(cmd, root)
 			}
 			if path == "" {
 				return &ExitError{Code: ExitConfig, Msg: cliMessage("cli.update_entry.path_required")}
@@ -140,6 +151,26 @@ func newUpdateEntryCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&useStdin, "stdin", false, cliMessage("cli.flag.entry_stdin"))
 	cmd.Flags().BoolVar(&preview, "preview", false, cliMessage("cli.flag.entry_preview"))
 	return cmd
+}
+
+func runDefaultCodeTargetUpdate(cmd *cobra.Command, root string) error {
+	outcome, err := mcptools.ApplyCodeTargetIndex(root, version)
+	if err != nil {
+		return &ExitError{Code: ExitInternal, Err: err}
+	}
+	if !flagQuiet || !outcome.Applied {
+		if _, err := fmt.Fprint(cmd.OutOrStdout(), outcome.OutputJSON); err != nil {
+			return &ExitError{Code: ExitInternal, Err: err}
+		}
+	}
+	if outcome.Applied {
+		return nil
+	}
+	exitCode := ExitConfig
+	if outcome.RepairRequired {
+		exitCode = ExitInvalid
+	}
+	return &ExitError{Code: exitCode, Msg: ""}
 }
 
 var cliUpdateEntryMessageArguments = map[string][]any{

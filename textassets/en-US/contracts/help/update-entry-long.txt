@@ -1,3 +1,4 @@
-Write a complete single-line Entry for the specified file: replace the entire existing Entry, or insert it into the matching directory section.
+With no single-Entry arguments, read the fixed repository-root aoci.code.target.txt, bind final source hashes, and update formal Code through the shared atomic batch. Success synchronizes target from formal Code without calling a model.
+With --path, enter single-Entry mode: replace the entire existing Entry for the specified file, or insert it into the matching directory section.
 The Entry is validated by the shared local and Impact validator. With --json, repairable Preview or Apply rejection returns repair_required plus the same structured Finding used by MCP; repair only retry_scope and keep other candidates unchanged.
 A formal write must use --source-sha256 to bind the source fingerprint returned by aoci_maintain. The implementation reuses the atomic batch, Baseline-integrity, and replay safeguards.

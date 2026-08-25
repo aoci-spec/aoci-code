@@ -39,6 +39,22 @@ its contract explicitly says otherwise, but local audit evidence can still be
 written when enabled. Formal writes use the existing validation, lock, CAS,
 atomic-write, and recovery pipeline.
 
+Default Code target finalization
+--------------------------------
+
+`aoci update-entry` with no single-Entry inputs fixes its input to the
+repository-root `aoci.code.target.txt`. It recomputes current Code debt, binds
+the target Entries to final source hashes, uses the existing one-batch
+validation/CAS/Baseline/Recovery pipeline, and on success synchronizes the
+target from formal Code. The command does not invoke a model. It emits one
+structured result; repair-required target content exits 2, a stopped machine or
+governance precondition exits 3, and an internal transport failure exits 10.
+
+Supplying any single-Entry input keeps the existing explicit `--path`,
+`--entry` or `--stdin`, `--source-sha256`, and optional `--preview` behavior.
+Partial single-Entry input fails before formal writes and never falls through
+to default target finalization.
+
 Compatibility
 -------------
 
