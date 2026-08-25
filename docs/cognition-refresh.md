@@ -133,8 +133,11 @@ partial or failed Attestation records an uncertain receipt and disables a
 full-system claim, but it does not automatically request another Overview in
 the same generation. Repeated
 ordinary calls still return the complete requested scope; repeated check_only
-calls stay compact. The server keeps only small session state and never caches
-the complete index text.
+calls stay compact. The server keeps small session state and may also retain one
+bounded immutable body and Chunk plan for the latest same-process Volumes
+middle-Chunk continuation. This ephemeral transport cache is not a receipt,
+reliability state, or governance verdict; first, final, and proof calls remain
+strict, and process loss simply falls back to normal reconstruction.
 
 For the legacy host assessment, `model_cognition_state=invalid` implies
 context compaction only when it accompanies a previously reliable complete

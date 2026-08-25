@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -405,6 +406,90 @@ func TestOverviewCursorOnlyFastPathRouting(t *testing.T) {
 				t.Fatalf("overviewCursorOnly()=%t want %t", got, test.want)
 			}
 		})
+	}
+}
+
+func TestFrozenOverviewContinuationBoundariesAndConcurrentReplacement(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	_, governance, fail := inspectVolumeGovernance(root, loaded, true)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+
+	identity := strings.Repeat("a", 64)
+	body := "abcdef"
+	spans := []overviewChunkSpan{
+		{Start: 0, End: 2, FirstOrdinal: 1, LastOrdinal: 1},
+		{Start: 2, End: 4, FirstOrdinal: 2, LastOrdinal: 2},
+		{Start: 4, End: 6, FirstOrdinal: 3, LastOrdinal: 3},
+	}
+	plan := &overviewFrozenChunkPlan{
+		Context:     overviewRenderContext{LayoutMode: string(cognition.LayoutVolumesV1), ScopeIdentity: identity},
+		Body:        framedOverviewBody{Text: body},
+		Spans:       spans,
+		ChunkTokens: 4000,
+	}
+	digest := func(span overviewChunkSpan) string {
+		sum := sha256.Sum256([]byte(body[span.Start:span.End]))
+		return fmt.Sprintf("%x", sum)
+	}
+	middleCursor := encodeOverviewCursor(identity, plan.ChunkTokens, 2, digest(spans[0]))
+	finalCursor := encodeOverviewCursor(identity, plan.ChunkTokens, 3, digest(spans[1]))
+
+	session := newCognitionRefreshSession()
+	legacy := *plan
+	legacy.Context.LayoutMode = string(cognition.LayoutLegacyMonolithic)
+	session.mu.Lock()
+	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, &legacy, governance)
+	session.mu.Unlock()
+	if _, hit, err := session.frozenMiddleOverview(middleCursor); err != nil || hit {
+		t.Fatalf("Legacy plan entered the frozen fast path: hit=%t err=%v", hit, err)
+	}
+
+	session.mu.Lock()
+	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance)
+	session.mu.Unlock()
+	if _, hit, err := session.frozenMiddleOverview(middleCursor); err != nil || !hit {
+		t.Fatalf("middle cursor missed the frozen fast path: hit=%t err=%v", hit, err)
+	}
+	if _, hit, err := session.frozenMiddleOverview(finalCursor); err != nil || hit {
+		t.Fatalf("final cursor entered the frozen fast path: hit=%t err=%v", hit, err)
+	}
+
+	const iterations = 1000
+	start := make(chan struct{})
+	errors := make(chan error, 1)
+	var group sync.WaitGroup
+	group.Add(2)
+	go func() {
+		defer group.Done()
+		<-start
+		for range iterations {
+			session.mu.Lock()
+			session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance)
+			session.mu.Unlock()
+		}
+	}()
+	go func() {
+		defer group.Done()
+		<-start
+		for range iterations {
+			frozen, hit, err := session.frozenMiddleOverview(middleCursor)
+			if err != nil || !hit || frozen.plan.Body.Text != body || len(frozen.plan.Spans) != len(spans) {
+				errors <- fmt.Errorf("incomplete concurrent hit: hit=%t err=%v", hit, err)
+				return
+			}
+		}
+	}()
+	close(start)
+	group.Wait()
+	close(errors)
+	for err := range errors {
+		t.Fatal(err)
 	}
 }
 

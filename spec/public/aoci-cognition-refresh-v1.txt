@@ -171,13 +171,17 @@ The existing cognition receipt adds optional fields:
 - pending_refresh_reasons.
 
 The original required fields are unchanged. During one MCP stdio session the
-server retains only receipt identity, pending reasons, bounded event IDs, and a
-generation number. It never retains the complete index body. One complete,
-Host-confirmed, aligned Attestation attempt consumes the merged event and
-starts the next counting cycle. Pass records a reliable receipt; partial or
-fail records an uncertain receipt and the existing source-bound delivery
-guidance. Dirty delivery and a compatibility fallback that omits the full body
-do not consume the event or establish a reliable complete-cognition receipt.
+server retains receipt identity, pending reasons, bounded event IDs, and a
+generation number. It may also retain one bounded immutable complete body and
+Chunk plan for the latest same-process Volumes middle-Chunk continuation. That
+ephemeral transport cache is not a receipt, reliability state, or governance
+verdict; process loss falls back to normal reconstruction, and first, final,
+and proof calls remain strict. One complete, Host-confirmed, aligned
+Attestation attempt consumes the merged event and starts the next counting
+cycle. Pass records a reliable receipt; partial or fail records an uncertain
+receipt and the existing source-bound delivery guidance. Dirty delivery and a
+compatibility fallback that omits the full body do not consume the event or
+establish a reliable complete-cognition receipt.
 
 8. Compatibility and evidence
 

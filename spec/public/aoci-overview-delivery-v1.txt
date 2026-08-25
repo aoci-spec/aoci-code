@@ -129,8 +129,24 @@ Before returning, it confirms exact formal bytes and performs a lightweight
 identity recheck over the governed source set and fingerprints, exact Baseline,
 effective governance configuration, Database cognition/Evidence, and pending
 transaction/Recovery inputs used by the assessment. The recheck can only reject
-drift; it does not recalculate or assert an alignment verdict. It is not cached
-across requests.
+drift; it does not recalculate or assert an alignment verdict. The recheck runs
+on every eligible request; its result and verdict are not cached.
+
+After a first Volumes Chunk passes formal and governance confirmation, the
+server may publish one bounded immutable same-process frozen plan containing
+that exact complete body, Chunk spans, Challenge and delivery context, and the
+opaque governance Observation. The plan carries no alignment verdict. Only a
+pure cursor-only, non-final middle Chunk for the latest plan may use this fast
+path. A hit reloads configuration and the formal CognitionSet, validates the
+complete CompositeIdentity, scope, cursor, Chunk budget, and previous Chunk
+SHA-256, and runs the lightweight Observation confirmation over source,
+Baseline, configuration, Database cognition/Evidence, transaction, and
+Recovery inputs. It skips only rerunning the complete governance assessment.
+
+A cache miss, process loss, Legacy request, first or final Chunk, Host delivery
+confirmation, model Attestation, check, probe, refresh declaration, or other
+control input uses the strict path. The frozen plan changes no cursor, Chunk,
+BODY_END, Host confirmation, Attestation, receipt, or response-shape contract.
 
 The governance assessment observed for the first body or Chunk is bound in the
 current MCP Host session to that exact scope identity and framed-body SHA-256.
