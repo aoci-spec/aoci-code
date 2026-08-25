@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
@@ -552,9 +553,29 @@ func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, 
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
 	}
-	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, activeBaseline)
+	guardBaseline := activeBaseline
+	indexPath := intent.Preview.IndexPostimage.Path
+	if current, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(indexPath))); hashErr == nil && current.SHA256 == intent.Preview.IndexPostimage.PostimageSHA256 {
+		projected := *activeBaseline
+		projected.Files = cloneFingerprints(activeBaseline.Files)
+		current.Role = machinecontract.ScopeRoleIndex
+		projected.Files[indexPath] = current
+		guardBaseline = &projected
+	}
+	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, guardBaseline)
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
+	}
+	formalAssetGuards, _ := formalCognitionLiveGuards(set)
+	for path := range formalAssetGuards {
+		delete(currentSnapshot, path)
+	}
+	for path, fingerprint := range formalAssetGuards {
+		currentSnapshot[path] = fingerprint
 	}
 	for path, fingerprint := range formalVolumeGuards {
 		currentSnapshot[path] = fingerprint
@@ -580,12 +601,12 @@ func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, 
 		expected = cloneFingerprints(intent.Preview.Baseline.Files)
 	}
 	// Source validation runs immediately before Baseline publication and again
-	// after internal Apply verification. The transaction's own Root postimage is
-	// therefore authoritative here; every other source remains Plan-preimage-bound.
-	if _, guarded := expected[cfg.IndexPath]; guarded {
-		fingerprint := baseline.HashBytes(cfg.IndexPath, intent.Preview.IndexPostimage.PostimageBytes)
+	// after internal Apply verification. The transaction's own Index postimage
+	// is therefore authoritative here; every other source remains Plan-preimage-bound.
+	if _, guarded := expected[indexPath]; guarded {
+		fingerprint := baseline.HashBytes(indexPath, intent.Preview.IndexPostimage.PostimageBytes)
 		fingerprint.Role = machinecontract.ScopeRoleIndex
-		expected[cfg.IndexPath] = fingerprint
+		expected[indexPath] = fingerprint
 	}
 	if !equalFingerprints(currentSnapshot, expected) {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
@@ -619,7 +640,7 @@ func internalVerify(root string, intent *RecoveryIntent) error {
 	if err != nil {
 		return err
 	}
-	indexBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
+	indexBytes, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(intent.Preview.IndexPostimage.Path)))
 	if err != nil || digestBytes(indexBytes) != intent.Preview.IndexPostimage.PostimageSHA256 {
 		return fmt.Errorf("index_postimage_invalid")
 	}

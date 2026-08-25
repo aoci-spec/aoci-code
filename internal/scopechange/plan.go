@@ -131,28 +131,85 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		desiredSnapshot[path] = fingerprint
 		sourceGuard[path] = fingerprint
 	}
-	indexPath := filepath.Join(root, filepath.FromSlash(cfg.IndexPath))
-	indexBytes, err := os.ReadFile(indexPath)
+	rootIndexPath := filepath.Join(root, filepath.FromSlash(cfg.IndexPath))
+	rootIndexBytes, err := os.ReadFile(rootIndexPath)
 	if err != nil {
 		return nil, fmt.Errorf("managed_scope_index_preimage_unavailable")
 	}
-	document, warnings := index.Parse(string(indexBytes))
-	index.ResolveRelPaths(document, root)
-	if len(warnings) != 0 {
-		return nil, fmt.Errorf("managed_scope_index_parse_warnings")
+	layout, err := cognition.DetectLayout(rootIndexBytes)
+	if err != nil {
+		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
+	}
+	indexAssetPath := cfg.IndexPath
+	indexBytes := rootIndexBytes
+	var document *index.Document
+	var cognitionSet *cognition.Set
+	formalAssetGuards := map[string]baseline.Fingerprint{}
+	formalAssetOrder := []string{}
+	if layout == cognition.LayoutVolumesV1 {
+		set, loadErr := cognition.Load(root, cfg.IndexPath)
+		if loadErr != nil {
+			return nil, fmt.Errorf("managed_scope_index_layout_invalid")
+		}
+		code := set.Volumes[cognition.ScopeCode]
+		if code == nil || code.State != cognition.AssetPresent || code.Document == nil {
+			return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
+		}
+		indexAssetPath = code.Descriptor.Path
+		indexBytes = code.Raw
+		document = code.Document
+		cognitionSet = set
+		formalAssetGuards, formalAssetOrder = formalCognitionLiveGuards(set)
+		// Formal assets may be visible to Safe Inventory, but Scope owns only
+		// business-source roles. Keep every live formal byte as a source guard
+		// and carry forward only fingerprints already enrolled by their own
+		// lifecycle transaction.
+		for path := range formalAssetGuards {
+			delete(desiredSnapshot, path)
+			delete(sourceGuard, path)
+		}
+		for path, fingerprint := range formalVolumeGuards {
+			desiredSnapshot[path] = fingerprint
+		}
+		for path, fingerprint := range formalAssetGuards {
+			sourceGuard[path] = fingerprint
+		}
+		for path, fingerprint := range formalVolumeGuards {
+			sourceGuard[path] = fingerprint
+		}
+	} else {
+		var warnings []index.Warning
+		document, warnings = index.Parse(string(indexBytes))
+		index.ResolveRelPaths(document, root)
+		if len(warnings) != 0 {
+			return nil, fmt.Errorf("managed_scope_index_parse_warnings")
+		}
+	}
+	if layout == cognition.LayoutVolumesV1 {
+		if _, baselined := formalVolumeGuards[indexAssetPath]; !baselined {
+			return nil, fmt.Errorf("managed_scope_code_volume_unbaselined")
+		}
+		if candidates.Header != nil {
+			return nil, fmt.Errorf("managed_scope_header_candidate_unsupported_for_volumes")
+		}
+		for _, disposition := range candidates.Dispositions {
+			if disposition.Disposition == DispositionTransferHeader {
+				return nil, fmt.Errorf("managed_scope_header_disposition_unsupported_for_volumes")
+			}
+		}
 	}
 	entries, err := entriesByPath(document)
 	if err != nil {
 		return nil, err
 	}
 	desiredRoles := evaluationRoles(evaluation)
-	for path := range formalVolumeGuards {
+	for path := range formalAssetGuards {
 		delete(desiredRoles, path)
 	}
 	if err := validateSourcesPresent(root, oldBaseline, desiredRoles); err != nil {
 		return nil, err
 	}
-	oldRoles := baselineRolesExcept(oldBaseline, formalVolumeGuards)
+	oldRoles := baselineRolesExcept(oldBaseline, formalAssetGuards)
 	if policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
 		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, activePolicyIdentity(oldBaseline) == policyIdentity)
 		if len(changes) != 0 {
@@ -169,10 +226,18 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		// and new authoring targets remain bound to their previous Baseline state
 		// so the ordinary Entry maintenance path must still resolve them.
 		desiredSnapshot, desiredRoles = observeOnlyProjection(oldBaseline, desiredSnapshot, desiredRoles)
-		for path := range formalVolumeGuards {
+		for path := range formalAssetGuards {
 			delete(desiredRoles, path)
 		}
+		for path, fingerprint := range formalVolumeGuards {
+			desiredSnapshot[path] = fingerprint
+		}
 	}
+	guardSet := append([]string{}, formalAssetOrder...)
+	if len(guardSet) == 0 {
+		guardSet = append(guardSet, cfg.IndexPath)
+	}
+	guardSet = append(guardSet, ".aoci/config.json", ".aoci/baseline.json", ".aoci/curation.json", "safe_inventory", "source_sha256")
 	plan := Plan{Version: machinecontract.ManagedScopeChangePlanV2,
 		RepositoryRootIdentity: repositoryIdentity(root), OldPolicyIdentity: activePolicyIdentity(oldBaseline),
 		NewPolicyIdentity: policyIdentity, OldBudgetPolicyIdentity: activeBudgetIdentity(oldBaseline),
@@ -184,8 +249,8 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		RetentionReview: []EntryDisposition{}, BaselineAdded: []ScopeObject{}, BaselineRemoved: []ScopeObject{},
 		ObserveFingerprintAdded: []ScopeObject{}, ObserveFingerprintRemoved: []ScopeObject{},
 		AuthorizationPolicy: authorizationPolicy, AuthorizationPolicyIdentity: authorizationPolicyIdentity,
-		WriteSet:          []string{cfg.IndexPath, ".aoci/config.json", ".aoci/baseline.json", ".aoci/ledger.jsonl"},
-		GuardSet:          []string{cfg.IndexPath, ".aoci/config.json", ".aoci/baseline.json", ".aoci/curation.json", "safe_inventory", "source_sha256"},
+		WriteSet:          []string{indexAssetPath, ".aoci/config.json", ".aoci/baseline.json", ".aoci/ledger.jsonl"},
+		GuardSet:          guardSet,
 		RecoveryDirection: "preimage_or_partial_to_complete_postimage_or_exact_rollback", PreparedAt: preparedAt,
 		NetworkAccessed: false}
 	if curationExists && !bytes.Equal(curationBytes, curationPostBytes) {
@@ -244,10 +309,6 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, err
 	}
 	projected := string(indexBytes)
-	layout, layoutErr := cognition.DetectLayout(indexBytes)
-	if layoutErr != nil {
-		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
-	}
 	for _, rel := range sortedFingerprintPaths(desiredSnapshot) {
 		fingerprint := desiredSnapshot[rel]
 		if desiredRoles[rel] != machinecontract.ScopeRoleIndex {
@@ -355,6 +416,11 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		}
 	}
 	projectedBytes := []byte(projected)
+	if cognitionSet != nil {
+		if findings := cognition.ValidateProjectedCodeVolume(cognitionSet, projectedBytes); len(findings) != 0 {
+			return nil, fmt.Errorf("managed_scope_code_volume_candidate_invalid: %s", findings[0].Code)
+		}
+	}
 	beforeReport, err := cognitionbudget.Build(root, indexBytes, budgetPolicy)
 	if err != nil {
 		return nil, err
@@ -386,10 +452,10 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			ApplyAuthorizationMode: authorizationPolicy.EffectiveMode,
 			HighRiskApprovalDigest: highRiskApprovalDigest},
 		DatabaseCognition: cloneDatabaseBindings(oldBaseline.DatabaseCognition)}
-	if _, indexed := postBaseline.Files[cfg.IndexPath]; indexed {
-		fingerprint := baseline.HashBytes(cfg.IndexPath, projectedBytes)
+	if _, indexed := postBaseline.Files[indexAssetPath]; indexed {
+		fingerprint := baseline.HashBytes(indexAssetPath, projectedBytes)
 		fingerprint.Role = machinecontract.ScopeRoleIndex
-		postBaseline.Files[cfg.IndexPath] = fingerprint
+		postBaseline.Files[indexAssetPath] = fingerprint
 	}
 	baselinePostBytes, err := baseline.MarshalExact(&postBaseline)
 	if err != nil {
@@ -425,7 +491,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	}
 	preview := &Preview{Version: machinecontract.ManagedScopeChangePreviewV2,
 		EnvelopeVersion: machinecontract.ManagedScopeChangeEnvelopeV2, Plan: plan, CandidateSet: candidates,
-		Evaluation: *evaluation, SourceGuard: sourceGuard, IndexPostimage: formalImage(cfg.IndexPath, indexBytes, projectedBytes),
+		Evaluation: *evaluation, SourceGuard: sourceGuard, IndexPostimage: formalImage(indexAssetPath, indexBytes, projectedBytes),
 		ConfigPostimage:   formalImage(".aoci/config.json", configBytes, configBytes),
 		BaselinePostimage: formalImage(".aoci/baseline.json", baselineBytes, baselinePostBytes), Baseline: postBaseline,
 		CurationExclusions: append([]string{}, curationExclude...), NetworkAccessed: false}
@@ -592,6 +658,29 @@ func baselineRolesExcept(value *baseline.Baseline, excluded map[string]baseline.
 		delete(result, path)
 	}
 	return result
+}
+
+func formalCognitionLiveGuards(set *cognition.Set) (map[string]baseline.Fingerprint, []string) {
+	result := map[string]baseline.Fingerprint{}
+	order := []string{}
+	if set == nil || set.LayoutMode != cognition.LayoutVolumesV1 || set.Root.State != cognition.AssetPresent {
+		return result, order
+	}
+	add := func(asset *cognition.Asset) {
+		if asset == nil || asset.State != cognition.AssetPresent {
+			return
+		}
+		path := asset.Descriptor.Path
+		fingerprint := baseline.HashBytes(path, asset.Raw)
+		fingerprint.Role = machinecontract.ScopeRoleIndex
+		result[path] = fingerprint
+		order = append(order, path)
+	}
+	add(&set.Root)
+	for _, id := range set.DeclaredOrder {
+		add(set.Volumes[id])
+	}
+	return result, order
 }
 
 // FormalCognitionBaselineGuards returns only formal Cognition fingerprints that

@@ -498,10 +498,12 @@ Apply or Recovery.
 
 Managed Scope and formal Volume fingerprints continue sharing the compatible
 Baseline v1 `files` map, but their write ownership is disjoint. Scope Change
-preserves already enrolled formal Volume fingerprints and guards their live
-bytes; it cannot enroll or rebaseline a formal Volume. This prevents a
-single-domain Scope update from producing `code_volume_unbaselined` or
-`database_volume_unbaselined` for unchanged formal assets.
+may advance only the already enrolled Code fingerprint for the exact Code
+postimage bound by its envelope. Root, Meta, and every other formal Volume stay
+exact byte guards, and Scope Change cannot enroll an unbaselined formal asset.
+This prevents a single-domain Scope update from producing
+`code_volume_unbaselined` or `database_volume_unbaselined` for unchanged
+formal assets.
 
 ## R74 prospective Code target Diff
 

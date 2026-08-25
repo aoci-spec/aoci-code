@@ -178,6 +178,9 @@ func TestScopeStatusUsesCodeVolumeAndExcludesFormalVolumeDrift(t *testing.T) {
 		len(status.Drift.Orphan) != 0 || len(status.Drift.Stale) != 0 || len(status.Drift.Unbaselined) != 0 {
 		t.Fatalf("formal Volumes were misclassified as Code source drift: %+v", status)
 	}
+	if status.Budget == nil || status.Budget.EntryCount != 1 {
+		t.Fatalf("Volumes Scope status measured the Root instead of the Code Volume: %+v", status.Budget)
+	}
 	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), []byte(cognition.CodeVolumeMarker+"\n# unrelated drift\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

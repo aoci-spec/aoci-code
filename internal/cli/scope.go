@@ -849,8 +849,25 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		status.Stage = "scope_change_required"
 	}
 	raw, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
+	var loadedSet *cognition.Set
 	if readErr == nil {
-		status.Budget, err = cognitionbudget.Build(root, raw, cfg.EffectiveCognitionBudget())
+		budgetBytes := raw
+		layout, layoutErr := cognition.DetectLayout(raw)
+		if layoutErr != nil {
+			return nil, layoutErr
+		}
+		if layout == cognition.LayoutVolumesV1 {
+			loadedSet, err = cognition.Load(root, cfg.IndexPath)
+			if err != nil {
+				return nil, err
+			}
+			code := loadedSet.Volumes[cognition.ScopeCode]
+			if code == nil || code.State != cognition.AssetPresent || code.Document == nil {
+				return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
+			}
+			budgetBytes = code.Raw
+		}
+		status.Budget, err = cognitionbudget.Build(root, budgetBytes, cfg.EffectiveCognitionBudget())
 		if err != nil {
 			return nil, err
 		}
@@ -866,17 +883,11 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 	document, _ := index.Parse(string(raw))
 	index.ResolveRelPaths(document, root)
 	driftBaseline := currentBaseline
-	if layout, layoutErr := cognition.DetectLayout(raw); layoutErr != nil {
-		return nil, layoutErr
-	} else if layout == cognition.LayoutVolumesV1 {
-		set, loadErr := cognition.Load(root, cfg.IndexPath)
-		if loadErr != nil {
-			return nil, loadErr
-		}
+	if loadedSet != nil {
 		if _, guardErr := scopechange.FormalCognitionBaselineGuards(root, cfg.IndexPath, currentBaseline); guardErr != nil {
 			return nil, guardErr
 		}
-		code := set.Volumes[cognition.ScopeCode]
+		code := loadedSet.Volumes[cognition.ScopeCode]
 		if code == nil || code.State != cognition.AssetPresent || code.Document == nil {
 			return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
 		}
@@ -891,8 +902,8 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 			filteredBaseline.Files[path] = fingerprint
 		}
 		formalPaths := map[string]bool{cfg.IndexPath: true}
-		for _, id := range set.DeclaredOrder {
-			if asset := set.Volumes[id]; asset != nil {
+		for _, id := range loadedSet.DeclaredOrder {
+			if asset := loadedSet.Volumes[id]; asset != nil {
 				formalPaths[asset.Descriptor.Path] = true
 			}
 		}

@@ -264,9 +264,12 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 		reasons = append(reasons, "recovery_unavailable")
 	}
 	allowedWrites := map[string]bool{
-		cfg.IndexPath: true, ".aoci/config.json": true, ".aoci/curation.json": true,
+		".aoci/config.json": true, ".aoci/curation.json": true,
 		".aoci/baseline.json": true, ".aoci/ledger.jsonl": true,
 	}
+	// Build binds this to cfg.IndexPath for Legacy or to the Root-declared Code
+	// Volume for Volumes. Apply rebuilds the complete Preview before any write.
+	allowedWrites[preview.IndexPostimage.Path] = true
 	for _, path := range preview.Plan.WriteSet {
 		if !allowedWrites[path] {
 			reasons = append(reasons, "business_source_write_set")

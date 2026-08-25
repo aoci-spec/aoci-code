@@ -2,6 +2,7 @@ package scopechange
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
@@ -111,6 +113,130 @@ func TestOrdinaryScopeChangeReconcilesOnlyProvenLegacyDatabaseBootstrapRoot(t *t
 	after, exists, err := baseline.Load(root)
 	if err != nil || !exists || after.Files["aoci.txt"].SHA256 != currentRoot.SHA256 {
 		t.Fatalf("Scope Change did not advance only the Root Baseline binding: exists=%t baseline=%#v err=%v", exists, after, err)
+	}
+}
+
+func TestVolumesScopeChangeUpdatesCodeVolumeWithoutRewritingRoot(t *testing.T) {
+	root, _ := buildLegacyDatabaseBootstrapScopeFixture(t)
+	rootBefore := mustReadChangeFixture(t, filepath.Join(root, "aoci.txt"))
+	currentEntry := "main.go[CD7T]: F:run the deterministic fixture | R:- | A:main | S:Execution remains deterministic"
+	newEntry := "main.go[CD7T]: F:run the updated deterministic fixture | R:- | A:main | S:Execution remains deterministic after the source change"
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
+		policy.Rules = append(policy.Rules, managedscope.Rule{RuleID: "volumes-code-candidate", Action: machinecontract.ScopeRoleIndex,
+			Pattern: "main.go", PatternKind: machinecontract.ScopePatternFile, Reason: "test-only Volumes candidate",
+			Source: machinecontract.ScopeRuleUser, CreatedBy: "scope-test", Order: 100, Enabled: true})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	source, err := baseline.HashFile(filepath.Join(root, "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidates := CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1, Entries: []EntryCandidate{{
+		CandidateID: "volumes-code-entry", Path: "main.go", SourceSHA256: source.SHA256,
+		CurrentEntrySHA256: entrySHA(currentEntry), NewEntry: newEntry, ReviewStatus: ReviewStatusReviewed,
+	}}, Dispositions: []EntryDisposition{}}
+	preview, err := Build(root, "2026-08-12T00:00:30Z", candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.IndexPostimage.Path != "aoci.code.txt" || !bytes.Contains(preview.IndexPostimage.PostimageBytes, []byte(newEntry)) {
+		t.Fatalf("Volumes candidate did not target the Code Volume: path=%q", preview.IndexPostimage.Path)
+	}
+	if bytes.Contains(preview.IndexPostimage.PostimageBytes, rootBefore) {
+		t.Fatal("Volumes candidate projected the Root as the Entry postimage")
+	}
+	guards := map[string]bool{}
+	for _, path := range preview.Plan.GuardSet {
+		guards[path] = true
+	}
+	for _, path := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", "aoci.database.txt"} {
+		if !guards[path] {
+			t.Fatalf("Volumes Scope Change omitted formal guard %q: %v", path, preview.Plan.GuardSet)
+		}
+	}
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tampered := *preview
+	tampered.Plan = preview.Plan
+	tampered.Plan.WriteSet = append(append([]string{}, preview.Plan.WriteSet...), "aoci.txt")
+	if reasons := strings.Join(autoAuthorizationBlockers(&tampered, cfg), ","); !strings.Contains(reasons, "business_source_write_set") {
+		t.Fatalf("Volumes auto authorization allowed a Root write: %s", reasons)
+	}
+	originalFault := transactionFault
+	failed := false
+	transactionFault = func(point string) error {
+		if point == "after_publish_aoci_code_txt" && !failed {
+			failed = true
+			return errors.New("injected Code-before-Baseline interruption")
+		}
+		return nil
+	}
+	t.Cleanup(func() { transactionFault = originalFault })
+	if result, applyErr := Apply(root, preview, nil); applyErr == nil || result != nil {
+		t.Fatalf("Volumes Scope Change did not stop after Code publication: result=%#v err=%v", result, applyErr)
+	}
+	transactionFault = func(string) error { return nil }
+	result, err := Resume(root, preview.EnvelopeDigest[:24])
+	if err != nil || result.Status != "applied" {
+		t.Fatalf("Volumes Scope Change did not resume after Code publication: result=%#v err=%v", result, err)
+	}
+	if rootAfter := mustReadChangeFixture(t, filepath.Join(root, "aoci.txt")); !bytes.Equal(rootBefore, rootAfter) {
+		t.Fatal("Volumes Scope Change rewrote the Root")
+	}
+	codeAfter := mustReadChangeFixture(t, filepath.Join(root, "aoci.code.txt"))
+	if !bytes.Contains(codeAfter, []byte(newEntry)) || bytes.Contains(codeAfter, []byte(currentEntry)) {
+		t.Fatal("Volumes Scope Change did not publish the Code Entry replacement")
+	}
+	value, exists, err := baseline.Load(root)
+	if err != nil || !exists || value.Files["main.go"].SHA256 != source.SHA256 ||
+		value.Files["aoci.code.txt"].SHA256 != baseline.HashBytes("aoci.code.txt", codeAfter).SHA256 {
+		t.Fatalf("Volumes Scope Change did not bind source and Code postimages: exists=%t baseline=%#v err=%v", exists, value, err)
+	}
+}
+
+func TestVolumesScopeChangeRejectsHeaderCandidate(t *testing.T) {
+	root, _ := buildLegacyDatabaseBootstrapScopeFixture(t)
+	if err := config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
+		policy.Rules = append(policy.Rules, managedscope.Rule{RuleID: "volumes-header-candidate", Action: machinecontract.ScopeRoleExclude,
+			Pattern: "future-never-present.txt", PatternKind: machinecontract.ScopePatternFile, Reason: "test-only policy change",
+			Source: machinecontract.ScopeRuleUser, CreatedBy: "scope-test", Order: 100, Enabled: true})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	code := mustReadChangeFixture(t, filepath.Join(root, "aoci.code.txt"))
+	header, _ := index.ExtractHeader(string(code))
+	_, err := Build(root, "2026-08-12T00:00:31Z", CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []EntryCandidate{}, Dispositions: []EntryDisposition{}, Header: &HeaderCandidate{
+			CandidateID: "volumes-header", CurrentHeaderSHA256: digestBytes([]byte(header)),
+			NewHeader: header + "\n#Unexpected: header", ReviewStatus: ReviewStatusReviewed,
+		}})
+	if err == nil || err.Error() != "managed_scope_header_candidate_unsupported_for_volumes" {
+		t.Fatalf("Volumes Header candidate was not rejected exactly: %v", err)
+	}
+}
+
+func TestVolumesScopeChangeRejectsUnbaselinedCodeVolume(t *testing.T) {
+	root, _ := buildLegacyDatabaseBootstrapScopeFixture(t)
+	value, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	delete(value.Files, "aoci.code.txt")
+	if err := baseline.Save(root, value); err != nil {
+		t.Fatal(err)
+	}
+	_, err = Build(root, "2026-08-12T00:00:32Z", CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []EntryCandidate{}, Dispositions: []EntryDisposition{}})
+	if err == nil || err.Error() != "managed_scope_code_volume_unbaselined" {
+		t.Fatalf("unbaselined Code Volume was not rejected exactly: %v", err)
 	}
 }
 

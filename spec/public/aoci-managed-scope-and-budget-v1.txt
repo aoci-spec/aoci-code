@@ -152,10 +152,13 @@ the opposite case semantics is accepted only when the machine proves, path by
 path, that both semantics assign identical roles and fingerprint
 participation; any real divergence keeps scope_change_required. The envelope source guard
 binds the live managed-source snapshot at Plan time, separately from the
-projected Baseline; Apply accepts only its own bound Root postimage and rejects
-any other post-Plan source drift. Apply advances aoci.txt,
-an optional reviewed Curation postimage, Baseline roles/fingerprints, and audit
-state as one formal transaction. Baseline is last. A
+projected Baseline. In Legacy layout the Entry postimage is the configured
+index_path. In Volumes layout it is the Root-declared Code Volume; Root, Meta,
+and every other formal Volume remain exact guards. Apply accepts only that
+bound postimage and rejects any other post-Plan source or formal-asset drift.
+It advances the selected Entry postimage, an optional reviewed Curation
+postimage, Baseline roles/fingerprints, and audit state as one formal
+transaction. Baseline is last. A
 partial transaction is resumed or rolled back from immutable pre/postimages;
 repeated Apply is idempotent. Third-party changes fail closed.
 
