@@ -4,8 +4,13 @@
 package volumegovernance
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,6 +37,24 @@ const (
 	ResultEvidenceRequired  = "evidence_required"
 	ResultBlocked           = "blocked"
 )
+
+// ErrObservationChanged means a governance input moved while a caller was
+// preparing or confirming one read-only result. Callers must discard that
+// result and retry from a fresh snapshot.
+var ErrObservationChanged = errors.New("volumes_governance_observation_changed")
+
+// Observation is an opaque, process-local identity of the exact governance
+// inputs used by one AssessWithObservation call. It is deliberately not a
+// governance verdict and cannot establish alignment by itself.
+type Observation struct {
+	identity string
+}
+
+// Identity returns the comparison token for binding two strict Overview calls
+// to the same observed inputs. The token carries no verdict or source data.
+func (observation Observation) Identity() string {
+	return observation.identity
+}
 
 type AssetState struct {
 	Enabled     bool   `json:"enabled"`
@@ -191,8 +214,50 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 // governance authorities. The result is deterministic for the same formal
 // bytes, Baseline, configuration, Curation, and saved Database Evidence.
 func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error) {
+	facts, _, err := assess(root, cfg, set)
+	return facts, err
+}
+
+// AssessWithObservation performs the same complete governance assessment as
+// Assess and returns an opaque identity of the inputs that produced it. Static
+// authorities are captured before evaluation; the caller's mandatory trailing
+// ConfirmObservation detects any change that survives the evaluation/render
+// window without repeating the semantic assessment.
+func AssessWithObservation(root string, cfg *config.Config, set *cognition.Set) (*Facts, Observation, error) {
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
-		return nil, fmt.Errorf("volumes_governance_input_invalid")
+		return nil, Observation{}, fmt.Errorf("volumes_governance_input_invalid")
+	}
+	before := staticGovernanceIdentity(root, cfg, set)
+	if !effectiveConfigurationMatches(root, cfg) {
+		return nil, Observation{}, fmt.Errorf("%w: effective_configuration", ErrObservationChanged)
+	}
+	facts, codeIdentity, err := assess(root, cfg, set)
+	if err != nil {
+		return nil, Observation{}, err
+	}
+	return facts, combineObservation(before, codeIdentity), nil
+}
+
+// ConfirmObservation cheaply re-identifies the inputs bound by one complete
+// assessment. It intentionally does not run Detect, BusinessSource, budget,
+// relation, or governance classification again; a mismatch can only reject the
+// pending result and can never create an aligned verdict.
+func ConfirmObservation(root string, cfg *config.Config, set *cognition.Set, expected Observation) error {
+	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 || expected.identity == "" {
+		return fmt.Errorf("volumes_governance_observation_invalid")
+	}
+	codeIdentity := currentCodeObservation(root, cfg, set)
+	staticIdentity := staticGovernanceIdentity(root, cfg, set)
+	actual := combineObservation(staticIdentity, codeIdentity)
+	if actual.identity != expected.identity {
+		return ErrObservationChanged
+	}
+	return nil
+}
+
+func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string, error) {
+	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
+		return nil, "", fmt.Errorf("volumes_governance_input_invalid")
 	}
 	facts := &Facts{
 		Version: Version, Layout: set.LayoutMode, StructureValid: len(set.Errors) == 0,
@@ -206,7 +271,7 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 
 	state, exists, err := baseline.Load(root)
 	if err != nil {
-		return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
+		return nil, "", fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}
 	if !exists || state == nil {
 		state = baseline.NewBaseline(nil)
@@ -220,11 +285,12 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 	assessFormalAsset(root, cfg, state, set.Root.Descriptor.Path, "root", facts)
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
 
+	codeIdentity := "not_applicable"
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		assessCode(root, cfg, set, state, facts)
+		codeIdentity = assessCode(root, cfg, set, state, facts)
 	}
 	if asset := enabledAsset(set, cognition.ScopeDatabase); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeDatabase)
@@ -290,7 +356,7 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 		facts.Findings = append(facts.Findings, Finding{Code: finding.Code, Domain: finding.AssetID})
 	}
 	finalize(facts)
-	return facts, nil
+	return facts, codeIdentity, nil
 }
 
 func enabledAsset(set *cognition.Set, id string) *cognition.Asset {
@@ -318,7 +384,7 @@ func emptyDrift() Drift {
 		LineEndingOnly: []string{}, ObservedNew: []string{}, ObservedChanged: []string{}, ObservedRemoved: []string{}}
 }
 
-func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts) {
+func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts) string {
 	asset := set.Volumes[cognition.ScopeCode]
 	ownershipConflicts := map[string]cognition.OwnershipConflict{}
 	ownershipOrphans := []string{}
@@ -338,9 +404,10 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	ownershipOrphans = sortedUnique(ownershipOrphans)
 	facts.CodeDrift.Orphan = ownershipOrphans
 	managed, err := managedstate.Load(root, cfg)
+	identity := managedStateObservation(managed, err)
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "managed_scope_invalid", Domain: cognition.ScopeCode})
-		return
+		return identity
 	}
 	facts.ManagedScope = ManagedScopeFacts{Aligned: !managed.ScopeChangeRequired,
 		ScopeChangeRequired: managed.ScopeChangeRequired, PolicyIdentity: managed.DesiredPolicyIdentity,
@@ -357,7 +424,7 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	if managed.ScopeChangeRequired {
 		facts.Findings = append(facts.Findings, Finding{Code: "scope_change_required", Domain: cognition.ScopeCode})
-		return
+		return identity
 	}
 	copyState := *managed
 	copyState.Snapshot = cloneSnapshot(managed.Snapshot)
@@ -370,7 +437,7 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	detected, err := managedstate.Detect(root, cfg, asset.Document, &copyState)
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "code_drift_unavailable", Domain: cognition.ScopeCode})
-		return
+		return identity
 	}
 	orphans := append(append([]string{}, detected.Orphan...), ownershipOrphans...)
 	orphans = sortedUnique(orphans)
@@ -415,6 +482,244 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 			Code: "code_volume_unbaselined", Domain: cognition.ScopeCode, Target: asset.Descriptor.Path,
 			SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, baselineState),
 		})
+	}
+	return identity
+}
+
+type managedFileObservation struct {
+	Path   string `json:"path"`
+	Role   string `json:"role,omitempty"`
+	SHA256 string `json:"sha256"`
+	Size   int64  `json:"size"`
+}
+
+func managedStateObservation(state *managedstate.State, stateErr error) string {
+	if stateErr != nil {
+		return digestObservation(struct {
+			State string `json:"state"`
+			Error string `json:"error"`
+		}{State: "unavailable", Error: stateErr.Error()})
+	}
+	if state == nil {
+		return digestObservation(struct {
+			State string `json:"state"`
+		}{State: "missing"})
+	}
+	indexPaths, observePaths := []string{}, []string{}
+	evaluationIdentity, alternateIdentity := "", ""
+	if state.Evaluation != nil {
+		evaluationIdentity = state.Evaluation.PolicyIdentity
+		alternateIdentity = state.Evaluation.AlternatePolicyIdentity
+		for _, item := range state.Evaluation.Index {
+			indexPaths = append(indexPaths, item.Path)
+		}
+		for _, item := range state.Evaluation.Observe {
+			observePaths = append(observePaths, item.Path)
+		}
+	}
+	paths := make([]string, 0, len(state.Snapshot))
+	for path := range state.Snapshot {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	files := make([]managedFileObservation, 0, len(paths))
+	for _, path := range paths {
+		fingerprint := state.Snapshot[path]
+		files = append(files, managedFileObservation{
+			Path: path, Role: fingerprint.Role,
+			SHA256: fingerprint.SHA256, Size: fingerprint.Size,
+		})
+	}
+	return digestObservation(struct {
+		Legacy                bool                     `json:"legacy"`
+		ScopeChangeRequired   bool                     `json:"scope_change_required"`
+		PolicyAligned         bool                     `json:"policy_aligned"`
+		BudgetAligned         bool                     `json:"budget_aligned"`
+		DesiredPolicyIdentity string                   `json:"desired_policy_identity"`
+		ActivePolicyIdentity  string                   `json:"active_policy_identity"`
+		DesiredBudgetIdentity string                   `json:"desired_budget_identity"`
+		ActiveBudgetIdentity  string                   `json:"active_budget_identity"`
+		EvaluationIdentity    string                   `json:"evaluation_identity"`
+		AlternateIdentity     string                   `json:"alternate_identity"`
+		IndexPaths            []string                 `json:"index_paths"`
+		ObservePaths          []string                 `json:"observe_paths"`
+		Files                 []managedFileObservation `json:"files"`
+	}{
+		Legacy: state.Legacy, ScopeChangeRequired: state.ScopeChangeRequired,
+		PolicyAligned: state.PolicyAligned, BudgetAligned: state.BudgetAligned,
+		DesiredPolicyIdentity: state.DesiredPolicyIdentity, ActivePolicyIdentity: state.ActivePolicyIdentity,
+		DesiredBudgetIdentity: state.DesiredBudgetIdentity, ActiveBudgetIdentity: state.ActiveBudgetIdentity,
+		EvaluationIdentity: evaluationIdentity, AlternateIdentity: alternateIdentity,
+		IndexPaths: indexPaths, ObservePaths: observePaths, Files: files,
+	})
+}
+
+func currentCodeObservation(root string, cfg *config.Config, set *cognition.Set) string {
+	if enabledAsset(set, cognition.ScopeCode) == nil {
+		return "not_applicable"
+	}
+	state, err := managedstate.Load(root, cfg)
+	return managedStateObservation(state, err)
+}
+
+func combineObservation(staticIdentity, codeIdentity string) Observation {
+	return Observation{identity: digestObservation(struct {
+		Version string `json:"version"`
+		Static  string `json:"static"`
+		Code    string `json:"code"`
+	}{Version: "volumes-governance-observation/v1", Static: staticIdentity, Code: codeIdentity})}
+}
+
+func digestObservation(value any) string {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "marshal_error"
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:])
+}
+
+func effectiveConfigurationMatches(root string, expected *config.Config) bool {
+	current, err := config.LoadReadOnly(root)
+	if err != nil {
+		return false
+	}
+	return digestObservation(current) == digestObservation(expected)
+}
+
+func staticGovernanceIdentity(root string, cfg *config.Config, set *cognition.Set) string {
+	digest := sha256.New()
+	writeIdentityFields(digest, "volumes-governance-static/v1")
+	for _, item := range []struct {
+		label string
+		path  string
+	}{
+		{"team_config", config.FilePath(root)},
+		{"local_config", config.LocalFilePath(root)},
+		{"baseline", filepath.Join(root, config.DirName, "baseline.json")},
+		{"curation", filepath.Join(root, config.DirName, "curation.json")},
+	} {
+		writeObservedPath(digest, item.label, item.path)
+	}
+
+	if len(cfg.DatabaseSources) > 0 {
+		writeObservedPath(digest, "database_baseline", dbevidence.BaselinePath(root))
+		for _, source := range cfg.DatabaseSources {
+			if source.Enabled {
+				writeObservedPath(
+					digest, "database_source:"+source.SourceID,
+					filepath.Join(dbevidence.RuntimeEvidenceRoot(root), source.SourceID),
+				)
+			}
+		}
+	}
+
+	writeActiveTransactionIdentity(digest, root)
+	formalPaths := []string{set.Root.Descriptor.Path}
+	for _, id := range set.DeclaredOrder {
+		if asset := set.Volumes[id]; asset != nil {
+			formalPaths = append(formalPaths, asset.Descriptor.Path)
+		}
+	}
+	sort.Strings(formalPaths)
+	for _, rel := range formalPaths {
+		for _, suffix := range []string{".aoci-cas.intent", ".aoci-cas.swap"} {
+			writeObservedPath(
+				digest, "formal_sidecar:"+rel+suffix,
+				filepath.Join(root, filepath.FromSlash(rel))+suffix,
+			)
+		}
+	}
+	return hex.EncodeToString(digest.Sum(nil))
+}
+
+func writeIdentityFields(digest hash.Hash, values ...string) {
+	for _, value := range values {
+		_, _ = digest.Write([]byte(value))
+		_, _ = digest.Write([]byte{0})
+	}
+}
+
+func writeObservedPath(digest hash.Hash, label, path string) {
+	writeIdentityFields(digest, "path", label)
+	writeObservedNode(digest, path, ".")
+}
+
+func writeObservedNode(digest hash.Hash, path, relative string) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		state := "lstat_error"
+		if os.IsNotExist(err) {
+			state = "absent"
+		}
+		writeIdentityFields(digest, relative, state, err.Error())
+		return
+	}
+	writeIdentityFields(digest, relative, info.Mode().String())
+	switch {
+	case info.Mode().IsRegular():
+		file, openErr := os.Open(path)
+		if openErr != nil {
+			writeIdentityFields(digest, "open_error", openErr.Error())
+			return
+		}
+		contentDigest := sha256.New()
+		_, copyErr := io.Copy(contentDigest, file)
+		closeErr := file.Close()
+		if copyErr != nil || closeErr != nil {
+			writeIdentityFields(digest, "read_error", fmt.Sprint(copyErr), fmt.Sprint(closeErr))
+			return
+		}
+		writeIdentityFields(digest, fmt.Sprint(info.Size()), hex.EncodeToString(contentDigest.Sum(nil)))
+	case info.IsDir():
+		entries, readErr := os.ReadDir(path)
+		if readErr != nil {
+			writeIdentityFields(digest, "readdir_error", readErr.Error())
+			return
+		}
+		for _, entry := range entries {
+			childRelative := entry.Name()
+			if relative != "." {
+				childRelative = relative + "/" + entry.Name()
+			}
+			writeObservedNode(digest, filepath.Join(path, entry.Name()), childRelative)
+		}
+	case info.Mode()&os.ModeSymlink != 0:
+		target, readErr := os.Readlink(path)
+		if readErr != nil {
+			writeIdentityFields(digest, "readlink_error", readErr.Error())
+			return
+		}
+		writeIdentityFields(digest, "symlink", target)
+	}
+}
+
+func writeActiveTransactionIdentity(digest hash.Hash, root string) {
+	directory := filepath.Join(root, config.DirName, "transactions")
+	info, err := os.Lstat(directory)
+	if err != nil {
+		state := "lstat_error"
+		if os.IsNotExist(err) {
+			state = "absent"
+		}
+		writeIdentityFields(digest, "active_transactions", state, err.Error())
+		return
+	}
+	if !info.IsDir() {
+		writeIdentityFields(digest, "active_transactions", "wrong_type", info.Mode().String())
+		return
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		writeIdentityFields(digest, "active_transactions", "readdir_error", err.Error())
+		return
+	}
+	writeIdentityFields(digest, "active_transactions", "present")
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		writeObservedNode(digest, filepath.Join(directory, entry.Name()), entry.Name())
 	}
 }
 

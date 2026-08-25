@@ -218,6 +218,157 @@ func TestCommitOnlyHeadChangeDoesNotInvalidateDeliveredGovernance(t *testing.T) 
 	}
 }
 
+func captureVolumeGovernanceSnapshot(t *testing.T, root string) (*cognitionRepoCtx, volumeGovernanceSnapshot) {
+	t.Helper()
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	_, snapshot, inspectFail := inspectVolumeGovernance(root, loaded, true)
+	if inspectFail != nil {
+		t.Fatal(inspectFail.Msg)
+	}
+	return loaded, snapshot
+}
+
+func TestVolumeGovernanceLightConfirmationRejectsInputDrift(t *testing.T) {
+	t.Run("source", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		writeVolumeTestFile(t, root, "main.go", "package main\n// changed during Overview rendering\n")
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail == nil || fail.Code != errCognitionSnapshotUnavailable {
+			t.Fatalf("source drift passed light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("baseline exact bytes", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		path := filepath.Join(root, ".aoci", "baseline.json")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail == nil || fail.Code != errCognitionSnapshotUnavailable {
+			t.Fatalf("Baseline byte drift passed light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("configuration exact bytes", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		path := config.FilePath(root)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail == nil || fail.Code != errCognitionSnapshotUnavailable {
+			t.Fatalf("configuration byte drift passed light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("database evidence", func(t *testing.T) {
+		root := buildThreeTableDatabaseVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		_, evidence, exists, err := dbevidence.LoadSnapshot(root, "primary")
+		if err != nil || !exists || len(evidence.Tables) == 0 {
+			t.Fatalf("load Database Evidence: exists=%t tables=%d err=%v", exists, len(evidence.Tables), err)
+		}
+		path := filepath.Join(dbevidence.RuntimeEvidenceRoot(root), filepath.FromSlash(evidence.Tables[0].EvidenceRef))
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail == nil || fail.Code != errCognitionSnapshotUnavailable {
+			t.Fatalf("Database Evidence drift passed light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("recovery", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		writeVolumeTestFile(t, root, ".aoci/transactions/entries-race.json", "{}\n")
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail == nil || fail.Code != errCognitionSnapshotUnavailable {
+			t.Fatalf("Recovery drift passed light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("commit only", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		commitFixture(t, root)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		runFixtureGit(t, root, "commit", "--allow-empty", "-m", "test: advance head during rendering")
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail != nil {
+			t.Fatalf("commit-only transition invalidated light confirmation: %+v", fail)
+		}
+	})
+
+	t.Run("runtime audit only", func(t *testing.T) {
+		root := buildObservedVolumeRepo(t)
+		loaded, snapshot := captureVolumeGovernanceSnapshot(t, root)
+		writeVolumeTestFile(t, root, ".aoci/ledger.jsonl", "{}\n")
+		if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail != nil {
+			t.Fatalf("runtime audit transition invalidated light confirmation: %+v", fail)
+		}
+	})
+}
+
+func BenchmarkVolumeGovernanceStrictTailConfirmation(b *testing.B) {
+	root := buildVolumeRepo(b, true, false)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		b.Fatal(fail.Msg)
+	}
+	_, snapshot, inspectFail := inspectVolumeGovernance(root, loaded, true)
+	if inspectFail != nil {
+		b.Fatal(inspectFail.Msg)
+	}
+	b.Run("light_identity_recheck", func(b *testing.B) {
+		for range b.N {
+			if fail := confirmVolumeGovernanceSnapshot(root, loaded, snapshot); fail != nil {
+				b.Fatal(fail.Msg)
+			}
+		}
+	})
+	b.Run("complete_governance_assessment", func(b *testing.B) {
+		for range b.N {
+			if _, err := volumegovernance.Assess(root, loaded.cfg, loaded.set); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("strict_assess_and_light_recheck", func(b *testing.B) {
+		for range b.N {
+			_, observation, err := volumegovernance.AssessWithObservation(root, loaded.cfg, loaded.set)
+			if err != nil {
+				b.Fatal(err)
+			}
+			if err := volumegovernance.ConfirmObservation(root, loaded.cfg, loaded.set, observation); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+	b.Run("two_complete_governance_assessments", func(b *testing.B) {
+		for range b.N {
+			if _, err := volumegovernance.Assess(root, loaded.cfg, loaded.set); err != nil {
+				b.Fatal(err)
+			}
+			if _, err := volumegovernance.Assess(root, loaded.cfg, loaded.set); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func TestGovernanceChangesBetweenDeliveryAndAttestationFailClosed(t *testing.T) {
 	t.Run("source drift", func(t *testing.T) {
 		root := buildObservedVolumeRepo(t)

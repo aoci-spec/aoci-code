@@ -30,7 +30,9 @@ func handleVolumeOverview(
 		return failResult(fail)
 	}
 	current := newVolumeCognitionReceipt(root, mcpServiceVersion, loaded.set, view)
-	semantic, governanceIdentity, semanticFail := inspectVolumeGovernance(root, loaded)
+	semantic, governanceSnapshot, semanticFail := inspectVolumeGovernance(
+		root, loaded, !input.CheckOnly && view.Available,
+	)
 	if semanticFail != nil {
 		return failResult(semanticFail)
 	}
@@ -89,7 +91,7 @@ func handleVolumeOverview(
 	framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
 	keyDigest := sha256.Sum256([]byte(view.ScopeIdentity + "\x00" + framed.Receipt.BodySHA256))
 	governanceKey := hex.EncodeToString(keyDigest[:])
-	if !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input) {
+	if !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceSnapshot.bindingIdentity, input) {
 		assessment.Semantic.GovernanceAligned = false
 		assessment.Semantic.GovernanceBlockerCount++
 	}
@@ -113,7 +115,7 @@ func handleVolumeOverview(
 	if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
-	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceIdentity); snapshotFail != nil {
+	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceSnapshot); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)

@@ -124,6 +124,14 @@ Overview does not infer alignment from a previous Receipt, Ledger event, or
 Verify History, and a clean repository does not require Verify, Check, or Guide
 to run before its first Attestation.
 
+Each strict Overview request runs that complete governance assessment once.
+Before returning, it confirms exact formal bytes and performs a lightweight
+identity recheck over the governed source set and fingerprints, exact Baseline,
+effective governance configuration, Database cognition/Evidence, and pending
+transaction/Recovery inputs used by the assessment. The recheck can only reject
+drift; it does not recalculate or assert an alignment verdict. It is not cached
+across requests.
+
 The governance assessment observed for the first body or Chunk is bound in the
 current MCP Host session to that exact scope identity and framed-body SHA-256.
 Continuation and Attestation must observe the same governance snapshot. A

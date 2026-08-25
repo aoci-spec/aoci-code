@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"sort"
 	"strings"
@@ -13,19 +14,37 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
+type volumeGovernanceSnapshot struct {
+	bindingIdentity string
+	observation     volumegovernance.Observation
+}
+
 // inspectVolumeGovernance adapts the shared Volumes governance assessment to
-// the refresh counters used by Overview. The snapshot identity deliberately
-// excludes BusinessSourceSHA256 because that aggregate includes Git HEAD;
-// commit-only changes are not cognition or governance changes. The Baseline
-// byte identity is added separately so a newly aligned Baseline cannot be
-// combined with an already delivered Whole-Index body.
+// the refresh counters used by Overview. BusinessSourceSHA256 is excluded
+// because it includes Git HEAD; the commit-independent Observation supplies
+// exact source and authority identity instead. The Baseline byte identity is
+// also retained in the semantic binding for compatibility with existing
+// delivery sessions.
 func inspectVolumeGovernance(
 	root string,
 	loaded *cognitionRepoCtx,
-) (semanticChangeFacts, string, *Fail) {
-	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	captureObservation bool,
+) (semanticChangeFacts, volumeGovernanceSnapshot, *Fail) {
+	var (
+		facts       *volumegovernance.Facts
+		observation volumegovernance.Observation
+		err         error
+	)
+	if captureObservation {
+		facts, observation, err = volumegovernance.AssessWithObservation(root, loaded.cfg, loaded.set)
+	} else {
+		facts, err = volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	}
 	if err != nil {
-		return semanticChangeFacts{}, "", &Fail{
+		if errors.Is(err, volumegovernance.ErrObservationChanged) {
+			return semanticChangeFacts{}, volumeGovernanceSnapshot{}, volumeGovernanceChangedFail()
+		}
+		return semanticChangeFacts{}, volumeGovernanceSnapshot{}, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("maintain.snapshot_failed", localeSafeMCPDetail(err.Error())),
 		}
@@ -37,7 +56,7 @@ func inspectVolumeGovernance(
 		baselineIdentity = fingerprint.SHA256
 	case os.IsNotExist(hashErr):
 	default:
-		return semanticChangeFacts{}, "", &Fail{
+		return semanticChangeFacts{}, volumeGovernanceSnapshot{}, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("maintain.snapshot_failed", localeSafeMCPDetail(hashErr.Error())),
 		}
@@ -54,13 +73,21 @@ func inspectVolumeGovernance(
 		BaselineSHA256 string                 `json:"baseline_sha256"`
 	}{Facts: identityFacts, BaselineSHA256: baselineIdentity})
 	if err != nil {
-		return semanticChangeFacts{}, "", &Fail{
+		return semanticChangeFacts{}, volumeGovernanceSnapshot{}, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("mcp.error.internal_recovered"),
 		}
 	}
 	digest := sha256.Sum256(encoded)
-	return semanticFactsFromVolumeGovernance(loaded, facts), hex.EncodeToString(digest[:]), nil
+	bindingIdentity := hex.EncodeToString(digest[:])
+	if observationIdentity := observation.Identity(); observationIdentity != "" {
+		bound := sha256.Sum256([]byte(bindingIdentity + "\x00" + observationIdentity))
+		bindingIdentity = hex.EncodeToString(bound[:])
+	}
+	return semanticFactsFromVolumeGovernance(loaded, facts), volumeGovernanceSnapshot{
+		bindingIdentity: bindingIdentity,
+		observation:     observation,
+	}, nil
 }
 
 func semanticFactsFromVolumeGovernance(
@@ -121,18 +148,20 @@ func semanticFactsFromVolumeGovernance(
 func confirmVolumeGovernanceSnapshot(
 	root string,
 	loaded *cognitionRepoCtx,
-	expected string,
+	expected volumeGovernanceSnapshot,
 ) *Fail {
-	_, actual, fail := inspectVolumeGovernance(root, loaded)
-	if fail != nil {
-		return fail
-	}
-	if actual != expected {
-		return &Fail{
-			Code: errCognitionSnapshotUnavailable,
-			Msg:  mcpMessage("overview.delivery.snapshot_changed"),
-			Hint: mcpMessage("overview.delivery.snapshot_retry"),
-		}
+	if err := volumegovernance.ConfirmObservation(
+		root, loaded.cfg, loaded.set, expected.observation,
+	); err != nil {
+		return volumeGovernanceChangedFail()
 	}
 	return nil
+}
+
+func volumeGovernanceChangedFail() *Fail {
+	return &Fail{
+		Code: errCognitionSnapshotUnavailable,
+		Msg:  mcpMessage("overview.delivery.snapshot_changed"),
+		Hint: mcpMessage("overview.delivery.snapshot_retry"),
+	}
 }
