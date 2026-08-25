@@ -1,85 +1,58 @@
 # Managed Scope and cognition budgets
 
-Managed Scope assigns every Safe Inventory object one role: `index`, `observe`,
-or `exclude`. It reduces low-value index density without losing deterministic
-change awareness for test evidence.
-
-Use `aoci scope show`, `aoci scope explain <path>`, and `aoci scope rule list`
-to inspect policy. Add, update, remove, or reset rules with `aoci scope rule`.
-`aoci scope budget show` and `aoci scope budget set` manage the project budget;
-`aoci scope observe-policy` selects `review_required` or `informational`.
-`aoci scope approval-mode` selects `inherit`, `auto`, or `review`; `inherit`
-follows the team-owned `automation.mode`.
-
-Configuration edits are proposals. They never silently delete Entries or
-advance the
-Baseline. The desired configuration is a CAS guard while the Baseline receipt
-owns the active policy identity. `aoci scope status` reports
-`scope_change_required`; then prepare a
-model-authored Candidate Set and run `scope preview`.
-
-With `automation.mode=auto` and inherited or explicit Auto approval, run
-`aoci scope authorize --preview-file preview.json` to inspect or persist the
-immutable `policy_bound_auto` Receipt, then run `scope apply` with that Receipt.
-`scope apply` can also generate the Receipt internally. No TTY or digest phrase
-is used. The Receipt binds the exact policy, Envelope, current formal preimages,
-projected index and budget facts, Retention Review, guards, writes, and recovery
-direction. It is stored in the transaction Intent, so Resume does not approve
-again. `review` still uses `scope approve` in a real TTY, `legacy` retains its
-compatibility boundary, and `off` produces Plan/Preview only and writes nothing.
-Resume or roll back an interrupted transaction with the matching scope commands.
-
-Tightening the posture needs nothing special, but **lowering** it — for example
-`review` back to `auto` — remains an `approval_policy_relaxation` Risk. If it is
-the only automatic-authorization concern, the explicit desired auto policy may
-issue a `policy_bound_auto` receipt that binds the old Baseline posture and the
-complete replayed postimage, with no TTY. Coverage reduction, deletion,
-high-risk inclusion, budget relaxation, P0/P1, third-party, write-set, CAS, and
-Recovery blockers remain unchanged and cannot be hidden by the posture change.
-
-Pass `--out-file` to `scope approve` so the approval it mints lands in a file
-that `scope apply --approval-file` can read. Without it the artifact goes to
-stdout and has to be redirected by hand; forgetting the redirect discards a
-confirmation that cannot be reused. The file is created only if nothing is
-already there, and is written readable by its owner alone, because until the
-change is applied anything that can read it can stand in for the human who
-typed the phrase. `scope safety approve` and `baseline scope approve` take the
-same flag.
-
-The Candidate Set may include a reviewed Curation postimage. A Scope Preview
-is also the single versioned Apply Envelope; its digest binds candidates,
-policy and budget identities, exact formal pre/postimages, risks, guards, and
-recovery direction.
-
-Risk separates `budget_policy_change` from `budget_relaxation`; a Legacy
-observe-to-stricter-enforce transition is tightening and may proceed in Auto.
-Raising a maximum, returning enforce to observe, weakening safety, including
-sensitive content, incomplete Retention Review, P0/P1, source writes,
-third-party bytes, or missing recovery is blocked rather than converted into a
-routine approval prompt. Reduction size alone does not block Auto.
-
-Automatic workflows never silently delete source files or ungoverned Entries.
-When Scope Policy, complete model-owned Retention Review, exact Envelope, CAS,
-budget gates, and recovery all agree, Auto may atomically retire Entries as a
-role transition. It never deletes the corresponding business source.
-
-Observe changes do not create Entries. Review their impact on production,
-Spec, platform, or Header cognition, update formal Entries when needed, then
-run `aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
-opened and produces no drift.
-
-## Scale boundary
-
-The Whole-Index budget defaults to 120000 target / 180000 warning / 240000 max
-tokens, and every Entry the model reads back rides that budget. At the density
-this repository averages (~115 tokens per Entry), the hard ceiling corresponds
-to roughly two thousand managed objects. Repositories approaching it should
-first spend the existing levers — tighter S under the C-driven quotas, an
-explicit `cognition_optimization` review pass, and Scope roles that keep
-non-cognition files out of Index — before asking for a larger budget. Splitting
-the Code Volume itself into partitions is deliberately not supported in v1;
-treat the ceiling as a real architectural boundary rather than a tunable.
-
-For the normative lifecycle, retention dispositions, safety boundaries,
-transaction order, and token gates, see
+Managed Scope decides which Safe Inventory objects receive cognition Entries,
+which are fingerprinted as supporting evidence, and which are excluded before
+content reads. The normative roles, authorization, budget, transaction, and
+recovery contract is
 [`aoci-managed-scope-and-budget-v1.txt`](../spec/public/aoci-managed-scope-and-budget-v1.txt).
+Use current command output and Guide instructions for exact states and limits.
+
+## Inspecting policy
+
+```text
+aoci scope show
+aoci scope status
+aoci scope explain <path>
+aoci scope rule list
+aoci scope budget show
+```
+
+Use `index` for objects that need a Whole-Index Entry, `observe` for evidence
+whose exact changes matter without an Entry, and `exclude` for content that
+must not be opened or fingerprinted. Safety exclusions outrank project rules.
+
+## Changing policy
+
+Add, update, or remove project rules with `aoci scope rule`. A configuration
+edit is only a desired policy proposal: it does not retire Entries, reinterpret
+the active Baseline, or authorize itself.
+
+After editing policy:
+
+1. Run `aoci scope status` and the live Guide.
+2. Prepare the complete candidate and retention review requested by the current
+   Scope workflow.
+3. Use only the authorization path named by the current Preview.
+4. Apply or recover the exact bound transaction, then complete Verify, Check,
+   and Guide.
+
+Do not use `scan --force`, manual Entry deletion, or direct Baseline edits to
+make a proposed Scope change appear active. Risky reductions, sensitive
+content, approval posture, budget changes, CAS conflicts, and Recovery are
+machine-adjudicated; this guide intentionally does not copy their decision
+table.
+
+## Observe evidence
+
+Observe changes do not create Entry debt automatically. Review each changed
+path and the production, Spec, configuration, or cognition it can affect. If no
+formal Entry needs a semantic update, acknowledge the exact reviewed evidence
+through the command returned by the live workflow. Excluded content is not a
+substitute for Observe.
+
+## Budgets
+
+Budget policy limits Whole-Index and field density without rewriting model
+semantics. Inspect the current report before changing policy. Prefer removing
+duplicate cognition and assigning low-semantic-density evidence an appropriate
+Scope role before relaxing a machine limit.

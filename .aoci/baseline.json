@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-25T16:16:17Z",
+  "updated_at": "2026-08-25T16:25:07Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -135,9 +135,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "583f874d4ce86e9dae25df7f468b53f2b7d429e045167272f1a1d2a4389382ba",
-      "size": 179431,
-      "normalized_sha256": "583f874d4ce86e9dae25df7f468b53f2b7d429e045167272f1a1d2a4389382ba"
+      "sha256": "3e1adeb0769b5de6106fce0e8982117787809640590cc4a3f4161b7f2e4558f9",
+      "size": 179384,
+      "normalized_sha256": "3e1adeb0769b5de6106fce0e8982117787809640590cc4a3f4161b7f2e4558f9"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -181,10 +181,9 @@
       "normalized_sha256": "86de8a6b9208e25a011773b1cc2ab3ca6533c290354e73538497c9b71935273f"
     },
     "docs/cognition-volumes.md": {
-      "role": "index",
-      "sha256": "39c37f588ed8a32d0e583eb1c6064d451d50576f3badeb051f2df004cdeaf2ad",
-      "size": 21855,
-      "normalized_sha256": "39c37f588ed8a32d0e583eb1c6064d451d50576f3badeb051f2df004cdeaf2ad"
+      "sha256": "aa9672ad160c241cf7bba23acb583908f3c8cd86adb338b3c06ebd9f11d741d4",
+      "size": 3014,
+      "normalized_sha256": "aa9672ad160c241cf7bba23acb583908f3c8cd86adb338b3c06ebd9f11d741d4"
     },
     "docs/contract-authority.md": {
       "role": "index",
@@ -193,10 +192,9 @@
       "normalized_sha256": "1bd548032054e5d0802aa1a6815d8c29c946b716987e255859317c8f848350fb"
     },
     "docs/database-cognition-authoring.md": {
-      "role": "index",
-      "sha256": "93b110b491adb8aebe0d959e8d29498767e7fafc0e217aaedd806d18fff16206",
-      "size": 10861,
-      "normalized_sha256": "93b110b491adb8aebe0d959e8d29498767e7fafc0e217aaedd806d18fff16206"
+      "sha256": "6ad1cc381e40b703d32c9fe3f6501ee83e59af8704ebd594121f4d942655782a",
+      "size": 2506,
+      "normalized_sha256": "6ad1cc381e40b703d32c9fe3f6501ee83e59af8704ebd594121f4d942655782a"
     },
     "docs/database-evidence.md": {
       "role": "index",
@@ -217,16 +215,14 @@
       "normalized_sha256": "064410a4ba22bea2f5dc244c2a6875b57adb7d133513f77fe1e1b53dadd62315"
     },
     "docs/localization.md": {
-      "role": "index",
-      "sha256": "6b6a648021e95b300ae3c99ef4eb8a67a383c9caf435c4b3e760e74d25d628ad",
-      "size": 6293,
-      "normalized_sha256": "6b6a648021e95b300ae3c99ef4eb8a67a383c9caf435c4b3e760e74d25d628ad"
+      "sha256": "6eb1a6b6fc10860a672e58b059c836f227faec8ca741d85ab8daf5c3cfd71aa7",
+      "size": 1987,
+      "normalized_sha256": "6eb1a6b6fc10860a672e58b059c836f227faec8ca741d85ab8daf5c3cfd71aa7"
     },
     "docs/managed-scope-and-budget.md": {
-      "role": "index",
-      "sha256": "81eb7369052ed0b9857b13de5c2fb4b862fde4157fc0a5bf1225551cc2e5d280",
-      "size": 5067,
-      "normalized_sha256": "81eb7369052ed0b9857b13de5c2fb4b862fde4157fc0a5bf1225551cc2e5d280"
+      "sha256": "b5ad1cc7089332c07abb6c884a6c96ad2cda89b92e00e1870625ac6331d1b2d7",
+      "size": 2339,
+      "normalized_sha256": "b5ad1cc7089332c07abb6c884a6c96ad2cda89b92e00e1870625ac6331d1b2d7"
     },
     "docs/overview-delivery.md": {
       "sha256": "244ef7043896ea808f6eb8c841ddafdd346e4922e614aa191534314f65e2aaf5",

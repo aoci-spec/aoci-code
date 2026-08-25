@@ -15,60 +15,38 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 
 	checks := map[string][]string{
 		"README.md": {
-			"Legacy-only deep status; not the Cognition Volumes maintenance route",
-			"`status --deep`, `index score`, and `index agent plan` are Legacy-only",
-			"basic, recommended, or full verification level",
-			"**OpenCode V1**",
-			"init --agent opencode",
+			"docs/getting-started.md",
+			"docs/install.md",
+			"docs/cognition-volumes.md",
 		},
 		"README.zh-CN.md": {
-			"仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线",
-			"`status --deep`、`index score` 和 `index agent plan` 仅用于 Legacy",
-			"基础、推荐或完整校验层级",
-			"**OpenCode V1**",
-			"init --agent opencode",
+			"docs/getting-started.md",
+			"docs/install.md",
+			"docs/cognition-volumes.md",
 		},
 		filepath.Join("docs", "getting-started.md"): {
-			"Fresh initialization uses Code-only Cognition Volumes",
-			"calls ordinary no-argument `aoci_maintain`",
-			"`status --deep`, `index score`, and `index agent plan` are Legacy-only",
+			"aoci_maintain",
+			"aoci_update_entry",
 		},
 		filepath.Join("docs", "cognition-volumes.md"): {
-			"Fresh initialization now creates a semantic-",
-			"free Code-only Volumes repository",
-			"## Lifecycle command routing",
-			"submits it through `aoci_update_entry`",
+			"../spec/public/aoci-cognition-volumes-v1.txt",
+			"database-cognition-authoring.md",
+			"aoci update-entry",
 		},
 		filepath.Join("docs", "database-cognition-authoring.md"): {
-			"Fresh initialization creates Code-only Volumes",
-			"Database Cognition authoring uses ordinary no-argument Maintain",
+			"../spec/public/aoci-database-cognition-authoring-v1.txt",
+			"aoci_maintain",
+			"aoci_update_entry",
 		},
 		filepath.Join("docs", "install.md"): {
-			"### Basic installation: archive checksum and binary identity",
-			"### Recommended installation: authenticate the checksum publisher",
-			"### Full supply-chain verification",
-			"has no runtime dependency on GitHub CLI",
-			"without a GitHub API login",
-			"fully offline verification requires supplying an",
+			"Full supply-chain verification",
 		},
 		filepath.Join("docs", "supply-chain.md"): {
-			"Consumer assurance is layered",
-			"runtime dependency",
+			".github/workflows/release.yml",
 		},
 		filepath.Join("docs", "agent-integrations.md"): {
-			"## OpenCode V1",
 			"init --agent opencode",
-			"`aoci_aoci_rules`",
-			"does not merge OpenCode V2",
-			"Refresh or reopen that project",
-			"only when it has not loaded the new server",
-			"do not require a blanket application restart",
-		},
-		filepath.Join("docs", "troubleshooting.md"): {
-			"first\ncheck the server loaded by the current Host",
-			"refresh or\nreconnect that project's MCP integration",
-			"reopen the project session when\nthe Host requires it",
-			"does not prove that the active\nserver is using those bytes",
+			"aoci_rules",
 		},
 	}
 
@@ -80,7 +58,7 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 		text := string(data)
 		for _, anchor := range anchors {
 			if !strings.Contains(text, anchor) {
-				t.Errorf("%s is missing documentation contract %q", relative, anchor)
+				t.Errorf("%s is missing documentation route %q", relative, anchor)
 			}
 		}
 	}
