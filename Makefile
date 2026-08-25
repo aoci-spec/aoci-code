@@ -80,14 +80,14 @@ check-deps:
 # 比较用 >= 而非 ==:更新的底座本来就满足每个钉点,不该被拦。
 toolchain-preflight:
 	@want=$$(awk '$$1=="go"{print $$2; exit}' go.mod); \
-	base=$$(env GOTOOLCHAIN=local "$(GO_BIN)" version 2>/dev/null | awk '{print $$3}'); base=$${base#go}; \
+	base=$$(GOTOOLCHAIN=local "$(GO_BIN)" version 2>/dev/null | awk '{print $$3}'); base=$${base#go}; \
 	if [ -z "$$want" ]; then echo "toolchain-preflight: go.mod declares no go directive" >&2; exit 1; fi; \
 	if [ -z "$$base" ]; then echo "toolchain-preflight: could not run '$(GO_BIN) version'; set GO_BIN to a Go executable" >&2; exit 1; fi; \
 	if awk -v have="$$base" -v want="$$want" 'BEGIN{n=split(have,h,".");m=split(want,w,".");for(i=1;i<=3;i++){hv=(i<=n)?h[i]+0:0;wv=(i<=m)?w[i]+0:0;if(hv>wv)exit 0;if(hv<wv)exit 1}exit 0}'; then exit 0; fi; \
 	{ echo "toolchain-preflight: the base Go toolchain is older than go.mod requires."; \
 	  echo ""; \
 	  echo "  go.mod 'go' directive : $$want"; \
-	  echo "  base toolchain        : $$base   (env GOTOOLCHAIN=local $(GO_BIN) version)"; \
+	  echo "  base toolchain        : $$base   (GOTOOLCHAIN=local $(GO_BIN) version)"; \
 	  echo ""; \
 	  echo "A plain 'go version' can report a newer Go: under the default GOTOOLCHAIN=auto"; \
 	  echo "the go command re-executes a downloaded toolchain. The licenses and"; \
