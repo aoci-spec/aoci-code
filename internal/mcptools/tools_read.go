@@ -383,21 +383,43 @@ func overviewCursorOnly(input overviewIn) bool {
 		!input.Probe && input.ProbeAnswers == nil
 }
 
-// handleFrozenOverviewContinuation reuses only immutable transport planning.
-// It still confirms the exact formal and governance inputs bound by the first
-// Chunk. A cache miss deliberately preserves the existing stateless path.
+func overviewProofOnly(input overviewIn) bool {
+	return input.Cursor == "" && (input.HostConfirmation != nil || input.ModelAttestation != nil) &&
+		input.Receipt == nil && strings.TrimSpace(input.ModelState) == "" &&
+		input.ScopeCovered == nil && !input.CheckOnly && len(input.RefreshReasons) == 0 &&
+		strings.TrimSpace(input.RefreshEventID) == "" && input.StableCheckpoint == nil &&
+		!input.Probe && input.ProbeAnswers == nil
+}
+
+// handleFrozenOverviewContinuation reuses the immutable body, transport plan,
+// and first request's governance assessment. Middle Chunks validate only the
+// formal bytes that form their body; final and proof calls additionally
+// confirm the exact governance Observation before returning. A cache miss
+// deliberately preserves the existing strict path.
 func handleFrozenOverviewContinuation(
 	root string,
 	input overviewIn,
 	session *cognitionRefreshSession,
 	start time.Time,
 ) (*mcp.CallToolResult, bool) {
-	if !overviewCursorOnly(input) {
+	cursorRequest := overviewCursorOnly(input)
+	proofRequest := overviewProofOnly(input)
+	if !cursorRequest && !proofRequest {
 		return nil, false
 	}
-	frozen, hit, err := session.frozenMiddleOverview(input.Cursor)
-	if err != nil {
-		return errResult(errBadArgs, err.Error(), ""), true
+	var (
+		frozen *frozenOverviewContinuation
+		final  bool
+		hit    bool
+		err    error
+	)
+	if cursorRequest {
+		frozen, final, hit, err = session.frozenOverviewCursor(input.Cursor)
+		if err != nil {
+			return errResult(errBadArgs, err.Error(), ""), true
+		}
+	} else {
+		frozen, hit = session.frozenOverviewProof()
 	}
 	if !hit {
 		return nil, false
@@ -414,36 +436,57 @@ func handleFrozenOverviewContinuation(
 	if cfg.IndexPath != frozen.indexPath {
 		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
 	}
-	if cfg.OverviewDelivery.ChunkTokens != frozen.plan.ChunkTokens {
+	if cursorRequest && cfg.OverviewDelivery.ChunkTokens != frozen.plan.ChunkTokens {
 		return errResult(errBadArgs, "overview_chunk_tokens_changed", ""), true
 	}
 
-	set, err := cognition.Load(root, cfg.IndexPath)
-	if err != nil || string(set.LayoutMode) != frozen.plan.Context.LayoutMode {
+	set := frozen.set
+	if set == nil || string(set.LayoutMode) != frozen.plan.Context.LayoutMode {
 		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
 	}
 	if set.CompositeIdentity != frozen.plan.Context.Receipt.CompositeIdentity {
 		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
 	}
-	currentIdentity := set.Root.SHA256
-	if set.LayoutMode == cognition.LayoutVolumesV1 {
-		requestedScope := frozen.plan.Context.RequestedScope
-		if strings.TrimSpace(input.Scope) != "" {
-			requested, scopeErr := set.Scope(input.Scope)
-			if scopeErr != nil || requested.RequestedScope != requestedScope {
-				return errResult(errBadArgs, "overview_snapshot_changed", ""), true
-			}
+	requestedScope := input.Scope
+	if cursorRequest && strings.TrimSpace(requestedScope) == "" {
+		requestedScope = frozen.plan.Context.RequestedScope
+	}
+	view, scopeErr := set.Scope(requestedScope)
+	if scopeErr != nil || !view.Available ||
+		view.RequestedScope != frozen.plan.Context.RequestedScope ||
+		view.EffectiveScope != frozen.plan.Context.EffectiveScope ||
+		view.AssetState != frozen.plan.Context.AssetState ||
+		view.ScopeIdentity != frozen.plan.Context.ScopeIdentity {
+		if proofRequest {
+			return nil, false
 		}
-		view, scopeErr := set.Scope(requestedScope)
-		if scopeErr != nil || !view.Available ||
-			view.EffectiveScope != frozen.plan.Context.EffectiveScope ||
-			view.AssetState != frozen.plan.Context.AssetState {
+		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+	}
+
+	loaded := &cognitionRepoCtx{cfg: cfg, set: set}
+	if proofRequest {
+		session.mu.Lock()
+		defer session.mu.Unlock()
+		if session.frozenOverview != frozen {
 			return errResult(errBadArgs, "overview_snapshot_changed", ""), true
 		}
-		currentIdentity = view.ScopeIdentity
-	}
-	if currentIdentity != frozen.plan.Context.ScopeIdentity {
-		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+		proofContext := frozen.plan.Context
+		proofContext.Session = session
+		delivery, renderErr := renderOverviewDelivery(proofContext, input, frozen.plan.ChunkTokens)
+		if renderErr != nil {
+			return errResult(errBadArgs, renderErr.Error(), ""), true
+		}
+		if snapshotFail := confirmCognitionSnapshot(root, set); snapshotFail != nil {
+			return failResult(snapshotFail), true
+		}
+		if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, frozen.governance); snapshotFail != nil {
+			return failResult(snapshotFail), true
+		}
+		session.recordAttestedDelivery(
+			frozen.plan.Context.Receipt, delivery.Attestation, frozen.eligible,
+		)
+		ledger.Append(root, cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
+		return textResult(delivery.Output), true
 	}
 
 	output, err := renderOverviewChunkWithSpans(
@@ -457,9 +500,10 @@ func handleFrozenOverviewContinuation(
 	if snapshotFail := confirmCognitionSnapshot(root, set); snapshotFail != nil {
 		return failResult(snapshotFail), true
 	}
-	loaded := &cognitionRepoCtx{cfg: cfg, set: set}
-	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, frozen.governance); snapshotFail != nil {
-		return failResult(snapshotFail), true
+	if final {
+		if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, frozen.governance); snapshotFail != nil {
+			return failResult(snapshotFail), true
+		}
 	}
 	facts := frozen.plan.Facts
 	facts.OutputBytes = len(output)

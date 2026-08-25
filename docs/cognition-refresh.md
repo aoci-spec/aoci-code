@@ -134,10 +134,17 @@ full-system claim, but it does not automatically request another Overview in
 the same generation. Repeated
 ordinary calls still return the complete requested scope; repeated check_only
 calls stay compact. The server keeps small session state and may also retain one
-bounded immutable body and Chunk plan for the latest same-process Volumes
-middle-Chunk continuation. This ephemeral transport cache is not a receipt,
-reliability state, or governance verdict; first, final, and proof calls remain
-strict, and process loss simply falls back to normal reconstruction.
+bounded immutable body, Chunk plan, Challenge, first assessment, and governance
+observation for the latest same-process Volumes delivery generation (one body
+attempt, not a `refresh_generation` increment). This
+ephemeral cache is not a receipt, persistent reliability state, or independently
+reusable governance verdict. The first Chunk performs the generation's one
+complete assessment. Matching middle Chunks exactly recheck formal cognition;
+the final Chunk and every Host-confirmation or model-Attestation proof call also
+exactly recheck the first Chunk's bound current governance inputs without
+recomputing semantic governance. Cache misses, process loss, and incompatible
+controls fall back to the normal strict path. Proof evidence and generation
+creation, consumption, and reliability rules are unchanged.
 
 For the legacy host assessment, `model_cognition_state=invalid` implies
 context compaction only when it accompanies a previously reliable complete

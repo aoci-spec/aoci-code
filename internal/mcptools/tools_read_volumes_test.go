@@ -254,6 +254,34 @@ func parseFrozenOverviewChunk(t testing.TB, output string) frozenOverviewChunkRe
 	return receipt
 }
 
+func frozenVolumeAttestationArguments(t *testing.T, root, first string) map[string]any {
+	t.Helper()
+	receipt := parseFrozenOverviewChunk(t, first)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	view, err := loaded.set.Scope(cognition.ScopeAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, sequence, err := buildVolumeOverviewBody(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	challenge := buildOverviewChallenge(view.ScopeIdentity, sequence)
+	return map[string]any{
+		"scope": cognition.ScopeAll,
+		"host_delivery_confirmation": map[string]any{
+			"version": overviewDeliveryReceiptV1, "body_sha256": receipt.BodySHA256,
+			"body_bytes": receipt.BodyBytes, "end_marker_observed": true,
+		},
+		"model_cognition_attestation": attestationMap(t, completeAttestation(
+			challenge, view.ObjectCount, volumeScopeBytes(view)/3,
+		)),
+	}
+}
+
 func buildFrozenOverviewRepo(t testing.TB, entryCount int) string {
 	t.Helper()
 	root := buildVolumeRepo(t, true, false)
@@ -278,7 +306,28 @@ func prepareFrozenOverviewRepo(t testing.TB, root string, entryCount int) {
 	writeVolumeAttestationEntries(t, root, names)
 }
 
-func TestVolumeOverviewFrozenMiddleChunkReusesObservationAndRejectsDrift(t *testing.T) {
+func advanceVolumeOverviewToFinalCursor(
+	t testing.TB,
+	session *mcp.ClientSession,
+	first frozenOverviewChunkReceipt,
+) string {
+	t.Helper()
+	if first.ChunkCount < 2 || first.NextCursor == "" {
+		t.Fatalf("Overview fixture has no final continuation: %+v", first)
+	}
+	receipt := first
+	for receipt.ChunkIndex < receipt.ChunkCount-1 {
+		receipt = parseFrozenOverviewChunk(t, callVolumeTool(t, session, "aoci_overview", map[string]any{
+			"cursor": receipt.NextCursor,
+		}))
+		if receipt.Completed || receipt.NextCursor == "" {
+			t.Fatalf("Overview completed before the final cursor boundary: %+v", receipt)
+		}
+	}
+	return receipt.NextCursor
+}
+
+func TestVolumeOverviewFrozenMiddleChunkReusesBodyAndFinalRejectsGovernanceDrift(t *testing.T) {
 	tests := []struct {
 		name   string
 		mutate func(*testing.T, string)
@@ -315,14 +364,18 @@ func TestVolumeOverviewFrozenMiddleChunkReusesObservationAndRejectsDrift(t *test
 			}
 
 			test.mutate(t, root)
+			if replay := callVolumeTool(t, session, "aoci_overview", arguments); replay != middle {
+				t.Fatalf("governance drift changed an already frozen middle Chunk:\nfirst=%s\nreplay=%s", middle, replay)
+			}
+			finalCursor := advanceVolumeOverviewToFinalCursor(t, session, middleReceipt)
 			result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
-				Name: "aoci_overview", Arguments: arguments,
+				Name: "aoci_overview", Arguments: map[string]any{"cursor": finalCursor},
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !result.IsError || !strings.Contains(resText(t, result), errCognitionSnapshotUnavailable) {
-				t.Fatalf("governance drift reached a frozen middle Chunk: %s", resText(t, result))
+				t.Fatalf("governance drift crossed the frozen final boundary: %s", resText(t, result))
 			}
 		})
 	}
@@ -365,8 +418,78 @@ func TestVolumeOverviewFrozenMiddleChunkRejectsOtherVolumeDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError || !strings.Contains(resText(t, result), "overview_snapshot_changed") {
+	if !result.IsError || (!strings.Contains(resText(t, result), errCognitionSnapshotUnavailable) &&
+		!strings.Contains(resText(t, result), "overview_snapshot_changed")) {
 		t.Fatalf("other formal Volume drift reached a Code-scope middle Chunk: %s", resText(t, result))
+	}
+}
+
+func TestVolumeOverviewFrozenFinalAndProofRejectDrift(t *testing.T) {
+	t.Run("source before final", func(t *testing.T) {
+		root := buildFrozenOverviewRepo(t, 96)
+		session := connectMCPClient(t, root)
+		first := parseFrozenOverviewChunk(t, callVolumeTool(t, session, "aoci_overview", map[string]any{
+			"scope": cognition.ScopeAll,
+		}))
+		finalCursor := advanceVolumeOverviewToFinalCursor(t, session, first)
+		writeVolumeTestFile(t, root, "chunk-001.go", "package fixture\n// changed before final Chunk\n")
+
+		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name: "aoci_overview", Arguments: map[string]any{"cursor": finalCursor},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !result.IsError || !strings.Contains(resText(t, result), errCognitionSnapshotUnavailable) {
+			t.Fatalf("source drift reached the frozen final Chunk: %s", resText(t, result))
+		}
+	})
+
+	t.Run("authority before proof", func(t *testing.T) {
+		root := buildFrozenOverviewRepo(t, 96)
+		session := connectMCPClient(t, root)
+		firstOutput := callVolumeTool(t, session, "aoci_overview", map[string]any{"scope": cognition.ScopeAll})
+		first := parseFrozenOverviewChunk(t, firstOutput)
+		proof := frozenVolumeAttestationArguments(t, root, firstOutput)
+		finalCursor := advanceVolumeOverviewToFinalCursor(t, session, first)
+		final := parseFrozenOverviewChunk(t, callVolumeTool(t, session, "aoci_overview", map[string]any{
+			"cursor": finalCursor,
+		}))
+		if !final.Completed || final.ChunkIndex != final.ChunkCount {
+			t.Fatalf("fixture did not reach the final Chunk: %+v", final)
+		}
+		appendVolumeTestByte(t, filepath.Join(root, ".aoci", "baseline.json"))
+
+		result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name: "aoci_overview", Arguments: proof,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !result.IsError || !strings.Contains(resText(t, result), errCognitionSnapshotUnavailable) {
+			t.Fatalf("authority drift reached frozen proof grading: %s", resText(t, result))
+		}
+	})
+}
+
+func TestVolumeOverviewFrozenCacheMissFallsBackToStrictContinuation(t *testing.T) {
+	root := buildFrozenOverviewRepo(t, 96)
+	firstSession := connectMCPClient(t, root)
+	first := parseFrozenOverviewChunk(t, callVolumeTool(t, firstSession, "aoci_overview", map[string]any{
+		"scope": cognition.ScopeAll,
+	}))
+	if first.NextCursor == "" {
+		t.Fatalf("fixture did not create a continuation: %+v", first)
+	}
+
+	// A new MCP session has no process-local frozen delivery. The compatible
+	// strict path must still reconstruct and serve a valid continuation.
+	secondSession := connectMCPClient(t, root)
+	continued := parseFrozenOverviewChunk(t, callVolumeTool(t, secondSession, "aoci_overview", map[string]any{
+		"cursor": first.NextCursor,
+	}))
+	if continued.ChunkIndex != 2 || continued.ChunkCount != first.ChunkCount || continued.ChunkSHA256 == "" {
+		t.Fatalf("cache-miss strict continuation changed the delivery: first=%+v continued=%+v", first, continued)
 	}
 }
 
@@ -444,20 +567,23 @@ func TestFrozenOverviewContinuationBoundariesAndConcurrentReplacement(t *testing
 	legacy := *plan
 	legacy.Context.LayoutMode = string(cognition.LayoutLegacyMonolithic)
 	session.mu.Lock()
-	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, &legacy, governance)
+	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, &legacy, governance, loaded.set, true)
 	session.mu.Unlock()
-	if _, hit, err := session.frozenMiddleOverview(middleCursor); err != nil || hit {
+	if _, _, hit, err := session.frozenOverviewCursor(middleCursor); err != nil || hit {
 		t.Fatalf("Legacy plan entered the frozen fast path: hit=%t err=%v", hit, err)
 	}
 
 	session.mu.Lock()
-	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance)
+	session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance, loaded.set, true)
 	session.mu.Unlock()
-	if _, hit, err := session.frozenMiddleOverview(middleCursor); err != nil || !hit {
-		t.Fatalf("middle cursor missed the frozen fast path: hit=%t err=%v", hit, err)
+	if _, final, hit, err := session.frozenOverviewCursor(middleCursor); err != nil || !hit || final {
+		t.Fatalf("middle cursor missed the frozen fast path: hit=%t final=%t err=%v", hit, final, err)
 	}
-	if _, hit, err := session.frozenMiddleOverview(finalCursor); err != nil || hit {
-		t.Fatalf("final cursor entered the frozen fast path: hit=%t err=%v", hit, err)
+	if _, final, hit, err := session.frozenOverviewCursor(finalCursor); err != nil || !hit || !final {
+		t.Fatalf("final cursor missed the frozen fast path: hit=%t final=%t err=%v", hit, final, err)
+	}
+	if frozen, hit := session.frozenOverviewProof(); !hit || !frozen.eligible || frozen.plan.Body.Text != body {
+		t.Fatalf("proof missed the frozen delivery: hit=%t frozen=%+v", hit, frozen)
 	}
 
 	const iterations = 1000
@@ -470,7 +596,7 @@ func TestFrozenOverviewContinuationBoundariesAndConcurrentReplacement(t *testing
 		<-start
 		for range iterations {
 			session.mu.Lock()
-			session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance)
+			session.replaceFrozenOverviewContinuationLocked(loaded.cfg.IndexPath, plan, governance, loaded.set, true)
 			session.mu.Unlock()
 		}
 	}()
@@ -478,9 +604,9 @@ func TestFrozenOverviewContinuationBoundariesAndConcurrentReplacement(t *testing
 		defer group.Done()
 		<-start
 		for range iterations {
-			frozen, hit, err := session.frozenMiddleOverview(middleCursor)
-			if err != nil || !hit || frozen.plan.Body.Text != body || len(frozen.plan.Spans) != len(spans) {
-				errors <- fmt.Errorf("incomplete concurrent hit: hit=%t err=%v", hit, err)
+			frozen, final, hit, err := session.frozenOverviewCursor(middleCursor)
+			if err != nil || !hit || final || frozen.plan.Body.Text != body || len(frozen.plan.Spans) != len(spans) {
+				errors <- fmt.Errorf("incomplete concurrent hit: hit=%t final=%t err=%v", hit, final, err)
 				return
 			}
 		}

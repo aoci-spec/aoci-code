@@ -92,6 +92,50 @@ func TestOverviewConfirmationThenAttestationLatchesReliability(t *testing.T) {
 		"cognition_level: 4", "model_full_cognition_reliable: true", "completed: true")
 }
 
+func TestVolumeOverviewCombinedAndSplitProofRemainEquivalent(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		order []string
+	}{
+		{name: "combined", order: []string{"combined"}},
+		{name: "confirmation then attestation", order: []string{"confirmation", "attestation"}},
+		{name: "attestation then confirmation", order: []string{"attestation", "confirmation"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := buildObservedVolumeRepo(t)
+			session := connectMCPClient(t, root)
+			first := callVolumeTool(t, session, "aoci_overview", map[string]any{"scope": "all"})
+			proof := volumeAttestationArguments(t, root, first, false)
+
+			output := ""
+			for index, step := range test.order {
+				arguments := map[string]any{"scope": "all"}
+				switch step {
+				case "combined":
+					arguments = proof
+				case "confirmation":
+					arguments["host_delivery_confirmation"] = proof["host_delivery_confirmation"]
+				case "attestation":
+					arguments["model_cognition_attestation"] = proof["model_cognition_attestation"]
+				}
+				output = callVolumeTool(t, session, "aoci_overview", arguments)
+				if len(test.order) == 2 && index == 0 {
+					requireAll(t, output, "model_full_cognition_reliable: false")
+					if step == "confirmation" {
+						requireAll(t, output, "delivery_integrity: confirmed", "model_attestation: not_provided")
+					} else {
+						requireAll(t, output, "delivery_integrity: unconfirmed", "model_attestation: pass")
+					}
+				}
+			}
+			requireAll(t, output,
+				"delivery_integrity: confirmed", "model_attestation: pass",
+				"cognition_assimilation: complete", "cognition_level: 4",
+				"model_full_cognition_reliable: true", "completed: true")
+		})
+	}
+}
+
 // 每次交付尝试各自取证: 一次全新的完整交付之后, 旧确认不再为新传输作证,
 // 单发的认证回到 unconfirmed; 补上确认后才闩住。
 func TestOverviewFreshDeliveryResetsRememberedEvidence(t *testing.T) {

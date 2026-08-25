@@ -193,9 +193,8 @@ type overviewRendered struct {
 }
 
 // overviewFrozenChunkPlan is the immutable transport image produced by a
-// strict first-Chunk request. It contains no authority: callers may reuse it
-// only after independently reloading and matching the current formal
-// cognition snapshot.
+// strict first delivery request. It contains no authority by itself: callers
+// may reuse it only after matching the current formal and governance inputs.
 type overviewFrozenChunkPlan struct {
 	Context     overviewRenderContext
 	Body        framedOverviewBody
@@ -290,8 +289,6 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	rendered := overviewRendered{Output: output, Facts: facts, Attestation: attestation}
 	if input.Cursor == "" {
 		frozenContext := ctx
-		frozenContext.Content = ""
-		frozenContext.Sequence = nil
 		frozenContext.Session = nil
 		rendered.Frozen = &overviewFrozenChunkPlan{
 			Context: frozenContext, Body: framed, Challenge: challenge,

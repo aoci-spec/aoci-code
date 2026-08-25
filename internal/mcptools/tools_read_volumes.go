@@ -121,6 +121,7 @@ func handleVolumeOverview(
 	if input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil {
 		refreshSession.replaceFrozenOverviewContinuationLocked(
 			loaded.cfg.IndexPath, delivery.Frozen, governanceSnapshot,
+			loaded.set, markDelivered,
 		)
 	}
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)

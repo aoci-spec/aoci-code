@@ -27,6 +27,7 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
 
@@ -48,7 +49,9 @@ var ErrObservationChanged = errors.New("volumes_governance_observation_changed")
 // inputs used by one AssessWithObservation call. It is deliberately not a
 // governance verdict and cannot establish alignment by itself.
 type Observation struct {
-	identity string
+	identity       string
+	staticIdentity string
+	code           managedCodeObservation
 }
 
 // Identity returns the comparison token for binding two strict Overview calls
@@ -215,7 +218,7 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 // governance authorities. The result is deterministic for the same formal
 // bytes, Baseline, configuration, Curation, and saved Database Evidence.
 func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error) {
-	facts, _, err := assess(root, cfg, set)
+	facts, _, err := assess(root, cfg, set, true, false)
 	return facts, err
 }
 
@@ -232,11 +235,15 @@ func AssessWithObservation(root string, cfg *config.Config, set *cognition.Set) 
 	if !effectiveConfigurationMatches(root, cfg) {
 		return nil, Observation{}, fmt.Errorf("%w: effective_configuration", ErrObservationChanged)
 	}
-	facts, codeIdentity, err := assess(root, cfg, set)
+	// Overview binds the already-computed governance facts through Observation.
+	// Building BusinessSource here would repeat Managed Scope evaluation and all
+	// source hashing even though Overview deliberately excludes that Git-HEAD-
+	// bearing manifest from its semantic binding.
+	facts, codeObservation, err := assess(root, cfg, set, false, true)
 	if err != nil {
 		return nil, Observation{}, err
 	}
-	return facts, combineObservation(before, codeIdentity), nil
+	return facts, newObservation(before, codeObservation), nil
 }
 
 // ConfirmObservation cheaply re-identifies the inputs bound by one complete
@@ -247,18 +254,28 @@ func ConfirmObservation(root string, cfg *config.Config, set *cognition.Set, exp
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 || expected.identity == "" {
 		return fmt.Errorf("volumes_governance_observation_invalid")
 	}
-	codeIdentity := currentCodeObservation(root, cfg, set)
 	staticIdentity := staticGovernanceIdentity(root, cfg, set)
-	actual := combineObservation(staticIdentity, codeIdentity)
+	if !effectiveConfigurationMatches(root, cfg) || staticIdentity != expected.staticIdentity ||
+		newObservation(expected.staticIdentity, expected.code).identity != expected.identity {
+		return ErrObservationChanged
+	}
+	codeObservation := currentCodeObservation(root, cfg, set, expected.code)
+	actual := newObservation(staticIdentity, codeObservation)
 	if actual.identity != expected.identity {
 		return ErrObservationChanged
 	}
 	return nil
 }
 
-func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string, error) {
+func assess(
+	root string,
+	cfg *config.Config,
+	set *cognition.Set,
+	includeBusinessSource bool,
+	captureObservation bool,
+) (*Facts, managedCodeObservation, error) {
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
-		return nil, "", fmt.Errorf("volumes_governance_input_invalid")
+		return nil, managedCodeObservation{}, fmt.Errorf("volumes_governance_input_invalid")
 	}
 	facts := &Facts{
 		Version: Version, Layout: set.LayoutMode, StructureValid: len(set.Errors) == 0,
@@ -272,7 +289,7 @@ func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string
 
 	state, exists, err := baseline.Load(root)
 	if err != nil {
-		return nil, "", fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
+		return nil, managedCodeObservation{}, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}
 	if !exists || state == nil {
 		state = baseline.NewBaseline(nil)
@@ -294,12 +311,12 @@ func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string
 		})
 	}
 
-	codeIdentity := "not_applicable"
+	codeObservation := managedCodeObservation{State: "not_applicable"}
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		codeIdentity = assessCode(root, cfg, set, state, facts)
+		codeObservation = assessCode(root, cfg, set, state, facts, captureObservation)
 	}
 	if asset := enabledAsset(set, cognition.ScopeDatabase); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeDatabase)
@@ -334,15 +351,17 @@ func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string
 	// naming it a second time as a business-source failure sent operators to look
 	// in a subsystem that was working. The derived report is dropped, and every
 	// other cause now carries the exact machine token instead of being erased.
-	switch manifest, manifestErr := businesssource.Build(root, ""); {
-	case manifestErr == nil:
-		facts.BusinessSourceSHA256 = manifest.AggregateSHA256
-	case errors.Is(manifestErr, businesssource.ErrScopeChangeRequired):
-	default:
-		facts.Findings = append(facts.Findings, Finding{
-			Code:  "business_source_manifest_invalid",
-			Cause: businessSourceCause(manifestErr),
-		})
+	if includeBusinessSource {
+		switch manifest, manifestErr := businesssource.Build(root, ""); {
+		case manifestErr == nil:
+			facts.BusinessSourceSHA256 = manifest.AggregateSHA256
+		case errors.Is(manifestErr, businesssource.ErrScopeChangeRequired):
+		default:
+			facts.Findings = append(facts.Findings, Finding{
+				Code:  "business_source_manifest_invalid",
+				Cause: businessSourceCause(manifestErr),
+			})
+		}
 	}
 
 	facts.Budget = AssessProjectedBudget(cfg, set)
@@ -365,7 +384,7 @@ func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string
 		facts.Findings = append(facts.Findings, Finding{Code: finding.Code, Domain: finding.AssetID})
 	}
 	finalize(facts)
-	return facts, codeIdentity, nil
+	return facts, codeObservation, nil
 }
 
 func enabledAsset(set *cognition.Set, id string) *cognition.Asset {
@@ -393,7 +412,14 @@ func emptyDrift() Drift {
 		LineEndingOnly: []string{}, ObservedNew: []string{}, ObservedChanged: []string{}, ObservedRemoved: []string{}}
 }
 
-func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts) string {
+func assessCode(
+	root string,
+	cfg *config.Config,
+	set *cognition.Set,
+	baselineState *baseline.Baseline,
+	facts *Facts,
+	captureObservation bool,
+) managedCodeObservation {
 	asset := set.Volumes[cognition.ScopeCode]
 	ownershipConflicts := map[string]cognition.OwnershipConflict{}
 	ownershipOrphans := []string{}
@@ -413,10 +439,13 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	ownershipOrphans = sortedUnique(ownershipOrphans)
 	facts.CodeDrift.Orphan = ownershipOrphans
 	managed, err := managedstate.Load(root, cfg)
-	identity := managedStateObservation(managed, err)
+	observation := managedCodeObservation{}
+	if captureObservation {
+		observation = managedStateObservation(managed, err)
+	}
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "managed_scope_invalid", Domain: cognition.ScopeCode})
-		return identity
+		return observation
 	}
 	facts.ManagedScope = ManagedScopeFacts{Aligned: !managed.ScopeChangeRequired,
 		ScopeChangeRequired: managed.ScopeChangeRequired, PolicyIdentity: managed.DesiredPolicyIdentity,
@@ -433,7 +462,7 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	if managed.ScopeChangeRequired {
 		facts.Findings = append(facts.Findings, Finding{Code: "scope_change_required", Domain: cognition.ScopeCode})
-		return identity
+		return observation
 	}
 	copyState := *managed
 	copyState.Snapshot = cloneSnapshot(managed.Snapshot)
@@ -446,7 +475,7 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	detected, err := managedstate.Detect(root, cfg, asset.Document, &copyState)
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "code_drift_unavailable", Domain: cognition.ScopeCode})
-		return identity
+		return observation
 	}
 	orphans := append(append([]string{}, detected.Orphan...), ownershipOrphans...)
 	orphans = sortedUnique(orphans)
@@ -492,7 +521,7 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 			SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, baselineState),
 		})
 	}
-	return identity
+	return observation
 }
 
 type managedFileObservation struct {
@@ -502,28 +531,40 @@ type managedFileObservation struct {
 	Size   int64  `json:"size"`
 }
 
-func managedStateObservation(state *managedstate.State, stateErr error) string {
+type managedCodeObservation struct {
+	State               string                   `json:"state"`
+	Error               string                   `json:"error,omitempty"`
+	Legacy              bool                     `json:"legacy,omitempty"`
+	ScopeChangeRequired bool                     `json:"scope_change_required,omitempty"`
+	EvaluationIdentity  string                   `json:"evaluation_identity,omitempty"`
+	AlternateIdentity   string                   `json:"alternate_identity,omitempty"`
+	Paths               []managedPathObservation `json:"paths,omitempty"`
+	Files               []managedFileObservation `json:"files,omitempty"`
+}
+
+type managedPathObservation struct {
+	Path string `json:"path"`
+	Role string `json:"role,omitempty"`
+}
+
+func managedStateObservation(state *managedstate.State, stateErr error) managedCodeObservation {
 	if stateErr != nil {
-		return digestObservation(struct {
-			State string `json:"state"`
-			Error string `json:"error"`
-		}{State: "unavailable", Error: stateErr.Error()})
+		return managedCodeObservation{State: "unavailable", Error: stateErr.Error()}
 	}
 	if state == nil {
-		return digestObservation(struct {
-			State string `json:"state"`
-		}{State: "missing"})
+		return managedCodeObservation{State: "missing"}
 	}
-	indexPaths, observePaths := []string{}, []string{}
-	evaluationIdentity, alternateIdentity := "", ""
+	result := managedCodeObservation{
+		State: "ready", Legacy: state.Legacy, ScopeChangeRequired: state.ScopeChangeRequired,
+		Paths: []managedPathObservation{}, Files: []managedFileObservation{},
+	}
 	if state.Evaluation != nil {
-		evaluationIdentity = state.Evaluation.PolicyIdentity
-		alternateIdentity = state.Evaluation.AlternatePolicyIdentity
-		for _, item := range state.Evaluation.Index {
-			indexPaths = append(indexPaths, item.Path)
-		}
-		for _, item := range state.Evaluation.Observe {
-			observePaths = append(observePaths, item.Path)
+		result.EvaluationIdentity = state.Evaluation.PolicyIdentity
+		result.AlternateIdentity = state.Evaluation.AlternatePolicyIdentity
+		for _, group := range [][]managedscope.PathEvaluation{state.Evaluation.Index, state.Evaluation.Observe} {
+			for _, item := range group {
+				result.Paths = append(result.Paths, managedPathObservation{Path: item.Path, Role: item.Role})
+			}
 		}
 	}
 	paths := make([]string, 0, len(state.Snapshot))
@@ -531,52 +572,137 @@ func managedStateObservation(state *managedstate.State, stateErr error) string {
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
-	files := make([]managedFileObservation, 0, len(paths))
 	for _, path := range paths {
 		fingerprint := state.Snapshot[path]
-		files = append(files, managedFileObservation{
+		result.Files = append(result.Files, managedFileObservation{
 			Path: path, Role: fingerprint.Role,
 			SHA256: fingerprint.SHA256, Size: fingerprint.Size,
 		})
+		if state.Evaluation == nil {
+			result.Paths = append(result.Paths, managedPathObservation{Path: path, Role: fingerprint.Role})
+		}
 	}
-	return digestObservation(struct {
-		Legacy                bool                     `json:"legacy"`
-		ScopeChangeRequired   bool                     `json:"scope_change_required"`
-		PolicyAligned         bool                     `json:"policy_aligned"`
-		BudgetAligned         bool                     `json:"budget_aligned"`
-		DesiredPolicyIdentity string                   `json:"desired_policy_identity"`
-		ActivePolicyIdentity  string                   `json:"active_policy_identity"`
-		DesiredBudgetIdentity string                   `json:"desired_budget_identity"`
-		ActiveBudgetIdentity  string                   `json:"active_budget_identity"`
-		EvaluationIdentity    string                   `json:"evaluation_identity"`
-		AlternateIdentity     string                   `json:"alternate_identity"`
-		IndexPaths            []string                 `json:"index_paths"`
-		ObservePaths          []string                 `json:"observe_paths"`
-		Files                 []managedFileObservation `json:"files"`
-	}{
-		Legacy: state.Legacy, ScopeChangeRequired: state.ScopeChangeRequired,
-		PolicyAligned: state.PolicyAligned, BudgetAligned: state.BudgetAligned,
-		DesiredPolicyIdentity: state.DesiredPolicyIdentity, ActivePolicyIdentity: state.ActivePolicyIdentity,
-		DesiredBudgetIdentity: state.DesiredBudgetIdentity, ActiveBudgetIdentity: state.ActiveBudgetIdentity,
-		EvaluationIdentity: evaluationIdentity, AlternateIdentity: alternateIdentity,
-		IndexPaths: indexPaths, ObservePaths: observePaths, Files: files,
-	})
+	sort.Slice(result.Paths, func(i, j int) bool { return result.Paths[i].Path < result.Paths[j].Path })
+	return result
 }
 
-func currentCodeObservation(root string, cfg *config.Config, set *cognition.Set) string {
+func currentCodeObservation(
+	root string,
+	cfg *config.Config,
+	set *cognition.Set,
+	expected managedCodeObservation,
+) managedCodeObservation {
 	if enabledAsset(set, cognition.ScopeCode) == nil {
-		return "not_applicable"
+		return managedCodeObservation{State: "not_applicable"}
 	}
-	state, err := managedstate.Load(root, cfg)
+	value, exists, err := baseline.Load(root)
+	if err != nil {
+		return managedCodeObservation{State: "unavailable", Error: err.Error()}
+	}
+	if expected.Legacy {
+		inventory, inventoryErr := afs.BuildSafeInventory(root, cfg.WalkOptions())
+		if inventoryErr != nil {
+			return managedCodeObservation{State: "unavailable", Error: inventoryErr.Error()}
+		}
+		snapshot, snapshotErr := rawPathSnapshot(root, inventory.ManagedCandidates, "")
+		return managedStateObservation(&managedstate.State{Legacy: true, Snapshot: snapshot}, snapshotErr)
+	}
+
+	curationExclude, err := managedstate.CurationExclusions(root, cfg, value)
+	if err != nil {
+		return managedCodeObservation{State: "unavailable", Error: err.Error()}
+	}
+	evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
+		WalkOptions: cfg.WalkOptions(), CurationExclude: curationExclude,
+	})
+	if err != nil {
+		return managedCodeObservation{State: "unavailable", Error: err.Error()}
+	}
+	state := &managedstate.State{
+		Evaluation: evaluation, ScopeChangeRequired: expected.ScopeChangeRequired,
+		Snapshot: map[string]baseline.Fingerprint{},
+	}
+	if expected.ScopeChangeRequired {
+		return managedStateObservation(state, nil)
+	}
+	if !exists || value == nil || value.ManagedScope == nil {
+		return managedCodeObservation{State: "unavailable", Error: "managed_scope_baseline_missing"}
+	}
+	approved := len(cfg.SafeInventoryHighRiskOptIn) == 0 || value.ManagedScope.HighRiskApprovalDigest != ""
+	state.Snapshot, err = rawEvaluationSnapshot(root, evaluation, approved)
 	return managedStateObservation(state, err)
 }
 
-func combineObservation(staticIdentity, codeIdentity string) Observation {
-	return Observation{identity: digestObservation(struct {
-		Version string `json:"version"`
-		Static  string `json:"static"`
-		Code    string `json:"code"`
-	}{Version: "volumes-governance-observation/v1", Static: staticIdentity, Code: codeIdentity})}
+func rawEvaluationSnapshot(
+	root string,
+	evaluation *managedscope.Evaluation,
+	highRiskContentApproved bool,
+) (map[string]baseline.Fingerprint, error) {
+	result := make(map[string]baseline.Fingerprint, len(evaluation.Index)+len(evaluation.Observe))
+	for _, group := range [][]managedscope.PathEvaluation{evaluation.Index, evaluation.Observe} {
+		for _, item := range group {
+			if item.SafetyStatus == "high_risk_exact_opt_in" && !highRiskContentApproved {
+				return nil, fmt.Errorf("managed_scope_high_risk_read_approval_required: %s", item.Path)
+			}
+			fingerprint, err := rawFileFingerprint(filepath.Join(root, filepath.FromSlash(item.Path)))
+			if err != nil {
+				return nil, fmt.Errorf("managed_scope_source_unreadable: %s", item.Path)
+			}
+			fingerprint.Role = item.Role
+			result[item.Path] = fingerprint
+		}
+	}
+	return result, nil
+}
+
+func rawPathSnapshot(root string, paths []string, role string) (map[string]baseline.Fingerprint, error) {
+	result := make(map[string]baseline.Fingerprint, len(paths))
+	for _, path := range paths {
+		fingerprint, err := rawFileFingerprint(filepath.Join(root, filepath.FromSlash(path)))
+		if err != nil {
+			// Legacy Snapshot records an unreadable file as a warning and keeps
+			// the rest of the snapshot. Observation mirrors that selection; the
+			// governance assessment already owns the warning verdict.
+			continue
+		}
+		fingerprint.Role = role
+		result[path] = fingerprint
+	}
+	return result, nil
+}
+
+func rawFileFingerprint(path string) (baseline.Fingerprint, error) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() {
+		return baseline.Fingerprint{}, fmt.Errorf("managed_scope_source_unreadable")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return baseline.Fingerprint{}, err
+	}
+	digest := sha256.New()
+	size, readErr := io.Copy(digest, file)
+	closeErr := file.Close()
+	if readErr != nil || closeErr != nil {
+		return baseline.Fingerprint{}, fmt.Errorf("managed_scope_source_unreadable")
+	}
+	after, err := os.Lstat(path)
+	if err != nil || !after.Mode().IsRegular() || !os.SameFile(info, after) || size != after.Size() {
+		return baseline.Fingerprint{}, fmt.Errorf("managed_scope_source_changed")
+	}
+	return baseline.Fingerprint{SHA256: hex.EncodeToString(digest.Sum(nil)), Size: size}, nil
+}
+
+func newObservation(staticIdentity string, code managedCodeObservation) Observation {
+	return Observation{
+		staticIdentity: staticIdentity,
+		code:           code,
+		identity: digestObservation(struct {
+			Version string                 `json:"version"`
+			Static  string                 `json:"static"`
+			Code    managedCodeObservation `json:"code"`
+		}{Version: "volumes-governance-observation/v2", Static: staticIdentity, Code: code}),
+	}
 }
 
 func digestObservation(value any) string {

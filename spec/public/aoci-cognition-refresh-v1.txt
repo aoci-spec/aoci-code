@@ -172,11 +172,18 @@ The existing cognition receipt adds optional fields:
 
 The original required fields are unchanged. During one MCP stdio session the
 server retains receipt identity, pending reasons, bounded event IDs, and a
-generation number. It may also retain one bounded immutable complete body and
-Chunk plan for the latest same-process Volumes middle-Chunk continuation. That
-ephemeral transport cache is not a receipt, reliability state, or governance
-verdict; process loss falls back to normal reconstruction, and first, final,
-and proof calls remain strict. One complete, Host-confirmed, aligned
+generation number. It may also retain one bounded immutable complete body,
+Chunk plan, Challenge, first assessment, and governance observation for the
+latest same-process Volumes delivery generation, meaning one body attempt and
+not a `refresh_generation` increment. That ephemeral cache is not a
+receipt, persistent reliability state, or independently reusable governance
+verdict. The first Chunk performs the generation's one complete assessment;
+matching middle Chunks exactly recheck formal cognition, while the final Chunk
+and every Host-confirmation or model-Attestation proof call also exactly recheck
+the first Chunk's bound current governance inputs without recomputing semantic
+governance. A cache miss, process loss, or incompatible control input falls back
+to the strict path. Host body and Chunk integrity, split-proof evidence, and
+generation rules do not change. One complete, Host-confirmed, aligned
 Attestation attempt consumes the merged event and starts the next counting
 cycle. Pass records a reliable receipt; partial or fail records an uncertain
 receipt and the existing source-bound delivery guidance. Dirty delivery and a

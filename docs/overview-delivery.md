@@ -37,15 +37,28 @@ Curation or observe review, ownership conflict, budget failure, pending
 transaction/Recovery, third-party conflict, or invalid structure keep
 `governance_aligned=false`.
 
-Each strict call performs one full assessment and a lightweight trailing input
-identity recheck. After the first Chunk, the process may retain one bounded,
-immutable transport plan for the latest Volumes chain. A same-process,
-cursor-only, non-final middle Chunk may reuse only that plan; it still reloads
-formal cognition and rechecks the bound source, Baseline, configuration,
-Database Evidence, transaction, and Recovery identities. Cache misses, process
-restarts, final Chunks, Host confirmation, and model Attestation use the normal
-strict path. Any bound input or Chunk-configuration drift fails closed. Git HEAD
-alone is excluded, and Ledger and Verify History remain optional audit effects.
+Each Volumes delivery generation—one complete body attempt, distinct from
+`refresh_generation`—starts on the strict path. Its first Chunk
+performs one full governance assessment and a trailing exact input-identity
+recheck, then the process may freeze one bounded immutable body, Chunk plan,
+Challenge, assessment, and governance observation for that generation. A
+matching same-process continuation, final Chunk, or proof call may reuse that
+frozen result without recomputing semantic governance. Every middle Chunk
+loads current configuration and exactly confirms the frozen CognitionSet's
+formal assets, composite and scope identities, cursor, Chunk budget, and
+previous Chunk SHA-256. The final Chunk
+and every Host-confirmation or model-Attestation proof call additionally
+recheck the current governed source set and fingerprints, exact Baseline,
+effective configuration, Database Evidence, transaction, and Recovery inputs
+bound by the first Chunk. This recheck can only reject drift; it never
+recalculates or asserts a new governance verdict.
+
+A cache miss, process restart, Legacy request, new delivery generation, or
+incompatible control input uses the normal strict path. Any required formal or
+governance-input mismatch fails closed. Git HEAD alone is excluded, and Ledger
+and Verify History remain optional audit effects. Reuse changes no Chunk or
+body SHA/byte check, `BODY_END`, Host confirmation, Attestation, split-proof
+evidence, refresh generation, or response-shape contract.
 
 There is one ordinal sequence. For Legacy Whole-Index,
 `formal_entry_ordinal` is the 1-based position among formal Entries; Header

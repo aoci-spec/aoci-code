@@ -54,6 +54,8 @@ type frozenOverviewContinuation struct {
 	indexPath  string
 	plan       overviewFrozenChunkPlan
 	governance volumeGovernanceSnapshot
+	set        *cognition.Set
+	eligible   bool
 }
 
 // overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存
@@ -71,12 +73,14 @@ func (session *cognitionRefreshSession) replaceFrozenOverviewContinuationLocked(
 	indexPath string,
 	plan *overviewFrozenChunkPlan,
 	governance volumeGovernanceSnapshot,
+	set *cognition.Set,
+	eligible bool,
 ) {
 	if session == nil {
 		return
 	}
 	session.frozenOverview = nil
-	if plan == nil || plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) ||
+	if plan == nil || set == nil || plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) ||
 		governance.observation.Identity() == "" {
 		return
 	}
@@ -91,38 +95,53 @@ func (session *cognitionRefreshSession) replaceFrozenOverviewContinuationLocked(
 	}
 	session.frozenOverview = &frozenOverviewContinuation{
 		indexPath: indexPath, plan: copyPlan, governance: governance,
+		set: set, eligible: eligible,
 	}
 }
 
-// frozenMiddleOverview returns an immutable cache hit only for a valid
-// non-final continuation. The first Chunk and final Chunk/proof boundary stay
-// on the strict path.
-func (session *cognitionRefreshSession) frozenMiddleOverview(
+// frozenOverviewCursor returns the latest immutable delivery image for a
+// genuine continuation cursor. Both middle and final Chunks reuse the first
+// request's governance assessment; the caller decides which lightweight
+// confirmation is required before returning either kind of Chunk.
+func (session *cognitionRefreshSession) frozenOverviewCursor(
 	cursor string,
-) (*frozenOverviewContinuation, bool, error) {
+) (*frozenOverviewContinuation, bool, bool, error) {
 	if session == nil {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	session.mu.Lock()
 	frozen := session.frozenOverview
 	session.mu.Unlock()
 	if frozen == nil || frozen.plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	if !strings.HasPrefix(cursor, frozen.plan.Context.ScopeIdentity+":") {
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	chunkIndex, err := overviewChunkIndex(
 		frozen.plan.Body.Text, frozen.plan.Spans, cursor,
 		frozen.plan.Context.ScopeIdentity, frozen.plan.ChunkTokens,
 	)
 	if err != nil {
-		return nil, true, err
+		return nil, false, true, err
 	}
-	if chunkIndex >= len(frozen.plan.Spans)-1 {
-		return nil, false, nil
+	return frozen, chunkIndex == len(frozen.plan.Spans)-1, true, nil
+}
+
+// frozenOverviewProof returns the latest body-bound delivery image. Input
+// identity is graded by the existing Host-confirmation and Attestation code;
+// this lookup only supplies the immutable body that those envelopes name.
+func (session *cognitionRefreshSession) frozenOverviewProof() (*frozenOverviewContinuation, bool) {
+	if session == nil {
+		return nil, false
 	}
-	return frozen, true, nil
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	if session.frozenOverview == nil ||
+		session.frozenOverview.plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) {
+		return nil, false
+	}
+	return session.frozenOverview, true
 }
 
 func newCognitionRefreshSession() *cognitionRefreshSession {

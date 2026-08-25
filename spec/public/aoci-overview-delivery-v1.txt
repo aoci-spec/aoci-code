@@ -124,29 +124,41 @@ Overview does not infer alignment from a previous Receipt, Ledger event, or
 Verify History, and a clean repository does not require Verify, Check, or Guide
 to run before its first Attestation.
 
-Each strict Overview request runs that complete governance assessment once.
-Before returning, it confirms exact formal bytes and performs a lightweight
-identity recheck over the governed source set and fingerprints, exact Baseline,
-effective governance configuration, Database cognition/Evidence, and pending
-transaction/Recovery inputs used by the assessment. The recheck can only reject
-drift; it does not recalculate or assert an alignment verdict. The recheck runs
-on every eligible request; its result and verdict are not cached.
+Each new Volumes delivery generation, meaning one complete body attempt rather
+than a `refresh_generation` increment, starts on the strict path. Its first Chunk
+runs that complete governance assessment once. Before returning, it confirms
+the exact formal bytes and performs an exact identity recheck over the governed
+source set and fingerprints, exact Baseline, effective governance
+configuration, Database cognition/Evidence, and pending transaction/Recovery
+inputs used by the assessment. The recheck can only reject drift; it does not
+recalculate or assert an alignment verdict.
 
-After a first Volumes Chunk passes formal and governance confirmation, the
+After that first Chunk passes formal and governance-input confirmation, the
 server may publish one bounded immutable same-process frozen plan containing
-that exact complete body, Chunk spans, Challenge and delivery context, and the
-opaque governance Observation. The plan carries no alignment verdict. Only a
-pure cursor-only, non-final middle Chunk for the latest plan may use this fast
-path. A hit reloads configuration and the formal CognitionSet, validates the
-complete CompositeIdentity, scope, cursor, Chunk budget, and previous Chunk
-SHA-256, and runs the lightweight Observation confirmation over source,
-Baseline, configuration, Database cognition/Evidence, transaction, and
-Recovery inputs. It skips only rerunning the complete governance assessment.
+the exact complete body, Chunk spans, Challenge, delivery context, assessment,
+and opaque governance Observation for that generation. The frozen assessment
+is usable only inside that bound generation and only after the rechecks required
+below; the cache is not a Receipt, persistent reliability state, or independent
+governance verdict.
 
-A cache miss, process loss, Legacy request, first or final Chunk, Host delivery
-confirmation, model Attestation, check, probe, refresh declaration, or other
-control input uses the strict path. The frozen plan changes no cursor, Chunk,
-BODY_END, Host confirmation, Attestation, receipt, or response-shape contract.
+Every matching same-process middle Chunk may reuse the frozen plan without
+recomputing semantic governance. It loads current configuration and exactly
+validates the frozen CognitionSet's complete CompositeIdentity, requested
+scope, formal asset bytes, cursor, Chunk budget, and previous Chunk SHA-256. A
+matching final Chunk performs those same formal checks and additionally runs a
+current exact identity recheck over the governed source set and fingerprints,
+Baseline, configuration, Database cognition/Evidence, transaction, and
+Recovery inputs bound by the first Chunk. Every matching Host delivery
+confirmation or model Attestation proof call performs that governance-input
+recheck again, whether the proof halves arrive together or separately. These
+rechecks can reject the frozen result but never recompute its semantic verdict.
+
+A cache miss, process loss, Legacy request, new first Chunk, check, probe,
+refresh declaration, or other incompatible control input uses the strict path.
+The frozen plan changes no cursor, Chunk or body SHA-256/byte proof, BODY_END,
+Host confirmation, Attestation, split-proof evidence reset or merge, Receipt,
+refresh-generation creation or consumption, failure-closed rule, or response
+shape.
 
 The governance assessment observed for the first body or Chunk is bound in the
 current MCP Host session to that exact scope identity and framed-body SHA-256.
