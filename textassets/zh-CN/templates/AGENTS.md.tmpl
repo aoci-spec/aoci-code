@@ -39,7 +39,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 ### 代码变更规划
 
-当任务已有明确的代码更新计划时，先把计划表达为独立且完整的 Code 目标索引 `aoci.code.target.txt`，运行 `aoci cognition plan diff --target-index aoci.code.target.txt`，核对当前索引到目标索引的完整差异，确认后才修改业务代码。`aoci.code.txt` 始终是当前正式索引，不得拿它充当计划文件。没有明确更新计划或只是无需计划的局部小修时，不要为了流程凭空创建目标索引。
+每个新增功能、Bug 修复或其他已有明确代码更新计划的任务，都必须先把预期最终状态表达为独立且完整的 Code 目标索引 `aoci.code.target.txt`，运行 `aoci cognition plan diff --target-index aoci.code.target.txt`，核对当前索引到目标索引的完整差异，确认后才修改业务代码。仓库根的约定目标文件是 Managed Scope 之外的生成式计划资产。`aoci.code.txt` 始终是当前正式索引，不得拿它充当计划文件。实现和验证完成后，先完成普通认知维护，再用 `aoci.code.txt` 中本次生成的正式 Entry 覆盖目标索引中的对应 Entry，使已实现对象重新与正式索引一致。只有既不是功能也不是 Bug 修复、确实无需计划的局部小改，才不必为了流程凭空创建目标索引。
 
 ### 建立、生成和恢复认知
 

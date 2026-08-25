@@ -374,6 +374,17 @@ func TestMaintainAligned(
 	}
 }
 
+func TestMaintainIgnoresRootCodeTargetPlan(t *testing.T) {
+	root := buildFormatOnlyRepo(t)
+	maintainWriteFile(t, root, "aoci.code.target.txt", "#AOCI-CODE-VOLUME: 1\n")
+
+	result := decodeAutoResult(t, handleMaintain(root))
+	if result.Status != autoStatusApplied || !result.Aligned ||
+		len(result.Candidates) != 0 || len(result.Findings) != 0 {
+		t.Fatalf("Code target plan must not become a Maintain candidate: %+v", result)
+	}
+}
+
 // TestMaintainNoDict验证标签字典缺失时暂停派发。
 func TestMaintainNoDict(
 	t *testing.T,

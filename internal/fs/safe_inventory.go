@@ -347,6 +347,9 @@ func BuiltInSafetyCategory(rel string) (category, source string) {
 	if !ok {
 		return SafetyUnsafe, "path_boundary"
 	}
+	if clean == "aoci.code.target.txt" {
+		return SafetyGenerated, "builtin_aoci_planning_artifact"
+	}
 	lower := strings.ToLower(clean)
 	parts := strings.Split(lower, "/")
 	base := parts[len(parts)-1]
@@ -425,7 +428,7 @@ func safeRelativePath(value string) (string, bool) {
 }
 
 func safeInventoryRulesIdentity(opt WalkOptions) string {
-	values := []string{SafeInventoryVersion, "sensitive-v1", "runtime-v1", "generated-v3", fmt.Sprint(opt.IncludeIgnoredCandidates)}
+	values := []string{SafeInventoryVersion, "sensitive-v1", "runtime-v1", "generated-v4", fmt.Sprint(opt.IncludeIgnoredCandidates)}
 	values = append(values, opt.ExcludeDirs...)
 	values = append(values, opt.ExcludeFiles...)
 	values = append(values, opt.HighRiskOptIn...)

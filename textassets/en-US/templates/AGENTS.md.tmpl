@@ -39,7 +39,7 @@ Once reliable cognition is established, use AOCI global cognition by default as 
 
 ### Code-change planning
 
-When a task has an explicit code-change plan, first express that plan as a separate complete Code target in `aoci.code.target.txt`, run `aoci cognition plan diff --target-index aoci.code.target.txt`, inspect the complete current-to-target comparison, and only then edit business code. Keep `aoci.code.txt` as the current formal Index; do not use it as the planning file. Do not create a target file merely for an unplanned, purely local small fix.
+For every new feature, bug fix, or other task with an explicit code-change plan, first express the intended final state as a separate complete Code target in `aoci.code.target.txt`, run `aoci cognition plan diff --target-index aoci.code.target.txt`, inspect the complete current-to-target comparison, and only then edit business code. The conventional root target file is a generated planning artifact outside Managed Scope. Keep `aoci.code.txt` as the current formal Index; do not use it as the planning file. After implementation and verification, complete ordinary cognition maintenance, then copy each resulting formal Entry from `aoci.code.txt` over its corresponding target Entry so implemented objects converge back to the formal Index. Do not create a target file merely for an unplanned, purely local small edit that is neither a feature nor a bug fix.
 
 ### Establishing, generating, and restoring cognition
 

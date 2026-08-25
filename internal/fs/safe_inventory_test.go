@@ -82,6 +82,41 @@ func TestSafeInventoryGitAwareBoundaries(t *testing.T) {
 	}
 }
 
+func TestSafeInventoryExcludesOnlyRootCodeTargetPlan(t *testing.T) {
+	for _, gitRepository := range []bool{false, true} {
+		name := "non-git"
+		if gitRepository {
+			name = "git"
+		}
+		t.Run(name, func(t *testing.T) {
+			root := t.TempDir()
+			if gitRepository {
+				gitCommand(t, root, "init", "-q")
+			}
+			mustWrite(t, root, "aoci.code.target.txt", "#AOCI-CODE-VOLUME: 1\n")
+			mustWrite(t, root, "plans/aoci.code.target.txt", "business-owned nested file\n")
+			mustWrite(t, root, "src/main.go", "package main\n")
+
+			report, err := BuildSafeInventory(root, WalkOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if containsPath(report.ManagedCandidates, "aoci.code.target.txt") ||
+				exclusionCategory(report, "aoci.code.target.txt") != SafetyGenerated {
+				t.Fatalf("root Code target plan must be a generated planning artifact: %#v", report)
+			}
+			for _, path := range []string{"plans/aoci.code.target.txt", "src/main.go"} {
+				if !containsPath(report.ManagedCandidates, path) {
+					t.Fatalf("root-only exclusion hid %s: %#v", path, report)
+				}
+			}
+			if gitRepository && (report.Summary.Ignored != 0 || report.Summary.NonignoredUntracked != 3) {
+				t.Fatalf("Git fixture must prove the target was unignored: %#v", report.Summary)
+			}
+		})
+	}
+}
+
 func TestSameGitRootPathNormalizesWindowsGitOutput(t *testing.T) {
 	if !sameGitRootPath(`D:/work/aoci`, `d:\work\aoci`, "windows") {
 		t.Fatal("Windows Git and native path spellings must identify the same root")

@@ -45,7 +45,9 @@
           "Prompt、Description、README和静态文档不能覆盖这些机器事实",
           "独立且完整的 Code 目标索引 `aoci.code.target.txt`",
           "确认后才修改业务代码",
-          "不要为了流程凭空创建目标索引"
+          "每个新增功能、Bug 修复",
+          "Managed Scope 之外",
+          "正式 Entry 覆盖目标索引中的对应 Entry"
         ]
       }
     },
