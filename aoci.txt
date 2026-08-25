@@ -1,6 +1,6 @@
 #AOCI-ROOT-MANIFEST: 1
 #Format-Version: cognition-volumes/v1
-#Locale: en-US
+#Locale: zh-CN
 #Project: public-candidate
 #Global-Invariants: -
 #Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "locale": "en-US",
+  "locale": "zh-CN",
   "index_path": "aoci.txt",
   "exclude_dirs": [
     "node_modules",
@@ -44,7 +44,7 @@
     "version": "managed-scope-policy/v2",
     "profile": "production",
     "observe_change_policy": "review_required",
-    "approval_mode": "auto",
+    "approval_mode": "review",
     "approval_thresholds": {
       "entry_removal_count": 25,
       "entry_removal_percent": 25
@@ -524,6 +524,18 @@
         "source": "user",
         "created_by": "codex-public-bootstrap",
         "order": 1100,
+        "enabled": true
+      },
+      {
+        "rule_id": "host-codex-directory-exclude",
+        "action": "exclude",
+        "pattern": ".codex",
+        "pattern_kind": "directory",
+        "reason": "Codex 宿主配置与运行状态属于机器本地集成资产，不进入项目认知索引或观察指纹",
+        "decision_basis": "maintainer_direction",
+        "source": "user",
+        "created_by": "alkor2000",
+        "order": 1200,
         "enabled": true
       }
     ]
