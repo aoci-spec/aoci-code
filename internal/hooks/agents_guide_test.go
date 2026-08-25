@@ -35,6 +35,11 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"用户明确禁止Ledger、元数据、`.aoci`运行资产及任何文件写入",
 			"必须报告冲突并请求用户裁决或建议使用隔离副本", "不得静默以Memory替代当前仓库认知",
 		},
+		{
+			"当任务已有明确的代码更新计划时", "独立且完整的 Code 目标索引 `aoci.code.target.txt`",
+			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "确认后才修改业务代码",
+			"`aoci.code.txt` 始终是当前正式索引", "不要为了流程凭空创建目标索引",
+		},
 	},
 	textassets.DefaultLocale: {
 		{
@@ -60,6 +65,11 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"explicitly prohibits Ledger, metadata, `.aoci` runtime assets, and every filesystem write",
 			"report the conflict and ask the user to decide or recommend an isolated copy",
 			"Never silently substitute Memory for current repository cognition",
+		},
+		{
+			"When a task has an explicit code-change plan", "separate complete Code target in `aoci.code.target.txt`",
+			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "only then edit business code",
+			"Keep `aoci.code.txt` as the current formal Index", "Do not create a target file merely",
 		},
 	},
 }
