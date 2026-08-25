@@ -70,6 +70,19 @@ func TestCodeTargetApplyBindsChangedAndExplicitReuseInOneBatch(t *testing.T) {
 			t.Fatalf("final source binding missing for %s", path)
 		}
 	}
+	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_update_entry", Arguments: map[string]any{
+		"target_index": codeTargetIndexPath,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var duplicate autoResult
+	if err := json.Unmarshal([]byte(resText(t, result)), &duplicate); err != nil {
+		t.Fatal(err)
+	}
+	if duplicate.Status != autoStatusApplied || !duplicate.Aligned || duplicate.Attempted != 0 || duplicate.Applied != 0 {
+		t.Fatalf("consumed target did not receive a read-only aligned result: %#v", duplicate)
+	}
 }
 
 func TestCodeTargetApplyRejectsUnmarkedReuseWithoutWrites(t *testing.T) {

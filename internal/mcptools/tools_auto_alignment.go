@@ -121,8 +121,12 @@ func inspectCognitionVolumeAlignment(
 			newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)
 	}
 	receipt := newVolumeCognitionReceipt(root, mcpServiceVersion, loaded.set, view)
-	if outcome == nil || len(outcome.Volumes) == 0 || len(outcome.Volumes) > 2 || len(outcome.Items) == 0 {
-		return false, 1, []string{"cognition_volume_alignment_unavailable"}, receipt
+	volumeIDs := []string{cognition.ScopeCode}
+	if outcome != nil {
+		if len(outcome.Volumes) == 0 || len(outcome.Volumes) > 2 || len(outcome.Items) == 0 {
+			return false, 1, []string{"cognition_volume_alignment_unavailable"}, receipt
+		}
+		volumeIDs = outcome.Volumes
 	}
 	state, exists, loadErr := baseline.Load(root)
 	if loadErr != nil || !exists || state == nil {
@@ -189,7 +193,7 @@ func inspectCognitionVolumeAlignment(
 			findings = append(findings, "warning: "+warning)
 		}
 	}
-	for _, volumeID := range outcome.Volumes {
+	for _, volumeID := range volumeIDs {
 		asset := loaded.set.Volumes[volumeID]
 		if asset == nil {
 			findings = append(findings, "unaligned: "+volumeID)
@@ -202,7 +206,7 @@ func inspectCognitionVolumeAlignment(
 			findings = append(findings, "unaligned: "+volumePath)
 		}
 	}
-	if containsString(outcome.Volumes, "database") {
+	if containsString(volumeIDs, "database") {
 		database := dbcognition.Assess(root, loaded.cfg.DatabaseSources, loaded.set, state)
 		for _, source := range database.Sources {
 			if source.State != machinecontract.DatabaseCognitionCurrent {
