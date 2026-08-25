@@ -39,3 +39,21 @@ error result; it is not printed as a second stdout message.
 
 The nine-tool identity is independent from optional CLI lifecycle commands.
 Changing a CLI command does not implicitly add, remove, or rename an MCP tool.
+
+Optional module cognition
+-------------------------
+
+`aoci_rules` has one additive optional string input, `module_path`. Omitting it
+returns the existing runtime Rules text unchanged. In a Volumes v1 repository,
+providing it appends one `AOCI Project Module Cognition JSON:` marker followed
+by the complete selected `project-module-cognition/v1` projection. Every call
+loads and validates a fresh coherent snapshot; the server does not retain
+module memory or return load, reuse, refresh, replace, epoch, or reset state. A
+module request is limited to 50 Code objects and Legacy layout returns an
+explicit error.
+
+An ordinary `aoci_overview` request still defaults to `requested_scope=all` and
+`effective_scope=all` and delivers the complete Whole-Index through the existing
+inline or continuation transport. A module request has no state to reset and
+never changes Overview content, scope identity, receipts, refresh state,
+Challenge, Attestation, or the stable nine-tool name identity.

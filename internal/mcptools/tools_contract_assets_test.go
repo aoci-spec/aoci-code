@@ -175,6 +175,39 @@ func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
 	t.Fatal("真实ListTools结果缺少aoci_maintain")
 }
 
+func TestMCPRulesModuleInputSchemaIsAdditive(t *testing.T) {
+	var listed []struct {
+		Name        string         `json:"name"`
+		InputSchema map[string]any `json:"inputSchema"`
+	}
+	if err := json.Unmarshal(canonicalListTools(t), &listed); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tool := range listed {
+		if tool.Name != "aoci_rules" {
+			continue
+		}
+		if _, required := tool.InputSchema["required"]; required {
+			t.Fatal("aoci_rules.module_path must remain optional")
+		}
+		if additional, ok := tool.InputSchema["additionalProperties"].(bool); !ok || additional {
+			t.Fatalf("aoci_rules schema must remain closed: %#v", tool.InputSchema)
+		}
+		properties, ok := tool.InputSchema["properties"].(map[string]any)
+		if !ok || len(properties) != 1 {
+			t.Fatalf("aoci_rules properties changed unexpectedly: %#v", tool.InputSchema)
+		}
+		modulePath, ok := properties["module_path"].(map[string]any)
+		if !ok || modulePath["type"] != "string" || modulePath["minLength"] != float64(1) {
+			t.Fatalf("aoci_rules.module_path schema is invalid: %#v", modulePath)
+		}
+		return
+	}
+
+	t.Fatal("真实ListTools结果缺少aoci_rules")
+}
+
 func canonicalListTools(t *testing.T) []byte {
 	t.Helper()
 	root := buildRepo(t)

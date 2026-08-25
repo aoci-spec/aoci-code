@@ -37,3 +37,36 @@ simply contributes no edge and no Finding, because relations are model-authored
 semantics. The findings field remains in the public shape for compatibility and
 stays empty for relation content. The public JSON structs and command
 tests are the field-level executable contract.
+
+Project module cognition
+------------------------
+
+In a Volumes v1 repository, `aoci_rules` accepts the optional repository-relative
+`module_path`. The resulting `project-module-cognition/v1` view selects an exact
+Code object path or the Code objects beneath that directory boundary. A path
+such as `internal/foo` does not select `internal/foobar`. Unsafe, empty,
+unmanaged, Legacy-layout, and over-limit requests fail closed.
+
+A mature Legacy repository enters the existing governed Migration through
+`aoci cognition onboard start`. After its approved Apply activates an aligned
+Code-bearing Volumes v1 layout, module cognition is available immediately from
+that Code Volume. There is no module-specific persistent index, version,
+Baseline, or second migration step; a non-authoritative target Code Volume
+comparison cannot substitute for the governed Migration.
+
+The view carries the current Root and Meta identities, the exact canonical
+Entry line and object reference for every selected Code object, and only
+explicit model-authored R relations that touch those objects. It never derives
+semantics from a path, filename, AST, import, or source scan. Its stable module
+identity binds the normalized module path, Root, Meta, selected Entry lines,
+and returned relation triples. The current composite identity is reported as
+metadata but is not a module-identity input, so an unrelated Code change does
+not by itself invalidate unchanged module cognition.
+
+Every module response includes the complete projection. Module projection is
+stateless: each request is freshly loaded, validated, and snapshot-confirmed;
+the server stores no last module, module identity, epoch, action, or Entry
+semantics. There is therefore no module-memory reset on an ordinary Rules or
+Overview call. Module projection cannot establish model cognition or enter
+Overview scope, receipts, refresh generation, Attestation, governance,
+maintenance, or coverage.

@@ -13,6 +13,8 @@ const (
 	SemanticAuthoringProvenanceV1  = "semantic-authoring-provenance/v1"
 	SemanticAuthoringRequirementV1 = "semantic-authoring-requirement/v1"
 	CognitionVolumeRegistryV1      = "cognition-volume-registry/v1"
+	CognitionCodeTargetDiffV1      = "cognition-code-target-diff/v1"
+	ProjectModuleCognitionV1       = "project-module-cognition/v1"
 	BaselineScopePlanV1            = "baseline-scope-plan/v1"
 	BaselineScopePreviewV1         = "baseline-scope-preview/v1"
 	BaselineScopeApprovalV1        = "baseline-scope-approval/v1"
@@ -147,6 +149,9 @@ const (
 	CognitionPlannerAlreadyVolumes    = "layout_already_volumes"
 	CognitionPlannerSuperseded        = "superseded"
 	CognitionPlannerInvalid           = "invalid"
+	CognitionCodeTargetDiffReady      = "ready"
+	CognitionCodeTargetDiffNoChange   = "no_change"
+	CognitionCodeTargetDiffNextAction = "implement_code_then_run_aoci_maintain"
 
 	SemanticAuthoringOriginHostModel = "host_model"
 	SemanticAuthoringStatusVerified  = "verified"

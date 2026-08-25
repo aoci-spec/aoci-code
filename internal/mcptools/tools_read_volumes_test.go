@@ -417,6 +417,184 @@ func TestVolumeRulesAndAbsentLocalReads(t *testing.T) {
 	}
 }
 
+func TestVolumeRulesProjectModuleIsStatelessAndWholeIndexCompatible(t *testing.T) {
+	root := buildProjectModuleMCPRepo(t)
+	session := connectMCPClient(t, root)
+
+	plainBefore := callVolumeTool(t, session, "aoci_rules", nil)
+	overviewBefore := callVolumeTool(t, session, "aoci_overview", nil)
+	for _, want := range []string{"requested_scope: all", "effective_scope: all", "a.go[CD9S]", "b.go[CD9S]"} {
+		if !strings.Contains(overviewBefore, want) {
+			t.Fatalf("default Overview missing %q:\n%s", want, overviewBefore)
+		}
+	}
+
+	firstOutput := callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/alpha"})
+	first := decodeProjectModuleRules(t, firstOutput)
+	if first.Version != "project-module-cognition/v1" || first.ModulePath != "internal/alpha" ||
+		first.RootSHA256 == "" || first.MetaSHA256 == "" || first.CompositeIdentity == "" || first.ProjectionIdentity == "" ||
+		len(first.Objects) != 1 || first.Objects[0].ObjectRef != "code:internal/alpha/a.go" || len(first.Relations) != 2 ||
+		!first.Derived || first.Authoritative || first.Persisted || first.SourceBound || first.NetworkAccessed || first.BusinessDataRead {
+		t.Fatalf("unexpected initial module projection: %#v", first)
+	}
+	repeatedOutput := callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/alpha"})
+	if repeatedOutput != firstOutput || strings.Contains(repeatedOutput, "agent_memory_policy") ||
+		strings.Contains(repeatedOutput, `"project_module_cognition"`) {
+		t.Fatalf("repeated module projection was stateful or incomplete:\nfirst=%s\nrepeated=%s", firstOutput, repeatedOutput)
+	}
+
+	overviewAfter := callVolumeTool(t, session, "aoci_overview", nil)
+	if strings.Contains(overviewAfter, "project-module-cognition/v1") ||
+		overviewFact(overviewAfter, "body_sha256") != overviewFact(overviewBefore, "body_sha256") ||
+		overviewFact(overviewAfter, "scope_identity") != overviewFact(overviewBefore, "scope_identity") {
+		t.Fatalf("module state changed the default Whole-Index delivery:\nbefore=%s\nafter=%s", overviewBefore, overviewAfter)
+	}
+	afterOverview := callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/alpha"})
+	if afterOverview != firstOutput {
+		t.Fatalf("default full Overview changed stateless module output:\nbefore=%s\nafter=%s", firstOutput, afterOverview)
+	}
+
+	plainAfter := callVolumeTool(t, session, "aoci_rules", nil)
+	if plainAfter != plainBefore {
+		t.Fatalf("no-argument Rules output changed after module use:\nbefore=%s\nafter=%s", plainBefore, plainAfter)
+	}
+	afterPlain := callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/alpha"})
+	if afterPlain != firstOutput {
+		t.Fatalf("no-argument Rules changed stateless module output:\nbefore=%s\nafter=%s", firstOutput, afterPlain)
+	}
+
+	codePath := filepath.Join(root, "aoci.code.txt")
+	codeBytes, err := os.ReadFile(codePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := strings.Replace(string(codeBytes), "F:coordinate alpha behavior", "F:coordinate updated alpha behavior", 1)
+	if changed == string(codeBytes) {
+		t.Fatal("module fixture entry was not found")
+	}
+	if err := os.WriteFile(codePath, []byte(changed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	current := decodeProjectModuleRules(t, callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/alpha"}))
+	if current.ProjectionIdentity == first.ProjectionIdentity ||
+		current.Objects[0].CanonicalEntry == first.Objects[0].CanonicalEntry {
+		t.Fatalf("module call did not load the current projection: %#v", current)
+	}
+	other := decodeProjectModuleRules(t, callVolumeTool(t, session, "aoci_rules", map[string]any{"module_path": "internal/beta"}))
+	if other.ModulePath != "internal/beta" || len(other.Objects) != 1 ||
+		other.Objects[0].ObjectRef != "code:internal/beta/b.go" {
+		t.Fatalf("different module did not return its complete projection: %#v", other)
+	}
+
+	for _, item := range []struct {
+		modulePath string
+		want       string
+	}{{modulePath: "", want: "minLength"}, {modulePath: "../escape", want: "project_module_cognition_path_invalid"}} {
+		invalid, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+			Name: "aoci_rules", Arguments: map[string]any{"module_path": item.modulePath},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !invalid.IsError || !strings.Contains(resText(t, invalid), item.want) {
+			t.Fatalf("invalid module path %q did not fail closed: %s", item.modulePath, resText(t, invalid))
+		}
+	}
+}
+
+func TestRulesProjectModuleRejectsLegacyAndOversizedProjection(t *testing.T) {
+	legacy := connectMCPClient(t, buildRepo(t))
+	legacyResult, err := legacy.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "aoci_rules", Arguments: map[string]any{"module_path": "internal"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !legacyResult.IsError || !strings.Contains(resText(t, legacyResult), "project_module_cognition_invalid") {
+		t.Fatalf("Legacy module cognition did not fail explicitly: %s", resText(t, legacyResult))
+	}
+
+	root := buildVolumeRepo(t, true, false)
+	var code strings.Builder
+	code.WriteString(cognition.CodeVolumeMarker + "\n===" + filepath.ToSlash(root) + "/bulk/===\n")
+	for index := 0; index <= maxDirEntries; index++ {
+		fmt.Fprintf(&code, "f%02d.go[CD9S]: F:coordinate bulk module object %d | R:- | A:- | S:-\n", index, index)
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), []byte(code.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	oversized := connectMCPClient(t, root)
+	oversizedResult, err := oversized.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "aoci_rules", Arguments: map[string]any{"module_path": "bulk"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !oversizedResult.IsError || !strings.Contains(resText(t, oversizedResult), "50") {
+		t.Fatalf("oversized module projection did not fail closed: %s", resText(t, oversizedResult))
+	}
+}
+
+func buildProjectModuleMCPRepo(t *testing.T) string {
+	t.Helper()
+	root := buildVolumeRepo(t, true, false)
+	for _, path := range []string{"internal/alpha/a.go", "internal/beta/b.go"} {
+		full := filepath.Join(root, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte("package fixture\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	code := cognition.CodeVolumeMarker + "\n" +
+		"===" + filepath.ToSlash(root) + "/===\n" +
+		"main.go[CD9S]: F:run the fixture | R:- | A:main | S:Keep execution deterministic\n" +
+		"===" + filepath.ToSlash(root) + "/internal/alpha/===\n" +
+		"a.go[CD9S]: F:coordinate alpha behavior | R:code:internal/beta/b.go | A:- | S:-\n" +
+		"===" + filepath.ToSlash(root) + "/internal/beta/===\n" +
+		"b.go[CD9S]: F:coordinate beta behavior | R:code:internal/alpha/a.go | A:- | S:-\n"
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), []byte(code), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, _, err := baseline.Snapshot(root, cfg.WalkOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func decodeProjectModuleRules(t *testing.T, output string) cognition.ProjectModuleCognition {
+	t.Helper()
+	const marker = "AOCI Project Module Cognition JSON:\n"
+	position := strings.LastIndex(output, marker)
+	if position < 0 {
+		t.Fatalf("module Rules output missing JSON marker:\n%s", output)
+	}
+	var projection cognition.ProjectModuleCognition
+	if err := json.Unmarshal([]byte(strings.TrimSpace(output[position+len(marker):])), &projection); err != nil {
+		t.Fatalf("decode module Rules projection: %v\n%s", err, output)
+	}
+	return projection
+}
+
+func overviewFact(output, key string) string {
+	prefix := key + ": "
+	for _, line := range strings.Split(output, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimPrefix(line, prefix)
+		}
+	}
+	return ""
+}
+
 func TestVolumeHeaderSearchAndGetEntries(t *testing.T) {
 	root := buildVolumeRepo(t, true, true)
 	header, fail := BuildHeaderText(root, "agent")

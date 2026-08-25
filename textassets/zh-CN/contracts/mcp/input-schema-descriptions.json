@@ -1,4 +1,7 @@
 {
+  "aoci_rules": {
+    "module_path": "可选的仓库相对Code文件或目录子树，用于返回完整的派生模块认知投影；省略时保持普通Rules合同和全量Overview流程"
+  },
   "aoci_get_entries": {
     "dir": "要整段读取的目录相对路径(与 paths 二选一)",
     "object_refs": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份",

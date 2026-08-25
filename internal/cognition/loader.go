@@ -297,15 +297,23 @@ func ValidateProjectedCodeVolume(set *Set, raw []byte) []Finding {
 // already declared object Volume. The candidate is parsed with the same
 // marker, FRAS, boundary, and scoped Meta dictionary rules as a normal load.
 func ValidateProjectedObjectVolume(set *Set, volumeID string, raw []byte) []Finding {
+	_, findings := ProjectObjectVolume(set, volumeID, raw)
+	return findings
+}
+
+// ProjectObjectVolume validates and returns an in-memory replacement for one
+// already declared object Volume. Root, Meta, and every other Volume retain
+// their exact active bytes; the returned Set is derived and never activated.
+func ProjectObjectVolume(set *Set, volumeID string, raw []byte) (*Set, []Finding) {
 	if set == nil || set.LayoutMode != LayoutVolumesV1 {
-		return []Finding{{Code: "projected_layout_invalid", AssetID: volumeID, Message: "projected object Volume validation requires a Volumes v1 CognitionSet"}}
+		return nil, []Finding{{Code: "projected_layout_invalid", AssetID: volumeID, Message: "projected object Volume validation requires a Volumes v1 CognitionSet"}}
 	}
 	if volumeID != "code" && volumeID != "database" {
-		return []Finding{{Code: "projected_volume_unsupported", AssetID: volumeID, Message: "projected validation supports only Code and Database object Volumes"}}
+		return nil, []Finding{{Code: "projected_volume_unsupported", AssetID: volumeID, Message: "projected validation supports only Code and Database object Volumes"}}
 	}
 	current := set.Volumes[volumeID]
 	if current == nil || current.State != AssetPresent {
-		return []Finding{{Code: "projected_volume_absent", AssetID: volumeID, Message: "projected validation requires an existing valid object Volume"}}
+		return nil, []Finding{{Code: "projected_volume_absent", AssetID: volumeID, Message: "projected validation requires an existing valid object Volume"}}
 	}
 	projectedAsset := &Asset{Descriptor: current.Descriptor, State: AssetInvalid}
 	parseVolumeAssetBytes(set.RepositoryRoot, projectedAsset, raw)
@@ -320,7 +328,11 @@ func ValidateProjectedObjectVolume(set *Set, volumeID string, raw []byte) []Find
 	if len(findings) == 0 {
 		findings = append(findings, validateObjectDictionaries(&projectedSet)...)
 	}
-	return findings
+	if len(findings) != 0 {
+		return nil, findings
+	}
+	projectedSet.computeIdentities()
+	return &projectedSet, nil
 }
 
 func parseVolumeAssetBytes(repositoryRoot string, asset *Asset, raw []byte) {

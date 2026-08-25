@@ -7,7 +7,11 @@
       "path": "contracts/mcp/tools/rules-description.txt",
       "description": "MCP description for the runtime behavior-contract entrypoint",
       "used_by": "internal/mcptools/tools_read.go:registerReadTools",
-      "protocol_tokens": [],
+      "protocol_tokens": [
+        "module_path",
+        "project-module-cognition/v1",
+        "aoci_overview"
+      ],
       "locale_anchors": {
         "zh-CN": [
           "会话级运行合同",
@@ -216,6 +220,7 @@
       "description": "Locale-specific natural-language descriptions for versioned MCP input schemas",
       "used_by": "internal/mcptools/tools_contract_assets.go:loadMCPInputSchemas",
       "protocol_tokens": [
+        "aoci_rules",
         "aoci_overview",
         "aoci_get_entries",
         "aoci_search",
@@ -238,6 +243,7 @@
         "context_compaction",
         "semantic_threshold",
         "phase_transition",
+        "module_path",
         "paths",
         "dir",
         "keyword",

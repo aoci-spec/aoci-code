@@ -1,6 +1,6 @@
 AOCI Cognition Volumes v1 (candidate read and minimal consistency-update contract)
 
-Status: R72.2 candidate. Volumes v1 reads remain the foundation. The
+Status: R74 candidate. Volumes v1 reads remain the foundation. The
 existing update path additionally supports model-authored multi-object Code,
 Database, and mixed Code+Database batches backed by current source or accepted
 saved Database Evidence and the existing governance transaction. It does not
@@ -491,3 +491,37 @@ preserves already enrolled formal Volume fingerprints and guards their live
 bytes; it cannot enroll or rebaseline a formal Volume. This prevents a
 single-domain Scope update from producing `code_volume_unbaselined` or
 `database_volume_unbaselined` for unchanged formal assets.
+
+## R74 prospective Code target Diff
+
+`aoci cognition plan diff --target-index <file>` accepts one explicitly named,
+regular, non-symlink file containing a complete `#AOCI-CODE-VOLUME: 1` Volume.
+The target uses the existing Code Volume format; it is not a new Index format,
+an overlay, or a partial candidate. It may describe intended Code objects that
+have not been implemented yet, so it is always non-authoritative and
+`source_bound=false`.
+
+The command retains the active Root, Meta, Database Volume, and their exact
+bytes, projects only the supplied Code Volume in memory, and reuses the normal
+marker, object, FRAS-v2, scoped Meta dictionary, canonical ownership, and
+changed-field authoring checks. It compares objects by canonical identity and
+emits sorted create, update, and delete changes. It never guesses rename: an
+identity change is delete plus create. Comments, section order, and line-ending
+changes that preserve every canonical Entry produce no object change and are
+reported as `formal_text_only` when raw bytes still differ.
+
+The `cognition-code-target-diff/v1` result binds the active Composite and Code
+SHA-256, target Code SHA-256, projected Composite identity, deterministic Diff
+identity, semantic summary, complete changed Entries, and the existing derived
+Review, Write, and Guard projection. It also reports `authoritative=false`,
+`apply_allowed=false`, `formal_writes_started=false`, `network_accessed=false`,
+and `business_data_read=false`. A Write Set in this report describes future
+maintenance impact only and grants no write authority.
+
+The target file is never declared by Root, discovered automatically, added to
+Overview, Challenge, Attestation, Search, Get Entries, Maintain, Baseline, CAS,
+Ledger, or Recovery, and the command does not persist it. The caller may keep
+that second complete Code Volume in an ignored draft path or outside the
+repository. After implementing and testing the code, the Agent must use the
+ordinary source-bound Maintain and Update path; the target file cannot be
+promoted or applied directly.

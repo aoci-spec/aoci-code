@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
@@ -26,7 +27,48 @@ func newCognitionCmd() *cobra.Command {
 
 func newCognitionPlanCmd() *cobra.Command {
 	command := &cobra.Command{Use: "plan", Short: cliMessage("cli.short.cognition_plan")}
-	command.AddCommand(newCognitionBootstrapPlanCmd(), newCognitionMigrationPlanCmd(), newCognitionCandidateValidateCmd())
+	command.AddCommand(newCognitionBootstrapPlanCmd(), newCognitionMigrationPlanCmd(), newCognitionCandidateValidateCmd(), newCognitionCodeTargetDiffCmd())
+	return command
+}
+
+func newCognitionCodeTargetDiffCmd() *cobra.Command {
+	var targetIndex string
+	command := &cobra.Command{
+		Use:   "diff",
+		Short: cliMessage("cli.short.cognition_plan_diff"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			defer func() { targetIndex = "" }()
+			root, err := resolveRepoRoot()
+			if err != nil {
+				return plannerExitError(err)
+			}
+			cfg, err := config.LoadReadOnly(root)
+			if err != nil {
+				return plannerExitError(err)
+			}
+			targetRaw, err := readPlannerInput(targetIndex)
+			if err != nil {
+				return plannerExitError(err)
+			}
+			report, err := cognitionplan.CompareCodeTargetIndex(root, cfg.IndexPath, targetRaw)
+			if err != nil {
+				return plannerExitError(err)
+			}
+			if flagJSON {
+				return writePlannerJSON(cmd, report)
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("cognition.plan.code_diff_summary", report.Summary.Created,
+				report.Summary.Updated, report.Summary.Deleted, report.Summary.Unchanged, report.RawBytesChanged, report.DiffSHA256))
+			for _, change := range report.Changes {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("cognition.plan.code_diff_change", change.Change,
+					change.ObjectRef, strings.Join(change.ChangedFields, ",")))
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("cognition.plan.next_action", report.NextAction))
+			return nil
+		},
+	}
+	command.Flags().StringVar(&targetIndex, "target-index", "", cliMessage("cognition.plan.flag.target_index"))
+	_ = command.MarkFlagRequired("target-index")
 	return command
 }
 

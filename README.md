@@ -565,7 +565,8 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci database` | Explicitly configures and validates PostgreSQL/MySQL/openGauss Schema Evidence |
 | `aoci database source access` | Read-only check of whether a database credential reference has been provided by the external environment; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
-| `aoci cognition plan` | Read-only preview of a Bootstrap or Legacy-to-Volumes migration plan |
+| `aoci cognition plan` | Read-only Bootstrap or Legacy migration planning and complete target Code Volume comparison |
+| `aoci cognition plan diff --target-index <file>` | Compares the active Code Volume with a separately stored complete target Code Volume; the target is non-authoritative and cannot be applied directly |
 | `aoci cognition bootstrap` | Governs only an uninitialized repository or the exact zero-Entry Legacy minimal skeleton that an older `init` wrote; it never targets an initialized Volumes v1 repository — a Volumes skeleton with zero Entries is built through `aoci scan`, then Guide and no-argument `aoci_maintain` — and a mature Legacy project should use Migration |
 | `aoci cognition migration` | Governs Legacy migration snapshots, mapping, approval, application, recovery, or rollback |
 | `aoci cognition system lineage` | Derives the origin and binding chain of important cognition objects |
@@ -574,6 +575,13 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci cognition system snapshot` | Outputs a read-only snapshot projection of the current CognitionSet |
 | `aoci cognition system evolution` | Compares a historical Snapshot supplied by the caller with the current projection |
 | `aoci mcp` | Starts the stdio MCP Server |
+
+A mature Legacy index upgrades through `aoci cognition onboard start`, which
+preserves the existing model-authored mapping and human digest-approval
+boundary. Once Apply reaches an aligned Code-bearing Volumes v1 layout,
+`aoci_rules` can use `module_path` immediately; there is no additional module
+index format, and a target Code Volume comparison is not an Apply or migration
+path.
 
 Common combinations:
 
@@ -597,7 +605,9 @@ aoci --repo . doctor
 aoci --repo . database --help
 aoci --repo . database source access --source primary --json
 aoci --repo . database cognition status
+aoci --repo . cognition onboard start --json
 aoci --repo . cognition plan --help
+aoci --repo . cognition plan diff --target-index /path/to/target.aoci.code.txt --json
 
 # Derived System Cognition observations
 aoci --repo . cognition system lineage

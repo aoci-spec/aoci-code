@@ -1,4 +1,7 @@
 {
+  "aoci_rules": {
+    "module_path": "Optional repository-relative Code file or directory subtree for a complete derived module cognition projection; omit it to preserve the ordinary Rules contract and full Overview workflow"
+  },
   "aoci_get_entries": {
     "dir": "Repository-relative directory whose full Entry section should be read (mutually exclusive with paths)",
     "object_refs": "Canonical Volumes v1 object references; database tables use database://source/namespace/table identity",

@@ -21,6 +21,7 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -39,7 +40,9 @@ const (
 	maxSearchResults = 30
 )
 
-type emptyIn struct{}
+type rulesIn struct {
+	ModulePath *string `json:"module_path,omitempty"`
+}
 
 type overviewIn struct {
 	Scope                 string                    `json:"scope,omitempty"`
@@ -87,11 +90,12 @@ func registerReadTools(
 		&mcp.Tool{
 			Name:        "aoci_rules",
 			Description: descriptions[textassets.ContractMCPRulesDescription],
+			InputSchema: inputSchemas["aoci_rules"],
 		},
 		func(
 			ctx context.Context,
 			request *mcp.CallToolRequest,
-			input emptyIn,
+			input rulesIn,
 		) (
 			*mcp.CallToolResult,
 			any,
@@ -123,6 +127,27 @@ func registerReadTools(
 					// 让新会话第一时间知道自己连着一个过时的服务进程。
 					if serviceBinaryReplacedOnDisk() {
 						output += "\nservice_binary_replaced_on_disk: true\n"
+					}
+					if input.ModulePath != nil {
+						projection, projectionErr := cognition.BuildProjectModuleCognition(loaded.set, *input.ModulePath)
+						if projectionErr != nil {
+							return errResult(
+								errBadArgs,
+								mcpMessage("mcp.rules.module_invalid", localeSafeMCPDetail(projectionErr.Error())),
+								"",
+							)
+						}
+						if len(projection.Objects) > maxDirEntries {
+							return errResult(errBadArgs, mcpMessage("mcp.rules.module_limit", maxDirEntries), "")
+						}
+						if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
+							return failResult(snapshotFail)
+						}
+						encoded, marshalErr := json.Marshal(projection)
+						if marshalErr != nil {
+							return errResult(errInternal, marshalErr.Error(), "")
+						}
+						output += "\nAOCI Project Module Cognition JSON:\n" + string(encoded) + "\n"
 					}
 
 					ledger.Append(

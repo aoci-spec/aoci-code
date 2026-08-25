@@ -171,6 +171,37 @@ func TestDeclaredEmptyVolumeDiffersFromAbsent(t *testing.T) {
 	}
 }
 
+func TestProjectObjectVolumeKeepsActiveSetUnchanged(t *testing.T) {
+	root := writeFixture(t, map[string]string{
+		"aoci.txt":      rootText("meta", "code"),
+		"aoci.meta.txt": validMeta(),
+		"aoci.code.txt": CodeVolumeMarker + "\n",
+	})
+	set, err := Load(root, "aoci.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalIdentity := set.CompositeIdentity
+	target := []byte(CodeVolumeMarker + "\n===Go sources" + filepath.ToSlash(root) + "/===\n" +
+		"main.go[CD9S]: F:run the projected fixture | R:- | A:- | S:Keep projection read-only\n")
+	projected, findings := ProjectObjectVolume(set, "code", target)
+	if len(findings) != 0 || projected == nil {
+		t.Fatalf("valid projected Code Volume failed: projected=%#v findings=%#v", projected, findings)
+	}
+	if set.CompositeIdentity != originalIdentity || set.Volumes["code"].ObjectCount != 0 ||
+		string(set.Volumes["code"].Raw) != CodeVolumeMarker+"\n" {
+		t.Fatalf("projection mutated the active CognitionSet: %#v", set.Volumes["code"])
+	}
+	if projected.CompositeIdentity == originalIdentity || projected.Root.SHA256 != set.Root.SHA256 ||
+		projected.Meta.SHA256 != set.Meta.SHA256 || string(projected.Volumes["code"].Raw) != string(target) ||
+		projected.Volumes["code"].ObjectCount != 1 {
+		t.Fatalf("projected replacement did not preserve exact guards: %#v", projected)
+	}
+	if findings := ValidateProjectedCodeVolume(set, target); len(findings) != 0 {
+		t.Fatalf("compatibility validator changed behavior: %#v", findings)
+	}
+}
+
 func TestProjectedCodeValidationPreservesMarkerFindings(t *testing.T) {
 	root := writeFixture(t, map[string]string{
 		"aoci.txt":      rootText("meta", "code"),

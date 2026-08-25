@@ -595,9 +595,16 @@
     "name": "aoci_report"
   },
   {
-    "description": "读取当前AOCI会话级运行合同。新的Agent Run没有可靠合同，或合同已不在有效上下文、AOCI服务身份发生变化时调用；同一认知周期不要重复调用。不会修改正式索引或Baseline，但可能追加本地审计记录。",
+    "description": "读取当前AOCI会话级运行合同。新的Agent Run没有可靠合同，或合同已不在有效上下文、AOCI服务身份发生变化时调用；同一认知周期不要重复调用。可选module_path返回每次新鲜加载的完整派生project-module-cognition/v1投影；省略时保持普通Rules和默认全量aoci_overview流程。模块投影无状态，不存在记忆或重置行为。不会修改正式索引或Baseline，但可能追加本地审计记录。",
     "inputSchema": {
       "additionalProperties": false,
+      "properties": {
+        "module_path": {
+          "description": "可选的仓库相对Code文件或目录子树，用于返回完整的派生模块认知投影；省略时保持普通Rules合同和全量Overview流程",
+          "minLength": 1,
+          "type": "string"
+        }
+      },
       "type": "object"
     },
     "name": "aoci_rules"

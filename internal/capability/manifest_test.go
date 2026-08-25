@@ -48,6 +48,9 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.CLILifecycleCapabilities, "database_cognition_bootstrap") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "fresh_bootstrap_auto_eligibility_v1") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "fresh_bootstrap_semantic_authoring_v2") ||
+		!containsCapability(manifest.CLILifecycleCapabilities, "code_target_index_diff_v1") ||
+		!containsCapability(manifest.InputSchemaVersions, machinecontract.CognitionCodeTargetDiffV1) ||
+		!containsCapability(manifest.InputSchemaVersions, machinecontract.ProjectModuleCognitionV1) ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "cognition_lineage_v1") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "database_to_code_impact_v1") ||
 		!containsCapability(manifest.DatabaseCapabilities, "opengauss_schema_evidence") ||
@@ -58,6 +61,9 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 	if containsCapability(manifest.TTY.RequiredFor, "bootstrap_apply") ||
 		!containsCapability(manifest.TTY.RequiredFor, "bootstrap_review_apply") {
 		t.Fatalf("bootstrap TTY scope is not policy-qualified: %#v", manifest.TTY.RequiredFor)
+	}
+	if containsCapability(manifest.InputSchemaVersions, "agent-memory-policy/v1") {
+		t.Fatalf("stateless module projection advertised agent memory: %#v", manifest.InputSchemaVersions)
 	}
 }
 

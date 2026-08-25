@@ -543,7 +543,8 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 | `aoci database` | 显式配置并验证 PostgreSQL/MySQL/openGauss Schema Evidence |
 | `aoci database source access` | 只读检查数据库凭据引用是否已由外部环境提供，不返回凭据值 |
 | `aoci database cognition bootstrap` | 为已对齐的 Code-only Volumes 项目添加 Database Cognition |
-| `aoci cognition plan` | 只读预览 Bootstrap 或 Legacy-to-Volumes 迁移计划 |
+| `aoci cognition plan` | 只读规划 Bootstrap 或 Legacy 迁移，并比较完整目标 Code Volume |
+| `aoci cognition plan diff --target-index <file>` | 比较正式 Code Volume 与另存的完整目标 Code Volume；目标文件非权威且不能直接 Apply |
 | `aoci cognition bootstrap` | 仅治理未初始化的仓库，或旧版 `init` 写出的精确零 Entry Legacy 最小骨架；它绝不针对已初始化的 Volumes v1 仓库 —— 零 Entry 的 Volumes 骨架要先跑 `aoci scan`，再走 Guide 和无参数 `aoci_maintain` —— 成熟的 Legacy 项目则应使用 Migration |
 | `aoci cognition migration` | 治理 Legacy 迁移的快照、映射、批准、应用、恢复或回滚 |
 | `aoci cognition system lineage` | 派生重要认知对象的来源与绑定链 |
@@ -552,6 +553,11 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 | `aoci cognition system snapshot` | 输出当前认知集合的只读快照投影 |
 | `aoci cognition system evolution` | 比较调用方提供的历史 Snapshot 与当前投影 |
 | `aoci mcp` | 启动 stdio MCP Server |
+
+成熟的 Legacy 索引应从 `aoci cognition onboard start` 进入升级流程；该流程保留
+已有模型语义映射与人工摘要批准边界。Apply 达到已对齐且含 Code Volume 的
+Volumes v1 布局后，`aoci_rules` 可立即使用 `module_path`，无需再创建模块专用索引
+格式；目标 Code Volume 对比也不是 Apply 或迁移入口。
 
 常用组合：
 
@@ -575,7 +581,9 @@ aoci --repo . doctor
 aoci --repo . database --help
 aoci --repo . database source access --source primary --json
 aoci --repo . database cognition status
+aoci --repo . cognition onboard start --json
 aoci --repo . cognition plan --help
+aoci --repo . cognition plan diff --target-index /path/to/target.aoci.code.txt --json
 
 # System Cognition 派生观察
 aoci --repo . cognition system lineage

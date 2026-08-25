@@ -15,6 +15,7 @@ type mcpToolDescriptions map[textassets.ID]string
 type mcpInputSchemas map[string]any
 
 var mcpInputSchemaFields = map[string][]string{
+	"aoci_rules": {"module_path"},
 	"aoci_overview": {
 		"scope", "cognition_state_version", "cognition_receipt", "model_cognition_state", "scope_covered", "check_only",
 		"refresh_reasons", "refresh_event_id", "stable_checkpoint", "host_delivery_confirmation", "model_cognition_attestation",
@@ -154,6 +155,11 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 	}
 
 	switch toolName {
+	case "aoci_rules":
+		modulePath := stringProperty("module_path")
+		modulePath["minLength"] = 1
+		return object(map[string]any{"module_path": modulePath}), nil
+
 	case "aoci_get_entries":
 		paths := map[string]any{
 			"type":        []string{"null", "array"},

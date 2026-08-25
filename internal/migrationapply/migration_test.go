@@ -65,6 +65,13 @@ func TestLegacyMigrationCodeOnlyApplyAndStrictReversal(t *testing.T) {
 	if err != nil || set.LayoutMode != cognition.LayoutVolumesV1 || len(set.Volumes["code"].Objects) != 1 {
 		t.Fatalf("Volumes layout invalid: set=%#v err=%v", set, err)
 	}
+	module, err := cognition.BuildProjectModuleCognition(set, "src")
+	if err != nil || module.Version != machinecontract.ProjectModuleCognitionV1 || module.ModulePath != "src" ||
+		len(module.Objects) != 1 || module.Objects[0].ObjectRef != "code:src/main.go" ||
+		module.RootSHA256 != set.Root.SHA256 || module.MetaSHA256 != set.Meta.SHA256 ||
+		!module.Derived || module.Authoritative || module.Persisted || module.SourceBound {
+		t.Fatalf("migrated Legacy index is not module-ready: module=%#v err=%v", module, err)
+	}
 	if !strings.Contains(string(mustRead(t, filepath.Join(root, "aoci.code.txt"))), "main.go[C.D.9.S]") {
 		t.Fatal("preserved dotted Legacy Entry missing")
 	}

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
 const (
@@ -57,6 +59,118 @@ type SystemProjection struct {
 	Findings           []Finding        `json:"findings"`
 	NetworkAccessed    bool             `json:"network_accessed"`
 	BusinessDataRead   bool             `json:"business_data_read"`
+}
+
+type ProjectModuleObject struct {
+	ObjectRef      string `json:"object_ref"`
+	CanonicalEntry string `json:"canonical_entry"`
+}
+
+type ProjectModuleCognition struct {
+	Version            string                `json:"version"`
+	ModulePath         string                `json:"module_path"`
+	RootSHA256         string                `json:"root_sha256"`
+	MetaSHA256         string                `json:"meta_sha256"`
+	CompositeIdentity  string                `json:"composite_identity"`
+	ProjectionIdentity string                `json:"projection_identity"`
+	Objects            []ProjectModuleObject `json:"objects"`
+	Relations          []SystemRelation      `json:"relations"`
+	Derived            bool                  `json:"derived"`
+	Authoritative      bool                  `json:"authoritative"`
+	Persisted          bool                  `json:"persisted"`
+	SourceBound        bool                  `json:"source_bound"`
+	NetworkAccessed    bool                  `json:"network_accessed"`
+	BusinessDataRead   bool                  `json:"business_data_read"`
+}
+
+// BuildProjectModuleCognition derives an ephemeral Code-volume slice. Its
+// identity deliberately excludes the composite identity so unrelated Code
+// changes do not invalidate an otherwise identical module projection. Legacy
+// layouts fail closed; an approved migration to a Code-bearing Volumes layout
+// enables this view without a second persisted module format.
+func BuildProjectModuleCognition(set *Set, modulePath string) (*ProjectModuleCognition, error) {
+	if set == nil || set.LayoutMode != LayoutVolumesV1 || set.CompositeIdentity == "" ||
+		set.Root.SHA256 == "" || set.Meta.SHA256 == "" || len(set.Errors) != 0 {
+		return nil, fmt.Errorf("project_module_cognition_invalid")
+	}
+	normalized, err := afs.NormalizeRelPath(modulePath)
+	if err != nil {
+		return nil, fmt.Errorf("project_module_cognition_path_invalid: %w", err)
+	}
+	normalized = strings.TrimSuffix(normalized, "/")
+	code := set.Volumes[ScopeCode]
+	if code == nil || code.State != AssetPresent {
+		return nil, fmt.Errorf("project_module_cognition_code_unavailable")
+	}
+
+	selected := map[string]bool{}
+	result := &ProjectModuleCognition{
+		Version: machinecontract.ProjectModuleCognitionV1, ModulePath: normalized,
+		RootSHA256: set.Root.SHA256, MetaSHA256: set.Meta.SHA256, CompositeIdentity: set.CompositeIdentity,
+		Objects: []ProjectModuleObject{}, Relations: []SystemRelation{},
+		Derived: true, Authoritative: false, Persisted: false, SourceBound: false,
+		NetworkAccessed: false, BusinessDataRead: false,
+	}
+	for _, object := range code.Objects {
+		if !strings.HasPrefix(object.CanonicalRef, "code:") {
+			continue
+		}
+		path := strings.TrimPrefix(object.CanonicalRef, "code:")
+		if path != normalized && !strings.HasPrefix(path, normalized+"/") {
+			continue
+		}
+		selected[object.CanonicalRef] = true
+		result.Objects = append(result.Objects, ProjectModuleObject{
+			ObjectRef: object.CanonicalRef, CanonicalEntry: object.CanonicalLine,
+		})
+	}
+	if len(result.Objects) == 0 {
+		return nil, fmt.Errorf("project_module_cognition_empty")
+	}
+	sort.Slice(result.Objects, func(i, j int) bool { return result.Objects[i].ObjectRef < result.Objects[j].ObjectRef })
+
+	explicit := &SystemProjection{Relations: []SystemRelation{}}
+	appendExplicitRelations(explicit, currentObjectRegistry(set))
+	seen := map[string]bool{}
+	for _, relation := range explicit.Relations {
+		if !selected[relation.From] && !selected[relation.To] {
+			continue
+		}
+		key := relation.From + "\x00" + relation.To + "\x00" + relation.Kind
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		result.Relations = append(result.Relations, relation)
+	}
+	sort.Slice(result.Relations, func(i, j int) bool {
+		left, right := result.Relations[i], result.Relations[j]
+		if left.From != right.From {
+			return left.From < right.From
+		}
+		if left.To != right.To {
+			return left.To < right.To
+		}
+		return left.Kind < right.Kind
+	})
+
+	identity := newIdentityEncoder("project_module_cognition")
+	identity.field("version", result.Version)
+	identity.field("root_sha256", result.RootSHA256)
+	identity.field("meta_sha256", result.MetaSHA256)
+	identity.field("module_path", result.ModulePath)
+	for _, object := range result.Objects {
+		identity.field("object_ref", object.ObjectRef)
+		identity.field("canonical_entry", object.CanonicalEntry)
+	}
+	for _, relation := range result.Relations {
+		identity.field("relation_from", relation.From)
+		identity.field("relation_to", relation.To)
+		identity.field("relation_kind", relation.Kind)
+		identity.field("relation_authority", relation.Authority)
+	}
+	result.ProjectionIdentity = identity.sum()
+	return result, nil
 }
 
 // BuildSystemProjection derives a narrow relation and lineage view from the
