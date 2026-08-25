@@ -8,6 +8,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
   migration, and future Entry authoring in both Legacy and Volumes layouts
   without bulk-translating unchanged Entries. Historical Entry bytes remain
   valid; only newly created or genuinely updated Entries use the new Locale.
+- Reuse one governance assessment within each strict Overview call and replace
+  the duplicate tail assessment with an exact lightweight input-identity
+  recheck. Strict call boundaries, cross-call drift rejection, Chunk and body
+  integrity, Host confirmation, and model Attestation remain unchanged.
 - Report one blocker per root cause. A Managed Scope policy that no longer
   matches its receipt already reports `scope_change_required`, but the business
   source manifest refuses to build in that state, and every manifest failure
