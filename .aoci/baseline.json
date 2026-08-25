@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-25T14:15:19Z",
+  "updated_at": "2026-08-25T14:47:40Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -135,9 +135,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "32512ea4fddc219b3cfe54fa87a612f29ba1475e0c02a4e829b4bc55316e7b8e",
-      "size": 178817,
-      "normalized_sha256": "32512ea4fddc219b3cfe54fa87a612f29ba1475e0c02a4e829b4bc55316e7b8e"
+      "sha256": "d7f6a860d930bf8b79321d513fad824269dfe0c64c01472eb1b9792b167c545f",
+      "size": 179374,
+      "normalized_sha256": "d7f6a860d930bf8b79321d513fad824269dfe0c64c01472eb1b9792b167c545f"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5686,11 +5686,10 @@
       "format_kind": "gofmt"
     },
     "textassets/catalog.go": {
-      "role": "index",
-      "sha256": "dd91aa67960b1120e1923325b9d6ffd5d2791dc2c44211119a6d2230b25105ec",
-      "size": 11986,
-      "normalized_sha256": "dd91aa67960b1120e1923325b9d6ffd5d2791dc2c44211119a6d2230b25105ec",
-      "format_sha256": "dd91aa67960b1120e1923325b9d6ffd5d2791dc2c44211119a6d2230b25105ec",
+      "sha256": "cfd3bd9049955f091b32ef28118e33a8eaf9665c5b3e19217fd4964f32f0bd5d",
+      "size": 12496,
+      "normalized_sha256": "cfd3bd9049955f091b32ef28118e33a8eaf9665c5b3e19217fd4964f32f0bd5d",
+      "format_sha256": "cfd3bd9049955f091b32ef28118e33a8eaf9665c5b3e19217fd4964f32f0bd5d",
       "format_kind": "gofmt"
     },
     "textassets/catalog_integrity_test.go": {
@@ -6818,11 +6817,10 @@
       "format_kind": "gofmt"
     },
     "textassets/ui.go": {
-      "role": "index",
-      "sha256": "04a6aa3f0dfc1d5dc5ffc4a5d31bc450ca0714beb5e2b564635fd20eca7b44f0",
-      "size": 10725,
-      "normalized_sha256": "04a6aa3f0dfc1d5dc5ffc4a5d31bc450ca0714beb5e2b564635fd20eca7b44f0",
-      "format_sha256": "04a6aa3f0dfc1d5dc5ffc4a5d31bc450ca0714beb5e2b564635fd20eca7b44f0",
+      "sha256": "407d4637173456fa56b811b07550a17e8c97e1cdf112188d40aae16e6285484a",
+      "size": 11394,
+      "normalized_sha256": "407d4637173456fa56b811b07550a17e8c97e1cdf112188d40aae16e6285484a",
+      "format_sha256": "407d4637173456fa56b811b07550a17e8c97e1cdf112188d40aae16e6285484a",
       "format_kind": "gofmt"
     },
     "textassets/ui_test.go": {

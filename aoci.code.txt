@@ -371,7 +371,7 @@ s-field-discipline.en.txt[CG8S]: F:English rendering of the S-field admission an
 README.txt[CG5S]: F:Explains generated public runtime text ownership, locale layout, manifests, and embedding rules | R:- | A:- | S:-
 agents_assets.go[CG5T]: F:Defines stable IDs for locale-specific AGENTS, MCP, and Codex compaction prompt and reload-hook templates | R:code:internal/hooks/codex.go,code:textassets/manifests/agents.json | A:TemplateAgentsMD,TemplateCodexCompactPrompt,TemplateCodexCompactHook | S:-
 ai_probe_assets.go[CG5T]: F:Embeds the localized prompts used only for explicit AI endpoint connectivity probes | R:- | A:- | S:-
-catalog.go[CG5L]: F:Loads the generated asset catalog and provides strict locale and manifest lookups | R:- | A:- | S:-
+catalog.go[CG5L]: F:加载生成式文本资产目录，并为Locale与Manifest提供严格查询及不可变嵌入清单缓存 | R:code:textassets/ui.go | A:ReadManifest,Load | S:生产嵌入Manifest只解析和校验一次，内部只读使用缓存；公开ReadManifest仍返回深拷贝，调用方不能修改缓存。自定义fs与故障注入继续走未缓存readManifestFS/loadFS，失败边界不变
 cli_help_final_assets.go[CG5T]: F:Embeds finalized localized CLI help contracts registered by the command layer | R:- | A:- | S:-
 guide_assets.go[CG5S]: F:Embeds localized Guide instructions and messages for governed workflow stages | R:- | A:- | S:-
 help_assets.go[CG5T]: F:Maps localized command help assets to runtime consumers | R:- | A:- | S:-
@@ -383,7 +383,7 @@ mcp_assets.go[CG5T]: F:Embeds MCP descriptions, input-schema text, and Overview 
 model_prompt_assets.go[CG5T]: F:Embeds model authoring prompts selected by locale and authoring stage | R:- | A:- | S:-
 numeric.go[CG5T]: F:Renders machine-owned numeric limits into localized runtime text without duplicating constants | R:- | A:- | S:-
 render.go[CG5T]: F:Renders strict text templates with validated variables and deterministic output | R:- | A:- | S:-
-ui.go[CG5M]: F:Loads localized user-visible messages through the generated catalog | R:- | A:- | S:-
+ui.go[CG5M]: F:通过生成目录加载本地化界面消息，并以预构建精确映射执行常数时间跨Locale重定位 | R:code:textassets/catalog.go | A:Message,RelocalizeMessageExact | S:映射只接受零参数消息并保留多key异目标歧义错误、缺失key和未知Locale失败关闭；初始化一次后每个CLI flag不再扫描完整Locale目录
 validate.go[CG5L]: F:Validates locale parity, manifests, variables, protocol tokens, and duplicate fact sources | R:- | A:- | S:-
 
 ===/home/alkor2000/aoci-code-public-staging-phase1/public-candidate/textassets/manifests/===
