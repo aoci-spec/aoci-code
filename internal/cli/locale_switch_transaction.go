@@ -103,17 +103,17 @@ func applyLocaleSwitch(repositoryRoot, target string) (*config.Config, error) {
 		return nil, err
 	}
 
-	configPath := config.FilePath(root)
-	configPre, configExists, err := readOptionalRegularFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("locale_switch_config_preimage_invalid: %w", err)
-	}
 	cfg, err := config.LoadBase(root)
 	if err != nil {
 		return nil, fmt.Errorf("locale_switch_config_invalid: %w", err)
 	}
 	if _, err := validateLocaleSwitchIndexPath(cfg.IndexPath, ""); err != nil {
 		return nil, err
+	}
+	configPath := config.FilePath(root)
+	configPre, configExists, err := readOptionalRegularFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("locale_switch_config_preimage_invalid: %w", err)
 	}
 	configConfirm, configStillExists, err := readOptionalRegularFile(configPath)
 	if err != nil || configStillExists != configExists || !bytes.Equal(configConfirm, configPre) {

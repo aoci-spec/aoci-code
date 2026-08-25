@@ -214,6 +214,7 @@ func init() {
 			if indexStatErr != nil && !os.IsNotExist(indexStatErr) {
 				return &ExitError{Code: ExitConfig, Msg: indexStatErr.Error()}
 			}
+			newRepository := !configExisted && !indexExisted
 			volumeLayout, layoutErr := activeVolumeLayout(root, cfg.IndexPath)
 			if layoutErr != nil {
 				return &ExitError{Code: ExitConfig, Msg: layoutErr.Error()}
@@ -224,7 +225,7 @@ func init() {
 				}
 			}
 			if locale != "" {
-				if configExisted && indexExisted {
+				if indexExisted {
 					cfg, err = applyLocaleSwitch(root, locale)
 				} else {
 					err = prepareLocaleChange(root, cfg, locale)
@@ -236,7 +237,7 @@ func init() {
 				}
 			}
 
-			if !configExisted {
+			if newRepository {
 				if setErr := cfg.SetAutomationMode(
 					config.AutomationModeAuto,
 				); setErr != nil {
@@ -296,7 +297,7 @@ func init() {
 				if !os.IsNotExist(statErr) {
 					return statErr
 				}
-				if !configExisted {
+				if newRepository {
 					volumeAssets, err = renderInitialVolumeAssets(root)
 					if err != nil {
 						return err
@@ -368,7 +369,7 @@ func init() {
 			); statErr == nil {
 				outputLines = append(outputLines, cliMessage("init.existing_skip", cfg.IndexPath))
 			} else {
-				if !configExisted {
+				if newRepository {
 					postimages, initErr := initializeVolumeFirst(root, cfg.IndexPath, volumeAssets)
 					if initErr != nil {
 						return initErr

@@ -278,6 +278,45 @@ func TestLocaleSwitchWithoutIndexCreatesTeamConfig(t *testing.T) {
 	}
 }
 
+func TestLocaleSwitchExistingVolumesWithoutTeamConfig(t *testing.T) {
+	root := t.TempDir()
+	if _, stderr, code := runLocaleInit(t, root); code != ExitOK {
+		t.Fatalf("init exit=%d stderr=%s", code, stderr)
+	}
+	establishLocaleSwitchBaseline(t, root)
+	paths := config.AOCIPaths(root, "aoci.txt")
+	rootBefore := localeSwitchRead(t, paths.IndexPath)
+	metaBefore := localeSwitchRead(t, filepath.Join(root, "aoci.meta.txt"))
+	codeBefore := localeSwitchRead(t, filepath.Join(root, "aoci.code.txt"))
+	if err := os.Remove(paths.ConfigPath); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := applyLocaleSwitch(root, textassets.LegacyLocale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRoot, err := index.ReplaceLocaleMarker(rootBefore, textassets.LegacyLocale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Locale != textassets.LegacyLocale || !bytes.Equal(localeSwitchRead(t, paths.IndexPath), wantRoot) {
+		t.Fatalf("missing-config switch did not align Root and config: locale=%s", cfg.Locale)
+	}
+	if !bytes.Equal(localeSwitchRead(t, filepath.Join(root, "aoci.meta.txt")), metaBefore) ||
+		!bytes.Equal(localeSwitchRead(t, filepath.Join(root, "aoci.code.txt")), codeBefore) {
+		t.Fatal("missing-config switch changed guarded object Volumes")
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists || state.Files[cfg.IndexPath].SHA256 != cognitiontxn.SHA256(wantRoot) {
+		t.Fatalf("missing-config switch did not bind Root Baseline: exists=%t err=%v", exists, err)
+	}
+	pending, err := cognitiontxn.PendingForOperation(root, localeSwitchOperation)
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("missing-config switch left recovery state: pending=%v err=%v", pending, err)
+	}
+}
+
 func TestLocaleSwitchRejectsUnsafeConfiguredIndexPathBeforeIntent(t *testing.T) {
 	for _, unsafePath := range []string{"../outside.txt", ".AOCI/config.json"} {
 		t.Run(unsafePath, func(t *testing.T) {

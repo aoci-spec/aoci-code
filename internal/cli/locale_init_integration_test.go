@@ -483,3 +483,48 @@ func TestInitLocaleOnExistingVolumesUsesMarkerTransaction(t *testing.T) {
 		t.Fatalf("existing init did not bind the switched Root Baseline: exists=%t err=%v", exists, err)
 	}
 }
+
+func TestInitLocaleOnExistingVolumesWithoutTeamConfigUsesMarkerTransaction(t *testing.T) {
+	previousLocale := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
+	root := t.TempDir()
+	if _, stderr, code := runLocaleInit(t, root); code != ExitOK {
+		t.Fatalf("init exit=%d stderr=%s", code, stderr)
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saveCurrentBaseline(t, root, cfg)
+	before := map[string][]byte{}
+	for _, rel := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt"} {
+		before[rel], err = os.ReadFile(filepath.Join(root, rel))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Remove(config.FilePath(root)); err != nil {
+		t.Fatal(err)
+	}
+
+	if stdout, stderr, code := runLocaleInit(t, root, "--locale", textassets.LegacyLocale); code != ExitOK {
+		t.Fatalf("missing-config init Locale switch exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	cfg, err = config.LoadBase(root)
+	if err != nil || cfg.Locale != textassets.LegacyLocale {
+		t.Fatalf("missing-config init did not persist target Locale: cfg=%+v err=%v", cfg, err)
+	}
+	wantRoot, err := index.ReplaceLocaleMarker(before["aoci.txt"], textassets.LegacyLocale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(localeSwitchRead(t, filepath.Join(root, "aoci.txt")), wantRoot) ||
+		!bytes.Equal(localeSwitchRead(t, filepath.Join(root, "aoci.meta.txt")), before["aoci.meta.txt"]) ||
+		!bytes.Equal(localeSwitchRead(t, filepath.Join(root, "aoci.code.txt")), before["aoci.code.txt"]) {
+		t.Fatal("missing-config init did not perform a marker-only formal change")
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists || state.Files[cfg.IndexPath].SHA256 != cognitiontxn.SHA256(wantRoot) {
+		t.Fatalf("missing-config init did not bind switched Root: exists=%t err=%v", exists, err)
+	}
+}
