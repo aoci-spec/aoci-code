@@ -82,7 +82,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 ### 代码变更规划
 
-每个新增功能、Bug修复或显式代码计划都先把预期最终状态写入完整 `aoci.code.target.txt`，再运行 `aoci cognition plan diff --target-index aoci.code.target.txt`；确认后才修改业务代码。target中新写或真正更新的Entry，其F/R/A/S自然语言必须使用Root `aoci.txt`中有效 `#Locale` 指定的项目语言；本项目当前为 `zh-CN`。target仍是Code Volume，不得另加 `#Locale` 标记；路径、命令、协议状态和规范对象身份等机器token保持原文。新文件立即写完整Entry；预计修改但语义Entry不变的文件必须在target中保留旧Entry并增加精确单行 `#Target-Reuse: code:<仓库相对路径>`，不得仅因Locale切换翻译旧Entry。`aoci.code.txt` 始终是正式索引，target只是Managed Scope外的生成式计划。实现和验证稳定后，人用正常路径直接运行一次 `aoci update-entry`；Agent可使用等价的 `aoci_update_entry` 参数 `{"target_index":"aoci.code.target.txt"}`。Go自动发现本次Code debt、计算并锁内复核最终源码SHA、整批校验/CAS/Apply/Baseline及终态，并在成功后用正式Code覆盖target以消费reuse标记，维护阶段无需模型。只有target缺项、删除、源码或Scope漂移、校验失败、超批量上限或Recovery冲突时，才按工具返回回退 `aoci_maintain` 和现有模型创作流程。无计划纯局部小改仍可不创建target。
+每个新增功能、Bug修复或显式代码计划都先把预期最终状态写入完整 `aoci.code.target.txt`，再运行 `aoci cognition plan diff --target-index aoci.code.target.txt`；确认后才修改业务代码。target中新写或真正更新的Entry，其F/R/A/S自然语言必须使用Root `aoci.txt`中有效 `#Locale` 指定的项目语言；本项目当前为 `zh-CN`。target仍是Code Volume，不得另加 `#Locale` 标记；路径、命令、协议状态和规范对象身份等机器token保持原文。新文件立即写完整Entry；预计修改但语义Entry不变的文件必须保留旧Entry并增加精确单行 `#Target-Reuse: code:<仓库相对路径>`；计划删除的源码必须移除对应Entry并增加精确单行 `#Target-Delete: code:<仓库相对路径>`，已声明模块可使用 `#Target-Delete: module:<模块ID>`。遗漏Entry绝不代表删除，不得仅因Locale切换翻译旧Entry。`aoci.code.txt` 始终是正式索引，target只是Managed Scope外的生成式计划。实现和验证稳定后，人用正常路径直接运行一次 `aoci update-entry`；Agent可使用等价的 `aoci_update_entry` 参数 `{"target_index":"aoci.code.target.txt"}`。Go自动发现本次Code debt，证明删除目标确实不存在，计算并锁内复核其他源码SHA，把新增、更新、复用和删除作为同一批校验/CAS/Apply/Baseline事务，并在成功后用正式Code覆盖target以消费全部控制标记，维护阶段无需模型。只有target缺项、无标记删除、源码或Scope漂移、校验失败、超批量上限或Recovery冲突时，才按工具返回的确定性停点处理；没有target的手工改动仍回退 `aoci_maintain`。无计划纯局部小改仍可不创建target。
 
 ### 建立、生成和恢复认知
 

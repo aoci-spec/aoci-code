@@ -19,6 +19,7 @@
         "aoci_update_entry",
         "target_index",
         "#Target-Reuse",
+        "#Target-Delete",
         "aoci_report",
         "repair_required",
         "stopped",
@@ -50,7 +51,8 @@
         "每个新增功能、Bug修复",
         "Managed Scope外",
         "维护阶段无需模型",
-        "才按工具返回回退 `aoci_maintain`"
+        "遗漏Entry绝不代表删除",
+        "同一批校验/CAS/Apply/Baseline事务"
         ]
       }
     },

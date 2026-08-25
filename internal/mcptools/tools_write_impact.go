@@ -54,7 +54,9 @@ func resolveCognitionChangeEnvelope(
 	for _, candidate := range candidates {
 		if candidate.Change != cognition.ImpactChangeUpdate &&
 			!(candidate.Change == cognition.ImpactChangeCreate &&
-				(cognition.IsCanonicalDatabaseRef(candidate.ObjectRef) || strings.HasPrefix(candidate.ObjectRef, "code:"))) {
+				(cognition.IsCanonicalDatabaseRef(candidate.ObjectRef) || strings.HasPrefix(candidate.ObjectRef, "code:"))) &&
+			!(candidate.Change == cognition.ImpactChangeDelete && candidate.VolumeID == cognition.ScopeCode &&
+				strings.HasPrefix(candidate.ObjectRef, "code:")) {
 			return nil, &Fail{Code: errVolumeReadOnly, Msg: writeMessage("entry.volume.target_not_supported", candidate.VolumeID)}
 		}
 	}

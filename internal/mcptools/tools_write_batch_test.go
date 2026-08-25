@@ -9,8 +9,21 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
+
+func TestAtomicBatchKeyPreservesUpdatesAndBindsDelete(t *testing.T) {
+	legacy := []normalizedAtomicItem{{rel: "a.go", newEntry: "entry", sourceSHA256: strings.Repeat("a", 64)}}
+	explicitUpdate := []normalizedAtomicItem{{change: cognition.ImpactChangeUpdate, rel: "a.go", newEntry: "entry", sourceSHA256: strings.Repeat("a", 64)}}
+	if atomicBatchKey(legacy) != atomicBatchKey(explicitUpdate) {
+		t.Fatal("explicit update changed the existing recovery identity")
+	}
+	deleted := []normalizedAtomicItem{{change: cognition.ImpactChangeDelete, rel: "a.go"}}
+	if atomicBatchKey(deleted) == atomicBatchKey(legacy) {
+		t.Fatal("delete did not receive a distinct recovery identity")
+	}
+}
 
 func writeBatchSource(
 	t *testing.T,

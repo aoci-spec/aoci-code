@@ -350,6 +350,7 @@ func localeSafeWriteDetail(detail string) string {
 }
 
 type updateEntryItemIn struct {
+	Change       string `json:"-"`
 	Path         string `json:"path,omitempty"`
 	ObjectRef    string `json:"object_ref,omitempty"`
 	NewEntry     string `json:"new_entry"`
@@ -614,10 +615,12 @@ func handleMCPUpdateBatchInternal(
 	for _, item := range input {
 		item.SourceSHA256 = strings.ToLower(strings.TrimSpace(item.SourceSHA256))
 		item.CandidateID = strings.ToLower(strings.TrimSpace(item.CandidateID))
+		deleteItem := skipOptimization && item.Change == cognition.ImpactChangeDelete && item.Path != "" &&
+			item.NewEntry == "" && item.SourceSHA256 == "" && item.CandidateID == "" && item.BatchID == ""
 		codeReceipt := item.Path != "" && item.SourceSHA256 != "" && item.CandidateID != "" && item.BatchID != ""
 		databaseReceipt := item.ObjectRef != "" && item.CandidateID != "" && item.BatchID != ""
 		legacyBinding := len(item.SourceSHA256) == 64 && strings.Trim(item.SourceSHA256, "0123456789abcdef") == ""
-		if !codeReceipt && !databaseReceipt && !legacyBinding {
+		if !deleteItem && !codeReceipt && !databaseReceipt && !legacyBinding {
 			bindingFail = &Fail{
 				Code: errBadArgs,
 				Msg:  writeMessage("entry.write.mcp.source_binding_required", item.Path),
@@ -630,7 +633,7 @@ func handleMCPUpdateBatchInternal(
 			break
 		}
 		items = append(items, AtomicUpdateItem{
-			Path: item.Path, ObjectRef: item.ObjectRef, NewEntry: item.NewEntry,
+			Change: item.Change, Path: item.Path, ObjectRef: item.ObjectRef, NewEntry: item.NewEntry,
 			SourceSHA256: item.SourceSHA256, CandidateID: item.CandidateID, BatchID: strings.ToLower(strings.TrimSpace(item.BatchID)),
 		})
 	}

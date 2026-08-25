@@ -62,7 +62,7 @@ Fresh Bootstrap创作边界：复用当前持久Onboarding流程。Host模型根
 
 11. 纯只读问答、分析、版本核验，或没有产生受AOCI管理对象变化的任务，不需要调用维护工具。要回答当前使用的AOCI版本，读取任意aoci_overview check_only或aoci_maintain响应里的cognition_receipt.mcp_service_version，它就是正在运行的MCP服务版本；二进制路径是项目.mcp.json（或等价的Host配置）里的command；aoci CLI不一定在PATH上，shell里找不到命令绝不意味着AOCI未安装。
 
-12. 发生Code受管理对象变化时，若本任务已按计划维护完整aoci.code.target.txt，则源码和验证达到最终稳定状态后，优先只调用一次aoci_update_entry并传入target_index=aoci.code.target.txt。新文件必须已有完整target Entry；语义不变的计划修改必须已有精确#Target-Reuse: code:<path>。Go自动计算和复核源码SHA、整批Apply并同步target，正常路径不得再调用模型。只有工具因target缺项、删除、源码/Scope漂移、校验、批量上限或Recovery而stopped时，才调用一次aoci_maintain进入既有回退。没有target的手工改动仍直接使用普通Maintain。不要在中间状态逐文件维护。
+12. 发生Code受管理对象变化时，若本任务已按计划维护完整aoci.code.target.txt，则源码和验证达到最终稳定状态后，只调用一次aoci_update_entry并传入target_index=aoci.code.target.txt。新文件必须已有完整target Entry；语义不变的修改必须声明精确#Target-Reuse: code:<path>；删除必须移除Entry并声明精确#Target-Delete: code:<path>，遗漏Entry绝不表示删除。Go证明删除目标不存在、计算并复核其余源码SHA，把新增、更新、复用和删除作为同一批Apply并同步target，正常路径不得调用模型。target缺项、无标记删除、源码/Scope漂移、校验、批量上限或Recovery按确定性结果停止；没有target的手工改动才使用普通Maintain。不要在中间状态逐文件维护。
 
 13. 若结果同时包含 aligned=true、status=applied 与 refresh_status=refresh_ready_for_overview，不得重复维护或写入。先完成必要的Verify、Check与Guide对齐证明，再由Agent决定下一阶段是否需要普通完整Overview。其他情况下，工具明确表示无需继续处理时立即结束。format-only由工具处理时，不重新生成语义。
 

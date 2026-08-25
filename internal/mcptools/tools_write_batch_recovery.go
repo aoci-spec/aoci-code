@@ -66,12 +66,14 @@ var removeAtomicBatchRecoveryFile = os.Remove
 
 func atomicBatchKey(items []normalizedAtomicItem) string {
 	volumeItems := false
+	hasDelete := false
 	for _, item := range items {
 		if item.objectRef != "" || item.candidateID != "" || item.batchID != "" {
 			volumeItems = true
-			break
 		}
+		hasDelete = hasDelete || item.change == cognition.ImpactChangeDelete
 	}
+	volumeItems = volumeItems || hasDelete
 	if volumeItems {
 		ordered := append([]normalizedAtomicItem{}, items...)
 		sort.Slice(ordered, func(i, j int) bool {
@@ -80,9 +82,17 @@ func atomicBatchKey(items []normalizedAtomicItem) string {
 			return left < right
 		})
 		hash := sha256.New()
-		_, _ = hash.Write([]byte("cognition-volume-batch/v2\x00"))
+		version := "cognition-volume-batch/v2\x00"
+		if hasDelete {
+			version = "cognition-volume-batch/v3\x00"
+		}
+		_, _ = hash.Write([]byte(version))
 		for _, item := range ordered {
-			for _, value := range []string{item.objectRef, item.rel, item.newEntry, strings.ToLower(strings.TrimSpace(item.sourceSHA256)), item.candidateID, item.batchID} {
+			values := []string{item.objectRef, item.rel, item.newEntry, strings.ToLower(strings.TrimSpace(item.sourceSHA256)), item.candidateID, item.batchID}
+			if hasDelete {
+				values = append([]string{item.change}, values...)
+			}
+			for _, value := range values {
 				_, _ = hash.Write([]byte(fmt.Sprintf("%d:", len(value))))
 				_, _ = hash.Write([]byte(value))
 			}
@@ -248,6 +258,13 @@ func cleanupAtomicBatchRecovery(root, batchKey string) error {
 func normalizeAtomicRecoveryItems(items []AtomicUpdateItem) ([]normalizedAtomicItem, error) {
 	normalized := make([]normalizedAtomicItem, 0, len(items))
 	for indexPosition, item := range items {
+		change := strings.TrimSpace(item.Change)
+		if change == "" {
+			change = cognition.ImpactChangeUpdate
+		}
+		if change != cognition.ImpactChangeUpdate && change != cognition.ImpactChangeDelete {
+			return nil, fmt.Errorf("unsupported change")
+		}
 		rel := ""
 		objectRef := strings.TrimSpace(item.ObjectRef)
 		if (item.Path == "") == (objectRef == "") || objectRef != item.ObjectRef {
@@ -261,7 +278,7 @@ func normalizeAtomicRecoveryItems(items []AtomicUpdateItem) ([]normalizedAtomicI
 			}
 		}
 		normalized = append(normalized, normalizedAtomicItem{
-			rel: rel, objectRef: objectRef, newEntry: item.NewEntry, sourceSHA256: item.SourceSHA256,
+			change: change, rel: rel, objectRef: objectRef, newEntry: item.NewEntry, sourceSHA256: item.SourceSHA256,
 			candidateID: item.CandidateID, batchID: item.BatchID, originalCandidateIndex: indexPosition + 1,
 		})
 	}

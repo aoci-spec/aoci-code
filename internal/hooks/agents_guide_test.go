@@ -36,11 +36,11 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"必须报告冲突并请求用户裁决或建议使用隔离副本", "不得静默以Memory替代当前仓库认知",
 		},
 		{
-			"每个新增功能、Bug修复", "完整 `aoci.code.target.txt`", "#Target-Reuse", `{"target_index":"aoci.code.target.txt"}`,
+			"每个新增功能、Bug修复", "完整 `aoci.code.target.txt`", "#Target-Reuse", "#Target-Delete", `{"target_index":"aoci.code.target.txt"}`,
 			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "确认后才修改业务代码",
 			"Managed Scope外", "`aoci.code.txt` 始终是正式索引",
 			"Root `aoci.txt`中有效 `#Locale`", "不得另加 `#Locale` 标记", "机器token保持原文",
-			"维护阶段无需模型", "才按工具返回回退 `aoci_maintain`",
+			"维护阶段无需模型", "遗漏Entry绝不代表删除", "同一批校验/CAS/Apply/Baseline事务",
 		},
 	},
 	textassets.DefaultLocale: {
@@ -69,12 +69,12 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"Never silently substitute Memory for current repository cognition",
 		},
 		{
-			"For every feature, bug fix", "complete `aoci.code.target.txt`", "#Target-Reuse", `{"target_index":"aoci.code.target.txt"}`,
+			"For every feature, bug fix", "complete `aoci.code.target.txt`", "#Target-Reuse", "#Target-Delete", `{"target_index":"aoci.code.target.txt"}`,
 			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "only then edit business code",
 			"outside Managed Scope", "`aoci.code.txt` remains formal",
 			"effective project language from Root `aoci.txt`'s `#Locale`", "must not gain its own `#Locale` marker", "machine tokens",
 			"normal human-operated close is one `aoci update-entry` command",
-			"maintenance phase needs no model reasoning", "falls back to `aoci_maintain`",
+			"normal path needs no model maintenance call", "A missing Entry never implies deletion", "one validation/CAS/Baseline transaction",
 		},
 	},
 }

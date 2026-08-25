@@ -39,6 +39,7 @@ var (
 
 // AtomicUpdateItem 是原子批量回写的一条输入。
 type AtomicUpdateItem struct {
+	Change       string
 	Path         string
 	ObjectRef    string
 	NewEntry     string
@@ -75,6 +76,7 @@ func (plan *atomicBatchPlan) volumeIDs() []string {
 }
 
 type normalizedAtomicItem struct {
+	change                 string
 	rel                    string
 	objectRef              string
 	newEntry               string
@@ -167,6 +169,13 @@ func planUpdateEntriesAtomic(
 	duplicateFindings := []cognition.RepairFinding{}
 
 	for indexPosition, item := range items {
+		change := strings.TrimSpace(item.Change)
+		if change == "" {
+			change = cognition.ImpactChangeUpdate
+		}
+		if change != cognition.ImpactChangeUpdate && change != cognition.ImpactChangeDelete {
+			return nil, &Fail{Code: errBadArgs, Msg: "entry_batch_change_invalid"}
+		}
 		objectRef := strings.TrimSpace(item.ObjectRef)
 		if objectRef != item.ObjectRef || (item.Path == "") == (objectRef == "") {
 			return nil, &Fail{
@@ -217,7 +226,13 @@ func planUpdateEntriesAtomic(
 		} else {
 			seen[identity] = indexPosition + 1
 		}
+		if change == cognition.ImpactChangeDelete &&
+			(strings.TrimSpace(item.NewEntry) != "" || strings.TrimSpace(item.SourceSHA256) != "" ||
+				strings.TrimSpace(item.CandidateID) != "" || strings.TrimSpace(item.BatchID) != "") {
+			return nil, &Fail{Code: errBadArgs, Msg: "entry_batch_delete_fields_invalid"}
+		}
 		normalized = append(normalized, normalizedAtomicItem{
+			change:                 change,
 			rel:                    rel,
 			objectRef:              objectRef,
 			newEntry:               item.NewEntry,

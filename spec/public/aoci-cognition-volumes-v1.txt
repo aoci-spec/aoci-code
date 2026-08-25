@@ -518,8 +518,11 @@ The command retains the active Root, Meta, Database Volume, and their exact
 bytes, projects only the supplied Code Volume in memory, and reuses the normal
 marker, object, FRAS-v2, scoped Meta dictionary, canonical ownership, and
 changed-field authoring checks. It compares objects by canonical identity and
-emits sorted create, update, and delete changes. It never guesses rename: an
-identity change is delete plus create. Comments, section order, and line-ending
+emits sorted create, update, and delete changes. Every delete must have exactly
+one `#Target-Delete: code:<path>` control comment; a missing, duplicate, extra,
+malformed, or reuse-conflicting declaration is invalid. Planning may occur
+before the source is removed, but final Apply must prove absence. It never
+guesses rename: an identity change is delete plus create. Comments, section order, and line-ending
 changes that preserve every canonical Entry produce no object change and are
 reported as `formal_text_only` when raw bytes still differ.
 
@@ -547,12 +550,18 @@ the exclusive `target_index=aoci.code.target.txt` mode. The target remains
 non-authoritative: inside that call Go recomputes the current target Diff and
 Managed Scope debt, requires every planned create/update Entry, and requires an
 exact `#Target-Reuse: code:<path>` comment for every changed source whose Entry
-is intentionally unchanged. Go computes every final source SHA-256, submits
-only those real debt paths through the existing one-batch projected validation,
-CAS, Baseline, and Recovery pipeline, and performs terminal governance
-inspection. Success overwrites the target with the resulting formal Code bytes,
-consuming all target-only reuse markers. Missing coverage, target-only semantic
-change, deletion, source or Scope drift, validation failure, the existing batch
-ceiling, or Recovery conflict fails closed before this mode can invent
-semantics; the Agent then uses ordinary Maintain and Update. The target never
-supplies a source hash and cannot authorize a write outside this final binding.
+is intentionally unchanged. A planned deletion removes the Entry and carries
+the exact `#Target-Delete: code:<path>` comment. Go requires the formal Entry,
+the matching Delete diff, current Orphan evidence, and an absent regular source
+path, then rechecks absence under the write lock. It computes every other final
+source SHA-256 and submits create, update, reuse, and delete through one existing
+projected validation, Code CAS, Baseline, and Recovery batch. Success overwrites
+the target with formal Code bytes, consuming all target-only control markers.
+Missing coverage, unmarked deletion, target-only semantic change, source or
+Scope drift, validation failure, the batch ceiling, or Recovery conflict fails
+closed without inventing semantics. The target never supplies a source hash and
+cannot authorize a write outside this final binding.
+
+`#Target-Delete: module:<module-id>` is the reserved equivalent for a declared
+Module Volume. It is syntactically validated now and becomes actionable only
+when the active Root declares that Volume; a Code-only repository rejects it.

@@ -22,6 +22,8 @@ func TestCompareCodeTargetIndexDerivesStableCreateUpdateDeletePlan(t *testing.T)
 		"new.go[CD9S]: F:implement the planned module behavior | R:- | A:New | S:Keep target intent explicit",
 		"unchanged.go[CD9S]: F:retain unchanged behavior | R:- | A:- | S:-",
 	)
+	target = strings.Replace(target, cognition.CodeVolumeMarker+"\n",
+		cognition.CodeVolumeMarker+"\n"+CodeTargetDeletePrefix+"code:beta.go\n", 1)
 	report, err := CompareCodeTargetIndex(root, "aoci.txt", []byte(target))
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +35,9 @@ func TestCompareCodeTargetIndexDerivesStableCreateUpdateDeletePlan(t *testing.T)
 	}
 	if report.Summary != (CodeTargetDiffSummary{Created: 1, Updated: 1, Deleted: 1, Unchanged: 1}) {
 		t.Fatalf("unexpected summary: %#v", report.Summary)
+	}
+	if !reflect.DeepEqual(report.Directives.DeletePaths, []string{"beta.go"}) {
+		t.Fatalf("delete directive was not bound: %#v", report.Directives)
 	}
 	wantRefs := []string{"code:alpha.go", "code:beta.go", "code:new.go"}
 	wantChanges := []string{cognition.ImpactChangeUpdate, cognition.ImpactChangeDelete, cognition.ImpactChangeCreate}
@@ -55,6 +60,42 @@ func TestCompareCodeTargetIndexDerivesStableCreateUpdateDeletePlan(t *testing.T)
 	baseAfter, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
 	if err != nil || !reflect.DeepEqual(baseBefore, baseAfter) {
 		t.Fatalf("read-only target Diff changed the active Code Volume: %v", err)
+	}
+}
+
+func TestCodeTargetDirectivesRejectAmbiguousDeletion(t *testing.T) {
+	root := codeTargetDiffFixture(t)
+	withoutBeta := codeTargetVolume(root,
+		"alpha.go[CD9S]: F:coordinate alpha behavior | R:- | A:Alpha | S:Keep alpha ordering stable",
+		"unchanged.go[CD9S]: F:retain unchanged behavior | R:- | A:- | S:-",
+	)
+	if _, err := CompareCodeTargetIndex(root, "aoci.txt", []byte(withoutBeta)); err == nil ||
+		!strings.Contains(err.Error(), "code_target_delete_marker_missing") {
+		t.Fatalf("delete without marker was accepted: %v", err)
+	}
+	extra := strings.Replace(codeTargetVolume(root,
+		"alpha.go[CD9S]: F:coordinate alpha behavior | R:- | A:Alpha | S:Keep alpha ordering stable",
+		"beta.go[CD9S]: F:retain beta behavior | R:- | A:- | S:-",
+		"unchanged.go[CD9S]: F:retain unchanged behavior | R:- | A:- | S:-",
+	), cognition.CodeVolumeMarker+"\n", cognition.CodeVolumeMarker+"\n"+CodeTargetDeletePrefix+"code:beta.go\n", 1)
+	if _, err := CompareCodeTargetIndex(root, "aoci.txt", []byte(extra)); err == nil ||
+		!strings.Contains(err.Error(), "code_target_delete_marker_extra") {
+		t.Fatalf("extra delete marker was accepted: %v", err)
+	}
+	for name, raw := range map[string]string{
+		"duplicate": CodeTargetDeletePrefix + "code:beta.go\n" + CodeTargetDeletePrefix + "code:beta.go\n",
+		"conflict":  CodeTargetReusePrefix + "code:beta.go\n" + CodeTargetDeletePrefix + "code:beta.go\n",
+		"malformed": CodeTargetDeletePrefix + "module:../escape\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseCodeTargetDirectives([]byte(raw)); err == nil {
+				t.Fatalf("invalid directives were accepted: %q", raw)
+			}
+		})
+	}
+	directives, err := ParseCodeTargetDirectives([]byte(CodeTargetDeletePrefix + "module:overview/read\n"))
+	if err != nil || !reflect.DeepEqual(directives.DeleteModules, []string{"overview/read"}) {
+		t.Fatalf("valid module delete directive was not reserved: %#v %v", directives, err)
 	}
 }
 

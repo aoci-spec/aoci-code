@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	codeTargetIndexPath   = "aoci.code.target.txt"
-	codeTargetReusePrefix = "#Target-Reuse: "
+	codeTargetIndexPath    = "aoci.code.target.txt"
+	codeTargetReusePrefix  = cognitionplan.CodeTargetReusePrefix
+	codeTargetDeletePrefix = cognitionplan.CodeTargetDeletePrefix
 )
 
 // CodeTargetIndexOutcome is the CLI-neutral result of finalizing the fixed
@@ -110,7 +111,20 @@ func bindCodeTargetItems(root string, targetRaw []byte) ([]updateEntryItemIn, *F
 	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 || loaded.set.Volumes[cognition.ScopeCode] == nil {
 		return nil, &Fail{Code: errBadArgs, Msg: "code_target_apply_requires_code_volume"}
 	}
+	directives, err := cognitionplan.ParseCodeTargetDirectives(targetRaw)
+	if err != nil {
+		return nil, &Fail{Code: errCandidateInvalid, Msg: err.Error()}
+	}
 	diff, err := cognitionplan.CompareCodeTargetIndex(root, loaded.cfg.IndexPath, targetRaw)
+	postimageControls := false
+	if err != nil && len(directives.DeletePaths) != 0 && strings.Contains(err.Error(), "code_target_delete_marker_extra") {
+		diff, err = cognitionplan.CompareCodeTargetIndex(root, loaded.cfg.IndexPath,
+			cognitionplan.StripCodeTargetDirectives(targetRaw))
+		postimageControls = err == nil && len(diff.Changes) == 0
+		if postimageControls {
+			diff.Directives = directives
+		}
+	}
 	if err != nil {
 		return nil, &Fail{Code: errCandidateInvalid, Msg: err.Error()}
 	}
@@ -129,30 +143,35 @@ func bindCodeTargetItems(root string, targetRaw []byte) ([]updateEntryItemIn, *F
 	if facts.ManagedScope.ScopeChangeRequired {
 		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_scope_change_required"}
 	}
-	if facts.PendingTransactions != 0 || facts.RecoveryPending {
+	if (facts.PendingTransactions != 0 || facts.RecoveryPending) && !postimageControls {
 		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_recovery_required"}
+	}
+	if postimageControls && facts.PendingTransactions == 0 && !facts.RecoveryPending {
+		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_delete_postimage_unproven"}
 	}
 	if !facts.StructureValid || facts.ThirdPartyConflict {
 		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_scope_not_ready"}
 	}
-	if len(facts.CodeDrift.Orphan) != 0 || diff.Summary.Deleted != 0 {
-		return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_delete_requires_ordinary_maintain"}
-	}
-
 	base := targetObjectLines(loaded.set.Volumes[cognition.ScopeCode])
 	target := targetObjectLines(projected.Volumes[cognition.ScopeCode])
-	reuse, err := parseCodeTargetReuse(targetRaw)
-	if err != nil {
-		return nil, &Fail{Code: errCandidateInvalid, Msg: err.Error()}
+	reuse := make(map[string]bool, len(diff.Directives.ReusePaths))
+	for _, path := range diff.Directives.ReusePaths {
+		reuse[path] = true
+	}
+	deleted := make(map[string]bool, len(diff.Directives.DeletePaths))
+	for _, path := range diff.Directives.DeletePaths {
+		deleted[path] = true
 	}
 	changes := make(map[string]string, len(diff.Changes))
 	for _, change := range diff.Changes {
-		if change.Change == cognition.ImpactChangeDelete {
-			return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_delete_requires_ordinary_maintain"}
-		}
 		changes[strings.TrimPrefix(change.ObjectRef, "code:")] = change.Change
 	}
-	debt := sortedUniqueStrings(append(append(append([]string{}, facts.CodeDrift.Stale...), facts.CodeDrift.Missing...), facts.CodeDrift.Unbaselined...))
+	orphans := make(map[string]bool, len(facts.CodeDrift.Orphan))
+	for _, path := range facts.CodeDrift.Orphan {
+		orphans[path] = true
+	}
+	debt := sortedUniqueStrings(append(append(append(append(append([]string{}, facts.CodeDrift.Stale...), facts.CodeDrift.Missing...),
+		facts.CodeDrift.Unbaselined...), facts.CodeDrift.Orphan...), diff.Directives.DeletePaths...))
 	debtSet := make(map[string]bool, len(debt))
 	for _, path := range debt {
 		debtSet[path] = true
@@ -169,16 +188,31 @@ func bindCodeTargetItems(root string, targetRaw []byte) ([]updateEntryItemIn, *F
 		}
 		return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_reuse_invalid: " + path}
 	}
+	for path := range deleted {
+		if !postimageControls && (changes[path] != cognition.ImpactChangeDelete || !orphans[path] || base[path] == "" || target[path] != "") {
+			return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_delete_invalid: " + path}
+		}
+		if info, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(path))); !os.IsNotExist(statErr) || info != nil {
+			return nil, &Fail{Code: errWriteConflict, Msg: "code_target_delete_source_present: " + path}
+		}
+	}
 	if len(debt) > machinecontract.EntriesBatchMaxItems {
 		return nil, &Fail{Code: errBadArgs, Msg: "code_target_batch_too_large"}
 	}
 	items := make([]updateEntryItemIn, 0, len(debt))
 	for _, path := range debt {
+		if deleted[path] {
+			if !deleted[path] {
+				return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_delete_marker_missing: " + path}
+			}
+			items = append(items, updateEntryItemIn{Change: cognition.ImpactChangeDelete, Path: path})
+			continue
+		}
 		entry := target[path]
 		if entry == "" {
 			return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_entry_missing: " + path}
 		}
-		if changes[path] == "" && !reuse[path] {
+		if changes[path] == "" && !reuse[path] && !postimageControls {
 			return nil, &Fail{Code: errCandidateInvalid, Msg: "code_target_reuse_marker_missing: " + path}
 		}
 		fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
@@ -221,24 +255,6 @@ func readCodeTargetIndex(root, requested string) ([]byte, string, *Fail) {
 	return raw, hex.EncodeToString(digest[:]), nil
 }
 
-func parseCodeTargetReuse(raw []byte) (map[string]bool, error) {
-	reuse := map[string]bool{}
-	for _, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSuffix(line, "\r")
-		if !strings.HasPrefix(line, codeTargetReusePrefix) {
-			continue
-		}
-		objectRef := strings.TrimPrefix(line, codeTargetReusePrefix)
-		path := strings.TrimPrefix(objectRef, "code:")
-		normalized, err := afs.NormalizeRelPath(path)
-		if err != nil || objectRef != "code:"+normalized || reuse[normalized] {
-			return nil, fmt.Errorf("code_target_reuse_marker_invalid: %s", objectRef)
-		}
-		reuse[normalized] = true
-	}
-	return reuse, nil
-}
-
 func targetObjectLines(asset *cognition.Asset) map[string]string {
 	result := map[string]string{}
 	if asset == nil {
@@ -271,7 +287,8 @@ func syncCodeTargetIndex(root, targetPath, targetSHA string, targetRaw []byte) e
 	if asset == nil {
 		return fmt.Errorf("code_target_formal_volume_missing")
 	}
-	diff, err := cognitionplan.CompareCodeTargetIndex(root, loaded.cfg.IndexPath, targetRaw)
+	diff, err := cognitionplan.CompareCodeTargetIndex(root, loaded.cfg.IndexPath,
+		cognitionplan.StripCodeTargetDirectives(targetRaw))
 	if err != nil || len(diff.Changes) != 0 {
 		return fmt.Errorf("code_target_formal_postimage_mismatch")
 	}

@@ -55,9 +55,12 @@ Default Code target finalization
 
 `aoci update-entry` with no single-Entry inputs fixes its input to the
 repository-root `aoci.code.target.txt`. It recomputes current Code debt, binds
-the target Entries to final source hashes, uses the existing one-batch
-validation/CAS/Baseline/Recovery pipeline, and on success synchronizes the
-target from formal Code. The command does not invoke a model. It emits one
+the target Entries to final source hashes, and accepts deletion only through an
+exact `#Target-Delete: code:<path>` declaration whose source is absent and whose
+formal Entry is an Orphan. Create, update, reuse, and delete use the existing
+one-batch validation/CAS/Baseline/Recovery pipeline, and success synchronizes
+target from formal Code and consumes every control marker. Omission without a
+delete declaration is invalid. The command does not invoke a model. It emits one
 structured result; repair-required target content exits 2, a stopped machine or
 governance precondition exits 3, and an internal transport failure exits 10.
 

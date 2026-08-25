@@ -37,6 +37,7 @@ func codeBatchLimit(cfg *config.Config) int {
 
 var (
 	saveVolumeGovernanceReceipt = saveCompletedEntriesGovernanceReceipt
+	beforeVolumeTargetWrites    = func() {}
 	ensureVolumeLedger          = func(root string, enabled bool, event ledger.Event) error {
 		if !enabled {
 			return nil
@@ -58,6 +59,7 @@ type cognitionVolumeBatchPlan struct {
 	targets            []cognitionVolumeWriteTarget
 	volumePaths        []string
 	sourceFingerprints map[string]baseline.Fingerprint
+	deletedSourcePaths []string
 	recovery           *atomicBatchRecovery
 	allPost            bool
 	databaseBindings   []baseline.DatabaseCognitionBinding
@@ -106,6 +108,20 @@ func planCognitionVolumeUpdates(
 	recovery, recoveryErr := loadEntriesRecoveryIncludingArchive(root, batchKey)
 	if recoveryErr != nil && !os.IsNotExist(recoveryErr) {
 		return nil, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(recoveryErr.Error()))}
+	}
+	planningSet := loaded.set
+	if recovery != nil && codeRecoveryPostimage(root, recovery) {
+		for _, recoveryAsset := range recovery.Assets {
+			if recoveryAsset.VolumeID != cognition.ScopeCode {
+				continue
+			}
+			preimageSet, findings := cognition.ProjectObjectVolume(loaded.set, cognition.ScopeCode, recoveryAsset.Preimage)
+			if preimageSet == nil || len(findings) != 0 {
+				return nil, &Fail{Code: errWriteConflict, Msg: mcpMessage("entries.recovery_receipt.postimage_mismatch")}
+			}
+			planningSet = preimageSet
+			break
+		}
 	}
 	var databaseReceipt *dbcognition.Receipt
 	var codeReceipt *codebatch.Receipt
@@ -171,11 +187,11 @@ func planCognitionVolumeUpdates(
 	candidates := make([]cognition.ImpactCandidate, 0, len(ordered))
 	volumes := map[string]bool{}
 	for _, item := range ordered {
-		if !receiptMode && !validRecoverySHA256(item.sourceSHA256) {
+		if !receiptMode && item.change != cognition.ImpactChangeDelete && !validRecoverySHA256(item.sourceSHA256) {
 			return nil, &Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.source_binding_required", volumeItemIdentity(item)), Hint: writeMessage("entry.write.mcp.hint.source_binding")}
 		}
 		candidate := cognition.ImpactCandidate{
-			Change:                 cognition.ImpactChangeUpdate,
+			Change:                 item.change,
 			OriginalCandidateIndex: item.originalCandidateIndex,
 		}
 		switch {
@@ -183,8 +199,15 @@ func planCognitionVolumeUpdates(
 			candidate.ObjectRef = "code:" + item.rel
 			candidate.VolumeID = "code"
 			candidate.Path = item.rel
-			candidate.CanonicalLine = canonicalVolumeCandidateLine(item.rel, item.newEntry)
-			if cognitionObjectByRef(loaded.set.Volumes["code"], candidate.ObjectRef) == nil {
+			object := cognitionObjectByRef(planningSet.Volumes["code"], candidate.ObjectRef)
+			if item.change == cognition.ImpactChangeDelete {
+				if object == nil {
+					return nil, &Fail{Code: errCandidateInvalid, Msg: "code_delete_target_missing: " + item.rel}
+				}
+			} else {
+				candidate.CanonicalLine = canonicalVolumeCandidateLine(item.rel, item.newEntry)
+			}
+			if item.change != cognition.ImpactChangeDelete && object == nil {
 				candidate.Change = cognition.ImpactChangeCreate
 			}
 			volumes["code"] = true
@@ -207,7 +230,7 @@ func planCognitionVolumeUpdates(
 		}
 		candidates = append(candidates, candidate)
 	}
-	envelope, fail := resolveCognitionChangeEnvelope(loaded.set, candidates)
+	envelope, fail := resolveCognitionChangeEnvelope(planningSet, candidates)
 	if fail != nil {
 		if receiptMode && fail.Code == errImpactResolutionFailed && strings.Contains(fail.Msg, "impact_candidate_") {
 			fail.Code = errCandidateInvalid
@@ -219,7 +242,8 @@ func planCognitionVolumeUpdates(
 	outcomes := make([]*UpdateOutcome, 0, len(ordered))
 	rels := make([]string, 0, len(ordered))
 	sourceFingerprints := map[string]baseline.Fingerprint{}
-	databaseProjected, databaseActions, databaseFail := projectDatabaseCandidates(loaded.set.Volumes["database"], candidates)
+	deletedSourcePaths := []string{}
+	databaseProjected, databaseActions, databaseFail := projectDatabaseCandidates(planningSet.Volumes["database"], candidates)
 	if databaseFail != nil {
 		return nil, databaseFail
 	}
@@ -228,11 +252,32 @@ func planCognitionVolumeUpdates(
 	}
 	var codeContext *repoCtx
 	if volumes[cognition.ScopeCode] {
-		codeContext = volumeCodeRepoContext(root, loaded)
+		planningLoaded := *loaded
+		planningLoaded.set = planningSet
+		codeContext = volumeCodeRepoContext(root, &planningLoaded)
 	}
 	for itemIndex, item := range ordered {
 		candidate := candidates[itemIndex]
 		if item.rel != "" {
+			if item.change == cognition.ImpactChangeDelete {
+				if info, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(item.rel))); !os.IsNotExist(statErr) || info != nil {
+					return nil, &Fail{Code: errWriteConflict, Msg: "code_delete_source_present: " + item.rel}
+				}
+				object := cognitionObjectByRef(planningSet.Volumes[cognition.ScopeCode], candidate.ObjectRef)
+				nextText, removeErr := index.RemoveEntryForPath(codeContext.text, root, item.rel, object.CanonicalLine)
+				if removeErr != nil {
+					return nil, &Fail{Code: errCandidateInvalid, Msg: "code_delete_projection_invalid: " + item.rel}
+				}
+				projected[cognition.ScopeCode] = []byte(nextText)
+				codeContext.text = nextText
+				codeContext.doc, _ = index.Parse(nextText)
+				index.ResolveRelPaths(codeContext.doc, root)
+				outcomes = append(outcomes, &UpdateOutcome{Action: cognition.ImpactChangeDelete, Rel: item.rel,
+					Diff: renderEntryWriteDiff(object.CanonicalLine, "")})
+				rels = append(rels, item.rel)
+				deletedSourcePaths = append(deletedSourcePaths, item.rel)
+				continue
+			}
 			fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(item.rel)))
 			if err != nil || fingerprint.SHA256 != item.sourceSHA256 {
 				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.source_conflict", "code:"+item.rel), Hint: writeMessage("entry.batch.hint.refresh_binding")}
@@ -255,7 +300,7 @@ func planCognitionVolumeUpdates(
 			rels = append(rels, item.rel)
 			continue
 		}
-		object := cognitionObjectByRef(loaded.set.Volumes["database"], candidate.ObjectRef)
+		object := cognitionObjectByRef(planningSet.Volumes["database"], candidate.ObjectRef)
 		before := ""
 		if object != nil {
 			before = object.CanonicalLine
@@ -417,7 +462,8 @@ func planCognitionVolumeUpdates(
 		outcomes: outcomes, rels: rels, normalizedItems: ordered, rc: rc,
 		indexHash: preIdentity, finalText: postIdentity, changeEnvelope: envelope,
 		volumePlan: &cognitionVolumeBatchPlan{targets: targets, volumePaths: volumePaths, sourceFingerprints: sourceFingerprints,
-			recovery: recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
+			deletedSourcePaths: deletedSourcePaths,
+			recovery:           recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
 		batchKey: batchKey, start: start,
 	}, nil
 }
@@ -922,6 +968,10 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 		}
 		volumePlan.recovery = &recovery
 	}
+	beforeVolumeTargetWrites()
+	if fail := validateDeletedSourcePaths(root, volumePlan.deletedSourcePaths); fail != nil {
+		return "", false, fail
+	}
 	for _, target := range volumePlan.targets {
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(target.Path)))
 		if err == nil && current.SHA256 == target.PostSHA {
@@ -1009,6 +1059,9 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 			return &Fail{Code: errWriteConflict, Msg: "database_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
 		}
 	}
+	if fail := validateDeletedSourcePaths(root, volumePlan.deletedSourcePaths); fail != nil {
+		return fail
+	}
 	for rel, expected := range volumePlan.sourceFingerprints {
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil || current.SHA256 != expected.SHA256 {
@@ -1020,6 +1073,16 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 		allowProvenPostimage := volumePlan.recovery != nil && current.SHA256 == target.PostSHA
 		if err != nil || (current.SHA256 != target.PreSHA && !allowProvenPostimage) {
 			return &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.target_conflict", target.VolumeID), Hint: writeMessage("entry.batch.hint.replan")}
+		}
+	}
+	return nil
+}
+
+func validateDeletedSourcePaths(root string, paths []string) *Fail {
+	for _, rel := range paths {
+		if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(rel))); !os.IsNotExist(err) || info != nil {
+			return &Fail{Code: errWriteConflict, Msg: "code_delete_source_reappeared: " + rel,
+				Hint: writeMessage("entry.batch.hint.refresh_binding")}
 		}
 	}
 	return nil

@@ -123,6 +123,7 @@
         "entries",
         "aoci_maintain",
         "target_index",
+        "#Target-Delete",
         "source_sha256",
         "repair_required",
         "candidate_index",

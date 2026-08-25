@@ -2,12 +2,27 @@ package cognitionplan
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
+
+const (
+	CodeTargetReusePrefix  = "#Target-Reuse: "
+	CodeTargetDeletePrefix = "#Target-Delete: "
+)
+
+var codeTargetModuleIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._/-]*$`)
+
+type CodeTargetDirectives struct {
+	ReusePaths    []string `json:"reuse_paths"`
+	DeletePaths   []string `json:"delete_paths"`
+	DeleteModules []string `json:"delete_modules"`
+}
 
 // CodeTargetDiffChange is one object-level difference between the active Code
 // Volume and a complete, non-authoritative target Code Volume.
@@ -41,6 +56,7 @@ type CodeTargetDiff struct {
 	FormalTextOnly             bool                           `json:"formal_text_only"`
 	Summary                    CodeTargetDiffSummary          `json:"summary"`
 	Changes                    []CodeTargetDiffChange         `json:"changes"`
+	Directives                 CodeTargetDirectives           `json:"directives"`
 	AffectedCognition          cognition.AffectedCognitionSet `json:"affected_cognition"`
 	Derived                    bool                           `json:"derived"`
 	Authoritative              bool                           `json:"authoritative"`
@@ -70,6 +86,13 @@ func (e *CodeTargetValidationError) Error() string {
 func CompareCodeTargetIndex(repositoryRoot, indexPath string, targetRaw []byte) (*CodeTargetDiff, error) {
 	if len(targetRaw) == 0 || len(targetRaw) > machinecontract.EntriesRequestMaxBytes {
 		return nil, fmt.Errorf("code_target_index_size_invalid")
+	}
+	directives, err := ParseCodeTargetDirectives(targetRaw)
+	if err != nil {
+		return nil, err
+	}
+	if len(directives.DeleteModules) != 0 {
+		return nil, fmt.Errorf("code_target_module_delete_requires_module_volume")
 	}
 	current, err := cognition.Load(repositoryRoot, indexPath)
 	if err != nil {
@@ -135,6 +158,26 @@ func CompareCodeTargetIndex(repositoryRoot, indexPath string, targetRaw []byte) 
 			summary.Unchanged++
 		}
 	}
+	declaredDeletes := make(map[string]bool, len(directives.DeletePaths))
+	for _, path := range directives.DeletePaths {
+		declaredDeletes[path] = true
+	}
+	actualDeletes := map[string]bool{}
+	for _, change := range changes {
+		if change.Change == cognition.ImpactChangeDelete {
+			actualDeletes[strings.TrimPrefix(change.ObjectRef, "code:")] = true
+		}
+	}
+	for path := range actualDeletes {
+		if !declaredDeletes[path] {
+			return nil, fmt.Errorf("code_target_delete_marker_missing: %s", path)
+		}
+	}
+	for path := range declaredDeletes {
+		if !actualDeletes[path] {
+			return nil, fmt.Errorf("code_target_delete_marker_extra: %s", path)
+		}
+	}
 
 	affected := emptyCodeTargetAffected(current.LayoutMode)
 	if len(candidates) != 0 {
@@ -154,13 +197,87 @@ func CompareCodeTargetIndex(repositoryRoot, indexPath string, targetRaw []byte) 
 		BaseCompositeIdentity: current.CompositeIdentity, ProjectedCompositeIdentity: projected.CompositeIdentity,
 		BaseCodeSHA256: baseAsset.SHA256, TargetCodeSHA256: targetAsset.SHA256,
 		RawBytesChanged: baseAsset.SHA256 != targetAsset.SHA256,
-		Summary:         summary, Changes: changes, AffectedCognition: affected,
+		Summary:         summary, Changes: changes, Directives: directives, AffectedCognition: affected,
 		Derived: true, Authoritative: false, SourceBound: false, ApplyAllowed: false,
 		FormalWritesStarted: false, NetworkAccessed: false, BusinessDataRead: false, NextAction: nextAction,
 	}
 	report.FormalTextOnly = report.RawBytesChanged && len(report.Changes) == 0
 	report.DiffSHA256 = codeTargetDiffIdentity(report)
 	return report, nil
+}
+
+func ParseCodeTargetDirectives(raw []byte) (CodeTargetDirectives, error) {
+	reuse := map[string]bool{}
+	deleted := map[string]bool{}
+	modules := map[string]bool{}
+	for _, rawLine := range strings.Split(string(raw), "\n") {
+		line := strings.TrimSuffix(rawLine, "\r")
+		switch {
+		case strings.HasPrefix(line, CodeTargetReusePrefix):
+			path, err := codeTargetDirectivePath(strings.TrimPrefix(line, CodeTargetReusePrefix))
+			if err != nil || reuse[path] || deleted[path] {
+				return CodeTargetDirectives{}, fmt.Errorf("code_target_reuse_marker_invalid: %s", strings.TrimPrefix(line, CodeTargetReusePrefix))
+			}
+			reuse[path] = true
+		case strings.HasPrefix(line, CodeTargetDeletePrefix):
+			objectRef := strings.TrimPrefix(line, CodeTargetDeletePrefix)
+			switch {
+			case strings.HasPrefix(objectRef, "code:"):
+				path, err := codeTargetDirectivePath(objectRef)
+				if err != nil || deleted[path] || reuse[path] {
+					return CodeTargetDirectives{}, fmt.Errorf("code_target_delete_marker_invalid: %s", objectRef)
+				}
+				deleted[path] = true
+			case strings.HasPrefix(objectRef, "module:"):
+				moduleID := strings.TrimPrefix(objectRef, "module:")
+				if !codeTargetModuleIDPattern.MatchString(moduleID) || strings.Contains(moduleID, "..") || modules[moduleID] {
+					return CodeTargetDirectives{}, fmt.Errorf("code_target_delete_marker_invalid: %s", objectRef)
+				}
+				modules[moduleID] = true
+			default:
+				return CodeTargetDirectives{}, fmt.Errorf("code_target_delete_marker_invalid: %s", objectRef)
+			}
+		}
+	}
+	result := CodeTargetDirectives{
+		ReusePaths: make([]string, 0, len(reuse)), DeletePaths: make([]string, 0, len(deleted)),
+		DeleteModules: make([]string, 0, len(modules)),
+	}
+	for path := range reuse {
+		result.ReusePaths = append(result.ReusePaths, path)
+	}
+	for path := range deleted {
+		result.DeletePaths = append(result.DeletePaths, path)
+	}
+	for moduleID := range modules {
+		result.DeleteModules = append(result.DeleteModules, moduleID)
+	}
+	sort.Strings(result.ReusePaths)
+	sort.Strings(result.DeletePaths)
+	sort.Strings(result.DeleteModules)
+	return result, nil
+}
+
+func StripCodeTargetDirectives(raw []byte) []byte {
+	lines := strings.Split(string(raw), "\n")
+	kept := lines[:0]
+	for _, line := range lines {
+		plain := strings.TrimSuffix(line, "\r")
+		if strings.HasPrefix(plain, CodeTargetReusePrefix) || strings.HasPrefix(plain, CodeTargetDeletePrefix) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return []byte(strings.Join(kept, "\n"))
+}
+
+func codeTargetDirectivePath(objectRef string) (string, error) {
+	path := strings.TrimPrefix(objectRef, "code:")
+	normalized, err := afs.NormalizeRelPath(path)
+	if err != nil || objectRef != "code:"+normalized {
+		return "", fmt.Errorf("invalid code target path")
+	}
+	return normalized, nil
 }
 
 func codeTargetObjectMap(objects []cognition.Object) map[string]cognition.Object {
@@ -222,6 +339,15 @@ func codeTargetDiffIdentity(report *CodeTargetDiff) string {
 		identity.field("changed_fields", strings.Join(change.ChangedFields, ","))
 		identity.field("current_entry", change.CurrentEntry)
 		identity.field("target_entry", change.TargetEntry)
+	}
+	for _, path := range report.Directives.ReusePaths {
+		identity.field("reuse_path", path)
+	}
+	for _, path := range report.Directives.DeletePaths {
+		identity.field("delete_path", path)
+	}
+	for _, moduleID := range report.Directives.DeleteModules {
+		identity.field("delete_module", moduleID)
 	}
 	return identity.sum()
 }

@@ -239,7 +239,7 @@ def entry_line(path, i=None, s_field="-"):
     n = i if i is not None else int(re.sub(r"\D", "", base) or 0)
     return f"{base}[CG5T]: F:Provides fixture constant unit {n} | R:- | A:- | S:{s_field}"
 
-def write_code_target(repo, replacements=(), reuse=()):
+def write_code_target(repo, replacements=(), reuse=(), delete=()):
     """Write a complete Code target from formal Code and return both texts."""
     formal_path = os.path.join(repo, "aoci.code.txt")
     with open(formal_path, encoding="utf-8") as f:
@@ -249,12 +249,18 @@ def write_code_target(repo, replacements=(), reuse=()):
         if target.count(before) != 1:
             raise RuntimeError(f"target Entry is not unique: {before[:80]}")
         target = target.replace(before, after, 1)
+    for path in delete:
+        before = entry_line(path)
+        if target.count(before) != 1:
+            raise RuntimeError(f"delete target Entry is not unique: {path}")
+        target = target.replace(before + "\n", "", 1)
     reuse_lines = "".join(f"#Target-Reuse: code:{path}\n" for path in reuse)
-    if reuse_lines:
+    delete_lines = "".join(f"#Target-Delete: code:{path}\n" for path in delete)
+    if reuse_lines or delete_lines:
         marker = "#AOCI-CODE-VOLUME: 1\n"
         if marker not in target:
             raise RuntimeError("Code Volume marker missing")
-        target = target.replace(marker, marker + reuse_lines, 1)
+        target = target.replace(marker, marker + reuse_lines + delete_lines, 1)
     with open(os.path.join(repo, "aoci.code.target.txt"), "w", encoding="utf-8") as f:
         f.write(target)
     return formal, target
@@ -407,7 +413,8 @@ def group_b():
                   and formal_after_stop == formal)
     record(g, "B2.target-missing-reuse-zero-write", "PASS" if zero_write else "FAIL", tw[:180])
 
-    write_code_target(fx, [(before, after)], reuse=["pkg/f002.go"])
+    write_code_target(fx, [(before, after)], reuse=["pkg/f002.go"], delete=["pkg/f010.go"])
+    os.remove(os.path.join(fx, "pkg", "f010.go"))
     tw, err = text_of(s.call("aoci_update_entry", {"target_index": "aoci.code.target.txt"}, timeout=300))
     applied = jload(tw)
     al, _ = fixture_aligned(fx)
@@ -416,8 +423,10 @@ def group_b():
     with open(os.path.join(fx, "aoci.code.target.txt"), encoding="utf-8") as f:
         target_after = f.read()
     ok = (not err and applied.get("status") == "applied" and applied.get("aligned") is True
-          and applied.get("attempted") == 2 and applied.get("applied") == 2 and al
-          and target_after == formal_after and "#Target-Reuse:" not in target_after)
+          and applied.get("attempted") == 3 and applied.get("applied") == 3 and al
+          and entry_line("pkg/f010.go") not in formal_after
+          and target_after == formal_after and "#Target-Reuse:" not in target_after
+          and "#Target-Delete:" not in target_after)
     record(g, "B2.target-batch-applies-aligned", "PASS" if ok else "FAIL", tw[:180])
 
     # B3: repair_required round trip (S over the C5 quota of 500 runes)
