@@ -57,11 +57,9 @@ func DecodeApproval(data []byte) (*Approval, error) {
 // applyAuthorizationBranch selects the mechanism that actually authorizes this
 // transaction.
 //
-// A posture relaxation is planned under the weaker desired mode but has to be
-// authorized under the stronger receipted one, or the change would ratify
-// itself. plan.InteractionRequired already carries that decision, so an auto
-// plan that still demands interaction is routed to the interactive branch
-// instead of the policy-bound one. Every other plan keeps its declared mode.
+// plan.InteractionRequired is authoritative for the exceptional interactive
+// branch. An auto plan that still demands interaction is routed to review;
+// every other plan keeps its declared mode.
 func applyAuthorizationBranch(effectiveMode string, interactionRequired bool) string {
 	if effectiveMode == machinecontract.ApplyAuthorizationAuto && interactionRequired {
 		return machinecontract.ApplyAuthorizationReview

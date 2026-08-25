@@ -120,11 +120,12 @@ authorize normal evidence-backed density changes. Existing complete Entry
 retirement retains its prior disposition and authorization contract.
 
 Lowering the applied authorization posture is an approval_policy_relaxation.
-It cannot receive policy_bound_auto authorization, because a posture may never
-ratify its own weakening, and the weaker desired posture never decides that no
-reviewer is needed: the transition is authorized under the posture the current
-Baseline receipt proves, so exactly one independent Scope review can ratify it.
-A posture is therefore tightened and relaxed through the same governed path.
+It remains explicit Risk evidence. When the desired effective mode is auto and
+no other auto-authorization blocker is present, policy_bound_auto may authorize
+the transition by binding both the current Baseline posture and the complete
+replayed postimage. The posture change never suppresses coverage reduction,
+deletion, high-risk inclusion, budget relaxation, P0/P1, third-party,
+write-set, CAS, or Recovery blockers.
 
 Auto fails with blocked facts rather than falling back to a confirmation phrase
 for sensitive-content inclusion, source-file writes, unsafe filesystem

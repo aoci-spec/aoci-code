@@ -1,12 +1,4 @@
-// 姿态放松必须有审批人。
-//
-// autoAuthorizationBlockers 拒绝 approval_policy_relaxation 是对的 —— 放松绝不能自我
-// 批准。但拒绝只是契约的一半: Spec 的模式是"被阻断的事实交给独立复核", 不是死路。
-// 修复前, InteractionRequired 完全由**期望**模式推导, 于是一旦期望 auto 就判定"不需要
-// 复核", 阻断因此没有审批人 —— auto 成了能出不能进的吸收态, 而 review 是单向门。
-//
-// 这里钉死修好的语义: 收据是 review、期望是 auto 时, 计划必须要求人工确认, 并且走
-// 交互分支; 而普通的 auto 计划(无放松)仍然完全自动、且拒收人工批准。
+// 姿态放松在没有其他安全阻断时由显式期望auto策略授权，不进入真人分支。
 package scopechange
 
 import (
@@ -48,30 +40,25 @@ func relaxingPreview(t *testing.T) (string, *Preview) {
 	return root, preview
 }
 
-func TestPostureRelaxationDemandsAHumanReviewer(t *testing.T) {
+func TestPostureRelaxationUsesPolicyBoundAutoWhenOtherwiseSafe(t *testing.T) {
 	root, preview := relaxingPreview(t)
 
-	if !preview.Plan.InteractionRequired {
-		t.Fatal("a relaxation planned under the weaker desired mode still needs a reviewer; " +
-			"without this the auto blocker has no approver and review becomes a one-way door")
+	if preview.Plan.InteractionRequired {
+		t.Fatal("a posture-only relaxation under explicit auto policy must not request a human")
 	}
-	if preview.Plan.ConfirmationPhrase == "" {
-		t.Fatal("an interactive plan must carry the phrase that binds the approval to it")
+	if preview.Plan.ConfirmationPhrase != "" {
+		t.Fatal("a non-interactive auto plan must not carry a confirmation phrase")
 	}
-
-	// 自动授权仍然必须拒绝 —— 放松不能自我批准。
-	if _, err := NewPolicyBoundApproval(root, preview, authorizationTestTime); err == nil ||
-		!strings.Contains(err.Error(), "approval_policy_relaxation") {
-		t.Fatalf("policy-bound auto must still refuse a relaxation, got %v", err)
-	}
-
-	// 而真人批准现在能落地。
-	approval, err := NewApproval(preview, "fixture-actor", authorizationTestTime)
+	receipt, err := NewPolicyBoundApproval(root, preview, authorizationTestTime)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("posture-only relaxation must receive a policy-bound receipt: %v", err)
 	}
-	if _, err := ApplyAuthorized(root, preview, approval, nil); err != nil {
-		t.Fatalf("an interactively approved relaxation must apply: %v", err)
+	result, err := ApplyAuthorized(root, preview, nil, receipt)
+	if err != nil {
+		t.Fatalf("policy-bound posture relaxation must apply: %v", err)
+	}
+	if result.AuthorizationMechanism != machinecontract.ApprovalMechanismPolicyBoundAuto {
+		t.Fatalf("unexpected authorization mechanism: %s", result.AuthorizationMechanism)
 	}
 }
 
@@ -99,7 +86,7 @@ func TestOrdinaryAutoPlanStaysFullyAutomatic(t *testing.T) {
 	}
 }
 
-func TestApplyAuthorizationBranchRoutesRelaxationToReview(t *testing.T) {
+func TestApplyAuthorizationBranchHonorsExplicitInteraction(t *testing.T) {
 	cases := []struct {
 		mode        string
 		interaction bool

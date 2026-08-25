@@ -58,8 +58,8 @@ func TestApprovalRelaxationMigrationBoundaryAndUnprovableDirection(t *testing.T)
 	}
 }
 
-// 放松治理姿态必须挡住 policy_bound_auto,交由真人复核。
-func TestApprovalPolicyRelaxationBlocksAutoAuthorization(t *testing.T) {
+// 姿态放宽叠加删除或缩减时仍须挡住 policy_bound_auto。
+func TestApprovalPolicyRelaxationWithRemovalStillBlocksAutoAuthorization(t *testing.T) {
 	root, _, preview := buildAutoPreview(t)
 	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
@@ -70,8 +70,11 @@ func TestApprovalPolicyRelaxationBlocksAutoAuthorization(t *testing.T) {
 	}
 	relaxed := *preview
 	relaxed.Plan.Risk.ApprovalPolicyRelaxation = true
+	if len(relaxed.Plan.EntryRemoves) == 0 {
+		t.Fatal("fixture must retain its removal risk")
+	}
 	reasons := strings.Join(autoAuthorizationBlockers(&relaxed, cfg), ",")
 	if !strings.Contains(reasons, "approval_policy_relaxation") {
-		t.Fatalf("放松治理姿态必须阻断自动授权,实际阻断: %s", reasons)
+		t.Fatalf("姿态放宽叠加删除必须阻断自动授权,实际阻断: %s", reasons)
 	}
 }

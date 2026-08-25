@@ -235,7 +235,8 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 	if preview.Plan.Risk.BudgetRelaxation {
 		reasons = append(reasons, "budget_policy_relaxation")
 	}
-	if preview.Plan.Risk.ApprovalPolicyRelaxation {
+	if preview.Plan.Risk.ApprovalPolicyRelaxation &&
+		!approvalPolicyRelaxationAutoEligible(&preview.Plan, &preview.CandidateSet, cfg) {
 		reasons = append(reasons, "approval_policy_relaxation")
 	}
 	if preview.Plan.Risk.P0 != 0 || preview.Plan.Risk.P1 != 0 {
@@ -284,6 +285,35 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 	}
 	sort.Strings(reasons)
 	return deduplicate(reasons)
+}
+
+// approvalPolicyRelaxationAutoEligible permits only a posture-only transition
+// or a simultaneous coverage increase. Any removal, reduction, budget change,
+// or sensitive-content fact keeps the existing independent-review boundary.
+func approvalPolicyRelaxationAutoEligible(plan *Plan, candidates *CandidateSet, cfg *config.Config) bool {
+	if plan == nil || candidates == nil || cfg == nil ||
+		plan.AuthorizationPolicy.EffectiveMode != machinecontract.ApplyAuthorizationAuto ||
+		!plan.Risk.ApprovalPolicyRelaxation || len(plan.EntryRemoves) != 0 ||
+		len(plan.IndexRemoved) != 0 || len(plan.BaselineRemoved) != 0 ||
+		len(plan.CoverageReductions) != 0 || len(plan.RetentionReview) != 0 ||
+		plan.Risk.LargeReduction || plan.Risk.RootOrPrimaryReduction ||
+		plan.Risk.HighRiskOptIn || plan.Risk.BudgetPolicyChange ||
+		plan.Risk.BudgetRelaxation || plan.Risk.CognitionCoverageReduction ||
+		plan.Risk.TransportConstraintNotAllowed || plan.Risk.EntryRemovalCount != 0 ||
+		plan.Risk.CoverageReductionCount != 0 || plan.Risk.P0 != 0 || plan.Risk.P1 != 0 ||
+		candidates.SafetyApproval != nil || len(cfg.SafeInventoryHighRiskOptIn) != 0 {
+		return false
+	}
+	for _, change := range plan.RoleChanges {
+		coverageIncrease := change.OldRole == change.NewRole ||
+			change.OldRole == machinecontract.ScopeRoleExclude &&
+				(change.NewRole == machinecontract.ScopeRoleObserve || change.NewRole == machinecontract.ScopeRoleIndex) ||
+			change.OldRole == machinecontract.ScopeRoleObserve && change.NewRole == machinecontract.ScopeRoleIndex
+		if !coverageIncrease {
+			return false
+		}
+	}
+	return true
 }
 
 func retentionReviewComplete(preview *Preview) bool {

@@ -69,8 +69,8 @@ type ManagedScopeState struct {
 	BudgetPolicy         *cognitionbudget.Policy `json:"budget_policy,omitempty"`
 	// ApplyAuthorizationMode 记录产生本收据的那次事务所处的生效授权模式。
 	// 团队配置只表达"期望";只有这里的收据才是"当前生效"的治理姿态,因此模式
-	// 跃迁的方向可以被证明 —— 放松(review→auto 等)必须由真人复核,而不能在
-	// 新模式下自我批准。旧收据没有该字段,方向不可证,按失败关闭处理。
+	// 跃迁的方向可以被证明。放松(review→auto 等)继续形成显式Risk,是否自动
+	// 授权由完整Preview的独立阻断器裁决。旧收据没有该字段,方向不可证,按失败关闭处理。
 	ApplyAuthorizationMode string `json:"apply_authorization_mode,omitempty"`
 	HighRiskApprovalDigest string `json:"high_risk_approval_digest,omitempty"`
 }

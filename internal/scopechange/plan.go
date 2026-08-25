@@ -470,13 +470,10 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		plan.InteractionRequired = len(plan.EntryRemoves) > 0 || plan.Risk.LargeReduction || plan.Risk.HighRiskOptIn ||
 			plan.Risk.BudgetPolicyChange || plan.Risk.BudgetRelaxation || plan.Risk.ApprovalPolicyRelaxation
 	case machinecontract.ApplyAuthorizationAuto:
-		// A relaxation of the receipted posture must never ratify itself, which is
-		// why autoAuthorizationBlockers refuses it. But refusing is only half the
-		// contract: the Spec's pattern is that a blocked fact is handed to
-		// independent review, not to a dead end. Without this the weaker desired
-		// mode would also decide that no reviewer is needed, so the block would
-		// have no approver and auto would become unreachable once left.
-		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation
+		// Only a posture-only relaxation or simultaneous coverage increase may
+		// use policy-bound auto. The same predicate is rechecked before receipt.
+		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation &&
+			!approvalPolicyRelaxationAutoEligible(&plan, &candidates, cfg)
 	case machinecontract.ApplyAuthorizationOff:
 		plan.InteractionRequired = false
 	default:

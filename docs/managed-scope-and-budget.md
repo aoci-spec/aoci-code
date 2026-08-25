@@ -30,13 +30,12 @@ compatibility boundary, and `off` produces Plan/Preview only and writes nothing.
 Resume or roll back an interrupted transaction with the matching scope commands.
 
 Tightening the posture needs nothing special, but **lowering** it — for example
-`review` back to `auto` — is an `approval_policy_relaxation`. A posture may not
-ratify its own weakening, so `policy_bound_auto` refuses it and the transition
-is authorized under the posture the current Baseline receipt proves: the plan
-reports `interaction_required`, and one `scope approve` in a real TTY ratifies
-it. From the next transaction onward the receipt reads the relaxed posture and
-ordinary changes are automatic again. A posture is therefore reversible through
-the same governed path that tightened it, at the cost of exactly one review.
+`review` back to `auto` — remains an `approval_policy_relaxation` Risk. If it is
+the only automatic-authorization concern, the explicit desired auto policy may
+issue a `policy_bound_auto` receipt that binds the old Baseline posture and the
+complete replayed postimage, with no TTY. Coverage reduction, deletion,
+high-risk inclusion, budget relaxation, P0/P1, third-party, write-set, CAS, and
+Recovery blockers remain unchanged and cannot be hidden by the posture change.
 
 Pass `--out-file` to `scope approve` so the approval it mints lands in a file
 that `scope apply --approval-file` can read. Without it the artifact goes to
