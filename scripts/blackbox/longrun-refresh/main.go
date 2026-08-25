@@ -247,7 +247,7 @@ func runThresholdExperiment(binary, root string) (experimentReport, error) {
 	if err != nil {
 		return report, err
 	}
-	if !strings.Contains(initialAttestation, "challenge_passed: 10/10") ||
+	if !strings.Contains(initialAttestation, "challenge_passed: 1/1") ||
 		!strings.Contains(initialAttestation, "model_full_cognition_reliable: true") {
 		return report, fmt.Errorf("initial strict Attestation failed: %s", initialAttestation)
 	}
@@ -384,7 +384,7 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 	if err != nil {
 		return report, err
 	}
-	if !strings.Contains(initialAttestation, "challenge_passed: 10/10") ||
+	if !strings.Contains(initialAttestation, "challenge_passed: 1/1") ||
 		!strings.Contains(initialAttestation, "model_full_cognition_reliable: true") {
 		return report, fmt.Errorf("initial strict Attestation failed: %s", initialAttestation)
 	}
@@ -392,16 +392,17 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 		"refresh_reasons":  []string{"context_compaction"},
 		"refresh_event_id": "simulated-clean-compaction-1",
 	}
-	partialAttestation, err := recordAttestedOverview(client, root, cleanEvent, 3, &report)
+	failedAttestation, err := recordAttestedOverview(client, root, cleanEvent, 1, &report)
 	if err != nil {
 		return report, err
 	}
-	report.AttestationPassed = "7/10"
+	report.AttestationPassed = "0/1"
 	report.FullSystemClaimAllowed = false
-	if !strings.Contains(partialAttestation, "challenge_passed: 7/10") ||
-		!strings.Contains(partialAttestation, "model_full_cognition_reliable: false") ||
-		!strings.Contains(partialAttestation, "full_system_claim_disabled_source_bound_task_continuation_allowed") {
-		return report, fmt.Errorf("partial refresh Attestation contract failed: %s", partialAttestation)
+	if !strings.Contains(failedAttestation, "challenge_passed: 0/1") ||
+		!strings.Contains(failedAttestation, "model_attestation: fail") ||
+		!strings.Contains(failedAttestation, "model_full_cognition_reliable: false") ||
+		!strings.Contains(failedAttestation, "full_system_claim_disabled_source_bound_task_continuation_allowed") {
+		return report, fmt.Errorf("failed refresh Attestation contract mismatch: %s", failedAttestation)
 	}
 	afterPartial, raw, err := client.assess(map[string]any{
 		"check_only":       true,
@@ -492,7 +493,7 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 	report.Passed = report.ToolsCount == 9 && report.RulesReads == 1 &&
 		report.OverviewFullReads == 3 && report.MaintainCalls == 1 &&
 		len(report.TriggerReasons) == 3 && report.RefreshLoopPrevented &&
-		report.AttestationPassed == "7/10" && !report.FullSystemClaimAllowed &&
+		report.AttestationPassed == "0/1" && !report.FullSystemClaimAllowed &&
 		report.SourceBoundContinued && report.QuestionAnswered && report.RepairAttempts == 1 &&
 		report.Verify.ExitCode == 0 &&
 		report.Check.ExitCode == 0 && report.Guide.ExitCode == 0 && report.Ledger.Consistent
@@ -951,13 +952,27 @@ func buildAttestationArguments(root, delivered string, wrongAnswers int) (map[st
 	if err != nil {
 		return nil, err
 	}
+	challengeIndexSHA, err := metadataValue(delivered, "challenge_index_sha256")
+	if err != nil {
+		return nil, err
+	}
+	challengeSequenceSHA, err := metadataValue(delivered, "challenge_entry_sequence_sha256")
+	if err != nil {
+		return nil, err
+	}
+	challengeEntryCount, err := metadataInt(delivered, "challenge_entry_count")
+	if err != nil {
+		return nil, err
+	}
 	return map[string]any{
 		"host_delivery_confirmation": map[string]any{
 			"version": "overview-delivery-receipt/v1", "body_sha256": bodySHA,
 			"body_bytes": bodyBytes, "end_marker_observed": true,
 		},
 		"model_cognition_attestation": map[string]any{
-			"version": "model-cognition-attestation/v1", "challenge_digest": challengeDigest,
+			"version": "model-cognition-attestation/v1", "index_sha256": challengeIndexSHA,
+			"entry_sequence_sha256": challengeSequenceSHA, "entry_count": challengeEntryCount,
+			"challenge_digest":     challengeDigest,
 			"reported_entry_count": entryCount, "reported_estimated_tokens": tokens,
 			"coverage_percent": 100, "system_mastery_percent": 95,
 			"confidence_percent": 95, "truncation_detected": false,

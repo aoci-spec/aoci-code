@@ -18,7 +18,7 @@ import (
 const (
 	modelCognitionAttestationV1 = machinecontract.ModelCognitionAttestationV1
 	overviewChallengeVersion    = "overview-cognition-challenge/v1"
-	overviewChallengeSize       = 10
+	overviewChallengeSize       = 1
 
 	deliveryIntegrityConfirmed   = "confirmed"
 	deliveryIntegrityUnconfirmed = "unconfirmed"
@@ -170,8 +170,12 @@ func overviewObjectLineOffset(content string, lineNumber int, expectedLine strin
 }
 
 func buildOverviewChallenge(indexSHA256 string, targets []overviewChallengeTarget) overviewChallenge {
+	return buildOverviewChallengeSized(indexSHA256, targets, overviewChallengeSize)
+}
+
+func buildOverviewChallengeSized(indexSHA256 string, targets []overviewChallengeTarget, size int) overviewChallenge {
 	entrySequenceSHA256 := overviewEntrySequenceSHA256(targets)
-	ordinals := stratifiedChallengeOrdinals(targets)
+	ordinals := stratifiedChallengeOrdinals(targets, size)
 	byOrdinal := make(map[int]overviewChallengeTarget, len(ordinals))
 	for _, ordinal := range ordinals {
 		target := targets[ordinal-1]
@@ -215,12 +219,12 @@ func overviewEntrySequenceSHA256(targets []overviewChallengeTarget) string {
 // stratum. The per-object key keeps unaffected targets stable across nearby
 // Entry additions or removals, while the returned ordinal is always its
 // position in the newly delivered sequence.
-func stratifiedChallengeOrdinals(targets []overviewChallengeTarget) []int {
+func stratifiedChallengeOrdinals(targets []overviewChallengeTarget, size int) []int {
 	entryCount := len(targets)
-	if entryCount <= 0 {
+	if entryCount <= 0 || size <= 0 {
 		return nil
 	}
-	count := overviewChallengeSize
+	count := size
 	if entryCount < count {
 		count = entryCount
 	}
@@ -425,7 +429,7 @@ func validPercent(value float64) bool {
 }
 
 // challengePassRatioMet applies the pass share to whatever Challenge size the
-// sequence allowed: 8 of 10 ordinarily, every ordinal for a tiny Index.
+// sequence allowed. The default one-item Challenge therefore requires 1/1.
 func challengePassRatioMet(passed, total int) bool {
 	return total > 0 && passed*100 >= total*attestationChallengePassPercent
 }

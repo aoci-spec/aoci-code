@@ -14,8 +14,8 @@ The threshold experiment proves 29 versus 30 deduplicated semantic paths,
 compact check_only behavior, complete-but-unreliable Dirty delivery, repeated
 ordinary full delivery, local recall, and final Verify/Check/Guide alignment.
 The second experiment labels compaction and the user question as simulated Host
-events. It proves an initial strict 10/10 Attestation, one complete compaction
-refresh with a test-only 7/10 Attestation derived solely from the delivered
+events. It proves an initial strict 1/1 Attestation, one complete compaction
+refresh with a test-only failed 0/1 Attestation derived solely from the delivered
 body, disabled full-system claims, no same-generation Overview loop, a
 source-bound Entry read after the question, dirty deferral, three-reason
 merging, one deliberately injected `repair_required` candidate correction, and

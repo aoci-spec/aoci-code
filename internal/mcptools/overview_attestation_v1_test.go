@@ -30,6 +30,11 @@ func syntheticChallenge(entryCount int) overviewChallenge {
 	return buildOverviewChallenge("scope-identity", targets)
 }
 
+func syntheticChallengeSized(entryCount, size int) overviewChallenge {
+	targets := syntheticChallengeTargets(entryCount)
+	return buildOverviewChallengeSized("scope-identity", targets, size)
+}
+
 func completeAttestation(challenge overviewChallenge, entries, tokens int) *overviewModelAttestation {
 	answers := make([]overviewChallengeAnswer, 0, len(challenge.Ordinals))
 	for _, ordinal := range challenge.Ordinals {
@@ -97,14 +102,13 @@ func attestationMap(t *testing.T, attestation *overviewModelAttestation) map[str
 
 func TestModelCognitionAttestationComplete(t *testing.T) {
 	challenge := syntheticChallenge(120)
-	if len(challenge.Ordinals) != 10 || challenge.Ordinals[0] > 12 || challenge.Ordinals[4] < 49 ||
-		challenge.Ordinals[5] > 72 || challenge.Ordinals[9] < 109 {
-		t.Fatalf("challenge is not distributed across the complete sequence: %v", challenge.Ordinals)
+	if len(challenge.Ordinals) != 1 || challenge.Ordinals[0] < 1 || challenge.Ordinals[0] > 120 {
+		t.Fatalf("default Challenge did not select one current Entry: %v", challenge.Ordinals)
 	}
 	report := completeAttestation(challenge, 120, 30_000)
 	result := assessOverviewAttestation(challenge, 120, 30_000, hostDeliveryConfirmed, true, report)
 	if result.DeliveryIntegrity != deliveryIntegrityConfirmed || result.ModelAttestation != modelAttestationPass ||
-		result.CognitionAssimilation != cognitionAssimilationComplete || result.ChallengePassed != 10 {
+		result.CognitionAssimilation != cognitionAssimilationComplete || result.ChallengePassed != 1 {
 		t.Fatalf("complete attestation was not accepted: %+v", result)
 	}
 }
@@ -122,8 +126,8 @@ func assertCompleteChallengeAttestation(t *testing.T, challenge overviewChalleng
 	)
 	if result.ModelAttestation != modelAttestationPass ||
 		result.CognitionAssimilation != cognitionAssimilationComplete ||
-		result.ChallengePassed != 10 || result.ChallengeTotal != 10 {
-		t.Fatalf("current Challenge did not pass 10/10: %+v", result)
+		result.ChallengePassed != len(challenge.Ordinals) || result.ChallengeTotal != len(challenge.Ordinals) {
+		t.Fatalf("current Challenge did not pass completely: %+v", result)
 	}
 }
 
@@ -332,7 +336,9 @@ func TestChallengeMetadataDoesNotExposeAnswers(t *testing.T) {
 }
 
 func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) {
-	challenge := syntheticChallenge(120)
+	// Keep a ten-item fixture to exercise percentage and identity-cap grading;
+	// ordinary Overview delivery uses the one-item default.
+	challenge := syntheticChallengeSized(120, 10)
 	tests := []struct {
 		name       string
 		mutate     func(*overviewModelAttestation)
@@ -395,6 +401,16 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[0].CoreF = "Owns the " + strings.TrimPrefix(report.ChallengeAnswers[0].CoreF, "owns ")
 				report.ChallengeAnswers[9].CoreF = "owns responsibility"
+			},
+			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
+		},
+		{
+			// The generic 80 percent rule remains covered independently from the
+			// one-item production default.
+			name: "two semantic misses meet the pass threshold",
+			mutate: func(report *overviewModelAttestation) {
+				report.ChallengeAnswers[1].Tag = "WRONG"
+				report.ChallengeAnswers[8].CoreF = "an unrelated responsibility altogether"
 			},
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
 		},

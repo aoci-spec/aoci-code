@@ -309,14 +309,14 @@ func TestOverviewCompactionZeroChallengeContinuesSourceBoundWithoutRefreshLoop(t
 	}
 	refreshText := resText(t, refresh)
 	event["host_delivery_confirmation"] = hostConfirmationFromOverview(t, refreshText)
-	event["model_cognition_attestation"] = legacyAttestationMapWithWrongAnswers(t, root, 10)
+	event["model_cognition_attestation"] = legacyAttestationMapWithWrongAnswers(t, root, 1)
 	failed, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_overview", Arguments: event})
 	if err != nil {
 		t.Fatal(err)
 	}
 	failedText := resText(t, failed)
 	for _, want := range []string{
-		"challenge_passed: 0/10",
+		"challenge_passed: 0/1",
 		"model_full_cognition_reliable: false",
 		"refresh_status: " + machinecontract.RefreshStatusNotRequired,
 		"delivery_guidance: " + machinecontract.OverviewDeliveryGuidanceSourceBound,
@@ -342,7 +342,7 @@ func TestOverviewCompactionZeroChallengeContinuesSourceBoundWithoutRefreshLoop(t
 	if _, err := session.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "aoci_get_entries", Arguments: map[string]any{"paths": []string{"src/file-000.txt"}},
 	}); err != nil {
-		t.Fatalf("source-bound retrieval was prohibited after 0/10: %v", err)
+		t.Fatalf("source-bound retrieval was prohibited after 0/1: %v", err)
 	}
 }
 
@@ -364,22 +364,24 @@ func TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt(t 
 		"body_bytes":          bodyBytes,
 		"end_marker_observed": true,
 	}
+	partialAttestation := validLegacyAttestationMap(t, root)
+	partialAttestation["coverage_percent"] = 90.0
 	attested, err := session.CallTool(context.Background(), &mcp.CallToolParams{
 		Name: "aoci_overview",
 		Arguments: map[string]any{
 			"host_delivery_confirmation":  confirmation,
-			"model_cognition_attestation": legacyAttestationMapWithWrongAnswers(t, root, 3),
+			"model_cognition_attestation": partialAttestation,
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	attestedText := resText(t, attested)
-	// 7/10 低于通过比例(且三处都是身份失手, 超过身份上限): partial 而非 fail ——
-	// 诚实的完整覆盖声明不再判得比保守声明更重。
+	// The one Challenge answer is correct, while the declared coverage remains
+	// below the strict-completion floor, so the result is partial rather than fail.
 	for _, want := range []string{
 		"delivery_integrity: confirmed",
-		"challenge_passed: 7/10",
+		"challenge_passed: 1/1",
 		"model_attestation: partial",
 		"cognition_assimilation: partial",
 		"cognition_level: 2",
@@ -739,7 +741,7 @@ func TestOverviewBlackBoxFirstAttestationPassesFromDeliveredFormalSequence(t *te
 		}
 		cursor = receipt.NextCursor
 	}
-	if chunkCount < 2 || lastOrdinal != entryCount || reportedEntries != entryCount || len(challengeOrdinals) != 10 {
+	if chunkCount < 2 || lastOrdinal != entryCount || reportedEntries != entryCount || len(challengeOrdinals) != 1 {
 		t.Fatalf("black-box chain facts mismatch: chunks=%d last=%d entries=%d challenge=%v", chunkCount, lastOrdinal, reportedEntries, challengeOrdinals)
 	}
 	if aggregate.Len() != bodyBytes {
@@ -792,7 +794,7 @@ func TestOverviewBlackBoxFirstAttestationPassesFromDeliveredFormalSequence(t *te
 	attestedText := resText(t, attested)
 	for _, want := range []string{
 		"model_attestation: pass", "cognition_assimilation: complete",
-		"challenge_passed: 10/10", "cognition_level: 4",
+		"challenge_passed: 1/1", "cognition_level: 4",
 		"cognition_level_state: cognition_governed",
 	} {
 		if !strings.Contains(attestedText, want) {

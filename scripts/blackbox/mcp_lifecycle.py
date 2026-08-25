@@ -924,8 +924,8 @@ def m_attest(rep, work, model, timeout_s, artifacts):
     art = os.path.join(artifacts, f"attest-{tag}.json")
     rc, dur, out = opencode_run(fx, model, PROMPT_ATTEST, timeout_s, art)
     blob = out[-200000:]
-    if "model_attestation: pass" in blob or '"challenge_passed": "10/10"' in blob or "challenge_passed: 10/10" in blob:
-        rep.rec(g, "challenge", "PASS", "10/10 markers in session", duration_s=round(dur))
+    if "model_attestation: pass" in blob or '"challenge_passed": "1/1"' in blob or "challenge_passed: 1/1" in blob:
+        rep.rec(g, "challenge", "PASS", "1/1 markers in session", duration_s=round(dur))
     elif "model_attestation: fail" in blob:
         n = re.search(r"challenge_passed:\s*(\d+)/(\d+)", blob)
         rep.rec(g, "challenge", "FAIL", f"attestation fail {n.group(0) if n else ''}", duration_s=round(dur))

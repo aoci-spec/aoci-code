@@ -72,7 +72,7 @@ a smaller valid `overview_delivery.chunk_tokens` value and restart. AOCI does
 not detect Host capacity or shrink Chunks automatically.
 
 After the final Chunk, the Host verifies the aggregate
-`overview-delivery-receipt/v1` and submits the existing ten-ordinal
+`overview-delivery-receipt/v1` and submits the existing one-ordinal
 `model-cognition-attestation/v1`. Delivery integrity, machine Entry coverage,
 Challenge binding, and model-reported mastery remain separate. Only a complete,
 continuous, Host-confirmed, aligned chain with a passing Attestation can set
@@ -109,10 +109,12 @@ It performs no path cleaning, case folding, basename lookup, or fuzzy
 resolution. Database objects still require the exact `database://` identity
 and Tag matching remains exact. Core F is judged as a semantic match (a
 paraphrase or dropped clause of the delivered F still counts; another Entry's F
-does not), and the Challenge passes at 80 percent or better with at most one
-object identity miss — the Challenge measures assimilation, while the Host
-receipt already proves the bytes arrived. Below the pass share the Attestation
-grades partial; fail is reserved for a foreign envelope or no correct answer.
+does not). The generic pass rule remains at least 80 percent fully correct with
+at most one object-identity miss. The default Challenge selects one
+deterministic ordinal, so strict recall requires 1/1. The Challenge measures
+assimilation, while the Host receipt already proves the bytes arrived; a
+foreign envelope or 0/1 fails, while other complete-answer claim shortfalls may
+grade partial.
 
 `host_delivery_confirmation` and `model_cognition_attestation` bind the same
 delivered body and may be submitted together or in separate calls in either

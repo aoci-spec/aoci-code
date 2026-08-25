@@ -144,10 +144,10 @@ Model Cognition Attestation v1
 ------------------------------
 
 After the complete chain, the Host uses the existing
-`model-cognition-attestation/v1`. Its deterministic Challenge contains ten
-distributed Entry ordinals when at least ten Entries exist, or every ordinal
-for a smaller fixture. Answers bind each ordinal to exact object identity, Tag,
-and core F responsibility. The program transports and validates formal F/R/A/S
+`model-cognition-attestation/v1`. Its default deterministic Challenge contains
+one Entry ordinal when at least one Entry exists and no ordinal for an empty
+scope. The answer binds that ordinal to exact object identity, Tag, and core F
+responsibility. The program transports and validates formal F/R/A/S
 but does not generate, summarize, compress, truncate, reorder, or rewrite it.
 The Challenge exposes only version, current Index SHA-256, current ordered
 Entry-sequence SHA-256, current Entry count, digest, and formal ordinals; it
@@ -181,13 +181,12 @@ formulaic sibling that differs in its distinguishing words, stays below the
 floor. The Challenge measures assimilation, not verbatim recall: delivery
 integrity is already proven by the Host receipt over the exact bytes.
 
-The Challenge passes when at least 80 percent of its ordinals are fully correct
-(ordinal, object identity, Tag, and core F together) and object identity, the
-one discrete fact without paraphrase, is missed at most once. Every ordinal
-counts as pass when fewer than five exist. A shortfall grades partial; fail is
-reserved for a foreign or malformed envelope or an Attestation with no correct
-ordinal. A complete-coverage claim that misses the pass share grades partial,
-never lower than the same answers submitted with a hedged coverage claim.
+The generic Challenge pass ratio remains at least 80 percent fully correct
+(ordinal, object identity, Tag, and core F together), with at most one object
+identity miss. This requires 1/1 for the default single ordinal. A foreign or
+malformed envelope or 0/1 fails; other claim shortfalls with the answer correct
+may grade partial. A complete-coverage claim never grades lower than the same
+answer submitted with a hedged coverage claim.
 
 The model makes one semantic Attestation submission based only on the delivered
 Whole-Index. If that same response reports only a JSON Schema or field-format

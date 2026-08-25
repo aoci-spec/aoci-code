@@ -185,8 +185,8 @@ Overview and Attestation protocols but a slimmer post-attempt control rule. When
 arrive, the Host confirms the body, the cognition identity is unchanged,
 governance is aligned, and neither Recovery nor third-party conflict is
 pending, the Attestation attempt consumes that refresh generation. A passing
-Challenge (8/10 or better with at most one identity miss) restores a reliable
-complete-system claim; 7/10 or 0/10 leaves the receipt uncertain and returns
+default Challenge (1/1) restores a reliable complete-system claim; 0/1 or any
+other partial or failed Attestation leaves the receipt uncertain and returns
 `delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`.
 The AI Agent continues the existing source-bound task without a second automatic
 Overview. If repository semantics changed, it first stabilizes code and tests,
@@ -217,8 +217,8 @@ This table is documentation and test traceability, not runtime state.
 | --- | --- | --- | --- | --- | --- |
 | User progress, timing, explanation, or architecture question | Host could end the turn and lose the task | None | continue; answer then resume `next_action` | Runtime Rules and AGENTS Host contract | textasset/cross-layer contract tests; longrun black box |
 | Explicit stop, pause, cancel, rollback, or scope change | Inconsistent Host inference | User changed authority | user action or replan | Runtime Rules and AGENTS Host contract | contract anchors and black-box scenario |
-| Context compaction, Challenge passing (8/10 or better) | Full refresh then continue | Lost framework recall | continue with reliable receipt | Existing refresh session | Overview refresh tests |
-| Context compaction, Challenge 7/10 or 0/10 | Absolute task stop and repeated ready status | Only complete-system claim is unproven | continue source-bound; uncertain receipt; consume generation | `recordAttestedDelivery` and delivery guidance | `TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt` |
+| Context compaction, Challenge passing 1/1 | Full refresh then continue | Lost framework recall | continue with reliable receipt | Existing refresh session | Overview refresh tests |
+| Context compaction, Challenge 0/1 or another partial/fail result | Absolute task stop and repeated ready status | Only complete-system claim is unproven | continue source-bound; uncertain receipt; consume generation | `recordAttestedDelivery` and delivery guidance | `TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt` |
 | Host truncation, missing/reordered Chunk, cursor, Index, or config change | Stop | Incomplete or mixed formal body | hard block cognition chain | Existing Chunk and snapshot validation | Overview delivery and cursor tests |
 | Dirty repository during refresh | Could refresh repeatedly before stable work | Formal cognition is stale | finish work, Maintain once, Verify/Check/Guide, then optional refresh | Existing semantic facts and Guide | refresh threshold tests; longrun black box |
 | `repair_required` | Sometimes surfaced as user stop | Candidate semantics or shape is repairable; zero formal writes | bounded auto repair of failed candidates only | Existing findings and full-batch resubmission | Entries Auto tests; longrun black box repair injection |

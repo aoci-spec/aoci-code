@@ -223,7 +223,7 @@ ok("probe.wrong_answer_fails", bad.get("result") == "fail", grade_detail)
 # split proof halves, order A: attestation alone grades pass but cannot latch
 # (delivery unconfirmed); the later confirmation-only call must pick that pass
 # up from session memory and latch reliability.
-def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False, mastery=90):
+def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False, mastery=90, coverage=100):
     answers = []
     for i, o in enumerate(ords):
         ident, tag, coref = seq[o-1]
@@ -236,7 +236,7 @@ def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False,
         "entry_sequence_sha256": mfin["challenge_entry_sequence_sha256"],
         "entry_count": mfin["challenge_entry_count"], "challenge_digest": mfin["challenge_digest"],
         "reported_entry_count": m0["entry_count"], "reported_estimated_tokens": m0["estimated_tokens"],
-        "coverage_percent": 100, "system_mastery_percent": mastery, "confidence_percent": 90,
+        "coverage_percent": coverage, "system_mastery_percent": mastery, "confidence_percent": 90,
         "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
         "challenge_answers": answers}
 ords1 = metaL["challenge_ordinals"] if isinstance(metaL["challenge_ordinals"], list) else [int(x) for x in str(metaL["challenge_ordinals"]).split(",")]
@@ -324,21 +324,19 @@ ok("attestation.confirmation_alone_is_level_2", (not cerr) and "host_delivery_st
    and "cognition_level: 2" in ct and "model_full_cognition_reliable: false" in ct, ct[:240])
 at, aerr = text_of(s2.call("aoci_overview", {"model_cognition_attestation": attestation_for(mfin, m0, seq2, ords)}))
 ok("attestation.attestation_after_confirmation_latches", (not aerr) and "model_full_cognition_reliable: true" in at
-   and "challenge_passed: 10/10" in at, at[:240])
-# grading ladder: bare file names miss every identity (fail); 7/10 is below the
-# pass share (partial, never fail for an honest complete claim); two identity
-# misses exceed the identity cap even at 8/10 (partial); two core-F misses at
-# 8/10 pass because F is judged semantically and identity is intact.
-wt, werr = attest2(bare=True)
+   and "challenge_passed: 1/1" in at, at[:240])
+# Default grading uses one deterministic Challenge: a wrong identity fails,
+# correct recall with a conservative coverage claim is partial, and 1/1 passes.
+wt, werr = attest2(wreck_f=(0,))
 ok("attestation.wrong_answer_fails", (not werr) and "model_attestation: fail" in wt, wt[:200])
-pt, perr = attest2(wreck_f=(0,1,2))
-ok("attestation.seven_of_ten_is_partial", (not perr) and "challenge_passed: 7/10" in pt
+pt, perr = attest2(coverage=90)
+ok("attestation.coverage_shortfall_is_partial", (not perr) and "challenge_passed: 1/1" in pt
    and "model_attestation: partial" in pt and "model_full_cognition_reliable: false" in pt, pt[:240])
-it, ierr = attest2(wreck_ident=(0,1))
-ok("attestation.two_identity_misses_partial", (not ierr) and "challenge_passed: 8/10" in it
-   and "model_attestation: partial" in it, it[:240])
-et, eerr = attest2(wreck_f=(0,1))
-ok("attestation.eight_of_ten_passes", (not eerr) and "challenge_passed: 8/10" in et
+it, ierr = attest2(wreck_ident=(0,))
+ok("attestation.identity_miss_fails", (not ierr) and "challenge_passed: 0/1" in it
+   and "model_attestation: fail" in it, it[:240])
+et, eerr = attest2()
+ok("attestation.one_of_one_passes", (not eerr) and "challenge_passed: 1/1" in et
    and "model_attestation: pass" in et and "model_full_cognition_reliable: true" in et, et[:240])
 ok("stdout.purity.session2", not s2.nonjson_stdout)
 s2.close()

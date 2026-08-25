@@ -275,7 +275,7 @@ func attestCurrentVolumeIndex(t *testing.T, session *mcp.ClientSession) string {
 		}
 		cursor = receipt.NextCursor
 	}
-	if chunkCount != 2 || len(challengeOrdinals) != 10 || challengeEntryCount != entryCount {
+	if chunkCount != 2 || len(challengeOrdinals) != 1 || challengeEntryCount != entryCount {
 		t.Fatalf("current Volume read did not preserve the 52-Entry two-Chunk Challenge: chunks=%d entries=%d challenge=%d ordinals=%v", chunkCount, entryCount, challengeEntryCount, challengeOrdinals)
 	}
 	if aggregate.Len() != bodyBytes {
@@ -340,7 +340,7 @@ func TestVolumeAttestationPassesAfterCurrentEntryRemovalAndAddition(t *testing.T
 	assertPass := func(stage, output string) {
 		t.Helper()
 		for _, want := range []string{
-			"model_attestation: pass", "cognition_assimilation: complete", "challenge_passed: 10/10",
+			"model_attestation: pass", "cognition_assimilation: complete", "challenge_passed: 1/1",
 		} {
 			if !strings.Contains(output, want) {
 				t.Fatalf("%s missing %q:\n%s", stage, want, output)
@@ -380,7 +380,10 @@ func TestVolumeAllScopeChunkAndChallengeShareCanonicalSequence(t *testing.T) {
 		t.Fatalf("Volumes canonical sequence drifted: %+v", sequence)
 	}
 	challenge := buildOverviewChallenge(view.ScopeIdentity, sequence)
-	for ordinal := 1; ordinal <= len(sequence); ordinal++ {
+	if len(challenge.Ordinals) != 1 {
+		t.Fatalf("default Challenge count=%d want=1", len(challenge.Ordinals))
+	}
+	for _, ordinal := range challenge.Ordinals {
 		if challenge.Targets[ordinal].ObjectIdentity != sequence[ordinal-1].ObjectIdentity {
 			t.Fatalf("Challenge ordinal %d diverged from canonical sequence", ordinal)
 		}
