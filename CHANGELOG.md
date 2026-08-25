@@ -4,6 +4,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Add zero-model Code target finalization through the existing
+  `aoci_update_entry` tool. The exclusive `target_index` mode reads complete
+  `aoci.code.target.txt`, binds changed/new and explicit `#Target-Reuse`
+  Entries to final source hashes, applies one existing atomic batch, and
+  synchronizes the target; unsafe or incomplete plans fall back to Maintain.
 - Raise the default and maximum Overview Chunk budget to 600,000 tokens. A
   fitting Overview now returns only the exact body in model-visible `content`,
   keeps transport and state fields in Host-private top-level `_meta`, and needs

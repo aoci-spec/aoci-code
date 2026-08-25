@@ -239,6 +239,26 @@ def entry_line(path, i=None, s_field="-"):
     n = i if i is not None else int(re.sub(r"\D", "", base) or 0)
     return f"{base}[CG5T]: F:Provides fixture constant unit {n} | R:- | A:- | S:{s_field}"
 
+def write_code_target(repo, replacements=(), reuse=()):
+    """Write a complete Code target from formal Code and return both texts."""
+    formal_path = os.path.join(repo, "aoci.code.txt")
+    with open(formal_path, encoding="utf-8") as f:
+        formal = f.read()
+    target = formal
+    for before, after in replacements:
+        if target.count(before) != 1:
+            raise RuntimeError(f"target Entry is not unique: {before[:80]}")
+        target = target.replace(before, after, 1)
+    reuse_lines = "".join(f"#Target-Reuse: code:{path}\n" for path in reuse)
+    if reuse_lines:
+        marker = "#AOCI-CODE-VOLUME: 1\n"
+        if marker not in target:
+            raise RuntimeError("Code Volume marker missing")
+        target = target.replace(marker, marker + reuse_lines, 1)
+    with open(os.path.join(repo, "aoci.code.target.txt"), "w", encoding="utf-8") as f:
+        f.write(target)
+    return formal, target
+
 def submit_batch(s, m, mutate=None):
     """Build the complete update_entry request from a maintain result; `mutate`
     may edit the entries list (for fault injection) before sending."""
@@ -365,16 +385,36 @@ def group_b():
             cli(fx, "config", "set", "overview_delivery.chunk_tokens", "600000")
         sc.close()
 
-    # B2: stale entry refresh with preserved semantics
-    with open(os.path.join(fx, "pkg", "f001.go"), "a") as f:
-        f.write("\nfunc F001b() int { return 1001 }\n")
-    m, t, err = maintain(s)
-    cands = m.get("candidates") or []
-    ok = len(cands) == 1 and cands[0]["path"] == "pkg/f001.go" and cands[0].get("change") == "update"
-    record(g, "B2.stale-detected", "PASS" if ok else "FAIL", t[:150] if not ok else "")
-    if ok:
-        r, t, err = submit_batch(s, m)
-        record(g, "B2.stale-reapplied", "PASS" if r.get("status") == "applied" else "FAIL", t[:150])
+    # B2: target mode binds one changed Entry and one explicit semantic reuse.
+    # Omitting that reuse declaration must stop before any formal write.
+    before = entry_line("pkg/f001.go")
+    after = "f001.go[CG5T]: F:Provides revised fixture constant unit 1 | R:- | A:- | S:-"
+    formal, _ = write_code_target(fx, [(before, after)])
+    for path, body in (("f001.go", "\nfunc F001b() int { return 1001 }\n"),
+                       ("f002.go", "\nfunc F002b() int { return 1002 }\n")):
+        with open(os.path.join(fx, "pkg", path), "a") as f:
+            f.write(body)
+    tw, err = text_of(s.call("aoci_update_entry", {"target_index": "aoci.code.target.txt"}, timeout=300))
+    stopped = jload(tw)
+    with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as f:
+        formal_after_stop = f.read()
+    zero_write = (stopped.get("status") == "stopped"
+                  and stopped.get("formal_writes_started") is False
+                  and formal_after_stop == formal)
+    record(g, "B2.target-missing-reuse-zero-write", "PASS" if zero_write else "FAIL", tw[:180])
+
+    write_code_target(fx, [(before, after)], reuse=["pkg/f002.go"])
+    tw, err = text_of(s.call("aoci_update_entry", {"target_index": "aoci.code.target.txt"}, timeout=300))
+    applied = jload(tw)
+    al, _ = fixture_aligned(fx)
+    with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as f:
+        formal_after = f.read()
+    with open(os.path.join(fx, "aoci.code.target.txt"), encoding="utf-8") as f:
+        target_after = f.read()
+    ok = (not err and applied.get("status") == "applied" and applied.get("aligned") is True
+          and applied.get("attempted") == 2 and applied.get("applied") == 2 and al
+          and target_after == formal_after and "#Target-Reuse:" not in target_after)
+    record(g, "B2.target-batch-applies-aligned", "PASS" if ok else "FAIL", tw[:180])
 
     # B3: repair_required round trip (S over the C5 quota of 500 runes)
     with open(os.path.join(fx, "pkg", "f002.go"), "a") as f:

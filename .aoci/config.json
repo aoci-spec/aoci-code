@@ -43,8 +43,8 @@
   "managed_scope": {
     "version": "managed-scope-policy/v2",
     "profile": "production",
-    "observe_change_policy": "review_required",
-    "approval_mode": "review",
+    "observe_change_policy": "informational",
+    "approval_mode": "auto",
     "approval_thresholds": {
       "entry_removal_count": 25,
       "entry_removal_percent": 25

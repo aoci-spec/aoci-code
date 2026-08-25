@@ -40,6 +40,16 @@ error result; it is not printed as a second stdout message.
 The nine-tool identity is independent from optional CLI lifecycle commands.
 Changing a CLI command does not implicitly add, remove, or rename an MCP tool.
 
+`aoci_update_entry` has an exclusive optional `target_index` mode. Its only
+accepted value is `aoci.code.target.txt`; it cannot be combined with single or
+batch Entry fields. The target itself remains non-authoritative and carries no
+source digest. During the call, Go joins current Code debt with target Entry
+changes and explicit `#Target-Reuse: code:<path>` declarations, computes and
+lock-rechecks final source SHA-256 values, and enters the existing atomic batch
+pipeline. Success synchronizes the target from formal Code. Any incomplete or
+unsafe binding returns a stopped result whose fallback is ordinary Maintain.
+This mode changes neither the nine tool names nor their identity hash.
+
 Optional module cognition
 -------------------------
 

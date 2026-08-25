@@ -48,6 +48,7 @@
     "tag_filter": "Tag filter such as A=Index or C>=7 (provide this or keyword)"
   },
   "aoci_update_entry": {
+	"target_index": "Exclusive complete Code target-file mode; use aoci.code.target.txt so Go binds final source SHA values and applies one batch; do not combine it with other fields",
     "batch_id": "Machine-owned complete current Database Cognition batch identity returned by aoci_maintain",
     "candidate_id": "Machine-owned Code or Database Cognition candidate identity returned by aoci_maintain; do not synthesize it or copy Evidence hashes into it",
     "code_batch_id": "Exact code_plan.batch_id returned by aoci_maintain; it equals every returned Code candidate.batch_id. Never use authoring_batch.batch_identity here",

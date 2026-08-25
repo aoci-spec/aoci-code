@@ -19,6 +19,8 @@
         "aoci_header",
         "aoci_maintain",
         "aoci_update_entry",
+        "target_index",
+        "#Target-Reuse",
         "aoci_report",
         "runtime_repository_root",
         "index_sha256",

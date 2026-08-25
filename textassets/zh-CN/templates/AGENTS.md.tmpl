@@ -39,7 +39,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 ### 代码变更规划
 
-每个新增功能、Bug 修复或其他已有明确代码更新计划的任务，都必须先把预期最终状态表达为独立且完整的 Code 目标索引 `aoci.code.target.txt`，运行 `aoci cognition plan diff --target-index aoci.code.target.txt`，核对当前索引到目标索引的完整差异，确认后才修改业务代码。仓库根的约定目标文件是 Managed Scope 之外的生成式计划资产。`aoci.code.txt` 始终是当前正式索引，不得拿它充当计划文件。实现和验证完成后，先完成普通认知维护，再用 `aoci.code.txt` 中本次生成的正式 Entry 覆盖目标索引中的对应 Entry，使已实现对象重新与正式索引一致。只有既不是功能也不是 Bug 修复、确实无需计划的局部小改，才不必为了流程凭空创建目标索引。
+每个新增功能、Bug修复或显式代码计划都先把预期最终状态写入完整 `aoci.code.target.txt`，再运行 `aoci cognition plan diff --target-index aoci.code.target.txt`；确认后才修改业务代码。新文件立即写完整Entry；预计修改但语义Entry不变的文件必须在target中保留旧Entry并增加精确单行 `#Target-Reuse: code:<仓库相对路径>`。`aoci.code.txt` 始终是正式索引，target只是Managed Scope外的生成式计划。实现和验证稳定后，正常路径只调用一次 `aoci_update_entry`，参数为 `{"target_index":"aoci.code.target.txt"}`；Go自动发现本次Code debt、计算并锁内复核最终源码SHA、整批校验/CAS/Apply/Baseline及终态，并在成功后用正式Code覆盖target以消费reuse标记，维护阶段无需模型。只有target缺项、删除、源码或Scope漂移、校验失败、超批量上限或Recovery冲突时，才按工具返回回退 `aoci_maintain` 和现有模型创作流程。无计划纯局部小改仍可不创建target。
 
 ### 建立、生成和恢复认知
 
@@ -86,7 +86,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 5. 纯只读问答、分析、版本核验，或没有产生受AOCI管理对象变化的任务，不需要调用维护工具。当前AOCI版本是任意`aoci_overview` check_only或`aoci_maintain`响应里的`cognition_receipt.mcp_service_version`；二进制路径是项目`.mcp.json`里的`command`，CLI不必在PATH上。
 
-6. 发生受AOCI管理对象变化时，待其达到本次任务的最终稳定状态后，只调用一次 `aoci_maintain`。不要在每次中间修改后逐文件维护。
+6. 发生受AOCI管理对象变化时，待其达到最终稳定状态后，Code任务先执行上述target_index零模型收尾；没有target或target模式stopped时才调用一次 `aoci_maintain`。不要逐文件维护。
 
 7. 若维护结果返回真实语义候选，Host 模型必须基于每个候选绑定的对象和必要证据，独立创作完整标签与F/R/A/S更新。通过 `aoci_update_entry` 一次提交当前机器签发批次的完整候选集合，同时原样保留每项 `source_sha256`、`candidate_id` 与对应domain批次身份。`max_entries`只限制单次请求和原子事务，不限制logical plan、Whole-Index或Managed Scope。`remaining`非零时，在当前批次成功Apply后重新调用Maintain并从新preimage继续；绝不能为满足transport上限缩减Index覆盖或自行截取返回批次。
 

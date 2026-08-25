@@ -18,6 +18,7 @@ import (
 )
 
 type updateEntryIn struct {
+	TargetIndex  string              `json:"target_index,omitempty"`
 	Path         string              `json:"path,omitempty"`
 	ObjectRef    string              `json:"object_ref,omitempty"`
 	NewEntry     string              `json:"new_entry,omitempty"`
@@ -463,6 +464,13 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
+				if in.TargetIndex != "" {
+					if len(in.Entries) > 0 || in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" ||
+						in.SourceSHA256 != "" || in.CandidateID != "" || in.BatchID != "" || in.CodeBatchID != "" {
+						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
+					}
+					return handleMCPApplyCodeTarget(root, mcpServiceVersion, in.TargetIndex, refreshSession)
+				}
 				if len(in.Entries) > 0 {
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})

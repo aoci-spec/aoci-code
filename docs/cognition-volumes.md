@@ -308,6 +308,23 @@ Entry through the existing transaction, guards every formal owner, and reports
 that Root ownership was preserved and source and Database bytes were not
 changed.
 
+## Zero-model Code target finalization
+
+When a feature or fix already has complete `aoci.code.target.txt`, author the
+Entry while changing the source instead of asking Maintain to reconstruct it
+later. Add a complete Entry for every new file. For a planned source change
+whose Entry semantics stay unchanged, keep the old Entry and add
+`#Target-Reuse: code:<path>` to the target.
+
+After source and verification stabilize, call `aoci_update_entry` once with
+`target_index=aoci.code.target.txt`. Go performs one current Scope/debt join,
+computes all final source hashes, and submits the changed, created, and explicit
+reuse Entries to the existing one-batch CAS/Baseline/Recovery pipeline. It does
+not send all unchanged repository Entries. Success rewrites target from formal
+Code, consuming the plan markers. Missing coverage, deletion, target-only
+semantics, drift, validation, the 200-item transaction ceiling, or Recovery
+stops without invented semantics and falls back to ordinary Maintain.
+
 ## Explicitly not implemented
 
 - automatic or unapproved Legacy-to-Volume migration;

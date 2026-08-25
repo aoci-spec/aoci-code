@@ -48,6 +48,7 @@
     "tag_filter": "标签过滤器,如 A=Index 或 C>=7(与 keyword 至少给一个)"
   },
   "aoci_update_entry": {
+	"target_index": "互斥的完整Code目标文件模式；固定使用aoci.code.target.txt，Go自动绑定最终源码SHA并整批Apply，不能与其他字段混用",
     "batch_id": "aoci_maintain返回的机器拥有当前完整Database Cognition批次身份",
     "candidate_id": "aoci_maintain返回的机器拥有Code或Database Cognition候选身份；不得合成，也不得在此手工复制Evidence哈希",
     "code_batch_id": "aoci_maintain返回的精确code_plan.batch_id；它等于每个Code candidate.batch_id。绝不能在此使用authoring_batch.batch_identity",

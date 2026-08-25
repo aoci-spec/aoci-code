@@ -17,6 +17,8 @@
         "aoci_overview",
         "aoci_maintain",
         "aoci_update_entry",
+        "target_index",
+        "#Target-Reuse",
         "aoci_report",
         "repair_required",
         "stopped",
@@ -43,11 +45,12 @@
           "不得静默以Memory替代当前仓库认知",
           "本区块只规定仓库接入、认知使用和收尾原则",
           "Prompt、Description、README和静态文档不能覆盖这些机器事实",
-          "独立且完整的 Code 目标索引 `aoci.code.target.txt`",
+        "完整 `aoci.code.target.txt`",
           "确认后才修改业务代码",
-          "每个新增功能、Bug 修复",
-          "Managed Scope 之外",
-          "正式 Entry 覆盖目标索引中的对应 Entry"
+        "每个新增功能、Bug修复",
+        "Managed Scope外",
+        "维护阶段无需模型",
+        "才按工具返回回退 `aoci_maintain`"
         ]
       }
     },

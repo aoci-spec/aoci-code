@@ -151,7 +151,7 @@ const (
 	CognitionPlannerInvalid           = "invalid"
 	CognitionCodeTargetDiffReady      = "ready"
 	CognitionCodeTargetDiffNoChange   = "no_change"
-	CognitionCodeTargetDiffNextAction = "implement_code_then_run_aoci_maintain"
+	CognitionCodeTargetDiffNextAction = "implement_code_then_call_aoci_update_entry_target_index"
 
 	SemanticAuthoringOriginHostModel = "host_model"
 	SemanticAuthoringStatusVerified  = "verified"

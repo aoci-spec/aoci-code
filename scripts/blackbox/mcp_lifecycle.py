@@ -37,7 +37,7 @@ import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, time, 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
 os.environ.setdefault("AOCI_SCENARIO_WORK", tempfile.mkdtemp(prefix="aoci-lifecycle-lib-"))
-from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain, host_window_summary, mark_team_raised_batch  # noqa: E402
+from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain, host_window_summary, mark_team_raised_batch, write_code_target  # noqa: E402
 
 REPO = os.environ.get("AOCI_REPO", os.path.dirname(os.path.dirname(_HERE)))
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -408,22 +408,28 @@ def suite_incremental(rep, work):
     rep.rec(g, "template-establish", "PASS" if ok and al else "FAIL", detail, rounds=rounds)
     if not (ok and al):
         return
-    # a) 语义修改 → 单候选 update → 重对齐
-    tgt = os.path.join(fx, "src", "utils", "time.ts")
-    with open(tgt, "a") as f:
-        f.write("\n// incremental probe: clarify timezone contract\n")
+    # a) 修改时已写好一条新 Entry，并显式复用另一条；收尾只调一次 target 模式。
+    before = template_entry("src/utils/time.ts")
+    after = "time.ts[CG5T]: F:Carries the finalized timezone contract of the fixture project | R:- | A:- | S:-"
+    write_code_target(fx, [(before, after)], reuse=["src/utils/id.ts"])
+    for rel, probe in (("src/utils/time.ts", "clarify timezone contract"),
+                       ("src/utils/id.ts", "preserve identifier semantics")):
+        with open(os.path.join(fx, *rel.split("/")), "a") as f:
+            f.write(f"\n// incremental probe: {probe}\n")
     s = Session(fx)
-    m, t, _ = maintain(s)
-    c = m.get("candidates") or []
-    one = len(c) == 1 and c[0]["path"].endswith("time.ts") and c[0].get("change") == "update"
-    if one:
-        tw, _ = text_of(s.call("aoci_update_entry", {"code_batch_id": (m.get("code_plan") or {}).get("batch_id"),
-            "entries": [{"path": c[0]["path"], "source_sha256": c[0]["source_sha256"],
-                         "candidate_id": c[0]["candidate_id"], "new_entry": template_entry(c[0]["path"])}]}))
-        one = jload(tw).get("status") == "applied"
+    tw, err = text_of(s.call("aoci_update_entry", {"target_index": "aoci.code.target.txt"}, timeout=300))
+    result = jload(tw)
     s.close()
     al, _ = aligned(fx)
-    rep.rec(g, "modify-one-file", "PASS" if one and al else "FAIL", f"cands={len(c)}")
+    with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as f:
+        formal = f.read()
+    with open(os.path.join(fx, "aoci.code.target.txt"), encoding="utf-8") as f:
+        target = f.read()
+    ok = (not err and result.get("status") == "applied" and result.get("aligned") is True
+          and result.get("attempted") == 2 and result.get("applied") == 2 and al
+          and target == formal and after in formal and "#Target-Reuse:" not in target)
+    rep.rec(g, "target-two-file-batch", "PASS" if ok else "FAIL",
+            f"status={result.get('status')} attempted={result.get('attempted')} applied={result.get('applied')} aligned={al}")
     # b) 新增文件 → create 候选
     with open(os.path.join(fx, "src", "utils", "clock_format.ts"), "w") as f:
         f.write("export function formatClock(ms: number): string {\n"

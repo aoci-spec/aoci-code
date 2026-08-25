@@ -27,7 +27,7 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
 	"aoci_update_entry": {
-		"path", "object_ref", "new_entry", "source_sha256", "candidate_id", "batch_id", "code_batch_id", "entries",
+		"target_index", "path", "object_ref", "new_entry", "source_sha256", "candidate_id", "batch_id", "code_batch_id", "entries",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
 	},
 	"aoci_maintain":     {"scope", "intent", "object_refs"},
@@ -211,6 +211,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"items":       item,
 		}
 		return object(map[string]any{
+			"target_index":  stringProperty("target_index"),
 			"path":          stringProperty("path"),
 			"object_ref":    stringProperty("object_ref"),
 			"new_entry":     stringProperty("new_entry"),

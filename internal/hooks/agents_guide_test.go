@@ -24,7 +24,7 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"Agent显式调用普通 `aoci_overview`", "完整交付请求scope", "`check_only=true`", "进入当前AOCI Guide",
 			"如果需要建立正式完整AOCI索引", "`aoci_maintain` 不替代索引建立流程",
 			"`current_system_cognition_reliable=true`", "纯只读问答、分析、版本核验",
-			"最终稳定状态后，只调用一次 `aoci_maintain`", "当前布局支持 `aoci_report`", "`repair_required`", "`stopped`", "`source_sha256`",
+			"正常路径只调用一次 `aoci_update_entry`", "当前布局支持 `aoci_report`", "`repair_required`", "`stopped`", "`source_sha256`",
 			"冲突、审批、人工裁决、权限和安全信号不得忽略",
 			"用户明确禁止修改 `aoci.txt`、`.aoci`、元数据或任何额外文件时",
 		},
@@ -36,10 +36,10 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"必须报告冲突并请求用户裁决或建议使用隔离副本", "不得静默以Memory替代当前仓库认知",
 		},
 		{
-			"每个新增功能、Bug 修复", "独立且完整的 Code 目标索引 `aoci.code.target.txt`",
+			"每个新增功能、Bug修复", "完整 `aoci.code.target.txt`", "#Target-Reuse", `{"target_index":"aoci.code.target.txt"}`,
 			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "确认后才修改业务代码",
-			"Managed Scope 之外", "`aoci.code.txt` 始终是当前正式索引",
-			"正式 Entry 覆盖目标索引中的对应 Entry", "重新与正式索引一致",
+			"Managed Scope外", "`aoci.code.txt` 始终是正式索引",
+			"维护阶段无需模型", "才按工具返回回退 `aoci_maintain`",
 		},
 	},
 	textassets.DefaultLocale: {
@@ -68,10 +68,10 @@ var agentsCognitionContractAnchors = map[string][][]string{
 			"Never silently substitute Memory for current repository cognition",
 		},
 		{
-			"For every new feature, bug fix", "separate complete Code target in `aoci.code.target.txt`",
+			"For every feature, bug fix", "complete `aoci.code.target.txt`", "#Target-Reuse", `{"target_index":"aoci.code.target.txt"}`,
 			"`aoci cognition plan diff --target-index aoci.code.target.txt`", "only then edit business code",
-			"outside Managed Scope", "Keep `aoci.code.txt` as the current formal Index",
-			"formal Entry from `aoci.code.txt` over its corresponding target Entry", "converge back to the formal Index",
+			"outside Managed Scope", "`aoci.code.txt` remains formal",
+			"maintenance phase needs no model reasoning", "falls back to `aoci_maintain`",
 		},
 	},
 }

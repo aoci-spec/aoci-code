@@ -531,10 +531,21 @@ Review, Write, and Guard projection. It also reports `authoritative=false`,
 and `business_data_read=false`. A Write Set in this report describes future
 maintenance impact only and grants no write authority.
 
-The target file is never declared by Root, discovered automatically, added to
-Overview, Challenge, Attestation, Search, Get Entries, Maintain, Baseline, CAS,
-Ledger, or Recovery, and the command does not persist it. The caller may keep
-that second complete Code Volume in an ignored draft path or outside the
-repository. After implementing and testing the code, the Agent must use the
-ordinary source-bound Maintain and Update path; the target file cannot be
-promoted or applied directly.
+The target file is never declared by Root, discovered automatically, or added
+to Overview, Challenge, Attestation, Search, Get Entries, Maintain, Baseline,
+Ledger, or Recovery. Diff itself cannot promote or apply it.
+
+After final source and verification stabilize, `aoci_update_entry` may receive
+the exclusive `target_index=aoci.code.target.txt` mode. The target remains
+non-authoritative: inside that call Go recomputes the current target Diff and
+Managed Scope debt, requires every planned create/update Entry, and requires an
+exact `#Target-Reuse: code:<path>` comment for every changed source whose Entry
+is intentionally unchanged. Go computes every final source SHA-256, submits
+only those real debt paths through the existing one-batch projected validation,
+CAS, Baseline, and Recovery pipeline, and performs terminal governance
+inspection. Success overwrites the target with the resulting formal Code bytes,
+consuming all target-only reuse markers. Missing coverage, target-only semantic
+change, deletion, source or Scope drift, validation failure, the existing batch
+ceiling, or Recovery conflict fails closed before this mode can invent
+semantics; the Agent then uses ordinary Maintain and Update. The target never
+supplies a source hash and cannot authorize a write outside this final binding.

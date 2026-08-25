@@ -52,7 +52,7 @@ func TestRuntimeRulesExposeSessionCognitionContract(t *testing.T) {
 		"不能直接生成、预填、拼接或改写标签、F/R/A/S",
 		"AOCI受管理资产写入边界",
 		"用户只限制业务文件范围",
-		"最终稳定状态后，只调用一次 aoci_maintain",
+		"优先只调用一次aoci_update_entry并传入target_index=aoci.code.target.txt",
 		"aligned=true、status=applied",
 		"format-only",
 		"真实 candidates",

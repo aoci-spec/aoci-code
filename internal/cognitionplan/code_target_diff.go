@@ -26,9 +26,9 @@ type CodeTargetDiffSummary struct {
 	Unchanged int `json:"unchanged"`
 }
 
-// CodeTargetDiff is a read-only implementation plan. It never becomes formal
-// cognition and cannot authorize Apply; after code is stable, ordinary AOCI
-// maintenance must author and bind the formal postimage to current source.
+// CodeTargetDiff is a read-only implementation plan and cannot authorize an
+// Apply. Once code is stable, aoci_update_entry target mode recomputes this
+// diff and creates a separate final-source-bound batch.
 type CodeTargetDiff struct {
 	Version                    string                         `json:"version"`
 	Status                     string                         `json:"status"`
@@ -64,9 +64,9 @@ func (e *CodeTargetValidationError) Error() string {
 }
 
 // CompareCodeTargetIndex compares the active Code Volume with a complete
-// target Code Volume. The target is parsed only in memory and is deliberately
-// not checked against current source bytes: it describes implementation intent,
-// not current repository truth.
+// target Code Volume. The target is parsed only in memory and deliberately not
+// checked against source bytes: final binding belongs to the later target-mode
+// update call, not prospective planning.
 func CompareCodeTargetIndex(repositoryRoot, indexPath string, targetRaw []byte) (*CodeTargetDiff, error) {
 	if len(targetRaw) == 0 || len(targetRaw) > machinecontract.EntriesRequestMaxBytes {
 		return nil, fmt.Errorf("code_target_index_size_invalid")
