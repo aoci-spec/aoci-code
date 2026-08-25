@@ -535,6 +535,13 @@ The target file is never declared by Root, discovered automatically, or added
 to Overview, Challenge, Attestation, Search, Get Entries, Maintain, Baseline,
 Ledger, or Recovery. Diff itself cannot promote or apply it.
 
+The target remains a Code Volume and never carries a Root `#Locale` marker.
+Natural-language F/R/A/S in every newly written or genuinely updated target
+Entry uses the effective project Locale declared by Root. Paths, commands,
+protocol states, and canonical object identities remain unchanged machine
+tokens. An unchanged Entry retained through `#Target-Reuse` is not translated
+merely because the project Locale changed.
+
 After final source and verification stabilize, `aoci_update_entry` may receive
 the exclusive `target_index=aoci.code.target.txt` mode. The target remains
 non-authoritative: inside that call Go recomputes the current target Diff and
