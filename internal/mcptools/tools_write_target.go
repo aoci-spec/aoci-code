@@ -53,7 +53,7 @@ func handleMCPApplyCodeTarget(
 		return textResult(renderAutoResult(result))
 	}
 
-	result := handleMCPUpdateBatch(root, mcpServiceVersion, items, refreshSession)
+	result := handleMCPCodeTargetBatch(root, mcpServiceVersion, items, refreshSession)
 	parsed, applied := decodeTargetApplyResult(result)
 	if !applied {
 		return result
@@ -95,9 +95,6 @@ func bindCodeTargetItems(root string, targetRaw []byte) ([]updateEntryItemIn, *F
 	}
 	if facts.ManagedScope.ScopeChangeRequired {
 		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_scope_change_required"}
-	}
-	if facts.ManagedScope.ObservedPendingReview != 0 {
-		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_observe_review_required"}
 	}
 	if facts.PendingTransactions != 0 || facts.RecoveryPending {
 		return nil, &Fail{Code: errWriteConflict, Msg: "code_target_recovery_required"}
@@ -257,8 +254,6 @@ func codeTargetStopped(
 ) *mcp.CallToolResult {
 	nextAction := "call_aoci_maintain"
 	switch cause {
-	case "code_target_observe_review_required":
-		nextAction = "run_aoci_scope_acknowledge"
 	case "code_target_scope_change_required":
 		nextAction = "complete_aoci_scope_change"
 	case "code_target_recovery_required":

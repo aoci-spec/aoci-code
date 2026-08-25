@@ -573,6 +573,25 @@ func handleMCPUpdateBatch(
 	input []updateEntryItemIn,
 	refreshSessions ...*cognitionRefreshSession,
 ) *mcp.CallToolResult {
+	return handleMCPUpdateBatchInternal(root, mcpServiceVersion, input, false, refreshSessions...)
+}
+
+func handleMCPCodeTargetBatch(
+	root,
+	mcpServiceVersion string,
+	input []updateEntryItemIn,
+	refreshSessions ...*cognitionRefreshSession,
+) *mcp.CallToolResult {
+	return handleMCPUpdateBatchInternal(root, mcpServiceVersion, input, true, refreshSessions...)
+}
+
+func handleMCPUpdateBatchInternal(
+	root,
+	mcpServiceVersion string,
+	input []updateEntryItemIn,
+	skipOptimization bool,
+	refreshSessions ...*cognitionRefreshSession,
+) *mcp.CallToolResult {
 	var refreshSession *cognitionRefreshSession
 	if len(refreshSessions) > 0 {
 		refreshSession = refreshSessions[0]
@@ -621,7 +640,7 @@ func handleMCPUpdateBatch(
 	optimizationTransactionComplete := false
 	optimizationRecoveryNeedsCompletion := false
 	optimizationFormalWritesStarted := false
-	if fail == nil {
+	if fail == nil && !skipOptimization {
 		var optimizationErr error
 		optimizationContext, optimizationErr = prepareCognitionOptimizationUpdate(root, input)
 		if optimizationErr != nil {
