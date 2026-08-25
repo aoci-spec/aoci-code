@@ -129,6 +129,13 @@ func TestAgentsNewFileOutputMatchesCompatibilityDigest(
 	}
 	digest := sha256.Sum256(actual)
 	actualHash := fmt.Sprintf("%x", digest[:])
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		goldenPath := filepath.Join("..", "..", "testdata", "golden", "agents_new_file_output.sha256")
+		if err := os.WriteFile(goldenPath, []byte(actualHash+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	expectedHash := strings.TrimSpace(readAgentsGoldenHash(t))
 
 	if actualHash != expectedHash {

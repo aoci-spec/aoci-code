@@ -40,16 +40,6 @@ func TestRuntimeRulesMatchCompatibilityDigest(
 				tc.golden,
 			)
 
-			expected, err := os.ReadFile(
-				goldenPath,
-			)
-			if err != nil {
-				t.Fatalf(
-					"read runtime rules golden: %v",
-					err,
-				)
-			}
-
 			if err := textassets.SetActiveLocale(tc.locale); err != nil {
 				t.Fatal(err)
 			}
@@ -61,6 +51,16 @@ func TestRuntimeRulesMatchCompatibilityDigest(
 
 			digest := sha256.Sum256([]byte(actual))
 			actualHash := fmt.Sprintf("%x", digest[:])
+			if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+				if err := os.WriteFile(goldenPath, []byte(actualHash+"\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				return
+			}
+			expected, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read runtime rules golden: %v", err)
+			}
 			expectedHash := strings.TrimSpace(string(expected))
 			if actualHash != expectedHash {
 				t.Fatalf(

@@ -34,7 +34,7 @@ OPENGAUSS_PATCH_GO_FILES := \
 	third_party/openGauss-connector-go-pq/ssl.go \
 	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -116,6 +116,14 @@ licenses: toolchain-preflight
 # 清单消费符号和重复事实源检测必须共同通过。
 textassets-check:
 	$(GO_BIN) test ./textassets -count=1
+
+# Explicitly regenerate deterministic public Goldens from production renderers.
+# The programs compute and write every digest; maintainers never copy hashes
+# from failed assertions.
+update-goldens:
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/hooks -run '^TestAgentsNewFileOutputMatchesCompatibilityDigest$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/index -run '^TestRuntimeRulesMatchCompatibilityDigest$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/mcptools -run '^TestRegenerateListToolsGolden$$' -count=1
 
 # 深度静态分析(五重归零第五重;开发期工具,不进 go.mod)。
 # Full Confidence要求固定工具已安装，禁止把缺少工具误报为通过。
