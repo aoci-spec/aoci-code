@@ -67,7 +67,7 @@ func Pending(root string) ([]PendingTransaction, error) {
 		name := strings.TrimSuffix(entry.Name(), ".json")
 		operation := ""
 		id := ""
-		for _, prefix := range []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope"} {
+		for _, prefix := range []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale"} {
 			if strings.HasPrefix(name, prefix+"-") {
 				operation = prefix
 				id = strings.TrimPrefix(name, prefix+"-")
@@ -208,7 +208,12 @@ func ReadStaged(root string, staged []StagedPostimage, targetPath string) ([]byt
 		if item.Path != targetPath {
 			continue
 		}
-		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(item.StagingRel)))
+		path := filepath.Join(root, filepath.FromSlash(item.StagingRel))
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("staging_invalid: %s", targetPath)
+		}
+		data, err := os.ReadFile(path)
 		if err != nil || SHA256(data) != item.SHA256 || int64(len(data)) != item.ByteSize {
 			return nil, fmt.Errorf("staging_invalid: %s", targetPath)
 		}
@@ -250,37 +255,84 @@ func Classify(path, preimageSHA, postimageSHA string, absentPreimage bool) (stri
 
 func SaveImmutable(path string, data []byte) error {
 	if err := afs.AtomicCreateCAS(path, data); err != nil {
-		if existing, readErr := os.ReadFile(path); readErr == nil && bytes.Equal(existing, data) {
+		exists, inspectErr := inspectImmutableTarget(path, data)
+		if inspectErr == nil && exists {
 			return nil
+		}
+		if inspectErr != nil {
+			return fmt.Errorf("%w: %v", err, inspectErr)
 		}
 		return err
 	}
 	return nil
 }
 
-func ArchiveImmutable(active, archive string, expected []byte) error {
-	data, err := os.ReadFile(active)
+// ValidateImmutableTarget permits only an absent target or an exact regular
+// file. Callers use it before publishing transaction participants so a bad
+// terminal path cannot strand an otherwise completed transaction.
+func ValidateImmutableTarget(path string, expected []byte) error {
+	_, err := inspectImmutableTarget(path, expected)
+	return err
+}
+
+func inspectImmutableTarget(path string, expected []byte) (bool, error) {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			if existing, archiveErr := os.ReadFile(archive); archiveErr == nil && bytes.Equal(existing, expected) {
-				return nil
-			}
-		}
-		return err
+		return false, err
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		return true, fmt.Errorf("immutable_target_wrong_type: %s", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return true, err
+	}
+	confirmed, err := os.Lstat(path)
+	if err != nil || confirmed.Mode()&os.ModeSymlink != 0 || !confirmed.Mode().IsRegular() || !os.SameFile(info, confirmed) {
+		return true, fmt.Errorf("immutable_target_changed: %s", path)
 	}
 	if !bytes.Equal(data, expected) {
-		return fmt.Errorf("immutable_intent_changed")
+		return true, fmt.Errorf("immutable_target_conflict: %s", path)
 	}
-	if existing, readErr := os.ReadFile(archive); readErr == nil {
-		if !bytes.Equal(existing, data) {
-			return fmt.Errorf("immutable_archive_conflict")
+	return true, nil
+}
+
+func ArchiveImmutable(active, archive string, expected []byte) error {
+	activeExists, err := inspectImmutableTarget(active, expected)
+	if err != nil {
+		return err
+	}
+	archiveExists, err := inspectImmutableTarget(archive, expected)
+	if err != nil {
+		return err
+	}
+	if !activeExists {
+		if archiveExists {
+			return nil
 		}
-	} else if errors.Is(readErr, os.ErrNotExist) {
-		if err := SaveImmutable(archive, data); err != nil {
+		return &os.PathError{Op: "lstat", Path: active, Err: os.ErrNotExist}
+	}
+	if !archiveExists {
+		if err := SaveImmutable(archive, expected); err != nil {
 			return err
 		}
-	} else {
-		return readErr
+	}
+	archiveExists, err = inspectImmutableTarget(archive, expected)
+	if err != nil {
+		return fmt.Errorf("immutable_archive_invalid: %w", err)
+	}
+	if !archiveExists {
+		return fmt.Errorf("immutable_archive_missing: %s", archive)
+	}
+	activeExists, err = inspectImmutableTarget(active, expected)
+	if err != nil {
+		return err
+	}
+	if !activeExists {
+		return nil
 	}
 	if err := os.Remove(active); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err

@@ -315,7 +315,7 @@ func buildOldFormalMetaCodeRepo(t *testing.T) (string, []byte) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rootText := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: en-US\n#Project: old Meta compatibility\n" +
+	rootText := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: " + cfg.Locale + "\n#Project: old Meta compatibility\n" +
 		"#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=-\n" +
 		"#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta\n"
 	writeVolumeTestFile(t, root, "aoci.txt", rootText)

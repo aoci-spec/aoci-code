@@ -170,6 +170,8 @@ AOCI=/absolute/path/to/aoci-code/build/aoci
 
 `init` writes the Locale configuration, the managed `AGENTS.md` rules block, Git boundaries, and a minimal cognition skeleton with no semantics. Configuration and prompting vary by host; see “Host Integration” for details. It does not fabricate business semantics from filenames, directories, or an AST.
 
+An existing project can switch its unified UI and future Entry-authoring language with `aoci config set locale zh-CN` or `aoci config set locale en-US`. The command immediately aligns the formal `#Locale` marker; existing ordinary Entries are not bulk-translated, and only Entries later created or genuinely updated use the configured Locale. Restart the host's AOCI MCP process after the change.
+
 For a new repository, the first `scan` establishes the Managed Baseline. For a project that already has a governed Baseline, adding, removing, or changing managed scope should go through the formal Scope Change workflow rather than treating `scan --force` as a shortcut for redefining governance facts. `--force` also cannot erase unresolved drift, Receipt, or Recovery boundaries.
 
 <details>

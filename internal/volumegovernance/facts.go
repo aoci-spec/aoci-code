@@ -25,6 +25,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
@@ -284,6 +285,14 @@ func assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, string
 	// repository differently and only one of them named a file.
 	assessFormalAsset(root, cfg, state, set.Root.Descriptor.Path, "root", facts)
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
+	if rootLocale, explicit, localeErr := index.DetectLocale(string(set.Root.Raw)); localeErr == nil && explicit && rootLocale != cfg.Locale {
+		facts.Findings = append(facts.Findings, Finding{
+			Code:             "root_locale_mismatch",
+			Target:           set.Root.Descriptor.Path,
+			Cause:            "config_locale_differs_from_root_locale",
+			SafeRepairAction: fmt.Sprintf("restore any reported Root Baseline drift, then run aoci config set locale %s to atomically realign Root, config, and Baseline", cfg.Locale),
+		})
+	}
 
 	codeIdentity := "not_applicable"
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {

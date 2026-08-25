@@ -231,6 +231,35 @@ func TestEntryUpdateModeInjection(t *testing.T) {
 	}
 }
 
+func TestEntryUpdateUsesActiveLocaleWithoutTranslatingOldEntriesInBulk(t *testing.T) {
+	previous := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
+	tests := []struct {
+		locale   string
+		oldEntry string
+		anchor   string
+	}{
+		{textassets.DefaultLocale, "store.go[MStore5S]: F:旧职责 | R:- | A:New | S:-", "configured project Locale en-US"},
+		{textassets.LegacyLocale, "store.go[MStore5S]: F:Old responsibility | R:- | A:New | S:-", "配置参数指定的项目Locale zh-CN"},
+	}
+	for _, current := range tests {
+		t.Run(current.locale, func(t *testing.T) {
+			if err := textassets.SetActiveLocale(current.locale); err != nil {
+				t.Fatal(err)
+			}
+			input := sampleEntryInput()
+			input.OldEntry = current.oldEntry
+			system, user, err := BuildEntryMessages(input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(system, current.anchor) || !strings.Contains(user, current.oldEntry) {
+				t.Fatalf("%s prompt lost active-Locale or existing-Entry evidence: system=%q user=%q", current.locale, system, user)
+			}
+		})
+	}
+}
+
 func TestEntryBuildModeUnchanged(t *testing.T) {
 	system, user, err := BuildEntryMessages(sampleEntryInput())
 	if err != nil {

@@ -209,6 +209,11 @@ func init() {
 					Msg:  err.Error(),
 				}
 			}
+			_, indexStatErr := os.Lstat(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
+			indexExisted := indexStatErr == nil
+			if indexStatErr != nil && !os.IsNotExist(indexStatErr) {
+				return &ExitError{Code: ExitConfig, Msg: indexStatErr.Error()}
+			}
 			volumeLayout, layoutErr := activeVolumeLayout(root, cfg.IndexPath)
 			if layoutErr != nil {
 				return &ExitError{Code: ExitConfig, Msg: layoutErr.Error()}
@@ -219,8 +224,15 @@ func init() {
 				}
 			}
 			if locale != "" {
-				if err := prepareLocaleChange(root, cfg, locale); err != nil {
-					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				if configExisted && indexExisted {
+					cfg, err = applyLocaleSwitch(root, locale)
+				} else {
+					err = prepareLocaleChange(root, cfg, locale)
+				}
+				if err != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage(
+						"locale.switch_failed", localeSafeCLIDetail(err.Error()),
+					)}
 				}
 			}
 

@@ -17,7 +17,10 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -25,8 +28,21 @@ var hanTextPattern = regexp.MustCompile(`[\p{Han}]`)
 
 func runLocaleInit(t *testing.T, root string, localeArgs ...string) (string, string, int) {
 	t.Helper()
+	previousLocale := textassets.ActiveLocale()
+	if err := textassets.SetActiveLocale(textassets.DefaultLocale); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := textassets.SetActiveLocale(previousLocale); err != nil {
+			t.Errorf("restore active Locale: %v", err)
+		}
+	})
 	args := []string{"--repo", root, "init", "--agent=", "--hooks=false"}
-	args = append(args, localeArgs...)
+	if len(localeArgs) == 0 {
+		args = append(args, "--locale", textassets.DefaultLocale)
+	} else {
+		args = append(args, localeArgs...)
+	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	code := executeCLI(args, &stdout, &stderr)
@@ -379,7 +395,7 @@ func TestChineseLocaleSuppressesUnlocalizedMigrationDiagnostics(t *testing.T) {
 	}
 }
 
-func TestLocaleCommandDoesNotRewriteVolumeMetaWithoutLifecycle(t *testing.T) {
+func TestLocaleCommandRewritesOnlyVolumeRootMarker(t *testing.T) {
 	previousLocale := textassets.ActiveLocale()
 	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
 	root := t.TempDir()
@@ -387,8 +403,13 @@ func TestLocaleCommandDoesNotRewriteVolumeMetaWithoutLifecycle(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("init exit=%d stderr=%s", code, stderr)
 	}
+	initializedConfig, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saveCurrentBaseline(t, root, initializedConfig)
 	before := map[string][]byte{}
-	for _, rel := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", "AGENTS.md", ".aoci/config.json"} {
+	for _, rel := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt"} {
 		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			t.Fatal(err)
@@ -402,16 +423,63 @@ func TestLocaleCommandDoesNotRewriteVolumeMetaWithoutLifecycle(t *testing.T) {
 		&stdoutBuffer,
 		&stderrBuffer,
 	)
-	if code != ExitConfig || !strings.Contains(stderrBuffer.String(), "Volumes v1") {
-		t.Fatalf("Volume Locale change did not fail closed: code=%d stderr=%s", code, stderrBuffer.String())
+	if code != ExitOK {
+		t.Fatalf("Volume Locale change failed: code=%d stdout=%s stderr=%s", code, stdoutBuffer.String(), stderrBuffer.String())
+	}
+	wantRoot, err := index.ReplaceLocaleMarker(before["aoci.txt"], textassets.LegacyLocale)
+	if err != nil {
+		t.Fatal(err)
 	}
 	for rel, expected := range before {
+		if rel == "aoci.txt" {
+			expected = wantRoot
+		}
 		actual, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(actual, expected) {
-			t.Fatalf("rejected Volume Locale change modified %s", rel)
+			t.Fatalf("Volume Locale change modified bytes outside the Root Locale marker: %s", rel)
 		}
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Locale != textassets.LegacyLocale || cfg.LocaleMigration != nil {
+		t.Fatalf("Volume Locale state created migration debt: locale=%s receipt=%+v", cfg.Locale, cfg.LocaleMigration)
+	}
+}
+
+func TestInitLocaleOnExistingVolumesUsesMarkerTransaction(t *testing.T) {
+	previousLocale := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
+	root := t.TempDir()
+	if _, stderr, code := runLocaleInit(t, root); code != ExitOK {
+		t.Fatalf("init exit=%d stderr=%s", code, stderr)
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	saveCurrentBaseline(t, root, cfg)
+	if stdout, stderr, code := runLocaleInit(t, root, "--locale", textassets.LegacyLocale); code != ExitOK {
+		t.Fatalf("existing init Locale switch exit=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	cfg, err = config.LoadBase(root)
+	if err != nil || cfg.Locale != textassets.LegacyLocale {
+		t.Fatalf("existing init did not persist target Locale: cfg=%+v err=%v", cfg, err)
+	}
+	rootRaw, err := os.ReadFile(filepath.Join(root, cfg.IndexPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootLocale, explicit, err := index.DetectLocale(string(rootRaw))
+	if err != nil || !explicit || rootLocale != cfg.Locale {
+		t.Fatalf("existing init left Root/config Locale inconsistent: root=%s explicit=%t cfg=%s err=%v", rootLocale, explicit, cfg.Locale, err)
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists || state.Files[cfg.IndexPath].SHA256 != cognitiontxn.SHA256(rootRaw) {
+		t.Fatalf("existing init did not bind the switched Root Baseline: exists=%t err=%v", exists, err)
 	}
 }

@@ -39,7 +39,7 @@ func buildVolumeRepo(t testing.TB, includeCode, includeDatabase bool) string {
 	if includeDatabase {
 		declarations = append(declarations, "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta")
 	}
-	rootText := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: en-US\n#Project: MCP fixture\n" + strings.Join(declarations, "\n") + "\n"
+	rootText := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: " + cfg.Locale + "\n#Project: MCP fixture\n" + strings.Join(declarations, "\n") + "\n"
 	metaText := cognition.MetaVolumeMarker + "\n#Object-Protocol: repository-cognition-object/v2\n#FRAS-Discipline: 2\n#FRAS-v2-Limits-Authority: machine-contract\n#S-Admission: non-inferable-and-error-preventing\n#Object-Kinds: code=file database=table\n#[Tag dictionary: code]\n#A Layer: C Code\n#B Module: D Domain\n#C Importance: 9 8 7 5 3 1\n#E Scale: L M S T\n#[Tag dictionary: database]\n#A Layer: D Database\n#B Module: B Business\n#C Importance: 9 8 7 5 3 1\n#E Scale: L M S T\n"
 	write := func(name, text string) {
 		if err := os.WriteFile(filepath.Join(root, name), []byte(text), 0o644); err != nil {

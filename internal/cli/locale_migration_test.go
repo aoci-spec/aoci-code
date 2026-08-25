@@ -18,7 +18,7 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-func TestLocaleMigrationBlocksAlignmentAcrossHeaderEntriesAndCuration(t *testing.T) {
+func TestLocaleMigrationKeepsOrdinaryEntriesAndBlocksOnManagedSurfaces(t *testing.T) {
 	root := t.TempDir()
 	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
 	agentPlanWriteFile(t, root, "keep.go", "package main\n")
@@ -60,7 +60,7 @@ func TestLocaleMigrationBlocksAlignmentAcrossHeaderEntriesAndCuration(t *testing
 	if err := config.Save(root, cfg); err != nil {
 		t.Fatal(err)
 	}
-	assertMigrationReceipt(t, cfg.LocaleMigration, true, []string{"aoci.txt", "keep.go"}, []string{"empty.bin"})
+	assertMigrationReceipt(t, cfg.LocaleMigration, true, []string{}, []string{"empty.bin"})
 	assertLocalePlanStage(t, root, agentPlanStageHeaderRequired)
 
 	englishIndex := strings.Replace(indexText, "#Locale: zh-CN", "#Locale: en-US", 1)
@@ -77,24 +77,10 @@ func TestLocaleMigrationBlocksAlignmentAcrossHeaderEntriesAndCuration(t *testing
 		t.Fatal(err)
 	}
 	saveCurrentBaseline(t, root, cfg)
-	assertLocalePlanStage(t, root, agentPlanStageEntriesRequired)
-
-	englishIndex = strings.Replace(englishIndex,
-		"F:索引本体 | R:- | A:- | S:-",
-		"F:Stores the formal cognition index | R:- | A:- | S:-", 1)
-	englishIndex = strings.Replace(englishIndex,
-		"F:对齐文件 | R:- | A:- | S:-",
-		"F:Defines the aligned sample | R:- | A:- | S:-", 1)
-	agentPlanWriteFile(t, root, "aoci.txt", englishIndex)
-	if err := config.AdvanceLocaleMigration(root, false, []string{"aoci.txt", "keep.go"}, nil); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err = config.LoadBase(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	saveCurrentBaseline(t, root, cfg)
 	assertLocalePlanStage(t, root, agentPlanStageCurationRequired)
+	if !strings.Contains(englishIndex, "F:索引本体") || !strings.Contains(englishIndex, "F:对齐文件") {
+		t.Fatal("Header migration unexpectedly translated ordinary Entries")
+	}
 
 	curationDocument.Decisions[0].Role = "Empty placeholder"
 	curationDocument.Decisions[0].Reason = "Carries no repository semantics"
@@ -161,7 +147,7 @@ func assertMigrationReceipt(t *testing.T, receipt *config.LocaleMigration, heade
 	}
 }
 
-func TestOfficialRepositoryLocaleInventoryHas827EntriesAndFiveGovernanceTargets(t *testing.T) {
+func TestLocaleChangeInventoriesOnlyGovernanceEntries(t *testing.T) {
 	root := t.TempDir()
 	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
 	var body strings.Builder
@@ -188,12 +174,12 @@ func TestOfficialRepositoryLocaleInventoryHas827EntriesAndFiveGovernanceTargets(
 		t.Fatal(err)
 	}
 	receipt := cfg.LocaleMigration
-	if receipt == nil || receipt.EntryTotal != 822 || receipt.GovernanceEntryTotal != 5 ||
-		len(receipt.EntryPaths) != 822 || len(receipt.GovernanceEntryPaths) != 5 {
-		t.Fatalf("827/5 inventory was not classified deterministically: %+v", receipt)
+	if receipt == nil || receipt.EntryTotal != 0 || receipt.GovernanceEntryTotal != 5 ||
+		len(receipt.EntryPaths) != 0 || len(receipt.GovernanceEntryPaths) != 5 {
+		t.Fatalf("ordinary Entries became batch-translation debt or governance inventory was incomplete: %+v", receipt)
 	}
 	coverage := buildLocaleMigrationCoverage(cfg)
-	if coverage.OrdinaryEntries.Total != 822 || coverage.GovernanceEntries.Total != 5 ||
+	if coverage.OrdinaryEntries.Total != 0 || coverage.GovernanceEntries.Total != 5 ||
 		coverage.Header.Pending != 1 || coverage.ManagedIndexText.Pending == 0 ||
 		coverage.AgentsManagedBlock.Pending != 1 {
 		t.Fatalf("unexpected migration coverage: %+v", coverage)

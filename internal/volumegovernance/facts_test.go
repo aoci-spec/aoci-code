@@ -14,6 +14,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 func TestFourLegalVolumeLayoutsAreGovernanceAligned(t *testing.T) {
@@ -50,6 +51,33 @@ func TestFourLegalVolumeLayoutsAreGovernanceAligned(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRootLocaleMismatchBlocksSharedVolumeGovernance(t *testing.T) {
+	root, cfg := alignedFixture(t, false, false)
+	cfg.Locale = textassets.LegacyLocale
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := Assess(root, cfg, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if facts.GovernanceAligned || facts.Result != ResultBlocked || len(facts.AffectedDomains) != 0 {
+		t.Fatalf("Root/config Locale mismatch did not block shared governance: %#v", facts)
+	}
+	for _, finding := range facts.Findings {
+		if finding.Code == "root_locale_mismatch" && finding.Target == cfg.IndexPath &&
+			finding.Cause == "config_locale_differs_from_root_locale" &&
+			strings.Contains(finding.SafeRepairAction, "config set locale "+textassets.LegacyLocale) {
+			return
+		}
+	}
+	t.Fatalf("Root/config Locale mismatch lacks actionable shared finding: %#v", facts.Findings)
 }
 
 func TestEnabledDatabaseWithoutAcceptedEvidenceRequiresEvidence(t *testing.T) {

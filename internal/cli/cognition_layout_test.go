@@ -23,8 +23,8 @@ func TestVolumeCLIWriteGuardPrecedesLayoutCompleteness(t *testing.T) {
 		t.Fatalf("damaged Volume layout was allowed into a write path: %v", err)
 	}
 	before := cfg.Locale
-	if err := prepareLocaleChange(root, cfg, "zh-CN"); err == nil || !strings.Contains(err.Error(), "Volumes v1") {
-		t.Fatalf("locale governance did not fail closed: %v", err)
+	if err := prepareLocaleChange(root, cfg, "zh-CN"); err == nil {
+		t.Fatal("locale governance accepted structurally invalid Volumes cognition")
 	}
 	if cfg.Locale != before || cfg.LocaleMigration != nil {
 		t.Fatal("failed Volume locale change mutated configuration state")

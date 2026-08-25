@@ -78,6 +78,36 @@ func TestLegacyIndexWithoutConfigMaterializesChinese(t *testing.T) {
 	}
 }
 
+func TestExplicitIndexLocaleWithoutConfigMaterializesMarkerLocale(t *testing.T) {
+	root := t.TempDir()
+	indexBefore := []byte("#Locale: en-US\nexplicit index bytes\n")
+	indexPath := filepath.Join(root, "aoci.txt")
+	if err := os.WriteFile(indexPath, indexBefore, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Locale != textassets.DefaultLocale {
+		t.Fatalf("explicit index locale = %q, want %q", cfg.Locale, textassets.DefaultLocale)
+	}
+	indexAfter, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(indexAfter) != string(indexBefore) {
+		t.Fatal("explicit Locale materialization rewrote aoci.txt")
+	}
+	materialized, err := os.ReadFile(FilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(materialized), `"locale": "en-US"`) {
+		t.Fatalf("materialized config did not preserve explicit Locale:\n%s", materialized)
+	}
+}
+
 func TestLocalConfigCannotOverrideLocale(t *testing.T) {
 	root := t.TempDir()
 	cfg := DefaultConfig()

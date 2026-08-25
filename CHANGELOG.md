@@ -4,6 +4,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Let the existing project `locale` setting govern UI text, managed Locale
+  migration, and future Entry authoring in both Legacy and Volumes layouts
+  without bulk-translating unchanged Entries. Historical Entry bytes remain
+  valid; only newly created or genuinely updated Entries use the new Locale.
 - Report one blocker per root cause. A Managed Scope policy that no longer
   matches its receipt already reports `scope_change_required`, but the business
   source manifest refuses to build in that state, and every manifest failure

@@ -8,16 +8,43 @@ Team configuration is stored in `.aoci/config.json`. Local configuration is
 stored in `.aoci/config.local.json` and is not intended for version control.
 Runtime loading applies safe defaults, then the team file, then eligible local
 overrides. Team-owned governance fields cannot be changed by the local layer.
+When the team file is absent but cognition already exists, one valid explicit
+Root `#Locale` marker is materialized as the project Locale; a markerless
+historical index retains the `zh-CN` compatibility fallback. A pre-Locale team
+file with no `locale` field also remains `zh-CN`. Loading never infers language
+from Entry prose or rewrites cognition bytes.
 
 The configured `index_path` selects the cognition root. `locale` selects one
-official Locale for generated assets and process output. Inventory exclusions,
-curation exclusions, line-ending policy, cognition refresh threshold, Overview
-delivery framing, managed scope, cognition budget, automation, Database Source
-declarations, authoring batch sizes (`code_cognition_batch_entries`,
+official Locale for generated assets, process output, managed Locale-migration
+surfaces, and every newly created or genuinely updated Entry. Inventory
+exclusions, curation exclusions, line-ending policy, cognition refresh
+threshold, Overview delivery framing, managed scope, cognition budget,
+automation, Database Source declarations, authoring batch sizes (`code_cognition_batch_entries`,
 `database_cognition_batch_objects`, `database_cognition_batch_evidence_bytes`),
 and installed Host integrations are team-owned settings. A batch size is a
 shared authoring contract between the machine and every Host that maintains
 the repository, so the local layer cannot change it.
+
+Project Locale and Entry authoring
+----------------------------------
+
+`aoci config set locale en-US|zh-CN` is the single project-language switch.
+It activates that Locale for the current CLI process and for the next MCP
+process, so an already running MCP integration must be restarted.
+
+Changing Locale must not bulk-translate ordinary cognition Entries. Existing
+Entry bytes remain unchanged, and only an Entry created or genuinely updated
+by a later source-bound authoring batch uses the active Locale for natural
+language F/R/A/S prose. A mixed historical Entry language is valid and is not
+deterministically rejected by language detection.
+
+Legacy repositories retain resumable migration for receipted Header, managed
+index text, Curation, AGENTS, and governance-reclassification surfaces, but
+ordinary Entry paths are not migration debt. Volumes v1 repositories change
+the runtime and future-authoring Locale while immediately replacing only the
+Root `#Locale` line through an exact-preimage Root → config → Baseline
+transaction; Meta, Code, and Database Volume bytes remain unchanged. Neither
+layout introduces a second language setting.
 
 Secrets and network configuration
 ---------------------------------

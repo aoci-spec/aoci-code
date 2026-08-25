@@ -53,6 +53,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	"github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -122,8 +123,10 @@ type OverviewDeliveryConfig struct {
 type Config struct {
 	Version int `json:"version"`
 
-	// Locale is the team-wide language of every formal AOCI asset and contract.
-	// It cannot be overridden by config.local.json.
+	// Locale is the team-wide active language for runtime/UI contracts and for
+	// every new or genuinely updated Entry. Existing ordinary Entry bytes retain
+	// their authored language until such an update. It cannot be overridden by
+	// config.local.json.
 	Locale string `json:"locale"`
 
 	// LocaleMigration records the formal assets that still have to be rewritten
@@ -198,8 +201,10 @@ type Config struct {
 	AI AIConfig `json:"ai"`
 }
 
-// LocaleMigration is a resumable, deterministic receipt for a full-locale
-// migration. Paths are repository-relative and kept in stable sorted order.
+// LocaleMigration is a resumable, deterministic receipt for managed Locale
+// surfaces. New receipts keep ordinary Entries prospective; EntryPaths remains
+// readable so an older in-progress full migration can finish safely. Paths are
+// repository-relative and kept in stable sorted order.
 type LocaleMigration struct {
 	Version                   int      `json:"version"`
 	FromLocale                string   `json:"from_locale"`
@@ -494,20 +499,25 @@ func applyFallbacks(cfg *Config) {
 
 // applyTeamJSONFile loads the team configuration and performs the one narrow
 // rc8 compatibility migration. A pre-locale config deterministically remains
-// zh-CN and is atomically materialized as schema version 2. The migration never
-// rewrites aoci.txt or any other governance asset.
+// zh-CN. If config is absent but cognition already has an explicit Locale, that
+// marker is authoritative; a markerless historical index still resolves to
+// zh-CN. Materialization never rewrites aoci.txt or another governance asset.
 func applyTeamJSONFile(repoRoot string, cfg *Config, materializeLegacyLocale bool) error {
 	configPath := FilePath(repoRoot)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			// A repository that already has the historical default index but no
-			// team config is also a legacy project. Materialize zh-CN without
-			// touching the index; a truly new repository has neither file and
-			// keeps the en-US default.
+			// A repository with cognition but no team config may be a historical
+			// markerless project or a freshly bootstrapped explicit-Locale project.
+			// DetectLocale keeps the former on zh-CN and preserves the latter's
+			// Root authority without touching the index.
 			legacyIndex := filepath.Join(repoRoot, filepath.FromSlash(cfg.IndexPath))
-			if _, indexErr := os.Stat(legacyIndex); indexErr == nil {
-				cfg.Locale = textassets.LegacyLocale
+			if indexData, indexErr := os.ReadFile(legacyIndex); indexErr == nil {
+				locale, _, detectErr := index.DetectLocale(string(indexData))
+				if detectErr != nil {
+					return fmt.Errorf("detect project locale from %s: %w", legacyIndex, detectErr)
+				}
+				cfg.Locale = locale
 				cfg.Version = 2
 				if materializeLegacyLocale {
 					if saveErr := saveToPath(configPath, repoRoot, cfg); saveErr != nil {
@@ -831,6 +841,44 @@ func applyJSONFileIfExists(
 	return nil
 }
 
+// MarshalBase validates and serializes the exact team configuration postimage
+// used by CAS-bound governance transactions.
+func MarshalBase(cfg *Config) ([]byte, error) {
+	if err := normalizeAutomationConfig(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateCognitionRefreshThreshold(cfg.CognitionRefreshThreshold); err != nil {
+		return nil, err
+	}
+	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
+		return nil, err
+	}
+	if err := validateLocale(cfg.Locale); err != nil {
+		return nil, err
+	}
+	if err := normalizeLocaleMigration(cfg); err != nil {
+		return nil, err
+	}
+	if err := normalizeDatabaseSources(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateDatabaseCognitionBatchLimits(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
+		return nil, err
+	}
+	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
+		return nil, err
+	}
+	cfg.Version = 2
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("configuration serialization failed: %w", err)
+	}
+	return append(data, '\n'), nil
+}
+
 // Save 写入团队层 config.json。
 //
 // 传入 cfg 必须来自 LoadBase 或全新构造，不得来自 Load 合并态。
@@ -838,40 +886,18 @@ func Save(
 	repoRoot string,
 	cfg *Config,
 ) error {
-	if err := normalizeAutomationConfig(cfg); err != nil {
+	data, err := MarshalBase(cfg)
+	if err != nil {
 		return err
 	}
-	if err := validateCognitionRefreshThreshold(cfg.CognitionRefreshThreshold); err != nil {
-		return err
+	if err := os.MkdirAll(dirPath(repoRoot), 0o755); err != nil {
+		return fmt.Errorf("创建 .aoci 目录失败: %w", err)
 	}
-	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
-		return err
-	}
-	if err := validateLocale(cfg.Locale); err != nil {
-		return err
-	}
-	if err := normalizeLocaleMigration(cfg); err != nil {
-		return err
-	}
-	if err := normalizeDatabaseSources(cfg); err != nil {
-		return err
-	}
-	if err := validateDatabaseCognitionBatchLimits(cfg); err != nil {
-		return err
-	}
-	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
-		return err
-	}
-	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
-		return err
-	}
-	cfg.Version = 2
 
-	return saveToPath(
-		FilePath(repoRoot),
-		repoRoot,
-		cfg,
-	)
+	if err := fs.AtomicWrite(FilePath(repoRoot), data); err != nil {
+		return fmt.Errorf("写入配置文件失败: %w", err)
+	}
+	return nil
 }
 
 // SaveLocal 只写个人覆盖面。

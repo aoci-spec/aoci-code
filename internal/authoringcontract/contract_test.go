@@ -59,10 +59,25 @@ func TestFreshMetaContractExamplesComeFromActualAssembly(t *testing.T) {
 			assertExampleTag(t, output.Examples[cognition.ScopeCode], "EG7T")
 			assertExampleTag(t, output.Examples[cognition.ScopeDatabase], "EI7T")
 			assertFormalMetaHighImportanceDashExample(t, template)
+			assertUnifiedLocaleAuthoringPolicy(t, locale, output.Instructions)
 			assertSoftSAuthoringPolicy(t, locale, output.Instructions)
 			assertStarterClassificationPolicy(t, locale, output.Instructions)
 			assertDeliveredExamples(t, []byte(template), output)
 		})
+	}
+}
+
+func assertUnifiedLocaleAuthoringPolicy(t *testing.T, locale string, instructions []string) {
+	t.Helper()
+	combined := strings.Join(instructions, "\n")
+	required := map[string][]string{
+		textassets.DefaultLocale: {"configured project Locale " + locale, "new or genuinely updated Entry", "not translation targets"},
+		textassets.LegacyLocale:  {"配置参数指定的项目Locale " + locale, "新建或真实更新Entry", "不会仅因语言不同而成为批量翻译目标"},
+	}
+	for _, anchor := range required[locale] {
+		if !strings.Contains(combined, anchor) {
+			t.Fatalf("%s authoring instructions lack prospective Locale policy %q: %q", locale, anchor, combined)
+		}
 	}
 }
 

@@ -158,6 +158,8 @@ AOCI=/absolute/path/to/aoci-code/build/aoci
 
 `init` 会写入 Locale 配置、托管的 `AGENTS.md` 规则区块、Git 边界以及语义为空的最小认知骨架；不同宿主的配置或提示方式并不相同，详见“宿主集成”。它不会根据文件名、目录或 AST 伪造业务语义。
 
+已有项目可运行 `aoci config set locale zh-CN` 或 `aoci config set locale en-US`，统一切换界面和后续 Entry 作者化语言。命令会立即对齐正式 `#Locale` 标记；现有普通 Entry 不会被批量翻译，只有以后新建或确实更新的 Entry 使用配置中的 Locale。修改后需重启宿主中的 AOCI MCP 进程。
+
 对于全新仓库，首次 `scan` 会建立 Managed Baseline。对于已经拥有受治理 Baseline 的项目，新增、移除或改变受管范围应进入正式 Scope Change 流程，而不是把 `scan --force` 当作重新定义治理事实的捷径；`--force` 也不能洗掉未解决的漂移、Receipt 或 Recovery 边界。
 
 <details>

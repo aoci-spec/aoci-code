@@ -216,6 +216,17 @@ also applies when a valid older formal Meta predates the current calibration
 examples. Missing, unparseable, duplicate, or conflicting required dictionary
 facts retain the asset-level stopped result instead of guessed instructions.
 
+The team `locale` setting selects the runtime language for that authoring
+contract and requires every newly created or genuinely updated candidate's
+natural-language F/R/A/S prose to use that Locale. Changing Locale immediately
+replaces only Root's machine-readable `#Locale` line through an exact-preimage
+Root, configuration, and Baseline transaction. It never rewrites Meta, Code,
+or Database Volume bytes and never turns unchanged objects into authoring
+targets. Existing Entries may retain historical prose in another official
+Locale; their exact bytes remain authoritative until a normal source-bound
+update actually replaces them. AOCI does not infer or machine-reject prose
+language from characters or identifiers.
+
 The Code contract contains compact A+B+C+[D]+E, every current dictionary axis,
 effective S admission and quotas, comma-delimited exact canonical R identities,
 the - placeholder, code:path/to/file.go, and one complete legal Code Entry. The

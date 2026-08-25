@@ -101,6 +101,9 @@
       "enforced_by": [
         "internal/index/validator.go:ValidateEntryLineWith"
       ],
+      "variables": [
+        "Locale"
+      ],
       "protocol_tokens": [],
       "locale_anchors": {
         "zh-CN": [

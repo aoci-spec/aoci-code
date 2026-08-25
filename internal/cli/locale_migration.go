@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
@@ -34,10 +35,6 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 			cfg.LocaleMigration.ToLocale,
 		))
 	}
-	if err := requireLegacyWriteLayout(root, cfg, true); err != nil {
-		return err
-	}
-
 	indexPath := filepath.Join(root, filepath.FromSlash(cfg.IndexPath))
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -46,6 +43,23 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 			return nil
 		}
 		return errors.New(cliMessage("locale.read_index_error", err))
+	}
+	layout, err := cognition.DetectLayout(data)
+	if err != nil {
+		return errors.New(cliMessage("locale.detect_index_error", err))
+	}
+	if layout == cognition.LayoutVolumesV1 {
+		if _, loadErr := cognition.Load(root, cfg.IndexPath); loadErr != nil {
+			return errors.New(cliMessage(
+				"locale.volume_invalid",
+				localeSafeCLIDetail(loadErr.Error()),
+			))
+		}
+		// The enclosing Locale transaction changes only Root's deterministic
+		// #Locale marker. Meta and object-Volume bytes remain unchanged; only a
+		// genuine later Entry update writes that Entry in the new Locale.
+		cfg.Locale = target
+		return nil
 	}
 
 	fromLocale, _, err := index.DetectLocale(string(data))
@@ -60,7 +74,6 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 
 	document, _ := index.Parse(string(data))
 	index.ResolveRelPaths(document, root)
-	entrySet := map[string]struct{}{}
 	governanceEntrySet := map[string]struct{}{}
 	for _, section := range document.Sections {
 		for _, entry := range section.Entries {
@@ -72,12 +85,9 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 			}
 			if isAOCIGovernanceEntryPath(entry.RelPath) {
 				governanceEntrySet[entry.RelPath] = struct{}{}
-			} else {
-				entrySet[entry.RelPath] = struct{}{}
 			}
 		}
 	}
-	entryPaths := sortedLocaleMigrationPaths(entrySet)
 
 	curationDocument, _, _, err := curation.Load(root)
 	if err != nil {
@@ -97,13 +107,16 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 
 	cfg.Locale = target
 	cfg.LocaleMigration = &config.LocaleMigration{
-		Version:                   2,
-		FromLocale:                fromLocale,
-		ToLocale:                  target,
-		HeaderPending:             true,
-		HeaderTotal:               1,
-		EntryPaths:                entryPaths,
-		EntryTotal:                len(entryPaths),
+		Version:       2,
+		FromLocale:    fromLocale,
+		ToLocale:      target,
+		HeaderPending: true,
+		HeaderTotal:   1,
+		// Existing ordinary Entries are intentionally prospective: changing the
+		// unified Locale does not translate them in bulk. New and genuinely
+		// updated Entries use the active Locale through the normal authoring path.
+		EntryPaths:                []string{},
+		EntryTotal:                0,
 		GovernanceEntryPaths:      sortedLocaleMigrationPaths(governanceEntrySet),
 		GovernanceEntryTotal:      len(governanceEntrySet),
 		CurationPaths:             sortedLocaleMigrationPaths(curationSet),
@@ -554,7 +567,8 @@ type localeIndexCandidateSummary struct {
 // validateLocaleIndexCandidate proves that the Header-stage full-index
 // candidate changes only AOCI-managed explanatory text and explicitly removes
 // the receipt-bound legacy .aoci Entries. Ordinary Entries remain byte-for-byte
-// unchanged until their source-bound Entries stages run.
+// unchanged; only a later genuine source-bound update may rewrite one in the
+// then-active unified Locale.
 func validateLocaleIndexCandidate(
 	currentText,
 	candidateText,

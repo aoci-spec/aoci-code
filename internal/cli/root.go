@@ -185,7 +185,7 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
+func enforceCognitionRecoveryGate(command *cobra.Command, args []string) error {
 	root, err := resolveRepoRoot()
 	if err != nil {
 		// Repository-specific commands retain their existing localized root
@@ -201,6 +201,7 @@ func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
 	}
 	path := command.CommandPath()
 	allowed := path == "aoci index agent guide" || path == "aoci mcp"
+	localePending := false
 	for _, transaction := range pending {
 		switch transaction.Operation {
 		case "bootstrap":
@@ -215,7 +216,15 @@ func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
 		case "scope":
 			allowed = allowed || path == "aoci baseline scope status" || path == "aoci baseline scope resume" ||
 				path == "aoci scope status" || path == "aoci scope resume" || path == "aoci scope rollback"
+		case "locale":
+			localePending = true
 		}
+	}
+	if localePending {
+		// A partially published Locale switch can expose Root/config/Baseline
+		// from different sides of the Intent. Only its idempotent recovery entry
+		// point may run; the immutable Intent rejects a different target.
+		allowed = path == "aoci config set" && len(args) == 2 && args[0] == "locale"
 	}
 	if allowed {
 		return nil

@@ -111,6 +111,7 @@ func init() {
 			}
 
 			key, value := args[0], args[1]
+			localeCommitted := false
 			parseBool := func(raw string) (bool, error) {
 				switch strings.ToLower(raw) {
 				case "true":
@@ -138,9 +139,14 @@ func init() {
 						Msg:  cliMessage("config.unsupported_locale", value),
 					}
 				}
-				if err := prepareLocaleChange(root, cfg, value); err != nil {
-					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				committed, switchErr := applyLocaleSwitch(root, value)
+				if switchErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage(
+						"locale.switch_failed", localeSafeCLIDetail(switchErr.Error()),
+					)}
 				}
+				cfg = committed
+				localeCommitted = true
 			case "hook_strict":
 				parsed, parseErr := parseBool(value)
 				if parseErr != nil {
@@ -224,8 +230,10 @@ func init() {
 				}
 			}
 
-			if err := config.Save(root, cfg); err != nil {
-				return errors.New(cliMessage("config.write_error", err))
+			if !localeCommitted {
+				if err := config.Save(root, cfg); err != nil {
+					return errors.New(cliMessage("config.write_error", err))
+				}
 			}
 			if key == "locale" {
 				if err := ensureManagedAgentsLocale(root, value); err != nil {
@@ -241,6 +249,7 @@ func init() {
 			if !flagQuiet {
 				fmt.Println(cliMessage("config.saved", key))
 				if key == "locale" {
+					fmt.Println(cliMessage("config.locale_future_entries", value))
 					if cfg.LocaleMigration != nil {
 						fmt.Println(cliMessage(
 							"config.locale_migration_pending",
