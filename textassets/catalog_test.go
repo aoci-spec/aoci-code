@@ -14,6 +14,26 @@ func TestCatalogValid(t *testing.T) {
 	}
 }
 
+func TestReadManifestReturnsIsolatedClone(t *testing.T) {
+	first, err := ReadManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.OfficialLocales) == 0 || len(first.Assets) == 0 {
+		t.Fatal("embedded manifest fixture is empty")
+	}
+	wantLocale, wantID := first.OfficialLocales[0], first.Assets[0].ID
+	first.OfficialLocales[0] = "mutated"
+	first.Assets[0].ID = "mutated"
+	second, err := ReadManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.OfficialLocales[0] != wantLocale || second.Assets[0].ID != wantID {
+		t.Fatal("ReadManifest exposed the immutable embedded cache")
+	}
+}
+
 func TestLoadRuntimeRulesPreservesExactText(t *testing.T) {
 	text, err := Load(
 		LegacyLocale,

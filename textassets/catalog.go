@@ -23,8 +23,11 @@ const (
 )
 
 var (
-	activeLocale   = DefaultLocale
-	activeLocaleMu sync.RWMutex
+	activeLocale         = DefaultLocale
+	activeLocaleMu       sync.RWMutex
+	embeddedManifestOnce sync.Once
+	embeddedManifestData Manifest
+	embeddedManifestErr  error
 )
 
 // ActiveLocale returns the locale selected for the current CLI or MCP process.
@@ -39,7 +42,7 @@ func ActiveLocale() string {
 // validates the official catalog lifecycle and never falls back to another
 // locale.
 func SetActiveLocale(locale string) error {
-	manifest, err := ReadManifest()
+	manifest, err := embeddedManifest()
 	if err != nil {
 		return err
 	}
@@ -55,7 +58,7 @@ func SetActiveLocale(locale string) error {
 
 // IsOfficialLocale reports whether locale is a production-selectable locale.
 func IsOfficialLocale(locale string) bool {
-	manifest, err := ReadManifest()
+	manifest, err := embeddedManifest()
 	if err != nil {
 		return false
 	}
@@ -117,19 +120,24 @@ type manifestFragment struct {
 //go:embed manifest.json manifests/*.json [a-z][a-z]-[A-Z][A-Z]
 var embeddedAssets embed.FS
 
-// ReadManifest读取并合并清单元数据，不读取或校验任何资源正文。
-//
-// 该函数故意不缓存：清单很小，重复解析成本可忽略；无隐藏全局状态意味着并发
-// 首次读取、失败后重试和故障注入都不会留下部分缓存或永久化错误。
+// embeddedManifest parses and validates the immutable embedded metadata once.
+// Custom fs and fault-injection paths continue to call readManifestFS directly.
+func embeddedManifest() (Manifest, error) {
+	embeddedManifestOnce.Do(func() {
+		embeddedManifestData, embeddedManifestErr = readManifestFS(embeddedAssets)
+		if embeddedManifestErr == nil {
+			embeddedManifestErr = validateManifestMetadata(embeddedManifestData)
+		}
+	})
+	return embeddedManifestData, embeddedManifestErr
+}
+
+// ReadManifest returns an isolated clone of the cached embedded metadata.
 func ReadManifest() (Manifest, error) {
-	manifest, err := readManifestFS(embeddedAssets)
+	manifest, err := embeddedManifest()
 	if err != nil {
 		return Manifest{}, err
 	}
-	if err := validateManifestMetadata(manifest); err != nil {
-		return Manifest{}, err
-	}
-
 	return cloneManifest(manifest), nil
 }
 
@@ -279,7 +287,11 @@ func ValidateForRelease() error {
 // validated; corruption in an unrelated resource body cannot block this call.
 // Development locales are deliberately unavailable to production consumers.
 func Load(locale string, id ID) (string, error) {
-	return loadFS(embeddedAssets, locale, id)
+	manifest, err := embeddedManifest()
+	if err != nil {
+		return "", err
+	}
+	return loadManifestFS(embeddedAssets, manifest, locale, id)
 }
 
 // MustLoad is retained for test and migration compatibility. Production callers
@@ -298,6 +310,10 @@ func loadFS(assetFS fs.FS, locale string, id ID) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return loadManifestFS(assetFS, manifest, locale, id)
+}
+
+func loadManifestFS(assetFS fs.FS, manifest Manifest, locale string, id ID) (string, error) {
 	if _, _, err := validateLocaleLifecycle(manifest); err != nil {
 		return "", err
 	}

@@ -35,6 +35,24 @@ func TestUIMessageCatalogFailsClosed(t *testing.T) {
 	}
 }
 
+func TestRelocalizeMessageExactUsesOfficialCatalogMapping(t *testing.T) {
+	current, err := Message(DefaultLocale, "cli.short.root")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := Message(LegacyLocale, "cli.short.root")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, matched, err := RelocalizeMessageExact(LegacyLocale, current)
+	if err != nil || !matched || got != want {
+		t.Fatalf("exact relocalization mismatch: got=%q matched=%v err=%v want=%q", got, matched, err, want)
+	}
+	if got, matched, err := RelocalizeMessageExact(LegacyLocale, "not a catalog value"); err != nil || matched || got != "" {
+		t.Fatalf("unknown exact value must remain unmatched: got=%q matched=%v err=%v", got, matched, err)
+	}
+}
+
 func TestOfficialLocaleSelectionNeverFallsBack(t *testing.T) {
 	previous := ActiveLocale()
 	t.Cleanup(func() { _ = SetActiveLocale(previous) })

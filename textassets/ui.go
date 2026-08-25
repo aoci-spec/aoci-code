@@ -15,17 +15,24 @@ import (
 const ContractUIMessages ID = "contracts/ui/messages"
 
 var (
-	uiMessageCatalogOnce sync.Once
-	uiMessageCatalogs    map[string]map[string]string
-	uiMessageCatalogErr  error
+	uiMessageCatalogOnce     sync.Once
+	uiMessageCatalogs        map[string]map[string]string
+	uiMessageRelocalizations map[string]map[string]exactRelocalization
+	uiMessageCatalogErr      error
 )
+
+type exactRelocalization struct {
+	target         string
+	firstKey       string
+	conflictingKey string
+}
 
 // uiMessageCatalog returns one immutable decoded embedded bundle. Keeping the
 // decoded maps process-local preserves the same fail-closed load boundary while
 // avoiding a full JSON decode and asset scan for every rendered message.
 func uiMessageCatalog(locale string) (map[string]string, error) {
 	uiMessageCatalogOnce.Do(func() {
-		manifest, err := ReadManifest()
+		manifest, err := embeddedManifest()
 		if err != nil {
 			uiMessageCatalogErr = err
 			return
@@ -48,7 +55,34 @@ func uiMessageCatalog(locale string) (map[string]string, error) {
 			}
 			catalogs[officialLocale] = messages
 		}
+		relocalizations := make(map[string]map[string]exactRelocalization, len(catalogs))
+		for targetLocale, targetMessages := range catalogs {
+			byCurrentValue := map[string]exactRelocalization{}
+			for _, sourceMessages := range catalogs {
+				for key, current := range sourceMessages {
+					if len(formatSignature(current)) != 0 {
+						continue
+					}
+					target, exists := targetMessages[key]
+					if !exists {
+						uiMessageCatalogErr = fmt.Errorf("UI message key %q is missing from locale %s", key, targetLocale)
+						return
+					}
+					matched := byCurrentValue[current]
+					if matched.firstKey == "" {
+						byCurrentValue[current] = exactRelocalization{target: target, firstKey: key}
+						continue
+					}
+					if matched.target != target && matched.conflictingKey == "" {
+						matched.conflictingKey = key
+						byCurrentValue[current] = matched
+					}
+				}
+			}
+			relocalizations[targetLocale] = byCurrentValue
+		}
 		uiMessageCatalogs = catalogs
+		uiMessageRelocalizations = relocalizations
 	})
 	if uiMessageCatalogErr != nil {
 		return nil, uiMessageCatalogErr
@@ -201,37 +235,17 @@ func diagnosticMachineToken(token string) bool {
 // metadata constructed during Go package initialization without creating a
 // second command tree or translation catalog.
 func RelocalizeMessageExact(targetLocale, current string) (string, bool, error) {
-	manifest, err := ReadManifest()
-	if err != nil {
+	if _, err := uiMessageCatalog(targetLocale); err != nil {
 		return "", false, err
 	}
-	targetMessages, err := uiMessageCatalog(targetLocale)
-	if err != nil {
-		return "", false, err
+	matched, exists := uiMessageRelocalizations[targetLocale][current]
+	if !exists {
+		return "", false, nil
 	}
-	matched := ""
-	matchedKey := ""
-	for _, locale := range manifest.OfficialLocales {
-		messages, catalogErr := uiMessageCatalog(locale)
-		if catalogErr != nil {
-			return "", false, catalogErr
-		}
-		for key, value := range messages {
-			if value != current || len(formatSignature(value)) != 0 {
-				continue
-			}
-			target, exists := targetMessages[key]
-			if !exists {
-				return "", false, fmt.Errorf("UI message key %q is missing from locale %s", key, targetLocale)
-			}
-			if matchedKey != "" && matched != target {
-				return "", false, fmt.Errorf("UI message value is ambiguous between keys %q and %q", matchedKey, key)
-			}
-			matched = target
-			matchedKey = key
-		}
+	if matched.conflictingKey != "" {
+		return "", false, fmt.Errorf("UI message value is ambiguous between keys %q and %q", matched.firstKey, matched.conflictingKey)
 	}
-	return matched, matchedKey != "", nil
+	return matched.target, true, nil
 }
 
 func decodeMessageBundle(data []byte) (map[string]string, error) {
