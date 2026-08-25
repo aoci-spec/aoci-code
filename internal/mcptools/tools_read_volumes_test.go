@@ -72,14 +72,7 @@ func callVolumeTool(t testing.TB, session *mcp.ClientSession, name string, argum
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Content) == 0 {
-		t.Fatal("MCP result has no content")
-	}
-	content, ok := result.Content[0].(*mcp.TextContent)
-	if !ok {
-		t.Fatalf("MCP result is not text: %T", result.Content[0])
-	}
-	return content.Text
+	return resText(t, result)
 }
 
 func TestVolumeOverviewScopesAndReceiptV2(t *testing.T) {
@@ -782,6 +775,14 @@ func TestVolumeAttestationPassesAfterCurrentEntryRemovalAndAddition(t *testing.T
 		names[index] = fmt.Sprintf("file-%03d.go", index+1)
 	}
 	writeVolumeAttestationEntries(t, root, names)
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.OverviewDelivery.ChunkTokens = 8000
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
 	session := connectMCPClient(t, root)
 
 	assertPass := func(stage, output string) {

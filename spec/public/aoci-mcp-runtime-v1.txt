@@ -57,3 +57,11 @@ An ordinary `aoci_overview` request still defaults to `requested_scope=all` and
 inline or continuation transport. A module request has no state to reset and
 never changes Overview content, scope identity, receipts, refresh state,
 Challenge, Attestation, or the stable nine-tool name identity.
+
+For a successful ordinary Overview, model-visible `content` contains only the
+exact framed cognition body. Transport and state fields are returned in
+top-level `_meta` for the Host. `overview_delivery.chunk_tokens` defaults to
+600000 and permits 4000 through 600000. A fitting single response ending at
+`BODY_END` requires no model confirmation, Attestation, or extra AOCI reply;
+an explicitly smaller multi-Chunk configuration retains Host-driven cursor and
+proof compatibility.

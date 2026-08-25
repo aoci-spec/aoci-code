@@ -126,7 +126,7 @@ func handleVolumeOverview(
 	}
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
-	return textResult(delivery.Output)
+	return overviewResult(delivery.Output)
 }
 
 func renderAbsentVolumeOverview(

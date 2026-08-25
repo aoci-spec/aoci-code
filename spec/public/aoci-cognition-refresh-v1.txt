@@ -88,10 +88,12 @@ When Host compaction is known, the Host-Agent declares context_compaction
 directly with a fresh refresh_event_id. If aoci_rules is no longer reliably
 present in current context, it first reads aoci_rules. Before continuing the
 business task, it then makes an ordinary complete Whole-Index aoci_overview
-request, not check_only and not a cognition probe, follows every exact
-next_cursor through completed=true, confirms delivery, and submits one
-Attestation from that newly delivered body. Neither the compacted handoff nor a
-prior receipt substitutes for this sequence.
+request, not check_only and not a cognition probe. A single-response body that
+reaches BODY_END needs no model confirmation or Attestation and permits direct
+source-bound continuation. Only the compatible multi-Chunk path follows
+private _meta.next_cursor through completed=true and uses its existing proof.
+Neither the compacted handoff nor a prior receipt substitutes for the fresh
+body.
 
 5. Checkpoint outcomes and explicit delivery
 
@@ -119,6 +121,11 @@ advances the receipt generation and consumes pending checkpoint reasons. A
 passing Attestation records a reliable receipt. A partial or failed Attestation
 records an uncertain receipt and disables a full-system claim without
 retriggering the same refresh generation.
+
+The default 600000-token single-response path performs no model proof and does
+not by itself claim strict Attestation or full-system reliability. The
+generation and reliable-receipt rules in the preceding paragraph apply to the
+retained compatible multi-Chunk proof path and explicit proof calls.
 
 When formal cognition is structurally complete but source governance is Dirty
 or Stale, ordinary Overview still returns the complete formal body. It reports

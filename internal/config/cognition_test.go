@@ -94,8 +94,8 @@ func TestSaveLocalRemovesCognitionRefreshThreshold(t *testing.T) {
 }
 
 func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
-	if got := machinecontract.OverviewChunkTokensDefault; got != 8000 {
-		t.Fatalf("machine default overview chunk tokens = %d, want 8000", got)
+	if got := machinecontract.OverviewChunkTokensDefault; got != 600000 {
+		t.Fatalf("machine default overview chunk tokens = %d, want 600000", got)
 	}
 	if got := DefaultConfig().OverviewDelivery.ChunkTokens; got != machinecontract.OverviewChunkTokensDefault {
 		t.Fatalf("default overview chunk tokens = %d", got)
@@ -106,10 +106,10 @@ func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if legacy.OverviewDelivery.ChunkTokens != 8000 {
-		t.Fatalf("missing legacy chunk_tokens default = %d, want 8000", legacy.OverviewDelivery.ChunkTokens)
+	if legacy.OverviewDelivery.ChunkTokens != 600000 {
+		t.Fatalf("missing legacy chunk_tokens default = %d, want 600000", legacy.OverviewDelivery.ChunkTokens)
 	}
-	for _, value := range []int{4000, 12000, 20000, 24000} {
+	for _, value := range []int{4000, 12000, 24000, 600000} {
 		explicitRoot := t.TempDir()
 		writeLineEndingConfigFile(t, FilePath(explicitRoot), fmt.Sprintf(`{"version":2,"overview_delivery":{"chunk_tokens":%d}}`, value)+"\n")
 		explicit, err := Load(explicitRoot)
@@ -122,7 +122,7 @@ func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
 	}
 	root := t.TempDir()
 	writeLineEndingConfigFile(t, FilePath(root), `{"version":2,"overview_delivery":{"chunk_tokens":12000}}`+"\n")
-	writeLineEndingConfigFile(t, LocalFilePath(root), `{"version":2,"overview_delivery":{"chunk_tokens":24000}}`+"\n")
+	writeLineEndingConfigFile(t, LocalFilePath(root), `{"version":2,"overview_delivery":{"chunk_tokens":600000}}`+"\n")
 	loaded, err := Load(root)
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +130,7 @@ func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
 	if loaded.OverviewDelivery.ChunkTokens != 12000 {
 		t.Fatalf("local layer overrode team chunk tokens: %d", loaded.OverviewDelivery.ChunkTokens)
 	}
-	for _, value := range []int{3999, 24001} {
+	for _, value := range []int{3999, 600001} {
 		invalidRoot := t.TempDir()
 		writeLineEndingConfigFile(t, FilePath(invalidRoot), fmt.Sprintf(`{"version":2,"overview_delivery":{"chunk_tokens":%d}}`, value)+"\n")
 		if _, err := Load(invalidRoot); err == nil {

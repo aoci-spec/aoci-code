@@ -187,6 +187,32 @@ func TestOverviewDeliveryFullIsByteExactAndLightweight(t *testing.T) {
 
 }
 
+func TestOverviewResultKeepsMetadataOutOfModelContent(t *testing.T) {
+	root := buildRepo(t)
+	repository, fail := loadRepoCtx(root)
+	if fail != nil {
+		t.Fatalf("loadRepoCtx failed: %+v", fail)
+	}
+	rendered := renderLegacyOverviewForTest(
+		t, root, "v-private-metadata", repository.text, repository.doc,
+		overviewIn{}, machinecontract.OverviewChunkTokensDefault,
+	)
+	result := overviewResult(rendered.Output)
+	body := modelResultText(t, result, false)
+	if strings.Contains(body, "AOCI Overview Metadata:") ||
+		strings.Contains(body, "body_sha256:") ||
+		!strings.HasPrefix(body, "<<<AOCI_OVERVIEW_BODY_BEGIN/v1") ||
+		!strings.Contains(body, repository.text) ||
+		!strings.HasSuffix(body, "<<<AOCI_OVERVIEW_BODY_END/v1 scope=repository_full>>>\n") {
+		t.Fatalf("model content was not the exact Overview body:\n%s", body)
+	}
+	if result.Meta["body_sha256"] != rendered.Facts.BodySHA256 ||
+		result.Meta["host_delivery_confirmation_required"] != false ||
+		result.Meta["model_cognition_attestation_required"] != false {
+		t.Fatalf("private Overview metadata is incomplete: %#v", result.Meta)
+	}
+}
+
 func overviewMetadataValue(t *testing.T, output, key string) string {
 	t.Helper()
 	prefix := key + ": "
@@ -1253,7 +1279,7 @@ func TestRulesExposeConfiguredOverviewChunkTokens(t *testing.T) {
 	for _, want := range []string{
 		"overview_delivery.chunk_tokens: 12000",
 		"overview_delivery.chunk_tokens_min: 4000",
-		"overview_delivery.chunk_tokens_max: 24000",
+		"overview_delivery.chunk_tokens_max: 600000",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("Rules missing %q:\n%s", want, text)

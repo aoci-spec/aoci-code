@@ -4,6 +4,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Raise the default and maximum Overview Chunk budget to 600,000 tokens. A
+  fitting Overview now returns only the exact body in model-visible `content`,
+  keeps transport and state fields in Host-private top-level `_meta`, and needs
+  no model confirmation or Attestation reply; explicitly smaller multi-Chunk
+  configurations retain the compatible Host-driven cursor and proof path.
 - Let the existing project `locale` setting govern UI text, managed Locale
   migration, and future Entry authoring in both Legacy and Volumes layouts
   without bulk-translating unchanged Entries. Historical Entry bytes remain

@@ -623,19 +623,19 @@ MCP 模式下，stdout 仅用于 JSON-RPC，日志和诊断写入 stderr。运�
 
 在同一对话过程中，除已知Host上下文压缩外，模型会根据自身认知状态按需决定是否再次加载。压缩handoff只能保留receipt身份、未完成write或Recovery状态，以及立即重载指令；不得保留或摘要Whole-Index，也不得保留或摘要Overview Header、Entry、Chunk、Challenge或Attestation正文。复制进handoff的索引语义或receipt不能证明当前模型认知可靠。
 
-已知发生压缩后，继续业务工作前，Agent在Rules已无法可靠保留时先重新读取Rules，再使用新的事件ID声明 `context_compaction`，并完成一次普通完整Overview的cursor、确认与Attestation序列。`check_only`和认知probe不能替代该流程。完成新的完整传输后，即使Attestation为partial或fail，也继续按既有规则执行source-bound任务，不再自动调用第二次Overview。对于没有已知压缩的语义变化或主要阶段边界，AOCI提供刷新阈值、Checkpoint和身份事实，由模型结合当前任务判断是否恢复系统级认知。
+已知发生压缩后，继续业务工作前，Agent在需要时重新读取Rules，使用新的事件ID声明 `context_compaction`，并请求一次普通完整Overview。单响应正文到达 `BODY_END` 后不需要模型确认或Attestation，Agent直接继续source-bound任务；只有显式配置的多块响应才由Host通过私有 `_meta` 自动续传并使用兼容proof路径。`check_only`和认知probe不能替代该流程。
 
 每次完整 Overview 的正文都由起始标记、当前正式索引的精确内容和结束标记组成。
 
-当 Overview 超过项目 Chunk 预算时：
+成功Overview的 `content` 只包含这份精确正文；cursor、哈希、Receipt、状态和Challenge等传输字段位于只供Host使用的顶层 `_meta`，不进入模型上下文。当 Overview 超过显式配置的较小 Chunk 预算时：
 
 1. 交付立即从 Chunk 1 开始；
-2. AI Agent 必须沿 `next_cursor` 自动读取到最后一个 Chunk；
-3. AI Agent 使用已交付的 Whole-Index 提交一次 Attestation；
+2. Host 沿私有 `_meta.next_cursor` 自动读取到最后一个 Chunk，不产生模型轮次；
+3. 完整拼接后仍可使用兼容的多块proof路径；
 4. 不得以局部搜索、旧记忆、源码补读或直接文件读取冒充完整交付；
 5. Pending Recovery 或不一致快照会失败关闭，不会混合内容。
 
-`overview_delivery.chunk_tokens` 是唯一的交付大小设置，默认值为 `8000`，有效范围为 `4000` 到 `24000`。`check_only=true` 是不含 Chunk 链的紧凑检查点。
+`overview_delivery.chunk_tokens` 是唯一的交付大小设置，默认值和最大值均为 `600000`，有效范围为 `4000` 到 `600000`。正文可容纳时一次返回，不要求模型回复。`check_only=true` 是不含 Chunk 链的紧凑检查点。
 
 认知刷新阈值默认为 30 条不同的语义路径，也可以按项目设置；具体计数规则以 Cognition Refresh 文档和运行时合同为准。
 

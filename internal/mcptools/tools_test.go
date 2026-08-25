@@ -2,8 +2,10 @@
 package mcptools
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -89,12 +91,56 @@ func buildRepo(
 }
 
 func resText(
-	t *testing.T,
+	t testing.TB,
 	result *mcp.CallToolResult,
 ) string {
 	t.Helper()
+	modelText := modelResultText(t, result, len(result.Meta) > 0)
+	if len(result.Meta) == 0 {
+		return modelText
+	}
+	if result.Meta["delivery_mode"] == overviewDeliveryChunked {
+		encoded, err := json.Marshal(result.Meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(encoded) + "\n" + overviewChunkBodyMarker + "\n" + modelText
+	}
+	keys := make([]string, 0, len(result.Meta))
+	for key := range result.Meta {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var builder strings.Builder
+	builder.WriteString("AOCI Overview Metadata:\n")
+	for _, key := range keys {
+		builder.WriteString(key)
+		builder.WriteString(": ")
+		if value, ok := result.Meta[key].(string); ok {
+			builder.WriteString(value)
+		} else {
+			encoded, err := json.Marshal(result.Meta[key])
+			if err != nil {
+				t.Fatal(err)
+			}
+			builder.Write(encoded)
+		}
+		builder.WriteByte('\n')
+	}
+	if modelText != "" {
+		builder.WriteByte('\n')
+		builder.WriteString(modelText)
+	}
+	return builder.String()
+}
+
+func modelResultText(t testing.TB, result *mcp.CallToolResult, allowEmpty bool) string {
+	t.Helper()
 
 	if len(result.Content) == 0 {
+		if allowEmpty {
+			return ""
+		}
 		t.Fatal("结果无内容")
 	}
 

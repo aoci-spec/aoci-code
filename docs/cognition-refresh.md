@@ -86,11 +86,11 @@ cognition is reliable.
 If `aoci_rules` is no longer reliably present, read it first. Before continuing
 the business task, declare `context_compaction` with a fresh
 `refresh_event_id` and make an ordinary complete Whole-Index Overview request,
-not `check_only` and not a cognition probe. Follow every exact `next_cursor`
-through `completed=true`, confirm delivery, and submit one Attestation from the
-newly delivered body. After that fresh complete transport, a partial or failed
-Attestation still consumes the generation and permits the existing source-bound
-continuation without an automatic second Overview.
+not `check_only` and not a cognition probe. A single-response body that reaches
+`BODY_END` needs no model confirmation or Attestation; continue the existing
+source-bound task directly. Only the compatible multi-Chunk path follows
+private `_meta.next_cursor` through `completed=true` and uses its existing
+proof. Neither path starts an automatic second Overview.
 
 `check_only` is the inexpensive probe: it always returns compact JSON. Calling
 without `check_only` asks AOCI to deliver the complete selected scope. The
@@ -125,6 +125,11 @@ chunk-recovery semantics are defined in
 [`overview-delivery.md`](overview-delivery.md).
 
 ## Receipts and repeated calls
+
+The default 600,000-token single-response path intentionally performs no model
+proof and therefore does not claim strict Attestation or full-system
+reliability. The rules below describe the retained compatible multi-Chunk proof
+path and explicit proof calls.
 
 A complete, Host-confirmed, governance-aligned Attestation attempt advances
 `refresh_generation`, records the last event ID, clears merged reasons, and

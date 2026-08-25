@@ -310,7 +310,7 @@ func registerReadTools(
 						),
 					)
 
-					return textResult(delivery.Output)
+					return overviewResult(delivery.Output)
 				},
 			), nil, nil
 		},
@@ -486,7 +486,7 @@ func handleFrozenOverviewContinuation(
 			frozen.plan.Context.Receipt, delivery.Attestation, frozen.eligible,
 		)
 		ledger.Append(root, cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
-		return textResult(delivery.Output), true
+		return overviewResult(delivery.Output), true
 	}
 
 	output, err := renderOverviewChunkWithSpans(
@@ -508,7 +508,7 @@ func handleFrozenOverviewContinuation(
 	facts := frozen.plan.Facts
 	facts.OutputBytes = len(output)
 	ledger.Append(root, cfg.LedgerEnabled, facts.ledgerEvent(time.Since(start).Milliseconds()))
-	return textResult(output), true
+	return overviewResult(output), true
 }
 
 func handleGetEntries(

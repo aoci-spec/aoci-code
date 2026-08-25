@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """AOCI MCP scenario suite — black-box end-to-end tests over the public MCP + CLI
-surfaces only. Write scenarios run against disposable fixture repositories; the
-real repository is used read-only (delivery fault injection exploits its 7-chunk
-chain). Safety properties, not implementation choices, are asserted; where the
+surfaces only. Write scenarios run against disposable fixture repositories;
+delivery fault injection also uses an established disposable fixture with an
+explicit small Chunk budget. Safety properties, not implementation choices, are asserted; where the
 contract permits multiple outcomes, the scenario records a CHARACTERIZATION.
 
 Groups:
@@ -22,9 +22,8 @@ Usage:  python3 scripts/blackbox/mcp_scenarios.py
 Env:    AOCI_REPO / AOCI_BIN 覆盖仓库与二进制路径（默认取本脚本所在仓库）;
         AOCI_SCENARIO_WORK 指定夹具目录并保留（默认系统临时目录、跑完清理）;
         AOCI_SCENARIO_KEEP=1 保留默认临时夹具以便排查。
-Requires: a built binary; group A additionally needs the host repository to hold
-an established multi-chunk overview (chunk_tokens 8000). Fixtures set their own
-git identity; the host repository is never written.
+Requires: a built binary. Fixtures set their own git identity; the host
+repository is never written.
 """
 import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
 
@@ -161,7 +160,15 @@ def parse_kv(text):
             else: out[k] = v
     return out
 
-def meta_and_body(text):
+def meta_and_body(value):
+    if isinstance(value, dict):
+        result = value.get("result") or {}
+        text, _ = text_of(value)
+        meta = result.get("_meta")
+        if isinstance(meta, dict):
+            return meta, text or None
+    else:
+        text = value
     if MARK in text:
         head, body = text.split(MARK + "\n", 1)
         return jload(head), body
@@ -264,24 +271,30 @@ def fixture_aligned(repo):
     return rc == 0 and aligned, v
 
 # ================================================================ GROUP A
-def group_a():
+def group_a(fx):
     g = "A"
-    # -- A1 replay + A2 tamper + A3 sha tamper + A4 cross-session: real repo chain
-    s = Session(REAL)
-    t, err = text_of(s.call("aoci_overview"))
-    m1, _ = meta_and_body(t)
+    # -- A1 replay + A2 tamper + A3 sha tamper + A4 cross-session: fixture chain
+    rc, _, out, _ = cli(fx, "config", "set", "overview_delivery.chunk_tokens", "4000")
+    if rc != 0:
+        record(g, "chain-setup", "FAIL", out[:150]); return
+    s = Session(fx)
+    resp = s.call("aoci_overview")
+    t, err = text_of(resp)
+    m1, _ = meta_and_body(resp)
     cur1 = m1.get("next_cursor")
     if not cur1:
-        record(g, "chain-setup", "FAIL", "real repo overview did not chunk"); s.close(); return
-    t, err = text_of(s.call("aoci_overview", {"cursor": cur1}))
-    m2, _ = meta_and_body(t)
+        record(g, "chain-setup", "FAIL", "fixture overview did not chunk at 4000 tokens"); s.close(); return
+    resp = s.call("aoci_overview", {"cursor": cur1})
+    t, err = text_of(resp)
+    m2, _ = meta_and_body(resp)
     cur2 = m2.get("next_cursor")
 
     # A1: replay an already-consumed cursor (cur1 again after advancing to cur2).
     # Documented: an exact replay of a genuine cursor idempotently re-serves the
     # identical Chunk bytes (spec/public/aoci-overview-delivery-v1.txt, cursor §).
-    t, err = text_of(s.call("aoci_overview", {"cursor": cur1}))
-    mrep, brep = meta_and_body(t)
+    resp = s.call("aoci_overview", {"cursor": cur1})
+    t, err = text_of(resp)
+    mrep, brep = meta_and_body(resp)
     if brep is not None and hashlib.sha256(brep.encode()).hexdigest() == m2.get("chunk_sha256"):
         record(g, "A1.replayed-cursor", "PASS", "idempotent re-serve of identical chunk bytes")
     else:
@@ -300,9 +313,10 @@ def group_a():
 
     # A4: cursor across server processes. Documented: with an unchanged Index and
     # chunk_tokens, the same cursor is accepted across MCP process restarts.
-    s2 = Session(REAL)
-    t, err = text_of(s2.call("aoci_overview", {"cursor": cur2}))
-    mx, bx = meta_and_body(t)
+    s2 = Session(fx)
+    resp = s2.call("aoci_overview", {"cursor": cur2})
+    t, err = text_of(resp)
+    mx, bx = meta_and_body(resp)
     if bx is not None:
         ok = hashlib.sha256(bx.encode()).hexdigest() == mx.get("chunk_sha256")
         record(g, "A4.cross-session-cursor", "PASS" if ok else "FAIL",
@@ -338,8 +352,9 @@ def group_b():
         record("A", "A5.config-key", "FAIL", out[:150])
     else:
         sc = Session(fx)
-        t, err = text_of(sc.call("aoci_overview"))
-        mm, bb = meta_and_body(t)
+        resp = sc.call("aoci_overview")
+        t, err = text_of(resp)
+        mm, bb = meta_and_body(resp)
         if not mm.get("next_cursor"):
             record("A", "A5.chunk-tokens-change", "CHAR", f"fixture index fits one chunk at 4000 tokens (est={mm.get('estimated_tokens')}); scenario skipped")
         else:
@@ -347,7 +362,7 @@ def group_b():
             cli(fx, "config", "set", "overview_delivery.chunk_tokens", "6000")
             t, err = text_of(sc.call("aoci_overview", {"cursor": cur}))
             record("A", "A5.chunk-tokens-change", "PASS" if is_rejection(t, err) else "FAIL", t[:150])
-            cli(fx, "config", "set", "overview_delivery.chunk_tokens", "8000")
+            cli(fx, "config", "set", "overview_delivery.chunk_tokens", "600000")
         sc.close()
 
     # B2: stale entry refresh with preserved semantics
@@ -416,8 +431,9 @@ def group_c():
     t, _ = text_of(s1.call("aoci_overview"))
     s1.kill()
     s2 = Session(fx)
-    t, err = text_of(s2.call("aoci_overview"))
-    m2, b2 = meta_and_body(t)
+    resp = s2.call("aoci_overview")
+    t, err = text_of(resp)
+    m2, b2 = meta_and_body(resp)
     ok = not err and (m2.get("completed") or m2.get("next_cursor"))
     record(g, "C1.chain-survives-server-death", "PASS" if ok else "FAIL", t[:150])
     s2.close()
@@ -515,15 +531,17 @@ def group_d(bigfx=None):
     fx = bigfx or fx
     cli(fx, "config", "set", "overview_delivery.chunk_tokens", "4000")
     sC = Session(fx)
-    t, _ = text_of(sC.call("aoci_overview"))
-    mm, _ = meta_and_body(t)
+    resp = sC.call("aoci_overview")
+    t, _ = text_of(resp)
+    mm, _ = meta_and_body(resp)
     cur = mm.get("next_cursor")
     if not cur:
         record(g, "D2.index-change-mid-chain", "CHAR", "fixture fits one chunk; cannot open a chain")
     else:
         st = land_write(fx, "f011.go", "Provides revised fixture constant unit 11")
-        t, err = text_of(sC.call("aoci_overview", {"cursor": cur}))
-        mrej, brej = meta_and_body(t)
+        resp = sC.call("aoci_overview", {"cursor": cur})
+        t, err = text_of(resp)
+        mrej, brej = meta_and_body(resp)
         ok = st == "applied" and brej is None and ("overview_snapshot_changed" in t or "bad_args" in t or err)
         record(g, "D2.index-change-mid-chain", "PASS" if ok else "FAIL", t[:150])
     sC.close()
@@ -534,15 +552,17 @@ def group_d(bigfx=None):
     # Baseline participates only in the session-scoped Level-4 governance
     # binding, never in the chunk-chain stop list.
     sC = Session(fx)
-    t, _ = text_of(sC.call("aoci_overview"))
-    mm, _ = meta_and_body(t)
+    resp = sC.call("aoci_overview")
+    t, _ = text_of(resp)
+    mm, _ = meta_and_body(resp)
     cur = mm.get("next_cursor")
     if not cur:
         record(g, "D3.baseline-only-mid-chain", "CHAR", "no chain")
     else:
         st = land_write(fx, "f012.go", "Provides fixture constant unit 12")  # unchanged text => index bytes stable
-        t, err = text_of(sC.call("aoci_overview", {"cursor": cur}))
-        mc, bc = meta_and_body(t)
+        resp = sC.call("aoci_overview", {"cursor": cur})
+        t, err = text_of(resp)
+        mc, bc = meta_and_body(resp)
         if st == "applied" and not err and (mc.get("completed") or mc.get("chunk_index")):
             record(g, "D3.baseline-only-mid-chain", "PASS",
                    "continuation proceeds; index bytes unchanged, Baseline only binds the Level-4 governance plane")
@@ -856,8 +876,8 @@ def verify_published_scenario_count(total):
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
-    group_a()
     bigfx = group_b()
+    group_a(bigfx)
     group_c()
     group_d(bigfx)
     group_e()

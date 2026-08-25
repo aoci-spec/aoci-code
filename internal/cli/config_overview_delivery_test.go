@@ -14,6 +14,7 @@ func TestConfigSetOverviewChunkTokens(t *testing.T) {
 		{value: "4000", want: 4000},
 		{value: "12000", want: 12000},
 		{value: "24000", want: 24000},
+		{value: "600000", want: 600000},
 	} {
 		t.Run(current.value, func(t *testing.T) {
 			root := t.TempDir()
@@ -35,7 +36,7 @@ func TestConfigSetOverviewChunkTokens(t *testing.T) {
 }
 
 func TestConfigSetOverviewChunkTokensRejectsInvalid(t *testing.T) {
-	for _, value := range []string{"3999", "24001", "20.5", "auto"} {
+	for _, value := range []string{"3999", "600001", "20.5", "auto"} {
 		t.Run(value, func(t *testing.T) {
 			root := t.TempDir()
 			cfg := legacyTestConfig()

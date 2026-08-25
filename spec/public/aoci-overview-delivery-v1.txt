@@ -4,10 +4,11 @@ AOCI Overview Delivery Integrity v1
 Scope
 -----
 
-This specification defines complete Whole-Index delivery, compact checkpoint
-reads, deterministic transport framing, Host confirmation, and model cognition
-attestation through the existing `aoci_overview` MCP tool. It adds no tool,
-semantic Chunk, persistent delivery Session, or second Attestation protocol.
+This specification defines complete Whole-Index delivery, model-visible body
+content, Host-private top-level `_meta`, compact checkpoint reads, deterministic
+transport framing, and the compatible multi-Chunk proof path through the
+existing `aoci_overview` MCP tool. It adds no tool, semantic Chunk, persistent
+delivery Session, or second Attestation protocol.
 
 Request modes
 -------------
@@ -22,8 +23,9 @@ snapshot is framed as:
 No directory inventory, relocation note, recall note, generated summary, or
 other display wrapper appears inside that body. Runtime repository root, Entry
 and Section counts, estimated tokens, Index SHA-256, framed-body bytes and
-SHA-256, and delivery state remain machine Metadata. Dirty or Stale cognition
-may be delivered but is unreliable as current implementation evidence.
+SHA-256, and delivery state remain machine Metadata in top-level `_meta`; they
+do not appear in model-visible `content`. Dirty or Stale cognition may be
+delivered but is unreliable as current implementation evidence.
 
 Only explicit `check_only=true` produces `request_mode=check_only`,
 `delivery_mode=checkpoint`, and no cognition body or chunk chain. Pending
@@ -33,16 +35,18 @@ Chunk configuration
 -------------------
 
 The single project setting `overview_delivery.chunk_tokens` controls only
-Overview transport frame size. Its default is 8000 and its inclusive range is
-4000 through 24000. Missing configuration uses 8000. An invalid value fails
+Overview transport frame size. Its default is 600000 and its inclusive range is
+4000 through 600000. Missing configuration uses 600000. An invalid value fails
 explicitly and is never clamped or repaired. The setting does not participate
 in Index, Baseline, Managed Scope, cognition budget, or formal semantic
 identity. AOCI performs no Host capability detection, local override, adaptive
 retry, or automatic reduction of the configured value.
 
 If the exact framed body is estimated at no more than `chunk_tokens`, one call
-returns `delivery_mode=full`, `completed=true`, and
-`continuation_required=false`. Otherwise the first ordinary call directly
+returns body-only model `content` plus `delivery_mode=full`, `completed=true`,
+and `continuation_required=false` in `_meta`. This path requires no
+`host_delivery_confirmation`, model Attestation, or additional AOCI reply.
+Otherwise the first ordinary call directly
 returns Chunk 1 with `delivery_mode=chunked_full` and a `next_cursor`; it does
 not first attempt the complete oversized body. Subsequent calls use only that
 cursor until the final Chunk reports `completed=true` and
@@ -89,15 +93,17 @@ deterministically re-derivable from the bound facts alone, so an unchanged
 Index and `chunk_tokens` accept the same cursor across MCP process restarts;
 the Volumes governance binding remains in-memory session state.
 
-Full-body receipt and Host confirmation
----------------------------------------
+Full-body receipt and compatible Host confirmation
+--------------------------------------------------
 
 The aggregate body uses `overview-delivery-receipt/v1` and reports runtime
 repository root, scope, scope identity, object count, exact framed-body byte
 count, SHA-256, and both markers. Server production and Host observation are
 different facts. Host delivery becomes confirmed only when the Host reports
 the matching Receipt version, aggregate body SHA-256, byte count, and observed
-end marker. Any missing or mismatched field is incomplete.
+end marker. Any missing or mismatched field is incomplete. This explicit
+confirmation applies to the compatible multi-Chunk proof path; a complete
+single response ends at `BODY_END` without a follow-up proof call.
 
 The Host assembles every Chunk in order, verifies each Chunk Receipt and the
 aggregate body, and observes the final marker before confirming delivery. Host
@@ -176,10 +182,10 @@ invalidate the delivery. Ledger, Verify History, and other safety-excluded
 runtime audit files are neither prerequisites nor cognition/governance identity
 inputs and do not change formal assets.
 
-Model Cognition Attestation v1
-------------------------------
+Compatible multi-Chunk Model Cognition Attestation v1
+------------------------------------------------------
 
-After the complete chain, the Host uses the existing
+After a complete compatible multi-Chunk chain, the Host may use the existing
 `model-cognition-attestation/v1`. Its default deterministic Challenge contains
 one Entry ordinal when at least one Entry exists and no ordinal for an empty
 scope. The answer binds that ordinal to exact object identity, Tag, and core F
@@ -293,15 +299,19 @@ while the strict assimilation proof remains incomplete.
 Agent and user contract
 -----------------------
 
-On `continuation_required=true`, the Agent does not ask whether to continue,
-state a partial system conclusion, or begin the business task. It submits the
-exact `next_cursor` and continues automatically until completion. Every failure
+On `continuation_required=true`, the Host reads the exact `next_cursor` from
+private `_meta` and continues automatically without a model turn. The Agent
+does not ask whether to continue, choose Chunk calls, state a partial system
+conclusion, or begin the business task. Every failure
 listed above stops the chain or acceptance; local and historical information
 must not be used to claim completion.
 
-Initial cognition still requires complete transport, continuous coverage, a
-passing Challenge, passing Attestation, aligned governance, and sufficient
-mastery for `model_full_cognition_reliable=true`. Initial partial or failure
+Single-response cognition requires complete body content through `BODY_END`
+but no model confirmation. It does not by itself claim
+`strict_attestation_verified` or `model_full_cognition_reliable=true`. The
+compatible multi-Chunk strict path still requires complete transport,
+continuous coverage, a passing Challenge, passing Attestation, aligned
+governance, and sufficient mastery for that reliability claim. Initial failure
 blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
 but it does not prohibit honest answers or task-bound source/test inspection.
 
@@ -313,7 +323,8 @@ the Host continues the existing source-bound task without a second automatic
 Overview. It does not claim complete-system cognition and must not repair the
 Attestation through local or historical information.
 
-After a successful Attestation, ordinary user communication is one concise
+The single-response path produces no extra AOCI success message; the model
+continues the original task. After a successful compatible Attestation, user communication is one concise
 natural-language sentence derived from the actual Entry, token, Chunk,
 Challenge, coverage, and mastery results. A real delivery failure is one
 concise sentence that states received versus total Chunks, approximate

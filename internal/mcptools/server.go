@@ -23,6 +23,7 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -87,6 +88,78 @@ type GlobalStopFacts struct {
 // textResult 纯文本成功结果
 func textResult(s string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: s}}}
+}
+
+// overviewResult keeps successful Overview transport facts private to the
+// Host. The model receives only the exact body; errors, absent scopes and
+// explicit checkpoints remain ordinary actionable text results.
+func overviewResult(output string) *mcp.CallToolResult {
+	metadata, body, ok := splitOverviewResult(output)
+	if !ok {
+		return textResult(output)
+	}
+	content := []mcp.Content{}
+	if body != "" {
+		content = append(content, &mcp.TextContent{Text: body})
+	}
+	return &mcp.CallToolResult{Meta: metadata, Content: content}
+}
+
+func splitOverviewResult(output string) (mcp.Meta, string, bool) {
+	if marker := "\n" + overviewChunkBodyMarker + "\n"; strings.Contains(output, marker) {
+		head, body, _ := strings.Cut(output, marker)
+		metadata := mcp.Meta{}
+		if json.Unmarshal([]byte(head), &metadata) != nil {
+			return nil, "", false
+		}
+		return metadata, body, true
+	}
+	if !strings.HasPrefix(output, "AOCI Overview Metadata:\n") {
+		return nil, "", false
+	}
+	metadataEnd := strings.Index(output, "<<<AOCI_OVERVIEW_BODY_BEGIN/v1")
+	if metadataEnd < 0 {
+		metadata := parseOverviewLineMetadata(output)
+		if metadata["delivery_mode"] != overviewDeliveryAttestation {
+			return nil, "", false
+		}
+		return metadata, "", true
+	}
+
+	metadata := parseOverviewLineMetadata(output[:metadataEnd])
+	bodyAndTail := output[metadataEnd:]
+	endStart := strings.LastIndex(bodyAndTail, "\n<<<AOCI_OVERVIEW_BODY_END/v1")
+	if endStart < 0 {
+		return nil, "", false
+	}
+	endLine := strings.IndexByte(bodyAndTail[endStart+1:], '\n')
+	if endLine < 0 {
+		return nil, "", false
+	}
+	bodyEnd := endStart + 1 + endLine + 1
+	for key, value := range parseOverviewLineMetadata(bodyAndTail[bodyEnd:]) {
+		metadata[key] = value
+	}
+	metadata["host_delivery_confirmation_required"] = false
+	metadata["model_cognition_attestation_required"] = false
+	return metadata, bodyAndTail[:bodyEnd], true
+}
+
+func parseOverviewLineMetadata(text string) mcp.Meta {
+	metadata := mcp.Meta{}
+	for _, line := range strings.Split(text, "\n") {
+		key, value, ok := strings.Cut(line, ": ")
+		if !ok || key == "AOCI Overview Metadata" {
+			continue
+		}
+		var decoded any
+		if json.Unmarshal([]byte(value), &decoded) == nil {
+			metadata[key] = decoded
+		} else {
+			metadata[key] = value
+		}
+	}
+	return metadata
 }
 
 // errResult 纯文本错误结果(IsError=true;含分类码与下一步建议)

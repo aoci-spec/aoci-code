@@ -42,9 +42,9 @@ const (
 
 	// Overview delivery is transport framing only. These values do not enter
 	// Index, Baseline, Managed Scope, cognition-budget, or semantic identity.
-	OverviewChunkTokensDefault = 8000
+	OverviewChunkTokensDefault = 600000
 	OverviewChunkTokensMin     = 4000
-	OverviewChunkTokensMax     = 24000
+	OverviewChunkTokensMax     = 600000
 
 	// Code Cognition authoring batches: how many candidates one Maintain asks
 	// the model to author in a single aoci_update_entry call. The ceiling is

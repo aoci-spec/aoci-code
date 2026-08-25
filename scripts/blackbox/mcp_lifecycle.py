@@ -20,7 +20,7 @@ init→漂移→重对齐全程；repo-c 只到 aligned，不注入漂移，它�
   模型轨 (真 agent 经 OpenCode/Zen 驱动, 统计性结果):
     establish    真模型从零建立全索引到 aligned                  (repo-a)
     dbauthor     真模型授权 5 张表 FRAS + ALTER 后重授权          (repo-b)
-    attest       真模型走 overview 全链并答宣誓挑战               (repo-a)
+    attest       真模型单响应读取 overview，不提交确认或宣誓       (repo-a)
 
 Usage:
   python3 scripts/blackbox/mcp_lifecycle.py                       # 确定性轨全跑
@@ -49,7 +49,7 @@ M_SUITES = ["establish", "dbauthor", "attest"]
 
 PROMPT_ESTABLISH = (
     "Read AGENTS.md first. Establish complete AOCI cognition for THIS repository: "
-    "call aoci_rules once, request aoci_overview and follow next_cursor until completed, "
+    "call aoci_rules once and request aoci_overview once; after its model-visible BODY_END, "
     "then use aoci_maintain and aoci_update_entry to author every candidate entry from real "
     "source evidence per the authoring contract (preserve code_batch_id, candidate_id, "
     "source_sha256 exactly; on repair_required fix only the named candidates and resubmit the "
@@ -64,10 +64,10 @@ PROMPT_DBAUTHOR = (
     "until maintain reports aligned=true. Do not modify project files or the database."
 )
 PROMPT_ATTEST = (
-    "Read AGENTS.md first. Call aoci_rules once, then aoci_overview and follow next_cursor "
-    "until completed=true. Then submit host_delivery_confirmation and the "
-    "model-cognition-attestation answering the challenge strictly from the delivered chunks. "
-    "Report the challenge result. Do not read source files before the attestation is submitted."
+    "Read AGENTS.md first. Call aoci_rules once, then call aoci_overview exactly once. "
+    "Observe that its model-visible content reaches BODY_END, then finish without another "
+    "AOCI call. Do not submit host_delivery_confirmation or model-cognition-attestation, "
+    "and do not read source files."
 )
 
 
@@ -744,12 +744,14 @@ def suite_scale(rep, work):
         rep.rec(g, "budget-at-scale", "PASS" if tokens else "CHAR", f"whole_index_tokens={tokens}")
         s = Session(fx)
         started = time.time()
-        t, err = text_of(s.call("aoci_overview"))
-        meta, _ = meta_and_body(t)
+        resp = s.call("aoci_overview")
+        t, err = text_of(resp)
+        meta, body = meta_and_body(resp)
         s.close()
-        chunked = bool(meta.get("next_cursor")) or (meta.get("chunk_count") or 0) > 1
-        rep.rec(g, "overview-chunked-at-scale", "PASS" if chunked else "CHAR",
-                f"chunk_count={meta.get('chunk_count')} entries={meta.get('entry_count')}",
+        single = meta.get("completed") is True and not meta.get("next_cursor") \
+            and "<<<AOCI_OVERVIEW_BODY_END/v1" in (body or "")
+        rep.rec(g, "overview-single-response-at-scale", "PASS" if single else "FAIL",
+                f"completed={meta.get('completed')} chunk_count={meta.get('chunk_count', 1)} entries={meta.get('entry_count')}",
                 duration_s=round(time.time() - started))
 
     # 分层 DAG: 关系稠密但有解。机器不看关系, 必须照常一路滚完。
@@ -922,15 +924,11 @@ def m_attest(rep, work, model, timeout_s, artifacts):
         rep.rec(g, "setup", "FAIL", detail)
         return
     art = os.path.join(artifacts, f"attest-{tag}.json")
-    rc, dur, out = opencode_run(fx, model, PROMPT_ATTEST, timeout_s, art)
-    blob = out[-200000:]
-    if "model_attestation: pass" in blob or '"challenge_passed": "1/1"' in blob or "challenge_passed: 1/1" in blob:
-        rep.rec(g, "challenge", "PASS", "1/1 markers in session", duration_s=round(dur))
-    elif "model_attestation: fail" in blob:
-        n = re.search(r"challenge_passed:\s*(\d+)/(\d+)", blob)
-        rep.rec(g, "challenge", "FAIL", f"attestation fail {n.group(0) if n else ''}", duration_s=round(dur))
-    else:
-        rep.rec(g, "challenge", "CHAR", f"no attestation marker found rc={rc}", duration_s=round(dur))
+    rc, dur, _ = opencode_run(fx, model, PROMPT_ATTEST, timeout_s, art)
+    calls = ledger_metrics(fx)["ops"].get("overview", 0)
+    ok = rc == 0 and calls == 1
+    rep.rec(g, "single-response-no-model-proof", "PASS" if ok else "FAIL",
+            f"rc={rc} overview_calls={calls}", duration_s=round(dur))
 
 
 # ---------------------------------------------------------------- compare

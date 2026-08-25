@@ -647,19 +647,19 @@ At the beginning of a new conversation, an AI Agent normally loads one complete 
 
 During the same conversation, the model decides whether to load again based on its own cognition state, except after a known Host context compaction. A compacted handoff may preserve only receipt identity, unfinished write or Recovery state, and an immediate reload instruction; it must not retain or summarize Whole-Index or Overview Header, Entry, Chunk, Challenge, or Attestation bodies. Index semantics or a receipt copied into that handoff cannot prove current model cognition reliable.
 
-Before continuing business work after known compaction, the Agent reloads Rules if they are no longer reliably present, declares `context_compaction` with a fresh event ID, and completes one ordinary full Overview cursor, confirmation, and Attestation sequence. `check_only` and the cognition probe are not substitutes. After fresh complete transport, the existing partial or failed Attestation rule still permits source-bound continuation without a second automatic Overview. For semantic change or a major phase boundary without known compaction, AOCI provides refresh thresholds, Checkpoints, and identity facts while the model decides whether system-level cognition must be restored for the task.
+Before continuing business work after known compaction, the Agent reloads Rules if needed, declares `context_compaction` with a fresh event ID, and requests one ordinary full Overview. A single response ending at `BODY_END` needs no model confirmation or Attestation; the Agent continues the source-bound task directly. Only an explicitly configured multi-Chunk response uses Host-driven private `_meta` continuation and the compatible proof path. `check_only` and the cognition probe are not substitutes.
 
 The body of each complete Overview consists of a start marker, the exact content of the current formal index, and an end marker.
 
-When an Overview exceeds the project’s Chunk budget:
+Successful Overview `content` contains only that exact body. Transport fields—including cursors, hashes, receipts, status, and Challenge data—are returned in top-level `_meta` for the Host and do not enter model context. When an Overview exceeds an explicitly configured smaller Chunk budget:
 
 1. delivery begins immediately with Chunk 1;
-2. the AI Agent must follow `next_cursor` automatically through the final Chunk;
-3. the AI Agent submits one Attestation using the delivered Whole-Index;
+2. the Host follows private `_meta.next_cursor` automatically through the final Chunk without model turns;
+3. the compatible multi-Chunk proof path remains available after complete assembly;
 4. local search, old memory, supplemental source reading, or direct file reads must not be presented as complete delivery;
 5. Pending Recovery or an inconsistent snapshot fails closed without mixing content.
 
-`overview_delivery.chunk_tokens` is the only delivery-size setting. Its default is `8000`, with a valid range from `4000` to `24000`. `check_only=true` is a compact checkpoint without a Chunk chain.
+`overview_delivery.chunk_tokens` is the only delivery-size setting. Its default and maximum are `600000`; the valid range is `4000` to `600000`. A fitting body is returned once and requires no model reply. `check_only=true` is a compact checkpoint without a Chunk chain.
 
 The cognition refresh threshold defaults to 30 distinct semantic paths and can also be configured per project. For exact counting rules, defer to the Cognition Refresh documentation and runtime contract.
 

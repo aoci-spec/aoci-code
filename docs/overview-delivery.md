@@ -3,17 +3,20 @@
 An ordinary `aoci_overview` call delivers one complete formal Whole-Index. The
 body is only the start marker, the exact `aoci.txt` bytes, and the end marker;
 the former generated directory inventory and explanatory wrapper are absent.
-Repository root, counts, token estimate, Index SHA, body bytes/SHA, and delivery
-state remain in Metadata. `check_only=true` remains a compact checkpoint with
-no body.
+Repository root, counts, token estimate, Index SHA, body bytes/SHA, cursors,
+receipts, Challenge, and delivery state are returned in top-level `_meta` for
+the Host. They are not included in model-visible `content`. `check_only=true`
+remains a compact checkpoint with no body.
 
 `overview_delivery.chunk_tokens` is the only delivery-size setting. It defaults
-to 8,000 tokens and accepts 4,000 through 24,000. Missing configuration also
-uses 8,000. An invalid value fails
+to 600,000 tokens and accepts 4,000 through 600,000. Missing configuration also
+uses 600,000. An invalid value fails
 instead of being adjusted. This setting affects transport only; it does not
 change formal cognition or any governance identity.
 
-If the framed body fits, the tool returns it once. Otherwise the first ordinary
+If the framed body fits, the tool returns it once and the model continues the
+task without submitting confirmation, Attestation, or another AOCI reply.
+Otherwise the first ordinary
 call immediately returns Chunk 1. Each Chunk preserves UTF-8 and complete Entry
 boundaries, every Entry appears once in formal order, the Header appears only
 in Chunk 1, and only the final Chunk has the end marker. A single Entry larger
@@ -68,9 +71,10 @@ the requested scope. Chunk first/last ordinals, Challenge ordinals,
 Attestation answers, and coverage all consume this exact shared sequence; there
 is no display or implicit-offset ordinal.
 
-When `continuation_required=true`, an AI Agent must submit the exact returned
-cursor and continue automatically. It must not ask the user to continue,
-start the business task, or state a partial system conclusion. Search, scoped
+When `continuation_required=true`, the Host reads the exact cursor from private
+`_meta` and continues automatically without another model turn. The model must
+not be asked to choose Chunk calls, ask the user to continue, start the
+business task, or state a partial system conclusion. Search, scoped
 reads, and Entry lookup can answer local questions only after acceptance; they
 cannot repair an incomplete Whole-Index chain or failed Attestation. Host
 truncation, missing/duplicate/reordered Chunks, or cursor or
@@ -83,7 +87,8 @@ the user may set
 a smaller valid `overview_delivery.chunk_tokens` value and restart. AOCI does
 not detect Host capacity or shrink Chunks automatically.
 
-After the final Chunk, the Host verifies the aggregate
+The single-response path ends at `BODY_END` and requires no proof call. After
+the final Chunk on the compatible multi-Chunk path, the Host verifies the aggregate
 `overview-delivery-receipt/v1` and submits the existing one-ordinal
 `model-cognition-attestation/v1`. Delivery integrity, machine Entry coverage,
 Challenge binding, and model-reported mastery remain separate. Only a complete,
@@ -150,8 +155,8 @@ failure to understand the system. `model_full_cognition_reliable`,
 `cognition_assimilation`, and `governance_aligned` retain their existing
 meanings.
 
-Successful ordinary user feedback is one short sentence with actual Entry,
-token, Chunk, Challenge, coverage, and mastery results. A delivery failure is
+The normal single-response path emits no extra AOCI success reply; the model
+continues the task using the delivered body. A delivery failure is
 one short sentence with received/total Chunks, approximate coverage, the
 reason, and an explicit statement that complete system cognition cannot be
 claimed. Confirmed delivery with an absent, partial, or failed Attestation is
@@ -159,7 +164,9 @@ reported instead as loaded and delivery-verified with complete cognition
 verification unfinished. Detailed cursors, SHA values, Metadata, and
 Attestation JSON remain machine evidence.
 
-With a normal AOCI MCP, use Rules, the automatic Chunk chain, then Attestation.
+With a normal AOCI MCP, use Rules and one ordinary Overview response. Explicit
+small-budget compatibility mode uses the automatic Host Chunk chain and may
+then use Attestation.
 Direct segmented reading of `aoci.txt` is only a no-MCP fallback or diagnostic;
 it lacks equivalent Chunk-chain integrity, governance and Baseline state,
 pending-transaction protection, and Attestation proof. No second file-read

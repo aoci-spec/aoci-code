@@ -204,7 +204,7 @@ func finalChunkCognitionPromptForTest(
 		rendered := renderLegacyOverviewForTest(
 			t, "/repo", "test", content, document,
 			overviewIn{Cursor: cursor, CognitionStateVersion: cognitionStateVersion},
-			machinecontract.OverviewChunkTokensDefault,
+			machinecontract.OverviewChunkTokensMin,
 		)
 		parts := strings.SplitN(rendered.Output, "\n"+overviewChunkBodyMarker+"\n", 2)
 		if len(parts) != 2 {

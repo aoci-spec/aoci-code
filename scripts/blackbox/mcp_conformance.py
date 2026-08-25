@@ -19,7 +19,6 @@ BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
 EXPECT_VERSION = os.environ.get("AOCI_EXPECT_VERSION", "")
 NINE = ["aoci_rules","aoci_overview","aoci_get_entries","aoci_search",
         "aoci_update_entry","aoci_report","aoci_remove_entry","aoci_header","aoci_maintain"]
-MARK = "<<<AOCI_OVERVIEW_CHUNK_BODY/v1>>>"
 
 PASS, FAIL = [], []
 def ok(name, cond, detail=""):
@@ -82,14 +81,18 @@ class Session:
 def text_of(resp):
     r = resp.get("result") or {}
     parts = r.get("content") or []
-    return "\n".join(c.get("text","") for c in parts if c.get("type")=="text"), bool(r.get("isError"))
+    text = "\n".join(c.get("text","") for c in parts if c.get("type")=="text")
+    if not text and r.get("_meta"):
+        text = "\n".join(f"{k}: {json.dumps(v, ensure_ascii=False) if not isinstance(v, str) else v}"
+                         for k, v in sorted(r["_meta"].items()))
+    return text, bool(r.get("isError"))
 
-def meta_and_body(text):
-    """Overview responses: JSON metadata, then MARK line, then exact chunk body."""
-    if MARK in text:
-        head, body = text.split(MARK + "\n", 1)
-        return json.loads(head[head.index("{"):head.rindex("}")+1]), body
-    return json.loads(text[text.index("{"):text.rindex("}")+1]), None
+def overview_of(resp):
+    """Return Host-private Overview metadata and model-visible body separately."""
+    r = resp.get("result") or {}
+    body = "\n".join(c.get("text", "") for c in r.get("content") or []
+                     if c.get("type") == "text")
+    return r.get("_meta") or {}, body, bool(r.get("isError"))
 
 # ---------- Session 1: identity, tools, rules, full overview chain, aux reads ----------
 s = Session()
@@ -121,20 +124,27 @@ ok("rules.machine_facts", "cognition_refresh_threshold: 30" in rules_text)
 # crosses a chunk boundary).
 chunks, cursor, meta0 = [], None, None
 chunk_errors, chunk_sha_mismatches = [], []
+model_content_shapes = []
 for i in range(1, 12):
     args = {"cursor": cursor} if cursor else {}
-    t, err = text_of(s.call("aoci_overview", args))
+    response = s.call("aoci_overview", args)
+    meta, body, err = overview_of(response)
+    raw_result = response.get("result") or {}
+    visible = raw_result.get("content") or []
+    model_content_shapes.append(len(visible) == 1 and visible[0].get("type") == "text"
+                                and "structuredContent" not in raw_result
+                                and "AOCI Overview Metadata:" not in body)
     if err:
         chunk_errors.append(f"chunk{i}")
     print(("PASS " if not err else "FAIL ") + f"overview.chunk{i}.no_error")
-    meta, body = meta_and_body(t)
     if meta0 is None: meta0 = meta
     chunks.append((meta, body))
     # per-chunk sha256 must match the exact body bytes
     got = hashlib.sha256(body.encode()).hexdigest()
-    matched = got == meta["chunk_sha256"]
+    expected_sha = meta.get("chunk_sha256", meta.get("body_sha256"))
+    matched = got == expected_sha
     if not matched:
-        chunk_sha_mismatches.append(f"chunk{i}: got={got[:12]} want={meta['chunk_sha256'][:12]}")
+        chunk_sha_mismatches.append(f"chunk{i}: got={got[:12]} want={str(expected_sha)[:12]}")
     print(("PASS " if matched else "FAIL ") + f"overview.chunk{i}.sha")
     if meta.get("completed"): break
     cursor = meta["next_cursor"]
@@ -144,16 +154,21 @@ ok("overview.every_chunk_sha", not chunk_sha_mismatches,
    f"{len(chunks)} chunks; " + ("; ".join(chunk_sha_mismatches) or "all bodies match"))
 
 metaL = chunks[-1][0]
-ok("overview.chunk_count", len(chunks) == meta0["chunk_count"], f"{len(chunks)} vs {meta0['chunk_count']}")
-ok("overview.completed_marker", metaL.get("completed_marker") is True)
+ok("overview.chunk_count", len(chunks) == 1 and meta0.get("delivery_mode") == "full"
+   and meta0.get("completed") is True and meta0.get("continuation_required") is False,
+   f"chunks={len(chunks)} mode={meta0.get('delivery_mode')} completed={meta0.get('completed')}")
+end_marker_ok = bool(re.search(r"<<<AOCI_OVERVIEW_BODY_END/v1 scope=[^>]+>>>\n?$", "".join(b for _, b in chunks)))
+ok("overview.completed_marker", metaL.get("completed_marker", end_marker_ok) is True)
 # ordinal continuity
 cont = all(chunks[i][0]["first_entry_ordinal"] == chunks[i-1][0]["last_entry_ordinal"]+1 for i in range(1,len(chunks)))
-ok("overview.ordinal_continuity", cont and chunks[0][0]["first_entry_ordinal"]==1 and metaL["last_entry_ordinal"]==meta0["entry_count"])
+ordinal_ok = (cont and chunks[0][0]["first_entry_ordinal"]==1 and metaL["last_entry_ordinal"]==meta0["entry_count"]) \
+    if meta0.get("delivery_mode") == "chunked_full" else True
+ok("overview.ordinal_continuity", ordinal_ok and all(model_content_shapes))
 # whole-body sha over concatenated chunk bodies
 whole = "".join(b for _, b in chunks)
 ok("overview.body_sha", hashlib.sha256(whole.encode()).hexdigest() == meta0["body_sha256"])
 ok("overview.body_bytes", len(whole.encode()) == meta0["body_utf8_bytes"], f"{len(whole.encode())} vs {meta0['body_utf8_bytes']}")
-ok("overview.end_marker", whole.rstrip("\n").endswith("<<<AOCI_OVERVIEW_BODY_END/v1 scope=all>>>"))
+ok("overview.end_marker", bool(re.search(r"<<<AOCI_OVERVIEW_BODY_END/v1 scope=[^>]+>>>$", whole.rstrip("\n"))))
 
 # entry extraction by the ordinal contract (for the mechanical attestation later)
 entries = []
@@ -220,34 +235,10 @@ if probe_ok:
 ok("probe.correct_answers_pass", graded.get("result") == "pass", grade_detail)
 ok("probe.wrong_answer_fails", bad.get("result") == "fail", grade_detail)
 
-# split proof halves, order A: attestation alone grades pass but cannot latch
-# (delivery unconfirmed); the later confirmation-only call must pick that pass
-# up from session memory and latch reliability.
-def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False, mastery=90, coverage=100):
-    answers = []
-    for i, o in enumerate(ords):
-        ident, tag, coref = seq[o-1]
-        if bare: ident = ident.rsplit("/", 1)[-1]
-        if i in wreck_ident: ident = "internal/definitely/not/this.go"
-        if i in wreck_f: coref = "totally wrong responsibility"
-        answers.append({"ordinal": o, "object_identity": ident, "tag": tag, "core_f": coref})
-    return {"version": "model-cognition-attestation/v1",
-        "index_sha256": mfin["challenge_index_sha256"],
-        "entry_sequence_sha256": mfin["challenge_entry_sequence_sha256"],
-        "entry_count": mfin["challenge_entry_count"], "challenge_digest": mfin["challenge_digest"],
-        "reported_entry_count": m0["entry_count"], "reported_estimated_tokens": m0["estimated_tokens"],
-        "coverage_percent": coverage, "system_mastery_percent": mastery, "confidence_percent": 90,
-        "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
-        "challenge_answers": answers}
-ords1 = metaL["challenge_ordinals"] if isinstance(metaL["challenge_ordinals"], list) else [int(x) for x in str(metaL["challenge_ordinals"]).split(",")]
-confirmation1 = {"version": "overview-delivery-receipt/v1", "body_sha256": meta0["body_sha256"],
-                 "body_bytes": meta0["body_utf8_bytes"], "end_marker_observed": True}
-at, aerr = text_of(s.call("aoci_overview", {"model_cognition_attestation": attestation_for(metaL, meta0, entry_seq, ords1)}))
-ok("attestation.alone_passes_but_unlatched", (not aerr) and "model_attestation: pass" in at
-   and "delivery_integrity: unconfirmed" in at and "model_full_cognition_reliable: false" in at, at[:240])
-ct, cerr = text_of(s.call("aoci_overview", {"host_delivery_confirmation": confirmation1}))
-ok("attestation.confirmation_after_attestation_latches", (not cerr) and "model_full_cognition_reliable: true" in ct
-   and "cognition_level: 4" in ct, ct[:240])
+ok("overview.single_response_no_host_confirmation",
+   meta0.get("host_delivery_confirmation_required") is False, str(meta0)[:240])
+ok("overview.single_response_no_model_attestation",
+   meta0.get("model_cognition_attestation_required") is False, str(meta0)[:240])
 
 t, err = text_of(s.call("aoci_maintain"))
 def maintain_diag(text):
@@ -298,46 +289,25 @@ ok("report.accepted_or_clean_reject", True, "")  # either outcome is contract-le
 ok("stdout.purity.session1", not s.nonjson_stdout, str(s.nonjson_stdout[:2]))
 s.close()
 
-# ---------- Session 2: wrong attestation must fail cleanly ----------
+# ---------- Session 2: a fresh session gets the same one-call contract ----------
 s2 = Session()
 s2.rpc("initialize", {"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"h2","version":"1"}})
 s2.notify("notifications/initialized")
 c2, cur = [], None
 for i in range(1, 12):
-    t, _ = text_of(s2.call("aoci_overview", {"cursor":cur} if cur else {}))
-    m, b = meta_and_body(t); c2.append((m,b))
+    m, b, _ = overview_of(s2.call("aoci_overview", {"cursor":cur} if cur else {})); c2.append((m,b))
     if m.get("completed"): break
     cur = m["next_cursor"]
 mfin = c2[-1][0]; m0 = c2[0][0]
 whole2 = "".join(b for _,b in c2)
-ords = mfin["challenge_ordinals"] if isinstance(mfin["challenge_ordinals"], list) else [int(x) for x in str(mfin["challenge_ordinals"]).split(",")]
 seq2 = parse_entry_seq(whole2)
 ok("overview.session2_entry_parse_count", len(seq2) == m0["entry_count"], f"{len(seq2)} vs {m0['entry_count']}")
-confirmation2 = {"version": "overview-delivery-receipt/v1", "body_sha256": m0["body_sha256"],
-                 "body_bytes": m0["body_utf8_bytes"], "end_marker_observed": True}
-def attest2(**kw):
-    return text_of(s2.call("aoci_overview", {"host_delivery_confirmation": confirmation2,
-        "model_cognition_attestation": attestation_for(mfin, m0, seq2, ords, **kw)}))
-# split proof halves, order B: confirmation first, attestation second.
-ct, cerr = text_of(s2.call("aoci_overview", {"host_delivery_confirmation": confirmation2}))
-ok("attestation.confirmation_alone_is_level_2", (not cerr) and "host_delivery_status: host_delivery_confirmed" in ct
-   and "cognition_level: 2" in ct and "model_full_cognition_reliable: false" in ct, ct[:240])
-at, aerr = text_of(s2.call("aoci_overview", {"model_cognition_attestation": attestation_for(mfin, m0, seq2, ords)}))
-ok("attestation.attestation_after_confirmation_latches", (not aerr) and "model_full_cognition_reliable: true" in at
-   and "challenge_passed: 1/1" in at, at[:240])
-# Default grading uses one deterministic Challenge: a wrong identity fails,
-# correct recall with a conservative coverage claim is partial, and 1/1 passes.
-wt, werr = attest2(wreck_f=(0,))
-ok("attestation.wrong_answer_fails", (not werr) and "model_attestation: fail" in wt, wt[:200])
-pt, perr = attest2(coverage=90)
-ok("attestation.coverage_shortfall_is_partial", (not perr) and "challenge_passed: 1/1" in pt
-   and "model_attestation: partial" in pt and "model_full_cognition_reliable: false" in pt, pt[:240])
-it, ierr = attest2(wreck_ident=(0,))
-ok("attestation.identity_miss_fails", (not ierr) and "challenge_passed: 0/1" in it
-   and "model_attestation: fail" in it, it[:240])
-et, eerr = attest2()
-ok("attestation.one_of_one_passes", (not eerr) and "challenge_passed: 1/1" in et
-   and "model_attestation: pass" in et and "model_full_cognition_reliable: true" in et, et[:240])
+ok("overview.session2_single_response", len(c2) == 1 and m0.get("delivery_mode") == "full")
+ok("overview.session2_completed", m0.get("completed") is True and m0.get("continuation_required") is False)
+ok("overview.session2_body_sha", hashlib.sha256(whole2.encode()).hexdigest() == m0.get("body_sha256"))
+ok("overview.session2_body_bytes", len(whole2.encode()) == m0.get("body_utf8_bytes"))
+ok("overview.session2_no_host_confirmation", m0.get("host_delivery_confirmation_required") is False)
+ok("overview.session2_no_model_attestation", m0.get("model_cognition_attestation_required") is False)
 ok("stdout.purity.session2", not s2.nonjson_stdout)
 s2.close()
 
