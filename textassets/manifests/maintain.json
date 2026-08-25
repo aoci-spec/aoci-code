@@ -273,7 +273,7 @@
       "kind": "contract",
       "path": "contracts/maintain/actions/update-repair.txt",
       "description": "Repair-required action for an invalid semantic update batch",
-      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatchInternal",
       "protocol_tokens": [
         "findings"
       ],
@@ -288,7 +288,7 @@
       "kind": "contract",
       "path": "contracts/maintain/actions/update-stopped.txt",
       "description": "Stopped action for a semantic update conflict or runtime failure",
-      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatchInternal",
       "protocol_tokens": [],
       "locale_anchors": {
         "zh-CN": [
@@ -303,7 +303,7 @@
       "kind": "contract",
       "path": "contracts/maintain/actions/baseline-replay.txt",
       "description": "Stopped recovery action after Index postimage with incomplete Baseline",
-      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatch",
+      "used_by": "internal/mcptools/tools_write_api.go:handleMCPUpdateBatchInternal",
       "protocol_tokens": [
         "source_sha256",
         "Baseline"
