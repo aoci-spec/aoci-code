@@ -24,6 +24,10 @@ closure evidence on its own.
 | Release packaging or publication assets | `make release-check` after `make verify` |
 
 The black-box preconditions remain documented in `scripts/blackbox/README.md`.
+Coverage inside `make verify` includes `clean-room-smoke` and the
+`scripts/blackbox/mcp_conformance.py`, `scripts/blackbox/mcp_scenarios.py`, and
+`scripts/blackbox/mcp_lifecycle.py` suites; these names document coverage, not
+separate Agent commands.
 Report the gate actually run and its real output, and never report a gate that
 was not run.
 
