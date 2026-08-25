@@ -12,6 +12,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
   the duplicate tail assessment with an exact lightweight input-identity
   recheck. Strict call boundaries, cross-call drift rejection, Chunk and body
   integrity, Host confirmation, and model Attestation remain unchanged.
+- Reduce the default Overview cognition Challenge from ten ordinals to one.
+  Chunk ordering, per-Chunk and aggregate integrity checks, the final body marker,
+  Host delivery confirmation, and the generic Attestation grading rules remain
+  unchanged.
 - Report one blocker per root cause. A Managed Scope policy that no longer
   matches its receipt already reports `scope_change_required`, but the business
   source manifest refuses to build in that state, and every manifest failure
