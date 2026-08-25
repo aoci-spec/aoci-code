@@ -308,8 +308,10 @@ def group_a(fx):
     t, err = text_of(resp)
     m2, _ = meta_and_body(resp)
     cur2 = m2.get("next_cursor")
+    attack_cursor = cur2 or cur1
 
-    # A1: replay an already-consumed cursor (cur1 again after advancing to cur2).
+    # A1: replay cur1 after consuming it once. A two-chunk fixture has no cur2,
+    # but every cursor contract below still needs only one genuine cursor.
     # Documented: an exact replay of a genuine cursor idempotently re-serves the
     # identical Chunk bytes (spec/public/aoci-overview-delivery-v1.txt, cursor §).
     resp = s.call("aoci_overview", {"cursor": cur1})
@@ -321,7 +323,9 @@ def group_a(fx):
         record(g, "A1.replayed-cursor", "FAIL", t[:200])
 
     # A2: tampered ordinal inside the cursor
-    parts = cur2.split(":")
+    parts = attack_cursor.split(":")
+    if len(parts) != 4:
+        record(g, "chain-setup", "FAIL", "unexpected cursor field count"); s.close(); return
     bad_ord = ":".join([parts[0], parts[1], str(int(parts[2]) + 37), parts[3]])
     t, err = text_of(s.call("aoci_overview", {"cursor": bad_ord}))
     record(g, "A2.tampered-ordinal", "PASS" if is_rejection(t, err) else "FAIL", t[:150])
@@ -334,7 +338,7 @@ def group_a(fx):
     # A4: cursor across server processes. Documented: with an unchanged Index and
     # chunk_tokens, the same cursor is accepted across MCP process restarts.
     s2 = Session(fx)
-    resp = s2.call("aoci_overview", {"cursor": cur2})
+    resp = s2.call("aoci_overview", {"cursor": attack_cursor})
     t, err = text_of(resp)
     mx, bx = meta_and_body(resp)
     if bx is not None:
