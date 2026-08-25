@@ -8,8 +8,10 @@
 //   - 九工具名固定(aoci_rules/aoci_overview/aoci_get_entries/aoci_search/
 //     aoci_update_entry/aoci_report/aoci_remove_entry/aoci_header/aoci_maintain),
 //     改名破坏 AGENTS.md 模板与实验可复现性;
-//   - 每次工具调用现读 index/baseline/config,不做进程内缓存 —— 索引会被 MCP 外通道
-//     (编辑器手改/git pull)修改,缓存视图违反「过期索引比没有更危险」第一戒律;
+//   - 治理、首块和证明调用现读 index/baseline/config；唯一进程内缓存是有界、
+//     非权威的 Overview 中间 Chunk 冻结正文。命中仍重载正式索引，并轻量复核
+//     首块绑定的治理输入身份，
+//     Host confirmation / model Attestation 永不使用该缓存;
 //   - 参数全 string/[]string,返回纯文本;
 //   - handler 内 panic 经 guard 恢复: stderr 记录 + 返回 MCP error 结果,不崩进程;
 //   - 错误响应含下一步建议,不含 Go stack trace。

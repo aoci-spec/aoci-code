@@ -29,6 +29,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -200,6 +201,11 @@ func registerReadTools(
 					if input.Probe && input.ProbeAnswers != nil {
 						return errResult(errBadArgs, "cognition_probe_request_and_answers_conflict", "")
 					}
+					if result, handled := handleFrozenOverviewContinuation(
+						root, input, refreshSession, start,
+					); handled {
+						return result
+					}
 
 					loaded, fail := loadCognitionCtx(root)
 					if fail != nil {
@@ -367,6 +373,98 @@ func registerReadTools(
 			), nil, nil
 		},
 	)
+}
+
+func overviewCursorOnly(input overviewIn) bool {
+	return input.Cursor != "" && input.Receipt == nil && strings.TrimSpace(input.ModelState) == "" &&
+		input.ScopeCovered == nil && !input.CheckOnly && len(input.RefreshReasons) == 0 &&
+		strings.TrimSpace(input.RefreshEventID) == "" && input.StableCheckpoint == nil &&
+		input.HostConfirmation == nil && input.ModelAttestation == nil &&
+		!input.Probe && input.ProbeAnswers == nil
+}
+
+// handleFrozenOverviewContinuation reuses only immutable transport planning.
+// It still confirms the exact formal and governance inputs bound by the first
+// Chunk. A cache miss deliberately preserves the existing stateless path.
+func handleFrozenOverviewContinuation(
+	root string,
+	input overviewIn,
+	session *cognitionRefreshSession,
+	start time.Time,
+) (*mcp.CallToolResult, bool) {
+	if !overviewCursorOnly(input) {
+		return nil, false
+	}
+	frozen, hit, err := session.frozenMiddleOverview(input.Cursor)
+	if err != nil {
+		return errResult(errBadArgs, err.Error(), ""), true
+	}
+	if !hit {
+		return nil, false
+	}
+
+	cfg, err := config.Load(root)
+	if err != nil {
+		return errResult(
+			errIndexInvalid,
+			mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())),
+			mcpMessage("mcp.error.invalid_config_hint"),
+		), true
+	}
+	if cfg.IndexPath != frozen.indexPath {
+		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+	}
+	if cfg.OverviewDelivery.ChunkTokens != frozen.plan.ChunkTokens {
+		return errResult(errBadArgs, "overview_chunk_tokens_changed", ""), true
+	}
+
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil || string(set.LayoutMode) != frozen.plan.Context.LayoutMode {
+		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+	}
+	if set.CompositeIdentity != frozen.plan.Context.Receipt.CompositeIdentity {
+		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+	}
+	currentIdentity := set.Root.SHA256
+	if set.LayoutMode == cognition.LayoutVolumesV1 {
+		requestedScope := frozen.plan.Context.RequestedScope
+		if strings.TrimSpace(input.Scope) != "" {
+			requested, scopeErr := set.Scope(input.Scope)
+			if scopeErr != nil || requested.RequestedScope != requestedScope {
+				return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+			}
+		}
+		view, scopeErr := set.Scope(requestedScope)
+		if scopeErr != nil || !view.Available ||
+			view.EffectiveScope != frozen.plan.Context.EffectiveScope ||
+			view.AssetState != frozen.plan.Context.AssetState {
+			return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+		}
+		currentIdentity = view.ScopeIdentity
+	}
+	if currentIdentity != frozen.plan.Context.ScopeIdentity {
+		return errResult(errBadArgs, "overview_snapshot_changed", ""), true
+	}
+
+	output, err := renderOverviewChunkWithSpans(
+		frozen.plan.Context, frozen.plan.Body, frozen.plan.Challenge,
+		frozen.plan.Spans, input.Cursor, frozen.plan.ChunkTokens,
+		frozen.plan.Attestation, cognitionStateV2Requested(input),
+	)
+	if err != nil {
+		return errResult(errBadArgs, err.Error(), ""), true
+	}
+	if snapshotFail := confirmCognitionSnapshot(root, set); snapshotFail != nil {
+		return failResult(snapshotFail), true
+	}
+	loaded := &cognitionRepoCtx{cfg: cfg, set: set}
+	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, frozen.governance); snapshotFail != nil {
+		return failResult(snapshotFail), true
+	}
+	facts := frozen.plan.Facts
+	facts.OutputBytes = len(output)
+	ledger.Append(root, cfg.LedgerEnabled, facts.ledgerEvent(time.Since(start).Milliseconds()))
+	return textResult(output), true
 }
 
 func handleGetEntries(

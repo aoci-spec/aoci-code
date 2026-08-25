@@ -189,6 +189,21 @@ type overviewRendered struct {
 	Output      string
 	Facts       overviewDeliveryFacts
 	Attestation overviewAttestationResult
+	Frozen      *overviewFrozenChunkPlan
+}
+
+// overviewFrozenChunkPlan is the immutable transport image produced by a
+// strict first-Chunk request. It contains no authority: callers may reuse it
+// only after independently reloading and matching the current formal
+// cognition snapshot.
+type overviewFrozenChunkPlan struct {
+	Context     overviewRenderContext
+	Body        framedOverviewBody
+	Challenge   overviewChallenge
+	Spans       []overviewChunkSpan
+	ChunkTokens int
+	Attestation overviewAttestationResult
+	Facts       overviewDeliveryFacts
 }
 
 // renderOverviewDelivery chooses the only two body delivery forms: one full
@@ -257,8 +272,13 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	if cursor == "" {
 		cursor = "start"
 	}
-	output, err := renderOverviewChunk(
-		ctx, framed, challenge, cursor, chunkTokens, attestation,
+	contentStart := len(framed.Receipt.StartMarker) + 1
+	spans, err := planOverviewChunks(framed.Text, chunkTokens, contentStart, ctx.Sequence)
+	if err != nil {
+		return overviewRendered{}, err
+	}
+	output, err := renderOverviewChunkWithSpans(
+		ctx, framed, challenge, spans, cursor, chunkTokens, attestation,
 		cognitionStateV2Requested(input),
 	)
 	if err != nil {
@@ -267,7 +287,19 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.DeliveryMode = overviewDeliveryChunked
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
-	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
+	rendered := overviewRendered{Output: output, Facts: facts, Attestation: attestation}
+	if input.Cursor == "" {
+		frozenContext := ctx
+		frozenContext.Content = ""
+		frozenContext.Sequence = nil
+		frozenContext.Session = nil
+		rendered.Frozen = &overviewFrozenChunkPlan{
+			Context: frozenContext, Body: framed, Challenge: challenge,
+			Spans: append([]overviewChunkSpan(nil), spans...), ChunkTokens: chunkTokens,
+			Attestation: attestation, Facts: facts,
+		}
+	}
+	return rendered, nil
 }
 
 func renderOverviewMetadata(
@@ -392,43 +424,22 @@ type overviewChunkSpan struct {
 	LastOrdinal  int
 }
 
-func renderOverviewChunk(
+func renderOverviewChunkWithSpans(
 	ctx overviewRenderContext,
 	body framedOverviewBody,
 	challenge overviewChallenge,
+	spans []overviewChunkSpan,
 	cursor string,
 	chunkTokens int,
 	attestation overviewAttestationResult,
 	includeCognitionStateV2 bool,
 ) (string, error) {
-	contentStart := len(body.Receipt.StartMarker) + 1
-	spans, err := planOverviewChunks(body.Text, chunkTokens, contentStart, ctx.Sequence)
+	if len(spans) == 0 {
+		return "", fmt.Errorf("overview_chunk_plan_empty")
+	}
+	chunkIndex, err := overviewChunkIndex(body.Text, spans, cursor, ctx.ScopeIdentity, chunkTokens)
 	if err != nil {
 		return "", err
-	}
-	chunkIndex := 0
-	previousSHA := ""
-	if cursor != "start" {
-		nextOrdinal, prior, decodeErr := decodeOverviewCursor(cursor, ctx.ScopeIdentity, chunkTokens)
-		if decodeErr != nil {
-			return "", decodeErr
-		}
-		previousSHA = prior
-		chunkIndex = -1
-		for index, span := range spans {
-			if span.FirstOrdinal == nextOrdinal {
-				chunkIndex = index
-				break
-			}
-		}
-		if chunkIndex <= 0 {
-			return "", fmt.Errorf("overview_cursor_out_of_order")
-		}
-		priorSpan := spans[chunkIndex-1]
-		digest := sha256.Sum256([]byte(body.Text[priorSpan.Start:priorSpan.End]))
-		if previousSHA != hex.EncodeToString(digest[:]) {
-			return "", fmt.Errorf("overview_cursor_chain_mismatch")
-		}
 	}
 
 	span := spans[chunkIndex]
@@ -498,6 +509,32 @@ func renderOverviewChunk(
 	}
 	encoded, _ := json.Marshal(metadata)
 	return string(encoded) + "\n" + overviewChunkBodyMarker + "\n" + chunk, nil
+}
+
+func overviewChunkIndex(text string, spans []overviewChunkSpan, cursor, scopeIdentity string, chunkTokens int) (int, error) {
+	if cursor == "start" {
+		return 0, nil
+	}
+	nextOrdinal, previousSHA, err := decodeOverviewCursor(cursor, scopeIdentity, chunkTokens)
+	if err != nil {
+		return 0, err
+	}
+	chunkIndex := -1
+	for index, span := range spans {
+		if span.FirstOrdinal == nextOrdinal {
+			chunkIndex = index
+			break
+		}
+	}
+	if chunkIndex <= 0 {
+		return 0, fmt.Errorf("overview_cursor_out_of_order")
+	}
+	priorSpan := spans[chunkIndex-1]
+	digest := sha256.Sum256([]byte(text[priorSpan.Start:priorSpan.End]))
+	if previousSHA != hex.EncodeToString(digest[:]) {
+		return 0, fmt.Errorf("overview_cursor_chain_mismatch")
+	}
+	return chunkIndex, nil
 }
 
 func planOverviewChunks(

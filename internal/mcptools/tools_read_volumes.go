@@ -118,6 +118,11 @@ func handleVolumeOverview(
 	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceSnapshot); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
+	if input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil {
+		refreshSession.replaceFrozenOverviewContinuationLocked(
+			loaded.cfg.IndexPath, delivery.Frozen, governanceSnapshot,
+		)
+	}
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	return textResult(delivery.Output)

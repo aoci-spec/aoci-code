@@ -25,10 +25,8 @@ Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
 reordered, cross-Index, or cross-configuration chains fail closed; an exact
 replay of a genuine cursor idempotently re-serves the identical Chunk.
 No persistent delivery Session or transaction is created. Because a cursor is
-deterministically re-derivable from those bound facts, an unchanged Index and
-Chunk budget accept the same cursor across MCP process restarts; the Volumes
-governance binding below remains in-memory session state and does not carry
-across processes.
+deterministically re-derivable from its bound facts, an unchanged Index and
+Chunk budget accept the same cursor across MCP process restarts.
 
 For Volumes v1, Overview reads live governance from the same read-only facts
 calculator as Verify, Check, Guide, and Maintain. It does not reuse a prior
@@ -39,14 +37,15 @@ Curation or observe review, ownership conflict, budget failure, pending
 transaction/Recovery, third-party conflict, or invalid structure keep
 `governance_aligned=false`.
 
-The first body or Chunk binds that assessment to its scope/body identity and
-the current formal composite and Baseline bytes in small in-memory MCP session
-state. Continuation and Attestation compare the current snapshot to the bound
-one, so a changed source, formal Volume, Baseline, transaction, Recovery, or
-conflict cannot be combined with the old body for Level 4. Git HEAD alone is
-not part of this binding; commit-only changes do not invalidate otherwise
-identical cognition. Ledger and Verify History remain optional audit side
-effects, not alignment prerequisites or formal identity inputs.
+Each strict call performs one full assessment and a lightweight trailing input
+identity recheck. After the first Chunk, the process may retain one bounded,
+immutable transport plan for the latest Volumes chain. A same-process,
+cursor-only, non-final middle Chunk may reuse only that plan; it still reloads
+formal cognition and rechecks the bound source, Baseline, configuration,
+Database Evidence, transaction, and Recovery identities. Cache misses, process
+restarts, final Chunks, Host confirmation, and model Attestation use the normal
+strict path. Any bound input or Chunk-configuration drift fails closed. Git HEAD
+alone is excluded, and Ledger and Verify History remain optional audit effects.
 
 There is one ordinal sequence. For Legacy Whole-Index,
 `formal_entry_ordinal` is the 1-based position among formal Entries; Header

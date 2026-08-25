@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -17,9 +19,10 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
+func buildVolumeRepo(t testing.TB, includeCode, includeDatabase bool) string {
 	t.Helper()
 	root := t.TempDir()
 	cfg := legacyTestConfig()
@@ -62,13 +65,20 @@ func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
 	return root
 }
 
-func callVolumeTool(t *testing.T, session *mcp.ClientSession, name string, arguments map[string]any) string {
+func callVolumeTool(t testing.TB, session *mcp.ClientSession, name string, arguments map[string]any) string {
 	t.Helper()
 	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: arguments})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return resText(t, result)
+	if len(result.Content) == 0 {
+		t.Fatal("MCP result has no content")
+	}
+	content, ok := result.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("MCP result is not text: %T", result.Content[0])
+	}
+	return content.Text
 }
 
 func TestVolumeOverviewScopesAndReceiptV2(t *testing.T) {
@@ -193,7 +203,7 @@ func TestVolumeOverviewAcceptsModelCognitionAttestation(t *testing.T) {
 	}
 }
 
-func writeVolumeAttestationEntries(t *testing.T, root string, names []string) {
+func writeVolumeAttestationEntries(t testing.TB, root string, names []string) {
 	t.Helper()
 	var body strings.Builder
 	body.WriteString(cognition.CodeVolumeMarker + "\n===Go sources" + filepath.ToSlash(root) + "/===\n")
@@ -218,6 +228,232 @@ func writeVolumeAttestationEntries(t *testing.T, root string, names []string) {
 	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
 		t.Fatal(err)
 	}
+}
+
+type frozenOverviewChunkReceipt struct {
+	ChunkIndex  int    `json:"chunk_index"`
+	ChunkCount  int    `json:"chunk_count"`
+	NextCursor  string `json:"next_cursor"`
+	Completed   bool   `json:"completed"`
+	BodySHA256  string `json:"body_sha256"`
+	BodyBytes   int    `json:"body_utf8_bytes"`
+	ChunkSHA256 string `json:"chunk_sha256"`
+}
+
+func parseFrozenOverviewChunk(t testing.TB, output string) frozenOverviewChunkReceipt {
+	t.Helper()
+	parts := strings.SplitN(output, "\n"+overviewChunkBodyMarker+"\n", 2)
+	if len(parts) != 2 {
+		t.Fatalf("Overview did not return a Chunk: %s", output)
+	}
+	var receipt frozenOverviewChunkReceipt
+	if err := json.Unmarshal([]byte(parts[0]), &receipt); err != nil {
+		t.Fatal(err)
+	}
+	return receipt
+}
+
+func buildFrozenOverviewRepo(t testing.TB, entryCount int) string {
+	t.Helper()
+	root := buildVolumeRepo(t, true, false)
+	prepareFrozenOverviewRepo(t, root, entryCount)
+	return root
+}
+
+func prepareFrozenOverviewRepo(t testing.TB, root string, entryCount int) {
+	t.Helper()
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.OverviewDelivery.ChunkTokens = 4000
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, entryCount)
+	for ordinal := range names {
+		names[ordinal] = fmt.Sprintf("chunk-%03d.go", ordinal+1)
+	}
+	writeVolumeAttestationEntries(t, root, names)
+}
+
+func TestVolumeOverviewFrozenMiddleChunkReusesObservationAndRejectsDrift(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, string)
+	}{
+		{name: "source", mutate: func(t *testing.T, root string) {
+			writeVolumeTestFile(t, root, "chunk-001.go", "package fixture\n// changed\n")
+		}},
+		{name: "baseline exact bytes", mutate: func(t *testing.T, root string) {
+			appendVolumeTestByte(t, filepath.Join(root, ".aoci", "baseline.json"))
+		}},
+		{name: "configuration exact bytes", mutate: func(t *testing.T, root string) {
+			appendVolumeTestByte(t, config.FilePath(root))
+		}},
+		{name: "recovery", mutate: func(t *testing.T, root string) {
+			writeVolumeTestFile(t, root, ".aoci/transactions/entries-race.json", "{}\n")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := buildFrozenOverviewRepo(t, 96)
+			session := connectMCPClient(t, root)
+			first := callVolumeTool(t, session, "aoci_overview", map[string]any{"scope": cognition.ScopeAll})
+			firstReceipt := parseFrozenOverviewChunk(t, first)
+			if firstReceipt.ChunkIndex != 1 || firstReceipt.ChunkCount < 4 || firstReceipt.NextCursor == "" {
+				t.Fatalf("fixture did not create a middle-Chunk chain: %+v", firstReceipt)
+			}
+
+			arguments := map[string]any{"cursor": firstReceipt.NextCursor}
+			middle := callVolumeTool(t, session, "aoci_overview", arguments)
+			middleReceipt := parseFrozenOverviewChunk(t, middle)
+			if middleReceipt.ChunkIndex != 2 || middleReceipt.Completed ||
+				callVolumeTool(t, session, "aoci_overview", arguments) != middle {
+				t.Fatalf("middle Chunk was not a stable frozen replay: %+v", middleReceipt)
+			}
+
+			test.mutate(t, root)
+			result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+				Name: "aoci_overview", Arguments: arguments,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsError || !strings.Contains(resText(t, result), errCognitionSnapshotUnavailable) {
+				t.Fatalf("governance drift reached a frozen middle Chunk: %s", resText(t, result))
+			}
+		})
+	}
+}
+
+func appendVolumeTestByte(t *testing.T, path string) {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestVolumeOverviewFrozenMiddleChunkRejectsOtherVolumeDrift(t *testing.T) {
+	root := buildVolumeRepo(t, true, true)
+	prepareFrozenOverviewRepo(t, root, 96)
+	session := connectMCPClient(t, root)
+	first := parseFrozenOverviewChunk(t, callVolumeTool(t, session, "aoci_overview", map[string]any{
+		"scope": cognition.ScopeCode,
+	}))
+	if first.NextCursor == "" {
+		t.Fatal("Code-scope fixture did not create a Chunk continuation")
+	}
+
+	databasePath := filepath.Join(root, "aoci.database.txt")
+	database, err := os.ReadFile(databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := strings.Replace(string(database), "store canonical user account state", "store changed user account state", 1)
+	if err := os.WriteFile(databasePath, []byte(changed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "aoci_overview", Arguments: map[string]any{"cursor": first.NextCursor},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(resText(t, result), "overview_snapshot_changed") {
+		t.Fatalf("other formal Volume drift reached a Code-scope middle Chunk: %s", resText(t, result))
+	}
+}
+
+func TestOverviewCursorOnlyFastPathRouting(t *testing.T) {
+	truth := true
+	base := overviewIn{Cursor: strings.Repeat("0", 64) + ":4000:2:" + strings.Repeat("1", 64)}
+	for _, test := range []struct {
+		name  string
+		input overviewIn
+		want  bool
+	}{
+		{"cursor only", base, true},
+		{"scope and state projection are transport inputs", func() overviewIn {
+			value := base
+			value.Scope = cognition.ScopeCode
+			value.CognitionStateVersion = machinecontract.CognitionStateV2
+			return value
+		}(), true},
+		{"receipt", func() overviewIn { value := base; value.Receipt = &cognitionReceipt{}; return value }(), false},
+		{"model state", func() overviewIn { value := base; value.ModelState = cognitionStateValid; return value }(), false},
+		{"scope covered", func() overviewIn { value := base; value.ScopeCovered = &truth; return value }(), false},
+		{"check only", func() overviewIn { value := base; value.CheckOnly = true; return value }(), false},
+		{"refresh reason", func() overviewIn {
+			value := base
+			value.RefreshReasons = []string{machinecontract.RefreshReasonPhaseTransition}
+			return value
+		}(), false},
+		{"refresh event", func() overviewIn { value := base; value.RefreshEventID = "event"; return value }(), false},
+		{"stable checkpoint", func() overviewIn { value := base; value.StableCheckpoint = &truth; return value }(), false},
+		{"host confirmation", func() overviewIn { value := base; value.HostConfirmation = &overviewHostConfirmation{}; return value }(), false},
+		{"model attestation", func() overviewIn { value := base; value.ModelAttestation = &overviewModelAttestation{}; return value }(), false},
+		{"probe", func() overviewIn { value := base; value.Probe = true; return value }(), false},
+		{"probe answers", func() overviewIn { value := base; value.ProbeAnswers = &overviewProbeAnswers{}; return value }(), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := overviewCursorOnly(test.input); got != test.want {
+				t.Fatalf("overviewCursorOnly()=%t want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func BenchmarkOverviewCursorContinuationFastPath(b *testing.B) {
+	root := buildFrozenOverviewRepo(b, 96)
+	server, err := newMCPServer(root, "overview-fastpath-benchmark")
+	if err != nil {
+		b.Fatal(err)
+	}
+	clientTransport, serverTransport := mcp.NewInMemoryTransports()
+	serverSession, err := server.Connect(context.Background(), serverTransport, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() { _ = serverSession.Close() })
+	client := mcp.NewClient(&mcp.Implementation{Name: "overview-fastpath-benchmark", Version: "test"}, nil)
+	session, err := client.Connect(context.Background(), clientTransport, nil)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.Cleanup(func() { _ = session.Close() })
+
+	first := parseFrozenOverviewChunk(b, callVolumeTool(b, session, "aoci_overview", map[string]any{"scope": cognition.ScopeAll}))
+	if first.ChunkCount < 4 || first.NextCursor == "" {
+		b.Fatalf("fixture did not create a middle-Chunk chain: %+v", first)
+	}
+	warm := parseFrozenOverviewChunk(b, callVolumeTool(b, session, "aoci_overview", map[string]any{"cursor": first.NextCursor}))
+	if warm.Completed || warm.ChunkIndex != 2 {
+		b.Fatalf("benchmark cursor is not a middle Chunk: %+v", warm)
+	}
+
+	samples := make([]int64, b.N)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for iteration := 0; iteration < b.N; iteration++ {
+		started := time.Now()
+		output := callVolumeTool(b, session, "aoci_overview", map[string]any{"cursor": first.NextCursor})
+		samples[iteration] = time.Since(started).Nanoseconds()
+		if receipt := parseFrozenOverviewChunk(b, output); receipt.ChunkSHA256 != warm.ChunkSHA256 {
+			b.Fatalf("replayed frozen Chunk changed: %+v", receipt)
+		}
+	}
+	b.StopTimer()
+	sort.Slice(samples, func(left, right int) bool { return samples[left] < samples[right] })
+	p95Index := (len(samples)*95+99)/100 - 1
+	if p95Index < 0 {
+		p95Index = 0
+	}
+	b.ReportMetric(float64(samples[p95Index]), "p95-ns/op")
 }
 
 func attestCurrentVolumeIndex(t *testing.T, session *mcp.ClientSession) string {

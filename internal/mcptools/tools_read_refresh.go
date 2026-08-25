@@ -43,6 +43,17 @@ type cognitionRefreshSession struct {
 	// 调用合并提交完全等价。一次全新的完整交付(不带任一字段、无游标)重置该
 	// body 的证据, 使每次交付尝试仍各自取证。
 	deliveryEvidence map[string]*overviewDeliveryEvidence
+	// frozenOverview is one bounded, process-local transport snapshot. A new
+	// strict first delivery atomically replaces it; cache misses keep the
+	// compatible stateless path. It retains only the opaque governance input
+	// observation needed to reject drift; it never retains or reuses a verdict.
+	frozenOverview *frozenOverviewContinuation
+}
+
+type frozenOverviewContinuation struct {
+	indexPath  string
+	plan       overviewFrozenChunkPlan
+	governance volumeGovernanceSnapshot
 }
 
 // overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存
@@ -51,6 +62,67 @@ type cognitionRefreshSession struct {
 type overviewDeliveryEvidence struct {
 	confirmed   bool
 	attestation *overviewModelAttestation
+}
+
+// replaceFrozenOverviewContinuationLocked is called only while session.mu is
+// held, after the first delivery has passed its formal and governance snapshot
+// confirmations. Passing nil clears any older transport image.
+func (session *cognitionRefreshSession) replaceFrozenOverviewContinuationLocked(
+	indexPath string,
+	plan *overviewFrozenChunkPlan,
+	governance volumeGovernanceSnapshot,
+) {
+	if session == nil {
+		return
+	}
+	session.frozenOverview = nil
+	if plan == nil || plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) ||
+		governance.observation.Identity() == "" {
+		return
+	}
+	copyPlan := *plan
+	copyPlan.Spans = append([]overviewChunkSpan(nil), plan.Spans...)
+	copyPlan.Challenge.Ordinals = append([]int(nil), plan.Challenge.Ordinals...)
+	if plan.Challenge.Targets != nil {
+		copyPlan.Challenge.Targets = make(map[int]overviewChallengeTarget, len(plan.Challenge.Targets))
+		for ordinal, target := range plan.Challenge.Targets {
+			copyPlan.Challenge.Targets[ordinal] = target
+		}
+	}
+	session.frozenOverview = &frozenOverviewContinuation{
+		indexPath: indexPath, plan: copyPlan, governance: governance,
+	}
+}
+
+// frozenMiddleOverview returns an immutable cache hit only for a valid
+// non-final continuation. The first Chunk and final Chunk/proof boundary stay
+// on the strict path.
+func (session *cognitionRefreshSession) frozenMiddleOverview(
+	cursor string,
+) (*frozenOverviewContinuation, bool, error) {
+	if session == nil {
+		return nil, false, nil
+	}
+	session.mu.Lock()
+	frozen := session.frozenOverview
+	session.mu.Unlock()
+	if frozen == nil || frozen.plan.Context.LayoutMode != string(cognition.LayoutVolumesV1) {
+		return nil, false, nil
+	}
+	if !strings.HasPrefix(cursor, frozen.plan.Context.ScopeIdentity+":") {
+		return nil, false, nil
+	}
+	chunkIndex, err := overviewChunkIndex(
+		frozen.plan.Body.Text, frozen.plan.Spans, cursor,
+		frozen.plan.Context.ScopeIdentity, frozen.plan.ChunkTokens,
+	)
+	if err != nil {
+		return nil, true, err
+	}
+	if chunkIndex >= len(frozen.plan.Spans)-1 {
+		return nil, false, nil
+	}
+	return frozen, true, nil
 }
 
 func newCognitionRefreshSession() *cognitionRefreshSession {
