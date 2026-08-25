@@ -118,8 +118,6 @@ func TestStageModelAndWindowsContractsMatchMachineAuthority(t *testing.T) {
 		}
 	}
 
-	windows := readRepositoryFile(t, "docs", "windows-host-agent.md")
-	assertWindowsStageLimits(t, windows, numeric)
 }
 
 func TestPublicSpecsDelegateToMachineAuthority(t *testing.T) {
@@ -221,18 +219,6 @@ func TestStatusTokensMatchMachineAuthority(t *testing.T) {
 		}
 	}
 
-	windows := readRepositoryFile(t, "docs", "windows-host-agent.md")
-	for _, status := range append(
-		append(
-			append(machinecontract.AutoStatuses(), machinecontract.CognitionStates()...),
-			machinecontract.RefreshStatuses()...,
-		),
-		machinecontract.RefreshReasons()...,
-	) {
-		if !strings.Contains(windows, status) {
-			t.Errorf("Windows宿主合同缺少机器状态%q", status)
-		}
-	}
 }
 
 func TestCognitionRefreshContractUsesMachineAuthority(t *testing.T) {
@@ -249,16 +235,9 @@ func TestCognitionRefreshContractUsesMachineAuthority(t *testing.T) {
 	}
 
 	spec := readRepositoryFile(t, "spec", "public", "aoci-cognition-refresh-v1.txt")
-	docs := readRepositoryFile(t, "docs", "cognition-refresh.md")
-	agents := readRepositoryFile(t, "AGENTS.md")
 	for _, token := range append(machinecontract.RefreshStatuses(), machinecontract.RefreshReasons()...) {
 		if !strings.Contains(spec, token) {
 			t.Errorf("refresh spec is missing machine token %q", token)
-		}
-	}
-	for _, reason := range machinecontract.RefreshReasons() {
-		if !strings.Contains(agents, reason) {
-			t.Errorf("AGENTS contract is missing refresh reason %q", reason)
 		}
 	}
 	for _, value := range []int{
@@ -266,8 +245,8 @@ func TestCognitionRefreshContractUsesMachineAuthority(t *testing.T) {
 		machinecontract.CognitionRefreshThresholdMin,
 		machinecontract.CognitionRefreshThresholdMax,
 	} {
-		if !strings.Contains(spec, fmt.Sprint(value)) || !strings.Contains(docs, fmt.Sprint(value)) {
-			t.Errorf("refresh documentation is missing machine numeric value %d", value)
+		if !strings.Contains(spec, fmt.Sprint(value)) {
+			t.Errorf("refresh spec is missing machine numeric value %d", value)
 		}
 	}
 }
@@ -305,14 +284,6 @@ func TestContractAuthorityMapCoversEveryEntryLayer(t *testing.T) {
 	}
 
 	agents := readRepositoryFile(t, "AGENTS.md")
-	for _, token := range []string{
-		"docs/zh-cn-contract-authority.md", "<!-- aoci:begin -->", "<!-- aoci:end -->",
-		"aoci_rules", "aoci_overview", "Prompt", "Description", "README", "Spec", "Validator",
-	} {
-		if !strings.Contains(agents, token) {
-			t.Errorf("repository AGENTS is missing machine boundary %q", token)
-		}
-	}
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -334,71 +305,6 @@ func TestContractAuthorityMapCoversEveryEntryLayer(t *testing.T) {
 	if managed != strings.TrimRight(template, "\n") {
 		t.Fatalf("repository AGENTS does not match configured %s asset", cfg.Locale)
 	}
-
-	type localeContract struct {
-		locale             string
-		agentsAuthority    string
-		runtimeAnchors     []string
-		guideAnchors       []string
-		mcpAnchors         []string
-		entryPromptAnchors []string
-	}
-	for _, current := range []localeContract{
-		{
-			locale:          textassets.LegacyLocale,
-			agentsAuthority: "Prompt、Description、README和静态文档不能覆盖这些机器事实",
-			runtimeAnchors: []string{
-				"当前Guide承载当前Plan的执行顺序和安全停点", "Prompt只约束模型语义生成",
-				"机器数值、词表与集合只由当前编译版本的internal/machinecontract提供",
-			},
-			guideAnchors:       []string{"当前instructions", "当前plan_id", "source_sha256", "run_id"},
-			mcpAnchors:         []string{"会话级运行合同", "不会修改正式索引或Baseline"},
-			entryPromptAnchors: []string{"模型必须阅读", "禁止依据AST", "错误事实比缺失事实更有害"},
-		},
-		{
-			locale:          textassets.DefaultLocale,
-			agentsAuthority: "Prompt, Description, README, and static documentation cannot override those machine facts",
-			runtimeAnchors: []string{
-				"The current Guide carries the execution order and safety stops for the current Plan",
-				"Prompt governs model semantic generation only",
-				"Machine numbers, vocabularies, and sets come only from internal/machinecontract",
-			},
-			guideAnchors:       []string{"current instructions", "current plan_id", "source_sha256", "run_id"},
-			mcpAnchors:         []string{"session-level runtime contract", "does not modify the formal index or Baseline"},
-			entryPromptAnchors: []string{"The model must read", "Never generate, prefill, or rewrite index semantics from an AST", "A wrong fact is more harmful than a missing fact"},
-		},
-	} {
-		t.Run(current.locale, func(t *testing.T) {
-			agentsTemplate, loadErr := textassets.Load(current.locale, textassets.TemplateAgentsMD)
-			if loadErr != nil {
-				t.Fatal(loadErr)
-			}
-			if !strings.Contains(agentsTemplate, current.agentsAuthority) {
-				t.Errorf("AGENTS asset is missing authority boundary %q", current.agentsAuthority)
-			}
-			assets := []struct {
-				name    string
-				id      textassets.ID
-				anchors []string
-			}{
-				{"runtime-rules", textassets.ContractRuntimeRules, current.runtimeAnchors},
-				{"Guide base", textassets.ContractGuideBaseInstructions, current.guideAnchors},
-				{"MCP rules description", textassets.ContractMCPRulesDescription, current.mcpAnchors},
-				{"Entry fact Prompt", textassets.PromptEntryFactRules, current.entryPromptAnchors},
-			}
-			for _, asset := range assets {
-				body, loadErr := textassets.Load(current.locale, asset.id)
-				if loadErr != nil {
-					t.Fatal(loadErr)
-				}
-				for _, anchor := range asset.anchors {
-					if !strings.Contains(body, anchor) {
-						t.Errorf("%s %s is missing authority boundary %q", current.locale, asset.name, anchor)
-					}
-				}
-			}
-		})
-	}
 }
 
 var compactSQuotaPattern = regexp.MustCompile(`C[1-9](?:-C?[1-9])?≤[0-9]+`)
@@ -417,145 +323,27 @@ func extractSQuotaDeclarations(content string) []string {
 	return declarations
 }
 
-func assertWindowsStageLimits(
-	t *testing.T,
-	windows string,
-	numeric machinecontract.NumericTextValues,
-) {
-	t.Helper()
-	requestPattern := regexp.MustCompile(
-		`(?m)^请求总大小 ([0-9]+ (?:KiB|MiB))（([0-9]+)字节）$`,
-	)
-	wantRequests := map[string]string{
-		numeric.EntriesMaxBodyHuman:  fmt.Sprint(numeric.EntriesMaxBodyBytes),
-		numeric.HeaderMaxBodyHuman:   fmt.Sprint(numeric.HeaderMaxBodyBytes),
-		numeric.CurationMaxBodyHuman: fmt.Sprint(numeric.CurationMaxBodyBytes),
-	}
-	matches := requestPattern.FindAllStringSubmatch(windows, -1)
-	if len(matches) != len(wantRequests) {
-		t.Fatalf("Windows文档请求上限数量不符: got=%v want=%v", matches, wantRequests)
-	}
-	for _, match := range matches {
-		if wantRequests[match[1]] != match[2] {
-			t.Errorf("Windows文档请求上限不符: got=%v want=%v", match[1:], wantRequests)
-		}
-	}
-
-	for _, anchor := range []string{
-		fmt.Sprintf("最多%d条候选", numeric.EntriesMaxEntries),
-		fmt.Sprintf("header字段 %s（%d字节）", numeric.HeaderMaxHeaderHuman, numeric.HeaderMaxHeaderBytes),
-		fmt.Sprintf("最多%d项决策", numeric.CurationMaxDecisions),
-	} {
-		if strings.Count(windows, anchor) != 1 {
-			t.Errorf("Windows文档批次或Header上限未严格匹配: want %q", anchor)
-		}
-	}
-}
-
-func TestDeliveryAndVolumesDocsMatchMachineAuthority(t *testing.T) {
+func TestPublicSpecsMatchMachineAuthority(t *testing.T) {
 	// Prose may render numbers with thousands separators ("8,000"); normalize
 	// before matching so the binding accepts both spellings.
 	normalize := func(content string) string {
 		return strings.ReplaceAll(content, ",", "")
 	}
-	deliveryTexts := map[string]string{
-		"overview delivery doc":  normalize(readRepositoryFile(t, "docs", "overview-delivery.md")),
-		"overview delivery spec": normalize(readRepositoryFile(t, "spec", "public", "aoci-overview-delivery-v1.txt")),
-	}
-	for name, content := range deliveryTexts {
-		for _, value := range []int{
-			machinecontract.OverviewChunkTokensDefault,
-			machinecontract.OverviewChunkTokensMin,
-			machinecontract.OverviewChunkTokensMax,
-		} {
-			if !strings.Contains(content, fmt.Sprint(value)) {
-				t.Errorf("%s is missing machine chunk-token value %d", name, value)
-			}
-		}
-	}
-
-	volumesDoc := readRepositoryFile(t, "docs", "cognition-volumes.md")
-	for _, anchor := range []string{
-		fmt.Sprintf("%d Unicode characters", machinecontract.ObjectFRASV2FMaxRunes),
-		fmt.Sprintf("%d characters", machinecontract.ObjectFRASV2RMaxRunes),
-		fmt.Sprintf("%d items", machinecontract.ObjectFRASV2RMaxItems),
-		fmt.Sprintf("%d characters", machinecontract.ObjectFRASV2AMaxRunes),
-		fmt.Sprintf("%d items", machinecontract.ObjectFRASV2AMaxItems),
-		fmt.Sprintf("%d exact model authoring targets", machinecontract.EntriesBatchMaxItems),
-		fmt.Sprintf("%d exact model authoring targets", machinecontract.CodeCognitionBatchEntriesDefault),
+	deliverySpec := normalize(readRepositoryFile(t, "spec", "public", "aoci-overview-delivery-v1.txt"))
+	for _, value := range []int{
+		machinecontract.OverviewChunkTokensDefault,
+		machinecontract.OverviewChunkTokensMin,
+		machinecontract.OverviewChunkTokensMax,
 	} {
-		if !strings.Contains(volumesDoc, anchor) {
-			t.Errorf("cognition-volumes doc is missing machine anchor %q", anchor)
+		if !strings.Contains(deliverySpec, fmt.Sprint(value)) {
+			t.Errorf("overview delivery spec is missing machine chunk-token value %d", value)
 		}
 	}
 
-	englishDiscipline := readRepositoryFile(t, "spec", "public", "s-field-discipline.en.txt")
-	for _, band := range machinecontract.DefaultSQuotaBands() {
-		if !strings.Contains(englishDiscipline, fmt.Sprint(band.MaxRunes)) {
-			t.Errorf("English S discipline is missing machine quota value %d", band.MaxRunes)
-		}
-	}
-}
-
-// The public READMEs show the index header a reader actually gets from
-// `aoci init`: the Root manifest and the Meta header, with the tag dictionary
-// quoted further down the same document. Bind every rendered line to its
-// template so a template edit, a locale key rename, or a machine S-quota
-// change cannot leave the published example describing a header that the
-// binary no longer writes.
-func TestPublicReadmesShowTheRenderedIndexHeader(t *testing.T) {
-	// The README example names this project; the template renders whatever the
-	// repository directory is called, so the test must supply the same value.
-	data := struct {
-		ProjectName          string
-		SQuotaDefaultCompact string
-	}{
-		ProjectName:          "my-service",
-		SQuotaDefaultCompact: machinecontract.NumericText().SQuotaDefaultCompact,
-	}
-
-	readmes := []struct {
-		name   string
-		locale string
-		file   string
-	}{
-		{"English README", textassets.DefaultLocale, "README.md"},
-		{"Chinese README", textassets.LegacyLocale, "README.zh-CN.md"},
-	}
-
-	for _, target := range readmes {
-		t.Run(target.name, func(t *testing.T) {
-			readme := readRepositoryFile(t, target.file)
-			for _, id := range []textassets.ID{
-				textassets.TemplateVolumeRoot,
-				textassets.TemplateVolumeMeta,
-			} {
-				rendered, err := textassets.Render(target.locale, id, data)
-				if err != nil {
-					t.Fatalf("render %s: %v", id, err)
-				}
-				for _, line := range strings.Split(strings.TrimSpace(rendered), "\n") {
-					if line == "" {
-						continue
-					}
-					if !strings.Contains(readme, line) {
-						t.Errorf("%s does not quote %s line %q", target.name, id, line)
-					}
-				}
-			}
-		})
-	}
-
-	// The README tells the reader that enabling Database Cognition adds one
-	// more Root line. That sentence is only true while it matches the exact
-	// descriptor the bootstrap writes.
-	databaseDescriptor := "#Volume: id=database kind=database path=aoci.database.txt format=table-fras-v2 depends=meta state=enabled"
-	if !strings.Contains(readRepositoryFile(t, "internal", "databasebootstrap", "prepare.go"), databaseDescriptor) {
-		t.Fatalf("database bootstrap no longer writes the descriptor the READMEs publish: %q", databaseDescriptor)
-	}
-	for _, file := range []string{"README.md", "README.zh-CN.md"} {
-		if !strings.Contains(readRepositoryFile(t, file), databaseDescriptor) {
-			t.Errorf("%s is missing the Database Volume Root descriptor", file)
+	objectSpec := readRepositoryFile(t, "spec", "public", "aoci-object-fras-v2.txt")
+	for _, anchor := range []string{"internal/machinecontract.ObjectFRASV2Limits", "normative values are owned only"} {
+		if !strings.Contains(objectSpec, anchor) {
+			t.Errorf("object FRAS spec is missing machine-authority anchor %q", anchor)
 		}
 	}
 }

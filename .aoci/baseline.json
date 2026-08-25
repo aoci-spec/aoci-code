@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-25T16:04:59Z",
+  "updated_at": "2026-08-25T16:16:17Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -135,9 +135,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "8d2da261e90876a7ba1aed8c803de1f7ea4231a51075a06fd3980d6cb212c770",
-      "size": 179501,
-      "normalized_sha256": "8d2da261e90876a7ba1aed8c803de1f7ea4231a51075a06fd3980d6cb212c770"
+      "sha256": "583f874d4ce86e9dae25df7f468b53f2b7d429e045167272f1a1d2a4389382ba",
+      "size": 179431,
+      "normalized_sha256": "583f874d4ce86e9dae25df7f468b53f2b7d429e045167272f1a1d2a4389382ba"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -176,10 +176,9 @@
       "normalized_sha256": "4dfa8bb8b91b9ec1afe6608b769539c16378bb3752b08f5bf08317dea0933e78"
     },
     "docs/cognition-refresh.md": {
-      "role": "index",
-      "sha256": "10c2ceefe66e2f1903911f2faf5726f277c21d75569f6a46295e40a4c4ef1e87",
-      "size": 20451,
-      "normalized_sha256": "10c2ceefe66e2f1903911f2faf5726f277c21d75569f6a46295e40a4c4ef1e87"
+      "sha256": "86de8a6b9208e25a011773b1cc2ab3ca6533c290354e73538497c9b71935273f",
+      "size": 2830,
+      "normalized_sha256": "86de8a6b9208e25a011773b1cc2ab3ca6533c290354e73538497c9b71935273f"
     },
     "docs/cognition-volumes.md": {
       "role": "index",
@@ -230,10 +229,9 @@
       "normalized_sha256": "81eb7369052ed0b9857b13de5c2fb4b862fde4157fc0a5bf1225551cc2e5d280"
     },
     "docs/overview-delivery.md": {
-      "role": "index",
-      "sha256": "ffaba6a1cb87af641a08678a82e48fa36ba02387bb99dd48282cdc1e0b0f5873",
-      "size": 10827,
-      "normalized_sha256": "ffaba6a1cb87af641a08678a82e48fa36ba02387bb99dd48282cdc1e0b0f5873"
+      "sha256": "244ef7043896ea808f6eb8c841ddafdd346e4922e614aa191534314f65e2aaf5",
+      "size": 1776,
+      "normalized_sha256": "244ef7043896ea808f6eb8c841ddafdd346e4922e614aa191534314f65e2aaf5"
     },
     "docs/rollback.md": {
       "role": "index",
