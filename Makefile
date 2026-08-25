@@ -21,6 +21,7 @@ SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env G
 # staticcheck 可执行文件探测: 优先 PATH,其次 GOPATH/bin(go install 默认装到此处)
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
 FAST_PACKAGES := $(shell $(GO_BIN) list ./... | grep -v '/internal/cli$$')
+FULL_GATES := fmt-check vet check-deps opengauss-connector licenses textassets-check test example-test staticcheck safety race vuln database-integration clean-room-smoke
 # GNU Make-native recursive wildcard keeps fmt-check usable under its
 # failure-closed minimal-PATH test; do not add a parse-time dependency on find.
 rwildcard = $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
@@ -169,14 +170,16 @@ clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: toolchain-preflight fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: toolchain-preflight build $(FULL_GATES)
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
 # One deterministic closure command. It reuses full's build/aoci and runs every
 # black-box suite without entering the lifecycle model track. Keep running the
 # remaining suites after one fails so one invocation reports the whole result.
-verify: full
+verify:
 	@status=0; \
+	$(MAKE) --no-print-directory toolchain-preflight build || exit $$?; \
+	$(MAKE) --no-print-directory -k $(FULL_GATES) || status=1; \
 	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_conformance.py || status=1; \
 	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_scenarios.py || status=1; \
 	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_lifecycle.py || status=1; \

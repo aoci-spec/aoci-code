@@ -12,10 +12,11 @@
 ## Verification obligations
 
 `make verify` is the single local deterministic closure gate. It builds once,
-runs `make full`, then runs all three black-box suites without entering their
-optional model track. Do not make the model invoke or interpret those
-constituent gates between commands. `make fast` remains the Tier-0 iteration
-gate and is never sufficient closure evidence on its own.
+runs every `make full` constituent with keep-going failure aggregation, then
+runs all three black-box suites without entering their optional model track.
+Do not make the model invoke or interpret those constituent gates between
+commands. `make fast` remains the Tier-0 iteration gate and is never sufficient
+closure evidence on its own.
 
 | Changed | Run before closing |
 | --- | --- |
