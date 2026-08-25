@@ -39,6 +39,17 @@ its contract explicitly says otherwise, but local audit evidence can still be
 written when enabled. Formal writes use the existing validation, lock, CAS,
 atomic-write, and recovery pipeline.
 
+Code target planning
+--------------------
+
+`aoci cognition plan diff --target-index aoci.code.target.txt` treats the
+repository-root target as the conventional generated planning asset. If that
+file is absent, the command atomically creates it from the exact active formal
+Code Volume before comparing it. It never replaces an existing target. An
+explicit alternate target path retains read-only input behavior and must
+already exist. Target initialization does not modify formal cognition or the
+Baseline and does not authorize Apply.
+
 Default Code target finalization
 --------------------------------
 

@@ -66,6 +66,37 @@ func TestCognitionPlanCommandDoesNotReplaceInit(t *testing.T) {
 	}
 }
 
+func TestCognitionPlanDiffInitializesMissingConventionalTarget(t *testing.T) {
+	root := cognitionSystemCLIRepo(t)
+	formalPath := filepath.Join(root, "aoci.code.txt")
+	formalBefore, err := os.ReadFile(formalPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetPath := filepath.Join(root, defaultCodeTargetIndexPath)
+
+	var stdout, stderr bytes.Buffer
+	code := executeCLI([]string{"--repo", root, "--json", "cognition", "plan", "diff", "--target-index", defaultCodeTargetIndexPath}, &stdout, &stderr)
+	if code != ExitOK {
+		t.Fatalf("missing target initialization failed: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	var report cognitionplan.CodeTargetDiff
+	if err := json.Unmarshal(stdout.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary.Created != 0 || report.Summary.Updated != 0 || report.Summary.Deleted != 0 || report.RawBytesChanged {
+		t.Fatalf("initialized target did not produce a no-change diff: %#v", report)
+	}
+	target, err := os.ReadFile(targetPath)
+	if err != nil || !bytes.Equal(target, formalBefore) {
+		t.Fatalf("initialized target differs from formal Code: %v", err)
+	}
+	formalAfter, err := os.ReadFile(formalPath)
+	if err != nil || !bytes.Equal(formalAfter, formalBefore) {
+		t.Fatalf("target initialization changed formal Code: %v", err)
+	}
+}
+
 func TestCognitionPlanDiffReadsCompleteTargetWithoutFormalWrites(t *testing.T) {
 	root := cognitionSystemCLIRepo(t)
 	formalPaths := []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", "aoci.database.txt", ".aoci/baseline.json"}
@@ -78,7 +109,7 @@ func TestCognitionPlanDiffReadsCompleteTargetWithoutFormalWrites(t *testing.T) {
 		formalBefore[rel] = string(data)
 	}
 	target := strings.Replace(formalBefore["aoci.code.txt"], "coordinate database access", "coordinate planned module access", 1)
-	targetPath := filepath.Join(root, "target.aoci.code.txt")
+	targetPath := filepath.Join(root, defaultCodeTargetIndexPath)
 	if err := os.WriteFile(targetPath, []byte(target), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -103,9 +134,21 @@ func TestCognitionPlanDiffReadsCompleteTargetWithoutFormalWrites(t *testing.T) {
 	}
 }
 
+func TestCognitionPlanDiffDoesNotInitializeCustomTarget(t *testing.T) {
+	root := cognitionSystemCLIRepo(t)
+	target := filepath.Join(root, "missing-target.aoci.code.txt")
+	var stdout, stderr bytes.Buffer
+	if code := executeCLI([]string{"--repo", root, "--json", "cognition", "plan", "diff", "--target-index", target}, &stdout, &stderr); code == ExitOK {
+		t.Fatalf("missing custom target was initialized: stdout=%s stderr=%s", stdout.String(), stderr.String())
+	}
+	if _, err := os.Lstat(target); !os.IsNotExist(err) {
+		t.Fatalf("custom target was created: %v", err)
+	}
+}
+
 func TestCognitionPlanDiffRejectsSymlinkTarget(t *testing.T) {
 	root := cognitionSystemCLIRepo(t)
-	target := filepath.Join(root, "target.aoci.code.txt")
+	target := filepath.Join(root, defaultCodeTargetIndexPath)
 	if err := os.Symlink(filepath.Join(root, "aoci.code.txt"), target); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
@@ -46,7 +47,7 @@ func newCognitionCodeTargetDiffCmd() *cobra.Command {
 			if err != nil {
 				return plannerExitError(err)
 			}
-			targetRaw, err := readPlannerInput(targetIndex)
+			targetRaw, err := readOrInitializeCodeTarget(root, cfg.IndexPath, targetIndex)
 			if err != nil {
 				return plannerExitError(err)
 			}
@@ -70,6 +71,45 @@ func newCognitionCodeTargetDiffCmd() *cobra.Command {
 	command.Flags().StringVar(&targetIndex, "target-index", "", cliMessage("cognition.plan.flag.target_index"))
 	_ = command.MarkFlagRequired("target-index")
 	return command
+}
+
+const defaultCodeTargetIndexPath = "aoci.code.target.txt"
+
+func readOrInitializeCodeTarget(root, indexPath, requested string) ([]byte, error) {
+	targetPath, conventional := codeTargetPlannerPath(root, requested)
+	if !conventional {
+		return readPlannerInput(targetPath)
+	}
+	if _, err := os.Lstat(targetPath); err == nil {
+		return readPlannerInput(targetPath)
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("planner_input_unavailable")
+	}
+
+	set, err := cognition.Load(root, indexPath)
+	if err != nil {
+		return nil, err
+	}
+	code := set.Volumes[cognition.ScopeCode]
+	if set.LayoutMode != cognition.LayoutVolumesV1 || code == nil || code.State != cognition.AssetPresent {
+		return nil, fmt.Errorf("code_target_index_requires_active_code_volume")
+	}
+	if err := afs.AtomicCreateCAS(targetPath, code.Raw); err != nil && !errors.Is(err, afs.ErrAtomicCreateConflict) {
+		return nil, fmt.Errorf("code_target_initialize_failed")
+	}
+	return readPlannerInput(targetPath)
+}
+
+func codeTargetPlannerPath(root, requested string) (string, bool) {
+	trimmed := strings.TrimSpace(requested)
+	canonical := filepath.Join(root, defaultCodeTargetIndexPath)
+	if !filepath.IsAbs(trimmed) && filepath.Clean(trimmed) == defaultCodeTargetIndexPath {
+		return canonical, true
+	}
+	if filepath.IsAbs(trimmed) && filepath.Clean(trimmed) == filepath.Clean(canonical) {
+		return canonical, true
+	}
+	return trimmed, false
 }
 
 func newCognitionBootstrapPlanCmd() *cobra.Command {
