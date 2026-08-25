@@ -590,16 +590,16 @@ def group_d(bigfx=None):
         record(g, "D2.index-change-mid-chain", "PASS" if ok else "FAIL", t[:150])
     sC.close()
 
-    # D3: baseline-only change mid-chain (identical entry text) — the formal
-    # Index bytes are unchanged, so per the documented cursor semantics the
-    # continuation must proceed (delivered bytes == current formal bytes).
-    # Baseline participates only in the session-scoped Level-4 governance
-    # binding, never in the chunk-chain stop list.
+    # D3: a Baseline-only change leaves formal bytes stable. Middle chunks may
+    # continue, but the final governance confirmation must reject the old
+    # delivery generation. A two-chunk fixture reaches that final boundary on
+    # its first continuation.
     sC = Session(fx)
     resp = sC.call("aoci_overview")
     t, _ = text_of(resp)
     mm, _ = meta_and_body(resp)
     cur = mm.get("next_cursor")
+    chunk_count = int(mm.get("chunk_count") or 0)
     if not cur:
         record(g, "D3.baseline-only-mid-chain", "CHAR", "no chain")
     else:
@@ -607,9 +607,12 @@ def group_d(bigfx=None):
         resp = sC.call("aoci_overview", {"cursor": cur})
         t, err = text_of(resp)
         mc, bc = meta_and_body(resp)
-        if st == "applied" and not err and (mc.get("completed") or mc.get("chunk_index")):
+        if chunk_count >= 3 and st == "applied" and not err and bc is not None and not mc.get("completed"):
             record(g, "D3.baseline-only-mid-chain", "PASS",
-                   "continuation proceeds; index bytes unchanged, Baseline only binds the Level-4 governance plane")
+                   "middle continuation proceeds; final governance confirmation remains pending")
+        elif chunk_count == 2 and st == "applied" and bc is None and (err or "cognition_snapshot_unavailable" in t):
+            record(g, "D3.baseline-only-mid-chain", "PASS",
+                   "two-chunk chain rejects at the final governance boundary")
         else:
             record(g, "D3.baseline-only-mid-chain", "FAIL", t[:150])
     sC.close()
