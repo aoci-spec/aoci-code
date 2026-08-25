@@ -11,25 +11,20 @@
 
 ## Verification obligations
 
-`make fast` is the Tier-0 gate and is never sufficient evidence on its own.
-These gates run **only** under `make full`, so a green `make fast` says nothing
-about them: `clean-room-smoke`, `licenses`, `race`, `vuln`,
-`database-integration`. Changing a machine default has broken `clean-room-smoke`
-alone before, with every fast gate green.
+`make verify` is the single local deterministic closure gate. It builds once,
+runs `make full`, then runs all three black-box suites without entering their
+optional model track. Do not make the model invoke or interpret those
+constituent gates between commands. `make fast` remains the Tier-0 iteration
+gate and is never sufficient closure evidence on its own.
 
 | Changed | Run before closing |
 | --- | --- |
-| Anything | `make fast` |
-| MCP tool surface, input schemas, response shapes | `python3 scripts/blackbox/mcp_conformance.py` |
-| Write lifecycle, recovery, cursors, concurrent writers | `python3 scripts/blackbox/mcp_scenarios.py` |
-| `init`, `scan`, authoring lifecycle, Managed Scope roles | `python3 scripts/blackbox/mcp_lifecycle.py` |
-| Machine defaults, release assets, licensing, dependencies | `make full` |
-| Public text in `README*`, `docs/`, or `spec/` | `bash scripts/check-public-text.sh` |
+| Anything | `make verify` |
+| Release packaging or publication assets | `make release-check` after `make verify` |
 
-The three black-box suites drive a built binary from outside the process and
-have their own preconditions; `scripts/blackbox/README.md` documents them.
-Report the gates actually run and their real output, and never report a gate
-that was not run.
+The black-box preconditions remain documented in `scripts/blackbox/README.md`.
+Report the gate actually run and its real output, and never report a gate that
+was not run.
 
 ## Cognition index admission
 

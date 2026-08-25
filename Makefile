@@ -34,7 +34,7 @@ OPENGAUSS_PATCH_GO_FILES := \
 	third_party/openGauss-connector-go-pq/ssl.go \
 	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full verify release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -171,6 +171,17 @@ clean-room-smoke:
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
 full: toolchain-preflight fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
+
+# One deterministic closure command. It reuses full's build/aoci and runs every
+# black-box suite without entering the lifecycle model track. Keep running the
+# remaining suites after one fails so one invocation reports the whole result.
+verify: full
+	@status=0; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_conformance.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_scenarios.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_lifecycle.py || status=1; \
+	if [ $$status -eq 0 ]; then echo "★ make verify passed (all deterministic gates) ★"; fi; \
+	exit $$status
 
 # Compatibility alias retained for existing operators and automation.
 check: full
