@@ -410,7 +410,22 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		// independent review, not to a dead end. Without this the weaker desired
 		// mode would also decide that no reviewer is needed, so the block would
 		// have no approver and auto would become unreachable once left.
-		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation
+		//
+		// The same applies to every other fact autoAuthorizationBlockers refuses
+		// for a reason independent review can ratify: P0/P1 findings and cognition
+		// coverage reductions (e.g. an index->observe role change). If only the
+		// approval-policy relaxation is routed to review, a repository in inherit
+		// (effective auto) mode with a pending coverage reduction gets
+		// interaction_required=false, so `scope approve` answers
+		// managed_scope_approval_not_required while `scope apply`/`authorize` are
+		// blocked by managed_scope_auto_authorization_blocked
+		// (p0_or_p1,cognition_coverage_reduction_requires_independent_review):
+		// the blocked change has no approver and the repository is stuck.
+		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation ||
+			plan.Risk.BudgetRelaxation ||
+			plan.Risk.HighRiskOptIn ||
+			plan.Risk.P0 != 0 || plan.Risk.P1 != 0 ||
+			plan.Risk.CognitionCoverageReduction
 	case machinecontract.ApplyAuthorizationOff:
 		plan.InteractionRequired = false
 	default:
