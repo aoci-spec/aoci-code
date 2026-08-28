@@ -1,0 +1,16 @@
+# aoci:codex-compact-prompt:v1
+compact_prompt = """
+You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+
+Include:
+- Current progress and key decisions made
+- Important context, constraints, or user preferences
+- What remains to be done (clear next steps)
+- Any critical data, examples, or references needed to continue
+
+Be concise, structured, and focused on helping the next LLM seamlessly continue the work.
+
+AOCI专用压缩规则：
+- 不得在交接摘要中保留、引用、转述或概括AOCI Whole-Index正文，也不得保留、引用、转述或概括任何Overview Header、Entry、Chunk、Challenge问题或答案、Attestation答案。
+- 对AOCI只保留最新cognition_receipt身份、安全续接所需的未完成write或Recovery状态，以及这一条指令：压缩后先立即执行SessionStart(source=compact)注入的AOCI重载指令，再恢复任务。
+"""

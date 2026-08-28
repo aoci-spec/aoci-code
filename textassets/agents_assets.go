@@ -10,6 +10,12 @@ const (
 	// TemplateCodexMCPConfig is the project-level Codex MCP configuration.
 	TemplateCodexMCPConfig ID = "templates/codex-mcp-config"
 
+	// TemplateCodexCompactPrompt is the AOCI-managed Codex compaction prompt.
+	TemplateCodexCompactPrompt ID = "templates/codex-compact-prompt"
+
+	// TemplateCodexCompactHook reloads AOCI cognition after Codex compaction.
+	TemplateCodexCompactHook ID = "templates/codex-compact-hook"
+
 	// TemplateCodexCursorStubs is the manual integration reference for hosts
 	// whose configuration cannot be installed safely by AOCI.
 	TemplateCodexCursorStubs ID = "templates/codex-cursor-stubs"

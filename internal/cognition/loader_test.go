@@ -488,6 +488,7 @@ func TestFRASV2EveryDensityLimitReturnsFinding(t *testing.T) {
 		{"A runes", "t[DB9S]: F:x | R:- | A:" + strings.Repeat("a", 401) + " | S:-", "fras_a_too_long"},
 		{"A items", "t[DB9S]: F:x | R:- | A:a,b,c,d,e,f,g | S:-", "fras_a_too_many_items"},
 		{"S high", "t[DB9S]: F:x | R:- | A:- | S:" + strings.Repeat("s", 601), "fras_s_too_long"},
+		{"S mid", "t[DB7S]: F:x | R:- | A:- | S:" + strings.Repeat("s", machinecontract.SQuotaMidRunes+1), "fras_s_too_long"},
 		{"S low", "t[DB3S]: F:x | R:- | A:- | S:" + strings.Repeat("s", 51), "fras_s_too_long"},
 	}
 	for _, test := range tests {
@@ -501,6 +502,22 @@ func TestFRASV2EveryDensityLimitReturnsFinding(t *testing.T) {
 				t.Fatal("validator truncated or rewrote rejected semantics")
 			}
 		})
+	}
+}
+
+func TestFRASV2AcceptsMidSQuotaBoundary(t *testing.T) {
+	line := "t[DB7S]: F:x | R:- | A:- | S:" + strings.Repeat("字", machinecontract.SQuotaMidRunes)
+	root := writeFixture(t, map[string]string{
+		"aoci.txt":          rootText("meta", "database"),
+		"aoci.meta.txt":     validMeta(),
+		"aoci.database.txt": databaseVolume(line),
+	})
+	set, err := Load(root, "aoci.txt")
+	if err != nil {
+		t.Fatalf("C7 S quota boundary was rejected: %v findings=%#v", err, set.Errors)
+	}
+	if got := set.Volumes["database"].Objects[0].CanonicalLine; got != line {
+		t.Fatal("validator rewrote accepted boundary semantics")
 	}
 }
 

@@ -505,6 +505,10 @@ func ZeroWriteRunClosed(manifest *Manifest) (ZeroWriteClosure, bool) {
 	return runmanifest.ZeroWriteClosed(manifest)
 }
 
+func StoredZeroWriteRunClosed(root string, manifest *Manifest) (ZeroWriteClosure, bool) {
+	return runmanifest.StoredZeroWriteClosed(root, manifest)
+}
+
 func validateRunResolutionRecord(record RunResolutionRecord) error {
 	return runmanifest.ValidateResolution(record)
 }

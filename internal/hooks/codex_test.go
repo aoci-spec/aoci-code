@@ -5,6 +5,7 @@ package hooks
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode"
@@ -29,7 +30,7 @@ func TestEnglishHostIntegrationTemplatesContainNoChinese(t *testing.T) {
 	}
 
 	root := t.TempDir()
-	if _, err := InstallCodexMCP(root); err != nil {
+	if _, err := Install(root, "codex", true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := InstallClaudeHook(root); err != nil {
@@ -55,9 +56,221 @@ func TestEnglishHostIntegrationTemplatesContainNoChinese(t *testing.T) {
 		t.Fatalf("English host integration output contains Chinese text:\n%s", combined)
 	}
 	if !strings.Contains(combined, "[mcp_servers.aoci]") ||
+		!strings.Contains(combined, "compact_prompt") ||
+		!strings.Contains(combined, "[[hooks.SessionStart]]") ||
+		!strings.Contains(combined, "hook codex-compact") ||
 		!strings.Contains(combined, "PreToolUse") ||
 		!strings.Contains(combined, "codex mcp add aoci") {
 		t.Fatalf("English host integration output lost protocol anchors:\n%s", combined)
+	}
+}
+
+func TestInstallCodexCompactionPreservesBytesAndIsIdempotent(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".codex")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "config.toml")
+	existing := "model = \"o4-mini\"\n\n[mcp_servers.other]\ncommand = \"/usr/bin/other\"\n"
+	if err := os.WriteFile(path, []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	msg, err := Install(root, "codex", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(msg, "/hooks") {
+		t.Fatalf("install result must explain Codex hook trust: %q", msg)
+	}
+	first, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(first)
+	if !strings.Contains(text, existing) {
+		t.Fatal("existing Codex configuration bytes were not preserved contiguously")
+	}
+	promptIndex := strings.Index(text, codexCompactPromptMarker)
+	existingIndex := strings.Index(text, existing)
+	hookIndex := strings.Index(text, codexCompactHookMarker)
+	if promptIndex < 0 || existingIndex < 0 || hookIndex < 0 ||
+		!(promptIndex < existingIndex && existingIndex < hookIndex) {
+		t.Fatalf("managed prompt must precede existing bytes and hook must follow them:\n%s", text)
+	}
+	defaultPrompt := `You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+
+Include:
+- Current progress and key decisions made
+- Important context, constraints, or user preferences
+- What remains to be done (clear next steps)
+- Any critical data, examples, or references needed to continue
+
+Be concise, structured, and focused on helping the next LLM seamlessly continue the work.`
+	templateData := NewTplData(root)
+	for _, anchor := range []string{
+		defaultPrompt,
+		"cognition_receipt",
+		"[[hooks.SessionStart]]",
+		`matcher = "^compact$"`,
+		"command = " + strconv.Quote(templateData.CodexCompactCommand),
+		"command_windows = " + strconv.Quote(templateData.CodexCompactCommandWindows),
+	} {
+		if !strings.Contains(text, anchor) {
+			t.Fatalf("installed Codex compaction configuration lacks %q:\n%s", anchor, text)
+		}
+	}
+
+	secondMsg, err := Install(root, "codex", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(secondMsg, "/hooks") {
+		t.Fatalf("idempotent result must retain trust guidance: %q", secondMsg)
+	}
+	second, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Fatal("repeated Codex compaction installation changed config.toml")
+	}
+	if strings.Count(string(second), codexCompactPromptMarker) != 1 ||
+		strings.Count(string(second), codexCompactHookMarker) != 1 {
+		t.Fatalf("managed Codex compaction snippets were duplicated:\n%s", second)
+	}
+}
+
+func TestInstallCodexCompactionConflictsAreAtomic(t *testing.T) {
+	tests := []struct {
+		name     string
+		existing string
+		key      string
+	}{
+		{
+			name:     "custom compact prompt",
+			existing: "model = \"o4-mini\"\ncompact_prompt = \"keep mine\"\n",
+			key:      "compact_prompt",
+		},
+		{
+			name:     "experimental prompt file",
+			existing: "experimental_compact_prompt_file = \"/tmp/mine.txt\"\n",
+			key:      "experimental_compact_prompt_file",
+		},
+		{
+			name:     "BOM custom compact prompt",
+			existing: codexUTF8BOM + "compact_prompt = \"keep mine\"\n",
+			key:      "compact_prompt",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			dir := filepath.Join(root, ".codex")
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(dir, "config.toml")
+			if err := os.WriteFile(path, []byte(tc.existing), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := Install(root, "codex", true); err == nil ||
+				!strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("expected %s conflict, got %v", tc.key, err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != tc.existing {
+				t.Fatalf("conflicting install changed config.toml:\n%s", after)
+			}
+			backups, err := filepath.Glob(path + ".backup.*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(backups) != 0 {
+				t.Fatalf("conflicting install created backups despite zero-write preflight: %v", backups)
+			}
+			if strings.Contains(string(after), codexMarker) {
+				t.Fatal("MCP configuration was written before compaction conflict detection")
+			}
+		})
+	}
+}
+
+func TestInstallCodexCompactionRejectsIncompleteManagedHook(t *testing.T) {
+	for _, removePrefix := range []string{"command_windows =", codexCompactHookMarker} {
+		t.Run(removePrefix, func(t *testing.T) {
+			root := t.TempDir()
+			if _, err := Install(root, "codex", true); err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(root, ".codex", "config.toml")
+			existing, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			lines := strings.Split(string(existing), "\n")
+			filtered := lines[:0]
+			for _, line := range lines {
+				if !strings.HasPrefix(strings.TrimSpace(line), removePrefix) {
+					filtered = append(filtered, line)
+				}
+			}
+			broken := strings.Join(filtered, "\n")
+			if err := os.WriteFile(path, []byte(broken), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := Install(root, "codex", true); err == nil ||
+				!strings.Contains(err.Error(), "SessionStart(compact)") {
+				t.Fatalf("expected incomplete managed hook conflict, got %v", err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != broken {
+				t.Fatal("incomplete managed hook conflict changed config.toml")
+			}
+		})
+	}
+}
+
+func TestInstallCodexCompactionPreservesUTF8BOM(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".codex")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(path, []byte(codexUTF8BOM+"model = \"o4-mini\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install(root, "codex", true); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(after), codexUTF8BOM+codexCompactPromptMarker) ||
+		strings.Count(string(after), codexUTF8BOM) != 1 {
+		t.Fatalf("UTF-8 BOM was not preserved at byte zero:\n%q", after)
+	}
+}
+
+func TestCodexCompactCommandsQuoteHostPaths(t *testing.T) {
+	if got, want := quotePOSIXShellArgument("repo'$(touch injected)"),
+		`'repo'"'"'$(touch injected)'`; got != want {
+		t.Fatalf("POSIX hook argument is not safely quoted: got %q want %q", got, want)
+	}
+	if got, want := quotePowerShellArgument("repo'$env:TEMP"),
+		`'repo''$env:TEMP'`; got != want {
+		t.Fatalf("PowerShell hook argument is not safely quoted: got %q want %q", got, want)
 	}
 }
 
@@ -170,8 +383,16 @@ func TestInstallViaEntry(t *testing.T) {
 	if !strings.Contains(out, "AGENTS.md 纪律区块对 Codex 原生生效") {
 		t.Fatalf("应说明 AGENTS.md 原生生效: %q", out)
 	}
-	if !strings.Contains(out, "hook 暂不安装") {
-		t.Fatalf("--hooks 下应说明 hook 暂不装及理由: %q", out)
+	if !strings.Contains(out, "/hooks") {
+		t.Fatalf("--hooks 下应提示审查并信任 Codex hook: %q", out)
+	}
+	codexConfig, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(codexConfig), codexCompactPromptMarker) ||
+		!strings.Contains(string(codexConfig), codexCompactHookMarker) {
+		t.Fatalf("--hooks 应安装 Codex 压缩提示与 SessionStart hook:\n%s", codexConfig)
 	}
 	// cursor 仍为占位不写文件
 	out2, err := Install(root, "cursor", false)

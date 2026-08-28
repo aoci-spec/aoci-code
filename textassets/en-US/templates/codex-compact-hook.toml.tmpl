@@ -1,0 +1,10 @@
+# aoci:codex-compact-hook:v1
+# Reload AOCI cognition synchronously after Codex compacts the context.
+# command target: hook codex-compact
+[[hooks.SessionStart]]
+matcher = "^compact$"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = {{printf "%q" .CodexCompactCommand}}
+command_windows = {{printf "%q" .CodexCompactCommandWindows}}

@@ -127,7 +127,7 @@ func recoverEntriesRun(
 			runID, terminal, recoveredApplicationCount(manifest), true,
 		), nil
 	}
-	if closure, ok := draft.ZeroWriteRunClosed(manifest); ok {
+	if closure, ok := draft.StoredZeroWriteRunClosed(root, manifest); ok {
 		if auditErr := ensureEntriesZeroWriteClosureLedger(root, cfg, runID, source, closure); auditErr != nil {
 			return entriesZeroWriteRecoveryResult(runID, closure, true), auditErr
 		}
@@ -142,17 +142,55 @@ func recoverEntriesRun(
 		manifest.AppliedAt == "" && len(manifest.Reviews) == 0 &&
 		len(manifest.Applications) == 0 && len(manifest.Resolutions) == 0 &&
 		len(manifest.ZeroWriteClosures) == 0 {
-		currentIndexSHA256, digestErr := rawFileSHA256(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
+		if snapshot.Hash != manifest.GenerationHash {
+			return result, fmt.Errorf("entries_recovery_pre_apply_zero_write_unproven")
+		}
+		if evidenceErr := rejectEntriesApplyEvidence(root, runID); evidenceErr != nil {
+			return result, evidenceErr
+		}
+		indexPath := filepath.Join(root, filepath.FromSlash(cfg.IndexPath))
+		lock, lockErr := afs.AcquireIndexLock(root)
+		if lockErr != nil {
+			return result, fmt.Errorf("entries_recovery_proof_lock_failed: %w", lockErr)
+		}
+		defer lock.Release()
+		currentIndexSHA256, digestErr := rawFileSHA256(indexPath)
 		if digestErr != nil {
 			return result, digestErr
 		}
-		if snapshot.Hash != manifest.GenerationHash || currentIndexSHA256 != manifest.IndexSHA256 {
-			return result, fmt.Errorf("entries_recovery_pre_apply_zero_write_unproven")
-		}
 		closure := draft.ZeroWriteClosure{
-			Version: 1, Step: draft.ZeroWriteStepGenerationPlan,
+			Version: 1, At: time.Now().UTC().Format(time.RFC3339Nano),
+			Step:   draft.ZeroWriteStepGenerationPlan,
 			Reason: draft.ZeroWriteReasonRecovery, DraftHash: snapshot.Hash,
 			PreIndexSHA256: manifest.IndexSHA256, FormalAssetWrites: 0,
+		}
+		if currentIndexSHA256 != manifest.IndexSHA256 {
+			items, itemErr := atomicItemsFromReviewedSnapshot(&entriesCheckResult{
+				Manifest: manifest,
+				Snapshot: snapshot,
+			})
+			if itemErr != nil {
+				return result, fmt.Errorf("entries_recovery_candidate_evidence_incomplete: %w", itemErr)
+			}
+			governance, proofErr := mcptools.ProveEntriesZeroWriteGovernance(
+				root, indexPath, items, manifest.IndexSHA256, manifest.CreatedAt, closure.At,
+			)
+			if proofErr != nil {
+				return result, fmt.Errorf("entries_recovery_pre_apply_zero_write_unproven: %w", proofErr)
+			}
+			alignment, alignmentErr := proveCurrentEntriesZeroWriteAlignment(root, indexPath)
+			if alignmentErr != nil {
+				return result, alignmentErr
+			}
+			if governance.CurrentIndexSHA256 != alignment.IndexSHA256 {
+				return result, fmt.Errorf("entries_recovery_index_changed_during_proof")
+			}
+			closure.Version = 2
+			closure.CurrentIndexSHA256 = alignment.IndexSHA256
+			closure.CurrentBaselineSHA256 = alignment.BaselineSHA256
+			closure.RepositorySHA256 = alignment.RepositorySHA256
+			closure.StagedTransactionID = governance.StagedTransactionID
+			closure.GovernanceReceipts = append([]string{}, governance.GovernanceReceipts...)
 		}
 		if appendErr := draft.AppendZeroWriteClosure(root, runID, closure); appendErr != nil {
 			return result, fmt.Errorf("entries_recovery_zero_write_closure_failed: %w", appendErr)
@@ -161,7 +199,7 @@ func recoverEntriesRun(
 		if err != nil {
 			return result, err
 		}
-		closure, ok := draft.ZeroWriteRunClosed(manifest)
+		closure, ok := draft.StoredZeroWriteRunClosed(root, manifest)
 		if !ok {
 			return result, fmt.Errorf("entries_recovery_zero_write_closure_unproven")
 		}
@@ -304,12 +342,18 @@ func entriesZeroWriteRecoveryResult(
 	closure draft.ZeroWriteClosure,
 	alreadyResolved bool,
 ) *entriesRecoveryResult {
+	currentIndexSHA256 := closure.PreIndexSHA256
+	if closure.CurrentIndexSHA256 != "" {
+		currentIndexSHA256 = closure.CurrentIndexSHA256
+	}
 	return &entriesRecoveryResult{
 		Version: 1, RunID: runID, Status: draft.RunResolutionZeroWrite,
 		FailureKinds: closure.Reason, AlreadyResolved: alreadyResolved,
-		PreIndexSHA256:     closure.PreIndexSHA256,
-		CurrentIndexSHA256: closure.PreIndexSHA256,
-		GovernanceReceipts: []string{},
+		PreIndexSHA256:        closure.PreIndexSHA256,
+		CurrentIndexSHA256:    currentIndexSHA256,
+		CurrentBaselineSHA256: closure.CurrentBaselineSHA256,
+		RepositorySHA256:      closure.RepositorySHA256,
+		GovernanceReceipts:    append([]string{}, closure.GovernanceReceipts...),
 	}
 }
 
@@ -331,22 +375,58 @@ func ensureEntriesZeroWriteClosureLedger(
 		if event.Op != "entries_recover" || event.DraftRunID != runID {
 			continue
 		}
-		if event.Result == ledger.ResultOK &&
-			event.RecoveryStatus == draft.RunResolutionZeroWrite &&
-			event.PreIndexSHA256 == closure.PreIndexSHA256 &&
-			event.IndexSHA256 == closure.PreIndexSHA256 &&
-			event.RejectKinds == closure.Reason {
+		if matchesEntriesZeroWriteClosureEvent(event, runID, closure) {
 			return nil
 		}
 		return fmt.Errorf("entries_recovery_ledger_zero_write_event_conflict")
 	}
+	currentIndexSHA256 := closure.PreIndexSHA256
+	if closure.CurrentIndexSHA256 != "" {
+		currentIndexSHA256 = closure.CurrentIndexSHA256
+	}
 	ledger.Append(root, true, ledger.Event{
 		Op: "entries_recover", Source: source, Result: ledger.ResultOK,
 		DraftRunID: runID, RejectKinds: closure.Reason,
-		RecoveryStatus: draft.RunResolutionZeroWrite,
-		PreIndexSHA256: closure.PreIndexSHA256, IndexSHA256: closure.PreIndexSHA256,
+		RecoveryStatus:        draft.RunResolutionZeroWrite,
+		RecoveryTransactionID: closure.StagedTransactionID,
+		PreIndexSHA256:        closure.PreIndexSHA256,
+		IndexSHA256:           currentIndexSHA256,
+		BaselineSHA256:        closure.CurrentBaselineSHA256,
+		RepositorySHA256:      closure.RepositorySHA256,
+		GovernanceReceipts:    append([]string{}, closure.GovernanceReceipts...),
 	})
-	return nil
+	events, corrupt = ledger.Recent(root, 0)
+	if corrupt != 0 {
+		return fmt.Errorf("entries_recovery_ledger_corrupt_after_zero_write_audit: %d", corrupt)
+	}
+	for _, event := range events {
+		if matchesEntriesZeroWriteClosureEvent(event, runID, closure) {
+			return nil
+		}
+	}
+	return fmt.Errorf("entries_recovery_ledger_zero_write_event_missing")
+}
+
+func matchesEntriesZeroWriteClosureEvent(
+	event ledger.Event,
+	runID string,
+	closure draft.ZeroWriteClosure,
+) bool {
+	currentIndexSHA256 := closure.PreIndexSHA256
+	if closure.CurrentIndexSHA256 != "" {
+		currentIndexSHA256 = closure.CurrentIndexSHA256
+	}
+	return event.Op == "entries_recover" && event.DraftRunID == runID &&
+		event.Result == ledger.ResultOK &&
+		event.RecoveryStatus == draft.RunResolutionZeroWrite &&
+		event.RecoveryTransactionID == closure.StagedTransactionID &&
+		event.PreIndexSHA256 == closure.PreIndexSHA256 &&
+		event.IndexSHA256 == currentIndexSHA256 &&
+		event.BaselineSHA256 == closure.CurrentBaselineSHA256 &&
+		event.RepositorySHA256 == closure.RepositorySHA256 &&
+		strings.Join(event.GovernanceReceipts, "\x00") ==
+			strings.Join(closure.GovernanceReceipts, "\x00") &&
+		event.RejectKinds == closure.Reason
 }
 
 func entriesRecoveryResultFromResolution(
@@ -503,6 +583,19 @@ func originalEntriesFailureEvidence(
 	return strings.Join(ordered, ","), wrote, nil
 }
 
+func rejectEntriesApplyEvidence(root, runID string) error {
+	events, corrupt := ledger.Recent(root, 0)
+	if corrupt != 0 {
+		return fmt.Errorf("entries_recovery_ledger_corrupt: %d", corrupt)
+	}
+	for _, event := range events {
+		if event.Op == "entries_apply" && event.DraftRunID == runID {
+			return fmt.Errorf("entries_recovery_pre_apply_ledger_conflict")
+		}
+	}
+	return nil
+}
+
 func hasSuccessfulRecoveryApplication(manifest *draft.Manifest, draftHash string, count int) bool {
 	if manifest == nil || manifest.AppliedAt == "" {
 		return false
@@ -529,6 +622,21 @@ func itemPaths(items []mcptools.AtomicUpdateItem) []string {
 func proveCurrentEntriesAlignment(
 	root string,
 	indexPath string,
+) (*entriesAlignmentProof, error) {
+	return proveCurrentEntriesAlignmentWithPolicy(root, indexPath, true)
+}
+
+func proveCurrentEntriesZeroWriteAlignment(
+	root string,
+	indexPath string,
+) (*entriesAlignmentProof, error) {
+	return proveCurrentEntriesAlignmentWithPolicy(root, indexPath, false)
+}
+
+func proveCurrentEntriesAlignmentWithPolicy(
+	root string,
+	indexPath string,
+	requireComplete bool,
 ) (*entriesAlignmentProof, error) {
 	configPath := filepath.Join(root, ".aoci", "config.json")
 	configState, err := optionalRecoveryProofFileState(configPath)
@@ -583,18 +691,22 @@ func proveCurrentEntriesAlignment(
 	if err != nil {
 		return nil, err
 	}
-	if dimByName(score, "format").Bad > 0 || dimByName(score, "dict").Bad > 0 ||
-		score.Drift.ActionableMissing > 0 || score.Drift.PendingCurationMissing > 0 {
+	if dimByName(score, "format").Bad > 0 || dimByName(score, "dict").Bad > 0 {
 		return nil, fmt.Errorf("entries_recovery_current_check_hard_gate_failed")
 	}
-	plan, err := buildAgentPlan(root, proofConfig, document, indexPath)
-	if err != nil || plan.Stage != agentPlanStageAligned {
-		return nil, fmt.Errorf("entries_recovery_current_guide_not_aligned: stage=%v err=%v", func() string {
-			if plan == nil {
-				return ""
-			}
-			return plan.Stage
-		}(), err)
+	if requireComplete {
+		if score.Drift.ActionableMissing > 0 || score.Drift.PendingCurationMissing > 0 {
+			return nil, fmt.Errorf("entries_recovery_current_check_hard_gate_failed")
+		}
+		plan, err := buildAgentPlan(root, proofConfig, document, indexPath)
+		if err != nil || plan.Stage != agentPlanStageAligned {
+			return nil, fmt.Errorf("entries_recovery_current_guide_not_aligned: stage=%v err=%v", func() string {
+				if plan == nil {
+					return ""
+				}
+				return plan.Stage
+			}(), err)
+		}
 	}
 	repositorySHA256 := calculateRepositorySnapshotHash(snapshot)
 	secondSnapshot, secondWarnings, err := baseline.Snapshot(root, proofConfig.WalkOptions())

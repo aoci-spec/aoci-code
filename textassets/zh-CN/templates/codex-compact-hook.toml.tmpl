@@ -1,0 +1,10 @@
+# aoci:codex-compact-hook:v1
+# Codex 压缩上下文后同步重载 AOCI 认知。
+# command target: hook codex-compact
+[[hooks.SessionStart]]
+matcher = "^compact$"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = {{printf "%q" .CodexCompactCommand}}
+command_windows = {{printf "%q" .CodexCompactCommandWindows}}

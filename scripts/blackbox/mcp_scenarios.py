@@ -361,11 +361,11 @@ def group_b():
         r, t, err = submit_batch(s, m)
         record(g, "B2.stale-reapplied", "PASS" if r.get("status") == "applied" else "FAIL", t[:150])
 
-    # B3: repair_required round trip (S over the C5 quota of 200 runes)
+    # B3: repair_required round trip (S over the C5 quota of 500 runes)
     with open(os.path.join(fx, "pkg", "f002.go"), "a") as f:
         f.write("\nfunc F002b() int { return 1002 }\n")
     m, t, err = maintain(s)
-    long_s = "x" * 250
+    long_s = "x" * 501
     r, t, err = submit_batch(s, m, mutate=lambda es: es.__setitem__(0, {**es[0], "new_entry": entry_line(es[0]["path"], s_field=long_s)}))
     findings = r.get("findings") or []
     ok = (r.get("status") == "repair_required" and r.get("formal_writes_started") is False

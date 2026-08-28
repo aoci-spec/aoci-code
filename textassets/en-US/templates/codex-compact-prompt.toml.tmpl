@@ -1,0 +1,16 @@
+# aoci:codex-compact-prompt:v1
+compact_prompt = """
+You are performing a CONTEXT CHECKPOINT COMPACTION. Create a handoff summary for another LLM that will resume the task.
+
+Include:
+- Current progress and key decisions made
+- Important context, constraints, or user preferences
+- What remains to be done (clear next steps)
+- Any critical data, examples, or references needed to continue
+
+Be concise, structured, and focused on helping the next LLM seamlessly continue the work.
+
+AOCI-specific compaction rule:
+- Do not retain, quote, paraphrase, or summarize the AOCI Whole-Index body or any Overview Header, Entry, Chunk, Challenge question or answer, or Attestation answer.
+- For AOCI, retain only the latest cognition_receipt identity, any unfinished write or Recovery state needed to continue safely, and this directive: immediately after compaction, obey the AOCI reload instruction injected by SessionStart(source=compact) before resuming the task.
+"""
