@@ -227,41 +227,121 @@ func validatePolicyBoundApproval(preview *Preview, receipt *PolicyBoundApproval)
 	return nil
 }
 
+// Every reason autoAuthorizationBlockers can emit is named here once, so the
+// two lists cannot drift apart. 313a3ab is the cautionary case: a fix declared
+// one consumer the only bypasser of a shared judgement, nothing enforced the
+// claim, and the second consumer shipped the same defect two releases later.
+const (
+	autoBlockerHighRiskContentInclusion    = "high_risk_content_inclusion"
+	autoBlockerBudgetPolicyRelaxation      = "budget_policy_relaxation"
+	autoBlockerApprovalPolicyRelaxation    = "approval_policy_relaxation"
+	autoBlockerP0OrP1                      = "p0_or_p1"
+	autoBlockerCoverageReduction           = "cognition_coverage_reduction_requires_independent_review"
+	autoBlockerTransportConstraint         = "transport_constraint_not_allowed"
+	autoBlockerRetentionReviewIncomplete   = "retention_review_incomplete"
+	autoBlockerExplicitDropWithoutTransfer = "explicit_drop_without_transfer"
+	autoBlockerCognitionBudgetExceeded     = "cognition_budget_exceeded"
+	autoBlockerRecoveryUnavailable         = "recovery_unavailable"
+	autoBlockerBusinessSourceWriteSet      = "business_source_write_set"
+	autoBlockerBusinessSourcePostimage     = "business_source_postimage"
+)
+
+// autoBlockerCodes is the complete emitted set; the classification below must
+// cover it, and a test holds the two together.
+var autoBlockerCodes = []string{
+	autoBlockerHighRiskContentInclusion, autoBlockerBudgetPolicyRelaxation,
+	autoBlockerApprovalPolicyRelaxation, autoBlockerP0OrP1,
+	autoBlockerCoverageReduction, autoBlockerTransportConstraint,
+	autoBlockerRetentionReviewIncomplete, autoBlockerExplicitDropWithoutTransfer,
+	autoBlockerCognitionBudgetExceeded, autoBlockerRecoveryUnavailable,
+	autoBlockerBusinessSourceWriteSet, autoBlockerBusinessSourcePostimage,
+}
+
+// autoBlockerRatifiableByIndependentReview splits those reasons into the ones a
+// human reviewer may ratify and the ones no approval can wave through.
+//
+// Ratifiable reasons are judgements the Spec deliberately hands to a person: a
+// posture or budget relaxation, high-risk content, a P0/P1 finding, a cognition
+// coverage reduction, an already-decided explicit drop. Refusing auto for them
+// and then reporting no reviewer leaves the change with no approver at all.
+//
+// The rest are not opinions. A transport-constraint basis is never an
+// admissible reduction reason; an incomplete retention review is missing input,
+// not a decision; an exceeded enforce-mode budget, an absent recovery
+// direction, and a business-source write or postimage are safety boundaries. For
+// these the plan correctly carries no reviewer, and the operator resolves the
+// condition instead of approving past it.
+var autoBlockerRatifiableByIndependentReview = map[string]bool{
+	autoBlockerHighRiskContentInclusion:    true,
+	autoBlockerBudgetPolicyRelaxation:      true,
+	autoBlockerApprovalPolicyRelaxation:    true,
+	autoBlockerP0OrP1:                      true,
+	autoBlockerCoverageReduction:           true,
+	autoBlockerExplicitDropWithoutTransfer: true,
+
+	autoBlockerTransportConstraint:       false,
+	autoBlockerRetentionReviewIncomplete: false,
+	autoBlockerCognitionBudgetExceeded:   false,
+	autoBlockerRecoveryUnavailable:       false,
+	autoBlockerBusinessSourceWriteSet:    false,
+	autoBlockerBusinessSourcePostimage:   false,
+}
+
+// interactionRequiredForAuto reports whether an effective-auto plan must be
+// routed to independent review, derived from the same blocker set Apply and
+// authorize consult rather than a second hand-kept copy of it. An unclassified
+// reason fails the build instead of silently picking a side: guessing "not
+// ratifiable" recreates the approver-less dead end, and guessing "ratifiable"
+// would let a human approve past a safety boundary.
+func interactionRequiredForAuto(preview *Preview, cfg *config.Config) (bool, error) {
+	required := false
+	for _, reason := range autoAuthorizationBlockers(preview, cfg) {
+		ratifiable, classified := autoBlockerRatifiableByIndependentReview[reason]
+		if !classified {
+			return false, fmt.Errorf("managed_scope_auto_blocker_unclassified: %s", reason)
+		}
+		if ratifiable {
+			required = true
+		}
+	}
+	return required, nil
+}
+
 func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 	reasons := []string{}
 	if preview.Plan.Risk.HighRiskOptIn || preview.CandidateSet.SafetyApproval != nil || len(cfg.SafeInventoryHighRiskOptIn) != 0 {
-		reasons = append(reasons, "high_risk_content_inclusion")
+		reasons = append(reasons, autoBlockerHighRiskContentInclusion)
 	}
 	if preview.Plan.Risk.BudgetRelaxation {
-		reasons = append(reasons, "budget_policy_relaxation")
+		reasons = append(reasons, autoBlockerBudgetPolicyRelaxation)
 	}
 	if preview.Plan.Risk.ApprovalPolicyRelaxation {
-		reasons = append(reasons, "approval_policy_relaxation")
+		reasons = append(reasons, autoBlockerApprovalPolicyRelaxation)
 	}
 	if preview.Plan.Risk.P0 != 0 || preview.Plan.Risk.P1 != 0 {
-		reasons = append(reasons, "p0_or_p1")
+		reasons = append(reasons, autoBlockerP0OrP1)
 	}
 	if preview.Plan.Risk.CognitionCoverageReduction {
-		reasons = append(reasons, "cognition_coverage_reduction_requires_independent_review")
+		reasons = append(reasons, autoBlockerCoverageReduction)
 	}
 	if preview.Plan.Risk.TransportConstraintNotAllowed {
-		reasons = append(reasons, "transport_constraint_not_allowed")
+		reasons = append(reasons, autoBlockerTransportConstraint)
 	}
 	if !retentionReviewComplete(preview) {
-		reasons = append(reasons, "retention_review_incomplete")
+		reasons = append(reasons, autoBlockerRetentionReviewIncomplete)
 	}
 	for _, disposition := range preview.Plan.RetentionReview {
 		if disposition.Disposition == DispositionExplicitDrop {
-			reasons = append(reasons, "explicit_drop_without_transfer")
+			reasons = append(reasons, autoBlockerExplicitDropWithoutTransfer)
 			break
 		}
 	}
 	if len(preview.Plan.WholeIndexAfter.Violations) != 0 ||
 		preview.Plan.WholeIndexAfter.WholeIndexTokens > preview.Plan.WholeIndexAfter.MaxTokens {
-		reasons = append(reasons, "cognition_budget_exceeded")
+		reasons = append(reasons, autoBlockerCognitionBudgetExceeded)
 	}
 	if preview.Plan.RecoveryDirection == "" {
-		reasons = append(reasons, "recovery_unavailable")
+		reasons = append(reasons, autoBlockerRecoveryUnavailable)
 	}
 	allowedWrites := map[string]bool{
 		cfg.IndexPath: true, ".aoci/config.json": true, ".aoci/curation.json": true,
@@ -269,13 +349,13 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 	}
 	for _, path := range preview.Plan.WriteSet {
 		if !allowedWrites[path] {
-			reasons = append(reasons, "business_source_write_set")
+			reasons = append(reasons, autoBlockerBusinessSourceWriteSet)
 			break
 		}
 	}
 	for _, image := range formalImages(preview) {
 		if !allowedWrites[image.Path] {
-			reasons = append(reasons, "business_source_postimage")
+			reasons = append(reasons, autoBlockerBusinessSourcePostimage)
 			break
 		}
 	}

@@ -410,6 +410,19 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	}
 	plan.BaselineAdded, plan.BaselineRemoved, plan.ObserveFingerprintAdded, plan.ObserveFingerprintRemoved = baselineDeltas(oldBaseline.Files, postBaseline.Files)
 	plan.Risk = buildRisk(plan, cfg, oldBaseline)
+	// The auto branch answers from the same blocker set Apply and authorize
+	// consult, so the Preview those blockers read is assembled here; its Plan
+	// copy is refreshed below once InteractionRequired and the identities exist.
+	preview := &Preview{Version: machinecontract.ManagedScopeChangePreviewV2,
+		EnvelopeVersion: machinecontract.ManagedScopeChangeEnvelopeV2, Plan: plan, CandidateSet: candidates,
+		Evaluation: *evaluation, SourceGuard: sourceGuard, IndexPostimage: formalImage(cfg.IndexPath, indexBytes, projectedBytes),
+		ConfigPostimage:   formalImage(".aoci/config.json", configBytes, configBytes),
+		BaselinePostimage: formalImage(".aoci/baseline.json", baselineBytes, baselinePostBytes), Baseline: postBaseline,
+		CurationExclusions: append([]string{}, curationExclude...), NetworkAccessed: false}
+	if curationExists {
+		image := formalImage(".aoci/curation.json", curationBytes, curationPostBytes)
+		preview.CurationPostimage = &image
+	}
 	switch plan.AuthorizationPolicy.EffectiveMode {
 	case machinecontract.ApplyAuthorizationReview:
 		plan.InteractionRequired = true
@@ -423,7 +436,17 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		// independent review, not to a dead end. Without this the weaker desired
 		// mode would also decide that no reviewer is needed, so the block would
 		// have no approver and auto would become unreachable once left.
-		plan.InteractionRequired = plan.Risk.ApprovalPolicyRelaxation
+		//
+		// Reported on rc5: this held only for the posture relaxation. A cognition
+		// coverage reduction planned under effective auto reported
+		// interaction_required=false, so scope approve answered
+		// managed_scope_approval_not_required while apply and authorize stayed
+		// blocked - the change had no approver and the repository was stuck. The
+		// answer is derived from the blocker set now, never re-enumerated.
+		plan.InteractionRequired, err = interactionRequiredForAuto(preview, cfg)
+		if err != nil {
+			return nil, err
+		}
 	case machinecontract.ApplyAuthorizationOff:
 		plan.InteractionRequired = false
 	default:
@@ -436,16 +459,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	if plan.InteractionRequired {
 		plan.ConfirmationPhrase = "APPLY MANAGED SCOPE " + plan.PlanID
 	}
-	preview := &Preview{Version: machinecontract.ManagedScopeChangePreviewV2,
-		EnvelopeVersion: machinecontract.ManagedScopeChangeEnvelopeV2, Plan: plan, CandidateSet: candidates,
-		Evaluation: *evaluation, SourceGuard: sourceGuard, IndexPostimage: formalImage(cfg.IndexPath, indexBytes, projectedBytes),
-		ConfigPostimage:   formalImage(".aoci/config.json", configBytes, configBytes),
-		BaselinePostimage: formalImage(".aoci/baseline.json", baselineBytes, baselinePostBytes), Baseline: postBaseline,
-		CurationExclusions: append([]string{}, curationExclude...), NetworkAccessed: false}
-	if curationExists {
-		image := formalImage(".aoci/curation.json", curationBytes, curationPostBytes)
-		preview.CurationPostimage = &image
-	}
+	preview.Plan = plan
 	physicalIdentities := []string{}
 	for _, image := range formalImages(preview) {
 		physicalIdentities = append(physicalIdentities, image.Path, image.PreimageSHA256, image.PostimageSHA256)
