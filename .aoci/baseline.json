@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-28T20:36:34Z",
+  "updated_at": "2026-08-28T21:12:54Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -125,9 +125,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "18506c5a7b0744f0da12aa8c0e2a575968ce220adf6c0d14a972042be8d1b31f",
-      "size": 173082,
-      "normalized_sha256": "18506c5a7b0744f0da12aa8c0e2a575968ce220adf6c0d14a972042be8d1b31f"
+      "sha256": "3e50c9f7835bf093f83a3f15bdcdfb813923d14a6daa757cfc8225a184427657",
+      "size": 173068,
+      "normalized_sha256": "3e50c9f7835bf093f83a3f15bdcdfb813923d14a6daa757cfc8225a184427657"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5139,10 +5139,10 @@
     },
     "internal/scopechange/line_ending_equivalence_test.go": {
       "role": "observe",
-      "sha256": "855080a3718252c641078f69dcabff9f0f3b59aa1bce82267bd04b12ae2785d4",
-      "size": 8989,
-      "normalized_sha256": "855080a3718252c641078f69dcabff9f0f3b59aa1bce82267bd04b12ae2785d4",
-      "format_sha256": "855080a3718252c641078f69dcabff9f0f3b59aa1bce82267bd04b12ae2785d4",
+      "sha256": "82694ea037f9d186a3f61bac1d7adcc3083dd353bcc706e758d5d3f7bdc3c721",
+      "size": 9449,
+      "normalized_sha256": "82694ea037f9d186a3f61bac1d7adcc3083dd353bcc706e758d5d3f7bdc3c721",
+      "format_sha256": "82694ea037f9d186a3f61bac1d7adcc3083dd353bcc706e758d5d3f7bdc3c721",
       "format_kind": "gofmt"
     },
     "internal/scopechange/plan.go": {
@@ -5370,9 +5370,9 @@
       "normalized_sha256": "37268b8f30770a86f074f325bcff1c3ca10e8761668a0aef305fae21f15bf390"
     },
     "scripts/blackbox/mcp_scenarios.py": {
-      "sha256": "7c9a59fae1d93e0a06b5248f474cdf6f6294c8051c9bfb841e058354415881fb",
-      "size": 49698,
-      "normalized_sha256": "7c9a59fae1d93e0a06b5248f474cdf6f6294c8051c9bfb841e058354415881fb"
+      "sha256": "602f4e2418ff74e3ed4d730a3e2a38b9c0fff1f9aa1c87dcba14f3b98c8eff81",
+      "size": 50546,
+      "normalized_sha256": "602f4e2418ff74e3ed4d730a3e2a38b9c0fff1f9aa1c87dcba14f3b98c8eff81"
     },
     "scripts/check-deps.sh": {
       "role": "index",

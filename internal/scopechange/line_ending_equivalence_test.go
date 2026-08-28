@@ -45,9 +45,17 @@ func rewriteFixtureLineEndings(t *testing.T, root, rel string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rewritten := bytes.ReplaceAll(raw, []byte("\n"), []byte("\r\n"))
-	if bytes.Equal(rewritten, raw) {
-		t.Fatalf("fixture precondition broken: %s already has no LF to rewrite", rel)
+	// Flip to whichever form differs from what is on disk. A one-way LF to CRLF
+	// rewrite over content that is already CRLF yields \r\r\n, which is a real
+	// content change and would test the opposite of what these tests claim.
+	normalized := bytes.ReplaceAll(raw, []byte("\r\n"), []byte("\n"))
+	rewritten := normalized
+	if bytes.Equal(raw, normalized) {
+		rewritten = bytes.ReplaceAll(normalized, []byte("\n"), []byte("\r\n"))
+	}
+	if bytes.Equal(rewritten, raw) ||
+		!bytes.Equal(bytes.ReplaceAll(rewritten, []byte("\r\n"), []byte("\n")), normalized) {
+		t.Fatalf("fixture precondition broken: rewriting %s is not line-ending-only", rel)
 	}
 	if err := os.WriteFile(path, rewritten, 0o644); err != nil {
 		t.Fatal(err)

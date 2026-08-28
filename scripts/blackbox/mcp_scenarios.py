@@ -762,8 +762,10 @@ def group_f_scope():
     d = os.path.join(WORK, "fx-scope-line-ending")
     shutil.rmtree(d, ignore_errors=True)
     os.makedirs(os.path.join(d, "pkg"))
-    with open(os.path.join(d, "pkg", "a.go"), "w") as f:
-        f.write("package pkg\n\nfunc A() int { return 1 }\n")
+    # Binary write: Python text mode translates \n to \r\n on Windows, which would
+    # leave this fixture already CRLF and make the flip below a content change.
+    with open(os.path.join(d, "pkg", "a.go"), "wb") as f:
+        f.write(b"package pkg\n\nfunc A() int { return 1 }\n")
     sh(d, "git", "init", "-q")
     sh(d, "git", "config", "user.email", "fixture@test.invalid")
     sh(d, "git", "config", "user.name", "fixture")
@@ -797,9 +799,19 @@ def group_f_scope():
 
     source = os.path.join(d, "pkg", "a.go")
     with open(source, "rb") as fh:
-        lf_body = fh.read()
+        original = fh.read()
+    # Flip to whichever form differs from what is on disk, so the rewrite is a
+    # line-ending difference on every platform rather than only where the fixture
+    # happened to land as LF. The precondition is then asserted, not assumed: a
+    # naive one-way flip over CRLF yields \r\r\n, which is a real content change
+    # and would quietly test the opposite of what this scenario claims.
+    lf_body = original.replace(b"\r\n", b"\n")
+    flipped = lf_body if original != lf_body else lf_body.replace(b"\n", b"\r\n")
+    if flipped == original or flipped.replace(b"\r\n", b"\n") != lf_body:
+        record(g, first, "FAIL", "fixture precondition: the rewrite is not line-ending-only")
+        return
     with open(source, "wb") as fh:
-        fh.write(lf_body.replace(b"\n", b"\r\n"))
+        fh.write(flipped)
     rc, plan, out, errs = cli(d, "scope", "plan", "--prepared-at", "2026-08-29T00:00:00Z",
                               "--candidate-file", candidate, expect_ok=False)
     body = plan.get("plan") or plan
@@ -813,7 +825,7 @@ def group_f_scope():
     # postimage Baseline stamp new bytes onto an Entry describing the old ones,
     # so that must still fail closed.
     with open(source, "wb") as fh:
-        fh.write(lf_body + b"\nfunc B() int { return 2 }\n")
+        fh.write(flipped + b"\nfunc B() int { return 2 }\n")
     rc, _, out, errs = cli(d, "scope", "plan", "--prepared-at", "2026-08-29T00:00:00Z",
                            "--candidate-file", candidate, expect_ok=False)
     blob = (out or "") + (errs or "")
