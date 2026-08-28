@@ -62,14 +62,14 @@ fmt:
 fmt-check:
 	@UNFMT=$$($(GOFMT_BIN) -l $(MAIN_GO_FILES) $(OPENGAUSS_PATCH_GO_FILES)) || exit $$?; if [ -n "$$UNFMT" ]; then echo "fmt-check: 以下文件未通过 gofmt:"; echo "$$UNFMT"; exit 1; else echo "fmt-check: 全部文件符合 gofmt"; echo "fmt-check: 主模块与AOCI connector补丁文件已检查，上游镜像未被递归改写"; fi
 
-# 公开文案禁区扫描(D3 机器闸门;脚本未就位时提示跳过不失败)
+# 公开文案禁区扫描(D3 机器闸门)。脚本缺失是闸门损坏,必须失败 —— 跳过即假绿。
 safety:
-	@if [ -f scripts/check-public-text.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh; else echo "safety: scripts/check-public-text.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-public-text.sh
 
 # 依赖方向硬校验(R17/D23 机器闸门): 确定性核心层禁止 import AI 编排层。
-# 脚本仅用 go list,零新增依赖;脚本未就位时提示跳过不失败。
+# 脚本仅用 go list,零新增依赖;脚本缺失是闸门损坏,必须失败 —— 跳过即假绿。
 check-deps:
-	@if [ -f scripts/check-deps.sh ]; then GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh; else echo "check-deps: scripts/check-deps.sh 尚未生成,跳过"; fi
+	@GO_BIN="$(GO_BIN)" bash scripts/check-deps.sh
 
 # 底座工具链预检。licenses 与 opengauss-connector 在 GOTOOLCHAIN=local 下跑 Go,
 # 使审计只报告 GO_BIN 选定的那一个 Go 身份;该钉法下 Go 不会下载工具链,底座低于
