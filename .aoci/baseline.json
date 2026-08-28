@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-28T20:06:44Z",
+  "updated_at": "2026-08-28T20:36:34Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -125,9 +125,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "cd63e8f2988218f9ddf9a66f2ab7f89ccb646d1b49b637a0b0347ba3ca151b21",
-      "size": 172869,
-      "normalized_sha256": "cd63e8f2988218f9ddf9a66f2ab7f89ccb646d1b49b637a0b0347ba3ca151b21"
+      "sha256": "18506c5a7b0744f0da12aa8c0e2a575968ce220adf6c0d14a972042be8d1b31f",
+      "size": 173082,
+      "normalized_sha256": "18506c5a7b0744f0da12aa8c0e2a575968ce220adf6c0d14a972042be8d1b31f"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5365,9 +5365,9 @@
       "normalized_sha256": "194d7ccccdc03a4e79e93ea18c247846431933bb7be5268c5d2efe7b49ca243b"
     },
     "scripts/blackbox/mcp_lifecycle.py": {
-      "sha256": "d6f0e26d047e81781c7c8780f7c6f5b314e6a0303862cc2e54c37af4225c9820",
-      "size": 54512,
-      "normalized_sha256": "d6f0e26d047e81781c7c8780f7c6f5b314e6a0303862cc2e54c37af4225c9820"
+      "sha256": "37268b8f30770a86f074f325bcff1c3ca10e8761668a0aef305fae21f15bf390",
+      "size": 55261,
+      "normalized_sha256": "37268b8f30770a86f074f325bcff1c3ca10e8761668a0aef305fae21f15bf390"
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "sha256": "7c9a59fae1d93e0a06b5248f474cdf6f6294c8051c9bfb841e058354415881fb",
@@ -5530,9 +5530,9 @@
       "normalized_sha256": "9ec65bd6caf139cb25592054e94e52844d199e751f2dfee956cb988fc18235a1"
     },
     "spec/public/aoci-managed-scope-and-budget-v1.txt": {
-      "sha256": "d7daf7e286be07d8f8cf910e43d8f8c5d5f7da5ea8422809117ab69c67617ff7",
-      "size": 11542,
-      "normalized_sha256": "d7daf7e286be07d8f8cf910e43d8f8c5d5f7da5ea8422809117ab69c67617ff7"
+      "sha256": "21baf6f54d9ab973ca8276c3cc8afb4ccc1869dc41941f2246e36faa5e49a779",
+      "size": 12305,
+      "normalized_sha256": "21baf6f54d9ab973ca8276c3cc8afb4ccc1869dc41941f2246e36faa5e49a779"
     },
     "spec/public/aoci-mcp-runtime-v1.txt": {
       "role": "index",

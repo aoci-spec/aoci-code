@@ -809,9 +809,19 @@ def suite_governance(rep, work):
     pv = os.path.join(work, "gov-pv.json")
     open(pv, "w").write(out)
     rc, v, out, _ = cli(fx, "scope", "apply", "--preview-file", pv, expect_ok=False)
-    blocked = rc != 0 and "coverage_reduction" in (v.get("message") or "") + out
-    rep.rec(g, "post-scan-exclude-needs-human", "PASS" if blocked else "FAIL",
-            (v.get("message") or out)[:120])
+    # 两件事都要成立: Apply 仍被拒, 且原因仍然看得见。理由字符串本身不是判据 ——
+    # 覆盖缩减现在路由给独立审批(它本就该有审批人), 于是 Apply 说的是"需要真人",
+    # 而"为什么需要"由操作者刚生成的 Plan 承载。只钉字符串会把这次修复读成回归。
+    blob = (v.get("message") or "") + out
+    refused = rc != 0 and ("coverage_reduction" in blob or "human_approval_required" in blob)
+    try:
+        plan = (jload(open(pv).read()) or {}).get("plan") or {}
+        cause_visible = bool((plan.get("risk") or {}).get("cognition_coverage_reduction"))
+    except Exception:
+        cause_visible = False
+    cause_visible = cause_visible or "coverage_reduction" in blob
+    rep.rec(g, "post-scan-exclude-needs-human", "PASS" if refused and cause_visible else "FAIL",
+            f"refused={refused} cause_visible={cause_visible} | " + (v.get("message") or out)[:90])
     # 预置排除: 同样内容, 阻塞消失
     fx2 = deploy("a", work, "gov-excluded")
     init_and_scan(fx2)

@@ -119,6 +119,17 @@ transport_constraint_not_allowed blocker. Independent Scope review may still
 authorize normal evidence-backed density changes. Existing complete Entry
 retirement retains its prior disposition and authorization contract.
 
+Refusing automatic authorization is only half the contract. Every blocker a
+human reviewer may ratify -- a posture or budget relaxation, high-risk content,
+a P0/P1 finding, a cognition coverage reduction, an already-decided explicit
+drop -- also makes the plan report interaction_required, so the refusal has an
+approver. The remaining blockers are not opinions and carry no reviewer: a
+transport_constraint basis, an incomplete retention review, an exceeded
+enforce-mode budget, an absent recovery direction, and any business-source write
+or postimage. For those the operator resolves the condition instead of approving
+past it. The two sets are derived from one blocker enumeration; an unclassified
+reason fails the plan rather than defaulting to either side.
+
 Lowering the applied authorization posture is an approval_policy_relaxation.
 It cannot receive policy_bound_auto authorization, because a posture may never
 ratify its own weakening, and the weaker desired posture never decides that no
