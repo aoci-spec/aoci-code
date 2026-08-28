@@ -438,6 +438,8 @@
   "cli.update_entry.path_required": "--path is required and must name a repository-relative target file",
   "cli.update_entry.source_sha_invalid": "--source-sha256 must be the 64-character source fingerprint returned by aoci_maintain",
   "cli.update_entry.stdin_failed": "Could not read stdin: %v",
+  "cli.update_entry.stdin_too_large": "stdin input exceeds the %d byte Entries limit",
+  "cli.update_entry.stdin_conflict": "--entry and --stdin are mutually exclusive; give exactly one",
   "cognition.bootstrap.approval_prompt": "Review envelope %s and its complete write set [%s]. Type exactly: %s",
   "cognition.bootstrap.approval_summary": "Bootstrap Approval recorded: actor=%s envelope_digest=%s approval_digest=%s (local audit binding; not cryptographic authentication).",
   "cognition.bootstrap.error": "Cognition Bootstrap failed closed: %s",

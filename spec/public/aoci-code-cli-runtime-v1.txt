@@ -39,6 +39,24 @@ its contract explicitly says otherwise, but local audit evidence can still be
 written when enabled. Formal writes use the existing validation, lock, CAS,
 atomic-write, and recovery pipeline.
 
+Bounded standard input
+----------------------
+
+Every command that reads standard input reads it under an explicit byte bound
+and never buffers an unbounded stream. update-entry accepts at most the Entries
+request limit and refuses a larger payload as a configuration error before any
+formal write; supplying both --entry and --stdin is refused the same way, since
+silently preferring one would write content the operator did not intend. Hook
+runtime input carries a small private bound and fails open on a read error or an
+oversize payload, because hook infrastructure must never block a workflow.
+
+Layout-scoped read commands
+---------------------------
+
+Read-only commands this contract declares Legacy-only, including status --deep,
+diagnose a Volumes v1 layout instead of reporting a result their governance path
+owns.
+
 Compatibility
 -------------
 

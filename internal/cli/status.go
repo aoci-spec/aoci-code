@@ -181,6 +181,14 @@ func init() {
 				)
 			}
 
+			// --deep is documented Legacy-only; diagnose the layout rather than
+			// computing a drift set the Volumes governance path owns.
+			if deep {
+				if layoutErr := requireLegacyLayout(root, cfg, false); layoutErr != nil {
+					return &ExitError{Code: ExitConfig, Err: layoutErr}
+				}
+			}
+
 			if deep {
 				deepResult, deepErr :=
 					buildStatusDeepCounts(

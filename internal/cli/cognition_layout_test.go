@@ -80,3 +80,28 @@ func TestStatusFailsClosedForInvalidDeclaredVolume(t *testing.T) {
 		t.Fatalf("status did not expose the structural finding: %s", combined)
 	}
 }
+
+// status --deep is documented Legacy-only. It used to run against a Volumes
+// repository and report a drift set the Volumes governance path owns, so the
+// public documents and the binary disagreed about the same command.
+func TestStatusDeepIsRefusedOnVolumesLayout(t *testing.T) {
+	root := t.TempDir()
+	rootText := cognition.RootManifestMarker + "\n#Format-Version: cognition-volumes/v1\n#Locale: en-US\n" +
+		"#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled\n"
+	if err := os.WriteFile(filepath.Join(root, "aoci.txt"), []byte(rootText), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.DefaultConfig()
+	cfg.IndexPath = "aoci.txt"
+	if err := requireLegacyLayout(root, cfg, false); err == nil {
+		t.Fatal("a read-only Legacy-only path must still diagnose a Volumes layout")
+	}
+
+	// The neutral name and the write-path name are one precondition, not two:
+	// a second copy is how a guard silently stops covering one of its callers.
+	writeErr := requireLegacyWriteLayout(root, cfg, false)
+	readErr := requireLegacyLayout(root, cfg, false)
+	if writeErr == nil || readErr == nil || writeErr.Error() != readErr.Error() {
+		t.Fatalf("write and read guards must resolve one verdict: %v vs %v", writeErr, readErr)
+	}
+}

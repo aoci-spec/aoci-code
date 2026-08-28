@@ -438,6 +438,8 @@
   "cli.update_entry.path_required": "--path必填，且必须是目标文件的仓库相对路径",
   "cli.update_entry.source_sha_invalid": "--source-sha256必须是aoci_maintain返回的64位源码指纹",
   "cli.update_entry.stdin_failed": "读取stdin失败: %v",
+  "cli.update_entry.stdin_too_large": "stdin 输入超出 %d 字节的条目上限",
+  "cli.update_entry.stdin_conflict": "--entry 与 --stdin 互斥,只能给其中一个",
   "cognition.bootstrap.approval_prompt": "请审阅Envelope %s及完整写集合[%s]。请精确输入：%s",
   "cognition.bootstrap.approval_summary": "已记录Bootstrap Approval：actor=%s envelope_digest=%s approval_digest=%s（仅为本地审计绑定，不是密码学身份认证）。",
   "cognition.bootstrap.error": "Cognition Bootstrap已失败关闭：%s",
