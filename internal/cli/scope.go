@@ -873,7 +873,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		if loadErr != nil {
 			return nil, loadErr
 		}
-		if _, guardErr := scopechange.FormalCognitionBaselineGuards(root, cfg.IndexPath, currentBaseline); guardErr != nil {
+		if _, guardErr := scopechange.FormalCognitionBaselineGuards(root, cfg.IndexPath, currentBaseline, cfg.LineEndingTolerance); guardErr != nil {
 			return nil, guardErr
 		}
 		code := set.Volumes[cognition.ScopeCode]

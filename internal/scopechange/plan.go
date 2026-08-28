@@ -118,7 +118,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	// projected Baseline. Observe-only acknowledgement intentionally preserves
 	// indexed cognition debt in that Baseline, so it is not a source snapshot.
 	sourceGuard := cloneFingerprints(desiredSnapshot)
-	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, oldBaseline)
+	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, oldBaseline, cfg.LineEndingTolerance)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	}
 	oldRoles := baselineRolesExcept(oldBaseline, formalVolumeGuards)
 	if policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
-		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, activePolicyIdentity(oldBaseline) == policyIdentity)
+		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, activePolicyIdentity(oldBaseline) == policyIdentity, cfg.LineEndingTolerance)
 		if len(changes) != 0 {
 			if candidates.ObserveReview == nil || candidates.ObserveReview.ReviewStatus != ReviewStatusReviewed ||
 				candidates.ObserveReview.Reviewer == "" || !equalSortedPaths(candidates.ObserveReview.Paths, changes) {
@@ -223,7 +223,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 				}
 			}
 			_, inInventory := evaluationsByPath[rel]
-			state := coverageAuthoringState(rel, entries, oldBaseline, desiredSnapshot, inInventory)
+			state := coverageAuthoringState(rel, entries, oldBaseline, desiredSnapshot, inInventory, cfg.LineEndingTolerance)
 			// An absent source has neither an Entry nor bytes left to lose, so
 			// retiring its stale Baseline record is bookkeeping rather than a
 			// coverage reduction. A transport-constraint basis still reports,
@@ -262,8 +262,21 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		if oldRole != machinecontract.ScopeRoleIndex && !authored && !(layout == cognition.LayoutVolumesV1 && entries[rel] == nil) {
 			return nil, fmt.Errorf("managed_scope_authoring_candidate_required: %s", rel)
 		}
-		if oldRole == machinecontract.ScopeRoleIndex && oldFingerprint.SHA256 != fingerprint.SHA256 && !authored {
-			return nil, fmt.Errorf("managed_scope_index_source_stale: %s", rel)
+		if oldRole == machinecontract.ScopeRoleIndex && !authored {
+			// Publishing a postimage Baseline over a genuinely changed source would
+			// stamp new bytes onto an Entry describing the old ones, so that still
+			// fails closed. A line-ending-only rewrite carries the same semantics
+			// the Entry already describes, and the ordinary governance path counts
+			// it as aligned; blocking it here left the repository with no move that
+			// clears the block.
+			equal, lineEndingOnly := baseline.EquivalentFingerprints(oldFingerprint, fingerprint, cfg.LineEndingTolerance)
+			if !equal {
+				return nil, fmt.Errorf("managed_scope_index_source_stale: %s", rel)
+			}
+			if lineEndingOnly {
+				plan.SourceLineEndingOnly = append(plan.SourceLineEndingOnly, ScopeObject{
+					Path: rel, Role: machinecontract.ScopeRoleIndex, SourceSHA256: fingerprint.SHA256})
+			}
 		}
 	}
 	removalPaths := []string{}
@@ -607,7 +620,7 @@ func baselineRolesExcept(value *baseline.Baseline, excluded map[string]baseline.
 // Database Volume itself is already present and Baseline-current. The Scope
 // transaction then advances only the Root fingerprint; arbitrary Root drift
 // still fails closed.
-func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Baseline) (map[string]baseline.Fingerprint, error) {
+func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Baseline, tolerateLineEndings bool) (map[string]baseline.Fingerprint, error) {
 	result := map[string]baseline.Fingerprint{}
 	if active == nil {
 		return result, nil
@@ -629,7 +642,15 @@ func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Base
 			continue
 		}
 		current, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(asset.Descriptor.Path)))
-		if hashErr != nil || current.SHA256 != stored.SHA256 {
+		if hashErr != nil {
+			return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", asset.Descriptor.Path)
+		}
+		// A Volume rewritten only in its line endings is the difference team
+		// policy already calls equivalent, so it is not Baseline drift here
+		// either. EquivalentFingerprints is the single entry point for that
+		// judgement and degrades to raw SHA when either side lacks a
+		// normalized digest.
+		if equal, _ := baseline.EquivalentFingerprints(stored, current, tolerateLineEndings); !equal {
 			return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", asset.Descriptor.Path)
 		}
 		result[asset.Descriptor.Path] = stored
@@ -642,7 +663,7 @@ func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Base
 	if hashErr != nil {
 		return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", indexPath)
 	}
-	if currentRoot.SHA256 == storedRoot.SHA256 {
+	if equal, _ := baseline.EquivalentFingerprints(storedRoot, currentRoot, tolerateLineEndings); equal {
 		storedRoot.Role = machinecontract.ScopeRoleIndex
 		result[indexPath] = storedRoot
 		return result, nil
@@ -746,21 +767,27 @@ func validateSourcesPresent(root string, active *baseline.Baseline, desired map[
 	return nil
 }
 
-func observedEvidenceChanges(active *baseline.Baseline, desired map[string]baseline.Fingerprint, roles map[string]string, policyAligned bool) []string {
+func observedEvidenceChanges(active *baseline.Baseline, desired map[string]baseline.Fingerprint, roles map[string]string, policyAligned bool, tolerateLineEndings bool) []string {
 	changes := []string{}
 	for path, fingerprint := range desired {
 		if roles[path] != machinecontract.ScopeRoleObserve {
 			continue
 		}
 		old, exists := active.Files[path]
-		if exists && baseline.EffectiveRole(old) == machinecontract.ScopeRoleObserve && old.SHA256 != fingerprint.SHA256 {
-			changes = append(changes, path)
+		if exists && baseline.EffectiveRole(old) == machinecontract.ScopeRoleObserve {
+			// Observe watches a fingerprint, and team policy already decides which
+			// differences count. Ordinary drift detection routes this same question
+			// through EquivalentFingerprints, so a line-ending rewrite must not
+			// become review debt only when a Scope Change happens to look.
+			if equal, _ := baseline.EquivalentFingerprints(old, fingerprint, tolerateLineEndings); !equal {
+				changes = append(changes, path)
+			}
 			continue
 		}
 		// A new observe path is evidence drift only while the active policy is
 		// unchanged. During a policy transition it is an explicit Scope Add and
 		// its initial fingerprint is reviewed as part of that Plan.
-		if policyAligned && (!exists || baseline.EffectiveRole(old) != machinecontract.ScopeRoleObserve) {
+		if policyAligned {
 			changes = append(changes, path)
 		}
 	}
@@ -1038,7 +1065,7 @@ func managedScopeEvaluationsByPath(evaluation *managedscope.Evaluation) map[stri
 // deleted from the tree carries no source and no Entry, so dropping it costs
 // nothing. Excluded paths remain in the evaluation, so only a genuinely
 // vanished file reports absent.
-func coverageAuthoringState(path string, entries map[string]*index.Entry, old *baseline.Baseline, desired map[string]baseline.Fingerprint, inInventory bool) string {
+func coverageAuthoringState(path string, entries map[string]*index.Entry, old *baseline.Baseline, desired map[string]baseline.Fingerprint, inInventory bool, tolerateLineEndings bool) string {
 	if entries[path] == nil {
 		if !inInventory {
 			return "absent"
@@ -1052,8 +1079,10 @@ func coverageAuthoringState(path string, entries map[string]*index.Entry, old *b
 	if !exists {
 		return "unbaselined"
 	}
-	if current, exists := desired[path]; exists && current.SHA256 != previous.SHA256 {
-		return "stale"
+	if current, exists := desired[path]; exists {
+		if equal, _ := baseline.EquivalentFingerprints(previous, current, tolerateLineEndings); !equal {
+			return "stale"
+		}
 	}
 	return "current"
 }

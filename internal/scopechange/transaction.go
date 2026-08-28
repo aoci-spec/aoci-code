@@ -552,7 +552,7 @@ func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, 
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
 	}
-	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, activeBaseline)
+	formalVolumeGuards, err := FormalCognitionBaselineGuards(root, cfg.IndexPath, activeBaseline, cfg.LineEndingTolerance)
 	if err != nil {
 		return fmt.Errorf("managed_scope_source_guard_snapshot_changed")
 	}

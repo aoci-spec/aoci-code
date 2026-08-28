@@ -742,6 +742,86 @@ def group_f():
            f"offers_scan={offers_scan} names_scope={names_scope} | {instructions[:130]}")
 
 
+def group_f_scope():
+    """A line-ending rewrite must not lock a repository out of Scope Change either.
+
+    313a3ab routed Volume comparison through baseline.EquivalentFingerprints and
+    F3 pins that on the Maintain path. The same commit declared volumegovernance
+    the one consumer that had bypassed the judgement, and nothing enforced that
+    claim: internal/scopechange still compared raw SHA. So the very checkout F3
+    proves harmless hard-failed a governed Scope Change with
+    managed_scope_index_source_stale, while ordinary Verify, Check and Guide
+    called the file aligned and offered no work - a block with no move that
+    clears it. F3 never leaves the Maintain path, which is why it could not see
+    this, and why the defect reached a real user on rc5. This scenario walks the
+    Scope Change path instead, and pins both arms: tolerated and reported, but
+    still fail-closed on a genuinely changed source.
+    """
+    g = "F"
+    first = "F7.line-ending-rewrite-does-not-lock-out-scope-change"
+    d = os.path.join(WORK, "fx-scope-line-ending")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    with open(os.path.join(d, "pkg", "a.go"), "w") as f:
+        f.write("package pkg\n\nfunc A() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    if rc != 0:
+        record(g, first, "FAIL", f"init failed: {out[:150]} {errs[:150]}")
+        return
+    rc, _, out, errs = cli(d, "scan")
+    if rc != 0:
+        record(g, first, "FAIL", f"scan failed: {out[:150]} {errs[:150]}")
+        return
+
+    # A policy edit is what makes a Scope Change necessary at all. The rule is a
+    # deliberate no-op matching a path that never exists, so the only thing under
+    # test is how the source difference is judged.
+    rc, _, out, errs = cli(d, "scope", "rule", "add", "no-op-future",
+                           "--action", "exclude", "--pattern", "never-present.txt",
+                           "--pattern-kind", "file", "--order", "100",
+                           "--reason", "scenario no-op policy change")
+    if rc != 0:
+        record(g, first, "FAIL", f"scope rule add failed: {out[:150]} {errs[:150]}")
+        return
+    # The candidate set lives outside the repository: inside it, it would become
+    # an untracked Index-role source of its own and change the very evaluation
+    # under test.
+    candidate = os.path.join(WORK, "fx-scope-line-ending-candidates.json")
+    with open(candidate, "w", encoding="utf-8") as fh:
+        fh.write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')
+
+    source = os.path.join(d, "pkg", "a.go")
+    with open(source, "rb") as fh:
+        lf_body = fh.read()
+    with open(source, "wb") as fh:
+        fh.write(lf_body.replace(b"\n", b"\r\n"))
+    rc, plan, out, errs = cli(d, "scope", "plan", "--prepared-at", "2026-08-29T00:00:00Z",
+                              "--candidate-file", candidate, expect_ok=False)
+    body = plan.get("plan") or plan
+    tolerated = [item.get("path") for item in (body.get("source_line_ending_only") or [])]
+    blob = (out or "") + (errs or "")
+    ok = rc == 0 and "managed_scope_index_source_stale" not in blob and "pkg/a.go" in tolerated
+    record(g, first, "PASS" if ok else "FAIL",
+           f"rc={rc} tolerated={tolerated} | {blob[:130]}")
+
+    # Tolerance is not blindness. A genuinely changed source would let the
+    # postimage Baseline stamp new bytes onto an Entry describing the old ones,
+    # so that must still fail closed.
+    with open(source, "wb") as fh:
+        fh.write(lf_body + b"\nfunc B() int { return 2 }\n")
+    rc, _, out, errs = cli(d, "scope", "plan", "--prepared-at", "2026-08-29T00:00:00Z",
+                           "--candidate-file", candidate, expect_ok=False)
+    blob = (out or "") + (errs or "")
+    record(g, "F7b.genuinely-changed-source-still-blocks-scope-change",
+           "PASS" if rc != 0 and "managed_scope_index_source_stale" in blob else "FAIL",
+           f"rc={rc} | {blob[:160]}")
+
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 
@@ -862,6 +942,7 @@ if __name__ == "__main__":
     group_d(bigfx)
     group_e()
     group_f()
+    group_f_scope()
     group_t()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
