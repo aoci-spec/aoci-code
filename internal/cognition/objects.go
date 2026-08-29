@@ -25,7 +25,7 @@ func IsCanonicalDatabaseRef(ref string) bool {
 		databaseNamePattern.MatchString(parts[1]) && databaseNamePattern.MatchString(parts[2])
 }
 
-func parseCodeVolume(repositoryRoot string, raw []byte) (*index.Document, []Object, []Finding) {
+func parseCodeVolume(repositoryRoot string, raw []byte, sq *index.SQuotaThresholds) (*index.Document, []Object, []Finding) {
 	doc, warnings := index.Parse(string(raw))
 	index.ResolveRelPaths(doc, repositoryRoot)
 	findings := make([]Finding, 0, len(warnings))
@@ -46,7 +46,7 @@ func parseCodeVolume(repositoryRoot string, raw []byte) (*index.Document, []Obje
 				continue
 			}
 			seen[key] = entry.LineNo
-			for _, violation := range validateFRASV2(entry) {
+			for _, violation := range validateFRASV2(entry, sq) {
 				findings = append(findings, Finding{
 					Code: violation.Code, AssetID: "code", Line: entry.LineNo, Message: violation.Message,
 				})
@@ -57,7 +57,7 @@ func parseCodeVolume(repositoryRoot string, raw []byte) (*index.Document, []Obje
 	return doc, objects, findings
 }
 
-func parseDatabaseVolume(raw []byte) ([]Object, []Finding) {
+func parseDatabaseVolume(raw []byte, sq *index.SQuotaThresholds) ([]Object, []Finding) {
 	lines := splitLines(raw)
 	seen := map[string]int{}
 	var objects []Object
@@ -102,7 +102,7 @@ func parseDatabaseVolume(raw []byte) ([]Object, []Finding) {
 			continue
 		}
 		seen[key] = lineNumber
-		for _, violation := range validateFRASV2(entry) {
+		for _, violation := range validateFRASV2(entry, sq) {
 			findings = append(findings, Finding{
 				Code: violation.Code, AssetID: "database", Line: lineNumber, Message: violation.Message,
 			})
@@ -112,7 +112,7 @@ func parseDatabaseVolume(raw []byte) ([]Object, []Finding) {
 	return objects, findings
 }
 
-func validateFRASV2(entry *index.Entry) []RepairFinding {
+func validateFRASV2(entry *index.Entry, sq *index.SQuotaThresholds) []RepairFinding {
 	var findings []RepairFinding
 	violations := index.ValidateEntryLine(entry.Filename, entry.FullLine)
 	for _, violation := range violations {
@@ -180,14 +180,27 @@ func validateFRASV2(entry *index.Entry) []RepairFinding {
 	if value := entry.TagsParsed["C"]; len(value) == 1 && value[0] >= '1' && value[0] <= '9' {
 		importance = int(value[0] - '0')
 	}
-	if importance > 0 && utf8.RuneCountInString(entry.S) > machinecontract.DefaultSQuotaForC(importance) {
-		actual := utf8.RuneCountInString(entry.S)
-		maximum := machinecontract.DefaultSQuotaForC(importance)
-		findings = append(findings, frasFinding(
-			"S", "fras_s_too_long", fmt.Sprintf("max_runes=%d", maximum),
-			fmt.Sprintf("rune_count=%d", actual),
-			fmt.Sprintf("S contains %d Unicode characters; C%d maximum is %d; regenerate the complete Entry", actual, importance, maximum),
-		))
+	// The effective limit comes from index.LimitForC, the single place that
+	// resolves a C band against the repository's Meta declaration. This gate used
+	// to call machinecontract directly and so ignored the declaration entirely,
+	// while the authoring contract the model is handed honours it: a repository
+	// declaring a wider band was told 500, authored to it, and was refused at 200
+	// with no edit that could clear the block. LimitForC only ever loosens, so a
+	// Volume that loads today still loads.
+	if importance > 0 {
+		maximum, declared := sq.LimitForC(importance)
+		if actual := utf8.RuneCountInString(entry.S); actual > maximum {
+			source := "the machine default"
+			if declared {
+				source = "this repository's Meta S quota declaration"
+			}
+			findings = append(findings, frasFinding(
+				"S", "fras_s_too_long", fmt.Sprintf("max_runes=%d", maximum),
+				fmt.Sprintf("rune_count=%d", actual),
+				fmt.Sprintf("S contains %d Unicode characters; the C%d maximum is %d by %s; regenerate the complete Entry",
+					actual, importance, maximum, source),
+			))
+		}
 	}
 	return findings
 }

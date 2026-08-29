@@ -232,13 +232,24 @@ func prepareUpdateEntry(
 			line,
 			dictionary,
 		); violation != nil {
+			// A dimension the operator declared in a spelling this parser does
+			// not accept is thrown away and silently replaced by the fallback
+			// dictionary, and the refusal then reports the operator's own symbol
+			// as illegal against a line it discarded. Name the spelling, or the
+			// message cannot be acted on at all.
+			hint := writeMessage("entry.write.hint.dictionary")
+			if misses := dictionary.UnrecognizedDimensionNames(); len(misses) > 0 {
+				hint = writeMessage("entry.write.hint.dictionary_name_unrecognized",
+					misses[0].Written,
+					strings.Join(index.AcceptedDimensionSpellings(misses[0].Canonical), " / "))
+			}
 			return nil, "", &Fail{
 				Code: errBadArgs,
 				Msg: writeMessage(
 					"entry.write.dictionary_failed",
 					localeSafeWriteDetail(violation.Msg),
 				),
-				Hint: writeMessage("entry.write.hint.dictionary"),
+				Hint: hint,
 			}
 		}
 	}

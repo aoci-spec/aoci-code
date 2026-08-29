@@ -76,7 +76,11 @@ type Projection struct {
 	Violations                []Violation `json:"violations"`
 }
 
-func EstimateTokens(data []byte) int { return len(data) / 3 }
+func EstimateTokens(data []byte) int { return EstimateTokensOfSize(len(data)) }
+
+// EstimateTokensOfSize is the same estimate for a byte count the caller already
+// has, so a caller summing several assets never has to restate the formula.
+func EstimateTokensOfSize(byteCount int) int { return byteCount / 3 }
 
 func Build(repositoryRoot string, raw []byte, policy Policy) (*Report, error) {
 	normalized, err := Normalize(policy)
@@ -142,6 +146,53 @@ func Build(repositoryRoot string, raw []byte, policy Policy) (*Report, error) {
 		return left.Field < right.Field
 	})
 	return report, nil
+}
+
+// RebindWholeIndexTokens replaces the Whole-Index total with a figure measured
+// over a complete multi-asset Volumes v1 set, and recomputes everything derived
+// from it.
+//
+// Build measures one asset, which is correct for a Legacy single-file index and
+// wrong for Volumes v1: there cfg.IndexPath is the Root pointer, a few hundred
+// bytes that name the other assets. A report built over it announces a
+// Whole-Index of about a hundred tokens and no Entries at all, which is what
+// `aoci scope status` reported on a real 58166-token repository — the one command
+// every blocked budget path hands the operator.
+//
+// Callers Build over the object Volume so the per-field costs and per-Entry
+// violations are real, then rebind the total. The difference between the total
+// and the measured fields lands in StructureTokens, which is exactly what the
+// Root and Meta assets are.
+func (r *Report) RebindWholeIndexTokens(tokens int, policy Policy) error {
+	normalized, err := Normalize(policy)
+	if err != nil {
+		return err
+	}
+	r.WholeIndexTokens = tokens
+	r.StructureTokens = tokens - r.HeaderTokens - r.FTokens - r.RTokens - r.ATokens - r.STokens
+	if r.StructureTokens < 0 {
+		r.StructureTokens = 0
+	}
+	r.Status = statusFor(tokens, normalized.WholeIndex)
+	kept := make([]Violation, 0, len(r.Violations)+1)
+	for _, violation := range r.Violations {
+		if violation.Code != "whole_index_budget_exceeded" {
+			kept = append(kept, violation)
+		}
+	}
+	if tokens > normalized.WholeIndex.MaxTokens {
+		kept = append(kept, Violation{Code: "whole_index_budget_exceeded",
+			Actual: tokens, Maximum: normalized.WholeIndex.MaxTokens})
+	}
+	sort.Slice(kept, func(i, j int) bool {
+		left, right := kept[i], kept[j]
+		if left.Path != right.Path {
+			return left.Path < right.Path
+		}
+		return left.Field < right.Field
+	})
+	r.Violations = kept
+	return nil
 }
 
 func Validate(repositoryRoot string, raw []byte, policy Policy) (*Validation, error) {

@@ -32,6 +32,12 @@
 // 默认配额),既有调用方(validator.go 等)行为零变化;头部声明的生效依赖
 // 调用方迁移到 CheckSQuotaWith 并传入 ExtractSQuotaThresholds 结果,
 // 迁移逐调用方现读后进行(R50)。
+//
+// internal/cognition 已于 rc6 迁入本文件: objects.go 曾自持第四份配额判定
+// (直接调 machinecontract.DefaultSQuotaForC 且对头部声明视而不见),于是
+// "系统告诉模型的上限"与"写入路径拒绝的上限"可以不同 —— 声明放宽的仓库
+// 被告知 500 却在 200 处硬拒,且没有任何编辑能解除。该路径现经 LimitForC
+// 单点取值,绝不在本文件之外重建第二份 C 档取值逻辑。
 package index
 
 import (
@@ -46,6 +52,20 @@ import (
 type SQuotaThresholds struct {
 	quotas  map[int]int
 	sawLine bool // S配额行是否在场(含在场但不可解析形态,R51 跳过可见分型用)
+	// unrecognizedName 记录"维名写法本解析器不接受"的原样拼写。它只进诊断,
+	// 绝不参与取值 —— 该行今天怎么解析,加上本字段后仍然怎么解析。
+	unrecognizedName string
+}
+
+// UnrecognizedName returns the S quota dimension spelling this parser rejected,
+// exactly as the operator wrote it, or the empty string. A rejected spelling is
+// otherwise indistinguishable from no declaration at all, which is how an
+// operator's declared numbers became the machine defaults in silence.
+func (t *SQuotaThresholds) UnrecognizedName() string {
+	if t == nil {
+		return ""
+	}
+	return t.unrecognizedName
 }
 
 // HasQuotas 判断配额表是否含至少一个可用声明。
@@ -75,6 +95,30 @@ func quotaForC(c int, th *SQuotaThresholds) (quota int, custom bool) {
 	return machinecontract.DefaultSQuotaForC(c), false
 }
 
+// LimitForC resolves the effective S rune limit for one C band FOR AN
+// ERROR-LEVEL GATE, and deliberately differs from quotaForC: a declared band
+// wins only when it is LOOSER than the machine default.
+//
+// The asymmetry is load-bearing, not an oversight. CheckSQuotaWith is
+// Warning-level curation discipline and honours a declaration in both
+// directions, because a warning an operator asked for costs nothing. An
+// Error-level gate refuses the whole Volume, so honouring a tightening there
+// would make an already-persisted Volume unloadable the moment an operator
+// narrows their own header — taking Verify, Check, Guide, Maintain and Overview
+// down together, recoverable only by hand-editing the Meta asset.
+//
+// The floor makes the gate monotone-loosening under EVERY possible declaration,
+// which is the property that lets this change ship: nothing that loads today can
+// fail after the upgrade, and a repository that declared a wider band and could
+// not load its own authored Entries now can.
+func (t *SQuotaThresholds) LimitForC(c int) (limit int, declared bool) {
+	quota, custom := quotaForC(c, t)
+	if machine := machinecontract.DefaultSQuotaForC(c); quota < machine {
+		return machine, custom
+	}
+	return quota, custom
+}
+
 // ExtractSQuotaThresholds 从头部文本提取 S 配额声明。
 // 行识别经 parseDictLine 单点(维名 S配额,三形态容错);内容按空白分词逐词
 // 解析,不可解析的词跳过(该行仍置 sawLine 供分型)。
@@ -83,8 +127,19 @@ func ExtractSQuotaThresholds(headerText string) *SQuotaThresholds {
 	for _, line := range strings.Split(headerText, "\n") {
 		dim, content, ok := parseDictLine(line)
 		if !ok || dim != "S配额" {
+			if !ok {
+				// State two, not state one: the declaration is present and the
+				// machine cannot read it. Values are untouched.
+				if canonical, written, near := DimensionNameNearMiss(line); near && canonical == "S配额" {
+					t.sawLine = true
+					if t.unrecognizedName == "" {
+						t.unrecognizedName = written
+					}
+				}
+			}
 			continue
 		}
+		t.unrecognizedName = ""
 		t.sawLine = true
 		for _, word := range strings.Fields(content) {
 			cmin, cmax, q, ok := parseSQuotaField(word)

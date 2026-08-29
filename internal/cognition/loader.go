@@ -115,17 +115,41 @@ func loadVolumes(repositoryRoot, indexPath string, rootRaw []byte) (*Set, error)
 		return set, &ValidationError{Findings: set.Errors}
 	}
 
-	for _, descriptor := range descriptors {
+	// Two passes, because the Meta asset carries the S quota declaration every
+	// object Volume is judged against and the Root may declare them in any order.
+	// A single loop reads the declaration only for object Volumes that happen to
+	// be declared after meta, which is a correctness bug that no fixture with the
+	// canonical ordering can catch. Errors are still appended in declaration
+	// order so the reported ordering does not change.
+	assetErrors := make([][]Finding, len(descriptors))
+	for position, descriptor := range descriptors {
+		if descriptor.ID != "meta" {
+			continue
+		}
 		asset := set.Volumes[descriptor.ID]
 		if descriptor.State == machinecontract.CognitionVolumeDisabled {
 			asset.State = AssetAbsent
 			continue
 		}
-		loadVolumeAsset(repositoryRoot, asset)
-		set.Errors = append(set.Errors, asset.Findings...)
+		loadVolumeAsset(repositoryRoot, asset, nil)
+		assetErrors[position] = asset.Findings
+		set.Meta = *asset
+	}
+	quotas := index.ExtractSQuotaThresholds(string(set.Meta.Raw))
+	for position, descriptor := range descriptors {
 		if descriptor.ID == "meta" {
-			set.Meta = *asset
+			continue
 		}
+		asset := set.Volumes[descriptor.ID]
+		if descriptor.State == machinecontract.CognitionVolumeDisabled {
+			asset.State = AssetAbsent
+			continue
+		}
+		loadVolumeAsset(repositoryRoot, asset, quotas)
+		assetErrors[position] = asset.Findings
+	}
+	for _, findings := range assetErrors {
+		set.Errors = append(set.Errors, findings...)
 	}
 	if len(set.Meta.Raw) > 0 {
 		set.Errors = append(set.Errors, validateMetaContract(set.Meta.Raw)...)
@@ -260,7 +284,7 @@ func validateDependencies(descriptors []Descriptor) []Finding {
 	return findings
 }
 
-func loadVolumeAsset(repositoryRoot string, asset *Asset) {
+func loadVolumeAsset(repositoryRoot string, asset *Asset, sq *index.SQuotaThresholds) {
 	if asset.Descriptor.ID == "" {
 		return
 	}
@@ -283,7 +307,7 @@ func loadVolumeAsset(repositoryRoot string, asset *Asset) {
 		asset.Findings = append(asset.Findings, Finding{Code: "volume_read_failed", AssetID: asset.Descriptor.ID, Message: err.Error()})
 		return
 	}
-	parseVolumeAssetBytes(repositoryRoot, asset, raw)
+	parseVolumeAssetBytes(repositoryRoot, asset, raw, sq)
 }
 
 // ValidateProjectedCodeVolume validates an in-memory replacement for the
@@ -308,7 +332,7 @@ func ValidateProjectedObjectVolume(set *Set, volumeID string, raw []byte) []Find
 		return []Finding{{Code: "projected_volume_absent", AssetID: volumeID, Message: "projected validation requires an existing valid object Volume"}}
 	}
 	projectedAsset := &Asset{Descriptor: current.Descriptor, State: AssetInvalid}
-	parseVolumeAssetBytes(set.RepositoryRoot, projectedAsset, raw)
+	parseVolumeAssetBytes(set.RepositoryRoot, projectedAsset, raw, index.ExtractSQuotaThresholds(string(set.Meta.Raw)))
 
 	projectedSet := *set
 	projectedSet.Volumes = make(map[string]*Asset, len(set.Volumes))
@@ -323,7 +347,7 @@ func ValidateProjectedObjectVolume(set *Set, volumeID string, raw []byte) []Find
 	return findings
 }
 
-func parseVolumeAssetBytes(repositoryRoot string, asset *Asset, raw []byte) {
+func parseVolumeAssetBytes(repositoryRoot string, asset *Asset, raw []byte, sq *index.SQuotaThresholds) {
 	asset.Raw = raw
 	asset.SHA256 = digestBytes(raw)
 	if !utf8.Valid(raw) {
@@ -342,13 +366,13 @@ func parseVolumeAssetBytes(repositoryRoot string, asset *Asset, raw []byte) {
 	case "meta":
 		asset.Findings = append(asset.Findings, validateMeta(raw)...)
 	case "code":
-		document, objects, findings := parseCodeVolume(repositoryRoot, raw)
+		document, objects, findings := parseCodeVolume(repositoryRoot, raw, sq)
 		asset.Document = document
 		asset.Objects = objects
 		asset.Findings = append(asset.Findings, findings...)
 		asset.Findings = append(asset.Findings, validateObjectVolumeBoundary(raw, "code")...)
 	case "database":
-		objects, findings := parseDatabaseVolume(raw)
+		objects, findings := parseDatabaseVolume(raw, sq)
 		asset.Objects = objects
 		asset.Findings = append(asset.Findings, findings...)
 		asset.Findings = append(asset.Findings, validateObjectVolumeBoundary(raw, "database")...)

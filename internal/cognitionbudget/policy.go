@@ -34,10 +34,15 @@ type Policy struct {
 	S          []FieldBand      `json:"s"`
 }
 
+// DefaultPolicy is the NEW-PROJECT budget. config.SetNewProjectGovernance is its
+// only production caller and runs only from init, after proving config.json did
+// not already exist, so these numbers reach no repository that already has one.
+// They MAY move. LegacyPolicy is the frozen preimage for repositories with no
+// cognition_budget block and must move independently or not at all.
 func DefaultPolicy(mode string) Policy {
 	return Policy{
 		Version: machinecontract.CognitionBudgetPolicyV1, Mode: mode,
-		WholeIndex: WholeIndexPolicy{TargetTokens: 120000, WarningTokens: 180000, MaxTokens: 240000},
+		WholeIndex: WholeIndexPolicy{TargetTokens: 200000, WarningTokens: 300000, MaxTokens: 400000},
 		R: []FieldBand{{MinC: 9, MaxC: 9, TargetTokens: 90, MaxTokens: 180}, {MinC: 8, MaxC: 8, TargetTokens: 70, MaxTokens: 140},
 			{MinC: 5, MaxC: 7, TargetTokens: 45, MaxTokens: 90}, {MinC: 1, MaxC: 4, TargetTokens: 25, MaxTokens: 50}},
 		S: []FieldBand{{MinC: 9, MaxC: 9, TargetTokens: 100, MaxTokens: 200}, {MinC: 8, MaxC: 8, TargetTokens: 70, MaxTokens: 140},
@@ -45,7 +50,33 @@ func DefaultPolicy(mode string) Policy {
 	}
 }
 
-func LegacyPolicy() Policy { return DefaultPolicy(machinecontract.BudgetModeObserve) }
+// LegacyPolicy is the budget a repository resolves when its config.json carries
+// no cognition_budget block, which every repository created before that block
+// existed does, and which config.MutateManagedScope still produces today because
+// it sets ManagedScope and never materializes a budget.
+//
+// Its Identity() is therefore a PERSISTED PREIMAGE. It is stamped into
+// .aoci/baseline.json as managed_scope.budget_policy_identity and compared on
+// every load by managedstate.Load and by cli/scope.go. Changing any literal
+// below, or the Policy struct's field set, or any json tag on it, moves that
+// identity for every such repository, flips budget alignment to false, and
+// forces a human-approved Scope Change the repository did nothing to earn.
+//
+// FROZEN. Identity() == a98988839d1818e2faa245e355c256be3698f7a3552edf87338cb8ce48444eb7
+//
+// DefaultPolicy is the new-project default and MAY move. The two were one
+// function until rc6 and must never be re-collapsed.
+func LegacyPolicy() Policy {
+	return Policy{
+		Version:    machinecontract.CognitionBudgetPolicyV1,
+		Mode:       machinecontract.BudgetModeObserve,
+		WholeIndex: WholeIndexPolicy{TargetTokens: 120000, WarningTokens: 180000, MaxTokens: 240000},
+		R: []FieldBand{{MinC: 9, MaxC: 9, TargetTokens: 90, MaxTokens: 180}, {MinC: 8, MaxC: 8, TargetTokens: 70, MaxTokens: 140},
+			{MinC: 5, MaxC: 7, TargetTokens: 45, MaxTokens: 90}, {MinC: 1, MaxC: 4, TargetTokens: 25, MaxTokens: 50}},
+		S: []FieldBand{{MinC: 9, MaxC: 9, TargetTokens: 100, MaxTokens: 200}, {MinC: 8, MaxC: 8, TargetTokens: 70, MaxTokens: 140},
+			{MinC: 5, MaxC: 7, TargetTokens: 40, MaxTokens: 80}, {MinC: 1, MaxC: 4, TargetTokens: 20, MaxTokens: 40}},
+	}
+}
 
 func Normalize(policy Policy) (Policy, error) {
 	if policy.Version == "" {

@@ -850,7 +850,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 	}
 	raw, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
 	if readErr == nil {
-		status.Budget, err = cognitionbudget.Build(root, raw, cfg.EffectiveCognitionBudget())
+		status.Budget, err = buildScopeStatusBudget(root, cfg, raw)
 		if err != nil {
 			return nil, err
 		}
@@ -916,6 +916,50 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		status.Stage = "authoring_required"
 	}
 	return status, nil
+}
+
+// buildScopeStatusBudget measures the budget the operator is actually governed
+// by. Under Volumes v1 cfg.IndexPath is the Root pointer — a few hundred bytes
+// naming the other assets — so measuring it alone reported 101 tokens and 0
+// Entries for a repository whose real index is 58166 tokens over 476 objects.
+// That is the number `aoci scope status` shows, and it is the command every
+// blocked budget path hands the operator, so it told them their index was empty
+// at the exact moment they were being refused for its size.
+//
+// Legacy repositories keep the single-asset measurement unchanged. Under Volumes
+// v1 the per-field costs and per-Entry violations come from the object Volume,
+// where the Entries are, and the Whole-Index total is rebound to the complete
+// declared asset set.
+func buildScopeStatusBudget(root string, cfg *config.Config, raw []byte) (*cognitionbudget.Report, error) {
+	policy := cfg.EffectiveCognitionBudget()
+	layout, layoutErr := cognition.DetectLayout(raw)
+	if layoutErr != nil || layout != cognition.LayoutVolumesV1 {
+		return cognitionbudget.Build(root, raw, policy)
+	}
+	set, loadErr := cognition.Load(root, cfg.IndexPath)
+	if loadErr != nil {
+		// A set that cannot be assembled is reported by the governance findings,
+		// not by silently substituting a wrong budget.
+		return cognitionbudget.Build(root, raw, policy)
+	}
+	code := set.Volumes[cognition.ScopeCode]
+	if code == nil || code.State != cognition.AssetPresent {
+		return cognitionbudget.Build(root, raw, policy)
+	}
+	report, err := cognitionbudget.Build(root, code.Raw, policy)
+	if err != nil {
+		return nil, err
+	}
+	total := len(raw)
+	for _, id := range set.DeclaredOrder {
+		if asset := set.Volumes[id]; asset != nil {
+			total += len(asset.Raw)
+		}
+	}
+	if err := report.RebindWholeIndexTokens(cognitionbudget.EstimateTokensOfSize(total), policy); err != nil {
+		return nil, err
+	}
+	return report, nil
 }
 
 func findScopeEvaluation(evaluation *managedscope.Evaluation, rel string) (managedscope.PathEvaluation, bool) {

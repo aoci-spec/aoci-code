@@ -4,6 +4,247 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Keep a repository that never chose a cognition budget on the one it has. A
+  `config.json` with no `cognition_budget` block resolves the machine default at
+  runtime, and that resolved policy's identity is stamped in the Baseline and
+  compared on every load — so raising the default would have moved the identity
+  of every such repository, flipped budget alignment to false, and demanded a
+  human-approved Scope Change the repository did nothing to earn. That
+  population is reachable through fully supported commands, because `aoci scope
+  rule`, `profile`, and `observe-policy` all write a scope policy and never
+  materialize a budget. The legacy policy is now a frozen preimage with its
+  identity pinned by a test that says, in the failure message, to revert the
+  change rather than update the literal. The new-project default is a separate
+  function that may move, and the two must never be collapsed back together.
+- Raise the budget a new project starts with to 200000 target / 300000 warning /
+  400000 max tokens. Only `aoci init` writes it, and only after proving
+  `config.json` did not already exist, so no existing repository is touched:
+  every repository created by rc1 through rc5 carries an explicit block and
+  keeps it. At this repository's measured density of about 122 tokens per
+  object, the previous 240000 covered roughly two thousand objects and the
+  warning fired at about fifteen hundred, which put an ordinary large service in
+  warning at its first authoring.
+- Hand back the remediation a repository over its budget can actually run. The
+  refusal reported a bare `cognition_budget_exceeded`, the Guide offered `aoci
+  scope status` and an instruction to compress cognition, and `aoci scope budget
+  set` — which has existed all along — was named in exactly one line of one
+  document. Compression is the wrong answer for an index that grew because the
+  repository did, and it was the only answer offered. The finding now carries
+  the numbers that produced it and both levers, the blocked Guide carries Stop
+  facts and the command that raises the budget, and the instructions state that
+  a raise is a governed change requiring `aoci scope preview`, human approval,
+  and `aoci scope apply`. `docs/managed-scope-and-budget.md` states that the
+  published numbers are the new-project default rather than a system limit, and
+  a test holds those numbers to the code that produces them.
+- Report the Whole-Index that `aoci scope status` is actually governing. Under
+  Volumes v1 it measured `aoci.txt` alone — the Root pointer, a few hundred
+  bytes naming the other assets — and announced 101 tokens and zero Entries for
+  a repository whose index is 58166 tokens over 476 objects. That is the command
+  every blocked budget path hands the operator, so it told them their index was
+  empty at the moment they were being refused for its size. Per-field costs and
+  per-Entry violations now come from the object Volume, and the Whole-Index
+  total is rebound to the complete declared asset set. Legacy repositories keep
+  the single-asset measurement unchanged.
+- Let a repository's own S quota declaration govern the gate that refuses its
+  Entries. `internal/cognition` held a fourth, private copy of the quota rule
+  that read the machine default directly and never looked at the Meta
+  declaration, while the authoring contract handed to the model is built from
+  that declaration: a repository declaring a wider band was told the wider
+  number, authored to it, and was refused at the machine default by a message
+  naming a limit the operator had already changed. No edit to the declaration
+  could clear it. Resolution now runs through one place, and that place only
+  ever loosens — a declaration wider than the machine default governs, a
+  narrower one does not tighten. The asymmetry is deliberate: an error-level
+  gate that honoured a tightening would make an already-persisted Volume
+  unloadable the moment an operator narrowed their own Header, taking Verify,
+  Check, Guide, Maintain and Overview down together. With the floor, nothing
+  that loads today can fail after this upgrade, and a repository that could not
+  load its own authored Entries now can. The declaration is read before any
+  object Volume is judged rather than only for Volumes the Root happens to
+  declare after it, on both the load path and the volume-commit path.
+- Correct the published claim about that gate. `spec/public/s-field-discipline`
+  stated that an over-quota S "emits warning-level violations that pass through
+  without blocking persistence", which is what the curation check does and the
+  opposite of what the Volumes v1 object gate does. The two gates, their
+  different levels, and the reason they resolve a declaration differently are
+  now stated. This repository already enforces that published numbers match the
+  code; the divergence survived because a published behavioural claim had no
+  such gate, so one was added.
+- Name a dimension the header declared in a spelling the parser does not accept.
+  Writing `#S-quota` where `#S quota` is expected was indistinguishable from
+  declaring nothing: the operator's numbers silently became the machine
+  defaults. For the E scale dimension it was worse — the declaration was
+  discarded, the fallback dictionary substituted, and the operator's own
+  declared symbol then reported as illegal against "the E scale line in the
+  header", the line that had just been thrown away, which `aoci_update_entry`
+  treats as a hard refusal. The accepted spellings did not change, because
+  accepting more of them would turn a currently dark gate on for repositories
+  whose header uses hyphens and break writes that succeed today. A rejected
+  spelling is now reported as a declaration that is present and unreadable,
+  quoted as written and alongside the accepted forms. It is reported only for a
+  dimension that received no acceptable line, so a stray line beside a correct
+  declaration stays silent.
+- Stop paying for a formatter on every file on every call. `managedscope`
+  recompiled a glob pattern for each rule and path pair — 171745 compilations
+  over 48 distinct patterns for one `aoci check` — and `baseline.HashFile` ran
+  `go/format.Source` over every Go file, which profiled at 94.7% of that
+  function against 1.5% for the SHA-256 it supplements. A formatted digest is
+  only ever consulted when the raw digest changed, so computing it for a file
+  whose bytes are unchanged is work no judgement can use. Patterns are memoized
+  on their exact bytes, and a caller holding the Baseline may supply it so an
+  unchanged file skips the reparse. Every digest is byte-identical to a cold
+  hash: reuse requires the raw digest, the size, and the normalized digest to
+  agree before any stored value is carried over. `aoci check` on this repository
+  went from 2.52s to 0.78s with `check --json` output unchanged byte for byte.
+- Stop deciding Managed Scope path matching by asking the host filesystem.
+  `filesystemCaseSensitive` probed the running machine and folded the answer
+  into the applied scope identity, so one repository carried two different
+  governance identities depending on whether it was checked out on Linux or on
+  Windows. The equivalence bridge built over that re-evaluated every path under
+  the opposite semantics and published an alternate identity when the roles
+  provably coincided, which hid the difference without removing it: where a rule
+  and a path genuinely differ in case, two platforms could not both be aligned,
+  and one of them received a `scope_change_required` with no real cause.
+  Matching now uses Git semantics — exact and case-sensitive — on every host,
+  and the probe and the bridge are gone. The identity preimage deliberately
+  keeps its case-sensitive form, so every receipt established on a
+  case-sensitive filesystem stays valid unchanged. Only a receipt recorded under
+  the historical case-insensitive semantics migrates, and where both semantics
+  assigned the same roles its plan is identity-only — no role change, no Entry
+  change, `aoci.txt` byte-identical — and policy-bound auto authorizes it
+  without a human. Where they genuinely diverge it is a real role change and is
+  authorized as one. `docs/upgrading.md` states the boundary and the command.
+
+- Show a vanished Observe file in the plan the operator has to acknowledge.
+  `scope status` keys an Observe removal on the source snapshot while the plan
+  keyed it on the role map, and a file deleted from the worktree but still
+  tracked by Git is evaluated as an unsafe filesystem object, so it stayed in
+  the role map and read as reclassified by policy rather than gone. `status`
+  listed it, the plan did not, and the review set `aoci scope acknowledge`
+  submits could never match — the refusal named neither the extra path nor the
+  missing one. The role map remains the key, because it is what separates a
+  deliberate Observe-to-Exclude transition from a path that simply vanished;
+  only the vanished set is added to what the plan reports.
+
+- Close a staged host-agent Entries run that a later transaction has already
+  superseded. Such a run could stay pending forever once a legitimate governance
+  transaction had advanced the formal Index from the same preimage: the recovery
+  path read every changed Index as unknown drift, even when a complete
+  content-addressed receipt chain proved the staged run itself had written
+  nothing, and nothing the operator did cleared the pending state. Closing one
+  now requires a pristine stage-only run, no apply Ledger evidence, locked and
+  stable Index, Baseline, and repository state, no pending transaction or CAS
+  asset, and a unique gap-free, fork-free, time-ordered chain whose first
+  receipt belongs to a transaction other than the staged batch. A stored closure
+  is revalidated on every later pending check, so a deleted or tampered receipt
+  reopens the run rather than leaving a Manifest flag to be trusted.
+
+- Reload the cognition contract after a Codex compaction, and state why a probe
+  cannot survive one. `aoci init` installs a compaction prompt and a reload
+  hook, and the hidden `aoci hook codex-compact` emits developer context
+  carrying a fresh refresh event id. The runtime contract and the public refresh
+  spec now state the rule the hook serves: a compacted handoff carries no
+  Whole-Index, Overview, Challenge, or Attestation body; an index receipt copied
+  into a handoff cannot prove the resumed model's cognition; and a cognition
+  probe is valid only when no compaction is known. A probe answered after a
+  known compaction passes while proving nothing.
+
+- Pin every GitHub Actions reference to a commit SHA, and stop letting an
+  absent gate script report success. `release.yml` has been pinned from the
+  start because it signs, attests, and publishes artifacts, but `ci.yml`,
+  `full-confidence.yml`, and `release-rehearsal.yml` kept movable tags — and
+  those three check out the source, run the gates, and decide whether the
+  repository is green, so an upstream retag could change this repository's
+  verdict with nothing visible in its own history. All 35 references in those
+  three workflows now carry a 40-hex commit SHA and a comment naming the version
+  it stands for, because a bare SHA can be diffed but not reviewed;
+  `internal/safety` enforces both properties and fails if it inspects nothing,
+  so it cannot pass while covering an empty set. The pins are the versions
+  already in use resolved to their current commits, since pinning and upgrading
+  are separate decisions. The `safety` and `check-deps` Makefile gates each ran
+  their script only when the file existed and otherwise printed a skip notice
+  and succeeded; a missing gate script is now a failure, because a broken gate
+  that reports success is the same false green one layer down.
+
+- Bound the standard input the CLI will read. The pretool hook runtime and
+  `aoci index update-entry` both read stdin through an unbounded `io.ReadAll`,
+  while the same repository already read `LimitReader(max+1)` on the Agent stage
+  and curation protocols — the discipline existed and two entry points missed
+  it. Both now read through one bound, and the two callers answer an oversize
+  payload differently on purpose. Hook infrastructure must never block a
+  workflow, and its input carries only a tool name and a path, so the hook fails
+  open on either an oversize input or a read error and discards the payload
+  rather than buffering it. `update-entry` refuses as a configuration error
+  before any formal write, and also refuses `--entry` together with `--stdin`,
+  because silently preferring one would write content the operator did not
+  intend. A refused oversize input leaves the Index untouched.
+
+- Make `aoci status --deep` behave the way it is documented. It is a
+  Legacy-only command, but it ran against a Volumes repository and reported a
+  drift set the Volumes governance path owns, so the public documents and the
+  binary disagreed about one command. The existing write-path precondition is
+  now reachable under a neutral name and answers both callers, because a second
+  copy of a guard is how it silently stops covering one of them. The public CLI
+  runtime contract states both this routing and the standard-input bound.
+
+- Give every refused Managed Scope change a reviewer, or a stated reason there
+  is none. A cognition coverage reduction planned under `inherit` with effective
+  `auto` reported `interaction_required=false`, so `scope approve` answered
+  `managed_scope_approval_not_required` while `scope apply` and `scope
+  authorize` stayed blocked by `managed_scope_auto_authorization_blocked`: the
+  change had no approver at all and the repository was stuck. The auto branch
+  derived its answer from a single risk field, so exactly one of the twelve
+  reasons `autoAuthorizationBlockers` can refuse was ever routed to a person.
+  The answer is now derived from that same blocker set rather than a second
+  hand-kept copy of it, and the reasons are partitioned once. Ratifiable, and
+  therefore routed to independent review: posture and budget relaxations,
+  high-risk content, P0 and P1 findings, cognition coverage reductions, and an
+  already-decided explicit drop. Safety boundaries, which carry no reviewer
+  because the operator must resolve the condition instead of approving past it:
+  a transport-constraint basis, an incomplete retention review, an exceeded
+  enforce-mode budget, an absent recovery direction, and any business-source
+  write or postimage. An unclassified reason fails the build instead of
+  defaulting, because both defaults are wrong — one recreates the dead end and
+  the other would let an approval wave a safety boundary through. The public
+  Managed Scope contract states the partition and the rule that both sets come
+  from one enumeration.
+
+- Stop refusing a Scope Change over a line ending. `internal/scopechange`
+  compared sources by raw SHA-256 and so became the last consumer bypassing
+  `baseline.EquivalentFingerprints` — the function whose own contract calls
+  itself the single entry point for that judgement. An earlier release closed
+  the same class in `internal/volumegovernance` and declared that package the
+  only bypasser; nothing enforced the claim. `core.autocrlf` is the Git for
+  Windows default, so one ordinary checkout left Verify, Check, and Guide
+  calling a file aligned with no work to do while every Scope Change hard-failed
+  on it with `managed_scope_index_source_stale`. Neither side offered a move
+  that cleared the block, the operator concluded their Entries were unreadable,
+  and upgrading could not help because the earlier fix never reached this
+  package. No Entry was ever lost: the blocker fires only when the file is
+  already an index-role object in the Baseline. Every comparison in the package
+  is now classified rather than swept. Source equivalence runs through
+  `EquivalentFingerprints` — the stale blocker, the coverage-reduction grading,
+  the formal Volume and Root Baseline guards, and observed evidence drift —
+  while identity bindings stay raw, because candidate source digests, Entry
+  preimages, and the historical Root reconstruction must recover the stored SHA
+  exactly. Tolerance is not silence: the Plan carries `source_line_ending_only`
+  so the operator sees which sources were accepted as equivalent before the
+  postimage Baseline records their new bytes. That field is omitted when empty,
+  so a plan without such drift serializes exactly as before, its `plan_id` is
+  unchanged, and no in-flight approval is stranded.
+
+- Say in `docs/troubleshooting.md` that a committed tree-wide digest must
+  exclude `.aoci`. A release process that hashes the whole tree and commits the
+  result back covers `.aoci/baseline.json`, which is tracked by design, and the
+  two form a fixed point: the digest depends on the Baseline, and the Baseline
+  records the fingerprint of the file holding the digest. No pair of contents
+  satisfies both, so the repository keeps one permanently stale Entry. This is a
+  foreseeable interaction rather than a defect, and AOCI already makes the same
+  decision internally — `internal/fs/walk.go` excludes `.aoci` and `.git`
+  unconditionally to prevent self-swallowing, so the Business Source manifest
+  never contains a governance asset. Nothing under `.aoci` participates in a
+  build or in the source a review covers, so the exclusion makes such a digest
+  answer its intended question rather than weakening it.
 - Report one blocker per root cause. A Managed Scope policy that no longer
   matches its receipt already reports `scope_change_required`, but the business
   source manifest refuses to build in that state, and every manifest failure

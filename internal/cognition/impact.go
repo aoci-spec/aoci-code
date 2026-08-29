@@ -311,7 +311,7 @@ func parseImpactCandidateObject(set *Set, candidate ImpactCandidate) (Object, []
 			Message: "candidate must contain one complete canonical FRAS object line",
 		}}
 	}
-	frasFindings := validateFRASV2(entry)
+	frasFindings := validateFRASV2(entry, index.ExtractSQuotaThresholds(string(set.Meta.Raw)))
 	if len(frasFindings) > 0 {
 		result := make([]ImpactFinding, 0, len(frasFindings))
 		for _, finding := range frasFindings {

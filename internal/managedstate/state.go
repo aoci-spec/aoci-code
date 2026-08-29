@@ -74,7 +74,15 @@ func Load(root string, cfg *config.Config) (*State, error) {
 		return state, nil
 	}
 	approved := len(cfg.SafeInventoryHighRiskOptIn) == 0 || value.ManagedScope.HighRiskApprovalDigest != ""
-	state.Snapshot, err = managedscope.Snapshot(root, evaluation, managedscope.SnapshotOptions{HighRiskContentApproved: approved})
+	// The Baseline was already read above, so its fingerprints are free. They
+	// only ever spare an unchanged Go file a gofmt reparse; every digest this
+	// produces is byte-identical to a cold hash.
+	var prior map[string]baseline.Fingerprint
+	if exists {
+		prior = value.Files
+	}
+	state.Snapshot, err = managedscope.SnapshotReusing(root, evaluation, prior,
+		managedscope.SnapshotOptions{HighRiskContentApproved: approved})
 	return state, err
 }
 

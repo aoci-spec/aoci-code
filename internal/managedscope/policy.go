@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -184,7 +185,40 @@ func globMatch(pattern, rel string) (bool, error) {
 	return compiled.MatchString(rel), nil
 }
 
+type globCacheEntry struct {
+	compiled *regexp.Regexp
+	err      error
+}
+
+// globRegexpCache memoizes glob compilation. THE KEY IS THE EXACT PATTERN BYTES
+// and must never be normalized, case-folded, or combined with a path: making the
+// key anything else is precisely the host-dependence that
+// host_independent_paths_test.go exists to prevent.
+//
+// globRegexp is a pure function of those bytes — no globals, no filesystem, no
+// host probe — and a compiled *regexp.Regexp is safe for concurrent use. Keys
+// arrive only from Rule.Pattern and Rule.Exceptions, and curation exclusions
+// enter as PatternKind file rather than glob, so no repository path ever becomes
+// a key. The cache is therefore bounded by policy size, not by repository size:
+// this repository's config yields 48 distinct patterns against 171745 calls.
+//
+// The error is cached deliberately. globMatch discards it, nothing compares
+// these errors by identity, and Normalize still rejects the pattern on every
+// later call, so a pattern that is invalid once stays invalid.
+var globRegexpCache sync.Map
+
 func globRegexp(pattern string) (*regexp.Regexp, error) {
+	if cached, ok := globRegexpCache.Load(pattern); ok {
+		entry := cached.(globCacheEntry)
+		return entry.compiled, entry.err
+	}
+	compiled, err := buildGlobRegexp(pattern)
+	actual, _ := globRegexpCache.LoadOrStore(pattern, globCacheEntry{compiled: compiled, err: err})
+	entry := actual.(globCacheEntry)
+	return entry.compiled, entry.err
+}
+
+func buildGlobRegexp(pattern string) (*regexp.Regexp, error) {
 	var out strings.Builder
 	out.WriteString("^")
 	runes := []rune(pattern)

@@ -14,6 +14,14 @@ type SnapshotOptions struct{ HighRiskContentApproved bool }
 // evaluation. Excluded content is never opened and therefore cannot enter
 // Baseline, Evidence, Candidate, Prompt, or Ledger bodies through this path.
 func Snapshot(repositoryRoot string, evaluation *Evaluation, options ...SnapshotOptions) (map[string]baseline.Fingerprint, error) {
+	return SnapshotReusing(repositoryRoot, evaluation, nil, options...)
+}
+
+// SnapshotReusing is Snapshot with the caller's already-loaded Baseline
+// fingerprints available for reuse. It hashes exactly the same paths and returns
+// exactly the same fingerprints; prior only lets an unchanged Go file skip a
+// reparse it cannot affect. A nil or absent prior degrades to Snapshot.
+func SnapshotReusing(repositoryRoot string, evaluation *Evaluation, prior map[string]baseline.Fingerprint, options ...SnapshotOptions) (map[string]baseline.Fingerprint, error) {
 	if evaluation == nil {
 		return nil, fmt.Errorf("managed_scope_evaluation_required")
 	}
@@ -24,7 +32,7 @@ func Snapshot(repositoryRoot string, evaluation *Evaluation, options ...Snapshot
 			if item.SafetyStatus == "high_risk_exact_opt_in" && !approved {
 				return nil, fmt.Errorf("managed_scope_high_risk_read_approval_required: %s", item.Path)
 			}
-			fingerprint, err := baseline.HashFile(filepath.Join(repositoryRoot, filepath.FromSlash(item.Path)))
+			fingerprint, err := baseline.HashFileReusing(filepath.Join(repositoryRoot, filepath.FromSlash(item.Path)), prior[item.Path])
 			if err != nil {
 				return nil, fmt.Errorf("managed_scope_source_unreadable: %s", item.Path)
 			}

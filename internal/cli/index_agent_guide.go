@@ -42,6 +42,7 @@ type agentGuideCommands struct {
 	ScopePreview     string `json:"scope_preview,omitempty"`
 	ScopeStatus      string `json:"scope_status,omitempty"`
 	ScopeAcknowledge string `json:"scope_acknowledge,omitempty"`
+	ScopeBudget      string `json:"scope_budget,omitempty"`
 }
 
 type agentGuideBatch struct {
@@ -334,7 +335,7 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 // baseline_first stage with exactly this remediation all along. The stage stays
 // "blocked"; the stop facts, the scan command, and the instructions are additive.
 func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
-	baselineMissing, scopeChange, observedPending := false, false, false
+	baselineMissing, scopeChange, observedPending, budgetExceeded := false, false, false, false
 	for _, finding := range facts.Findings {
 		switch finding.Code {
 		case "baseline_missing":
@@ -343,6 +344,8 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			scopeChange = true
 		case "observed_pending":
 			observedPending = true
+		case "cognition_budget_exceeded":
+			budgetExceeded = true
 		}
 	}
 	locale := textassets.ActiveLocale()
@@ -378,6 +381,30 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			AffectedAsset: ".aoci/baseline.json", Field: "observe", RuleCode: "observed_pending",
 			Expected: "observe_fingerprints_reviewed_and_acknowledged", Actual: "observe=pending_review",
 			Cause:          cliMessage("guide.observed_review_required"),
+			SafeNextAction: strings.Join(instructions, " "),
+		}
+		guide.Instructions = append(guide.Instructions, instructions...)
+	}
+	// A repository over its Whole-Index budget was handed a bare finding and, at
+	// most, `aoci scope status`. The only instruction it received said to compress
+	// cognition — which is the wrong remediation for a repository that legitimately
+	// grew, and it was the only one offered. The budget is a project-owned policy
+	// and `aoci scope budget set` has existed all along; naming it in exactly one
+	// documentation line is not handing back a remediation the repository can run.
+	if budgetExceeded {
+		instructions := []string{
+			cliMessage("guide.budget_instruction_scope_levers"),
+			cliMessage("guide.budget_instruction_raise"),
+		}
+		guide.Commands.ScopeStatus = "aoci scope status --json"
+		guide.Commands.ScopeBudget = "aoci scope budget set --max-tokens {tokens}"
+		guide.Stop = &volumeGuideStopFacts{
+			AffectedAsset: ".aoci/config.json", Field: "whole_index", RuleCode: "cognition_budget_exceeded",
+			Expected: "whole_index_within_project_budget",
+			Actual: fmt.Sprintf("whole_index_tokens=%d;max_tokens=%d;violations=%d",
+				facts.Budget.WholeIndexTokens, facts.Budget.MaxTokens, len(facts.Budget.Violations)),
+			Cause: cliMessage("guide.budget_blocked_cause",
+				facts.Budget.WholeIndexTokens, facts.Budget.MaxTokens),
 			SafeNextAction: strings.Join(instructions, " "),
 		}
 		guide.Instructions = append(guide.Instructions, instructions...)

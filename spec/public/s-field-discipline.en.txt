@@ -94,10 +94,34 @@ internal/machinecontract/numeric.go: C9-C8 up to 600 characters, C7-C4 up to
 Header with an English "#S quota" line or the equivalent Chinese declaration;
 declared bands use the declared value and undeclared bands fall back to the
 machine defaults (gaps are filled, the declaration does not fail as a whole).
-The machine gate counts code points, sums S variants, and emits warning-level
-violations that pass through without blocking persistence; an unparsable
-declaration falls back to defaults and is named in the report layer rather
-than silently treated as undeclared.
+There are two machine gates, at different levels and deliberately with
+different resolution rules.
+
+The curation-discipline gate counts code points, sums S variants, and emits
+warning-level violations that pass through without blocking persistence. It
+honours a declaration in both directions, because a warning the operator asked
+for should not be swallowed.
+
+The Volumes v1 object gate is error-level: an over-quota S makes the Volume
+unloadable, which stops Verify, Check, Guide, Maintain and Overview together.
+That gate honours a declaration only when it is looser than the machine
+default; a declaration narrower than the default does not tighten it. The
+asymmetry is deliberate. If the error-level gate honoured a tightening, an
+operator narrowing their own Header would make an already-persisted Volume
+unloadable at once, recoverable only by hand-editing the Meta asset. With the
+floor, every possible declaration only loosens the gate, so nothing that loads
+today can fail after an upgrade.
+
+A dimension name in a spelling the parser does not accept (writing "#S-quota"
+where "#S quota" is expected) does not take effect, and is never silently
+treated as absent: it is reported as a declaration that is present and
+unreadable, quoting the spelling as written and the accepted spellings. The
+same applies to the E scale dimension.
+
+An unparsable declaration falls back to defaults and is named in the report
+layer rather than silently treated as undeclared. The machine defaults are
+owned by internal/machinecontract/numeric.go and the effective value is
+resolved in internal/index/quota.go.
 
 7. Hard style constraints (never write these, even within quota)
 

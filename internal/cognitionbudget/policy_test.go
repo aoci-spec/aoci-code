@@ -131,3 +131,37 @@ func TestWholeIndexStatusBoundaries(t *testing.T) {
 		}
 	}
 }
+
+// legacyBudgetIdentity is the digest every repository without a cognition_budget
+// block has stamped in its Baseline. It is a persisted preimage, not a constant
+// that may be refreshed to match the code: if this test fails, the change that
+// broke it would have forced a human-approved Scope Change on every such
+// repository, so revert the change rather than updating the literal.
+const legacyBudgetIdentity = "a98988839d1818e2faa245e355c256be3698f7a3552edf87338cb8ce48444eb7"
+
+func TestLegacyPolicyIdentityIsFrozen(t *testing.T) {
+	identity, err := Identity(LegacyPolicy())
+	if err != nil {
+		t.Fatalf("legacy identity: %v", err)
+	}
+	if identity != legacyBudgetIdentity {
+		t.Fatalf("the legacy budget preimage moved: want %s got %s\n"+
+			"every repository whose config.json has no cognition_budget block resolves this policy, "+
+			"so this change wedges all of them on a Scope Change they did not earn",
+			legacyBudgetIdentity, identity)
+	}
+}
+
+// The two functions were one until rc6. DefaultPolicy is free to move because
+// only init writes it; LegacyPolicy is not. Re-collapsing them silently
+// re-arms the wedge, so the decoupling itself is pinned.
+func TestLegacyPolicyIsDecoupledFromNewProjectDefault(t *testing.T) {
+	if LegacyPolicy().WholeIndex == DefaultPolicy(machinecontract.BudgetModeObserve).WholeIndex {
+		t.Fatal("LegacyPolicy and DefaultPolicy carry the same Whole-Index numbers again; " +
+			"if that is deliberate, delete this test only together with a release note explaining " +
+			"why moving the new-project default may now move the legacy preimage")
+	}
+	if _, err := Normalize(DefaultPolicy(machinecontract.BudgetModeEnforce)); err != nil {
+		t.Fatalf("new-project default must stay normalizable: %v", err)
+	}
+}

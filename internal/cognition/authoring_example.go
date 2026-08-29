@@ -15,10 +15,13 @@ func ValidateVolumeAuthoringExample(domain, line string, dictionary *index.TagDi
 	switch domain {
 	case ScopeCode:
 		raw := CodeVolumeMarker + "\n===Example/example/===\n" + strings.TrimSpace(line) + "\n"
-		_, objects, parseFindings = parseCodeVolume("/example", []byte(raw))
+		// The example is a machine-contract fixture with no repository Meta, so it
+		// is judged against the machine defaults; a nil threshold set is the
+		// documented default-equivalent receiver.
+		_, objects, parseFindings = parseCodeVolume("/example", []byte(raw), nil)
 	case ScopeDatabase:
 		raw := DatabaseMarker + "\n===Example/database://source/namespace/===\n" + strings.TrimSpace(line) + "\n"
-		objects, parseFindings = parseDatabaseVolume([]byte(raw))
+		objects, parseFindings = parseDatabaseVolume([]byte(raw), nil)
 	default:
 		return []RepairFinding{frasFinding("domain", "authoring_example_domain_invalid", "domain=code_or_database", "domain="+domain, "unsupported authoring example domain")}
 	}

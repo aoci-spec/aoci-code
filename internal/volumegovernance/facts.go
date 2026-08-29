@@ -272,7 +272,16 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 
 	facts.Budget = AssessProjectedBudget(cfg, set)
 	if facts.Budget.Mode == machinecontract.BudgetModeEnforce && len(facts.Budget.Violations) > 0 {
-		facts.Findings = append(facts.Findings, Finding{Code: "cognition_budget_exceeded"})
+		// The code alone left the operator to guess. A budget is a project-owned
+		// policy, so both levers are named: reduce what the index governs, or
+		// raise the budget through the governed transaction. Neither is implied
+		// by the code, and compression alone is the wrong answer for an index
+		// that grew because the repository did.
+		facts.Findings = append(facts.Findings, Finding{
+			Code:             "cognition_budget_exceeded",
+			Cause:            budgetExceededCause(facts.Budget),
+			SafeRepairAction: budgetExceededRepairAction(facts.Budget),
+		})
 	}
 
 	pending, pendingErr := pendingTransactions(root)
@@ -565,6 +574,35 @@ func appendDatabaseSourceFindings(facts *Facts, sources []dbevidence.SourceConfi
 	if !added {
 		facts.Findings = append(facts.Findings, Finding{Code: code, Domain: cognition.ScopeDatabase})
 	}
+}
+
+// budgetExceededCause states which of the two budget gates fired, with the
+// numbers, so an operator does not have to re-derive them from a separate
+// command to know what refused them.
+func budgetExceededCause(budget BudgetFacts) string {
+	for _, violation := range budget.Violations {
+		if violation.Code == "whole_index_budget_exceeded" {
+			return fmt.Sprintf("whole_index_tokens=%d;max_tokens=%d", violation.Actual, violation.Maximum)
+		}
+	}
+	return fmt.Sprintf("entry_field_budget_exceeded=%d;whole_index_tokens=%d;max_tokens=%d",
+		len(budget.Violations), budget.WholeIndexTokens, budget.MaxTokens)
+}
+
+// budgetExceededRepairAction hands back both levers in the order a repository
+// should consider them. Raising a budget is a governed change, so the sequence
+// includes the approval it actually requires rather than only the edit command.
+func budgetExceededRepairAction(budget BudgetFacts) string {
+	for _, violation := range budget.Violations {
+		if violation.Code == "whole_index_budget_exceeded" {
+			return "reduce_index_membership: aoci scope explain <path> then aoci scope rule; " +
+				"or raise the project budget: aoci scope budget set --max-tokens <n>; " +
+				"then aoci scope preview, human approval, aoci scope apply"
+		}
+	}
+	return "re-author the named Entries within their C band, " +
+		"or raise the band: aoci scope budget set --policy-file <policy.json>; " +
+		"then aoci scope preview, human approval, aoci scope apply"
 }
 
 // AssessProjectedBudget applies the same deterministic Volume budget facts to

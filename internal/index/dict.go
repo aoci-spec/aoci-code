@@ -59,6 +59,7 @@ type TagDict struct {
 	E map[string]bool // 规模符号
 
 	declared    map[string]bool
+	nearMisses  []DimensionNearMiss
 	malformed   []string
 	definitions map[string]map[string]string
 	conflicts   []tagDictionaryConflict
@@ -214,21 +215,128 @@ func parseDictLine(line string) (dim, content string, ok bool) {
 		return "", "", false
 	}
 	name := strings.TrimSpace(stripParens(t[:idx]))
-	switch name {
-	case "A层级", "A Layer":
-		return "A层级", t[idx+clen:], true
-	case "B模块", "B Module":
-		return "B模块", t[idx+clen:], true
-	case "C重要度", "C Importance":
-		return "C重要度", t[idx+clen:], true
-	case "D特征", "D Trait":
-		return "D特征", t[idx+clen:], true
-	case "E规模", "E Scale":
-		return "E规模", t[idx+clen:], true
-	case "S配额", "S quota", "S Quota":
-		return "S配额", t[idx+clen:], true
+	if canonical, hit := canonicalDimensionName(name); hit {
+		return canonical, t[idx+clen:], true
 	}
 	return "", "", false
+}
+
+// canonicalDimensionNames maps every accepted spelling to its canonical
+// dimension. Adding a spelling here changes how existing Meta assets parse, so
+// it is a formal cognition behaviour change and not a convenience edit.
+var canonicalDimensionNames = map[string]string{
+	"A层级": "A层级", "A Layer": "A层级",
+	"B模块": "B模块", "B Module": "B模块",
+	"C重要度": "C重要度", "C Importance": "C重要度",
+	"D特征": "D特征", "D Trait": "D特征",
+	"E规模": "E规模", "E Scale": "E规模",
+	"S配额": "S配额", "S quota": "S配额", "S Quota": "S配额",
+}
+
+func canonicalDimensionName(name string) (string, bool) {
+	canonical, ok := canonicalDimensionNames[name]
+	return canonical, ok
+}
+
+// normalizeDimensionName folds a written name for near-miss comparison only:
+// ASCII case, ASCII hyphen and underscore, and all spaces are removed. It is
+// never used to accept a line.
+func normalizeDimensionName(name string) string {
+	var out strings.Builder
+	for _, r := range name {
+		switch {
+		case r == '-' || r == '_' || r == ' ' || r == '\t' || r == '\u3000':
+			continue
+		case r >= 'A' && r <= 'Z':
+			out.WriteRune(r + ('a' - 'A'))
+		default:
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
+}
+
+var normalizedDimensionNames = func() map[string]string {
+	result := map[string]string{}
+	for spelling, canonical := range canonicalDimensionNames {
+		result[normalizeDimensionName(spelling)] = canonical
+	}
+	return result
+}()
+
+// DimensionNameNearMiss reports whether a header line names a dimension in a
+// spelling this parser does not accept, returning the canonical dimension it
+// was reaching for and the spelling exactly as written.
+//
+// It exists because rejection here is not neutral. For S the operator's declared
+// quota silently becomes the machine default with no message at all. For E it is
+// worse: the dictionary substitutes the LMST fallback and then reports the
+// operator's own declared symbol as illegal, "see the E scale line in the
+// header" — pointing at the line it threw away — and the write path treats that
+// as a hard refusal. Neither state is one the operator can act on.
+//
+// The predicate is normalized equality and deliberately nothing looser. The
+// same header carries "#F scope:", "#R scope:", "#A scope:", "#S discipline:"
+// and "#S-Admission:", so a prefix or edit-distance heuristic would tell every
+// AOCI repository it had misspelled a dimension. This never accepts a line: a
+// near miss parses exactly as it parses today.
+func DimensionNameNearMiss(line string) (canonical, written string, near bool) {
+	t := strings.TrimSpace(line)
+	if !strings.HasPrefix(t, "#") {
+		return "", "", false
+	}
+	t = strings.TrimSpace(strings.TrimPrefix(t, "#"))
+	ih := strings.Index(t, ":")
+	iw := strings.Index(t, "：")
+	idx := -1
+	switch {
+	case ih >= 0 && (iw < 0 || ih < iw):
+		idx = ih
+	case iw >= 0:
+		idx = iw
+	}
+	if idx < 0 {
+		return "", "", false
+	}
+	name := strings.TrimSpace(stripParens(t[:idx]))
+	if _, exact := canonicalDimensionName(name); exact {
+		return "", "", false
+	}
+	if canonical, ok := normalizedDimensionNames[normalizeDimensionName(name)]; ok {
+		return canonical, name, true
+	}
+	return "", "", false
+}
+
+// AcceptedDimensionSpellings lists the accepted spellings for one canonical
+// dimension, so a diagnostic can quote them instead of restating them.
+func AcceptedDimensionSpellings(canonical string) []string {
+	result := []string{}
+	for spelling, mapped := range canonicalDimensionNames {
+		if mapped == canonical {
+			result = append(result, spelling)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+// DimensionNearMiss is one header line that named a dimension in a spelling the
+// parser does not accept, recorded so a diagnostic can quote it.
+type DimensionNearMiss struct {
+	Canonical string
+	Written   string
+}
+
+// UnrecognizedDimensionNames returns the near misses recorded while extracting
+// this dictionary, for axes that received no acceptable line at all. An axis
+// that was also declared correctly is not reported: the stray line changed
+// nothing, and naming it would be noise.
+func (d *TagDict) UnrecognizedDimensionNames() []DimensionNearMiss {
+	if d == nil {
+		return nil
+	}
+	return append([]DimensionNearMiss{}, d.nearMisses...)
 }
 
 // ExtractTagDict 从头部文本提取字典。
@@ -244,11 +352,20 @@ func ExtractTagDict(headerText string) *TagDict {
 		declared:    map[string]bool{},
 		definitions: map[string]map[string]string{},
 	}
+	candidates := []DimensionNearMiss{}
+	exact := map[string]bool{}
 	for _, line := range strings.Split(headerText, "\n") {
 		dim, content, ok := parseDictLine(line)
 		if !ok {
+			// A spelling this parser rejects is recorded, never accepted. The
+			// values below are exactly the values a build without this recording
+			// produces.
+			if canonical, written, near := DimensionNameNearMiss(line); near {
+				candidates = append(candidates, DimensionNearMiss{Canonical: canonical, Written: written})
+			}
 			continue
 		}
+		exact[dim] = true
 		// 内容侧剥夹注后收符号(P-21: 防夹注内示例路径词污染字典);
 		// S配额 维无分支自然跳过(消费归 quota.go)
 		switch dim {
@@ -263,6 +380,18 @@ func ExtractTagDict(headerText string) *TagDict {
 		case "E规模":
 			d.collectDimension("E", stripParens(content))
 		}
+	}
+	// Report a near miss only for an axis that received no acceptable line, and
+	// never for D. A stray line beside a correct declaration changed nothing, and
+	// D is optional, so a Meta carrying only a misspelled D loads today and must
+	// keep loading without a new diagnostic. Under this guard the parsed verdict
+	// is provably unchanged: HasObjectContract is already false whenever A, B, C
+	// or E is undeclared.
+	for _, candidate := range candidates {
+		if candidate.Canonical == "D特征" || exact[candidate.Canonical] {
+			continue
+		}
+		d.nearMisses = append(d.nearMisses, candidate)
 	}
 	if len(d.E) == 0 {
 		for _, s := range []string{"L", "M", "S", "T"} {

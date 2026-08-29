@@ -38,6 +38,47 @@ const (
 
 // HashFile流式计算文件原始SHA-256、实际字节数和可选规范化指纹。
 func HashFile(path string) (Fingerprint, error) {
+	return hashFile(path, nil)
+}
+
+// HashFileReusing returns exactly what HashFile returns, but when the raw digest
+// and size match a Fingerprint the caller already holds it reuses that
+// Fingerprint's formatted digest instead of reparsing the source.
+//
+// The reuse is output-identical by construction: FormatSHA256 is a deterministic
+// function of the bytes, and identical bytes cannot produce a different one. The
+// point is cost, not semantics. HashFile runs go/format.Source on every Go file,
+// which profiles at 94.7% of HashFile against 1.5% for the SHA-256 it supplements
+// — the formatter is roughly 63x the hash it accompanies — and IsFormatOnlyChange
+// requires before.SHA256 != after.SHA256 as its first condition, so for a file
+// whose raw digest is unchanged that computation can never be consulted.
+//
+// prior is untrusted input: Baseline.Load performs no per-Fingerprint validation,
+// so a hand-edited or truncated baseline.json can carry a format_kind with no
+// format_sha256. Reusing that pair would install a state HashFile itself can
+// never produce, so both fields must be present before either is carried over,
+// and prior must agree with all three digests this call computes from the file
+// itself before any of its own values are trusted.
+//
+// This is not an integrity boundary and does not weaken one. SHA256 is the
+// integrity anchor and is always computed from the bytes on every call.
+// FormatSHA256 is a derived digest whose only judgement, IsFormatOnlyChange,
+// requires the raw digest to have CHANGED — which is exactly the case where no
+// reuse happens and the value is recomputed.
+//
+// One residual is accepted knowingly and is pinned by
+// TestHashFileReusingCarriesATamperedDigestOnlyForUnparseableGoSource: a .go file
+// that does not parse produces no formatted digest here, yet a prior claiming one
+// for those exact bytes would be carried over. HashFile cannot produce that prior
+// — identical bytes always parse identically — so it is reachable only by editing
+// baseline.json by hand, which is CAS-protected and separately verified. Closing
+// it costs a go/parser run on every Go file on every call, which is the majority
+// of the cost this function exists to avoid.
+func HashFileReusing(path string, prior Fingerprint) (Fingerprint, error) {
+	return hashFile(path, &prior)
+}
+
+func hashFile(path string, reuse *Fingerprint) (Fingerprint, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return Fingerprint{}, err
@@ -146,6 +187,14 @@ func HashFile(path string) (Fingerprint, error) {
 		)
 	}
 
+	if collectGoSource && !binaryDetected && reuse != nil &&
+		reuse.SHA256 == result.SHA256 && reuse.Size == result.Size &&
+		reuse.NormalizedSHA256 != "" && reuse.NormalizedSHA256 == result.NormalizedSHA256 &&
+		reuse.FormatKind == "gofmt" && reuse.FormatSHA256 != "" {
+		result.FormatSHA256 = reuse.FormatSHA256
+		result.FormatKind = reuse.FormatKind
+		collectGoSource = false
+	}
 	if collectGoSource && !binaryDetected {
 		formatted, formatErr := format.Source(goSource)
 		if formatErr == nil {

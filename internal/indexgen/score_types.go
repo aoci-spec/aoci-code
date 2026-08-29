@@ -7,6 +7,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"strings"
 )
 
 // scoreSampleLimit 每维度违规样本默认最大展示条数。
@@ -156,6 +157,10 @@ func sQuotaNote(
 	switch {
 	case thresholds.HasQuotas():
 		return indexgenMessage("score.note_squota_header")
+
+	case thresholds.UnrecognizedName() != "":
+		return indexgenMessage("score.note_squota_unrecognized_name", thresholds.UnrecognizedName(),
+			strings.Join(index.AcceptedDimensionSpellings("S配额"), " / "))
 
 	case thresholds.SawSQuotaLine():
 		return indexgenMessage("score.note_squota_invalid", machinecontract.NumericText().SQuotaDefaultExample)

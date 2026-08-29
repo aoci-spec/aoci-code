@@ -263,6 +263,7 @@ func bindAgentGuideCommands(
 		&commands.ScopePreview,
 		&commands.ScopeStatus,
 		&commands.ScopeAcknowledge,
+		&commands.ScopeBudget,
 	}
 
 	for _, field := range fields {

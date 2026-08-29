@@ -2,6 +2,7 @@ package cognition
 
 import (
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -196,20 +197,36 @@ func BuildProjectedSet(repositoryRoot string, rootRaw []byte, volumeRaw map[stri
 		Root:    Asset{Descriptor: Descriptor{ID: "root", Kind: "root", Path: "aoci.txt", FormatVersion: "root-manifest-v1"}, State: AssetPresent, SHA256: digestBytes(rootRaw), Raw: append([]byte{}, rootRaw...)},
 		Volumes: map[string]*Asset{},
 	}
-	for _, descriptor := range descriptors {
-		set.DeclaredOrder = append(set.DeclaredOrder, descriptor.ID)
+	// Two passes for the same reason as loadVolumes: this is the path a volume
+	// commit runs, so a candidate legal under the repository's declaration at
+	// Load must not be refused here for lack of having read that declaration.
+	assetErrors := make([][]Finding, len(descriptors))
+	build := func(position int, descriptor Descriptor, sq *index.SQuotaThresholds) *Asset {
 		raw, present := volumeRaw[descriptor.ID]
 		asset := &Asset{Descriptor: descriptor, State: AssetInvalid}
 		if !present {
 			asset.Findings = append(asset.Findings, Finding{Code: "candidate_volume_missing", AssetID: descriptor.ID, Message: "candidate bytes are missing for a declared Volume"})
 		} else {
-			parseVolumeAssetBytes(repositoryRoot, asset, raw)
+			parseVolumeAssetBytes(repositoryRoot, asset, raw, sq)
 		}
 		set.Volumes[descriptor.ID] = asset
-		set.Errors = append(set.Errors, asset.Findings...)
+		assetErrors[position] = asset.Findings
+		return asset
+	}
+	for position, descriptor := range descriptors {
+		set.DeclaredOrder = append(set.DeclaredOrder, descriptor.ID)
 		if descriptor.ID == "meta" {
-			set.Meta = *asset
+			set.Meta = *build(position, descriptor, nil)
 		}
+	}
+	quotas := index.ExtractSQuotaThresholds(string(set.Meta.Raw))
+	for position, descriptor := range descriptors {
+		if descriptor.ID != "meta" {
+			build(position, descriptor, quotas)
+		}
+	}
+	for _, findings := range assetErrors {
+		set.Errors = append(set.Errors, findings...)
 	}
 	for id := range volumeRaw {
 		if set.Volumes[id] == nil {
