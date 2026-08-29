@@ -4,11 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sort"
-	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -59,8 +55,7 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 		curatedPaths = append(curatedPaths, rel)
 	}
 	sort.Strings(curatedPaths)
-	caseSensitive := filesystemCaseSensitive(repositoryRoot, inventory.ManagedCandidates)
-	identity := evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths, caseSensitive)
+	identity := evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths)
 	optedIn := make(map[string]bool, len(walkOptions.HighRiskOptIn))
 	for _, rel := range walkOptions.HighRiskOptIn {
 		if clean, normalizeErr := fs.NormalizeRelPath(rel); normalizeErr == nil {
@@ -68,37 +63,21 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 		}
 	}
 	result := &Evaluation{Version: machinecontract.ManagedScopeEvaluationV2, PolicyIdentity: identity,
-		SafeInventory: inventory.Summary, Index: []PathEvaluation{}, Observe: []PathEvaluation{}, Exclude: []PathEvaluation{},
-		CaseSensitive: caseSensitive}
-	// 大小写语义等价证明: 逐路径用相反语义重评一次, 只有全部角色与指纹参与
-	// 完全一致时, 相反语义下的身份才是本次应用范围的合法替代身份。这允许
-	// Linux 建立的 Baseline 被 Windows 检出原样接受; 真实的匹配差异保持空值。
-	caseEquivalent := true
+		SafeInventory: inventory.Summary, Index: []PathEvaluation{}, Observe: []PathEvaluation{}, Exclude: []PathEvaluation{}}
 	for _, rel := range inventory.ManagedCandidates {
-		evaluation := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], caseSensitive)
-		if caseEquivalent {
-			alternate := EvaluatePathWithCase(normalized, rel, tracked[rel], ignored[rel], curated[rel], !caseSensitive)
-			if alternate.Role != evaluation.Role ||
-				alternate.EntersWholeIndex != evaluation.EntersWholeIndex ||
-				alternate.EntersObserveFingerprint != evaluation.EntersObserveFingerprint {
-				caseEquivalent = false
-			}
-		}
+		evaluation := evaluateTrackedPath(normalized, rel, tracked[rel], ignored[rel], curated[rel])
 		if optedIn[rel] {
 			evaluation.SafetyStatus = "high_risk_exact_opt_in"
 			evaluation.Reason = "approved high-risk exact opt-in; " + evaluation.Reason
 		}
 		appendEvaluation(result, evaluation)
 	}
-	if caseEquivalent {
-		result.AlternatePolicyIdentity = evaluationIdentity(baseIdentity, inventory.Summary.RulesIdentity, curatedPaths, !caseSensitive)
-	}
 	for _, excluded := range inventory.Exclusions {
 		evaluation := PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: excluded.PathSummary,
 			Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety, RulePriority: sourcePriority(machinecontract.ScopeRuleSafety),
 			SafetyStatus: excluded.Category, GitStatus: gitStatus(excluded.GitTracked, excluded.Category == fs.SafetyIgnored),
 			ReadsContent: false, EntersWholeIndex: false, EntersObserveFingerprint: false,
-			Reason: excluded.RuleSource + ":" + excluded.Category, CaseSensitive: caseSensitive}
+			Reason: excluded.RuleSource + ":" + excluded.Category}
 		appendEvaluation(result, evaluation)
 		result.SafetyExcluded++
 	}
@@ -110,9 +89,12 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	return result, nil
 }
 
-func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated []string, caseSensitive bool) string {
+// evaluationIdentity 保留 v2 的原始前像, 其中大小写位固定为 "true"。
+// 这不是装饰: 在大小写敏感文件系统上建立的每一份收据身份因此原样成立, 完全
+// 不迁移; 只有历史上以 "false" 记录的收据需要走一次治理 Scope Change。
+func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated []string) string {
 	hash := sha256.New()
-	for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryRulesIdentity, fmt.Sprint(caseSensitive)}, curated...) {
+	for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryRulesIdentity, "true"}, curated...) {
 		_, _ = hash.Write([]byte(value))
 		_, _ = hash.Write([]byte{0})
 	}
@@ -120,10 +102,10 @@ func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated [
 }
 
 func EvaluatePath(policy Policy, rel string, gitIgnored, curationExcluded bool) PathEvaluation {
-	return EvaluatePathWithCase(policy, rel, false, gitIgnored, curationExcluded, true)
+	return evaluateTrackedPath(policy, rel, false, gitIgnored, curationExcluded)
 }
 
-func EvaluatePathWithCase(policy Policy, rel string, gitTracked, gitIgnored, curationExcluded, caseSensitive bool) PathEvaluation {
+func evaluateTrackedPath(policy Policy, rel string, gitTracked, gitIgnored, curationExcluded bool) PathEvaluation {
 	role := machinecontract.ScopeRoleIndex
 	reason := "default production role"
 	priority := 100
@@ -143,7 +125,7 @@ func EvaluatePathWithCase(policy Policy, rel string, gitTracked, gitIgnored, cur
 	}
 	for index := range rules {
 		rule := rules[index]
-		if !MatchWithCase(rule, rel, caseSensitive) {
+		if !Match(rule, rel) {
 			continue
 		}
 		candidatePriority := sourcePriority(rule.Source)
@@ -158,43 +140,8 @@ func EvaluatePathWithCase(policy Policy, rel string, gitTracked, gitIgnored, cur
 	result := PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel, Role: role, MatchedRule: winner,
 		RuleSource: source, RulePriority: priority, SafetyStatus: safety, GitStatus: gitStatus(gitTracked, gitIgnored),
 		ReadsContent: role != machinecontract.ScopeRoleExclude, EntersWholeIndex: role == machinecontract.ScopeRoleIndex,
-		EntersObserveFingerprint: role == machinecontract.ScopeRoleObserve, Reason: reason, CaseSensitive: caseSensitive}
+		EntersObserveFingerprint: role == machinecontract.ScopeRoleObserve, Reason: reason}
 	return result
-}
-
-func filesystemCaseSensitive(root string, candidates []string) bool {
-	paths := []string{filepath.Clean(root)}
-	for _, rel := range candidates {
-		paths = append(paths, filepath.Join(root, filepath.FromSlash(rel)))
-		if len(paths) >= 9 {
-			break
-		}
-	}
-	for _, original := range paths {
-		directory, base := filepath.Dir(original), filepath.Base(original)
-		alternate := toggleASCII(base)
-		if alternate == base {
-			continue
-		}
-		originalInfo, originalErr := os.Lstat(original)
-		alternateInfo, alternateErr := os.Lstat(filepath.Join(directory, alternate))
-		if originalErr == nil && alternateErr == nil && os.SameFile(originalInfo, alternateInfo) {
-			return false
-		}
-	}
-	return runtime.GOOS != "windows"
-}
-
-func toggleASCII(value string) string {
-	for index, character := range value {
-		switch {
-		case character >= 'a' && character <= 'z':
-			return value[:index] + strings.ToUpper(string(character)) + value[index+1:]
-		case character >= 'A' && character <= 'Z':
-			return value[:index] + strings.ToLower(string(character)) + value[index+1:]
-		}
-	}
-	return value
 }
 
 func profileRules(profile string) []Rule {

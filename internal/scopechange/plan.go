@@ -154,7 +154,8 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	}
 	oldRoles := baselineRolesExcept(oldBaseline, formalVolumeGuards)
 	if policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
-		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, activePolicyIdentity(oldBaseline) == policyIdentity, cfg.LineEndingTolerance)
+		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, vanishedPaths(evaluation),
+			activePolicyIdentity(oldBaseline) == policyIdentity, cfg.LineEndingTolerance)
 		if len(changes) != 0 {
 			if candidates.ObserveReview == nil || candidates.ObserveReview.ReviewStatus != ReviewStatusReviewed ||
 				candidates.ObserveReview.Reviewer == "" || !equalSortedPaths(candidates.ObserveReview.Paths, changes) {
@@ -781,7 +782,24 @@ func validateSourcesPresent(root string, active *baseline.Baseline, desired map[
 	return nil
 }
 
-func observedEvidenceChanges(active *baseline.Baseline, desired map[string]baseline.Fingerprint, roles map[string]string, policyAligned bool, tolerateLineEndings bool) []string {
+// vanishedPaths names the governed paths the Safe Inventory could not find on
+// disk. They are still evaluated -- Git still tracks them -- so they remain in
+// the role map and would otherwise be indistinguishable from a deliberate
+// exclusion.
+func vanishedPaths(evaluation *managedscope.Evaluation) map[string]bool {
+	result := map[string]bool{}
+	if evaluation == nil {
+		return result
+	}
+	for _, item := range evaluation.Exclude {
+		if item.SafetyStatus == afs.SafetyUnsafe {
+			result[item.Path] = true
+		}
+	}
+	return result
+}
+
+func observedEvidenceChanges(active *baseline.Baseline, desired map[string]baseline.Fingerprint, roles map[string]string, vanished map[string]bool, policyAligned bool, tolerateLineEndings bool) []string {
 	changes := []string{}
 	for path, fingerprint := range desired {
 		if roles[path] != machinecontract.ScopeRoleObserve {
@@ -809,7 +827,16 @@ func observedEvidenceChanges(active *baseline.Baseline, desired map[string]basel
 		if baseline.EffectiveRole(old) != machinecontract.ScopeRoleObserve {
 			continue
 		}
-		if _, exists := roles[path]; !exists {
+		// Presence in roles is what separates "reclassified by policy" from
+		// "gone": a deliberate Observe-to-Exclude transition keeps the path in
+		// roles and is reviewed by the Plan itself, while a vanished path is not
+		// there at all. A file deleted from the worktree but still tracked by Git
+		// fell between those two: the Safe Inventory evaluates it as an unsafe
+		// filesystem object, so it stayed in roles and read as reclassified. It is
+		// gone, and status always said so -- the two lists could then never match
+		// and scope acknowledge refused forever, naming neither path.
+		_, governed := roles[path]
+		if !governed || vanished[path] {
 			changes = append(changes, path)
 		}
 	}

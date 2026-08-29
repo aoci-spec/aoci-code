@@ -212,11 +212,11 @@ func TestObservedEvidenceCannotBeWashedByPolicyEdit(t *testing.T) {
 		"tests/new_test.go":     machinecontract.ScopeRoleObserve,
 		"src/main.go":           machinecontract.ScopeRoleIndex,
 	}
-	changes := observedEvidenceChanges(active, desired, roles, false, true)
+	changes := observedEvidenceChanges(active, desired, roles, nil, false, true)
 	if got, want := fmt.Sprint(changes), "[tests/changed_test.go tests/removed_test.go]"; got != want {
 		t.Fatalf("policy transition washed or overclassified observe drift: got %s want %s", got, want)
 	}
-	changes = observedEvidenceChanges(active, desired, roles, true, true)
+	changes = observedEvidenceChanges(active, desired, roles, nil, true, true)
 	if got, want := fmt.Sprint(changes), "[tests/changed_test.go tests/new_test.go tests/removed_test.go]"; got != want {
 		t.Fatalf("aligned policy missed observe drift: got %s want %s", got, want)
 	}

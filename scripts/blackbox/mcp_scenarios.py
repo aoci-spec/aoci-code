@@ -834,6 +834,70 @@ def group_f_scope():
            f"rc={rc} | {blob[:160]}")
 
 
+def group_f_deleted_observe():
+    """Deleting a tracked observe source must not wedge acknowledgement.
+
+    scope status keys an observe removal on the source snapshot; the Scope Change
+    plan keyed it on the role map. A file deleted from the worktree but still
+    tracked by Git is evaluated as an unsafe filesystem object, so it stayed in
+    the role map and read as "reclassified by policy" rather than "gone". status
+    listed it, the plan did not, and the review set scope acknowledge submits
+    could never match - the refusal named neither the extra nor the missing path,
+    and nothing the operator could run cleared it.
+    """
+    g = "F"
+    name = "F8.deleted-observe-source-can-be-acknowledged"
+    d = os.path.join(WORK, "fx-deleted-observe")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    with open(os.path.join(d, "pkg", "a.go"), "wb") as f:
+        f.write(b"package pkg\n\nfunc A() int { return 1 }\n")
+    with open(os.path.join(d, "pkg", "a_test.go"), "wb") as f:
+        f.write(b"package pkg\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) { _ = A() }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    for step in ("init", "scan"):
+        args = [step] if step == "scan" else [step, "--locale", "en-US"]
+        rc, _, out, errs = cli(d, *args)
+        if rc != 0:
+            record(g, name, "FAIL", f"{step} failed: {out[:120]} {errs[:120]}")
+            return
+
+    # Delete one observe source while Git still tracks it -- what an ordinary
+    # "I removed this test" looks like -- and add another, so more than one
+    # observe change is pending. The second change is what makes this scenario
+    # able to fail at all: with the deletion alone the plan computed an empty
+    # change set, skipped the review gate entirely, and acknowledged happily
+    # while still not seeing the removal.
+    os.remove(os.path.join(d, "pkg", "a_test.go"))
+    with open(os.path.join(d, "pkg", "b_test.go"), "wb") as f:
+        f.write(b"package pkg\n\nimport \"testing\"\n\nfunc TestB(t *testing.T) { _ = A() }\n")
+    rc, status, out, errs = cli(d, "scope", "status", expect_ok=False)
+    drift = status.get("drift") or {}
+    removed = drift.get("observed_removed") or []
+    pending = status.get("observed_pending_review") or 0
+    if "pkg/a_test.go" not in removed or pending < 2:
+        record(g, name, "CHAR",
+               f"fixture precondition: need the removal plus another pending change, got removed={removed} pending={pending}")
+        return
+
+    rc, result, out, errs = cli(d, "scope", "acknowledge", "--reviewed-by", "scenario", expect_ok=False)
+    blob = (result.get("message") or "") + out
+    ok = rc == 0 and result.get("status") == "applied"
+    record(g, name, "PASS" if ok else "FAIL",
+           f"rc={rc} status={result.get('status')} | {blob[:120]}")
+
+    # And the acknowledgement must have actually retired the fingerprint, not
+    # merely returned success.
+    rc, status, out, errs = cli(d, "scope", "status", expect_ok=False)
+    pending = status.get("observed_pending_review")
+    record(g, "F8b.acknowledgement-retires-the-vanished-fingerprint",
+           "PASS" if pending == 0 else "FAIL", f"observed_pending_review={pending}")
+
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 
@@ -955,6 +1019,7 @@ if __name__ == "__main__":
     group_e()
     group_f()
     group_f_scope()
+    group_f_deleted_observe()
     group_t()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)

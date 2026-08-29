@@ -196,7 +196,9 @@ func TestHighRiskExactOptInRequiresApprovalBeforeContentRead(t *testing.T) {
 	}
 }
 
-func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
+// 同一条规则在每台主机上给出同一个角色。这个用例过去分别断言两种语义各自的
+// 结果, 也就等于承认判定会随宿主漂移; 现在它断言只有一种判定。
+func TestRuleMatchingIsExactOnEveryHost(t *testing.T) {
 	policy := DefaultPolicy(machinecontract.ScopeProfileCustom)
 	policy.Rules = []Rule{{RuleID: "unicode-path", Action: machinecontract.ScopeRoleObserve,
 		Pattern: "Src/Tests/**", PatternKind: machinecontract.ScopePatternGlob, Reason: "platform test",
@@ -205,13 +207,13 @@ func TestCaseInsensitiveRuleMatchingIsDeterministic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	insensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, false)
-	if insensitive.Role != machinecontract.ScopeRoleObserve || insensitive.MatchedRule == nil {
-		t.Fatalf("case-insensitive filesystem did not match rule: %+v", insensitive)
+	mismatched := EvaluatePath(normalized, "src/tests/CASE.go", false, false)
+	if mismatched.Role != machinecontract.ScopeRoleExclude || mismatched.MatchedRule != nil {
+		t.Fatalf("a path differing from the pattern only in case must not match: %+v", mismatched)
 	}
-	sensitive := EvaluatePathWithCase(normalized, "src/tests/CASE.go", false, false, false, true)
-	if sensitive.Role != machinecontract.ScopeRoleExclude || sensitive.MatchedRule != nil {
-		t.Fatalf("case-sensitive filesystem unexpectedly matched rule: %+v", sensitive)
+	exact := EvaluatePath(normalized, "Src/Tests/CASE.go", false, false)
+	if exact.Role != machinecontract.ScopeRoleObserve || exact.MatchedRule == nil {
+		t.Fatalf("the exact path must still match its rule: %+v", exact)
 	}
 }
 

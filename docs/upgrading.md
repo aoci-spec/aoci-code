@@ -22,4 +22,18 @@ An AOCI upgrade is a binary replacement, not an index rewrite.
 9. Run `verify`, `check`, and the current Guide on representative Volumes
    repositories. Run `status --deep` only on a Legacy repository.
 
+## Managed Scope path semantics became host-independent
+
+Path matching now uses Git semantics -- exact and case-sensitive -- on every host. Earlier versions probed the filesystem and folded the result into the applied scope identity, so the same repository could carry different governance identities on Linux and Windows.
+
+Nothing to do if your Baseline was established on a case-sensitive filesystem: the identity preimage is unchanged and your receipt stays valid.
+
+If it was established under the case-insensitive semantics, `aoci scope status` reports `scope_change_required`. Run the ordinary governed flow:
+
+```bash
+aoci scope preview --candidate-file <empty-candidate-set.json>
+```
+
+Where both semantics assigned the same roles the plan is identity-only: no role changes, no Entry changes, `aoci.txt` byte-identical, and policy-bound auto can authorize it without a human. Where a rule and a path genuinely differ only in case, the plan carries that real role change and is authorized as one.
+
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.
