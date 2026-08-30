@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc7
 
 - Stop refusing to initialize a repository over files the rules already
   excluded. `aoci init` keyed its initial-scope approval on a counter that
@@ -75,6 +75,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   is `aoci update-entry`, not `aoci index update-entry`. The unconditional
   `.aoci` and `.git` exclusion lives in `internal/fs/safe_inventory.go`, not in
   `walk.go`.
+
+The first public availability date for v0.1.0-rc7 is 2026-08-31.
 
 ## v0.1.0-rc6
 

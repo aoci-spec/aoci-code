@@ -18,7 +18,7 @@ A signed release-candidate upload consists of exactly 16 assets:
   Scope, Apply-authorization, policy-bound Receipt, and cognition-budget machine
   contracts;
 - `SHA256SUMS.sigstore.json`, the Cosign bundle for the checksum file; and
-- `AOCI-CODE_v0.1.0-rc6.provenance.sigstore.json`, the GitHub build-provenance
+- `AOCI-CODE_v0.1.0-rc7.provenance.sigstore.json`, the GitHub build-provenance
   bundle for the 12 distributables, `SHA256SUMS`, and
   `RELEASE-MANIFEST.json`.
 
@@ -135,7 +135,7 @@ private key, PAT, or GPG signing key.
 Tag verification requires this exact certificate identity:
 
 ```text
-https://github.com/aoci-spec/aoci-code/.github/workflows/release.yml@refs/tags/v0.1.0-rc6
+https://github.com/aoci-spec/aoci-code/.github/workflows/release.yml@refs/tags/v0.1.0-rc7
 ```
 
 The required OIDC issuer is:
@@ -147,7 +147,7 @@ https://token.actions.githubusercontent.com
 The same workflow uses GitHub Artifact Attestations to generate SLSA build
 provenance for exactly 14 subjects: the six archives, six SBOMs,
 `SHA256SUMS`, and `RELEASE-MANIFEST.json`. The resulting bundle is uploaded as
-`AOCI-CODE_v0.1.0-rc6.provenance.sigstore.json`. Verification constrains the
+`AOCI-CODE_v0.1.0-rc7.provenance.sigstore.json`. Verification constrains the
 repository, exact workflow certificate identity, Tag ref, and Tag commit in
 addition to each subject digest.
 
