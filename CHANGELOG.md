@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc6
 
 - Keep a repository that never chose a cognition budget on the one it has. A
   `config.json` with no `cognition_budget` block resolves the machine default at
