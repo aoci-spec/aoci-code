@@ -48,7 +48,17 @@ func BuildProposal(evaluation *Evaluation, profile string, highRiskExactCount in
 	// The fixed planning coefficient estimates an authored Entry plus index
 	// structure. It never supplies, scores, or rewrites F/R/A/S semantics.
 	result.EstimatedWholeIndexTokens = 1800 + evaluation.IndexCount*110
-	result.RequiresHumanApproval = highRiskExactCount > 0 || evaluation.RequiredHumanReview > 0 ||
+	// Approval keys on AutoBlockerCount, not on RequiredHumanReview. The two
+	// differ in exactly the way that matters: AutoBlockerCount counts paths an
+	// explicit opt-in will cause AOCI to READ, while RequiredHumanReview counts
+	// every tracked path a built-in rule EXCLUDED. An excluded path is never
+	// opened, so it cannot make initialization unsafe — and keying on it made
+	// init refuse outright on any repository that tracks a vendored dependency,
+	// a checked-in build output, or a fixture under one of those names, with no
+	// remediation that worked: the opt-in accepts only sensitive paths and needs
+	// the config file that only init creates. safe_inventory.go already records
+	// this split; the proposal layer had not been migrated to it.
+	result.RequiresHumanApproval = highRiskExactCount > 0 || evaluation.SafeInventory.AutoBlockerCount > 0 ||
 		(evaluation.IndexCount == 0 && evaluation.SafeInventory.FinalManagedCandidates > 0)
 	type counts struct{ index, observe, exclude int }
 	byDirectory := map[string]*counts{}

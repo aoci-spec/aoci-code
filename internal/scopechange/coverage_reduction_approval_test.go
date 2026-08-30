@@ -163,3 +163,52 @@ func buildCoverageReductionFixture(t *testing.T, decisionBasis string) (string, 
 	}
 	return root, candidates
 }
+
+// A transport constraint is a safety boundary: the published contract says it
+// carries no reviewer and the operator must resolve the condition instead of
+// approving past it. But the risk flag is only ever set inside the
+// coverage-reduction branch, which also raises a ratifiable blocker, so a plan
+// can never carry the transport constraint alone. Deriving
+// interaction_required from "any blocker is ratifiable" therefore routed the
+// whole plan to a human and let one approval land a change rc5 held closed on
+// every path — and the map entry classifying the transport constraint as
+// unratifiable could never decide anything.
+func TestASafetyBoundaryIsNeverRoutedToAReviewer(t *testing.T) {
+	root, candidates := buildCoverageReductionFixture(t, machinecontract.ScopeDecisionTransportConstraint)
+	preview, err := Build(root, authorizationTestTime, candidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !preview.Plan.Risk.TransportConstraintNotAllowed {
+		t.Fatalf("fixture precondition: expected a transport-constrained reduction, got %+v", preview.Plan.Risk)
+	}
+	if !preview.Plan.Risk.CognitionCoverageReduction {
+		t.Fatal("fixture precondition: the transport constraint only ever fires together with a coverage reduction, " +
+			"which is what makes the mixed case the only reachable one")
+	}
+
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockers := autoAuthorizationBlockers(preview, cfg)
+	unratifiable := []string{}
+	for _, reason := range blockers {
+		if !autoBlockerRatifiableByIndependentReview[reason] {
+			unratifiable = append(unratifiable, reason)
+		}
+	}
+	if len(unratifiable) == 0 {
+		t.Fatalf("fixture precondition: expected an unratifiable blocker among %v", blockers)
+	}
+
+	if preview.Plan.InteractionRequired {
+		t.Fatalf("a plan carrying the unratifiable blocker(s) %v was routed to a human reviewer.\n"+
+			"The published partition says a safety boundary has no reviewer, so one approval must not be able "+
+			"to ratify past it; interaction_required must be false and the operator must resolve the condition.",
+			unratifiable)
+	}
+	if preview.Plan.ConfirmationPhrase != "" {
+		t.Fatal("a plan with no reviewer must not mint a confirmation phrase")
+	}
+}

@@ -2,6 +2,80 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Stop refusing to initialize a repository over files the rules already
+  excluded. `aoci init` keyed its initial-scope approval on a counter that
+  incremented for every tracked path a built-in rule excluded, so one tracked
+  file under `vendor/`, `dist/`, `build/`, `coverage/`, `target/` or any other
+  built-in generated directory refused initialization outright — and an excluded
+  path is never opened, so its presence could not make initialization unsafe.
+  Every remediation the refusal offered was wrong for that category: removing
+  the files from Git or adding them to `.gitignore` both mean deleting them from
+  the repository, `.gitignore` does not untrack an already tracked file, and the
+  opt-in it named accepts only `sensitive` paths and reads the configuration
+  file that only `init` creates. A repository that vendors its own framework
+  source could not be initialized at all. Approval now keys on the counter
+  `internal/fs` already maintained for it, which counts only paths whose content
+  an explicit opt-in will actually read. Those still require a human, and every
+  excluded file keeps its role and stays unread.
+- Stop letting one approval ratify past a safety boundary. A Managed Scope
+  change reports `interaction_required` when a human reviewer may ratify its
+  blockers, and the published partition names five blockers that carry no
+  reviewer at all, `transport_constraint` among them. The derivation set
+  `interaction_required` whenever *any* blocker was ratifiable, and the
+  transport-constraint risk is only ever raised inside the coverage-reduction
+  branch, which always contributes a ratifiable blocker — so the mixed set was
+  the only reachable one, the unratifiable classification could never decide
+  anything, and a change the previous release held closed on apply, authorize
+  and approve alike could be landed with a single confirmation. The derivation
+  now refuses the reviewer route as soon as one blocker is a safety boundary,
+  which is what the contract says: the operator resolves the condition instead.
+- Deliver the dimension-name diagnostic in the locale it was written for. A
+  diagnostic that does not match the active locale is discarded whole and
+  replaced by a generic message, and the canonical spelling of every dimension
+  is Chinese — so quoting the accepted spellings inside an English refusal made
+  the refusal collapse and point the operator at `.aoci/config.json`, which was
+  not the problem. The previous release, which offered no hint at all, produced
+  a better message on that path. A message now quotes only the spellings its own
+  locale can carry, and the test asserts the rendered hint survives the guard
+  rather than merely containing the right words.
+- Keep the answer `aoci status --deep` gives a repository with no index. The
+  Legacy-layout precondition was placed ahead of the absent-index branch and
+  shadowed it, replacing "the index does not exist, so --deep cannot run; run
+  aoci init first" with a raw filesystem error that also leaked an absolute host
+  path into the machine-readable message.
+- Hand back a budget remediation that runs. The remediation named `aoci scope
+  preview`, and run literally that returns a status document with no preview
+  artifact, after which `scope authorize` and `scope apply` both refuse for a
+  missing `--preview-file`. `scope preview` emits that artifact only when it is
+  given a candidate set, and a configuration-only change still needs one, empty.
+  The finding, the Guide instruction in both locales, and
+  `docs/managed-scope-and-budget.md` now carry the complete sequence.
+- Say in `docs/upgrading.md` that an in-flight Scope Change approval does not
+  survive the upgrade. An approval binds the preview envelope digest, and the
+  host-independent path change removed two fields from that envelope, so a
+  preview and approval minted by v0.1.0-rc5 are refused by v0.1.0-rc6 and the
+  reverse is refused too. Nothing is written and no state is damaged, but the
+  operator has to finish or discard the pair before replacing the binary. The
+  v0.1.0-rc6 note claimed no in-flight approval was stranded; that was true of
+  `plan_id` and not of the envelope.
+- Ignore the machine-bound backup a host-integration installer writes. The
+  installer backs a host config up before rewriting it, and the backup carries a
+  timestamp, so it could not be listed as an exact path: the config was ignored
+  and its backup, holding the same absolute host paths, was not.
+- Fail the Actions version-comment gate when it inspects nothing. Its sibling
+  has carried that guard since both were written; this one passed vacuously over
+  an empty set, which is the same false green the pair exists to prevent.
+- Corrections to the v0.1.0-rc6 notes, which were less accurate than the code.
+  `aoci init` installs the Codex compaction prompt and reload hook only when
+  both `--agent codex` and `--hooks` are given, not on `init` alone. The bounded
+  standard input is two bounds, not one: the hook reads 64 KiB and fails open,
+  while `update-entry` reads the Entries request limit and refuses; the command
+  is `aoci update-entry`, not `aoci index update-entry`. The unconditional
+  `.aoci` and `.git` exclusion lives in `internal/fs/safe_inventory.go`, not in
+  `walk.go`.
+
 ## v0.1.0-rc6
 
 - Keep a repository that never chose a cognition budget on the one it has. A

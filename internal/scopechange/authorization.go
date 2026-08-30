@@ -300,9 +300,18 @@ func interactionRequiredForAuto(preview *Preview, cfg *config.Config) (bool, err
 		if !classified {
 			return false, fmt.Errorf("managed_scope_auto_blocker_unclassified: %s", reason)
 		}
-		if ratifiable {
-			required = true
+		if !ratifiable {
+			// A safety boundary carries no reviewer. Routing the plan to a human
+			// anyway would let one approval ratify past it, which is exactly what
+			// the published partition forbids: the operator resolves the
+			// condition instead. This has to refuse rather than merely skip,
+			// because the transport constraint is only ever raised inside the
+			// coverage-reduction branch, which always contributes a ratifiable
+			// blocker too — so the mixed set is the only reachable one, and
+			// "any ratifiable" would make the unratifiable half unreachable.
+			return false, nil
 		}
+		required = true
 	}
 	return required, nil
 }

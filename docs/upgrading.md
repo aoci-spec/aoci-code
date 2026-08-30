@@ -36,4 +36,17 @@ aoci scope preview --candidate-file <empty-candidate-set.json>
 
 Where both semantics assigned the same roles the plan is identity-only: no role changes, no Entry changes, `aoci.txt` byte-identical, and policy-bound auto can authorize it without a human. Where a rule and a path genuinely differ only in case, the plan carries that real role change and is authorized as one.
 
+## An in-flight Scope Change approval does not survive an upgrade
+
+A `scope approve` artifact binds the preview envelope digest, not the plan. The
+host-independent path change removed two fields from that envelope, so a preview
+and approval produced by v0.1.0-rc5 are rejected by v0.1.0-rc6 with
+`managed_scope_preview_invalid`, and a preview produced by rc6 is rejected by rc5
+with `managed_scope_preview_identity_invalid`. This is a refusal, not a
+corruption: nothing is written and no state is damaged.
+
+Finish or discard any pending preview/approval pair before replacing the binary.
+After the upgrade, regenerate the preview and re-approve; the plan itself is
+unchanged where `interaction_required` did not move.
+
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

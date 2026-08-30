@@ -155,6 +155,16 @@ func ensureHostConfigGitignore(
 		}
 		added = append(added, relativePath)
 		current = appendGitignoreLine(current, relativePath)
+
+		// The installers back a host config up before rewriting it, and the
+		// backup carries a timestamp, so it cannot be listed as an exact path.
+		// Left uncovered it is the one machine-bound artifact that reaches a
+		// commit: the config itself is ignored, its backup is not, and the
+		// backup contains the same absolute host paths.
+		backups := relativePath + ".backup.*"
+		if !gitignoreAlreadyCovers(current, backups) {
+			current = appendGitignoreLine(current, backups)
+		}
 	}
 	if len(added) == 0 {
 		return "", nil

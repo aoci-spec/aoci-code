@@ -898,6 +898,76 @@ def group_f_deleted_observe():
            "PASS" if pending == 0 else "FAIL", f"observed_pending_review={pending}")
 
 
+def group_f_excluded_tracked():
+    """A repository that tracks an excluded file must still initialize.
+
+    Initial-scope approval keyed on a counter that incremented for every tracked
+    path a built-in rule EXCLUDED, so one tracked file under vendor/, dist/ or
+    any other built-in generated directory refused init outright. An excluded
+    path is never opened, so it cannot make initialization unsafe - and every
+    remediation the refusal offered was wrong for that category: removing the
+    file or gitignoring it both mean deleting it from the repository, gitignore
+    does not untrack an already tracked file, and the opt-in it named accepts
+    only sensitive paths and reads the config file that only init creates.
+    A project vendoring its own framework source could not be onboarded at all.
+    """
+    g = "F"
+    d = os.path.join(WORK, "fx-excluded-tracked")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    os.makedirs(os.path.join(d, "vendor", "framework", "src"))
+    with open(os.path.join(d, "pkg", "a.go"), "wb") as f:
+        f.write(b"package pkg\n\nfunc A() int { return 1 }\n")
+    # Hand-maintained framework source that happens to live under vendor/.
+    with open(os.path.join(d, "vendor", "framework", "src", "core.ts"), "wb") as f:
+        f.write(b"export const SECRETLESS_MARKER = 'vendored-source'\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    blob = (out or "") + (errs or "")
+    record(g, "F9.tracked-excluded-file-does-not-refuse-init",
+           "PASS" if rc == 0 else "FAIL",
+           f"rc={rc}" if rc == 0 else f"rc={rc} | {blob[:200]}")
+    if rc != 0:
+        return
+
+    # The layout must be the current one. A repository that reaches init through
+    # a fallback path gets a Legacy monolithic index instead, which is a quieter
+    # failure than a refusal.
+    root_marker = ""
+    root_path = os.path.join(d, "aoci.txt")
+    if os.path.exists(root_path):
+        with open(root_path, encoding="utf-8") as fh:
+            root_marker = fh.readline().strip()
+    record(g, "F9b.init-still-produces-the-volumes-layout",
+           "PASS" if root_marker.startswith("#AOCI-ROOT-MANIFEST") else "FAIL",
+           f"root marker: {root_marker[:60]}")
+
+    rc, _, out, errs = cli(d, "scan")
+    if rc != 0:
+        record(g, "F9c.excluded-file-stays-excluded-and-unread", "FAIL",
+               f"scan failed: {(out + errs)[:160]}")
+        return
+    rc, body, _, _ = cli(d, "scope", "explain", "vendor/framework/src/core.ts")
+    role = (body or {}).get("role") or ""
+    # And its content never reaches formal cognition.
+    leaked = False
+    for asset in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt"):
+        path = os.path.join(d, asset)
+        if not os.path.exists(path):
+            continue
+        with open(path, encoding="utf-8") as fh:
+            if "SECRETLESS_MARKER" in fh.read():
+                leaked = True
+    record(g, "F9c.excluded-file-stays-excluded-and-unread",
+           "PASS" if role == "exclude" and not leaked else "FAIL",
+           f"role={role or '(none)'} content_reached_cognition={leaked}")
+
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 
@@ -1020,6 +1090,7 @@ if __name__ == "__main__":
     group_f()
     group_f_scope()
     group_f_deleted_observe()
+    group_f_excluded_tracked()
     group_t()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)

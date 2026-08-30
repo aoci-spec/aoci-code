@@ -184,7 +184,11 @@ func init() {
 			// --deep is documented Legacy-only; diagnose the layout rather than
 			// computing a drift set the Volumes governance path owns.
 			if deep {
-				if layoutErr := requireLegacyLayout(root, cfg, false); layoutErr != nil {
+				// allowMissing, because the absent-index case has its own curated
+				// answer below that names the command which resolves it. Guarding
+				// it here first shadowed that answer with the raw filesystem
+				// error and leaked an absolute host path into the machine message.
+				if layoutErr := requireLegacyLayout(root, cfg, true); layoutErr != nil {
 					return &ExitError{Code: ExitConfig, Err: layoutErr}
 				}
 			}

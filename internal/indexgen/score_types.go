@@ -7,6 +7,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"strings"
 )
 
@@ -160,7 +161,8 @@ func sQuotaNote(
 
 	case thresholds.UnrecognizedName() != "":
 		return indexgenMessage("score.note_squota_unrecognized_name", thresholds.UnrecognizedName(),
-			strings.Join(index.AcceptedDimensionSpellings("S配额"), " / "))
+			strings.Join(index.AcceptedDimensionSpellingsForLocale(
+				"S配额", textassets.ActiveLocale()), " / "))
 
 	case thresholds.SawSQuotaLine():
 		return indexgenMessage("score.note_squota_invalid", machinecontract.NumericText().SQuotaDefaultExample)

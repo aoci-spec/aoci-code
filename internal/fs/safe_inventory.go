@@ -48,8 +48,11 @@ type SafeInventorySummary struct {
 	FinalManagedCandidates   int    `json:"final_managed_candidates"`
 	ReviewVisibleCount       int    `json:"review_visible_count"`
 	AutoBlockerCount         int    `json:"auto_blocker_count"`
-	// RequiredHumanReview is retained for Safe Inventory v2 compatibility.
-	// Auto Bootstrap authorization uses AutoBlockerCount instead.
+	// RequiredHumanReview is retained for Safe Inventory v2 compatibility and is
+	// audit visibility only: it counts every tracked path a built-in rule
+	// excluded, and an excluded path is never opened. Authorization must key on
+	// AutoBlockerCount instead, which counts only paths whose content an explicit
+	// opt-in will read.
 	RequiredHumanReview        int    `json:"required_human_review"`
 	RulesIdentity              string `json:"rules_identity"`
 	InclusionExclusionIdentity string `json:"inclusion_exclusion_identity"`

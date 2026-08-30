@@ -93,12 +93,22 @@ workaround:
 
 ```
 aoci scope budget set --max-tokens <n> --warning-tokens <n> --target-tokens <n>
-aoci scope preview      # then human approval
-aoci scope apply
 ```
 
-Raising a budget is a policy relaxation, so it goes through the governed Scope
-Change transaction and requires human approval; it is never applied silently.
+That edits the desired policy. Activating it goes through the governed Scope
+Change transaction, and `scope preview` emits the artifact the rest of the flow
+consumes only when it is given a candidate set — a configuration-only change
+still needs one, empty:
+
+```
+printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > candidates.json
+aoci scope preview --candidate-file candidates.json --json > preview.json
+aoci scope approve --preview-file preview.json --actor <id> --out-file approval.json
+aoci scope apply --preview-file preview.json --approval-file approval.json
+```
+
+`scope approve` requires a real TTY and the digest phrase the preview carries.
+Raising a budget is a policy relaxation, so it is never applied silently.
 Judgement still applies in the other direction: a Whole-Index far above the
 ceiling is one a model cannot assimilate in a single delivery, so role reduction
 is the first answer and a raise is the second.

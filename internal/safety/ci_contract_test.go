@@ -76,6 +76,7 @@ func TestEveryPinnedActionNamesItsVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	versionComment := regexp.MustCompile(`@[0-9a-f]{40}\s+#\s*v\S+`)
+	inspected := 0
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yml") {
 			continue
@@ -91,10 +92,17 @@ func TestEveryPinnedActionNamesItsVersion(t *testing.T) {
 			if strings.Contains(line, "./") {
 				continue
 			}
+			inspected++
 			if !versionComment.MatchString(line) {
 				t.Errorf("%s: pinned reference carries no version comment: %s",
 					entry.Name(), strings.TrimSpace(line))
 			}
 		}
+	}
+	// The sibling pin test has carried this guard from the start; this one did
+	// not, so it passed vacuously over an empty set. A gate that reports success
+	// while covering nothing is the same false green it exists to prevent.
+	if inspected == 0 {
+		t.Fatal("no workflow action references were inspected; the gate would pass while covering nothing")
 	}
 }

@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"os"
 	"path"
 	"path/filepath"
@@ -241,7 +242,8 @@ func prepareUpdateEntry(
 			if misses := dictionary.UnrecognizedDimensionNames(); len(misses) > 0 {
 				hint = writeMessage("entry.write.hint.dictionary_name_unrecognized",
 					misses[0].Written,
-					strings.Join(index.AcceptedDimensionSpellings(misses[0].Canonical), " / "))
+					strings.Join(index.AcceptedDimensionSpellingsForLocale(
+						misses[0].Canonical, textassets.ActiveLocale()), " / "))
 			}
 			return nil, "", &Fail{
 				Code: errBadArgs,

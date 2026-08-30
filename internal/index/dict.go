@@ -46,8 +46,10 @@ package index
 
 import (
 	"fmt"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // TagDict 头部提取的标签字典(键=合法符号)
@@ -306,6 +308,45 @@ func DimensionNameNearMiss(line string) (canonical, written string, near bool) {
 		return canonical, name, true
 	}
 	return "", "", false
+}
+
+// AcceptedDimensionSpellingsForLocale lists the accepted spellings a diagnostic
+// rendered in the given Locale may quote.
+//
+// This exists because a diagnostic is delivered only if it matches its Locale.
+// The canonical spelling of every dimension is Chinese, so quoting the complete
+// set inside an en-US message made that message carry Han text, and the runtime
+// discarded the whole refusal and replaced it with a generic one naming the
+// wrong file. An interpolated argument has to match the Locale of the message
+// carrying it, not merely be true.
+//
+// The test is "is this the Han Locale", not "is this en-US", so a Locale added
+// later gets the ASCII-only list by default rather than inheriting this bug.
+// Every dimension has at least one ASCII spelling, so that list is never empty.
+func AcceptedDimensionSpellingsForLocale(canonical, locale string) []string {
+	all := AcceptedDimensionSpellings(canonical)
+	if locale == textassets.LegacyLocale {
+		return all
+	}
+	ascii := make([]string, 0, len(all))
+	for _, spelling := range all {
+		if !containsNonASCII(spelling) {
+			ascii = append(ascii, spelling)
+		}
+	}
+	if len(ascii) == 0 {
+		return all
+	}
+	return ascii
+}
+
+func containsNonASCII(value string) bool {
+	for _, r := range value {
+		if r > unicode.MaxASCII {
+			return true
+		}
+	}
+	return false
 }
 
 // AcceptedDimensionSpellings lists the accepted spellings for one canonical

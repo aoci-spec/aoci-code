@@ -142,8 +142,21 @@ func TestInitHostGitignoreIsIdempotentAndRespectsExistingCoverage(t *testing.T) 
 	if second := readGitignore(t, root); second != first {
 		t.Fatalf("a repeated init must not rewrite the file:\nfirst:\n%s\nsecond:\n%s", first, second)
 	}
-	if count := strings.Count(first, ".codex/config.toml"); count != 1 {
-		t.Fatalf("the path must appear exactly once, got %d:\n%s", count, first)
+	// Counted as exact lines, not as a substring: the host block also carries a
+	// distinct `.codex/config.toml.backup.*` pattern, which contains the path but
+	// is not a duplicate entry for it. The property under test is that one path
+	// is never written twice.
+	exact := 0
+	for _, line := range strings.Split(first, "\n") {
+		if strings.TrimSpace(line) == ".codex/config.toml" {
+			exact++
+		}
+	}
+	if exact != 1 {
+		t.Fatalf("the path must appear exactly once, got %d:\n%s", exact, first)
+	}
+	if !strings.Contains(first, ".codex/config.toml.backup.*") {
+		t.Fatalf("the host block does not cover the machine-bound backup the installer writes:\n%s", first)
 	}
 
 	// 目录形式的既有覆盖也算数, 不重复写。

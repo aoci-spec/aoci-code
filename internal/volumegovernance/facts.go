@@ -595,14 +595,21 @@ func budgetExceededCause(budget BudgetFacts) string {
 func budgetExceededRepairAction(budget BudgetFacts) string {
 	for _, violation := range budget.Violations {
 		if violation.Code == "whole_index_budget_exceeded" {
+			// The activation sequence is spelled out because following it from
+			// memory does not work: scope preview only emits the artifact the
+			// rest of the flow consumes when it is given a candidate set, and a
+			// configuration-only change still needs one, empty.
 			return "reduce_index_membership: aoci scope explain <path> then aoci scope rule; " +
 				"or raise the project budget: aoci scope budget set --max-tokens <n>; " +
-				"then aoci scope preview, human approval, aoci scope apply"
+				"then activate it: write {\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} " +
+				"to candidates.json, aoci scope preview --candidate-file candidates.json --json > preview.json, " +
+				"aoci scope approve --preview-file preview.json --actor <id> --out-file approval.json, " +
+				"aoci scope apply --preview-file preview.json --approval-file approval.json"
 		}
 	}
 	return "re-author the named Entries within their C band, " +
-		"or raise the band: aoci scope budget set --policy-file <policy.json>; " +
-		"then aoci scope preview, human approval, aoci scope apply"
+		"or raise the band: aoci scope budget set --policy-file <policy.json>, " +
+		"then activate it through the same governed Scope Change sequence"
 }
 
 // AssessProjectedBudget applies the same deterministic Volume budget facts to
