@@ -2,6 +2,24 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Probe the atomic no-replace primitive instead of assuming it. Publishing a
+  staged file into a name that must not already exist used `renameat2` with
+  `RENAME_NOREPLACE` unconditionally on Linux, but the flag is a filesystem
+  capability rather than a kernel one: WSL's DrvFs answers `EINVAL`, so every
+  `aoci init` against a path under `/mnt/c` failed with
+  `init_volume_create_failed aoci.meta.txt` while the identical repository
+  initialized on ext4. A Windows checkout was reachable from WSL for every other
+  purpose and not for this one. The flag is now tried first and, where a
+  filesystem refuses it outright, the same guarantee is built from `link` plus
+  `unlink`: `link` reports `EEXIST` for an occupied name and never replaces it,
+  so a refusal still leaves the existing bytes untouched. Being over-broad about
+  which errors select the fallback is safe by construction — the fallback
+  carries the identical guarantee — while `EEXIST` and the other real answers
+  are always propagated. Verified on DrvFs and ext4, and an opt-in test takes a
+  directory so a filesystem no CI runner can reach is still checkable.
+
 ## v0.1.0-rc7
 
 - Stop refusing to initialize a repository over files the rules already

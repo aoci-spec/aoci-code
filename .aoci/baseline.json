@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-30T17:22:02Z",
+  "updated_at": "2026-08-30T19:15:53Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -59,9 +59,9 @@
       "normalized_sha256": "03d56f33777d079b6f53ae3754052739262f4c109dfbd76dbff1d60ecee98cf7"
     },
     "CHANGELOG.md": {
-      "sha256": "5ac7389a419af7ada6ddb6c9708cd4fc452370cac4f833fa269308a2c0f022ed",
-      "size": 58687,
-      "normalized_sha256": "5ac7389a419af7ada6ddb6c9708cd4fc452370cac4f833fa269308a2c0f022ed"
+      "sha256": "4bafb4f49078de1eb037890c17f1fc004a9079fed1fd5854fbf336f5ea4bb74b",
+      "size": 59842,
+      "normalized_sha256": "4bafb4f49078de1eb037890c17f1fc004a9079fed1fd5854fbf336f5ea4bb74b"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -125,9 +125,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "05d60c7415dd0797cfe21574a8616c03b62ee89a403389125bb3f8c93a0a54a0",
-      "size": 175251,
-      "normalized_sha256": "05d60c7415dd0797cfe21574a8616c03b62ee89a403389125bb3f8c93a0a54a0"
+      "sha256": "4af3618346acb458b727cb445a3cba717c1c0aa2f8aba2cffa1f4f9d7646de53",
+      "size": 175519,
+      "normalized_sha256": "4af3618346acb458b727cb445a3cba717c1c0aa2f8aba2cffa1f4f9d7646de53"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3117,11 +3117,18 @@
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_linux.go": {
-      "role": "index",
-      "sha256": "1659293a085830d6e8817f401c915325feb14b5df6da6955e9e72330342eae8d",
-      "size": 226,
-      "normalized_sha256": "1659293a085830d6e8817f401c915325feb14b5df6da6955e9e72330342eae8d",
-      "format_sha256": "1659293a085830d6e8817f401c915325feb14b5df6da6955e9e72330342eae8d",
+      "sha256": "a01ac2de89cb6eb8a44719636a91ff0b22b3fa20b9684134fc21fcc928c318e0",
+      "size": 2916,
+      "normalized_sha256": "a01ac2de89cb6eb8a44719636a91ff0b22b3fa20b9684134fc21fcc928c318e0",
+      "format_sha256": "a01ac2de89cb6eb8a44719636a91ff0b22b3fa20b9684134fc21fcc928c318e0",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/atomic_create_linux_test.go": {
+      "role": "observe",
+      "sha256": "07d427419cd263de9bbd15935fb3e43354678233714d7c0c60714fb62a692023",
+      "size": 3519,
+      "normalized_sha256": "07d427419cd263de9bbd15935fb3e43354678233714d7c0c60714fb62a692023",
+      "format_sha256": "07d427419cd263de9bbd15935fb3e43354678233714d7c0c60714fb62a692023",
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_other.go": {
