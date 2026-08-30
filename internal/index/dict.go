@@ -48,6 +48,7 @@ import (
 	"fmt"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -308,6 +309,23 @@ func DimensionNameNearMiss(line string) (canonical, written string, near bool) {
 		return canonical, name, true
 	}
 	return "", "", false
+}
+
+// DisplayDimensionSpelling renders an operator-written dimension name for a
+// diagnostic in the given Locale.
+//
+// The written name is the operator's own header text and may carry any script,
+// including the Han typos the near-miss folder exists to catch — "#E 规模:"
+// with an ideographic space normalizes onto the canonical name. An ASCII-locale
+// diagnostic that embeds it is discarded whole by the runtime and replaced with
+// a generic message, so the operator loses the one fact that would let them
+// find their line. Escaping keeps the exact text, unambiguous and greppable,
+// inside a channel that only carries ASCII.
+func DisplayDimensionSpelling(written, locale string) string {
+	if locale == textassets.LegacyLocale || !containsNonASCII(written) {
+		return written
+	}
+	return strconv.QuoteToASCII(written)
 }
 
 // AcceptedDimensionSpellingsForLocale lists the accepted spellings a diagnostic

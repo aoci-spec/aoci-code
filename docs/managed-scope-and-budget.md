@@ -100,11 +100,18 @@ Change transaction, and `scope preview` emits the artifact the rest of the flow
 consumes only when it is given a candidate set — a configuration-only change
 still needs one, empty:
 
+Keep every artifact under `.aoci/scope-change/`. A file written into the
+worktree between preview and apply changes the state the plan was minted
+against, and apply then refuses with `managed_scope_replay_mismatch`; `.aoci` is
+excluded from the Safe Inventory unconditionally, so artifacts there are
+invisible to the plan.
+
 ```
-printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > candidates.json
-aoci scope preview --candidate-file candidates.json --json > preview.json
-aoci scope approve --preview-file preview.json --actor <id> --out-file approval.json
-aoci scope apply --preview-file preview.json --approval-file approval.json
+mkdir -p .aoci/scope-change
+printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > .aoci/scope-change/candidates.json
+aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json
+aoci scope approve --preview-file .aoci/scope-change/preview.json --actor <id> --out-file .aoci/scope-change/approval.json
+aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file .aoci/scope-change/approval.json
 ```
 
 `scope approve` requires a real TTY and the digest phrase the preview carries.

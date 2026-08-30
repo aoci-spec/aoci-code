@@ -977,7 +977,7 @@
   "guide.asset_invalid": "guide文本资源%q无效: %s",
   "guide.asset_load_failed": "[Guide文本资源%q加载失败: %s]",
   "guide.budget_blocked_cause": "Whole-Index 为 %d token，项目上限 %d。该预算是项目自有策略，不是系统固定上限。",
-  "guide.budget_instruction_raise": "或抬高项目预算, 这是受支持的变更而非绕行: aoci scope budget set --max-tokens <n>。生效需经受治 Scope Change, 而 scope preview 只有拿到候选集才会产出后续步骤消费的工件: 先把 {\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} 写入 candidates.json, 再依次执行 aoci scope preview --candidate-file candidates.json --json > preview.json、aoci scope approve --preview-file preview.json --actor <id> --out-file approval.json、aoci scope apply --preview-file preview.json --approval-file approval.json。",
+  "guide.budget_instruction_raise": "或抬高项目预算, 这是受支持的变更而非绕行: aoci scope budget set --max-tokens <n>。生效需经受治 Scope Change, 且所有工件必须放在 .aoci/scope-change/ 下 —— 写进工作树的文件会改变 plan 生成时所依据的状态, apply 会以 managed_scope_replay_mismatch 拒绝。先把 {\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} 写入 .aoci/scope-change/candidates.json, 再依次执行 aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json、aoci scope approve --preview-file .aoci/scope-change/preview.json --actor <id> --out-file .aoci/scope-change/approval.json(需真实终端键入确认短语)、aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file .aoci/scope-change/approval.json。",
   "guide.budget_instruction_scope_levers": "先缩减索引治理的范围: 用 aoci scope explain <path> 查明某文件为何是 Index 角色, 再用 aoci scope rule 将其改为 observe 或 exclude; 重写过大条目是另一条缩减路径。",
   "guide.compression_instruction_gate": "任何Apply前必须准备同时满足全部R/S上限和Whole-Index上限的Projected候选集。",
   "guide.compression_instruction_model": "模型必须根据源码证据完整重写受影响的F/R/A/S; 程序不得截断、摘要、改Tag或降低C。",

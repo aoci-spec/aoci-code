@@ -11,8 +11,12 @@ import (
 // 首次范围阻塞必须点名触发它的路径,并给出可执行的下一步 —— 单独一行机器码
 // 无法定位,而这个阻塞在 init 之前没有别的命令能复现。
 func TestInitialScopeBlockedDetailNamesTrackedSafetyExclusions(t *testing.T) {
+	// The counter that selects this arm is AutoBlockerCount: the paths worth
+	// naming are the ones whose content an explicit opt-in will read, not every
+	// path a rule excluded.
 	evaluation := &managedscope.Evaluation{
 		RequiredHumanReview: 2,
+		SafeInventory:       fs.SafeInventorySummary{AutoBlockerCount: 2, RequiredHumanReview: 2},
 		Exclude: []managedscope.PathEvaluation{
 			{Path: "vendor/lib.js", GitStatus: "ignored", SafetyStatus: fs.SafetyIgnored},
 			{Path: "data/audit_dump.log", GitStatus: "tracked", SafetyStatus: "runtime"},
@@ -36,7 +40,9 @@ func TestInitialScopeBlockedDetailCapsNamedPaths(t *testing.T) {
 	for _, path := range []string{"a.log", "b.log", "c.log", "d.log", "e.log", "f.log", "g.log", "h.log", "i.log"} {
 		excluded = append(excluded, managedscope.PathEvaluation{Path: path, GitStatus: "tracked", SafetyStatus: "runtime"})
 	}
-	detail := initialScopeBlockedDetail(&managedscope.Evaluation{RequiredHumanReview: 9, Exclude: excluded}, "production", 0)
+	detail := initialScopeBlockedDetail(&managedscope.Evaluation{RequiredHumanReview: 9,
+		SafeInventory: fs.SafeInventorySummary{AutoBlockerCount: 9, RequiredHumanReview: 9},
+		Exclude:       excluded}, "production", 0)
 	if strings.Contains(detail, "f.log") {
 		t.Fatalf("超过上限的路径不应逐条列出: %s", detail)
 	}

@@ -241,7 +241,7 @@ func prepareUpdateEntry(
 			hint := writeMessage("entry.write.hint.dictionary")
 			if misses := dictionary.UnrecognizedDimensionNames(); len(misses) > 0 {
 				hint = writeMessage("entry.write.hint.dictionary_name_unrecognized",
-					misses[0].Written,
+					index.DisplayDimensionSpelling(misses[0].Written, textassets.ActiveLocale()),
 					strings.Join(index.AcceptedDimensionSpellingsForLocale(
 						misses[0].Canonical, textassets.ActiveLocale()), " / "))
 			}

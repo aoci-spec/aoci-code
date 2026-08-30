@@ -19,9 +19,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
   `internal/fs` already maintained for it, which counts only paths whose content
   an explicit opt-in will actually read. Those still require a human, and every
   excluded file keeps its role and stays unread.
+- Explain an initialization refusal with the reason that actually stopped it.
+  Approval moved to the counter of paths an opt-in will read, but the message
+  still branched on the retired one, so a repository blocked because its profile
+  assigns no path to the index role was told instead that a tracked file needed
+  an explicit decision. Following that advice deleted the file and reached the
+  same refusal — the wrong-remediation shape this release exists to remove, left
+  one function over.
 - Stop letting one approval ratify past a safety boundary. A Managed Scope
   change reports `interaction_required` when a human reviewer may ratify its
-  blockers, and the published partition names five blockers that carry no
+  blockers, and the published partition names the blockers that carry no
   reviewer at all, `transport_constraint` among them. The derivation set
   `interaction_required` whenever *any* blocker was ratifiable, and the
   transport-constraint risk is only ever raised inside the coverage-reduction
@@ -50,8 +57,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
   artifact, after which `scope authorize` and `scope apply` both refuse for a
   missing `--preview-file`. `scope preview` emits that artifact only when it is
   given a candidate set, and a configuration-only change still needs one, empty.
-  The finding, the Guide instruction in both locales, and
-  `docs/managed-scope-and-budget.md` now carry the complete sequence.
+  The sequence also has to keep its artifacts out of the worktree: a plan binds
+  the repository state, so writing `preview.json` beside the sources changes the
+  state the plan was minted against and apply refuses with
+  `managed_scope_replay_mismatch` — the first attempt at a runnable remediation
+  prescribed the repository root and therefore still did not run. `.aoci` is
+  excluded from the Safe Inventory unconditionally, so the finding, the Guide
+  instruction in both locales, and `docs/managed-scope-and-budget.md` now put
+  every artifact under `.aoci/scope-change/`, and a test pins that the
+  prescribed location leaves the plan identity untouched while the worktree
+  does not.
 - Say in `docs/upgrading.md` that an in-flight Scope Change approval does not
   survive the upgrade. An approval binds the preview envelope digest, and the
   host-independent path change removed two fields from that envelope, so a

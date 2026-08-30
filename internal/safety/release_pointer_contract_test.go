@@ -67,6 +67,11 @@ func TestEveryReleaseVersionPointerNamesTheCurrentVersion(t *testing.T) {
 		{file: "README.zh-CN.md", contains: "是当前发布候选版本"},
 		{file: "NOTICE", contains: "Notice"},
 		{file: ".github/workflows/release.yml", contains: "default:"},
+		// Named in this file's own header as rc6 casualties, and unguarded until
+		// an audit pointed out that a gate short of its stated scope is the same
+		// false green it exists to prevent.
+		{file: "docs/install.md", contains: "aoci version"},
+		{file: "docs/supply-chain.md", contains: "provenance.sigstore.json"},
 	} {
 		text := readReleaseFile(t, root, target.file)
 		found := false

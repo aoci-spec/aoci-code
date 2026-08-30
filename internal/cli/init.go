@@ -634,11 +634,15 @@ func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile
 	if highRiskOptIns > 0 {
 		return cliMessage("init.scope_blocked_high_risk", highRiskOptIns)
 	}
-	if evaluation != nil && evaluation.RequiredHumanReview > 0 {
+	// 判据必须与 BuildProposal 的 RequiresHumanApproval 同源: 那里已改为
+	// AutoBlockerCount(显式接纳、内容将被读取的路径), 这里若仍用
+	// RequiredHumanReview(任何被排除的跟踪路径), 就会把"该 profile 索引不到
+	// 任何路径"这类阻断解释成"某个跟踪文件需要决策", 操作者照做删掉文件后
+	// 撞上同一道拒绝——正是本版要消除的那类错误补救。
+	if evaluation != nil && evaluation.SafeInventory.AutoBlockerCount > 0 {
 		named := make([]string, 0, initialScopeBlockedPathSample)
 		for _, item := range evaluation.Exclude {
-			// RequiredHumanReview 只由"被跟踪却被安全规则排除"的路径累加,
-			// 这里点名的就是这一类。
+			// 点名的是内容将被读取的那一类。
 			if item.GitStatus != "tracked" {
 				continue
 			}
@@ -648,10 +652,10 @@ func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile
 			}
 		}
 		sample := strings.Join(named, ", ")
-		if remaining := evaluation.RequiredHumanReview - len(named); remaining > 0 && len(named) > 0 {
+		if remaining := evaluation.SafeInventory.AutoBlockerCount - len(named); remaining > 0 && len(named) > 0 {
 			sample += fmt.Sprintf(" (+%d)", remaining)
 		}
-		return cliMessage("init.scope_blocked_tracked_sensitive", evaluation.RequiredHumanReview, sample)
+		return cliMessage("init.scope_blocked_tracked_sensitive", evaluation.SafeInventory.AutoBlockerCount, sample)
 	}
 	candidates := 0
 	if evaluation != nil {

@@ -160,7 +160,8 @@ func sQuotaNote(
 		return indexgenMessage("score.note_squota_header")
 
 	case thresholds.UnrecognizedName() != "":
-		return indexgenMessage("score.note_squota_unrecognized_name", thresholds.UnrecognizedName(),
+		return indexgenMessage("score.note_squota_unrecognized_name",
+			index.DisplayDimensionSpelling(thresholds.UnrecognizedName(), textassets.ActiveLocale()),
 			strings.Join(index.AcceptedDimensionSpellingsForLocale(
 				"S配额", textassets.ActiveLocale()), " / "))
 

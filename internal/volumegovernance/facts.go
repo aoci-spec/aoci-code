@@ -601,10 +601,13 @@ func budgetExceededRepairAction(budget BudgetFacts) string {
 			// configuration-only change still needs one, empty.
 			return "reduce_index_membership: aoci scope explain <path> then aoci scope rule; " +
 				"or raise the project budget: aoci scope budget set --max-tokens <n>; " +
-				"then activate it: write {\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} " +
-				"to candidates.json, aoci scope preview --candidate-file candidates.json --json > preview.json, " +
-				"aoci scope approve --preview-file preview.json --actor <id> --out-file approval.json, " +
-				"aoci scope apply --preview-file preview.json --approval-file approval.json"
+				"then activate it, keeping every artifact under .aoci/scope-change/ because a file " +
+				"written into the worktree changes the state the plan was minted against: write " +
+				"{\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} to " +
+				".aoci/scope-change/candidates.json, aoci scope preview --candidate-file that file " +
+				"--json > .aoci/scope-change/preview.json, aoci scope approve --preview-file it " +
+				"--actor <id> --out-file .aoci/scope-change/approval.json, then aoci scope apply " +
+				"--preview-file it --approval-file it"
 		}
 	}
 	return "re-author the named Entries within their C band, " +

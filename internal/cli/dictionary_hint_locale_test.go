@@ -31,17 +31,21 @@ func TestDictionaryNearMissHintSurvivesEveryOfficialLocale(t *testing.T) {
 			if len(spellings) == 0 {
 				t.Fatalf("%s: no spelling may be quoted for %s", locale, canonical)
 			}
-			hint := cliMessage("entry.write.hint.dictionary_name_unrecognized",
-				"E-Scale", strings.Join(spellings, " / "))
-			if got := localeSafeCLIDetail(hint); got != hint {
-				t.Fatalf("%s: the near-miss hint for %s does not survive the locale guard.\n"+
-					"  built:     %s\n  delivered: %s\n"+
-					"An interpolated argument must match the locale of the message that carries it, "+
-					"or the whole diagnostic is replaced and the operator is sent to the wrong file.",
-					locale, canonical, hint, got)
-			}
-			if !strings.Contains(hint, "E-Scale") {
-				t.Fatalf("%s: the hint stopped naming the rejected spelling", locale)
+			// The written spelling is the operator's own header text, so it may
+			// carry any script. The near-miss folder strips the ideographic
+			// space precisely so a Han typo like "#E 规模:" is caught, which
+			// means this argument reaches an en-US message carrying Han. A test
+			// that hardcodes an ASCII spelling here can never see that.
+			for _, written := range []string{"E-Scale", "E 规模", "S 配额", "e_scale"} {
+				hint := cliMessage("entry.write.hint.dictionary_name_unrecognized",
+					index.DisplayDimensionSpelling(written, locale), strings.Join(spellings, " / "))
+				if got := localeSafeCLIDetail(hint); got != hint {
+					t.Fatalf("%s: the near-miss hint for %s quoting %q does not survive the locale guard.\n"+
+						"  built:     %s\n  delivered: %s\n"+
+						"Every interpolated argument must match the locale of the message that carries it, "+
+						"or the whole diagnostic is replaced and the operator is sent to the wrong file.",
+						locale, canonical, written, hint, got)
+				}
 			}
 		}
 	}
