@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-30T04:52:50Z",
+  "updated_at": "2026-08-30T06:58:30Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -37,9 +37,9 @@
       "normalized_sha256": "62a5faa1bbd4e0838233f2563ed26ce30c190c682aeb9112be449f6e58a0d2bb"
     },
     ".github/workflows/release.yml": {
-      "sha256": "58e8eb3f26bab1c53ff1d244ba6ce2a89b54cae97d176cb65d4e8b565ec5d49e",
+      "sha256": "63bac1e42c02a8606eb8ade2e2e8b58af0e7bf587f168e8ccd7b9f02d4a268c1",
       "size": 29556,
-      "normalized_sha256": "58e8eb3f26bab1c53ff1d244ba6ce2a89b54cae97d176cb65d4e8b565ec5d49e"
+      "normalized_sha256": "63bac1e42c02a8606eb8ade2e2e8b58af0e7bf587f168e8ccd7b9f02d4a268c1"
     },
     ".gitignore": {
       "role": "index",
@@ -59,9 +59,9 @@
       "normalized_sha256": "03d56f33777d079b6f53ae3754052739262f4c109dfbd76dbff1d60ecee98cf7"
     },
     "CHANGELOG.md": {
-      "sha256": "ce72a683e2dbdde51890fa1466aaa1b8561cd6e56957f0ad4533a04de8370bb1",
-      "size": 52173,
-      "normalized_sha256": "ce72a683e2dbdde51890fa1466aaa1b8561cd6e56957f0ad4533a04de8370bb1"
+      "sha256": "d578bca28451692d3b58e292cece5394d6c736246b488b03d16f0806b40584a6",
+      "size": 52239,
+      "normalized_sha256": "d578bca28451692d3b58e292cece5394d6c736246b488b03d16f0806b40584a6"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -86,9 +86,9 @@
       "normalized_sha256": "71cf36d76be98be9d27565555e07ff63faf282d11c46f897cce5eed4aa2f80b1"
     },
     "NOTICE": {
-      "sha256": "dd38e84c9f0cb8691c9a39ae93d2cca4563ef457ff8cd1d37a5a1339be644e90",
-      "size": 1158,
-      "normalized_sha256": "dd38e84c9f0cb8691c9a39ae93d2cca4563ef457ff8cd1d37a5a1339be644e90"
+      "sha256": "2f3cdb30e147cb1231eac937f75c70209cb19e711224981231c0bae9b0f1239c",
+      "size": 1216,
+      "normalized_sha256": "2f3cdb30e147cb1231eac937f75c70209cb19e711224981231c0bae9b0f1239c"
     },
     "PATENTS": {
       "role": "index",
@@ -97,14 +97,14 @@
       "normalized_sha256": "9e86829429193738724179195efc9fa40b5c8b69cf865fd31fbc7f7ef4c1dd60"
     },
     "README.md": {
-      "sha256": "c57cdd7cbcae5bfeaf264fca73fd2102a26bc478cb6535498a5ac02340c2208b",
+      "sha256": "3dd7f5a45f77df1913680b95d6477cad437569a2eb6bfd226d1a2c3d0f1c40dd",
       "size": 68948,
-      "normalized_sha256": "c57cdd7cbcae5bfeaf264fca73fd2102a26bc478cb6535498a5ac02340c2208b"
+      "normalized_sha256": "3dd7f5a45f77df1913680b95d6477cad437569a2eb6bfd226d1a2c3d0f1c40dd"
     },
     "README.zh-CN.md": {
-      "sha256": "2dbad23cbe1e594bf5a058dd02908917297925c7481b9150c0158d8f344ff683",
+      "sha256": "66571f23e9e48cb8cad3b7dbf0b8359a8028fb410451b49b57a5e5d5e5e453cf",
       "size": 59852,
-      "normalized_sha256": "2dbad23cbe1e594bf5a058dd02908917297925c7481b9150c0158d8f344ff683"
+      "normalized_sha256": "66571f23e9e48cb8cad3b7dbf0b8359a8028fb410451b49b57a5e5d5e5e453cf"
     },
     "SECURITY.md": {
       "role": "index",
@@ -125,9 +125,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "8371c7ab329c3be51383db257e7a952efff2b8b2247968350b3ef6e4edba9245",
-      "size": 174877,
-      "normalized_sha256": "8371c7ab329c3be51383db257e7a952efff2b8b2247968350b3ef6e4edba9245"
+      "sha256": "cd17621577295bac4ed241eda1297b1165f2950e4b04d57e02b1af6f94604101",
+      "size": 174991,
+      "normalized_sha256": "cd17621577295bac4ed241eda1297b1165f2950e4b04d57e02b1af6f94604101"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -200,9 +200,9 @@
       "normalized_sha256": "163e36fccdcd9c6401165b4746bdf28d1674bd83f4fb67222e6c7db6580f297d"
     },
     "docs/install.md": {
-      "sha256": "064410a4ba22bea2f5dc244c2a6875b57adb7d133513f77fe1e1b53dadd62315",
+      "sha256": "7c0d681a4015a3ff73878ec0e85d8d60239649370880ebad02a208fbbb34d000",
       "size": 9130,
-      "normalized_sha256": "064410a4ba22bea2f5dc244c2a6875b57adb7d133513f77fe1e1b53dadd62315"
+      "normalized_sha256": "7c0d681a4015a3ff73878ec0e85d8d60239649370880ebad02a208fbbb34d000"
     },
     "docs/localization.md": {
       "role": "index",
@@ -233,9 +233,9 @@
       "normalized_sha256": "e243a222f0b06b8adf4f605769cb4143ad4544b6b91e5b5e1e514027b7183429"
     },
     "docs/supply-chain.md": {
-      "sha256": "be4efd95321a32483684e23852aed6c38245f0d87fe02bb0713cb49ff6969f7b",
+      "sha256": "f2f374bf3e55048b87dea55c21c6707067cc7174c0eb33b552bff39d9a348e73",
       "size": 10559,
-      "normalized_sha256": "be4efd95321a32483684e23852aed6c38245f0d87fe02bb0713cb49ff6969f7b"
+      "normalized_sha256": "f2f374bf3e55048b87dea55c21c6707067cc7174c0eb33b552bff39d9a348e73"
     },
     "docs/troubleshooting.md": {
       "sha256": "6b040266bb43140967397f3606cf198454b6c378206bb84de2fc90e5e3301724",
@@ -5094,6 +5094,14 @@
       "format_sha256": "59df3ffa75dd6e535e50447a607ba86f8cb294dfef752f8c7b62afa3495f27d3",
       "format_kind": "gofmt"
     },
+    "internal/safety/release_pointer_contract_test.go": {
+      "role": "observe",
+      "sha256": "b49bd25eb19532f826b33cc5ace0919abcb9cd4c5f0f8ea1321bb939529e49bf",
+      "size": 6199,
+      "normalized_sha256": "b49bd25eb19532f826b33cc5ace0919abcb9cd4c5f0f8ea1321bb939529e49bf",
+      "format_sha256": "b49bd25eb19532f826b33cc5ace0919abcb9cd4c5f0f8ea1321bb939529e49bf",
+      "format_kind": "gofmt"
+    },
     "internal/safety/safety.go": {
       "role": "index",
       "sha256": "951d6caa11709f02701377be32bf69618abedcef51b9e0fe6df5857377936188",
@@ -5513,10 +5521,10 @@
     },
     "scripts/release/manifest/signed_release_test.go": {
       "role": "observe",
-      "sha256": "3ec4103c4f7847e5ec2312183bb81673d6510b4aad6efddad02bae60344f0f36",
+      "sha256": "693e46a4eae8c9b5e25ed84955d81977b5bdcd428ab15ee77a815bf236996070",
       "size": 21727,
-      "normalized_sha256": "3ec4103c4f7847e5ec2312183bb81673d6510b4aad6efddad02bae60344f0f36",
-      "format_sha256": "3ec4103c4f7847e5ec2312183bb81673d6510b4aad6efddad02bae60344f0f36",
+      "normalized_sha256": "693e46a4eae8c9b5e25ed84955d81977b5bdcd428ab15ee77a815bf236996070",
+      "format_sha256": "693e46a4eae8c9b5e25ed84955d81977b5bdcd428ab15ee77a815bf236996070",
       "format_kind": "gofmt"
     },
     "spec/public/README.md": {

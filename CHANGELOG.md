@@ -261,6 +261,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   instruction ended by offering `scan` anyway. It now states that a Baseline is
   present and names the governed Scope Change as the path.
 
+The first public availability date for v0.1.0-rc6 is 2026-08-30.
+
 ## v0.1.0-rc5
 
 - Stop treating a line-ending rewrite as a reason to stop governing a
