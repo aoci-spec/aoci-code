@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-30T19:15:53Z",
+  "updated_at": "2026-08-30T19:30:35Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -125,9 +125,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "4af3618346acb458b727cb445a3cba717c1c0aa2f8aba2cffa1f4f9d7646de53",
-      "size": 175519,
-      "normalized_sha256": "4af3618346acb458b727cb445a3cba717c1c0aa2f8aba2cffa1f4f9d7646de53"
+      "sha256": "fe059527be1488f0a64e1002f5de288dfefccd945a060c1148c11871cd2a8da1",
+      "size": 175521,
+      "normalized_sha256": "fe059527be1488f0a64e1002f5de288dfefccd945a060c1148c11871cd2a8da1"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -211,9 +211,9 @@
       "normalized_sha256": "ffe6b0c67ebcae7516777dfff986b0e28013057c480ae70771a2056a81c3edb5"
     },
     "docs/managed-scope-and-budget.md": {
-      "sha256": "9f0dd696287175562f0606cd304b4df9fbfd29cb7383a32d99a5b8b5b217eaba",
-      "size": 7194,
-      "normalized_sha256": "9f0dd696287175562f0606cd304b4df9fbfd29cb7383a32d99a5b8b5b217eaba"
+      "sha256": "767837a897f05fe8b9ed309b7dd6f75ab26959d1e728cc013b9813aebf8b547e",
+      "size": 8437,
+      "normalized_sha256": "767837a897f05fe8b9ed309b7dd6f75ab26959d1e728cc013b9813aebf8b547e"
     },
     "docs/overview-delivery.md": {
       "role": "index",

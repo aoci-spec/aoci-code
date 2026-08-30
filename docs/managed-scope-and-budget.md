@@ -116,6 +116,27 @@ aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file 
 
 `scope approve` requires a real TTY and the digest phrase the preview carries.
 Raising a budget is a policy relaxation, so it is never applied silently.
+
+### What a raised budget does not buy
+
+The budget governs what may be written. It does not govern what a model can
+receive, and those two ceilings are not the same number.
+
+A Whole-Index is delivered as a chunk chain, `overview_delivery.chunk_tokens`
+per chunk with a default of 8000, so the index size decides how many round trips
+a complete delivery takes: about 8 chunks at 58000 tokens, about 50 at 400000,
+about 92 at 733000. Every chunk is a place where a host context compaction can
+void the chain, and only the closing attestation detects that it happened. There
+is no partial-repository delivery to fall back on — `aoci_overview` scopes by
+domain (`code`, `database`, `all`), never by subset.
+
+So a repository whose plan estimate runs to several hundred thousand tokens has
+a role problem before it has a budget problem. `aoci scope preview` reports
+`estimated_whole_index_tokens` as `1800 + index_count * 110` before any Entry is
+authored; read it early. If most of the tracked tree is entering the index role,
+move test fixtures, generated samples and vendored sources to `observe` or
+`exclude` first. Raise the budget for a repository that is genuinely that large
+in the parts that matter — not to postpone the role decision.
 Judgement still applies in the other direction: a Whole-Index far above the
 ceiling is one a model cannot assimilate in a single delivery, so role reduction
 is the first answer and a raise is the second.
