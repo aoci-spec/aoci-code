@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-31T17:46:32Z",
+  "updated_at": "2026-08-31T18:40:12Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -4882,10 +4882,10 @@
     },
     "internal/migrationapply/migration_test.go": {
       "role": "observe",
-      "sha256": "0b5b790c8824d202abe572fab48de6515601014141c6df006f0ed8c7311f2e27",
-      "size": 81654,
-      "normalized_sha256": "0b5b790c8824d202abe572fab48de6515601014141c6df006f0ed8c7311f2e27",
-      "format_sha256": "0b5b790c8824d202abe572fab48de6515601014141c6df006f0ed8c7311f2e27",
+      "sha256": "c302c99f05168c876d21e5c5132af18bbc00ede301b727e8855f8c9771475682",
+      "size": 84301,
+      "normalized_sha256": "c302c99f05168c876d21e5c5132af18bbc00ede301b727e8855f8c9771475682",
+      "format_sha256": "c302c99f05168c876d21e5c5132af18bbc00ede301b727e8855f8c9771475682",
       "format_kind": "gofmt"
     },
     "internal/migrationapply/prepare.go": {

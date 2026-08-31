@@ -2,6 +2,7 @@ package migrationapply
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
@@ -535,26 +537,83 @@ func TestMigrationApprovalGuardsAndPrepareAreFailClosed(t *testing.T) {
 	})
 }
 
+// The retry above is only alive while Apply's lock failure still satisfies
+// errors.Is(err, afs.ErrLockTimeout). That holds because transaction.go wraps
+// with %w, which is one character and no test previously watched it: change it
+// to %v and the retry silently stops matching, the flake returns, and every
+// suite stays green while it happens.
+//
+// Costs one real DefaultLockTimeout because that constant is not injectable, so
+// it follows this file's existing convention and runs in Full Confidence only —
+// which is also the only tier where the flake was ever observed.
+func TestApplyLockFailureKeepsTheTimeoutSentinel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("waits out the real 10s index-lock timeout; runs in Full Confidence")
+	}
+	root := migrationFixture(t, false)
+	envelope, approval := preparedMigrationFixture(t, root, []string{"code"})
+	held, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Release()
+
+	_, applyErr := Apply(root, envelope, approval)
+	if applyErr == nil {
+		t.Fatal("Apply succeeded while the index lock was held by someone else")
+	}
+	if !errors.Is(applyErr, afs.ErrLockTimeout) {
+		t.Fatalf("applyRetryingLockWait can never retry: %v does not match ErrLockTimeout", applyErr)
+	}
+}
+
+// applyRetryingLockWait runs Apply and retries only a lock-wait timeout.
+//
+// A timeout is not a verdict about the property under test. Two concurrent
+// Applies must serialize to exactly one applied and one already_applied; the
+// index write lock is what enforces that, so a wait that expires means the lock
+// worked and this caller ran out of patience. The production error says as much
+// in as many words — it ends in "稍后重试" — and the only thing not following
+// that instruction was this test.
+//
+// Observed once on a loaded windows-latest runner where the migrationapply
+// package took 187s against roughly 0.3s per run locally. Asserting the outcome
+// distribution is this test's job; asserting that the loser outlasts an
+// unrelated machine's load is not, and conflating the two reported a correct
+// serialization as a failure. A lock that never frees still fails the test,
+// because the final attempt's error is returned.
+func applyRetryingLockWait(root string, envelope *ApplyEnvelope, approval *Approval) (*ApplyResult, error) {
+	var result *ApplyResult
+	var err error
+	for attempt := 0; attempt < 5; attempt++ {
+		result, err = Apply(root, envelope, approval)
+		if err == nil || !errors.Is(err, afs.ErrLockTimeout) {
+			return result, err
+		}
+	}
+	return result, err
+}
+
 func TestConcurrentMigrationAndRecoverySerialize(t *testing.T) {
 	t.Run("same_approved_apply", func(t *testing.T) {
 		root := migrationFixture(t, false)
 		envelope, approval := preparedMigrationFixture(t, root, []string{"code"})
 		results := make(chan *ApplyResult, 2)
-		errors := make(chan error, 2)
+		failures := make(chan error, 2)
 		var group sync.WaitGroup
 		for index := 0; index < 2; index++ {
 			group.Add(1)
 			go func() {
 				defer group.Done()
-				result, err := Apply(root, envelope, approval)
+				result, err := applyRetryingLockWait(root, envelope, approval)
 				results <- result
-				errors <- err
+				failures <- err
 			}()
 		}
 		group.Wait()
 		close(results)
-		close(errors)
-		for err := range errors {
+		close(failures)
+		for err := range failures {
 			if err != nil {
 				t.Fatal(err)
 			}
