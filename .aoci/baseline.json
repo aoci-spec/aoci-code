@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-31T15:41:49Z",
+  "updated_at": "2026-08-31T16:16:09Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -124,9 +124,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "b875e73805a23868773c5bbc1eac43ec53059c2a1d2c9a7259e94af963669eba",
-      "size": 176666,
-      "normalized_sha256": "b875e73805a23868773c5bbc1eac43ec53059c2a1d2c9a7259e94af963669eba"
+      "sha256": "60e6cf0d5df3faf28dfd365eb63ee2e48f895d54a3e4ec35cd18e3b1a0ebc598",
+      "size": 176830,
+      "normalized_sha256": "60e6cf0d5df3faf28dfd365eb63ee2e48f895d54a3e4ec35cd18e3b1a0ebc598"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3108,18 +3108,18 @@
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_darwin.go": {
-      "sha256": "f1d9d57d407f88cce7573be626890544cc66aed7fa398206039fd4cc3cfec668",
-      "size": 178,
-      "normalized_sha256": "f1d9d57d407f88cce7573be626890544cc66aed7fa398206039fd4cc3cfec668",
-      "format_sha256": "f1d9d57d407f88cce7573be626890544cc66aed7fa398206039fd4cc3cfec668",
+      "sha256": "0e93e81f77d5f6d0770363d2b9e08cfc98870cb091e644eabfece07f679ad344",
+      "size": 4390,
+      "normalized_sha256": "0e93e81f77d5f6d0770363d2b9e08cfc98870cb091e644eabfece07f679ad344",
+      "format_sha256": "0e93e81f77d5f6d0770363d2b9e08cfc98870cb091e644eabfece07f679ad344",
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_darwin_test.go": {
       "role": "observe",
-      "sha256": "090ab1b2c2473095007f2da8a8560f9d08fd6b74d8a011d1bfc6c64b0d257e8f",
-      "size": 5329,
-      "normalized_sha256": "090ab1b2c2473095007f2da8a8560f9d08fd6b74d8a011d1bfc6c64b0d257e8f",
-      "format_sha256": "090ab1b2c2473095007f2da8a8560f9d08fd6b74d8a011d1bfc6c64b0d257e8f",
+      "sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
+      "size": 7196,
+      "normalized_sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
+      "format_sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_linux.go": {

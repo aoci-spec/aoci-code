@@ -12,30 +12,23 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // renamex_np with RENAME_EXCL is the single-syscall no-replace primitive on
-// darwin, and its manual page says it answers ENOTSUP when "the file system does
-// not support that operation". That is the same shape as the Linux defect fixed
-// in a08d25a: RENAME_NOREPLACE was assumed to be a kernel capability, WSL's
-// DrvFs answered EINVAL, and `aoci init` failed on every path under /mnt/c.
+// darwin, and the flag is a filesystem capability rather than a kernel one.
+// This probe measured that on both macOS runners: exFAT answers ENOTSUP, so
+// before the copy fallback existed a repository on an external drive could not
+// be initialized at all. exFAT is precisely what macOS and Windows share, so
+// that is an ordinary place to keep a repository, not an exotic one.
 //
-// No macOS filesystem has been observed refusing RENAME_EXCL, so this test does
-// not presume one does. It manufactures the filesystems a repository can
-// actually live on besides the runner's APFS boot volume — an exFAT or FAT32
-// external drive, an older HFS+ volume — and asserts the contract on each. If
-// one of them refuses the flag, or worse honours the call but not the guarantee,
-// this fails and names the filesystem.
-//
-// The Linux answer does not transfer, which is the reason to measure before
-// changing anything: the link fallback there depends on hard links, and FAT has
-// none. A darwin fallback would have to be a different construction with a
-// different crash profile, so it must not be written before the evidence says
-// it is needed.
+// Each filesystem is a subtest so one refusal reports itself without hiding the
+// answers from the rest — the first version of this test used t.Fatalf, stopped
+// at exFAT, and left FAT32 and HFS+ unmeasured.
 func TestNoReplaceGuaranteeHoldsOnEveryReachableFilesystem(t *testing.T) {
-	probed := []string{}
-	assertNoReplaceContract(t, "APFS (runner boot volume)", t.TempDir())
-	probed = append(probed, "APFS=honoured")
+	probed := []string{"APFS"}
+	t.Run("APFS", func(t *testing.T) { assertNoReplaceContract(t, "APFS", t.TempDir()) })
 
 	for _, image := range []struct{ label, hdiutilFS string }{
 		{"exFAT", "exFAT"},
@@ -46,19 +39,18 @@ func TestNoReplaceGuaranteeHoldsOnEveryReachableFilesystem(t *testing.T) {
 		if err != nil {
 			// Never a failure: a runner that cannot make disk images has simply
 			// not answered the question, and saying so is the honest result.
-			probed = append(probed, image.label+"=unavailable")
 			t.Logf("%s not probed: %v", image.label, err)
 			continue
 		}
 		t.Cleanup(detach)
-		assertNoReplaceContract(t, image.label, mount)
-		probed = append(probed, image.label+"=honoured")
+		probed = append(probed, image.label)
+		t.Run(image.label, func(t *testing.T) { assertNoReplaceContract(t, image.label, mount) })
 	}
 
 	// go test hides t.Log without -v, and native-lifecycle runs without it. One
-	// stderr line keeps the capability matrix readable in the job log, which is
-	// the whole point of a probe whose expected outcome is green.
-	fmt.Fprintf(os.Stderr, "AOCI RENAME_EXCL probe: %s\n", strings.Join(probed, " "))
+	// stderr line keeps the coverage of this run visible in the job log, so a
+	// green result cannot quietly mean "probed nothing but APFS".
+	fmt.Fprintf(os.Stderr, "AOCI no-replace probe covered: %s\n", strings.Join(probed, " "))
 }
 
 // assertNoReplaceContract exercises the exact promise publishAtomicCreate makes:
@@ -74,11 +66,13 @@ func assertNoReplaceContract(t *testing.T, label, dir string) {
 	t.Cleanup(func() { os.Remove(source); os.Remove(target) })
 
 	if err := publishAtomicCreate(source, target); err != nil {
-		t.Fatalf("%s refused RENAME_EXCL for a free name (%v); aoci init cannot create "+
-			"a volume on this filesystem and needs a fallback that does not assume hard links", label, err)
+		t.Fatalf("%s could not publish into a free name: %v", label, err)
 	}
 	if body, _ := os.ReadFile(target); string(body) != "first\n" {
 		t.Fatalf("%s: target content = %q", label, body)
+	}
+	if _, err := os.Lstat(source); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("%s: the staging file survived a successful publish", label)
 	}
 
 	second := filepath.Join(dir, "aoci-staging-2")
@@ -97,6 +91,63 @@ func assertNoReplaceContract(t *testing.T, label, dir string) {
 	}
 	if body, _ := os.ReadFile(target); string(body) != "first\n" {
 		t.Fatalf("%s: a refused publish changed the target: %q", label, body)
+	}
+	if _, err := os.Lstat(second); err != nil {
+		t.Fatalf("%s: a refused publish consumed its staging file: %v", label, err)
+	}
+}
+
+// The copy fallback must carry the refusal on its own, on any filesystem,
+// because that is the whole reason it may stand in for the primitive.
+func TestCopyFallbackKeepsTheNoReplaceGuarantee(t *testing.T) {
+	dir := t.TempDir()
+	source := filepath.Join(dir, "staging")
+	target := filepath.Join(dir, "target")
+	if err := os.WriteFile(source, []byte("first\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishAtomicCreateByCopy(source, target); err != nil {
+		t.Fatalf("publishing into a free name failed: %v", err)
+	}
+	if body, _ := os.ReadFile(target); string(body) != "first\n" {
+		t.Fatalf("target content = %q", body)
+	}
+	info, err := os.Stat(target)
+	if err != nil || info.Mode().Perm() != 0o600 {
+		t.Fatalf("the copy did not carry the staged mode: %v %v", info, err)
+	}
+	if _, err := os.Lstat(source); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("the staging file survived a successful publish")
+	}
+
+	second := filepath.Join(dir, "staging2")
+	if err := os.WriteFile(second, []byte("second\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := publishAtomicCreateByCopy(second, target); !errors.Is(err, os.ErrExist) {
+		t.Fatalf("publishing onto an occupied name must report EEXIST, got %v", err)
+	}
+	if body, _ := os.ReadFile(target); string(body) != "first\n" {
+		t.Fatalf("a refused publish changed the target: %q", body)
+	}
+	if _, err := os.Lstat(second); err != nil {
+		t.Fatalf("a refused publish consumed its staging file: %v", err)
+	}
+}
+
+// A filesystem that cannot honour the flag and a target that is genuinely
+// occupied must never be confused: the first falls back, the second is the
+// answer the caller asked for.
+func TestUnsupportedClassificationNeverSwallowsARealRefusal(t *testing.T) {
+	for _, unsupported := range []error{unix.ENOTSUP, unix.EOPNOTSUPP, unix.EINVAL, unix.ENOSYS} {
+		if !renameExclUnsupported(unsupported) {
+			t.Fatalf("%v must select the fallback; exFAT answers ENOTSUP and would stay broken", unsupported)
+		}
+	}
+	for _, real := range []error{unix.EEXIST, unix.EACCES, unix.EPERM, unix.EROFS, unix.ENOENT, unix.EXDEV} {
+		if renameExclUnsupported(real) {
+			t.Fatalf("%v is a real answer and must be propagated, not retried through the fallback", real)
+		}
 	}
 }
 
