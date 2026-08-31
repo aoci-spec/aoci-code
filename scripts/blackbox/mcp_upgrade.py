@@ -107,8 +107,9 @@ def _download(url, dest):
 
 
 # Fetch one released binary into the cache, checksum-verified against the
-# release's own SHA256SUMS. An archive that fails the checksum is removed rather
-# than kept, so a corrupted download cannot be reused by the next run.
+# release's own SHA256SUMS. Everything stays inside a temporary directory until
+# the checksum passes and only then moves to its cached name, so an interrupted
+# or corrupted download can never be picked up as cached by the next run.
 def fetch_release_binary(version):
     archive_name, member = platform_asset(version)
     target = os.path.join(CACHE, f"aoci-{version}" + (".exe" if member.endswith(".exe") else ""))
@@ -135,13 +136,19 @@ def fetch_release_binary(version):
                 digest.update(block)
         if digest.hexdigest() != want:
             raise RuntimeError(f"{version}: checksum mismatch for {archive_name}")
-        if archive_name.endswith(".zip"):
-            with zipfile.ZipFile(archive) as zf:
-                extracted = zf.extract(member, work)
-        else:
-            with tarfile.open(archive) as tf:
-                tf.extract(member, work)
-                extracted = os.path.join(work, member)
+        # Read exactly the one member out and write it ourselves. TarFile.extract
+        # grew a `filter` argument whose default changed across 3.12-3.14 and does
+        # not exist at all on older interpreters; copying the stream has none of
+        # that history and cannot write a path the archive chose.
+        extracted = os.path.join(work, "extracted-binary")
+        opener = zipfile.ZipFile if archive_name.endswith(".zip") else tarfile.open
+        with opener(archive) as archive_file:
+            source = (archive_file.open(member) if archive_name.endswith(".zip")
+                      else archive_file.extractfile(member))
+            if source is None:
+                raise RuntimeError(f"{version}: {member} is not a regular file in {archive_name}")
+            with source, open(extracted, "wb") as out:
+                shutil.copyfileobj(source, out)
         os.chmod(extracted, 0o755)
         shutil.move(extracted, target)
     return target
@@ -220,18 +227,18 @@ def snapshot(repo):
 # is written entirely by the released version under test.
 def author_to_aligned(binary, repo):
     for _ in range(8):
-        facts = verify_facts(binary, repo)
-        if facts and facts["aligned"]:
-            return True
         proc = run(binary, repo, "verify", "--json")
         try:
-            gov = json.loads(proc.stdout).get("governance") or {}
+            report = json.loads(proc.stdout)
         except json.JSONDecodeError:
             return False
+        gov = report.get("governance") or {}
+        if gov.get("governance_aligned"):
+            return True
         targets = [f["target"] for f in gov.get("findings") or []
                    if isinstance(f, dict) and f.get("code") == "code_missing" and f.get("target")]
         if not targets:
-            return bool(facts and facts["aligned"])
+            return False  # misaligned for a reason authoring cannot clear
         for rel in targets:
             with open(os.path.join(repo, rel), "rb") as fh:
                 sha = hashlib.sha256(fh.read()).hexdigest()

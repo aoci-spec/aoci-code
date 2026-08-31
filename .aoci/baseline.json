@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-31T14:58:39Z",
+  "updated_at": "2026-08-31T15:09:50Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -5487,9 +5487,9 @@
       "normalized_sha256": "2a710dc2478544cf1081e423151018ca1a56956713847a4e59e1667b915fa7ec"
     },
     "scripts/blackbox/mcp_upgrade.py": {
-      "sha256": "b1733c1ee6cdf7440507ae5022b9cd15c1022c890ba90123007d8cc93d735413",
-      "size": 23457,
-      "normalized_sha256": "b1733c1ee6cdf7440507ae5022b9cd15c1022c890ba90123007d8cc93d735413"
+      "sha256": "a9d99cdc300efeeba53bf61d8589ca6535b13d8c6f0234dd27652a62fd684d2e",
+      "size": 24122,
+      "normalized_sha256": "a9d99cdc300efeeba53bf61d8589ca6535b13d8c6f0234dd27652a62fd684d2e"
     },
     "scripts/check-deps.sh": {
       "role": "index",
