@@ -27,34 +27,48 @@ import (
 // answers from the rest — the first version of this test used t.Fatalf, stopped
 // at exFAT, and left FAT32 and HFS+ unmeasured.
 //
-// A filesystem that cannot be attached fails the run rather than being skipped.
-// The meaning has to be carried by the pass, because nothing else can carry it:
-// native-lifecycle runs go test in package-list mode, where the output of a
-// passing test — t.Log and a direct os.Stderr write alike — is discarded. A
-// coverage line is therefore visible only on failure, which is exactly when it
-// is not needed. Green must mean "all of these were probed", or green means
+// A required filesystem that cannot be attached fails the run rather than being
+// skipped. The meaning has to be carried by the pass, because nothing else can
+// carry it: native-lifecycle runs go test in package-list mode, where the output
+// of a passing test — t.Log and a direct os.Stderr write alike — is discarded,
+// so a coverage line is visible only on failure, which is exactly when it is not
+// needed. Green must mean "the refusing filesystem was probed", or it means
 // "APFS, and possibly nothing else" with no way to tell the two apart.
+//
+// Required is not the same as listed, and conflating them was a mistake worth
+// recording. exFAT is load-bearing: it is the measured refusal, so a run that
+// skipped it would prove nothing about the fallback. FAT32 is corroboration
+// from the same msdos family, and its absence weakens no claim exFAT already
+// carries — so a third undiscovered hdiutil quirk on an image nobody depends on
+// must not redden a gate. It took two round trips to make FAT32 attachable at
+// all (65525 clusters, then an MBR map) and both are recorded below.
 func TestNoReplaceGuaranteeHoldsOnEveryReachableFilesystem(t *testing.T) {
 	t.Run("APFS", func(t *testing.T) { assertNoReplaceContract(t, "APFS", t.TempDir()) })
 
 	optional := os.Getenv("AOCI_ATOMIC_PROBE_OPTIONAL") != ""
-	for _, image := range []struct{ label, hdiutilFS, size string }{
-		{"exFAT", "exFAT", "16m"},
-		// FAT32 needs at least 65525 clusters to be FAT32 at all, so newfs_msdos
-		// refuses the 16m that suffices for the others. Measured: 16m fails on
-		// both runners, and the failure is what made this size explicit.
-		{"FAT32", "MS-DOS FAT32", "96m"},
-		{"HFS+", "HFS+", "16m"},
+	for _, image := range []struct {
+		label, hdiutilFS, size string
+		required               bool
+		extraCreate            []string
+	}{
+		{label: "exFAT", hdiutilFS: "exFAT", size: "16m", required: true},
+		// FAT32 needs two things the others do not, both measured here rather
+		// than assumed: at least 65525 clusters to be FAT32 at all, so 16m is
+		// refused by newfs_msdos; and an MBR partition map, because hdiutil
+		// defaults to the Apple scheme and attach then answers "no mountable
+		// file systems" on an image it just created successfully.
+		{label: "FAT32", hdiutilFS: "MS-DOS FAT32", size: "96m", extraCreate: []string{"-layout", "MBRSPUD"}},
+		{label: "HFS+", hdiutilFS: "HFS+", size: "16m", required: true},
 	} {
 		t.Run(image.label, func(t *testing.T) {
-			mount, detach, err := attachScratchImage(t, image.hdiutilFS, image.size)
+			mount, detach, err := attachScratchImage(t, image.hdiutilFS, image.size, image.extraCreate...)
 			if err != nil {
-				if optional {
+				if optional || !image.required {
 					t.Skipf("not probed: %v", err)
 				}
-				t.Fatalf("could not build a %s volume to probe (%v). exFAT is known to refuse "+
-					"RENAME_EXCL, so an unprobed run proves nothing about the fallback; set "+
-					"AOCI_ATOMIC_PROBE_OPTIONAL=1 where disk images are unavailable", image.label, err)
+				t.Fatalf("could not build a %s volume to probe (%v). exFAT is the measured "+
+					"RENAME_EXCL refusal, so a run without it proves nothing about the fallback; "+
+					"set AOCI_ATOMIC_PROBE_OPTIONAL=1 where disk images are unavailable", image.label, err)
 			}
 			t.Cleanup(detach)
 			assertNoReplaceContract(t, image.label, mount)
@@ -171,11 +185,11 @@ func TestUnsupportedClassificationNeverSwallowsARealRefusal(t *testing.T) {
 // FAT32 failed on both runners, and the whole diagnostic was "exit status 1 ()"
 // — the flag suppressed exactly the message the failure existed to deliver.
 // detach keeps it: it runs in cleanup and its error is already ignored.
-func attachScratchImage(t *testing.T, filesystem, size string) (string, func(), error) {
+func attachScratchImage(t *testing.T, filesystem, size string, extraCreate ...string) (string, func(), error) {
 	t.Helper()
 	dmg := filepath.Join(t.TempDir(), "probe.dmg")
-	if out, err := hdiutil(t, "create", "-size", size, "-fs", filesystem,
-		"-volname", "AOCIProbe", dmg); err != nil {
+	args := append([]string{"create", "-size", size, "-fs", filesystem, "-volname", "AOCIProbe"}, extraCreate...)
+	if out, err := hdiutil(t, append(args, dmg)...); err != nil {
 		return "", nil, fmt.Errorf("create: %w (%s)", err, out)
 	}
 	mount := filepath.Join(t.TempDir(), "mnt")
