@@ -38,13 +38,16 @@ func TestNoReplaceGuaranteeHoldsOnEveryReachableFilesystem(t *testing.T) {
 	t.Run("APFS", func(t *testing.T) { assertNoReplaceContract(t, "APFS", t.TempDir()) })
 
 	optional := os.Getenv("AOCI_ATOMIC_PROBE_OPTIONAL") != ""
-	for _, image := range []struct{ label, hdiutilFS string }{
-		{"exFAT", "exFAT"},
-		{"FAT32", "MS-DOS FAT32"},
-		{"HFS+", "HFS+"},
+	for _, image := range []struct{ label, hdiutilFS, size string }{
+		{"exFAT", "exFAT", "16m"},
+		// FAT32 needs at least 65525 clusters to be FAT32 at all, so newfs_msdos
+		// refuses the 16m that suffices for the others. Measured: 16m fails on
+		// both runners, and the failure is what made this size explicit.
+		{"FAT32", "MS-DOS FAT32", "96m"},
+		{"HFS+", "HFS+", "16m"},
 	} {
 		t.Run(image.label, func(t *testing.T) {
-			mount, detach, err := attachScratchImage(t, image.hdiutilFS)
+			mount, detach, err := attachScratchImage(t, image.hdiutilFS, image.size)
 			if err != nil {
 				if optional {
 					t.Skipf("not probed: %v", err)
@@ -158,22 +161,28 @@ func TestUnsupportedClassificationNeverSwallowsARealRefusal(t *testing.T) {
 }
 
 // attachScratchImage builds a small disk image with the requested filesystem and
-// mounts it, returning the mount point and a detach function. Every failure is
-// reported to the caller rather than failing the test: a sandbox that forbids
-// hdiutil leaves the question unanswered, and pretending otherwise would make a
-// green run mean less than it appears to.
-func attachScratchImage(t *testing.T, filesystem string) (string, func(), error) {
+// mounts it, returning the mount point and a detach function. Failures are
+// returned rather than raised here so the caller decides what an unanswered
+// question means; today the caller treats it as a failure, because a run that
+// probed nothing would otherwise be indistinguishable from one that probed
+// everything.
+//
+// create and attach deliberately run without -quiet. create was quiet once,
+// FAT32 failed on both runners, and the whole diagnostic was "exit status 1 ()"
+// — the flag suppressed exactly the message the failure existed to deliver.
+// detach keeps it: it runs in cleanup and its error is already ignored.
+func attachScratchImage(t *testing.T, filesystem, size string) (string, func(), error) {
 	t.Helper()
 	dmg := filepath.Join(t.TempDir(), "probe.dmg")
-	if out, err := hdiutil(t, "create", "-size", "16m", "-fs", filesystem,
-		"-volname", "AOCIProbe", "-quiet", dmg); err != nil {
+	if out, err := hdiutil(t, "create", "-size", size, "-fs", filesystem,
+		"-volname", "AOCIProbe", dmg); err != nil {
 		return "", nil, fmt.Errorf("create: %w (%s)", err, out)
 	}
 	mount := filepath.Join(t.TempDir(), "mnt")
 	if err := os.MkdirAll(mount, 0o755); err != nil {
 		return "", nil, err
 	}
-	if out, err := hdiutil(t, "attach", dmg, "-nobrowse", "-quiet", "-mountpoint", mount); err != nil {
+	if out, err := hdiutil(t, "attach", dmg, "-nobrowse", "-mountpoint", mount); err != nil {
 		return "", nil, fmt.Errorf("attach: %w (%s)", err, out)
 	}
 	return mount, func() { hdiutil(t, "detach", mount, "-quiet", "-force") }, nil
