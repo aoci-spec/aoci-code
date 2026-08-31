@@ -883,7 +883,7 @@ No. The current capability is Narrow Relation Projection, not an independent gra
 
 ## 🧪 Black-box verification suites
 
-The repository ships three standalone black-box suites under
+The repository ships four standalone black-box suites under
 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) that exercise a built `aoci`
 binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
@@ -898,6 +898,12 @@ and CLI only:
   optional model track puts a real AI agent — any model your OpenCode
   installation exposes — through the two small repositories and scores the end
   state from public surfaces.
+- **Upgrade axis** — 14 checks per released version, over two configuration
+  shapes: every published release builds and authors a repository with its own
+  binary, then the binary under test must govern it without moving an identity,
+  demanding a Scope Change, or rewriting a formal asset. The other three suites
+  mint every fixture with the binary under test, so a preimage that changed
+  between versions is invisible to them by construction.
 
 They need only Python 3 and git on top of a built binary (Docker for the MySQL
 suite; OpenCode plus your own model subscription for the model track), so a

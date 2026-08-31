@@ -78,3 +78,6 @@ __pycache__/
 
 # 生命周期 harness 的运行结果与工件(scripts/blackbox/results) —— 本地实验数据,不入库
 scripts/blackbox/results/
+
+# 升级轴套件缓存的历史发布二进制(scripts/blackbox/.upgrade-cache) —— 可重新下载,不入库
+scripts/blackbox/.upgrade-cache/

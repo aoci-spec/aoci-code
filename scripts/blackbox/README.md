@@ -1,6 +1,6 @@
 # Black-box verification suites
 
-Three standalone suites exercise a built `aoci` binary strictly from outside
+Four standalone suites exercise a built `aoci` binary strictly from outside
 the process: they speak the public stdio MCP protocol and the public CLI, never
 import internal packages, and use only the Python standard library. They ship
 with the repository clone (binary Release archives do not include `scripts/`).
@@ -10,6 +10,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
 | `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, and re-alignment, while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
+| `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in two configuration shapes. | above + network access on the first run (binaries are cached) | minutes |
 
 ## Running
 
@@ -30,6 +31,26 @@ Fault-injection scenarios (45 scenarios, disposable fixtures in a temp dir):
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py
 ```
+
+Upgrade axis (14 checks per released version, over two configuration shapes;
+downloads and checksum-verifies each release once into a gitignored cache):
+
+```bash
+python3 scripts/blackbox/mcp_upgrade.py
+python3 scripts/blackbox/mcp_upgrade.py --versions v0.1.0-rc6,v0.1.0-rc7
+```
+
+The other three suites mint every fixture with the binary under test, so a
+preimage that changed *between* versions is invisible to them by construction —
+this suite exists for exactly that class. Its two configuration shapes are not
+decoration: `init` is `.aoci/config.json` as the released `aoci init` wrote it,
+which always carries an explicit `cognition_budget` block, while `nobudget`
+removes that block before `scan`. Only the second shape resolves
+`cognitionbudget.LegacyPolicy`, which is the frozen preimage every repository
+created before that block existed still depends on. Verified against a
+deliberately un-frozen binary: the `init` shape stays green, and only `nobudget`
+reports `scope_change_required=true` from the upgrade alone. A run that cannot
+fetch a release fails; pass `--allow-offline` to downgrade that to a skip.
 
 Lifecycle, deterministic track only (no AI involved; `database` pulls
 `mysql:8.4` and needs a working Docker daemon — drop it via `--suites`):

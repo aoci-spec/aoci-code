@@ -110,6 +110,13 @@ jobs:
           make build
           python3 scripts/blackbox/mcp_lifecycle.py
           git diff --exit-code
+      # 升级轴: 另外三套套件的夹具全部由被测二进制自己铸造, 所以"版本之间变了的
+      # preimage"对它们结构性不可见。这一套用每个已发布版本的真二进制建仓授权,
+      # 再让被测二进制接管。它要下载 Release 资产, 因此只能待在这条联网的夜间线上。
+      - name: black-box upgrade axis over every released binary
+        run: |
+          python3 scripts/blackbox/mcp_upgrade.py
+          git diff --exit-code
       # 覆盖率是可见性而非门禁: 让安全核心包的薄弱处暴露在构建摘要里。
       - name: coverage snapshot
         run: |

@@ -842,7 +842,7 @@ aoci --repo . index agent guide --agent codex --json
 
 ## 🧪 黑盒验证套件
 
-仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) 内置三套独立黑盒套件，
+仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) 内置四套独立黑盒套件，
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
@@ -853,6 +853,10 @@ aoci --repo . index agent guide --agent codex --json
   `repo-c`（453 个文件的分层服务）额外在机器批量上限处检验多批创作。可选的
   模型轨用真实 AI Agent（你的 OpenCode 所暴露的任意模型）驱动那两个小仓库，
   并从公开表面判定终态。
+- **升级轴** —— 每个已发布版本 14 项检查，覆盖两种配置形状：每个公开发布版本
+  用自己的二进制建仓并授权到对齐，再由被测二进制接管，必须不移动任何身份、
+  不索要 Scope Change、不改写正式资产。另外三套套件的夹具全部由被测二进制自己
+  铸造，因此"版本之间变了的 preimage"在构造上对它们不可见。
 
 在构建好的二进制之上只需 Python 3 与 git（MySQL 套件需 Docker；模型轨需
 OpenCode 与你自己的模型订阅），因此克隆仓库即可验证自己的构建、平台移植或

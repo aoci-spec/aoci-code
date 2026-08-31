@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-30T19:30:35Z",
+  "updated_at": "2026-08-31T14:58:39Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -27,9 +27,9 @@
       "normalized_sha256": "2a0224d0febc78500fa07525cc72f00a160e4be1353db56dbc8aefc1b3b97f27"
     },
     ".github/workflows/full-confidence.yml": {
-      "sha256": "3f49b7ee9b8b138315952ad792037d4e6d43f4297734898d225627d9b452efe9",
-      "size": 16697,
-      "normalized_sha256": "3f49b7ee9b8b138315952ad792037d4e6d43f4297734898d225627d9b452efe9"
+      "sha256": "db62f8155cfca63fe0804aee0d7cd6d5f3b3d9d6a4cfa77e4a34704c73e5a0be",
+      "size": 17195,
+      "normalized_sha256": "db62f8155cfca63fe0804aee0d7cd6d5f3b3d9d6a4cfa77e4a34704c73e5a0be"
     },
     ".github/workflows/release-rehearsal.yml": {
       "sha256": "62a5faa1bbd4e0838233f2563ed26ce30c190c682aeb9112be449f6e58a0d2bb",
@@ -42,10 +42,9 @@
       "normalized_sha256": "0dae584609ba237ea8b02a4649f43b2e76e2b12b742b81ca75ee3d1d6bcdcd58"
     },
     ".gitignore": {
-      "role": "index",
-      "sha256": "50641fe39d0595503b05bd79c95cce1be9bf20652ff39fa0d7c3aa363a153d61",
-      "size": 2390,
-      "normalized_sha256": "50641fe39d0595503b05bd79c95cce1be9bf20652ff39fa0d7c3aa363a153d61"
+      "sha256": "6bb8b57c0a1c441326d1ee369c8b2a15bc8bb7646dbb77cfc9d3867f4541c86c",
+      "size": 2538,
+      "normalized_sha256": "6bb8b57c0a1c441326d1ee369c8b2a15bc8bb7646dbb77cfc9d3867f4541c86c"
     },
     ".goreleaser.yml": {
       "role": "index",
@@ -97,14 +96,14 @@
       "normalized_sha256": "9e86829429193738724179195efc9fa40b5c8b69cf865fd31fbc7f7ef4c1dd60"
     },
     "README.md": {
-      "sha256": "ca5166b7e3f1c2a1ee9b1b674ca2d0d3eb77f8ce61e3a099dc47b2e4f22ef695",
-      "size": 68948,
-      "normalized_sha256": "ca5166b7e3f1c2a1ee9b1b674ca2d0d3eb77f8ce61e3a099dc47b2e4f22ef695"
+      "sha256": "d126fbdaa7a2c3976d63c093882621d2ba52cbb8c429a574e226b9644b55945d",
+      "size": 69397,
+      "normalized_sha256": "d126fbdaa7a2c3976d63c093882621d2ba52cbb8c429a574e226b9644b55945d"
     },
     "README.zh-CN.md": {
-      "sha256": "359494df9a7010453d5594db271311cf904a81fb5ef9568e65f736c15741d17c",
-      "size": 59852,
-      "normalized_sha256": "359494df9a7010453d5594db271311cf904a81fb5ef9568e65f736c15741d17c"
+      "sha256": "4b9e5dd83c27ebcaba243e76236796411b2bb9cf302cf5dd494272721ed87d99",
+      "size": 60267,
+      "normalized_sha256": "4b9e5dd83c27ebcaba243e76236796411b2bb9cf302cf5dd494272721ed87d99"
     },
     "SECURITY.md": {
       "role": "index",
@@ -125,9 +124,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "fe059527be1488f0a64e1002f5de288dfefccd945a060c1148c11871cd2a8da1",
-      "size": 175521,
-      "normalized_sha256": "fe059527be1488f0a64e1002f5de288dfefccd945a060c1148c11871cd2a8da1"
+      "sha256": "e9518944d24df319c0ae3c6d0a928aeacf03201bb0cf58cd3094b4e0e3cd1c0e",
+      "size": 176327,
+      "normalized_sha256": "e9518944d24df319c0ae3c6d0a928aeacf03201bb0cf58cd3094b4e0e3cd1c0e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5447,9 +5446,9 @@
       "format_kind": "gofmt"
     },
     "scripts/blackbox/README.md": {
-      "sha256": "1ae78886c9bd8eb03310038148b441413b9921b70b45915310a1e90c372b630a",
-      "size": 5424,
-      "normalized_sha256": "1ae78886c9bd8eb03310038148b441413b9921b70b45915310a1e90c372b630a"
+      "sha256": "f7077b1de2458ffa88b256048e7b7f7abac06ce0529bdf63bd9b68e04d48c874",
+      "size": 6955,
+      "normalized_sha256": "f7077b1de2458ffa88b256048e7b7f7abac06ce0529bdf63bd9b68e04d48c874"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -5486,6 +5485,11 @@
       "sha256": "2a710dc2478544cf1081e423151018ca1a56956713847a4e59e1667b915fa7ec",
       "size": 57394,
       "normalized_sha256": "2a710dc2478544cf1081e423151018ca1a56956713847a4e59e1667b915fa7ec"
+    },
+    "scripts/blackbox/mcp_upgrade.py": {
+      "sha256": "b1733c1ee6cdf7440507ae5022b9cd15c1022c890ba90123007d8cc93d735413",
+      "size": 23457,
+      "normalized_sha256": "b1733c1ee6cdf7440507ae5022b9cd15c1022c890ba90123007d8cc93d735413"
     },
     "scripts/check-deps.sh": {
       "role": "index",
