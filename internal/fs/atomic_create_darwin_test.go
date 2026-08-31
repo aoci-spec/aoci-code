@@ -26,31 +26,37 @@ import (
 // Each filesystem is a subtest so one refusal reports itself without hiding the
 // answers from the rest — the first version of this test used t.Fatalf, stopped
 // at exFAT, and left FAT32 and HFS+ unmeasured.
+//
+// A filesystem that cannot be attached fails the run rather than being skipped.
+// The meaning has to be carried by the pass, because nothing else can carry it:
+// native-lifecycle runs go test in package-list mode, where the output of a
+// passing test — t.Log and a direct os.Stderr write alike — is discarded. A
+// coverage line is therefore visible only on failure, which is exactly when it
+// is not needed. Green must mean "all of these were probed", or green means
+// "APFS, and possibly nothing else" with no way to tell the two apart.
 func TestNoReplaceGuaranteeHoldsOnEveryReachableFilesystem(t *testing.T) {
-	probed := []string{"APFS"}
 	t.Run("APFS", func(t *testing.T) { assertNoReplaceContract(t, "APFS", t.TempDir()) })
 
+	optional := os.Getenv("AOCI_ATOMIC_PROBE_OPTIONAL") != ""
 	for _, image := range []struct{ label, hdiutilFS string }{
 		{"exFAT", "exFAT"},
 		{"FAT32", "MS-DOS FAT32"},
 		{"HFS+", "HFS+"},
 	} {
-		mount, detach, err := attachScratchImage(t, image.hdiutilFS)
-		if err != nil {
-			// Never a failure: a runner that cannot make disk images has simply
-			// not answered the question, and saying so is the honest result.
-			t.Logf("%s not probed: %v", image.label, err)
-			continue
-		}
-		t.Cleanup(detach)
-		probed = append(probed, image.label)
-		t.Run(image.label, func(t *testing.T) { assertNoReplaceContract(t, image.label, mount) })
+		t.Run(image.label, func(t *testing.T) {
+			mount, detach, err := attachScratchImage(t, image.hdiutilFS)
+			if err != nil {
+				if optional {
+					t.Skipf("not probed: %v", err)
+				}
+				t.Fatalf("could not build a %s volume to probe (%v). exFAT is known to refuse "+
+					"RENAME_EXCL, so an unprobed run proves nothing about the fallback; set "+
+					"AOCI_ATOMIC_PROBE_OPTIONAL=1 where disk images are unavailable", image.label, err)
+			}
+			t.Cleanup(detach)
+			assertNoReplaceContract(t, image.label, mount)
+		})
 	}
-
-	// go test hides t.Log without -v, and native-lifecycle runs without it. One
-	// stderr line keeps the coverage of this run visible in the job log, so a
-	// green result cannot quietly mean "probed nothing but APFS".
-	fmt.Fprintf(os.Stderr, "AOCI no-replace probe covered: %s\n", strings.Join(probed, " "))
 }
 
 // assertNoReplaceContract exercises the exact promise publishAtomicCreate makes:

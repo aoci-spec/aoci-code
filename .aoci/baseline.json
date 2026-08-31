@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-08-31T16:16:09Z",
+  "updated_at": "2026-08-31T16:46:54Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -3116,10 +3116,10 @@
     },
     "internal/fs/atomic_create_darwin_test.go": {
       "role": "observe",
-      "sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
-      "size": 7196,
-      "normalized_sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
-      "format_sha256": "a0f763612d95bb4f06d30a5d53def27fb4ddc3de3521016da11fe5ec4c95fa7a",
+      "sha256": "99f35e90fd04fe3c7460dc25ca61167d86ac1073989199fbbc7c514738442a2c",
+      "size": 7552,
+      "normalized_sha256": "99f35e90fd04fe3c7460dc25ca61167d86ac1073989199fbbc7c514738442a2c",
+      "format_sha256": "99f35e90fd04fe3c7460dc25ca61167d86ac1073989199fbbc7c514738442a2c",
       "format_kind": "gofmt"
     },
     "internal/fs/atomic_create_linux.go": {
