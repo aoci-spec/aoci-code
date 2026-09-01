@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-01T02:30:27Z",
+  "updated_at": "2026-09-01T03:01:08Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -112,10 +112,9 @@
       "normalized_sha256": "cf854ee7a8028929fc71e9bb39ea7d4674b01407efbe13093c955a55f29c5a9f"
     },
     "THIRD-PARTY-NOTICES": {
-      "role": "index",
-      "sha256": "4c7ee953b889a9659cdf4e762017dbda655526d2592f1d5516015c367bf4cef1",
+      "sha256": "32015671f195d91e35006065f5cd676ed30edf8054702b7972220fd469f1e12e",
       "size": 88765,
-      "normalized_sha256": "4c7ee953b889a9659cdf4e762017dbda655526d2592f1d5516015c367bf4cef1"
+      "normalized_sha256": "32015671f195d91e35006065f5cd676ed30edf8054702b7972220fd469f1e12e"
     },
     "TRADEMARKS": {
       "role": "index",
@@ -124,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "d0e919ddc7d99caebd632f08a263858ce02c9c9c281f3fbe6b5c403779b12d7b",
-      "size": 176973,
-      "normalized_sha256": "d0e919ddc7d99caebd632f08a263858ce02c9c9c281f3fbe6b5c403779b12d7b"
+      "sha256": "e2033b25ea3c20bdd24d6f3de33a5904d64ad0b86f4e1185c333f030bd9784b8",
+      "size": 177099,
+      "normalized_sha256": "e2033b25ea3c20bdd24d6f3de33a5904d64ad0b86f4e1185c333f030bd9784b8"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -299,16 +298,14 @@
       "normalized_sha256": "8fcb92241c1550943d759c9f3600bb4d04087af3cfabb609076f5da9a2923daa"
     },
     "go.mod": {
-      "role": "index",
-      "sha256": "7ab75150781b5967143f2b63b84b87789dd8438db326f75c5f8ce6d5eeeee903",
+      "sha256": "a39d181bf69fe6ce0804073776d1ec7ffbc12c7922cb5cfc1087a0d0f168971f",
       "size": 1227,
-      "normalized_sha256": "7ab75150781b5967143f2b63b84b87789dd8438db326f75c5f8ce6d5eeeee903"
+      "normalized_sha256": "a39d181bf69fe6ce0804073776d1ec7ffbc12c7922cb5cfc1087a0d0f168971f"
     },
     "go.sum": {
-      "role": "index",
-      "sha256": "b2677714ff2c84d82c833f5f2c8b071e817f037f442493a4b034768376cfda59",
+      "sha256": "9c6e70cc1c8d2dcd5c7b8c8b2580a501fb81f6b195f62f4097c2186a4c09d3df",
       "size": 13582,
-      "normalized_sha256": "b2677714ff2c84d82c833f5f2c8b071e817f037f442493a4b034768376cfda59"
+      "normalized_sha256": "9c6e70cc1c8d2dcd5c7b8c8b2580a501fb81f6b195f62f4097c2186a4c09d3df"
     },
     "internal/authoringcontract/contract.go": {
       "role": "index",

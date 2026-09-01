@@ -1294,7 +1294,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ----- END PINNED LICENSE TEXT -----
 
-Modules: golang.org/x/oauth2 v0.35.0; golang.org/x/sync v0.21.0; golang.org/x/sys v0.44.0; golang.org/x/text v0.39.0
+Modules: golang.org/x/oauth2 v0.35.0; golang.org/x/sync v0.21.0; golang.org/x/sys v0.47.0; golang.org/x/text v0.39.0
 Pinned license file: LICENSE
 Pinned license SHA-256: 911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1633,7 +1633,7 @@ github.com/spf13/cobra v1.10.2
   Reachability: all release targets
   Detected license: Apache-2.0
 
-golang.org/x/sys v0.44.0
+golang.org/x/sys v0.47.0
   Reachability: all release targets
   Detected license: BSD-3-Clause
 
