@@ -38,7 +38,7 @@
   "line_ending_tolerance": true,
   "cognition_refresh_threshold": 30,
   "overview_delivery": {
-    "chunk_tokens": 8000
+    "chunk_tokens": 14000
   },
   "managed_scope": {
     "version": "managed-scope-policy/v2",
