@@ -996,14 +996,20 @@ def overview_meta_and_full_body(text):
     return parse_kv(head), (sep + rest) if sep else None
 
 def parse_body_entries(body, fx):
-    """Ordinal-ordered (rel_path, tag, core_f) parsed from a delivered body."""
+    """Ordinal-ordered (rel_path, tag, core_f) parsed from a delivered body.
+    Section roots are historical coordinates; on Windows the fixture path is
+    backslashed while the index writes forward slashes, so both sides are
+    normalized before the prefix strip — os.path.relpath is unreliable across
+    mixed separators."""
     entries, section = [], ""
+    fx_norm = fx.replace("\\", "/").rstrip("/")
     for line in (body or "").splitlines():
         line = line.rstrip("\r")
         if line.startswith("===") and line.endswith("==="):
-            raw = line.strip("=")
-            rel = os.path.relpath(raw, fx) if raw.startswith(fx) else raw.strip("/")
-            section = "" if rel == "." else rel.rstrip("/") + "/"
+            raw = line.strip("=").replace("\\", "/")
+            rel = raw[len(fx_norm):].strip("/") if raw.startswith(fx_norm) else raw.strip("/")
+            rel = "" if rel in (".", "") else rel
+            section = rel + "/" if rel else ""
             continue
         m = re.match(r"^([^\s#=<│─][^\[]*)\[([A-Z0-9]+)\]: F:(.*?) \| R:", line)
         if m:
