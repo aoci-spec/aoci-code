@@ -351,7 +351,7 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 	locale := textassets.ActiveLocale()
 	if baselineMissing {
 		instructions := renderGuideLines(locale, textassets.ContractGuideBaselineFirstInstructions, nil)
-		guide.Commands.Scan = "aoci scan"
+		guide.Commands.Scan = "aoci " + machinecontract.RemediationCommandScan
 		guide.Stop = &volumeGuideStopFacts{
 			AffectedAsset: ".aoci/baseline.json", Field: "baseline", RuleCode: "baseline_missing",
 			Expected: "governed_baseline_present", Actual: "baseline=absent",
@@ -362,7 +362,7 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 		return
 	}
 	if scopeChange {
-		guide.Commands.ScopePreview = "aoci scope status --json"
+		guide.Commands.ScopePreview = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_scope_change"))
 	}
 	// observe_change_policy defaults to review_required, so an ordinary change to
@@ -375,8 +375,8 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			cliMessage("guide.observed_review_instruction_evidence"),
 			cliMessage("guide.observed_review_instruction_ack"),
 		}
-		guide.Commands.ScopeStatus = "aoci scope status --json"
-		guide.Commands.ScopeAcknowledge = "aoci scope acknowledge --reviewed-by {agent} --json"
+		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
+		guide.Commands.ScopeAcknowledge = "aoci " + machinecontract.RemediationCommandScopeAcknowledge
 		guide.Stop = &volumeGuideStopFacts{
 			AffectedAsset: ".aoci/baseline.json", Field: "observe", RuleCode: "observed_pending",
 			Expected: "observe_fingerprints_reviewed_and_acknowledged", Actual: "observe=pending_review",
@@ -396,8 +396,8 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			cliMessage("guide.budget_instruction_scope_levers"),
 			cliMessage("guide.budget_instruction_raise"),
 		}
-		guide.Commands.ScopeStatus = "aoci scope status --json"
-		guide.Commands.ScopeBudget = "aoci scope budget set --max-tokens {tokens}"
+		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
+		guide.Commands.ScopeBudget = "aoci " + machinecontract.RemediationCommandScopeBudgetSet
 		guide.Stop = &volumeGuideStopFacts{
 			AffectedAsset: ".aoci/config.json", Field: "whole_index", RuleCode: "cognition_budget_exceeded",
 			Expected: "whole_index_within_project_budget",
@@ -531,7 +531,7 @@ func buildAgentGuide(
 		guide.Mode = agentGuideModeBlocked
 		guide.Message = cliMessage("guide.scope_change_required")
 		guide.Commands.ScopePreview = "aoci scope preview --candidate-file {candidate_file} --json"
-		guide.Commands.ScopeStatus = "aoci scope status --json"
+		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Instructions = append(guide.Instructions,
 			cliMessage("guide.scope_change_instruction_status"),
 			cliMessage("guide.scope_change_instruction_preview"))
@@ -539,8 +539,8 @@ func buildAgentGuide(
 	case agentPlanStageObservedReview:
 		guide.Mode = agentGuideModeBlocked
 		guide.Message = cliMessage("guide.observed_review_required")
-		guide.Commands.ScopeStatus = "aoci scope status --json"
-		guide.Commands.ScopeAcknowledge = "aoci scope acknowledge --reviewed-by {agent} --json"
+		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
+		guide.Commands.ScopeAcknowledge = "aoci " + machinecontract.RemediationCommandScopeAcknowledge
 		guide.Instructions = append(guide.Instructions,
 			cliMessage("guide.observed_review_instruction_evidence"),
 			cliMessage("guide.observed_review_instruction_ack"))
@@ -552,7 +552,7 @@ func buildAgentGuide(
 		guide.Mode = agentGuideModeBlocked
 		guide.Message = cliMessage("guide.compression_required", plan.Governance.CognitionBudget.WholeIndexTokens,
 			plan.Governance.CognitionBudget.MaxTokens, len(plan.Governance.CognitionBudget.Violations))
-		guide.Commands.ScopeStatus = "aoci scope status --json"
+		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Instructions = append(guide.Instructions,
 			cliMessage("guide.compression_instruction_model"),
 			cliMessage("guide.compression_instruction_gate"))

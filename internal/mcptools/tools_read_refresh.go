@@ -537,7 +537,19 @@ func (session *cognitionRefreshSession) evaluate(
 
 	identityReliable := session.established && receiptReliable(session.lastReceipt) &&
 		receiptIdentityMatches(session.lastReceipt, current)
+	// invalid is reserved for identity breaks: no delivery in this session, or a
+	// receipt whose repository, service, or index no longer matches. A reliable
+	// receipt with a pending refresh — a dirty tree deferring until stable, a
+	// declared compaction, misaligned governance — is delivered cognition under
+	// drift, which the runtime contract says stays described by its state and is
+	// never demoted to no-cognition. This defaulted to invalid once, and a host
+	// that had just passed a 10/10 attestation read "invalid" the moment its
+	// working tree carried in-flight edits, which prompts a pointless 40k-token
+	// redelivery instead of the maintain cycle the state was pointing at.
 	state := cognitionStateInvalid
+	if identityReliable {
+		state = cognitionStateUncertain
+	}
 	recall := cognitionRecallNone
 	reliable := false
 	if status == machinecontract.RefreshStatusNotRequired {

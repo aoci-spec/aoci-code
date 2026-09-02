@@ -177,9 +177,29 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 		totals["relation_findings"] = len(facts.RelationFindings)
 		bounded.RelationFindings = append([]cognition.Finding{}, facts.RelationFindings[:limit]...)
 	}
-	if len(facts.DatabaseCognition.Items) > limit {
+	// Current database items are dropped from the transport copy entirely, not
+	// merely bounded. A current item feeds no Maintain decision — candidates are
+	// built from the unbounded facts before this projection runs, and current
+	// state produces none — yet each one carries its complete Entry text plus
+	// evidence and binding hashes. A 52-table repository with every table
+	// current paid twenty full entries of dead weight per Maintain and answered
+	// one call with 53 KB, which a real host spilled to disk. The Summary keeps
+	// the current count; Verify and Check keep the full enumeration.
+	actionableItems := make([]dbcognition.Item, 0, len(facts.DatabaseCognition.Items))
+	for _, item := range facts.DatabaseCognition.Items {
+		if item.State == machinecontract.DatabaseCognitionCurrent {
+			continue
+		}
+		actionableItems = append(actionableItems, item)
+	}
+	if len(actionableItems) < len(facts.DatabaseCognition.Items) || len(actionableItems) > limit {
 		totals["database_cognition.items"] = len(facts.DatabaseCognition.Items)
-		bounded.DatabaseCognition.Items = append([]dbcognition.Item{}, facts.DatabaseCognition.Items[:limit]...)
+	}
+	if len(actionableItems) > limit {
+		actionableItems = actionableItems[:limit]
+	}
+	if len(actionableItems) != len(facts.DatabaseCognition.Items) {
+		bounded.DatabaseCognition.Items = actionableItems
 	}
 	if len(totals) > 0 {
 		bounded.ListTruncation = &ListTruncation{Limit: limit, Totals: totals}

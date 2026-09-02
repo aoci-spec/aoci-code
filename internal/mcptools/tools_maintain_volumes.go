@@ -87,6 +87,7 @@ type volumeMaintainResult struct {
 	NextAction        string                       `json:"next_action"`
 	Instructions      []string                     `json:"instructions,omitempty"`
 	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
+	NextCommands      []string                     `json:"next_commands,omitempty"`
 	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
@@ -162,8 +163,10 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	switch {
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		result.Status, result.Aligned = autoStatusStopped, false
+		result.NextCommands = evidenceNextCommands()
 	case facts.Result == volumegovernance.ResultBlocked || len(result.OrphanRemovals) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusStopped, false, volumegovernance.ResultBlocked, "explicit_orphan_remove_or_resolve_blocker"
+		result.NextCommands = blockedNextCommands(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
 		affected := candidateDomains(result.Candidates)

@@ -130,6 +130,7 @@ type autoResult struct {
 	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
 	RetryScope              []string                     `json:"retry_scope"`
 	NextAction              string                       `json:"next_action"`
+	NextCommands            []string                     `json:"next_commands,omitempty"`
 	ManagedGovernance       *autoManagedGovernance       `json:"managed_governance,omitempty"`
 	CodePlan                *codebatch.Plan              `json:"code_plan,omitempty"`
 	Stop                    *GlobalStopFacts             `json:"stop,omitempty"`

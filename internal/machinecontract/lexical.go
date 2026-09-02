@@ -62,3 +62,22 @@ func PublicTextTerms() []TextTerm {
 func EvolutionNarrativeTerms() []string {
 	return append([]string(nil), evolutionNarrativeTerms...)
 }
+
+// Remediation command suffixes are the single source both surfaces compose
+// from: the CLI Guide prepends "aoci ", the MCP next_commands field prepends
+// the running server's own absolute executable. Two spellings of one command
+// is how the Volumes Guide once told hosts to run commands the MCP surface
+// spelled differently; a suffix that exists only here cannot fork.
+// {agent}, {tokens}, and {source} are host-filled placeholders, the same
+// convention the Guide has always used for --reviewed-by {agent}.
+const (
+	RemediationCommandScan                   = "scan"
+	RemediationCommandScopeStatus            = "scope status --json"
+	RemediationCommandScopeAcknowledge       = "scope acknowledge --reviewed-by {agent} --json"
+	RemediationCommandScopeBudgetSet         = "scope budget set --max-tokens {tokens}"
+	RemediationCommandVerify                 = "verify --json"
+	RemediationCommandAggregateCheck         = "check --json"
+	RemediationCommandAgentGuide             = "index agent guide --agent {agent} --json"
+	RemediationCommandDatabaseSnapshot       = "database snapshot --source {source} --json"
+	RemediationCommandDatabaseBaselineAccept = "database baseline accept --source {source} --json"
+)

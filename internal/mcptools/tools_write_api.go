@@ -852,6 +852,13 @@ func handleMCPUpdateBatch(
 			result.NextAction = "none"
 		}
 	}
+	// The final ordinary Volumes Apply prescribes Verify, Aggregate Check, and
+	// Guide in prose; none of those names exists on the MCP surface, so carry
+	// the runnable spellings alongside. Continuation batches and Optimization
+	// keep their own machine next-actions and get no commands.
+	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
+		result.NextCommands = finalProofNextCommands()
+	}
 	applyAutoRefreshOutcome(&result, refreshSession)
 	return textResult(renderAutoResult(result))
 }

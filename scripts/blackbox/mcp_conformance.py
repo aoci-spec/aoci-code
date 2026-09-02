@@ -27,8 +27,10 @@ def ok(name, cond, detail=""):
     print(("PASS " if cond else "FAIL ") + name + ((" | " + detail[:140]) if detail and not cond else ""))
 
 # host-window ledger: (tool, utf8 bytes) for every tools/call result received.
+# 48 KiB is the measured flagship-host window, not an assumption: current
+# Claude Code spills tool responses past ~50 KB to disk with a 2 KB preview.
 RESPONSE_SIZES = []
-HOST_WINDOW_BYTES = 64 * 1024
+HOST_WINDOW_BYTES = 48 * 1024
 
 class Session:
     def __init__(self):
@@ -365,7 +367,7 @@ _peak = {}
 for _t, _b in RESPONSE_SIZES:
     _peak[_t] = max(_peak.get(_t, 0), _b)
 _worst = max([b for t, b in _peak.items() if t != "aoci_overview"] or [0])
-ok("host_window.non_overview_responses_le_64k", _worst <= HOST_WINDOW_BYTES,
+ok("host_window.non_overview_responses_fit", _worst <= HOST_WINDOW_BYTES,
    "peak: " + " ".join(f"{t.replace('aoci_', '')}={b}" for t, b in sorted(_peak.items())))
 
 # ---------- documentation binding: the published check count must match this run ----------

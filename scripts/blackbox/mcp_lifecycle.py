@@ -533,6 +533,19 @@ def suite_database(rep, work, image, run_id, keep_box=False):
         s.close()
         al, _ = aligned(fx)
         rep.rec(g, "template-table-fras", "PASS" if st == "applied" and al else "FAIL", f"status={st}")
+        # current 表条目不进 Maintain 传输: 每个 current Item 携带完整条目文本与
+        # 证据/绑定哈希, 对任何决策都没有输入; 一个 52 表全 current 的真实仓库
+        # 曾为此每轮白付 20 条完整条目, 单次响应 53KB 在真宿主上被落盘外置。
+        # Summary 保留计数, Verify/Check 保留全量枚举。
+        s = Session(fx)
+        m, t, _ = maintain(s)
+        s.close()
+        items = ((m.get("governance") or {}).get("database_cognition") or {}).get("items") or []
+        cur_items = [i for i in items if i.get("state") == "cognition_current"]
+        summ = ((m.get("governance") or {}).get("database_cognition") or {}).get("summary") or {}
+        folded = len(cur_items) == 0 and summ.get("current", 0) >= 5
+        rep.rec(g, "current-items-fold-out-of-maintain-transport", "PASS" if folded else "FAIL",
+                f"current_items={len(cur_items)} summary.current={summ.get('current')}")
         # 漂移: 先 offline inventory (不应见), 后 verify (应见), snapshot 刷新, 重授权
         box.apply_sql(os.path.join(fx, "schema", "v2_alter.sql"))
         rc, v, out, errs = cli(fx, "database", "inventory", "--source", "shop", expect_ok=False)
@@ -554,6 +567,14 @@ def suite_database(rep, work, image, run_id, keep_box=False):
         ok = m.get("result") == "evidence_required" and "database_evidence_baseline_stale" in codes
         rep.rec(g, "stale-baseline-stops-authoring", "PASS" if ok else "FAIL",
                 f"result={m.get('result')} codes={sorted(codes)[:3]}")
+        # 停在 evidence_required 的响应必须携带可执行的证据刷新链, 而不是只有
+        # 状态码 —— 四步 CLI 链此前只存在于操作者的记忆里。
+        cmds = m.get("next_commands") or []
+        chain = (len(cmds) == 2 and "database snapshot" in cmds[0]
+                 and "database baseline accept" in cmds[1]
+                 and all(c.startswith(("'", '"')) for c in cmds))
+        rep.rec(g, "evidence-required-carries-refresh-commands", "PASS" if chain else "FAIL",
+                f"cmds={cmds}"[:160])
         rc, v, out, errs = cli(fx, "database", "baseline", "accept", "--source", "shop",
                                "--snapshot-sha", new_sha, expect_ok=False)
         rep.rec(g, "accept-new-snapshot", "PASS" if rc == 0 else "FAIL", (out + errs)[:120] if rc else "")
@@ -720,7 +741,7 @@ def suite_scale(rep, work):
     sizes = [r["maintain_bytes"] for r in rounds if r.get("maintain_bytes")]
     ok = outcome == "aligned" and al and len(batches) >= 20 \
         and all(r.get("max_entries") == 20 for r in rounds) \
-        and sizes and max(sizes) < 64 * 1024
+        and sizes and max(sizes) < 48 * 1024
     rep.rec(g, "default-batch-fits-host-window", "PASS" if ok else "FAIL",
             f"outcome={outcome} batches={len(batches)} applied={applied} aligned={al} max_maintain_bytes={max(sizes) if sizes else None}",
             duration_s=round(time.time() - started), rounds=len(rounds))

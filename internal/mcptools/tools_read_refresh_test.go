@@ -564,3 +564,46 @@ func containsRefreshReason(values []string, wanted string) bool {
 	position := sort.SearchStrings(values, wanted)
 	return position < len(values) && values[position] == wanted
 }
+
+// invalid is an identity verdict, not a drift verdict. A session that delivered
+// and attested keeps a reliable identity-matching receipt; when the working
+// tree then defers a refresh, or governance falls out of alignment, the
+// cognition is under drift — the contract describes that state, it does not
+// demote it to no-cognition. This defaulted to invalid once: a host that had
+// just passed a 10/10 attestation read cognition_state=invalid the moment its
+// feature branch carried in-flight edits, which invites a pointless full
+// redelivery instead of the maintain cycle the status field was pointing at.
+func TestPendingRefreshKeepsReliableReceiptUncertainNotInvalid(t *testing.T) {
+	session, current, clean := deliveredTestSession()
+
+	dirty := clean
+	dirty.Count = 30
+	dirty.SemanticStale = 30
+	dirty.GovernanceAligned = false
+	dirty.GovernanceBlockerCount = 30
+	deferred := session.evaluate(overviewIn{CheckOnly: true}, current, dirty, nil, "")
+	if deferred.RefreshStatus != machinecontract.RefreshStatusDeferredUntilStable {
+		t.Fatalf("setup did not defer: %+v", deferred)
+	}
+	if deferred.State != cognitionStateUncertain || deferred.Receipt.State != cognitionStateUncertain {
+		t.Fatalf("identity-matching receipt under deferred refresh must be uncertain, got state=%q receipt=%q",
+			deferred.State, deferred.Receipt.State)
+	}
+
+	stable := true
+	required := session.evaluate(overviewIn{CheckOnly: true, StableCheckpoint: &stable}, current, dirty, nil, "")
+	if required.RefreshStatus != machinecontract.RefreshStatusRequired {
+		t.Fatalf("setup did not require refresh: %+v", required)
+	}
+	if required.State != cognitionStateUncertain {
+		t.Fatalf("identity-matching receipt under required refresh must be uncertain, got %q", required.State)
+	}
+
+	// The contrast that keeps invalid meaningful: a receipt whose index no
+	// longer matches is an identity break, and stays invalid.
+	moved := newCognitionReceipt("/repo", "v1", "index-2", cognitionScopeRepositoryFull)
+	broken := session.evaluate(overviewIn{CheckOnly: true}, moved, clean, nil, "")
+	if broken.State != cognitionStateInvalid {
+		t.Fatalf("an identity break must stay invalid, got %q", broken.State)
+	}
+}

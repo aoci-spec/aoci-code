@@ -43,13 +43,18 @@ def record(group, name, status, detail=""):
 
 # ---------------------------------------------------------------- host window
 # Every tool result any host displays inline must fit that host's tool-result
-# window; Claude Code spills anything past ~25k tokens to a file on disk, and a
-# real user's index build collapsed into scripts and encoding errors on exactly
-# that spill. The ledger records the UTF-8 size of every tools/call result the
-# suites receive; the gate at the end asserts no non-Overview response crossed
+# window. The gate is 48 KiB because the flagship host's window was measured,
+# not assumed: current Claude Code spills any tool response past ~50 KB to a
+# file and hands the model a 2 KB preview (bisected live on 2026-09-01/03:
+# 49,429-byte responses enter the model context, 51,916-byte responses spill).
+# The previous 64 KiB assumption certified responses that die on that host —
+# a 52-table repository answered one Maintain with 53 KB, "passed" here, and
+# spilled in production, forcing the model to parse the file with a script.
+# The ledger records the UTF-8 size of every tools/call result the suites
+# receive; the gate at the end asserts no non-Overview response crossed
 # HOST_WINDOW_BYTES. Overview is chunked by its own configured budget and is
 # reported but not gated here.
-HOST_WINDOW_BYTES = 64 * 1024
+HOST_WINDOW_BYTES = 48 * 1024
 RESPONSE_SIZES = []  # (tool, utf8 bytes, gated)
 # Repositories whose team configuration deliberately raised the Code batch
 # above the machine default (the wire-ceiling scenarios). A team that asks for
@@ -573,7 +578,7 @@ def group_e():
     totals = trunc.get("totals") or {}
     findings = gov.get("findings") or []
     missing = (gov.get("code_drift") or {}).get("missing") or []
-    ok = size < 64 * 1024 and len(findings) == 20 and len(missing) == 20 \
+    ok = size < 48 * 1024 and len(findings) == 20 and len(missing) == 20 \
         and totals.get("findings") == total and totals.get("code_drift.missing") == total and trunc.get("limit") == 20
     record(g, "E2.first-maintain-fits-host-window", "PASS" if ok else "FAIL",
            f"bytes={size} findings={len(findings)}/{totals.get('findings')} missing={len(missing)}/{totals.get('code_drift.missing')} limit={trunc.get('limit')}")
@@ -589,7 +594,7 @@ def group_e():
     # the next Maintain issues the next 20 against the new preimage, same size, same shape
     m2, t2, _ = maintain(s)
     p2 = m2.get("code_plan") or {}
-    ok = p2.get("included") == 20 and p2.get("remaining") == total - 40 and len(t2.encode("utf-8")) < 64 * 1024
+    ok = p2.get("included") == 20 and p2.get("remaining") == total - 40 and len(t2.encode("utf-8")) < 48 * 1024
     record(g, "E4b.next-maintain-pages-next-batch", "PASS" if ok else "FAIL",
            f"included={p2.get('included')} remaining={p2.get('remaining')} bytes={len(t2.encode('utf-8'))}")
     s.close()
@@ -968,6 +973,172 @@ def group_f_excluded_tracked():
            f"role={role or '(none)'} content_reached_cognition={leaked}")
 
 
+# ================================================================ GROUP N
+# next_commands 与认知状态语义: 终态/阻断指引必须指向真实可调用面, 且这些命令
+# 必须真的能跑; 已交付+已认证的认知在树漂移时是 uncertain, 不是 invalid。
+# 两个宿主在两个仓库上独立撞过这两处: 一个按 "Verify, Aggregate Check, Guide"
+# 在 MCP 工具面上找不到任何东西, 一个在 10/10 认证后因功能分支在途文件读到
+# cognition_state=invalid 而被诱导重新交付整个索引。
+
+def run_returned_command(fx, command):
+    """Run a next_commands string exactly as returned (agent placeholder filled)."""
+    filled = command.replace("{agent}", "claude")
+    proc = subprocess.run(filled, shell=True, cwd=fx, capture_output=True, text=True, timeout=120)
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+def overview_meta_and_full_body(text):
+    """meta_and_body, but a single-shot full delivery keeps its body: a small
+    index answers with kv metadata plus the body inline and no chunk marker,
+    and the shared helper's kv branch returns body=None for that shape."""
+    if MARK in text:
+        return meta_and_body(text)
+    head, sep, rest = text.partition("<<<AOCI_OVERVIEW_BODY_BEGIN")
+    return parse_kv(head), (sep + rest) if sep else None
+
+def parse_body_entries(body, fx):
+    """Ordinal-ordered (rel_path, tag, core_f) parsed from a delivered body."""
+    entries, section = [], ""
+    for line in (body or "").splitlines():
+        line = line.rstrip("\r")
+        if line.startswith("===") and line.endswith("==="):
+            raw = line.strip("=")
+            rel = os.path.relpath(raw, fx) if raw.startswith(fx) else raw.strip("/")
+            section = "" if rel == "." else rel.rstrip("/") + "/"
+            continue
+        m = re.match(r"^([^\s#=<│─][^\[]*)\[([A-Z0-9]+)\]: F:(.*?) \| R:", line)
+        if m:
+            entries.append((section + m.group(1), m.group(2), m.group(3)))
+    return entries
+
+def group_n():
+    g = "N"
+    # -- N1: 终态证明命令是完整可执行命令, 且逐条真的执行通过
+    fx = make_fixture("nextcmd", 6)
+    s = Session(fx)
+    m, t, err = maintain(s)
+    a, tw, err = submit_batch(s, m)
+    s.close()
+    cmds = a.get("next_commands") or []
+    shaped = (a.get("aligned") is True and len(cmds) == 3
+              and " verify --json" in cmds[0] and " check --json" in cmds[1]
+              and "index agent guide" in cmds[2]
+              and all(c.startswith(("'", '"')) for c in cmds))
+    record(g, "N1.final-apply-carries-proof-commands", "PASS" if shaped else "FAIL",
+           f"aligned={a.get('aligned')} cmds={cmds[:3]}"[:200])
+    ran = shaped
+    for cmd in cmds if shaped else []:
+        rc, out = run_returned_command(fx, cmd)
+        if rc != 0:
+            ran = False
+            record(g, "N1.returned-command-failed", "FAIL", f"{cmd} rc={rc} {out[:120]}")
+            break
+    if shaped and ran:
+        record(g, "N1b.every-returned-command-runs", "PASS",
+               "verify, aggregate check, and guide all exited 0 as returned")
+    elif shaped:
+        record(g, "N1b.every-returned-command-runs", "FAIL", "see N1.returned-command-failed")
+    else:
+        record(g, "N1b.every-returned-command-runs", "FAIL", "no commands to run")
+
+    # -- N2: observed_pending 阻断携带 acknowledge 命令, 执行它即解除阻断
+    d = os.path.join(WORK, "nextcmd-observe")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    for i in range(1, 5):
+        with open(os.path.join(d, "pkg", f"f{i:03}.go"), "w") as f:
+            f.write(f"package pkg\n\nfunc F{i:03}() int {{ return {i} }}\n")
+    with open(os.path.join(d, "pkg", "f001_test.go"), "w") as f:
+        f.write("package pkg\n\nimport \"testing\"\n\nfunc TestF001(t *testing.T) { _ = F001() }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    rc, _, out, errs = cli(d, "scan")
+    s = Session(d)
+    m, t, err = maintain(s)
+    a, tw, err = submit_batch(s, m)
+    with open(os.path.join(d, "pkg", "f001_test.go"), "a") as f:
+        f.write("\n// observed drift\n")
+    m2, t2, err = maintain(s)
+    s.close()
+    cmds = m2.get("next_commands") or []
+    ack = next((c for c in cmds if "scope acknowledge" in c), "")
+    shaped = (m2.get("result") == "blocked"
+              and m2.get("next_action") == "explicit_orphan_remove_or_resolve_blocker"
+              and ack != "" and "{agent}" in ack)
+    record(g, "N2.blocked-carries-acknowledge-command", "PASS" if shaped else "FAIL",
+           f"result={m2.get('result')} cmds={cmds}"[:200])
+    if shaped:
+        rc, out = run_returned_command(d, ack)
+        s = Session(d)
+        m3, _, _ = maintain(s)
+        s.close()
+        cleared = rc == 0 and m3.get("result") in ("aligned", "authoring_required")
+        record(g, "N2b.acknowledge-command-clears-the-block", "PASS" if cleared else "FAIL",
+               f"rc={rc} after={m3.get('result')}")
+    else:
+        record(g, "N2b.acknowledge-command-clears-the-block", "FAIL", "blocked shape missing")
+
+    # -- N3: 已认证的认知在树漂移下保持 uncertain, 不再被降级为 invalid
+    s = Session(fx)
+    t, err = text_of(s.call("aoci_overview"))
+    meta, body = overview_meta_and_full_body(t)
+    guard = 0
+    while meta.get("continuation_required") is True and guard < 8:
+        guard += 1
+        t, err = text_of(s.call("aoci_overview", {"cursor": meta.get("next_cursor")}))
+        m2, b2 = overview_meta_and_full_body(t)
+        meta = {**meta, **m2}
+        body = (body or "") + (b2 or "")
+    ordinals = meta.get("challenge_ordinals") or []
+    if isinstance(ordinals, str):
+        ordinals = [int(x) for x in ordinals.split(",") if x.strip()]
+    entries = parse_body_entries(body, fx)
+    answers = []
+    for o in ordinals:
+        path, tag, core_f = entries[o - 1]
+        answers.append({"ordinal": o, "object_identity": path, "tag": tag, "core_f": core_f})
+    att = {"version": "model-cognition-attestation/v1",
+           "index_sha256": meta.get("challenge_index_sha256"),
+           "entry_sequence_sha256": meta.get("challenge_entry_sequence_sha256"),
+           "entry_count": meta.get("challenge_entry_count"),
+           "challenge_digest": meta.get("challenge_digest"),
+           "reported_entry_count": meta.get("entry_count"),
+           "reported_estimated_tokens": meta.get("estimated_tokens"),
+           "coverage_percent": 100, "system_mastery_percent": 80, "confidence_percent": 90,
+           "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
+           "challenge_answers": answers}
+    confirm = {"version": "overview-delivery-receipt/v1",
+               "body_sha256": meta.get("body_sha256"),
+               "body_bytes": meta.get("body_utf8_bytes"),
+               "end_marker_observed": True}
+    t, err = text_of(s.call("aoci_overview", {
+        "host_delivery_confirmation": confirm, "model_cognition_attestation": att}))
+    attested = "model_attestation: pass" in t and "cognition_state: valid" in t
+    record(g, "N3.harness-attestation-passes", "PASS" if attested else "FAIL", t[:200])
+    # 一个漂移文件低于语义阈值(30), 不构成 refresh 待决 —— 要让刷新真正挂起,
+    # 宿主声明 phase_transition 且树不稳定, 状态机走到 deferred_until_stable。
+    # 修复前这里回 invalid: 身份匹配+认证通过的回执被"未settled"降级成"无认知"。
+    with open(os.path.join(fx, "pkg", "f001.go"), "a") as f:
+        f.write("\n// semantic drift after attestation\n")
+    t, err = text_of(s.call("aoci_overview", {"check_only": True,
+        "refresh_reasons": ["phase_transition"], "refresh_event_id": "n3-drift-1"}))
+    s.close()
+    res = jload(t)
+    assessment = res.get("assessment") or {}
+    receipt = res.get("cognition_receipt") or assessment.get("cognition_receipt") or {}
+    if not receipt:
+        receipt = (res.get("assessment") or {}).get("receipt") or {}
+    drifted = assessment.get("refresh_status") == "refresh_deferred_until_stable"
+    state = assessment.get("state") or receipt.get("cognition_state")
+    ok = attested and drifted and state == "uncertain"
+    record(g, "N3b.drift-keeps-attested-cognition-uncertain-not-invalid",
+           "PASS" if ok else "FAIL",
+           "attested receipt reads uncertain under deferred refresh" if ok else
+           f"attested={attested} refresh_status={assessment.get('refresh_status')} state={state}")
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 
@@ -1088,6 +1259,7 @@ if __name__ == "__main__":
     group_d(bigfx)
     group_e()
     group_f()
+    group_n()
     group_f_scope()
     group_f_deleted_observe()
     group_f_excluded_tracked()

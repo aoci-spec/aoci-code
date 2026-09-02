@@ -14,6 +14,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
 func TestFourLegalVolumeLayoutsAreGovernanceAligned(t *testing.T) {
@@ -373,5 +374,72 @@ func writeFixtureFile(t *testing.T, root, rel, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(fmt.Errorf("write %s: %w", rel, err))
+	}
+}
+
+// The transport copy drops current database items entirely rather than
+// sampling them. A current item feeds no Maintain decision — candidates are
+// built from the unbounded facts before the projection runs — but each one
+// carries its complete Entry text plus evidence and binding hashes, and a
+// 52-table all-current repository answered one Maintain with 53 KB, which a
+// real host spilled to disk. Actionable items must survive, in order, up to
+// the limit, and the original facts must stay untouched.
+func TestBoundListsForTransportDropsCurrentDatabaseItems(t *testing.T) {
+	facts := &Facts{}
+	for index := 0; index < 30; index++ {
+		state := machinecontract.DatabaseCognitionCurrent
+		if index%3 == 0 {
+			state = machinecontract.DatabaseCognitionStale
+		}
+		facts.DatabaseCognition.Items = append(facts.DatabaseCognition.Items, dbcognition.Item{
+			ObjectRef:    fmt.Sprintf("database://s1/public/t%02d", index),
+			State:        state,
+			CurrentEntry: "t[DS7S]: F:x | R:- | A:- | S:-",
+		})
+	}
+
+	bounded := BoundListsForTransport(facts, 20)
+
+	if len(facts.DatabaseCognition.Items) != 30 {
+		t.Fatalf("projection mutated the original facts: %d items", len(facts.DatabaseCognition.Items))
+	}
+	if len(bounded.DatabaseCognition.Items) != 10 {
+		t.Fatalf("expected the 10 stale items only, got %d", len(bounded.DatabaseCognition.Items))
+	}
+	for _, item := range bounded.DatabaseCognition.Items {
+		if item.State == machinecontract.DatabaseCognitionCurrent {
+			t.Fatalf("a current item crossed into the transport copy: %s", item.ObjectRef)
+		}
+	}
+	if bounded.ListTruncation == nil || bounded.ListTruncation.Totals["database_cognition.items"] != 30 {
+		t.Fatalf("the omission must stay visible in list truncation totals: %+v", bounded.ListTruncation)
+	}
+
+	// More actionable items than the limit still bound to the limit.
+	overflow := &Facts{}
+	for index := 0; index < 25; index++ {
+		overflow.DatabaseCognition.Items = append(overflow.DatabaseCognition.Items, dbcognition.Item{
+			ObjectRef: fmt.Sprintf("database://s1/public/m%02d", index),
+			State:     machinecontract.DatabaseCognitionMissing,
+		})
+	}
+	cut := BoundListsForTransport(overflow, 20)
+	if len(cut.DatabaseCognition.Items) != 20 || cut.ListTruncation.Totals["database_cognition.items"] != 25 {
+		t.Fatalf("actionable overflow must bound to the limit with the total recorded: %d %+v",
+			len(cut.DatabaseCognition.Items), cut.ListTruncation)
+	}
+
+	// All current with no overflow: items vanish, totals still name the drop.
+	allCurrent := &Facts{}
+	for index := 0; index < 5; index++ {
+		allCurrent.DatabaseCognition.Items = append(allCurrent.DatabaseCognition.Items, dbcognition.Item{
+			ObjectRef: fmt.Sprintf("database://s1/public/c%02d", index),
+			State:     machinecontract.DatabaseCognitionCurrent,
+		})
+	}
+	folded := BoundListsForTransport(allCurrent, 20)
+	if len(folded.DatabaseCognition.Items) != 0 || folded.ListTruncation.Totals["database_cognition.items"] != 5 {
+		t.Fatalf("all-current items must fold away with the total recorded: %d %+v",
+			len(folded.DatabaseCognition.Items), folded.ListTruncation)
 	}
 }

@@ -141,6 +141,32 @@ Judgement still applies in the other direction: a Whole-Index far above the
 ceiling is one a model cannot assimilate in a single delivery, so role reduction
 is the first answer and a raise is the second.
 
+### Content-volatile files whose cognition never changes
+
+Some generated files change bytes on every build while their Entry text never
+moves — a compatibility matrix, a rendered report, a checksum listing. Every
+such change makes the Entry stale, and stale means the model is asked to
+re-confirm.
+
+There is deliberately no per-file bypass for this. An Entry's binding to its
+source SHA is the property the whole write chain protects: a file exempted from
+staleness is a file whose real semantic change would never reach review again,
+and nothing in the machine can tell a harmless regeneration from a meaningful
+one. That judgement is exactly what the binding exists to force.
+
+Two governed levers cover the case instead:
+
+- **Change the role once.** If the file's cognition is generic, it does not
+  need an Entry: move it to `observe` (drift becomes an acknowledgement, not an
+  authoring round) or `exclude` through the ordinary Scope Change flow. One
+  approval, and the per-build cost is gone.
+- **Resubmit the same text.** If the Entry is worth keeping, answer the stale
+  candidate with the identical Entry text. A byte-identical resubmission is
+  recognized, applies zero formal writes, and advances the Baseline —
+  `duplicate_applies` in the result is that path confirming itself. The cost is
+  one maintain/update round, and current-state enumeration is already folded
+  out of that round's transport.
+
 For the normative lifecycle, retention dispositions, safety boundaries,
 transaction order, and token gates, see
 [`aoci-managed-scope-and-budget-v1.txt`](../spec/public/aoci-managed-scope-and-budget-v1.txt).
