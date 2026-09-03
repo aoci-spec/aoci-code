@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc8
 
 - Probe the atomic no-replace primitive instead of assuming it. Publishing a
   staged file into a name that must not already exist used `renameat2` with
@@ -121,6 +121,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   every platform while the fixture path arrives backslashed — shipped without
   the gate that would prove it. `scripts/blackbox/**` joins the filter, and
   the Windows run it triggered is the proof for the platform that failed.
+
+The first public availability date for v0.1.0-rc8 is 2026-09-03.
 
 ## v0.1.0-rc7
 
