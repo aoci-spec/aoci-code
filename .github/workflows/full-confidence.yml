@@ -28,6 +28,9 @@ on:
       - 'go.sum'
       - 'third_party/**'
       - 'scripts/release/clean-room-smoke.sh'
+      # 黑盒套件是这条门禁自己跑的东西: 改套件却不跑套件, 套件缺陷要等到下一次
+      # 无关提交才暴露(7dcd294 的 Windows 修复实测就没触发这里)。
+      - 'scripts/blackbox/**'
       - 'internal/fs/**'
       - 'internal/baseline/**'
       - 'internal/cognitiontxn/**'
