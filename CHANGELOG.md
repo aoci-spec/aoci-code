@@ -52,7 +52,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   repository created before the block existed, and only that shape turns red.
   The suite runs on the nightly Full Confidence line because it needs Release
   assets, and a download failure fails the run rather than skipping the
-  matrix.
+  matrix. One exemption is deliberate: the newest changelog section may
+  precede its release by the one commit the cut takes, so a 404 for that
+  version alone is characterized rather than failed — the gate that must pass
+  is the one that creates the release. Any older missing release, any other
+  fetch error, and a matrix the exemption would empty still fail.
 - Fold current database items out of Maintain transport. Every Database
   Cognition item in the `current` state carried its complete Entry text plus
   evidence and binding hashes while feeding no decision: candidates are built

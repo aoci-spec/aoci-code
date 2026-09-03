@@ -81,7 +81,9 @@ def ok(name, cond, detail=""):
 # ---------- released-version discovery ----------
 # The CHANGELOG is the release record the repository already maintains, so the
 # matrix follows it instead of a hand-kept list that would silently miss a
-# release. "## Unreleased" is skipped; it names no downloadable asset.
+# release. "## Unreleased" is skipped; it names no downloadable asset. The
+# newest heading may be a release cut whose tag does not exist yet; main()
+# characterizes that one case instead of failing it.
 def released_versions():
     path = os.path.join(_REPO_DEFAULT, "CHANGELOG.md")
     with open(path, encoding="utf-8") as fh:
@@ -448,12 +450,23 @@ def main():
     print(f"binary under test: {BIN}")
     print(f"upgrade matrix ({len(versions)}): {', '.join(versions)}\n")
 
-    skipped = []
+    # The newest CHANGELOG heading is allowed to precede its GitHub release by
+    # the one commit the release cut takes: that commit is what the four gates
+    # run on, and the tag they gate is what creates the release. A 404 for that
+    # version alone is therefore a characterization, not a failure. It is the
+    # only exemption: an older version answering 404 is a vanished release, and
+    # any other fetch error is still the outage it looks like.
+    newest = (released_versions() or [None])[-1]
+    skipped, pending, probed = [], [], []
     with tempfile.TemporaryDirectory(prefix="aoci-upgrade-") as workdir:
         for version in versions:
             try:
                 old_binary = fetch_release_binary(version)
             except (urllib.error.URLError, OSError, RuntimeError) as err:
+                if isinstance(err, urllib.error.HTTPError) and err.code == 404 and version == newest:
+                    pending.append(version)
+                    print(f"CHAR {version}.release_pending | changelog section cut, release not yet published")
+                    continue
                 # A download failure is a real gate failure by default: a suite
                 # that quietly skips its whole matrix is a false green.
                 if args.allow_offline:
@@ -462,11 +475,17 @@ def main():
                     continue
                 ok(f"{version}.release_binary_available", False, str(err))
                 continue
+            probed.append(version)
             for shape in SHAPES:
                 try:
                     check_version(version, shape, old_binary, workdir)
                 except Exception as err:  # a crash while probing one shape is that shape's failure
                     ok(f"{version}[{shape}].upgrade_probe_completed", False, f"{type(err).__name__}: {err}")
+    # An exemption or a skip that empties the matrix is exactly the false green
+    # the default failure policy exists to prevent.
+    if not probed:
+        ok("upgrade_matrix.nonempty", False,
+           "no released binary was probed; pending=" + ",".join(pending) + " skipped=" + str(len(skipped)))
 
     # ---------- documentation binding ----------
     # Same discipline as the conformance and scenario suites: the run is the
@@ -496,9 +515,13 @@ def main():
           + ((" | " + "; ".join(drift)) if drift else f" | {CHECKS_PER_VERSION} per version"))
 
     print()
-    print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed" + (f", {len(skipped)} skipped" if skipped else ""))
+    print(f"RESULT: {len(PASS)} passed, {len(FAIL)} failed"
+          + (f", {len(skipped)} skipped" if skipped else "")
+          + (f", {len(pending)} pending" if pending else ""))
     for name, detail in FAIL:
         print("  FAILED:", name, "|", detail[:220])
+    for version in pending:
+        print("  PENDING:", version, "| changelog section cut, release not yet published")
     for line in skipped:
         print("  SKIPPED:", line)
     if drift:

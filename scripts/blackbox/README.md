@@ -50,7 +50,13 @@ removes that block before `scan`. Only the second shape resolves
 created before that block existed still depends on. Verified against a
 deliberately un-frozen binary: the `init` shape stays green, and only `nobudget`
 reports `scope_change_required=true` from the upgrade alone. A run that cannot
-fetch a release fails; pass `--allow-offline` to downgrade that to a skip.
+fetch a release fails; pass `--allow-offline` to downgrade that to a skip. One
+exemption is deliberate: the newest CHANGELOG section may precede its GitHub
+release by the one commit the release cut takes, so a 404 for that version
+alone is reported as `CHAR` and left out of the matrix — the gate that must
+pass is the one that creates the release. A 404 for any older version, or any
+other fetch error, still fails, and a matrix the exemption would leave empty
+fails too.
 
 Lifecycle, deterministic track only (no AI involved; `database` pulls
 `mysql:8.4` and needs a working Docker daemon — drop it via `--suites`):
