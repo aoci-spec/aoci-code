@@ -284,6 +284,27 @@ all governance debt are zero. Source, Scope, Composite, or candidate-receipt
 drift invalidates only the outstanding batch. Earlier successful batches stay
 formal and are neither regenerated nor replayed.
 
+Results that hand the next step to the CLI carry the commands to run. The
+Apply that brings the last current batch to aligned prescribes Verify,
+Aggregate Check, and Guide as its terminal proof; a blocked Maintain names a
+blocker the Host can clear itself (baseline_missing, observed_pending,
+scope_change_required, cognition_budget_exceeded); an evidence_required
+Maintain needs a fresh snapshot and its acceptance. None of those actions
+exists on the nine-tool surface, so each such result carries an additive
+optional next_commands array holding the runnable spellings. The spellings
+compose from one set of machine-owned command suffixes shared with the CLI
+Guide's blocked remediation, so the two surfaces cannot spell one command two
+ways, and each is prefixed by the running server's own absolute executable
+path, quoted for the host shell, because the MCP binary is whatever path the
+Host configuration names and need not be on PATH. When that path cannot be
+resolved the field is omitted rather than filled with a bare aoci.
+Placeholders such as {agent}, {tokens}, and {source} are the Host's to fill.
+Continuation batches, Optimization, repair_required, and Legacy results carry
+no next_commands, and orphan removal needs none because aoci_remove_entry is
+already on the surface. The array is advisory: it changes no state,
+next_action remains the machine decision, and a Host that ignores it loses
+nothing the CLI Guide does not already say.
+
 The existing aoci_update_entry tool accepts one complete current machine batch with
 multiple Code creates/updates, multiple Database creates/updates, or both in
 one already declared CognitionSet. Code uses path and current source SHA.

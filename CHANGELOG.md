@@ -19,6 +19,108 @@ All notable public changes to AOCI-CODE will be documented in this file.
   carries the identical guarantee — while `EEXIST` and the other real answers
   are always propagated. Verified on DrvFs and ext4, and an opt-in test takes a
   directory so a filesystem no CI runner can reach is still checkable.
+- Publish a staged file on exFAT under macOS. The Darwin no-replace primitive,
+  `renamex_np` with `RENAME_EXCL`, was assumed to answer on every filesystem,
+  and a probe run on two macOS runners showed it does not: exFAT returns
+  `ENOTSUP`, so `aoci init` could not create a Volume on the one filesystem
+  macOS and Windows share on an external drive. It is the shape DrvFs produced
+  on Linux, found this time by measuring rather than by a report. The Linux
+  repair does not port — its fallback is `link` plus `unlink`, and the
+  filesystems that refuse the flag are the msdos family, which has no hard
+  links — so Darwin reserves the name with `O_CREAT|O_EXCL`, which the kernel
+  either grants or answers `EEXIST`, and then fills it. Every failure after
+  the create removes the target, and both callers verify the published digest
+  instead of trusting the write. One trap is recorded in the source: on Darwin
+  `ENOTSUP` and `EOPNOTSUPP` are distinct errnos, unlike Linux, and
+  classifying only the second would have left the fix inert while looking
+  complete. The probe now measures exFAT, FAT32, and HFS+ as separate subtests
+  on disk images it creates itself, and a filesystem it cannot measure fails
+  instead of passing quietly.
+- Prove the upgrade axis. All three black-box suites build every fixture with
+  the binary under test, so a persisted preimage that changed *between*
+  releases is invisible to them by construction — two such defects reached
+  rc6 and rc7 and were caught by hand. `scripts/blackbox/mcp_upgrade.py`
+  downloads every release in this changelog, verifies it against its own
+  `SHA256SUMS`, builds and authors a repository to `aligned` with it, and then
+  requires the binary under test to govern that repository without moving an
+  identity, demanding a Scope Change, or rewriting a formal asset: 14 checks
+  per released version over two configuration shapes. The second shape is the
+  point. Every released `aoci init` writes an explicit `cognition_budget`
+  block, so a fixture built only by `init` never resolves the frozen
+  `LegacyPolicy` at all, and the suite stayed green against a deliberately
+  broken freeze; `nobudget` strips the block before `scan`, reproducing every
+  repository created before the block existed, and only that shape turns red.
+  The suite runs on the nightly Full Confidence line because it needs Release
+  assets, and a download failure fails the run rather than skipping the
+  matrix.
+- Fold current database items out of Maintain transport. Every Database
+  Cognition item in the `current` state carried its complete Entry text plus
+  evidence and binding hashes while feeding no decision: candidates are built
+  from the unbounded facts before the transport projection runs. A repository
+  with a 52-table domain that needed nothing paid twenty full Entries per
+  Maintain, and one 53 KB response was spilled to disk by its host. The
+  summary keeps the count, and `aoci verify --json` and `aoci check --json`
+  keep the full enumeration. The suites' host window drops with it from an
+  assumed 64 KiB to a measured 48 KiB: bisected on a real host, 49,429-byte
+  responses enter the model context and 51,916-byte responses arrive as a
+  2 KB preview of a file. The response above had passed the old gate and
+  died in production, which is the exact gap between assumption and
+  measurement.
+- Stop demoting delivered cognition to `invalid` over a pending refresh. The
+  read path defaulted `cognition_state` to `invalid` and upgraded it only once
+  `refresh_status` settled, so a receipt that had just passed a 10/10
+  Attestation read `invalid` the moment the working tree carried in-flight
+  edits — inviting a pointless Whole-Index redelivery instead of the Maintain
+  cycle the state was pointing at. `invalid` is now reserved for identity
+  breaks: no delivery in the session, or a receipt whose repository, service,
+  or index no longer matches. A reliable identity-matching receipt under a
+  pending refresh reads `uncertain`, which is what the refresh contract says
+  drift is.
+- Carry runnable `next_commands` on terminal, blocked, and evidence-required
+  MCP results. The final Volumes Apply prescribed "Verify, Aggregate Check,
+  Guide" in prose — names that exist nowhere on the nine-tool surface — and a
+  blocked Maintain carried the bare token
+  `explicit_orphan_remove_or_resolve_blocker` while the command that clears
+  the block lived only in the CLI Guide; two hosts on two repositories stalled
+  on exactly that gap. The command suffixes now live once in the machine
+  contract, and the CLI Guide and MCP compose the identical spelling from
+  them. The prefix is the running server's own absolute, quoted executable,
+  because `aoci` is whatever path the host's MCP configuration names and need
+  not be on `PATH`; when it cannot be resolved the field is omitted, since an
+  absent advisory beats a wrong command. Placeholders such as `{agent}` are
+  the Host's to fill. The field is additive and optional, and the scenario
+  suite executes every returned command as returned: Verify, Check, and Guide
+  exit 0 after the final Apply, and the acknowledge command clears the block
+  it was returned for.
+- Say what a raised budget does not buy, and why there is no staleness bypass.
+  The scale boundary stated a token ceiling and left the reader to infer that
+  raising it removes the limit. It does not: the budget bounds what may be
+  written, never what a model can receive, and a Whole-Index is delivered as a
+  chunk chain in which every round trip is a place a host compaction can void
+  the chain. A repository whose plan estimate runs to several hundred thousand
+  tokens has a role problem before it has a budget problem. The same guide now
+  records why a content-volatile file whose cognition never changes gets a
+  role change or a same-text resubmit rather than a per-file exemption from
+  staleness: the source binding is the property the write chain protects.
+- Make the release rehearsal run the release's own tooling. `release.yml` had
+  moved to newer `checkout`, `upload-artifact`, `download-artifact`,
+  `setup-go`, and `goreleaser-action` versions while `ci.yml`,
+  `full-confidence.yml`, and `release-rehearsal.yml` stayed on older ones;
+  every reference was correctly SHA-pinned with its version comment, so both
+  existing contract tests passed and nothing reported the divergence. The
+  rehearsal is the one that matters: it was packaging with older tooling than
+  the release it rehearsed, so a packaging difference between those versions
+  would clear the rehearsal and appear only in the tag-triggered signed run,
+  the one that cannot be cheaply retried. All three now match `release.yml`
+  exactly, and a new contract test requires an action referenced by more than
+  one workflow to be pinned to one SHA, with no exceptions list.
+- Run the black-box gate when a black-box suite changes. Full Confidence's
+  push filter listed every internal package the suites exercise but not the
+  suites themselves, so a fix to `mcp_scenarios.py` for a Windows-only
+  attestation failure — section roots are written with forward slashes on
+  every platform while the fixture path arrives backslashed — shipped without
+  the gate that would prove it. `scripts/blackbox/**` joins the filter, and
+  the Windows run it triggered is the proof for the platform that failed.
 
 ## v0.1.0-rc7
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-03T02:09:11Z",
+  "updated_at": "2026-09-03T03:31:44Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -58,9 +58,9 @@
       "normalized_sha256": "03d56f33777d079b6f53ae3754052739262f4c109dfbd76dbff1d60ecee98cf7"
     },
     "CHANGELOG.md": {
-      "sha256": "4bafb4f49078de1eb037890c17f1fc004a9079fed1fd5854fbf336f5ea4bb74b",
-      "size": 59842,
-      "normalized_sha256": "4bafb4f49078de1eb037890c17f1fc004a9079fed1fd5854fbf336f5ea4bb74b"
+      "sha256": "4afcdcdb12b134a6d2f737600a13f1b897f569b6c45d9d4f7c721b29f0fe2347",
+      "size": 67242,
+      "normalized_sha256": "4afcdcdb12b134a6d2f737600a13f1b897f569b6c45d9d4f7c721b29f0fe2347"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "16a464ded7ba610d0519811e64d171bcac42962e41c0b5dc9d716a094f0daece",
-      "size": 177867,
-      "normalized_sha256": "16a464ded7ba610d0519811e64d171bcac42962e41c0b5dc9d716a094f0daece"
+      "sha256": "5985d129ac3b5a947825e06825db7d6e463fb97bd4af6564582df42ace906872",
+      "size": 178066,
+      "normalized_sha256": "5985d129ac3b5a947825e06825db7d6e463fb97bd4af6564582df42ace906872"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -168,10 +168,9 @@
       "normalized_sha256": "57ef32df3c3a7bb131f6c0e6ee10d53cabc45e75ae6e3dde8ec8d904632e22ee"
     },
     "docs/cognition-volumes.md": {
-      "role": "index",
-      "sha256": "53f9b893f8a00a1c8d82cc529ef0848c8d5ad48b519b2a9790636d2aa7acf690",
-      "size": 20859,
-      "normalized_sha256": "53f9b893f8a00a1c8d82cc529ef0848c8d5ad48b519b2a9790636d2aa7acf690"
+      "sha256": "4b563cc47d81df6e793b47c4200764faa14586c449ae9fb993bc0f22b831e5aa",
+      "size": 21699,
+      "normalized_sha256": "4b563cc47d81df6e793b47c4200764faa14586c449ae9fb993bc0f22b831e5aa"
     },
     "docs/contract-authority.md": {
       "role": "index",
@@ -5618,10 +5617,9 @@
       "normalized_sha256": "bfc219ba93e78ff06b912d02b88afbae1668427d9a6acdebf3876a48624375f9"
     },
     "spec/public/aoci-cognition-volumes-v1.txt": {
-      "role": "index",
-      "sha256": "a925a561b77a08acb28617ad6d5a066d7d9a31902e53786f052ba8c4f2925654",
-      "size": 30190,
-      "normalized_sha256": "a925a561b77a08acb28617ad6d5a066d7d9a31902e53786f052ba8c4f2925654"
+      "sha256": "50b0f673554ffa60a91bb8ce5fdd98ce4d1b2ba61bad05088e83ef0e01d9ae37",
+      "size": 31644,
+      "normalized_sha256": "50b0f673554ffa60a91bb8ce5fdd98ce4d1b2ba61bad05088e83ef0e01d9ae37"
     },
     "spec/public/aoci-config-runtime-v1.txt": {
       "role": "index",

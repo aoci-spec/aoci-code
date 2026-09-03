@@ -298,6 +298,19 @@ write. Orphans appear only as explicit remove candidates;
 the existing transaction authorities. Database assessment remains offline and
 requires accepted saved Evidence.
 
+When a result hands the next step to the CLI, it names the command. The Apply
+that brings the last batch to `aligned` returns `next_commands` with the
+terminal-proof spellings — Verify, Check, Guide — and a `blocked` or
+`evidence_required` Maintain returns the remediation a Host can run itself:
+`scan` for a missing Baseline, `scope status` and `scope acknowledge` for
+pending observations, both budget levers for an exceeded budget, or a
+database snapshot and its acceptance. The spellings are the ones the CLI
+Guide prints, composed from one machine-owned source, and each is prefixed by
+the running server's own absolute executable path because the MCP binary need
+not be on `PATH`. Placeholders such as `{agent}` and `{tokens}` are the
+Host's to fill. The field is optional and advisory: `next_action` stays the
+machine decision.
+
 The current repair path closes an ownership-conflicting Entry,
 which is one of those governed orphans. Ordinary
 orphan removal still rejects a still-valid relation. The only exception is an
