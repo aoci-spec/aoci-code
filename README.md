@@ -11,9 +11,6 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
-> [!IMPORTANT]
-> AOCI-CODE v0.1.0-rc8 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). Build from canonical source or use a signed package from the [v0.1.0-rc8 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc8) after following the [release verification procedure](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages).
-
 ## 🧠 What is AOCI?
 
 **AOCI (AI-Oriented Cognition Infrastructure) is cognition infrastructure positioned between AI Agents and software systems.**
@@ -92,6 +89,18 @@ First confirm the AOCI MCP server is connected, then build the AOCI index for th
 
 The index is authored through AOCI's MCP tools, and the MCP server that `init` has just written was not loaded in the session that wrote it, so index building has to follow the restart. A host that loads MCP servers dynamically may not need one; “Host integration” explains how to tell.
 
+If your project has a database (PostgreSQL and MySQL are supported, plus constrained openGauss 6.0.5), building a database index is recommended as well. First declare the source as described under “Database Cognition” and provide the connection-string environment variable in the host environment (AOCI stores no credentials), then send:
+
+```text
+Build the AOCI database index for this project.
+```
+
+If the context has been compacted, or you want the Agent to re-establish its cognition of the system, send this:
+
+```text
+Using only AOCI, establish whole-framework cognition of this project, tell me your mastery of each area as a percentage, and whether you can take over development.
+```
+
 ## 🔌 Manual integration
 
 Obtain AOCI-CODE from canonical source or use a signed package from GitHub Releases. Before using a prebuilt binary, follow the basic, recommended, or full verification level in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages), and report which level completed. Give this README and the verified binary's stable absolute path to a trusted AI Agent such as Codex, Claude Code, Cursor, or OpenCode. The AI Agent can follow the in-project instructions to initialize AOCI, integrate MCP, and build the first index.
@@ -108,6 +117,9 @@ The time required to generate complete cognition for the first time depends on r
 The signed-package route and executable verification commands are in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages). The source-build route remains available below.
 
 ### 1. 📦 Current RC: use a verified package or build from source
+
+> [!IMPORTANT]
+> AOCI-CODE v0.1.0-rc8 is the current release candidate. It is Fair Source/source-available software under FSL-1.1-MIT; see [LICENSE](LICENSE). Build from canonical source or use a signed package from the [v0.1.0-rc8 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc8) after following the [release verification procedure](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages).
 
 The signed Release binary identifies itself as `aoci version 0.1.0-rc8`. A
 source build identifies the exact checkout instead and may report a development
@@ -828,6 +840,11 @@ Cognition Volumes repository, run the live Guide and let the host use ordinary
 no-argument `aoci_maintain`, submit the complete current batch through
 `aoci_update_entry`, and close with Verify, Check, and Guide. Do not modify the
 Baseline directly or skip source-binding and recovery steps.
+
+The Legacy layout itself is deprecated. Volumes v1 is the supported path for
+new and migrated repositories, and the Legacy-only commands are scheduled for
+removal in v0.2.0; migrate a Legacy repository with `aoci cognition migration`
+before then.
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

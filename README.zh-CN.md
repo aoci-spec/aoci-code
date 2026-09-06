@@ -11,9 +11,6 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
-> [!IMPORTANT]
-> AOCI-CODE v0.1.0-rc8 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [v0.1.0-rc8 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc8) 提供的签名包；使用前请遵循[发布验证流程](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages)。
-
 ## 🧠 AOCI 是什么？
 
 **AOCI（AI-Oriented Cognition Infrastructure）是位于 AI Agent 与软件系统之间的认知基础设施。**
@@ -82,6 +79,18 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 
 索引由 AOCI 的 MCP 工具创作，而 `init` 刚写入的 MCP server 在当时那个会话里还没有加载，所以建立索引必须放在重启之后。支持动态加载 MCP 的宿主可能不必重启；判断方法见“宿主集成”。
 
+如果你的项目有数据库（目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5），推荐再建立数据库索引。先按“Database Cognition”一节声明数据源，并在宿主环境里提供连接串环境变量（AOCI 不保存凭据），然后输入：
+
+```text
+请建立这个项目的数据库AOCI索引。
+```
+
+如果上下文已经压缩，或者你需要 Agent 重新召回对系统的认知，可以输入下面一段：
+
+```text
+请仅调用AOCI建立对本项目系统的整体框架认知，告诉我你对本项目的各项掌握程度百分比，你可以接手开发了吗？
+```
+
 ## 🔌 手动接入
 
 请从 canonical source 获取 AOCI-CODE，或使用 GitHub Releases 提供的签名包。使用预构建二进制前，请按[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages)选择基础、推荐或完整校验层级，并准确说明已完成的层级。请把本 README 和已验证二进制的稳定绝对路径交给 Codex、Claude Code、Cursor、OpenCode 等受信任 AI Agent。AI Agent 可以按照项目内的说明运行初始化、完成 MCP 接入并建立第一份索引。
@@ -98,6 +107,9 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
 
 ### 1. 📦 当前 RC：使用经验证的软件包或从源码构建
+
+> [!IMPORTANT]
+> AOCI-CODE v0.1.0-rc8 是当前发布候选版本。它是采用 FSL-1.1-MIT 的 Fair Source/source-available 软件；具体条款见 [LICENSE](LICENSE)。可以从 canonical source 构建，也可以使用 [v0.1.0-rc8 GitHub Release](https://github.com/aoci-spec/aoci-code/releases/tag/v0.1.0-rc8) 提供的签名包；使用前请遵循[发布验证流程](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc8/docs/install.md#signed-github-release-packages)。
 
 签名 Release 二进制报告 `aoci version 0.1.0-rc8`。源码构建则报告由精确
 Git checkout 派生的版本，例如 Release tag 之后的
@@ -788,6 +800,10 @@ AOCI-CODE 不要求 Neo4j、向量数据库、长期 Daemon 或 AOCI 云服务�
 Cognition Volumes 仓库，应先运行实时 Guide，让宿主调用普通无参数
 `aoci_maintain`，通过 `aoci_update_entry` 提交完整当前批次，并以 Verify、
 Check、Guide 收口。不要直接修改 Baseline，也不要跳过源码绑定或恢复步骤。
+
+Legacy 布局本身已弃用。新建与迁移后的仓库都以 Volumes v1 为唯一支持路线，
+仅用于 Legacy 的命令计划在 v0.2.0 移除；请在此之前用 `aoci cognition migration`
+完成迁移。
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

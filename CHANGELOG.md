@@ -2,6 +2,20 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Lead the README with the one-step setup. The release-candidate notice moves
+  down to the section that obtains the package, and the setup now carries two
+  more prompts a user sends verbatim: one that builds the database index once
+  the source is declared and its credential variable provisioned, and one that
+  re-establishes framework cognition after a context compaction, which is the
+  only thing that restores reliability after one.
+- Deprecate the Legacy layout. Volumes v1 has been the only layout `aoci init`
+  creates since the first candidate, every Legacy-only command is labeled as
+  such, and the governed migration exists, so the remaining Legacy code is
+  scheduled for removal in v0.2.0. This release only says so; nothing changes
+  behavior.
+
 ## v0.1.0-rc8
 
 - Probe the atomic no-replace primitive instead of assuming it. Publishing a
