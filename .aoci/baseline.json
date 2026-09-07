@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-06T17:35:06Z",
+  "updated_at": "2026-09-07T12:20:37Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -37,9 +37,9 @@
       "normalized_sha256": "e15140c83e5d4ff4b2a3f1dc20c5c8651d688f974d1f6d8ccb1d0fd645cdef1f"
     },
     ".github/workflows/release.yml": {
-      "sha256": "943bfd3162a1303af925b11b4fcf637ef2f817386f09f7e5436e90a8b78a4b73",
+      "sha256": "47b67792ed6a42c6185268a4b6c543c76b644e7515cab0b1ab0db3a60c7dea9c",
       "size": 29556,
-      "normalized_sha256": "943bfd3162a1303af925b11b4fcf637ef2f817386f09f7e5436e90a8b78a4b73"
+      "normalized_sha256": "47b67792ed6a42c6185268a4b6c543c76b644e7515cab0b1ab0db3a60c7dea9c"
     },
     ".gitignore": {
       "sha256": "6bb8b57c0a1c441326d1ee369c8b2a15bc8bb7646dbb77cfc9d3867f4541c86c",
