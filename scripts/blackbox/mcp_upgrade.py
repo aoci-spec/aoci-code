@@ -42,6 +42,8 @@ compatibility check: it asserts *this* project's own upgrade path.
 import argparse, hashlib, json, os, platform, re, shutil, subprocess, sys, tarfile
 import tempfile, time, urllib.error, urllib.request, zipfile
 
+from stdio_capture import BoundedStderr, stderr_failure
+
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPO = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -255,6 +257,7 @@ class Session:
         self.p = subprocess.Popen([binary, "--repo", repo, "mcp"], stdin=subprocess.PIPE,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   text=True, encoding="utf-8", bufsize=1)
+        self.stderr_capture = BoundedStderr(self.p.stderr)
         self.next_id = 1
 
     def rpc(self, method, params=None, timeout=180):
@@ -269,7 +272,8 @@ class Session:
         while time.time() < deadline:
             line = self.p.stdout.readline()
             if not line:
-                raise RuntimeError("server closed stdout")
+                raise RuntimeError(stderr_failure(
+                    getattr(self, "stderr_capture", None), "server closed stdout"))
             line = line.strip()
             if not line:
                 continue
@@ -294,6 +298,8 @@ class Session:
             self.p.wait(timeout=20)
         except Exception:
             self.p.kill()
+        finally:
+            self.stderr_capture.finish()
 
     def call(self, tool, args=None):
         res = self.rpc("tools/call", {"name": tool, "arguments": args or {}})
