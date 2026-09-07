@@ -29,6 +29,17 @@ One `--json` invocation emits at most one top-level business result or error
 envelope. Human-readable errors are written to stderr. The `aoci mcp` command
 uses a direct stdio protocol path described by the MCP runtime contract.
 
+`aoci ui` serves a local, read-only status page for one or more repositories:
+identity, index header, Code and Database Volumes, budget, the Overview chunk
+plan at the configured chunk_tokens, governance drift, host integrations, the
+running `aoci mcp` processes of the current user (Linux), and the next step the
+Guide recommends. It binds loopback addresses only and refuses any other bind
+address, answers GET and HEAD only, takes no lock, appends nothing to the
+Ledger, and is not an MCP transport: the `aoci mcp` process never opens a
+socket, and the nine-tool surface is unchanged. The page's JSON routes are an
+implementation detail of the same binary, not a public contract; Hosts keep
+reading `capabilities` and the Guide.
+
 State and writes
 ----------------
 

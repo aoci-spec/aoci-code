@@ -172,6 +172,10 @@ func newRootCmd() *cobra.Command {
 		newDoctorCmd(),
 	)
 
+	root.AddCommand(
+		newUICmd(),
+	)
+
 	root.InitDefaultCompletionCmd()
 	root.InitDefaultHelpCmd()
 	initializeCobraFlags(root)

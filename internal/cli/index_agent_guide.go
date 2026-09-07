@@ -269,9 +269,27 @@ func newIndexAgentGuideCmd() *cobra.Command {
 }
 
 func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, set *cognition.Set, agent string) error {
+	guide, err := buildVolumeAgentGuide(root, cfg, set, agent)
+	if err != nil {
+		return err
+	}
+	if flagJSON {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(guide)
+	}
+	_, err = fmt.Fprint(cmd.OutOrStdout(), cliMessage("guide.volumes_summary",
+		guide.Stage, guide.Complete, guide.NextAction, strings.Join(guide.AffectedDomains, ",")))
+	return err
+}
+
+// buildVolumeAgentGuide is the one place a Volumes Guide is assembled. The
+// CLI writes it and the local status page shows it; one builder, so the two
+// can never disagree about what the next step is.
+func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, agent string) (*volumeAgentGuide, error) {
 	facts, err := volumegovernance.Assess(root, cfg, set)
 	if err != nil {
-		return &ExitError{Code: ExitInvalid, Err: err}
+		return nil, &ExitError{Code: ExitInvalid, Err: err}
 	}
 	mode := "governance"
 	if facts.Result == volumegovernance.ResultAligned {
@@ -305,7 +323,7 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		guide.NextAction = guide.Batch.NextAction
 		contract, contractErr := authoringcontract.Build(set.Meta.Raw, facts.AffectedDomains, textassets.ActiveLocale())
 		if contractErr != nil {
-			return &ExitError{Code: ExitInvalid, Err: contractErr}
+			return nil, &ExitError{Code: ExitInvalid, Err: contractErr}
 		}
 		guide.AuthoringMeta = contract.AuthoringMeta
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_maintain"))
@@ -315,16 +333,9 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 		guide.ExecutableTargets = 0
 	}
 	if err := finalizeVolumeAgentGuideRuntimeContract(&guide); err != nil {
-		return &ExitError{Code: ExitInternal, Err: err}
+		return nil, &ExitError{Code: ExitInternal, Err: err}
 	}
-	if flagJSON {
-		encoder := json.NewEncoder(cmd.OutOrStdout())
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(guide)
-	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), cliMessage("guide.volumes_summary",
-		guide.Stage, guide.Complete, guide.NextAction, strings.Join(guide.AffectedDomains, ",")))
-	return err
+	return &guide, nil
 }
 
 // applyVolumeBlockedRemediation turns a blocked Volumes Guide into an

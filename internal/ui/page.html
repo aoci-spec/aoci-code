@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="__AOCI_LANG__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AOCI</title>
+<style>
+  :root { --bg:#fafafa; --fg:#1b1b1b; --muted:#666; --line:#e2e2e2; --ok:#1a7f37; --warn:#b26a00; --bad:#b3261e; --card:#fff; --accent:#2b5fd9; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151515; --fg:#e6e6e6; --muted:#9a9a9a; --line:#333; --card:#1e1e1e; --accent:#7aa2ff; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
+  header { display:flex; flex-wrap:wrap; gap:.6rem 1rem; align-items:center; padding:.7rem 1rem; border-bottom:1px solid var(--line); background:var(--card); position:sticky; top:0; }
+  header h1 { font-size:1.05rem; margin:0; }
+  header .tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
+  header .tabs button { border:1px solid var(--line); background:transparent; color:var(--fg); padding:.25rem .6rem; border-radius:6px; cursor:pointer; font:inherit; }
+  header .tabs button.active { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  main { padding:1rem; display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.8rem 1rem; min-width:0; }
+  section.wide { grid-column:1 / -1; }
+  h2 { font-size:.95rem; margin:0 0 .5rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  dl { display:grid; grid-template-columns:max-content 1fr; gap:.2rem .8rem; margin:0; }
+  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+  code, pre { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.85em; }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:.5rem .7rem; overflow:auto; max-height:22rem; margin:.3rem 0; white-space:pre-wrap; }
+  .pill { display:inline-block; padding:0 .5rem; border-radius:999px; border:1px solid currentColor; font-size:.8em; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); } .muted { color:var(--muted); }
+  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:.3rem 0; } .bar > i { display:block; height:100%; background:var(--ok); }
+  table { width:100%; border-collapse:collapse; font-size:.9em; } th, td { text-align:left; padding:.25rem .4rem; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:600; }
+  .controls { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem; } .controls input, .controls select { font:inherit; padding:.25rem .4rem; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
+  .copy { border:1px solid var(--line); background:transparent; color:var(--accent); border-radius:6px; padding:.15rem .5rem; cursor:pointer; font:inherit; margin-left:.4rem; }
+  .suggest { border-left:3px solid var(--accent); padding:.4rem .7rem; margin:.4rem 0; background:var(--bg); border-radius:0 6px 6px 0; }
+  ul.plain { list-style:none; padding:0; margin:0; } ul.plain li { padding:.15rem 0; }
+  #status { font-size:.85em; color:var(--muted); margin-left:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">AOCI</h1>
+  <div class="tabs" id="tabs"></div>
+  <span id="status"></span>
+</header>
+<main id="main"></main>
+<script id="aoci-strings">window.AOCI_STRINGS = __AOCI_STRINGS__;</script>
+<script>
+(function () {
+  const S = window.AOCI_STRINGS || {};
+  const t = (k) => S[k] || k;
+  const $ = (sel) => document.querySelector(sel);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const num = (n) => Number(n || 0).toLocaleString();
+  let repos = [], current = null, etag = "", timer = null, entryFilter = { q: "", c: "", e: "" };
+
+  document.title = t("ui.page.title");
+  $("#title").textContent = t("ui.page.title");
+
+  async function loadRepos() {
+    const r = await fetch("/api/repos"); repos = await r.json();
+    if (!current && repos.length) current = repos[0].root;
+    renderTabs();
+  }
+  function renderTabs() {
+    const box = $("#tabs"); box.innerHTML = "";
+    for (const repo of repos) {
+      const b = document.createElement("button");
+      b.textContent = repo.name + (repo.running ? " ●" : "");
+      b.title = repo.root; b.className = repo.root === current ? "active" : "";
+      b.onclick = () => { current = repo.root; etag = ""; renderTabs(); refresh(true); };
+      box.appendChild(b);
+    }
+  }
+  async function refresh(force) {
+    if (!current) return;
+    const headers = etag && !force ? { "If-None-Match": etag } : {};
+    let r;
+    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), { headers }); }
+    catch (e) { $("#status").textContent = t("ui.page.disconnected"); return; }
+    if (r.status === 304) { $("#status").textContent = t("ui.page.up_to_date"); return; }
+    etag = r.headers.get("ETag") || "";
+    const snap = await r.json();
+    render(snap);
+    $("#status").textContent = t("ui.page.refreshed") + " " + new Date().toLocaleTimeString();
+  }
+  function copyButton(text) { return `<button class="copy" data-copy="${esc(text)}">${esc(t("ui.page.copy"))}</button>`; }
+  function stateClass(v) { return v === "aligned" || v === true ? "ok" : v === "blocked" || v === false ? "bad" : "warn"; }
+
+  function render(s) {
+    const m = $("#main"); const f = s.facts || {}; const parts = [];
+    // identity
+    parts.push(`<section class="wide"><h2>${esc(t("ui.page.identity"))}</h2><dl>
+      <dt>${esc(t("ui.page.repository"))}</dt><dd><code>${esc(s.root)}</code></dd>
+      <dt>${esc(t("ui.page.layout"))}</dt><dd>${esc(s.layout || "-")}${s.error ? ` <span class="bad">${esc(s.error)}</span>` : ""}</dd>
+      <dt>${esc(t("ui.page.binary"))}</dt><dd><code>${esc(s.binary_version)}</code></dd>
+      <dt>${esc(t("ui.page.composite_identity"))}</dt><dd><code>${esc(s.composite_identity || "-")}</code></dd>
+      <dt>${esc(t("ui.page.governance"))}</dt><dd><span class="pill ${stateClass(f.result)}">${esc(f.result || "-")}</span> ${f.governance_aligned ? "" : `<span class="warn">${esc(f.next_required_action || "")}</span>`}</dd>
+    </dl></section>`);
+    // suggestions
+    parts.push(`<section class="wide"><h2>${esc(t("ui.page.suggestions"))}</h2>` +
+      (s.suggestions && s.suggestions.length ? s.suggestions.map(x => `<div class="suggest"><div class="muted">${esc(x.label)}</div>${x.command ? `<code>${esc(x.command)}</code>${copyButton(x.command)}` : ""}${x.prompt ? `<pre>${esc(x.prompt)}</pre>${copyButton(x.prompt)}` : ""}${x.note ? `<div class="muted">${esc(x.note)}</div>` : ""}</div>`).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`) + `</section>`);
+    // code index
+    const b = f.budget || {}; const pct = b.max_tokens ? Math.min(100, Math.round(100 * (b.whole_index_tokens || 0) / b.max_tokens)) : 0;
+    const chunk = s.chunk_plan || {};
+    parts.push(`<section><h2>${esc(t("ui.page.code_index"))}</h2><dl>
+      <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.code_entry_count)} / ${num(f.code_source_count)} ${esc(t("ui.page.sources"))}</dd>
+      <dt>${esc(t("ui.page.size"))}</dt><dd>${num(s.assets && s.assets.code ? s.assets.code.bytes : 0)} B · ${num(s.assets && s.assets.code ? s.assets.code.lines : 0)} ${esc(t("ui.page.lines"))}</dd>
+      <dt>${esc(t("ui.page.tokens"))}</dt><dd>${num(b.whole_index_tokens)} / ${num(b.max_tokens)} <span class="muted">(${esc(b.status || "-")}, ${esc(b.mode || "-")})</span><div class="bar"><i style="width:${pct}%"></i></div></dd>
+      <dt>${esc(t("ui.page.chunks"))}</dt><dd>${num(chunk.chunk_count)} × ${num(chunk.chunk_tokens)} ${esc(t("ui.page.tokens_per_chunk"))}${chunk.largest_chunk_bytes ? ` <span class="muted">(${esc(t("ui.page.largest"))} ${num(chunk.largest_chunk_bytes)} B)</span>` : ""}</dd>
+    </dl></section>`);
+    // database index
+    const d = f.database_cognition || {}; const ds = d.summary || {}; const de = f.database_evidence || {};
+    parts.push(`<section><h2>${esc(t("ui.page.database_index"))}</h2>` + (d.configured_sources ? `<dl>
+      <dt>${esc(t("ui.page.sources"))}</dt><dd>${num(d.configured_sources)} · ${esc(t("ui.page.evidence"))} ${esc(de.state || "-")}</dd>
+      <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.database_entry_count)} (${esc(t("ui.page.bindings"))} ${num(f.database_binding_count)})</dd>
+      <dt>${esc(t("ui.page.items"))}</dt><dd>current ${num(ds.current)} · missing ${num(ds.missing)} · stale ${num(ds.stale)} · orphan ${num(ds.orphan)} · unbaselined ${num(ds.unbaselined)}</dd>
+      <dt>${esc(t("ui.page.next"))}</dt><dd>${esc(d.next_action || "-")}</dd></dl>` : `<div class="muted">${esc(t("ui.page.database_unset"))}</div>`) + `</section>`);
+    // governance
+    const dr = f.code_drift || {}; const ms = f.managed_scope || {};
+    const list = (name, arr) => (arr && arr.length) ? `<li><span class="warn">${esc(name)}</span> (${arr.length}): <code>${esc(arr.slice(0, 20).join(", "))}${arr.length > 20 ? " …" : ""}</code></li>` : "";
+    parts.push(`<section class="wide"><h2>${esc(t("ui.page.governance"))}</h2><dl>
+      <dt>${esc(t("ui.page.scope"))}</dt><dd>index ${num(ms.index_count)} · observe ${num(ms.observe_count)} · exclude ${num(ms.exclude_count)} · ${esc(t("ui.page.observed_pending"))} ${num(ms.observed_pending_review)}${ms.scope_change_required ? ` <span class="bad">scope_change_required</span>` : ""}</dd>
+      <dt>${esc(t("ui.page.recovery"))}</dt><dd>${f.recovery_pending ? `<span class="bad">${esc(t("ui.page.recovery_pending"))}</span>` : `<span class="ok">${esc(t("ui.page.none"))}</span>`} · ${esc(t("ui.page.pending_transactions"))} ${num(f.pending_transactions)}</dd>
+    </dl><ul class="plain">${list("missing", dr.missing)}${list("stale", dr.stale)}${list("orphan", dr.orphan)}${list("unbaselined", dr.unbaselined)}${list("observed_new", dr.observed_new)}${list("observed_changed", dr.observed_changed)}${list("observed_removed", dr.observed_removed)}</ul></section>`);
+    // running servers + integrations
+    const inst = s.running || []; const ig = s.integrations || {};
+    parts.push(`<section><h2>${esc(t("ui.page.running_servers"))}</h2>` + (inst.length ? `<table><tr><th>PID</th><th>${esc(t("ui.page.binary"))}</th><th>${esc(t("ui.page.started"))}</th></tr>` + inst.map(i => `<tr><td>${i.pid}</td><td><code>${esc(i.executable || "?")}</code>${i.executable_replaced_on_disk ? ` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>` : ""}</td><td>${esc(i.started_at || "")}</td></tr>`).join("") + `</table>` : `<div class="muted">${esc(t("ui.page.no_running_server"))}</div>`) +
+      `<h2 style="margin-top:.8rem">${esc(t("ui.page.integrations"))}</h2><ul class="plain">` + ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","agents_block"].map(k => `<li><span class="${ig[k] ? "ok" : "muted"}">${ig[k] ? "●" : "○"}</span> ${esc(t("ui.page.integration." + k))}</li>`).join("") + `</ul></section>`);
+    // header raw
+    parts.push(`<section><h2>${esc(t("ui.page.index_header"))}</h2><pre>${esc(s.root_text || "")}</pre><pre>${esc(s.meta_text || "")}</pre></section>`);
+    // entries
+    parts.push(`<section class="wide"><h2>${esc(t("ui.page.entries"))}</h2><div class="controls">
+      <input id="q" placeholder="${esc(t("ui.page.search"))}" value="${esc(entryFilter.q)}">
+      <select id="c"><option value="">C *</option>${[9,8,7,5,3,1].map(v => `<option ${entryFilter.c == v ? "selected" : ""}>${v}</option>`).join("")}</select>
+      <select id="e"><option value="">E *</option>${["L","M","S","T"].map(v => `<option ${entryFilter.e == v ? "selected" : ""}>${v}</option>`).join("")}</select>
+      <span id="entries-count" class="muted"></span></div><div id="entries"></div></section>`);
+    m.innerHTML = parts.join("");
+    m.querySelectorAll("button.copy").forEach(b => b.onclick = () => navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy));
+    $("#q").oninput = (ev) => { entryFilter.q = ev.target.value; loadEntries(); };
+    $("#c").onchange = (ev) => { entryFilter.c = ev.target.value; loadEntries(); };
+    $("#e").onchange = (ev) => { entryFilter.e = ev.target.value; loadEntries(); };
+    loadEntries();
+  }
+  async function loadEntries() {
+    const u = new URLSearchParams({ repo: current, q: entryFilter.q, c: entryFilter.c, e: entryFilter.e });
+    const r = await fetch("/api/entries?" + u.toString()); const data = await r.json();
+    $("#entries-count").textContent = num(data.matched) + " / " + num(data.total);
+    $("#entries").innerHTML = `<table><tr><th>${esc(t("ui.page.path"))}</th><th>Tag</th><th>F</th><th>S</th></tr>` +
+      (data.entries || []).slice(0, 500).map(e => `<tr><td><code>${esc(e.path)}</code></td><td><code>${esc(e.tag)}</code></td><td>${esc(e.f)}</td><td class="muted">${esc(e.s)}</td></tr>`).join("") + `</table>`;
+  }
+  loadRepos().then(() => refresh(true));
+  timer = setInterval(async () => { await loadRepos(); await refresh(false); }, 2500);
+})();
+</script>
+</body>
+</html>

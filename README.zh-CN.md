@@ -547,6 +547,7 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 | `aoci init` | 安装仓库合同和不含业务语义的初始 Volumes 布局 |
 | `aoci scan` | 为首次接入建立 Baseline；已有 Managed Baseline 的范围变化进入 Scope Change |
 | `aoci status --deep` | 仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线 |
+| `aoci ui` | 本地只读状态页：索引、预算、分块计划、漂移、运行中的 server 与下一步；只监听回环地址 |
 | `aoci verify` | 报告 Missing、Orphan、Stale 和 Unbaselined 事实 |
 | `aoci check` | 运行聚合治理门禁 |
 | `aoci index agent guide` | 进入确定性的宿主智能体工作流 |
@@ -862,7 +863,7 @@ aoci --repo . index agent guide --agent codex --json
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 51 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **故障注入场景** —— 54 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

@@ -4,6 +4,19 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Add `aoci ui`, a local read-only status page. It shows, for one or more
+  repositories at once, the identity, index header, Code and Database Volumes
+  with object, line, byte, and token counts against the budget, the exact
+  Overview chunk plan at the configured `chunk_tokens`, governance drift and
+  Managed Scope counts, host integrations, and the next step the Guide
+  recommends — with the prompts a user sends to an agent and the commands that
+  clear a block ready to copy. On Linux and WSL it also lists the running
+  `aoci mcp` processes of the current user and marks a server whose binary was
+  replaced on disk. The page binds loopback addresses only, answers GET and
+  HEAD only, takes no lock, appends nothing to the Ledger, and reads the same
+  facts Verify, Check, Guide, and Maintain consume through the one Guide
+  builder the CLI uses; `aoci mcp` still opens no socket and the nine-tool
+  surface is unchanged.
 - Lead the README with the one-step setup. The release-candidate notice moves
   down to the section that obtains the package, and the setup now carries two
   more prompts a user sends verbatim: one that builds the database index once

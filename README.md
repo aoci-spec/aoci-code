@@ -569,6 +569,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci init` | Installs the repository contract and initial Volumes layout without business semantics |
 | `aoci scan` | Establishes the Baseline for first-time integration; scope changes under an existing Managed Baseline enter Scope Change |
 | `aoci status --deep` | Legacy-only deep status; not the Cognition Volumes maintenance route |
+| `aoci ui` | Local read-only status page: index, budget, chunk plan, drift, running servers, and the next step; loopback only |
 | `aoci verify` | Reports Missing, Orphan, Stale, and Unbaselined facts |
 | `aoci check` | Runs the aggregated governance gate |
 | `aoci index agent guide` | Enters the deterministic host-agent workflow |
@@ -906,7 +907,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 51 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 54 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full

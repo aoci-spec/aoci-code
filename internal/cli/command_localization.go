@@ -19,6 +19,7 @@ var localizedFlagNames = []string{
 	"envelope-file", "approval-file", "actor", "transaction",
 	"action", "pattern", "pattern-kind", "reason", "created-by", "order", "enabled", "scope-profile", "reviewed-by", "safety-approval-file",
 	"out-file",
+	"port", "host", "open", "also", "discover",
 }
 
 var commandShortMessages = map[string]string{
@@ -90,6 +91,7 @@ var commandShortMessages = map[string]string{
 	"aoci hook":                                  "cli.short.hook_runtime",
 	"aoci update-entry":                          "cli.short.update_entry",
 	"aoci doctor":                                "cli.short.doctor",
+	"aoci ui":                                    "cli.short.ui",
 	"aoci database":                              "cli.short.database",
 	"aoci database source":                       "cli.short.database_source",
 	"aoci database source add":                   "cli.short.database_source_add",
@@ -146,6 +148,7 @@ var commandShortMessages = map[string]string{
 }
 
 var commandLongMessages = map[string]func() string{
+	"aoci ui": func() string { return cliMessage("cli.long.ui") },
 	"aoci help": func() string {
 		return cliMessage("cli.long.help")
 	},

@@ -132,3 +132,17 @@ invisible to Git without breaking the Baseline, so the honest options are:
 
 Adding the cognition assets to an ignore file is not among them: it produces a
 Baseline that omits the Volumes it governs.
+
+## Seeing every repository at once
+
+`aoci ui` opens a loopback-only status page for one or more repositories. On
+Linux and WSL it also lists the running `aoci mcp` processes of the current
+user with the executable each one loaded, and marks a server whose binary has
+since been replaced on disk — the same fact the server self-reports as
+`service_binary_replaced_on_disk`, seen from outside the process. The page is
+read-only, takes no lock, and writes nothing, so it can stay open beside a
+working agent.
+
+```bash
+aoci ui --repo /path/to/repository --also /path/to/another --open
+```

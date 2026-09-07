@@ -27,6 +27,7 @@ an established multi-chunk overview (chunk_tokens 8000). Fixtures set their own
 git identity; the host repository is never written.
 """
 import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
+import urllib.parse, urllib.request
 
 from stdio_deadline import rpc_deadline
 from stdio_capture import BoundedStderr, stderr_failure
@@ -1262,6 +1263,129 @@ def verify_published_scenario_count(total):
     return drift
 
 
+
+# ---------------------------------------------------------------- group U
+# The local status page runs in its own process and reads the same repository a
+# live MCP server is governing. The claim it makes about itself is that it can
+# never disturb that: no lock, no formal write, no audit event. A claim like
+# that is only worth what a cross-process run proves, so this group runs the
+# page against a fixture while an MCP session drives a complete governance
+# cycle through it, and compares the repository byte for byte.
+def repo_digest(root):
+    """Every repository-relative path mapped to its content digest."""
+    digests = {}
+    for base, dirs, files in os.walk(root):
+        for name in files:
+            path = os.path.join(base, name)
+            try:
+                with open(path, "rb") as fh:
+                    digests[os.path.relpath(path, root).replace("\\", "/")] = hashlib.sha256(fh.read()).hexdigest()
+            except OSError:
+                digests[os.path.relpath(path, root).replace("\\", "/")] = "unreadable"
+    return digests
+
+def start_ui(repo, port):
+    process = subprocess.Popen([BIN, "ui", "--repo", repo, "--port", str(port), "--discover=false", "--json"],
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    deadline = time.time() + 20
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/repos", timeout=1) as response:
+                if response.status == 200:
+                    return process
+        except Exception:
+            if process.poll() is not None:
+                return process
+    return process
+
+def stop_ui(process):
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except Exception:
+        process.kill()
+
+def ui_get(port, path):
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
+        return response.status, response.read().decode("utf-8")
+
+def group_u():
+    g = "U"
+    fx = make_fixture("ui-nointerfere", 5)
+    port = 47700 + (os.getpid() % 200)
+    page = start_ui(fx, port)
+    if page.poll() is not None:
+        for name in ("U1.page-serves-the-same-facts-as-verify",
+                     "U2.governance-cycle-is-unaffected-by-the-page",
+                     "U3.page-traffic-changes-no-byte"):
+            record(g, name, "FAIL", "page did not start")
+        return
+    try:
+        # -- U1: the page reports the assessment verify reports. verify
+        # publishes it under "governance"; agreement must be field for field,
+        # because a second implementation would drift silently.
+        _, state = ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
+        snapshot = json.loads(state)
+        _, report, _, _ = cli(fx, "verify", expect_ok=False)
+        facts = snapshot.get("facts") or {}
+        governance = report.get("governance") or {}
+        compared = ("result", "governance_aligned", "structure_valid", "composite_identity",
+                    "code_entry_count", "code_source_count", "next_required_action")
+        differing = [k for k in compared if facts.get(k) != governance.get(k)]
+        same = bool(governance) and not differing and snapshot.get("composite_identity") == report.get("composite_identity")
+        record(g, "U1.page-serves-the-same-facts-as-verify", "PASS" if same else "FAIL",
+               f"agree on {len(compared)} fields, result={facts.get('result')}" if same
+               else f"differ: {differing} page={facts.get('result')} verify={governance.get('result')}"[:200])
+
+        # -- U2: a complete Maintain/Apply cycle through MCP, with the page
+        # polling throughout, still reaches aligned with every candidate applied.
+        session = Session(fx)
+        maintained, _, _ = maintain(session)
+        for _ in range(3):
+            ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
+            ui_get(port, "/api/entries?repo=" + urllib.parse.quote(fx))
+        applied, _, _ = submit_batch(session, maintained)
+        for _ in range(3):
+            ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
+        session.close()
+        clean = (applied.get("status") == "applied" and applied.get("aligned") is True
+                 and applied.get("finding_count") == 0
+                 and applied.get("applied") == applied.get("attempted") and applied.get("attempted") > 0)
+        record(g, "U2.governance-cycle-is-unaffected-by-the-page", "PASS" if clean else "FAIL",
+               f"status={applied.get('status')} aligned={applied.get('aligned')} applied={applied.get('applied')}/{applied.get('attempted')}"[:200])
+    finally:
+        stop_ui(page)
+
+    # -- U3: page traffic alone changes nothing. The baseline digest is taken on
+    # a repository the page has never been pointed at, because a write with
+    # constant content is idempotent: sampling after the page has already run
+    # would compare the damage against itself and pass. Verified against a
+    # binary whose state handler writes one fixed file.
+    quiet = make_fixture("ui-readonly", 4)
+    session = Session(quiet)
+    submit_batch(session, maintain(session)[0])
+    session.close()
+    before = repo_digest(quiet)
+    quiet_page = start_ui(quiet, port + 1)
+    if quiet_page.poll() is not None:
+        record(g, "U3.page-traffic-changes-no-byte", "FAIL", "page did not start")
+        return
+    try:
+        for _ in range(8):
+            for path in ("/", "/api/repos", "/api/state?repo=" + urllib.parse.quote(quiet),
+                         "/api/entries?repo=" + urllib.parse.quote(quiet),
+                         "/api/raw?repo=" + urllib.parse.quote(quiet) + "&asset=root",
+                         "/api/raw?repo=" + urllib.parse.quote(quiet) + "&asset=meta"):
+                ui_get(port + 1, path)
+    finally:
+        stop_ui(quiet_page)
+    after = repo_digest(quiet)
+    changed = sorted(set(before) ^ set(after)) + sorted(
+        k for k in set(before) & set(after) if before[k] != after[k])
+    record(g, "U3.page-traffic-changes-no-byte", "PASS" if not changed else "FAIL",
+           "no file changed while only serving the page" if not changed
+           else "changed: " + ", ".join(changed[:6]))
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
@@ -1276,6 +1400,7 @@ if __name__ == "__main__":
     group_f_deleted_observe()
     group_f_excluded_tracked()
     group_t()
+    group_u()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()
