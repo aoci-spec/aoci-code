@@ -21,6 +21,7 @@ SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env G
 # staticcheck 可执行文件探测: 优先 PATH,其次 GOPATH/bin(go install 默认装到此处)
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
 FAST_PACKAGES := $(shell $(GO_BIN) list ./... | grep -v '/internal/cli$$')
+FULL_GATES := fmt-check vet check-deps opengauss-connector licenses textassets-check test example-test staticcheck safety race vuln database-integration clean-room-smoke
 # GNU Make-native recursive wildcard keeps fmt-check usable under its
 # failure-closed minimal-PATH test; do not add a parse-time dependency on find.
 rwildcard = $(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
@@ -34,7 +35,7 @@ OPENGAUSS_PATCH_GO_FILES := \
 	third_party/openGauss-connector-go-pq/ssl.go \
 	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check staticcheck check cross clean
+.PHONY: build test fast fast-test fast-builds full verify release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck check cross clean
 
 # 静态编译单二进制,产出 build/aoci
 build:
@@ -79,14 +80,14 @@ check-deps:
 # 比较用 >= 而非 ==:更新的底座本来就满足每个钉点,不该被拦。
 toolchain-preflight:
 	@want=$$(awk '$$1=="go"{print $$2; exit}' go.mod); \
-	base=$$(env GOTOOLCHAIN=local "$(GO_BIN)" version 2>/dev/null | awk '{print $$3}'); base=$${base#go}; \
+	base=$$(GOTOOLCHAIN=local "$(GO_BIN)" version 2>/dev/null | awk '{print $$3}'); base=$${base#go}; \
 	if [ -z "$$want" ]; then echo "toolchain-preflight: go.mod declares no go directive" >&2; exit 1; fi; \
 	if [ -z "$$base" ]; then echo "toolchain-preflight: could not run '$(GO_BIN) version'; set GO_BIN to a Go executable" >&2; exit 1; fi; \
 	if awk -v have="$$base" -v want="$$want" 'BEGIN{n=split(have,h,".");m=split(want,w,".");for(i=1;i<=3;i++){hv=(i<=n)?h[i]+0:0;wv=(i<=m)?w[i]+0:0;if(hv>wv)exit 0;if(hv<wv)exit 1}exit 0}'; then exit 0; fi; \
 	{ echo "toolchain-preflight: the base Go toolchain is older than go.mod requires."; \
 	  echo ""; \
 	  echo "  go.mod 'go' directive : $$want"; \
-	  echo "  base toolchain        : $$base   (env GOTOOLCHAIN=local $(GO_BIN) version)"; \
+	  echo "  base toolchain        : $$base   (GOTOOLCHAIN=local $(GO_BIN) version)"; \
 	  echo ""; \
 	  echo "A plain 'go version' can report a newer Go: under the default GOTOOLCHAIN=auto"; \
 	  echo "the go command re-executes a downloaded toolchain. The licenses and"; \
@@ -116,6 +117,14 @@ licenses: toolchain-preflight
 # 清单消费符号和重复事实源检测必须共同通过。
 textassets-check:
 	$(GO_BIN) test ./textassets -count=1
+
+# Explicitly regenerate deterministic public Goldens from production renderers.
+# The programs compute and write every digest; maintainers never copy hashes
+# from failed assertions.
+update-goldens:
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/hooks -run '^TestAgentsNewFileOutputMatchesCompatibilityDigest$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/index -run '^TestRuntimeRulesMatchCompatibilityDigest$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/mcptools -run '^TestRegenerateListToolsGolden$$' -count=1
 
 # 深度静态分析(五重归零第五重;开发期工具,不进 go.mod)。
 # Full Confidence要求固定工具已安装，禁止把缺少工具误报为通过。
@@ -161,8 +170,21 @@ clean-room-smoke:
 	bash scripts/release/clean-room-smoke.sh
 
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
-full: toolchain-preflight fmt-check vet check-deps opengauss-connector licenses textassets-check build test example-test staticcheck safety race vuln database-integration clean-room-smoke
+full: toolchain-preflight build $(FULL_GATES)
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
+
+# One deterministic closure command. It reuses full's build/aoci and runs every
+# black-box suite without entering the lifecycle model track. Keep running the
+# remaining suites after one fails so one invocation reports the whole result.
+verify:
+	@status=0; \
+	$(MAKE) --no-print-directory toolchain-preflight build || exit $$?; \
+	$(MAKE) --no-print-directory -k $(FULL_GATES) || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_conformance.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_scenarios.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_lifecycle.py || status=1; \
+	if [ $$status -eq 0 ]; then echo "★ make verify passed (all deterministic gates) ★"; fi; \
+	exit $$status
 
 # Compatibility alias retained for existing operators and automation.
 check: full

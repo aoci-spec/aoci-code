@@ -20,6 +20,7 @@ fi
 # go-licenses resolves `go` through PATH internally. Bind it to the same
 # toolchain selected by GO_BIN so local and CI results use one Go identity.
 export PATH="$(dirname -- "${go_bin_path}"):${PATH}"
+export GOROOT="$(GOTOOLCHAIN=local "${go_bin_path}" env GOROOT)"
 
 legal_findings=0
 dependency_findings=0
@@ -126,7 +127,7 @@ fi
 # Windows-only dependencies such as Cobra's mousetrap package on a fresh runner.
 # -mod=readonly keeps this preparation from changing the declared module graph.
 readonly_go_flags="${GOFLAGS:+${GOFLAGS} }-mod=readonly"
-if ! env \
+if ! \
   GOTOOLCHAIN=local \
   GOWORK=off \
   GOFLAGS="${readonly_go_flags}" \
@@ -134,7 +135,7 @@ if ! env \
   echo "[check-licenses] failed to prefetch the locked module graph" >&2
   exit 1
 fi
-if ! env \
+if ! \
   GOTOOLCHAIN=local \
   GOWORK=off \
   GOPROXY=off \
@@ -155,7 +156,7 @@ notice_inventory_path="$(mktemp)"
 trap 'rm -f "${raw_report_path}" "${report_path}" "${target_report_path}" "${diagnostic_path}" "${raw_module_inventory_path}" "${module_inventory_path}" "${target_module_inventory_path}" "${notice_inventory_path}"' EXIT
 for release_target in "${release_targets[@]}"; do
   IFS=/ read -r target_os target_arch <<<"${release_target}"
-  if ! env \
+  if ! \
     CGO_ENABLED=0 \
     GOOS="${target_os}" \
     GOARCH="${target_arch}" \
@@ -175,7 +176,7 @@ for release_target in "${release_targets[@]}"; do
   fi
   cat "${target_report_path}" >>"${raw_report_path}"
 
-  if ! env \
+  if ! \
     CGO_ENABLED=0 \
     GOOS="${target_os}" \
     GOARCH="${target_arch}" \
@@ -203,7 +204,7 @@ LC_ALL=C sort -u "${raw_module_inventory_path}" >"${module_inventory_path}"
 opengauss_connector_module="gitcode.com/opengauss/openGauss-connector-go-pq"
 opengauss_connector_version="v1.0.8"
 opengauss_connector_license_sha256="3e2d79d27727d59ab1c9752f57654733d6c8824936c22800594dccfe8864ec28"
-opengauss_connector_record="$(env \
+opengauss_connector_record="$( \
   GOTOOLCHAIN=local \
   GOWORK=off \
   GOPROXY=off \

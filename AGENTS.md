@@ -20,6 +20,7 @@ alone before, with every fast gate green.
 | Changed | Run before closing |
 | --- | --- |
 | Anything | `make fast` |
+| Closing a task end to end | `make verify` — `make full` with keep-going failure aggregation, then all three black-box suites without the model track |
 | MCP tool surface, input schemas, response shapes | `python3 scripts/blackbox/mcp_conformance.py` |
 | Write lifecycle, recovery, cursors, concurrent writers | `python3 scripts/blackbox/mcp_scenarios.py` |
 | `init`, `scan`, authoring lifecycle, Managed Scope roles | `python3 scripts/blackbox/mcp_lifecycle.py` |
@@ -30,6 +31,14 @@ The three black-box suites drive a built binary from outside the process and
 have their own preconditions; `scripts/blackbox/README.md` documents them.
 Report the gates actually run and their real output, and never report a gate
 that was not run.
+
+`make verify` is the single local closure command: it builds once, runs every
+`make full` constituent under `-k` so one invocation reports every failure
+rather than the first, then runs the three black-box suites against that
+build. It replaces nothing in the table above; it is how to run all of it at
+once. `make update-goldens` regenerates the public digest goldens from the
+production renderers, so a changed template is never re-blessed by copying a
+hash out of a failed assertion.
 
 ## Cognition index admission
 

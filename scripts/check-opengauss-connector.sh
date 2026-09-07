@@ -88,7 +88,7 @@ if [ "$#" -ne 0 ]; then
 fi
 
 download_json="$({
-  env GOTOOLCHAIN=local GOWORK=off "${go_bin}" mod download -json "${module}@${version}"
+  GOTOOLCHAIN=local GOWORK=off "${go_bin}" mod download -json "${module}@${version}"
 } 2>&1)" || fail "could not download the pinned upstream module: ${download_json}"
 
 printf '%s\n' "${download_json}" | grep -Fq '"Version": "v1.0.8"' ||
