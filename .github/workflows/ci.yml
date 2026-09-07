@@ -127,6 +127,8 @@ jobs:
         run: python3 -m unittest discover -s scripts/blackbox -p test_stdio_deadline.py -v
       - name: MCP stderr regressions
         run: python3 -m unittest discover -s scripts/blackbox -p test_stdio_capture.py -v
+      - name: Overview traversal regressions
+        run: python3 -m unittest discover -s scripts/blackbox -p test_overview_chunks.py -v
       - name: fault-injection scenarios
         run: python3 scripts/blackbox/mcp_scenarios.py
       - name: prove the suites left the repository untouched
@@ -191,3 +193,5 @@ jobs:
         run: python -m unittest discover -s scripts/blackbox -p test_stdio_deadline.py -v
       - name: MCP stderr regressions
         run: python -m unittest discover -s scripts/blackbox -p test_stdio_capture.py -v
+      - name: Overview traversal regressions
+        run: python -m unittest discover -s scripts/blackbox -p test_overview_chunks.py -v
