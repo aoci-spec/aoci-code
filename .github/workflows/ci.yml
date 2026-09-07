@@ -123,6 +123,8 @@ jobs:
       # 没有自动化跑它们就会静默腐烂。生命周期与规模套件在 full confidence。
       - name: MCP protocol conformance
         run: python3 scripts/blackbox/mcp_conformance.py
+      - name: Overview traversal regressions
+        run: python3 -m unittest discover -s scripts/blackbox -p test_overview_chunks.py -v
       - name: fault-injection scenarios
         run: python3 scripts/blackbox/mcp_scenarios.py
       - name: prove the suites left the repository untouched
@@ -183,3 +185,5 @@ jobs:
         env:
           AOCI_BIN: ${{ github.workspace }}\build\aoci.exe
         run: python scripts/blackbox/mcp_conformance.py
+      - name: Overview traversal regressions
+        run: python -m unittest discover -s scripts/blackbox -p test_overview_chunks.py -v

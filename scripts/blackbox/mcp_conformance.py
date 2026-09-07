@@ -93,6 +93,39 @@ def meta_and_body(text):
         return json.loads(head[head.index("{"):head.rindex("}")+1]), body
     return json.loads(text[text.index("{"):text.rindex("}")+1]), None
 
+def overview_chunks(session):
+    """Follow the exact cursor chain, bounded by its declared chunk count."""
+    cursor, chunk_count, received = None, None, 0
+    seen = set()
+    while True:
+        response = session.call("aoci_overview", {"cursor": cursor} if cursor else {})
+        text, err = text_of(response)
+        if err or response.get("error") is not None:
+            raise RuntimeError(f"Overview chunk {received + 1} returned an error")
+        meta, body = meta_and_body(text)
+        if body is None:
+            raise RuntimeError("Overview response has no chunk body")
+        if chunk_count is None:
+            chunk_count = meta.get("chunk_count")
+            if type(chunk_count) is not int or chunk_count < 1:
+                raise RuntimeError("Overview chunk_count must be a positive integer")
+        if meta.get("chunk_count") != chunk_count:
+            raise RuntimeError("Overview chunk_count changed during delivery")
+        received += 1
+        yield meta, body
+        if meta.get("completed") is True:
+            if received != chunk_count:
+                raise RuntimeError("Overview completed before its declared chunk_count")
+            return
+        cursor = meta.get("next_cursor")
+        if not isinstance(cursor, str) or not cursor:
+            raise RuntimeError("Incomplete Overview has no next_cursor")
+        if cursor in seen:
+            raise RuntimeError("Overview repeated a continuation cursor")
+        if received >= chunk_count:
+            raise RuntimeError("Overview did not complete within its declared chunk_count")
+        seen.add(cursor)
+
 # ---------- Session 1: identity, tools, rules, full overview chain, aux reads ----------
 s = Session()
 init = s.rpc("initialize", {"protocolVersion":"2025-06-18",
@@ -121,15 +154,10 @@ ok("rules.machine_facts", "cognition_refresh_threshold: 30" in rules_text)
 # AOCI_REPO points at, and a check count that scales with the target would make
 # the published number meaningless (and would redden CI the day this repository
 # crosses a chunk boundary).
-chunks, cursor, meta0 = [], None, None
-chunk_errors, chunk_sha_mismatches = [], []
-for i in range(1, 12):
-    args = {"cursor": cursor} if cursor else {}
-    t, err = text_of(s.call("aoci_overview", args))
-    if err:
-        chunk_errors.append(f"chunk{i}")
-    print(("PASS " if not err else "FAIL ") + f"overview.chunk{i}.no_error")
-    meta, body = meta_and_body(t)
+chunks, meta0 = [], None
+chunk_sha_mismatches = []
+for i, (meta, body) in enumerate(overview_chunks(s), 1):
+    print(f"PASS overview.chunk{i}.no_error")
     if meta0 is None: meta0 = meta
     chunks.append((meta, body))
     # per-chunk sha256 must match the exact body bytes
@@ -138,10 +166,7 @@ for i in range(1, 12):
     if not matched:
         chunk_sha_mismatches.append(f"chunk{i}: got={got[:12]} want={meta['chunk_sha256'][:12]}")
     print(("PASS " if matched else "FAIL ") + f"overview.chunk{i}.sha")
-    if meta.get("completed"): break
-    cursor = meta["next_cursor"]
-ok("overview.every_chunk_no_error", not chunk_errors,
-   f"{len(chunks)} chunks; failed: " + ", ".join(chunk_errors))
+ok("overview.every_chunk_no_error", True, f"{len(chunks)} chunks")
 ok("overview.every_chunk_sha", not chunk_sha_mismatches,
    f"{len(chunks)} chunks; " + ("; ".join(chunk_sha_mismatches) or "all bodies match"))
 
@@ -304,12 +329,7 @@ s.close()
 s2 = Session()
 s2.rpc("initialize", {"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"h2","version":"1"}})
 s2.notify("notifications/initialized")
-c2, cur = [], None
-for i in range(1, 12):
-    t, _ = text_of(s2.call("aoci_overview", {"cursor":cur} if cur else {}))
-    m, b = meta_and_body(t); c2.append((m,b))
-    if m.get("completed"): break
-    cur = m["next_cursor"]
+c2 = list(overview_chunks(s2))
 mfin = c2[-1][0]; m0 = c2[0][0]
 whole2 = "".join(b for _,b in c2)
 ords = mfin["challenge_ordinals"] if isinstance(mfin["challenge_ordinals"], list) else [int(x) for x in str(mfin["challenge_ordinals"]).split(",")]
