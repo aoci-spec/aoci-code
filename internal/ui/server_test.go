@@ -154,13 +154,43 @@ func TestEntriesRawAndPage(t *testing.T) {
 	if err := json.Unmarshal(get(t, handler, "/api/entries?repo="+root+"&c=3", nil).Body.Bytes(), &entries); err != nil || entries.Matched != 0 {
 		t.Fatalf("C filter: %v %+v", err, entries)
 	}
-	if raw := get(t, handler, "/api/raw?repo="+root+"&asset=root", nil); !strings.HasPrefix(raw.Body.String(), cognition.RootManifestMarker) {
-		t.Fatalf("raw root: %q", raw.Body.String())
+	for _, probe := range []struct{ asset, marker string }{
+		{"root", cognition.RootManifestMarker}, {"meta", cognition.MetaVolumeMarker}, {"code", cognition.CodeVolumeMarker},
+	} {
+		raw := get(t, handler, "/api/raw?repo="+root+"&asset="+probe.asset, nil)
+		if !strings.HasPrefix(raw.Body.String(), probe.marker) {
+			t.Fatalf("raw %s did not start with its marker: %q", probe.asset, raw.Body.String()[:60])
+		}
+	}
+	// The Code Volume must arrive byte for byte, section markers included: the
+	// page shows what the tools read, not a rendering of it.
+	onDisk := readFile(t, root, "aoci.code.txt")
+	if served := get(t, handler, "/api/raw?repo="+root+"&asset=code", nil).Body.String(); served != onDisk {
+		t.Fatalf("served Code Volume is not the file on disk")
+	}
+	if !strings.Contains(onDisk, "\n===") {
+		t.Fatalf("fixture lost its === section marker")
+	}
+	if absent := get(t, handler, "/api/raw?repo="+root+"&asset=database", nil); absent.Code != http.StatusNotFound {
+		t.Fatalf("absent Volume answered %d", absent.Code)
 	}
 	page := get(t, handler, "/", nil).Body.String()
-	title, _ := textassets.Message("en-US", "ui.page.title")
-	if !strings.Contains(page, "window.AOCI_STRINGS = {") || !strings.Contains(page, title) || strings.Contains(page, "__AOCI_") || strings.Contains(page, "https://") {
-		t.Fatalf("page is not self-contained and localized")
+	// The page ships every official locale and switches without a reload, so
+	// both catalogs must be present and no placeholder may survive rendering.
+	if !strings.Contains(page, "window.AOCI_I18N = {") || strings.Contains(page, "__AOCI_") || strings.Contains(page, "https://") {
+		t.Fatalf("page is not self-contained")
+	}
+	for _, locale := range []string{"en-US", "zh-CN"} {
+		title, err := textassets.Message(locale, "ui.page.index_pane")
+		if err != nil {
+			t.Fatalf("%s: %v", locale, err)
+		}
+		if !strings.Contains(page, `"`+locale+`":`) || !strings.Contains(page, title) {
+			t.Fatalf("page does not carry the %s catalog", locale)
+		}
+	}
+	if !strings.Contains(page, `window.AOCI_LOCALE = "en-US"`) {
+		t.Fatalf("page does not default to the server locale")
 	}
 	if nested := get(t, handler, "/anything", nil); nested.Code != http.StatusNotFound {
 		t.Fatalf("unknown path answered %d", nested.Code)

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-07T14:49:39Z",
+  "updated_at": "2026-09-07T15:10:48Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "e29e92818e7eccaefece58d577c87800a0fa605f8b0d2830912d25872332fdb5",
-      "size": 183519,
-      "normalized_sha256": "e29e92818e7eccaefece58d577c87800a0fa605f8b0d2830912d25872332fdb5"
+      "sha256": "13acad4dd81fe4a78735310908ce1df280e2b41da422eb33a416801736a61011",
+      "size": 183546,
+      "normalized_sha256": "13acad4dd81fe4a78735310908ce1df280e2b41da422eb33a416801736a61011"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5409,23 +5409,23 @@
       "format_kind": "gofmt"
     },
     "internal/ui/page.html": {
-      "sha256": "3d6f84b7aae31b3952ccccafac5839e865c98c0ab798ebc35b231c5beafbbb1f",
-      "size": 13171,
-      "normalized_sha256": "3d6f84b7aae31b3952ccccafac5839e865c98c0ab798ebc35b231c5beafbbb1f"
+      "sha256": "8ed42c9f91a47fa9cccf6fbe30c896cd42e7deb61b46bfebf315692681d69f36",
+      "size": 17894,
+      "normalized_sha256": "8ed42c9f91a47fa9cccf6fbe30c896cd42e7deb61b46bfebf315692681d69f36"
     },
     "internal/ui/server.go": {
-      "sha256": "024bc0d46d2413026171b6bab6becf55c100af0e74324aba75559f93f4dc1489",
-      "size": 8529,
-      "normalized_sha256": "024bc0d46d2413026171b6bab6becf55c100af0e74324aba75559f93f4dc1489",
-      "format_sha256": "024bc0d46d2413026171b6bab6becf55c100af0e74324aba75559f93f4dc1489",
+      "sha256": "238a0c2307cc8b177d1d1e404a6a60a96e1626d0bf6c148866b854303a48a6cf",
+      "size": 10051,
+      "normalized_sha256": "238a0c2307cc8b177d1d1e404a6a60a96e1626d0bf6c148866b854303a48a6cf",
+      "format_sha256": "238a0c2307cc8b177d1d1e404a6a60a96e1626d0bf6c148866b854303a48a6cf",
       "format_kind": "gofmt"
     },
     "internal/ui/server_test.go": {
       "role": "observe",
-      "sha256": "20899a3cb67245bf109dde4321d523679d89fcc5decb2ff6e72fd58978d7b24f",
-      "size": 11554,
-      "normalized_sha256": "20899a3cb67245bf109dde4321d523679d89fcc5decb2ff6e72fd58978d7b24f",
-      "format_sha256": "20899a3cb67245bf109dde4321d523679d89fcc5decb2ff6e72fd58978d7b24f",
+      "sha256": "800bbcc5a58d28cb93e4b19abff9bd561d8329fccf0c14670e63cc62119dc960",
+      "size": 12877,
+      "normalized_sha256": "800bbcc5a58d28cb93e4b19abff9bd561d8329fccf0c14670e63cc62119dc960",
+      "format_sha256": "800bbcc5a58d28cb93e4b19abff9bd561d8329fccf0c14670e63cc62119dc960",
       "format_kind": "gofmt"
     },
     "internal/ui/snapshot.go": {
@@ -6577,9 +6577,9 @@
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "b1d6cce9f052edc3e197897aee1ea32493eb7e5336f6ce6ed5d6465f898603ed",
-      "size": 179690,
-      "normalized_sha256": "b1d6cce9f052edc3e197897aee1ea32493eb7e5336f6ce6ed5d6465f898603ed"
+      "sha256": "e32bfcde7b75594f77198017a375ff627014b4c31e5dc3f077c9760918b325a8",
+      "size": 179301,
+      "normalized_sha256": "e32bfcde7b75594f77198017a375ff627014b4c31e5dc3f077c9760918b325a8"
     },
     "textassets/en-US/prompts/ai-probe-system.txt": {
       "role": "observe",
@@ -7676,9 +7676,9 @@
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "7dc1413fed59ddb9198d05e194b6f45fc70a5983eb72b44909160347d3fc14b4",
-      "size": 163599,
-      "normalized_sha256": "7dc1413fed59ddb9198d05e194b6f45fc70a5983eb72b44909160347d3fc14b4"
+      "sha256": "64551dda69c97790b92eeaff1950568260684322fc206b7b4084a6322b9f2f54",
+      "size": 163211,
+      "normalized_sha256": "64551dda69c97790b92eeaff1950568260684322fc206b7b4084a6322b9f2f54"
     },
     "textassets/zh-CN/prompts/ai-probe-system.txt": {
       "role": "observe",

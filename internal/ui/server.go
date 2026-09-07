@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 // ErrNotLoopback and ErrNoRepository are the two ways Serve refuses to start.
@@ -41,18 +44,21 @@ func ErrorDetail(err error) string {
 
 // pageStringKeys are the localized strings the page needs; every key must
 // exist in every locale catalog, which the ui tests assert.
+// pageStringKeys are the strings the page renders. Every official locale must
+// carry all of them: the page ships both catalogs and switches without a
+// reload, so a key missing from one locale would blank a live panel.
 var pageStringKeys = []string{
-	"ui.page.title", "ui.page.identity", "ui.page.repository", "ui.page.layout", "ui.page.binary",
-	"ui.page.composite_identity", "ui.page.governance", "ui.page.suggestions", "ui.page.no_action", "ui.page.copy",
-	"ui.page.code_index", "ui.page.objects", "ui.page.sources", "ui.page.size", "ui.page.lines", "ui.page.tokens",
-	"ui.page.chunks", "ui.page.tokens_per_chunk", "ui.page.largest", "ui.page.database_index", "ui.page.evidence",
-	"ui.page.bindings", "ui.page.items", "ui.page.next", "ui.page.database_unset", "ui.page.scope",
-	"ui.page.observed_pending", "ui.page.recovery", "ui.page.recovery_pending", "ui.page.none",
-	"ui.page.pending_transactions", "ui.page.running_servers", "ui.page.started", "ui.page.replaced_on_disk",
-	"ui.page.no_running_server", "ui.page.integrations", "ui.page.integration.claude_mcp",
-	"ui.page.integration.claude_hook", "ui.page.integration.codex_mcp", "ui.page.integration.opencode_mcp",
-	"ui.page.integration.agents_block", "ui.page.index_header", "ui.page.entries", "ui.page.search",
-	"ui.page.path", "ui.page.refreshed", "ui.page.up_to_date", "ui.page.disconnected",
+	"ui.page.title", "ui.page.index_pane", "ui.page.status_pane", "ui.page.command_pane",
+	"ui.page.env_pane", "ui.page.filter", "ui.page.no_match", "ui.page.matched_lines",
+	"ui.page.asset_meta", "ui.page.volume_absent", "ui.page.copied", "ui.page.copy",
+	"ui.page.tab_root", "ui.page.tab_meta", "ui.page.tab_code", "ui.page.tab_database",
+	"ui.page.repository", "ui.page.governance", "ui.page.composite_identity", "ui.page.objects",
+	"ui.page.sources", "ui.page.tokens", "ui.page.chunks", "ui.page.scope", "ui.page.drift",
+	"ui.page.database_index", "ui.page.none", "ui.page.recovery", "ui.page.recovery_pending",
+	"ui.page.no_action", "ui.page.replaced_on_disk", "ui.page.no_running_server",
+	"ui.page.integration.claude_mcp", "ui.page.integration.claude_hook", "ui.page.integration.codex_mcp",
+	"ui.page.integration.opencode_mcp", "ui.page.integration.agents_block",
+	"ui.page.refreshed", "ui.page.up_to_date", "ui.page.disconnected",
 }
 
 type server struct {
@@ -130,15 +136,30 @@ func appendRoot(roots []string, candidate string) []string {
 	return append(roots, candidate)
 }
 
+// renderPage embeds every official locale's strings and the server's active
+// locale as the default. Switching language is then a client-side choice that
+// needs no restart and no second request.
 func renderPage(locale string) string {
-	strings := map[string]string{}
-	for _, key := range pageStringKeys {
-		strings[key] = message(locale, key)
+	locales := []string{textassets.DefaultLocale}
+	if manifest, err := textassets.ReadManifest(); err == nil && len(manifest.OfficialLocales) > 0 {
+		locales = manifest.OfficialLocales
 	}
-	encoded, _ := json.Marshal(strings)
-	page := pageHTML
-	page = replaceOnce(page, "__AOCI_STRINGS__", string(encoded))
-	page = replaceOnce(page, "__AOCI_LANG__", locale)
+	catalogs := map[string]map[string]string{}
+	for _, candidate := range locales {
+		bundle := map[string]string{}
+		for _, key := range pageStringKeys {
+			bundle[key] = message(candidate, key)
+		}
+		catalogs[candidate] = bundle
+	}
+	if _, present := catalogs[locale]; !present {
+		locale = textassets.DefaultLocale
+	}
+	encoded, _ := json.Marshal(catalogs)
+	page := replaceOnce(pageHTML, "__AOCI_I18N__", string(encoded))
+	for strings.Contains(page, "__AOCI_LANG__") {
+		page = replaceOnce(page, "__AOCI_LANG__", locale)
+	}
 	return page
 }
 
@@ -262,17 +283,34 @@ func (s *server) serveEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"total": len(entry.entries), "matched": len(matched), "entries": matched})
 }
 
+// serveRaw returns one formal asset exactly as it is on disk. The page shows
+// Volumes verbatim — section markers keep their === form — because a reader
+// checking cognition needs the bytes the tools read, not a rendering of them.
 func (s *server) serveRaw(w http.ResponseWriter, r *http.Request) {
 	entry, ok := s.lookup(w, r)
 	if !ok {
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	switch r.URL.Query().Get("asset") {
+	switch asset := r.URL.Query().Get("asset"); asset {
 	case "root":
 		_, _ = fmt.Fprint(w, entry.snapshot.RootText)
 	case "meta":
 		_, _ = fmt.Fprint(w, entry.snapshot.MetaText)
+	case "code", "database":
+		info, present := entry.snapshot.Assets[asset]
+		if !present || info.State != "present" || info.Path == "" {
+			http.NotFound(w, r)
+			return
+		}
+		// The path comes from the Root manifest the loader already validated,
+		// never from the request, so no query value reaches the filesystem.
+		data, err := os.ReadFile(filepath.Join(entry.snapshot.Root, filepath.FromSlash(info.Path)))
+		if err != nil {
+			http.Error(w, "asset unavailable", http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write(data)
 	default:
 		http.NotFound(w, r)
 	}

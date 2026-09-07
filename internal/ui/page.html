@@ -5,147 +5,284 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AOCI</title>
 <style>
-  :root { --bg:#fafafa; --fg:#1b1b1b; --muted:#666; --line:#e2e2e2; --ok:#1a7f37; --warn:#b26a00; --bad:#b3261e; --card:#fff; --accent:#2b5fd9; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#151515; --fg:#e6e6e6; --muted:#9a9a9a; --line:#333; --card:#1e1e1e; --accent:#7aa2ff; } }
-  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif; }
-  header { display:flex; flex-wrap:wrap; gap:.6rem 1rem; align-items:center; padding:.7rem 1rem; border-bottom:1px solid var(--line); background:var(--card); position:sticky; top:0; }
-  header h1 { font-size:1.05rem; margin:0; }
-  header .tabs { display:flex; gap:.4rem; flex-wrap:wrap; }
-  header .tabs button { border:1px solid var(--line); background:transparent; color:var(--fg); padding:.25rem .6rem; border-radius:6px; cursor:pointer; font:inherit; }
-  header .tabs button.active { border-color:var(--accent); color:var(--accent); font-weight:600; }
-  main { padding:1rem; display:grid; gap:1rem; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); }
-  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:.8rem 1rem; min-width:0; }
-  section.wide { grid-column:1 / -1; }
-  h2 { font-size:.95rem; margin:0 0 .5rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
-  dl { display:grid; grid-template-columns:max-content 1fr; gap:.2rem .8rem; margin:0; }
-  dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
-  code, pre { font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.85em; }
-  pre { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:.5rem .7rem; overflow:auto; max-height:22rem; margin:.3rem 0; white-space:pre-wrap; }
-  .pill { display:inline-block; padding:0 .5rem; border-radius:999px; border:1px solid currentColor; font-size:.8em; }
-  .ok { color:var(--ok); } .warn { color:var(--warn); } .bad { color:var(--bad); } .muted { color:var(--muted); }
-  .bar { height:8px; background:var(--line); border-radius:4px; overflow:hidden; margin:.3rem 0; } .bar > i { display:block; height:100%; background:var(--ok); }
-  table { width:100%; border-collapse:collapse; font-size:.9em; } th, td { text-align:left; padding:.25rem .4rem; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-weight:600; }
-  .controls { display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem; } .controls input, .controls select { font:inherit; padding:.25rem .4rem; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); }
-  .copy { border:1px solid var(--line); background:transparent; color:var(--accent); border-radius:6px; padding:.15rem .5rem; cursor:pointer; font:inherit; margin-left:.4rem; }
-  .suggest { border-left:3px solid var(--accent); padding:.4rem .7rem; margin:.4rem 0; background:var(--bg); border-radius:0 6px 6px 0; }
-  ul.plain { list-style:none; padding:0; margin:0; } ul.plain li { padding:.15rem 0; }
-  #status { font-size:.85em; color:var(--muted); margin-left:auto; }
+  :root{
+    --bg:#f6f7f9; --panel:#fff; --ink:#16181d; --dim:#666e7a; --faint:#8b939f;
+    --line:#e4e7ec; --line-soft:#eef0f3; --accent:#3355d1; --accent-soft:#eaeeff;
+    --ok:#137a3c; --warn:#96610a; --bad:#b3261e; --mark:#fff3b8;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#111317; --panel:#181b21; --ink:#e6e8ec; --dim:#9aa3b0; --faint:#78808d;
+           --line:#282d36; --line-soft:#20242b; --accent:#8aa4ff; --accent-soft:#1c2340;
+           --ok:#5fd08a; --warn:#e0aa5a; --bad:#ff8a80; --mark:#5a4a12; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;}
+  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+         padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);}
+  .brand{font-weight:650;letter-spacing:-.01em;font-size:15px;white-space:nowrap}
+  .brand small{font-weight:400;color:var(--faint);margin-left:8px;font-size:12px}
+  .repos{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+  .repos button{font:inherit;font-size:13px;padding:4px 11px;border-radius:7px;cursor:pointer;
+                border:1px solid var(--line);background:transparent;color:var(--dim);white-space:nowrap}
+  .repos button:hover{border-color:var(--accent);color:var(--ink)}
+  .repos button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+  .repos .dot{color:var(--ok);margin-left:5px;font-size:10px;vertical-align:1px}
+  .right{margin-left:auto;display:flex;align-items:center;gap:12px}
+  .lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .lang button{font:inherit;font-size:12px;padding:4px 10px;border:0;cursor:pointer;background:transparent;color:var(--dim)}
+  .lang button.on{background:var(--accent);color:#fff}
+  .tick{font-size:12px;color:var(--faint);white-space:nowrap}
+
+  main{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:16px;padding:16px 18px 40px;align-items:start}
+  @media (max-width:1080px){ main{grid-template-columns:minmax(0,1fr)} aside{position:static !important} }
+  section{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .head{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+  .head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+  .body{padding:13px}
+  aside{position:sticky;top:57px;display:flex;flex-direction:column;gap:16px}
+
+  .tabs{display:flex;gap:4px;flex-wrap:wrap}
+  .tabs button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:6px;border:1px solid transparent;
+               background:transparent;color:var(--dim);cursor:pointer}
+  .tabs button:hover{color:var(--ink)}
+  .tabs button.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}
+  .tabs button[disabled]{opacity:.38;cursor:default}
+  .filter{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .filter input{font:inherit;font-size:12.5px;padding:4px 9px;width:210px;border:1px solid var(--line);
+                border-radius:7px;background:var(--bg);color:var(--ink)}
+  .filter input:focus{outline:none;border-color:var(--accent)}
+  .filter .count{font-size:11.5px;color:var(--faint);white-space:nowrap}
+
+  pre.raw{margin:0;padding:11px 13px 15px;max-height:calc(100vh - 190px);overflow:auto;
+          font-family:var(--mono);font-size:12.2px;line-height:1.62;white-space:pre;tab-size:4}
+  pre.raw .sec{display:block;color:var(--accent);font-weight:600;
+               border-left:3px solid var(--accent);margin:11px 0 4px;padding-left:9px;background:var(--accent-soft)}
+  pre.raw .sec:first-child{margin-top:0}
+  pre.raw .cmt{color:var(--faint)}
+  pre.raw mark{background:var(--mark);color:inherit;border-radius:2px}
+  .empty{padding:22px 13px;color:var(--faint);font-size:13px}
+
+  dl.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px;margin:0;font-size:13px}
+  dl.kv dt{color:var(--dim);white-space:nowrap}
+  dl.kv dd{margin:0;overflow-wrap:anywhere}
+  .mono{font-family:var(--mono);font-size:11.8px}
+  .tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11.5px;font-weight:600;border:1px solid currentColor}
+  .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .dim{color:var(--dim)} .faint{color:var(--faint)}
+  .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:var(--ok);border-radius:3px}
+  .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
+
+  .step{border:1px solid var(--line);border-radius:9px;padding:10px 11px;margin-bottom:10px;background:var(--bg)}
+  .step:last-child{margin-bottom:0}
+  .step .lbl{font-size:12px;color:var(--dim);margin-bottom:7px;line-height:1.45}
+  .step code,.step pre{display:block;font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--panel);
+        border:1px solid var(--line);border-radius:7px;padding:8px 9px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+  .step .act{display:flex;justify-content:flex-end;margin-top:7px}
+  button.copy{font:inherit;font-size:11.5px;padding:3px 11px;border-radius:6px;border:1px solid var(--line);
+              background:var(--panel);color:var(--accent);cursor:pointer}
+  button.copy:hover{border-color:var(--accent)}
+  button.copy.done{color:var(--ok);border-color:var(--ok)}
+
+  ul.flat{list-style:none;margin:0;padding:0;font-size:12.5px}
+  ul.flat li{padding:3px 0;display:flex;gap:8px;align-items:baseline}
+  ul.flat li .k{color:var(--dim);min-width:74px}
+  .drift{font-family:var(--mono);font-size:11.6px;color:var(--warn);overflow-wrap:anywhere}
+  table.proc{width:100%;border-collapse:collapse;font-size:12px}
+  table.proc td{padding:3px 0;vertical-align:top} table.proc td:first-child{color:var(--dim);padding-right:10px;white-space:nowrap}
 </style>
 </head>
 <body>
 <header>
-  <h1 id="title">AOCI</h1>
-  <div class="tabs" id="tabs"></div>
-  <span id="status"></span>
+  <div class="brand" id="brand">AOCI</div>
+  <div class="repos" id="repos"></div>
+  <div class="right">
+    <div class="lang" id="lang"></div>
+    <span class="tick" id="tick"></span>
+  </div>
 </header>
-<main id="main"></main>
-<script id="aoci-strings">window.AOCI_STRINGS = __AOCI_STRINGS__;</script>
+<main>
+  <section id="index-pane">
+    <div class="head">
+      <h2 id="index-title"></h2>
+      <div class="tabs" id="asset-tabs"></div>
+      <div class="filter">
+        <input id="filter" autocomplete="off">
+        <span class="count" id="filter-count"></span>
+      </div>
+    </div>
+    <div id="raw-host"><div class="empty" id="raw-empty"></div></div>
+  </section>
+  <aside>
+    <section><div class="head"><h2 id="status-title"></h2></div><div class="body" id="status"></div></section>
+    <section><div class="head"><h2 id="command-title"></h2></div><div class="body" id="commands"></div></section>
+    <section><div class="head"><h2 id="env-title"></h2></div><div class="body" id="env"></div></section>
+  </aside>
+</main>
+<script id="aoci-data">window.AOCI_I18N = __AOCI_I18N__; window.AOCI_LOCALE = "__AOCI_LANG__";</script>
 <script>
-(function () {
-  const S = window.AOCI_STRINGS || {};
-  const t = (k) => S[k] || k;
-  const $ = (sel) => document.querySelector(sel);
-  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const num = (n) => Number(n || 0).toLocaleString();
-  let repos = [], current = null, etag = "", timer = null, entryFilter = { q: "", c: "", e: "" };
+(function(){
+  const I18N = window.AOCI_I18N || {};
+  let locale = localStorage.getItem("aoci.locale") || window.AOCI_LOCALE || "en-US";
+  if (!I18N[locale]) locale = Object.keys(I18N)[0] || "en-US";
+  // Placeholders are {a}/{b}/{c} rather than printf verbs: these strings are
+  // returned verbatim by the server and filled here, so the catalog never
+  // carries a format string the Go side would have to satisfy.
+  const t = (k, ...a) => { let s = (I18N[locale] || {})[k] || k;
+    ["{a}","{b}","{c}"].forEach((tok, i) => { if (a[i] !== undefined) s = s.split(tok).join(a[i]); }); return s; };
+  const $ = id => document.getElementById(id);
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const num = n => Number(n || 0).toLocaleString();
+  const LOCALE_NAMES = {"zh-CN":"中文","en-US":"English"};
 
-  document.title = t("ui.page.title");
-  $("#title").textContent = t("ui.page.title");
+  let repos = [], current = null, snap = null, etag = "", asset = "code", filter = "";
+  const rawCache = new Map();
 
-  async function loadRepos() {
-    const r = await fetch("/api/repos"); repos = await r.json();
-    if (!current && repos.length) current = repos[0].root;
-    renderTabs();
+  function setLocale(next){
+    locale = next; localStorage.setItem("aoci.locale", next);
+    document.documentElement.lang = next;
+    document.title = t("ui.page.title");
+    renderChrome(); renderAll();
   }
-  function renderTabs() {
-    const box = $("#tabs"); box.innerHTML = "";
-    for (const repo of repos) {
-      const b = document.createElement("button");
-      b.textContent = repo.name + (repo.running ? " ●" : "");
-      b.title = repo.root; b.className = repo.root === current ? "active" : "";
-      b.onclick = () => { current = repo.root; etag = ""; renderTabs(); refresh(true); };
-      box.appendChild(b);
-    }
+  function renderChrome(){
+    $("brand").innerHTML = esc(t("ui.page.title")) + (snap ? ` <small>${esc(snap.binary_version || "")}</small>` : "");
+    $("lang").innerHTML = Object.keys(I18N).map(l =>
+      `<button data-loc="${esc(l)}" class="${l===locale?"on":""}">${esc(LOCALE_NAMES[l]||l)}</button>`).join("");
+    $("lang").querySelectorAll("button").forEach(b => b.onclick = () => setLocale(b.dataset.loc));
+    $("index-title").textContent = t("ui.page.index_pane");
+    $("status-title").textContent = t("ui.page.status_pane");
+    $("command-title").textContent = t("ui.page.command_pane");
+    $("env-title").textContent = t("ui.page.env_pane");
+    $("filter").placeholder = t("ui.page.filter");
+    $("repos").innerHTML = repos.map(r =>
+      `<button data-root="${esc(r.root)}" class="${r.root===current?"on":""}" title="${esc(r.root)}">${esc(r.name)}${r.running?`<span class="dot">●</span>`:""}</button>`).join("");
+    $("repos").querySelectorAll("button").forEach(b => b.onclick = () => {
+      current = b.dataset.root; etag = ""; snap = null; rawCache.clear(); renderChrome(); refresh(true);
+    });
   }
-  async function refresh(force) {
+
+  async function loadRepos(){
+    try { repos = await (await fetch("/api/repos")).json(); } catch(e){ return; }
+    if (!current || !repos.some(r => r.root === current)) current = repos.length ? repos[0].root : null;
+  }
+  async function refresh(force){
     if (!current) return;
-    const headers = etag && !force ? { "If-None-Match": etag } : {};
     let r;
-    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), { headers }); }
-    catch (e) { $("#status").textContent = t("ui.page.disconnected"); return; }
-    if (r.status === 304) { $("#status").textContent = t("ui.page.up_to_date"); return; }
-    etag = r.headers.get("ETag") || "";
-    const snap = await r.json();
-    render(snap);
-    $("#status").textContent = t("ui.page.refreshed") + " " + new Date().toLocaleTimeString();
+    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
+    catch(e){ $("tick").textContent = t("ui.page.disconnected"); return; }
+    if (r.status === 304){ $("tick").textContent = t("ui.page.up_to_date"); return; }
+    etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
+    $("tick").textContent = t("ui.page.refreshed") + " " + new Date().toLocaleTimeString();
+    renderChrome(); renderAll();
   }
-  function copyButton(text) { return `<button class="copy" data-copy="${esc(text)}">${esc(t("ui.page.copy"))}</button>`; }
-  function stateClass(v) { return v === "aligned" || v === true ? "ok" : v === "blocked" || v === false ? "bad" : "warn"; }
 
-  function render(s) {
-    const m = $("#main"); const f = s.facts || {}; const parts = [];
-    // identity
-    parts.push(`<section class="wide"><h2>${esc(t("ui.page.identity"))}</h2><dl>
-      <dt>${esc(t("ui.page.repository"))}</dt><dd><code>${esc(s.root)}</code></dd>
-      <dt>${esc(t("ui.page.layout"))}</dt><dd>${esc(s.layout || "-")}${s.error ? ` <span class="bad">${esc(s.error)}</span>` : ""}</dd>
-      <dt>${esc(t("ui.page.binary"))}</dt><dd><code>${esc(s.binary_version)}</code></dd>
-      <dt>${esc(t("ui.page.composite_identity"))}</dt><dd><code>${esc(s.composite_identity || "-")}</code></dd>
-      <dt>${esc(t("ui.page.governance"))}</dt><dd><span class="pill ${stateClass(f.result)}">${esc(f.result || "-")}</span> ${f.governance_aligned ? "" : `<span class="warn">${esc(f.next_required_action || "")}</span>`}</dd>
-    </dl></section>`);
-    // suggestions
-    parts.push(`<section class="wide"><h2>${esc(t("ui.page.suggestions"))}</h2>` +
-      (s.suggestions && s.suggestions.length ? s.suggestions.map(x => `<div class="suggest"><div class="muted">${esc(x.label)}</div>${x.command ? `<code>${esc(x.command)}</code>${copyButton(x.command)}` : ""}${x.prompt ? `<pre>${esc(x.prompt)}</pre>${copyButton(x.prompt)}` : ""}${x.note ? `<div class="muted">${esc(x.note)}</div>` : ""}</div>`).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`) + `</section>`);
-    // code index
-    const b = f.budget || {}; const pct = b.max_tokens ? Math.min(100, Math.round(100 * (b.whole_index_tokens || 0) / b.max_tokens)) : 0;
-    const chunk = s.chunk_plan || {};
-    parts.push(`<section><h2>${esc(t("ui.page.code_index"))}</h2><dl>
-      <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.code_entry_count)} / ${num(f.code_source_count)} ${esc(t("ui.page.sources"))}</dd>
-      <dt>${esc(t("ui.page.size"))}</dt><dd>${num(s.assets && s.assets.code ? s.assets.code.bytes : 0)} B · ${num(s.assets && s.assets.code ? s.assets.code.lines : 0)} ${esc(t("ui.page.lines"))}</dd>
-      <dt>${esc(t("ui.page.tokens"))}</dt><dd>${num(b.whole_index_tokens)} / ${num(b.max_tokens)} <span class="muted">(${esc(b.status || "-")}, ${esc(b.mode || "-")})</span><div class="bar"><i style="width:${pct}%"></i></div></dd>
-      <dt>${esc(t("ui.page.chunks"))}</dt><dd>${num(chunk.chunk_count)} × ${num(chunk.chunk_tokens)} ${esc(t("ui.page.tokens_per_chunk"))}${chunk.largest_chunk_bytes ? ` <span class="muted">(${esc(t("ui.page.largest"))} ${num(chunk.largest_chunk_bytes)} B)</span>` : ""}</dd>
-    </dl></section>`);
-    // database index
-    const d = f.database_cognition || {}; const ds = d.summary || {}; const de = f.database_evidence || {};
-    parts.push(`<section><h2>${esc(t("ui.page.database_index"))}</h2>` + (d.configured_sources ? `<dl>
-      <dt>${esc(t("ui.page.sources"))}</dt><dd>${num(d.configured_sources)} · ${esc(t("ui.page.evidence"))} ${esc(de.state || "-")}</dd>
-      <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.database_entry_count)} (${esc(t("ui.page.bindings"))} ${num(f.database_binding_count)})</dd>
-      <dt>${esc(t("ui.page.items"))}</dt><dd>current ${num(ds.current)} · missing ${num(ds.missing)} · stale ${num(ds.stale)} · orphan ${num(ds.orphan)} · unbaselined ${num(ds.unbaselined)}</dd>
-      <dt>${esc(t("ui.page.next"))}</dt><dd>${esc(d.next_action || "-")}</dd></dl>` : `<div class="muted">${esc(t("ui.page.database_unset"))}</div>`) + `</section>`);
-    // governance
-    const dr = f.code_drift || {}; const ms = f.managed_scope || {};
-    const list = (name, arr) => (arr && arr.length) ? `<li><span class="warn">${esc(name)}</span> (${arr.length}): <code>${esc(arr.slice(0, 20).join(", "))}${arr.length > 20 ? " …" : ""}</code></li>` : "";
-    parts.push(`<section class="wide"><h2>${esc(t("ui.page.governance"))}</h2><dl>
-      <dt>${esc(t("ui.page.scope"))}</dt><dd>index ${num(ms.index_count)} · observe ${num(ms.observe_count)} · exclude ${num(ms.exclude_count)} · ${esc(t("ui.page.observed_pending"))} ${num(ms.observed_pending_review)}${ms.scope_change_required ? ` <span class="bad">scope_change_required</span>` : ""}</dd>
-      <dt>${esc(t("ui.page.recovery"))}</dt><dd>${f.recovery_pending ? `<span class="bad">${esc(t("ui.page.recovery_pending"))}</span>` : `<span class="ok">${esc(t("ui.page.none"))}</span>`} · ${esc(t("ui.page.pending_transactions"))} ${num(f.pending_transactions)}</dd>
-    </dl><ul class="plain">${list("missing", dr.missing)}${list("stale", dr.stale)}${list("orphan", dr.orphan)}${list("unbaselined", dr.unbaselined)}${list("observed_new", dr.observed_new)}${list("observed_changed", dr.observed_changed)}${list("observed_removed", dr.observed_removed)}</ul></section>`);
-    // running servers + integrations
-    const inst = s.running || []; const ig = s.integrations || {};
-    parts.push(`<section><h2>${esc(t("ui.page.running_servers"))}</h2>` + (inst.length ? `<table><tr><th>PID</th><th>${esc(t("ui.page.binary"))}</th><th>${esc(t("ui.page.started"))}</th></tr>` + inst.map(i => `<tr><td>${i.pid}</td><td><code>${esc(i.executable || "?")}</code>${i.executable_replaced_on_disk ? ` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>` : ""}</td><td>${esc(i.started_at || "")}</td></tr>`).join("") + `</table>` : `<div class="muted">${esc(t("ui.page.no_running_server"))}</div>`) +
-      `<h2 style="margin-top:.8rem">${esc(t("ui.page.integrations"))}</h2><ul class="plain">` + ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","agents_block"].map(k => `<li><span class="${ig[k] ? "ok" : "muted"}">${ig[k] ? "●" : "○"}</span> ${esc(t("ui.page.integration." + k))}</li>`).join("") + `</ul></section>`);
-    // header raw
-    parts.push(`<section><h2>${esc(t("ui.page.index_header"))}</h2><pre>${esc(s.root_text || "")}</pre><pre>${esc(s.meta_text || "")}</pre></section>`);
-    // entries
-    parts.push(`<section class="wide"><h2>${esc(t("ui.page.entries"))}</h2><div class="controls">
-      <input id="q" placeholder="${esc(t("ui.page.search"))}" value="${esc(entryFilter.q)}">
-      <select id="c"><option value="">C *</option>${[9,8,7,5,3,1].map(v => `<option ${entryFilter.c == v ? "selected" : ""}>${v}</option>`).join("")}</select>
-      <select id="e"><option value="">E *</option>${["L","M","S","T"].map(v => `<option ${entryFilter.e == v ? "selected" : ""}>${v}</option>`).join("")}</select>
-      <span id="entries-count" class="muted"></span></div><div id="entries"></div></section>`);
-    m.innerHTML = parts.join("");
-    m.querySelectorAll("button.copy").forEach(b => b.onclick = () => navigator.clipboard && navigator.clipboard.writeText(b.dataset.copy));
-    $("#q").oninput = (ev) => { entryFilter.q = ev.target.value; loadEntries(); };
-    $("#c").onchange = (ev) => { entryFilter.c = ev.target.value; loadEntries(); };
-    $("#e").onchange = (ev) => { entryFilter.e = ev.target.value; loadEntries(); };
-    loadEntries();
+  function renderAll(){ renderTabs(); renderRaw(); renderStatus(); renderCommands(); renderEnv(); }
+
+  const ASSETS = [["root","ui.page.tab_root"],["meta","ui.page.tab_meta"],["code","ui.page.tab_code"],["database","ui.page.tab_database"]];
+  function present(id){ return !!(snap && snap.assets && snap.assets[id] && snap.assets[id].state === "present"); }
+  function renderTabs(){
+    if (!present(asset)) { const first = ASSETS.map(a=>a[0]).find(present); if (first) asset = first; }
+    $("asset-tabs").innerHTML = ASSETS.map(([id,key]) =>
+      `<button data-a="${id}" class="${id===asset?"on":""}" ${present(id)?"":"disabled"}>${esc(t(key))}</button>`).join("");
+    $("asset-tabs").querySelectorAll("button:not([disabled])").forEach(b =>
+      b.onclick = () => { asset = b.dataset.a; renderTabs(); renderRaw(); });
   }
-  async function loadEntries() {
-    const u = new URLSearchParams({ repo: current, q: entryFilter.q, c: entryFilter.c, e: entryFilter.e });
-    const r = await fetch("/api/entries?" + u.toString()); const data = await r.json();
-    $("#entries-count").textContent = num(data.matched) + " / " + num(data.total);
-    $("#entries").innerHTML = `<table><tr><th>${esc(t("ui.page.path"))}</th><th>Tag</th><th>F</th><th>S</th></tr>` +
-      (data.entries || []).slice(0, 500).map(e => `<tr><td><code>${esc(e.path)}</code></td><td><code>${esc(e.tag)}</code></td><td>${esc(e.f)}</td><td class="muted">${esc(e.s)}</td></tr>`).join("") + `</table>`;
+  async function rawText(id){
+    if (rawCache.has(id)) return rawCache.get(id);
+    const r = await fetch(`/api/raw?repo=${encodeURIComponent(current)}&asset=${id}`);
+    const text = r.ok ? await r.text() : "";
+    rawCache.set(id, text); return text;
   }
-  loadRepos().then(() => refresh(true));
-  timer = setInterval(async () => { await loadRepos(); await refresh(false); }, 2500);
+  // The Volume is shown exactly as it is on disk. Section markers keep their
+  // === form and are only tinted, never rewritten; a filter keeps the section
+  // marker above every line it retains so a match never loses its directory.
+  async function renderRaw(){
+    const host = $("raw-host");
+    if (!snap || !present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent=""; return; }
+    const text = await rawText(asset);
+    const lines = text.replace(/\n$/, "").split("\n");
+    const needle = filter.trim().toLowerCase();
+    let keep = lines.map(() => !needle), matches = 0;
+    if (needle){
+      lines.forEach((line, i) => { if (line.toLowerCase().includes(needle)){ keep[i] = true; matches++;
+        for (let j = i; j >= 0; j--) if (lines[j].startsWith("===")){ keep[j] = true; break; } } });
+    }
+    const html = lines.map((line, i) => {
+      if (!keep[i]) return null;
+      let cell = esc(line);
+      if (needle && line.toLowerCase().includes(needle)){
+        const at = line.toLowerCase().indexOf(needle);
+        cell = esc(line.slice(0, at)) + "<mark>" + esc(line.slice(at, at + needle.length)) + "</mark>" + esc(line.slice(at + needle.length));
+      }
+      if (line.startsWith("===")) return `<span class="sec">${cell}</span>`;
+      if (line.startsWith("#")) return `<span class="cmt">${cell}</span>`;
+      return cell;
+    }).filter(v => v !== null).join("\n");
+    host.innerHTML = `<pre class="raw">${html || esc(t("ui.page.no_match"))}</pre>`;
+    const info = snap.assets[asset];
+    $("filter-count").textContent = needle
+      ? t("ui.page.matched_lines", num(matches), num(lines.length))
+      : t("ui.page.asset_meta", num(info.objects), num(info.lines), num(info.bytes));
+  }
+
+  function renderStatus(){
+    if (!snap){ $("status").textContent = "…"; return; }
+    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, ms = f.managed_scope || {}, d = f.database_cognition || {};
+    const pct = b.max_tokens ? Math.min(100, Math.round(100 * (b.whole_index_tokens||0) / b.max_tokens)) : 0;
+    const cls = f.governance_aligned ? "ok" : (f.result === "blocked" ? "bad" : "warn");
+    const drift = f.code_drift || {};
+    const driftRow = ["missing","stale","orphan","unbaselined"].map(k => (drift[k]||[]).length ? `${k} ${(drift[k]||[]).length}` : null).filter(Boolean).join(" · ");
+    $("status").innerHTML = `
+      <dl class="kv">
+        <dt>${esc(t("ui.page.repository"))}</dt><dd class="mono">${esc(snap.root||"")}</dd>
+        <dt>${esc(t("ui.page.governance"))}</dt><dd><span class="tag ${cls}">${esc(f.result||snap.error||"-")}</span></dd>
+        <dt>${esc(t("ui.page.composite_identity"))}</dt><dd class="mono faint">${esc((snap.composite_identity||"").slice(0,24))}…</dd>
+        <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.code_entry_count)} / ${num(f.code_source_count)} ${esc(t("ui.page.sources"))}</dd>
+        <dt>${esc(t("ui.page.tokens"))}</dt><dd>${num(b.whole_index_tokens)} / ${num(b.max_tokens)} <span class="faint">${esc(b.status||"")}</span>
+            <div class="bar ${b.status==="healthy"?"":"warn"}"><i style="width:${pct}%"></i></div></dd>
+        <dt>${esc(t("ui.page.chunks"))}</dt><dd>${num(c.chunk_count)} × ${num(c.chunk_tokens)}</dd>
+        <dt>${esc(t("ui.page.scope"))}</dt><dd class="dim">${num(ms.index_count)} / ${num(ms.observe_count)} / ${num(ms.exclude_count)}</dd>
+        <dt>${esc(t("ui.page.database_index"))}</dt><dd>${d.configured_sources ? `${num(d.configured_sources)} ${esc(t("ui.page.sources"))} · ${num(f.database_entry_count)}` : `<span class="faint">${esc(t("ui.page.none"))}</span>`}</dd>
+        ${driftRow ? `<dt>${esc(t("ui.page.drift"))}</dt><dd class="drift">${esc(driftRow)}</dd>` : ""}
+        ${f.recovery_pending ? `<dt>${esc(t("ui.page.recovery"))}</dt><dd class="bad">${esc(t("ui.page.recovery_pending"))}</dd>` : ""}
+      </dl>`;
+  }
+
+  function stepHTML(s){
+    const payload = s.command || s.prompt || "";
+    return `<div class="step">
+      <div class="lbl">${esc(s.label||"")}</div>
+      ${s.command ? `<code>${esc(s.command)}</code>` : ""}
+      ${s.prompt ? `<pre>${esc(s.prompt)}</pre>` : ""}
+      ${s.note ? `<div class="lbl" style="margin:7px 0 0">${esc(s.note)}</div>` : ""}
+      ${payload ? `<div class="act"><button class="copy" data-copy="${esc(payload)}">${esc(t("ui.page.copy"))}</button></div>` : ""}
+    </div>`;
+  }
+  function renderCommands(){
+    const list = (snap && snap.suggestions) || [];
+    $("commands").innerHTML = list.length ? list.map(stepHTML).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`;
+    $("commands").querySelectorAll("button.copy").forEach(b => b.onclick = async () => {
+      try { await navigator.clipboard.writeText(b.dataset.copy); } catch(e) {}
+      const was = b.textContent; b.textContent = t("ui.page.copied"); b.classList.add("done");
+      setTimeout(() => { b.textContent = was; b.classList.remove("done"); }, 1400);
+    });
+  }
+  function renderEnv(){
+    if (!snap){ $("env").textContent = "…"; return; }
+    const running = snap.running || [], ig = snap.integrations || {};
+    const procs = running.length
+      ? `<table class="proc">` + running.map(i => `<tr><td>${i.pid}</td><td class="mono">${esc((i.executable||"").split("/").pop())}${i.executable_replaced_on_disk?` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>`:""}</td></tr>`).join("") + `</table>`
+      : `<div class="faint" style="font-size:12.5px">${esc(t("ui.page.no_running_server"))}</div>`;
+    const keys = ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","agents_block"];
+    $("env").innerHTML = procs + `<ul class="flat" style="margin-top:10px">` + keys.map(k =>
+      `<li><span class="${ig[k]?"ok":"faint"}">${ig[k]?"●":"○"}</span><span>${esc(t("ui.page.integration."+k))}</span></li>`).join("") + `</ul>`;
+  }
+
+  $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
+  document.documentElement.lang = locale;
+  (async () => { await loadRepos(); renderChrome(); await refresh(true); })();
+  setInterval(async () => { await loadRepos(); await refresh(false); }, 2500);
 })();
 </script>
 </body>
