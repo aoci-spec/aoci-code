@@ -29,6 +29,7 @@ git identity; the host repository is never written.
 import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
 
 from stdio_deadline import rpc_deadline
+from stdio_capture import BoundedStderr, stderr_failure
 
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REAL = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
@@ -104,6 +105,7 @@ class Session:
         self.p = subprocess.Popen([BIN, "--repo", repo, "mcp"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", bufsize=1)
+        self.stderr_capture = BoundedStderr(self.p.stderr)
         self.next_id = 1
         self.rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
                                 "clientInfo": {"name": "aoci-scenarios", "version": "1.0"}})
@@ -118,7 +120,7 @@ class Session:
             self.send_raw(json.dumps(msg))
             while True:
                 line = self.p.stdout.readline()
-                if not line: raise RuntimeError("server closed stdout")
+                if not line: raise RuntimeError(stderr_failure(getattr(self, "stderr_capture", None), "server closed stdout"))
                 line = line.rstrip("\n")
                 if not line: continue
                 try: obj = json.loads(line)
@@ -142,9 +144,11 @@ class Session:
     def kill(self):
         try: self.p.kill(); self.p.wait(timeout=5)
         except Exception: pass
+        finally: self.stderr_capture.finish()
     def close(self):
         try: self.p.stdin.close(); self.p.wait(timeout=10)
         except Exception: self.kill()
+        finally: self.stderr_capture.finish()
 
 def text_of(resp):
     if resp.get("error") is not None:

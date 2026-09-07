@@ -15,6 +15,8 @@ import hashlib, json, os, re, subprocess, sys
 
 from stdio_deadline import rpc_deadline
 
+from stdio_capture import BoundedStderr, stderr_failure
+
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPO = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -39,6 +41,7 @@ class Session:
         self.p = subprocess.Popen([BIN, "--repo", REPO, "mcp"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", bufsize=1)
+        self.stderr_capture = BoundedStderr(self.p.stderr)
         self.next_id = 1
         self.nonjson_stdout = []
     def send_raw(self, line):
@@ -52,7 +55,7 @@ class Session:
             while True:
                 line = self.p.stdout.readline()
                 if not line:
-                    raise RuntimeError("server closed stdout")
+                    raise RuntimeError(stderr_failure(getattr(self, "stderr_capture", None), "server closed stdout"))
                 line = line.rstrip("\n")
                 if not line: continue
                 try:
@@ -82,6 +85,8 @@ class Session:
             self.p.stdin.close(); self.p.wait(timeout=10)
         except Exception:
             self.p.kill()
+        finally:
+            self.stderr_capture.finish()
 
 def text_of(resp):
     r = resp.get("result") or {}
