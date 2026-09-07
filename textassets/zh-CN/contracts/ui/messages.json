@@ -1674,5 +1674,20 @@
   "ui.page.stat_size": "{a} KiB",
   "ui.page.stat_chunks": "{a} 块 × {b}K",
   "ui.page.copy_failed": "复制失败，请选中文本手动复制",
-  "ui.page.integrations": "宿主接入"
+  "ui.page.integrations": "宿主接入",
+  "ui.page.index_label": "索引",
+  "ui.page.cov_label": "覆盖代码",
+  "ui.page.db_label": "数据库",
+  "ui.page.cov_files": "{a} 个文件",
+  "ui.page.cov_lines": "≈ {a} 万行",
+  "ui.page.cov_lines_small": "{a} 行",
+  "ui.page.cov_tokens": "≈ {a}K tokens",
+  "ui.page.cov_ratio": "压缩比 {a} : 1",
+  "ui.page.cov_unreadable": "{a} 个无法读取",
+  "ui.page.cov_hint": "索引中每个 Code 对象对应的源文件：行数实际统计，token 按 UTF-8 字节 ÷ 3，与索引同一估算法",
+  "ui.page.ratio_hint": "源码 token ÷ 索引 token",
+  "ui.page.db_tables": "{a} 张表",
+  "ui.page.db_none": "未配置数据库",
+  "ui.page.coverage": "覆盖",
+  "ui.page.ratio": "压缩比"
 }

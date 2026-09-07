@@ -94,8 +94,17 @@ func TestStateReportsTheSharedGovernanceFacts(t *testing.T) {
 	if !strings.Contains(snapshot.RootText, cognition.RootManifestMarker) || !strings.Contains(snapshot.MetaText, cognition.MetaVolumeMarker) {
 		t.Fatalf("header texts missing")
 	}
-	if len(snapshot.Suggestions) == 0 {
-		t.Fatalf("a repository always gets at least the recall prompt")
+	for _, locale := range []string{"en-US", "zh-CN"} {
+		if len(snapshot.Suggestions[locale]) == 0 {
+			t.Fatalf("no %s suggestions", locale)
+		}
+	}
+	if snapshot.Suggestions["en-US"][0].Label == snapshot.Suggestions["zh-CN"][0].Label {
+		t.Fatalf("suggestions are not localized per locale")
+	}
+	// Coverage is measured from the indexed sources on disk, never guessed.
+	if c := snapshot.Coverage; c == nil || c.Files == 0 || c.Lines == 0 || c.Unreadable != 0 || c.EstimatedTokens != c.Bytes/3 || c.IndexTokens == 0 {
+		t.Fatalf("coverage not measured: %+v", snapshot.Coverage)
 	}
 	for _, key := range []string{"claude_mcp", "claude_hook", "codex_mcp", "opencode_mcp", "agents_block"} {
 		if _, present := snapshot.Integrations[key]; !present {

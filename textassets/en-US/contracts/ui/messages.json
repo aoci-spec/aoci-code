@@ -1674,5 +1674,20 @@
   "ui.page.stat_size": "{a} KiB",
   "ui.page.stat_chunks": "{a} chunks × {b}K",
   "ui.page.copy_failed": "Copy failed — select the text and copy it",
-  "ui.page.integrations": "Integrations"
+  "ui.page.integrations": "Integrations",
+  "ui.page.index_label": "Index",
+  "ui.page.cov_label": "Covered source",
+  "ui.page.db_label": "Database",
+  "ui.page.cov_files": "{a} files",
+  "ui.page.cov_lines": "≈ {a}K lines",
+  "ui.page.cov_lines_small": "{a} lines",
+  "ui.page.cov_tokens": "≈ {a}K tokens",
+  "ui.page.cov_ratio": "compression {a} : 1",
+  "ui.page.cov_unreadable": "{a} unreadable",
+  "ui.page.cov_hint": "Every Code object's source file: lines counted, tokens as UTF-8 bytes ÷ 3, the same estimator the index uses",
+  "ui.page.ratio_hint": "source tokens ÷ index tokens",
+  "ui.page.db_tables": "{a} tables",
+  "ui.page.db_none": "no database configured",
+  "ui.page.coverage": "Coverage",
+  "ui.page.ratio": "Ratio"
 }

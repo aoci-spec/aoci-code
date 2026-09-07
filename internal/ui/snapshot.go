@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
+	"github.com/aoci-spec/aoci-code/internal/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -70,7 +73,8 @@ type Snapshot struct {
 	Guide             any                         `json:"guide,omitempty"`
 	Integrations      map[string]bool             `json:"integrations"`
 	Running           []Instance                  `json:"running"`
-	Suggestions       []Suggestion                `json:"suggestions"`
+	Coverage          *Coverage                   `json:"coverage,omitempty"`
+	Suggestions       map[string][]Suggestion     `json:"suggestions"`
 }
 
 // buildSnapshot reads the repository exactly as the read-only CLI commands do:
@@ -79,7 +83,7 @@ type Snapshot struct {
 // server at any time.
 func buildSnapshot(root string, options Options, running []Instance) (Snapshot, []EntryView) {
 	snapshot := Snapshot{Root: root, Name: filepath.Base(root), GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		BinaryVersion: options.BinaryVersion, Integrations: map[string]bool{}, Running: running, Suggestions: []Suggestion{}}
+		BinaryVersion: options.BinaryVersion, Integrations: map[string]bool{}, Running: running, Suggestions: map[string][]Suggestion{}}
 	snapshot.Integrations = map[string]bool{
 		"claude_mcp": hooks.IsClaudeMCPInstalled(root), "claude_hook": hooks.IsClaudeHookInstalled(root),
 		"codex_mcp": hooks.IsCodexMCPInstalled(root), "opencode_mcp": hooks.IsOpenCodeMCPInstalled(root),
@@ -129,8 +133,72 @@ func buildSnapshot(root string, options Options, running []Instance) (Snapshot, 
 			snapshot.Guide = guide
 		}
 	}
-	snapshot.Suggestions = suggestions(options.Locale, facts, snapshot.Guide)
+	indexTokens := facts.Budget.WholeIndexTokens
+	if snapshot.ChunkPlan != nil && snapshot.ChunkPlan.EstimatedTokens > 0 {
+		indexTokens = snapshot.ChunkPlan.EstimatedTokens
+	}
+	snapshot.Coverage = measureCoverage(root, set, indexTokens)
+	// Every official locale gets its own suggestion set so the page can switch
+	// language without a round trip; the server's locale is only the default.
+	snapshot.Suggestions = map[string][]Suggestion{}
+	for _, locale := range pageLocales() {
+		snapshot.Suggestions[locale] = suggestions(locale, facts, snapshot.Guide)
+	}
 	return snapshot, entryViews(set)
+}
+
+// pageLocales lists the locales the page ships. Every official locale carries
+// the complete catalog, so a missing one would blank a live panel.
+func pageLocales() []string {
+	if manifest, err := textassets.ReadManifest(); err == nil && len(manifest.OfficialLocales) > 0 {
+		return manifest.OfficialLocales
+	}
+	return []string{textassets.DefaultLocale}
+}
+
+// Coverage measures the source the Code Volume stands for: each Code object's
+// file on disk, lines counted and tokens estimated the way the index itself is
+// measured, so the ratio between the two compares like with like.
+type Coverage struct {
+	Files           int     `json:"files"`
+	Lines           int     `json:"lines"`
+	Bytes           int     `json:"bytes"`
+	EstimatedTokens int     `json:"estimated_tokens"`
+	Unreadable      int     `json:"unreadable"`
+	IndexTokens     int     `json:"index_tokens"`
+	Ratio           float64 `json:"ratio"`
+}
+
+// measureCoverage reads only: it stats and streams each indexed source. A file
+// that cannot be read is counted as unreadable rather than guessed, so the
+// published line count is never larger than what was actually measured.
+func measureCoverage(root string, set *cognition.Set, indexTokens int) *Coverage {
+	asset := set.Volumes[cognition.ScopeCode]
+	if asset == nil {
+		return nil
+	}
+	cov := &Coverage{IndexTokens: indexTokens}
+	for _, object := range asset.Objects {
+		full := filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(object.CanonicalRef, "code:")))
+		info, err := os.Stat(full)
+		if err != nil || !info.Mode().IsRegular() {
+			cov.Unreadable++
+			continue
+		}
+		lines, err := fs.CountFileLines(full)
+		if err != nil {
+			cov.Unreadable++
+			continue
+		}
+		cov.Files++
+		cov.Lines += lines
+		cov.Bytes += int(info.Size())
+	}
+	cov.EstimatedTokens = cognitionbudget.EstimateTokensOfSize(cov.Bytes)
+	if indexTokens > 0 {
+		cov.Ratio = float64(int(float64(cov.EstimatedTokens)/float64(indexTokens)*10+0.5)) / 10
+	}
+	return cov
 }
 
 func assetInfo(asset cognition.Asset) AssetInfo {

@@ -64,6 +64,9 @@ var pageStringKeys = []string{
 	"ui.page.interval_5m", "ui.page.interval_manual", "ui.page.tokens_estimate", "ui.page.tokens_hint",
 	"ui.page.stat_objects", "ui.page.stat_lines", "ui.page.stat_size", "ui.page.stat_chunks",
 	"ui.page.copy_failed", "ui.page.integrations",
+	"ui.page.index_label", "ui.page.cov_label", "ui.page.cov_files", "ui.page.cov_lines", "ui.page.cov_lines_small",
+	"ui.page.cov_tokens", "ui.page.cov_ratio", "ui.page.cov_unreadable", "ui.page.cov_hint", "ui.page.ratio_hint",
+	"ui.page.db_label", "ui.page.db_tables", "ui.page.db_none", "ui.page.coverage", "ui.page.ratio",
 }
 
 type server struct {
@@ -145,10 +148,7 @@ func appendRoot(roots []string, candidate string) []string {
 // locale as the default. Switching language is then a client-side choice that
 // needs no restart and no second request.
 func renderPage(locale string) string {
-	locales := []string{textassets.DefaultLocale}
-	if manifest, err := textassets.ReadManifest(); err == nil && len(manifest.OfficialLocales) > 0 {
-		locales = manifest.OfficialLocales
-	}
+	locales := pageLocales()
 	catalogs := map[string]map[string]string{}
 	for _, candidate := range locales {
 		bundle := map[string]string{}

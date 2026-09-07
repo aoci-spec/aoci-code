@@ -10,7 +10,7 @@
     --line:#e3e6eb; --line-soft:#edf0f3; --accent:#3153cc; --accent-soft:#e9edfc;
     --ok:#157a3d; --warn:#9a640a; --bad:#b4261f; --mark:#fff2ad;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
-    --radius:10px; --gap:16px; --pad:14px; --head-h:44px; --aside-w:392px;
+    --radius:10px; --gap:16px; --pad:14px; --head-h:44px; --aside-w:400px;
   }
   @media (prefers-color-scheme:dark){
     :root{ --bg:#101216; --panel:#171a20; --ink:#e5e7eb; --dim:#98a1ae; --faint:#737b88;
@@ -18,7 +18,6 @@
            --ok:#5ecf88; --warn:#e2ab58; --bad:#ff8a80; --mark:#5b4a10; }
   }
   *{box-sizing:border-box}
-  html{scroll-padding-top:120px}
   body{margin:0;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums;
        font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;}
   button,select,input{font:inherit;color:inherit}
@@ -26,7 +25,7 @@
   /* ---------- header: controls row + stats row, both sticky ---------- */
   header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
   .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 18px;min-height:var(--head-h)}
-  .row.stats{border-top:1px solid var(--line-soft);min-height:40px;gap:18px}
+  .row.stats{border-top:1px solid var(--line-soft);min-height:42px;gap:0;padding:4px 18px}
   .brand{font-weight:650;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
   .brand small{font-weight:400;color:var(--faint);margin-left:8px;font-size:12px;font-family:var(--mono)}
   .repos{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
@@ -44,21 +43,26 @@
   .lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;height:28px}
   .lang button{font-size:12px;padding:0 10px;border:0;cursor:pointer;background:transparent;color:var(--dim)}
   .lang button.on{background:var(--accent);color:#fff}
-  .tokens{font-size:20px;font-weight:650;letter-spacing:-.02em;white-space:nowrap;line-height:1}
-  .tokens.warn{color:var(--warn)} .tokens.bad{color:var(--bad)}
-  .stat{font-size:12.5px;color:var(--dim);white-space:nowrap}
-  .stat b{color:var(--ink);font-weight:600}
-  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
-  .tick{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap}
 
-  /* ---------- two panes: index left, sticky column right ---------- */
+  /* stats strip: labelled groups separated by hairlines */
+  .grp{display:inline-flex;align-items:baseline;gap:10px;padding:4px 16px 4px 0;margin-right:16px;border-right:1px solid var(--line);white-space:nowrap}
+  .grp:last-of-type{border-right:0}
+  .grp .lbl{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-right:2px}
+  .tokens{font-size:19px;font-weight:650;letter-spacing:-.02em;line-height:1}
+  .tokens.warn{color:var(--warn)} .tokens.bad{color:var(--bad)}
+  .stat{font-size:12.5px;color:var(--dim)}
+  .stat b{color:var(--ink);font-weight:600}
+  .tick{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap;padding:4px 0}
+
+  /* ---------- two panes: index left, self-scrolling sticky column right ---------- */
   main{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w);gap:var(--gap);padding:var(--gap) 18px 48px;align-items:start}
-  @media (max-width:1100px){ main{grid-template-columns:minmax(0,1fr)} aside{position:static !important} }
-  section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  @media (max-width:1100px){ main{grid-template-columns:minmax(0,1fr)} aside{position:static !important;max-height:none !important} }
+  section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;flex-shrink:0}
   .head{display:flex;align-items:center;gap:12px;min-height:var(--head-h);padding:6px var(--pad);border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
   .head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
   .body{padding:var(--pad)}
-  aside{position:sticky;display:flex;flex-direction:column;gap:var(--gap)}
+  aside{position:sticky;display:flex;flex-direction:column;gap:var(--gap);overflow-y:auto;overscroll-behavior:contain;
+        scrollbar-gutter:stable;padding-right:4px;margin-right:-4px}
 
   .tabs{display:flex;gap:4px;flex-wrap:wrap}
   .tabs button{font-size:12.5px;padding:3px 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;line-height:1.5}
@@ -134,8 +138,8 @@
     <div id="raw-host"><div class="empty" id="raw-empty"></div></div>
   </section>
   <aside id="aside">
-    <section><div class="head"><h2 id="status-title"></h2></div><div class="body" id="status"></div></section>
     <section><div class="head"><h2 id="command-title"></h2></div><div class="body" id="commands"></div></section>
+    <section><div class="head"><h2 id="status-title"></h2></div><div class="body" id="status"></div></section>
     <section><div class="head"><h2 id="env-title"></h2></div><div class="body" id="env"></div></section>
   </aside>
 </main>
@@ -155,8 +159,12 @@
   const $ = id => document.getElementById(id);
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const num = n => Number(n || 0).toLocaleString();
-  const kilo = n => (Number(n || 0) / 1000).toFixed(1);
+  const kilo = n => { const k = Number(n || 0) / 1000; return k >= 100 ? k.toFixed(0) : k.toFixed(1); };
   const kib = b => (Number(b || 0) / 1024).toFixed(1);
+  // Lines read naturally per language: 万 for Chinese, K for English; small counts stay exact.
+  const lines = n => { n = Number(n || 0);
+    if (locale.startsWith("zh")) return n < 10000 ? t("ui.page.cov_lines_small", num(n)) : t("ui.page.cov_lines", (n / 10000).toFixed(1));
+    return n < 1000 ? t("ui.page.cov_lines_small", num(n)) : t("ui.page.cov_lines", n < 10000 ? (n / 1000).toFixed(1) : (n / 1000).toFixed(0)); };
   const LOCALE_NAMES = {"zh-CN":"中文","en-US":"English"};
   const INTERVALS = [[10,"ui.page.interval_10s"],[30,"ui.page.interval_30s"],[60,"ui.page.interval_1m"],[300,"ui.page.interval_5m"],[0,"ui.page.interval_manual"]];
   const ASSETS = [["all","ui.page.tab_all"],["root","ui.page.tab_root"],["meta","ui.page.tab_meta"],["code","ui.page.tab_code"],["database","ui.page.tab_database"]];
@@ -181,7 +189,7 @@
     setTimeout(() => { button.textContent = was; button.classList.remove("done", "fail"); }, ok ? 1400 : 3200);
   }
 
-  // ---------- locale ----------
+  // ---------- locale: labels and the suggestions both follow the switch ----------
   function setLocale(next){ locale = next; store.set("aoci.locale", next); document.documentElement.lang = next; document.title = t("ui.page.title"); renderChrome(); renderAll(); }
 
   // ---------- refresh cadence: user-chosen, 30 s by default, manual allowed ----------
@@ -189,7 +197,7 @@
     if (timer) clearTimeout(timer); timer = null;
     if (interval > 0) timer = setTimeout(async () => { await loadRepos(); await refresh(false); schedule(); }, interval * 1000);
   }
-  function setInterval_(next){ interval = next; store.set("aoci.refresh", String(next)); schedule(); renderTick(); }
+  function setInterval_(next){ interval = next; store.set("aoci.refresh", String(next)); schedule(); }
 
   function renderChrome(){
     $("brand").innerHTML = esc(t("ui.page.title")) + (snap && snap.binary_version ? ` <small>${esc(snap.binary_version)}</small>` : "");
@@ -213,43 +221,54 @@
     $("copy-all").textContent = t("ui.page.copy_all");
     layout();
   }
-  function layout(){ $("aside").style.top = (document.querySelector("header").offsetHeight + 16) + "px"; }
+  // The right column sticks below the real header and scrolls on its own when
+  // taller than the viewport, so nothing in it is reachable only from the end
+  // of the page.
+  function layout(){
+    const top = document.querySelector("header").offsetHeight + 16;
+    $("aside").style.top = top + "px";
+    $("aside").style.maxHeight = Math.max(240, window.innerHeight - top - 16) + "px";
+  }
 
   async function loadRepos(){
     try { repos = await (await fetch("/api/repos")).json(); } catch(e){ return; }
     if (!current || !repos.some(r => r.root === current)) current = repos.length ? repos[0].root : null;
   }
+  let lastTick = "";
+  function renderTick(text){ if (text !== undefined) lastTick = text; const el = $("stats").querySelector(".tick"); if (el) el.textContent = lastTick; }
   async function refresh(force){
     if (!current) return;
     let r;
     try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
-    catch(e){ $("stats").querySelector(".tick") && ($("stats").querySelector(".tick").textContent = t("ui.page.disconnected")); return; }
+    catch(e){ renderTick(t("ui.page.disconnected")); return; }
     if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
     etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
     renderChrome(); renderAll();
   }
-  let lastTick = "";
-  function renderTick(text){
-    if (text !== undefined) lastTick = text;
-    const el = $("stats").querySelector(".tick"); if (el) el.textContent = lastTick;
-  }
-  function renderAll(){ renderStats(); renderTabs(); renderRaw(); renderStatus(); renderCommands(); renderEnv(); layout(); }
+  function renderAll(){ renderStats(); renderTabs(); renderRaw(); renderCommands(); renderStatus(); renderEnv(); layout(); }
 
-  // ---------- stats strip: the whole-index token estimate first ----------
+  // ---------- stats strip: index, covered source, database, governance ----------
   function renderStats(){
     if (!snap){ $("stats").innerHTML = ""; return; }
-    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, code = (snap.assets||{}).code || {};
+    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, code = (snap.assets||{}).code || {}, cov = snap.coverage, d = f.database_cognition || {};
     const tokens = c.estimated_tokens ?? b.whole_index_tokens ?? 0;
     const cls = b.status === "healthy" ? "" : (tokens > (b.max_tokens||Infinity) ? "bad" : "warn");
     const gov = f.governance_aligned ? "ok" : (f.result === "blocked" ? "bad" : "warn");
-    $("stats").innerHTML = `
-      <span class="tokens ${cls}" title="${esc(t("ui.page.tokens_hint"))}">${esc(t("ui.page.tokens_estimate", kilo(tokens)))}</span>
-      <span class="stat">${esc(t("ui.page.stat_objects", num(c.entry_count ?? f.code_entry_count)))}</span>
-      <span class="stat">${esc(t("ui.page.stat_lines", num(code.lines)))}</span>
-      <span class="stat">${esc(t("ui.page.stat_size", kib(c.body_utf8_bytes || code.bytes)))}</span>
-      <span class="stat">${esc(t("ui.page.stat_chunks", num(c.chunk_count), kilo(c.chunk_tokens).replace(/\.0$/, "")))}</span>
-      <span class="tag ${gov}">${esc(f.result || snap.error || "-")}</span>
-      <span class="tick"></span>`;
+    const index = `<span class="grp"><span class="lbl">${esc(t("ui.page.index_label"))}</span>
+        <span class="tokens ${cls}" title="${esc(t("ui.page.tokens_hint"))}">${esc(t("ui.page.tokens_estimate", kilo(tokens)))}</span>
+        <span class="stat">${esc(t("ui.page.stat_objects", num(c.entry_count ?? f.code_entry_count)))}</span>
+        <span class="stat">${esc(t("ui.page.stat_lines", num(code.lines)))}</span>
+        <span class="stat">${esc(t("ui.page.stat_size", kib(c.body_utf8_bytes || code.bytes)))}</span>
+        <span class="stat">${esc(t("ui.page.stat_chunks", num(c.chunk_count), kilo(c.chunk_tokens).replace(/\.0$/, "")))}</span></span>`;
+    const covered = cov ? `<span class="grp" title="${esc(t("ui.page.cov_hint"))}"><span class="lbl">${esc(t("ui.page.cov_label"))}</span>
+        <span class="stat"><b>${esc(t("ui.page.cov_files", num(cov.files)))}</b></span>
+        <span class="stat"><b>${esc(lines(cov.lines))}</b></span>
+        <span class="stat"><b>${esc(t("ui.page.cov_tokens", kilo(cov.estimated_tokens)))}</b></span>
+        <span class="stat" title="${esc(t("ui.page.ratio_hint"))}"><b>${esc(t("ui.page.cov_ratio", cov.ratio))}</b></span>
+        ${cov.unreadable ? `<span class="stat warn">${esc(t("ui.page.cov_unreadable", num(cov.unreadable)))}</span>` : ""}</span>` : "";
+    const db = `<span class="grp"><span class="lbl">${esc(t("ui.page.db_label"))}</span>
+        <span class="stat">${d.configured_sources ? `<b>${esc(t("ui.page.db_tables", num(d.evidence_table_count)))}</b>` : `<span class="faint">${esc(t("ui.page.db_none"))}</span>`}</span></span>`;
+    $("stats").innerHTML = index + covered + db + `<span class="grp"><span class="tag ${gov}">${esc(f.result || snap.error || "-")}</span></span><span class="tick"></span>`;
     renderTick(t("ui.page.refreshed") + " " + new Date().toLocaleTimeString());
   }
 
@@ -280,21 +299,21 @@
     const host = $("raw-host");
     if (!present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent = ""; return; }
     const text = await rawText(asset);
-    const lines = text.replace(/\n$/, "").split("\n");
+    const rows = text.replace(/\n$/, "").split("\n");
     const needle = filter.trim().toLowerCase();
-    const keep = lines.map(() => !needle); let matches = 0;
+    const keep = rows.map(() => !needle); let matches = 0;
     if (needle){
-      lines.forEach((line, i) => {
+      rows.forEach((line, i) => {
         if (!line.toLowerCase().includes(needle)) return;
         keep[i] = true; matches++;
         let sec = false, ast = false;
         for (let j = i - 1; j >= 0 && !(sec && ast); j--){
-          if (!sec && isSection(lines[j])){ keep[j] = true; sec = true; }
-          if (!ast && isAsset(lines[j])){ keep[j] = true; ast = true; }
+          if (!sec && isSection(rows[j])){ keep[j] = true; sec = true; }
+          if (!ast && isAsset(rows[j])){ keep[j] = true; ast = true; }
         }
       });
     }
-    const html = lines.map((line, i) => {
+    const html = rows.map((line, i) => {
       if (!keep[i]) return null;
       let cell = esc(line);
       if (needle){ const at = line.toLowerCase().indexOf(needle);
@@ -308,16 +327,35 @@
     host.innerHTML = `<pre class="raw">${html || esc(t("ui.page.no_match"))}</pre>`;
     const objects = asset === "all" ? (snap.chunk_plan||{}).entry_count : (snap.assets[asset]||{}).objects;
     const bytes = new TextEncoder().encode(text).length;
-    $("filter-count").textContent = needle ? t("ui.page.matched_lines", num(matches), num(lines.length))
-                                           : t("ui.page.asset_meta", num(objects), num(lines.length), num(bytes));
+    $("filter-count").textContent = needle ? t("ui.page.matched_lines", num(matches), num(rows.length))
+                                           : t("ui.page.asset_meta", num(objects), num(rows.length), num(bytes));
   }
   $("copy-all").onclick = async () => { if (!present(asset)) return; await copyText(await rawText(asset), $("copy-all")); };
   $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
 
   // ---------- right column ----------
+  function suggestionsFor(){
+    const all = (snap && snap.suggestions) || {};
+    return all[locale] || all[window.AOCI_LOCALE] || Object.values(all)[0] || [];
+  }
+  function stepHTML(s){
+    const payload = s.command || s.prompt || "";
+    return `<div class="step">
+      <div class="lbl">${esc(s.label||"")}</div>
+      ${s.command ? `<code>${esc(s.command)}</code>` : ""}
+      ${s.prompt ? `<pre>${esc(s.prompt)}</pre>` : ""}
+      ${s.note ? `<div class="lbl" style="margin:7px 0 0">${esc(s.note)}</div>` : ""}
+      ${payload ? `<div class="act"><button class="btn" data-copy="${esc(payload)}">${esc(t("ui.page.copy"))}</button></div>` : ""}
+    </div>`;
+  }
+  function renderCommands(){
+    const list = suggestionsFor();
+    $("commands").innerHTML = list.length ? list.map(stepHTML).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`;
+    $("commands").querySelectorAll("button[data-copy]").forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
+  }
   function renderStatus(){
     if (!snap){ $("status").textContent = "…"; return; }
-    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, ms = f.managed_scope || {}, d = f.database_cognition || {};
+    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, ms = f.managed_scope || {}, d = f.database_cognition || {}, cov = snap.coverage;
     const pct = b.max_tokens ? Math.min(100, Math.round(100 * (b.whole_index_tokens||0) / b.max_tokens)) : 0;
     const cls = f.governance_aligned ? "ok" : (f.result === "blocked" ? "bad" : "warn");
     const drift = f.code_drift || {};
@@ -331,26 +369,13 @@
         <dt>${esc(t("ui.page.tokens"))}</dt><dd>${num(b.whole_index_tokens)} / ${num(b.max_tokens)} <span class="faint">${esc(b.status||"")}</span>
             <div class="bar ${b.status==="healthy"?"":"warn"}"><i style="width:${pct}%"></i></div></dd>
         <dt>${esc(t("ui.page.chunks"))}</dt><dd>${num(c.chunk_count)} × ${num(c.chunk_tokens)}</dd>
+        ${cov ? `<dt>${esc(t("ui.page.coverage"))}</dt><dd>${esc(t("ui.page.cov_files", num(cov.files)))} · ${num(cov.lines)} ${esc(t("ui.page.cov_lines_small", "").trim())} · ${esc(t("ui.page.cov_tokens", kilo(cov.estimated_tokens)))}</dd>
+        <dt>${esc(t("ui.page.ratio"))}</dt><dd title="${esc(t("ui.page.ratio_hint"))}">${esc(cov.ratio)} : 1</dd>` : ""}
         <dt>${esc(t("ui.page.scope"))}</dt><dd class="dim">${num(ms.index_count)} / ${num(ms.observe_count)} / ${num(ms.exclude_count)}</dd>
-        <dt>${esc(t("ui.page.database_index"))}</dt><dd>${d.configured_sources ? `${num(d.configured_sources)} ${esc(t("ui.page.sources"))} · ${num(f.database_entry_count)}` : `<span class="faint">${esc(t("ui.page.none"))}</span>`}</dd>
+        <dt>${esc(t("ui.page.database_index"))}</dt><dd>${d.configured_sources ? `${num(d.configured_sources)} ${esc(t("ui.page.sources"))} · ${esc(t("ui.page.db_tables", num(d.evidence_table_count)))} · ${num(f.database_entry_count)}` : `<span class="faint">${esc(t("ui.page.db_none"))}</span>`}</dd>
         ${driftRow ? `<dt>${esc(t("ui.page.drift"))}</dt><dd class="warn mono">${esc(driftRow)}</dd>` : ""}
         ${f.recovery_pending ? `<dt>${esc(t("ui.page.recovery"))}</dt><dd class="bad">${esc(t("ui.page.recovery_pending"))}</dd>` : ""}
       </dl>`;
-  }
-  function stepHTML(s){
-    const payload = s.command || s.prompt || "";
-    return `<div class="step">
-      <div class="lbl">${esc(s.label||"")}</div>
-      ${s.command ? `<code>${esc(s.command)}</code>` : ""}
-      ${s.prompt ? `<pre>${esc(s.prompt)}</pre>` : ""}
-      ${s.note ? `<div class="lbl" style="margin:7px 0 0">${esc(s.note)}</div>` : ""}
-      ${payload ? `<div class="act"><button class="btn" data-copy="${esc(payload)}">${esc(t("ui.page.copy"))}</button></div>` : ""}
-    </div>`;
-  }
-  function renderCommands(){
-    const list = (snap && snap.suggestions) || [];
-    $("commands").innerHTML = list.length ? list.map(stepHTML).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`;
-    $("commands").querySelectorAll("button[data-copy]").forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
   }
   function renderEnv(){
     if (!snap){ $("env").textContent = "…"; return; }
