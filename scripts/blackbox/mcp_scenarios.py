@@ -1284,19 +1284,55 @@ def repo_digest(root):
                 digests[os.path.relpath(path, root).replace("\\", "/")] = "unreadable"
     return digests
 
-def start_ui(repo, port):
-    process = subprocess.Popen([BIN, "ui", "--repo", repo, "--port", str(port), "--discover=false", "--json"],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    deadline = time.time() + 20
+def start_ui(repo):
+    """Start a page and return (process, base_url).
+
+    The port is chosen by the kernel and read back from the page's readiness
+    line rather than guessed: a guessed port sits inside the ephemeral range
+    (44620-48715 on a typical Linux runner), where an unrelated outbound
+    connection can take it between the moment the test picks it and the moment
+    the page binds it. Streams go to files, not pipes, because nothing here
+    drains a pipe and a full one blocks the page.
+    """
+    stem = os.path.join(WORK, "ui-%d-%d" % (os.getpid(), random.randrange(1 << 30)))
+    out_path, err_path = stem + ".out", stem + ".err"
+    out_file, err_file = open(out_path, "w", encoding="utf-8"), open(err_path, "w", encoding="utf-8")
+    try:
+        process = subprocess.Popen([BIN, "ui", "--repo", repo, "--port", "0", "--discover=false", "--json"],
+                                   stdout=out_file, stderr=err_file, text=True)
+    finally:
+        out_file.close()
+        err_file.close()
+    process.aoci_stdout, process.aoci_stderr = out_path, err_path
+    deadline, url = time.time() + 30, ""
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/repos", timeout=1) as response:
-                if response.status == 200:
-                    return process
-        except Exception:
-            if process.poll() is not None:
-                return process
-    return process
+            with open(out_path, encoding="utf-8") as handle:
+                first = handle.readline()
+        except OSError:
+            first = ""
+        if first.strip().startswith("{"):
+            try:
+                url = json.loads(first).get("url", "")
+            except ValueError:
+                url = ""
+            if url:
+                break
+        if process.poll() is not None:
+            break
+        time.sleep(0.1)
+    return process, url
+
+def ui_failure(process):
+    """Why a page did not come up: its own stderr, else its stdout envelope."""
+    for path in (getattr(process, "aoci_stderr", ""), getattr(process, "aoci_stdout", "")):
+        try:
+            text = open(path, encoding="utf-8", errors="replace").read().strip()
+        except OSError:
+            text = ""
+        if text:
+            return " ".join(text.split())[:200]
+    return "no output; exit=%s" % process.poll()
 
 def stop_ui(process):
     process.terminate()
@@ -1305,26 +1341,26 @@ def stop_ui(process):
     except Exception:
         process.kill()
 
-def ui_get(port, path):
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=10) as response:
+def ui_get(base, path):
+    with urllib.request.urlopen(base.rstrip("/") + path, timeout=10) as response:
         return response.status, response.read().decode("utf-8")
 
 def group_u():
     g = "U"
     fx = make_fixture("ui-nointerfere", 5)
-    port = 47700 + (os.getpid() % 200)
-    page = start_ui(fx, port)
-    if page.poll() is not None:
+    page, base = start_ui(fx)
+    if not base:
         for name in ("U1.page-serves-the-same-facts-as-verify",
                      "U2.governance-cycle-is-unaffected-by-the-page",
                      "U3.page-traffic-changes-no-byte"):
-            record(g, name, "FAIL", "page did not start")
+            record(g, name, "FAIL", "page did not start: " + ui_failure(page))
+        stop_ui(page)
         return
     try:
         # -- U1: the page reports the assessment verify reports. verify
         # publishes it under "governance"; agreement must be field for field,
         # because a second implementation would drift silently.
-        _, state = ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
+        _, state = ui_get(base, "/api/state?repo=" + urllib.parse.quote(fx))
         snapshot = json.loads(state)
         _, report, _, _ = cli(fx, "verify", expect_ok=False)
         facts = snapshot.get("facts") or {}
@@ -1342,11 +1378,11 @@ def group_u():
         session = Session(fx)
         maintained, _, _ = maintain(session)
         for _ in range(3):
-            ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
-            ui_get(port, "/api/entries?repo=" + urllib.parse.quote(fx))
+            ui_get(base, "/api/state?repo=" + urllib.parse.quote(fx))
+            ui_get(base, "/api/entries?repo=" + urllib.parse.quote(fx))
         applied, _, _ = submit_batch(session, maintained)
         for _ in range(3):
-            ui_get(port, "/api/state?repo=" + urllib.parse.quote(fx))
+            ui_get(base, "/api/state?repo=" + urllib.parse.quote(fx))
         session.close()
         clean = (applied.get("status") == "applied" and applied.get("aligned") is True
                  and applied.get("finding_count") == 0
@@ -1366,9 +1402,10 @@ def group_u():
     submit_batch(session, maintain(session)[0])
     session.close()
     before = repo_digest(quiet)
-    quiet_page = start_ui(quiet, port + 1)
-    if quiet_page.poll() is not None:
-        record(g, "U3.page-traffic-changes-no-byte", "FAIL", "page did not start")
+    quiet_page, quiet_base = start_ui(quiet)
+    if not quiet_base:
+        record(g, "U3.page-traffic-changes-no-byte", "FAIL", "page did not start: " + ui_failure(quiet_page))
+        stop_ui(quiet_page)
         return
     try:
         for _ in range(8):
@@ -1376,7 +1413,7 @@ def group_u():
                          "/api/entries?repo=" + urllib.parse.quote(quiet),
                          "/api/raw?repo=" + urllib.parse.quote(quiet) + "&asset=root",
                          "/api/raw?repo=" + urllib.parse.quote(quiet) + "&asset=meta"):
-                ui_get(port + 1, path)
+                ui_get(quiet_base, path)
     finally:
         stop_ui(quiet_page)
     after = repo_digest(quiet)
