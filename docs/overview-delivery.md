@@ -13,6 +13,16 @@ uses 8,000. An invalid value fails
 instead of being adjusted. This setting affects transport only; it does not
 change formal cognition or any governance identity.
 
+The `aoci_overview` tool declares a per-tool result-size allowance in its
+`_meta`. A Host that persists a tool result larger than its own limit to disk,
+placing only a preview in the model's context, would turn cognition delivery
+into a silent failure: the body never reaches the model, and no receipt can
+observe that. The declaration raises that threshold for this tool alone. It is
+not Host capability detection — nothing is probed, the value is static, and a
+Host that does not recognize the key ignores it, as the MCP specification
+requires. Measured on Claude Code, it makes the full 24,000 chunk_tokens
+usable.
+
 If the framed body fits, the tool returns it once. Otherwise the first ordinary
 call immediately returns Chunk 1. Each Chunk preserves UTF-8 and complete Entry
 boundaries, every Entry appears once in formal order, the Header appears only

@@ -149,6 +149,14 @@ func registerReadTools(
 			Name:        "aoci_overview",
 			Description: descriptions[textassets.ContractMCPOverviewDescription],
 			InputSchema: inputSchemas["aoci_overview"],
+			// A complete Overview chunk can exceed the size at which a Host
+			// persists a tool result to disk and puts only a preview in the
+			// model's context — which for cognition delivery is a silent
+			// failure. This static declaration raises that threshold for this
+			// tool alone. It is not Host capability detection: nothing is
+			// probed, and a Host that does not know the key ignores it, as the
+			// MCP specification requires.
+			Meta: mcp.Meta{"anthropic/maxResultSizeChars": 200000},
 		},
 		func(
 			ctx context.Context,

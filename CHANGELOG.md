@@ -2,8 +2,19 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc9
 
+- Declare a per-tool result-size allowance on `aoci_overview`. A Host that
+  persists a large tool result to disk and puts only a preview in the model's
+  context turns cognition delivery into a silent failure: the body never
+  reaches the model, and no receipt can observe that. The tool now carries a
+  static `_meta` declaration raising that threshold for itself alone. Measured
+  on Claude Code, the full `24000` chunk_tokens becomes usable and a
+  480-object index delivers in three chunks instead of five. It is a
+  declaration, not Host capability detection: nothing is probed, and a Host
+  that does not recognize the key ignores it, as the MCP specification
+  requires. The nine-tool surface, the input schemas, and every governance
+  identity are unchanged.
 - Add `aoci ui`, a local read-only status page. It shows, for one or more
   repositories at once, the identity, index header, Code and Database Volumes
   with object, line, byte, and token counts against the budget, the exact
@@ -17,6 +28,15 @@ All notable public changes to AOCI-CODE will be documented in this file.
   facts Verify, Check, Guide, and Maintain consume through the one Guide
   builder the CLI uses; `aoci mcp` still opens no socket and the nine-tool
   surface is unchanged.
+- `aoci ui --detach` starts the panel in the background, detached from the
+  shell that asked for it, and prints its link — so an agent can hand a user a
+  panel link that still works after the agent's command has returned. A panel
+  already running for the repository is reused rather than duplicated;
+  `aoci ui --stop` ends it. Registrations live in the user's cache directory,
+  never in the repository. The panel also reports how much source the index
+  covers (files, lines, tokens) and the compression ratio between source and
+  index, shows every Volume verbatim with a copy button, switches language on
+  the page, and lets the reader choose the refresh interval.
 - Lead the README with the one-step setup. The release-candidate notice moves
   down to the section that obtains the package, and the setup now carries two
   more prompts a user sends verbatim: one that builds the database index once
@@ -28,15 +48,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   such, and the governed migration exists, so the remaining Legacy code is
   scheduled for removal in v0.2.0. This release only says so; nothing changes
   behavior.
-- `aoci ui --detach` starts the panel in the background, detached from the
-  shell that asked for it, and prints its link — so an agent can hand a user a
-  panel link that still works after the agent's command has returned. A panel
-  already running for the repository is reused rather than duplicated;
-  `aoci ui --stop` ends it. Registrations live in the user's cache directory,
-  never in the repository. The panel also reports how much source the index
-  covers (files, lines, tokens) and the compression ratio between source and
-  index, shows every Volume verbatim with a copy button, switches language on
-  the page, and lets the reader choose the refresh interval.
+
+The first public availability date for v0.1.0-rc9 is 2026-09-08.
 
 ## v0.1.0-rc8
 
