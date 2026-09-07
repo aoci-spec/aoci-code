@@ -74,8 +74,10 @@ AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 重启 Agent 之后，再发这一段：
 
 ```text
-先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引。
+先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引，建立完成后给出 AOCI 面板链接。
 ```
+
+Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给你；面板是什么、还有哪些命令，见“AOCI 面板”一节。
 
 索引由 AOCI 的 MCP 工具创作，而 `init` 刚写入的 MCP server 在当时那个会话里还没有加载，所以建立索引必须放在重启之后。支持动态加载 MCP 的宿主可能不必重启；判断方法见“宿主集成”。
 
@@ -190,8 +192,10 @@ $Aoci = (Resolve-Path "C:\path\to\aoci-code\build\aoci.exe").Path
 初始化和 `scan` 完成后，先看当前 Agent 会话里有没有出现 AOCI 工具；没有就刷新或重启它。然后在目标项目的 AI Agent 中输入：
 
 ```text
-先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引。
+先确认 AOCI MCP 已接入，然后请为这个项目建立 AOCI 索引，建立完成后给出 AOCI 面板链接。
 ```
+
+Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给你；面板是什么、还有哪些命令，见“AOCI 面板”一节。
 
 宿主应读取项目内的 AOCI Rules 和实时 Guide，调查源码、测试、配置及相关证据，然后为 `index` 角色的受管对象创作 FRAS 候选。普通用户无需手工编排 Plan、Stage、Check、Diff、CAS 或 Apply。
 
@@ -540,6 +544,29 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 
 这些维度不能互相替代。Attestation 只证明当前材料的交付覆盖度与身份一致性，不代表 AI Agent 对任意未来任务都已充分理解；只有 `current_system_cognition_reliable=true` 才允许无保留地声称掌握当前完整系统认知。
 
+## 📊 AOCI 面板
+
+`aoci ui` 在本机起一个只读面板，让你不用问 Agent 就能看到索引的现状：
+
+- 索引头，以及 Code / Database 卷的**原文**（`===` 目录行原样保留，可筛选、可整卷复制）；“全部”标签页是 Agent 通过 Overview 收到的完整索引
+- 索引 token 数与预算、Overview 分块计划
+- **覆盖的代码有多少文件、多少万行、多少 K token，以及索引压缩比**；数据库有多少张表
+- 治理状态与漂移、受管范围、宿主接入、运行中的 `aoci mcp` 进程
+- 现在应该输入给 Agent 的命令与提示词，带复制按钮
+
+中英文可切换，刷新间隔可选（默认 30 秒）。
+
+| 命令 | 作用 |
+|---|---|
+| `aoci ui --open` | 前台启动并打开浏览器；Ctrl+C 退出 |
+| `aoci ui --detach --json` | 后台启动（脱离当前 shell），打印链接后立即返回；本仓库已有面板在运行时直接复用它的链接 |
+| `aoci ui --stop` | 停止本仓库的后台面板 |
+| `aoci ui --also /path/to/other` | 同一页面里再看另一个仓库 |
+
+一个 WSL 里同时跑着几个 `aoci mcp`？Linux/WSL 上面板会自动发现当前用户所有 `aoci mcp` 进程和它们的仓库，顶部标签页切换，并标出磁盘二进制已被替换的 server。
+
+边界：只监听回环地址（非回环绑定直接拒绝），只答 GET/HEAD，不取锁，不写 Ledger，不改仓库里的任何字节。它是与 `aoci mcp` 无关的独立进程——MCP server 仍然不开任何 socket。后台面板的登记信息放在用户缓存目录，不在仓库内。
+
 ## ⌨️ 常用 CLI 命令
 
 | 命令 | 用途 |
@@ -547,7 +574,7 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 | `aoci init` | 安装仓库合同和不含业务语义的初始 Volumes 布局 |
 | `aoci scan` | 为首次接入建立 Baseline；已有 Managed Baseline 的范围变化进入 Scope Change |
 | `aoci status --deep` | 仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线 |
-| `aoci ui` | 本地只读状态页：索引、预算、分块计划、漂移、运行中的 server 与下一步；只监听回环地址 |
+| `aoci ui` | 本地只读面板：索引原文、覆盖代码与压缩比、分块计划、漂移、运行中的 server 与推荐输入；`--detach` 后台启动并打印链接，`--stop` 停止；只监听回环地址 |
 | `aoci verify` | 报告 Missing、Orphan、Stale 和 Unbaselined 事实 |
 | `aoci check` | 运行聚合治理门禁 |
 | `aoci index agent guide` | 进入确定性的宿主智能体工作流 |
@@ -863,7 +890,7 @@ aoci --repo . index agent guide --agent codex --json
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 54 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **故障注入场景** —— 55 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

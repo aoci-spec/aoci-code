@@ -101,6 +101,13 @@ func Serve(ctx context.Context, options Options, ready func(url string, reposito
 	if err != nil {
 		return err
 	}
+	url := "http://" + listener.Addr().String() + "/"
+	if dir, dirErr := RegistryDir(options.RegistryDir); dirErr == nil {
+		// Best effort and outside the repository: it lets a later --detach
+		// reuse this page and --stop end it. Serving never depends on it.
+		_ = Register(dir, Registration{PID: os.Getpid(), URL: url, Root: roots[0], StartedAt: time.Now().UTC()})
+		defer func() { _ = Unregister(dir, roots[0], os.Getpid()) }()
+	}
 	s := &server{options: options, roots: roots, cache: newRepoCache()}
 	s.page = []byte(renderPage(options.Locale))
 	httpServer := &http.Server{Handler: s.handler(), ReadHeaderTimeout: 5 * time.Second}
@@ -111,7 +118,7 @@ func Serve(ctx context.Context, options Options, ready func(url string, reposito
 		_ = httpServer.Shutdown(shutdownCtx)
 	}()
 	if ready != nil {
-		ready("http://"+listener.Addr().String()+"/", len(roots))
+		ready(url, len(roots))
 	}
 	if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err

@@ -28,6 +28,15 @@ All notable public changes to AOCI-CODE will be documented in this file.
   such, and the governed migration exists, so the remaining Legacy code is
   scheduled for removal in v0.2.0. This release only says so; nothing changes
   behavior.
+- `aoci ui --detach` starts the panel in the background, detached from the
+  shell that asked for it, and prints its link — so an agent can hand a user a
+  panel link that still works after the agent's command has returned. A panel
+  already running for the repository is reused rather than duplicated;
+  `aoci ui --stop` ends it. Registrations live in the user's cache directory,
+  never in the repository. The panel also reports how much source the index
+  covers (files, lines, tokens) and the compression ratio between source and
+  index, shows every Volume verbatim with a copy button, switches language on
+  the page, and lets the reader choose the refresh interval.
 
 ## v0.1.0-rc8
 

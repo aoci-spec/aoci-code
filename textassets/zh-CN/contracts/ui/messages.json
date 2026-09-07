@@ -1598,7 +1598,7 @@
   "volumes.authoring.meta": "作者化任何受影响Volume候选前必须读取authoring_meta。它是aoci_header返回的正式aoci.meta.txt精确原文；运行时instructions只补齐兼容作者化合同，不修改或替代这些字节。",
   "volumes.authoring.transport": "每个候选都直接作为 aoci_update_entry 的参数内联创作：本批次的大小已按单次调用标定，不需要中间文件、辅助脚本或 shell 暂存，也不需要把候选事实复制到别处。R 与 S 除 rune 配额外还受 token 档位约束：token 按 UTF-8 字节/3 计，一个中日韩字符即一个 token，governance.budget 里按 C 分档的 r/s 上限对 CJK 文本先于 rune 配额生效。如果批次中途丢失上下文，再次调用 aoci_maintain 即可：仓库未变时会得到同一批次与同一候选身份。",
   "cli.short.ui": "为一个或多个仓库启动本地只读状态页",
-  "cli.long.ui": "启动一个仅监听回环地址的 HTTP 页面，展示一个或多个仓库的认知索引：身份、索引头、\nCode 与 Database 卷、预算、分块计划、治理漂移、正在运行的 aoci mcp 进程、宿主接入状态，\n以及 Guide 建议的下一步。它读取的是 Verify、Check、Guide、Maintain 共用的同一份事实，\n不加锁、不写任何文件，也不是 MCP 传输。仓库来自 --repo、--also 以及（Linux 上）当前用户\n正在运行的 aoci mcp 进程。",
+  "cli.long.ui": "启动一个仅监听回环地址的 HTTP 页面，展示一个或多个仓库的认知索引：身份、索引头、\nCode 与 Database 卷、预算、分块计划、治理漂移、正在运行的 aoci mcp 进程、宿主接入状态，\n以及 Guide 建议的下一步。它读取的是 Verify、Check、Guide、Maintain 共用的同一份事实，\n不加锁、不写任何文件，也不是 MCP 传输。仓库来自 --repo、--also 以及（Linux 上）当前用户\n正在运行的 aoci mcp 进程。\n\n--detach 在后台启动页面（脱离当前 shell），只打印链接；本仓库已有页面在运行时直接复用。--stop 停止它。",
   "cli.flag.ui_port": "监听的 TCP 端口（0 表示自动选择空闲端口）",
   "cli.flag.ui_host": "绑定的回环地址；非回环地址会被拒绝",
   "cli.flag.ui_open": "开始监听后用默认浏览器打开页面",
@@ -1689,5 +1689,13 @@
   "ui.page.db_tables": "{a} 张表",
   "ui.page.db_none": "未配置数据库",
   "ui.page.coverage": "覆盖",
-  "ui.page.ratio": "压缩比"
+  "ui.page.ratio": "压缩比",
+  "cli.flag.ui_detach": "在后台启动页面（脱离当前 shell），打印链接后返回；本仓库已有页面在运行时直接复用",
+  "cli.flag.ui_stop": "停止本仓库登记的后台页面",
+  "ui.detached": "AOCI 面板已在后台运行：%s（PID %d）。停止：aoci ui --stop",
+  "ui.reused": "AOCI 面板已在运行：%s（PID %d）",
+  "ui.stopped": "已停止 AOCI 面板（PID %d）。",
+  "ui.none_running": "本仓库没有正在运行的 AOCI 面板。",
+  "ui.error.detach_failed": "无法在后台启动面板：%s",
+  "ui.error.registry": "无法定位面板登记目录（用户缓存目录）：%s"
 }

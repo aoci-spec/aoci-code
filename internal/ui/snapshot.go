@@ -34,6 +34,7 @@ type Options struct {
 	Locale        string
 	BinaryVersion string
 	Guide         GuideFunc
+	RegistryDir   string
 }
 
 // AssetInfo describes one formal cognition asset as the page shows it.

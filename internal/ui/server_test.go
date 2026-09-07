@@ -242,7 +242,7 @@ func TestServeListensOnLoopbackAndStopsWithContext(t *testing.T) {
 	urls := make(chan string, 1)
 	done := make(chan error, 1)
 	go func() {
-		done <- Serve(ctx, Options{Roots: []string{root}, Host: "127.0.0.1", Locale: "en-US"}, func(url string, repositories int) {
+		done <- Serve(ctx, Options{Roots: []string{root}, Host: "127.0.0.1", Locale: "en-US", RegistryDir: t.TempDir()}, func(url string, repositories int) {
 			if repositories != 1 {
 				t.Errorf("repositories=%d", repositories)
 			}

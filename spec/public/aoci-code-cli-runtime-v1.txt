@@ -39,6 +39,12 @@ Ledger, and is not an MCP transport: the `aoci mcp` process never opens a
 socket, and the nine-tool surface is unchanged. The page's JSON routes are an
 implementation detail of the same binary, not a public contract; Hosts keep
 reading `capabilities` and the Guide.
+`aoci ui --detach` starts the page as its own session, detached from the
+calling shell, prints its URL once the page is listening, and returns; a page
+already registered and answering for the repository is reused rather than
+duplicated. `aoci ui --stop` ends the registered page, proving liveness through
+the page itself before any signal is sent. Registrations live in the user's
+cache directory (or AOCI_UI_REGISTRY_DIR), never in the repository.
 
 State and writes
 ----------------

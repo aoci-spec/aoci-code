@@ -84,8 +84,10 @@ after the restart.
 After restarting the Agent, send this one:
 
 ```text
-First confirm the AOCI MCP server is connected, then build the AOCI index for this project.
+First confirm the AOCI MCP server is connected, then build the AOCI index for this project. When it is complete, give me the AOCI panel link.
 ```
+
+The Agent starts the panel in the background with `aoci ui --detach --json` and hands you the link; what the panel shows and its other commands are under “AOCI panel”.
 
 The index is authored through AOCI's MCP tools, and the MCP server that `init` has just written was not loaded in the session that wrote it, so index building has to follow the restart. A host that loads MCP servers dynamically may not need one; “Host integration” explains how to tell.
 
@@ -202,8 +204,10 @@ Confirm that `$Aoci` points to a stable absolute path.
 Once initialization and `scan` are done, check whether the Agent session already exposes the AOCI tools; refresh or restart it if not. Then enter the following in the AI Agent for the target project:
 
 ```text
-First confirm the AOCI MCP server is connected, then build the AOCI index for this project.
+First confirm the AOCI MCP server is connected, then build the AOCI index for this project. When it is complete, give me the AOCI panel link.
 ```
+
+The Agent starts the panel in the background with `aoci ui --detach --json` and hands you the link; what the panel shows and its other commands are under “AOCI panel”.
 
 The host should read the project’s AOCI Rules and live Guide, inspect source code, tests, configuration, and relevant evidence, and then author FRAS candidates for managed objects whose role is `index`. Regular users do not need to orchestrate Plan, Stage, Check, Diff, CAS, or Apply manually.
 
@@ -562,6 +566,29 @@ Legacy output retains Levels 0–4 for compatibility with existing hosts and rep
 
 These dimensions do not substitute for one another. Attestation proves only delivery coverage and identity consistency for the current material; it does not mean the AI Agent has fully understood every possible future task. Only `current_system_cognition_reliable=true` permits an unqualified claim of complete current-system cognition.
 
+## 📊 AOCI panel
+
+`aoci ui` serves a read-only panel on this machine, so you can see the state of the index without asking an agent:
+
+- the index header and the Code / Database Volumes **verbatim** (`===` section lines kept as they are, filterable, copyable as a whole); the “All” tab is the complete index exactly as an agent receives it through Overview
+- index tokens against the budget, and the Overview chunk plan
+- **how much code the index covers: files, lines, tokens, and the compression ratio**; how many database tables
+- governance state and drift, Managed Scope, host integrations, and the running `aoci mcp` processes
+- the commands and prompts to give the agent next, with copy buttons
+
+Chinese and English switch on the page; the refresh interval is selectable (30 s by default).
+
+| Command | What it does |
+|---|---|
+| `aoci ui --open` | Start in the foreground and open the browser; Ctrl+C stops it |
+| `aoci ui --detach --json` | Start in the background, detached from this shell, print the link, and return at once; a panel already running for this repository is reused |
+| `aoci ui --stop` | Stop this repository's background panel |
+| `aoci ui --also /path/to/other` | Show another repository on the same page |
+
+Several `aoci mcp` servers in one WSL? On Linux and WSL the panel discovers every `aoci mcp` process of the current user and its repository, switches between them with tabs at the top, and marks a server whose binary was replaced on disk.
+
+Boundaries: it binds loopback addresses only (any other bind is refused), answers GET and HEAD only, takes no lock, appends nothing to the Ledger, and changes no byte of the repository. It is a separate process unrelated to `aoci mcp` — the MCP server still opens no socket. A background panel's registration lives in the user's cache directory, never in the repository.
+
 ## ⌨️ Common CLI commands
 
 | Command | Purpose |
@@ -569,7 +596,7 @@ These dimensions do not substitute for one another. Attestation proves only deli
 | `aoci init` | Installs the repository contract and initial Volumes layout without business semantics |
 | `aoci scan` | Establishes the Baseline for first-time integration; scope changes under an existing Managed Baseline enter Scope Change |
 | `aoci status --deep` | Legacy-only deep status; not the Cognition Volumes maintenance route |
-| `aoci ui` | Local read-only status page: index, budget, chunk plan, drift, running servers, and the next step; loopback only |
+| `aoci ui` | Local read-only panel: the index verbatim, covered source and compression ratio, chunk plan, drift, running servers, and recommended input; `--detach` starts it in the background and prints the link, `--stop` ends it; loopback only |
 | `aoci verify` | Reports Missing, Orphan, Stale, and Unbaselined facts |
 | `aoci check` | Runs the aggregated governance gate |
 | `aoci index agent guide` | Enters the deterministic host-agent workflow |
@@ -907,7 +934,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 54 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 55 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full

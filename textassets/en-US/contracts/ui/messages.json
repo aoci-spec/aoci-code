@@ -1598,7 +1598,7 @@
   "volumes.authoring.meta": "Read authoring_meta before authoring any affected Volume candidate. It is the exact formal aoci.meta.txt bytes returned by aoci_header; runtime instructions complete compatibility contracts without changing or substituting those bytes.",
   "volumes.authoring.transport": "Author every candidate directly as aoci_update_entry arguments: this batch is sized to be written inline in one call, so no intermediate files, helper scripts, or shell staging are needed, and none of the candidate facts have to be copied anywhere. R and S are bounded by token bands as well as rune quotas: a token is UTF-8 bytes/3, so one CJK character is one token and the per-C ceilings in governance.budget (r and s) bind before the rune quotas for CJK text. If the context is lost mid-batch, call aoci_maintain again: the unchanged repository reproduces the same batch and candidate identities.",
   "cli.short.ui": "Serve a local, read-only status page for one or more repositories",
-  "cli.long.ui": "Start a loopback-only HTTP page that shows the cognition index of one or more\nrepositories: identity, index header, Code and Database Volumes, budget, chunk\nplan, governance drift, running aoci mcp servers, host integrations, and the\nnext step the Guide recommends. It reads the same facts Verify, Check, Guide,\nand Maintain consume, takes no lock, writes nothing, and is not an MCP\ntransport. Repositories come from --repo, --also, and (on Linux) the running\naoci mcp processes of the current user.",
+  "cli.long.ui": "Start a loopback-only HTTP page that shows the cognition index of one or more\nrepositories: identity, index header, Code and Database Volumes, budget, chunk\nplan, governance drift, running aoci mcp servers, host integrations, and the\nnext step the Guide recommends. It reads the same facts Verify, Check, Guide,\nand Maintain consume, takes no lock, writes nothing, and is not an MCP\ntransport. Repositories come from --repo, --also, and (on Linux) the running\naoci mcp processes of the current user.\n\n--detach starts the page in the background, detached from this shell, and prints\nonly its URL; a page already running for this repository is reused. --stop ends it.",
   "cli.flag.ui_port": "TCP port to listen on (0 picks a free port)",
   "cli.flag.ui_host": "Loopback address to bind; non-loopback addresses are refused",
   "cli.flag.ui_open": "Open the page in the default browser once it is listening",
@@ -1689,5 +1689,13 @@
   "ui.page.db_tables": "{a} tables",
   "ui.page.db_none": "no database configured",
   "ui.page.coverage": "Coverage",
-  "ui.page.ratio": "Ratio"
+  "ui.page.ratio": "Ratio",
+  "cli.flag.ui_detach": "start the page in the background, detached from this shell, print its URL, and return; a page already running for this repository is reused",
+  "cli.flag.ui_stop": "stop the background page registered for this repository",
+  "ui.detached": "AOCI panel running in the background: %s (PID %d). Stop it with: aoci ui --stop",
+  "ui.reused": "AOCI panel already running: %s (PID %d)",
+  "ui.stopped": "Stopped the AOCI panel (PID %d).",
+  "ui.none_running": "No AOCI panel is running for this repository.",
+  "ui.error.detach_failed": "could not start the panel in the background: %s",
+  "ui.error.registry": "cannot locate the panel registry (user cache directory): %s"
 }

@@ -19,7 +19,7 @@ var localizedFlagNames = []string{
 	"envelope-file", "approval-file", "actor", "transaction",
 	"action", "pattern", "pattern-kind", "reason", "created-by", "order", "enabled", "scope-profile", "reviewed-by", "safety-approval-file",
 	"out-file",
-	"port", "host", "open", "also", "discover",
+	"port", "host", "open", "also", "discover", "detach", "stop",
 }
 
 var commandShortMessages = map[string]string{

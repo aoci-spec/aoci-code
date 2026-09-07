@@ -146,3 +146,13 @@ working agent.
 ```bash
 aoci ui --repo /path/to/repository --also /path/to/another --open
 ```
+
+To keep a panel running after the shell that started it has gone — the case
+when an agent starts it for you — use `--detach`; it prints the link and
+returns, reuses a panel already running for the repository, and `--stop` ends
+it:
+
+```bash
+aoci ui --detach --json
+aoci ui --stop
+```

@@ -1386,6 +1386,62 @@ def group_u():
            "no file changed while only serving the page" if not changed
            else "changed: " + ", ".join(changed[:6]))
 
+
+def group_u_detach():
+    """U4: a page started with --detach outlives the shell that started it,
+    a second --detach reuses it instead of starting another, and --stop ends
+    it. The registry is pointed at the work dir so a developer's own panels
+    are never touched. This is the property the README's onboarding prompt
+    relies on: an agent's tool shell ends when its command does."""
+    g = "U"
+    fx = make_fixture("ui-detach", 5)
+    env = dict(os.environ, AOCI_UI_REGISTRY_DIR=os.path.join(WORK, "ui-registry"))
+    want = os.path.normcase(os.path.normpath(fx))
+
+    def run(*extra):
+        p = subprocess.run([BIN, "ui", "--repo", fx, "--discover=false", "--json", *extra],
+                           capture_output=True, text=True, timeout=60, env=env)
+        out = p.stdout.strip()
+        try:
+            payload = json.loads(out) if out.startswith("{") else {}
+        except ValueError:
+            payload = {}
+        return p.returncode, payload, (p.stderr.strip() or out)[:200]
+
+    def answers(url):
+        try:
+            with urllib.request.urlopen(url + "api/repos", timeout=3) as r:
+                return any(os.path.normcase(os.path.normpath(item.get("root", ""))) == want
+                           for item in json.loads(r.read().decode("utf-8")))
+        except Exception:
+            return False
+
+    pid, gone = 0, False
+    try:
+        rc, first, err = run("--detach")
+        url, pid = first.get("url", ""), int(first.get("pid", 0) or 0)
+        started = rc == 0 and first.get("detached") is True and pid > 0 and bool(url)
+        alive = started and answers(url)        # the starting shell has already returned
+        rc2, second, _ = run("--detach")
+        reused = rc2 == 0 and second.get("reused") is True and second.get("url") == url
+        rc3, third, err3 = run("--stop")
+        stopped = rc3 == 0 and third.get("stopped") is True
+        for _ in range(50):
+            if not answers(url):
+                gone = True
+                break
+            time.sleep(0.1)
+        ok = started and alive and reused and stopped and gone
+        record(g, "U4.detached-page-outlives-shell-reuses-and-stops", "PASS" if ok else "FAIL",
+               f"started={started} alive={alive} reused={reused} stopped={stopped} gone={gone}"
+               + ("" if ok else f" | {err} {err3}"))
+    finally:
+        if pid and not gone:
+            try:
+                os.kill(pid, 9)
+            except Exception:
+                pass
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
@@ -1401,6 +1457,7 @@ if __name__ == "__main__":
     group_f_excluded_tracked()
     group_t()
     group_u()
+    group_u_detach()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()
