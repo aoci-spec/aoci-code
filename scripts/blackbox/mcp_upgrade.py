@@ -42,6 +42,8 @@ compatibility check: it asserts *this* project's own upgrade path.
 import argparse, hashlib, json, os, platform, re, shutil, subprocess, sys, tarfile
 import tempfile, time, urllib.error, urllib.request, zipfile
 
+from stdio_deadline import rpc_deadline
+
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPO = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -258,28 +260,27 @@ class Session:
         self.next_id = 1
 
     def rpc(self, method, params=None, timeout=180):
-        rid = self.next_id
-        self.next_id += 1
-        msg = {"jsonrpc": "2.0", "id": rid, "method": method}
-        if params is not None:
-            msg["params"] = params
-        self.p.stdin.write(json.dumps(msg) + "\n")
-        self.p.stdin.flush()
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            line = self.p.stdout.readline()
-            if not line:
-                raise RuntimeError("server closed stdout")
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if obj.get("id") == rid:
-                return obj
-        raise RuntimeError(f"timeout waiting for {method}")
+        with rpc_deadline(self.p, method, timeout):
+            rid = self.next_id
+            self.next_id += 1
+            msg = {"jsonrpc": "2.0", "id": rid, "method": method}
+            if params is not None:
+                msg["params"] = params
+            self.p.stdin.write(json.dumps(msg) + "\n")
+            self.p.stdin.flush()
+            while True:
+                line = self.p.stdout.readline()
+                if not line:
+                    raise RuntimeError("server closed stdout")
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("id") == rid:
+                    return obj
 
     def __enter__(self):
         self.rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},

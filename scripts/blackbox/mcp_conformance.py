@@ -11,7 +11,9 @@ Env:    AOCI_REPO / AOCI_BIN 覆盖仓库与二进制路径（默认取本脚本
         AOCI_EXPECT_VERSION 设定后严格断言 serverInfo.version，否则只断言非空。
 Requires: an established repository (aoci init + scan done) and a built binary.
 """
-import hashlib, json, os, re, subprocess, sys, time
+import hashlib, json, os, re, subprocess, sys
+
+from stdio_deadline import rpc_deadline
 
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REPO = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
@@ -42,26 +44,26 @@ class Session:
     def send_raw(self, line):
         self.p.stdin.write(line + "\n"); self.p.stdin.flush()
     def rpc(self, method, params=None, timeout=120):
-        rid = self.next_id; self.next_id += 1
-        msg = {"jsonrpc":"2.0","id":rid,"method":method}
-        if params is not None: msg["params"] = params
-        self.send_raw(json.dumps(msg))
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            line = self.p.stdout.readline()
-            if not line:
-                raise RuntimeError("server closed stdout")
-            line = line.rstrip("\n")
-            if not line: continue
-            try:
-                obj = json.loads(line)
-            except Exception:
-                self.nonjson_stdout.append(line)  # stdout purity violation
-                continue
-            if obj.get("id") == rid:
-                return obj
-            # notifications/other ids: ignore
-        raise TimeoutError(method)
+        with rpc_deadline(self.p, method, timeout):
+            rid = self.next_id; self.next_id += 1
+            msg = {"jsonrpc":"2.0","id":rid,"method":method}
+            if params is not None: msg["params"] = params
+            self.send_raw(json.dumps(msg))
+            while True:
+                line = self.p.stdout.readline()
+                if not line:
+                    raise RuntimeError("server closed stdout")
+                line = line.rstrip("\n")
+                if not line: continue
+                try:
+                    obj = json.loads(line)
+                except Exception:
+                    self.nonjson_stdout.append(line)  # stdout purity violation
+                    continue
+                if obj.get("id") == rid:
+                    return obj
+                # notifications/other ids: ignore
+
     def notify(self, method, params=None):
         msg = {"jsonrpc":"2.0","method":method}
         if params is not None: msg["params"] = params
@@ -348,8 +350,9 @@ s2.close()
 # ---------- Session 3: malformed input line -> orderly fail-closed shutdown ----------
 import subprocess as sp
 p3 = sp.Popen([BIN,"--repo",REPO,"mcp"], stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, text=True, encoding="utf-8", bufsize=1)
-p3.stdin.write(json.dumps({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"h3","version":"1"}}})+"\n"); p3.stdin.flush()
-p3.stdout.readline()
+with rpc_deadline(p3, "initialize", 120):
+    p3.stdin.write(json.dumps({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"h3","version":"1"}}})+"\n"); p3.stdin.flush()
+    p3.stdout.readline()
 p3.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n'); p3.stdin.flush()
 p3.stdin.write("this is not json {\n"); p3.stdin.flush()
 try:

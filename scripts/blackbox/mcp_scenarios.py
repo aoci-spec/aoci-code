@@ -28,6 +28,8 @@ git identity; the host repository is never written.
 """
 import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
 
+from stdio_deadline import rpc_deadline
+
 _REPO_DEFAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REAL = os.environ.get("AOCI_REPO", _REPO_DEFAULT)
 BIN  = os.environ.get("AOCI_BIN", os.path.join(REAL, "build", "aoci"))
@@ -109,20 +111,20 @@ class Session:
     def send_raw(self, line):
         self.p.stdin.write(line + "\n"); self.p.stdin.flush()
     def rpc(self, method, params=None, timeout=120):
-        rid = self.next_id; self.next_id += 1
-        msg = {"jsonrpc": "2.0", "id": rid, "method": method}
-        if params is not None: msg["params"] = params
-        self.send_raw(json.dumps(msg))
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            line = self.p.stdout.readline()
-            if not line: raise RuntimeError("server closed stdout")
-            line = line.rstrip("\n")
-            if not line: continue
-            try: obj = json.loads(line)
-            except Exception: continue
-            if obj.get("id") == rid: return obj
-        raise TimeoutError(method)
+        with rpc_deadline(self.p, method, timeout):
+            rid = self.next_id; self.next_id += 1
+            msg = {"jsonrpc": "2.0", "id": rid, "method": method}
+            if params is not None: msg["params"] = params
+            self.send_raw(json.dumps(msg))
+            while True:
+                line = self.p.stdout.readline()
+                if not line: raise RuntimeError("server closed stdout")
+                line = line.rstrip("\n")
+                if not line: continue
+                try: obj = json.loads(line)
+                except Exception: continue
+                if obj.get("id") == rid: return obj
+
     def notify(self, method, params=None):
         msg = {"jsonrpc": "2.0", "method": method}
         if params is not None: msg["params"] = params
