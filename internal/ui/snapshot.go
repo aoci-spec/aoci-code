@@ -65,6 +65,7 @@ type Snapshot struct {
 	Assets            map[string]AssetInfo        `json:"assets,omitempty"`
 	RootText          string                      `json:"root_text,omitempty"`
 	MetaText          string                      `json:"meta_text,omitempty"`
+	OverviewText      string                      `json:"-"`
 	ChunkPlan         *mcptools.OverviewChunkPlan `json:"chunk_plan,omitempty"`
 	Guide             any                         `json:"guide,omitempty"`
 	Integrations      map[string]bool             `json:"integrations"`
@@ -119,6 +120,9 @@ func buildSnapshot(root string, options Options, running []Instance) (Snapshot, 
 	snapshot.Facts = facts
 	if plan, planErr := mcptools.PlanOverviewChunks(root, set, cognition.ScopeAll, cfg.OverviewDelivery.ChunkTokens); planErr == nil {
 		snapshot.ChunkPlan = &plan
+	}
+	if body, bodyErr := mcptools.OverviewBody(set, cognition.ScopeAll); bodyErr == nil {
+		snapshot.OverviewText = body
 	}
 	if options.Guide != nil {
 		if guide, guideErr := options.Guide(root, cfg, set); guideErr == nil {

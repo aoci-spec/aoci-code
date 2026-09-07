@@ -174,6 +174,15 @@ func TestEntriesRawAndPage(t *testing.T) {
 	if absent := get(t, handler, "/api/raw?repo="+root+"&asset=database", nil); absent.Code != http.StatusNotFound {
 		t.Fatalf("absent Volume answered %d", absent.Code)
 	}
+	// "all" is the Overview body itself: every Volume behind its asset banner,
+	// so the page's complete index is what an agent receives, not a rendering.
+	all := get(t, handler, "/api/raw?repo="+root+"&asset=all", nil).Body.String()
+	if !strings.Contains(all, "AOCI Cognition Asset: id=code ") || !strings.Contains(all, onDisk) {
+		t.Fatalf("all did not carry the Code Volume behind its banner")
+	}
+	if strings.Index(all, "id=root ") > strings.Index(all, "id=code ") {
+		t.Fatalf("all is not in delivery order")
+	}
 	page := get(t, handler, "/", nil).Body.String()
 	// The page ships every official locale and switches without a reload, so
 	// both catalogs must be present and no placeholder may survive rendering.

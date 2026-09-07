@@ -6,115 +6,134 @@
 <title>AOCI</title>
 <style>
   :root{
-    --bg:#f6f7f9; --panel:#fff; --ink:#16181d; --dim:#666e7a; --faint:#8b939f;
-    --line:#e4e7ec; --line-soft:#eef0f3; --accent:#3355d1; --accent-soft:#eaeeff;
-    --ok:#137a3c; --warn:#96610a; --bad:#b3261e; --mark:#fff3b8;
+    --bg:#f5f6f8; --panel:#fff; --ink:#15181e; --dim:#5f6774; --faint:#8a929e;
+    --line:#e3e6eb; --line-soft:#edf0f3; --accent:#3153cc; --accent-soft:#e9edfc;
+    --ok:#157a3d; --warn:#9a640a; --bad:#b4261f; --mark:#fff2ad;
     --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --radius:10px; --gap:16px; --pad:14px; --head-h:44px; --aside-w:392px;
   }
   @media (prefers-color-scheme:dark){
-    :root{ --bg:#111317; --panel:#181b21; --ink:#e6e8ec; --dim:#9aa3b0; --faint:#78808d;
-           --line:#282d36; --line-soft:#20242b; --accent:#8aa4ff; --accent-soft:#1c2340;
-           --ok:#5fd08a; --warn:#e0aa5a; --bad:#ff8a80; --mark:#5a4a12; }
+    :root{ --bg:#101216; --panel:#171a20; --ink:#e5e7eb; --dim:#98a1ae; --faint:#737b88;
+           --line:#272c35; --line-soft:#1f232b; --accent:#8ca3ff; --accent-soft:#1b2240;
+           --ok:#5ecf88; --warn:#e2ab58; --bad:#ff8a80; --mark:#5b4a10; }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);
+  html{scroll-padding-top:120px}
+  body{margin:0;background:var(--bg);color:var(--ink);font-variant-numeric:tabular-nums;
        font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;}
-  header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-         padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);}
-  .brand{font-weight:650;letter-spacing:-.01em;font-size:15px;white-space:nowrap}
-  .brand small{font-weight:400;color:var(--faint);margin-left:8px;font-size:12px}
+  button,select,input{font:inherit;color:inherit}
+
+  /* ---------- header: controls row + stats row, both sticky ---------- */
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line)}
+  .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:0 18px;min-height:var(--head-h)}
+  .row.stats{border-top:1px solid var(--line-soft);min-height:40px;gap:18px}
+  .brand{font-weight:650;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+  .brand small{font-weight:400;color:var(--faint);margin-left:8px;font-size:12px;font-family:var(--mono)}
   .repos{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
-  .repos button{font:inherit;font-size:13px;padding:4px 11px;border-radius:7px;cursor:pointer;
+  .repos button{font-size:13px;padding:4px 11px;border-radius:7px;cursor:pointer;line-height:1.4;
                 border:1px solid var(--line);background:transparent;color:var(--dim);white-space:nowrap}
   .repos button:hover{border-color:var(--accent);color:var(--ink)}
   .repos button.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
-  .repos .dot{color:var(--ok);margin-left:5px;font-size:10px;vertical-align:1px}
-  .right{margin-left:auto;display:flex;align-items:center;gap:12px}
-  .lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
-  .lang button{font:inherit;font-size:12px;padding:4px 10px;border:0;cursor:pointer;background:transparent;color:var(--dim)}
+  .repos .dot{color:var(--ok);margin-left:5px;font-size:9px;vertical-align:1px}
+  .ctl{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .ctl label{font-size:12px;color:var(--dim);white-space:nowrap}
+  .ctl select{font-size:12.5px;padding:3px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel);cursor:pointer;height:28px}
+  .btn{font-size:12.5px;padding:0 11px;height:28px;border-radius:7px;border:1px solid var(--line);
+       background:var(--panel);color:var(--accent);cursor:pointer;white-space:nowrap;line-height:26px}
+  .btn:hover{border-color:var(--accent)} .btn.done{color:var(--ok);border-color:var(--ok)} .btn.fail{color:var(--bad);border-color:var(--bad)}
+  .lang{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;height:28px}
+  .lang button{font-size:12px;padding:0 10px;border:0;cursor:pointer;background:transparent;color:var(--dim)}
   .lang button.on{background:var(--accent);color:#fff}
-  .tick{font-size:12px;color:var(--faint);white-space:nowrap}
+  .tokens{font-size:20px;font-weight:650;letter-spacing:-.02em;white-space:nowrap;line-height:1}
+  .tokens.warn{color:var(--warn)} .tokens.bad{color:var(--bad)}
+  .stat{font-size:12.5px;color:var(--dim);white-space:nowrap}
+  .stat b{color:var(--ink);font-weight:600}
+  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  .tick{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap}
 
-  main{display:grid;grid-template-columns:minmax(0,1fr) 384px;gap:16px;padding:16px 18px 40px;align-items:start}
-  @media (max-width:1080px){ main{grid-template-columns:minmax(0,1fr)} aside{position:static !important} }
-  section{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
-  .head{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
-  .head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
-  .body{padding:13px}
-  aside{position:sticky;top:57px;display:flex;flex-direction:column;gap:16px}
+  /* ---------- two panes: index left, sticky column right ---------- */
+  main{display:grid;grid-template-columns:minmax(0,1fr) var(--aside-w);gap:var(--gap);padding:var(--gap) 18px 48px;align-items:start}
+  @media (max-width:1100px){ main{grid-template-columns:minmax(0,1fr)} aside{position:static !important} }
+  section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .head{display:flex;align-items:center;gap:12px;min-height:var(--head-h);padding:6px var(--pad);border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+  .head h2{margin:0;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);white-space:nowrap}
+  .body{padding:var(--pad)}
+  aside{position:sticky;display:flex;flex-direction:column;gap:var(--gap)}
 
   .tabs{display:flex;gap:4px;flex-wrap:wrap}
-  .tabs button{font:inherit;font-size:12.5px;padding:4px 10px;border-radius:6px;border:1px solid transparent;
-               background:transparent;color:var(--dim);cursor:pointer}
+  .tabs button{font-size:12.5px;padding:3px 10px;border-radius:6px;border:1px solid transparent;background:transparent;color:var(--dim);cursor:pointer;line-height:1.5}
   .tabs button:hover{color:var(--ink)}
   .tabs button.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}
-  .tabs button[disabled]{opacity:.38;cursor:default}
-  .filter{margin-left:auto;display:flex;align-items:center;gap:8px}
-  .filter input{font:inherit;font-size:12.5px;padding:4px 9px;width:210px;border:1px solid var(--line);
-                border-radius:7px;background:var(--bg);color:var(--ink)}
-  .filter input:focus{outline:none;border-color:var(--accent)}
-  .filter .count{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  .tabs button[disabled]{opacity:.35;cursor:default}
+  .tools{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .tools input{font-size:12.5px;padding:0 9px;width:220px;height:28px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+  .tools input:focus{outline:none;border-color:var(--accent)}
+  .tools .count{font-size:11.5px;color:var(--faint);white-space:nowrap;min-width:150px;text-align:right}
+  .note{padding:8px var(--pad);font-size:12px;color:var(--dim);border-bottom:1px solid var(--line-soft);background:var(--bg)}
 
-  pre.raw{margin:0;padding:11px 13px 15px;max-height:calc(100vh - 190px);overflow:auto;
-          font-family:var(--mono);font-size:12.2px;line-height:1.62;white-space:pre;tab-size:4}
-  pre.raw .sec{display:block;color:var(--accent);font-weight:600;
-               border-left:3px solid var(--accent);margin:11px 0 4px;padding-left:9px;background:var(--accent-soft)}
-  pre.raw .sec:first-child{margin-top:0}
+  pre.raw{margin:0;padding:12px var(--pad) 18px;overflow-x:auto;font-family:var(--mono);font-size:12.2px;line-height:1.6;white-space:pre;tab-size:4}
+  pre.raw .sec{display:block;color:var(--accent);font-weight:600;background:var(--accent-soft);border-left:3px solid var(--accent);margin:12px 0 4px;padding-left:9px}
+  pre.raw .sec:first-child,pre.raw .asset:first-child{margin-top:0}
+  pre.raw .asset{display:block;color:var(--ink);font-weight:700;margin-top:18px;padding:2px 0}
+  pre.raw .rule{color:var(--line)}
   pre.raw .cmt{color:var(--faint)}
   pre.raw mark{background:var(--mark);color:inherit;border-radius:2px}
-  .empty{padding:22px 13px;color:var(--faint);font-size:13px}
+  .empty{padding:24px var(--pad);color:var(--faint);font-size:13px}
 
-  dl.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 12px;margin:0;font-size:13px}
+  dl.kv{display:grid;grid-template-columns:104px minmax(0,1fr);gap:6px 12px;margin:0;font-size:13px;align-items:baseline}
   dl.kv dt{color:var(--dim);white-space:nowrap}
   dl.kv dd{margin:0;overflow-wrap:anywhere}
   .mono{font-family:var(--mono);font-size:11.8px}
-  .tag{display:inline-block;padding:1px 8px;border-radius:20px;font-size:11.5px;font-weight:600;border:1px solid currentColor}
+  .tag{display:inline-block;padding:0 8px;border-radius:20px;font-size:11.5px;font-weight:600;border:1px solid currentColor;line-height:18px}
   .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)} .dim{color:var(--dim)} .faint{color:var(--faint)}
   .bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:6px}
   .bar i{display:block;height:100%;background:var(--ok);border-radius:3px}
   .bar.warn i{background:var(--warn)} .bar.bad i{background:var(--bad)}
 
-  .step{border:1px solid var(--line);border-radius:9px;padding:10px 11px;margin-bottom:10px;background:var(--bg)}
-  .step:last-child{margin-bottom:0}
-  .step .lbl{font-size:12px;color:var(--dim);margin-bottom:7px;line-height:1.45}
+  .step{border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:var(--bg)}
+  .step + .step{margin-top:10px}
+  .step .lbl{font-size:12px;color:var(--dim);line-height:1.45;margin-bottom:7px}
   .step code,.step pre{display:block;font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--panel);
         border:1px solid var(--line);border-radius:7px;padding:8px 9px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
   .step .act{display:flex;justify-content:flex-end;margin-top:7px}
-  button.copy{font:inherit;font-size:11.5px;padding:3px 11px;border-radius:6px;border:1px solid var(--line);
-              background:var(--panel);color:var(--accent);cursor:pointer}
-  button.copy:hover{border-color:var(--accent)}
-  button.copy.done{color:var(--ok);border-color:var(--ok)}
+  .step .btn{height:24px;line-height:22px;font-size:11.5px}
 
-  ul.flat{list-style:none;margin:0;padding:0;font-size:12.5px}
-  ul.flat li{padding:3px 0;display:flex;gap:8px;align-items:baseline}
-  ul.flat li .k{color:var(--dim);min-width:74px}
-  .drift{font-family:var(--mono);font-size:11.6px;color:var(--warn);overflow-wrap:anywhere}
-  table.proc{width:100%;border-collapse:collapse;font-size:12px}
-  table.proc td{padding:3px 0;vertical-align:top} table.proc td:first-child{color:var(--dim);padding-right:10px;white-space:nowrap}
+  table.env{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.env td{padding:3px 0;vertical-align:baseline}
+  table.env td:first-child{color:var(--dim);width:104px;padding-right:12px;white-space:nowrap}
+  table.env tr.sep td{padding-top:10px}
+  .ig{display:inline-block;width:14px;font-size:10px}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand" id="brand">AOCI</div>
-  <div class="repos" id="repos"></div>
-  <div class="right">
-    <div class="lang" id="lang"></div>
-    <span class="tick" id="tick"></span>
+  <div class="row">
+    <div class="brand" id="brand">AOCI</div>
+    <div class="repos" id="repos"></div>
+    <div class="ctl">
+      <label for="interval" id="interval-label"></label>
+      <select id="interval"></select>
+      <button class="btn" id="refresh-now"></button>
+      <div class="lang" id="lang"></div>
+    </div>
   </div>
+  <div class="row stats" id="stats"></div>
 </header>
 <main>
   <section id="index-pane">
     <div class="head">
       <h2 id="index-title"></h2>
       <div class="tabs" id="asset-tabs"></div>
-      <div class="filter">
-        <input id="filter" autocomplete="off">
+      <div class="tools">
+        <input id="filter" autocomplete="off" spellcheck="false">
         <span class="count" id="filter-count"></span>
+        <button class="btn" id="copy-all"></button>
       </div>
     </div>
+    <div class="note" id="index-note" hidden></div>
     <div id="raw-host"><div class="empty" id="raw-empty"></div></div>
   </section>
-  <aside>
+  <aside id="aside">
     <section><div class="head"><h2 id="status-title"></h2></div><div class="body" id="status"></div></section>
     <section><div class="head"><h2 id="command-title"></h2></div><div class="body" id="commands"></div></section>
     <section><div class="head"><h2 id="env-title"></h2></div><div class="body" id="env"></div></section>
@@ -124,7 +143,9 @@
 <script>
 (function(){
   const I18N = window.AOCI_I18N || {};
-  let locale = localStorage.getItem("aoci.locale") || window.AOCI_LOCALE || "en-US";
+  const store = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } },
+                  set(k,v){ try { localStorage.setItem(k, v); } catch(e){} } };
+  let locale = store.get("aoci.locale") || window.AOCI_LOCALE || "en-US";
   if (!I18N[locale]) locale = Object.keys(I18N)[0] || "en-US";
   // Placeholders are {a}/{b}/{c} rather than printf verbs: these strings are
   // returned verbatim by the server and filled here, so the catalog never
@@ -134,33 +155,65 @@
   const $ = id => document.getElementById(id);
   const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const num = n => Number(n || 0).toLocaleString();
+  const kilo = n => (Number(n || 0) / 1000).toFixed(1);
+  const kib = b => (Number(b || 0) / 1024).toFixed(1);
   const LOCALE_NAMES = {"zh-CN":"中文","en-US":"English"};
+  const INTERVALS = [[10,"ui.page.interval_10s"],[30,"ui.page.interval_30s"],[60,"ui.page.interval_1m"],[300,"ui.page.interval_5m"],[0,"ui.page.interval_manual"]];
+  const ASSETS = [["all","ui.page.tab_all"],["root","ui.page.tab_root"],["meta","ui.page.tab_meta"],["code","ui.page.tab_code"],["database","ui.page.tab_database"]];
 
-  let repos = [], current = null, snap = null, etag = "", asset = "code", filter = "";
+  let repos = [], current = null, snap = null, etag = "", asset = store.get("aoci.asset") || "all", filter = "";
+  let interval = Number(store.get("aoci.refresh") ?? 30); if (!INTERVALS.some(i => i[0] === interval)) interval = 30;
+  let timer = null;
   const rawCache = new Map();
 
-  function setLocale(next){
-    locale = next; localStorage.setItem("aoci.locale", next);
-    document.documentElement.lang = next;
-    document.title = t("ui.page.title");
-    renderChrome(); renderAll();
+  // ---------- clipboard: API first, selection fallback, visible outcome ----------
+  async function copyText(text, button){
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; }
+    catch(e){
+      try { const ta = document.createElement("textarea"); ta.value = text; ta.setAttribute("readonly", "");
+            ta.style.position = "fixed"; ta.style.left = "-9999px"; document.body.appendChild(ta); ta.select();
+            ok = document.execCommand("copy"); document.body.removeChild(ta); } catch(e2){ ok = false; }
+    }
+    const was = button.textContent;
+    button.textContent = ok ? t("ui.page.copied") : t("ui.page.copy_failed");
+    button.classList.add(ok ? "done" : "fail");
+    setTimeout(() => { button.textContent = was; button.classList.remove("done", "fail"); }, ok ? 1400 : 3200);
   }
+
+  // ---------- locale ----------
+  function setLocale(next){ locale = next; store.set("aoci.locale", next); document.documentElement.lang = next; document.title = t("ui.page.title"); renderChrome(); renderAll(); }
+
+  // ---------- refresh cadence: user-chosen, 30 s by default, manual allowed ----------
+  function schedule(){
+    if (timer) clearTimeout(timer); timer = null;
+    if (interval > 0) timer = setTimeout(async () => { await loadRepos(); await refresh(false); schedule(); }, interval * 1000);
+  }
+  function setInterval_(next){ interval = next; store.set("aoci.refresh", String(next)); schedule(); renderTick(); }
+
   function renderChrome(){
-    $("brand").innerHTML = esc(t("ui.page.title")) + (snap ? ` <small>${esc(snap.binary_version || "")}</small>` : "");
-    $("lang").innerHTML = Object.keys(I18N).map(l =>
-      `<button data-loc="${esc(l)}" class="${l===locale?"on":""}">${esc(LOCALE_NAMES[l]||l)}</button>`).join("");
+    $("brand").innerHTML = esc(t("ui.page.title")) + (snap && snap.binary_version ? ` <small>${esc(snap.binary_version)}</small>` : "");
+    $("repos").innerHTML = repos.map(r =>
+      `<button data-root="${esc(r.root)}" class="${r.root===current?"on":""}" title="${esc(r.root)}">${esc(r.name)}${r.running?`<span class="dot">●</span>`:""}</button>`).join("");
+    $("repos").querySelectorAll("button").forEach(b => b.onclick = () => {
+      current = b.dataset.root; etag = ""; snap = null; rawCache.clear(); renderChrome(); refresh(true);
+    });
+    $("interval-label").textContent = t("ui.page.refresh_every");
+    $("interval").innerHTML = INTERVALS.map(([s,key]) => `<option value="${s}" ${s===interval?"selected":""}>${esc(t(key))}</option>`).join("");
+    $("interval").onchange = ev => setInterval_(Number(ev.target.value));
+    $("refresh-now").textContent = t("ui.page.refresh_now");
+    $("refresh-now").onclick = async () => { await loadRepos(); await refresh(true); schedule(); };
+    $("lang").innerHTML = Object.keys(I18N).map(l => `<button data-loc="${esc(l)}" class="${l===locale?"on":""}">${esc(LOCALE_NAMES[l]||l)}</button>`).join("");
     $("lang").querySelectorAll("button").forEach(b => b.onclick = () => setLocale(b.dataset.loc));
     $("index-title").textContent = t("ui.page.index_pane");
     $("status-title").textContent = t("ui.page.status_pane");
     $("command-title").textContent = t("ui.page.command_pane");
     $("env-title").textContent = t("ui.page.env_pane");
     $("filter").placeholder = t("ui.page.filter");
-    $("repos").innerHTML = repos.map(r =>
-      `<button data-root="${esc(r.root)}" class="${r.root===current?"on":""}" title="${esc(r.root)}">${esc(r.name)}${r.running?`<span class="dot">●</span>`:""}</button>`).join("");
-    $("repos").querySelectorAll("button").forEach(b => b.onclick = () => {
-      current = b.dataset.root; etag = ""; snap = null; rawCache.clear(); renderChrome(); refresh(true);
-    });
+    $("copy-all").textContent = t("ui.page.copy_all");
+    layout();
   }
+  function layout(){ $("aside").style.top = (document.querySelector("header").offsetHeight + 16) + "px"; }
 
   async function loadRepos(){
     try { repos = await (await fetch("/api/repos")).json(); } catch(e){ return; }
@@ -170,23 +223,48 @@
     if (!current) return;
     let r;
     try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
-    catch(e){ $("tick").textContent = t("ui.page.disconnected"); return; }
-    if (r.status === 304){ $("tick").textContent = t("ui.page.up_to_date"); return; }
+    catch(e){ $("stats").querySelector(".tick") && ($("stats").querySelector(".tick").textContent = t("ui.page.disconnected")); return; }
+    if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
     etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
-    $("tick").textContent = t("ui.page.refreshed") + " " + new Date().toLocaleTimeString();
     renderChrome(); renderAll();
   }
+  let lastTick = "";
+  function renderTick(text){
+    if (text !== undefined) lastTick = text;
+    const el = $("stats").querySelector(".tick"); if (el) el.textContent = lastTick;
+  }
+  function renderAll(){ renderStats(); renderTabs(); renderRaw(); renderStatus(); renderCommands(); renderEnv(); layout(); }
 
-  function renderAll(){ renderTabs(); renderRaw(); renderStatus(); renderCommands(); renderEnv(); }
+  // ---------- stats strip: the whole-index token estimate first ----------
+  function renderStats(){
+    if (!snap){ $("stats").innerHTML = ""; return; }
+    const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, code = (snap.assets||{}).code || {};
+    const tokens = c.estimated_tokens ?? b.whole_index_tokens ?? 0;
+    const cls = b.status === "healthy" ? "" : (tokens > (b.max_tokens||Infinity) ? "bad" : "warn");
+    const gov = f.governance_aligned ? "ok" : (f.result === "blocked" ? "bad" : "warn");
+    $("stats").innerHTML = `
+      <span class="tokens ${cls}" title="${esc(t("ui.page.tokens_hint"))}">${esc(t("ui.page.tokens_estimate", kilo(tokens)))}</span>
+      <span class="stat">${esc(t("ui.page.stat_objects", num(c.entry_count ?? f.code_entry_count)))}</span>
+      <span class="stat">${esc(t("ui.page.stat_lines", num(code.lines)))}</span>
+      <span class="stat">${esc(t("ui.page.stat_size", kib(c.body_utf8_bytes || code.bytes)))}</span>
+      <span class="stat">${esc(t("ui.page.stat_chunks", num(c.chunk_count), kilo(c.chunk_tokens).replace(/\.0$/, "")))}</span>
+      <span class="tag ${gov}">${esc(f.result || snap.error || "-")}</span>
+      <span class="tick"></span>`;
+    renderTick(t("ui.page.refreshed") + " " + new Date().toLocaleTimeString());
+  }
 
-  const ASSETS = [["root","ui.page.tab_root"],["meta","ui.page.tab_meta"],["code","ui.page.tab_code"],["database","ui.page.tab_database"]];
-  function present(id){ return !!(snap && snap.assets && snap.assets[id] && snap.assets[id].state === "present"); }
+  // ---------- index pane: every asset verbatim, sections kept as === ----------
+  function present(id){
+    if (!snap) return false;
+    if (id === "all") return !!(snap.chunk_plan && snap.chunk_plan.available);
+    return !!(snap.assets && snap.assets[id] && snap.assets[id].state === "present");
+  }
   function renderTabs(){
     if (!present(asset)) { const first = ASSETS.map(a=>a[0]).find(present); if (first) asset = first; }
-    $("asset-tabs").innerHTML = ASSETS.map(([id,key]) =>
-      `<button data-a="${id}" class="${id===asset?"on":""}" ${present(id)?"":"disabled"}>${esc(t(key))}</button>`).join("");
-    $("asset-tabs").querySelectorAll("button:not([disabled])").forEach(b =>
-      b.onclick = () => { asset = b.dataset.a; renderTabs(); renderRaw(); });
+    $("asset-tabs").innerHTML = ASSETS.map(([id,key]) => `<button data-a="${id}" class="${id===asset?"on":""}" ${present(id)?"":"disabled"}>${esc(t(key))}</button>`).join("");
+    $("asset-tabs").querySelectorAll("button:not([disabled])").forEach(b => b.onclick = () => { asset = b.dataset.a; store.set("aoci.asset", asset); renderTabs(); renderRaw(); });
+    $("index-note").hidden = asset !== "all";
+    $("index-note").textContent = t("ui.page.overview_hint");
   }
   async function rawText(id){
     if (rawCache.has(id)) return rawCache.get(id);
@@ -194,38 +272,49 @@
     const text = r.ok ? await r.text() : "";
     rawCache.set(id, text); return text;
   }
-  // The Volume is shown exactly as it is on disk. Section markers keep their
-  // === form and are only tinted, never rewritten; a filter keeps the section
-  // marker above every line it retains so a match never loses its directory.
+  const isSection = l => l.startsWith("==="), isAsset = l => l.startsWith("AOCI Cognition Asset:"), isRule = l => /^─+$/.test(l);
+  // A filter hides lines but always keeps, above every line it retains, the
+  // nearest === section marker and the nearest asset banner, so a match never
+  // loses its directory or its Volume.
   async function renderRaw(){
     const host = $("raw-host");
-    if (!snap || !present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent=""; return; }
+    if (!present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent = ""; return; }
     const text = await rawText(asset);
     const lines = text.replace(/\n$/, "").split("\n");
     const needle = filter.trim().toLowerCase();
-    let keep = lines.map(() => !needle), matches = 0;
+    const keep = lines.map(() => !needle); let matches = 0;
     if (needle){
-      lines.forEach((line, i) => { if (line.toLowerCase().includes(needle)){ keep[i] = true; matches++;
-        for (let j = i; j >= 0; j--) if (lines[j].startsWith("===")){ keep[j] = true; break; } } });
+      lines.forEach((line, i) => {
+        if (!line.toLowerCase().includes(needle)) return;
+        keep[i] = true; matches++;
+        let sec = false, ast = false;
+        for (let j = i - 1; j >= 0 && !(sec && ast); j--){
+          if (!sec && isSection(lines[j])){ keep[j] = true; sec = true; }
+          if (!ast && isAsset(lines[j])){ keep[j] = true; ast = true; }
+        }
+      });
     }
     const html = lines.map((line, i) => {
       if (!keep[i]) return null;
       let cell = esc(line);
-      if (needle && line.toLowerCase().includes(needle)){
-        const at = line.toLowerCase().indexOf(needle);
-        cell = esc(line.slice(0, at)) + "<mark>" + esc(line.slice(at, at + needle.length)) + "</mark>" + esc(line.slice(at + needle.length));
-      }
-      if (line.startsWith("===")) return `<span class="sec">${cell}</span>`;
+      if (needle){ const at = line.toLowerCase().indexOf(needle);
+        if (at >= 0) cell = esc(line.slice(0, at)) + "<mark>" + esc(line.slice(at, at + needle.length)) + "</mark>" + esc(line.slice(at + needle.length)); }
+      if (isSection(line)) return `<span class="sec">${cell}</span>`;
+      if (isAsset(line)) return `<span class="asset">${cell}</span>`;
+      if (isRule(line)) return `<span class="rule">${cell}</span>`;
       if (line.startsWith("#")) return `<span class="cmt">${cell}</span>`;
       return cell;
     }).filter(v => v !== null).join("\n");
     host.innerHTML = `<pre class="raw">${html || esc(t("ui.page.no_match"))}</pre>`;
-    const info = snap.assets[asset];
-    $("filter-count").textContent = needle
-      ? t("ui.page.matched_lines", num(matches), num(lines.length))
-      : t("ui.page.asset_meta", num(info.objects), num(info.lines), num(info.bytes));
+    const objects = asset === "all" ? (snap.chunk_plan||{}).entry_count : (snap.assets[asset]||{}).objects;
+    const bytes = new TextEncoder().encode(text).length;
+    $("filter-count").textContent = needle ? t("ui.page.matched_lines", num(matches), num(lines.length))
+                                           : t("ui.page.asset_meta", num(objects), num(lines.length), num(bytes));
   }
+  $("copy-all").onclick = async () => { if (!present(asset)) return; await copyText(await rawText(asset), $("copy-all")); };
+  $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
 
+  // ---------- right column ----------
   function renderStatus(){
     if (!snap){ $("status").textContent = "…"; return; }
     const f = snap.facts || {}, b = f.budget || {}, c = snap.chunk_plan || {}, ms = f.managed_scope || {}, d = f.database_cognition || {};
@@ -238,17 +327,16 @@
         <dt>${esc(t("ui.page.repository"))}</dt><dd class="mono">${esc(snap.root||"")}</dd>
         <dt>${esc(t("ui.page.governance"))}</dt><dd><span class="tag ${cls}">${esc(f.result||snap.error||"-")}</span></dd>
         <dt>${esc(t("ui.page.composite_identity"))}</dt><dd class="mono faint">${esc((snap.composite_identity||"").slice(0,24))}…</dd>
-        <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.code_entry_count)} / ${num(f.code_source_count)} ${esc(t("ui.page.sources"))}</dd>
+        <dt>${esc(t("ui.page.objects"))}</dt><dd>${num(f.code_entry_count)} / ${num(f.code_source_count)} <span class="faint">${esc(t("ui.page.sources"))}</span></dd>
         <dt>${esc(t("ui.page.tokens"))}</dt><dd>${num(b.whole_index_tokens)} / ${num(b.max_tokens)} <span class="faint">${esc(b.status||"")}</span>
             <div class="bar ${b.status==="healthy"?"":"warn"}"><i style="width:${pct}%"></i></div></dd>
         <dt>${esc(t("ui.page.chunks"))}</dt><dd>${num(c.chunk_count)} × ${num(c.chunk_tokens)}</dd>
         <dt>${esc(t("ui.page.scope"))}</dt><dd class="dim">${num(ms.index_count)} / ${num(ms.observe_count)} / ${num(ms.exclude_count)}</dd>
         <dt>${esc(t("ui.page.database_index"))}</dt><dd>${d.configured_sources ? `${num(d.configured_sources)} ${esc(t("ui.page.sources"))} · ${num(f.database_entry_count)}` : `<span class="faint">${esc(t("ui.page.none"))}</span>`}</dd>
-        ${driftRow ? `<dt>${esc(t("ui.page.drift"))}</dt><dd class="drift">${esc(driftRow)}</dd>` : ""}
+        ${driftRow ? `<dt>${esc(t("ui.page.drift"))}</dt><dd class="warn mono">${esc(driftRow)}</dd>` : ""}
         ${f.recovery_pending ? `<dt>${esc(t("ui.page.recovery"))}</dt><dd class="bad">${esc(t("ui.page.recovery_pending"))}</dd>` : ""}
       </dl>`;
   }
-
   function stepHTML(s){
     const payload = s.command || s.prompt || "";
     return `<div class="step">
@@ -256,33 +344,28 @@
       ${s.command ? `<code>${esc(s.command)}</code>` : ""}
       ${s.prompt ? `<pre>${esc(s.prompt)}</pre>` : ""}
       ${s.note ? `<div class="lbl" style="margin:7px 0 0">${esc(s.note)}</div>` : ""}
-      ${payload ? `<div class="act"><button class="copy" data-copy="${esc(payload)}">${esc(t("ui.page.copy"))}</button></div>` : ""}
+      ${payload ? `<div class="act"><button class="btn" data-copy="${esc(payload)}">${esc(t("ui.page.copy"))}</button></div>` : ""}
     </div>`;
   }
   function renderCommands(){
     const list = (snap && snap.suggestions) || [];
     $("commands").innerHTML = list.length ? list.map(stepHTML).join("") : `<div class="ok">${esc(t("ui.page.no_action"))}</div>`;
-    $("commands").querySelectorAll("button.copy").forEach(b => b.onclick = async () => {
-      try { await navigator.clipboard.writeText(b.dataset.copy); } catch(e) {}
-      const was = b.textContent; b.textContent = t("ui.page.copied"); b.classList.add("done");
-      setTimeout(() => { b.textContent = was; b.classList.remove("done"); }, 1400);
-    });
+    $("commands").querySelectorAll("button[data-copy]").forEach(b => b.onclick = () => copyText(b.dataset.copy, b));
   }
   function renderEnv(){
     if (!snap){ $("env").textContent = "…"; return; }
     const running = snap.running || [], ig = snap.integrations || {};
-    const procs = running.length
-      ? `<table class="proc">` + running.map(i => `<tr><td>${i.pid}</td><td class="mono">${esc((i.executable||"").split("/").pop())}${i.executable_replaced_on_disk?` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>`:""}</td></tr>`).join("") + `</table>`
-      : `<div class="faint" style="font-size:12.5px">${esc(t("ui.page.no_running_server"))}</div>`;
+    const procs = running.length ? running.map(i =>
+        `<tr><td>PID ${i.pid}</td><td class="mono">${esc((i.executable||"").split("/").pop())}${i.executable_replaced_on_disk?` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>`:""}</td></tr>`).join("")
+      : `<tr><td colspan="2" class="faint">${esc(t("ui.page.no_running_server"))}</td></tr>`;
     const keys = ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","agents_block"];
-    $("env").innerHTML = procs + `<ul class="flat" style="margin-top:10px">` + keys.map(k =>
-      `<li><span class="${ig[k]?"ok":"faint"}">${ig[k]?"●":"○"}</span><span>${esc(t("ui.page.integration."+k))}</span></li>`).join("") + `</ul>`;
+    $("env").innerHTML = `<table class="env">${procs}` + keys.map((k, i) =>
+      `<tr class="${i===0?"sep":""}"><td>${i===0?esc(t("ui.page.integrations")):""}</td><td><span class="ig ${ig[k]?"ok":"faint"}">${ig[k]?"●":"○"}</span>${esc(t("ui.page.integration."+k))}</td></tr>`).join("") + `</table>`;
   }
 
-  $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
   document.documentElement.lang = locale;
-  (async () => { await loadRepos(); renderChrome(); await refresh(true); })();
-  setInterval(async () => { await loadRepos(); await refresh(false); }, 2500);
+  window.addEventListener("resize", layout);
+  (async () => { renderChrome(); await loadRepos(); renderChrome(); await refresh(true); schedule(); })();
 })();
 </script>
 </body>

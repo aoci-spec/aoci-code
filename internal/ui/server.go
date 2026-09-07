@@ -59,6 +59,11 @@ var pageStringKeys = []string{
 	"ui.page.integration.claude_mcp", "ui.page.integration.claude_hook", "ui.page.integration.codex_mcp",
 	"ui.page.integration.opencode_mcp", "ui.page.integration.agents_block",
 	"ui.page.refreshed", "ui.page.up_to_date", "ui.page.disconnected",
+	"ui.page.tab_all", "ui.page.copy_all", "ui.page.overview_hint", "ui.page.refresh_every",
+	"ui.page.refresh_now", "ui.page.interval_10s", "ui.page.interval_30s", "ui.page.interval_1m",
+	"ui.page.interval_5m", "ui.page.interval_manual", "ui.page.tokens_estimate", "ui.page.tokens_hint",
+	"ui.page.stat_objects", "ui.page.stat_lines", "ui.page.stat_size", "ui.page.stat_chunks",
+	"ui.page.copy_failed", "ui.page.integrations",
 }
 
 type server struct {
@@ -297,6 +302,14 @@ func (s *server) serveRaw(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, entry.snapshot.RootText)
 	case "meta":
 		_, _ = fmt.Fprint(w, entry.snapshot.MetaText)
+	case "all":
+		// The complete index as an agent receives it through Overview: the
+		// delivery path's own body, not a concatenation of the files.
+		if entry.snapshot.OverviewText == "" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprint(w, entry.snapshot.OverviewText)
 	case "code", "database":
 		info, present := entry.snapshot.Assets[asset]
 		if !present || info.State != "present" || info.Path == "" {

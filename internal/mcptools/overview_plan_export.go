@@ -57,3 +57,23 @@ func PlanOverviewChunks(root string, set *cognition.Set, scope string, chunkToke
 	}
 	return plan, nil
 }
+
+// OverviewBody returns the complete Overview body of scope — every asset's
+// banner and raw bytes in delivery order — from the same builder the delivery
+// path frames and chunks. A status surface that shows "the whole index" shows
+// this, never a second concatenation that could drift from what an agent
+// receives.
+func OverviewBody(set *cognition.Set, scope string) (string, error) {
+	if set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
+		return "", fmt.Errorf("overview_plan_layout_unsupported")
+	}
+	view, err := set.Scope(scope)
+	if err != nil {
+		return "", err
+	}
+	if !view.Available {
+		return "", nil
+	}
+	body, _, err := buildVolumeOverviewBody(view)
+	return body, err
+}
