@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-08T06:35:37Z",
+  "updated_at": "2026-09-08T06:38:22Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "916b967775f61e8c13a3cfd647291c790f7b040bb3cad4b3c19f1d703cfd8f7f",
-      "size": 185529,
-      "normalized_sha256": "916b967775f61e8c13a3cfd647291c790f7b040bb3cad4b3c19f1d703cfd8f7f"
+      "sha256": "cfc0bcfb25e49e54847d13f2b00506747c3cebed5ced93e033e67ce5b4321772",
+      "size": 185526,
+      "normalized_sha256": "cfc0bcfb25e49e54847d13f2b00506747c3cebed5ced93e033e67ce5b4321772"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5428,9 +5428,17 @@
       "format_kind": "gofmt"
     },
     "internal/ui/page.html": {
-      "sha256": "94c4cdb87f985557490cde48aff513198d176ddefe2b6844c819cfb011e50bbb",
-      "size": 27351,
-      "normalized_sha256": "94c4cdb87f985557490cde48aff513198d176ddefe2b6844c819cfb011e50bbb"
+      "sha256": "71778d7b6b6f44e2d71e4836874600c560b8ec94e0b4a382b63d272077870f2f",
+      "size": 28080,
+      "normalized_sha256": "71778d7b6b6f44e2d71e4836874600c560b8ec94e0b4a382b63d272077870f2f"
+    },
+    "internal/ui/page_race_test.go": {
+      "role": "observe",
+      "sha256": "715f3906b4b35327944fdd611da4e75e70d722ced585d3c01119befd641d2dde",
+      "size": 4694,
+      "normalized_sha256": "715f3906b4b35327944fdd611da4e75e70d722ced585d3c01119befd641d2dde",
+      "format_sha256": "715f3906b4b35327944fdd611da4e75e70d722ced585d3c01119befd641d2dde",
+      "format_kind": "gofmt"
     },
     "internal/ui/page_refresh_test.go": {
       "role": "observe",
