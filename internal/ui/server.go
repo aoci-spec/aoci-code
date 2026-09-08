@@ -263,7 +263,7 @@ func (s *server) lookup(w http.ResponseWriter, r *http.Request) (*cacheEntry, bo
 			running = append(running, instance)
 		}
 	}
-	entry, err := s.cache.get(root, s.options, running)
+	entry, err := s.cache.get(root, s.options, running, r.URL.Query().Get("refresh") == "1")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return nil, false

@@ -115,7 +115,8 @@ func TestStateReportsTheSharedGovernanceFacts(t *testing.T) {
 
 func TestStateHonoursETagAndStaysReadOnly(t *testing.T) {
 	root := buildVolumesRepo(t)
-	handler := testServer(t, root).handler()
+	server := testServer(t, root)
+	handler := server.handler()
 	first := get(t, handler, "/api/state?repo="+root, nil)
 	etag := first.Header().Get("ETag")
 	if etag == "" {
@@ -123,6 +124,12 @@ func TestStateHonoursETagAndStaysReadOnly(t *testing.T) {
 	}
 	if again := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": etag}); again.Code != http.StatusNotModified {
 		t.Fatalf("unchanged repository answered %d, want 304", again.Code)
+	}
+	server.cache.mu.Lock()
+	server.cache.entries[root].checkedAt = time.Now().Add(-cacheRecheckInterval)
+	server.cache.mu.Unlock()
+	if rechecked := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": etag}); rechecked.Code != http.StatusNotModified {
+		t.Fatalf("unchanged repository answered %d after a full recheck, want 304", rechecked.Code)
 	}
 	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), append([]byte{}, []byte(strings.Replace(readFile(t, root, "aoci.code.txt"), "run the fixture", "run the changed fixture", 1))...), 0o644); err != nil {
 		t.Fatal(err)
@@ -143,6 +150,56 @@ func TestStateHonoursETagAndStaysReadOnly(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, ".aoci", "ledger.jsonl")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("the page must not create audit files: %v", err)
+	}
+}
+
+func TestStateRefreshesWhenIndexedSourceChanges(t *testing.T) {
+	root := buildVolumesRepo(t)
+	server := testServer(t, root)
+	handler := server.handler()
+	first := get(t, handler, "/api/state?repo="+root, nil)
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("no ETag")
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nvar changed = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	manual := get(t, handler, "/api/state?repo="+root+"&refresh=1", map[string]string{"If-None-Match": etag})
+	if manual.Code != http.StatusOK || manual.Header().Get("ETag") == etag {
+		t.Fatalf("manual refresh did not rebuild after a source change: %d %s", manual.Code, manual.Header().Get("ETag"))
+	}
+	var snapshot Snapshot
+	if err := json.Unmarshal(manual.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Facts == nil || len(snapshot.Facts.CodeDrift.Stale) != 1 || snapshot.Facts.CodeDrift.Stale[0] != "main.go" {
+		t.Fatalf("source drift missing after manual refresh: %+v", snapshot.Facts)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	clean := get(t, handler, "/api/state?repo="+root+"&refresh=1", nil)
+	if clean.Code != http.StatusOK {
+		t.Fatalf("clean refresh answered %d", clean.Code)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nvar changedAgain = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	server.cache.mu.Lock()
+	server.cache.entries[root].checkedAt = time.Now().Add(-cacheRecheckInterval)
+	server.cache.mu.Unlock()
+	automatic := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": clean.Header().Get("ETag")})
+	if automatic.Code != http.StatusOK || automatic.Header().Get("ETag") == clean.Header().Get("ETag") {
+		t.Fatalf("periodic refresh did not rebuild after a source change: %d %s", automatic.Code, automatic.Header().Get("ETag"))
+	}
+	if err := json.Unmarshal(automatic.Body.Bytes(), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.Facts == nil || len(snapshot.Facts.CodeDrift.Stale) != 1 || snapshot.Facts.CodeDrift.Stale[0] != "main.go" {
+		t.Fatalf("source drift missing after periodic refresh: %+v", snapshot.Facts)
 	}
 }
 
