@@ -239,7 +239,7 @@
   async function refresh(force){
     if (!current) return;
     let r;
-    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
+    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current) + (force ? "&refresh=1" : ""), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
     catch(e){ renderTick(t("ui.page.disconnected")); return; }
     if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
     etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
