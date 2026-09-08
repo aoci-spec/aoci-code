@@ -195,7 +195,7 @@
   // ---------- refresh cadence: user-chosen, 30 s by default, manual allowed ----------
   function schedule(){
     if (timer) clearTimeout(timer); timer = null;
-    if (interval > 0) timer = setTimeout(async () => { await loadRepos(); await refresh(false); schedule(); }, interval * 1000);
+    if (interval > 0) timer = setTimeout(async () => { try { await loadRepos(); await refresh(false); } finally { schedule(); } }, interval * 1000);
   }
   function setInterval_(next){ interval = next; store.set("aoci.refresh", String(next)); schedule(); }
 
@@ -238,11 +238,13 @@
   function renderTick(text){ if (text !== undefined) lastTick = text; const el = $("stats").querySelector(".tick"); if (el) el.textContent = lastTick; }
   async function refresh(force){
     if (!current) return;
-    let r;
-    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current) + (force ? "&refresh=1" : ""), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
-    catch(e){ renderTick(t("ui.page.disconnected")); return; }
-    if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
-    etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
+    try {
+      const r = await fetch("/api/state?repo=" + encodeURIComponent(current) + (force ? "&refresh=1" : ""), {headers: etag && !force ? {"If-None-Match": etag} : {}});
+      if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
+      if (!r.ok) throw new Error("state HTTP " + r.status);
+      const next = await r.json();
+      etag = r.headers.get("ETag") || ""; snap = next; rawCache.clear();
+    } catch(e){ renderTick(t("ui.page.disconnected")); return; }
     renderChrome(); renderAll();
   }
   function renderAll(){ renderStats(); renderTabs(); renderRaw(); renderCommands(); renderStatus(); renderEnv(); layout(); }
