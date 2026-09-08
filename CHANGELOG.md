@@ -2,6 +2,38 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## v0.1.0-rc10
+
+Three fixes to the status panel, all found by a contributor using it in the
+day after rc9 shipped.
+
+- Refresh the page's cached state after an indexed source changes. The cache
+  fingerprinted only the formal assets, configuration, Baseline, and
+  .git/HEAD, so editing an indexed source moved no watched file and the page
+  kept showing the repository aligned while Verify would have called it
+  stale. A bounded full recheck now rebuilds the snapshot after two seconds
+  or on a manual refresh; an unchanged rebuild keeps its ETag, so 304 still
+  works. (#35)
+- Recover polling after an invalid state response. An HTTP error with a JSON
+  body replaced the last good snapshot, and a body that failed to parse threw
+  out of the refresh before the next poll was scheduled, so automatic refresh
+  stopped for good with no visible sign. Responses are now checked and parsed
+  before being accepted, a failure keeps the last good state, and the poll
+  always reschedules. (#36)
+- Ignore stale repository and asset responses. Switching repositories or tabs
+  while a request was in flight let the late response overwrite the new
+  selection, and the raw cache was keyed by asset name alone, so one
+  repository's Volume could appear under another's name. State and raw
+  responses are now bound to the repository, the request order, and the
+  cache generation. (#37)
+
+Each fix carries a regression that fails against the previous page; two of
+them execute the embedded page script under node:vm and skip where Node is
+absent. The nine-tool MCP surface and every governance identity are
+unchanged.
+
+The first public availability date for v0.1.0-rc10 is 2026-09-08.
+
 ## v0.1.0-rc9
 
 - Declare a per-tool result-size allowance on `aoci_overview`. A Host that

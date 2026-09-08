@@ -287,7 +287,7 @@ func TestReleaseProfileAcceptsPrereleaseAndStableTags(t *testing.T) {
 func TestReleaseWorkflowDerivesGitHubReleaseChannel(t *testing.T) {
 	workflow := readRepositoryFile(t, ".github", "workflows", "release.yml")
 	required := []string{
-		"default: 0.1.0-rc9",
+		"default: 0.1.0-rc10",
 		"is_prerelease: ${{ steps.identity.outputs.is_prerelease }}",
 		"is_latest: ${{ steps.identity.outputs.is_latest }}",
 		"*-*)",
@@ -323,7 +323,9 @@ func TestReleaseWorkflowDerivesGitHubReleaseChannel(t *testing.T) {
 	}
 
 	for _, forbidden := range []string{
-		"default: 0.1.0-rc1",
+		// The whole line: as a bare prefix this matched every default from
+		// rc10 to rc19, and the first two-digit candidate tripped it.
+		"default: 0.1.0-rc1\n",
 		"--prerelease \\",
 		`test "$(jq -r .prerelease <<<"$release_json")" = true`,
 		`test "$(jq -r .isPrerelease <<<"$release_json")" = true`,
