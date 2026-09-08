@@ -172,7 +172,8 @@
   let repos = [], current = null, snap = null, etag = "", asset = store.get("aoci.asset") || "all", filter = "";
   let interval = Number(store.get("aoci.refresh") ?? 30); if (!INTERVALS.some(i => i[0] === interval)) interval = 30;
   let timer = null;
-  const rawCache = new Map();
+  let rawCache = new Map();
+  let refreshSequence = 0, rawSequence = 0;
 
   // ---------- clipboard: API first, selection fallback, visible outcome ----------
   async function copyText(text, button){
@@ -204,7 +205,7 @@
     $("repos").innerHTML = repos.map(r =>
       `<button data-root="${esc(r.root)}" class="${r.root===current?"on":""}" title="${esc(r.root)}">${esc(r.name)}${r.running?`<span class="dot">●</span>`:""}</button>`).join("");
     $("repos").querySelectorAll("button").forEach(b => b.onclick = () => {
-      current = b.dataset.root; etag = ""; snap = null; rawCache.clear(); renderChrome(); refresh(true);
+      current = b.dataset.root; etag = ""; snap = null; rawCache = new Map(); renderChrome(); refresh(true);
     });
     $("interval-label").textContent = t("ui.page.refresh_every");
     $("interval").innerHTML = INTERVALS.map(([s,key]) => `<option value="${s}" ${s===interval?"selected":""}>${esc(t(key))}</option>`).join("");
@@ -238,11 +239,16 @@
   function renderTick(text){ if (text !== undefined) lastTick = text; const el = $("stats").querySelector(".tick"); if (el) el.textContent = lastTick; }
   async function refresh(force){
     if (!current) return;
+    const root = current, sequence = ++refreshSequence;
+    const isCurrent = () => root === current && sequence === refreshSequence;
     let r;
-    try { r = await fetch("/api/state?repo=" + encodeURIComponent(current), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
-    catch(e){ renderTick(t("ui.page.disconnected")); return; }
+    try { r = await fetch("/api/state?repo=" + encodeURIComponent(root), {headers: etag && !force ? {"If-None-Match": etag} : {}}); }
+    catch(e){ if (isCurrent()) renderTick(t("ui.page.disconnected")); return; }
+    if (!isCurrent()) return;
     if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
-    etag = r.headers.get("ETag") || ""; snap = await r.json(); rawCache.clear();
+    const next = await r.json();
+    if (!isCurrent()) return;
+    etag = r.headers.get("ETag") || ""; snap = next; rawCache = new Map();
     renderChrome(); renderAll();
   }
   function renderAll(){ renderStats(); renderTabs(); renderRaw(); renderCommands(); renderStatus(); renderEnv(); layout(); }
@@ -286,19 +292,23 @@
     $("index-note").textContent = t("ui.page.overview_hint");
   }
   async function rawText(id){
-    if (rawCache.has(id)) return rawCache.get(id);
-    const r = await fetch(`/api/raw?repo=${encodeURIComponent(current)}&asset=${id}`);
+    const root = current, cache = rawCache, key = JSON.stringify([root, id]);
+    if (cache.has(key)) return cache.get(key);
+    const r = await fetch(`/api/raw?repo=${encodeURIComponent(root)}&asset=${id}`);
     const text = r.ok ? await r.text() : "";
-    rawCache.set(id, text); return text;
+    if (cache === rawCache) cache.set(key, text);
+    return text;
   }
   const isSection = l => l.startsWith("==="), isAsset = l => l.startsWith("AOCI Cognition Asset:"), isRule = l => /^─+$/.test(l);
   // A filter hides lines but always keeps, above every line it retains, the
   // nearest === section marker and the nearest asset banner, so a match never
   // loses its directory or its Volume.
   async function renderRaw(){
+    const root = current, selected = asset, cache = rawCache, sequence = ++rawSequence;
     const host = $("raw-host");
     if (!present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent = ""; return; }
     const text = await rawText(asset);
+    if (root !== current || selected !== asset || cache !== rawCache || sequence !== rawSequence) return;
     const rows = text.replace(/\n$/, "").split("\n");
     const needle = filter.trim().toLowerCase();
     const keep = rows.map(() => !needle); let matches = 0;
@@ -330,7 +340,13 @@
     $("filter-count").textContent = needle ? t("ui.page.matched_lines", num(matches), num(rows.length))
                                            : t("ui.page.asset_meta", num(objects), num(rows.length), num(bytes));
   }
-  $("copy-all").onclick = async () => { if (!present(asset)) return; await copyText(await rawText(asset), $("copy-all")); };
+  $("copy-all").onclick = async () => {
+    if (!present(asset)) return;
+    const root = current, selected = asset, cache = rawCache;
+    const text = await rawText(selected);
+    if (root !== current || selected !== asset || cache !== rawCache) return;
+    await copyText(text, $("copy-all"));
+  };
   $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
 
   // ---------- right column ----------
