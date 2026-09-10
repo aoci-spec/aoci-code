@@ -66,6 +66,17 @@ func normalizeRootPath(p string) string {
 	return s
 }
 
+// SectionMarker 判定一行是否为 ===...=== 区段标记(目录段头或分隔符),并返回
+// 去掉等号围栏后的标记文本。它是解析器之外唯一可用的区段判定入口: Overview
+// 分块回执的 section_anchors 与本解析器共用同一份正则,绝不各持第二份判定。
+func SectionMarker(line string) (string, bool) {
+	line = strings.TrimSuffix(line, "\r")
+	if !consistencySepRe.MatchString(line) && !consistencyDirRe.MatchString(line) {
+		return "", false
+	}
+	return strings.TrimSpace(strings.Trim(line, "= \t")), true
+}
+
 // Parse 解析索引全文。
 // 返回 Document(全部行无损保留)与非致命 Warning 列表;仅在输入为空时返回空文档零警告。
 // 文首 UTF-8 BOM 在解析前剥离(P-18),RawText 不携带 BOM。

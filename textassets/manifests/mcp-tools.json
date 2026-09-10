@@ -252,7 +252,10 @@
         "intent",
         "cognition_optimization",
         "object_refs",
-        "note"
+        "note",
+        "verbose",
+        "validate_only",
+        "reuse_existing"
       ],
       "locale_anchors": {
         "zh-CN": [

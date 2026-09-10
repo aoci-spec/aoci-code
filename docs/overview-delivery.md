@@ -30,8 +30,14 @@ in Chunk 1, and only the final Chunk has the end marker. A single Entry larger
 than the configured budget fails without truncation.
 
 The existing `overview-chunk-receipt/v1` proves Chunk order, Entry ordinals,
-bytes, token estimate, SHA, cursor, and completion. A cursor binds the Index,
-Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
+bytes, token estimate, SHA, cursor, and completion. Each receipt also lists
+`section_anchors`: for every Section marker whose line starts inside that
+Chunk, the marker text, the repository-relative directory of its first Entry,
+that Entry's formal ordinal (which may lie in the next Chunk; 0 for an empty
+Section), and the Section's Entry count over the whole body. A model reading
+Chunk 3 of 5 can therefore tell which directories it is inside without
+re-reading earlier Chunks; the body itself is unchanged. A cursor binds the
+Index, Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
 reordered, cross-Index, or cross-configuration chains fail closed; an exact
 replay of a genuine cursor idempotently re-serves the identical Chunk.
 No persistent delivery Session or transaction is created. Because a cursor is

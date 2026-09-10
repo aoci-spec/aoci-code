@@ -44,6 +44,7 @@ type optimizationProgressPayload struct {
 }
 
 type optimizationCandidatePayload struct {
+	SourceLines         int                        `json:"source_lines"`
 	ObjectRef           string                     `json:"object_ref"`
 	Path                string                     `json:"path"`
 	ExistingEntry       string                     `json:"existing_entry"`
@@ -189,6 +190,31 @@ func TestCognitionOptimizationManagedScopeAllNoChangeWritesOnlyCheckpoint(t *tes
 	assertOrdinaryVolumeGovernanceAligned(t, root)
 }
 
+func TestCognitionOptimizationReuseExistingIsNoChange(t *testing.T) {
+	root := buildCognitionOptimizationRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(2))
+	for _, candidate := range maintain.Candidates {
+		if candidate.SourceLines <= 0 {
+			t.Fatalf("optimization candidate lacks source facts: %+v", candidate)
+		}
+	}
+	formalPaths := []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"}
+	before := make(map[string][]byte, len(formalPaths))
+	for _, rel := range formalPaths {
+		before[rel] = readOptimizationTestFile(t, filepath.Join(root, filepath.FromSlash(rel)))
+	}
+	entries := make([]map[string]any, 0, len(maintain.Candidates))
+	for _, candidate := range maintain.Candidates {
+		entries = append(entries, map[string]any{"path": candidate.Path, "source_sha256": candidate.SourceSHA256,
+			"candidate_id": candidate.CandidateID, "reuse_existing": true})
+	}
+	completed := callCognitionOptimizationUpdate(t, session, map[string]any{"code_batch_id": maintain.CodePlan.BatchID, "entries": entries})
+	assertOptimizationProgress(t, completed.Optimization, "complete", 2, 2, 2, 0, 0, false)
+	assertCognitionOptimizationFormalPreimages(t, root, before)
+	assertOrdinaryVolumeGovernanceAligned(t, root)
+}
+
 func TestCognitionOptimizationCompletedNoChangeBatchRejectsAlteredReplay(t *testing.T) {
 	root := buildCognitionOptimizationRepo(t, 2)
 	session := connectMCPClient(t, root)
@@ -208,6 +234,25 @@ func TestCognitionOptimizationCompletedNoChangeBatchRejectsAlteredReplay(t *test
 		}
 		return candidate.ExistingEntry
 	})
+	// validate_only must return the verdict a real Apply returns, optimization
+	// pre-checks included, and change nothing.
+	preview := map[string]any{"validate_only": true}
+	for key, value := range altered {
+		preview[key] = value
+	}
+	previewResult, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_update_entry", Arguments: preview})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if previewText := resText(t, previewResult); !strings.Contains(previewText, "cognition_optimization_completed_batch_payload_mismatch") ||
+		!strings.Contains(previewText, `"validate_only":true`) || !strings.Contains(previewText, `"applied":0`) {
+		t.Fatalf("validate_only skipped the optimization pre-checks:\n%s", previewText)
+	}
+	for _, rel := range formalPaths {
+		if after := readOptimizationTestFile(t, filepath.Join(root, filepath.FromSlash(rel))); !reflect.DeepEqual(after, before[rel]) {
+			t.Fatalf("validate_only changed %s", rel)
+		}
+	}
 	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_update_entry", Arguments: altered})
 	if err != nil {
 		t.Fatal(err)

@@ -201,6 +201,29 @@ not accept prose or mechanically copied import lists. A repeated unchanged Meta
 failure routes to `repair_meta_tag_dictionary`, not generic replan or candidate
 resubmission.
 
+Once a model holds that contract from an earlier call in the same session,
+Volumes v1 `aoci_maintain` (ordinary Code or all scope, and
+`cognition_optimization`) with `verbose: false` omits it, together with the
+review closure's path sample (the count stays), and marks the response
+`compact`; candidates, plans, bindings, receipts, and governance facts are
+identical to the verbose answer. Legacy and explicit `database` Maintain
+ignore the flag.
+
+Maintain delivers candidates once, at the top level; `code_plan` carries the
+plan identities and counts and no candidate list. Each Code candidate also
+reports `source_lines` and `scale` (the E symbols whose Meta-declared range
+contains that line count), read-only facts that spare the model a file read.
+E stays model-written and the E-scale check stays a Warning.
+
+Before committing a batch the model is unsure of, `aoci_update_entry` with
+`validate_only: true` runs the complete pre-write validation (binding,
+identity, FRAS, S quota, budget, and the `cognition_optimization` batch
+checks) and writes nothing: no Volume, Baseline, transaction, or Ledger byte
+changes. A passing batch answers `status: validated`; a failing one answers
+the same Repair Findings a real Apply would, so an over-quota S costs one
+read-only round instead of a `repair_required` write attempt. The approved
+bytes apply only when resubmitted without `validate_only`.
+
 `ParseTags` and formal object loading retain dotted Tag and bare-R read
 compatibility. New Volume Entries, and updates that actually change the
 corresponding field, require compact Tags and exact canonical R identities.

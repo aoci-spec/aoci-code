@@ -45,6 +45,10 @@ type AtomicUpdateItem struct {
 	SourceSHA256 string
 	CandidateID  string
 	BatchID      string
+	// ReuseExisting asks the planner to substitute the object's current formal
+	// Entry line for an absent NewEntry, read from the same preimage the batch
+	// is planned and committed against.
+	ReuseExisting bool
 }
 
 // AtomicBatchOutcome 是整批成功规划或应用结果。
@@ -82,6 +86,7 @@ type normalizedAtomicItem struct {
 	candidateID            string
 	batchID                string
 	originalCandidateIndex int
+	reuseExisting          bool
 }
 
 type atomicBatchPlan struct {
@@ -225,12 +230,16 @@ func planUpdateEntriesAtomic(
 			candidateID:            strings.ToLower(strings.TrimSpace(item.CandidateID)),
 			batchID:                strings.ToLower(strings.TrimSpace(item.BatchID)),
 			originalCandidateIndex: indexPosition + 1,
+			reuseExisting:          item.ReuseExisting,
 		})
 	}
 
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
 		return nil, fail
+	}
+	if reuseFail := resolveReuseExistingItems(loaded.set, normalized); reuseFail != nil {
+		return nil, reuseFail
 	}
 	if len(duplicateFindings) > 0 {
 		for index := range duplicateFindings {

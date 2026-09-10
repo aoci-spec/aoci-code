@@ -284,6 +284,25 @@ all governance debt are zero. Source, Scope, Composite, or candidate-receipt
 drift invalidates only the outstanding batch. Earlier successful batches stay
 formal and are neither regenerated nor replayed.
 
+Candidates are delivered once, at the top level of the Maintain response.
+code_plan carries the plan's identities, counts, and next_action and no
+candidate list; code_plan.batch_id remains the exact Code batch identity. Each
+Code candidate also reports two read-only source facts: source_lines, the
+current line count of the file, and scale, the E symbols whose Meta-declared
+numeric range contains that count (absent when the Meta declares no numeric E
+thresholds). They spare the model a file read per candidate; E stays
+model-written and the E-scale check stays a Warning, never a rejection.
+
+Volumes v1 aoci_maintain (ordinary Code or all scope, and
+cognition_optimization) accepts verbose (default true). verbose=false omits
+the per-call authoring contract (instructions, authoring_meta) and the review
+closure's path sample while review_total keeps the complete count, and marks
+the response compact=true. Nothing the model acts on changes: candidates,
+plans, bindings, receipts, governance facts, and next_action are identical to
+the verbose answer. A model uses it once it holds the contract from an
+earlier call in the same session; nothing is inferred from call history.
+Legacy and explicit database Maintain ignore the flag.
+
 Results that hand the next step to the CLI carry the commands to run. The
 Apply that brings the last current batch to aligned prescribes Verify,
 Aggregate Check, and Guide as its terminal proof; a blocked Maintain names a
@@ -346,6 +365,30 @@ preserve_other_candidates=true, retry_scope, and next_action. The action is to
 repair only the listed candidates, preserve every other candidate, and
 resubmit the same complete batch without asking the user to continue. The
 program never shortens, deletes, or rewrites model-authored F/R/A/S.
+
+aoci_update_entry.validate_only=true runs that complete validation for the
+exact submitted batch (binding, identity, FRAS, S quota, budget, and the
+cognition_optimization batch checks) and stops before any formal write,
+transaction, or Ledger event. A passing batch
+answers status=validated with validate_only=true, applied=0, remaining equal
+to attempted, formal_writes_started=false, and next_action
+resubmit_same_batch_without_validate_only; a failing batch answers the same
+Repair Findings a real Apply would return, also marked validate_only=true.
+validated is a preview verdict, not a finalization status, and the bytes it
+approved apply only when resubmitted without validate_only.
+
+An entries[] item (or the compatibility single-Entry form) may set
+reuse_existing=true and omit new_entry. The machine then resubmits the
+object's exact current formal Entry bytes, read from the same preimage the
+batch is planned and committed against: no text is generated, and the
+byte-identical resubmission takes the existing duplicate-apply path, which
+advances the Baseline without rewriting the Volume. This answers a Stale or
+Unbaselined candidate whose Entry is still right; inside a
+cognition_optimization batch it is that object's no_change verdict, classified
+from the Entry the receipt bound at issue time. reuse_existing together with
+new_entry is the Repair Finding reuse_existing_conflicts_with_new_entry, and
+reuse_existing for an object without a current Entry is
+reuse_existing_requires_existing_entry; both are found before any write.
 
 A copied, non-empty Code path, candidate_id, or source_sha256 that differs from
 the current receipt is a pre-write repair finding when that receipt and original

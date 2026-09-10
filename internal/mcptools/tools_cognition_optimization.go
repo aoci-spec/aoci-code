@@ -139,7 +139,7 @@ func handleCognitionOptimizationMaintain(
 		return failResult(&Fail{Code: errCandidateInvalid, Msg: "cognition_optimization_plan_invalid: " + err.Error()})
 	}
 	if selection.TotalTargets == 0 {
-		return renderEmptyCognitionOptimization(root, serviceVersion, loaded, facts, start)
+		return renderEmptyCognitionOptimization(root, serviceVersion, loaded, facts, start, maintainVerbose(input.Verbose))
 	}
 
 	orderedPlan := reorderOptimizationPlan(plan, selection.Batch)
@@ -147,17 +147,20 @@ func handleCognitionOptimizationMaintain(
 		Version: 1, Status: autoStatusApplied, Result: volumegovernance.ResultAligned, Aligned: true,
 		RequestedScope: input.Scope, AffectedDomains: []string{}, Candidates: []volumeMaintainCandidate{},
 		OrphanRemovals: []string{}, Sets: volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta", cognition.ScopeCode}},
-		CodePlan: &orderedPlan, Governance: facts,
+		CodePlan: newCodePlanView(orderedPlan), Governance: facts,
 		Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
+	thresholds := index.ExtractEScaleThresholds(string(loaded.set.Meta.Raw))
 	for _, candidate := range selection.Batch {
 		issued := optimizationPlanCandidate(orderedPlan, candidate.ObjectRef)
 		if issued == nil {
 			return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_candidate_identity_missing"})
 		}
-		result.Candidates = append(result.Candidates, optimizationMaintainCandidate(candidate, *issued, orderedPlan.BatchID, len(input.ObjectRefs) != 0))
+		delivered := optimizationMaintainCandidate(candidate, *issued, orderedPlan.BatchID, len(input.ObjectRefs) != 0)
+		delivered.SourceLines, delivered.Scale = candidateSourceFacts(root, delivered.Path, thresholds)
+		result.Candidates = append(result.Candidates, delivered)
 	}
 	result.Sets.Write = candidateRefs(result.Candidates)
 	result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
@@ -184,6 +187,7 @@ func handleCognitionOptimizationMaintain(
 		Result: ledger.ResultOK, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
 	boundMaintainTransport(&result)
+	applyMaintainVerbosity(&result, maintainVerbose(input.Verbose))
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
@@ -191,7 +195,7 @@ func handleCognitionOptimizationMaintain(
 	return textResult(string(data) + "\n")
 }
 
-func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, start time.Time) *mcp.CallToolResult {
+func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, start time.Time, verbose bool) *mcp.CallToolResult {
 	result := volumeMaintainResult{
 		Version: 1, Status: autoStatusApplied, Result: volumegovernance.ResultAligned, Aligned: true,
 		AffectedDomains: []string{}, Candidates: []volumeMaintainCandidate{}, OrphanRemovals: []string{},
@@ -202,6 +206,7 @@ func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cogni
 		Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion, State: "complete"},
 	}
 	boundMaintainTransport(&result)
+	applyMaintainVerbosity(&result, verbose)
 	data, err := json.Marshal(result)
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
@@ -472,7 +477,15 @@ func cognitionOptimizationSubmissionIdentity(
 			strings.ToLower(strings.TrimSpace(item.CandidateID)) != target.CandidateID {
 			return "", 0, 0, fmt.Errorf("cognition_optimization_batch_mismatch")
 		}
-		entry, ok := index.ParseEntryLine(canonicalVolumeCandidateLine(target.Path, item.NewEntry), 1)
+		submitted := item.NewEntry
+		if item.ReuseExisting && submitted == "" {
+			// reuse_existing resubmits the Entry this receipt bound at issue time:
+			// the no_change verdict, classified and hashed exactly as if the model
+			// had copied the bytes. The planner then substitutes the current
+			// formal line under the same CodeVolumeSHA256 binding.
+			submitted = target.ExistingEntry
+		}
+		entry, ok := index.ParseEntryLine(canonicalVolumeCandidateLine(target.Path, submitted), 1)
 		if !ok {
 			return "", 0, 0, fmt.Errorf("cognition_optimization_entry_invalid")
 		}

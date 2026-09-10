@@ -16,6 +16,7 @@ const (
 	autoStatusApplied        = machinecontract.AutoStatusApplied
 	autoStatusRepairRequired = machinecontract.AutoStatusRepairRequired
 	autoStatusStopped        = machinecontract.AutoStatusStopped
+	autoStatusValidated      = machinecontract.AutoStatusValidated
 )
 
 type autoMetrics struct {
@@ -111,11 +112,15 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 }
 
 type autoResult struct {
-	Version                 int                          `json:"version"`
-	Status                  string                       `json:"status"`
-	Aligned                 bool                         `json:"aligned"`
-	RefreshStatus           string                       `json:"refresh_status,omitempty"`
-	RefreshReasons          []string                     `json:"refresh_reasons,omitempty"`
+	Version        int      `json:"version"`
+	Status         string   `json:"status"`
+	Aligned        bool     `json:"aligned"`
+	RefreshStatus  string   `json:"refresh_status,omitempty"`
+	RefreshReasons []string `json:"refresh_reasons,omitempty"`
+	// ValidateOnly marks a result produced under aoci_update_entry
+	// validate_only: the verdict of the complete pre-write validation with
+	// zero formal writes, Ledger events, or transactions behind it.
+	ValidateOnly            bool                         `json:"validate_only,omitempty"`
 	Attempted               int                          `json:"attempted"`
 	Applied                 int                          `json:"applied"`
 	Remaining               int                          `json:"remaining"`

@@ -68,6 +68,18 @@ completion state. The first Chunk also carries the full-body receipt; middle
 Chunks carry only the minimal Receipt and body. v1 is sufficient and no v2 is
 introduced.
 
+Every Chunk receipt also lists `section_anchors`: one anchor per Section
+marker (a `===...===` line under the parser's own rule) whose line starts
+inside that Chunk body, in body order. An anchor carries the marker text
+between the fences exactly as the body spells it, the repository-relative
+`directory` of the Section's first Entry when that Entry is a Code object
+(always present; "" for the repository root, for a Section without an Entry,
+and for a non-Code first Entry), `first_entry_ordinal` (the formal ordinal of the first Entry after the marker,
+which may lie in a later Chunk; 0 when no Entry follows before the next
+marker), and `entry_count` over the complete body. Anchors are receipt
+metadata only: the body stays byte-exact, the ordinals are the shared formal
+sequence below, and a Chunk that contains no marker lists an empty array.
+
 Legacy Whole-Index uses one `formal_entry_ordinal`: the 1-based position in the
 formal Entry sequence, with valid range `1..entry_count`. Header content,
 comments, blank lines, Section markers, Overview markers, Chunk markers,

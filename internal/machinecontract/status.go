@@ -8,6 +8,12 @@ const (
 	AutoStatusStopped        = "stopped"
 )
 
+// AutoStatusValidated is the result of aoci_update_entry validate_only: the
+// complete pre-write validation of the exact batch passed and nothing was
+// written. It is a preview verdict, not a finalization outcome, so it is
+// deliberately absent from AutoStatuses() and never reaches the Ledger.
+const AutoStatusValidated = "validated"
+
 // ActionCallNoArgumentMaintainForCurrentMachineBatch is shared by Guide and
 // domain status projections so every ordinary Maintain route uses one token.
 const ActionCallNoArgumentMaintainForCurrentMachineBatch = "call_no_argument_aoci_maintain_for_current_machine_batch"

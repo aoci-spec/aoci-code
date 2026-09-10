@@ -460,6 +460,7 @@ func renderOverviewChunk(
 		"continuation_required":         !completed,
 		"completed_marker":              completed && strings.Contains(chunk, body.Receipt.EndMarker),
 		"model_full_cognition_reliable": false,
+		"section_anchors":               overviewSectionAnchors(body.Text, contentStart, ctx.Sequence, span),
 	}
 	level := assessOverviewCognitionLevel(
 		true, deliveryIntegrityFromHostStatus(hostDeliveryUnconfirmed),

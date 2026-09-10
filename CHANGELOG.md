@@ -2,6 +2,51 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+Ergonomics of the authoring cycle, from a model's day of using the nine tools
+on a real repository. All additive on the 0.2.0 line; the nine-tool surface
+and every identity binding are unchanged.
+
+- Maintain delivers candidates once. `code_plan` keeps the plan's identities,
+  counts, and next_action and no longer repeats the candidate list (the same
+  three candidates appeared twice, 4.7 KB of a 15 KB answer). Each Code
+  candidate also carries `source_lines` and `scale`, the E symbols whose
+  Meta-declared range contains that line count, so the model need not open a
+  file to size it; E stays model-written and the E-scale check stays a
+  Warning.
+- Volumes v1 `aoci_maintain` (ordinary and `cognition_optimization`) accepts
+  `verbose` (default true). `verbose: false` omits the per-call authoring
+  contract (`instructions`, `authoring_meta`) and the review closure's path
+  sample while `review_total` keeps the count, and marks the response
+  `compact`. Nothing the model acts on changes; the tests compare the two
+  answers field by field. Legacy and explicit `database` Maintain ignore it.
+- `aoci_update_entry` accepts `validate_only`. The complete pre-write
+  validation, including the `cognition_optimization` batch checks, runs for
+  the exact batch and stops before any formal write, transaction, or Ledger
+  event: `status: validated` on success, otherwise the
+  same Repair Findings a real Apply returns, both marked `validate_only`. The
+  black-box suite proves the repository digest, hidden state included, is
+  identical before and after both outcomes.
+- `aoci_update_entry` entries accept `reuse_existing`. For a stale candidate
+  whose Entry is still right, the planner resubmits the object's exact
+  current Entry bytes in place of `new_entry`, read from the same preimage the
+  batch commits against; the byte-identical resubmission takes the existing
+  duplicate-apply path and advances the Baseline without rewriting the
+  Volume. Inside a `cognition_optimization` batch it is that object's
+  `no_change` verdict. `reuse_existing` with `new_entry`, or for an object
+  without an Entry, is a Repair Finding before any write.
+- Every Overview Chunk receipt lists `section_anchors`: the Section markers
+  that start inside the Chunk, each with its directory, first Entry ordinal
+  (which may lie in the next Chunk), and Entry count. Repair actions for a
+  mistyped Code binding now point at the top-level candidates. Metadata only; the
+  Chunk body is byte-identical to before.
+- The observe-review Guide message now names the lever that turns observe
+  drift into information (`aoci scope observe-policy informational`) instead
+  of only the acknowledgement command.
+- Black-box scenarios grow from 55 to 59 (group V); the count stays
+  self-enforced by the suite.
+
 ## v0.1.0-rc10
 
 Three fixes to the status panel, all found by a contributor using it in the

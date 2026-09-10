@@ -26,6 +26,12 @@ type updateEntryIn struct {
 	BatchID      string              `json:"batch_id,omitempty"`
 	CodeBatchID  string              `json:"code_batch_id,omitempty"`
 	Entries      []updateEntryItemIn `json:"entries,omitempty"`
+	// ReuseExisting is the compatibility single-Entry spelling of
+	// entries[].reuse_existing.
+	ReuseExisting bool `json:"reuse_existing,omitempty"`
+	// ValidateOnly runs the complete pre-write validation of the exact batch
+	// and stops before any formal write, Ledger event, or transaction.
+	ValidateOnly bool `json:"validate_only,omitempty"`
 }
 
 var requiredEntryWriteMessages = map[string][]any{
@@ -355,6 +361,15 @@ type updateEntryItemIn struct {
 	SourceSHA256 string `json:"source_sha256,omitempty"`
 	CandidateID  string `json:"candidate_id,omitempty"`
 	BatchID      string `json:"-"`
+	// ReuseExisting asks the machine to resubmit the object's exact current
+	// formal Entry bytes in place of new_entry, which must then be absent.
+	ReuseExisting bool `json:"reuse_existing,omitempty"`
+}
+
+// updateBatchOptions carries the per-call switches of aoci_update_entry that
+// are not part of any candidate.
+type updateBatchOptions struct {
+	ValidateOnly bool
 }
 
 func ApplyUpdateEntry(
@@ -464,17 +479,18 @@ func registerWriteTools(
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
 				if len(in.Entries) > 0 {
-					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
+					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" || in.ReuseExisting {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
-					return handleMCPUpdateBatch(
+					return handleMCPUpdateBatchWithOptions(
 						root,
 						mcpServiceVersion,
 						withVolumeBatchIDs(in.Entries, in.CodeBatchID, in.BatchID),
+						updateBatchOptions{ValidateOnly: in.ValidateOnly},
 						refreshSession,
 					)
 				}
-				if (in.Path == "") == (in.ObjectRef == "") || in.NewEntry == "" {
+				if (in.Path == "") == (in.ObjectRef == "") || (in.NewEntry == "" && !in.ReuseExisting) {
 					return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.incomplete_input")})
 				}
 				return handleMCPUpdateSingle(
@@ -515,14 +531,15 @@ func handleMCPUpdateSingle(
 	in updateEntryIn,
 	refreshSessions ...*cognitionRefreshSession,
 ) *mcp.CallToolResult {
-	return handleMCPUpdateBatch(root, mcpServiceVersion, []updateEntryItemIn{{
-		Path:         in.Path,
-		ObjectRef:    in.ObjectRef,
-		NewEntry:     in.NewEntry,
-		SourceSHA256: in.SourceSHA256,
-		CandidateID:  in.CandidateID,
-		BatchID:      map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != ""],
-	}}, refreshSessions...)
+	return handleMCPUpdateBatchWithOptions(root, mcpServiceVersion, []updateEntryItemIn{{
+		Path:          in.Path,
+		ObjectRef:     in.ObjectRef,
+		NewEntry:      in.NewEntry,
+		SourceSHA256:  in.SourceSHA256,
+		CandidateID:   in.CandidateID,
+		BatchID:       map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != ""],
+		ReuseExisting: in.ReuseExisting,
+	}}, updateBatchOptions{ValidateOnly: in.ValidateOnly}, refreshSessions...)
 }
 
 // cognitionOptimizationTransactionComplete recognizes only an archived v4
@@ -565,6 +582,16 @@ func handleMCPUpdateBatch(
 	input []updateEntryItemIn,
 	refreshSessions ...*cognitionRefreshSession,
 ) *mcp.CallToolResult {
+	return handleMCPUpdateBatchWithOptions(root, mcpServiceVersion, input, updateBatchOptions{}, refreshSessions...)
+}
+
+func handleMCPUpdateBatchWithOptions(
+	root,
+	mcpServiceVersion string,
+	input []updateEntryItemIn,
+	options updateBatchOptions,
+	refreshSessions ...*cognitionRefreshSession,
+) *mcp.CallToolResult {
 	var refreshSession *cognitionRefreshSession
 	if len(refreshSessions) > 0 {
 		refreshSession = refreshSessions[0]
@@ -605,6 +632,7 @@ func handleMCPUpdateBatch(
 		items = append(items, AtomicUpdateItem{
 			Path: item.Path, ObjectRef: item.ObjectRef, NewEntry: item.NewEntry,
 			SourceSHA256: item.SourceSHA256, CandidateID: item.CandidateID, BatchID: strings.ToLower(strings.TrimSpace(item.BatchID)),
+			ReuseExisting: item.ReuseExisting,
 		})
 	}
 	var outcome *AtomicBatchOutcome
@@ -629,7 +657,13 @@ func handleMCPUpdateBatch(
 			fail = &Fail{Code: errWriteConflict, Msg: transactionErr.Error()}
 		}
 	}
-	if fail == nil {
+	if fail == nil && options.ValidateOnly {
+		// The optimization pre-checks above are read-only and have run; now the
+		// complete planner runs (binding, identity, FRAS, quota, budget) and
+		// stops: no commit, no transaction, no Ledger event.
+		outcome, fail = ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, true)
+	}
+	if fail == nil && !options.ValidateOnly {
 		// Keep the existing Entries recovery active until the optimization
 		// checkpoint has advanced. If that final draft CAS fails after the formal
 		// postimage is durable, retrying the same machine batch can then use the
@@ -684,7 +718,9 @@ func handleMCPUpdateBatch(
 			remaining = len(input)
 		}
 		metrics := autoMetrics{DeterministicMs: elapsedMilliseconds(start), AOCIToolCalls: 1, SemanticFiles: len(input)}
-		appendAutoFinalizeEvent(root, status, metrics)
+		if !options.ValidateOnly {
+			appendAutoFinalizeEvent(root, status, metrics)
+		}
 		nextAction := map[bool]string{
 			true:  mcpContract(textassets.ContractMaintainActionUpdateRepair),
 			false: mcpContract(textassets.ContractMaintainActionUpdateStopped),
@@ -701,6 +737,7 @@ func handleMCPUpdateBatch(
 		return textResult(renderAutoResult(autoResult{
 			Version:                 1,
 			Status:                  status,
+			ValidateOnly:            options.ValidateOnly,
 			Aligned:                 false,
 			Attempted:               len(input),
 			Applied:                 0,
@@ -714,6 +751,19 @@ func handleMCPUpdateBatch(
 			NextAction:              nextAction,
 			CodePlan:                fail.CodePlan,
 			Stop:                    fail.GlobalStop,
+		}))
+	}
+	if options.ValidateOnly {
+		// Every check a real Apply would run has passed for these exact bytes.
+		// Nothing was written and no Ledger event exists, so the verdict is a
+		// preview: the same batch, resubmitted without validate_only, applies.
+		metrics := autoMetrics{DeterministicMs: elapsedMilliseconds(start), AOCIToolCalls: 1, SemanticFiles: len(input)}
+		return textResult(renderAutoResult(autoResult{
+			Version: 1, Status: autoStatusValidated, ValidateOnly: true, Aligned: false,
+			Attempted: len(input), Applied: 0, Remaining: len(input), FormalWritesStarted: false,
+			Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+			Audit: buildAutoAudit(input, outcome), Findings: machineFindings{}, PreserveOtherCandidates: true,
+			NextAction: "resubmit_same_batch_without_validate_only",
 		}))
 	}
 	if outcome != nil && !outcome.BaselineComplete {

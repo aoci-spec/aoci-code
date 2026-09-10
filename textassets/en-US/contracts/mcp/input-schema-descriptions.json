@@ -8,7 +8,8 @@
   "aoci_maintain": {
     "intent": "Optional explicit mode. cognition_optimization is supported only for aligned Volumes v1 Code Entries; when omitted, ordinary Maintain behavior is unchanged. AOCI only selects and binds review candidates and never generates semantics, compresses Entry text, creates S, or lowers C",
     "object_refs": "Optional canonical Code object references in code:<repository-relative-path> form that limit cognition_optimization candidate discovery; valid only with intent=cognition_optimization and never interpreted as field patches",
-    "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible"
+    "scope": "Optional advanced diagnostic scope. Omit it for ordinary Volumes v1 maintenance so AOCI automatically selects Code, Database, both, aligned, evidence_required, or blocked; explicit code, database, and all remain compatible",
+    "verbose": "Optional; defaults to true. false omits the per-call authoring instructions, authoring_meta, and the sets.review path sample (review_total keeps the count) once the model already holds them from an earlier call; candidates, plans, receipts, and governance facts are never affected"
   },
   "aoci_overview": {
     "check_only": "Return only the compact checkpoint assessment; when false or absent, deliver the complete requested scope if a coherent snapshot is available",
@@ -53,10 +54,13 @@
     "entries[].new_entry": "Complete single-line Entry: filename[tag]: F:... | R:... | A:... | S:...",
     "entries[].object_ref": "Canonical Database object identity; use this instead of path for a table Entry",
     "entries[].path": "Repository-relative path of the target file",
+    "entries[].reuse_existing": "When true, the machine resubmits this object's exact current formal Entry bytes; new_entry must be absent and the object must already have an Entry. The byte-identical text takes the existing duplicate-apply path and advances the Baseline without rewriting the Volume",
     "entries[].source_sha256": "Source binding for a Code candidate; preserve it unchanged for a machine-issued Code batch",
     "new_entry": "Complete single-line Entry for compatibility single-Entry mode",
     "object_ref": "Canonical Database object identity for compatibility single-Entry mode",
     "path": "Repository-relative target path for compatibility single-Entry mode",
-    "source_sha256": "Compatibility binding for Code source bytes or an existing Database object update; Database Cognition authoring uses candidate_id and batch_id instead"
+    "reuse_existing": "Compatibility single-Entry mode: when true, resubmit the object's exact current formal Entry bytes instead of new_entry, which must be absent; answers a stale Code candidate whose Entry text is still correct",
+    "source_sha256": "Compatibility binding for Code source bytes or an existing Database object update; Database Cognition authoring uses candidate_id and batch_id instead",
+    "validate_only": "Optional; when true, run the complete pre-write validation of this exact batch (binding, identity, FRAS, S quota, budget) and stop before any formal write, Ledger event, or transaction; the result is status=validated or the same Repair Findings a real Apply would return"
   }
 }

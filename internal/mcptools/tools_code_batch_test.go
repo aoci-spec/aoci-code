@@ -12,7 +12,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -47,12 +46,12 @@ func TestVolumeCodeCandidateBindingTypoReturnsExactZeroWriteRepairAndSameBatchSu
 			root := buildLargeCodeCandidateRepo(t, 2)
 			session := connectMCPClient(t, root)
 			maintain := maintainVolumeBatch(t, session)
-			if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 {
+			if maintain.CodePlan == nil || len(maintain.Candidates) != 2 {
 				t.Fatalf("expected two Code candidates: %#v", maintain.CodePlan)
 			}
-			arguments := codeBatchArguments(maintain.CodePlan)
+			arguments := codeBatchArguments(maintain)
 			entries := arguments["entries"].([]map[string]any)
-			expectedCandidate := maintain.CodePlan.Candidates[1]
+			expectedCandidate := maintain.Candidates[1]
 			actual := test.alter(entries[1])
 			codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
 			baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
@@ -75,7 +74,7 @@ func TestVolumeCodeCandidateBindingTypoReturnsExactZeroWriteRepairAndSameBatchSu
 			assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
 			assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
 
-			corrected := codeBatchArguments(maintain.CodePlan)
+			corrected := codeBatchArguments(maintain)
 			applied := applyVolumeBatch(t, session, corrected)
 			if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 2 {
 				t.Fatalf("corrected unchanged machine batch did not apply: %#v", applied)
@@ -108,12 +107,12 @@ func TestVolumeCodeCandidateBindingTypoWithSourceDriftStaysStopped(t *testing.T)
 			root := buildLargeCodeCandidateRepo(t, 2)
 			session := connectMCPClient(t, root)
 			maintain := maintainVolumeBatch(t, session)
-			if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 {
+			if maintain.CodePlan == nil || len(maintain.Candidates) != 2 {
 				t.Fatalf("expected two Code candidates: %#v", maintain.CodePlan)
 			}
-			arguments := codeBatchArguments(maintain.CodePlan)
+			arguments := codeBatchArguments(maintain)
 			test.alter(arguments["entries"].([]map[string]any)[1])
-			driftPath := filepath.Join(root, filepath.FromSlash(maintain.CodePlan.Candidates[0].Path))
+			driftPath := filepath.Join(root, filepath.FromSlash(maintain.Candidates[0].Path))
 			data, err := os.ReadFile(driftPath)
 			if err != nil {
 				t.Fatal(err)
@@ -139,10 +138,10 @@ func TestVolumeCodeConflictingValidBindingsRequireUniqueSourceAnchor(t *testing.
 	root := buildLargeCodeCandidateRepo(t, 2)
 	session := connectMCPClient(t, root)
 	maintain := maintainVolumeBatch(t, session)
-	if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 {
+	if maintain.CodePlan == nil || len(maintain.Candidates) != 2 {
 		t.Fatalf("expected two Code candidates: %#v", maintain.CodePlan)
 	}
-	arguments := codeBatchArguments(maintain.CodePlan)
+	arguments := codeBatchArguments(maintain)
 	entries := arguments["entries"].([]map[string]any)
 	entries[0]["path"], entries[1]["path"] = entries[1]["path"], entries[0]["path"]
 	codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
@@ -157,18 +156,18 @@ func TestVolumeCodeConflictingValidBindingsRequireUniqueSourceAnchor(t *testing.
 	for _, finding := range rejected.Findings {
 		findings[finding.CandidateIndex] = finding
 	}
-	for index, candidate := range maintain.CodePlan.Candidates {
+	for index, candidate := range maintain.Candidates {
 		finding := findings[index+1]
 		if finding.Field != "path" || finding.Path != candidate.Path ||
 			finding.CanonicalObjectIdentity != candidate.ObjectRef ||
-			finding.Expected != candidate.Path || finding.Actual != maintain.CodePlan.Candidates[1-index].Path {
+			finding.Expected != candidate.Path || finding.Actual != maintain.Candidates[1-index].Path {
 			t.Fatalf("candidate %d lost its unique source anchor: %+v", index+1, finding)
 		}
 	}
 	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
 	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
 
-	applied := applyVolumeBatch(t, session, codeBatchArguments(maintain.CodePlan))
+	applied := applyVolumeBatch(t, session, codeBatchArguments(maintain))
 	if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 2 {
 		t.Fatalf("corrected uniquely source-bound batch did not apply: %#v", applied)
 	}
@@ -186,11 +185,11 @@ func TestVolumeCodeConflictingValidBindingsWithSharedSourceStayStopped(t *testin
 	}
 	session := connectMCPClient(t, root)
 	maintain := maintainVolumeBatch(t, session)
-	if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 2 ||
-		maintain.CodePlan.Candidates[0].SourceSHA256 != maintain.CodePlan.Candidates[1].SourceSHA256 {
+	if maintain.CodePlan == nil || len(maintain.Candidates) != 2 ||
+		maintain.Candidates[0].SourceSHA256 != maintain.Candidates[1].SourceSHA256 {
 		t.Fatalf("fixture did not create two candidates with shared source bytes: %#v", maintain.CodePlan)
 	}
-	arguments := codeBatchArguments(maintain.CodePlan)
+	arguments := codeBatchArguments(maintain)
 	entries := arguments["entries"].([]map[string]any)
 	entries[0]["path"], entries[1]["path"] = entries[1]["path"], entries[0]["path"]
 	codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
@@ -215,7 +214,7 @@ func TestVolumeCodeWrongBatchDoesNotRepairUnprovenReceipt(t *testing.T) {
 			arguments["entries"] = entries[:len(entries)-1]
 		}},
 		{name: "stale", mutate: func(t *testing.T, root string, maintain *volumeMaintainResult, _ map[string]any) {
-			path := filepath.Join(root, filepath.FromSlash(maintain.CodePlan.Candidates[0].Path))
+			path := filepath.Join(root, filepath.FromSlash(maintain.Candidates[0].Path))
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -248,7 +247,7 @@ func TestVolumeCodeWrongBatchDoesNotRepairUnprovenReceipt(t *testing.T) {
 				maintain.Batch.BatchIdentity == maintain.CodePlan.BatchID {
 				t.Fatalf("fixture did not expose distinct batch identities: %#v", maintain)
 			}
-			arguments := codeBatchArguments(maintain.CodePlan)
+			arguments := codeBatchArguments(maintain)
 			arguments["code_batch_id"] = maintain.Batch.BatchIdentity
 			test.mutate(t, root, &maintain, arguments)
 			codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
@@ -273,7 +272,7 @@ func TestVolumeCodeAuthoringEnvelopeIdentityExplainsDomainBatchAndStaysZeroWrite
 		maintain.Batch.BatchIdentity == maintain.CodePlan.BatchID {
 		t.Fatalf("fixture did not expose distinct envelope and Code batch identities: %#v", maintain)
 	}
-	arguments := codeBatchArguments(maintain.CodePlan)
+	arguments := codeBatchArguments(maintain)
 	arguments["code_batch_id"] = maintain.Batch.BatchIdentity
 	codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
 	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
@@ -284,7 +283,7 @@ func TestVolumeCodeAuthoringEnvelopeIdentityExplainsDomainBatchAndStaysZeroWrite
 		t.Fatalf("envelope identity misuse did not return a top-level zero-write repair: %#v", rejected)
 	}
 	finding := rejected.Findings[0]
-	if finding.CandidateIndex != 1 || finding.Path != maintain.CodePlan.Candidates[0].Path ||
+	if finding.CandidateIndex != 1 || finding.Path != maintain.Candidates[0].Path ||
 		finding.Field != "code_batch_id" || finding.RuleCode != "code_candidate_batch_id_mismatch" ||
 		!strings.Contains(finding.Expected, "code_plan.batch_id="+maintain.CodePlan.BatchID) ||
 		!strings.Contains(finding.Expected, "candidates[].batch_id="+maintain.CodePlan.BatchID) ||
@@ -296,7 +295,7 @@ func TestVolumeCodeAuthoringEnvelopeIdentityExplainsDomainBatchAndStaysZeroWrite
 	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
 	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
 
-	applied := applyVolumeBatch(t, session, codeBatchArguments(maintain.CodePlan))
+	applied := applyVolumeBatch(t, session, codeBatchArguments(maintain))
 	if applied.Status != autoStatusApplied || !applied.Aligned || applied.Applied != 1 {
 		t.Fatalf("same machine batch did not apply after correcting only code_batch_id: %#v", applied)
 	}
@@ -334,7 +333,7 @@ func TestVolumeCode201CandidatesApplyAs200PlusOne(t *testing.T) {
 		first.Batch.Remaining != 1 || !first.Batch.ContinuationRequired || len(first.Candidates) != 200 {
 		t.Fatalf("first machine batch is invalid: %#v", first)
 	}
-	firstArgs := codeBatchArguments(first.CodePlan)
+	firstArgs := codeBatchArguments(first)
 	firstApply := applyVolumeBatch(t, session, firstArgs)
 	if firstApply.Status != autoStatusApplied || firstApply.Aligned || firstApply.Applied != 200 || firstApply.Remaining != 1 {
 		t.Fatalf("first batch claimed whole-index alignment: %#v", firstApply)
@@ -343,7 +342,7 @@ func TestVolumeCode201CandidatesApplyAs200PlusOne(t *testing.T) {
 	if second.CodePlan == nil || second.Batch.TotalTargets != 1 || second.Batch.Included != 1 || second.Batch.Remaining != 0 {
 		t.Fatalf("second machine batch is invalid: %#v", second)
 	}
-	secondApply := applyVolumeBatch(t, session, codeBatchArguments(second.CodePlan))
+	secondApply := applyVolumeBatch(t, session, codeBatchArguments(second))
 	if secondApply.Status != autoStatusApplied || !secondApply.Aligned || secondApply.Applied != 1 || secondApply.Remaining != 0 {
 		t.Fatalf("second batch did not close alignment: %#v", secondApply)
 	}
@@ -357,7 +356,7 @@ func TestVolumeCodeBatchSourceDriftAndDuplicateSubmissionStaySafe(t *testing.T) 
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
-	firstArgs := codeBatchArguments(first.CodePlan)
+	firstArgs := codeBatchArguments(first)
 	if applied := applyVolumeBatch(t, session, firstArgs); applied.Applied != 200 || applied.Aligned {
 		t.Fatalf("first batch failed: %#v", applied)
 	}
@@ -366,7 +365,7 @@ func TestVolumeCodeBatchSourceDriftAndDuplicateSubmissionStaySafe(t *testing.T) 
 		t.Fatalf("duplicate batch was not stable: %#v", duplicate)
 	}
 	second := maintainVolumeBatch(t, session)
-	path := second.CodePlan.Candidates[0].Path
+	path := second.Candidates[0].Path
 	fullPath := filepath.Join(root, filepath.FromSlash(path))
 	data, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -375,7 +374,7 @@ func TestVolumeCodeBatchSourceDriftAndDuplicateSubmissionStaySafe(t *testing.T) 
 	if err := os.WriteFile(fullPath, append(data, []byte("// drift\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	drift := applyVolumeBatch(t, session, codeBatchArguments(second.CodePlan))
+	drift := applyVolumeBatch(t, session, codeBatchArguments(second))
 	if drift.Status != autoStatusStopped || drift.Applied != 0 || drift.FormalWritesStarted {
 		t.Fatalf("source drift did not fail closed: %#v", drift)
 	}
@@ -389,17 +388,17 @@ func TestVolumeCodeSecondBatchRepairPreservesFirstBatch(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(first.CodePlan)); applied.Applied != 200 || applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(first)); applied.Applied != 200 || applied.Aligned {
 		t.Fatalf("first batch failed: %#v", applied)
 	}
 	second := maintainVolumeBatch(t, session)
-	broken := codeBatchArguments(second.CodePlan)
+	broken := codeBatchArguments(second)
 	broken["entries"].([]map[string]any)[0]["new_entry"] = "not an entry"
 	repair := applyVolumeBatch(t, session, broken)
 	if repair.Status != autoStatusRepairRequired || repair.Applied != 0 || repair.FormalWritesStarted {
 		t.Fatalf("second batch repair was not isolated: %#v", repair)
 	}
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(second.CodePlan)); !applied.Aligned || applied.Applied != 1 {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(second)); !applied.Aligned || applied.Applied != 1 {
 		t.Fatalf("repaired second batch did not complete: %#v", applied)
 	}
 	set, err := cognition.Load(root, "aoci.txt")
@@ -412,7 +411,7 @@ func TestVolumeCodeScopeChangeInvalidatesOutstandingBatch(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(first.CodePlan)); applied.Applied != 200 || applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(first)); applied.Applied != 200 || applied.Aligned {
 		t.Fatalf("first batch failed: %#v", applied)
 	}
 	second := maintainVolumeBatch(t, session)
@@ -425,7 +424,7 @@ func TestVolumeCodeScopeChangeInvalidatesOutstandingBatch(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	stale := applyVolumeBatch(t, session, codeBatchArguments(second.CodePlan))
+	stale := applyVolumeBatch(t, session, codeBatchArguments(second))
 	if stale.Status != autoStatusStopped || stale.Applied != 0 || stale.FormalWritesStarted {
 		t.Fatalf("scope drift did not invalidate the outstanding batch: %#v", stale)
 	}
@@ -438,11 +437,11 @@ func TestVolumeCodeScopeChangeInvalidatesOutstandingBatch(t *testing.T) {
 func TestVolumeCodeSecondBatchRecoveryDoesNotReplayFirstBatch(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	first := maintainVolumeBatch(t, connectMCPClient(t, root))
-	if applied := applyVolumeBatch(t, connectMCPClient(t, root), codeBatchArguments(first.CodePlan)); applied.Applied != 200 {
+	if applied := applyVolumeBatch(t, connectMCPClient(t, root), codeBatchArguments(first)); applied.Applied != 200 {
 		t.Fatalf("first batch failed: %#v", applied)
 	}
 	second := maintainVolumeBatch(t, connectMCPClient(t, root))
-	items := atomicCodeBatchItems(second.CodePlan)
+	items := atomicCodeBatchItems(second)
 	original := writeAtomicIndex
 	t.Cleanup(func() { writeAtomicIndex = original })
 	writeAtomicIndex = func(target string, data []byte, expected string) error {
@@ -475,7 +474,7 @@ func TestVolumeCodeRelationToLaterBatchAppliesWithoutReplan(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
-	arguments := codeBatchArguments(first.CodePlan)
+	arguments := codeBatchArguments(first)
 	entries := arguments["entries"].([]map[string]any)
 	entries[0]["new_entry"] = filepath.Base(entries[0]["path"].(string)) +
 		"[CD5S]: F:implement fixture behavior | R:code:generated/0200.go | A:- | S:Keep the fixture deterministic"
@@ -487,7 +486,7 @@ func TestVolumeCodeRelationToLaterBatchAppliesWithoutReplan(t *testing.T) {
 	if last.CodePlan == nil || last.CodePlan.Included != 1 {
 		t.Fatalf("末批计划不对: %#v", last)
 	}
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(last.CodePlan)); !applied.Aligned || applied.Applied != 1 {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(last)); !applied.Aligned || applied.Applied != 1 {
 		t.Fatalf("末批失败: %#v", applied)
 	}
 	set, err := cognition.Load(root, "aoci.txt")
@@ -509,7 +508,7 @@ func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.
 		if plan.CodePlan == nil {
 			break
 		}
-		arguments := codeBatchArguments(plan.CodePlan)
+		arguments := codeBatchArguments(plan)
 		entries := arguments["entries"].([]map[string]any)
 		// 每条都指向全集里的下一个对象, 首尾相接 —— 一个跨越所有批次的大环。
 		for _, entry := range entries {
@@ -580,14 +579,24 @@ func maintainVolumeBatch(t *testing.T, session *mcp.ClientSession) volumeMaintai
 	return result
 }
 
-func codeBatchArguments(plan *codebatch.Plan) map[string]any {
-	entries := make([]map[string]any, 0, len(plan.Candidates))
-	for _, candidate := range plan.Candidates {
+// codeBatchArguments builds the complete Code batch submission from a Maintain
+// result. Candidates are read once, from the top level, which is the only
+// place a Maintain response delivers them; code_plan carries the batch identity.
+func codeBatchArguments(maintain volumeMaintainResult) map[string]any {
+	entries := make([]map[string]any, 0, len(maintain.Candidates))
+	for _, candidate := range maintain.Candidates {
+		if candidate.Domain != cognition.ScopeCode {
+			continue
+		}
 		entries = append(entries, map[string]any{"path": candidate.Path, "source_sha256": candidate.SourceSHA256,
 			"candidate_id": candidate.CandidateID, "new_entry": filepath.Base(candidate.Path) +
 				"[CD5S]: F:implement fixture behavior | R:- | A:- | S:Keep the fixture deterministic"})
 	}
-	return map[string]any{"code_batch_id": plan.BatchID, "entries": entries}
+	batchID := ""
+	if maintain.CodePlan != nil {
+		batchID = maintain.CodePlan.BatchID
+	}
+	return map[string]any{"code_batch_id": batchID, "entries": entries}
 }
 
 func applyVolumeBatch(t *testing.T, session *mcp.ClientSession, arguments map[string]any) autoResult {
@@ -600,11 +609,14 @@ func applyVolumeBatch(t *testing.T, session *mcp.ClientSession, arguments map[st
 	return result
 }
 
-func atomicCodeBatchItems(plan *codebatch.Plan) []AtomicUpdateItem {
-	result := make([]AtomicUpdateItem, 0, len(plan.Candidates))
-	for _, candidate := range plan.Candidates {
+func atomicCodeBatchItems(maintain volumeMaintainResult) []AtomicUpdateItem {
+	result := make([]AtomicUpdateItem, 0, len(maintain.Candidates))
+	for _, candidate := range maintain.Candidates {
+		if candidate.Domain != cognition.ScopeCode {
+			continue
+		}
 		result = append(result, AtomicUpdateItem{Path: candidate.Path, SourceSHA256: candidate.SourceSHA256,
-			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, NewEntry: filepath.Base(candidate.Path) +
+			CandidateID: candidate.CandidateID, BatchID: candidate.BatchID, NewEntry: filepath.Base(candidate.Path) +
 				"[CD5S]: F:implement fixture behavior | R:- | A:- | S:Keep the fixture deterministic"})
 	}
 	return result

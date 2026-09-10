@@ -1479,6 +1479,137 @@ def group_u_detach():
             except Exception:
                 pass
 
+# ---------------------------------------------------------------- V: ergonomics
+# The 0.2.0-line contract additions, each proven against the wire rather than
+# the Go structs: verbose=false, validate_only, reuse_existing, and the Chunk
+# receipt section anchors over the real repository's delivery chain.
+def group_v():
+    g = "V"
+    fx = make_fixture("erg-ergonomics", 4)
+    s = Session(fx)
+    # -- V1: verbose=false omits only what the model already holds (the
+    # authoring contract and the review path sample); everything it acts on
+    # is byte-for-byte the verbose answer, and code_plan no longer repeats
+    # the candidate list.
+    m_full, t_full, e1 = maintain(s)
+    t_brief, e2 = text_of(s.call("aoci_maintain", {"verbose": False}))
+    m_brief = jload(t_brief)
+    full_sets, brief_sets = m_full.get("sets") or {}, m_brief.get("sets") or {}
+    want_total = full_sets.get("review_total") or len(full_sets.get("review") or [])
+    ok = (not e1 and not e2 and m_brief.get("compact") is True
+          and "instructions" not in m_brief and "authoring_meta" not in m_brief
+          and bool(m_full.get("instructions")) and bool(m_full.get("authoring_meta"))
+          and brief_sets.get("review") == [] and (brief_sets.get("review_total") or 0) == want_total
+          and m_brief.get("candidates") == m_full.get("candidates")
+          and m_brief.get("code_plan") == m_full.get("code_plan")
+          and "candidates" not in (m_full.get("code_plan") or {})
+          and all("source_lines" in c for c in (m_full.get("candidates") or []))
+          and m_brief.get("authoring_batch") == m_full.get("authoring_batch")
+          and len(t_brief.encode("utf-8")) < len(t_full.encode("utf-8")))
+    record(g, "V1.verbose-false-omits-only-repeated-boilerplate", "PASS" if ok else "FAIL",
+           f"verbose={len(t_full.encode('utf-8'))}B compact={len(t_brief.encode('utf-8'))}B review_total={want_total}")
+    # -- V2: validate_only runs the complete pre-write validation and changes
+    # no byte, for a valid batch (status=validated) and for an over-quota S
+    # (the same repair finding a real Apply returns); the validated bytes then
+    # apply for real.
+    cands = m_full.get("candidates") or []
+    batch = (m_full.get("code_plan") or {}).get("batch_id")
+    entries = [{"path": c["path"], "source_sha256": c["source_sha256"],
+                "candidate_id": c["candidate_id"], "new_entry": entry_line(c["path"])} for c in cands]
+    before = repo_digest(fx)
+    tv, ev = text_of(s.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries, "validate_only": True}))
+    rv = jload(tv)
+    same_after_valid = repo_digest(fx) == before
+    bad = [dict(e) for e in entries]
+    bad[0]["new_entry"] = entry_line(bad[0]["path"], s_field="x" * 260)
+    tb, eb = text_of(s.call("aoci_update_entry", {"code_batch_id": batch, "entries": bad, "validate_only": True}))
+    rb = jload(tb)
+    same_after_bad = repo_digest(fx) == before
+    ta, ea = text_of(s.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}))
+    ra = jload(ta)
+    changed_after_apply = repo_digest(fx) != before
+    ok = (not ev and rv.get("status") == "validated" and rv.get("validate_only") is True
+          and rv.get("applied") == 0 and rv.get("formal_writes_started") is False and same_after_valid
+          and rb.get("status") == "repair_required" and rb.get("validate_only") is True
+          and rb.get("applied") == 0 and bool(rb.get("findings")) and rb["findings"][0].get("field") == "S"
+          and same_after_bad
+          and not ea and ra.get("status") == "applied" and ra.get("applied") == len(entries) and changed_after_apply)
+    record(g, "V2.validate-only-changes-no-byte-then-same-bytes-apply", "PASS" if ok else "FAIL",
+           f"validated={rv.get('status')} rejected={rb.get('status')}/{(rb.get('findings') or [{}])[0].get('rule_code')} "
+           f"applied={ra.get('applied')} bytes_same={same_after_valid and same_after_bad}")
+    # -- V3: a stale candidate whose Entry is still right is answered with
+    # reuse_existing: the machine resubmits the current bytes, the existing
+    # duplicate-apply path advances the Baseline, and the Volume is not
+    # rewritten. Carrying new_entry as well is a repair finding before any write.
+    with open(os.path.join(fx, "pkg", "f001.go"), "a") as fh:
+        fh.write("\n// drift: the Entry text stays right\n")
+    m3, t3, e3 = maintain(s)
+    c = (m3.get("candidates") or [{}])[0]
+    batch3 = (m3.get("code_plan") or {}).get("batch_id")
+    with open(os.path.join(fx, "aoci.code.txt"), "rb") as fh:
+        vol_before = fh.read()
+    tc, ec = text_of(s.call("aoci_update_entry", {"code_batch_id": batch3, "entries": [
+        {"path": c.get("path"), "source_sha256": c.get("source_sha256"), "candidate_id": c.get("candidate_id"),
+         "reuse_existing": True, "new_entry": c.get("existing_entry")}]}))
+    rc_ = jload(tc)
+    tr, er = text_of(s.call("aoci_update_entry", {"code_batch_id": batch3, "entries": [
+        {"path": c.get("path"), "source_sha256": c.get("source_sha256"), "candidate_id": c.get("candidate_id"),
+         "reuse_existing": True}]}))
+    rr = jload(tr)
+    with open(os.path.join(fx, "aoci.code.txt"), "rb") as fh:
+        vol_after = fh.read()
+    m4, _, _ = maintain(s)
+    ok = (not e3 and c.get("change") == "update" and bool(c.get("existing_entry"))
+          and rc_.get("status") == "repair_required" and rc_.get("formal_writes_started") is False
+          and (rc_.get("findings") or [{}])[0].get("rule_code") == "reuse_existing_conflicts_with_new_entry"
+          and not er and rr.get("status") == "applied" and rr.get("aligned") is True
+          and (rr.get("metrics") or {}).get("duplicate_applies") == 1
+          and vol_after == vol_before and m4.get("aligned") is True and not (m4.get("candidates") or []))
+    record(g, "V3.reuse-existing-resubmits-current-bytes-without-rewrite", "PASS" if ok else "FAIL",
+           f"conflict={rc_.get('status')} reuse={rr.get('status')}/dup={(rr.get('metrics') or {}).get('duplicate_applies')} "
+           f"volume_same={vol_after == vol_before} aligned_after={m4.get('aligned')}")
+    s.close()
+    # -- V4: every Chunk receipt of the real repository's delivery chain names
+    # the Section markers that start inside it; together they cover every
+    # marker of the reassembled body exactly once, in order, their ordinals
+    # stay inside the chunk (or point at the next chunk's first Entry), and the
+    # per-Section counts add up to the published entry_count.
+    s = Session(REAL)
+    seen, body, cur, chunks, first_meta, cross, detail, ok = [], [], None, 0, None, 0, "", True
+    for _ in range(200):
+        t, err = text_of(s.call("aoci_overview", {"cursor": cur} if cur else {}))
+        if err:
+            ok, detail = False, "overview error: " + t[:120]; break
+        mm, b = meta_and_body(t)
+        if b is None:
+            ok, detail = False, "chunk without body"; break
+        if first_meta is None:
+            first_meta = mm
+        anchors = mm.get("section_anchors")
+        if not isinstance(anchors, list):
+            ok, detail = False, f"chunk {mm.get('chunk_index')} lacks section_anchors"; break
+        lo, hi = mm.get("first_entry_ordinal"), mm.get("last_entry_ordinal")
+        for a in anchors:
+            if a.get("entry_count", 0) > 0 and not (lo <= a.get("first_entry_ordinal", -1) <= hi + 1):
+                ok, detail = False, f"anchor outside its chunk: {a} in [{lo},{hi}]"
+            if a.get("first_entry_ordinal") == hi + 1:
+                cross += 1
+        seen += anchors; body.append(b); chunks += 1
+        if mm.get("completed"):
+            break
+        cur = mm.get("next_cursor")
+        if not cur:
+            ok, detail = False, "chain ended without cursor or completion"; break
+    s.close()
+    text = "".join(body)
+    markers = [ln.strip("= \t") for ln in text.split("\n") if re.match(r"^={3,}.*={3,}\s*$", ln)]
+    total_entries = (first_meta or {}).get("entry_count")
+    covered = [a.get("section") for a in seen] == markers
+    summed = sum(a.get("entry_count", 0) for a in seen) == total_entries
+    ok = ok and chunks >= 2 and bool(markers) and covered and summed
+    record(g, "V4.section-anchors-cover-every-marker-across-real-chain", "PASS" if ok else "FAIL",
+           detail or f"chunks={chunks} markers={len(markers)} anchors={len(seen)} cross_chunk={cross} entries={total_entries}")
+
 # ---------------------------------------------------------------- main
 if __name__ == "__main__":
     os.makedirs(WORK, exist_ok=True)
@@ -1495,6 +1626,7 @@ if __name__ == "__main__":
     group_t()
     group_u()
     group_u_detach()
+    group_v()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()

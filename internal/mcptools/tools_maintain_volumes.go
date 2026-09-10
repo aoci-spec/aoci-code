@@ -17,6 +17,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
+	"github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
@@ -39,6 +41,43 @@ type volumeMaintainCandidate struct {
 	Importance          int                        `json:"importance,omitempty"`
 	Cost                *cognitionOptimizationCost `json:"cost,omitempty"`
 	SelectionReason     string                     `json:"selection_reason,omitempty"`
+	// SourceLines and Scale are read-only source facts for a Code candidate:
+	// the current line count and the E symbols whose Meta-declared range
+	// contains it. They spare the model one file read per candidate; E stays
+	// model-written and the E-scale check stays a Warning.
+	SourceLines int    `json:"source_lines,omitempty"`
+	Scale       string `json:"scale,omitempty"`
+}
+
+// codePlanView is the transport shape of a Code plan: every scalar plan fact
+// and identity, without the candidate list. Candidates are delivered once, at
+// the top level, where they also carry the source facts the plan does not.
+// (The same candidates used to appear twice in one Maintain response, 4.7 KB
+// of a 15 KB answer for three files.) Decoding fills the embedded Plan, so
+// identity readers keep their field access.
+type codePlanView struct {
+	codebatch.Plan
+}
+
+func newCodePlanView(plan codebatch.Plan) *codePlanView {
+	return &codePlanView{Plan: plan}
+}
+
+func (view codePlanView) MarshalJSON() ([]byte, error) {
+	encoded, err := json.Marshal(view.Plan)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		return nil, err
+	}
+	delete(fields, "candidates")
+	return json.Marshal(fields)
+}
+
+func (view *codePlanView) UnmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, &view.Plan)
 }
 
 type volumeMaintainSets struct {
@@ -77,7 +116,7 @@ type volumeMaintainResult struct {
 	OrphanRemovals    []string                     `json:"orphan_remove_candidates"`
 	Sets              volumeMaintainSets           `json:"sets"`
 	DatabasePlan      *dbcognition.Plan            `json:"database_plan,omitempty"`
-	CodePlan          *codebatch.Plan              `json:"code_plan,omitempty"`
+	CodePlan          *codePlanView                `json:"code_plan,omitempty"`
 	Batch             volumeAuthoringBatch         `json:"authoring_batch"`
 	Governance        *volumegovernance.Facts      `json:"governance"`
 	Receipt           cognitionReceipt             `json:"cognition_receipt"`
@@ -89,12 +128,15 @@ type volumeMaintainResult struct {
 	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
 	NextCommands      []string                     `json:"next_commands,omitempty"`
 	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
+	// Compact records that the caller asked for verbose=false: the authoring
+	// contract and the review path sample were omitted on request, not cut.
+	Compact bool `json:"compact,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
 }
 
-func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession, verbose bool) *mcp.CallToolResult {
 	start := time.Now()
 	if requestedScope != "" && requestedScope != cognition.ScopeCode && requestedScope != cognition.ScopeDatabase && requestedScope != cognition.ScopeAll {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
@@ -194,6 +236,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
 	boundMaintainTransport(&result)
+	applyMaintainVerbosity(&result, verbose)
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
@@ -215,6 +258,41 @@ func boundMaintainTransport(result *volumeMaintainResult) {
 		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
 	}
 	result.Governance = volumegovernance.BoundListsForTransport(result.Governance, limit)
+}
+
+// applyMaintainVerbosity drops the per-call authoring boilerplate when the
+// caller declares it already holds it: the authoring contract (instructions,
+// authoring_meta) and the review-closure path sample. Counts stay, and every
+// candidate, plan, receipt, and governance fact is untouched, so a compact
+// response still carries everything the model must act on. A first call in a
+// session keeps the default (verbose) shape; nothing is inferred.
+func applyMaintainVerbosity(result *volumeMaintainResult, verbose bool) {
+	if verbose {
+		return
+	}
+	result.Compact = true
+	result.Instructions = nil
+	result.AuthoringMeta = ""
+	if result.Sets.ReviewTotal == 0 {
+		result.Sets.ReviewTotal = len(result.Sets.Review)
+	}
+	result.Sets.Review = []string{}
+}
+
+// maintainVerbose resolves the optional verbose input: absent means verbose.
+func maintainVerbose(flag *bool) bool {
+	return flag == nil || *flag
+}
+
+// candidateSourceFacts reads the two source facts a model otherwise opens the
+// file to learn: its current line count and the E symbols whose Meta-declared
+// range contains it. A count failure yields zeros, never a candidate rejection.
+func candidateSourceFacts(root, rel string, thresholds *index.EScaleThresholds) (int, string) {
+	lines, err := fs.CountFileLines(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return 0, ""
+	}
+	return lines, strings.Join(index.ExpectedEScaleSymbols(lines, thresholds), ",")
 }
 
 func candidateDomains(candidates []volumeMaintainCandidate) []string {
@@ -275,12 +353,15 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	if err != nil {
 		return
 	}
-	result.CodePlan = &plan
+	result.CodePlan = newCodePlanView(plan)
+	thresholds := index.ExtractEScaleThresholds(string(loaded.set.Meta.Raw))
 	for _, candidate := range plan.Candidates {
+		lines, scale := candidateSourceFacts(root, candidate.Path, thresholds)
 		result.Candidates = append(result.Candidates, volumeMaintainCandidate{Domain: cognition.ScopeCode,
 			Change: candidate.Change, ObjectRef: candidate.ObjectRef, Path: candidate.Path,
 			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
-			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
+			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true,
+			SourceLines: lines, Scale: scale})
 	}
 }
 

@@ -165,7 +165,11 @@ Two governed levers cover the case instead:
   recognized, applies zero formal writes, and advances the Baseline —
   `duplicate_applies` in the result is that path confirming itself. The cost is
   one maintain/update round, and current-state enumeration is already folded
-  out of that round's transport.
+  out of that round's transport. You need not copy the bytes yourself: set
+  `reuse_existing: true` on that candidate and omit `new_entry`, and the
+  machine resubmits the object's exact current Entry for you. Carrying
+  `new_entry` as well, or reusing an object that has no Entry yet, is a Repair
+  Finding before any write.
 
 For the normative lifecycle, retention dispositions, safety boundaries,
 transaction order, and token gates, see

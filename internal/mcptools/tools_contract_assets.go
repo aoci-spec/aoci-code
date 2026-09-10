@@ -28,8 +28,9 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_update_entry": {
 		"path", "object_ref", "new_entry", "source_sha256", "candidate_id", "batch_id", "code_batch_id", "entries",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
+		"entries[].reuse_existing", "reuse_existing", "validate_only",
 	},
-	"aoci_maintain":     {"scope", "intent", "object_refs"},
+	"aoci_maintain":     {"scope", "intent", "object_refs", "verbose"},
 	"aoci_report":       {"path", "note"},
 	"aoci_remove_entry": {"path"},
 }
@@ -187,12 +188,17 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 
 	case "aoci_update_entry":
 		item := object(map[string]any{
-			"path":          stringProperty("entries[].path"),
-			"object_ref":    stringProperty("entries[].object_ref"),
-			"new_entry":     stringProperty("entries[].new_entry"),
-			"source_sha256": stringProperty("entries[].source_sha256"),
-			"candidate_id":  stringProperty("entries[].candidate_id"),
-		}, "new_entry")
+			"path":           stringProperty("entries[].path"),
+			"object_ref":     stringProperty("entries[].object_ref"),
+			"new_entry":      stringProperty("entries[].new_entry"),
+			"source_sha256":  stringProperty("entries[].source_sha256"),
+			"candidate_id":   stringProperty("entries[].candidate_id"),
+			"reuse_existing": booleanProperty("entries[].reuse_existing"),
+		})
+		item["anyOf"] = []any{
+			map[string]any{"required": []string{"new_entry"}},
+			map[string]any{"required": []string{"reuse_existing"}, "properties": map[string]any{"reuse_existing": map[string]any{"const": true}}},
+		}
 		item["oneOf"] = []any{
 			map[string]any{"required": []string{"path", "source_sha256"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"object_ref"}}, map[string]any{"required": []string{"candidate_id"}}}}},
 			map[string]any{"required": []string{"path", "source_sha256", "candidate_id"}, "not": map[string]any{"required": []string{"object_ref"}}},
@@ -205,14 +211,16 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"items":       item,
 		}
 		return object(map[string]any{
-			"path":          stringProperty("path"),
-			"object_ref":    stringProperty("object_ref"),
-			"new_entry":     stringProperty("new_entry"),
-			"source_sha256": stringProperty("source_sha256"),
-			"candidate_id":  stringProperty("candidate_id"),
-			"batch_id":      stringProperty("batch_id"),
-			"code_batch_id": stringProperty("code_batch_id"),
-			"entries":       entries,
+			"path":           stringProperty("path"),
+			"object_ref":     stringProperty("object_ref"),
+			"new_entry":      stringProperty("new_entry"),
+			"source_sha256":  stringProperty("source_sha256"),
+			"candidate_id":   stringProperty("candidate_id"),
+			"batch_id":       stringProperty("batch_id"),
+			"code_batch_id":  stringProperty("code_batch_id"),
+			"entries":        entries,
+			"reuse_existing": booleanProperty("reuse_existing"),
+			"validate_only":  booleanProperty("validate_only"),
 		}), nil
 
 	case "aoci_maintain":
@@ -226,6 +234,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 				"type": "array", "description": descriptions["object_refs"],
 				"items": map[string]any{"type": "string", "pattern": `^code:.+`},
 			},
+			"verbose": booleanProperty("verbose"),
 		}), nil
 
 	case "aoci_overview":

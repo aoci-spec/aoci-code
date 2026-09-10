@@ -20,6 +20,9 @@ type maintainIn struct {
 	Scope      string   `json:"scope,omitempty"`
 	Intent     string   `json:"intent,omitempty"`
 	ObjectRefs []string `json:"object_refs,omitempty"`
+	// Verbose defaults to true. false omits the authoring contract and the
+	// review path sample the model already holds from an earlier call.
+	Verbose *bool `json:"verbose,omitempty"`
 }
 
 const maintainIntentCognitionOptimization = "cognition_optimization"
@@ -73,7 +76,7 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	if fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 		switch input.Scope {
 		case "", cognition.ScopeCode, cognition.ScopeAll:
-			return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession)
+			return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession, maintainVerbose(input.Verbose))
 		case cognition.ScopeDatabase:
 			return handleDatabaseMaintain(root, mcpServiceVersion, input.Scope)
 		default:
