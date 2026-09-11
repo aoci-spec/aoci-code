@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-11T04:09:10Z",
+  "updated_at": "2026-09-11T04:42:54Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -3281,10 +3281,10 @@
     },
     "internal/fs/lock_test.go": {
       "role": "observe",
-      "sha256": "c6bfb3326acb71a479ae32de01fff3056c83cceec9e37c6663a4eb62eac65dc1",
-      "size": 16741,
-      "normalized_sha256": "c6bfb3326acb71a479ae32de01fff3056c83cceec9e37c6663a4eb62eac65dc1",
-      "format_sha256": "c6bfb3326acb71a479ae32de01fff3056c83cceec9e37c6663a4eb62eac65dc1",
+      "sha256": "42414894ee23f4596f1c77f4906d556feeee2184a7603a1acea2a68be03e41e9",
+      "size": 17266,
+      "normalized_sha256": "42414894ee23f4596f1c77f4906d556feeee2184a7603a1acea2a68be03e41e9",
+      "format_sha256": "42414894ee23f4596f1c77f4906d556feeee2184a7603a1acea2a68be03e41e9",
       "format_kind": "gofmt"
     },
     "internal/fs/process_identity_linux.go": {

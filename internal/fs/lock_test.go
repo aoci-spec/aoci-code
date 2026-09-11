@@ -450,13 +450,20 @@ func TestLockMutualExclusion(t *testing.T) {
 	var total atomic.Int32
 	var overlap atomic.Bool
 
+	// 命题是互斥成立且每一轮都完成;等待方在慢机器上的耐心不是命题。获取循环
+	// 退避到 500ms 且不保证公平,八个竞争者下一个 worker 可能连续输掉每次唤醒,
+	// 在负载中的 Windows runner 上超过 10s(full-confidence 2026-09-11:
+	// 40 轮完成 32 轮,无重叠)。超时仍远小于陈旧阈值,Release 若坏了留下的锁
+	// 依旧以超时失败,而不是被判陈旧后隔离窃取。
+	const acquireTimeout, staleHorizon = 2 * time.Minute, 5 * time.Minute
+
 	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for j := 0; j < rounds; j++ {
-				l, err := acquireLockWith(p, 10*time.Second, time.Minute)
+				l, err := acquireLockWith(p, acquireTimeout, staleHorizon)
 				if err != nil {
 					t.Errorf("并发获取锁失败: %v", err)
 					return
