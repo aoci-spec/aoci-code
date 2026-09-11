@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	gitcode.com/opengauss/openGauss-connector-go-pq v1.0.8
-	github.com/go-sql-driver/mysql v1.10.0
+	github.com/go-sql-driver/mysql v1.10.1
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/spf13/cobra v1.10.2
