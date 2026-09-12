@@ -56,12 +56,22 @@ const failures = [
       return raw('recovered code');
     };
     await ui.refresh(false);
+    await new Promise(setImmediate);
     assert.equal(requests, 1, 'unchanged state still retries an uncached asset');
     assert.match(get('raw-host').innerHTML, /recovered code/);
     await get('copy-all').onclick();
     assert.equal(copies[0], 'recovered code');
     await ui.refresh(false);
     assert.equal(requests, 1, 'successful content stays cached');
+  }
+  // A slow raw retry must not hold up completion of the state poll.
+  {
+    const {context, ui} = setup(); let resolveRaw, completed = false;
+    context.fetch = async url => url.startsWith('/api/state') ? {status: 304} : new Promise(r => { resolveRaw = r; });
+    const poll = ui.refresh(false).then(() => { completed = true; });
+    await new Promise(setImmediate);
+    assert.equal(completed, true, 'raw loading must not delay the next poll');
+    resolveRaw(raw('late code')); await poll; await new Promise(setImmediate);
   }
   // Empty successful assets are valid cache entries, unlike failed fetches.
   {
