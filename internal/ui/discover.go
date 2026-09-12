@@ -1,9 +1,6 @@
 package ui
 
-import (
-	"path/filepath"
-	"strings"
-)
+import "strings"
 
 // Instance is one running `aoci mcp` server observed on this machine.
 type Instance struct {
@@ -16,8 +13,9 @@ type Instance struct {
 }
 
 // parseServerCommandLine recognises `<aoci> [--repo <root>|--repo=<root>] ... mcp`
-// and returns the declared repository root. A process whose argv[0] is not an
-// aoci binary, or that does not run the mcp subcommand, is not a server.
+// and returns the declared repository root without resolving relative paths.
+// A process whose argv[0] is not an aoci binary, or that does not run the mcp
+// subcommand, is not a server.
 func parseServerCommandLine(pid int, args []string) (Instance, bool) {
 	if len(args) < 2 {
 		return Instance{}, false
@@ -45,11 +43,6 @@ func parseServerCommandLine(pid int, args []string) (Instance, bool) {
 	}
 	if !isServer {
 		return Instance{}, false
-	}
-	if instance.Root != "" {
-		if absolute, err := filepath.Abs(instance.Root); err == nil {
-			instance.Root = absolute
-		}
 	}
 	return instance, true
 }
