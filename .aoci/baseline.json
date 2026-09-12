@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-11T04:42:54Z",
+  "updated_at": "2026-09-12T06:10:49Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "21cd2ea757222b556e9270bd94c1012ea130d88eb2f68533ddf41ac7a3e04cd9",
-      "size": 185527,
-      "normalized_sha256": "21cd2ea757222b556e9270bd94c1012ea130d88eb2f68533ddf41ac7a3e04cd9"
+      "sha256": "73eae2624c6f07328b94eb6559eb25c61f4e15a5631a0f521b912ba0d1177a92",
+      "size": 185526,
+      "normalized_sha256": "73eae2624c6f07328b94eb6559eb25c61f4e15a5631a0f521b912ba0d1177a92"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5428,9 +5428,9 @@
       "format_kind": "gofmt"
     },
     "internal/ui/page.html": {
-      "sha256": "71778d7b6b6f44e2d71e4836874600c560b8ec94e0b4a382b63d272077870f2f",
-      "size": 28080,
-      "normalized_sha256": "71778d7b6b6f44e2d71e4836874600c560b8ec94e0b4a382b63d272077870f2f"
+      "sha256": "49dfb55caebd1b2a5392a35ad6ebabbf4fffc56b1212586d4a3617f6443bae23",
+      "size": 28669,
+      "normalized_sha256": "49dfb55caebd1b2a5392a35ad6ebabbf4fffc56b1212586d4a3617f6443bae23"
     },
     "internal/ui/page_race_test.go": {
       "role": "observe",
@@ -5438,6 +5438,14 @@
       "size": 4694,
       "normalized_sha256": "715f3906b4b35327944fdd611da4e75e70d722ced585d3c01119befd641d2dde",
       "format_sha256": "715f3906b4b35327944fdd611da4e75e70d722ced585d3c01119befd641d2dde",
+      "format_kind": "gofmt"
+    },
+    "internal/ui/page_raw_test.go": {
+      "role": "observe",
+      "sha256": "b8a567df1e0896b9f3b64b942deca8d0d1295218d273420ca121aab5052a958e",
+      "size": 3993,
+      "normalized_sha256": "b8a567df1e0896b9f3b64b942deca8d0d1295218d273420ca121aab5052a958e",
+      "format_sha256": "b8a567df1e0896b9f3b64b942deca8d0d1295218d273420ca121aab5052a958e",
       "format_kind": "gofmt"
     },
     "internal/ui/page_refresh_test.go": {
