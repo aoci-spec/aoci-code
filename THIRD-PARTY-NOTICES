@@ -48,7 +48,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ----- END PINNED LICENSE TEXT -----
 
-Module: github.com/go-sql-driver/mysql v1.10.0
+Module: github.com/go-sql-driver/mysql v1.10.1
 Pinned license file: LICENSE
 Pinned license SHA-256: fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1608,7 +1608,7 @@ gitcode.com/opengauss/openGauss-connector-go-pq v1.0.8
   AOCI-patched source, canonical patch, provenance, and unchanged upstream
   license rather than describing this dependency as pristine upstream.
 
-github.com/go-sql-driver/mysql v1.10.0
+github.com/go-sql-driver/mysql v1.10.1
   Reachability: all release targets
   Detected license: Mozilla Public License 2.0 (MPL-2.0)
   Distribution review: retain the required MPL-2.0 notice and confirm a
