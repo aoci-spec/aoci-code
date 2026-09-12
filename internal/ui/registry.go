@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/aoci-spec/aoci-code/internal/fs"
 )
 
 // Registration records one running page so a later `aoci ui --detach` can
@@ -59,6 +61,13 @@ func Register(dir string, reg Registration) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
+	// Share a cross-process lock with Unregister so replacement cannot land
+	// between its owner check and removal. The lock stays in the user cache.
+	lock, err := fs.AcquireIndexLock(dir)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
 	reg.Version = registryVersion
 	data, err := json.Marshal(reg)
 	if err != nil {
@@ -76,6 +85,11 @@ func Register(dir string, reg Registration) error {
 // unconditionally when pid is zero. A page shutting down must not remove a
 // newer page's record.
 func Unregister(dir, root string, pid int) error {
+	lock, err := fs.AcquireIndexLock(dir)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
 	path := registrationPath(dir, root)
 	if pid != 0 {
 		if reg, ok := Registered(dir, root); ok && reg.PID != pid {
@@ -139,7 +153,7 @@ func Stop(dir, root string, wait time.Duration) (Registration, bool, error) {
 		return Registration{}, false, nil
 	}
 	if !Live(reg, time.Second) {
-		return reg, false, Unregister(dir, root, 0)
+		return reg, false, Unregister(dir, root, reg.PID)
 	}
 	process, err := os.FindProcess(reg.PID)
 	if err != nil {
@@ -153,5 +167,5 @@ func Stop(dir, root string, wait time.Duration) (Registration, bool, error) {
 	if Live(reg, 500*time.Millisecond) {
 		_ = process.Kill()
 	}
-	return reg, true, Unregister(dir, root, 0)
+	return reg, true, Unregister(dir, root, reg.PID)
 }

@@ -2,9 +2,13 @@ package ui
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/aoci-spec/aoci-code/internal/fs"
 )
 
 func TestRegistryRoundTrip(t *testing.T) {
@@ -91,5 +95,81 @@ func TestStopNeverSignalsAStaleRegistration(t *testing.T) {
 	}
 	if _, ok := Registered(dir, "/repo/stale"); ok {
 		t.Fatalf("stale registration was kept")
+	}
+}
+
+func TestStopPreservesNewRegistrationDuringProbe(t *testing.T) {
+	dir, root := t.TempDir(), t.TempDir()
+	replacement := Registration{PID: os.Getpid() + 1, URL: "http://127.0.0.1:1/", Root: root}
+	registered := make(chan error, 1)
+	probe := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		// A new page registers while Stop is checking the old endpoint.
+		registered <- Register(dir, replacement)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer probe.Close()
+	old := Registration{PID: os.Getpid(), URL: probe.URL, Root: root}
+	if err := Register(dir, old); err != nil {
+		t.Fatal(err)
+	}
+	got, live, err := Stop(dir, root, time.Second)
+	if err != nil || live || got.PID != old.PID {
+		t.Fatalf("stop: %+v live=%v err=%v", got, live, err)
+	}
+	if err := <-registered; err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := Registered(dir, root); !ok || got.PID != replacement.PID || got.URL != replacement.URL {
+		t.Fatalf("replacement registration was lost: %+v present=%v", got, ok)
+	}
+}
+
+func TestRegistryMutationsWaitForLock(t *testing.T) {
+	for _, remove := range []bool{false, true} {
+		name := "register"
+		if remove {
+			name = "unregister"
+		}
+		t.Run(name, func(t *testing.T) {
+			dir, root := t.TempDir(), t.TempDir()
+			reg := Registration{PID: os.Getpid(), URL: "http://127.0.0.1:1/", Root: root}
+			if remove {
+				if err := Register(dir, reg); err != nil {
+					t.Fatal(err)
+				}
+			}
+			lock, err := fs.AcquireIndexLock(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer lock.Release()
+			done := make(chan error, 1)
+			go func() {
+				if remove {
+					done <- Unregister(dir, root, reg.PID)
+				} else {
+					done <- Register(dir, reg)
+				}
+			}()
+			select {
+			case err := <-done:
+				t.Fatalf("registry mutation bypassed the held lock: %v", err)
+			case <-time.After(100 * time.Millisecond):
+			}
+			if _, present := Registered(dir, root); present != remove {
+				t.Fatal("registration changed while another writer held the lock")
+			}
+			if err := lock.Release(); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Fatal(err)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("registry mutation did not complete after the lock was released")
+			}
+		})
 	}
 }
