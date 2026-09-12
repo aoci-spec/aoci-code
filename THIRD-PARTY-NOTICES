@@ -717,7 +717,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ----- END PINNED LICENSE TEXT -----
 
-Module: github.com/jackc/pgx/v5 v5.10.0
+Module: github.com/jackc/pgx/v5 v5.11.0
 Pinned license file: LICENSE
 Pinned license SHA-256: 467f95e074fe23079a5623ed652619682692041b8551da27e3c2ddb9659a1507
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1614,7 +1614,7 @@ github.com/go-sql-driver/mysql v1.10.0
   Distribution review: retain the required MPL-2.0 notice and confirm a
   compliant way to obtain the corresponding covered source.
 
-github.com/jackc/pgx/v5 v5.10.0
+github.com/jackc/pgx/v5 v5.11.0
   Reachability: all release targets
   Detected license: MIT
 
