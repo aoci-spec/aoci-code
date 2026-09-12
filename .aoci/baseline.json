@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-12T08:04:50Z",
+  "updated_at": "2026-09-12T08:14:06Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -5407,10 +5407,10 @@
     },
     "internal/ui/discover_linux_test.go": {
       "role": "observe",
-      "sha256": "55798453a5fac7b19eabff4b46e4625fef517e0f47dc0446b47f5cf532229570",
-      "size": 1836,
-      "normalized_sha256": "55798453a5fac7b19eabff4b46e4625fef517e0f47dc0446b47f5cf532229570",
-      "format_sha256": "55798453a5fac7b19eabff4b46e4625fef517e0f47dc0446b47f5cf532229570",
+      "sha256": "5c76a3fbdc5466f46ddabd24406ed9a48baf79cd1c12c368342c1076c6e1467c",
+      "size": 2274,
+      "normalized_sha256": "5c76a3fbdc5466f46ddabd24406ed9a48baf79cd1c12c368342c1076c6e1467c",
+      "format_sha256": "5c76a3fbdc5466f46ddabd24406ed9a48baf79cd1c12c368342c1076c6e1467c",
       "format_kind": "gofmt"
     },
     "internal/ui/discover_other.go": {
