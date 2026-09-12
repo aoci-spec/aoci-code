@@ -27,7 +27,7 @@
 
 2.2 **For a system with a database, build the database index too.** MySQL and PostgreSQL are supported, and openGauss 6.0.5 with constraints. Build the code index first, then the database index; when code cognition and table-level cognition are delivered together, the Agent understands the system more completely.
 
-2.3 **Read-only on your system, no network, no stored credentials.** AOCI-CODE only reads your source code and database table structures, never business data, and writes only its index files and its own state inside the project directory. It never opens a network connection or uploads anything, and database credentials are referenced only by environment-variable name, never stored. The index text is written locally by your own Agent through the model channel you already use; AOCI-CODE adds no new data exit.
+2.3 **Read-only on your system, no Internet, no stored credentials.** AOCI-CODE only reads your source code and database table structures, never business data. It writes its index files and its own state inside the project directory, plus the status page's registration in your user cache directory. It never reaches the Internet and uploads nothing: the only connections it opens are to the database you declare, for catalog metadata, and its own loopback status page. Database credentials are referenced only by environment-variable name, never stored. The index text is written locally by your own Agent through the model channel you already use; AOCI-CODE adds no new data exit.
 
 ## 🚀 One-step setup
 

@@ -69,8 +69,8 @@ Database Evidence support uses three reviewed pure-Go direct dependencies:
 
 | Module | Pinned version | License | Purpose |
 | --- | --- | --- | --- |
-| `github.com/jackc/pgx/v5` | `v5.10.0` | MIT | PostgreSQL `database/sql` driver |
-| `github.com/go-sql-driver/mysql` | `v1.10.0` | MPL-2.0 | MySQL `database/sql` driver |
+| `github.com/jackc/pgx/v5` | `v5.11.0` | MIT | PostgreSQL `database/sql` driver |
+| `github.com/go-sql-driver/mysql` | `v1.10.1` | MPL-2.0 | MySQL `database/sql` driver |
 | `gitcode.com/opengauss/openGauss-connector-go-pq` | `v1.0.8` + reviewed AOCI patch | MIT | openGauss `database/sql` driver; the complete patched module is carried under `third_party/` |
 
 The pinned `go-licenses` v1.6.0 gate enumerates every reachable external Go
