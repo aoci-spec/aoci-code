@@ -335,14 +335,16 @@
     const needle = filter.trim().toLowerCase();
     const keep = rows.map(() => !needle); let matches = 0;
     if (needle){
+      let section = -1, banner = -1;
       rows.forEach((line, i) => {
-        if (!line.toLowerCase().includes(needle)) return;
-        keep[i] = true; matches++;
-        let sec = false, ast = false;
-        for (let j = i - 1; j >= 0 && !(sec && ast); j--){
-          if (!sec && isSection(rows[j])){ keep[j] = true; sec = true; }
-          if (!ast && isAsset(rows[j])){ keep[j] = true; ast = true; }
+        if (line.toLowerCase().includes(needle)){
+          keep[i] = true; matches++;
+          if (section >= 0) keep[section] = true;
+          if (banner >= 0) keep[banner] = true;
         }
+        // Update after matching so a matching heading keeps its prior context.
+        if (isSection(line)) section = i;
+        if (isAsset(line)) banner = i;
       });
     }
     const html = rows.map((line, i) => {
