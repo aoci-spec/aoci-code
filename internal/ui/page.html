@@ -184,6 +184,9 @@
             ta.style.position = "fixed"; ta.style.left = "-9999px"; document.body.appendChild(ta); ta.select();
             ok = document.execCommand("copy"); document.body.removeChild(ta); } catch(e2){ ok = false; }
     }
+    showCopyResult(ok, button);
+  }
+  function showCopyResult(ok, button){
     const was = button.textContent;
     button.textContent = ok ? t("ui.page.copied") : t("ui.page.copy_failed");
     button.classList.add(ok ? "done" : "fail");
@@ -244,7 +247,11 @@
     try {
       const r = await fetch("/api/state?repo=" + encodeURIComponent(root) + (force ? "&refresh=1" : ""), {headers: etag && !force ? {"If-None-Match": etag} : {}});
       if (!isCurrent()) return;
-      if (r.status === 304){ renderTick(t("ui.page.up_to_date")); return; }
+      if (r.status === 304){
+        renderTick(t("ui.page.up_to_date"));
+        if (!rawCache.has(JSON.stringify([root, asset]))) renderRaw();
+        return;
+      }
       if (!r.ok) throw new Error("state HTTP " + r.status);
       const next = await r.json();
       if (!isCurrent()) return;
@@ -296,7 +303,8 @@
     const root = current, cache = rawCache, key = JSON.stringify([root, id]);
     if (cache.has(key)) return cache.get(key);
     const r = await fetch(`/api/raw?repo=${encodeURIComponent(root)}&asset=${id}`);
-    const text = r.ok ? await r.text() : "";
+    if (!r.ok) throw new Error("raw HTTP " + r.status);
+    const text = await r.text();
     if (cache === rawCache) cache.set(key, text);
     return text;
   }
@@ -306,10 +314,16 @@
   // loses its directory or its Volume.
   async function renderRaw(){
     const root = current, selected = asset, cache = rawCache, sequence = ++rawSequence;
+    const isCurrent = () => root === current && selected === asset && cache === rawCache && sequence === rawSequence;
     const host = $("raw-host");
     if (!present(asset)){ host.innerHTML = `<div class="empty">${esc(t("ui.page.volume_absent"))}</div>`; $("filter-count").textContent = ""; return; }
-    const text = await rawText(asset);
-    if (root !== current || selected !== asset || cache !== rawCache || sequence !== rawSequence) return;
+    let text;
+    try { text = await rawText(asset); }
+    catch(e){
+      if (isCurrent()) { host.innerHTML = `<div class="empty">${esc(t("ui.page.disconnected"))}</div>`; $("filter-count").textContent = ""; }
+      return;
+    }
+    if (!isCurrent()) return;
     const rows = text.replace(/\n$/, "").split("\n");
     const needle = filter.trim().toLowerCase();
     const keep = rows.map(() => !needle); let matches = 0;
@@ -344,8 +358,11 @@
   $("copy-all").onclick = async () => {
     if (!present(asset)) return;
     const root = current, selected = asset, cache = rawCache;
-    const text = await rawText(selected);
-    if (root !== current || selected !== asset || cache !== rawCache) return;
+    const isCurrent = () => root === current && selected === asset && cache === rawCache;
+    let text;
+    try { text = await rawText(selected); }
+    catch(e){ if (isCurrent()) showCopyResult(false, $("copy-all")); return; }
+    if (!isCurrent()) return;
     await copyText(text, $("copy-all"));
   };
   $("filter").addEventListener("input", ev => { filter = ev.target.value; renderRaw(); });
