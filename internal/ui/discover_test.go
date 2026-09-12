@@ -11,6 +11,8 @@ func TestParseServerCommandLineRecognisesOnlyAociMCPServers(t *testing.T) {
 	}{
 		{"repo flag", []string{"/opt/aoci", "--repo", "/srv/one", "mcp"}, true, "/srv/one"},
 		{"repo equals", []string{"/opt/aoci", "--repo=/srv/two", "mcp"}, true, "/srv/two"},
+		{"relative repo flag", []string{"aoci", "--repo", "repository", "mcp"}, true, "repository"},
+		{"relative repo equals", []string{"aoci", "--repo=../repository", "mcp"}, true, "../repository"},
 		{"windows name", []string{`C:\tools\aoci.exe`, "mcp", "--repo", "/srv/three"}, true, "/srv/three"},
 		{"no repo flag", []string{"aoci", "mcp"}, true, ""},
 		{"not a server", []string{"/opt/aoci", "--repo", "/srv/one", "verify"}, false, ""},

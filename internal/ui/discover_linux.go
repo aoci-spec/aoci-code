@@ -44,11 +44,15 @@ func discoverRunningServers() []Instance {
 			instance.Executable = strings.TrimSuffix(executable, " (deleted)")
 			instance.ExecutableDeleted = strings.HasSuffix(executable, " (deleted)")
 		}
-		if instance.Root == "" {
-			if cwd, err := os.Readlink(filepath.Join("/proc", entry.Name(), "cwd")); err == nil {
-				instance.Root = cwd
+		if !filepath.IsAbs(instance.Root) {
+			cwd, err := os.Readlink(filepath.Join("/proc", entry.Name(), "cwd"))
+			if err != nil {
+				continue
 			}
+			// Relative --repo paths belong to the server, not this status page.
+			instance.Root = filepath.Join(cwd, instance.Root)
 		}
+		instance.Root = filepath.Clean(instance.Root)
 		if info, err := os.Stat(filepath.Join("/proc", entry.Name())); err == nil {
 			instance.StartedAt = info.ModTime().UTC().Format(time.RFC3339)
 		}
