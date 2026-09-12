@@ -2,6 +2,58 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## v0.1.0-rc11
+
+Five more status-panel fixes from the contributor who found the rc10 three,
+three dependency updates, and a README that opens with what AOCI-CODE does.
+
+- Recover the raw asset pane after a failed request. A transient `/api/raw`
+  error was cached as an empty string, so later unchanged (304) polls never
+  fetched it again: the index pane stayed empty and Copy All reported success
+  after copying nothing. A failed read is no longer cached, the pane shows the
+  disconnected message, Copy All reports failure and leaves the clipboard
+  alone, and an unchanged poll retries an uncached asset without holding up
+  the next poll. (#41)
+- Preserve a replacement registration during `aoci ui --stop`. Stop read the
+  registration, probed the old page, and then removed the record
+  unconditionally, so a page that registered during the probe kept running
+  but could no longer be found by a later `--detach` or `--stop`. Stop now
+  removes only the record of the PID it captured, and Register and Unregister
+  share a lock under the user cache directory so a replacement cannot land
+  between the owner check and the removal. (#42)
+- Validate the repository list before the page uses it. A malformed
+  `/api/repos` answer replaced the list before any check, the next render
+  threw, and startup ended before polling was scheduled. The page now accepts
+  only an array whose rows carry a nonempty root, a name, and a nonnegative
+  running count, the exact shape the server emits, and otherwise keeps the
+  last valid list and selection. (#43)
+- Filter the index in one pass. Every matching line walked backward to find
+  its section and asset banner, and a standalone Code Volume has no banner, so
+  each match scanned to the top: about a second for 16,000 matches. One
+  forward pass now remembers the last section and banner; output, matching,
+  and counts are unchanged. (#44)
+- Resolve a discovered server's relative `--repo` against that server's own
+  working directory. On Linux the page resolved it against its own, so
+  `aoci --repo project mcp` started elsewhere could show the wrong repository.
+  Discovery now reads `/proc/<pid>/cwd` and skips a server whose directory it
+  cannot read rather than attach it to a wrong root. (#45)
+- Update `github.com/jackc/pgx/v5` to 5.11.0, `golang.org/x/sys` to 0.48.0,
+  and `github.com/go-sql-driver/mysql` to 1.10.1 (#38, #39, #40). The release
+  module set is the same 22 modules and every license text is byte-identical;
+  catalog-only collection was re-verified against PostgreSQL 18 and MySQL 8.4
+  with the new drivers.
+- Open the README with what AOCI-CODE does and the notes to read before
+  starting: the supported system scale, which the index size bounds rather
+  than the line count, the time a first index takes, the database index, and
+  the read-only, offline, credential-free boundary, all ahead of the one-step
+  setup.
+
+Each panel fix carries a regression that fails against the previous page or
+registry; the nine-tool MCP surface and every governance identity are
+unchanged.
+
+The first public availability date for v0.1.0-rc11 is 2026-09-13.
+
 ## v0.1.0-rc10
 
 Three fixes to the status panel, all found by a contributor using it in the
