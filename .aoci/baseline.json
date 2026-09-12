@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-12T17:07:25Z",
+  "updated_at": "2026-09-12T17:07:39Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "61a4c9273497ff7862b3da69a70fdaeceabd0d6f9514f26042c6d5e6ce24816a",
-      "size": 185553,
-      "normalized_sha256": "61a4c9273497ff7862b3da69a70fdaeceabd0d6f9514f26042c6d5e6ce24816a"
+      "sha256": "de9dae6f126913d593b24ccbe70d80eaef59349bb111956d01f60d872e6345e1",
+      "size": 185550,
+      "normalized_sha256": "de9dae6f126913d593b24ccbe70d80eaef59349bb111956d01f60d872e6345e1"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5428,9 +5428,9 @@
       "format_kind": "gofmt"
     },
     "internal/ui/page.html": {
-      "sha256": "b558e233b5062289b189fb4462d14127912b56ba7117792695dee39faf47c1f0",
-      "size": 28663,
-      "normalized_sha256": "b558e233b5062289b189fb4462d14127912b56ba7117792695dee39faf47c1f0"
+      "sha256": "488656e1bc7c5d155fca83b46e5da9619fe60699cee6c9650af072fdb91ee776",
+      "size": 28939,
+      "normalized_sha256": "488656e1bc7c5d155fca83b46e5da9619fe60699cee6c9650af072fdb91ee776"
     },
     "internal/ui/page_race_test.go": {
       "role": "observe",
@@ -5454,6 +5454,14 @@
       "size": 3225,
       "normalized_sha256": "65070538ac8da713d5fc90cabf035f022708c45da98401a9ee752edd558c80c1",
       "format_sha256": "65070538ac8da713d5fc90cabf035f022708c45da98401a9ee752edd558c80c1",
+      "format_kind": "gofmt"
+    },
+    "internal/ui/page_repos_test.go": {
+      "role": "observe",
+      "sha256": "5a93abcb41f15015dda9e98a082a4034fed3c12124d9d7bd115a4faf51709d68",
+      "size": 4972,
+      "normalized_sha256": "5a93abcb41f15015dda9e98a082a4034fed3c12124d9d7bd115a4faf51709d68",
+      "format_sha256": "5a93abcb41f15015dda9e98a082a4034fed3c12124d9d7bd115a4faf51709d68",
       "format_kind": "gofmt"
     },
     "internal/ui/registry.go": {
