@@ -87,6 +87,15 @@ Apache-2.0 transition with residual MIT contributions and CC-BY-4.0
 documentation classification are recorded in `THIRD-PARTY-NOTICES`. All three
 database-driver paths build with `CGO_ENABLED=0`.
 
+This table is machine-checked against `go.mod`: a test alongside the driver
+identity contract fails when a row's pinned version differs from the version
+`go.mod` requires, and additionally requires the openGauss row's module to keep
+resolving through `go.mod`'s `replace` to the reviewed tree carried under
+`third_party/`. The `go-licenses` inventory above covers the license question
+and reads `go.mod` itself; it never reads this document, so before that test a
+dependabot bump moved `go.mod` while this table stayed behind and no gate
+saw it.
+
 The root module requires the official openGauss Connector v1.0.8 identity but
 replaces it with the complete reviewed tree at
 `third_party/openGauss-connector-go-pq`. This is not represented as pristine

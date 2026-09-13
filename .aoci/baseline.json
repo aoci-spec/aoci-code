@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-12T18:22:28Z",
+  "updated_at": "2026-09-13T17:04:38Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -58,9 +58,9 @@
       "normalized_sha256": "4b54c746da8e24ce723e4c8af6ee8f95bf6c1a9f5d8b846472f954774fbb35c8"
     },
     "CHANGELOG.md": {
-      "sha256": "bb7daca3c27322683f5a20a1ceb9cc36f71bb08d289b876082889dfa95f5ae4f",
-      "size": 75690,
-      "normalized_sha256": "bb7daca3c27322683f5a20a1ceb9cc36f71bb08d289b876082889dfa95f5ae4f"
+      "sha256": "176fcb1914309673620b0eaafb141c4eb51fc47bd0d9644cce761754deecbb5d",
+      "size": 76271,
+      "normalized_sha256": "176fcb1914309673620b0eaafb141c4eb51fc47bd0d9644cce761754deecbb5d"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "0a7a9cda021bca8f021e67f0d07d1363422b3705a3ae8aae3807e7346d084227",
-      "size": 185643,
-      "normalized_sha256": "0a7a9cda021bca8f021e67f0d07d1363422b3705a3ae8aae3807e7346d084227"
+      "sha256": "6d6a0072effa8ae36fc63feaeff11e1acf776af8dd23b82ac6c9b9ac3e9dbd44",
+      "size": 185873,
+      "normalized_sha256": "6d6a0072effa8ae36fc63feaeff11e1acf776af8dd23b82ac6c9b9ac3e9dbd44"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -229,9 +229,9 @@
       "normalized_sha256": "e243a222f0b06b8adf4f605769cb4143ad4544b6b91e5b5e1e514027b7183429"
     },
     "docs/supply-chain.md": {
-      "sha256": "bf1d8257d2b0ea3308b82548afb2de757689a95eff8ed31aff3b083092377b39",
-      "size": 10562,
-      "normalized_sha256": "bf1d8257d2b0ea3308b82548afb2de757689a95eff8ed31aff3b083092377b39"
+      "sha256": "19316e8af7629da63d6837e18b9d26b1a4eef5b3ecc160da4ad9de08d43edebf",
+      "size": 11109,
+      "normalized_sha256": "19316e8af7629da63d6837e18b9d26b1a4eef5b3ecc160da4ad9de08d43edebf"
     },
     "docs/troubleshooting.md": {
       "sha256": "305f10ddee050deecb446328ec42f6b4efb11f6ac3dacadee183167ab464502a",
@@ -2996,6 +2996,14 @@
       "size": 7347,
       "normalized_sha256": "c4646e26cac71ee2b1bdff3de1b9970f4a487c51837b9a37d031b11ace81d987",
       "format_sha256": "c4646e26cac71ee2b1bdff3de1b9970f4a487c51837b9a37d031b11ace81d987",
+      "format_kind": "gofmt"
+    },
+    "internal/dbevidence/driver_pin_contract_test.go": {
+      "role": "observe",
+      "sha256": "e8dca2489dca817d68964cc9fee57d64500ddcfd5d6018cc1839ea637c48b4a9",
+      "size": 9962,
+      "normalized_sha256": "e8dca2489dca817d68964cc9fee57d64500ddcfd5d6018cc1839ea637c48b4a9",
+      "format_sha256": "e8dca2489dca817d68964cc9fee57d64500ddcfd5d6018cc1839ea637c48b4a9",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/drivers.go": {

@@ -2,6 +2,17 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Guard the driver audit table in `docs/supply-chain.md` against `go.mod`.
+  The pre-tag adversarial review had to move that tag-pinned table's pgx and
+  mysql rows by hand after the rc11 driver bumps, because nothing read it. A
+  contract test now fails when a listed module's pinned version differs from
+  the version `go.mod` requires, and requires the openGauss row to keep
+  resolving through the local `replace` to the patched tree under
+  `third_party/`. Tests and documentation only; the nine-tool MCP surface and
+  every governance identity are unchanged.
+
 ## v0.1.0-rc11
 
 Five more status-panel fixes from the contributor who found the rc10 three,
