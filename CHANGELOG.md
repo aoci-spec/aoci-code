@@ -6,9 +6,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 Seven fixes for repositories governed without a human in the loop, surfaced by
 the first agent that drives the MCP end to end (aoci-agent) and by a
-contributor's Windows/Codex use (#46, #47). Two close a Volumes v1 deadlock in
-the Managed Scope transaction; five correct counts, warnings, and refusals.
-Nothing in the nine-tool surface or any governance identity changes.
+contributor governing a Volumes repository on Windows (#46, #47), plus one
+test-only guard for the driver audit table. Two fixes close a Volumes v1
+deadlock in the Managed Scope transaction; five correct counts, warnings, and
+refusals. Each fix carries a test that fails without it, and the real-repository
+harness now walks the deadlock path itself (56 scenarios and a new lifecycle
+governance walk). Nothing in the nine-tool surface or any governance identity
+changes.
 
 - Let a Volumes v1 repository with a changed source activate a policy change.
   A policy edit (a scope rule, a budget) makes desired differ from active, and
@@ -66,7 +70,6 @@ Nothing in the nine-tool surface or any governance identity changes.
 - Skip a discovered server whose working directory was deleted. `/proc`
   reports such a directory as `<dir> (deleted)`, and the status page joined
   that text into a root that does not exist.
-
 - Guard the driver audit table in `docs/supply-chain.md` against `go.mod`.
   The pre-tag adversarial review had to move that tag-pinned table's pgx and
   mysql rows by hand after the rc11 driver bumps, because nothing read it. A
