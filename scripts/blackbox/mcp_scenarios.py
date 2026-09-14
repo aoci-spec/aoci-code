@@ -26,7 +26,7 @@ Requires: a built binary; group A additionally needs the host repository to hold
 an established multi-chunk overview (chunk_tokens 8000). Fixtures set their own
 git identity; the host repository is never written.
 """
-import hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
+import base64, hashlib, json, os, random, re, select, shutil, subprocess, sys, tempfile, time
 import urllib.parse, urllib.request
 
 from stdio_deadline import rpc_deadline
@@ -766,8 +766,9 @@ def group_f_scope():
     called the file aligned and offered no work - a block with no move that
     clears it. F3 never leaves the Maintain path, which is why it could not see
     this, and why the defect reached a real user on rc5. This scenario walks the
-    Scope Change path instead, and pins both arms: tolerated and reported, but
-    still fail-closed on a genuinely changed source.
+    Scope Change path instead, and pins both arms: tolerated and reported, and
+    a genuinely changed source judged by the layout the fixture actually has
+    (see F7b).
     """
     g = "F"
     first = "F7.line-ending-rewrite-does-not-lock-out-scope-change"
@@ -833,17 +834,58 @@ def group_f_scope():
     record(g, first, "PASS" if ok else "FAIL",
            f"rc={rc} tolerated={tolerated} | {blob[:130]}")
 
-    # Tolerance is not blindness. A genuinely changed source would let the
-    # postimage Baseline stamp new bytes onto an Entry describing the old ones,
-    # so that must still fail closed.
+    # Tolerance is not blindness, and a genuinely changed source is judged by
+    # the layout. Legacy: the candidate channel edits the index document, so a
+    # stale source needs an Entry candidate and the plan fails closed with
+    # managed_scope_index_source_stale (pinned in internal/scopechange). Volumes
+    # v1, which is what init produces here: the only document the channel can
+    # edit is the Root manifest, which holds no Entries, so no candidate could
+    # clear that block and refusing it left the repository with no legal move
+    # (#47: Maintain and update_entry stop with scope_change_required until the
+    # policy is active, and the policy could not be activated). The plan now
+    # goes through, keeps the old fingerprint in the postimage Baseline so
+    # Maintain still sees the source as Stale, leaves the manifest byte-identical,
+    # and reports the retention instead of hiding it.
     with open(source, "wb") as fh:
         fh.write(flipped + b"\nfunc B() int { return 2 }\n")
-    rc, _, out, errs = cli(d, "scope", "plan", "--prepared-at", "2026-08-29T00:00:00Z",
-                           "--candidate-file", candidate, expect_ok=False)
+    with open(os.path.join(d, ".aoci", "baseline.json"), encoding="utf-8") as fh:
+        old_sha = ((json.load(fh).get("files") or {}).get("pkg/a.go") or {}).get("sha256")
+    rc, env, out, errs = cli(d, "scope", "preview", "--prepared-at", "2026-08-29T00:00:00Z",
+                             "--candidate-file", candidate, expect_ok=False)
+    body = env.get("plan") or {}
+    retained = [item.get("path") for item in (body.get("source_stale_retained") or [])]
+    kept = None
+    try:
+        raw = base64.b64decode((env.get("baseline_postimage") or {}).get("postimage_bytes") or "")
+        kept = ((json.loads(raw).get("files") or {}).get("pkg/a.go") or {}).get("sha256") == old_sha
+    except Exception as err:  # noqa: BLE001 - the verdict below reports it
+        kept = f"undecodable postimage: {err}"
+    image = env.get("index_postimage") or {}
+    manifest_same = bool(image) and image.get("postimage_sha256") == image.get("preimage_sha256")
     blob = (out or "") + (errs or "")
-    record(g, "F7b.genuinely-changed-source-still-blocks-scope-change",
-           "PASS" if rc != 0 and "managed_scope_index_source_stale" in blob else "FAIL",
-           f"rc={rc} | {blob[:160]}")
+    ok = rc == 0 and old_sha is not None and "pkg/a.go" in retained and kept is True and manifest_same
+    record(g, "F7b.genuinely-changed-source-is-retained-not-blocked-in-volumes",
+           "PASS" if ok else "FAIL",
+           f"rc={rc} retained={retained} old_digest_kept={kept} manifest_same={manifest_same} | {blob[:120] if rc else ''}")
+
+    # The candidate that used to be the only way past the stale guard is
+    # refused before projection: under Volumes it would have been inserted into
+    # the Root manifest and applied under auto authorization as low risk.
+    with open(source, "rb") as fh:
+        live_sha = hashlib.sha256(fh.read()).hexdigest()
+    carrying = os.path.join(WORK, "fx-scope-line-ending-entry-candidates.json")
+    with open(carrying, "w", encoding="utf-8") as fh:
+        json.dump({"version": "managed-scope-candidate-set/v1",
+                   "entries": [{"candidate_id": "c1", "path": "pkg/a.go", "source_sha256": live_sha,
+                                "new_entry": "a.go[CG5T]: F:Provides fixture unit A | R:- | A:- | S:-",
+                                "review_status": "reviewed"}],
+                   "dispositions": []}, fh)
+    rc, _, out, errs = cli(d, "scope", "preview", "--prepared-at", "2026-08-29T00:00:00Z",
+                           "--candidate-file", carrying, expect_ok=False)
+    blob = (out or "") + (errs or "")
+    ok = rc != 0 and "managed_scope_volumes_entry_candidates_unsupported" in blob and "aoci_maintain" in blob
+    record(g, "F7c.volumes-refuses-entry-candidates-before-projection",
+           "PASS" if ok else "FAIL", f"rc={rc} | {blob[:160]}")
 
 
 def group_f_deleted_observe():

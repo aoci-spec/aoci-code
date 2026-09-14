@@ -150,6 +150,7 @@ type Plan struct {
 	RoleChanges                 []RoleChange             `json:"role_changes"`
 	CoverageReductions          []CoverageReduction      `json:"coverage_reductions"`
 	SourceLineEndingOnly        []ScopeObject            `json:"source_line_ending_only,omitempty"`
+	SourceStaleRetained         []ScopeObject            `json:"source_stale_retained,omitempty"`
 	EntryCreates                []EntryChange            `json:"entry_creates"`
 	EntryRemoves                []EntryChange            `json:"entry_removes"`
 	EntryUpdates                []EntryChange            `json:"entry_updates"`

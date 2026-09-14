@@ -145,6 +145,22 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	if err != nil {
 		return nil, err
 	}
+	layout, layoutErr := cognition.DetectLayout(indexBytes)
+	if layoutErr != nil {
+		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
+	}
+	if layout == cognition.LayoutVolumesV1 {
+		// The candidate channel edits the document at cfg.IndexPath. Under
+		// Volumes v1 that document is the Root manifest, which carries no
+		// Entries: an Entry candidate would be inserted into the manifest, a
+		// disposition would match nothing and vanish, a header candidate would
+		// rewrite the manifest. Entries of a Volumes repository are authored
+		// only through Maintain, so a set that carries any of the three is
+		// refused before anything is projected.
+		if err := rejectVolumesEntryCandidates(candidates); err != nil {
+			return nil, err
+		}
+	}
 	desiredRoles := evaluationRoles(evaluation)
 	for path := range formalVolumeGuards {
 		delete(desiredRoles, path)
@@ -245,10 +261,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, err
 	}
 	projected := string(indexBytes)
-	layout, layoutErr := cognition.DetectLayout(indexBytes)
-	if layoutErr != nil {
-		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
-	}
+	staleRetained := map[string]baseline.Fingerprint{}
 	for _, rel := range sortedFingerprintPaths(desiredSnapshot) {
 		fingerprint := desiredSnapshot[rel]
 		if desiredRoles[rel] != machinecontract.ScopeRoleIndex {
@@ -272,12 +285,33 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			// clears the block.
 			equal, lineEndingOnly := baseline.EquivalentFingerprints(oldFingerprint, fingerprint, cfg.LineEndingTolerance)
 			if !equal {
-				return nil, fmt.Errorf("managed_scope_index_source_stale: %s", rel)
+				if layout != cognition.LayoutVolumesV1 {
+					return nil, fmt.Errorf("managed_scope_index_source_stale: %s", rel)
+				}
+				// Volumes v1 cannot take the candidate that clears this block
+				// (see rejectVolumesEntryCandidates), and Maintain is the path
+				// that re-describes a changed source there. So the postimage
+				// Baseline keeps the fingerprint the Entry was bound to: after
+				// Apply the source is still Stale, Maintain still plans it, and
+				// no Entry describing old bytes is stamped with new ones. The
+				// retention is reported, not silent.
+				staleRetained[rel] = oldFingerprint
+				plan.SourceStaleRetained = append(plan.SourceStaleRetained, ScopeObject{
+					Path: rel, Role: machinecontract.ScopeRoleIndex, SourceSHA256: oldFingerprint.SHA256})
+				continue
 			}
 			if lineEndingOnly {
 				plan.SourceLineEndingOnly = append(plan.SourceLineEndingOnly, ScopeObject{
 					Path: rel, Role: machinecontract.ScopeRoleIndex, SourceSHA256: fingerprint.SHA256})
 			}
+		}
+	}
+	// Every plan object for a retained path carries the digest the postimage
+	// Baseline will hold, so an approver reads one digest per path; the live
+	// digest the plan was minted against stays in the envelope's source_guard.
+	for index := range plan.Preserved {
+		if fingerprint, retained := staleRetained[plan.Preserved[index].Path]; retained {
+			plan.Preserved[index].SourceSHA256 = fingerprint.SHA256
 		}
 	}
 	removalPaths := []string{}
@@ -312,7 +346,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		}
 		fingerprint, ok := desiredSnapshot[rel]
 		if !ok || fingerprint.SHA256 != candidate.SourceSHA256 {
-			return nil, fmt.Errorf("managed_scope_candidate_source_digest_mismatch: %s", rel)
+			return nil, fmt.Errorf("managed_scope_candidate_source_digest_mismatch: %s (source_sha256 must be the SHA-256 of the live source bytes)", rel)
 		}
 		if err := validateEntryCandidate(root, candidate, budgetPolicy); err != nil {
 			return nil, err
@@ -320,7 +354,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		current, exists := entries[rel]
 		if exists {
 			if candidate.CurrentEntrySHA256 == "" || candidate.CurrentEntrySHA256 != entrySHA(current.FullLine) {
-				return nil, fmt.Errorf("managed_scope_candidate_entry_preimage_mismatch: %s", rel)
+				return nil, fmt.Errorf("managed_scope_candidate_entry_preimage_mismatch: %s (current_entry_sha256 must be the SHA-256 of the Entry line the index holds now)", rel)
 			}
 			projected, err = index.ReplaceEntryForPath(projected, root, rel, current.FullLine, candidate.NewEntry)
 			if err != nil {
@@ -330,7 +364,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 				BeforeSHA256: entrySHA(current.FullLine), AfterSHA256: entrySHA(candidate.NewEntry)})
 		} else {
 			if candidate.CurrentEntrySHA256 != "" {
-				return nil, fmt.Errorf("managed_scope_candidate_unexpected_entry_preimage: %s", rel)
+				return nil, fmt.Errorf("managed_scope_candidate_unexpected_entry_preimage: %s (the path has no Entry yet, so current_entry_sha256 must be omitted)", rel)
 			}
 			projected, err = index.InsertEntry(projected, rel, candidate.NewEntry, root)
 			if err != nil {
@@ -400,6 +434,9 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			ApplyAuthorizationMode: authorizationPolicy.EffectiveMode,
 			HighRiskApprovalDigest: highRiskApprovalDigest},
 		DatabaseCognition: cloneDatabaseBindings(oldBaseline.DatabaseCognition)}
+	for rel, fingerprint := range staleRetained {
+		postBaseline.Files[rel] = fingerprint
+	}
 	if _, indexed := postBaseline.Files[cfg.IndexPath]; indexed {
 		fingerprint := baseline.HashBytes(cfg.IndexPath, projectedBytes)
 		fingerprint.Role = machinecontract.ScopeRoleIndex
@@ -923,17 +960,39 @@ func appendRoleDelta(plan *Plan, rel, oldRole, newRole, sha string) {
 	}
 }
 
+// rejectVolumesEntryCandidates refuses the parts of a candidate set that only a
+// Legacy index document can consume. The refusal names what was carried and the
+// path that does author Entries, so the rule is learned from the error rather
+// than from this package.
+func rejectVolumesEntryCandidates(candidates CandidateSet) error {
+	carried := []string{}
+	if n := len(candidates.Entries); n != 0 {
+		carried = append(carried, fmt.Sprintf("%d entries", n))
+	}
+	if n := len(candidates.Dispositions); n != 0 {
+		carried = append(carried, fmt.Sprintf("%d dispositions", n))
+	}
+	if candidates.Header != nil {
+		carried = append(carried, "a header candidate")
+	}
+	if len(carried) == 0 {
+		return nil
+	}
+	return fmt.Errorf("managed_scope_volumes_entry_candidates_unsupported: %s "+
+		"(cognition-volumes/v1 authors Entries only through aoci_maintain and aoci_update_entry; "+
+		"submit the policy change with entries [] and dispositions [] and no header, "+
+		"then let Maintain resolve the sources it reports)", strings.Join(carried, ", "))
+}
+
 func candidateMap(values []EntryCandidate) (map[string]EntryCandidate, error) {
 	result := map[string]EntryCandidate{}
 	ids := map[string]bool{}
-	for _, value := range values {
-		rel, err := afs.NormalizeRelPath(value.Path)
-		if err != nil || rel != value.Path ||
-			value.CandidateID == "" || ids[value.CandidateID] || value.ReviewStatus != ReviewStatusReviewed {
-			return nil, fmt.Errorf("managed_scope_entry_candidate_invalid: %s", value.Path)
+	for position, value := range values {
+		if reason := entryCandidateDefect(value, ids); reason != "" {
+			return nil, fmt.Errorf("managed_scope_entry_candidate_invalid: %s (entries[%d]: %s)", value.Path, position, reason)
 		}
 		if _, exists := result[value.Path]; exists {
-			return nil, fmt.Errorf("managed_scope_entry_candidate_duplicate: %s", value.Path)
+			return nil, fmt.Errorf("managed_scope_entry_candidate_duplicate: %s (entries[%d]: path repeats an earlier candidate)", value.Path, position)
 		}
 		ids[value.CandidateID] = true
 		result[value.Path] = value
@@ -941,19 +1000,64 @@ func candidateMap(values []EntryCandidate) (map[string]EntryCandidate, error) {
 	return result, nil
 }
 
+// entryCandidateDefect names the first binding field that disqualifies a
+// candidate, in the words of the JSON contract, so a rejected set can be
+// repaired without reading the validator.
+func entryCandidateDefect(value EntryCandidate, ids map[string]bool) string {
+	if value.Path == "" {
+		return "path is empty"
+	}
+	if rel, err := afs.NormalizeRelPath(value.Path); err != nil || rel != value.Path {
+		return "path must be the normalized repository-relative path with forward slashes"
+	}
+	if value.CandidateID == "" {
+		return "candidate_id is empty; every candidate needs a non-empty candidate_id that is unique within the set"
+	}
+	if ids[value.CandidateID] {
+		return "candidate_id repeats an earlier candidate; candidate_id must be unique within the set"
+	}
+	if value.ReviewStatus != ReviewStatusReviewed {
+		return fmt.Sprintf("review_status must be %q", ReviewStatusReviewed)
+	}
+	return ""
+}
+
 func dispositionMap(values []EntryDisposition) (map[string]EntryDisposition, error) {
 	result := map[string]EntryDisposition{}
-	for _, value := range values {
-		if value.Version != machinecontract.ScopeEntryDispositionV1 || value.SourcePath == "" ||
-			value.CurrentEntrySHA256 == "" || value.UniqueSemantics == nil || value.ReviewStatus != ReviewStatusReviewed || value.Reviewer == "" {
-			return nil, fmt.Errorf("scope_entry_disposition_invalid: %s", value.SourcePath)
+	for position, value := range values {
+		if reason := dispositionDefect(value); reason != "" {
+			return nil, fmt.Errorf("scope_entry_disposition_invalid: %s (dispositions[%d]: %s)", value.SourcePath, position, reason)
 		}
 		if _, exists := result[value.SourcePath]; exists {
-			return nil, fmt.Errorf("scope_entry_disposition_duplicate: %s", value.SourcePath)
+			return nil, fmt.Errorf("scope_entry_disposition_duplicate: %s (dispositions[%d]: source_path repeats an earlier disposition)", value.SourcePath, position)
 		}
 		result[value.SourcePath] = value
 	}
 	return result, nil
+}
+
+// dispositionDefect names the first binding field that disqualifies a
+// disposition, in the words of the JSON contract.
+func dispositionDefect(value EntryDisposition) string {
+	if value.Version != machinecontract.ScopeEntryDispositionV1 {
+		return fmt.Sprintf("version must be %q", machinecontract.ScopeEntryDispositionV1)
+	}
+	if value.SourcePath == "" {
+		return "source_path is empty"
+	}
+	if value.CurrentEntrySHA256 == "" {
+		return "current_entry_sha256 is empty; it must be the SHA-256 of the current Entry line"
+	}
+	if value.UniqueSemantics == nil {
+		return "unique_semantics must be present; an empty list is allowed, an omitted field is not"
+	}
+	if value.ReviewStatus != ReviewStatusReviewed {
+		return fmt.Sprintf("review_status must be %q", ReviewStatusReviewed)
+	}
+	if value.Reviewer == "" {
+		return "reviewer is empty"
+	}
+	return ""
 }
 
 func validateDisposition(value EntryDisposition, current *index.Entry, targetRole string,
@@ -964,7 +1068,8 @@ func validateDisposition(value EntryDisposition, current *index.Entry, targetRol
 	switch value.Disposition {
 	case DispositionNoUniqueSemantics:
 		if len(value.UniqueSemantics) != 0 || value.TargetEntry != "" {
-			return fmt.Errorf("scope_entry_disposition_invalid: %s", value.SourcePath)
+			return fmt.Errorf("scope_entry_disposition_invalid: %s (disposition %q must carry no unique_semantics and no target_entry)",
+				value.SourcePath, value.Disposition)
 		}
 	case DispositionTransferEntry, DispositionTransferSpec:
 		if value.TargetEntry == "" || entries[value.TargetEntry] == nil {

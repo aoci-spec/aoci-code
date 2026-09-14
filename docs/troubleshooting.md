@@ -77,6 +77,37 @@ repositories only. A `volume_read_only` response from one of those commands
 means the command is not the Volumes route; it does not by itself prove that the
 CLI and running MCP Server have different versions.
 
+If Maintain stops with `scope_change_required` instead of offering candidates,
+no batch will converge anything until the policy is active; the next section
+is the exit.
+
+## Maintain stops with `scope_change_required`
+
+Desired policy differs from the active one: a scope rule or a budget was
+edited, and every authoring path refuses to write until one governed Apply
+activates it. Activate it with an empty candidate set:
+
+```
+mkdir -p .aoci/scope-change
+printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > .aoci/scope-change/candidates.json
+aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json
+aoci scope apply --preview-file .aoci/scope-change/preview.json
+```
+
+Sources that changed since the Baseline do not stop this under Volumes v1: the
+plan lists them under `source_stale_retained`, keeps their old fingerprints,
+and `aoci_maintain` plans them once the policy is active. A candidate set that
+carries `entries`, `dispositions`, or a `header` is refused under Volumes with
+`managed_scope_volumes_entry_candidates_unsupported`; Entries there are written
+only through Maintain. Under the Legacy layout the same state answers
+`managed_scope_index_source_stale: <path>` and needs an Entry candidate for
+that path; the fields are listed in `docs/managed-scope-and-budget.md` under
+"The candidate set". Reverting the edit (`aoci scope rule remove <rule-id>`)
+is the other exit in either layout.
+
+If `scope apply` answers `managed_scope_human_approval_required`, the change
+reduces coverage and needs `aoci scope approve` on a TTY first.
+
 ## The cognition layer must be visible to Git
 
 `scan` takes its file inventory from Git. A formal cognition asset covered by

@@ -4,6 +4,29 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Let a Volumes v1 repository with a changed source activate a policy change.
+  A policy edit (a scope rule, a budget) makes desired differ from active, and
+  every authoring path refuses to write until one governed Apply activates it.
+  That Apply refused to plan while any index-role source had changed since the
+  Baseline (`managed_scope_index_source_stale`), and the Entry candidate that
+  clears the block under Legacy was projected into the Root manifest under
+  Volumes, where `aoci.txt` holds no Entries. A repository with one changed
+  file and one pending rule had no legal move (#47). A policy-only Scope
+  Change now plans over a changed source in Volumes: the postimage Baseline
+  keeps the fingerprint the Entry was bound to, the plan reports the path
+  under `source_stale_retained`, and the next `aoci_maintain` plans the source
+  as it always did. A Volumes candidate set that carries `entries`,
+  `dispositions`, or a `header` is refused before projection with
+  `managed_scope_volumes_entry_candidates_unsupported`. Legacy keeps failing
+  closed, and a plan without retention serializes as before, so no in-flight
+  `plan_id` changes.
+- Name the field in a refused candidate set. `managed_scope_entry_candidate_invalid`
+  and `scope_entry_disposition_invalid` named only the path, so the operator
+  read the validator to learn that `candidate_id`, `review_status`, and
+  `current_entry_sha256` were required (#46). The refusal now names the
+  position and the field (`entries[1]: candidate_id is empty`), the digest
+  mismatches say which digest they compare, and the candidate set is
+  documented field by field in `docs/managed-scope-and-budget.md`.
 - Count a fresh file once. A source created after the last scan has no Entry
   and no Baseline fingerprint, so drift classification files it under both
   Missing and Unbaselined, and Maintain's `authoring_batch` and Guide's batch

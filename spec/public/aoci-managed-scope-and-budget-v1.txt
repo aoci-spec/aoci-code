@@ -74,6 +74,15 @@ value. Legacy observe/exclude-to-index requires a source-bound complete Entry
 candidate. Volumes may first activate an Entry-less source as Index through the
 governed Scope transaction; that explicit authoring debt remains Missing and
 must then be completed through machine-issued Maintain batches before alignment.
+Under cognition-volumes/v1 the candidate set carries policy only: entries and
+dispositions are empty and no header candidate is present, because the Root
+manifest holds no Entries and Volume Entries are authored only through
+machine-issued Maintain batches; a set carrying any of them is refused before
+projection. An Index source whose bytes differ from its Baseline fingerprint
+does not block a Volumes Scope transaction: the postimage Baseline retains the
+old fingerprint, the Plan reports the path under source_stale_retained, and the
+source remains Stale for Maintain after Apply. Under the legacy single-index
+layout a changed Index source still requires a source-bound Entry candidate.
 
 6. Apply authorization
 

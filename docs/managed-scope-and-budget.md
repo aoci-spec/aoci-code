@@ -117,6 +117,63 @@ aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file 
 `scope approve` requires a real TTY and the digest phrase the preview carries.
 Raising a budget is a policy relaxation, so it is never applied silently.
 
+### The candidate set
+
+`scope preview` and `scope plan` read one JSON document,
+`managed-scope-candidate-set/v1`. Every field it may carry is listed here; an
+unknown field is refused, and a refused entry or disposition names its position
+and the field that disqualified it (`entries[1]: candidate_id is empty`).
+
+| Field | Required | Content |
+| --- | --- | --- |
+| `version` | yes | `managed-scope-candidate-set/v1` |
+| `entries` | no (defaults to empty) | Entry candidates: sources whose Entry this transaction writes or rewrites. Each carries `candidate_id` (non-empty, unique within the set), `path` (normalized repository-relative, forward slashes), `source_sha256` (SHA-256 of the live source bytes), `new_entry` (one complete Entry line), `review_status` (`reviewed`), and `current_entry_sha256` (SHA-256 of the Entry line the index holds now; required when the path already has an Entry, omitted when it does not). |
+| `dispositions` | no (defaults to empty) | One `scope-entry-disposition/v1` per Entry that leaves the index role: `version`, `source_path`, `current_entry_sha256`, `target_role`, `unique_semantics` (present, may be an empty list), `disposition` (`no_unique_semantics`, `transfer_to_existing_entry`, `transfer_to_spec`, `transfer_to_header`, `explicit_drop_approved`), `target_entry` (the receiving path, for transfers), `review_status` (`reviewed`), `reviewer`. `retain_as_index` is not a disposition but a request to revise the policy. |
+| `header` | no | A header candidate: `candidate_id`, `current_header_sha256`, `new_header`, `review_status`. |
+| `curation` | no | A curation document to activate with the policy. |
+| `observe_review` | no | Acknowledgement of changed Observe evidence: `paths`, `review_status`, `reviewer`. `scope acknowledge` writes this for you. |
+| `safety_approval` | no | A recorded approval for high-risk opt-ins; `scope safety approve` produces it. |
+
+A configuration-only change is the empty set shown above: `version` alone, or
+`entries` and `dispositions` empty, nothing else.
+
+### What each layout lets the candidate set carry
+
+Under the Legacy layout, one `aoci.txt` holds every Entry and the transaction
+edits that document. An index source whose bytes changed since the Baseline
+therefore needs an Entry candidate, and a plan without one fails closed with
+`managed_scope_index_source_stale: <path>`.
+
+Under Volumes v1, `aoci.txt` is the Root manifest and holds no Entries. Entries
+live in the Code Volume and are written only through `aoci_maintain` and
+`aoci_update_entry`. So a Volumes candidate set carries policy only: `entries`
+and `dispositions` must be empty and `header` absent, and a set that carries
+any of them is refused with `managed_scope_volumes_entry_candidates_unsupported`
+before anything is projected. A changed index source does not block a Volumes
+Scope Change. The plan keeps that source's old fingerprint in the postimage
+Baseline and lists the path under `source_stale_retained`; every plan object
+for that path carries the retained digest, and the live digest the plan was
+minted against is in the preview's `source_guard`. After Apply the source is
+still Stale, so the next `aoci_maintain` plans it and one ordinary batch
+aligns it.
+
+### Leaving `scope_change_required`
+
+While desired policy differs from active, Verify, Check, Status, Maintain, and
+Guide report `scope_change_required` and every authoring path refuses to
+write. Two exits exist, in either layout:
+
+1. Activate the edit: preview with the empty candidate set, then apply.
+   Under Volumes this works over changed sources (previous section); under
+   Legacy, add an Entry candidate for each path the preview names as stale.
+2. Revert the edit (`scope rule remove <rule-id>`, or `scope budget set` back
+   to the active values) so desired equals active again.
+
+Aligning the sources first is not an option: Maintain will not write until the
+policy is active. Before 0.1.0-rc12 that ordering, combined with the stale
+guard, left a Volumes repository with one changed file and one pending rule
+with no legal move.
+
 ### What a raised budget does not buy
 
 The budget governs what may be written. It does not govern what a model can

@@ -9,7 +9,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | --- | --- | --- | --- |
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
-| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, and re-alignment, while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
+| `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, re-alignment, and the governance walks (curation probes, post-scan exclusion, and a pending policy edit over a changed source), while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 | `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in two configuration shapes. | above + network access on the first run (binaries are cached) | minutes |
 
 ## Running
@@ -26,7 +26,7 @@ Protocol conformance (46 checks, read-only):
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (55 scenarios, disposable fixtures in a temp dir):
+Fault-injection scenarios (56 scenarios, disposable fixtures in a temp dir):
 
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py

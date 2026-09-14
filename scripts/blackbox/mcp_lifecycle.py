@@ -32,7 +32,7 @@ Usage:
 Env:  AOCI_REPO / AOCI_BIN / AOCI_OPENCODE 覆盖仓库、二进制与 opencode 路径。
 Results: scripts/blackbox/results/<run>.json + artifacts/（gitignored）。
 """
-import argparse, json, os, re, shutil, socket, subprocess, sys, tempfile, time, traceback
+import argparse, base64, hashlib, json, os, re, shutil, socket, subprocess, sys, tempfile, time, traceback
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
@@ -854,6 +854,105 @@ def suite_governance(rep, work):
             f"cands={len(m.get('candidates') or [])}")
     rc, v, out, _ = cli(fx2, "scope", "budget", expect_ok=False)
     rep.rec(g, "budget-visible", "PASS" if rc == 0 else "FAIL")
+    suite_governance_stale_source(rep, work)
+
+
+def read_baseline_digest(fx, rel):
+    with open(os.path.join(fx, ".aoci", "baseline.json"), encoding="utf-8") as fh:
+        return ((json.load(fh).get("files") or {}).get(rel) or {}).get("sha256")
+
+
+def suite_governance_stale_source(rep, work):
+    """#47 on the real fixture: a pending policy edit plus one stale index source.
+
+    Until rc12 a Volumes repository in that state had no legal move: Maintain
+    and update_entry stopped with scope_change_required until the policy was
+    active, the policy-only preview was refused with
+    managed_scope_index_source_stale, and the Entry candidate that clears that
+    block under Legacy was projected into the Root manifest (which holds no
+    Entries) and would have applied as low risk. The order that works now is
+    the natural one: activate the policy with an empty candidate set, then let
+    Maintain plan the stale source.
+    """
+    g = "governance"
+    fx = deploy("a", work, "gov-stale")
+    init_and_scan(fx)
+    ok, rounds, detail = author_all(fx)
+    rep.rec(g, "stale-fixture-aligned", "PASS" if ok else "FAIL", f"rounds={rounds} {detail[:80]}")
+    if not ok:
+        return
+    target = "src/utils/id.ts"
+    old_sha = read_baseline_digest(fx, target)
+    with open(os.path.join(fx, target), "ab") as fh:
+        fh.write(b"\n// stale-source probe: appended after alignment\n")
+    rc, _, out, errs = cli(fx, "scope", "rule", "add", "no-op-future", "--action", "exclude",
+                           "--pattern", "never-present.txt", "--pattern-kind", "file", "--order", "100",
+                           "--reason", "lifecycle no-op policy change")
+    if rc != 0:
+        rep.rec(g, "stale-plus-policy-edit-stops-maintain", "FAIL", f"rule add rc={rc} {(out + errs)[:120]}")
+        return
+    s = Session(fx)
+    m, t, _ = maintain(s)
+    s.close()
+    rep.rec(g, "stale-plus-policy-edit-stops-maintain",
+            "PASS" if m.get("status") == "stopped" and "scope_change_required" in t else "FAIL",
+            f"status={m.get('status')} candidates={len(m.get('candidates') or [])}")
+
+    cs = os.path.join(work, "gov-stale-cs.json")
+    with open(cs, "w", encoding="utf-8") as fh:
+        fh.write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')
+    with open(os.path.join(fx, "aoci.txt"), "rb") as fh:
+        manifest_before = fh.read()
+    rc, env, out, errs = cli(fx, "scope", "preview", "--candidate-file", cs, expect_ok=False)
+    retained = [i.get("path") for i in ((env.get("plan") or {}).get("source_stale_retained") or [])]
+    kept = None
+    try:
+        raw = base64.b64decode((env.get("baseline_postimage") or {}).get("postimage_bytes") or "")
+        kept = ((json.loads(raw).get("files") or {}).get(target) or {}).get("sha256") == old_sha
+    except Exception as err:  # noqa: BLE001
+        kept = f"undecodable: {err}"
+    rep.rec(g, "policy-only-preview-retains-stale-source",
+            "PASS" if rc == 0 and old_sha is not None and retained == [target] and kept is True else "FAIL",
+            f"rc={rc} retained={retained} old_digest_kept={kept} | {(out + errs)[:100] if rc else ''}")
+    if rc != 0:
+        return
+    pv = os.path.join(work, "gov-stale-pv.json")
+    with open(pv, "w", encoding="utf-8") as fh:
+        fh.write(out)
+    rc, v, out, errs = cli(fx, "scope", "apply", "--preview-file", pv, expect_ok=False)
+    with open(os.path.join(fx, "aoci.txt"), "rb") as fh:
+        manifest_same = fh.read() == manifest_before
+    digest_kept = old_sha is not None and read_baseline_digest(fx, target) == old_sha
+    rep.rec(g, "policy-only-apply-keeps-manifest-and-old-digest",
+            "PASS" if rc == 0 and v.get("status") == "applied" and manifest_same and digest_kept else "FAIL",
+            f"rc={rc} status={v.get('status')} manifest_same={manifest_same} digest_kept={digest_kept} | "
+            + ((v.get("message") or out + errs)[:100] if rc else ""))
+    s = Session(fx)
+    m, t, _ = maintain(s)
+    s.close()
+    planned = [c.get("path") for c in (m.get("candidates") or [])]
+    rep.rec(g, "maintain-plans-retained-stale-source",
+            "PASS" if m.get("status") == "repair_required" and planned == [target] else "FAIL",
+            f"status={m.get('status')} candidates={planned}")
+    ok, rounds, detail = author_all(fx)
+    rep.rec(g, "stale-source-authored-to-alignment", "PASS" if ok else "FAIL", f"rounds={rounds} {detail[:80]}")
+
+    # Under Volumes the candidate channel has no document to edit, so a set
+    # that carries Entries is refused before projection rather than applied.
+    with open(os.path.join(fx, target), "rb") as fh:
+        live_sha = hashlib.sha256(fh.read()).hexdigest()
+    carrying = os.path.join(work, "gov-stale-entry-cs.json")
+    with open(carrying, "w", encoding="utf-8") as fh:
+        json.dump({"version": "managed-scope-candidate-set/v1",
+                   "entries": [{"candidate_id": "c1", "path": target, "source_sha256": live_sha,
+                                "new_entry": "id.ts[CG5T]: F:Provides fixture identifiers | R:- | A:- | S:-",
+                                "review_status": "reviewed"}],
+                   "dispositions": []}, fh)
+    rc, v, out, errs = cli(fx, "scope", "preview", "--candidate-file", carrying, expect_ok=False)
+    blob = (v.get("message") or "") + out + errs
+    rep.rec(g, "volumes-entry-candidates-refused",
+            "PASS" if rc != 0 and "managed_scope_volumes_entry_candidates_unsupported" in blob else "FAIL",
+            f"rc={rc} | {blob[:120]}")
 
 
 # ---------------------------------------------------------------- M suites
