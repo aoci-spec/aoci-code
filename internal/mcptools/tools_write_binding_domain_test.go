@@ -38,8 +38,11 @@ func TestCandidateBindingFailSpeaksTheCandidatesDomain(t *testing.T) {
 				finding.SafeRepairAction == "" {
 				t.Fatalf("finding = %#v", finding)
 			}
-			if test.domain == cognition.ScopeDatabase && strings.Contains(finding.SafeRepairAction, "code_plan") {
-				t.Fatalf("a database finding must not point at code_plan: %q", finding.SafeRepairAction)
+			if test.domain == cognition.ScopeDatabase {
+				if strings.Contains(finding.SafeRepairAction, "code_plan") || !strings.Contains(finding.SafeRepairAction, "database_plan") ||
+					finding.Cause == "" {
+					t.Fatalf("a database finding must explain itself and point at database_plan: cause=%q action=%q", finding.Cause, finding.SafeRepairAction)
+				}
 			}
 		})
 	}

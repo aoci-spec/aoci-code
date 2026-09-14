@@ -22,7 +22,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   word. Volumes writes now read the thresholds from Meta's code dictionary
   alone (each Meta section declares its own E Scale line) and answer the
   advisory warning Legacy answers, now localized in both layouts, under
-  `audit.warnings`; nothing is rejected.
+  `audit.warnings`; the S-quota advisory reads the same dictionary. Nothing
+  is rejected.
 - Name the candidate and field in a batch binding defect. An empty
   `candidate_id` or a malformed `source_sha256` answered a bare bad_args that
   named nothing, and a model that had mistyped one field received the same

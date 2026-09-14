@@ -55,15 +55,6 @@ type Drift struct {
 	ObservedRemoved []string `json:"observed_removed"`
 }
 
-// UnresolvedPaths lists every Code path with unresolved drift exactly once,
-// sorted. Drift classification files a source that has no Entry and is absent
-// from the Baseline under both Missing and Unbaselined, so any sum of the
-// three lists counts a file created after the last scan twice; counts of
-// unresolved paths derive from this set, never from adding the lists.
-func (d Drift) UnresolvedPaths() []string {
-	return sortedUnique(append(append(append([]string{}, d.Missing...), d.Stale...), d.Unbaselined...))
-}
-
 // CodeAuthoringWork is the Code authoring work one Maintain round can plan:
 // the paths Maintain issues as candidates, each once and in issue order, and
 // the Missing paths held back for a curation decision. Maintain builds its

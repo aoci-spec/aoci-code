@@ -91,6 +91,10 @@ func localizeFRASCause(finding *cognition.RepairFinding) {
 		finding.Cause = writeMessage("entry.repair.cause.code_source_sha256")
 	case finding.RuleCode == "code_candidate_batch_id_mismatch":
 		finding.Cause = writeMessage("entry.repair.cause.code_batch_id")
+	case finding.RuleCode == "database_candidate_id_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.database_candidate_id")
+	case finding.RuleCode == "database_candidate_batch_id_mismatch":
+		finding.Cause = writeMessage("entry.repair.cause.database_batch_id")
 	}
 }
 
@@ -133,6 +137,10 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.code_source_sha256")
 	case "code_candidate_batch_id_mismatch":
 		return writeMessage("entry.repair.action.code_batch_id")
+	case "database_candidate_id_mismatch":
+		return writeMessage("entry.repair.action.database_candidate_id")
+	case "database_candidate_batch_id_mismatch":
+		return writeMessage("entry.repair.action.database_batch_id")
 	default:
 		return writeMessage("entry.repair.action.candidate", finding.Field)
 	}
@@ -151,7 +159,9 @@ func repairRetryScope(findings []cognition.RepairFinding) []string {
 	seen := map[string]bool{}
 	result := []string{}
 	for _, finding := range findings {
-		if finding.Field == "code_batch_id" {
+		// code_batch_id and a Database batch_id are top-level arguments: a
+		// mismatch there is repaired once, not per candidate.
+		if finding.Field == "code_batch_id" || (finding.Field == "batch_id" && finding.Domain == cognition.ScopeDatabase) {
 			continue
 		}
 		identity := finding.CanonicalObjectIdentity
