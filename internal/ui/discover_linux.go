@@ -46,7 +46,11 @@ func discoverRunningServers() []Instance {
 		}
 		if !filepath.IsAbs(instance.Root) {
 			cwd, err := os.Readlink(filepath.Join("/proc", entry.Name(), "cwd"))
-			if err != nil {
+			// A removed directory reads back as "<path> (deleted)", the same
+			// marker the exe link uses; joining it would present a repository
+			// that no longer exists, so the instance is skipped like an
+			// unreadable one.
+			if err != nil || strings.HasSuffix(cwd, " (deleted)") {
 				continue
 			}
 			// Relative --repo paths belong to the server, not this status page.

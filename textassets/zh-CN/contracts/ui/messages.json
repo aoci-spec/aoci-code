@@ -968,6 +968,7 @@
   "entry.write.preview_note": "预览模式: 未落盘，基线未变",
   "entry.write.validation_failed": "条目未通过校验:\n%s",
   "entry.write.warning": "提醒: %s",
+  "entry.write.warning.escale_mismatch": "E规模档位错配：文件%d行按字典应为%s，条目标注%s；文件生长跨档属正常，请顺手更新E位",
   "entry.write.warning.normalized_filename": "条目文件名含目录前缀，已归一为裸文件名，因为段内条目按段目录拼接路径",
   "error.hint_prefix": "建议: ",
   "governance.review.none": "提示：台账中无本类草稿的审阅记录，无法核对人审对象与应用对象是否同一run——请确认下方run_id正是你审阅过的草稿。",

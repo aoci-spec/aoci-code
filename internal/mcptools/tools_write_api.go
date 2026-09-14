@@ -41,6 +41,7 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.write.budget_projection_failed":                        {"detail"},
 	"entry.write.hint.budget_reauthor":                            nil,
 	"entry.write.warning.normalized_filename":                     nil,
+	"entry.write.warning.escale_mismatch":                         {5, "T", "L"},
 	"entry.write.action.replace":                                  nil,
 	"entry.write.action.insert":                                   nil,
 	"entry.write.hint.refresh_entry":                              nil,

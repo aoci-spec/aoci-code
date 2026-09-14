@@ -126,6 +126,20 @@ type repoCtx struct {
 	text  string          // 索引原文
 	doc   *index.Document // 已 ResolveRelPaths
 	bl    *baseline.Baseline
+	// dict 是标签字典与 E 规模阈值所在的文本。Volumes v1 里字典住在 Meta 卷,
+	// 而 Code 卷自己的头只有一行标记, 从 text 里抽头拿不到任何阈值; Legacy 的
+	// 字典与条目同文件, 留空即退回索引头。
+	dict string
+}
+
+// dictionaryText returns the text whose dictionary lines govern threshold
+// checks for this context: the Meta Volume for a Volumes Code context, the
+// index header for Legacy.
+func (rc *repoCtx) dictionaryText(header string) string {
+	if rc != nil && rc.dict != "" {
+		return rc.dict
+	}
+	return header
 }
 
 type cognitionRepoCtx struct {

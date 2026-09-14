@@ -287,6 +287,9 @@ func newScopeRuleAddCmd() *cobra.Command {
 			}
 			rule := managedscope.Rule{RuleID: args[0], Action: flags.action, Pattern: flags.pattern, PatternKind: flags.kind,
 				Reason: flags.reason, DecisionBasis: flags.decisionBasis, Source: machinecontract.ScopeRuleUser, CreatedBy: flags.createdBy, Order: flags.order, Enabled: flags.enabled}
+			if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
+				return managedScopeExitError(err)
+			}
 			err = config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
 				for _, existing := range policy.Rules {
 					if existing.RuleID == rule.RuleID {
@@ -342,6 +345,9 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 					}
 					if cmd.Flags().Changed("enabled") {
 						rule.Enabled = flags.enabled
+					}
+					if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
+						return err
 					}
 					return nil
 				}
@@ -1007,6 +1013,20 @@ func managedScopeCurationExclusions(root string, cfg *config.Config) ([]string, 
 		}
 	}
 	return deduplicated, nil
+}
+
+// rejectUnsupportedGlob refuses brace alternation in a glob rule. The glob
+// compiler rejects character classes but treats "{" as a literal, so a rule such
+// as assets/*.{png,jpg} was accepted and matched nothing, and the operator
+// learned that only from Maintain still listing the files. Loading stays
+// permissive on purpose: a persisted brace rule keeps loading, and keeps
+// matching nothing, so no repository is wedged; only new or edited rules are
+// refused, with the two spellings that work.
+func rejectUnsupportedGlob(pattern, kind string) error {
+	if kind == machinecontract.ScopePatternGlob && strings.ContainsAny(pattern, "{}") {
+		return fmt.Errorf("glob_brace_alternation_not_supported: write one rule per extension, or a directory rule")
+	}
+	return nil
 }
 
 func managedScopeExitError(err error) error {

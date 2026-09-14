@@ -968,6 +968,7 @@
   "entry.write.preview_note": "Preview mode: no files were written and Baseline was unchanged",
   "entry.write.validation_failed": "The Entry failed validation:\n%s",
   "entry.write.warning": "Warning: %s",
+  "entry.write.warning.escale_mismatch": "E scale mismatch: the file has %d lines, which the dictionary places at %s, but the Entry is tagged %s; growing across a band is normal, so update the E tag with this write",
   "entry.write.warning.normalized_filename": "The Entry filename included a directory prefix and was normalized to its basename because section Entries resolve relative to the section directory",
   "error.hint_prefix": "Next step: ",
   "governance.review.none": "Notice: the Ledger has no review record for this draft kind, so AOCI cannot confirm that the reviewed and applied objects are the same run. Confirm that the run_id below is the draft you reviewed.",

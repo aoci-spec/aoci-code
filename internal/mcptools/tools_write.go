@@ -277,14 +277,15 @@ func prepareUpdateEntry(
 		}
 	}
 
+	dictText := rc.dictionaryText(headerText)
 	if index.ShouldCheckEScalePath(
 		rel,
 	) &&
 		strings.TrimSpace(
-			headerText,
+			dictText,
 		) != "" {
 		thresholds := index.ExtractEScaleThresholds(
-			headerText,
+			dictText,
 		)
 
 		if thresholds.HasThresholds() {
@@ -301,14 +302,15 @@ func prepareUpdateEntry(
 					afs.CountFileLines(
 						absolutePath,
 					); countErr == nil {
-					if violation := index.CheckEScale(
+					if mismatch := index.CheckEScaleDetail(
 						line,
 						lines,
 						thresholds,
-					); violation != nil {
+					); mismatch != nil {
 						warnings = append(
 							warnings,
-							violation.Msg,
+							writeMessage("entry.write.warning.escale_mismatch",
+								mismatch.FileLines, strings.Join(mismatch.Expected, "/"), mismatch.Actual),
 						)
 					}
 				}

@@ -21,6 +21,13 @@ import (
 
 func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
 	t.Helper()
+	return buildVolumeRepoWithMeta(t, includeCode, includeDatabase, "")
+}
+
+// buildVolumeRepoWithMeta is buildVolumeRepo with the Meta Volume text
+// supplied by the test; an empty metaOverride keeps the fixture's default Meta.
+func buildVolumeRepoWithMeta(t *testing.T, includeCode, includeDatabase bool, metaOverride string) string {
+	t.Helper()
 	root := t.TempDir()
 	cfg := legacyTestConfig()
 	cfg.IndexPath = "aoci.txt"
@@ -44,6 +51,9 @@ func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
 		}
 	}
 	write("aoci.txt", rootText)
+	if metaOverride != "" {
+		metaText = metaOverride
+	}
 	write("aoci.meta.txt", metaText)
 	if includeCode {
 		write("main.go", "package main\n")

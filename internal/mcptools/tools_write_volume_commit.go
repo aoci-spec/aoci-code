@@ -80,12 +80,18 @@ func planCognitionVolumeUpdates(
 			continue
 		}
 		if item.candidateID == "" || item.batchID == "" {
-			return nil, &Fail{Code: errBadArgs, Msg: "candidate_batch_fields_invalid"}
+			field, rule := "candidate_id", "code_candidate_id_mismatch"
+			if item.candidateID != "" {
+				field, rule = "code_batch_id", "code_candidate_batch_id_mismatch"
+			}
+			return nil, candidateBindingFail("candidate_batch_fields_invalid", item, field, rule,
+				field+" from the issued candidate", field+" is empty")
 		}
 		switch {
 		case item.rel != "":
 			if codeBatchID != "" && codeBatchID != item.batchID {
-				return nil, &Fail{Code: errBadArgs, Msg: "code_candidate_batch_fields_invalid"}
+				return nil, candidateBindingFail("code_candidate_batch_fields_invalid", item, "code_batch_id",
+					"code_candidate_batch_id_mismatch", "code_batch_id="+codeBatchID, "batch_id="+item.batchID)
 			}
 			codeBatchID = item.batchID
 		case cognition.IsCanonicalDatabaseRef(item.objectRef):
@@ -119,8 +125,17 @@ func planCognitionVolumeUpdates(
 				if item.rel == "" {
 					continue
 				}
-				if item.candidateID == "" || item.batchID != codeBatchID || !validRecoverySHA256(item.sourceSHA256) {
-					return nil, &Fail{Code: errBadArgs, Msg: "code_candidate_batch_fields_invalid"}
+				switch {
+				case item.candidateID == "":
+					return nil, candidateBindingFail("code_candidate_batch_fields_invalid", item, "candidate_id",
+						"code_candidate_id_mismatch", "candidate_id from the issued candidate", "candidate_id is empty")
+				case item.batchID != codeBatchID:
+					return nil, candidateBindingFail("code_candidate_batch_fields_invalid", item, "code_batch_id",
+						"code_candidate_batch_id_mismatch", "code_batch_id="+codeBatchID, "batch_id="+item.batchID)
+				case !validRecoverySHA256(item.sourceSHA256):
+					return nil, candidateBindingFail("code_candidate_batch_fields_invalid", item, "source_sha256",
+						"code_candidate_source_sha256_mismatch", "source_sha256=64 lowercase hex characters from the issued candidate",
+						"source_sha256="+item.sourceSHA256)
 				}
 				submissions = append(submissions, codebatch.Submission{CandidateIndex: item.originalCandidateIndex,
 					ObjectRef: "code:" + item.rel, CandidateID: item.candidateID, SourceSHA256: item.sourceSHA256})
@@ -1170,4 +1185,21 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 		}
 	}
 	return note, true, nil
+}
+
+// candidateBindingFail turns a pre-receipt binding defect into the same shaped
+// Repair Finding the receipt validator emits, so the model learns which
+// candidate and which field to fix. The bare bad_args this replaced named
+// nothing: a cheap model that had mistyped one candidate_id received the same
+// rejection for every resubmission and gave up. The finding stays a machine
+// binding fact and is repairable without any formal write.
+func candidateBindingFail(msg string, item normalizedAtomicItem, field, rule, expected, actual string) *Fail {
+	identity, domain := item.objectRef, cognition.ScopeDatabase
+	if item.rel != "" {
+		identity, domain = "code:"+item.rel, cognition.ScopeCode
+	}
+	finding := cognition.RepairFinding{CandidateIndex: item.originalCandidateIndex, Path: item.rel,
+		CanonicalObjectIdentity: identity, Domain: domain, Field: field, RuleCode: rule,
+		Expected: expected, Actual: actual, Code: rule, ObjectRef: identity}
+	return &Fail{Code: errBadArgs, Msg: msg, Findings: LocalizeRepairFindings([]cognition.RepairFinding{finding}), Repairable: true}
 }

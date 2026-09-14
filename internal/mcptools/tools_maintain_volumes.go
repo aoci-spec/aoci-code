@@ -313,7 +313,7 @@ func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result
 func volumeAuthoringTargetCount(facts *volumegovernance.Facts, requested map[string]bool) int {
 	total := 0
 	if requested[cognition.ScopeCode] {
-		total += len(facts.CodeDrift.Missing) + len(facts.CodeDrift.Stale) + len(facts.CodeDrift.Unbaselined)
+		total += len(facts.CodeDrift.AuthoringTargets())
 	}
 	if requested[cognition.ScopeDatabase] {
 		total += facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined

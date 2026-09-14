@@ -4,6 +4,35 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Count a fresh file once. A source created after the last scan has no Entry
+  and no Baseline fingerprint, so drift classification files it under both
+  Missing and Unbaselined, and Maintain's `authoring_batch` and Guide's batch
+  added the lists: two new files promised `total_targets` 4 and `remaining` 2
+  with `continuation_required` true while the plan held exactly two
+  candidates. Both now derive the total from one deduplicated set, so the
+  batch, the plan, and Guide agree. Candidates were never duplicated; only the
+  counts were.
+- Warn about an E tag that contradicts the file length in Volumes v1. The
+  write path read the E-scale thresholds from the Code Volume's own header,
+  which in Volumes v1 is one marker line; the dictionary lives in Meta, so no
+  threshold was ever found and a four-line file tagged L applied without a
+  word. Volumes writes now read the thresholds from Meta and answer the same
+  advisory warning Legacy always did, in the active Locale, under
+  `audit.warnings`; nothing is rejected.
+- Name the candidate and field in a batch binding defect. An empty
+  `candidate_id` or a malformed `source_sha256` answered a bare bad_args that
+  named nothing, and a model that had mistyped one field received the same
+  rejection for every resubmission. The rejection now carries a Repair Finding
+  with the candidate's position, path, field, and repair action, with no
+  formal write started.
+- Refuse brace alternation in a scope rule. The glob compiler treats `{` as a
+  literal, so `assets/*.{png,jpg}` was accepted and matched nothing; adding or
+  editing such a rule now fails with the spellings that work. A persisted rule
+  is not touched, so no repository stops loading.
+- Skip a discovered server whose working directory was deleted. `/proc`
+  reports such a directory as `<dir> (deleted)`, and the status page joined
+  that text into a root that does not exist.
+
 - Guard the driver audit table in `docs/supply-chain.md` against `go.mod`.
   The pre-tag adversarial review had to move that tag-pinned table's pgx and
   mysql rows by hand after the rc11 driver bumps, because nothing read it. A

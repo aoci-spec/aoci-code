@@ -73,6 +73,51 @@ func TestDiscoverRunningServersResolvesRootFromServerDirectory(t *testing.T) {
 	}
 }
 
+// A server whose working directory was removed reads back as "<dir> (deleted)"
+// from /proc; attaching it would present a repository that no longer exists,
+// so discovery skips it exactly like an unreadable directory.
+func TestDiscoverRunningServersSkipsADeletedWorkingDirectory(t *testing.T) {
+	serverDir := filepath.Join(t.TempDir(), "gone")
+	if err := os.MkdirAll(serverDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	t.Cleanup(cancel)
+	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestDiscoveryServerProcess$", "--", "mcp", "--repo", "repository")
+	cmd.Args[0] = "aoci"
+	cmd.Dir = serverDir
+	cmd.Env = append(os.Environ(), "AOCI_DISCOVERY_TEST_PROCESS=1")
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		_ = stdin.Close()
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		_ = stdin.Close()
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = stdin.Close()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+	if ready, err := bufio.NewReader(stdout).ReadString('\n'); err != nil || ready != "ready\n" {
+		t.Fatalf("server readiness=%q, err=%v", ready, err)
+	}
+	if err := os.RemoveAll(serverDir); err != nil {
+		t.Fatal(err)
+	}
+	for _, instance := range discoverRunningServers() {
+		if instance.PID == cmd.Process.Pid {
+			t.Fatalf("a server whose working directory was deleted was attached to root %q", instance.Root)
+		}
+	}
+}
+
 func TestDiscoveryServerProcess(t *testing.T) {
 	if os.Getenv("AOCI_DISCOVERY_TEST_PROCESS") != "1" {
 		return

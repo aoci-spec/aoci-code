@@ -54,6 +54,18 @@ type Drift struct {
 	ObservedRemoved []string `json:"observed_removed"`
 }
 
+// AuthoringTargets lists the Code paths one Maintain round asks the model to
+// author, each exactly once, in sorted order. Drift classification files a
+// source that has no Entry and is absent from the Baseline under both Missing
+// and Unbaselined, so adding the three lists counted every file created after
+// the last scan twice: total_targets, remaining, and continuation_required
+// overstated the work while the candidates, built per object, did not, and
+// Guide disagreed with Maintain by the same amount. Every count of authoring
+// work derives from this one set; no caller adds the lists itself.
+func (d Drift) AuthoringTargets() []string {
+	return sortedUnique(append(append(append([]string{}, d.Missing...), d.Stale...), d.Unbaselined...))
+}
+
 type ManagedScopeFacts struct {
 	Aligned               bool   `json:"aligned"`
 	ScopeChangeRequired   bool   `json:"scope_change_required"`

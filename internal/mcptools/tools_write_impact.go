@@ -151,6 +151,7 @@ func volumeCodeRepoContext(root string, loaded *cognitionRepoCtx) *repoCtx {
 		text:  string(code.Raw),
 		doc:   code.Document,
 		bl:    loaded.bl,
+		dict:  string(loaded.set.Meta.Raw),
 	}
 }
 

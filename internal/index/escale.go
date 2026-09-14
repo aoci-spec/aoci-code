@@ -216,6 +216,27 @@ func ExpectedEScaleSymbols(fileLines int, th *EScaleThresholds) []string {
 // 返回 nil = 合规或不可判定: 阈值表不可用 / 无标签结构 / 标签非标 /
 // E 符号无阈值 / 行数落入字典空隙 / 行数在标注档位内(含边界重叠)。
 func CheckEScale(line string, fileLines int, th *EScaleThresholds) *Violation {
+	mismatch := CheckEScaleDetail(line, fileLines, th)
+	if mismatch == nil {
+		return nil
+	}
+	return &Violation{
+		Level: LevelWarning,
+		Msg: fmt.Sprintf("E规模档位错配: 文件%d行按字典应为%s,条目标注%s —— 文件生长跨档属正常,请顺手更新E位",
+			mismatch.FileLines, strings.Join(mismatch.Expected, "/"), mismatch.Actual),
+	}
+}
+
+// EScaleMismatch 是 CheckEScale 的结构化判定结果, 供需要本地化措辞的调用方
+// 使用; 判定本身仍只有 CheckEScaleDetail 这一处。
+type EScaleMismatch struct {
+	FileLines int      // 文件实际行数
+	Expected  []string // 行数按字典所属的档位符号(已排序)
+	Actual    string   // 条目标注的 E 符号
+}
+
+// CheckEScaleDetail 与 CheckEScale 同一判定, 返回结构化结果而非成句文本。
+func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScaleMismatch {
 	if !th.HasThresholds() {
 		return nil
 	}
@@ -247,9 +268,5 @@ func CheckEScale(line string, fileLines int, th *EScaleThresholds) *Violation {
 	if len(expected) == 0 {
 		return nil // 字典空隙: 行数无所属档位,不越权裁决
 	}
-	return &Violation{
-		Level: LevelWarning,
-		Msg: fmt.Sprintf("E规模档位错配: 文件%d行按字典应为%s,条目标注%s —— 文件生长跨档属正常,请顺手更新E位",
-			fileLines, strings.Join(expected, "/"), e),
-	}
+	return &EScaleMismatch{FileLines: fileLines, Expected: expected, Actual: e}
 }
