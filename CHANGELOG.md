@@ -2,7 +2,13 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc12
+
+Seven fixes for repositories governed without a human in the loop, surfaced by
+the first agent that drives the MCP end to end (aoci-agent) and by a
+contributor's Windows/Codex use (#46, #47). Two close a Volumes v1 deadlock in
+the Managed Scope transaction; five correct counts, warnings, and refusals.
+Nothing in the nine-tool surface or any governance identity changes.
 
 - Let a Volumes v1 repository with a changed source activate a policy change.
   A policy edit (a scope rule, a budget) makes desired differ from active, and
@@ -69,6 +75,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   resolving through the local `replace` to the patched tree under
   `third_party/`. Tests and documentation only; the nine-tool MCP surface and
   every governance identity are unchanged.
+
+The first public availability date for v0.1.0-rc12 is 2026-09-15.
 
 ## v0.1.0-rc11
 
