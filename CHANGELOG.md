@@ -9,22 +9,26 @@ All notable public changes to AOCI-CODE will be documented in this file.
   Missing and Unbaselined, and Maintain's `authoring_batch` and Guide's batch
   added the lists: two new files promised `total_targets` 4 and `remaining` 2
   with `continuation_required` true while the plan held exactly two
-  candidates. Both now derive the total from one deduplicated set, so the
-  batch, the plan, and Guide agree. Candidates were never duplicated; only the
+  candidates, and a curation-excluded file was counted although no candidate
+  would ever carry it, so remaining never reached zero. Maintain and Guide now
+  derive the total from the one authoring-work set Maintain plans from, so the
+  batch, the plan, and Guide agree; verify's unresolved-path counts stop
+  double-counting the same file. Candidates were never duplicated; only the
   counts were.
 - Warn about an E tag that contradicts the file length in Volumes v1. The
   write path read the E-scale thresholds from the Code Volume's own header,
   which in Volumes v1 is one marker line; the dictionary lives in Meta, so no
   threshold was ever found and a four-line file tagged L applied without a
-  word. Volumes writes now read the thresholds from Meta and answer the same
-  advisory warning Legacy always did, in the active Locale, under
+  word. Volumes writes now read the thresholds from Meta's code dictionary
+  alone (each Meta section declares its own E Scale line) and answer the
+  advisory warning Legacy answers, now localized in both layouts, under
   `audit.warnings`; nothing is rejected.
 - Name the candidate and field in a batch binding defect. An empty
   `candidate_id` or a malformed `source_sha256` answered a bare bad_args that
   named nothing, and a model that had mistyped one field received the same
   rejection for every resubmission. The rejection now carries a Repair Finding
-  with the candidate's position, path, field, and repair action, with no
-  formal write started.
+  with the candidate's position, path, field, and repair action, in the
+  vocabulary of the candidate's own domain, with no formal write started.
 - Refuse brace alternation in a scope rule. The glob compiler treats `{` as a
   literal, so `assets/*.{png,jpg}` was accepted and matched nothing; adding or
   editing such a rule now fails with the spellings that work. A persisted rule

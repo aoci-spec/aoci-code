@@ -15,7 +15,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
-	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -120,16 +119,20 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	}
 	requested := map[string]bool{cognition.ScopeCode: requestedScope == "" || requestedScope == cognition.ScopeAll || requestedScope == cognition.ScopeCode,
 		cognition.ScopeDatabase: requestedScope == "" || requestedScope == cognition.ScopeAll || requestedScope == cognition.ScopeDatabase}
+	codeWork := volumegovernance.CodeAuthoringWork{}
+	if requested[cognition.ScopeCode] {
+		codeWork = volumegovernance.CodeAuthoringWorkFor(root, loaded.cfg, loaded.set, facts.CodeDrift)
+	}
 
 	if facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			buildVolumeCodeCandidates(root, loaded, &result)
+			buildVolumeCodeCandidates(root, loaded, &result, codeWork)
 		}
 		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
 		}
 	}
-	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested)
+	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested, codeWork)
 	result.Batch.Included = len(result.Candidates)
 	result.Batch.Remaining = result.Batch.TotalTargets - result.Batch.Included
 	if result.Batch.Remaining < 0 {
@@ -235,36 +238,28 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 	return view
 }
 
-func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult) {
+// buildVolumeCodeCandidates turns the shared authoring work into receipt-bound
+// candidates: a target the Code Volume already describes is an update, any
+// other is a create. The work set is the same value the batch total and Guide
+// report, so the plan can never promise more than it issues.
+func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork) {
 	all := []codebatch.Candidate{}
-	missing := append([]string{}, result.Governance.CodeDrift.Missing...)
-	classification, _, _, err := curation.BuildClassification(root, loaded.cfg, missing)
-	if err == nil {
-		missing = append([]string{}, classification.Actionable...)
-		for _, pending := range classification.Pending {
-			result.OrphanRemovals = append(result.OrphanRemovals, "pending_curation:"+pending.Path)
-		}
+	for _, pending := range work.Pending {
+		result.OrphanRemovals = append(result.OrphanRemovals, "pending_curation:"+pending.Path)
 	}
-	for _, path := range missing {
-		if fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path))); hashErr == nil {
-			all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
-				ObjectRef: "code:" + path, Path: path, SourceSHA256: fingerprint.SHA256}})
+	for _, path := range work.Targets {
+		fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
+		if hashErr != nil {
+			continue
 		}
-	}
-	for _, item := range []struct {
-		change string
-		paths  []string
-	}{{cognition.ImpactChangeUpdate, result.Governance.CodeDrift.Stale}, {cognition.ImpactChangeUpdate, result.Governance.CodeDrift.Unbaselined}} {
-		for _, path := range item.paths {
-			object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+path)
-			fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
-			if object == nil || hashErr != nil {
-				continue
-			}
-			all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: item.change,
+		if object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+path); object != nil {
+			all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
 				ObjectRef: object.CanonicalRef, Path: path, ExistingEntry: object.CanonicalLine,
 				SourceSHA256: fingerprint.SHA256}})
+			continue
 		}
+		all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
+			ObjectRef: "code:" + path, Path: path, SourceSHA256: fingerprint.SHA256}})
 	}
 	if len(all) == 0 {
 		return
@@ -310,10 +305,10 @@ func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result
 	}
 }
 
-func volumeAuthoringTargetCount(facts *volumegovernance.Facts, requested map[string]bool) int {
+func volumeAuthoringTargetCount(facts *volumegovernance.Facts, requested map[string]bool, work volumegovernance.CodeAuthoringWork) int {
 	total := 0
 	if requested[cognition.ScopeCode] {
-		total += len(facts.CodeDrift.AuthoringTargets())
+		total += len(work.Targets)
 	}
 	if requested[cognition.ScopeDatabase] {
 		total += facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined

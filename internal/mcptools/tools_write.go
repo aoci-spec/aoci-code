@@ -166,9 +166,10 @@ func prepareUpdateEntry(
 	headerText, _ := index.ExtractHeader(
 		rc.text,
 	)
+	dictText := rc.dictionaryText(headerText)
 
 	sQuota := index.ExtractSQuotaThresholds(
-		headerText,
+		dictText,
 	)
 
 	violations := index.ValidateEntryLineWith(
@@ -277,7 +278,6 @@ func prepareUpdateEntry(
 		}
 	}
 
-	dictText := rc.dictionaryText(headerText)
 	if index.ShouldCheckEScalePath(
 		rel,
 	) &&

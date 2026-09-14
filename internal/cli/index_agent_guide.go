@@ -308,7 +308,8 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
 		guide.Commands.Check = "aoci check --json"
-		total := len(facts.CodeDrift.AuthoringTargets()) +
+		work := volumegovernance.CodeAuthoringWorkFor(root, cfg, set, facts.CodeDrift)
+		total := len(work.Targets) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
 		// Guide projects the same team batch size Maintain will plan with, so
 		// the model sees one number for how much a round asks of it.

@@ -17,6 +17,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
@@ -54,16 +55,65 @@ type Drift struct {
 	ObservedRemoved []string `json:"observed_removed"`
 }
 
-// AuthoringTargets lists the Code paths one Maintain round asks the model to
-// author, each exactly once, in sorted order. Drift classification files a
-// source that has no Entry and is absent from the Baseline under both Missing
-// and Unbaselined, so adding the three lists counted every file created after
-// the last scan twice: total_targets, remaining, and continuation_required
-// overstated the work while the candidates, built per object, did not, and
-// Guide disagreed with Maintain by the same amount. Every count of authoring
-// work derives from this one set; no caller adds the lists itself.
-func (d Drift) AuthoringTargets() []string {
+// UnresolvedPaths lists every Code path with unresolved drift exactly once,
+// sorted. Drift classification files a source that has no Entry and is absent
+// from the Baseline under both Missing and Unbaselined, so any sum of the
+// three lists counts a file created after the last scan twice; counts of
+// unresolved paths derive from this set, never from adding the lists.
+func (d Drift) UnresolvedPaths() []string {
 	return sortedUnique(append(append(append([]string{}, d.Missing...), d.Stale...), d.Unbaselined...))
+}
+
+// CodeAuthoringWork is the Code authoring work one Maintain round can plan:
+// the paths Maintain issues as candidates, each once and in issue order, and
+// the Missing paths held back for a curation decision. Maintain builds its
+// candidates and its batch total from this one value and Guide reports the
+// same total, so the two cannot disagree. Before it existed each added the
+// drift lists on its own, which counted a fresh file twice and counted
+// curation-excluded files that no candidate would ever carry, so remaining
+// never reached zero.
+type CodeAuthoringWork struct {
+	Targets []string
+	Pending []curation.PendingCandidate
+}
+
+// CodeAuthoringWorkFor derives the work from the drift lists in Maintain's
+// own order: actionable Missing paths are created; Stale and Unbaselined
+// paths are updated only when the Code Volume already carries their Entry
+// (a fresh file sits in Unbaselined too and is covered by its Missing create).
+// A curation load failure keeps every Missing path actionable, as Maintain
+// always did. Files the planner later cannot hash are the only thing this
+// count cannot see.
+func CodeAuthoringWorkFor(root string, cfg *config.Config, set *cognition.Set, drift Drift) CodeAuthoringWork {
+	creates := append([]string{}, drift.Missing...)
+	var pending []curation.PendingCandidate
+	if classification, _, _, err := curation.BuildClassification(root, cfg, drift.Missing); err == nil {
+		creates = append([]string{}, classification.Actionable...)
+		pending = append(pending, classification.Pending...)
+	}
+	entries := map[string]bool{}
+	if set != nil {
+		if asset := set.Volumes[cognition.ScopeCode]; asset != nil {
+			for _, object := range asset.Objects {
+				entries[object.CanonicalRef] = true
+			}
+		}
+	}
+	seen := map[string]bool{}
+	targets := make([]string, 0, len(creates)+len(drift.Stale)+len(drift.Unbaselined))
+	for _, path := range creates {
+		if !seen[path] {
+			seen[path] = true
+			targets = append(targets, path)
+		}
+	}
+	for _, path := range append(append([]string{}, drift.Stale...), drift.Unbaselined...) {
+		if entries["code:"+path] && !seen[path] {
+			seen[path] = true
+			targets = append(targets, path)
+		}
+	}
+	return CodeAuthoringWork{Targets: targets, Pending: pending}
 }
 
 type ManagedScopeFacts struct {

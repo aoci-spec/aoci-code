@@ -415,10 +415,25 @@ func verifyRawDriftCount(
 		return 0
 	}
 
-	return len(report.Result.Missing) +
-		len(report.Result.Orphan) +
-		len(report.Result.Stale) +
-		len(report.Result.Unbaselined)
+	// 无条目且不在 Baseline 的文件同时出现在 Missing 与 Unbaselined,按路径去重。
+	return len(uniquePaths(report.Result.Missing, report.Result.Stale, report.Result.Unbaselined)) +
+		len(report.Result.Orphan)
+}
+
+// uniquePaths 返回各表并集里的路径数(去重);Missing 与 Unbaselined 对 scan 后新增
+// 的文件重叠,逐表相加会把它算两次。
+func uniquePaths(lists ...[]string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, list := range lists {
+		for _, rel := range list {
+			if !seen[rel] {
+				seen[rel] = true
+				out = append(out, rel)
+			}
+		}
+	}
+	return out
 }
 
 // verifyUnresolvedDriftCount返回尚未解决的治理债务数量。
@@ -441,9 +456,21 @@ func verifyUnresolvedDriftCount(
 		len(report.PendingCurationMissing)
 
 	if report.Result != nil {
+		// Unbaselined 里已被 Missing 覆盖的路径(scan 后新增的文件)不再计一次:
+		// 它要么已在 Actionable/Pending 里,要么是已裁决的负空间。
+		missing := map[string]bool{}
+		for _, rel := range report.Result.Missing {
+			missing[rel] = true
+		}
+		unbaselinedWithEntry := 0
+		for _, rel := range report.Result.Unbaselined {
+			if !missing[rel] {
+				unbaselinedWithEntry++
+			}
+		}
 		total += len(report.Result.Orphan) +
 			len(report.Result.Stale) +
-			len(report.Result.Unbaselined)
+			unbaselinedWithEntry
 	}
 	if report.ManagedScope.ScopeChangeRequired {
 		total++

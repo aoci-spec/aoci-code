@@ -151,7 +151,9 @@ func volumeCodeRepoContext(root string, loaded *cognitionRepoCtx) *repoCtx {
 		text:  string(code.Raw),
 		doc:   code.Document,
 		bl:    loaded.bl,
-		dict:  string(loaded.set.Meta.Raw),
+		// Only the code dictionary: each Meta section declares its own E Scale
+		// line and the whole Meta would let database's overwrite code's.
+		dict: index.ScopedDictionaryText(string(loaded.set.Meta.Raw), cognition.ScopeCode),
 	}
 }
 

@@ -270,3 +270,32 @@ func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScale
 	}
 	return &EScaleMismatch{FileLines: fileLines, Expected: expected, Actual: e}
 }
+
+// ScopedDictionaryText 返回 Meta 卷里适用于某一对象档(profile)的字典文本:
+// 第一个 "#[Tag dictionary:" 头之前的公共前言(S 配额等协议行住在这里),加上
+// "#[Tag dictionary: <profile>]" 这一段本身。Meta 每种对象一段、每段各有一行
+// E 规模,整卷抽阈值会让最后一段(database)覆盖 code 的;没有段头的文本(Legacy
+// 索引头)原样返回。
+func ScopedDictionaryText(metaText, profile string) string {
+	marker := "#[Tag dictionary: " + profile + "]"
+	var out []string
+	inSections, collect := false, false
+	for _, line := range strings.Split(strings.ReplaceAll(metaText, "\r\n", "\n"), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#[Tag dictionary:") {
+			inSections = true
+			collect = trimmed == marker
+			if collect {
+				out = append(out, line)
+			}
+			continue
+		}
+		if !inSections || collect {
+			out = append(out, line)
+		}
+	}
+	if !inSections {
+		return metaText
+	}
+	return strings.Join(out, "\n")
+}
