@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-14T17:03:06Z",
+  "updated_at": "2026-09-15T05:14:17Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1",
-      "size": 187009,
-      "normalized_sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1"
+      "sha256": "9502d219ea4b0fa7795025790a925745288d926d3c5552d963d495265bcbddc8",
+      "size": 186998,
+      "normalized_sha256": "9502d219ea4b0fa7795025790a925745288d926d3c5552d963d495265bcbddc8"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5578,18 +5578,18 @@
       "format_kind": "gofmt"
     },
     "internal/ui/server.go": {
-      "sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
-      "size": 11354,
-      "normalized_sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
-      "format_sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
+      "sha256": "7001bc864f012eda2f5e2bc50308e12990ad7ca0662f53846a2b876eaa9a40be",
+      "size": 11555,
+      "normalized_sha256": "7001bc864f012eda2f5e2bc50308e12990ad7ca0662f53846a2b876eaa9a40be",
+      "format_sha256": "7001bc864f012eda2f5e2bc50308e12990ad7ca0662f53846a2b876eaa9a40be",
       "format_kind": "gofmt"
     },
     "internal/ui/server_test.go": {
       "role": "observe",
-      "sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
-      "size": 16525,
-      "normalized_sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
-      "format_sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
+      "sha256": "d64389a218a7464e32171298bffd1e81bbe88738e9423fe4b701f2f89520cb59",
+      "size": 17620,
+      "normalized_sha256": "d64389a218a7464e32171298bffd1e81bbe88738e9423fe4b701f2f89520cb59",
+      "format_sha256": "d64389a218a7464e32171298bffd1e81bbe88738e9423fe4b701f2f89520cb59",
       "format_kind": "gofmt"
     },
     "internal/ui/snapshot.go": {
