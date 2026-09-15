@@ -76,6 +76,7 @@ type Snapshot struct {
 	Running           []Instance                  `json:"running"`
 	Coverage          *Coverage                   `json:"coverage,omitempty"`
 	Suggestions       map[string][]Suggestion     `json:"suggestions"`
+	volumeBytes       map[string][]byte
 }
 
 // buildSnapshot reads the repository exactly as the read-only CLI commands do:
@@ -112,9 +113,11 @@ func buildSnapshot(root string, options Options, running []Instance) (Snapshot, 
 	snapshot.RootText = string(set.Root.Raw)
 	snapshot.MetaText = string(set.Meta.Raw)
 	snapshot.Assets = map[string]AssetInfo{"root": assetInfo(set.Root), "meta": assetInfo(set.Meta)}
+	snapshot.volumeBytes = map[string][]byte{}
 	for _, id := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
 		if asset := set.Volumes[id]; asset != nil {
 			snapshot.Assets[id] = assetInfo(*asset)
+			snapshot.volumeBytes[id] = asset.Raw
 		}
 	}
 	facts, err := volumegovernance.Assess(root, cfg, set)

@@ -295,9 +295,10 @@ func (s *server) serveEntries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"total": len(entry.entries), "matched": len(matched), "entries": matched})
 }
 
-// serveRaw returns one formal asset exactly as it is on disk. The page shows
-// Volumes verbatim — section markers keep their === form — because a reader
-// checking cognition needs the bytes the tools read, not a rendering of them.
+// serveRaw returns one formal asset exactly as the cached snapshot loaded it.
+// The page shows Volumes verbatim — section markers keep their === form —
+// because a reader checking cognition needs the bytes the tools validated,
+// not a rendering or a later read from the same path.
 func (s *server) serveRaw(w http.ResponseWriter, r *http.Request) {
 	entry, ok := s.lookup(w, r)
 	if !ok {
@@ -323,11 +324,9 @@ func (s *server) serveRaw(w http.ResponseWriter, r *http.Request) {
 			http.NotFound(w, r)
 			return
 		}
-		// The path comes from the Root manifest the loader already validated,
-		// never from the request, so no query value reaches the filesystem.
-		data, err := os.ReadFile(filepath.Join(entry.snapshot.Root, filepath.FromSlash(info.Path)))
-		if err != nil {
-			http.Error(w, "asset unavailable", http.StatusInternalServerError)
+		data, present := entry.snapshot.volumeBytes[asset]
+		if !present {
+			http.NotFound(w, r)
 			return
 		}
 		_, _ = w.Write(data)
