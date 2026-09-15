@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-14T17:03:06Z",
+  "updated_at": "2026-09-15T03:58:18Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1",
-      "size": 187009,
-      "normalized_sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1"
+      "sha256": "34f0e320ae7e9eb9d2e52109b6225cc21a0b15964a6eed9eec9e0cfaca2474f0",
+      "size": 186999,
+      "normalized_sha256": "34f0e320ae7e9eb9d2e52109b6225cc21a0b15964a6eed9eec9e0cfaca2474f0"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5578,25 +5578,25 @@
       "format_kind": "gofmt"
     },
     "internal/ui/server.go": {
-      "sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
-      "size": 11354,
-      "normalized_sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
-      "format_sha256": "23c88a6b9ce6ac9c81bc369fad26b0314a71b14722051ca1ed5ae004899d4d36",
+      "sha256": "48449003263fb5e6c6e0c1ae9b95aed14196bc930611089b7159eda58288b354",
+      "size": 11171,
+      "normalized_sha256": "48449003263fb5e6c6e0c1ae9b95aed14196bc930611089b7159eda58288b354",
+      "format_sha256": "48449003263fb5e6c6e0c1ae9b95aed14196bc930611089b7159eda58288b354",
       "format_kind": "gofmt"
     },
     "internal/ui/server_test.go": {
       "role": "observe",
-      "sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
-      "size": 16525,
-      "normalized_sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
-      "format_sha256": "73f89ec0735dedb48b4b757eca98a0a69b49cca2fd421fd4d599db6296b0af14",
+      "sha256": "3140e903b3294eee820404c9083c7bb5306d99831dba92db24720f44debd75df",
+      "size": 18210,
+      "normalized_sha256": "3140e903b3294eee820404c9083c7bb5306d99831dba92db24720f44debd75df",
+      "format_sha256": "3140e903b3294eee820404c9083c7bb5306d99831dba92db24720f44debd75df",
       "format_kind": "gofmt"
     },
     "internal/ui/snapshot.go": {
-      "sha256": "c4c67378d675364fbb87452b06e69982bfac523c2aa86065a99a40e547a488ed",
-      "size": 12672,
-      "normalized_sha256": "c4c67378d675364fbb87452b06e69982bfac523c2aa86065a99a40e547a488ed",
-      "format_sha256": "c4c67378d675364fbb87452b06e69982bfac523c2aa86065a99a40e547a488ed",
+      "sha256": "002273093069038d947c3d923fae19b88f97f8be125a9ea6aef1fb10c583e524",
+      "size": 12793,
+      "normalized_sha256": "002273093069038d947c3d923fae19b88f97f8be125a9ea6aef1fb10c583e524",
+      "format_sha256": "002273093069038d947c3d923fae19b88f97f8be125a9ea6aef1fb10c583e524",
       "format_kind": "gofmt"
     },
     "internal/volumegovernance/budget_remediation_test.go": {
