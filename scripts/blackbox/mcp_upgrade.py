@@ -262,7 +262,7 @@ class Session:
         self.next_id = 1
 
     def rpc(self, method, params=None, timeout=180):
-        with rpc_deadline(self.p, method, timeout):
+        with rpc_deadline(self.p, method, timeout, getattr(self, "stderr_capture", None)):
             rid = self.next_id
             self.next_id += 1
             msg = {"jsonrpc": "2.0", "id": rid, "method": method}

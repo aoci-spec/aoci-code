@@ -2,9 +2,11 @@
 from contextlib import contextmanager
 from threading import Event, Timer
 
+from stdio_capture import stderr_failure
+
 
 @contextmanager
-def rpc_deadline(process, method, timeout):
+def rpc_deadline(process, method, timeout, stderr_capture=None):
     """A timed-out harness session is unusable; kill and reap its server.
 
     Checking the clock around readline cannot interrupt a silent or partial
@@ -27,4 +29,5 @@ def rpc_deadline(process, method, timeout):
         timer.join()  # A completed request must not leave a timer killing the next one.
         if expired.is_set():
             process.wait(timeout=5)
-            raise TimeoutError(f"timeout waiting for {method}") from None
+            message = stderr_failure(stderr_capture, f"timeout waiting for {method}")
+            raise TimeoutError(message) from None
