@@ -6,6 +6,8 @@ import sys
 import time
 import unittest
 
+from stdio_capture import BoundedStderr
+
 
 HARNESS_DIR = pathlib.Path(__file__).resolve().parent
 HARNESSES = ("mcp_conformance.py", "mcp_scenarios.py", "mcp_upgrade.py")
@@ -26,7 +28,9 @@ for line in sys.stdin:
     else:
         if mode == "noise":
             print('\nnot-json\n{"jsonrpc":"2.0","method":"notice"}', flush=True)
-        if mode in ("silent", "noise"):
+        if mode == "stderr_timeout":
+            print("deadline diagnostic", file=sys.stderr, flush=True)
+        if mode in ("silent", "noise", "stderr_timeout"):
             time.sleep(1)
         print(response, flush=True)
 '''
@@ -53,6 +57,7 @@ class RPCDeadlineTests(unittest.TestCase):
         cls = session_class(filename)
         client = cls.__new__(cls)
         client.p, client.next_id, client.nonjson_stdout = process, 1, []
+        client.stderr_capture = BoundedStderr(process.stderr)
         return client
 
     @staticmethod
@@ -83,6 +88,15 @@ class RPCDeadlineTests(unittest.TestCase):
                     client.rpc("tools/call", {"payload": "x" * 1_000_000}, timeout=0.1)
                 self.assertLess(time.monotonic() - started, 0.8)
                 self.assertIsNotNone(client.p.poll())
+
+    def test_timeout_preserves_the_stderr_tail(self):
+        for filename in HARNESSES:
+            with self.subTest(harness=filename):
+                client = self.client(filename, "stderr_timeout")
+                with self.assertRaisesRegex(
+                        TimeoutError,
+                        r"timeout waiting for initialize; stderr tail:\ndeadline diagnostic"):
+                    client.rpc("initialize", timeout=0.1)
 
     def test_successful_requests_leave_the_session_reusable(self):
         for filename in HARNESSES:
