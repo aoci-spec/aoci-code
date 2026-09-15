@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -115,6 +116,28 @@ func TestDiscoverRunningServersSkipsADeletedWorkingDirectory(t *testing.T) {
 		if instance.PID == cmd.Process.Pid {
 			t.Fatalf("a server whose working directory was deleted was attached to root %q", instance.Root)
 		}
+	}
+}
+
+func TestDiscoverRunningServersFiltersProcessOwners(t *testing.T) {
+	procRoot := t.TempDir()
+	processDir := filepath.Join(procRoot, strconv.Itoa(os.Getpid()+1))
+	if err := os.Mkdir(processDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(processDir, "cmdline"), []byte("aoci\x00mcp\x00--repo\x00/repository\x00"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/usr/local/bin/aoci", filepath.Join(processDir, "exe")); err != nil {
+		t.Fatal(err)
+	}
+
+	currentUID := uint32(os.Geteuid())
+	if instances := discoverRunningServersFrom(procRoot, currentUID); len(instances) != 1 {
+		t.Fatalf("current-user process count=%d, want 1", len(instances))
+	}
+	if instances := discoverRunningServersFrom(procRoot, currentUID+1); len(instances) != 0 {
+		t.Fatalf("different-user process count=%d, want 0", len(instances))
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -20,7 +21,11 @@ import (
 // runs from has since been replaced on disk — because the kernel appends
 // " (deleted)" to the link target of an unlinked file.
 func discoverRunningServers() []Instance {
-	entries, err := os.ReadDir("/proc")
+	return discoverRunningServersFrom("/proc", uint32(os.Geteuid()))
+}
+
+func discoverRunningServersFrom(procRoot string, effectiveUID uint32) []Instance {
+	entries, err := os.ReadDir(procRoot)
 	if err != nil {
 		return nil
 	}
@@ -31,7 +36,16 @@ func discoverRunningServers() []Instance {
 		if err != nil || pid == self {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join("/proc", entry.Name(), "cmdline"))
+		processDir := filepath.Join(procRoot, entry.Name())
+		info, err := os.Stat(processDir)
+		if err != nil {
+			continue
+		}
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || stat.Uid != effectiveUID {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(processDir, "cmdline"))
 		if err != nil || len(raw) == 0 {
 			continue
 		}
@@ -40,12 +54,12 @@ func discoverRunningServers() []Instance {
 		if !ok {
 			continue
 		}
-		if executable, err := os.Readlink(filepath.Join("/proc", entry.Name(), "exe")); err == nil {
+		if executable, err := os.Readlink(filepath.Join(processDir, "exe")); err == nil {
 			instance.Executable = strings.TrimSuffix(executable, " (deleted)")
 			instance.ExecutableDeleted = strings.HasSuffix(executable, " (deleted)")
 		}
 		if !filepath.IsAbs(instance.Root) {
-			cwd, err := os.Readlink(filepath.Join("/proc", entry.Name(), "cwd"))
+			cwd, err := os.Readlink(filepath.Join(processDir, "cwd"))
 			// A removed directory reads back as "<path> (deleted)", the same
 			// marker the exe link uses; joining it would present a repository
 			// that no longer exists, so the instance is skipped like an
@@ -57,9 +71,7 @@ func discoverRunningServers() []Instance {
 			instance.Root = filepath.Join(cwd, instance.Root)
 		}
 		instance.Root = filepath.Clean(instance.Root)
-		if info, err := os.Stat(filepath.Join("/proc", entry.Name())); err == nil {
-			instance.StartedAt = info.ModTime().UTC().Format(time.RFC3339)
-		}
+		instance.StartedAt = info.ModTime().UTC().Format(time.RFC3339)
 		instances = append(instances, instance)
 	}
 	return instances

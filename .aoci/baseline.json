@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-14T17:03:06Z",
+  "updated_at": "2026-09-15T04:28:44Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1",
-      "size": 187009,
-      "normalized_sha256": "3fadb8553460d2840fbd5acf66c0cffe823fead61ccdab79b0c015d942943df1"
+      "sha256": "e3384b6d264adb0f9bdf9b9293a94b1aa8ac76d03deba892c9996f7e62525228",
+      "size": 187023,
+      "normalized_sha256": "e3384b6d264adb0f9bdf9b9293a94b1aa8ac76d03deba892c9996f7e62525228"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -5481,18 +5481,18 @@
       "format_kind": "gofmt"
     },
     "internal/ui/discover_linux.go": {
-      "sha256": "a7abccf324f3fbf045f1afbcc4f12bf52ee6571e8984706a752510458e2dd460",
-      "size": 2344,
-      "normalized_sha256": "a7abccf324f3fbf045f1afbcc4f12bf52ee6571e8984706a752510458e2dd460",
-      "format_sha256": "a7abccf324f3fbf045f1afbcc4f12bf52ee6571e8984706a752510458e2dd460",
+      "sha256": "ab64b8d8f82384f176792a7cfc4f9b82e6afc235cf8cccf6df3d9eca910aa243",
+      "size": 2613,
+      "normalized_sha256": "ab64b8d8f82384f176792a7cfc4f9b82e6afc235cf8cccf6df3d9eca910aa243",
+      "format_sha256": "ab64b8d8f82384f176792a7cfc4f9b82e6afc235cf8cccf6df3d9eca910aa243",
       "format_kind": "gofmt"
     },
     "internal/ui/discover_linux_test.go": {
       "role": "observe",
-      "sha256": "04d24dc9c6ad0121f083044c958cc6117673c2be0ee6b611cf11b9dd87b1648d",
-      "size": 3754,
-      "normalized_sha256": "04d24dc9c6ad0121f083044c958cc6117673c2be0ee6b611cf11b9dd87b1648d",
-      "format_sha256": "04d24dc9c6ad0121f083044c958cc6117673c2be0ee6b611cf11b9dd87b1648d",
+      "sha256": "9056506b43e8204c1f72304fa0028e42c9ed3bebc3f673ca98fab17ea0d855b6",
+      "size": 4625,
+      "normalized_sha256": "9056506b43e8204c1f72304fa0028e42c9ed3bebc3f673ca98fab17ea0d855b6",
+      "format_sha256": "9056506b43e8204c1f72304fa0028e42c9ed3bebc3f673ca98fab17ea0d855b6",
       "format_kind": "gofmt"
     },
     "internal/ui/discover_other.go": {
