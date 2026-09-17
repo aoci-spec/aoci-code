@@ -272,6 +272,49 @@ func TestEntriesRawAndPage(t *testing.T) {
 	}
 }
 
+func TestRawVolumeStaysBoundToCachedSnapshot(t *testing.T) {
+	root := buildVolumesRepo(t)
+	server := testServer(t, root)
+	handler := server.handler()
+	state := get(t, handler, "/api/state?repo="+root, nil)
+	if state.Code != http.StatusOK {
+		t.Fatalf("state answered %d: %s", state.Code, state.Body.String())
+	}
+
+	path := filepath.Join(root, "aoci.code.txt")
+	original := readFile(t, root, "aoci.code.txt")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement := strings.Replace(original, "run the fixture", "RUN THE FIXTURE", 1)
+	if replacement == original || len(replacement) != len(original) {
+		t.Fatal("test replacement must change bytes without changing size")
+	}
+	// Keep the fast fingerprint unchanged so this request must use the cached
+	// snapshot rather than opening the Volume again behind that snapshot.
+	if err := os.WriteFile(path, []byte(replacement), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+
+	raw := get(t, handler, "/api/raw?repo="+root+"&asset=code", nil)
+	if raw.Code != http.StatusOK {
+		t.Fatalf("raw answered %d: %s", raw.Code, raw.Body.String())
+	}
+	if served := raw.Body.String(); served != original {
+		t.Fatalf("raw Volume escaped its cached snapshot")
+	}
+	if refreshed := get(t, handler, "/api/state?repo="+root+"&refresh=1", nil); refreshed.Code != http.StatusOK {
+		t.Fatalf("refreshed state answered %d: %s", refreshed.Code, refreshed.Body.String())
+	}
+	if served := get(t, handler, "/api/raw?repo="+root+"&asset=code", nil).Body.String(); served != replacement {
+		t.Fatalf("raw Volume did not advance with the refreshed snapshot")
+	}
+}
+
 func TestPageStringsResolveInEveryOfficialLocale(t *testing.T) {
 	for _, locale := range []string{"en-US", "zh-CN"} {
 		keys := append([]string{}, pageStringKeys...)
