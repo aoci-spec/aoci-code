@@ -70,10 +70,11 @@ var pageStringKeys = []string{
 }
 
 type server struct {
-	options Options
-	roots   []string
-	cache   *repoCache
-	page    []byte
+	options     Options
+	roots       []string
+	cache       *repoCache
+	page        []byte
+	allowedHost string
 }
 
 // Serve binds a loopback listener, calls ready with the URL, and serves until
@@ -108,7 +109,7 @@ func Serve(ctx context.Context, options Options, ready func(url string, reposito
 		_ = Register(dir, Registration{PID: os.Getpid(), URL: url, Root: roots[0], StartedAt: time.Now().UTC()})
 		defer func() { _ = Unregister(dir, roots[0], os.Getpid()) }()
 	}
-	s := &server{options: options, roots: roots, cache: newRepoCache()}
+	s := &server{options: options, roots: roots, cache: newRepoCache(), allowedHost: listener.Addr().String()}
 	s.page = []byte(renderPage(options.Locale))
 	httpServer := &http.Server{Handler: s.handler(), ReadHeaderTimeout: 5 * time.Second}
 	go func() {
@@ -197,6 +198,10 @@ func (s *server) handler() http.Handler {
 // external resources, no caching outside the ETag handshake.
 func (s *server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if s.allowedHost != "" && r.Host != s.allowedHost {
+			http.Error(w, "unexpected Host", http.StatusForbidden)
+			return
+		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			http.Error(w, "read-only", http.StatusMethodNotAllowed)

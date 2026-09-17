@@ -57,7 +57,7 @@ func buildVolumesRepo(t *testing.T) string {
 func testServer(t *testing.T, roots ...string) *server {
 	t.Helper()
 	options := Options{Roots: roots, Locale: "en-US", BinaryVersion: "test"}
-	return &server{options: options, roots: normalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US"))}
+	return &server{options: options, roots: normalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US")), allowedHost: "example.com"}
 }
 
 func get(t *testing.T, handler http.Handler, target string, headers map[string]string) *httptest.ResponseRecorder {
@@ -362,6 +362,49 @@ func TestServeListensOnLoopbackAndStopsWithContext(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("server did not become ready")
 	}
+	cancel()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("shutdown: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not stop")
+	}
+}
+
+func TestServeRejectsUnexpectedHost(t *testing.T) {
+	root := buildVolumesRepo(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	urls := make(chan string, 1)
+	done := make(chan error, 1)
+	go func() {
+		done <- Serve(ctx, Options{Roots: []string{root}, Host: "127.0.0.1", Locale: "en-US", RegistryDir: t.TempDir()}, func(url string, _ int) {
+			urls <- url
+		})
+	}()
+
+	var url string
+	select {
+	case url = <-urls:
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not become ready")
+	}
+	request, err := http.NewRequest(http.MethodGet, url+"api/repos", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Host = "attacker.example"
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("unexpected Host answered %d, want 403", response.StatusCode)
+	}
+
 	cancel()
 	select {
 	case err := <-done:
