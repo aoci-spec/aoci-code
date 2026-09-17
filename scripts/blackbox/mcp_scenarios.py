@@ -114,7 +114,7 @@ class Session:
     def send_raw(self, line):
         self.p.stdin.write(line + "\n"); self.p.stdin.flush()
     def rpc(self, method, params=None, timeout=120):
-        with rpc_deadline(self.p, method, timeout):
+        with rpc_deadline(self.p, method, timeout, getattr(self, "stderr_capture", None)):
             rid = self.next_id; self.next_id += 1
             msg = {"jsonrpc": "2.0", "id": rid, "method": method}
             if params is not None: msg["params"] = params
