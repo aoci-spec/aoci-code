@@ -2,7 +2,12 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc13
+
+One fix for a path that stayed closed after a cognition optimization (#57),
+three status-page fixes from the contributor who found the rc10 and rc11
+ones (#49, #51, #52), and one harness improvement (#53). Nothing in the
+nine-tool surface or any governance identity changes.
 
 - Keep the direct update path open after a cognition optimization. The
   update classifier counted an item as part of the current optimization
@@ -38,6 +43,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - Keep the server's stderr tail when a black-box RPC times out. The three
   harness clients drained stderr continuously but their timeout error
   dropped the bounded tail. Test infrastructure only. (#53)
+
+The first public availability date for v0.1.0-rc13 is 2026-09-17.
 
 ## v0.1.0-rc12
 
