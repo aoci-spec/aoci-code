@@ -2,6 +2,43 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Keep the direct update path open after a cognition optimization. The
+  update classifier counted an item as part of the current optimization
+  batch when its batch id equalled the checkpoint's current or
+  last-completed batch id, and one of those two is empty while the first
+  batch is pending, between two batches, and after the optimization
+  completes, when the checkpoint stays on disk for good. An item without a
+  batch id, which is the documented compatibility path for a Code source
+  and for an existing Database object, matched the empty id and was refused
+  as `cognition_optimization_batch_mixed` with zero writes; Maintain-issued
+  batches carry ids and never saw it. Present since the feature shipped
+  (v0.1.0-rc3). A batch-less item now never counts as an optimization
+  item, so it takes the ordinary path; three regression tests cover the
+  three windows, and black-box scenario O1 walks the sequence on the
+  shipped binary. (#57)
+- Serve raw Volumes from the cached snapshot on the status page. `/api/raw`
+  reopened the Code and Database Volume paths on every request while
+  `/api/state` reused a two-second snapshot, so a Volume replaced with the
+  same size and modification time let the two routes describe different
+  bytes, with a validate-then-open window in between. The snapshot keeps the
+  bytes the loader validated and the raw route serves those. (#49)
+- List only the current user's servers in Linux discovery. The `/proc` scan
+  parsed every process's command line without checking ownership, so another
+  user's `aoci mcp` could appear on the status page with its repository path.
+  Each process directory's owner is now compared with the effective UID
+  before its command line is read. (#51)
+- Reject an unexpected `Host` on the status page. Any `Host` value was
+  accepted, so a browser reaching the loopback page through DNS rebinding
+  could read responses carrying absolute repository paths. Every request is
+  bound to the listener's exact address; the URL `aoci ui` prints is built
+  from that address and keeps working, and on port 80 the form browsers send
+  without the port is accepted as well. (#52)
+- Keep the server's stderr tail when a black-box RPC times out. The three
+  harness clients drained stderr continuously but their timeout error
+  dropped the bounded tail. Test infrastructure only. (#53)
+
 ## v0.1.0-rc12
 
 Seven fixes for repositories governed without a human in the loop, surfaced by

@@ -1306,6 +1306,86 @@ def verify_published_scenario_count(total):
 
 
 
+
+# ---------------------------------------------------------------- group O
+def group_o_optimization():
+    """A completed cognition-optimization checkpoint must not close the direct update path.
+
+    Optimization clears the checkpoint's current batch id when it completes and
+    leaves the file in place for good. Until #57 the update classifier matched
+    a batch-less item against that empty id, so every later direct update
+    (path + source_sha256, the documented compatibility path; the same for an
+    existing Database object) was refused as cognition_optimization_batch_mixed
+    with zero writes. Maintain-issued batches carry ids and never noticed, which
+    is why the suites never noticed either. This walks the exact sequence on
+    the binary under test: direct update works, optimization completes, the
+    same direct update still works.
+    """
+    g = "O"
+    name = "O1.direct-update-after-completed-optimization-still-applies"
+    d = make_fixture("fx-optimization", 3)
+    s = Session(d)
+    try:
+        m, t, err = maintain(s)
+        rounds = 0
+        while m.get("status") == "repair_required" and rounds < 5:
+            res, t2, err2 = submit_batch(s, m)
+            if res.get("status") != "applied":
+                record(g, name, "FAIL", f"authoring failed: {t2[:160]}")
+                return
+            if res.get("aligned"):
+                break
+            m, t, err = maintain(s)
+            rounds += 1
+        target = "pkg/f001.go"
+        with open(os.path.join(d, target), "rb") as fh:
+            source_sha = hashlib.sha256(fh.read()).hexdigest()
+
+        def direct(text):
+            body, err3 = text_of(s.call("aoci_update_entry", {"entries": [
+                {"path": target, "source_sha256": source_sha, "new_entry": text}]}))
+            return jload(body) or {}, body
+
+        before, tb = direct(entry_line(target).replace("unit 1", "unit one"))
+        if before.get("status") != "applied":
+            record(g, name, "FAIL", f"direct update must work before optimization: {tb[:160]}")
+            return
+        opt_text, _ = text_of(s.call("aoci_maintain", {"intent": "cognition_optimization"}))
+        opt = jload(opt_text) or {}
+        cands = opt.get("candidates") or []
+        plan = opt.get("code_plan") or {}
+        if not cands or not plan.get("batch_id"):
+            record(g, name, "FAIL", f"optimization planned nothing: {opt_text[:160]}")
+            return
+        done_text, _ = text_of(s.call("aoci_update_entry", {"code_batch_id": plan["batch_id"], "entries": [
+            {"path": c["path"], "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
+             "new_entry": c.get("existing_entry")} for c in cands]}, timeout=300))
+        done = jload(done_text) or {}
+        state = (done.get("optimization") or {}).get("state")
+        checkpoint = {}
+        try:
+            with open(os.path.join(d, ".aoci", "drafts", "code-cognition", "optimization-active.json"), encoding="utf-8") as fh:
+                checkpoint = json.load(fh)
+        except Exception:  # noqa: BLE001 - reported through the verdict below
+            pass
+        if state != "complete" or not checkpoint.get("completed") or checkpoint.get("current_batch_id"):
+            record(g, name, "FAIL", f"optimization did not complete: state={state} "
+                   f"checkpoint={ {k: checkpoint.get(k) for k in ('completed', 'current_batch_id')} } | {done_text[:120]}")
+            return
+        with open(os.path.join(d, "aoci.code.txt"), "rb") as fh:
+            volume_before = fh.read()
+        after, ta = direct(entry_line(target).replace("unit 1", "unit one, revised"))
+        with open(os.path.join(d, "aoci.code.txt"), "rb") as fh:
+            volume_after = fh.read()
+        ok = (after.get("status") == "applied" and after.get("applied") == 1
+              and volume_after != volume_before and "batch_mixed" not in ta)
+        record(g, name, "PASS" if ok else "FAIL",
+               f"status={after.get('status')} applied={after.get('applied')} volume_changed={volume_after != volume_before}"
+               + ("" if ok else f" | {ta[:150]}"))
+    finally:
+        s.close()
+
+
 # ---------------------------------------------------------------- group U
 # The local status page runs in its own process and reads the same repository a
 # live MCP server is governing. The claim it makes about itself is that it can
@@ -1537,6 +1617,7 @@ if __name__ == "__main__":
     group_t()
     group_u()
     group_u_detach()
+    group_o_optimization()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()

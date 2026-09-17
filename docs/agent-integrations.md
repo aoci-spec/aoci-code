@@ -67,6 +67,28 @@ cannot inject text into, or delete history from, the Host's compaction input, so
 it cannot enforce this boundary by itself. Codex still receives no file-edit
 hook: MCP tools and the Guide govern cognition writes.
 
+### Host prerequisites observed with Codex 0.149
+
+These are Codex-side settings that an unattended acceptance run had to make
+before AOCI could be used through it. Only the last one may also call for a
+team AOCI setting.
+
+- Custom model providers speak the Responses API only; a provider configured
+  with `wire_api = "chat"` is no longer accepted.
+- Headless `codex exec` asks for approval on every MCP tool call by default.
+  Set `mcp_servers.aoci.default_tools_approval_mode = "approve"` for a run
+  that has no one to answer, and redirect standard input from `/dev/null`
+  when the invocation has no terminal.
+- Tool results are truncated per model from Codex's model metadata: built-in
+  models keep roughly 10,000 tokens per result, and a model outside the
+  catalog falls back to a smaller ceiling (one DeepSeek endpoint kept about a
+  third of each Overview chunk). Either raise the ceiling for that model
+  through `model_catalog_json`, or set the team `overview_delivery.chunk_tokens`
+  (floor 4000) below the ceiling so every chunk arrives whole. A chunk the
+  Host cut short cannot be confirmed as delivered, and the Attestation
+  challenge then fails or reports truncation, so the symptom is a refusal to
+  claim complete cognition rather than a silent gap.
+
 ## Claude Code
 
 ```bash

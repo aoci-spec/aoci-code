@@ -198,7 +198,7 @@ func (s *server) handler() http.Handler {
 // external resources, no caching outside the ETag handshake.
 func (s *server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.allowedHost != "" && r.Host != s.allowedHost {
+		if !hostAllowed(r.Host, s.allowedHost) {
 			http.Error(w, "unexpected Host", http.StatusForbidden)
 			return
 		}
@@ -338,6 +338,15 @@ func (s *server) serveRaw(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+// hostAllowed accepts the listener's exact address and, for the default HTTP
+// port only, the same host without ":80", which is the form browsers send.
+func hostAllowed(host, allowed string) bool {
+	if allowed == "" || host == allowed {
+		return true
+	}
+	return strings.HasSuffix(allowed, ":80") && host == strings.TrimSuffix(allowed, ":80")
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

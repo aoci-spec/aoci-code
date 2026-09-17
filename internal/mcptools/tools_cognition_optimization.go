@@ -502,10 +502,20 @@ func prepareCognitionOptimizationUpdate(root string, input []updateEntryItemIn) 
 	}
 	currentMatches, previousMatches := 0, 0
 	for _, item := range input {
-		if strings.EqualFold(strings.TrimSpace(item.BatchID), checkpoint.CurrentBatchID) {
+		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
+		if batchID == "" {
+			// An item without a batch id is a direct or compatibility update.
+			// It can never belong to an optimization batch, and it must not
+			// match a checkpoint whose current id is empty because the
+			// optimization completed or is between batches: that checkpoint
+			// stays on disk for the life of the repository, and matching it
+			// refused every later batch-less update as batch_mixed (#57).
+			continue
+		}
+		if checkpoint.CurrentBatchID != "" && batchID == strings.ToLower(checkpoint.CurrentBatchID) {
 			currentMatches++
 		}
-		if strings.EqualFold(strings.TrimSpace(item.BatchID), checkpoint.LastCompletedBatchID) {
+		if checkpoint.LastCompletedBatchID != "" && batchID == strings.ToLower(checkpoint.LastCompletedBatchID) {
 			previousMatches++
 		}
 	}

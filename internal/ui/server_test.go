@@ -373,6 +373,31 @@ func TestServeListensOnLoopbackAndStopsWithContext(t *testing.T) {
 	}
 }
 
+func TestGuardAcceptsTheDefaultPortHostForm(t *testing.T) {
+	root := buildVolumesRepo(t)
+	server := testServer(t, root)
+	server.allowedHost = "127.0.0.1:80"
+	handler := server.handler()
+	for host, want := range map[string]int{"127.0.0.1": http.StatusOK, "127.0.0.1:80": http.StatusOK,
+		"127.0.0.1:8080": http.StatusForbidden, "localhost": http.StatusForbidden} {
+		request := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		request.Host = host
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != want {
+			t.Fatalf("Host %q answered %d, want %d", host, recorder.Code, want)
+		}
+	}
+	server.allowedHost = "127.0.0.1:8080"
+	request := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+	request.Host = "127.0.0.1"
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("a bare host must only stand for port 80, got %d", recorder.Code)
+	}
+}
+
 func TestServeRejectsUnexpectedHost(t *testing.T) {
 	root := buildVolumesRepo(t)
 	ctx, cancel := context.WithCancel(context.Background())
