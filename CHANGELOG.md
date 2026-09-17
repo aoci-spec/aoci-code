@@ -6,8 +6,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 One fix for a path that stayed closed after a cognition optimization (#57),
 three status-page fixes from the contributor who found the rc10 and rc11
-ones (#49, #51, #52), and one harness improvement (#53). Nothing in the
-nine-tool surface or any governance identity changes.
+ones (#49, #51, #52), one harness improvement (#53), and one documentation
+addition. Nothing in the nine-tool surface or any governance identity
+changes.
 
 - Keep the direct update path open after a cognition optimization. The
   update classifier counted an item as part of the current optimization
@@ -43,6 +44,13 @@ nine-tool surface or any governance identity changes.
 - Keep the server's stderr tail when a black-box RPC times out. The three
   harness clients drained stderr continuously but their timeout error
   dropped the bounded tail. Test infrastructure only. (#53)
+- Record the Codex host prerequisites. `docs/agent-integrations.md` gains
+  the settings an unattended run through Codex 0.149 had to make before AOCI
+  could be used: the Responses API for custom providers, the approval mode
+  and standard-input redirection for headless `codex exec`, and the
+  per-model tool-result ceiling, which is met by raising it in
+  `model_catalog_json` or by lowering the team `overview_delivery.chunk_tokens`
+  (floor 4000) beneath it.
 
 The first public availability date for v0.1.0-rc13 is 2026-09-17.
 
