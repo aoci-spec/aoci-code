@@ -135,6 +135,17 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 	booleanProperty := func(key string) map[string]any {
 		return map[string]any{"type": "boolean", "description": descriptions[key]}
 	}
+	// Function-declaration APIs such as Gemini reject JSON Schema type arrays.
+	// anyOf preserves nullable input semantics across those hosts.
+	nullableProperty := func(description string, schema map[string]any) map[string]any {
+		return map[string]any{
+			"description": description,
+			"anyOf": []any{
+				map[string]any{"type": "null"},
+				schema,
+			},
+		}
+	}
 	scopeProperty := func(key string) map[string]any {
 		return map[string]any{
 			"type": "string", "description": descriptions[key],
@@ -155,15 +166,14 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 
 	switch toolName {
 	case "aoci_get_entries":
-		paths := map[string]any{
-			"type":        []string{"null", "array"},
-			"description": descriptions["paths"],
-			"items":       map[string]any{"type": "string"},
-		}
-		objectRefs := map[string]any{
-			"type": []string{"null", "array"}, "description": descriptions["object_refs"],
+		paths := nullableProperty(descriptions["paths"], map[string]any{
+			"type":  "array",
 			"items": map[string]any{"type": "string"},
-		}
+		})
+		objectRefs := nullableProperty(descriptions["object_refs"], map[string]any{
+			"type":  "array",
+			"items": map[string]any{"type": "string"},
+		})
 		return object(map[string]any{
 			"paths": paths, "dir": stringProperty("dir"),
 			"volume_id": map[string]any{"type": "string", "enum": []string{"code", "database"}, "description": descriptions["volume_id"]}, "object_refs": objectRefs,
@@ -199,11 +209,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			map[string]any{"required": []string{"object_ref", "source_sha256"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"path"}}, map[string]any{"required": []string{"candidate_id"}}}}},
 			map[string]any{"required": []string{"object_ref", "candidate_id"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"path"}}, map[string]any{"required": []string{"source_sha256"}}}}},
 		}
-		entries := map[string]any{
-			"type":        []string{"null", "array"},
-			"description": descriptions["entries"],
-			"items":       item,
-		}
+		entries := nullableProperty(descriptions["entries"], map[string]any{
+			"type":  "array",
+			"items": item,
+		})
 		return object(map[string]any{
 			"path":          stringProperty("path"),
 			"object_ref":    stringProperty("object_ref"),
@@ -291,10 +300,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"description": descriptions["cognition_receipt"],
 			"anyOf":       []any{map[string]any{"type": "null"}, receiptV1, receiptV2},
 		}
-		scopeCovered := map[string]any{
-			"type":        []string{"null", "boolean"},
-			"description": descriptions["scope_covered"],
-		}
+		scopeCovered := nullableProperty(
+			descriptions["scope_covered"],
+			map[string]any{"type": "boolean"},
+		)
 		refreshReasons := map[string]any{
 			"type":        "array",
 			"description": descriptions["refresh_reasons"],
@@ -307,10 +316,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			},
 			"uniqueItems": true,
 		}
-		stableCheckpoint := map[string]any{
-			"type":        []string{"null", "boolean"},
-			"description": descriptions["stable_checkpoint"],
-		}
+		stableCheckpoint := nullableProperty(
+			descriptions["stable_checkpoint"],
+			map[string]any{"type": "boolean"},
+		)
 		return object(map[string]any{
 			"scope": scopeProperty("scope"),
 			"cognition_state_version": map[string]any{

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -173,6 +174,46 @@ func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
 	}
 
 	t.Fatal("真实ListTools结果缺少aoci_maintain")
+}
+
+func TestMCPInputSchemasAvoidTypeArrays(t *testing.T) {
+	var listed []struct {
+		Name        string         `json:"name"`
+		InputSchema map[string]any `json:"inputSchema"`
+	}
+	if err := json.Unmarshal(canonicalListTools(t), &listed); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tool := range listed {
+		if path, found := findSchemaTypeArray(tool.InputSchema, "inputSchema"); found {
+			t.Fatalf("%s uses a JSON Schema type array at %s", tool.Name, path)
+		}
+	}
+}
+
+func findSchemaTypeArray(value any, path string) (string, bool) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			childPath := path + "." + key
+			if key == "type" {
+				if _, isArray := child.([]any); isArray {
+					return childPath, true
+				}
+			}
+			if foundPath, found := findSchemaTypeArray(child, childPath); found {
+				return foundPath, true
+			}
+		}
+	case []any:
+		for index, child := range typed {
+			if foundPath, found := findSchemaTypeArray(child, fmt.Sprintf("%s[%d]", path, index)); found {
+				return foundPath, true
+			}
+		}
+	}
+	return "", false
 }
 
 func canonicalListTools(t *testing.T) []byte {

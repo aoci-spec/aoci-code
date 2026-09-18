@@ -9,24 +9,32 @@
           "type": "string"
         },
         "object_refs": {
-          "description": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份",
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "Volumes v1规范对象引用；数据库表使用database://source/namespace/table身份"
         },
         "paths": {
-          "description": "要读取条目的文件相对路径列表(与 dir 二选一)",
-          "items": {
-            "type": "string"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "description": "要读取条目的文件相对路径列表(与 dir 二选一)"
         },
         "volume_id": {
           "description": "Volumes v1对象卷：code或database；省略时Legacy paths保持兼容",
@@ -540,18 +548,26 @@
           "type": "string"
         },
         "scope_covered": {
-          "description": "当前任务是否仍在已掌握认知范围内",
-          "type": [
-            "null",
-            "boolean"
-          ]
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "当前任务是否仍在已掌握认知范围内"
         },
         "stable_checkpoint": {
-          "description": "当前修改、格式化、Lint与必要测试是否已经到达最近稳定检查点",
-          "type": [
-            "null",
-            "boolean"
-          ]
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "boolean"
+            }
+          ],
+          "description": "当前修改、格式化、Lint与必要测试是否已经到达最近稳定检查点"
         }
       },
       "type": "object"
@@ -652,114 +668,118 @@
           "type": "string"
         },
         "entries": {
-          "description": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取",
-          "items": {
-            "additionalProperties": false,
-            "oneOf": [
-              {
-                "not": {
-                  "anyOf": [
-                    {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "items": {
+                "additionalProperties": false,
+                "oneOf": [
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "object_ref"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "candidate_id"
+                          ]
+                        }
+                      ]
+                    },
+                    "required": [
+                      "path",
+                      "source_sha256"
+                    ]
+                  },
+                  {
+                    "not": {
                       "required": [
                         "object_ref"
                       ]
                     },
-                    {
-                      "required": [
-                        "candidate_id"
-                      ]
-                    }
-                  ]
-                },
-                "required": [
-                  "path",
-                  "source_sha256"
-                ]
-              },
-              {
-                "not": {
-                  "required": [
-                    "object_ref"
-                  ]
-                },
-                "required": [
-                  "path",
-                  "source_sha256",
-                  "candidate_id"
-                ]
-              },
-              {
-                "not": {
-                  "anyOf": [
-                    {
-                      "required": [
-                        "path"
+                    "required": [
+                      "path",
+                      "source_sha256",
+                      "candidate_id"
+                    ]
+                  },
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "path"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "candidate_id"
+                          ]
+                        }
                       ]
                     },
-                    {
-                      "required": [
-                        "candidate_id"
-                      ]
-                    }
-                  ]
-                },
-                "required": [
-                  "object_ref",
-                  "source_sha256"
-                ]
-              },
-              {
-                "not": {
-                  "anyOf": [
-                    {
-                      "required": [
-                        "path"
+                    "required": [
+                      "object_ref",
+                      "source_sha256"
+                    ]
+                  },
+                  {
+                    "not": {
+                      "anyOf": [
+                        {
+                          "required": [
+                            "path"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "source_sha256"
+                          ]
+                        }
                       ]
                     },
-                    {
-                      "required": [
-                        "source_sha256"
-                      ]
-                    }
-                  ]
+                    "required": [
+                      "object_ref",
+                      "candidate_id"
+                    ]
+                  }
+                ],
+                "properties": {
+                  "candidate_id": {
+                    "description": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对",
+                    "type": "string"
+                  },
+                  "new_entry": {
+                    "description": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
+                    "type": "string"
+                  },
+                  "object_ref": {
+                    "description": "Database表Entry的规范对象身份；与path二选一",
+                    "type": "string"
+                  },
+                  "path": {
+                    "description": "目标文件的仓库相对路径",
+                    "type": "string"
+                  },
+                  "source_sha256": {
+                    "description": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
+                    "type": "string"
+                  }
                 },
                 "required": [
-                  "object_ref",
-                  "candidate_id"
-                ]
-              }
-            ],
-            "properties": {
-              "candidate_id": {
-                "description": "Code或Database候选的机器拥有身份，必须原样保留；Code条目与顶层code_batch_id=code_plan.batch_id=candidate.batch_id配对",
-                "type": "string"
+                  "new_entry"
+                ],
+                "type": "object"
               },
-              "new_entry": {
-                "description": "该文件的完整单行条目: 文件名[标签]: F:... | R:... | A:... | S:...",
-                "type": "string"
-              },
-              "object_ref": {
-                "description": "Database表Entry的规范对象身份；与path二选一",
-                "type": "string"
-              },
-              "path": {
-                "description": "目标文件的仓库相对路径",
-                "type": "string"
-              },
-              "source_sha256": {
-                "description": "Code候选的源码绑定；机器签发Code批次中必须原样保留",
-                "type": "string"
-              }
-            },
-            "required": [
-              "new_entry"
-            ],
-            "type": "object"
-          },
-          "type": [
-            "null",
-            "array"
-          ]
+              "type": "array"
+            }
+          ],
+          "description": "提交机器签发当前批次的完整候选集合；remaining非零时通过Maintain继续领取"
         },
         "new_entry": {
           "description": "兼容单条模式的完整单行条目",
