@@ -176,7 +176,6 @@ git clone https://github.com/aoci-spec/aoci-code.git
 Set-Location .\aoci-code
 New-Item -ItemType Directory -Force .\build | Out-Null
 make build
-Copy-Item .\build\aoci .\build\aoci.exe -Force
 .\build\aoci.exe --version
 ```
 
@@ -286,7 +285,7 @@ mkdir -p build
 CGO_ENABLED=0 go build -o build/aoci ./cmd/aoci
 ```
 
-The AOCI-CODE CLI is a CGO-free, single-binary Go program. The current `make build` target writes `build/aoci`; the PowerShell example copies that Windows PE output to the conventional `build/aoci.exe` name. Before a release or delivery, rely on the actual binary's `--version` and `capabilities` output and on the formal Release Manifest rather than only on a version string in the README.
+The AOCI-CODE CLI is a CGO-free, single-binary Go program. The `make build` target uses Go's native executable suffix: `build/aoci` on Linux and macOS, and `build/aoci.exe` on Windows. Before a release or delivery, rely on the actual binary's `--version` and `capabilities` output and on the formal Release Manifest rather than only on a version string in the README.
 
 </details>
 
