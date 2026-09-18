@@ -17,6 +17,8 @@ GO_BIN ?= $(shell command -v go 2>/dev/null || { test -x /usr/local/go/bin/go &&
 GOFMT_BIN ?= $(shell command -v gofmt 2>/dev/null || { test -x /usr/local/go/bin/gofmt && echo /usr/local/go/bin/gofmt; } || echo gofmt)
 GORELEASER_BIN ?= $(shell command -v goreleaser 2>/dev/null || { test -x "$$($(GO_BIN) env GOPATH 2>/dev/null)/bin/goreleaser" && echo "$$($(GO_BIN) env GOPATH)/bin/goreleaser"; } || echo goreleaser)
 SYFT_BIN ?= $(shell command -v syft 2>/dev/null || { test -x "$$($(GO_BIN) env GOPATH 2>/dev/null)/bin/syft" && echo "$$($(GO_BIN) env GOPATH)/bin/syft"; } || echo syft)
+GOEXE ?= $(shell $(GO_BIN) env GOEXE)
+BUILD_BIN ?= build/aoci$(GOEXE)
 
 # staticcheck 可执行文件探测: 优先 PATH,其次 GOPATH/bin(go install 默认装到此处)
 STATICCHECK := $(shell command -v staticcheck 2>/dev/null || echo "$(shell $(GO_BIN) env GOPATH)/bin/staticcheck")
@@ -37,9 +39,9 @@ OPENGAUSS_PATCH_GO_FILES := \
 
 .PHONY: build test fast fast-test fast-builds full verify release-check race vuln database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck check cross clean
 
-# 静态编译单二进制,产出 build/aoci
+# 静态编译单二进制,使用Go目标平台的原生可执行文件后缀。
 build:
-	CGO_ENABLED=0 $(GO_BIN) build -ldflags "$(LDFLAGS)" -o build/aoci ./cmd/aoci
+	CGO_ENABLED=0 $(GO_BIN) build -ldflags "$(LDFLAGS)" -o "$(BUILD_BIN)" ./cmd/aoci
 
 # 全量测试(-count=1 禁用测试缓存 —— 缓存曾掩盖默认值变更引发的回归,审查纪律)
 test:
@@ -173,16 +175,16 @@ clean-room-smoke:
 full: toolchain-preflight build $(FULL_GATES)
 	@echo "★ make full passed (Tier 1 Full Confidence) ★"
 
-# One deterministic closure command. It reuses full's build/aoci and runs every
+# One deterministic closure command. It reuses full's host-native binary and runs every
 # black-box suite without entering the lifecycle model track. Keep running the
 # remaining suites after one fails so one invocation reports the whole result.
 verify:
 	@status=0; \
 	$(MAKE) --no-print-directory toolchain-preflight build || exit $$?; \
 	$(MAKE) --no-print-directory -k $(FULL_GATES) || status=1; \
-	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_conformance.py || status=1; \
-	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_scenarios.py || status=1; \
-	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(CURDIR)/build/aoci" python3 scripts/blackbox/mcp_lifecycle.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(abspath $(BUILD_BIN))" python3 scripts/blackbox/mcp_conformance.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(abspath $(BUILD_BIN))" python3 scripts/blackbox/mcp_scenarios.py || status=1; \
+	AOCI_REPO="$(CURDIR)" AOCI_BIN="$(abspath $(BUILD_BIN))" python3 scripts/blackbox/mcp_lifecycle.py || status=1; \
 	if [ $$status -eq 0 ]; then echo "★ make verify passed (all deterministic gates) ★"; fi; \
 	exit $$status
 

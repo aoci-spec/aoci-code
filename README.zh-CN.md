@@ -164,7 +164,6 @@ git clone https://github.com/aoci-spec/aoci-code.git
 Set-Location .\aoci-code
 New-Item -ItemType Directory -Force .\build | Out-Null
 make build
-Copy-Item .\build\aoci .\build\aoci.exe -Force
 .\build\aoci.exe --version
 ```
 
@@ -274,7 +273,7 @@ mkdir -p build
 CGO_ENABLED=0 go build -o build/aoci ./cmd/aoci
 ```
 
-AOCI-CODE CLI 是一个不依赖 CGO 的 Go 单二进制文件。当前 `make build` 目标写入 `build/aoci`；PowerShell 示例再把该 Windows PE 输出复制为惯用的 `build/aoci.exe`。发布或交付前，请以实际二进制的 `--version`、`capabilities` 和正式 Release Manifest 输出为准，不要只依赖 README 中的版本字符串。
+AOCI-CODE CLI 是一个不依赖 CGO 的 Go 单二进制文件。`make build` 目标使用 Go 的原生可执行文件后缀：Linux 和 macOS 写入 `build/aoci`，Windows 写入 `build/aoci.exe`。发布或交付前，请以实际二进制的 `--version`、`capabilities` 和正式 Release Manifest 输出为准，不要只依赖 README 中的版本字符串。
 
 </details>
 
