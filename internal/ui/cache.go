@@ -52,12 +52,26 @@ type cacheEntry struct {
 	entries     []EntryView
 }
 
-type repoCache struct {
-	mu      sync.Mutex
-	entries map[string]*cacheEntry
+type repoSlot struct {
+	mu    sync.Mutex
+	entry *cacheEntry
 }
 
-func newRepoCache() *repoCache { return &repoCache{entries: map[string]*cacheEntry{}} }
+type repoCache struct {
+	mu      sync.Mutex
+	entries map[string]*repoSlot
+}
+
+func newRepoCache() *repoCache { return &repoCache{entries: map[string]*repoSlot{}} }
+
+func (c *repoCache) slot(root string) *repoSlot {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.entries[root] == nil {
+		c.entries[root] = &repoSlot{}
+	}
+	return c.entries[root]
+}
 
 func fingerprint(root string, running []Instance) string {
 	digest := sha256.New()
@@ -77,14 +91,16 @@ func fingerprint(root string, running []Instance) string {
 
 // get returns the cached snapshot for root. A fast fingerprint catches common
 // changes immediately; the bounded recheck catches every other input that can
-// affect governance. Rebuilds are serialized per cache so two concurrent page
-// loads never assess the same repository twice.
+// affect governance. Rebuilds are serialized per repository so concurrent page
+// loads never assess the same repository twice without blocking other roots.
 func (c *repoCache) get(root string, options Options, running []Instance, force bool) (*cacheEntry, error) {
+	slot := c.slot(root)
+	slot.mu.Lock()
+	defer slot.mu.Unlock()
+
 	current := fingerprint(root, running)
 	now := time.Now()
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	previous := c.entries[root]
+	previous := slot.entry
 	if !force && previous != nil && previous.fingerprint == current && now.Sub(previous.checkedAt) < cacheRecheckInterval {
 		return previous, nil
 	}
@@ -110,7 +126,7 @@ func (c *repoCache) get(root string, options Options, running []Instance, force 
 	sum := sha256.Sum256(body)
 	entry := &cacheEntry{fingerprint: current, etag: `"` + hex.EncodeToString(sum[:8]) + `"`, checkedAt: time.Now(),
 		snapshot: snapshot, body: body, entries: entries}
-	c.entries[root] = entry
+	slot.entry = entry
 	return entry, nil
 }
 

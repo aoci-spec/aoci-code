@@ -125,9 +125,10 @@ func TestStateHonoursETagAndStaysReadOnly(t *testing.T) {
 	if again := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": etag}); again.Code != http.StatusNotModified {
 		t.Fatalf("unchanged repository answered %d, want 304", again.Code)
 	}
-	server.cache.mu.Lock()
-	server.cache.entries[root].checkedAt = time.Now().Add(-cacheRecheckInterval)
-	server.cache.mu.Unlock()
+	slot := server.cache.slot(root)
+	slot.mu.Lock()
+	slot.entry.checkedAt = time.Now().Add(-cacheRecheckInterval)
+	slot.mu.Unlock()
 	if rechecked := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": etag}); rechecked.Code != http.StatusNotModified {
 		t.Fatalf("unchanged repository answered %d after a full recheck, want 304", rechecked.Code)
 	}
@@ -150,6 +151,54 @@ func TestStateHonoursETagAndStaysReadOnly(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, ".aoci", "ledger.jsonl")); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatalf("the page must not create audit files: %v", err)
+	}
+}
+
+func TestCacheBuildsDifferentRepositoriesConcurrently(t *testing.T) {
+	firstRoot := buildVolumesRepo(t)
+	secondRoot := buildVolumesRepo(t)
+	cache := newRepoCache()
+	entered := make(chan string, 2)
+	release := make(chan struct{})
+	results := make(chan error, 2)
+	options := Options{Locale: "en-US", BinaryVersion: "test", Guide: func(root string, _ *config.Config, _ *cognition.Set) (any, error) {
+		entered <- root
+		<-release
+		return nil, nil
+	}}
+	build := func(root string) {
+		_, err := cache.get(root, options, nil, true)
+		results <- err
+	}
+
+	go build(firstRoot)
+	select {
+	case root := <-entered:
+		if root != firstRoot {
+			t.Fatalf("first build entered for %q, want %q", root, firstRoot)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("first repository build did not reach the guide")
+	}
+
+	go build(secondRoot)
+	select {
+	case root := <-entered:
+		if root != secondRoot {
+			t.Fatalf("second build entered for %q, want %q", root, secondRoot)
+		}
+	case <-time.After(2 * time.Second):
+		close(release)
+		<-results
+		<-results
+		t.Fatal("second repository waited for the first repository's snapshot build")
+	}
+
+	close(release)
+	for range 2 {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -188,9 +237,10 @@ func TestStateRefreshesWhenIndexedSourceChanges(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nvar changedAgain = true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	server.cache.mu.Lock()
-	server.cache.entries[root].checkedAt = time.Now().Add(-cacheRecheckInterval)
-	server.cache.mu.Unlock()
+	slot := server.cache.slot(root)
+	slot.mu.Lock()
+	slot.entry.checkedAt = time.Now().Add(-cacheRecheckInterval)
+	slot.mu.Unlock()
 	automatic := get(t, handler, "/api/state?repo="+root, map[string]string{"If-None-Match": clean.Header().Get("ETag")})
 	if automatic.Code != http.StatusOK || automatic.Header().Get("ETag") == clean.Header().Get("ETag") {
 		t.Fatalf("periodic refresh did not rebuild after a source change: %d %s", automatic.Code, automatic.Header().Get("ETag"))
