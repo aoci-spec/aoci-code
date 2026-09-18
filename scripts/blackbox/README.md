@@ -128,7 +128,9 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   identity, and the `scale` suite asserts the frozen file count before it runs.
 - Primary platform is Linux (including WSL2). macOS works for all suites; the
   model track enforces its timeout in-process, so GNU coreutils is not
-  required. Windows is untested for the Python runners.
+  required. CI runs conformance and scenarios on Windows; `make build` writes
+  `build/aoci.exe` there, so point `AOCI_BIN` at it, because the runners default
+  to `build/aoci`.
 - Conformance and scenarios also serve as an executable compatibility check
   for alternative implementations: point `AOCI_BIN` at any binary that claims
   the public contracts in `spec/public/` and run them unchanged.

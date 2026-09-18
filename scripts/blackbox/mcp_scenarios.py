@@ -12,6 +12,8 @@ Groups:
   D  concurrency             (fixture: racing writers, snapshot-change mid-chain)
   E  authoring batch size    (fixture: team batch config, bounded transport)
   F  cognition-layer visibility (fixture: git-hidden Volumes, line-ending rewrite)
+  O  optimization            (fixture: direct updates survive a completed optimization)
+  P  path names              (fixture: special directory and file names, unspellable directory)
   T  human confirmation      (fixture: real pty, prompt must precede the read)
   W  host window             (every non-Overview response fits an ordinary host)
 

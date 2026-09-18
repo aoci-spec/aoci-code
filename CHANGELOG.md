@@ -5,14 +5,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 ## v0.1.0-rc14
 
 One format-level fix: directory and file names the index grammar could not
-spell (#58, #60, #48), which wedged any repository with a spaced directory or
-a bracketed dynamic-route file. Plus three contributor changes: tool schemas
-that Gemini-style function declarations accept (#63), per-repository status
+spell (#58, #60, #48), which wedged any repository with a spaced directory or a
+bracketed dynamic-route file. Plus three contributor changes: tool schemas that
+Gemini-style function declarations accept (#63), per-repository status
 snapshots (#64), and a native build suffix (#65). Existing indexes are not
-rewritten, every index that aligned under v0.1.0-rc13 aligns here, and the nine
-tools accept the same inputs. v0.1.0-rc13 still reads an index this release
-creates, but not the new names themselves, so a repository that uses one needs
-this release or newer on every host.
+rewritten, every machine-written index that aligned under v0.1.0-rc13 aligns
+here, and the nine tools accept the same inputs. v0.1.0-rc13 still reads an
+index this release creates, but not the new names themselves, so a repository
+that uses one needs this release or newer on every host.
 
 - Spell directory and file names the index grammar could not (#58, #60, #48).
   The directory path in a section header stopped at the first whitespace, `=`,
@@ -33,50 +33,54 @@ this release or newer on every host.
   the first `[`. Names are stored as they are, never escaped. An index already
   written with a truncated root keeps resolving in place and in a checkout at
   another path, without a rewrite, and a repository wedged by a directory name
-  with a space reads as aligned on upgrade; every index that aligned under
-  v0.1.0-rc13 aligns under this release. The origin and every checkout read the
-  shape every release has written under such a root (the root section in full,
-  later sections under the root as the original reading reads it back) the same
-  way, because it is recognised from the text alone, before the runtime root is
-  consulted: the first directory section reads as the common prefix under the
-  original reading, whether the full root lies beside that prefix or, when the
-  character begins a path segment (`/w/(x)/repo`), under it. This release writes that same shape, so one shape exists in the
-  wild and v0.1.0-rc13 still reads an index created here. A new index now begins
-  with its root section (written empty ahead of a first Entry that lives in a
-  directory) and an empty section is kept while every other section lies below
-  it, because it anchors relocation. Where an older writer spelled a directory
-  in its first section (a dot-directory that sorted before every root file, or
-  a directory whose first segment begins with `(`, such as a top-level `(home)/`
-  under a clean root), that section keeps the old reading everywhere, so both
-  sides report the same orphans and the ordinary repair aligns both; the same
-  file name under it and under the section the repair adds is no longer taken
-  for a duplicate, which refused every later write to such an index. A directory whose header would not read
-  back to the same path (a segment that ends in whitespace), or whose section
-  would resolve somewhere else, is refused instead of being recorded there:
-  `aoci_maintain` withholds the batch and answers `stopped` with `stop` facts
-  that quote the directory and give the operator's way out, and
-  `aoci_update_entry` gives the same answer to a caller that submits anyway,
-  with a `code_directory_unspellable` finding and no retry scope, because no
-  Entry edit clears it. A repository root that no header can carry (its first
-  segment begins with `(`, `（`, or `=`, or a segment has edge whitespace) is not
+  with a space reads as aligned on upgrade; every machine-written index that
+  aligned under v0.1.0-rc13 aligns under this release. The origin and every
+  checkout read the shape every release has written under such a root (the root
+  section in full, later sections under the root as the original reading reads
+  it back) the same way, because it is recognised from the text alone, before
+  the runtime root is consulted: the first directory section reads as the
+  common prefix under the original reading, whether the full root lies beside
+  that prefix or, when the character begins a path segment (`/w/(x)/repo`),
+  under it. This release writes that same shape, so one shape exists in the
+  wild and v0.1.0-rc13 still reads an index created here. A new index now
+  begins with its root section (written empty ahead of a first Entry that lives
+  in a directory) and an empty section is kept while every other section lies
+  below it, because it anchors relocation. Where an older writer spelled a
+  directory in its first section (a dot-directory that sorted before every root
+  file, or a directory whose first segment begins with `(`, such as a top-level
+  `(home)/` under a clean root), that section keeps the old reading everywhere,
+  so both sides report the same orphans and the ordinary repair aligns both;
+  the same file name under it and under the section the repair adds is no
+  longer taken for a duplicate, which refused every later write to such an
+  index. A directory whose header would not read back to the same path (a
+  segment that begins or ends with whitespace), or whose section would resolve
+  somewhere else, is refused instead of being recorded there: `aoci_maintain`
+  withholds the batch and answers `stopped` with `stop` facts that quote the
+  directory and give the operator's way out, and `aoci_update_entry` gives the
+  same answer to a caller that submits anyway, with a
+  `code_directory_unspellable` finding and no retry scope, because no Entry
+  edit clears it. A repository root that no header can carry (its first segment
+  begins with `(`, `（`, or `=`, or a segment has edge whitespace) is not
   refused: the index records the part of it a header reads back, as every
-  earlier release effectively did. File and directory scope patterns accept
-  `[`, so a dynamic route can be named in a rule, and a refused rule pattern now
-  says why. v0.1.0-rc13 and earlier cannot read the new names themselves (they
-  refuse an index holding a bracketed file name and resolve such a directory
-  somewhere else), so a repository that uses one needs this release or newer on
-  every host (`docs/upgrading.md`). The rule is in
-  `spec/public/aoci-index-format-v1.txt`. Unit tests cover the readings, the
-  healing, relocation before and after an insert, roots that cut at a segment
-  boundary or cannot be spelled, and the root anchor; MCP tests walk authoring,
-  healing, the directory-first index, relocated checkouts, and the withheld
-  batch through to the rename that clears it; black-box scenario P1 authors all
-  four kinds under a root with a space and verifies a copy at another path, and
-  P2 walks the withheld batch, the refused direct update, and the rename on the
-  shipped binary (59 scenarios); and the upgrade axis gains two repository shapes, under a path
-  with a space and under a directory whose name begins with `(`, plus a check
-  that what the binary under test authors keeps a checkout aligned (32 checks
-  per released version, over four shapes).
+  earlier release effectively did; only a root with no such part (a repository
+  directly under `/` or a drive root whose name begins with one of those
+  characters or with whitespace) is stopped, as `code_root_unspellable`. File
+  and directory scope patterns accept `[`, so a dynamic route can be named in a
+  rule, and a refused rule pattern now says why. v0.1.0-rc13 and earlier cannot
+  read the new names themselves (they refuse an index holding a bracketed file
+  name and resolve such a directory somewhere else), so a repository that uses
+  one needs this release or newer on every host (`docs/upgrading.md`). The rule
+  is in `spec/public/aoci-index-format-v1.txt`. Unit tests cover the readings,
+  the healing, relocation before and after an insert, roots that cut at a
+  segment boundary or cannot be spelled, and the root anchor; MCP tests walk
+  authoring, healing, the directory-first index, relocated checkouts, and the
+  withheld batch through to the rename that clears it; black-box scenario P1
+  authors all four kinds under a root with a space and verifies a copy at
+  another path, and P2 walks the withheld batch, the refused direct update, and
+  the rename on the shipped binary (59 scenarios); and the upgrade axis gains
+  two repository shapes, under a path with a space and under a directory whose
+  name begins with `(`, plus a check that what the binary under test authors
+  keeps a checkout aligned (32 checks per released version, over four shapes).
 - Declare nullable tool inputs without JSON Schema type arrays (#61, #63). Five
   inputs across `aoci_get_entries`, `aoci_update_entry`, and `aoci_overview`
   used `"type": ["null", ...]`, which Gemini's function-declaration endpoint

@@ -24,10 +24,10 @@ preserved, and every reader derives repository-relative identities from the
 invocation root, never from the recorded prefix. An outdated prefix is
 expected, harmless, and not worth a formal write to rewrite.
 
-A repository whose own path holds a space, `=`, `(`, or `（` shows two spellings of
-that prefix: the full one in its root section and a truncated one in every
-later section. Every release writes it that way, because the original reading of
-a header stops at that character and later sections continue what was read
+A repository whose own path holds a space, `=`, `(`, or `（` shows two spellings
+of that prefix: the full one in its root section and a truncated one in every
+later section. Every release writes it that way, because the original reading
+of a header stops at that character and later sections continue what was read
 back. Both resolve to the same repository root, at the origin and in a checkout
 elsewhere; do not rewrite the headers by hand to make them match.
 
@@ -56,11 +56,12 @@ Two things clear it, and then `aoci_maintain` issues the batch again:
 `code_root_unspellable` is the same stop for the repository root itself, which
 happens only when no part of the root path reads back as a usable root: a
 repository directory directly under `/` or a drive root (or under nothing but
-such segments) whose name begins with `(`, `（`, `=`, or whitespace. No scope rule helps there; move or rename the repository
-directory. A root whose first segment merely begins with such a character, or
-that has a segment with leading or trailing whitespace, is not refused: the
-index records the part of the path that a header can carry, and resolves the
-same way at the origin and in every checkout.
+such segments) whose name begins with `(`, `（`, `=`, or whitespace. No scope
+rule helps there; move or rename the repository directory. A root whose first
+segment merely begins with such a character, or that has a segment with leading
+or trailing whitespace, is not refused: the index records the part of the path
+that a header can carry, and resolves the same way at the origin and in every
+checkout.
 
 ## Host config points to a moved binary or repository
 

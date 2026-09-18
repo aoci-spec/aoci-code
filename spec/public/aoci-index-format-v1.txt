@@ -100,12 +100,12 @@ origin.
 Under a root holding one of those characters, the root section spells the root
 in full and every later section continues it as the original reading reads it
 back, that is, truncated at the character. Every release has written this one
-shape, so a reader older than this rule still resolves every section of it whose
-own directory name it can read. When the repository root has no header that
-reads back to it at all (its first segment begins with `(`, `（`, or `=`, or one of its
-segments begins or ends with whitespace), the root section records the root as
-such a header reads back, and the index resolves by relocation at the origin
-exactly as it does in a copy.
+shape, so a reader older than this rule still resolves every section of it
+whose own directory name it can read. When the repository root has no header
+that reads back to it at all (its first segment begins with `(`, `（`, or `=`,
+or one of its segments begins or ends with whitespace), the root section
+records the root as such a header reads back, and the index resolves by
+relocation at the origin exactly as it does in a copy.
 
 Readers recognise that shape from the text alone, before the runtime root is
 consulted, so that the origin and a copy at any other path read it identically;
@@ -114,18 +114,20 @@ first directory section reads as the common prefix of the sections under the
 original reading and as something else under the extended one, whether that
 extended path lies beside the prefix (`/tmp/example project/repo` against
 `/tmp/example`) or under it (`/w/(x)/repo` against `/w`); every other section
-resolves strictly below the prefix, and none sits at the prefix itself. The first section then resolves at the prefix, whichever
-directory its header names, and every other section relative to it, with the
-extended reading applied below it. Where the first section is the root section,
-which is what this rule writes and the common case before it, that is simply the
-correct reading. Where an older writer spelled a directory there instead (the
-first file it met lived in one, or under a clean root in a top-level directory
-whose name begins with `(`, `（`, or `=`), it used that section as its root section,
-and readers keep that view everywhere: the Entries filed under it surface as the
-same orphans at the origin and in a copy, and the ordinary repair clears them in
-both. The same file name under that section and under the section a repair adds
-for the directory it names is two paths, not a duplicate. Nothing is rewritten,
-and an index that aligned under an earlier reader aligns under this one.
+resolves strictly below the prefix, and none sits at the prefix itself. The
+first section then resolves at the prefix, whichever directory its header
+names, and every other section relative to it, with the extended reading
+applied below it. Where the first section is the root section, which is what
+this rule writes and the common case before it, that is simply the correct
+reading. Where an older writer spelled a directory there instead (the first
+file it met lived in one, or under a clean root in a top-level directory whose
+name begins with `(`, `（`, or `=`), it used that section as its root section,
+and readers keep that view everywhere: the Entries filed under it surface as
+the same orphans at the origin and in a copy, and the ordinary repair clears
+them in both. The same file name under that section and under the section a
+repair adds for the directory it names is two paths, not a duplicate. Nothing
+is rewritten, and a machine-written index that aligned under an earlier reader
+aligns under this one.
 
 A reader older than this rule cannot read these names: it takes a bracketed
 file name for a malformed Entry, resolves a directory whose name holds one of

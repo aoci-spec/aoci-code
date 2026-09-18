@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-18T15:05:24Z",
+  "updated_at": "2026-09-18T15:26:48Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -27,9 +27,9 @@
       "normalized_sha256": "7a29afd53df654c215979eead394410ed24de81ad0f9be43c0044b437c1c601a"
     },
     ".github/workflows/full-confidence.yml": {
-      "sha256": "0dd9fadabc3ad681de64caf50af8baea502a0b694f4792bfa36002c6a08578bf",
-      "size": 17422,
-      "normalized_sha256": "0dd9fadabc3ad681de64caf50af8baea502a0b694f4792bfa36002c6a08578bf"
+      "sha256": "03f2ac5672f40a2c8399a6158d358da825c26357a97d806fab90e4dd2cea8c55",
+      "size": 17421,
+      "normalized_sha256": "03f2ac5672f40a2c8399a6158d358da825c26357a97d806fab90e4dd2cea8c55"
     },
     ".github/workflows/release-rehearsal.yml": {
       "sha256": "e15140c83e5d4ff4b2a3f1dc20c5c8651d688f974d1f6d8ccb1d0fd645cdef1f",
@@ -58,9 +58,9 @@
       "normalized_sha256": "4b54c746da8e24ce723e4c8af6ee8f95bf6c1a9f5d8b846472f954774fbb35c8"
     },
     "CHANGELOG.md": {
-      "sha256": "dcd3086c091747ffe4aaf6764baf5b45acf16b04c76f668224fd73b0a7e605cd",
-      "size": 90867,
-      "normalized_sha256": "dcd3086c091747ffe4aaf6764baf5b45acf16b04c76f668224fd73b0a7e605cd"
+      "sha256": "0efad529475b7bdb3663523b301f50dcc074a23f1d63728e881c2c90e1228af4",
+      "size": 91105,
+      "normalized_sha256": "0efad529475b7bdb3663523b301f50dcc074a23f1d63728e881c2c90e1228af4"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -69,9 +69,9 @@
       "normalized_sha256": "8f5c1762d708500187a43d53fa5cdf558e0516f5c30ceb491d877ab62cadd7e8"
     },
     "CONTRIBUTING.md": {
-      "sha256": "9b3a5fa460a71c86ced608f61f6e8f4c2515c3aaf0b526c035e2b524879ba09e",
-      "size": 3797,
-      "normalized_sha256": "9b3a5fa460a71c86ced608f61f6e8f4c2515c3aaf0b526c035e2b524879ba09e"
+      "sha256": "e89da991ed6b92edaa14d4b1678a1bb56f6fb0ea383690f874f441a0403ac437",
+      "size": 3840,
+      "normalized_sha256": "e89da991ed6b92edaa14d4b1678a1bb56f6fb0ea383690f874f441a0403ac437"
     },
     "LICENSE": {
       "role": "index",
@@ -233,9 +233,9 @@
       "normalized_sha256": "8a513494e2d0f3f0159479c5eb6d46da242eea483b94a31cbc3d66b85a77b2f5"
     },
     "docs/troubleshooting.md": {
-      "sha256": "7467347e6eb107da73a071c6821a32eaa9ad3cd501a98cdb48ebd37ca469ca5a",
+      "sha256": "6833b4a962ab40cbec1c5c97d65c6f9183b9d9d1aa320a31bbedacb1af26540b",
       "size": 13183,
-      "normalized_sha256": "7467347e6eb107da73a071c6821a32eaa9ad3cd501a98cdb48ebd37ca469ca5a"
+      "normalized_sha256": "6833b4a962ab40cbec1c5c97d65c6f9183b9d9d1aa320a31bbedacb1af26540b"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -5732,9 +5732,9 @@
       "format_kind": "gofmt"
     },
     "scripts/blackbox/README.md": {
-      "sha256": "8607d94ce700a450d111a8041ea97b443b720ff365bdf8ac7eb02943ec586cef",
-      "size": 8273,
-      "normalized_sha256": "8607d94ce700a450d111a8041ea97b443b720ff365bdf8ac7eb02943ec586cef"
+      "sha256": "a8340fa02177a29694a6262592c096f330610336a17ed92c48b1649c83ea0e3f",
+      "size": 8395,
+      "normalized_sha256": "a8340fa02177a29694a6262592c096f330610336a17ed92c48b1649c83ea0e3f"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -5767,9 +5767,9 @@
       "normalized_sha256": "c0c3db8cc16c3271673efd80efc88880bbecae4a60b5037e5366f62728b82e97"
     },
     "scripts/blackbox/mcp_scenarios.py": {
-      "sha256": "20a3cd7d983a7dc752015e696cd5d82cf39050926d192bdb835915beaf9b9625",
-      "size": 93568,
-      "normalized_sha256": "20a3cd7d983a7dc752015e696cd5d82cf39050926d192bdb835915beaf9b9625"
+      "sha256": "085f23ef2bfc5dbf5156d367d7c2dd37ee71ee5e478d76b654e578a6336989d7",
+      "size": 93752,
+      "normalized_sha256": "085f23ef2bfc5dbf5156d367d7c2dd37ee71ee5e478d76b654e578a6336989d7"
     },
     "scripts/blackbox/mcp_upgrade.py": {
       "sha256": "0589c3013aa6a81ceab960e1dd19aa193ccbfd4f63f4565ff656131a74436be8",
@@ -5951,9 +5951,9 @@
       "normalized_sha256": "81677f32ddff75b21549d85bb85cd9578f2dddf78e55ae873ec06bac9735cfc0"
     },
     "spec/public/aoci-index-format-v1.txt": {
-      "sha256": "d5d59279ac9e83824eca30be620ca90c1a8b4a4735d9161f3a2abf61cb3274da",
-      "size": 9406,
-      "normalized_sha256": "d5d59279ac9e83824eca30be620ca90c1a8b4a4735d9161f3a2abf61cb3274da"
+      "sha256": "dfc68681e863e18a59f01113fd556d5f9fef6933614eaf53a8591e10431d0598",
+      "size": 9421,
+      "normalized_sha256": "dfc68681e863e18a59f01113fd556d5f9fef6933614eaf53a8591e10431d0598"
     },
     "spec/public/aoci-managed-scope-and-budget-v1.txt": {
       "sha256": "72686e7f92be1d69a2fec2a0404b305ce3967020760cf06d8cf01e00a699e35e",

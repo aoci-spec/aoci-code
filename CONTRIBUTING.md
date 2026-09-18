@@ -72,13 +72,14 @@ merging.
 
 ## Black-box verification suites
 
-Beyond `make fast` and `make full`, the repository ships three standalone
+Beyond `make fast` and `make full`, the repository ships four standalone
 black-box suites under `scripts/blackbox/` (protocol conformance,
-fault-injection scenarios, and a frozen-fixture lifecycle harness with an
-optional real-agent model track). They exercise the built binary strictly over
-its public MCP and CLI surfaces and are a good regression gate for forks and
-platform ports; see `scripts/blackbox/README.md` for commands, requirements,
-and result interpretation.
+fault-injection scenarios, an upgrade axis over every released binary, and a
+frozen-fixture lifecycle harness with an optional real-agent model track). They
+exercise the built binary strictly over its public MCP and CLI surfaces and are
+a good regression gate for forks and platform ports; see
+`scripts/blackbox/README.md` for commands, requirements, and result
+interpretation.
 
 ## Security reports
 

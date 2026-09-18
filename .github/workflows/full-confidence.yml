@@ -162,7 +162,7 @@ jobs:
           go test -count=1 ./internal/fs ./internal/bootstrapapply ./internal/migrationapply ./internal/cognitionplan ./internal/scopechange ./internal/managedscope ./internal/cognitionbudget ./internal/onboarding ./internal/mcptools
 
 
-  # 真机 Windows 跑 22 个故障注入场景: 锁的自愈、kill-during-apply、竞写、
+  # 真机 Windows 跑整套故障注入场景: 锁的自愈、kill-during-apply、竞写、
   # 以及原子写备份回退的真实 rename 语义 —— 注入式单测替代不了真平台行为。
   windows-scenarios:
     timeout-minutes: 45
