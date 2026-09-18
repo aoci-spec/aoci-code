@@ -60,6 +60,12 @@ One managed object is represented by one model-authored line:
 
   object_name[tag]: F:... | R:... | A:... | S:...
 
+Readers identify the Tag at the bracketed suffix whose closing `]:` is followed
+by the canonical `F:` field. Earlier brackets belong to `object_name`, allowing
+Code objects such as Nuxt and Next.js dynamic-route filenames to retain their
+exact repository basename. This is an additive lexical rule: existing object
+lines without brackets in their names parse unchanged.
+
 `F` records the core responsibility, `R` strong relationships, `A` externally
 observable interfaces or contracts, and `S` non-obvious maintenance
 constraints. New Volumes Tags are resolved against the active Meta dictionary.

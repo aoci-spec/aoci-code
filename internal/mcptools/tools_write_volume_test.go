@@ -137,6 +137,42 @@ func TestMCPUpdateEntryKeepsSchemaAndReportsCodeVolumeAlignment(t *testing.T) {
 	}
 }
 
+func TestMCPUpdateEntryAcceptsBracketedDynamicRouteFilename(t *testing.T) {
+	root := buildSingleCodeWriteRepo(t, false)
+	path := "pages/[...404].vue"
+	line := "[...404].vue[CD7S]: F:render the catch-all route | R:- | A:- | S:Route precedence remains deterministic"
+	writeVolumeTestFile(t, root, path, "<template>not found</template>\n")
+
+	cfg := legacyTestConfig()
+	cfg.IndexPath = "aoci.txt"
+	snapshot, _, err := baseline.Snapshot(root, cfg.WalkOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
+		t.Fatal(err)
+	}
+
+	output := callVolumeTool(t, connectMCPClient(t, root), "aoci_update_entry", map[string]any{
+		"path":          path,
+		"new_entry":     line,
+		"source_sha256": volumeSourceSHA(t, root, path),
+	})
+	if !strings.Contains(output, `"status":"applied"`) || !strings.Contains(output, `"aligned":true`) {
+		t.Fatalf("bracketed dynamic route update failed:\n%s", output)
+	}
+
+	doc, warnings := index.Parse(volumeFileText(t, root, "aoci.code.txt"))
+	if len(warnings) != 0 {
+		t.Fatalf("written dynamic route produced parser warnings: %v", warnings)
+	}
+	index.ResolveRelPaths(doc, root)
+	entry := index.FindEntry(doc, path)
+	if entry == nil || entry.Filename != "[...404].vue" || entry.FullLine != line {
+		t.Fatalf("written dynamic route did not round trip: %+v", entry)
+	}
+}
+
 func TestFirstVolumeMaintainDeliversMetaTagRelationAndSContract(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	cfg := legacyTestConfig()

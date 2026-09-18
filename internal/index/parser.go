@@ -24,7 +24,7 @@
 //   - # 开头为注释行: 跳过提取但原样保留;
 //   - ===...=== 行: 若行内含首个路径 token(可选盘符 + / 开头,遇空白或左括号即止)
 //     则为目录段头,否则为分隔符 —— 分隔符清空当前目录上下文;
-//   - 条目行判据: 首个 [ 之前有非空文件名,且 ] 后紧跟冒号;
+//   - 条目行判据: 非空文件名后存在 [标签]: F: 边界;文件名本身可含 [ 与 ];
 //   - 条目仅在目录段(AbsPath 非空)内收集;
 //   - CRLF 输入统一折为 LF 解析(逐行剥离尾部 \r);原文换行风格由编辑器负责探测保留;
 //   - 解析失败收 Warning 不丢行,行号从 1 起。
@@ -45,9 +45,23 @@ var (
 	consistencyDirRe = regexp.MustCompile(`^===(.*?)((?:[A-Za-z]:)?/[^\s=(（]+)(.*)===\s*$`)
 	// consistencySepRe 分隔符: 3 个及以上等号包裹的任意行(未命中目录头时生效),清空当前目录上下文
 	consistencySepRe = regexp.MustCompile(`^={3,}.*={3,}\s*$`)
-	// consistencyEntryRe 条目行: 文件名(不含 [ 且不以空白开头) + [标签] + 冒号 + 余下内容
-	consistencyEntryRe = regexp.MustCompile(`^([^\[\s][^\[]*?)\[([^\]]*)\]:\s?(.*)$`)
+	// consistencyEntryRe 条目行: 非空白开头的文件名(可含中括号) + [标签]: + F开头的正文。
+	// 文件名组使用非贪婪匹配,但只有后缀紧跟规范F字段的中括号才能成为标签边界;
+	// 因此Nuxt/Next.js的[index].vue、[...slug].tsx等名称不会被误拆为标签。
+	consistencyEntryRe = regexp.MustCompile(`^(\S.*?)\[([^\]]*)\]:\s?(F:.*)$`)
+	// legacyEntryRe仅为读侧诊断保留旧边界。缺少规范F起点的历史脏行仍会被
+	// Parse和Validator识别并报告原有的FRAS错误,而不会因新词法规则静默消失。
+	legacyEntryRe = regexp.MustCompile(`^([^\[\s][^\[]*?)\[([^\]]*)\]:\s?(.*)$`)
 )
+
+// matchEntryLine优先使用允许文件名含中括号的规范边界;仅当该边界不存在时
+// 回退旧正则,维持对历史非规范条目的诊断兼容性。
+func matchEntryLine(line string) []string {
+	if match := consistencyEntryRe.FindStringSubmatch(line); match != nil {
+		return match
+	}
+	return legacyEntryRe.FindStringSubmatch(line)
+}
 
 // stripBOM 剥离文本首部的 UTF-8 BOM(P-18 单点实现)。
 // 仅剥文首一枚 \ufeff —— 正文中出现的 BOM(拼接产物)属内容问题不在此层处置;
@@ -136,7 +150,7 @@ func Parse(text string) (*Document, []Warning) {
 		if current == nil || current.AbsPath == "" {
 			continue
 		}
-		m := consistencyEntryRe.FindStringSubmatch(line)
+		m := matchEntryLine(line)
 		if m == nil {
 			// 形似条目但不匹配(如含 [ 却缺 ]: 结构)时给出警告,便于人工排查
 			if strings.Contains(line, "[") && strings.Contains(line, "]:") {
@@ -178,7 +192,7 @@ func Parse(text string) (*Document, []Warning) {
 // loader therefore share the exact same lexical grammar.
 func ParseEntryLine(line string, lineNo int) (*Entry, bool) {
 	line = strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r")
-	m := consistencyEntryRe.FindStringSubmatch(line)
+	m := matchEntryLine(line)
 	if m == nil {
 		return nil, false
 	}

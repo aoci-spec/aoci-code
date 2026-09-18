@@ -115,7 +115,7 @@ func ValidateEntryLineWith(relPath, line string, th *SQuotaThresholds) []Violati
 	}
 
 	// 2. 结构约束: 必须匹配 文件名[标签]: 正文
-	m := consistencyEntryRe.FindStringSubmatch(line)
+	m := matchEntryLine(line)
 	if m == nil {
 		vs = append(vs, Violation{LevelError,
 			"条目结构不合规: 必须为 文件名[标签]: F:... | R:... | A:... | S:... 单行格式"})

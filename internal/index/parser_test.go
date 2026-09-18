@@ -4,6 +4,7 @@ package index
 
 import (
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -61,6 +62,73 @@ func TestParseCliStyle(t *testing.T) {
 	}
 	if e := FindEntry(doc, "scripts/tool.sh"); e == nil {
 		t.Fatal("带目录前缀的文件名 rel 换算失败")
+	}
+}
+
+// TestBracketedFilenameRoundTrip locks the object-line boundary used by
+// dynamic-route files: brackets in the filename belong to the filename, while
+// the bracket pair immediately followed by the canonical F field is the Tag.
+func TestBracketedFilenameRoundTrip(t *testing.T) {
+	tests := []struct {
+		path string
+		line string
+		tag  string
+	}{
+		{
+			path: "pages/[...404].vue",
+			line: "[...404].vue[CG7S]: F:render the catch-all route | R:- | A:- | S:-",
+			tag:  "CG7S",
+		},
+		{
+			path: "pages/blog/[seoUrl].vue",
+			line: "[seoUrl].vue[CG7S]: F:render an SEO route | R:- | A:- | S:-",
+			tag:  "CG7S",
+		},
+		{
+			path: "pages/notes.vue",
+			line: "notes.vue[CG7S]: F:render the [state]: F: marker literally | R:- | A:- | S:-",
+			tag:  "CG7S",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			entry, ok := ParseEntryLine(test.line, 1)
+			if !ok {
+				t.Fatalf("bracketed filename did not parse: %q", test.line)
+			}
+			if got, want := entry.Filename, path.Base(test.path); got != want {
+				t.Fatalf("filename split at the wrong bracket: got %q want %q", got, want)
+			}
+			if entry.TagsRaw != test.tag {
+				t.Fatalf("tag mismatch: got %q want %q", entry.TagsRaw, test.tag)
+			}
+			if violations := ValidateEntryLine(test.path, test.line); HasError(violations) {
+				t.Fatalf("valid bracketed filename was rejected: %v", violations)
+			}
+		})
+	}
+
+	text := "===routes /repo/pages/===\n" + tests[0].line + "\n" + tests[2].line + "\n" +
+		"===blog /repo/pages/blog/===\n" + tests[1].line + "\n"
+	doc, warnings := Parse(text)
+	if len(warnings) != 0 {
+		t.Fatalf("bracketed filenames produced parser warnings: %v", warnings)
+	}
+	ResolveRelPaths(doc, "/repo")
+	for _, test := range tests {
+		if entry := FindEntry(doc, test.path); entry == nil || entry.FullLine != test.line {
+			t.Fatalf("round trip lost %q: %+v", test.path, entry)
+		}
+	}
+
+	legacyMalformed := "legacy.go[CG7S]: R:- | A:- | S:-"
+	entry, ok := ParseEntryLine(legacyMalformed, 1)
+	if !ok || entry.Filename != "legacy.go" {
+		t.Fatalf("legacy malformed line lost read-side diagnostics: %+v ok=%v", entry, ok)
+	}
+	if violations := ValidateEntryLine("legacy.go", legacyMalformed); !HasError(violations) {
+		t.Fatalf("legacy malformed line should still report its missing F field: %v", violations)
 	}
 }
 
