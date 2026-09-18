@@ -6,6 +6,13 @@ Every governed object uses one model-authored line:
 
   object_name[tag]: F:... | R:... | A:... | S:...
 
+The Tag boundary is the bracketed suffix whose closing `]:` is followed by the
+canonical `F:` field, with at most the ordinary single separating space.
+Brackets before that boundary are part of `object_name`. Code object names such
+as `[...404].vue` and `[seoUrl].vue` therefore remain byte-exact and use lines
+such as `[...404].vue[CG7S]: F:... | R:... | A:... | S:...`. Existing object
+lines without brackets in their names retain the same parse.
+
 New Volumes object authoring uses one physical Tag form: compact
 A+B+C+[D]+E. Each axis value comes from the current scoped Meta dictionary;
 EG7T is a legal Code example under the official starter Meta. Dotted Tags are
