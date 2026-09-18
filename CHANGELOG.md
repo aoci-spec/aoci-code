@@ -2,7 +2,17 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc14
+
+One format-level fix: directory and file names the index grammar could not
+spell (#58, #60, #48), which wedged any repository with a spaced directory or
+a bracketed dynamic-route file. Plus three contributor changes: tool schemas
+that Gemini-style function declarations accept (#63), per-repository status
+snapshots (#64), and a native build suffix (#65). Existing indexes are not
+rewritten, every index that aligned under v0.1.0-rc13 aligns here, and the nine
+tools accept the same inputs. v0.1.0-rc13 still reads an index this release
+creates, but not the new names themselves, so a repository that uses one needs
+this release or newer on every host.
 
 - Spell directory and file names the index grammar could not (#58, #60, #48).
   The directory path in a section header stopped at the first whitespace, `=`,
@@ -81,6 +91,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - Give `make build` the native executable suffix (#59, #65). Windows gets
   `build/aoci.exe` directly, `make verify` uses the same path, and the README
   drops the copy step. Linux and macOS are unchanged.
+
+The first public availability date for v0.1.0-rc14 is 2026-09-19.
 
 ## v0.1.0-rc13
 
