@@ -36,6 +36,40 @@ aoci scope preview --candidate-file <empty-candidate-set.json>
 
 Where both semantics assigned the same roles the plan is identity-only: no role changes, no Entry changes, `aoci.txt` byte-identical, and policy-bound auto can authorize it without a human. Where a rule and a path genuinely differ only in case, the plan carries that real role change and is authorized as one.
 
+## Directory and file names the index could not spell
+
+From v0.1.0-rc14 a section header carries a directory whose name holds a space,
+`=`, `(`, or `（`, and an Entry carries a file name that holds `[`. Upgrading
+needs no action: an index is never rewritten, one that aligned before aligns
+now, and a repository that was wedged by a directory name with a space reads as
+aligned. An index that has a root section, which is every index this release
+creates, reads the same at the origin and in every checkout; one without (an
+earlier release could leave an index whose sections all live under one
+directory) may still resolve differently in a copy, as it always could. (An
+index that never aligned because an earlier release filed root files under a
+directory section, the first file it met having lived in a directory whose name
+begins with `(`, keeps that release's reading until the ordinary orphan repair
+runs, which now completes.) Under a root whose own path holds one of those
+characters, the root section spells the root in full and every later section
+continues it as the original reading reads it back. Every release has written
+that shape, this one included, so the two spellings of the root are deliberate;
+do not edit the headers to make them match.
+
+The reverse direction is not supported for a repository that *uses* such a
+name. Checked with the released v0.1.0-rc13 binary, at the origin and in a copy:
+
+- an index that holds a bracketed file name is refused as an invalid cognition
+  layout (`code_parse_warning`);
+- a directory whose name holds a space, `=`, `(`, or `（` resolves somewhere else, so
+  its Entries are reported orphan and missing, and an agent that acts on that
+  report removes and re-authors them under the wrong path;
+- a scope rule that holds `[` invalidates the policy.
+
+Everything else an index created by this release carries, under such a root
+too, v0.1.0-rc13 reads aligned and can keep writing to. So
+once a repository uses one of those names, move every host and teammate that
+works on it to v0.1.0-rc14 or later together, and do not roll one of them back.
+
 ## An in-flight Scope Change approval does not survive an upgrade
 
 A `scope approve` artifact binds the preview envelope digest, not the plan. The

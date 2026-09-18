@@ -79,13 +79,16 @@ func Normalize(policy Policy) (Policy, error) {
 		var err error
 		rule.Pattern, err = NormalizePattern(rule.Pattern, rule.PatternKind)
 		if err != nil {
-			return Policy{}, fmt.Errorf("managed_scope_rule_pattern_invalid: %s", rule.RuleID)
+			// The reason travels with the code: a glob that holds "[" is refused with
+			// the pattern kind that does accept it, and an operator who is only told
+			// "invalid" cannot find that out.
+			return Policy{}, fmt.Errorf("managed_scope_rule_pattern_invalid: %s (%v)", rule.RuleID, err)
 		}
 		exceptions := make([]string, 0, len(rule.Exceptions))
 		for _, exception := range rule.Exceptions {
 			normalized, normalizeErr := NormalizePattern(exception, machinecontract.ScopePatternGlob)
 			if normalizeErr != nil {
-				return Policy{}, fmt.Errorf("managed_scope_rule_exception_invalid: %s", rule.RuleID)
+				return Policy{}, fmt.Errorf("managed_scope_rule_exception_invalid: %s (%v)", rule.RuleID, normalizeErr)
 			}
 			exceptions = append(exceptions, normalized)
 		}
@@ -129,7 +132,11 @@ func NormalizePattern(value, kind string) (string, error) {
 	if value == "" || strings.HasPrefix(value, "/") || regexp.MustCompile(`^[A-Za-z]:`).MatchString(value) {
 		return "", fmt.Errorf("path_not_repository_relative")
 	}
-	if kind != machinecontract.ScopePatternGlob && strings.ContainsAny(value, "*?[") {
+	// A file or directory pattern is compared byte for byte, so "[" is an ordinary
+	// character there: dynamic-route names such as pages/[id].vue and app/[locale]
+	// have to be nameable. "*" and "?" stay reserved for the glob kind, where a
+	// literal reading would silently disagree with what the author meant.
+	if kind != machinecontract.ScopePatternGlob && strings.ContainsAny(value, "*?") {
 		return "", fmt.Errorf("wildcard_requires_glob_kind")
 	}
 	for _, part := range strings.Split(value, "/") {
@@ -240,7 +247,7 @@ func buildGlobRegexp(pattern string) (*regexp.Regexp, error) {
 		case '?':
 			out.WriteString("[^/]")
 		case '[':
-			return nil, fmt.Errorf("character_classes_not_supported")
+			return nil, fmt.Errorf("character_classes_not_supported: a glob cannot hold \"[\"; name a literal path such as pages/[id].vue or app/[locale] with pattern kind file or directory")
 		default:
 			out.WriteString(regexp.QuoteMeta(string(r)))
 		}

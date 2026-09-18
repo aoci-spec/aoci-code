@@ -1283,6 +1283,87 @@ def group_t():
 
 
 # ---------------------------------------------------------------- documentation binding
+def group_p_unspellable_directory():
+    """A directory the index cannot record is stopped before anyone authors it.
+
+    A directory whose name ends with a space has no section header that reads back
+    to the same path, and no edit to an Entry can change that. The update path used
+    to answer repair_required with a retry scope, and Maintain kept issuing the same
+    batch, so a host that follows next_action re-authored it forever. Maintain now
+    withholds the batch and answers stopped with stop facts that quote the directory
+    and give the operator's way out; a caller that submits the path anyway gets the
+    same answer; and renaming the directory, the first way out named, clears it.
+    """
+    g = "P"
+    name = "P2.unspellable-directory-is-withheld-before-authoring"
+    d = os.path.join(WORK, "fx-unspellable")
+    shutil.rmtree(d, ignore_errors=True)
+    try:
+        os.makedirs(os.path.join(d, "trail "))
+        os.makedirs(os.path.join(d, "good"))
+        held = os.path.isdir(os.path.join(d, "trail ")) and "trail " in os.listdir(d)
+    except OSError:
+        held = False
+    if not held:
+        record(g, name, "CHAR", "this filesystem cannot hold a directory whose name ends with a space")
+        return
+    for rel in ("trail /x001.go", "good/y002.go"):
+        with open(os.path.join(d, *rel.split("/")), "w") as fh:
+            fh.write("package fixture\n\nfunc F() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    if rc == 0:
+        rc, _, out, errs = cli(d, "scan")
+    if rc != 0:
+        record(g, name, "FAIL", f"init/scan failed: {(out + errs)[:160]}")
+        return
+    with open(os.path.join(d, "aoci.code.txt"), "rb") as fh:
+        before = fh.read()
+    s = Session(d)
+    try:
+        def withheld(m):
+            stop = m.get("stop") or {}
+            return (m.get("status") == "stopped" and m.get("next_action") == "resolve_unspellable_directory"
+                    and not m.get("candidates") and not m.get("code_plan")
+                    and stop.get("rule_code") == "code_directory_unspellable" and '"trail "' in (stop.get("actual") or "")
+                    and "aoci_maintain" in (stop.get("safe_next_action") or ""))
+        m1, t1, _ = maintain(s)
+        m2, _, _ = maintain(s)  # a host that simply asks again gets the same stop, not a batch
+        with open(os.path.join(d, "trail ", "x001.go"), "rb") as fh:
+            sha = hashlib.sha256(fh.read()).hexdigest()
+        direct, _ = text_of(s.call("aoci_update_entry", {"entries": [
+            {"path": "trail /x001.go", "source_sha256": sha, "new_entry": entry_line("trail /x001.go")}]}))
+        refused = jload(direct)
+        with open(os.path.join(d, "aoci.code.txt"), "rb") as fh:
+            untouched = fh.read() == before
+        os.rename(os.path.join(d, "trail "), os.path.join(d, "trail"))
+        aligned, last = False, ""
+        for _ in range(4):
+            m, t, _ = maintain(s)
+            if m.get("aligned"):
+                aligned = True
+                break
+            if m.get("status") != "repair_required":
+                last = t[:200]
+                break
+            res, t2, _ = submit_batch(s, m)
+            last = t2[:200]
+            if res.get("status") != "applied":
+                break
+    finally:
+        s.close()
+    stopped = (refused.get("status") == "stopped" and refused.get("retry_scope") == [] and refused.get("applied") == 0
+               and (refused.get("stop") or {}).get("rule_code") == "code_directory_unspellable")
+    ok = withheld(m1) and withheld(m2) and stopped and untouched and aligned
+    record(g, name, "PASS" if ok else "FAIL",
+           f"maintain_withheld={withheld(m1)} again={withheld(m2)} direct_update_stopped={stopped} "
+           f"volume_untouched={untouched} aligned_after_rename={aligned}" + ("" if ok else f" | {t1[:160]} | {last}"))
+
+
 def verify_published_scenario_count(total):
     """Return a list of drift descriptions; empty means every document agrees."""
     patterns = {
@@ -1384,6 +1465,94 @@ def group_o_optimization():
                + ("" if ok else f" | {ta[:150]}"))
     finally:
         s.close()
+
+
+
+# ---------------------------------------------------------------- group P
+def group_p_special_names():
+    """Directory and file names the section grammar could not spell (#58, #60).
+
+    The directory path in a section header stopped at the first whitespace, "=",
+    or "(", and a file name could not hold "[". A repository under a path with a
+    space got truncated roots in every later section; a directory with a space
+    made its Entry resolve somewhere else, so the same file was reported orphan
+    and missing for good; and one Next.js-style [...id] file failed its whole
+    atomic batch forever. This fixture lives under a root with a space and
+    carries one source of each kind, and must author to alignment through
+    ordinary batches with natural names in the Volume; a copy of it at another
+    path must then verify aligned too.
+    """
+    g = "P"
+    name = "P1.special-directory-and-file-names-author-to-alignment"
+    d = os.path.join(WORK, "fx special names")
+    shutil.rmtree(d, ignore_errors=True)
+    sources = ["src/deep dir/b001.go", "app/(home)/page002.go", "pkg/max=/c003.go", "pages/docs/[...id]004.go"]
+    for rel in sources:
+        target = os.path.join(d, *rel.split("/"))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        with open(target, "w") as fh:
+            fh.write("package fixture\n\nfunc F() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    if rc == 0:
+        rc, _, out, errs = cli(d, "scan")
+    if rc != 0:
+        record(g, name, "FAIL", f"init/scan failed: {(out + errs)[:160]}")
+        return
+    s = Session(d)
+    try:
+        aligned, last = False, ""
+        for _ in range(5):
+            m, t, err = maintain(s)
+            if m.get("aligned"):
+                aligned = True
+                break
+            if m.get("status") != "repair_required":
+                last = t[:200]
+                break
+            res, t2, err2 = submit_batch(s, m)
+            last = t2[:200]
+            if res.get("status") != "applied":
+                break
+        body, _ = text_of(s.call("aoci_get_entries", {"paths": sources}))
+    finally:
+        s.close()
+    rc, v, _, _ = cli(d, "verify", expect_ok=False)
+    verified = rc == 0 and bool((v.get("governance") or {}).get("governance_aligned") or v.get("governance_aligned"))
+    with open(os.path.join(d, "aoci.code.txt"), encoding="utf-8") as fh:
+        volume = fh.read()
+    # Directory names are written as they are, under the root the index uses: the
+    # root section carries the full root and later sections continue it as the
+    # original reading reads it back (up to the first space, "=" or "(" of the
+    # path, wherever the work directory lives), the one shape every release writes.
+    root = d.replace("\\", "/")
+    cut = min(i for i in (root.find(c) for c in " \t=(（") if i >= 0)  # the fixture name holds a space
+    family = root[:cut].rstrip("/")
+    if family:
+        headers = (f"==={root}/===" in volume
+                   and all(f"==={family}/{sub}/===" in volume for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs")))
+    else:
+        # The work directory's first segment begins with a cut character, so no header
+        # can carry this root and the index records what reads back instead. Alignment,
+        # resolution, and the copy below still judge the scenario; only the literal
+        # header spelling is not asserted there.
+        headers = all(f"/{sub}/===" in volume for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs"))
+    resolved = all(f"object_ref=code:{rel}]" in body for rel in sources) and "Not indexed" not in body
+    # A clone or a CI checkout has the same bytes under another absolute root, and
+    # every header above records this one. The copy must verify aligned as well.
+    moved = os.path.join(WORK, "fx-special-names-checkout")
+    shutil.rmtree(moved, ignore_errors=True)
+    shutil.copytree(d, moved)
+    rc2, v2, _, _ = cli(moved, "verify", expect_ok=False)
+    relocated = rc2 == 0 and bool((v2.get("governance") or {}).get("governance_aligned") or v2.get("governance_aligned"))
+    ok = aligned and verified and headers and resolved and relocated
+    record(g, name, "PASS" if ok else "FAIL",
+           f"aligned={aligned} verify={verified} natural_headers={headers} entries_resolve={resolved} "
+           f"checkout_verify={relocated}" + ("" if ok else f" | {last}"))
 
 
 # ---------------------------------------------------------------- group U
@@ -1618,6 +1787,8 @@ if __name__ == "__main__":
     group_u()
     group_u_detach()
     group_o_optimization()
+    group_p_special_names()
+    group_p_unspellable_directory()
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()

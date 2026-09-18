@@ -24,6 +24,44 @@ preserved, and every reader derives repository-relative identities from the
 invocation root, never from the recorded prefix. An outdated prefix is
 expected, harmless, and not worth a formal write to rewrite.
 
+A repository whose own path holds a space, `=`, `(`, or `（` shows two spellings of
+that prefix: the full one in its root section and a truncated one in every
+later section. Every release writes it that way, because the original reading of
+a header stops at that character and later sections continue what was read
+back. Both resolve to the same repository root, at the origin and in a checkout
+elsewhere; do not rewrite the headers by hand to make them match.
+
+## Maintain or an update stops with `directory_unspellable`
+
+A candidate lives in a directory the index cannot record: its name begins or
+ends with whitespace, so no section header for it reads back to the same path,
+or, far more rarely, the header it would get already resolves to another
+directory of this index. Its Entries would resolve somewhere else, and no edit
+to an Entry can change that. `aoci_maintain` finds it before issuing the batch
+and answers `stopped` with `next_action: resolve_unspellable_directory` and
+`stop` facts that quote the directory (`code_directory_unspellable`); it issues
+no candidates, because a model would author the whole batch only for the update
+to stop. A caller that submits such a path anyway gets the same `stopped` answer
+from `aoci_update_entry`, never `repair_required`.
+
+Two things clear it, and then `aoci_maintain` issues the batch again:
+
+- Rename the directory.
+- Take its files out of the index role: with a governed scope rule of kind
+  `glob` or `file`, for example `trail /**`, or by listing the exact files under
+  `curation_exclude` before the first scan. A `directory`-kind pattern is
+  trimmed, so it cannot name a directory with leading or trailing whitespace,
+  and a `curation_exclude` entry names a file, never a directory.
+
+`code_root_unspellable` is the same stop for the repository root itself, which
+happens only when no part of the root path reads back as a usable root: a
+repository directory directly under `/` or a drive root (or under nothing but
+such segments) whose name begins with `(`, `（`, `=`, or whitespace. No scope rule helps there; move or rename the repository
+directory. A root whose first segment merely begins with such a character, or
+that has a segment with leading or trailing whitespace, is not refused: the
+index records the part of the path that a header can carry, and resolves the
+same way at the origin and in every checkout.
+
 ## Host config points to a moved binary or repository
 
 After the `aoci` binary or the repository moves, host configs written by

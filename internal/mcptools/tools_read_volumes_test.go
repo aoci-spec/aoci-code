@@ -28,7 +28,16 @@ func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
 // supplied by the test; an empty metaOverride keeps the fixture's default Meta.
 func buildVolumeRepoWithMeta(t *testing.T, includeCode, includeDatabase bool, metaOverride string) string {
 	t.Helper()
-	root := t.TempDir()
+	return buildVolumeRepoAt(t, t.TempDir(), includeCode, includeDatabase, metaOverride)
+}
+
+// buildVolumeRepoAt is buildVolumeRepoWithMeta at a root the test chooses, so a
+// fixture can live under a path the section-header grammar has to spell.
+func buildVolumeRepoAt(t *testing.T, root string, includeCode, includeDatabase bool, metaOverride string) string {
+	t.Helper()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	cfg := legacyTestConfig()
 	cfg.IndexPath = "aoci.txt"
 	if err := config.Save(root, cfg); err != nil {

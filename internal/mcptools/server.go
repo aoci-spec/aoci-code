@@ -50,6 +50,7 @@ const (
 	errCrossVolumeGuardRequired     = "cross_volume_guard_required"
 	errImpactResolutionFailed       = "impact_resolution_failed"
 	errCandidateInvalid             = "candidate_invalid"
+	errDirectoryUnspellable         = "directory_unspellable" // no candidate edit clears it: stopped, not repair_required
 	errCognitionSnapshotUnavailable = "cognition_snapshot_unavailable"
 	errBadArgs                      = "bad_args" // 参数不合法
 	errInternal                     = "internal" // 兜底

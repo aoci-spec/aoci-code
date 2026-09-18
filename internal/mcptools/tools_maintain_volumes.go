@@ -3,7 +3,9 @@ package mcptools
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -15,7 +17,9 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
@@ -88,6 +92,10 @@ type volumeMaintainResult struct {
 	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
 	NextCommands      []string                     `json:"next_commands,omitempty"`
 	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
+	// Stop carries an asset-level fact no candidate can repair, found before a batch
+	// is issued, so that the model is not asked to author Entries the update path
+	// would have to refuse. Absent otherwise.
+	Stop *GlobalStopFacts `json:"stop,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -128,7 +136,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
 			buildVolumeCodeCandidates(root, loaded, &result, codeWork)
 		}
-		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
+		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
 		}
 	}
@@ -164,6 +172,13 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	result.Sets.Guard = sortedUniqueStrings(result.Sets.Guard)
 
 	switch {
+	case result.Stop != nil:
+		// A directory in the batch that would be issued has no section header that
+		// reads back to it. No Entry edit clears that, so the batch is withheld and
+		// the operator's way out is the answer; issuing it would have the model author
+		// every Entry only for the update to stop, and the same batch come back.
+		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusStopped, false, volumegovernance.ResultBlocked, "resolve_unspellable_directory"
+		result.Batch.NextAction = result.NextAction
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		result.Status, result.Aligned = autoStatusStopped, false
 		result.NextCommands = evidenceNextCommands()
@@ -264,6 +279,11 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	if len(all) == 0 {
 		return
 	}
+	_, selected := codebatch.Select(all, codeBatchLimit(loaded.cfg))
+	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
+		result.Stop = fail.GlobalStop
+		return
+	}
 	plan, err := codebatch.BuildPlan(root, result.Governance.CompositeIdentity,
 		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
 		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg))
@@ -277,6 +297,36 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
 			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
 	}
+}
+
+// firstUnspellableCandidate asks, for every directory a create candidate of this
+// batch lives in, whether the writer could record it, and answers the refusal the
+// update path would give for the first one it could not. The Volume is parsed
+// once for the whole batch, a directory that already has a section costs a lookup,
+// and a new one is judged on the section list without re-parsing, so the check
+// stays a small fraction of Maintain on a large index.
+func firstUnspellableCandidate(root string, loaded *cognitionRepoCtx, selected []codebatch.Candidate) *Fail {
+	code := loaded.set.Volumes[cognition.ScopeCode]
+	if code == nil {
+		return nil
+	}
+	var probe *index.InsertProbe
+	probed := map[string]bool{}
+	for _, candidate := range selected {
+		directory := path.Dir(candidate.Path)
+		if candidate.Change != cognition.ImpactChangeCreate || probed[directory] {
+			continue
+		}
+		probed[directory] = true
+		if probe == nil {
+			probe = index.NewInsertProbe(string(code.Raw), root)
+		}
+		var unspellable *index.DirectoryUnspellableError
+		if err := probe.Check(candidate.Path); errors.As(err, &unspellable) {
+			return directoryUnspellableFail(root, candidate.Path, config.AOCIPaths(root, code.Descriptor.Path).IndexPath, unspellable)
+		}
+	}
+	return nil
 }
 
 func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, capacity int) {

@@ -2,9 +2,10 @@
 """AOCI upgrade-axis harness — a repository written by a previously released
 binary must stay governable by the binary under test.
 
-升级轴回归（每个已发布版本 14 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
+升级轴回归（每个已发布版本 32 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
 aligned,再让被测二进制跑上去,断言身份不变、不索要 Scope Change、不改写正式资产。
-两种 config 形状各跑一遍,因为它们解析的是不同的预算 preimage。
+四种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
+(根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根。
 
 Why this suite exists at all: the other three suites build every fixture with the
 binary under test, so a preimage that changed between versions is invisible to
@@ -25,9 +26,29 @@ created before the block existed and the state `config.MutateManagedScope` still
 produces today, and it is what actually turns red: scope_change_required=true,
 governance blocked, from the upgrade alone.
 
-The published number is 14 checks *per released version* (7 per config shape),
-not a total: a total would change on every release and stop being a property of
-this suite.
+The third shape, `spacedroot`, is the `init` shape in a directory whose path holds
+a space. Until v0.1.0-rc13 a section header was read back only up to its first
+space, so every such repository carries one full-spelled section and a family of
+sections under the truncated root (#58). The reading was extended in rc14, and
+that index is a persisted preimage like any other: the binary under test must
+read it aligned in place, and what it then writes must keep a checkout at another
+path aligned as well. The last check exercises exactly that for every shape: a
+new source file in a directory whose name holds a space is authored with the
+binary under test, and a copy of the repository at another path must verify
+aligned. A writer that continued the full root instead of the spelling the index
+already uses turns it red for `spacedroot` alone.
+
+The fourth shape, `cutsegment`, puts the repository under a directory whose name
+begins with "(". The truncation then falls on a directory boundary, so the
+full-spelled first section lies *under* the truncated root instead of beside it,
+and a reader that recognises the old writer only by a section outside that root
+resolves root files as `(x)/repo/<file>` in every checkout while the origin stays
+aligned. v0.1.0-rc13 read both sides aligned; a pre-release build of rc14 did
+not, and the last check is what reports it.
+
+The published number is 32 checks *per released version* (8 per repository
+shape), not a total: a total would change on every release and stop being a
+property of this suite.
 
 Usage:  python3 scripts/blackbox/mcp_upgrade.py
         python3 scripts/blackbox/mcp_upgrade.py --versions v0.1.0-rc5,v0.1.0-rc7
@@ -53,17 +74,21 @@ SLUG = os.environ.get("AOCI_UPGRADE_SLUG", "aoci-spec/aoci-code")
 
 # Checks asserted for every released version. This is the published number: it
 # describes the suite, while the version list grows with each release.
-CHECKS_PER_SHAPE = 7
+CHECKS_PER_SHAPE = 8
 # "init" is config.json exactly as the released `aoci init` wrote it, which
 # always carries an explicit cognition_budget block. "nobudget" removes that
 # block before scan: that is the population LegacyPolicy exists for, and the
-# only shape in which un-freezing it is observable.
-SHAPES = ("init", "nobudget")
+# only shape in which un-freezing it is observable. "spacedroot" is the "init"
+# shape under a path that holds a space: the index every release up to rc13
+# wrote there mixes a full-spelled root with a truncated one (#58). "cutsegment"
+# is the same under a directory whose name begins with "(": the truncated root is
+# then an ancestor of the full one, which is a different case for a relocated reader.
+SHAPES = ("init", "nobudget", "spacedroot", "cutsegment")
 CHECKS_PER_VERSION = CHECKS_PER_SHAPE * len(SHAPES)
 CHECK_NAMES = ("post_scan_identity_stable", "aligned_repo_stays_aligned",
                "composite_identity_unchanged", "no_scope_change_demanded",
                "mcp_maintain_reaches_terminal", "overview_delivers_complete_index",
-               "read_only_commands_write_nothing")
+               "read_only_commands_write_nothing", "growth_stays_aligned_in_a_checkout")
 assert len(CHECK_NAMES) == CHECKS_PER_SHAPE
 
 # Formal cognition plus the two governed state files. Deliberately excludes
@@ -371,6 +396,10 @@ def strip_budget_block(repo):
 def check_version(version, shape, old_binary, workdir):
     tag = f"{version}[{shape}]"
     repo = os.path.join(workdir, f"{version}-{shape}")
+    if shape == "spacedroot":
+        repo = os.path.join(workdir, f"{version} spaced root", "repo")
+    if shape == "cutsegment":
+        repo = os.path.join(workdir, f"{version}-cutsegment", "(x)", "repo")
     os.makedirs(repo, exist_ok=True)
     make_fixture(repo)
     run(old_binary, repo, "init", "--locale", "en-US", check=True)
@@ -435,6 +464,22 @@ def check_version(version, shape, old_binary, workdir):
     drift = sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k))
     ok(f"{tag}.read_only_commands_write_nothing", not drift,
        "" if not drift else "rewrote " + ", ".join(drift))
+
+    # 8. Growth, then relocation. The binary under test authors a new file in a
+    #    directory whose name holds a space, on top of the index the release wrote,
+    #    and a copy at another path must read the result aligned. It comes after the
+    #    no-write guard because it is the one step that is meant to write.
+    grown = os.path.join(repo, "pkg", "new dir", "grow.go")
+    os.makedirs(os.path.dirname(grown), exist_ok=True)
+    with open(grown, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("package grow\n\n// Grow is authored by the binary under test.\nfunc Grow() {}\n")
+    grew = author_to_aligned(BIN, repo)
+    checkout = os.path.join(workdir, f"{version}-{shape}-checkout")
+    shutil.copytree(repo, checkout)
+    moved = verify_facts(BIN, checkout)
+    held = bool(grew and moved and moved["aligned"])
+    ok(f"{tag}.growth_stays_aligned_in_a_checkout", held,
+       "" if held else f"authored_in_place={grew} checkout={moved}")
 
 
 def main():

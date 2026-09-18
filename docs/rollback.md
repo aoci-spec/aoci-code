@@ -11,4 +11,12 @@ Keep the previously verified binary until the new version has passed representat
    `status --deep` only for a Legacy repository.
 5. Preserve `.aoci` recovery evidence and failed-run artifacts for diagnosis.
 
+A repository that uses directory or file names the index could not spell before
+v0.1.0-rc14 (a directory holding a space, `=`, `(`, or `（`, a file holding `[`) cannot
+be read by an older binary; see [`upgrading.md`](upgrading.md). Rolling back
+below rc14 there makes the older binary refuse the layout or report those
+Entries orphan and missing. `verify` changes nothing, but do not let an older
+agent act on that report: it removes and re-authors the Entries under the wrong
+path. Rolling forward again reads the repository as aligned.
+
 Do not roll persistent formats backward by editing JSON, manifests, Baseline, Ledger, or `aoci.txt` by hand. If a newer version performed a documented irreversible migration, binary rollback is unsafe unless that release's migration procedure explicitly supports it. This requires maintainer review rather than an improvised repair.

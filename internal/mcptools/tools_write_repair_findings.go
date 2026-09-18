@@ -77,6 +77,10 @@ func localizeFRASCause(finding *cognition.RepairFinding) {
 		finding.Cause = writeMessage("entry.repair.cause.relation_canonical", finding.Actual)
 	case finding.RuleCode == "impact_object_identity_invalid":
 		finding.Cause = writeMessage("entry.repair.cause.identity")
+	case finding.RuleCode == "code_directory_unspellable":
+		finding.Cause = writeMessage("entry.repair.cause.directory_unspellable", unquotedDirectoryFact(finding.Actual))
+	case finding.RuleCode == "code_root_unspellable":
+		finding.Cause = writeMessage("entry.repair.cause.root_unspellable", unquotedDirectoryFact(finding.Actual))
 	case finding.RuleCode == "impact_candidate_volume_mismatch":
 		finding.Cause = writeMessage("entry.repair.cause.volume")
 	case finding.RuleCode == "impact_candidate_tag_dictionary_violation" && finding.Cause == "":
@@ -131,6 +135,10 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.duplicate")
 	case "code_candidate_path_mismatch":
 		return writeMessage("entry.repair.action.code_path")
+	case "code_directory_unspellable":
+		return writeMessage("entry.repair.action.directory_unspellable")
+	case "code_root_unspellable":
+		return writeMessage("entry.repair.action.root_unspellable")
 	case "code_candidate_id_mismatch":
 		return writeMessage("entry.repair.action.code_candidate_id")
 	case "code_candidate_source_sha256_mismatch":
@@ -179,4 +187,15 @@ func repairRetryScope(findings []cognition.RepairFinding) []string {
 // may be repaired before the caller resubmits the unchanged complete batch.
 func RepairRetryScope(findings []cognition.RepairFinding) []string {
 	return repairRetryScope(findings)
+}
+
+// unquotedDirectoryFact reads the directory out of a "directory=<quoted>" machine
+// fact. The fact is quoted so that edge whitespace is visible to whoever reads the
+// raw finding; the localized cause quotes it again in the locale's own marks.
+func unquotedDirectoryFact(actual string) string {
+	value := strings.TrimPrefix(actual, "directory=")
+	if unquoted, err := strconv.Unquote(value); err == nil {
+		return unquoted
+	}
+	return value
 }

@@ -139,6 +139,31 @@ func ReplaceEntryForPath(text, repoRoot, relPath, oldLine, newLine string) (stri
 	return joinPreserve(lines, eol, trailingNL), nil
 }
 
+// ErrDirectoryUnspellable reports a directory no section header can spell back to
+// the same path, so that a caller can answer with the rule and the way out
+// instead of an opaque transform failure.
+var ErrDirectoryUnspellable = errors.New("目录名无法在段头中无歧义表示")
+
+// DirectoryUnspellableError names what cannot be spelled: a directory relative to
+// the repository, or the root the index records when the root itself is the
+// problem and every new section under it would be refused.
+type DirectoryUnspellableError struct {
+	Directory string
+	Root      bool
+}
+
+func (e *DirectoryUnspellableError) Error() string {
+	return fmt.Sprintf("%s: %q", ErrDirectoryUnspellable.Error(), e.Directory)
+}
+
+func (e *DirectoryUnspellableError) Is(target error) bool { return target == ErrDirectoryUnspellable }
+
+// headerSpells reports whether a section header for absDir reads back to absDir.
+func headerSpells(absDir string) bool {
+	_, _, readBack, ok := matchDirHeader("===" + absDir + "===")
+	return ok && normalizeRootPath(readBack) == normalizeRootPath(absDir)
+}
+
 // InsertEntry 目录段插入: 将 newLine 插入 relPath 所属目录段。
 // 定位规则(平台 insertIntoDirSection 同语义 + CLI 侧追加增强,见包注释 R6 挂账):
 //  1. 段内有条目 → 插到最后一个条目行之后;
@@ -178,31 +203,173 @@ func InsertEntry(text, relPath, newLine, repoRoot string) (string, error) {
 
 	// 无匹配段: 复用索引既有历史根追加新目录头，避免迁移仓把当前机器路径
 	// 注入正式索引并令下一次克隆的失配段集合失去公共前缀。
-	root, rootErr := appendSectionRoot(doc, repoRoot)
-	if rootErr != nil {
-		return "", rootErr
+	headers, planErr := planNewSection(doc, repoRoot, relPath)
+	if planErr != nil {
+		return "", planErr
 	}
-	relDir := path.Dir(strings.ReplaceAll(relPath, "\\", "/"))
-	var absDir string
-	if relDir == "." || relDir == "" {
-		absDir = root + "/"
-	} else {
-		absDir = root + "/" + relDir + "/"
-	}
-
 	idx := appendIndexForNewSection(lines, doc)
-	out := make([]string, 0, len(lines)+3)
+	out := make([]string, 0, len(lines)+2*len(headers)+1)
 	out = append(out, lines[:idx]...)
-	out = append(out, "", "==="+absDir+"===", newLine)
+	for _, header := range headers {
+		out = append(out, "", header)
+	}
+	out = append(out, newLine)
 	out = append(out, lines[idx:]...)
 	return joinPreserve(out, eol, trailingNL), nil
+}
+
+// planNewSection decides how a section for relPath's directory is appended to
+// doc: the header lines to write, in order, or the refusal. InsertEntry writes
+// what it answers and InsertProbe asks it without writing, so a planner and the
+// writer cannot disagree about which directories can be recorded.
+//
+// A new index begins with its root section. When the first Entry lives in a
+// directory, the root section is written, empty, ahead of it. That anchor is what
+// lets a clone read the index exactly: relocation resolves against the common
+// prefix of the sections, which is the root only when some section sits there,
+// and an index whose first section holds a cut character and is not the root is,
+// byte for byte, what the old writer left under a truncated root.
+func planNewSection(doc *Document, repoRoot, relPath string) ([]string, error) {
+	root, rootErr := appendSectionRoot(doc, repoRoot)
+	if rootErr != nil {
+		return nil, rootErr
+	}
+	relDir := path.Dir(strings.ReplaceAll(relPath, "\\", "/"))
+	if relDir == "." {
+		relDir = ""
+	}
+
+	// The runtime root itself may have no header that reads back to it: its first
+	// segment begins with a cut character (C:/(backup)/repo), or a segment begins or
+	// ends with whitespace. Section roots are coordinates, not runtime paths, so a
+	// new index records what such a header reads back to, which is the root every
+	// release up to rc13 continued from there; the index then resolves by relocation
+	// here exactly as it does in a clone. An index that already has sections derived
+	// its root from headers that were read, so this is a new index only.
+	if !headerSpells(root + "/") {
+		spelled, ok := spellableRoot(root)
+		if !ok {
+			return nil, &DirectoryUnspellableError{Directory: root, Root: true}
+		}
+		root = spelled
+	}
+	// A new index begins with its root section, spelled in full, and every other
+	// section hangs from that root as the original reading reads it back. Under a
+	// clean root the two are the same path. Under a root that holds a cut character
+	// this is, byte for byte, the shape every earlier release wrote there, so one
+	// shape exists in the wild, the reader's old-writer rule covers all of it, and an
+	// older reader still resolves every section whose own name it can read. Later
+	// inserts find that root through the reader (appendSectionRoot); only the first
+	// directory section of a new index has nothing to read it from yet.
+	fresh := firstDirectorySection(doc) == nil
+	family := root
+	if fresh {
+		if _, legacyPath, _, ok := matchDirHeader("===" + root + "/==="); ok && normalizeRootPath(legacyPath) != "" {
+			family = normalizeRootPath(legacyPath)
+		}
+	}
+	absDir := root + "/"
+	if relDir != "" {
+		absDir = family + "/" + relDir + "/"
+	}
+
+	// Fail closed on a directory the header grammar cannot spell back (a segment
+	// that begins with whitespace, or one that ends with whitespace before a "/"):
+	// writing it would record a path the next read resolves somewhere else.
+	if !headerSpells(absDir) {
+		return nil, &DirectoryUnspellableError{Directory: relDir}
+	}
+	var headers []string
+	if relDir != "" && fresh {
+		headers = append(headers, "==="+root+"/===")
+	}
+	headers = append(headers, "==="+absDir+"===")
+
+	// A header that reads back is necessary, not sufficient: the section also has to
+	// resolve to the directory it was written for, against everything the index
+	// already holds. The check runs on the section list alone, without re-parsing.
+	if !sectionsResolveLast(doc, headers, repoRoot, relDir) {
+		if relDir == "" {
+			return nil, &DirectoryUnspellableError{Directory: root, Root: true}
+		}
+		return nil, &DirectoryUnspellableError{Directory: relDir}
+	}
+	return headers, nil
+}
+
+// spellableRoot returns what a section header for root reads back to, when that
+// is itself a root a header can spell.
+func spellableRoot(root string) (string, bool) {
+	_, _, readBack, ok := matchDirHeader("===" + root + "/===")
+	spelled := normalizeRootPath(readBack)
+	if !ok || spelled == "" || !headerSpells(spelled+"/") {
+		return "", false
+	}
+	return spelled, true
+}
+
+// sectionsResolveLast reports whether, with headers appended to doc's sections
+// in order, the last one resolves to relDir against repoRoot.
+func sectionsResolveLast(doc *Document, headers []string, repoRoot, relDir string) bool {
+	appended := &Document{Sections: append([]*Section{}, doc.Sections...)}
+	var last *Section
+	for _, header := range headers {
+		_, legacyPath, absPath, ok := matchDirHeader(header)
+		if !ok {
+			return false
+		}
+		last = &Section{AbsPath: absPath, LegacyAbsPath: legacyPath}
+		appended.Sections = append(appended.Sections, last)
+	}
+	rel, ok := resolveSectionRels(appended, repoRoot)[last]
+	return ok && rel == relDir
+}
+
+// InsertProbe answers, for one index text parsed once, whether an Entry in a
+// given directory could be inserted. A planner uses it to stop before a model
+// authors a batch the writer would have to refuse.
+type InsertProbe struct {
+	doc      *Document
+	repoRoot string
+}
+
+// NewInsertProbe parses text once for any number of Check calls.
+func NewInsertProbe(text, repoRoot string) *InsertProbe {
+	lines, _, _ := splitPreserve(text)
+	doc, _ := Parse(strings.Join(lines, "\n"))
+	return &InsertProbe{doc: doc, repoRoot: repoRoot}
+}
+
+// Check reports nil when relPath's directory already has a section or a new one
+// could be written for it, and otherwise the error InsertEntry would answer. Only
+// the directory is judged, never the file name.
+func (p *InsertProbe) Check(relPath string) error {
+	if FindSectionForPath(p.doc, p.repoRoot, relPath) != nil {
+		return nil
+	}
+	_, err := planNewSection(p.doc, p.repoRoot, relPath)
+	return err
+}
+
+// CheckInsertable is InsertProbe for a single path.
+func CheckInsertable(text, relPath, repoRoot string) error {
+	return NewInsertProbe(text, repoRoot).Check(relPath)
 }
 
 // appendSectionRoot从当前可解析目录段反推唯一历史仓库根。已有索引的目录段
 // 必须共享同一根；新段只延续该根，不把repoRoot这个运行时位置写入正文。
 // 零目录段的初始化骨架没有历史身份可复用，才使用当前根建立第一段。
+//
+// An index written while only the legacy reading existed spells one root two
+// ways: in full, by its first section, and truncated, by every section appended
+// after it (#58). The reader already resolves that first section through its
+// legacy path once the truncated family confirms the old writer, so both
+// spellings arrive here as the truncated root and new sections continue it. That
+// is deliberate: a relocated clone has no repository root to compare against and
+// recognises the old writer by exactly one full-spelled section, so a second one
+// would strand it.
 func appendSectionRoot(doc *Document, repoRoot string) (string, error) {
-	rels := resolveSectionRels(doc, repoRoot)
+	readings := resolveSectionReadings(doc, repoRoot)
 	root := ""
 	hasDirectorySection := false
 	for _, sec := range doc.Sections {
@@ -210,11 +377,12 @@ func appendSectionRoot(doc *Document, repoRoot string) (string, error) {
 			continue
 		}
 		hasDirectorySection = true
-		relDir, ok := rels[sec]
+		reading, ok := readings[sec]
 		if !ok {
 			return "", fmt.Errorf("目录段历史根无法安全解析: %s", sec.AbsPath)
 		}
-		sectionPath := normalizeRootPath(sec.AbsPath)
+		relDir := reading.rel
+		sectionPath := normalizeRootPath(reading.path(sec))
 		candidate := sectionPath
 		if relDir != "" {
 			suffix := "/" + strings.Trim(strings.ReplaceAll(relDir, "\\", "/"), "/")

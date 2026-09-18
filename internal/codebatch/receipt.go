@@ -23,16 +23,24 @@ func BuildPlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, cod
 	if limit < 1 {
 		return Plan{}, fmt.Errorf("code_candidate_batch_limit_invalid")
 	}
-	ordered := cloneCandidates(candidates)
-	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ObjectRef < ordered[j].ObjectRef })
+	ordered, selected := Select(candidates, limit)
 	if err := validateCandidates(ordered); err != nil {
 		return Plan{}, err
 	}
-	selected := ordered
-	if len(selected) > limit {
+	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+}
+
+// Select returns every candidate in plan order and the leading ones a plan with
+// this limit includes. BuildPlan uses it, and so does a caller that has to judge
+// a batch before it is issued, so the two never disagree about what the batch is.
+func Select(candidates []Candidate, limit int) (ordered, selected []Candidate) {
+	ordered = cloneCandidates(candidates)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ObjectRef < ordered[j].ObjectRef })
+	selected = ordered
+	if limit >= 1 && len(selected) > limit {
 		selected = selected[:limit]
 	}
-	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+	return ordered, selected
 }
 
 func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, submissions []Submission, allowPostimage bool) (Receipt, error) {

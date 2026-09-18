@@ -32,7 +32,7 @@ func ValidateEntryRelations(
 	relPath,
 	line string,
 ) []Violation {
-	match := consistencyEntryRe.FindStringSubmatch(line)
+	match := matchEntryLine(line)
 	if match == nil {
 		// 条目结构错误由格式闸负责，避免同一问题重复报告。
 		return nil

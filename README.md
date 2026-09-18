@@ -953,7 +953,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 57 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 59 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full
@@ -962,10 +962,11 @@ and CLI only:
   optional model track puts a real AI agent — any model your OpenCode
   installation exposes — through the two small repositories and scores the end
   state from public surfaces.
-- **Upgrade axis** — 14 checks per released version, over two configuration
+- **Upgrade axis** — 32 checks per released version, over four repository
   shapes: every published release builds and authors a repository with its own
   binary, then the binary under test must govern it without moving an identity,
-  demanding a Scope Change, or rewriting a formal asset. The other three suites
+  demanding a Scope Change, or rewriting a formal asset, and what it then
+  authors must keep a checkout at another path aligned. The other three suites
   mint every fixture with the binary under test, so a preimage that changed
   between versions is invisible to them by construction.
 

@@ -223,8 +223,8 @@ func hasCanonicalV2Tag(tags map[string]string) bool {
 }
 
 func hasCanonicalV2FRASOrder(line string) bool {
-	separator := strings.Index(line, "]:")
-	if separator < 0 {
+	_, _, separator, ok := index.EntryTagSpan(line)
+	if !ok {
 		return false
 	}
 	segments := strings.Split(strings.TrimSpace(line[separator+2:]), " | ")

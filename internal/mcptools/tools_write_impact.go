@@ -161,8 +161,8 @@ func volumeCodeRepoContext(root string, loaded *cognitionRepoCtx) *repoCtx {
 // identity normalization. It never creates or rewrites tag or FRAS semantics.
 func canonicalVolumeCandidateLine(rel, raw string) string {
 	line := index.StripFences(raw)
-	filenameEnd := strings.Index(line, "[")
-	if filenameEnd <= 0 {
+	filenameEnd, _, _, tagFound := index.EntryTagSpan(line)
+	if !tagFound || filenameEnd <= 0 {
 		return line
 	}
 	if strings.TrimSpace(line[:filenameEnd]) == rel {

@@ -272,8 +272,10 @@ func enumerateEntryAtoms(raw []byte, line rawLine, parent string) []ByteRange {
 	text := strings.TrimPrefix(line.text, "\ufeff")
 	baseOffset := line.start + int64(len(line.text)-len(text))
 	result := []ByteRange{}
-	open := strings.Index(text, "[")
-	close := strings.Index(text, "]:")
+	open, close := -1, -1
+	if nameEnd, _, tagEnd, ok := index.EntryTagSpan(text); ok {
+		open, close = nameEnd, tagEnd
+	}
 	if open >= 0 && close > open {
 		result = append(result, newByteRange("entry_tag", parent, baseOffset+int64(open+1), baseOffset+int64(close), line.number, line.number, raw))
 	}

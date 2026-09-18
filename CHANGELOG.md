@@ -2,6 +2,86 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Spell directory and file names the index grammar could not (#58, #60, #48).
+  The directory path in a section header stopped at the first whitespace, `=`,
+  `(`, or `（`, and a file name could not hold `[`. Three things followed. A
+  repository under a root with a space wrote that root in full once and then
+  appended every later section under the truncated root the parser read back. A
+  directory with a space made its Entry resolve to a path that does not exist,
+  so the same file was reported orphan and missing and the repository could
+  never align. And a file such as `pages/docs/[...id].jsx`, the dynamic-route
+  form of Next.js, Nuxt, and SvelteKit, could not be written at all, which
+  failed its whole atomic batch on every attempt. The original readings stay
+  first: an Entry line that parsed before parses identically, and a directory
+  header changes only when its remainder ends in `/`, which is how a
+  machine-written header for such a directory looks. A machine-written header
+  is now read to its final `/`, a bracketed file name up to the tag that
+  precedes `: F:`, and the dictionary, E-scale, S-quota, name-normalization,
+  and migration consumers locate the tag through that same reading instead of
+  the first `[`. Names are stored as they are, never escaped. An index already
+  written with a truncated root keeps resolving in place and in a checkout at
+  another path, without a rewrite, and a repository wedged by a directory name
+  with a space reads as aligned on upgrade; every index that aligned under
+  v0.1.0-rc13 aligns under this release. The origin and every checkout read the
+  shape every release has written under such a root (the root section in full,
+  later sections under the root as the original reading reads it back) the same
+  way, because it is recognised from the text alone, before the runtime root is
+  consulted: the first directory section reads as the common prefix under the
+  original reading, whether the full root lies beside that prefix or, when the
+  character begins a path segment (`/w/(x)/repo`), under it. This release writes that same shape, so one shape exists in the
+  wild and v0.1.0-rc13 still reads an index created here. A new index now begins
+  with its root section (written empty ahead of a first Entry that lives in a
+  directory) and an empty section is kept while every other section lies below
+  it, because it anchors relocation. Where an older writer spelled a directory
+  in its first section (a dot-directory that sorted before every root file, or
+  a directory whose first segment begins with `(`, such as a top-level `(home)/`
+  under a clean root), that section keeps the old reading everywhere, so both
+  sides report the same orphans and the ordinary repair aligns both; the same
+  file name under it and under the section the repair adds is no longer taken
+  for a duplicate, which refused every later write to such an index. A directory whose header would not read
+  back to the same path (a segment that ends in whitespace), or whose section
+  would resolve somewhere else, is refused instead of being recorded there:
+  `aoci_maintain` withholds the batch and answers `stopped` with `stop` facts
+  that quote the directory and give the operator's way out, and
+  `aoci_update_entry` gives the same answer to a caller that submits anyway,
+  with a `code_directory_unspellable` finding and no retry scope, because no
+  Entry edit clears it. A repository root that no header can carry (its first
+  segment begins with `(`, `（`, or `=`, or a segment has edge whitespace) is not
+  refused: the index records the part of it a header reads back, as every
+  earlier release effectively did. File and directory scope patterns accept
+  `[`, so a dynamic route can be named in a rule, and a refused rule pattern now
+  says why. v0.1.0-rc13 and earlier cannot read the new names themselves (they
+  refuse an index holding a bracketed file name and resolve such a directory
+  somewhere else), so a repository that uses one needs this release or newer on
+  every host (`docs/upgrading.md`). The rule is in
+  `spec/public/aoci-index-format-v1.txt`. Unit tests cover the readings, the
+  healing, relocation before and after an insert, roots that cut at a segment
+  boundary or cannot be spelled, and the root anchor; MCP tests walk authoring,
+  healing, the directory-first index, relocated checkouts, and the withheld
+  batch through to the rename that clears it; black-box scenario P1 authors all
+  four kinds under a root with a space and verifies a copy at another path, and
+  P2 walks the withheld batch, the refused direct update, and the rename on the
+  shipped binary (59 scenarios); and the upgrade axis gains two repository shapes, under a path
+  with a space and under a directory whose name begins with `(`, plus a check
+  that what the binary under test authors keeps a checkout aligned (32 checks
+  per released version, over four shapes).
+- Declare nullable tool inputs without JSON Schema type arrays (#61, #63). Five
+  inputs across `aoci_get_entries`, `aoci_update_entry`, and `aoci_overview`
+  used `"type": ["null", ...]`, which Gemini's function-declaration endpoint
+  refuses, so a host forwarding the MCP schemas there could not register the
+  tools at all. They are now `anyOf` with an explicit null branch. The accepted
+  instances are identical; the published schema bytes change, and the golden
+  moves with them. Checked against a live endpoint: the rc13 declarations
+  answer HTTP 400 on gemini-3.8-flash and gemini-2.5-flash, these answer 200.
+- Build status-page snapshots for different repositories concurrently (#64).
+  One global mutex was held while a snapshot was built, so a slow repository
+  blocked every other one; each root now has its own lock.
+- Give `make build` the native executable suffix (#59, #65). Windows gets
+  `build/aoci.exe` directly, `make verify` uses the same path, and the README
+  drops the copy step. Linux and macOS are unchanged.
+
 ## v0.1.0-rc13
 
 One fix for a path that stayed closed after a cognition optimization (#57),

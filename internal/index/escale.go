@@ -240,15 +240,11 @@ func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScale
 	if !th.HasThresholds() {
 		return nil
 	}
-	lb := strings.Index(line, "[")
-	if lb < 0 {
+	_, tagStart, tagEnd, ok := EntryTagSpan(line)
+	if !ok {
 		return nil
 	}
-	rb := strings.Index(line[lb:], "]:")
-	if rb < 0 {
-		return nil
-	}
-	tags := ParseTags(line[lb+1 : lb+rb])
+	tags := ParseTags(line[tagStart:tagEnd])
 	if len(tags) == 0 {
 		return nil // 非标标签降级,不做档位判定(与 quota/dict 同策略)
 	}

@@ -37,6 +37,12 @@ type Section struct {
 	Name string
 	// AbsPath 段头中提取的绝对路径(以 / 开头);非目录段为空字符串
 	AbsPath string
+	// LegacyAbsPath is what the original three-regex grammar reads from the same
+	// header: the path stops at the first whitespace, "=", "(" or "（". It equals
+	// AbsPath unless the extended reading applied. Indexes written while only that
+	// reading existed carry truncated roots in their later sections, and this is
+	// the evidence that lets them keep resolving.
+	LegacyAbsPath string
 	// HeaderLine 段头原始整行
 	HeaderLine string
 	// Entries 本段内成功解析的条目;仅 AbsPath 非空的目录段收集条目

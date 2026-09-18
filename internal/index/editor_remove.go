@@ -120,12 +120,22 @@ func RemoveEntryForPath(text, repoRoot, relPath, oldLine string) (string, error)
 // PruneEmptySections removes directory Sections that contain neither an Entry
 // nor independent non-comment formal content. It preserves Header bytes,
 // non-directory layout markers, line endings, and the trailing-newline shape.
+//
+// The root section is the exception while any other directory section remains:
+// it anchors the coordinates of the whole index. Relocation resolves against the
+// common prefix of the sections, which is the root only while a section sits
+// there; without it a clone, and under a root no header can spell the origin
+// too, resolves every remaining Entry somewhere else and offers live Entries as
+// orphans. An empty root section costs one header line.
 func PruneEmptySections(text string) string {
 	lines, eol, trailingNL := splitPreserve(text)
 	document, _ := Parse(strings.Join(lines, "\n"))
 	remove := make([]bool, len(lines))
 	for sectionIndex, section := range document.Sections {
 		if section.AbsPath == "" || len(section.Entries) != 0 {
+			continue
+		}
+		if anchorsOtherSections(document, section) {
 			continue
 		}
 		pureEmpty := true
@@ -155,4 +165,36 @@ func PruneEmptySections(text string) string {
 		}
 	}
 	return joinPreserve(kept, eol, trailingNL)
+}
+
+// anchorsOtherSections reports whether section is the root of the index's
+// coordinates: some other directory section exists, and every one of them lies
+// strictly below this section's path. For the first directory section the path
+// may be the legacy reading of its header, which is how the old writer's one
+// full-spelled section anchors the family it left under the truncated root. It
+// is judged from the text alone, like everything else about section roots.
+func anchorsOtherSections(document *Document, section *Section) bool {
+	bases := []string{normalizeRootPath(section.AbsPath)}
+	if section == firstDirectorySection(document) {
+		if legacy := normalizeRootPath(section.LegacyAbsPath); legacy != "" && legacy != bases[0] {
+			bases = append(bases, legacy)
+		}
+	}
+	for _, base := range bases {
+		others, anchored := 0, true
+		for _, other := range document.Sections {
+			if other == section || other.AbsPath == "" {
+				continue
+			}
+			others++
+			if rel, ok := relUnder(normalizeRootPath(other.AbsPath), base); !ok || rel == "" {
+				anchored = false
+				break
+			}
+		}
+		if anchored && others > 0 {
+			return true
+		}
+	}
+	return false
 }

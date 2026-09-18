@@ -367,6 +367,9 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 				return nil, fmt.Errorf("managed_scope_candidate_unexpected_entry_preimage: %s (the path has no Entry yet, so current_entry_sha256 must be omitted)", rel)
 			}
 			projected, err = index.InsertEntry(projected, rel, candidate.NewEntry, root)
+			if errors.Is(err, index.ErrDirectoryUnspellable) {
+				return nil, fmt.Errorf("managed_scope_entry_directory_unspellable: %s (no section header reads back to this directory; rename it so that no path segment begins or ends with whitespace, or keep the path out of the index role)", rel)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("managed_scope_entry_create_failed: %s", rel)
 			}

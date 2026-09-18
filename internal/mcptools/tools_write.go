@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -258,10 +259,7 @@ func prepareUpdateEntry(
 	}
 
 	// 段内条目使用裸文件名；完整相对路径可做无歧义归一。
-	if filenameEnd := strings.Index(
-		line,
-		"[",
-	); filenameEnd > 0 {
+	if filenameEnd, _, _, tagFound := index.EntryTagSpan(line); tagFound && filenameEnd > 0 {
 		filename := strings.TrimSpace(
 			line[:filenameEnd],
 		)
@@ -359,6 +357,14 @@ func prepareUpdateEntry(
 				root,
 			)
 
+		var unspellable *index.DirectoryUnspellableError
+		if errors.As(transformErr, &unspellable) {
+			// No edit to the Entry can clear this: the directory itself has no
+			// section header that reads back to the same path. Answer stopped with
+			// the operator's moves, never repair_required with a retry scope:
+			// resubmitting the same batch can only fail the same way.
+			return nil, "", directoryUnspellableFail(root, rel, rc.paths.IndexPath, unspellable)
+		}
 		if transformErr != nil {
 			return nil, "", &Fail{
 				Code: errBadArgs,
@@ -692,4 +698,38 @@ func commitPlan(
 	)
 
 	return nil
+}
+
+// directoryUnspellableFail is the one answer to a directory, or a repository
+// root, that no section header can spell: the update path and Maintain's
+// pre-authoring check both give it, so the model is told the same thing before
+// and after it authors.
+func directoryUnspellableFail(root, rel, indexPath string, unspellable *index.DirectoryUnspellableError) *Fail {
+	// Message keys stay string literals: the locale contract test reads them
+	// statically to prove every consumer is declared.
+	ruleCode := "code_directory_unspellable"
+	cause := writeMessage("entry.repair.cause.directory_unspellable", unspellable.Directory)
+	action := writeMessage("entry.repair.action.directory_unspellable")
+	if unspellable.Root {
+		ruleCode = "code_root_unspellable"
+		cause = writeMessage("entry.repair.cause.root_unspellable", unspellable.Directory)
+		action = writeMessage("entry.repair.action.root_unspellable")
+	}
+	asset := filepath.ToSlash(indexPath)
+	if relAsset, err := filepath.Rel(root, indexPath); err == nil {
+		asset = filepath.ToSlash(relAsset)
+	}
+	return &Fail{Code: errDirectoryUnspellable, Msg: cause, Hint: action,
+		Findings: []cognition.RepairFinding{{
+			Path: rel, CanonicalObjectIdentity: "code:" + rel, ObjectRef: "code:" + rel,
+			Domain: cognition.ScopeCode, Field: "path",
+			Code: ruleCode, RuleCode: ruleCode,
+			Expected: "section_header_round_trip=true", Actual: "directory=" + strconv.Quote(unspellable.Directory),
+		}},
+		GlobalStop: &GlobalStopFacts{
+			AffectedAsset: asset, Field: "section_header", RuleCode: ruleCode,
+			Expected: "section_header_round_trip=true", Actual: "directory=" + strconv.Quote(unspellable.Directory),
+			Cause: cause, SafeNextAction: action,
+		},
+		Repairable: false}
 }

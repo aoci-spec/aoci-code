@@ -279,16 +279,12 @@ func cutSPrefix(seg string) (string, bool) {
 // 返回 nil 表示无违规或不可判定(无标签结构/标签无 C —— 结构问题归
 // ValidateEntryLine,本函数不重复报);超配额返回 Warning 级 Violation。
 func CheckSQuotaWith(line string, th *SQuotaThresholds) *Violation {
-	// 提取 [tags]: 结构 —— 与条目正则同锚点(首 [ 与其后首个 ]: )
-	lb := strings.Index(line, "[")
-	if lb < 0 {
+	// 提取 [tags]: 结构 —— 与条目词法同源(EntryTagSpan), 文件名里的 [ 不会被当成标签
+	_, tagStart, tagEnd, ok := EntryTagSpan(line)
+	if !ok {
 		return nil
 	}
-	rb := strings.Index(line[lb:], "]:")
-	if rb < 0 {
-		return nil
-	}
-	c := extractCFromTags(line[lb+1 : lb+rb])
+	c := extractCFromTags(line[tagStart:tagEnd])
 	if c == 0 {
 		return nil // 非标标签降级,不做配额判定
 	}
