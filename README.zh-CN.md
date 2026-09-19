@@ -124,6 +124,10 @@ Root、Meta 与参与其中的对象 Volume 共同组成当前 Whole-Index。在
 - 一个受支持的 MCP 宿主，例如 Codex、Claude Code、Cursor 或 OpenCode；
 - 对目标仓库的正常读写权限。
 
+AOCI-CODE 接入的是 MCP 宿主，不直接接入模型供应商 API。DeepSeek 等模型只有在承载它们的
+AI Agent 或宿主支持标准 stdio MCP 并能遵循工具合同时才能使用 AOCI-CODE；仅凭模型名称
+无法判断兼容性。
+
 签名包路线和可执行验证命令见[安装指南](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc14/docs/install.md#signed-github-release-packages)；下面仍保留从源码构建的路线。
 
 ### 1. 📦 当前 RC：使用经验证的软件包或从源码构建

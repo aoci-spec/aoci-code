@@ -131,6 +131,11 @@ How long the first index takes depends on repository size. A normal integration 
 - A supported MCP host, such as Codex, Claude Code, Cursor, or OpenCode.
 - Normal read and write access to the target repository.
 
+AOCI-CODE integrates with the MCP host, not with a model-provider API. DeepSeek
+and other models can use AOCI-CODE when the agent or host running them supports
+standard stdio MCP and can follow the tool contract; a model name alone does not
+establish compatibility.
+
 The signed-package route and executable verification commands are in the [installation guide](https://github.com/aoci-spec/aoci-code/blob/v0.1.0-rc14/docs/install.md#signed-github-release-packages). The source-build route is below.
 
 ### Current RC: use a verified package or build from source
