@@ -11,11 +11,22 @@ from stdio_capture import BoundedStderr
 
 HARNESS_DIR = pathlib.Path(__file__).resolve().parent
 HARNESSES = ("mcp_conformance.py", "mcp_scenarios.py", "mcp_upgrade.py")
+# The slow server sleeps far longer than any deadline below, and the elapsed-time
+# bound sits far below that sleep. Both margins used to be under a second (a 1 s
+# sleep against a 0.1 s deadline, and "done within 0.8 s"), which a loaded Windows
+# runner broke twice in three runs: the timer thread fired more than 0.9 s late, so
+# the response arrived first and no TimeoutError was raised, or killing and
+# reaping the child alone took 2.84 s. What the tests prove is unchanged: the
+# deadline interrupts the call long before the server would have answered, and
+# the timed-out server is reaped. A timed-out child is killed, never waited for.
+SLOW_SERVER_SECONDS = 30
+INTERRUPTED_WITHIN_SECONDS = 10
 SERVER = r'''
 import json, sys, time
 mode = sys.argv[1]
+SLOW = float(sys.argv[2])
 if mode == "blocked_write":
-    time.sleep(1)
+    time.sleep(SLOW)
 for line in sys.stdin:
     request = json.loads(line)
     response = json.dumps({"jsonrpc": "2.0", "id": request["id"], "result": {}})
@@ -23,7 +34,7 @@ for line in sys.stdin:
         break
     if mode == "partial":
         sys.stdout.write(response[:5]); sys.stdout.flush()
-        time.sleep(1)
+        time.sleep(SLOW)
         print(response[5:], flush=True)
     else:
         if mode == "noise":
@@ -31,7 +42,7 @@ for line in sys.stdin:
         if mode == "stderr_timeout":
             print("deadline diagnostic", file=sys.stderr, flush=True)
         if mode in ("silent", "noise", "stderr_timeout"):
-            time.sleep(1)
+            time.sleep(SLOW)
         print(response, flush=True)
 '''
 
@@ -50,7 +61,7 @@ def session_class(filename):
 
 class RPCDeadlineTests(unittest.TestCase):
     def client(self, filename, mode):
-        process = subprocess.Popen([sys.executable, "-u", "-c", SERVER, mode],
+        process = subprocess.Popen([sys.executable, "-u", "-c", SERVER, mode, str(SLOW_SERVER_SECONDS)],
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, encoding="utf-8")
         self.addCleanup(self.close_process, process)
@@ -76,7 +87,7 @@ class RPCDeadlineTests(unittest.TestCase):
                     started = time.monotonic()
                     with self.assertRaisesRegex(TimeoutError, "initialize"):
                         client.rpc("initialize", timeout=0.1)
-                    self.assertLess(time.monotonic() - started, 0.8)
+                    self.assertLess(time.monotonic() - started, INTERRUPTED_WITHIN_SECONDS)
                     self.assertIsNotNone(client.p.poll(), "timed-out server must be reaped")
 
     def test_deadline_also_interrupts_a_blocked_request_write(self):
@@ -86,7 +97,7 @@ class RPCDeadlineTests(unittest.TestCase):
                 started = time.monotonic()
                 with self.assertRaisesRegex(TimeoutError, "tools/call"):
                     client.rpc("tools/call", {"payload": "x" * 1_000_000}, timeout=0.1)
-                self.assertLess(time.monotonic() - started, 0.8)
+                self.assertLess(time.monotonic() - started, INTERRUPTED_WITHIN_SECONDS)
                 self.assertIsNotNone(client.p.poll())
 
     def test_timeout_preserves_the_stderr_tail(self):

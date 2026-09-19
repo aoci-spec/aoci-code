@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-19T19:33:53Z",
+  "updated_at": "2026-09-19T19:42:00Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -5805,9 +5805,9 @@
     },
     "scripts/blackbox/test_stdio_deadline.py": {
       "role": "observe",
-      "sha256": "390c5bc27a8d7bc81976b2a556c37f3d47dfc23ee664c4b4b7f809ac01c89243",
-      "size": 5130,
-      "normalized_sha256": "390c5bc27a8d7bc81976b2a556c37f3d47dfc23ee664c4b4b7f809ac01c89243"
+      "sha256": "183efbc433117d3b17eeb65827ba209c4be2c86589daf11b9c0c12bb649547bb",
+      "size": 5938,
+      "normalized_sha256": "183efbc433117d3b17eeb65827ba209c4be2c86589daf11b9c0c12bb649547bb"
     },
     "scripts/check-deps.sh": {
       "role": "index",
