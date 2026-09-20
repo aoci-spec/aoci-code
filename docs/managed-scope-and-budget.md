@@ -79,24 +79,34 @@ bridge for a directory such as `/work` that contains `svc-a/` and `svc-b/`, but
 it is not a workspace identity model: the resulting Baseline does not retain
 the child repository boundaries.
 
-Two limits matter:
+Three limits matter:
 
 - Child-repository `.gitignore` files do not control this non-Git traversal.
   Use project `exclude_dirs` / `exclude_files` settings or Managed Scope rules
-  for paths that must stay out.
+  for paths that must stay out. `aoci config set exclude_dirs` replaces the
+  whole list, so keep the defaults in the value you set.
+- `init` keeps the host configuration it writes (`.mcp.json`,
+  `.codex/config.toml`, or `opencode.json`) out of Managed Scope through a Git
+  ignore rule, and a non-Git root has none. Left alone, that machine-bound file
+  takes the `index` role at the first `scan`, so exclude it with a rule first.
 - If the selected root is itself a Git repository, Git is the inventory
   authority. Git does not enumerate the contents of submodules, so initialize
   each submodule separately. A parent repository cannot use this non-Git bridge
   to absorb them.
 
 To start with only part of a large container, add one `exclude` rule per
-deferred module before the first `scan`:
+deferred module, and one for the host configuration, before the first `scan`:
 
 ```text
 aoci --repo /work init --agent <name>
 aoci --repo /work scope rule add later-svc-b --action exclude --pattern svc-b --pattern-kind directory --reason "defer initial indexing"
+aoci --repo /work scope rule add host-config --action exclude --pattern .mcp.json --pattern-kind file --reason "machine-bound host configuration"
 aoci --repo /work scan
 ```
+
+Order matters because roles freeze at the first `scan`: narrowing afterwards
+reduces coverage, which needs `scope approve` on a TTY even when no Entry has
+been written yet.
 
 Do not build this policy as `exclude **` followed by `index svc-a`. A user
 `index` rule overrides the production profile and would pull tests and fixtures

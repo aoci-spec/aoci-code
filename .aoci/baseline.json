@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-20T08:38:51Z",
+  "updated_at": "2026-09-20T08:41:09Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -123,9 +123,9 @@
       "normalized_sha256": "ad74b5eaed30b4703b40eeea04598a2bc3a2bb15beb2425b74144d2d196fc39a"
     },
     "aoci.code.txt": {
-      "sha256": "b5009ee2faa3ac30085aaa98429cca8ef938084c2a7a096c735e434493b284a9",
-      "size": 187994,
-      "normalized_sha256": "b5009ee2faa3ac30085aaa98429cca8ef938084c2a7a096c735e434493b284a9"
+      "sha256": "3e6eea1ac23ec44ca6114afed077c57e7dc67130a86bf24a930db5b2efa13971",
+      "size": 188135,
+      "normalized_sha256": "3e6eea1ac23ec44ca6114afed077c57e7dc67130a86bf24a930db5b2efa13971"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -208,9 +208,9 @@
       "normalized_sha256": "ffe6b0c67ebcae7516777dfff986b0e28013057c480ae70771a2056a81c3edb5"
     },
     "docs/managed-scope-and-budget.md": {
-      "sha256": "9032f01a028e2cd71a63526d437e4a6cf2aea992242cb39937141279e34988b4",
-      "size": 16531,
-      "normalized_sha256": "9032f01a028e2cd71a63526d437e4a6cf2aea992242cb39937141279e34988b4"
+      "sha256": "8fb8d0e1688d28fa0519594b0d8f9c57f0269c1b3bce7f30d6485f88e028f7d4",
+      "size": 17291,
+      "normalized_sha256": "8fb8d0e1688d28fa0519594b0d8f9c57f0269c1b3bce7f30d6485f88e028f7d4"
     },
     "docs/overview-delivery.md": {
       "sha256": "da4c263ca66370c26c5d5f93bb5c7211b758eb9b70719b37ecb6ee3dfad8a30c",
@@ -3394,10 +3394,10 @@
     },
     "internal/fs/safe_inventory_test.go": {
       "role": "observe",
-      "sha256": "4a5497a49afe4a460e950caa6f3ceb5317d17e14ff6da1dbaff7103bf962bbc3",
-      "size": 12040,
-      "normalized_sha256": "4a5497a49afe4a460e950caa6f3ceb5317d17e14ff6da1dbaff7103bf962bbc3",
-      "format_sha256": "4a5497a49afe4a460e950caa6f3ceb5317d17e14ff6da1dbaff7103bf962bbc3",
+      "sha256": "938c7a10fccaa423b9eb8fe9a4097994cd9e1f6fce5d5fd8175a13f662c59c97",
+      "size": 13631,
+      "normalized_sha256": "938c7a10fccaa423b9eb8fe9a4097994cd9e1f6fce5d5fd8175a13f662c59c97",
+      "format_sha256": "938c7a10fccaa423b9eb8fe9a4097994cd9e1f6fce5d5fd8175a13f662c59c97",
       "format_kind": "gofmt"
     },
     "internal/fs/safe_inventory_windows_test.go": {

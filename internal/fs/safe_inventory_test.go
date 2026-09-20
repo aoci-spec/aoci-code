@@ -190,6 +190,42 @@ func TestSafeInventoryNonGitRootIncludesNestedRepositories(t *testing.T) {
 	}
 }
 
+func TestSafeInventoryNonGitRootReadsNoChildGitignore(t *testing.T) {
+	root := t.TempDir()
+	serviceRoot := filepath.Join(root, "svc-a")
+	if err := os.MkdirAll(serviceRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitCommand(t, serviceRoot, "init", "-q")
+	// The probe name is one no built-in rule touches: a name such as build/
+	// is pruned by the safety boundary and would look like an honored ignore.
+	mustWrite(t, root, "svc-a/.gitignore", "local-notes.txt\n")
+	mustWrite(t, root, "svc-a/local-notes.txt", "ignored by the child repository only\n")
+	mustWrite(t, root, "svc-a/main.go", "package main\n")
+
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"svc-a/main.go", "svc-a/local-notes.txt"} {
+		if !containsPath(report.ManagedCandidates, path) {
+			t.Fatalf("docs/managed-scope-and-budget.md says a child .gitignore has no authority under a non-Git root, but %s is missing: %#v", path, report.ManagedCandidates)
+		}
+	}
+
+	// The remedy that document names has to work where the ignore file does not.
+	report, err = BuildSafeInventory(root, WalkOptions{ExcludeFiles: []string{"local-notes.txt"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsPath(report.ManagedCandidates, "svc-a/local-notes.txt") || exclusionCategory(report, "svc-a/local-notes.txt") != SafetyConfigured {
+		t.Fatalf("exclude_files did not keep the path out: %#v", report.Exclusions)
+	}
+	if !containsPath(report.ManagedCandidates, "svc-a/main.go") {
+		t.Fatalf("exclude_files removed an unrelated source: %#v", report.ManagedCandidates)
+	}
+}
+
 func TestSafeInventoryExcludeOnlyArtifactsRemainAutoEligible(t *testing.T) {
 	root := t.TempDir()
 	for _, path := range []string{
