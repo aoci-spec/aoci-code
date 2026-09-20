@@ -155,6 +155,41 @@ func TestSafeInventoryNonGitAndHighRiskOptIn(t *testing.T) {
 	}
 }
 
+func TestSafeInventoryNonGitRootIncludesNestedRepositories(t *testing.T) {
+	root := t.TempDir()
+	for _, service := range []string{"svc-a", "svc-b"} {
+		serviceRoot := filepath.Join(root, service)
+		if err := os.MkdirAll(serviceRoot, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		gitCommand(t, serviceRoot, "init", "-q")
+		mustWrite(t, root, service+"/main.go", "package main\n")
+	}
+
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary.GitRepository {
+		t.Fatal("a non-Git container must keep the traversal inventory path")
+	}
+	for _, path := range []string{"svc-a/main.go", "svc-b/main.go"} {
+		if !containsPath(report.ManagedCandidates, path) {
+			t.Fatalf("nested repository source %s was not inventoried: %#v", path, report.ManagedCandidates)
+		}
+	}
+	for _, path := range []string{"svc-a/.git", "svc-b/.git"} {
+		if exclusionCategory(report, path) != SafetyGenerated {
+			t.Fatalf("nested repository metadata %s did not keep its VCS exclusion: %#v", path, report.Exclusions)
+		}
+	}
+	for _, path := range report.ManagedCandidates {
+		if strings.Contains(path, "/.git/") || strings.HasSuffix(path, "/.git") {
+			t.Fatalf("nested repository metadata became managed: %s", path)
+		}
+	}
+}
+
 func TestSafeInventoryExcludeOnlyArtifactsRemainAutoEligible(t *testing.T) {
 	root := t.TempDir()
 	for _, path := range []string{

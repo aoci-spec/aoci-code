@@ -69,6 +69,59 @@ Spec, platform, or Header cognition, update formal Entries when needed, then
 run `aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
 opened and produces no drift.
 
+## Container directories and progressive onboarding
+
+AOCI can use a directory that is not itself a Git repository as its repository
+root. Safe Inventory traverses that directory, so files below multiple child Git
+repositories enter one repository-relative namespace. Each child `.git`
+directory remains excluded by the hard safety boundary. This is a practical
+bridge for a directory such as `/work` that contains `svc-a/` and `svc-b/`, but
+it is not a workspace identity model: the resulting Baseline does not retain
+the child repository boundaries.
+
+Two limits matter:
+
+- Child-repository `.gitignore` files do not control this non-Git traversal.
+  Use project `exclude_dirs` / `exclude_files` settings or Managed Scope rules
+  for paths that must stay out.
+- If the selected root is itself a Git repository, Git is the inventory
+  authority. Git does not enumerate the contents of submodules, so initialize
+  each submodule separately. A parent repository cannot use this non-Git bridge
+  to absorb them.
+
+To start with only part of a large container, add one `exclude` rule per
+deferred module before the first `scan`:
+
+```text
+aoci --repo /work init --agent <name>
+aoci --repo /work scope rule add later-svc-b --action exclude --pattern svc-b --pattern-kind directory --reason "defer initial indexing"
+aoci --repo /work scan
+```
+
+Do not build this policy as `exclude **` followed by `index svc-a`. A user
+`index` rule overrides the production profile and would pull tests and fixtures
+into the Whole-Index instead of preserving their ordinary `observe` or
+`exclude` roles.
+
+To add the deferred module later, remove its rule and activate the resulting
+Scope Change with an empty Candidate Set:
+
+```text
+aoci --repo /work scope rule remove later-svc-b
+mkdir -p /work/.aoci/scope-change
+printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > /work/.aoci/scope-change/candidates.json
+aoci --repo /work scope preview --candidate-file /work/.aoci/scope-change/candidates.json --json > /work/.aoci/scope-change/preview.json
+aoci --repo /work scope apply --preview-file /work/.aoci/scope-change/preview.json
+```
+
+With effective approval mode `auto`, an ordinary safe expansion can use
+policy-bound Auto. Review mode, high-risk inputs, or a Preview that reports a
+human approval boundary require `scope approve`. Reducing an already active
+scope can also require that approval. After Apply, the next ordinary
+`aoci_maintain` batch plans the newly admitted files. Until then, excluded
+modules are absent from the formal index and cannot support a complete
+cross-module conclusion.
+
 ## Scale boundary
 
 A **new** project's Whole-Index budget defaults to 200000 target / 300000
