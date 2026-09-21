@@ -75,6 +75,19 @@ in `.codex/config.toml`, `mcp.aoci` in `opencode.json`, and any stale
 `PreToolUse` command in `.claude/settings.json`), then re-run
 `aoci --repo <root> init --agent <name>` from the new location.
 
+## AOCI tools appear in unrelated projects
+
+Each `aoci mcp` server is bound to the repository named by its `--repo`
+argument. If that server is registered in a Host's user-level or global MCP
+configuration, every project may expose the same tools, but those tools still
+read and govern the one bound repository.
+
+Remove that global entry and configure AOCI inside the intended project:
+`.mcp.json` for Claude Code, `.codex/config.toml` for Codex, `opencode.json` for
+OpenCode V1, or `.cursor/mcp.json` for Cursor. `aoci init --agent cursor` prints
+the Cursor configuration but does not write it. After moving the entry, refresh
+or reopen only the intended project session if its tools have not reloaded.
+
 ## MCP closes with EOF
 
 stdio MCP is incremental. Keep stdin open, send `initialize`, wait for its response, send `notifications/initialized`, and only then send requests such as `tools/list`. MCP stdout must contain JSON-RPC only; inspect stderr for diagnostics.
@@ -94,6 +107,38 @@ Stop at the reported failed step and follow its recovery evidence. Do not bypass
 ## Files appear under the Host's own data directory
 
 If helper scripts or entry drafts show up under `~/.claude/projects/<project>/…/tool-results/` (or the equivalent for another Host), the Host spilled an oversized tool result to disk and the model kept working next to it. aoci never writes there: its writes are `.aoci/` and the formal Volume files inside the repository, plus a tiny CAS lock file under the system temp directory. The cause is a Maintain response or authoring batch larger than the Host window; current versions size the batch (`code_cognition_batch_entries`, default 20) and bound the governance enumerations so the response fits inline. Upgrade, or lower the team batch size, and let the model author entries directly as `aoci_update_entry` arguments.
+
+## Initial cognition authoring is unexpectedly slow
+
+First separate deterministic AOCI time from Host and model time. When a response
+includes `metrics.deterministic_ms`, compare it with the tool call's wall-clock
+duration. A small deterministic value with a long wall-clock delay points
+outside AOCI's deterministic core. Check first whether the Host asks for
+confirmation on every AOCI tool call; after reviewing the exact project-level
+server, use the Host's project or session trust controls instead of weakening a
+global policy.
+
+The Code authoring batch defaults to 20 entries. A larger batch reduces model
+round trips when the Host can carry the response; increase it gradually rather
+than assuming the wire ceiling is safe:
+
+```bash
+aoci --repo . config set code_cognition_batch_entries 50
+```
+
+`overview_delivery.chunk_tokens` affects Whole-Index delivery, not semantic
+authoring throughput. Raising it can reduce Overview round trips on a Host that
+preserves the complete response. If the Host truncates or spills a result,
+lower it and restart the Chunk chain instead:
+
+```bash
+aoci --repo . config set overview_delivery.chunk_tokens 24000
+```
+
+When the Host controls model selection, a faster model that can still follow
+the authoring contract may also shorten the first build. AOCI does not select
+the Host model. Change one factor at a time and compare confirmations, model
+latency, batch count, and `deterministic_ms` before attributing the delay.
 
 ## Windows host cannot start MCP
 
