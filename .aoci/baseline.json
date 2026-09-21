@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-20T08:41:09Z",
+  "updated_at": "2026-09-21T02:46:01Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -2937,11 +2937,10 @@
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector.go": {
-      "role": "index",
-      "sha256": "1144877e1e695a45667c3b353ea08754457c970ea2ef894968a0969f2c693ad3",
-      "size": 10574,
-      "normalized_sha256": "1144877e1e695a45667c3b353ea08754457c970ea2ef894968a0969f2c693ad3",
-      "format_sha256": "1144877e1e695a45667c3b353ea08754457c970ea2ef894968a0969f2c693ad3",
+      "sha256": "e1f4f0683d81a6cc144705eb50f9a937de5957cb0876b22fcf5d3edc9bfd1540",
+      "size": 11215,
+      "normalized_sha256": "e1f4f0683d81a6cc144705eb50f9a937de5957cb0876b22fcf5d3edc9bfd1540",
+      "format_sha256": "e1f4f0683d81a6cc144705eb50f9a937de5957cb0876b22fcf5d3edc9bfd1540",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector_mysql.go": {
@@ -2978,10 +2977,10 @@
     },
     "internal/dbevidence/collector_test.go": {
       "role": "observe",
-      "sha256": "158f01fb96a2e84422fce315ef4083f453e4a3da483c23852aa67b9a35183133",
-      "size": 23505,
-      "normalized_sha256": "158f01fb96a2e84422fce315ef4083f453e4a3da483c23852aa67b9a35183133",
-      "format_sha256": "158f01fb96a2e84422fce315ef4083f453e4a3da483c23852aa67b9a35183133",
+      "sha256": "5eff777b28b1a2a225e4e8c695c318b44907c7e3158b1820d508696a00728b36",
+      "size": 24222,
+      "normalized_sha256": "5eff777b28b1a2a225e4e8c695c318b44907c7e3158b1820d508696a00728b36",
+      "format_sha256": "5eff777b28b1a2a225e4e8c695c318b44907c7e3158b1820d508696a00728b36",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/config.go": {

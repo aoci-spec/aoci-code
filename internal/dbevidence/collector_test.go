@@ -17,6 +17,7 @@ type mockCatalogState struct {
 	engine                      Engine
 	queries                     []string
 	readOnly                    bool
+	isolation                   driver.IsolationLevel
 	pingErr                     error
 	queryErr                    error
 	openDriverName              string
@@ -56,6 +57,7 @@ func (conn *mockCatalogConn) Begin() (driver.Tx, error) {
 func (conn *mockCatalogConn) Ping(context.Context) error { return conn.state.pingErr }
 func (conn *mockCatalogConn) BeginTx(_ context.Context, opts driver.TxOptions) (driver.Tx, error) {
 	conn.state.readOnly = opts.ReadOnly
+	conn.state.isolation = opts.Isolation
 	return mockCatalogTx{}, nil
 }
 func (conn *mockCatalogConn) QueryContext(_ context.Context, query string, _ []driver.NamedValue) (driver.Rows, error) {
@@ -95,8 +97,8 @@ func TestCollectorUsesReadOnlyTransactionAndOnlyCatalogQueries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !state.readOnly || manifest.BusinessDataRead || snapshot.BusinessDataRead || len(snapshot.Tables) != 1 || len(files) != 1 {
-		t.Fatalf("collector boundary failed: readOnly=%t manifest=%+v snapshot=%+v", state.readOnly, manifest, snapshot)
+	if !state.readOnly || state.isolation != driver.IsolationLevel(sql.LevelRepeatableRead) || manifest.BusinessDataRead || snapshot.BusinessDataRead || len(snapshot.Tables) != 1 || len(files) != 1 {
+		t.Fatalf("collector boundary failed: readOnly=%t isolation=%d manifest=%+v snapshot=%+v", state.readOnly, state.isolation, manifest, snapshot)
 	}
 	var table TableEvidence
 	if err := decodeStrict(files[snapshot.Tables[0].ObjectRef], &table); err != nil {
@@ -341,6 +343,18 @@ func TestDriverNameForEngineFailsClosed(t *testing.T) {
 	}
 	if _, err := driverNameForEngine("oracle"); err == nil {
 		t.Fatal("unknown engine received a driver")
+	}
+}
+
+func TestCatalogTransactionOptionsFailClosed(t *testing.T) {
+	for _, engine := range []Engine{EnginePostgreSQL, EngineMySQL, EngineOpenGauss} {
+		options, err := catalogTransactionOptions(engine)
+		if err != nil || !options.ReadOnly || options.Isolation != sql.LevelRepeatableRead {
+			t.Fatalf("engine %s received unexpected transaction options: options=%+v err=%v", engine, options, err)
+		}
+	}
+	if _, err := catalogTransactionOptions("oracle"); err == nil {
+		t.Fatal("unsupported engine received transaction options")
 	}
 }
 
