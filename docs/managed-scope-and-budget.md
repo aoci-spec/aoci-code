@@ -15,8 +15,10 @@ Configuration edits are proposals. They never silently delete Entries or
 advance the
 Baseline. The desired configuration is a CAS guard while the Baseline receipt
 owns the active policy identity. `aoci scope status` reports
-`scope_change_required`; then prepare a
-model-authored Candidate Set and run `scope preview`.
+`scope_change_required`; run `aoci scope activate` to activate a configuration-only
+change. It uses an empty Candidate Set through the existing preview/apply flow
+and does not edit rules or author Entries. Changes needing model-authored
+candidates still use explicit `scope preview` and `scope apply`.
 
 With `automation.mode=auto` and inherited or explicit Auto approval, run
 `aoci scope authorize --preview-file preview.json` to inspect or persist the
@@ -114,20 +116,18 @@ into the Whole-Index instead of preserving their ordinary `observe` or
 `exclude` roles.
 
 To add the deferred module later, remove its rule and activate the resulting
-Scope Change with an empty Candidate Set:
+Scope Change:
 
 ```text
 aoci --repo /work scope rule remove later-svc-b
-mkdir -p /work/.aoci/scope-change
-printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > /work/.aoci/scope-change/candidates.json
-aoci --repo /work scope preview --candidate-file /work/.aoci/scope-change/candidates.json --json > /work/.aoci/scope-change/preview.json
-aoci --repo /work scope apply --preview-file /work/.aoci/scope-change/preview.json
+aoci --repo /work scope activate
 ```
 
 With effective approval mode `auto`, an ordinary safe expansion can use
-policy-bound Auto. Review mode, high-risk inputs, or a Preview that reports a
-human approval boundary require `scope approve`. Reducing an already active
-scope can also require that approval. After Apply, the next ordinary
+policy-bound Auto. When the preview requires human approval, activation stops,
+saves the preview under `.aoci/scope-change/`, and prints the approve and apply
+commands to run in order. Replace `<id>` with your reviewer identity; approval
+requires a real TTY. Existing safety refusals remain refusals. After Apply, the next ordinary
 `aoci_maintain` batch plans the newly admitted files. Until then, excluded
 modules are absent from the formal index and cannot support a complete
 cross-module conclusion.
@@ -158,27 +158,22 @@ workaround:
 aoci scope budget set --max-tokens <n> --warning-tokens <n> --target-tokens <n>
 ```
 
-That edits the desired policy. Activating it goes through the governed Scope
-Change transaction, and `scope preview` emits the artifact the rest of the flow
-consumes only when it is given a candidate set — a configuration-only change
-still needs one, empty:
-
-Keep every artifact under `.aoci/scope-change/`. A file written into the
-worktree between preview and apply changes the state the plan was minted
-against, and apply then refuses with `managed_scope_replay_mismatch`; `.aoci` is
-excluded from the Safe Inventory unconditionally, so artifacts there are
-invisible to the plan.
+That edits the desired policy. Activate it through the governed Scope Change
+transaction:
 
 ```
-mkdir -p .aoci/scope-change
-printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > .aoci/scope-change/candidates.json
-aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json
-aoci scope approve --preview-file .aoci/scope-change/preview.json --actor <id> --out-file .aoci/scope-change/approval.json
-aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file .aoci/scope-change/approval.json
+aoci scope activate
 ```
 
-`scope approve` requires a real TTY and the digest phrase the preview carries.
-Raising a budget is a policy relaxation, so it is never applied silently.
+Raising a budget is a policy relaxation, so activation stops with exit 2 and
+prints the approve and apply commands. The preview is retained under
+`.aoci/scope-change/`; `scope approve` requires a real TTY and its digest phrase.
+With `--json`, the error details contain `preview_file`, `approve_command`, and
+`apply_command`. Successful activation returns the existing Scope Change result.
+
+For explicit candidate workflows, also keep artifacts under `.aoci/scope-change/`.
+A new worktree file between preview and apply can change the bound inventory
+and cause `managed_scope_replay_mismatch`; `.aoci` is always excluded.
 
 ### The candidate set
 
@@ -197,8 +192,8 @@ and the field that disqualified it (`entries[1]: candidate_id is empty`).
 | `observe_review` | no | Acknowledgement of changed Observe evidence: `paths`, `review_status`, `reviewer`. `scope acknowledge` writes this for you. |
 | `safety_approval` | no | A recorded approval for high-risk opt-ins; `scope safety approve` produces it. |
 
-A configuration-only change is the empty set shown above: `version` alone, or
-`entries` and `dispositions` empty, nothing else.
+A configuration-only change uses an empty set: `version` alone, or `entries`
+and `dispositions` empty, nothing else. `scope activate` supplies it for you.
 
 ### What each layout lets the candidate set carry
 
@@ -226,9 +221,10 @@ While desired policy differs from active, Verify, Check, Status, Maintain, and
 Guide report `scope_change_required` and every authoring path refuses to
 write. Two exits exist, in either layout:
 
-1. Activate the edit: preview with the empty candidate set, then apply.
+1. Activate the edit with `aoci scope activate`.
    Under Volumes this works over changed sources (previous section); under
-   Legacy, add an Entry candidate for each path the preview names as stale.
+   Legacy, use explicit preview/apply with an Entry candidate for each path
+   named as stale. Activation does not supply those semantics.
 2. Revert the edit (`scope rule remove <rule-id>`, or `scope budget set` back
    to the active values) so desired equals active again.
 

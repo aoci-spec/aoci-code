@@ -31,7 +31,7 @@ Nothing to do if your Baseline was established on a case-sensitive filesystem: t
 If it was established under the case-insensitive semantics, `aoci scope status` reports `scope_change_required`. Run the ordinary governed flow:
 
 ```bash
-aoci scope preview --candidate-file <empty-candidate-set.json>
+aoci scope activate
 ```
 
 Where both semantics assigned the same roles the plan is identity-only: no role changes, no Entry changes, `aoci.txt` byte-identical, and policy-bound auto can authorize it without a human. Where a rule and a path genuinely differ only in case, the plan carries that real role change and is authorized as one.

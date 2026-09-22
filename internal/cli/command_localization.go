@@ -52,6 +52,7 @@ var commandShortMessages = map[string]string{
 	"aoci scope preview":                         "cli.short.scope_preview",
 	"aoci scope approve":                         "cli.short.scope_approve",
 	"aoci scope apply":                           "cli.short.scope_apply",
+	"aoci scope activate":                        "cli.short.scope_activate",
 	"aoci scope status":                          "cli.short.scope_status",
 	"aoci scope resume":                          "cli.short.scope_resume",
 	"aoci scope rollback":                        "cli.short.scope_rollback",
@@ -148,7 +149,8 @@ var commandShortMessages = map[string]string{
 }
 
 var commandLongMessages = map[string]func() string{
-	"aoci ui": func() string { return cliMessage("cli.long.ui") },
+	"aoci scope activate": func() string { return cliMessage("cli.long.scope_activate") },
+	"aoci ui":             func() string { return cliMessage("cli.long.ui") },
 	"aoci help": func() string {
 		return cliMessage("cli.long.help")
 	},
