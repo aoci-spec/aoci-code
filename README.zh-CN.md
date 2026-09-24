@@ -950,6 +950,12 @@ AOCI-CODE v0.1.0-rc14 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软
 
 </details>
 
+## 💬 交流群
+
+用微信或企业微信扫码，加入“AOCI 项目小组”，和维护者及其他用户直接交流。二维码如果已过期，在 [GitHub Issues](https://github.com/aoci-spec/aoci-code/issues) 说一声，我们会在这里更新。问题反馈和功能建议请尽量提 Issue，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
+
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.jpg" alt="AOCI 项目小组企业微信群二维码" width="300">
+
 ---
 
 **AOCI-CODE 的目标不是让 AI Agent 看见更多代码，而是让它在每次行动前拥有一份当前、结构化、可追溯且受治理的软件系统认知。Git 管理代码版本，Database Migration 管理数据结构演进，AOCI-CODE 管理 AI Agent 可消费的系统认知，以及这种认知演进的可追溯性、治理一致性与恢复边界。**

@@ -13,6 +13,12 @@ import (
 
 var markdownDestinationPattern = regexp.MustCompile(`!?\[[^][]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)`)
 
+// htmlDestinationPattern catches destinations written as HTML attributes, such
+// as an <img src> sized for the page, which the Markdown pattern cannot see.
+// Without it a relative src slips past the archive check and ships a broken
+// image in every release archive.
+var htmlDestinationPattern = regexp.MustCompile(`(?i)\b(?:src|href)\s*=\s*"([^"]+)"`)
+
 func TestArchiveNames(t *testing.T) {
 	dir := t.TempDir()
 	tarPath := filepath.Join(dir, "aoci_test_linux_amd64.tar.gz")
@@ -54,6 +60,7 @@ func TestArchiveREADMERelativeLinksResolveInsideArchive(t *testing.T) {
 			if len(matches) == 0 {
 				t.Fatalf("packaged README has no Markdown links: %s", readme)
 			}
+			matches = append(matches, htmlDestinationPattern.FindAllSubmatch(raw, -1)...)
 			for _, match := range matches {
 				destination := string(match[1])
 				if strings.HasPrefix(destination, "http://") || strings.HasPrefix(destination, "https://") || strings.HasPrefix(destination, "#") {
@@ -64,7 +71,7 @@ func TestArchiveREADMERelativeLinksResolveInsideArchive(t *testing.T) {
 				}
 				cleaned := filepath.ToSlash(filepath.Clean(filepath.FromSlash(destination)))
 				if _, ok := archiveFiles[cleaned]; !ok {
-					t.Errorf("%s relative Markdown link points outside the archive: %s", readme, string(match[1]))
+					t.Errorf("%s relative link points outside the archive: %s", readme, string(match[1]))
 				}
 			}
 		})

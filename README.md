@@ -995,6 +995,12 @@ AOCI-CODE v0.1.0-rc14 is Fair Source/source-available software licensed under FS
 
 </details>
 
+## Community
+
+Scan the code with WeChat or WeCom (企业微信) to join the AOCI project group and talk with the maintainers and other users. If the code has expired, open a [GitHub issue](https://github.com/aoci-spec/aoci-code/issues) and we'll post a new one. File bug reports and feature requests as issues too, so they stay searchable. Report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
+
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.jpg" alt="QR code for joining the AOCI project group on WeCom" width="300">
+
 ---
 
 **AOCI-CODE is not about making an agent see more code. It gives the agent a current, structured, traceable, and governed understanding of the system before every action. Git versions your code, database migrations version your data structures, and AOCI-CODE versions what agents know about the system, along with the traceability, governance consistency, and recovery boundaries of how that knowledge evolves.**
