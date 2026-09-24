@@ -997,9 +997,9 @@ AOCI-CODE v0.1.0-rc14 is Fair Source/source-available software licensed under FS
 
 ## Community
 
-Scan the code with WeChat or WeCom (企业微信) to join the AOCI project group and talk with the maintainers and other users. If the code has expired, open a [GitHub issue](https://github.com/aoci-spec/aoci-code/issues) and we'll post a new one. File bug reports and feature requests as issues too, so they stay searchable. Report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
+Scan the code with WeChat or WeCom (企业微信) to join the AOCI project group and talk with the maintainers and other users. File bug reports and feature requests as [GitHub issues](https://github.com/aoci-spec/aoci-code/issues) so they stay searchable, and report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
 
-<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.jpg" alt="QR code for joining the AOCI project group on WeCom" width="300">
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="QR code for joining the AOCI project group on WeCom" width="240">
 
 ---
 

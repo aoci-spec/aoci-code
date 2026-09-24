@@ -111,9 +111,9 @@
       {
         "rule_id": "public-wecom-group-qr-exclude",
         "action": "exclude",
-        "pattern": "assets/wecom-group-qr.jpg",
+        "pattern": "assets/wecom-group-qr.png",
         "pattern_kind": "file",
-        "reason": "Community contact QR code shown in both READMEs; it is replaced whenever the group code rotates and carries no system semantics, so it is neither read nor fingerprinted",
+        "reason": "Community contact QR code shown in both READMEs: a permanent WeCom group code with no system semantics, so it is neither read nor fingerprinted",
         "decision_basis": "semantic_density",
         "source": "user",
         "created_by": "alkor2000",

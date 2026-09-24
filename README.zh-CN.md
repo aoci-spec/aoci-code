@@ -952,9 +952,9 @@ AOCI-CODE v0.1.0-rc14 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软
 
 ## 💬 交流群
 
-用微信或企业微信扫码，加入“AOCI 项目小组”，和维护者及其他用户直接交流。二维码如果已过期，在 [GitHub Issues](https://github.com/aoci-spec/aoci-code/issues) 说一声，我们会在这里更新。问题反馈和功能建议请尽量提 Issue，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
+用微信或企业微信扫码，加入 AOCI 项目交流群，和维护者及其他用户直接交流。问题反馈和功能建议请尽量提 [GitHub Issue](https://github.com/aoci-spec/aoci-code/issues)，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
 
-<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.jpg" alt="AOCI 项目小组企业微信群二维码" width="300">
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="AOCI 项目交流群企业微信二维码" width="240">
 
 ---
 
