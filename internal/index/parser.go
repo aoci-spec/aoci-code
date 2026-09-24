@@ -16,6 +16,8 @@
 // 段落自成集合,最长公共目录前缀只在该集合内计算并重定位;失配段集合无公共
 // 前缀时保守留空,绝不猜。ResolveRelPaths 与 FindSectionForPath 共享
 // resolveSectionRels 单一实现(消隐性孪生,重定位若只改一处必现失配)。
+// 若完整的历史根位于当前根之下(嵌套 worktree 回到主工作区),先按历史根重定位;
+// 否则直接前缀会把整个 worktree 路径误当成每个 Entry 的相对前缀。
 //
 // 解析规则:
 //   - UTF-8 BOM(\ufeff)在解析前剥离(P-18 宽进): Windows 编辑器常给文件加 BOM,
@@ -361,10 +363,11 @@ var regexpSVariant = regexp.MustCompile(`^S\d+:`)
 // 返回 map[段指针]relDir;不在映射中的段表示无法解析(条目不参与 rel 匹配)。
 //
 // 逐段解析(2026-07-10 二轮精化):
-//  1. 每段先试直接前缀比对 —— 段路径等于根记 "",在根下记剥前缀,命中即用;
-//  2. 全部失配的段落自成集合: 取该集合内全体段路径的最长公共目录前缀视为
+//  1. 完整的历史根若位于当前根之下,先按历史根重定位;
+//  2. 其余每段试直接前缀比对 —— 段路径等于根记 "",在根下记剥前缀,命中即用;
+//  3. 全部失配的段落自成集合: 取该集合内全体段路径的最长公共目录前缀视为
 //     "创建时根",各段剥离该前缀后即迁移不变的相对目录;
-//  3. 失配段集合无公共前缀时保守留空,绝不猜。
+//  4. 失配段集合无公共前缀时保守留空,绝不猜。
 //
 // 初版"存在任一命中段即放弃全部重定位"已废止 —— 迁移仓库内 agent 插入新段
 // (段头为当前根路径)即触发混合命中,存量段全体失明;而真实混合根几乎唯一
@@ -415,6 +418,21 @@ func resolveSectionReadings(doc *Document, repoRoot string) map[*Section]section
 	// first), the origin reads them as the old reader did rather than as it could.
 	if readings, ok := oldWriterReadings(directories, first); ok {
 		return readings
+	}
+
+	// A nested worktree's recorded root is a child of its primary checkout.
+	// Its root section and descendants form one historical family, even though
+	// direct matching would file every Entry under the worktree path. A lone
+	// section cannot distinguish that root from an ordinary subdirectory.
+	if len(directories) > 1 && first != nil {
+		recordedRoot := normalizeRootPath(first.AbsPath)
+		if rel, ok := relUnder(recordedRoot, root); ok && rel != "" {
+			if relocated, hasRoot := relocateExtended(directories); hasRoot && len(relocated) == len(directories) {
+				if reading, rooted := relocated[first]; rooted && reading.rel == "" {
+					return relocated
+				}
+			}
+		}
 	}
 
 	readings := map[*Section]sectionReading{}

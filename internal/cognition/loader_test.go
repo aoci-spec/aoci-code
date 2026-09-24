@@ -323,6 +323,42 @@ func TestVolumesCodeCloneUsesLogicalRelocationWithoutRewritingHistoricalRoot(t *
 	}
 }
 
+func TestVolumesCodeNestedWorktreeReadsFromPrimaryCheckout(t *testing.T) {
+	primary := t.TempDir()
+	worktree := filepath.Join(primary, ".worktrees", "wt")
+	clone := t.TempDir()
+	code := CodeVolumeMarker + "\n" +
+		"===Code " + filepath.ToSlash(worktree) + "/===\n" +
+		"go.mod[CD9S]: F:define the module | R:- | A:- | S:Keep its identity stable\n" +
+		"===Runtime " + filepath.ToSlash(filepath.Join(worktree, "internal")) + "/===\n" +
+		"run.go[CD9S]: F:run the service | R:go.mod | A:Run | S:-\n"
+	for _, root := range []string{primary, worktree, clone} {
+		if err := os.MkdirAll(root, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		for name, content := range map[string]string{
+			"aoci.txt":      rootText("meta", "code"),
+			"aoci.meta.txt": validMeta(),
+			"aoci.code.txt": code,
+		} {
+			if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		set, err := Load(root, "aoci.txt")
+		if err != nil {
+			t.Fatalf("load %s: %v", root, err)
+		}
+		objects := set.Volumes["code"].Objects
+		if len(objects) != 2 || objects[0].CanonicalRef != "code:go.mod" || objects[1].CanonicalRef != "code:internal/run.go" {
+			t.Fatalf("load %s resolved code objects as %#v", root, objects)
+		}
+		if got := string(set.Volumes["code"].Raw); got != code {
+			t.Fatalf("load %s rewrote historical Code Volume bytes", root)
+		}
+	}
+}
+
 func TestSingleOptionalObjectVolumeLayouts(t *testing.T) {
 	t.Run("code only", func(t *testing.T) {
 		root := writeFixture(t, map[string]string{"aoci.txt": rootText("meta", "code"), "aoci.meta.txt": validMeta()})
