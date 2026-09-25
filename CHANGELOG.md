@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Add `aoci scope activate` (#73, #54). After editing rules, a budget, or the
+  approval mode, one command builds the empty candidate set and runs the
+  existing Scope Change preview and Apply. When the preview needs a human, it
+  stops with exit 2, keeps the preview in a fresh directory under
+  `.aoci/scope-change/`, and prints the `scope approve` and `scope apply`
+  commands bound to this executable and repository; `--json` carries them
+  under `details`. It edits no rules and authors no Entries, and every
+  existing refusal stands. The four-line candidate-set recipes in the
+  documentation are replaced by the command; the spec gains a section, and
+  a fault-injection scenario (F10) covers activation over retained source
+  drift and the approval pause.
 - Select catalog transaction options per database engine (#72). PostgreSQL,
   MySQL, and openGauss keep their repeatable-read, read-only transaction; an
   engine without a policy fails closed before any connection is used, and the

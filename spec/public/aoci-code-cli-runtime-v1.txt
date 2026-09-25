@@ -56,6 +56,43 @@ its contract explicitly says otherwise, but local audit evidence can still be
 written when enabled. Formal writes use the existing validation, lock, CAS,
 atomic-write, and recovery pipeline.
 
+Managed Scope activation
+------------------------
+
+`aoci scope activate` activates the current desired scope and budget policy by
+building an empty `managed-scope-candidate-set/v1` through the existing Scope
+Change preview and Apply pipeline. It accepts no positional arguments or
+command-specific flags, edits no rules, and authors no Entries. It preserves
+the existing authorization, validation, lock, CAS, and recovery decisions.
+In particular, Legacy stale sources still require explicit Entry candidates;
+Volumes source drift remains available to subsequent ordinary maintenance.
+
+When the preview does not require human interaction, activation attempts Apply.
+Success exits 0 and `--json` emits the existing `managed-scope-change-result/v2`
+object, with no additional envelope. Other failures retain the existing Scope
+Change error behavior, including refusal when automation is off.
+
+When the preview reports `interaction_required`, activation does not prompt or
+attempt Apply. It saves the existing versioned preview in a unique directory
+under `.aoci/scope-change/`, without replacing an earlier pending preview, and
+exits 2. Human output names the preview and the approve and apply commands in
+order. `--json` emits the ordinary version-1 error envelope with `ok=false`,
+`exit_code=2`, `error_code=managed_scope_human_approval_required`, and these
+required `details` fields:
+
+  interaction_required: true
+  formal_writes_started: false
+  preview_file: absolute path to the saved preview
+  approve_command: shell-quoted command bound to this executable and repository
+  apply_command: shell-quoted command using the same preview and approval file
+
+The commands use `scope approve --actor <id> --out-file` followed by
+`scope apply --approval-file`; the operator replaces the quoted <id> placeholder
+with their reviewer identity. Approve retains its real-TTY digest confirmation.
+Saving the preview is a runtime artifact write, not a formal cognition or
+Baseline write. Apply still refuses changed sources or other stale guards and
+never treats the saved preview alone as approval.
+
 Bounded standard input
 ----------------------
 

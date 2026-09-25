@@ -53,7 +53,7 @@ func newScopeCmd() *cobra.Command {
 	command := &cobra.Command{Use: "scope", Short: cliMessage("cli.short.scope")}
 	command.AddCommand(newScopeShowCmd(), newScopeExplainCmd(), newScopeRuleCmd(), newScopeSafetyCmd(), newScopePlanCmd(), newScopePreviewCmd(),
 		newScopeBudgetCmd(), newScopeObservePolicyCmd(), newScopeApprovalModeCmd(), newScopeApproveCmd(), newScopeAuthorizeCmd(), newScopeApplyCmd(), newScopeStatusCmd(),
-		newScopeResumeCmd(), newScopeRollbackCmd(), newScopeAcknowledgeCmd())
+		newScopeResumeCmd(), newScopeRollbackCmd(), newScopeAcknowledgeCmd(), newScopeActivateCmd())
 	return command
 }
 

@@ -890,6 +890,59 @@ def group_f_scope():
            "PASS" if ok else "FAIL", f"rc={rc} | {blob[:160]}")
 
 
+def group_f_activate():
+    """A pending policy and changed source can reach ordinary maintenance in one command."""
+    g, name = "F", "F10.scope-activate-preserves-drift-and-pauses-for-approval"
+    d = make_fixture("scope-activate", 1)
+    s = Session(d)
+    try:
+        m, _, _ = maintain(s)
+        applied, text, _ = submit_batch(s, m)
+        if applied.get("status") != "applied":
+            record(g, name, "FAIL", f"fixture authoring failed: {text[:160]}")
+            return
+        rc, _, out, errs = cli(d, "scope", "rule", "add", "future",
+                               "--action", "exclude", "--pattern", "future.txt",
+                               "--pattern-kind", "file", "--reason", "future artifact")
+        if rc != 0:
+            record(g, name, "FAIL", f"rule add failed: {(out + errs)[:160]}")
+            return
+        before = repo_digest(d)
+        with open(os.path.join(d, "pkg", "f001.go"), "a", encoding="utf-8") as fh:
+            fh.write("\nfunc Changed() int { return 2 }\n")
+        rc, result, out, errs = cli(d, "scope", "activate", expect_ok=False)
+        after = repo_digest(d)
+        unchanged = all(before[p] == after.get(p) for p in
+                        (".aoci/config.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt"))
+        m, _, _ = maintain(s)
+        retained = [c.get("path") for c in m.get("candidates", [])] == ["pkg/f001.go"]
+        if rc != 0 or result.get("status") != "applied" or not unchanged or not retained:
+            record(g, name, "FAIL", f"rc={rc} unchanged={unchanged} retained={retained} | {(out + errs)[:160]}")
+            return
+        submit_batch(s, m)
+        aligned, _ = fixture_aligned(d)
+        cli(d, "scope", "budget", "set", "--max-tokens", "500000")
+        before = repo_digest(d)
+        rc, result, out, errs = cli(d, "scope", "activate", expect_ok=False)
+        details = result.get("details") or {}
+        preview = details.get("preview_file", "")
+        after = repo_digest(d)
+        unchanged = all(before[p] == after.get(p) for p in
+                        (".aoci/config.json", ".aoci/baseline.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt"))
+        saved = (os.path.isfile(preview) and
+                 os.path.commonpath([os.path.abspath(preview), os.path.join(d, ".aoci", "scope-change")])
+                 == os.path.join(d, ".aoci", "scope-change"))
+        commands = all(token in details.get(field, "") for field, token in
+                       (("approve_command", "--out-file"), ("apply_command", "--approval-file")))
+        ok = (aligned and rc == 2 and result.get("error_code") == "managed_scope_human_approval_required"
+              and details.get("interaction_required") is True and details.get("formal_writes_started") is False
+              and unchanged and saved and commands)
+        record(g, name, "PASS" if ok else "FAIL",
+               f"aligned={aligned} approval_rc={rc} unchanged={unchanged} saved={saved} commands={commands}")
+    finally:
+        s.close()
+
+
 def group_f_deleted_observe():
     """Deleting a tracked observe source must not wedge acknowledgement.
 
@@ -1783,6 +1836,7 @@ if __name__ == "__main__":
     group_f()
     group_n()
     group_f_scope()
+    group_f_activate()
     group_f_deleted_observe()
     group_f_excluded_tracked()
     group_t()

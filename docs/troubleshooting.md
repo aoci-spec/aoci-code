@@ -169,13 +169,10 @@ is the exit.
 
 Desired policy differs from the active one: a scope rule or a budget was
 edited, and every authoring path refuses to write until one governed Apply
-activates it. Activate it with an empty candidate set:
+activates it. Run:
 
 ```
-mkdir -p .aoci/scope-change
-printf '{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}' > .aoci/scope-change/candidates.json
-aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json
-aoci scope apply --preview-file .aoci/scope-change/preview.json
+aoci scope activate
 ```
 
 Sources that changed since the Baseline do not stop this under Volumes v1: the
@@ -189,8 +186,13 @@ that path; the fields are listed in `docs/managed-scope-and-budget.md` under
 "The candidate set". Reverting the edit (`aoci scope rule remove <rule-id>`)
 is the other exit in either layout.
 
-If `scope apply` answers `managed_scope_human_approval_required`, the change
-reduces coverage and needs `aoci scope approve` on a TTY first.
+If activation answers `managed_scope_human_approval_required` (exit 2), it saved
+the preview under `.aoci/scope-change/` and printed the approve and apply
+commands. Run them in order, replacing `<id>` with your reviewer identity;
+approve requires a real TTY. Review mode and policy relaxations can require
+this boundary even without a coverage reduction. With `--json`, the paths and
+commands are in the error's `details` object. Existing safety refusals still
+require resolving the reported cause.
 
 ## The cognition layer must be visible to Git
 

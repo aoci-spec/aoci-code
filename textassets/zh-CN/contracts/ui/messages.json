@@ -1,4 +1,7 @@
 {
+  "cli.short.scope_activate": "通过preview和apply激活当前期望的Managed Scope策略",
+  "cli.long.scope_activate": "使用空Candidate Set，经现有Scope Change preview/apply流程激活当前期望策略。本命令不编辑规则或编写Entry。安全的自动变更直接应用；需要真人审批时停止且不发起交互，将preview保存在.aoci/scope-change/。将<id>替换为审批者身份，依次执行输出的approve和apply命令。--json成功时返回现有Scope Change结果；审批暂停退出码为2，错误details包含preview_file、approve_command和apply_command。Legacy源漂移及其他治理拒绝行为保持不变。",
+  "scope.activate_approval_required": "需要真人审批。Preview已保存到%s。将<id>替换为审批者身份，然后依次运行：\n%s\n%s",
   "agent.apply_after_approval": "批准后：%s",
   "agent.apply_after_gates": "机器硬闸通过后直接执行：%s",
   "agent.field.array_required": "%s必须是JSON数组。",
@@ -986,7 +989,7 @@
   "guide.asset_invalid": "guide文本资源%q无效: %s",
   "guide.asset_load_failed": "[Guide文本资源%q加载失败: %s]",
   "guide.budget_blocked_cause": "Whole-Index 为 %d token，项目上限 %d。该预算是项目自有策略，不是系统固定上限。",
-  "guide.budget_instruction_raise": "或抬高项目预算, 这是受支持的变更而非绕行: aoci scope budget set --max-tokens <n>。生效需经受治 Scope Change, 且所有工件必须放在 .aoci/scope-change/ 下 —— 写进工作树的文件会改变 plan 生成时所依据的状态, apply 会以 managed_scope_replay_mismatch 拒绝。先把 {\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} 写入 .aoci/scope-change/candidates.json, 再依次执行 aoci scope preview --candidate-file .aoci/scope-change/candidates.json --json > .aoci/scope-change/preview.json、aoci scope approve --preview-file .aoci/scope-change/preview.json --actor <id> --out-file .aoci/scope-change/approval.json(需真实终端键入确认短语)、aoci scope apply --preview-file .aoci/scope-change/preview.json --approval-file .aoci/scope-change/approval.json。",
+  "guide.budget_instruction_raise": "也可以提高项目预算：aoci scope budget set --max-tokens <n>，然后执行 aoci scope activate。提高预算需要真人审批：activate 将 preview 保存在 .aoci/scope-change/，并输出 approve 和 apply 命令。将 <id> 替换为审批者身份后依次执行；scope approve 需要在真实终端键入摘要确认短语。",
   "guide.budget_instruction_scope_levers": "先缩减索引治理的范围: 用 aoci scope explain <path> 查明某文件为何是 Index 角色, 再用 aoci scope rule 将其改为 observe 或 exclude; 重写过大条目是另一条缩减路径。",
   "guide.compression_instruction_gate": "任何Apply前必须准备同时满足全部R/S上限和Whole-Index上限的Projected候选集。",
   "guide.compression_instruction_model": "模型必须根据源码证据完整重写受影响的F/R/A/S; 程序不得截断、摘要、改Tag或降低C。",
