@@ -2,7 +2,22 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc15
+
+Five fixes for the first index and for recovery, plus three contributor
+changes. A repository that holds an image, an empty file, or a file above
+1 MiB now reaches aligned in auto mode: such files are held out of authoring
+and reported, never handed to a decision Volumes v1 cannot make, which is
+where the first scan of a project holding one stopped under v0.1.0-rc14. A stale
+receipt under `.aoci/transactions` is seen by every surface and closed by the
+tool that wrote it (#74). Contributor changes: catalog transaction options per
+engine (#72), `aoci scope activate` (#73), and a nested-worktree index read
+from the primary checkout (#78, fixes #77). Existing indexes are not
+rewritten, every machine-written index that aligned under v0.1.0-rc14 aligns
+here, and the nine tools accept the same inputs. `aoci verify --json` gains
+`code_drift.skipped`, `code_drift.curation_excluded`, and
+`governance.pending_transaction_files`; `aoci scan --json` gains
+`skipped_sources`.
 
 - Read an index authored in a nested git worktree from the primary checkout
   (#78, fixes #77). When the recorded root lies below the invocation root and
