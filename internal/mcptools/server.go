@@ -158,7 +158,11 @@ func (loaded *cognitionRepoCtx) legacyRepo() *repoCtx {
 // Legacy is adapted to CognitionSet; Volumes v1 never falls through to the
 // monolithic parser.
 func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
-	if pending, err := cognitiontxn.Pending(root); err != nil {
+	// Only a layout transaction stops the loader: an MCP write receipt is
+	// closed by the tool that wrote it, and that tool loads the repository
+	// here. Delivery (Overview, Header, Search) still refuses on every receipt
+	// kind through pendingCognitionDeliveryFail.
+	if pending, err := cognitiontxn.PendingLayout(root); err != nil {
 		return nil, &Fail{Code: errCognitionSnapshotUnavailable, Msg: mcpMessage(
 			"overview.delivery.recovery_inspection_failed", localeSafeMCPDetail(err.Error()),
 		)}

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
@@ -190,6 +191,9 @@ func newIndexAgentGuideCmd() *cobra.Command {
 			if set.LayoutMode == cognition.LayoutVolumesV1 {
 				return writeVolumeAgentGuide(cmd, repoRoot, cfg, set, agentName)
 			}
+			if err := guardPendingReceiptsForLegacyAgent(repoRoot); err != nil {
+				return &ExitError{Code: ExitInvalid, Err: err}
+			}
 
 			doc, indexPath, err := loadIndexForCLI(
 				cmd,
@@ -297,7 +301,7 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 	}
 	guide := volumeAgentGuide{Version: agentGuideVersion, Agent: agent, Mode: mode,
 		Stage: facts.Result, Complete: facts.GovernanceAligned, NextAction: facts.NextRequiredAction,
-		ExecutableTargets: len(facts.Findings), AffectedDomains: append([]string{}, facts.AffectedDomains...),
+		ExecutableTargets: executableFindingCount(facts), AffectedDomains: append([]string{}, facts.AffectedDomains...),
 		Findings: append([]volumegovernance.Finding{}, facts.Findings...), Governance: facts,
 		Commands: agentGuideCommands{Guide: "aoci index agent guide --agent " + agent + " --json", HeaderShow: "aoci index header show", Verify: "aoci verify --json"}}
 	if !facts.GovernanceAligned {
@@ -308,7 +312,7 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
 		guide.Commands.Check = "aoci check --json"
-		work := volumegovernance.CodeAuthoringWorkFor(root, cfg, set, facts.CodeDrift)
+		work := volumegovernance.CodeAuthoringWorkFor(set, facts.CodeDrift)
 		total := len(work.Targets) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
 		// Guide projects the same team batch size Maintain will plan with, so
@@ -347,11 +351,13 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 // baseline_first stage with exactly this remediation all along. The stage stays
 // "blocked"; the stop facts, the scan command, and the instructions are additive.
 func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
-	baselineMissing, scopeChange, observedPending, budgetExceeded := false, false, false, false
+	baselineMissing, scopeChange, observedPending, budgetExceeded, recoveryPending := false, false, false, false, false
 	for _, finding := range facts.Findings {
 		switch finding.Code {
 		case "baseline_missing":
 			baselineMissing = true
+		case "recovery_pending":
+			recoveryPending = true
 		case "scope_change_required":
 			scopeChange = true
 		case "observed_pending":
@@ -371,6 +377,29 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			SafeNextAction: strings.Join(instructions, " "),
 		}
 		guide.Instructions = append(guide.Instructions, instructions...)
+		return
+	}
+	if recoveryPending {
+		// The receipt is named and so is the closure that fits its kind; until
+		// v0.1.0-rc15 a repository in this state showed recovery_pending with no
+		// file and no next step, or nothing at all (#74).
+		files := append([]string{}, facts.PendingTransactionFiles...)
+		actions := make([]string, 0, len(files))
+		for _, file := range files {
+			receipt, _ := cognitiontxn.ParseReceiptName(file)
+			actions = append(actions, recoveryPendingAction(receipt.Operation, file))
+		}
+		affected := ".aoci/transactions"
+		if len(files) > 0 {
+			affected = ".aoci/transactions/" + files[0]
+		}
+		guide.Stop = &volumeGuideStopFacts{
+			AffectedAsset: affected, Field: "transactions", RuleCode: "recovery_pending",
+			Expected: "no_pending_receipt", Actual: "pending=" + strings.Join(files, ","),
+			Cause:          cliMessage("guide.recovery_pending.cause", strings.Join(files, ", ")),
+			SafeNextAction: strings.Join(actions, " "),
+		}
+		guide.Instructions = append(guide.Instructions, actions...)
 		return
 	}
 	if scopeChange {
@@ -662,4 +691,41 @@ func renderAgentGuide(
 	builder.WriteString(cliMessage("guide.render.json_hint"))
 
 	return builder.String()
+}
+
+// executableFindingCount counts the findings a model or operator can act on.
+// Informational findings (skipped sources, curation exclusions, line-ending
+// equivalence) describe the repository and demand nothing, so promising them
+// as targets would send a model looking for work that does not exist.
+func executableFindingCount(facts *volumegovernance.Facts) int {
+	count := 0
+	for _, finding := range facts.Findings {
+		if !volumegovernance.Informational(finding.Code) {
+			count++
+		}
+	}
+	return count
+}
+
+// recoveryPendingAction names the closure that fits a pending receipt kind.
+func recoveryPendingAction(operation, file string) string {
+	switch operation {
+	case "remove":
+		return cliMessage("guide.recovery_pending.remove", file)
+	case "entries":
+		return cliMessage("guide.recovery_pending.entries", file)
+	case "header":
+		return cliMessage("guide.recovery_pending.header", file)
+	case "bootstrap":
+		return cliMessage("guide.recovery_pending.bootstrap", file)
+	case "database-bootstrap":
+		return cliMessage("guide.recovery_pending.database-bootstrap", file)
+	case "migration":
+		return cliMessage("guide.recovery_pending.migration", file)
+	case "reversal":
+		return cliMessage("guide.recovery_pending.reversal", file)
+	case "scope":
+		return cliMessage("guide.recovery_pending.scope", file)
+	}
+	return cliMessage("guide.recovery_pending.unknown", file)
 }

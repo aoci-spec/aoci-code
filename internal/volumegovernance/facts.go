@@ -6,7 +6,6 @@ package volumegovernance
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -53,35 +52,61 @@ type Drift struct {
 	ObservedNew     []string `json:"observed_new"`
 	ObservedChanged []string `json:"observed_changed"`
 	ObservedRemoved []string `json:"observed_removed"`
+	// Skipped holds index-role files that have no Entry and whose bytes carry
+	// nothing a model can read into semantics: empty, binary, above the read
+	// limit, or unreadable. CurationExcluded holds index-role files without an
+	// Entry that the team's curation policy or a valid decision keeps out.
+	// Neither is authoring debt: they are reported, never planned, never block,
+	// and a moved fingerprint on one of them binds nothing.
+	Skipped          []string `json:"skipped"`
+	CurationExcluded []string `json:"curation_excluded"`
+}
+
+const (
+	// FindingCodeSkipped marks an index-role file without an Entry whose bytes a
+	// model cannot read into semantics; Cause carries the profile reason
+	// (empty, binary, oversize, or unreadable:...).
+	FindingCodeSkipped = "code_skipped"
+	// FindingCodeCurationExcluded marks an index-role file without an Entry that
+	// curation policy keeps out; Cause names the policy source.
+	FindingCodeCurationExcluded = "code_curation_excluded"
+)
+
+// Informational reports whether a finding code describes a fact that neither
+// blocks nor creates authoring debt. finalize names these explicitly because
+// its default arm means blocked, and Guide leaves them out of the targets it
+// promises a model can execute.
+func Informational(code string) bool {
+	switch code {
+	case "code_volume_line_ending_only", "database_volume_line_ending_only",
+		"root_volume_line_ending_only", "meta_volume_line_ending_only",
+		"root_volume_baseline_drift", "meta_volume_baseline_drift",
+		FindingCodeSkipped, FindingCodeCurationExcluded:
+		return true
+	}
+	return false
 }
 
 // CodeAuthoringWork is the Code authoring work one Maintain round can plan:
-// the paths Maintain issues as candidates, each once and in issue order, and
-// the Missing paths held back for a curation decision. Maintain builds its
-// candidates and its batch total from this one value and Guide reports the
-// same total, so the two cannot disagree. Before it existed each added the
-// drift lists on its own, which counted a fresh file twice and counted
-// curation-excluded files that no candidate would ever carry, so remaining
-// never reached zero.
+// the paths Maintain issues as candidates, each once and in issue order.
+// Maintain builds its candidates and its batch total from this one value and
+// Guide reports the same total, so the two cannot disagree. Before it existed
+// each added the drift lists on its own, which counted a fresh file twice and
+// counted curation-excluded files that no candidate would ever carry, so
+// remaining never reached zero.
 type CodeAuthoringWork struct {
 	Targets []string
-	Pending []curation.PendingCandidate
 }
 
 // CodeAuthoringWorkFor derives the work from the drift lists in Maintain's
-// own order: actionable Missing paths are created; Stale and Unbaselined
-// paths are updated only when the Code Volume already carries their Entry
-// (a fresh file sits in Unbaselined too and is covered by its Missing create).
-// A curation load failure keeps every Missing path actionable, as Maintain
-// always did. Files the planner later cannot hash are the only thing this
-// count cannot see.
-func CodeAuthoringWorkFor(root string, cfg *config.Config, set *cognition.Set, drift Drift) CodeAuthoringWork {
-	creates := append([]string{}, drift.Missing...)
-	var pending []curation.PendingCandidate
-	if classification, _, _, err := curation.BuildClassification(root, cfg, drift.Missing); err == nil {
-		creates = append([]string{}, classification.Actionable...)
-		pending = append(pending, classification.Pending...)
-	}
+// own order: Missing paths are created; Stale and Unbaselined paths are
+// updated only when the Code Volume already carries their Entry (a fresh file
+// sits in Unbaselined too and is covered by its Missing create). The lists
+// come from Assess, which already holds skipped and curation-excluded files
+// out of them, so this never plans what Verify does not count and never
+// counts what it cannot plan. Files the planner later cannot hash are the
+// only thing this count cannot see.
+func CodeAuthoringWorkFor(set *cognition.Set, drift Drift) CodeAuthoringWork {
 	entries := map[string]bool{}
 	if set != nil {
 		if asset := set.Volumes[cognition.ScopeCode]; asset != nil {
@@ -91,8 +116,8 @@ func CodeAuthoringWorkFor(root string, cfg *config.Config, set *cognition.Set, d
 		}
 	}
 	seen := map[string]bool{}
-	targets := make([]string, 0, len(creates)+len(drift.Stale)+len(drift.Unbaselined))
-	for _, path := range creates {
+	targets := make([]string, 0, len(drift.Missing)+len(drift.Stale)+len(drift.Unbaselined))
+	for _, path := range drift.Missing {
 		if !seen[path] {
 			seen[path] = true
 			targets = append(targets, path)
@@ -104,7 +129,71 @@ func CodeAuthoringWorkFor(root string, cfg *config.Config, set *cognition.Set, d
 			targets = append(targets, path)
 		}
 	}
-	return CodeAuthoringWork{Targets: targets, Pending: pending}
+	return CodeAuthoringWork{Targets: targets}
+}
+
+// heldSources is the one classification of the index-role files that have no
+// Entry: which a model can author, and which carry nothing it can read (empty,
+// binary, above the read limit, unreadable) or are kept out by the team's
+// curation policy or a valid decision. Verify, Check, Guide, and Maintain all
+// read it from the Facts, so no consumer can count a held file as authoring
+// debt that another never plans. Until v0.1.0-rc14 Verify reported every raw
+// Missing file while Maintain withheld the held ones behind a decision that
+// Volumes v1 has no path to make, so a repository holding one image could not
+// reach aligned in auto mode.
+type heldSources struct {
+	actionable []string
+	skipped    []curation.SkippedMissing
+	excluded   []curation.ExcludedMissing
+	held       map[string]bool
+}
+
+func classifyHeldSources(root string, cfg *config.Config, missing []string) heldSources {
+	result := heldSources{actionable: append([]string{}, missing...), held: map[string]bool{}}
+	classification, _, _, err := curation.BuildClassification(root, cfg, missing)
+	if err != nil {
+		// Without a readable curation asset every Missing path stays actionable,
+		// as Maintain always planned it.
+		return result
+	}
+	result.actionable = append([]string{}, classification.Actionable...)
+	result.skipped = classification.Skipped
+	result.excluded = classification.CurationExcluded
+	for _, item := range classification.Skipped {
+		result.held[item.Path] = true
+	}
+	for _, item := range classification.CurationExcluded {
+		result.held[item.Path] = true
+	}
+	return result
+}
+
+// without drops held paths from a drift list: a held file has no Entry, so a
+// fingerprint that moved binds nothing and no authoring could ever clear it.
+func (h heldSources) without(paths []string) []string {
+	kept := make([]string, 0, len(paths))
+	for _, path := range paths {
+		if !h.held[path] {
+			kept = append(kept, path)
+		}
+	}
+	return kept
+}
+
+func (h heldSources) skippedPaths() []string {
+	paths := make([]string, 0, len(h.skipped))
+	for _, item := range h.skipped {
+		paths = append(paths, item.Path)
+	}
+	return paths
+}
+
+func (h heldSources) excludedPaths() []string {
+	paths := make([]string, 0, len(h.excluded))
+	for _, item := range h.excluded {
+		paths = append(paths, item.Path)
+	}
+	return paths
 }
 
 type ManagedScopeFacts struct {
@@ -149,35 +238,36 @@ type DatabaseEvidenceFacts struct {
 }
 
 type Facts struct {
-	Version              string                 `json:"version"`
-	Layout               string                 `json:"layout"`
-	EnabledDomains       []string               `json:"enabled_domains"`
-	StructureValid       bool                   `json:"structure_valid"`
-	GovernanceAligned    bool                   `json:"governance_aligned"`
-	CompositeIdentity    string                 `json:"composite_identity"`
-	Root                 AssetState             `json:"root"`
-	Meta                 AssetState             `json:"meta"`
-	Code                 AssetState             `json:"code"`
-	Database             AssetState             `json:"database"`
-	CodeSourceCount      int                    `json:"code_source_count"`
-	CodeEntryCount       int                    `json:"code_entry_count"`
-	DatabaseEntryCount   int                    `json:"database_entry_count"`
-	DatabaseBindingCount int                    `json:"database_binding_count"`
-	CodeDrift            Drift                  `json:"code_drift"`
-	ManagedScope         ManagedScopeFacts      `json:"managed_scope"`
-	Budget               BudgetFacts            `json:"budget"`
-	DatabaseCognition    dbcognition.Assessment `json:"database_cognition"`
-	DatabaseEvidence     DatabaseEvidenceFacts  `json:"database_evidence"`
-	RelationFindings     []cognition.Finding    `json:"relation_findings"`
-	PendingTransactions  int                    `json:"pending_transactions"`
-	RecoveryPending      bool                   `json:"recovery_pending"`
-	ThirdPartyConflict   bool                   `json:"third_party_conflict"`
-	NetworkAccessed      bool                   `json:"network_accessed"`
-	BusinessSourceSHA256 string                 `json:"business_source_sha256,omitempty"`
-	Result               string                 `json:"result"`
-	AffectedDomains      []string               `json:"affected_domains"`
-	NextRequiredAction   string                 `json:"next_required_action"`
-	Findings             []Finding              `json:"findings"`
+	Version                 string                 `json:"version"`
+	Layout                  string                 `json:"layout"`
+	EnabledDomains          []string               `json:"enabled_domains"`
+	StructureValid          bool                   `json:"structure_valid"`
+	GovernanceAligned       bool                   `json:"governance_aligned"`
+	CompositeIdentity       string                 `json:"composite_identity"`
+	Root                    AssetState             `json:"root"`
+	Meta                    AssetState             `json:"meta"`
+	Code                    AssetState             `json:"code"`
+	Database                AssetState             `json:"database"`
+	CodeSourceCount         int                    `json:"code_source_count"`
+	CodeEntryCount          int                    `json:"code_entry_count"`
+	DatabaseEntryCount      int                    `json:"database_entry_count"`
+	DatabaseBindingCount    int                    `json:"database_binding_count"`
+	CodeDrift               Drift                  `json:"code_drift"`
+	ManagedScope            ManagedScopeFacts      `json:"managed_scope"`
+	Budget                  BudgetFacts            `json:"budget"`
+	DatabaseCognition       dbcognition.Assessment `json:"database_cognition"`
+	DatabaseEvidence        DatabaseEvidenceFacts  `json:"database_evidence"`
+	RelationFindings        []cognition.Finding    `json:"relation_findings"`
+	PendingTransactions     int                    `json:"pending_transactions"`
+	PendingTransactionFiles []string               `json:"pending_transaction_files,omitempty"`
+	RecoveryPending         bool                   `json:"recovery_pending"`
+	ThirdPartyConflict      bool                   `json:"third_party_conflict"`
+	NetworkAccessed         bool                   `json:"network_accessed"`
+	BusinessSourceSHA256    string                 `json:"business_source_sha256,omitempty"`
+	Result                  string                 `json:"result"`
+	AffectedDomains         []string               `json:"affected_domains"`
+	NextRequiredAction      string                 `json:"next_required_action"`
+	Findings                []Finding              `json:"findings"`
 	// ListTruncation is present only on a transport projection produced by
 	// BoundListsForTransport: it names every enumeration that was cut to the
 	// leading sample and carries the complete counts. Verify, Check, and Guide
@@ -213,15 +303,18 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 		return append([]string{}, values[:limit]...)
 	}
 	bounded.CodeDrift = Drift{
-		Missing:         cutStrings("code_drift.missing", facts.CodeDrift.Missing),
-		Orphan:          cutStrings("code_drift.orphan", facts.CodeDrift.Orphan),
-		Stale:           cutStrings("code_drift.stale", facts.CodeDrift.Stale),
-		Unbaselined:     cutStrings("code_drift.unbaselined", facts.CodeDrift.Unbaselined),
-		LineEndingOnly:  cutStrings("code_drift.line_ending_only", facts.CodeDrift.LineEndingOnly),
-		ObservedNew:     cutStrings("code_drift.observed_new", facts.CodeDrift.ObservedNew),
-		ObservedChanged: cutStrings("code_drift.observed_changed", facts.CodeDrift.ObservedChanged),
-		ObservedRemoved: cutStrings("code_drift.observed_removed", facts.CodeDrift.ObservedRemoved),
+		Missing:          cutStrings("code_drift.missing", facts.CodeDrift.Missing),
+		Orphan:           cutStrings("code_drift.orphan", facts.CodeDrift.Orphan),
+		Stale:            cutStrings("code_drift.stale", facts.CodeDrift.Stale),
+		Unbaselined:      cutStrings("code_drift.unbaselined", facts.CodeDrift.Unbaselined),
+		LineEndingOnly:   cutStrings("code_drift.line_ending_only", facts.CodeDrift.LineEndingOnly),
+		ObservedNew:      cutStrings("code_drift.observed_new", facts.CodeDrift.ObservedNew),
+		ObservedChanged:  cutStrings("code_drift.observed_changed", facts.CodeDrift.ObservedChanged),
+		ObservedRemoved:  cutStrings("code_drift.observed_removed", facts.CodeDrift.ObservedRemoved),
+		Skipped:          cutStrings("code_drift.skipped", facts.CodeDrift.Skipped),
+		CurationExcluded: cutStrings("code_drift.curation_excluded", facts.CodeDrift.CurationExcluded),
 	}
+	bounded.PendingTransactionFiles = cutStrings("pending_transaction_files", facts.PendingTransactionFiles)
 	if len(facts.Findings) > limit {
 		totals["findings"] = len(facts.Findings)
 		bounded.Findings = append([]Finding{}, facts.Findings[:limit]...)
@@ -357,14 +450,18 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 		})
 	}
 
-	pending, pendingErr := pendingTransactions(root)
+	// The one pending-receipt detection every consumer shares; see
+	// cognitiontxn.Pending. Each receipt is its own finding so the Guide can
+	// name the file and the closure that fits its kind.
+	pending, pendingErr := cognitiontxn.Pending(root)
 	if pendingErr != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "pending_transaction_state_invalid"})
 	} else {
-		facts.PendingTransactions = pending
-		facts.RecoveryPending = pending > 0
-		if pending > 0 {
-			facts.Findings = append(facts.Findings, Finding{Code: "recovery_pending"})
+		facts.PendingTransactions = len(pending)
+		facts.RecoveryPending = len(pending) > 0
+		for _, receipt := range pending {
+			facts.PendingTransactionFiles = append(facts.PendingTransactionFiles, receipt.Filename)
+			facts.Findings = append(facts.Findings, Finding{Code: "recovery_pending", Target: receipt.Filename, Cause: receipt.Operation})
 		}
 	}
 
@@ -397,7 +494,8 @@ func absentAsset(path string) AssetState {
 
 func emptyDrift() Drift {
 	return Drift{Missing: []string{}, Orphan: []string{}, Stale: []string{}, Unbaselined: []string{},
-		LineEndingOnly: []string{}, ObservedNew: []string{}, ObservedChanged: []string{}, ObservedRemoved: []string{}}
+		LineEndingOnly: []string{}, ObservedNew: []string{}, ObservedChanged: []string{}, ObservedRemoved: []string{},
+		Skipped: []string{}, CurationExcluded: []string{}}
 }
 
 func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts) {
@@ -456,9 +554,11 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	orphans := append(append([]string{}, detected.Orphan...), ownershipOrphans...)
 	orphans = sortedUnique(orphans)
-	facts.CodeDrift = Drift{Missing: detected.Missing, Orphan: orphans, Stale: detected.Stale,
-		Unbaselined: detected.Unbaselined, LineEndingOnly: detected.LineEndingOnly,
-		ObservedNew: detected.ObservedNew, ObservedChanged: detected.ObservedChanged, ObservedRemoved: detected.ObservedRemoved}
+	held := classifyHeldSources(root, cfg, detected.Missing)
+	facts.CodeDrift = Drift{Missing: held.actionable, Orphan: orphans, Stale: held.without(detected.Stale),
+		Unbaselined: held.without(detected.Unbaselined), LineEndingOnly: detected.LineEndingOnly,
+		ObservedNew: detected.ObservedNew, ObservedChanged: detected.ObservedChanged, ObservedRemoved: detected.ObservedRemoved,
+		Skipped: held.skippedPaths(), CurationExcluded: held.excludedPaths()}
 	if managed.Evaluation == nil {
 		facts.CodeSourceCount = len(copyState.Snapshot)
 	}
@@ -468,10 +568,22 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	for _, item := range []struct {
 		code string
 		set  []string
-	}{{"code_missing", detected.Missing}, {"code_stale", detected.Stale}, {"code_unbaselined", detected.Unbaselined}} {
+	}{{"code_missing", facts.CodeDrift.Missing}, {"code_stale", facts.CodeDrift.Stale}, {"code_unbaselined", facts.CodeDrift.Unbaselined}} {
 		for _, target := range item.set {
 			facts.Findings = append(facts.Findings, Finding{Code: item.code, Domain: cognition.ScopeCode, Target: target})
 		}
+	}
+	for _, item := range held.skipped {
+		cause := item.Reason
+		if strings.HasPrefix(cause, curation.ProfileReasonUnreadablePrefix) {
+			// The profile's reason embeds the OS error with its absolute path;
+			// the finding names the kind and the operator looks at the file.
+			cause = "unreadable"
+		}
+		facts.Findings = append(facts.Findings, Finding{Code: FindingCodeSkipped, Domain: cognition.ScopeCode, Target: item.Path, Cause: cause})
+	}
+	for _, item := range held.excluded {
+		facts.Findings = append(facts.Findings, Finding{Code: FindingCodeCurationExcluded, Domain: cognition.ScopeCode, Target: item.Path, Cause: item.Source})
 	}
 	for _, target := range orphans {
 		if _, ownershipConflict := ownershipConflicts[target]; ownershipConflict {
@@ -789,27 +901,6 @@ func sortedUnique(values []string) []string {
 	return result
 }
 
-func pendingTransactions(root string) (int, error) {
-	pending, err := cognitiontxn.Pending(root)
-	if err != nil {
-		return 0, err
-	}
-	count := len(pending)
-	entries, err := os.ReadDir(filepath.Join(root, ".aoci", "transactions"))
-	if os.IsNotExist(err) {
-		return count, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "entries-") && strings.HasSuffix(entry.Name(), ".json") {
-			count++
-		}
-	}
-	return count, nil
-}
-
 func finalize(facts *Facts) {
 	blocked, evidence, authoring := false, false, false
 	domains := map[string]bool{}
@@ -822,9 +913,7 @@ func finalize(facts *Facts) {
 		// means blocked, so a new code that nobody classifies silently becomes a
 		// hard stop — which is exactly how code_volume_unbaselined wedged
 		// repositories over a difference the tolerance policy calls equivalent.
-		case finding.Code == "code_volume_line_ending_only" || finding.Code == "database_volume_line_ending_only" ||
-			finding.Code == "root_volume_line_ending_only" || finding.Code == "meta_volume_line_ending_only" ||
-			finding.Code == "root_volume_baseline_drift" || finding.Code == "meta_volume_baseline_drift":
+		case Informational(finding.Code):
 		case strings.HasPrefix(finding.Code, "database_evidence") || strings.Contains(finding.Code, "evidence_unavailable") || strings.Contains(finding.Code, "evidence_invalid"):
 			evidence = true
 		case finding.Code == "code_missing" || finding.Code == "code_stale" || finding.Code == "code_unbaselined" ||

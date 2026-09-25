@@ -94,6 +94,12 @@ func blockedNextCommands(facts *volumegovernance.Facts) []string {
 		case "cognition_budget_exceeded":
 			add(machinecontract.RemediationCommandScopeStatus,
 				machinecontract.RemediationCommandScopeBudgetSet)
+		case "recovery_pending":
+			// The Guide names the receipt and the closure that fits its kind.
+			add(machinecontract.RemediationCommandAgentGuide)
+			if finding.Cause == "scope" {
+				add(machinecontract.RemediationCommandScopeStatus)
+			}
 		}
 	}
 	return composeNextCommands(prefix, suffixes...)

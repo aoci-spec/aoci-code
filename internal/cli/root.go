@@ -35,6 +35,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // 版本信息由Makefile经-ldflags注入。
@@ -204,25 +205,34 @@ func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
 		return nil
 	}
 	path := command.CommandPath()
-	allowed := path == "aoci index agent guide" || path == "aoci mcp"
+	// Every pending receipt must allow the command: with a layout receipt
+	// beside an MCP write receipt, the narrower gate wins.
+	allowed := true
 	for _, transaction := range pending {
-		switch transaction.Operation {
-		case "bootstrap":
-			allowed = allowed || path == "aoci cognition bootstrap status" ||
-				path == "aoci cognition bootstrap resume" || path == "aoci cognition bootstrap rollback"
-		case "migration":
-			allowed = allowed || path == "aoci cognition migration status" ||
-				path == "aoci cognition migration resume" || path == "aoci cognition migration rollback"
-		case "reversal":
-			allowed = allowed || path == "aoci cognition migration reversal status" ||
-				path == "aoci cognition migration reversal resume"
-		case "scope":
-			allowed = allowed || path == "aoci baseline scope status" || path == "aoci baseline scope resume" ||
-				path == "aoci scope status" || path == "aoci scope resume" || path == "aoci scope rollback"
+		if !recoveryGateAllows(transaction.Operation, path) {
+			allowed = false
 		}
 	}
 	if allowed {
 		return nil
+	}
+	mcpReceiptsOnly := true
+	for _, transaction := range pending {
+		switch transaction.Operation {
+		case "remove", "entries", "header", cognitiontxn.OperationUnknown:
+		default:
+			mcpReceiptsOnly = false
+		}
+	}
+	if mcpReceiptsOnly {
+		names := make([]string, 0, len(pending))
+		for _, transaction := range pending {
+			names = append(names, transaction.Filename)
+		}
+		return &ExitError{
+			Code: ExitInvalid, MachineCode: "cognition_recovery_pending",
+			Msg: cliMessage("cognition.transaction.pending_gate_mcp", strings.Join(names, ",")),
+		}
 	}
 	if len(pending) == 1 && pending[0].Operation == "bootstrap" {
 		return &ExitError{
@@ -294,6 +304,7 @@ func executeCLI(
 	) {
 		root := newRootCmd()
 		defer detachRegisteredCommands(root)
+		resetCommandFlags(root)
 
 		root.SetArgs(
 			args,
@@ -321,6 +332,7 @@ func executeCLI(
 
 	root := newRootCmd()
 	defer detachRegisteredCommands(root)
+	resetCommandFlags(root)
 
 	root.SetArgs(
 		args,
@@ -436,6 +448,41 @@ func initLocaleArgument(args []string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// resetCommandFlags returns every registered command to the state a fresh
+// process would see: flags an earlier in-process execution changed go back to
+// their defaults, and an output writer a test set on the command itself is
+// cleared so output reaches the executor's writers again. Commands are
+// registered once and attached to each new root, so without this a
+// `scan --force` in one test made the next test's plain `scan` a forced one,
+// and a buffer one test installed on a command swallowed the next test's
+// JSON. A real process runs one command; here this is a no-op.
+func resetCommandFlags(root *cobra.Command) {
+	for _, child := range root.Commands() {
+		resetCommandState(child)
+	}
+}
+
+func resetCommandState(command *cobra.Command) {
+	command.SetOut(nil)
+	command.SetErr(nil)
+	for _, set := range []*pflag.FlagSet{command.Flags(), command.PersistentFlags()} {
+		set.VisitAll(func(flag *pflag.Flag) {
+			if !flag.Changed {
+				return
+			}
+			if slice, ok := flag.Value.(pflag.SliceValue); ok {
+				_ = slice.Replace(nil)
+			} else {
+				_ = flag.Value.Set(flag.DefValue)
+			}
+			flag.Changed = false
+		})
+	}
+	for _, child := range command.Commands() {
+		resetCommandState(child)
+	}
 }
 
 // resetRootFlags保证测试中的多次执行与真实独立进程语义一致。
@@ -763,4 +810,39 @@ func writeBytes(
 	_, _ = writer.Write(
 		data,
 	)
+}
+
+// recoveryGateAllows names the commands one pending receipt kind leaves open:
+// always the read-only Guide and the MCP server, then the kind's own status,
+// resume, and rollback controls. MCP write receipts close through the MCP
+// tools the Guide names (a foreign file, by hand), so their read-only surfaces
+// and the CLI closures stay open while other writes wait.
+func recoveryGateAllows(operation, path string) bool {
+	if path == "aoci index agent guide" || path == "aoci mcp" {
+		return true
+	}
+	switch operation {
+	case "bootstrap":
+		return path == "aoci cognition bootstrap status" || path == "aoci cognition bootstrap resume" || path == "aoci cognition bootstrap rollback"
+	case "migration":
+		return path == "aoci cognition migration status" || path == "aoci cognition migration resume" || path == "aoci cognition migration rollback"
+	case "reversal":
+		return path == "aoci cognition migration reversal status" || path == "aoci cognition migration reversal resume"
+	case "scope":
+		return path == "aoci baseline scope status" || path == "aoci baseline scope resume" ||
+			path == "aoci scope status" || path == "aoci scope resume" || path == "aoci scope rollback"
+	case "remove", "entries", "header", cognitiontxn.OperationUnknown:
+		if path == "aoci verify" || path == "aoci check" || path == "aoci status" || path == "aoci scope status" {
+			return true
+		}
+		switch operation {
+		case "remove":
+			return path == "aoci remove-entry"
+		case "entries":
+			return path == "aoci index entries recover" || path == "aoci index entries check"
+		case "header":
+			return path == "aoci index header show" || path == "aoci index header diff" || path == "aoci index header apply"
+		}
+	}
+	return false
 }

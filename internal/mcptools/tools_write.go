@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"os"
 	"path"
@@ -550,6 +551,14 @@ func commitPlan(
 	}()
 	if transactionFail := pendingHeaderTransactionFail(root); transactionFail != nil {
 		return transactionFail
+	}
+	// A single Legacy update owns no receipt, so any pending one is another
+	// transaction's state that this write cannot prove it is extending.
+	if other, err := cognitiontxn.OtherPending(root, ""); err != nil {
+		return &Fail{Code: errInternal, Msg: writeMessage("entry.transaction.read_failed", localeSafeWriteDetail(err.Error()))}
+	} else if other != "" {
+		return &Fail{Code: errWriteConflict, Msg: "entry_other_transaction_pending: " + other,
+			Hint: writeMessage("entry.transaction.hint.recover_header")}
 	}
 
 	currentText, readErr := os.ReadFile(

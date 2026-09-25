@@ -13,6 +13,49 @@ All notable public changes to AOCI-CODE will be documented in this file.
   The upgrade axis gains a fifth shape that authors a fixture inside
   `.worktrees/wt` with each released binary, merges it, and reads it from the
   primary checkout with the binary under test: 40 checks per released version.
+- Hold empty, binary, and oversize sources out of authoring instead of stopping
+  the first Maintain on them. An index-role file whose bytes carry nothing a
+  model can read (empty, a NUL byte in its first 8000 bytes, or above 1 MiB)
+  is reported as `code_skipped` with its cause, listed under
+  `code_drift.skipped`, never planned, and never blocks; an index-role file
+  kept out by a valid curation decision is reported as
+  `code_curation_excluded`. Verify, Check,
+  Guide, and Maintain read one classification, so none of them counts a file
+  another never plans. Releases up to v0.1.0-rc14 stopped the first Maintain of
+  any repository holding an image with `pending_curation:` markers in
+  `orphan_remove_candidates`, and Volumes v1 has no decision path that could
+  have cleared them. `scan` announces the counts (`skipped_sources` under
+  `--json`), a held file can still be authored directly, and a Maintain that
+  names candidates always carries `authoring_meta` and `instructions`. The
+  lifecycle governance walk now asserts the held-out probes reach aligned in
+  auto mode, and scenario F11 covers a fresh repository with all three kinds:
+  61 scenarios.
+- Detect pending recovery receipts in one place (#74). Every receipt kind
+  written directly under `.aoci/transactions/` (bootstrap, migration, reversal,
+  scope, database bootstrap, remove, entries, header) and any foreign `.json`
+  file there is pending for Overview, Verify, Check, Guide, Maintain, the CLI
+  gate, every transaction start, and the remove and update commit paths alike,
+  which refuse to write over any receipt that is not their own. Releases up to
+  v0.1.0-rc14 refused
+  full cognition delivery on a stale `remove-*.json` while Verify reported the
+  repository aligned and nothing named the file. Verify lists
+  `pending_transaction_files`, each receipt is its own `recovery_pending`
+  finding with its kind as the cause, and the Guide stops on the file with the
+  closure that fits it. `aoci_remove_entry` closes a receipt the Volume has
+  moved past: with the object absent the receipt completes as superseded and
+  neither the Volume nor the Baseline is touched; with the object still present
+  and unchanged the receipt is discarded and the removal re-planned, both under
+  the index lock and on the Ledger; an object that came back changed still
+  refuses with `recovery_entry_reappeared`. A Legacy index closes its receipts
+  the same way; a receipt the tool cannot load or resume, and a layout receipt
+  pending beside an MCP receipt, have their documented order of closure.
+  `verify`, `check`, `status`, `scope status`, `remove-entry`, and the Guide
+  stay available while an MCP write receipt is pending.
+- Report every repairable candidate of a batch in one `repair_required`
+  response instead of stopping at the first; `retry_scope` names them all.
+- Keep every fingerprint's index role when a batch advances the Baseline under
+  Managed Scope; the batch path wrote roleless fingerprints over the ones scan
+  had stamped.
 - Add `aoci scope activate` (#73, #54). After editing rules, a budget, or the
   approval mode, one command builds the empty candidate set and runs the
   existing Scope Change preview and Apply. When the preview needs a human, it

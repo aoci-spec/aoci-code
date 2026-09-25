@@ -41,6 +41,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"os"
 	"path/filepath"
 	"strings"
@@ -70,6 +71,12 @@ type RemoveOutcome struct {
 	// PreservedOwner is the deterministic owner whose formal asset is guarded
 	// and left untouched while the misplaced Domain Entry is removed.
 	PreservedOwner string
+	// Superseded reports that a receipt the Volume had moved past was closed
+	// because its object was already absent; no index or Baseline bytes moved.
+	Superseded bool
+	// StaleReceiptDiscarded reports that a receipt bound to a Volume version
+	// that no longer existed was discarded before this fresh removal.
+	StaleReceiptDiscarded bool
 }
 
 // removePlan 删除计划(非导出): plan 产出、commit 消费,包外无法伪造(R18)。
@@ -84,6 +91,14 @@ type removePlan struct {
 	indexHash string
 	// alreadyApplied表示索引已处于持久恢复意图绑定的删除postimage，本轮只补Baseline。
 	alreadyApplied bool
+	// superseded marks a receipt the index or Volume has moved past while its
+	// object is already absent: the commit closes the receipt and writes
+	// nothing else.
+	superseded bool
+	// staleReceipt is the receipt the plan judged stale (superseded or to be
+	// discarded); the commit re-reads it under the lock and acts only if it is
+	// still that receipt and the target still matches neither of its images.
+	staleReceipt *removeRecovery
 	// orphanOnly要求计划与持锁提交两个时点都证明目标路径确实不存在。
 	orphanOnly bool
 	// volumeMode reuses this established explicit-remove pipeline for one
@@ -187,23 +202,40 @@ func planRemoveEntry(root, rawPath string, orphanOnly bool) (*removePlan, *Fail)
 		recovery = nil
 	}
 
+	var staleReceipt *removeRecovery
 	entry := index.FindEntry(rc.doc, rel)
 	if entry != nil && recovery != nil {
 		currentHash := indexTextHash(rc.text)
-		if !recovery.Completed && currentHash == recovery.PreIndexSHA256 &&
-			entry.FullLine == recovery.RemovedLine {
-			resumedText, removeErr := index.RemoveEntry(rc.text, entry.FullLine)
-			if removeErr == nil && indexTextHash(resumedText) == recovery.PostIndexSHA256 {
-				return &removePlan{
-					out:     &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine},
-					newText: resumedText, rc: rc, indexHash: currentHash,
-					orphanOnly: orphanOnly,
-				}, nil
+		if !recovery.Completed && currentHash == recovery.PreIndexSHA256 {
+			if entry.FullLine == recovery.RemovedLine {
+				resumedText, removeErr := index.RemoveEntry(rc.text, entry.FullLine)
+				if removeErr == nil && indexTextHash(resumedText) == recovery.PostIndexSHA256 {
+					return &removePlan{
+						out:     &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine},
+						newText: resumedText, rc: rc, indexHash: currentHash,
+						orphanOnly: orphanOnly,
+					}, nil
+				}
 			}
+			return nil, &Fail{Code: errWriteConflict,
+				Msg:  writeMessage("remove.recovery_entry_reappeared"),
+				Hint: writeMessage("remove.hint.new_decision")}
 		}
-		return nil, &Fail{Code: errWriteConflict,
-			Msg:  writeMessage("remove.recovery_entry_reappeared"),
-			Hint: writeMessage("remove.hint.new_decision")}
+		if recovery.Completed || entry.FullLine != recovery.RemovedLine {
+			// The Entry came back after a completed removal, or with different
+			// text than the receipt recorded: the decision that receipt carried
+			// no longer describes this Entry, so a retry cannot stand in for a
+			// new one.
+			return nil, &Fail{Code: errWriteConflict,
+				Msg:  writeMessage("remove.recovery_entry_reappeared"),
+				Hint: writeMessage("remove.hint.new_decision")}
+		}
+		// The index moved past an unfinished receipt while the Entry it
+		// recorded is still here unchanged: the receipt binds an index version
+		// that no longer exists, the decision still describes this Entry, and
+		// the commit discards the receipt under the lock before re-planning.
+		// Until v0.1.0-rc15 every retry stopped here with recovery_entry_reappeared.
+		staleReceipt = recovery
 	}
 	if entry == nil {
 		if recovery != nil {
@@ -214,9 +246,19 @@ func planRemoveEntry(root, rawPath string, orphanOnly bool) (*removePlan, *Fail)
 						Msg:  writeMessage("remove.already_completed", rel),
 						Hint: writeMessage("remove.hint.no_repeat")}
 				}
-				return nil, &Fail{Code: errWriteConflict,
-					Msg:  writeMessage("remove.recovery_postimage_drift"),
-					Hint: writeMessage("remove.hint.inspect_recovery")}
+				if currentHash == recovery.PreIndexSHA256 {
+					return nil, &Fail{Code: errWriteConflict,
+						Msg:  writeMessage("remove.recovery_postimage_drift"),
+						Hint: writeMessage("remove.hint.inspect_recovery")}
+				}
+				// The index moved past the receipt and the Entry is gone: the
+				// removal's postcondition holds and only the receipt is
+				// unfinished, so the commit closes it as superseded.
+				return &removePlan{
+					out:     &RemoveOutcome{Rel: rel, RemovedLine: recovery.RemovedLine, Superseded: true},
+					newText: rc.text, rc: rc, indexHash: currentHash, superseded: true, staleReceipt: recovery,
+					orphanOnly: orphanOnly,
+				}, nil
 			}
 			return &removePlan{
 				out:     &RemoveOutcome{Rel: rel, RemovedLine: recovery.RemovedLine},
@@ -250,11 +292,12 @@ func planRemoveEntry(root, rawPath string, orphanOnly bool) (*removePlan, *Fail)
 	}
 
 	return &removePlan{
-		out:        &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine},
-		newText:    newText,
-		rc:         rc,
-		indexHash:  indexTextHash(rc.text),
-		orphanOnly: orphanOnly,
+		out:          &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine, StaleReceiptDiscarded: staleReceipt != nil},
+		staleReceipt: staleReceipt,
+		newText:      newText,
+		rc:           rc,
+		indexHash:    indexTextHash(rc.text),
+		orphanOnly:   orphanOnly,
 	}, nil
 }
 
@@ -311,6 +354,23 @@ func commitRemove(root, source string, p *removePlan) *Fail {
 	if transactionFail := pendingHeaderTransactionFail(root); transactionFail != nil {
 		return transactionFail
 	}
+	if fail := rejectOtherRemovePending(root, p); fail != nil {
+		return fail
+	}
+	if p.superseded {
+		return closeSupersededRemove(root, source, p, func() *Fail {
+			raw, err := os.ReadFile(p.rc.paths.IndexPath)
+			if err != nil {
+				return &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(err.Error()))}
+			}
+			doc, _ := index.Parse(string(raw))
+			index.ResolveRelPaths(doc, root)
+			if index.FindEntry(doc, p.out.Rel) != nil {
+				return &Fail{Code: errWriteConflict, Msg: "remove_superseded_object_reappeared"}
+			}
+			return nil
+		})
+	}
 	if p.orphanOnly {
 		if orphanFail := requireRemoveTargetAbsent(root, p.out.Rel); orphanFail != nil {
 			return orphanFail
@@ -345,6 +405,14 @@ func commitRemove(root, source string, p *removePlan) *Fail {
 
 	expectedPostimage := indexTextHash(p.newText)
 	if !p.alreadyApplied {
+		// The stale receipt goes only now, after every admission check has
+		// passed and immediately before the fresh receipt takes its place, so
+		// a commit that refuses leaves the receipt where it was.
+		if p.staleReceipt != nil {
+			if fail := discardStaleReceipt(root, source, p); fail != nil {
+				return fail
+			}
+		}
 		intent := removeRecovery{
 			Version: 1, Rel: p.out.Rel, RemovedLine: p.out.RemovedLine,
 			PreIndexSHA256: p.indexHash, PostIndexSHA256: expectedPostimage,
@@ -568,11 +636,157 @@ func cleanupCompletedRemoveRecovery(root, rawPath string) *Fail {
 // RenderRemoveOutcome 渲染删除结果文案(双端共用)。
 // preview 分支不打"基线已前移"(2026-07-12 CLI冒烟证实的文案缺陷: 干跑未动基线却宣称前移)。
 func RenderRemoveOutcome(o *RemoveOutcome) string {
+	if o.DryRun && o.Superseded {
+		return writeMessage("remove.preview_superseded", o.Rel, o.RemovedLine)
+	}
 	if o.DryRun {
 		return writeMessage("remove.preview", o.Rel, o.RemovedLine)
 	}
-	if o.OwnershipRepair {
-		return writeMessage("remove.ownership_repair_applied", o.Rel, o.PreservedOwner, true, true, o.RemovedLine)
+	if o.Superseded {
+		return writeMessage("remove.recovery_superseded", o.Rel, o.RemovedLine)
 	}
-	return writeMessage("remove.applied", o.Rel, o.RemovedLine)
+	prefix := ""
+	if o.StaleReceiptDiscarded {
+		prefix = writeMessage("remove.stale_receipt_discarded", o.Rel) + "\n"
+	}
+	if o.OwnershipRepair {
+		return prefix + writeMessage("remove.ownership_repair_applied", o.Rel, o.PreservedOwner, true, true, o.RemovedLine)
+	}
+	return prefix + writeMessage("remove.applied", o.Rel, o.RemovedLine)
+}
+
+// receiptKey is the identity a removal's receipt is filed under: the canonical
+// object reference in Volumes, the repository-relative path in Legacy.
+func (p *removePlan) receiptKey() string {
+	if p.volumeMode {
+		return p.objectRef
+	}
+	return p.out.Rel
+}
+
+func removeTransactionID(root, key string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(filepath.Base(removeRecoveryPath(root, key)), "remove-"), ".json")
+}
+
+func shortSHA(value string) string {
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
+}
+
+// rejectOtherRemovePending fails closed on every pending receipt except this
+// removal's own: a foreign file, another object's receipt, or an unfinished
+// batch means the state is not one this write can prove it is extending.
+func rejectOtherRemovePending(root string, p *removePlan) *Fail {
+	other, err := cognitiontxn.OtherPending(root, filepath.Base(removeRecoveryPath(root, p.receiptKey())))
+	if err != nil {
+		return &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_read_failed", localeSafeWriteDetail(err.Error()))}
+	}
+	if other != "" {
+		return &Fail{Code: errWriteConflict, Msg: "remove_other_transaction_pending: " + other,
+			Hint: writeMessage("remove.hint.inspect_recovery")}
+	}
+	return nil
+}
+
+// reloadStaleReceipt re-reads the receipt the plan judged stale and proves,
+// under the lock, that it is still that receipt and that the index or Volume
+// still matches neither of its images. A receipt that now matches one is not
+// stale: the ordinary resume arms own it on the next call.
+func reloadStaleReceipt(root string, p *removePlan) (*removeRecovery, *Fail) {
+	judged := p.staleReceipt
+	current, err := loadRemoveRecovery(root, p.receiptKey())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_read_failed", localeSafeWriteDetail(err.Error()))}
+	}
+	if judged == nil || current.PreIndexSHA256 != judged.PreIndexSHA256 || current.PostIndexSHA256 != judged.PostIndexSHA256 {
+		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_changed_since_plan", Hint: writeMessage("remove.hint.replan")}
+	}
+	raw, readErr := os.ReadFile(p.rc.paths.IndexPath)
+	if readErr != nil {
+		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(readErr.Error()))}
+	}
+	if hash := indexTextHash(string(raw)); hash == current.PreIndexSHA256 || hash == current.PostIndexSHA256 {
+		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_no_longer_stale", Hint: writeMessage("remove.hint.replan")}
+	}
+	return current, nil
+}
+
+// closeSupersededRemove finishes a receipt the index or Volume has moved past
+// while its object is already absent: the Ledger line first, so a retry after
+// a later failure meets an equal terminal event, then the completion marker,
+// then the file. Nothing else is written; the transactions that moved past
+// the receipt already governed the index and the Baseline, and a receipt's
+// stale postimages must never be written over a newer state. The Ledger id
+// carries the receipt's preimage so a later removal of a re-created object
+// never collides with this one.
+func closeSupersededRemove(root, source string, p *removePlan, objectAbsent func() *Fail) *Fail {
+	if fail := objectAbsent(); fail != nil {
+		return fail
+	}
+	recovery, fail := reloadStaleReceipt(root, p)
+	if fail != nil {
+		return fail
+	}
+	if recovery == nil {
+		return nil
+	}
+	key := p.receiptKey()
+	event := ledger.Event{Op: "remove_entry", Source: source, Result: ledger.ResultOK, RecoveredCount: 1, DuplicateApplies: 1,
+		RecoveryTransactionID: removeTransactionID(root, key) + "-superseded-" + shortSHA(recovery.PreIndexSHA256),
+		PreIndexSHA256:        recovery.PreIndexSHA256, PostIndexSHA256: recovery.PostIndexSHA256, FallbackReason: "receipt_superseded"}
+	if p.volumeMode {
+		// Volumes completion is a terminal Ledger event, as its ordinary commit
+		// writes; Legacy never required the Ledger and keeps the tolerant append.
+		if err := cognitiontxn.EnsureLedger(root, p.rc.cfg.LedgerEnabled, event); err != nil {
+			return &Fail{Code: errInternal, Msg: "remove_ledger_completion_failed"}
+		}
+	} else {
+		ledger.Append(root, p.rc.cfg.LedgerEnabled, event)
+	}
+	recovery.Completed = true
+	if err := saveRemoveRecovery(root, *recovery); err != nil {
+		return &Fail{Code: errInternal, Msg: writeMessage("remove.completion_marker_failed", localeSafeWriteDetail(err.Error())),
+			Hint: writeMessage("remove.hint.retry_recovery")}
+	}
+	if err := removeRecoveryFile(removeRecoveryPath(root, key)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return &Fail{Code: errInternal, Msg: "remove_recovery_cleanup_failed"}
+	}
+	return nil
+}
+
+// discardStaleReceipt drops, under the lock, a receipt the plan judged stale
+// because its object is still present: it binds an index or Volume version
+// that no longer exists, and this call is the fresh removal decision. The
+// Ledger records the discard with the receipt's images before the file goes,
+// so the removed line it carried is not lost with it.
+func discardStaleReceipt(root, source string, p *removePlan) *Fail {
+	recovery, fail := reloadStaleReceipt(root, p)
+	if fail != nil {
+		return fail
+	}
+	if recovery == nil {
+		return nil
+	}
+	raw, readErr := os.ReadFile(p.rc.paths.IndexPath)
+	if readErr != nil {
+		return &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(readErr.Error()))}
+	}
+	if indexTextHash(string(raw)) != p.indexHash {
+		// The object the plan judged present with its recorded line is only
+		// proven by the target still being the plan's preimage.
+		return &Fail{Code: errWriteConflict, Msg: writeMessage("remove.cas_stale"), Hint: writeMessage("remove.hint.replan")}
+	}
+	key := p.receiptKey()
+	ledger.Append(root, p.rc.cfg.LedgerEnabled, ledger.Event{Op: "remove_entry", Source: source, Result: ledger.ResultOK,
+		RecoveryTransactionID: removeTransactionID(root, key) + "-discarded-" + shortSHA(recovery.PreIndexSHA256),
+		PreIndexSHA256:        recovery.PreIndexSHA256, PostIndexSHA256: recovery.PostIndexSHA256, FallbackReason: "stale_receipt_discarded"})
+	if err := removeRecoveryFile(removeRecoveryPath(root, key)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return &Fail{Code: errInternal, Msg: "remove_stale_receipt_discard_failed"}
+	}
+	return nil
 }

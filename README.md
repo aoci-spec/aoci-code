@@ -844,7 +844,7 @@ Search, ASTs, LSP, code graphs, and RAG are good at structural and retrieval que
 - **FRAS entries.** Responsibilities, strong relationships, public contracts, and high-value constraints for every object with the `index` role.
 - **Persistence across sessions.** The index files live with the repository, so later sessions and other agents reuse the same version.
 - **Managed Scope.** An explicit record of which objects enter the index, which are only observed for change, and which are deliberately left out.
-- **Drift detection.** Distinguishes Missing, Orphan, Stale, Unbaselined, line-ending changes, and curation differences.
+- **Drift detection.** Distinguishes Missing, Orphan, Stale, Unbaselined, line-ending changes, curation differences, and sources held out of authoring (empty, binary, oversize).
 - **Governed updates.** Candidates enter the formal files through source binding, plan, validation, review, CAS, atomic writes, Baseline, and recovery workflows.
 - **Delivery attestation.** Chunk, cursor, receipt, and challenge prove that the Whole-Index was delivered in full.
 - **Database Cognition.** Table-level entries built and governed from explicitly accepted PostgreSQL/MySQL/openGauss schema evidence.
@@ -952,7 +952,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 60 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 61 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full

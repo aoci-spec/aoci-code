@@ -132,6 +132,27 @@ requires a real TTY. Existing safety refusals remain refusals. After Apply, the 
 modules are absent from the formal index and cannot support a complete
 cross-module conclusion.
 
+## Files that never need an Entry
+
+Managed Scope decides which files are in the index role; it does not decide
+whether a model can read them. An index-role file that is empty, binary (a NUL
+byte in its first 8000 bytes), or above 1 MiB carries nothing a model can turn
+into semantics, so it is held out of authoring rather than
+handed to a decision: `aoci scan` announces the count, Verify lists each one
+under `code_drift.skipped` with a `code_skipped` finding and its cause,
+Maintain never issues it, Guide never counts it, and a repository whose only
+findings are these is aligned. `curation_exclude` is different: a path it
+names never enters the index role from the first scan on, and editing it later
+is a policy change that needs a Scope Change. An index-role file that carries a
+valid `exclude` decision in `curation.json` is the other held kind, reported as
+`code_curation_excluded`. Held files stay in the Baseline and in Managed Scope,
+so no Scope Change is needed to reach aligned over a tree that holds images or
+dumps, and a held file can still receive an Entry through a direct
+`aoci_update_entry` with its `source_sha256`, after which it is governed like
+any other object. Held files are not the lever for size: excluding a
+directory of generated assets is still a Managed Scope rule, and a rule added
+after the first scan is a coverage reduction that needs approval.
+
 ## Scale boundary
 
 A **new** project's Whole-Index budget defaults to 200000 target / 300000

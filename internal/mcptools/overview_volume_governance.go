@@ -75,7 +75,7 @@ func semanticFactsFromVolumeGovernance(
 		Orphan:                 len(facts.CodeDrift.Orphan),
 		Unbaselined:            len(facts.CodeDrift.Unbaselined),
 		Warnings:               len(facts.RelationFindings),
-		GovernanceBlockerCount: len(facts.Findings),
+		GovernanceBlockerCount: blockingFindingCount(facts),
 		GovernanceAligned:      facts.GovernanceAligned,
 		ScopeChangeRequired:    facts.ManagedScope.ScopeChangeRequired,
 		ScopePolicyIdentity:    facts.ManagedScope.PolicyIdentity,
@@ -135,4 +135,16 @@ func confirmVolumeGovernanceSnapshot(
 		}
 	}
 	return nil
+}
+
+// blockingFindingCount leaves informational findings out of the blocker
+// count, so an aligned repository that holds images does not report blockers.
+func blockingFindingCount(facts *volumegovernance.Facts) int {
+	count := 0
+	for _, finding := range facts.Findings {
+		if !volumegovernance.Informational(finding.Code) {
+			count++
+		}
+	}
+	return count
 }

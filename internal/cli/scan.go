@@ -136,12 +136,14 @@ func init() {
 			if err := refuseGitHiddenFormalAssets(root, cfg, snap); err != nil {
 				return err
 			}
+			skipped := classifyScanSkippedSources(root, cfg, snap)
 			result := struct {
 				Version          string                   `json:"version"`
 				DryRun           bool                     `json:"dry_run"`
 				Inventory        afs.SafeInventorySummary `json:"safe_inventory"`
 				FingerprintCount int                      `json:"fingerprint_count"`
-			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap)}
+				SkippedSources   scanSkippedSources       `json:"skipped_sources"`
+			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap), SkippedSources: skipped}
 
 			if dryRun {
 				if flagJSON {
@@ -149,6 +151,7 @@ func init() {
 				}
 				if !flagQuiet {
 					fmt.Println(cliMessage("scan.dry_run", len(snap), len(warns)))
+					printScanSkippedSources(skipped)
 				}
 				return nil
 			}
@@ -168,6 +171,7 @@ func init() {
 			}
 			if !flagQuiet {
 				fmt.Println(cliMessage("scan.complete", len(snap), time.Since(start).Milliseconds()))
+				printScanSkippedSources(skipped)
 			}
 			return nil
 		},

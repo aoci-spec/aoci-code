@@ -129,7 +129,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		cognition.ScopeDatabase: requestedScope == "" || requestedScope == cognition.ScopeAll || requestedScope == cognition.ScopeDatabase}
 	codeWork := volumegovernance.CodeAuthoringWork{}
 	if requested[cognition.ScopeCode] {
-		codeWork = volumegovernance.CodeAuthoringWorkFor(root, loaded.cfg, loaded.set, facts.CodeDrift)
+		codeWork = volumegovernance.CodeAuthoringWorkFor(loaded.set, facts.CodeDrift)
 	}
 
 	if facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired {
@@ -187,6 +187,16 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		result.NextCommands = blockedNextCommands(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
+	default:
+		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
+	}
+	if len(result.Candidates) > 0 {
+		// Whichever arm was taken, a response that names candidates carries the
+		// contract to author them. Until v0.1.0-rc14 held sources were dressed as
+		// orphans, the blocked arm ran first, and the candidates it still listed
+		// came without authoring_meta or instructions, so a model told to author
+		// had nothing to author against. The invariant lives here rather than in
+		// one arm so no future arm can repeat that.
 		affected := candidateDomains(result.Candidates)
 		contract, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, affected, textassets.ActiveLocale())
 		if contractErr != nil {
@@ -194,8 +204,6 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		}
 		result.AuthoringMeta = contract.AuthoringMeta
 		result.Instructions = contract.Instructions
-	default:
-		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
@@ -259,9 +267,6 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // report, so the plan can never promise more than it issues.
 func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork) {
 	all := []codebatch.Candidate{}
-	for _, pending := range work.Pending {
-		result.OrphanRemovals = append(result.OrphanRemovals, "pending_curation:"+pending.Path)
-	}
 	for _, path := range work.Targets {
 		fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
 		if hashErr != nil {

@@ -113,6 +113,67 @@ Repair only the candidates explicitly identified by the current response, preser
 
 Stop at the reported failed step and follow its recovery evidence. Do not bypass CAS, edit manifests, delete pending evidence, or turn a stopped run into an applied result.
 
+## Verify lists `code_skipped` files, or the first Maintain skips images
+
+Index-role files whose bytes carry nothing a model can read are held out of
+authoring: an empty file, a binary (a NUL byte in its first 8000 bytes), or a
+file above 1 MiB. `aoci scan` announces how many,
+`aoci verify --json` lists them under `governance.code_drift.skipped` with one
+`code_skipped` finding per file whose `cause` is `empty`, `binary`, or
+`oversize`, and an index-role file kept out by a valid `exclude`
+decision in `curation.json` is listed under `code_drift.curation_excluded` as
+`code_curation_excluded` (a path in `curation_exclude` never enters the index
+role in the first place). They need no Entry
+and no decision, they never block, and a repository whose only findings are
+these is aligned. To give one of them an Entry anyway, call `aoci_update_entry`
+for it directly with its `source_sha256`; it then leaves the skipped list and
+is governed like any other object. Releases up to v0.1.0-rc14 stopped the first
+Maintain of such a repository with `pending_curation:` markers in
+`orphan_remove_candidates` and no authoring contract; after upgrading, the next
+Maintain issues the ordinary batch. A file AOCI cannot read at all (permissions,
+a vanished file) is a different matter: the business-source manifest refuses
+with `business_source_manifest_invalid` until it is readable or excluded.
+
+## Overview refuses on a file under `.aoci/transactions`
+
+A `.json` file directly under `.aoci/transactions/` is an unfinished
+transaction receipt, and every surface treats it the same way: Overview,
+Header, and Search refuse full delivery, `aoci verify --json` reports
+`recovery_pending` with the file under `governance.pending_transaction_files`,
+and `aoci index agent guide --json` stops on it with the closure that fits its
+kind. A `remove-*.json` receipt closes through `aoci_remove_entry` for the same
+object: when the Volume has moved past the receipt and the object is absent,
+the receipt completes as superseded and nothing else is written; when the
+object is still present with the text the receipt recorded, the stale receipt
+is discarded and the removal is re-planned from the current Volume; a Legacy
+index closes its receipt the same way through `aoci_remove_entry` or
+`aoci remove-entry`. When the Entry came back after a completed removal or
+with different text, the call is refused with `recovery_entry_reappeared`,
+because the decision the receipt carried no longer describes that Entry:
+inspect the receipt, and move it out of `.aoci/transactions` by hand so the
+next call is a fresh decision. The same manual step closes a receipt the tool
+cannot load or resume: one with invalid content, one written under the other
+layout before a migration, or one whose Root or Meta guard moved while the
+Volume still sits at its preimage. When a layout receipt (bootstrap,
+migration, reversal, scope) is pending beside an MCP write receipt, finish the
+layout transaction first: its resume and rollback proceed over MCP write
+receipts, which are then closed as above. An `entries-*.json`
+receipt resumes when the same complete batch is resubmitted through
+`aoci_update_entry` (Maintain issues no candidates while it is pending, so the
+batch comes from the model's own context), a `header-*.json` receipt is
+finished with `aoci index header diff` and `aoci index header apply` for that
+run, bootstrap, migration, and scope receipts have their `status`, `resume`,
+and `rollback` commands, and a reversal receipt has `status` and `resume`. A
+file whose name matches no receipt kind is not something AOCI wrote: inspect
+it and move it out of the directory by hand. While an MCP write receipt or a
+foreign file is pending, `verify`, `check`, `status`, `scope status`,
+`remove-entry`, and the Guide stay available and every other command is
+refused until it closes, and when receipts of several kinds are pending only
+the commands every kind allows run; the remove and update paths also refuse to
+write over any receipt that is not their own. Releases up to v0.1.0-rc14 recognised only
+five receipt kinds outside Overview, so a stale remove receipt blocked delivery
+while Verify reported aligned (#74).
+
 ## Files appear under the Host's own data directory
 
 If helper scripts or entry drafts show up under `~/.claude/projects/<project>/…/tool-results/` (or the equivalent for another Host), the Host spilled an oversized tool result to disk and the model kept working next to it. aoci never writes there: its writes are `.aoci/` and the formal Volume files inside the repository, plus a tiny CAS lock file under the system temp directory. The cause is a Maintain response or authoring batch larger than the Host window; current versions size the batch (`code_cognition_batch_entries`, default 20) and bound the governance enumerations so the response fits inline. Upgrade, or lower the team batch size, and let the model author entries directly as `aoci_update_entry` arguments.
@@ -148,6 +209,15 @@ When the Host controls model selection, a faster model that can still follow
 the authoring contract may also shorten the first build. AOCI does not select
 the Host model. Change one factor at a time and compare confirmations, model
 latency, batch count, and `deterministic_ms` before attributing the delay.
+
+For scale, one observed Codex session with a built-in model authored a
+20-entry batch in about seven minutes on a 590-file Java repository, which
+puts the whole first index near three hours at the default batch; the
+deterministic side of each batch was well under a second. Raising the batch to
+50 cuts the round trips by more than half on that Host. Codex's built-in models
+also truncate a tool result around 10,000 tokens, so keep
+`overview_delivery.chunk_tokens` at its default of 8000 there rather than
+raising it.
 
 ## Windows host cannot start MCP
 

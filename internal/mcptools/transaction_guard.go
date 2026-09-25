@@ -2,6 +2,7 @@ package mcptools
 
 import (
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,21 +15,22 @@ import (
 // an AtomicWrite intent is active. check_only remains available so callers can
 // inspect checkpoint facts without claiming a coherent cognition delivery.
 func pendingCognitionDeliveryFail(root string, set *cognition.Set) *Fail {
-	directory := filepath.Join(root, ".aoci", "transactions")
-	entries, err := os.ReadDir(directory)
-	if err != nil && !os.IsNotExist(err) {
+	// One detection for every consumer: the cognitiontxn.Pending that Verify,
+	// Guide, Maintain, the CLI gate, and every transaction start also read.
+	// Until v0.1.0-rc15 this guard scanned the directory itself and stopped on
+	// any receipt file while Verify recognised five kinds and reported aligned,
+	// so a stale remove receipt blocked full delivery with nothing naming it (#74).
+	pending, err := cognitiontxn.Pending(root)
+	if err != nil {
 		return &Fail{Code: errCognitionSnapshotUnavailable, Msg: mcpMessage(
 			"overview.delivery.recovery_inspection_failed",
 			localeSafeMCPDetail(err.Error()),
 		)}
 	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
+	if len(pending) > 0 {
 		return &Fail{
 			Code: errCognitionSnapshotUnavailable,
-			Msg:  mcpMessage("overview.delivery.pending_recovery", entry.Name()),
+			Msg:  mcpMessage("overview.delivery.pending_recovery", pending[0].Filename),
 			Hint: mcpMessage("overview.delivery.pending_recovery_hint"),
 		}
 	}

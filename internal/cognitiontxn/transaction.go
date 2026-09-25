@@ -36,6 +36,64 @@ type PendingTransaction struct {
 	Filename  string
 }
 
+// receiptKinds lists every receipt kind AOCI writes directly under
+// .aoci/transactions/, in match order (database-bootstrap before bootstrap,
+// which is its suffix). remove, entries, and header are the MCP write
+// receipts. Until v0.1.0-rc15 Pending recognised only the first five, while
+// the Overview guard stopped on any receipt file: a stale remove receipt
+// blocked full cognition delivery with Verify, Guide, and Maintain reporting
+// the repository aligned and nothing pointing at the file (#74).
+var receiptKinds = []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "remove", "entries", "header"}
+
+// OperationUnknown marks a .json file under .aoci/transactions/ that no AOCI
+// receipt kind wrote. It is still pending: a foreign file in the transaction
+// directory is a state nobody can prove, so every consumer fails closed on it
+// and the Guide asks for it to be moved out by hand.
+const OperationUnknown = "unknown"
+
+// LayoutTransaction reports whether the receipt belongs to a transaction that
+// rewrites the cognition layout itself (bootstrap, migration, reversal, scope,
+// database bootstrap). While one is pending no MCP tool can load the layout;
+// an MCP write receipt (remove, entries, header) is instead closed by the tool
+// that wrote it, which must be able to load the repository to do so.
+func (t PendingTransaction) LayoutTransaction() bool {
+	switch t.Operation {
+	case "database-bootstrap", "bootstrap", "migration", "reversal", "scope":
+		return true
+	}
+	return false
+}
+
+// PendingLayout is Pending narrowed to layout transactions.
+func PendingLayout(root string) ([]PendingTransaction, error) {
+	all, err := Pending(root)
+	if err != nil {
+		return nil, err
+	}
+	layout := make([]PendingTransaction, 0, len(all))
+	for _, item := range all {
+		if item.LayoutTransaction() {
+			layout = append(layout, item)
+		}
+	}
+	return layout, nil
+}
+
+// ParseReceiptName reads a top-level receipt filename into its kind and id.
+// ok is false for names that are not receipt files at all.
+func ParseReceiptName(filename string) (PendingTransaction, bool) {
+	if !strings.HasSuffix(filename, ".json") {
+		return PendingTransaction{}, false
+	}
+	name := strings.TrimSuffix(filename, ".json")
+	for _, prefix := range receiptKinds {
+		if strings.HasPrefix(name, prefix+"-") {
+			return PendingTransaction{Operation: prefix, ID: strings.TrimPrefix(name, prefix+"-"), Filename: filename}, true
+		}
+	}
+	return PendingTransaction{Operation: OperationUnknown, ID: name, Filename: filename}, true
+}
+
 type Postimage struct {
 	Path string
 	SHA  string
@@ -64,20 +122,11 @@ func Pending(root string) ([]PendingTransaction, error) {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
 			continue
 		}
-		name := strings.TrimSuffix(entry.Name(), ".json")
-		operation := ""
-		id := ""
-		for _, prefix := range []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope"} {
-			if strings.HasPrefix(name, prefix+"-") {
-				operation = prefix
-				id = strings.TrimPrefix(name, prefix+"-")
-				break
-			}
-		}
-		if operation == "" {
+		receipt, ok := ParseReceiptName(entry.Name())
+		if !ok {
 			continue
 		}
-		result = append(result, PendingTransaction{Operation: operation, ID: id, Filename: entry.Name()})
+		result = append(result, receipt)
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Filename < result[j].Filename })
 	return result, nil
@@ -97,17 +146,41 @@ func PendingForOperation(root, operation string) ([]string, error) {
 	return ids, nil
 }
 
+// RejectOtherPending refuses to start or resume a layout transaction while
+// another layout transaction, or a file no receipt kind wrote, is pending. An
+// MCP write receipt (remove, entries, header) does not block it: those
+// receipts bind Volume images that the layout transaction may legitimately
+// move past, and their closures judge the object afterwards. Refusing on them
+// would leave a repository that carried both kinds across an upgrade with two
+// closures that each wait for the other. Write tools check the whole
+// directory themselves before they commit.
 func RejectOtherPending(root, allowedFilename string) error {
 	pending, err := Pending(root)
 	if err != nil {
 		return err
 	}
 	for _, item := range pending {
-		if item.Filename != allowedFilename {
-			return fmt.Errorf("other_pending_aoci_transaction: %s", item.Filename)
+		if item.Filename == allowedFilename || !(item.LayoutTransaction() || item.Operation == OperationUnknown) {
+			continue
 		}
+		return fmt.Errorf("other_pending_aoci_transaction: %s", item.Filename)
 	}
 	return nil
+}
+
+// OtherPending names the first pending receipt of any kind other than the
+// caller's own; write tools refuse to commit over it.
+func OtherPending(root, ownFilename string) (string, error) {
+	pending, err := Pending(root)
+	if err != nil {
+		return "", err
+	}
+	for _, item := range pending {
+		if item.Filename != ownFilename {
+			return item.Filename, nil
+		}
+	}
+	return "", nil
 }
 
 func EnsureRuntimeBoundary(root, relativePath string, data []byte) error {

@@ -111,9 +111,10 @@ def deploy(repo_key, work_root, tag):
     return dst
 
 
-# Curation 探针 (空/超限/二进制) 会以 pending_curation 阻塞授权批次; 团队排除必须
-# 在首次 scan 之前落进初始策略, 事后再改会构成覆盖缩减、要求真人复核 (governance
-# 场景专门断言这两种行为)。
+# Curation 探针 (空/超限/二进制) 不是授权债务: 首次 Maintain 照常发批, 探针以
+# code_skipped 只读上报并带原因, 自动模式一路对齐。团队排除若在首次 scan 之前落进初始
+# 策略, 探针改记 code_curation_excluded; 事后再改会构成覆盖缩减、要求真人复核
+# (governance 场景专门断言这几种行为)。
 CURATION_EXCLUDE = {
     "a": "assets/logo.png,data/audit_dump_rows.txt,data/empty.txt",
     "b": "data/floorplan.png,data/catalog_export.csv,data/empty.cfg",
@@ -806,23 +807,54 @@ def suite_scale(rep, work):
 
 def suite_governance(rep, work):
     g = "governance"
-    # 无排除: 三个探针必须以 pending_curation 阻塞授权 (机器强制人道决策)
-    fx = deploy("a", work, "gov-blocked")
+    # 无排除: 三个探针 (空/超限/二进制) 不是授权债务。首次 Maintain 直接发批, 探针以
+    # code_skipped 只读上报并带原因, 自动模式一路对齐。rc14 曾把它们伪装成
+    # "pending_curation:" 孤儿把批次挡在 stopped, 而 Volumes v1 没有裁决通道, 用户第一次
+    # 建索引就没有出口。
+    fx = deploy("a", work, "gov-held")
     init_and_scan(fx, curation_exclude=None)
     s = Session(fx)
     m, t, _ = maintain(s)
     s.close()
+    gov = m.get("governance") or {}
     markers = [str(o) for o in (m.get("orphan_remove_candidates") or [])]
-    pend = [p for p in markers if p.startswith("pending_curation:")]
-    ok = m.get("status") == "stopped" and len(pend) == 3
-    rep.rec(g, "probes-block-as-pending-curation", "PASS" if ok else "FAIL",
-            f"status={m.get('status')} markers={markers[:4]}")
+    probes = {"empty": "data/empty.txt", "oversized": "data/audit_dump_rows.txt", "binary": "assets/logo.png"}
+    drift = gov.get("code_drift") or {}
+    skipped = set(drift.get("skipped") or [])
+    ok = (m.get("status") == "repair_required" and not markers and bool(m.get("authoring_meta"))
+          and skipped == set(probes.values()))
+    rep.rec(g, "probes-held-out-not-blocking", "PASS" if ok else "FAIL",
+            f"status={m.get('status')} markers={markers[:4]} skipped={sorted(skipped)}")
     cands = {c.get("path") for c in (m.get("candidates") or [])}
-    for kind, p in {"empty": "data/empty.txt", "oversized": "data/audit_dump_rows.txt",
-                    "binary": "assets/logo.png"}.items():
+    for kind, p in probes.items():
         rep.rec(g, f"probe-{kind}-not-ordinary-candidate", "PASS" if p not in cands else "FAIL", p)
+    # Maintain bounds its per-item governance lists to a leading sample; verify
+    # lists every finding, so the causes are read there.
+    _, v0 = aligned(fx)
+    causes = {f.get("target"): f.get("cause") for f in ((v0.get("governance") or {}).get("findings") or [])
+              if f.get("code") == "code_skipped"}
+    want = {"data/empty.txt": "empty", "data/audit_dump_rows.txt": "oversize", "assets/logo.png": "binary"}
+    rep.rec(g, "probe-causes-named", "PASS" if causes == want else "FAIL", f"causes={causes}")
     rep.rec(g, "lockfile-classification", "CHAR", f"candidate={'package-lock.json' in cands}")
+    ok_all, rounds, detail = author_all(fx)
+    al, v = aligned(fx)
+    rep.rec(g, "auto-mode-aligns-with-probes-held", "PASS" if ok_all and al else "FAIL",
+            f"outcome={detail} rounds={rounds} aligned={al}")
+    # 直接为二进制写 Entry 仍然允许; 之后它是普通对象, 离开 skipped, 对齐不动。
+    s = Session(fx)
+    with open(os.path.join(fx, "assets", "logo.png"), "rb") as fh:
+        sha = hashlib.sha256(fh.read()).hexdigest()
+    r = jload(text_of(s.call("aoci_update_entry", {"path": "assets/logo.png", "source_sha256": sha,
+            "new_entry": "logo.png[CG1T]: F:Brand mark shown by the service | R:- | A:- | S:-"}))[0]) or {}
+    s.close()
+    al2, v2 = aligned(fx)
+    skipped2 = set((((v2.get("governance") or {}).get("code_drift") or {}).get("skipped")) or [])
+    ok = r.get("status") == "applied" and al2 and skipped2 == {"data/empty.txt", "data/audit_dump_rows.txt"}
+    rep.rec(g, "held-file-can-still-be-authored-directly", "PASS" if ok else "FAIL",
+            f"status={r.get('status')} aligned={al2} skipped={sorted(skipped2)}")
     # 事后排除 = 覆盖缩减, auto 必须被挡 (防 agent 私自收缩认知面)
+    fx = deploy("a", work, "gov-blocked")
+    init_and_scan(fx, curation_exclude=None)
     cli(fx, "config", "set", "curation_exclude", CURATION_EXCLUDE["a"])
     cs = os.path.join(work, "gov-cs.json")
     open(cs, "w").write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')
@@ -843,15 +875,19 @@ def suite_governance(rep, work):
     cause_visible = cause_visible or "coverage_reduction" in blob
     rep.rec(g, "post-scan-exclude-needs-human", "PASS" if refused and cause_visible else "FAIL",
             f"refused={refused} cause_visible={cause_visible} | " + (v.get("message") or out)[:90])
-    # 预置排除: 同样内容, 阻塞消失
+    # 预置排除: 首次 scan 之前写进 curation_exclude 的文件根本不进 index 角色, 于是既不是
+    # 候选也不在 skipped 里, 批次照发
     fx2 = deploy("a", work, "gov-excluded")
     init_and_scan(fx2)
     s = Session(fx2)
     m, t, _ = maintain(s)
     s.close()
-    ok = (m.get("candidates") and not (m.get("orphan_remove_candidates") or []))
-    rep.rec(g, "pre-scan-exclude-unblocks", "PASS" if ok else "FAIL",
-            f"cands={len(m.get('candidates') or [])}")
+    drift = (m.get("governance") or {}).get("code_drift") or {}
+    cands2 = {c.get("path") for c in (m.get("candidates") or [])}
+    ok = (bool(cands2) and not (m.get("orphan_remove_candidates") or []) and not (cands2 & set(probes.values()))
+          and not drift.get("skipped") and not drift.get("curation_excluded"))
+    rep.rec(g, "pre-scan-exclude-keeps-probes-out-of-scope", "PASS" if ok else "FAIL",
+            f"cands={len(cands2)} excluded={drift.get('curation_excluded')} skipped={drift.get('skipped')}")
     rc, v, out, _ = cli(fx2, "scope", "budget", expect_ok=False)
     rep.rec(g, "budget-visible", "PASS" if rc == 0 else "FAIL")
     suite_governance_stale_source(rep, work)

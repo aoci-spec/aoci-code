@@ -805,7 +805,7 @@ aoci --repo . cognition system evolution \
 | **FRAS Semantic Objects** | 每个 `index` 角色对象的职责、强关系、公开合同和高价值约束 |
 | **Cross-session Persistence** | 认知资产随仓库保存，后续会话和其他 AI Agent 可复用同一版本 |
 | **Managed Scope** | 明确哪些对象进入正式认知、哪些只观察变化、哪些形成正式负空间 |
-| **Drift Detection** | 区分 Missing、Orphan、Stale、Unbaselined、换行变化和策展差异 |
+| **Drift Detection** | 区分 Missing、Orphan、Stale、Unbaselined、换行变化、策展差异,以及被挡在授权之外的源文件(空、二进制、超限) |
 | **Governed Updates** | 候选经源码绑定、Plan、校验、Review、CAS、原子写入、Baseline 与恢复流程进入正式资产 |
 | **Delivery Attestation** | 通过 Chunk、Cursor、Receipt 与 Challenge 证明 Whole-Index 确已完整交付 |
 | **Database Cognition** | 根据显式接受的 PostgreSQL/MySQL/openGauss Schema Evidence 形成并治理表级认知 |
@@ -913,7 +913,7 @@ aoci --repo . index agent guide --agent codex --json
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 60 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **故障注入场景** —— 61 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

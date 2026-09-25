@@ -3,6 +3,7 @@ package cognitionplan
 import (
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -286,18 +287,12 @@ func inspectBaseline(root string) (string, bool, error) {
 }
 
 func rejectPendingRecovery(root string) error {
-	directory := filepath.Join(root, ".aoci", "transactions")
-	entries, err := os.ReadDir(directory)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
+	// The one pending-receipt detection every consumer shares (cognitiontxn.Pending).
+	pending, err := cognitiontxn.Pending(root)
 	if err != nil {
 		return fmt.Errorf("recovery_state_unavailable")
 	}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
-		}
+	if len(pending) > 0 {
 		return fmt.Errorf("pending_recovery")
 	}
 	return nil

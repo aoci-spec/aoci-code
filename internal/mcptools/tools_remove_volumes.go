@@ -48,44 +48,74 @@ func planVolumeRemoveEntry(root, objectRef string, _ bool) (*removePlan, *Fail) 
 	if recoveryErr != nil && !os.IsNotExist(recoveryErr) {
 		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_read_failed", localeSafeWriteDetail(recoveryErr.Error()))}
 	}
+	var staleReceipt *removeRecovery
 	if recovery != nil {
 		if !recovery.VolumeMode || recovery.ObjectRef != objectRef || recovery.VolumeID != volumeID ||
 			recovery.VolumePath != asset.Descriptor.Path || recovery.VolumePostimage == "" {
 			return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_invalid")}
 		}
-		plan := volumeRemovePlanFromRecovery(root, loaded, asset, recovery)
-		if guardFail := validateVolumeRemoveGuards(root, plan, true); guardFail != nil {
-			return nil, guardFail
-		}
 		current := asset.SHA256
 		object := cognitionObjectByRef(asset, objectRef)
 		switch current {
-		case recovery.PreIndexSHA256:
-			if object == nil || object.CanonicalLine != recovery.RemovedLine {
-				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_entry_reappeared")}
+		case recovery.PreIndexSHA256, recovery.PostIndexSHA256:
+			plan := volumeRemovePlanFromRecovery(root, loaded, asset, recovery)
+			if guardFail := validateVolumeRemoveGuards(root, plan, true); guardFail != nil {
+				return nil, guardFail
 			}
-			facts, orphanFail := proveVolumeOrphan(root, loaded, objectRef, volumeID)
-			if orphanFail != nil {
-				return nil, orphanFail
-			}
-			if recovery.OwnershipRepair {
-				finding, proofFail := proveVolumeOwnershipRepair(loaded.set, facts, objectRef, volumeID)
-				if proofFail != nil || finding == nil || finding.ExpectedOwner != recovery.PreservedOwner {
-					if proofFail != nil {
-						return nil, proofFail
-					}
-					return nil, &Fail{Code: errWriteConflict, Msg: "remove_ownership_repair_proof_changed"}
+			if current == recovery.PreIndexSHA256 {
+				if object == nil || object.CanonicalLine != recovery.RemovedLine {
+					return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_entry_reappeared")}
 				}
+				facts, orphanFail := proveVolumeOrphan(root, loaded, objectRef, volumeID)
+				if orphanFail != nil {
+					return nil, orphanFail
+				}
+				if recovery.OwnershipRepair {
+					finding, proofFail := proveVolumeOwnershipRepair(root, loaded.set, facts, objectRef, volumeID)
+					if proofFail != nil || finding == nil || finding.ExpectedOwner != recovery.PreservedOwner {
+						if proofFail != nil {
+							return nil, proofFail
+						}
+						return nil, &Fail{Code: errWriteConflict, Msg: "remove_ownership_repair_proof_changed"}
+					}
+				}
+			} else {
+				if object != nil {
+					return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_postimage_drift")}
+				}
+				plan.alreadyApplied = true
 			}
-		case recovery.PostIndexSHA256:
-			if object != nil {
-				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_postimage_drift")}
-			}
-			plan.alreadyApplied = true
+			return plan, nil
 		default:
-			return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_postimage_drift")}
+			// The Volume has moved past this receipt: later transactions committed
+			// against the Volume as it then was, so neither the receipt's preimage
+			// nor its guards can hold again. Until v0.1.0-rc15 every retry stopped
+			// here with recovery_postimage_drift while the receipt kept full
+			// cognition delivery blocked (#74). The receipt is judged by its object.
+			if object == nil {
+				// The object is gone, so the removal's postcondition holds and only
+				// the receipt is unfinished: the commit closes it as superseded,
+				// writing nothing but the Ledger line and the completion marker.
+				plan := volumeRemovePlanFromRecovery(root, loaded, asset, recovery)
+				plan.superseded = true
+				plan.staleReceipt = recovery
+				plan.out.Superseded = true
+				return plan, nil
+			}
+			if recovery.Completed || object.CanonicalLine != recovery.RemovedLine {
+				// The object came back after a completed removal, or with
+				// different text than the receipt recorded: the decision that
+				// receipt carried no longer describes this object, so a retry
+				// cannot stand in for a new one.
+				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.recovery_entry_reappeared"),
+					Hint: writeMessage("remove.hint.new_decision")}
+			}
+			// The object is still here unchanged, so the removal never applied
+			// and the receipt binds a Volume version that no longer exists. The
+			// commit discards it under the lock, and this call is the fresh
+			// removal decision planned from the current Volume.
+			staleReceipt = recovery
 		}
-		return plan, nil
 	}
 
 	object := cognitionObjectByRef(asset, objectRef)
@@ -96,7 +126,7 @@ func planVolumeRemoveEntry(root, objectRef string, _ bool) (*removePlan, *Fail) 
 	if orphanFail != nil {
 		return nil, orphanFail
 	}
-	ownershipFinding, ownershipFail := proveVolumeOwnershipRepair(loaded.set, facts, objectRef, volumeID)
+	ownershipFinding, ownershipFail := proveVolumeOwnershipRepair(root, loaded.set, facts, objectRef, volumeID)
 	if ownershipFail != nil {
 		return nil, ownershipFail
 	}
@@ -150,13 +180,13 @@ func planVolumeRemoveEntry(root, objectRef string, _ bool) (*removePlan, *Fail) 
 	cfgCopy.IndexPath = asset.Descriptor.Path
 	rc := &repoCtx{cfg: &cfgCopy, paths: config.AOCIPaths(root, asset.Descriptor.Path),
 		text: string(asset.Raw), doc: asset.Document, bl: loaded.bl}
-	outcome := &RemoveOutcome{Rel: objectRef, RemovedLine: object.CanonicalLine}
+	outcome := &RemoveOutcome{Rel: objectRef, RemovedLine: object.CanonicalLine, StaleReceiptDiscarded: staleReceipt != nil}
 	if ownershipFinding != nil {
 		outcome.OwnershipRepair = true
 		outcome.PreservedOwner = ownershipFinding.ExpectedOwner
 	}
 	return &removePlan{
-		out: outcome, newText: newText,
+		out: outcome, newText: newText, staleReceipt: staleReceipt,
 		rc: rc, indexHash: asset.SHA256, orphanOnly: true, volumeMode: true,
 		objectRef: objectRef, volumeID: volumeID, guardSHA256: guardSHA, evidenceIdentity: evidenceIdentity,
 		baselinePreSHA256: indexTextHash(string(baselineRaw)), baselinePostSHA256: indexTextHash(string(baselinePost)),
@@ -205,6 +235,7 @@ func proveVolumeOrphan(root string, loaded *cognitionRepoCtx, objectRef, volumeI
 // expected/actual ownership, the safe action, and the preserved formal owner
 // all come from current machine facts and the loaded CognitionSet.
 func proveVolumeOwnershipRepair(
+	root string,
 	set *cognition.Set,
 	facts *volumegovernance.Facts,
 	objectRef, volumeID string,
@@ -227,7 +258,7 @@ func proveVolumeOwnershipRepair(
 	if matched == nil {
 		return nil, nil
 	}
-	if facts.RecoveryPending || facts.ThirdPartyConflict || !facts.StructureValid ||
+	if otherReceiptsPending(facts, filepath.Base(removeRecoveryPath(root, objectRef))) || facts.ThirdPartyConflict || !facts.StructureValid ||
 		matched.Code != "code_orphan" || matched.AffectedPath != path ||
 		matched.SafeRepairAction != "aoci_remove_entry path="+objectRef ||
 		matched.ExpectedOwner == "" || matched.ExpectedOwner == matched.ActualOwner ||
@@ -348,8 +379,32 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 	if transactionFail := pendingHeaderTransactionFail(root); transactionFail != nil {
 		return transactionFail
 	}
+	if fail := rejectOtherRemovePending(root, plan); fail != nil {
+		return fail
+	}
+	if plan.superseded {
+		return closeSupersededRemove(root, source, plan, func() *Fail {
+			cfg, err := config.LoadReadOnly(root)
+			if err != nil {
+				return &Fail{Code: errWriteConflict, Msg: "remove_volume_configuration_guard_changed"}
+			}
+			set, err := cognition.Load(root, cfg.IndexPath)
+			if err != nil || cognitionObjectByRef(set.Volumes[plan.volumeID], plan.objectRef) != nil {
+				return &Fail{Code: errWriteConflict, Msg: "remove_superseded_object_reappeared"}
+			}
+			return nil
+		})
+	}
 	if guardFail := validateVolumeRemoveGuards(root, plan, true); guardFail != nil {
 		return guardFail
+	}
+	// The stale receipt goes only now, after the guards have passed and
+	// immediately before the fresh receipt takes its place, so a commit that
+	// refuses leaves the receipt where it was.
+	if plan.staleReceipt != nil {
+		if fail := discardStaleReceipt(root, source, plan); fail != nil {
+			return fail
+		}
 	}
 	recovery := removeRecovery{
 		Version: 1, Rel: plan.objectRef, RemovedLine: plan.out.RemovedLine,
@@ -410,4 +465,20 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 		return &Fail{Code: errInternal, Msg: "remove_recovery_cleanup_failed"}
 	}
 	return nil
+}
+
+// otherReceiptsPending reports whether a pending receipt other than this
+// removal's own is outstanding. The removal's receipt is what a resume, a
+// superseded closure, or a discard exists to finish, so it can never be the
+// reason those paths refuse; any other receipt is.
+func otherReceiptsPending(facts *volumegovernance.Facts, own string) bool {
+	if facts == nil {
+		return false
+	}
+	for _, file := range facts.PendingTransactionFiles {
+		if file != own {
+			return true
+		}
+	}
+	return false
 }

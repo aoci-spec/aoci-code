@@ -33,7 +33,9 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
@@ -492,4 +494,25 @@ func localizePlanWarnings(warnings []string) []string {
 		localized = append(localized, localeSafeCLIDetail(warning))
 	}
 	return localized
+}
+
+// guardPendingReceiptsForLegacyAgent keeps the Legacy plan from printing an
+// ordinary plan over an unfinished receipt. The Legacy repository shares the
+// receipt directory and its closures with Volumes, whose Guide stops on them
+// with stop facts.
+func guardPendingReceiptsForLegacyAgent(repoRoot string) error {
+	pending, err := cognitiontxn.Pending(repoRoot)
+	if err != nil {
+		return fmt.Errorf("%s", cliMessage("cognition.bootstrap.pending_inspection_failed"))
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	files := make([]string, 0, len(pending))
+	actions := make([]string, 0, len(pending))
+	for _, receipt := range pending {
+		files = append(files, receipt.Filename)
+		actions = append(actions, recoveryPendingAction(receipt.Operation, receipt.Filename))
+	}
+	return fmt.Errorf("%s %s", cliMessage("guide.recovery_pending.cause", strings.Join(files, ", ")), strings.Join(actions, " "))
 }

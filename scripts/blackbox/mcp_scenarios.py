@@ -943,6 +943,80 @@ def group_f_activate():
         s.close()
 
 
+def group_f_held_sources():
+    """A first scan over an image, an empty file, and a file above the read limit
+    reaches aligned in auto mode: the three are held out as code_skipped with their
+    cause, never dressed as orphans, alignment does not move when another image
+    lands, and a held file can still be authored directly (it then leaves skipped).
+    Releases up to v0.1.0-rc14 stopped the first Maintain here with
+    pending_curation: markers that Volumes v1 had no decision path to clear."""
+    g, name = "F", "F11.held-sources-reach-aligned-without-a-decision"
+    d = os.path.join(WORK, "held-sources")
+    shutil.rmtree(d, ignore_errors=True)
+    for sub in ("pkg", "assets", "data"):
+        os.makedirs(os.path.join(d, sub))
+    for i in (1, 2):
+        with open(os.path.join(d, "pkg", f"f{i:03}.go"), "w") as f:
+            f.write(f"package pkg\n\n// fixture unit {i}: independent constant provider\nfunc F{i:03}() int {{ return {i} }}\n")
+    png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00"
+    with open(os.path.join(d, "assets", "logo.png"), "wb") as f:
+        f.write(png)
+    open(os.path.join(d, "data", "empty.txt"), "wb").close()
+    with open(os.path.join(d, "data", "dump.txt"), "w") as f:
+        f.write("row\n" * ((1 << 20) // 4 + 1))
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    rc, _, out, errs = cli(d, "init", "--locale", "en-US")
+    if rc != 0:
+        record(g, name, "FAIL", f"init failed: {(out + errs)[:160]}")
+        return
+    rc, scan, out, errs = cli(d, "scan")
+    counts = scan.get("skipped_sources") or {}
+    announced = rc == 0 and counts.get("total") == 3 and counts.get("binary") == 1 \
+        and counts.get("empty") == 1 and counts.get("oversize") == 1 and "unreadable" not in counts
+    probes = {"assets/logo.png", "data/empty.txt", "data/dump.txt"}
+    s = Session(d)
+    try:
+        m, text, _ = maintain(s)
+        gov = m.get("governance") or {}
+        markers = [str(o) for o in (m.get("orphan_remove_candidates") or [])]
+        cands = {c.get("path") for c in (m.get("candidates") or [])}
+        drift = gov.get("code_drift") or {}
+        causes = {f.get("target"): f.get("cause") for f in (gov.get("findings") or []) if f.get("code") == "code_skipped"}
+        first_ok = (m.get("status") == "repair_required" and not markers and bool(m.get("authoring_meta"))
+                    and not (cands & probes) and set(drift.get("skipped") or []) == probes
+                    and causes == {"assets/logo.png": "binary", "data/empty.txt": "empty", "data/dump.txt": "oversize"})
+        if not first_ok:
+            record(g, name, "FAIL", f"announced={announced} status={m.get('status')} markers={markers[:3]} "
+                                    f"skipped={drift.get('skipped')} causes={causes} | {text[:120]}")
+            return
+        applied, atext, _ = submit_batch(s, m)
+        aligned, _ = fixture_aligned(d)
+        if applied.get("status") != "applied" or not aligned:
+            record(g, name, "FAIL", f"auto authoring did not align: status={applied.get('status')} aligned={aligned} | {atext[:160]}")
+            return
+        with open(os.path.join(d, "assets", "new.png"), "wb") as f:
+            f.write(png + b"new")
+        still, v = fixture_aligned(d)
+        skipped = set(((v.get("governance") or {}).get("code_drift") or {}).get("skipped") or [])
+        with open(os.path.join(d, "assets", "logo.png"), "rb") as f:
+            sha = hashlib.sha256(f.read()).hexdigest()
+        r = jload(text_of(s.call("aoci_update_entry", {"path": "assets/logo.png", "source_sha256": sha,
+                  "new_entry": "logo.png[CG1T]: F:Brand mark shown by the fixture | R:- | A:- | S:-"}))[0]) or {}
+        after, v2 = fixture_aligned(d)
+        skipped2 = set(((v2.get("governance") or {}).get("code_drift") or {}).get("skipped") or [])
+        ok = (announced and still and skipped == probes | {"assets/new.png"} and r.get("status") == "applied"
+              and after and skipped2 == {"assets/new.png", "data/empty.txt", "data/dump.txt"})
+        record(g, name, "PASS" if ok else "FAIL",
+               f"announced={announced} new_png_holds={still} direct_author={r.get('status')} "
+               f"aligned_after={after} skipped={sorted(skipped2)}")
+    finally:
+        s.close()
+
+
 def group_f_deleted_observe():
     """Deleting a tracked observe source must not wedge acknowledgement.
 
@@ -1837,6 +1911,7 @@ if __name__ == "__main__":
     group_n()
     group_f_scope()
     group_f_activate()
+    group_f_held_sources()
     group_f_deleted_observe()
     group_f_excluded_tracked()
     group_t()

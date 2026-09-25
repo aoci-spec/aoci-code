@@ -240,6 +240,7 @@ func planCognitionVolumeUpdates(
 	if volumes[cognition.ScopeCode] {
 		codeContext = volumeCodeRepoContext(root, loaded)
 	}
+	var repairs *Fail
 	for itemIndex, item := range ordered {
 		candidate := candidates[itemIndex]
 		if item.rel != "" {
@@ -255,7 +256,20 @@ func planCognitionVolumeUpdates(
 						itemFail.Findings[index].CandidateIndex = item.originalCandidateIndex
 					}
 				}
-				return nil, itemFail
+				if !itemFail.Repairable || len(itemFail.Findings) == 0 {
+					return nil, itemFail
+				}
+				// A repairable candidate is recorded and the rest of the batch is
+				// still validated against the projection without it, so one
+				// repair_required response names every candidate the model has to
+				// fix. Until v0.1.0-rc15 validation returned at the first one, and a
+				// batch with three bad Entries cost three round trips.
+				if repairs == nil {
+					repairs = itemFail
+				} else {
+					repairs.Findings = append(repairs.Findings, itemFail.Findings...)
+				}
+				continue
 			}
 			projected["code"] = []byte(nextText)
 			codeContext.text = nextText
@@ -275,6 +289,9 @@ func planCognitionVolumeUpdates(
 			Diff: renderEntryWriteDiff(before, candidate.CanonicalLine),
 		})
 		rels = append(rels, candidate.ObjectRef)
+	}
+	if repairs != nil {
+		return nil, repairs
 	}
 
 	for _, volumeID := range envelope.WriteSet {
@@ -1103,20 +1120,25 @@ func recoveryGuardMismatch(root string, recovery *atomicBatchRecovery) string {
 	return ""
 }
 
+// advanceCognitionVolumeBaseline records the sources and Volumes a batch
+// wrote. Under Managed Scope every fingerprint keeps its index role: HashFile
+// knows nothing about roles, and until v0.1.0-rc15 this path wrote roleless
+// fingerprints over the ones scan had stamped, so a Baseline that scan and a
+// batch had both touched described the same file two ways.
 func advanceCognitionVolumeBaseline(root string, state *baseline.Baseline, plan *atomicBatchPlan) (bool, string) {
 	for rel, fingerprint := range plan.volumePlan.sourceFingerprints {
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil || current.SHA256 != fingerprint.SHA256 {
 			return false, writeMessage("entry.batch.source_drift", rel)
 		}
-		baseline.UpdateOne(state, rel, fingerprint)
+		baseline.UpdateOne(state, rel, asManagedIndexFingerprint(state, fingerprint))
 	}
 	for _, rel := range plan.volumePlan.volumePaths {
 		fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			return false, writeMessage("entry.batch.postimage_unconfirmed")
 		}
-		baseline.UpdateOne(state, rel, fingerprint)
+		baseline.UpdateOne(state, rel, asManagedIndexFingerprint(state, fingerprint))
 	}
 	for _, binding := range plan.volumePlan.databaseBindings {
 		if err := baseline.UpdateDatabaseCognitionBinding(state, binding); err != nil {

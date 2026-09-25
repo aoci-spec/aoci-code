@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"io"
 	"os"
 	"path/filepath"
@@ -422,24 +423,16 @@ func ProveEntriesZeroWriteGovernance(
 }
 
 func rejectOtherPendingGovernanceAssets(root, indexPath, allowedBatchKey string) error {
-	directory := filepath.Join(root, ".aoci", "transactions")
-	entries, err := os.ReadDir(directory)
-	if os.IsNotExist(err) {
-		entries = nil
-		err = nil
-	}
+	// The one pending-receipt detection every consumer shares (cognitiontxn.Pending).
+	pending, err := cognitiontxn.Pending(root)
 	if err != nil {
 		return err
 	}
 	allowed := "entries-" + allowedBatchKey + ".json"
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
-			continue
+	for _, receipt := range pending {
+		if receipt.Filename != allowed {
+			return fmt.Errorf("other_pending_aoci_transaction: %s", receipt.Filename)
 		}
-		if entry.Name() == allowed {
-			continue
-		}
-		return fmt.Errorf("other_pending_aoci_transaction: %s", entry.Name())
 	}
 	for _, suffix := range []string{".aoci-cas.intent", ".aoci-cas.swap"} {
 		if _, err := os.Lstat(indexPath + suffix); err == nil {

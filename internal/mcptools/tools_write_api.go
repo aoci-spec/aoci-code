@@ -218,6 +218,9 @@ var requiredReportMessages = map[string][]any{
 }
 
 var requiredRemoveMessages = map[string][]any{
+	"remove.recovery_superseded":               {"code:a.go", "a.go[CD5T]: F:x | R:- | A:- | S:-"},
+	"remove.preview_superseded":                {"code:a.go", "a.go[CD5T]: F:x | R:- | A:- | S:-"},
+	"remove.stale_receipt_discarded":           {"code:a.go"},
 	"entry.write.localized_detail_unavailable": nil,
 	"entry.write.localized_detail_with_facts":  {"facts"},
 	"remove.path_invalid":                      {"detail"},
