@@ -42,13 +42,16 @@ AI_PKGS=(
 
 # 直接依赖是系统部署与供应链边界，必须与架构声明同步。x/sys只提供标准库
 # 缺失的原子路径交换、Windows Job Object与Linux subreaper系统调用封装；
-# 不引入联网、服务或AI运行时。
+# 不引入联网、服务或AI运行时。pflag 是 cobra 自带的 flag 库，本就在构建图里；
+# CLI 执行器在每次进程内执行前复位子命令 flag 时要遍历 *pflag.FlagSet，
+# 因此成为直接依赖，版本与 go.sum 不变。
 EXPECTED_DIRECT_MODULES=(
   "gitcode.com/opengauss/openGauss-connector-go-pq"
   "github.com/go-sql-driver/mysql"
   "github.com/jackc/pgx/v5"
   "github.com/modelcontextprotocol/go-sdk"
   "github.com/spf13/cobra"
+  "github.com/spf13/pflag"
   "golang.org/x/sys"
 )
 
