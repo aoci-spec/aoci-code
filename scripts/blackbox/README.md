@@ -32,7 +32,7 @@ Fault-injection scenarios (60 scenarios, disposable fixtures in a temp dir):
 python3 scripts/blackbox/mcp_scenarios.py
 ```
 
-Upgrade axis (32 checks per released version, over four repository shapes;
+Upgrade axis (40 checks per released version, over five repository shapes;
 downloads and checksum-verifies each release once into a gitignored cache):
 
 ```bash

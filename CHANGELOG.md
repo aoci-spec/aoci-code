@@ -10,6 +10,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   against its recorded root instead of filing each Entry under the worktree
   path, so the primary checkout, the worktree, and an unrelated clone read one
   index. A single-section index stays ambiguous and keeps its direct reading.
+  The upgrade axis gains a fifth shape that authors a fixture inside
+  `.worktrees/wt` with each released binary, merges it, and reads it from the
+  primary checkout with the binary under test: 40 checks per released version.
 - Add `aoci scope activate` (#73, #54). After editing rules, a budget, or the
   approval mode, one command builds the empty candidate set and runs the
   existing Scope Change preview and Apply. When the preview needs a human, it

@@ -2,10 +2,11 @@
 """AOCI upgrade-axis harness — a repository written by a previously released
 binary must stay governable by the binary under test.
 
-升级轴回归（每个已发布版本 32 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
+升级轴回归（每个已发布版本 40 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
 aligned,再让被测二进制跑上去,断言身份不变、不索要 Scope Change、不改写正式资产。
-四种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
-(根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根。
+五种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
+(根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根, 一种
+嵌套 worktree 形状(在 <repo>/.worktrees/wt 里建的索引合回主检出后从主检出读, #77)。
 
 Why this suite exists at all: the other three suites build every fixture with the
 binary under test, so a preimage that changed between versions is invisible to
@@ -46,7 +47,7 @@ resolves root files as `(x)/repo/<file>` in every checkout while the origin stay
 aligned. v0.1.0-rc13 read both sides aligned; a pre-release build of rc14 did
 not, and the last check is what reports it.
 
-The published number is 32 checks *per released version* (8 per repository
+The published number is 40 checks *per released version* (8 per repository
 shape), not a total: a total would change on every release and stop being a
 property of this suite.
 
@@ -83,7 +84,11 @@ CHECKS_PER_SHAPE = 8
 # wrote there mixes a full-spelled root with a truncated one (#58). "cutsegment"
 # is the same under a directory whose name begins with "(": the truncated root is
 # then an ancestor of the full one, which is a different case for a relocated reader.
-SHAPES = ("init", "nobudget", "spacedroot", "cutsegment")
+# "worktree" authors the index inside a git worktree nested under the primary
+# checkout (<repo>/.worktrees/wt), merges it, and reads it from the primary
+# checkout: the recorded root is then a descendant of the invocation root, the
+# case every release up to rc14 misread as one directory per Entry (#77).
+SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree")
 CHECKS_PER_VERSION = CHECKS_PER_SHAPE * len(SHAPES)
 CHECK_NAMES = ("post_scan_identity_stable", "aligned_repo_stays_aligned",
                "composite_identity_unchanged", "no_scope_change_demanded",
@@ -201,11 +206,15 @@ def make_fixture(path):
         os.makedirs(os.path.dirname(full), exist_ok=True)
         with open(full, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(body)
+    for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
+        git(path, *args)
+
+
+def git(path, *args):
     env = dict(os.environ, GIT_AUTHOR_NAME="probe", GIT_AUTHOR_EMAIL="probe@example.invalid",
                GIT_COMMITTER_NAME="probe", GIT_COMMITTER_EMAIL="probe@example.invalid")
-    for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
-        subprocess.run(["git", "-C", path] + args, check=True, env=env,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    subprocess.run(["git", "-C", path] + list(args), check=True, env=env,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def run(binary, repo, *args, check=False):
@@ -402,30 +411,47 @@ def check_version(version, shape, old_binary, workdir):
         repo = os.path.join(workdir, f"{version}-cutsegment", "(x)", "repo")
     os.makedirs(repo, exist_ok=True)
     make_fixture(repo)
-    run(old_binary, repo, "init", "--locale", "en-US", check=True)
+    # The worktree shape authors in a git worktree nested under the primary
+    # checkout and reads from the primary checkout after the merge; every other
+    # shape authors and reads at the same root.
+    authoring = repo
+    if shape == "worktree":
+        with open(os.path.join(repo, ".gitignore"), "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(".worktrees/\n")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-qm", "ignore worktrees")
+        authoring = os.path.join(repo, ".worktrees", "wt")
+        git(repo, "worktree", "add", "-q", os.path.join(".worktrees", "wt"), "-b", "feat/index")
+    run(old_binary, authoring, "init", "--locale", "en-US", check=True)
     # The block must go before scan: scan is what stamps budget_policy_identity
     # into the Baseline, and stamping the explicit block would defeat the shape.
-    if shape == "nobudget" and not strip_budget_block(repo):
+    if shape == "nobudget" and not strip_budget_block(authoring):
         for name in CHECK_NAMES:
             ok(f"{tag}.{name}", False, "this release wrote no cognition_budget block to remove")
         return
-    run(old_binary, repo, "scan", check=True)
+    run(old_binary, authoring, "scan", check=True)
 
     # 1. Identity stability is observable before a single Entry exists: scan is
     #    what stamps the policy and budget identities into the Baseline.
-    old_scan = verify_facts(old_binary, repo)
-    new_scan = verify_facts(BIN, repo)
+    old_scan = verify_facts(old_binary, authoring)
+    new_scan = verify_facts(BIN, authoring)
     keys = ("policy_identity", "active_policy_identity", "budget_mode", "budget_max_tokens", "layout_mode")
     same = old_scan is not None and new_scan is not None and all(old_scan[k] == new_scan[k] for k in keys)
     ok(f"{tag}.post_scan_identity_stable", same,
        "" if same else f"old={old_scan} new={new_scan}")
 
-    if not author_to_aligned(old_binary, repo):
+    if not author_to_aligned(old_binary, authoring):
         for name in CHECK_NAMES[1:]:  # post_scan_identity_stable already reported
             ok(f"{tag}.{name}", False, "the released binary could not author this fixture to aligned")
         return
+    if shape == "worktree":
+        # Commit the cognition on the worktree branch and merge it, so the primary
+        # checkout carries the same formal bytes under its own root.
+        git(authoring, "add", "-A")
+        git(authoring, "commit", "-qm", "index")
+        git(repo, "merge", "-q", "feat/index")
 
-    old = verify_facts(old_binary, repo)
+    old = verify_facts(old_binary, authoring)
     before = snapshot(repo)
     new = verify_facts(BIN, repo)
 

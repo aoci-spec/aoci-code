@@ -961,7 +961,7 @@ and CLI only:
   optional model track puts a real AI agent — any model your OpenCode
   installation exposes — through the two small repositories and scores the end
   state from public surfaces.
-- **Upgrade axis** — 32 checks per released version, over four repository
+- **Upgrade axis** — 40 checks per released version, over five repository
   shapes: every published release builds and authors a repository with its own
   binary, then the binary under test must govern it without moving an identity,
   demanding a Scope Change, or rewriting a formal asset, and what it then

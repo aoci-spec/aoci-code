@@ -31,6 +31,15 @@ of a header stops at that character and later sections continue what was read
 back. Both resolve to the same repository root, at the origin and in a checkout
 elsewhere; do not rewrite the headers by hand to make them match.
 
+An index authored inside a git worktree nested under the primary checkout,
+such as `<repo>/.worktrees/wt`, records that worktree as its root. Once the
+branch is merged, the primary checkout reads the same bytes with the recorded
+root below its own; the reader recognises the family and resolves every Entry
+against the recorded root, so the primary checkout, the worktree, and an
+unrelated clone all read one index (#77). Releases up to v0.1.0-rc14 filed
+every Entry under `.worktrees/wt/` from the primary checkout instead, which
+looked like the whole index missing and orphaned at once.
+
 ## Maintain or an update stops with `directory_unspellable`
 
 A candidate lives in a directory the index cannot record: its name begins or

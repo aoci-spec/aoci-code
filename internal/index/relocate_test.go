@@ -217,3 +217,28 @@ func TestResolveCodexMixedRootScene(t *testing.T) {
 		t.Fatalf("当前根新段应直接命中, got %q", got)
 	}
 }
+
+// An index with no root-level section, every section under one recorded
+// subdirectory, is ambiguous: it reads the same whether the writer meant that
+// subdirectory as the repository or as a real directory below it. Such an
+// index is only written by rc13 and older, since rc14 always begins with the
+// root section. What the reader guarantees is that the origin, an ancestor,
+// and an unrelated clone all read it identically, so nothing diverges between
+// checkouts; this test pins that invariant rather than either interpretation.
+func TestSubdirectoryOnlyIndexReadsTheSameAtOriginAncestorAndClone(t *testing.T) {
+	text := "===/srv/repo/src/===\n" +
+		"a.go[XMO9T]: F:f | R:- | A:- | S:-\n" +
+		"===/srv/repo/src/pkg/===\n" +
+		"b.go[FWK8WS]: F:f | R:- | A:- | S:-\n"
+	readings := map[string][2]string{}
+	for _, root := range []string{"/srv/repo", "/srv", "/tmp/clone"} {
+		doc := buildDoc(t, text)
+		ResolveRelPaths(doc, root)
+		readings[root] = [2]string{relOf(t, doc, 0, 0), relOf(t, doc, 1, 0)}
+	}
+	for root, got := range readings {
+		if got != readings["/tmp/clone"] {
+			t.Fatalf("reading at %s = %v, clone reads %v", root, got, readings["/tmp/clone"])
+		}
+	}
+}
