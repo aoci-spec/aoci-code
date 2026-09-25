@@ -152,7 +152,11 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	}
 	txCtx, cancel := context.WithTimeout(ctx, source.QueryTimeout())
 	defer cancel()
-	tx, err := database.BeginTx(txCtx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	txOptions, err := catalogTransactionOptions(source.Engine)
+	if err != nil {
+		return SourceManifest{}, nil, &SourceError{Code: "configuration_invalid", SourceID: source.SourceID, Op: "transaction_select"}
+	}
+	tx, err := database.BeginTx(txCtx, &txOptions)
 	if err != nil {
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, "begin_read_only", err)
 	}
@@ -200,6 +204,18 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, "commit_read_only", err)
 	}
 	return manifest, tables, nil
+}
+
+func catalogTransactionOptions(engine Engine) (sql.TxOptions, error) {
+	// Keep each engine's consistency and write boundary explicit. A driver that
+	// cannot honor these options must select its own policy here instead of
+	// weakening the existing collectors.
+	switch engine {
+	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
+		return sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}, nil
+	default:
+		return sql.TxOptions{}, fmt.Errorf("unsupported engine")
+	}
 }
 
 func driverNameForEngine(engine Engine) (string, error) {

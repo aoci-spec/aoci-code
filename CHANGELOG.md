@@ -2,6 +2,14 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Select catalog transaction options per database engine (#72). PostgreSQL,
+  MySQL, and openGauss keep their repeatable-read, read-only transaction; an
+  engine without a policy fails closed before any connection is used, and the
+  collector test now asserts the isolation level as well as the read-only flag.
+  Groundwork for further engines; no behaviour change for the three supported.
+
 ## v0.1.0-rc14
 
 One format-level fix: directory and file names the index grammar could not
