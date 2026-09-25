@@ -4,6 +4,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Read an index authored in a nested git worktree from the primary checkout
+  (#78, fixes #77). When the recorded root lies below the invocation root and
+  every section belongs to that family, the reader now resolves the family
+  against its recorded root instead of filing each Entry under the worktree
+  path, so the primary checkout, the worktree, and an unrelated clone read one
+  index. A single-section index stays ambiguous and keeps its direct reading.
 - Add `aoci scope activate` (#73, #54). After editing rules, a budget, or the
   approval mode, one command builds the empty candidate set and runs the
   existing Scope Change preview and Apply. When the preview needs a human, it

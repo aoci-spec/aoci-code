@@ -92,6 +92,32 @@ func TestResolveMultiSectionRelocated(t *testing.T) {
 	}
 }
 
+func TestResolveNestedWorktreeSectionsFromPrimaryCheckout(t *testing.T) {
+	text := "===/srv/repo/.worktrees/wt/===\n" +
+		"go.mod[XMO9T]: F:f | R:- | A:- | S:-\n" +
+		"===/srv/repo/.worktrees/wt/internal/fs/===\n" +
+		"walk.go[FWK8WS]: F:f | R:- | A:- | S:-\n"
+	for _, root := range []string{
+		"/srv/repo/.worktrees/wt", // authored checkout
+		"/srv/repo",               // primary checkout, an ancestor of the recorded root
+		"/tmp/clone",              // unrelated clone
+	} {
+		t.Run(root, func(t *testing.T) {
+			doc := buildDoc(t, text)
+			ResolveRelPaths(doc, root)
+			if got := relOf(t, doc, 0, 0); got != "go.mod" {
+				t.Fatalf("root Entry = %q, want go.mod", got)
+			}
+			if got := relOf(t, doc, 1, 0); got != "internal/fs/walk.go" {
+				t.Fatalf("nested Entry = %q, want internal/fs/walk.go", got)
+			}
+			if sec := FindSectionForPath(doc, root, "internal/fs/new.go"); sec != doc.Sections[1] {
+				t.Fatalf("nested section lookup = %p, want %p", sec, doc.Sections[1])
+			}
+		})
+	}
+}
+
 // TestResolveNoCommonPrefixConservative 失配段之间无公共前缀: 保守放弃,RelPath 留空
 func TestResolveNoCommonPrefixConservative(t *testing.T) {
 	text := "===/opt/projA/===\n" +
