@@ -55,7 +55,13 @@ concurrency:
 jobs:
   linux-full:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # The job limit exists to stop a hang, not to pace the job. This job runs
+    # the full gate, the black-box suites, and the upgrade axis over every
+    # released binary, so it grows with each release: run 179 (8ba516a, 14
+    # releases) took 38 minutes and the first run after v0.1.0-rc15 (15
+    # releases, slower runner) was cancelled at 45 with the performance
+    # fixtures still ahead. A hang still fails, twice as late.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
