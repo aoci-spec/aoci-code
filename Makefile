@@ -155,8 +155,13 @@ fast-builds:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast ./cmd/aoci
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast.exe ./cmd/aoci
 
+# The timeout is per test binary and exists to stop a hang, not to pace the
+# suite: internal/cli under the race detector takes about 12 minutes on a shared
+# CI runner (719 s in full-confidence run 179 on 8ba516a), and the tag release
+# gate on the same commit hit 15 minutes and failed with one 9-second test still
+# running. A hang still fails, twice as late.
 race:
-	$(GO_BIN) test -race -count=1 -timeout=15m ./...
+	$(GO_BIN) test -race -count=1 -timeout=30m ./...
 
 vuln:
 	@VULN=$$(command -v govulncheck 2>/dev/null || echo "$$($(GO_BIN) env GOPATH)/bin/govulncheck"); \
