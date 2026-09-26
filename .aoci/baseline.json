@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-26T03:04:38Z",
+  "updated_at": "2026-09-26T03:19:58Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -132,9 +132,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "69c6e77a6fba4b84d50a4aab88eadedc40e456206b8be87164e1f8e1c935319f",
-      "size": 191528,
-      "normalized_sha256": "69c6e77a6fba4b84d50a4aab88eadedc40e456206b8be87164e1f8e1c935319f"
+      "sha256": "e9a60ad7224e75b5694988114fdc24004baf3f64fe40119d2b74cf494b17f935",
+      "size": 191550,
+      "normalized_sha256": "e9a60ad7224e75b5694988114fdc24004baf3f64fe40119d2b74cf494b17f935"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6086,9 +6086,9 @@
     },
     "scripts/release/clean-room-smoke.sh": {
       "role": "index",
-      "sha256": "358e2feafec15a592c416c348eb0aeaed766a22beee19b3cb50228fd09dd5fd3",
-      "size": 6454,
-      "normalized_sha256": "358e2feafec15a592c416c348eb0aeaed766a22beee19b3cb50228fd09dd5fd3"
+      "sha256": "9eff8cd2fbfcc2aaac64963e906224c761a1ac428dfcd5e6540a8a146306d4fe",
+      "size": 6533,
+      "normalized_sha256": "9eff8cd2fbfcc2aaac64963e906224c761a1ac428dfcd5e6540a8a146306d4fe"
     },
     "scripts/release/manifest/main.go": {
       "role": "index",

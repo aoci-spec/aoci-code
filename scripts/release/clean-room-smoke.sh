@@ -55,8 +55,9 @@ git -C "$repository" commit --quiet -m "initial fixture"
 grep -qx '#AOCI-ROOT-MANIFEST: 1' "$repository/aoci.txt"
 grep -qx '#AOCI-META-VOLUME: 1' "$repository/aoci.meta.txt"
 grep -qx '#AOCI-CODE-VOLUME: 1' "$repository/aoci.code.txt"
-if [ "$(wc -l <"$repository/aoci.code.txt")" -ne 1 ]; then
-  echo "fresh Volume-first Code must start with zero Entries" >&2
+grep -qx '===project/.code/===' "$repository/aoci.code.txt"
+if [ "$(wc -l <"$repository/aoci.code.txt")" -ne 2 ]; then
+  echo "fresh Volume-first Code must start with a neutral root and zero Entries" >&2
   exit 1
 fi
 if [ -e "$repository/aoci.database.txt" ]; then
