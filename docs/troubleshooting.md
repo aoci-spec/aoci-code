@@ -17,6 +17,10 @@ host MCP integration to load the replaced binary.
 
 ## Section roots show an old absolute path
 
+New `aoci init` repositories use the neutral root `===project/.code/===` and
+section paths such as `/.code/src/`. These are coordinates inside the index,
+not paths on your machine. Existing indexes keep their original roots.
+
 Code Volume section headers such as `===/old/machine/path/project/===` are
 historical structural coordinates, not runtime paths. The public index format
 defines them that way: after a clone or relocation the formal bytes are
@@ -24,14 +28,14 @@ preserved, and every reader derives repository-relative identities from the
 invocation root, never from the recorded prefix. An outdated prefix is
 expected, harmless, and not worth a formal write to rewrite.
 
-A repository whose own path holds a space, `=`, `(`, or `（` shows two spellings
+An older index created at a path holding a space, `=`, `(`, or `（` shows two spellings
 of that prefix: the full one in its root section and a truncated one in every
-later section. Every release writes it that way, because the original reading
+later section. Historical writers used that shape because the original reading
 of a header stops at that character and later sections continue what was read
 back. Both resolve to the same repository root, at the origin and in a checkout
 elsewhere; do not rewrite the headers by hand to make them match.
 
-An index authored inside a git worktree nested under the primary checkout,
+An older index authored inside a git worktree nested under the primary checkout,
 such as `<repo>/.worktrees/wt`, records that worktree as its root. Once the
 branch is merged, the primary checkout reads the same bytes with the recorded
 root below its own; the reader recognises the family and resolves every Entry
@@ -63,7 +67,8 @@ Two things clear it, and then `aoci_maintain` issues the batch again:
   and a `curation_exclude` entry names a file, never a directory.
 
 `code_root_unspellable` is the same stop for the repository root itself, which
-happens only when no part of the root path reads back as a usable root: a
+can occur when establishing an unmarked index and no part of the root path
+reads back as a usable root: a
 repository directory directly under `/` or a drive root (or under nothing but
 such segments) whose name begins with `(`, `（`, `=`, or whitespace. No scope
 rule helps there; move or rename the repository directory. A root whose first
@@ -71,6 +76,10 @@ segment merely begins with such a character, or that has a segment with leading
 or trailing whitespace, is not refused: the index records the part of the path
 that a header can carry, and resolves the same way at the origin and in every
 checkout.
+
+New Volume-first repositories use the neutral root, so the runtime repository
+name cannot cause this root-level stop. Directory names inside the repository
+still have to satisfy the section-header grammar.
 
 ## Host config points to a moved binary or repository
 

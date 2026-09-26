@@ -26,8 +26,27 @@ defines layout selection and consistency rules.
 Code section roots and clone relocation
 ---------------------------------------
 
+New Volume-first initialization writes `===project/.code/===` as the first
+directory section of the empty Code Volume. This exact header marks a neutral
+coordinate root; it contains no host or repository location. Descendant
+sections use `/.code/<repository-relative-directory>/`. Readers resolve the
+entire marked family against `/.code` before consulting the runtime root, even
+when a checkout itself is named `/.code` or `/.code/src`. A section outside
+that family makes its paths unresolved. The marker is retained even after the
+last Entry is removed, so later insertions keep the neutral coordinates.
+
+This uses the existing directory-header grammar and does not change object
+identities, Volume declarations, or the layout version. Existing indexes are
+not rewritten or marked retroactively; unmarked sections retain their
+historical interpretation. An interrupted older init may complete with its
+exact existing empty Code skeleton. Older binaries parse neutral sections in
+ordinary checkout locations but do not recognize their explicit coordinate
+semantics: a runtime path overlapping `/.code` may resolve differently, and
+removing the last Entry may discard the anchor. Use a reader implementing this
+rule to retain the neutral-root guarantees.
+
 The absolute path token in a Legacy or Code Volume directory section header is
-the structural coordinate captured when that section family was created. It is
+otherwise the structural coordinate captured when that section family was created. It is
 historical text, not the runtime repository root, a source-access path, or a
 semantic object identity. The runtime repository root is resolved for each
 invocation; an explicit `--repo` binds it directly and takes precedence over
@@ -97,9 +116,9 @@ root only while a section sits there; an index without one, which earlier
 writers could leave behind, may resolve differently in a copy than at its
 origin.
 
-Under a root holding one of those characters, the root section spells the root
+For an unmarked index under a root holding one of those characters, the root section spells the root
 in full and every later section continues it as the original reading reads it
-back, that is, truncated at the character. Every release has written this one
+back, that is, truncated at the character. Historical writers produced this
 shape, so a reader older than this rule still resolves every section of it
 whose own directory name it can read. When the repository root has no header
 that reads back to it at all (its first segment begins with `(`, `（`, or `=`,

@@ -54,9 +54,16 @@ The four responsibilities are deliberately singular:
 | `aoci.code.txt` | Code sections and model-authored file Entries | Project overview and copied Meta rules |
 | `aoci.database.txt` | Database namespace sections and one model-authored Entry per table | Schema/column/constraint sub-Entries and copied Meta rules |
 
-## Historical Code roots and clones
+## Code roots and clones
 
-An absolute path in an `aoci.code.txt` directory section header is the
+New `aoci init` repositories start their Code Volume with
+`===project/.code/===`. New directory sections then use coordinates such as
+`===/.code/src/===`, without including anyone's machine path. These are index
+coordinates, not directories to create or read on disk. The root marker stays
+even if every Entry is removed, so the next update keeps the same convention.
+Existing indexes retain their historical section roots and need no migration.
+
+An absolute path in an older `aoci.code.txt` directory section header is the
 historical structural coordinate captured when that section family was
 created. It is not the active repository location, a path used to read source,
 or part of a Code object's semantic identity. The runtime repository root is
