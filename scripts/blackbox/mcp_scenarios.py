@@ -1175,7 +1175,7 @@ def overview_meta_and_full_body(text):
 
 def parse_body_entries(body, fx):
     """Ordinal-ordered (rel_path, tag, core_f) parsed from a delivered body.
-    Section roots are historical coordinates; on Windows the fixture path is
+    Fresh fixtures use neutral coordinates. For historical roots, the fixture path is
     backslashed while the index writes forward slashes, so both sides are
     normalized before the prefix strip — os.path.relpath is unreliable across
     mixed separators."""
@@ -1183,6 +1183,9 @@ def parse_body_entries(body, fx):
     fx_norm = fx.replace("\\", "/").rstrip("/")
     for line in (body or "").splitlines():
         line = line.rstrip("\r")
+        if line == "===project/.code/===":
+            fx_norm, section = "/.code", ""
+            continue
         if line.startswith("===") and line.endswith("==="):
             raw = line.strip("=").replace("\\", "/")
             rel = raw[len(fx_norm):].strip("/") if raw.startswith(fx_norm) else raw.strip("/")
@@ -1654,25 +1657,15 @@ def group_p_special_names():
     verified = rc == 0 and bool((v.get("governance") or {}).get("governance_aligned") or v.get("governance_aligned"))
     with open(os.path.join(d, "aoci.code.txt"), encoding="utf-8") as fh:
         volume = fh.read()
-    # Directory names are written as they are, under the root the index uses: the
-    # root section carries the full root and later sections continue it as the
-    # original reading reads it back (up to the first space, "=" or "(" of the
-    # path, wherever the work directory lives), the one shape every release writes.
+    # Fresh indexes retain literal directory names under neutral coordinates,
+    # even when the fixture's machine path contains a space.
     root = d.replace("\\", "/")
-    cut = min(i for i in (root.find(c) for c in " \t=(（") if i >= 0)  # the fixture name holds a space
-    family = root[:cut].rstrip("/")
-    if family:
-        headers = (f"==={root}/===" in volume
-                   and all(f"==={family}/{sub}/===" in volume for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs")))
-    else:
-        # The work directory's first segment begins with a cut character, so no header
-        # can carry this root and the index records what reads back instead. Alignment,
-        # resolution, and the copy below still judge the scenario; only the literal
-        # header spelling is not asserted there.
-        headers = all(f"/{sub}/===" in volume for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs"))
+    headers = ("===project/.code/===" in volume and root not in volume
+               and all(f"===/.code/{sub}/===" in volume
+                       for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs")))
     resolved = all(f"object_ref=code:{rel}]" in body for rel in sources) and "Not indexed" not in body
     # A clone or a CI checkout has the same bytes under another absolute root, and
-    # every header above records this one. The copy must verify aligned as well.
+    # the neutral headers must verify aligned there as well.
     moved = os.path.join(WORK, "fx-special-names-checkout")
     shutil.rmtree(moved, ignore_errors=True)
     shutil.copytree(d, moved)
