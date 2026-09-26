@@ -11,6 +11,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -44,7 +45,7 @@ func renderInitialVolumeAssets(root string) (initialVolumeAssets, error) {
 	return initialVolumeAssets{
 		Root: []byte(rootText),
 		Meta: []byte(metaText),
-		Code: []byte(cognition.CodeVolumeMarker + "\n"),
+		Code: []byte(cognition.CodeVolumeMarker + "\n" + index.NeutralCodeRootHeader + "\n"),
 	}, nil
 }
 
@@ -54,6 +55,16 @@ func renderInitialVolumeAssets(root string) (initialVolumeAssets, error) {
 func initializeVolumeFirst(root, indexPath string, assets initialVolumeAssets) (map[string]baseline.Fingerprint, error) {
 	if filepath.ToSlash(indexPath) != "aoci.txt" {
 		return nil, fmt.Errorf("init_volume_root_path_invalid")
+	}
+	// An init interrupted before Root activation by an older binary may have
+	// already published its empty Code skeleton. Complete that exact postimage
+	// without rewriting it, and bind the bytes actually retained in the Baseline.
+	legacyCode := []byte(cognition.CodeVolumeMarker + "\n")
+	codePath := filepath.Join(root, "aoci.code.txt")
+	if info, err := os.Lstat(codePath); err == nil && info.Mode().IsRegular() && info.Size() == int64(len(legacyCode)) {
+		if raw, err := os.ReadFile(codePath); err == nil && bytes.Equal(raw, legacyCode) {
+			assets.Code = raw
+		}
 	}
 	targets := []struct {
 		rel  string

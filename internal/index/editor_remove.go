@@ -135,6 +135,11 @@ func PruneEmptySections(text string) string {
 		if section.AbsPath == "" || len(section.Entries) != 0 {
 			continue
 		}
+		// Keep the neutral coordinate choice even after the last Entry is removed;
+		// otherwise the next insertion would start again from the runtime root.
+		if section == firstDirectorySection(document) && isNeutralCodeRoot(section) {
+			continue
+		}
 		if anchorsOtherSections(document, section) {
 			continue
 		}

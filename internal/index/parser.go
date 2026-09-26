@@ -400,6 +400,9 @@ func (r sectionReading) path(sec *Section) string {
 }
 
 func resolveSectionReadings(doc *Document, repoRoot string) map[*Section]sectionReading {
+	if readings, neutral := neutralSectionReadings(doc); neutral {
+		return readings
+	}
 	root := normalizeRootPath(repoRoot)
 	first := firstDirectorySection(doc)
 	var directories []*Section

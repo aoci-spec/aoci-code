@@ -36,6 +36,20 @@ aoci scope activate
 
 Where both semantics assigned the same roles the plan is identity-only: no role changes, no Entry changes, `aoci.txt` byte-identical, and policy-bound auto can authorize it without a human. Where a rule and a path genuinely differ only in case, the plan carries that real role change and is authorized as one.
 
+## Neutral Code roots for new repositories
+
+New Volume-first repositories use `===project/.code/===` to avoid recording a
+personal machine path in the Code Volume. Existing indexes keep their bytes
+and historical roots; upgrading or running `init` again does not migrate them.
+An interrupted older `init` can finish with its exact existing empty Code
+skeleton, preserving that operation's original postimage.
+
+The marker uses the existing section grammar. Older binaries can read it in
+ordinary checkout locations, but do not implement neutral-coordinate semantics:
+a checkout path overlapping `/.code` may change path resolution, and deleting
+the last Entry can remove the marker. Keep hosts on a binary implementing the
+neutral-root rule when relying on those guarantees.
+
 ## Directory and file names the index could not spell
 
 From v0.1.0-rc14 a section header carries a directory whose name holds a space,
@@ -49,10 +63,10 @@ directory) may still resolve differently in a copy, as it always could. (An
 index that never aligned because an earlier release filed root files under a
 directory section, the first file it met having lived in a directory whose name
 begins with `(`, keeps that release's reading until the ordinary orphan repair
-runs, which now completes.) Under a root whose own path holds one of those
+runs, which now completes.) In an unmarked index under a root whose own path holds one of those
 characters, the root section spells the root in full and every later section
-continues it as the original reading reads it back. Every release has written
-that shape, this one included, so the two spellings of the root are deliberate;
+continues it as the original reading reads it back. Historical writers produced
+that shape, so the two spellings of the root are deliberate;
 do not edit the headers to make them match.
 
 The reverse direction is not supported for a repository that *uses* such a
