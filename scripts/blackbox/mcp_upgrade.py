@@ -2,9 +2,9 @@
 """AOCI upgrade-axis harness — a repository written by a previously released
 binary must stay governable by the binary under test.
 
-升级轴回归（每个已发布版本 40 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
+升级轴回归（每个已发布版本 48 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
 aligned,再让被测二进制跑上去,断言身份不变、不索要 Scope Change、不改写正式资产。
-五种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
+六种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
 (根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根, 一种
 嵌套 worktree 形状(在 <repo>/.worktrees/wt 里建的索引合回主检出后从主检出读, #77)。
 
@@ -47,7 +47,7 @@ resolves root files as `(x)/repo/<file>` in every checkout while the origin stay
 aligned. v0.1.0-rc13 read both sides aligned; a pre-release build of rc14 did
 not, and the last check is what reports it.
 
-The published number is 40 checks *per released version* (8 per repository
+The published number is 48 checks *per released version* (8 per repository
 shape), not a total: a total would change on every release and stop being a
 property of this suite.
 
@@ -88,7 +88,12 @@ CHECKS_PER_SHAPE = 8
 # checkout (<repo>/.worktrees/wt), merges it, and reads it from the primary
 # checkout: the recorded root is then a descendant of the invocation root, the
 # case every release up to rc14 misread as one directory per Entry (#77).
-SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree")
+# "inflight" is the "init" shape whose growth step starts with a batch the
+# released binary issued and nobody submitted: the candidate receipt of an
+# older batch rule (a fixed count of 20 up to rc15, a byte budget since rc16)
+# is still on disk when the binary under test plans, and it must author to
+# aligned over it instead of wedging on the stale receipt.
+SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree", "inflight")
 CHECKS_PER_VERSION = CHECKS_PER_SHAPE * len(SHAPES)
 CHECK_NAMES = ("post_scan_identity_stable", "aligned_repo_stays_aligned",
                "composite_identity_unchanged", "no_scope_change_demanded",
@@ -499,7 +504,29 @@ def check_version(version, shape, old_binary, workdir):
     os.makedirs(os.path.dirname(grown), exist_ok=True)
     with open(grown, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("package grow\n\n// Grow is authored by the binary under test.\nfunc Grow() {}\n")
-    grew = author_to_aligned(BIN, repo)
+    if shape == "inflight":
+        # The released binary issues the batch for the new file and the session
+        # ends without a submission, exactly what a lost host context leaves
+        # behind across an upgrade. The binary under test must then plan over
+        # that receipt through the MCP path (the path that reads receipts):
+        # its Maintain has to issue the new file and its own batch must apply.
+        with Session(old_binary, repo) as stale:
+            stale.call("aoci_maintain")
+        grew = False
+        with Session(BIN, repo) as fresh:
+            planned = maintain_facts(fresh.call("aoci_maintain"))
+            cands = (planned or {}).get("candidates") or []
+            batch = ((planned or {}).get("code_plan") or {}).get("batch_id")
+            if batch and any(c.get("path") == "pkg/new dir/grow.go" for c in cands):
+                entries = [{"path": c["path"], "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
+                            "new_entry": f"{os.path.basename(c['path'])}[CG5T]: F:{ENTRY_F} | R:- | A:- | S:-"}
+                           for c in cands]
+                applied = maintain_facts(fresh.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}))
+                grew = bool(applied and applied.get("status") == "applied" and applied.get("aligned") is True)
+        if not grew:
+            grew = author_to_aligned(BIN, repo)
+    else:
+        grew = author_to_aligned(BIN, repo)
     checkout = os.path.join(workdir, f"{version}-{shape}-checkout")
     shutil.copytree(repo, checkout)
     moved = verify_facts(BIN, checkout)

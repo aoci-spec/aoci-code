@@ -84,7 +84,7 @@ func TestSpecialNamesAuthorToAlignmentUnderARootWithSpaces(t *testing.T) {
 	// The bracketed candidate names its Entry by full path, which the write path
 	// normalizes to the section-relative name for a plain file and must do the same
 	// for a bracketed one (it used to anchor on the first "[" and refuse it).
-	arguments := codeBatchArguments(planned.CodePlan)
+	arguments := codeBatchArguments(wireCodePlan(planned))
 	for _, item := range arguments["entries"].([]map[string]any) {
 		if item["path"] == "pages/docs/[...id].go" {
 			item["new_entry"] = "pages/docs/" + item["new_entry"].(string)
@@ -156,7 +156,7 @@ func TestCodeVolumeWrittenWithATruncatedRootReadsAligned(t *testing.T) {
 	if planned.Status != autoStatusRepairRequired || planned.CodePlan == nil || len(planned.Candidates) != 1 {
 		t.Fatalf("the new source must be one ordinary candidate: %#v", planned)
 	}
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(planned.CodePlan)); applied.Status != autoStatusApplied || !applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(planned))); applied.Status != autoStatusApplied || !applied.Aligned {
 		t.Fatalf("authoring under the healed index must align: %#v", applied)
 	}
 	if volume := volumeFileText(t, root, "aoci.code.txt"); !strings.Contains(volume, "==="+truncated+"/lib/new dir/===\n") {
@@ -224,7 +224,7 @@ func TestOldWriterIndexStartingInADirectoryConvergesEverywhere(t *testing.T) {
 	if planned.CodePlan == nil || len(planned.Candidates) != 1 || planned.Candidates[0].Path != "cmd/tool/gen.go" {
 		t.Fatalf("after the orphan is gone the real file is the one candidate: %#v", planned)
 	}
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(planned.CodePlan)); applied.Status != autoStatusApplied || !applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(planned))); applied.Status != autoStatusApplied || !applied.Aligned {
 		t.Fatalf("the repair must align the origin: %#v", applied)
 	}
 	if volume := volumeFileText(t, root, "aoci.code.txt"); !strings.Contains(volume, "==="+truncated+"/cmd/tool/===\n") {
@@ -248,7 +248,7 @@ func TestFreshSpecialNamesRepositoryReadsAlignedInACheckout(t *testing.T) {
 	enableProductionManagedScope(t, root)
 	session := connectMCPClient(t, root)
 	planned := maintainVolumeBatch(t, session)
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(planned.CodePlan)); applied.Status != autoStatusApplied || !applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(planned))); applied.Status != autoStatusApplied || !applied.Aligned {
 		t.Fatalf("fixture must align: %#v", applied)
 	}
 	checkout := filepath.Join(t.TempDir(), "checkout")
@@ -332,7 +332,7 @@ func TestUnspellableDirectoryAnswersAStructuredRefusal(t *testing.T) {
 	if renamed.Status != autoStatusRepairRequired || renamed.Stop != nil || renamed.CodePlan == nil || len(renamed.Candidates) != 2 {
 		t.Fatalf("after the rename both files are ordinary candidates: %#v", renamed)
 	}
-	if applied := applyVolumeBatch(t, session, codeBatchArguments(renamed.CodePlan)); applied.Status != autoStatusApplied || !applied.Aligned {
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(renamed))); applied.Status != autoStatusApplied || !applied.Aligned {
 		t.Fatalf("the renamed directory must author to alignment: %#v", applied)
 	}
 }

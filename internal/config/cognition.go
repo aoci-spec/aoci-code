@@ -85,6 +85,57 @@ func (c *Config) SetCodeCognitionBatchEntries(entries int) error {
 	return nil
 }
 
+// SetHostTransportDefaults sizes the two transport settings for the host a
+// new initialization names. Only Claude Code has a measured window wider than
+// the defaults, and only fields still at their default are touched, so an
+// explicit team value and every other host keep the conservative defaults.
+func (c *Config) SetHostTransportDefaults(agent string) error {
+	if agent != "claude" {
+		return nil
+	}
+	if c.MaintainTransportBudgetBytes == 0 {
+		if err := c.SetMaintainTransportBudgetBytes(machinecontract.MaintainTransportBudgetBytesClaudeCode); err != nil {
+			return err
+		}
+	}
+	if c.OverviewDelivery.ChunkTokens == 0 || c.OverviewDelivery.ChunkTokens == machinecontract.OverviewChunkTokensDefault {
+		if err := c.SetOverviewChunkTokens(machinecontract.OverviewChunkTokensClaudeCode); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MaintainTransportBudget resolves the team byte budget of one Maintain
+// response: zero means the machine default.
+func (c *Config) MaintainTransportBudget() int {
+	if c == nil || c.MaintainTransportBudgetBytes == 0 {
+		return machinecontract.MaintainTransportBudgetBytesDefault
+	}
+	return c.MaintainTransportBudgetBytes
+}
+
+// SetMaintainTransportBudgetBytes stores a validated team transport budget.
+func (c *Config) SetMaintainTransportBudgetBytes(bytes int) error {
+	if bytes < machinecontract.MaintainTransportBudgetBytesMin ||
+		bytes > machinecontract.MaintainTransportBudgetBytesMax {
+		return fmt.Errorf("maintain_transport_budget_bytes_out_of_range(value=%d,min=%d,max=%d)",
+			bytes, machinecontract.MaintainTransportBudgetBytesMin, machinecontract.MaintainTransportBudgetBytesMax)
+	}
+	c.MaintainTransportBudgetBytes = bytes
+	return nil
+}
+
+func validateMaintainTransportBudgetBytes(cfg *Config) error {
+	bytes := cfg.MaintainTransportBudget()
+	if bytes < machinecontract.MaintainTransportBudgetBytesMin ||
+		bytes > machinecontract.MaintainTransportBudgetBytesMax {
+		return fmt.Errorf("maintain_transport_budget_bytes_out_of_range(value=%d,min=%d,max=%d)",
+			bytes, machinecontract.MaintainTransportBudgetBytesMin, machinecontract.MaintainTransportBudgetBytesMax)
+	}
+	return nil
+}
+
 func validateCodeCognitionBatchEntries(cfg *Config) error {
 	entries := cfg.CodeCognitionBatchLimit()
 	if entries < machinecontract.CodeCognitionBatchEntriesMin ||

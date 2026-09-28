@@ -2,6 +2,62 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+First-build speed and two recovery fixes. A Maintain response no longer
+repeats the issued batch inside `code_plan`, trims its governance samples to
+five while it carries candidates, and is cut by a byte budget rather than a
+fixed count: `maintain_transport_budget_bytes` (team-owned, default 24 KiB,
+16 KiB through 192 KiB) bounds the response of a Code batch (a Database batch
+keeps its own `database_cognition_batch_evidence_bytes` limit),
+`code_cognition_batch_entries`
+becomes the cap with a default of 50, and a batch always carries at least one
+candidate. At the default a create batch carries about 20 to 30 candidates
+depending on path depth and an update batch of long Entries about a dozen,
+where v0.1.0-rc15 sent 20 of either and overflowed Codex's tool-result cap on
+the update side (49 KB on this repository). `aoci init --agent
+claude` starts a repository at 40 KiB and 12,000 chunk tokens, the window
+Claude Code was measured to carry; other hosts keep the defaults. Existing
+indexes are not rewritten and every machine-written index that aligned under
+v0.1.0-rc15 aligns here.
+
+- Cut the Code authoring batch by transport bytes. The plan reports
+  `transport_budget_bytes`; `authoring_batch` carries it too. The wire
+  `code_plan` no longer carries `candidates` (the top-level `candidates` list
+  is the batch, once); the disk receipt keeps the complete plan. A team that
+  raised `code_cognition_batch_entries` above 50 for larger batches must raise
+  `maintain_transport_budget_bytes` as well, since the budget is the operative
+  bound.
+- Trim the Maintain response while it carries candidates: governance lists,
+  the review closure, and the write set keep a five-item sample plus complete
+  counts (`list_truncation.limit` is 5 there; `sets.write_total` joins
+  `sets.review_total`), and the authoring instruction is shorter and asks the model to read
+  the batch's sources first, in parallel where the host allows, before writing
+  the batch in one call.
+- `aoci scan` reports what the first build costs: how many index files need an
+  Entry and about how many Maintain rounds they take at the current settings
+  (`authoring_estimate` in `--json`); a dry run adds the exclude-rule recipe
+  that still narrows the scope for free before the first scan.
+- Lower the default `overview_delivery.chunk_tokens` from 8000 to 7000 for
+  margin under Codex's per-result cap. Repositories with an explicit value keep
+  it.
+- Fix `cognition_optimization` stopping with `checkpoint_recovery_required`
+  beside a held source (#90). The post-Apply alignment inspector classified
+  empty, binary, oversize, and curation-excluded index files as pending debt
+  while Verify no longer did, so every optimization batch in a repository
+  holding an image failed at finalization, left its entries receipt pending,
+  and the documented same-batch retry failed the same way. Both now share one
+  classification (`volumegovernance.ClassifyCodeDrift`), and the optimization
+  error names the alignment findings it saw. A v0.1.0-rc15 repository stuck
+  this way finalizes by resubmitting the identical batch with this release.
+- Fix the Claude Code `PreToolUse` hook producing no Entry under Volumes v1
+  (#85). The hook parsed `aoci.txt` as a Legacy index; it now loads the layout
+  and reads the Code Volume, keeps the Legacy path, and still fails open.
+- Suppress the visible console window every `git.exe` probe opened on Windows
+  when aoci runs console-less as an MCP child (#79, #80 by @DaisyHunter).
+- Keep the Baseline fault-injection fixture effective on Windows so the
+  recovery tests exercise the failure they describe (#82 by @dayebishouji).
+
 ## v0.1.0-rc15
 
 Five fixes for the first index and for recovery, plus three contributor

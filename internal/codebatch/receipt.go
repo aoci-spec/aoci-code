@@ -33,6 +33,90 @@ func BuildPlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, cod
 // Select returns every candidate in plan order and the leading ones a plan with
 // this limit includes. BuildPlan uses it, and so does a caller that has to judge
 // a batch before it is issued, so the two never disagree about what the batch is.
+// Budget bounds one batch by the wire bytes its candidates occupy: Size
+// measures one candidate as the response will carry it, Bytes is what the
+// candidates may occupy together. A zero budget or nil Size bounds by count
+// alone.
+type Budget struct {
+	Bytes int
+	Size  func(Candidate) int
+	// Total is the whole response budget the plan reports; Bytes is the share
+	// the candidates may occupy after the fixed part is reserved. Zero Total
+	// reports Bytes.
+	Total int
+}
+
+// SelectWithBudget is Select followed by the byte bound: the ordered prefix
+// stops before the candidate that would exceed Budget.Bytes, but always keeps
+// at least one, so a single oversize candidate still ships alone rather than
+// never. The order and the cut depend only on the candidates, so the same
+// repository state always yields the same batch.
+func SelectWithBudget(candidates []Candidate, limit int, budget Budget) (ordered, selected []Candidate) {
+	ordered, _ = Select(candidates, 0)
+	return ordered, ordered[:PrefixWithinBudget(ordered, limit, budget)]
+}
+
+// PrefixWithinBudget reports how many leading candidates of an already
+// ordered list one batch carries: at most limit (when positive), stopping
+// before the candidate that would exceed Budget.Bytes, and always at least
+// one of a nonempty list. Callers that order by something other than the
+// object reference (the optimization review order) cut their own order here.
+func PrefixWithinBudget(ordered []Candidate, limit int, budget Budget) int {
+	count := len(ordered)
+	if limit >= 1 && count > limit {
+		count = limit
+	}
+	if budget.Bytes <= 0 || budget.Size == nil {
+		return count
+	}
+	used := 0
+	for index := 0; index < count; index++ {
+		size := budget.Size(ordered[index])
+		if index > 0 && used+size > budget.Bytes {
+			return index
+		}
+		used += size
+	}
+	return count
+}
+
+// CountBatches reports how many batches the selection rule takes to cover
+// every candidate; scan uses it to tell the operator what a first build costs.
+// The list is ordered once and walked, so a large first scan pays one sort.
+func CountBatches(candidates []Candidate, limit int, budget Budget) int {
+	ordered, _ := Select(candidates, 0)
+	count := 0
+	for len(ordered) > 0 {
+		taken := PrefixWithinBudget(ordered, limit, budget)
+		if taken == 0 {
+			break
+		}
+		ordered = ordered[taken:]
+		count++
+	}
+	return count
+}
+
+// BuildPlanWithBudget is BuildPlan with the byte bound applied to the batch.
+func BuildPlanWithBudget(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, candidates []Candidate, limit int, budget Budget) (Plan, error) {
+	if limit < 1 {
+		return Plan{}, fmt.Errorf("code_candidate_batch_limit_invalid")
+	}
+	ordered, selected := SelectWithBudget(candidates, limit, budget)
+	if err := validateCandidates(ordered); err != nil {
+		return Plan{}, err
+	}
+	plan, err := savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan.TransportBudgetBytes = budget.Total
+	if plan.TransportBudgetBytes == 0 {
+		plan.TransportBudgetBytes = budget.Bytes
+	}
+	return plan, nil
+}
+
 func Select(candidates []Candidate, limit int) (ordered, selected []Candidate) {
 	ordered = cloneCandidates(candidates)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].ObjectRef < ordered[j].ObjectRef })

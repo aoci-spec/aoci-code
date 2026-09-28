@@ -88,6 +88,12 @@ team AOCI setting.
   Host cut short cannot be confirmed as delivered, and the Attestation
   challenge then fails or reports truncation, so the symptom is a refusal to
   claim complete cognition rather than a silent gap.
+- A Maintain response is subject to the same per-result cap. The batch is cut
+  by the team transport budget `maintain_transport_budget_bytes`, whose
+  default of 24 KiB stays under the built-in ceiling; a repository initialized
+  with `--agent claude` starts at 40 KiB because Claude Code delivers about
+  50 KB inline, so a mixed team that adds Codex lowers it with
+  `aoci config set maintain_transport_budget_bytes 24576`.
 
 ## Claude Code
 

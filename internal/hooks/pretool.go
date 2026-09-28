@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
@@ -69,25 +70,10 @@ func HandlePreTool(
 		configValue.IndexPath,
 	)
 
-	indexData, err := os.ReadFile(
-		paths.IndexPath,
-	)
-	if err != nil {
+	document := hookDocument(root, configValue.IndexPath, paths.IndexPath)
+	if document == nil || len(document.Sections) == 0 {
 		return PretoolResult{}
 	}
-
-	document, _ := index.Parse(
-		string(indexData),
-	)
-
-	if len(document.Sections) == 0 {
-		return PretoolResult{}
-	}
-
-	index.ResolveRelPaths(
-		document,
-		root,
-	)
 
 	baselineValue, _, _ := baseline.Load(root)
 
@@ -157,4 +143,34 @@ func HandlePreTool(
 	)
 
 	return result
+}
+
+// hookDocument resolves the Entry document the hook reads. Under Volumes v1
+// aoci.txt is a Root manifest with no Entry sections; the Entries live in the
+// Code Volume, so the hook loads the layout read-only and takes that Volume's
+// document, already resolved against the root. A Legacy index keeps the direct
+// parse. Any load failure returns nil and the hook stays fail-open (#85).
+func hookDocument(root, configuredIndexPath, resolvedIndexPath string) *index.Document {
+	if set, err := cognition.Load(root, configuredIndexPath); err == nil && set != nil {
+		if set.LayoutMode == cognition.LayoutVolumesV1 {
+			code := set.Volumes[cognition.ScopeCode]
+			if code == nil || code.Document == nil {
+				return nil
+			}
+			return code.Document
+		}
+		if set.Root.Document != nil {
+			return set.Root.Document
+		}
+	}
+	indexData, err := os.ReadFile(resolvedIndexPath)
+	if err != nil {
+		return nil
+	}
+	document, _ := index.Parse(string(indexData))
+	if len(document.Sections) == 0 {
+		return nil
+	}
+	index.ResolveRelPaths(document, root)
+	return document
 }

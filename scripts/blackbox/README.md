@@ -26,13 +26,13 @@ Protocol conformance (46 checks, read-only):
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (61 scenarios, disposable fixtures in a temp dir):
+Fault-injection scenarios (63 scenarios, disposable fixtures in a temp dir):
 
 ```bash
 python3 scripts/blackbox/mcp_scenarios.py
 ```
 
-Upgrade axis (40 checks per released version, over five repository shapes;
+Upgrade axis (48 checks per released version, over six repository shapes;
 downloads and checksum-verifies each release once into a gitignored cache):
 
 ```bash

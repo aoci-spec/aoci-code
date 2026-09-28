@@ -137,6 +137,12 @@ def init_and_scan(fx, locale="en-US", agent=None, curation_exclude="default", ba
         rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", str(batch_entries))
         if rc != 0:
             raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
+        if batch_entries > 50:
+            # The transport budget is the operative bound; the raised-limit
+            # suites raise it to the maximum so the count cap is what they test.
+            rc, _, out, errs = cli(fx, "config", "set", "maintain_transport_budget_bytes", str(192 * 1024))
+            if rc != 0:
+                raise RuntimeError(f"config set maintain_transport_budget_bytes failed: {out[:200]} {errs[:200]}")
         mark_team_raised_batch(fx)
     if curation_exclude == "default":
         curation_exclude = CURATION_EXCLUDE.get(repo_key_of(fx))
@@ -730,9 +736,9 @@ def suite_scale(rep, work):
     if files != SCALE_FIXTURE_FILES:
         return
 
-    # 机器默认批量(20)下的真实首轮: 453 文件的新仓库, 首次 Maintain 必须装进普通
-    # 宿主的工具结果窗口, 逐轮滚动直到对齐。这是真实用户撞到的形状 —— 200/批时
-    # 首次 Maintain 约 212 KB, 宿主落盘, 模型退回脚本旁路; 现在必须一路内联。
+    # 机器默认(上限 50、传输预算 24 KiB)下的真实首轮: 453 文件的新仓库, 每次
+    # Maintain 都必须装进传输预算, 逐轮滚动直到对齐。这是真实用户撞到的形状 ——
+    # 200/批时首次 Maintain 约 212 KB, 宿主落盘, 模型退回脚本旁路; 现在必须一路内联。
     fx = deploy("c", work, "scale-default")
     init_and_scan(fx)
     started = time.time()
@@ -740,9 +746,9 @@ def suite_scale(rep, work):
     al, _ = aligned(fx)
     batches = [r for r in rounds if r["status"] == "applied"]
     sizes = [r["maintain_bytes"] for r in rounds if r.get("maintain_bytes")]
-    ok = outcome == "aligned" and al and len(batches) >= 20 \
-        and all(r.get("max_entries") == 20 for r in rounds) \
-        and sizes and max(sizes) < 48 * 1024
+    ok = outcome == "aligned" and al and len(batches) >= 10 \
+        and all(r.get("max_entries") == 50 for r in rounds) \
+        and sizes and max(sizes) <= 24 * 1024
     rep.rec(g, "default-batch-fits-host-window", "PASS" if ok else "FAIL",
             f"outcome={outcome} batches={len(batches)} applied={applied} aligned={al} max_maintain_bytes={max(sizes) if sizes else None}",
             duration_s=round(time.time() - started), rounds=len(rounds))

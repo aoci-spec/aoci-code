@@ -33,8 +33,8 @@ Chunk configuration
 -------------------
 
 The single project setting `overview_delivery.chunk_tokens` controls only
-Overview transport frame size. Its default is 8000 and its inclusive range is
-4000 through 24000. Missing configuration uses 8000. An invalid value fails
+Overview transport frame size. Its default is 7000 and its inclusive range is
+4000 through 24000. Missing configuration uses 7000. An invalid value fails
 explicitly and is never clamped or repaired. The setting does not participate
 in Index, Baseline, Managed Scope, cognition budget, or formal semantic
 identity. AOCI performs no Host capability detection, local override, adaptive

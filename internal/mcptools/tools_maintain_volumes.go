@@ -52,7 +52,12 @@ type volumeMaintainSets struct {
 	// a count, not a path list the model must scroll.
 	ReviewTotal int      `json:"review_total,omitempty"`
 	Write       []string `json:"write"`
-	Guard       []string `json:"guard"`
+	// WriteTotal is the complete write-set size when Write was cut to the
+	// transport sample; zero means Write is complete. While the response
+	// carries candidates the write set is exactly their object references, so
+	// the sample repeats nothing the candidates do not already say.
+	WriteTotal int      `json:"write_total,omitempty"`
+	Guard      []string `json:"guard"`
 }
 
 type volumeAuthoringBatch struct {
@@ -60,6 +65,7 @@ type volumeAuthoringBatch struct {
 	BatchIdentity        string `json:"batch_identity"`
 	TotalTargets         int    `json:"total_targets"`
 	MaxEntries           int    `json:"max_entries"`
+	TransportBudgetBytes int    `json:"transport_budget_bytes,omitempty"`
 	Included             int    `json:"included"`
 	Remaining            int    `json:"remaining"`
 	CompleteCandidateSet bool   `json:"complete_candidate_set_for_current_batch"`
@@ -236,6 +242,17 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 // window; the host spilled it to disk and the model fell back to scripting.)
 func boundMaintainTransport(result *volumeMaintainResult) {
 	limit := machinecontract.MaintainTransportListLimit
+	if len(result.Candidates) > 0 {
+		// While the response carries candidates they are the actionable set:
+		// the governance enumerations, the review closure, and the write set
+		// shrink to a small sample plus complete counts so the batch, not the
+		// situational awareness, spends the transport budget.
+		limit = maintainCandidateSampleLimit
+		if len(result.Sets.Write) > limit {
+			result.Sets.WriteTotal = len(result.Sets.Write)
+			result.Sets.Write = append([]string{}, result.Sets.Write[:limit]...)
+		}
+	}
 	if len(result.Sets.Review) > limit {
 		result.Sets.ReviewTotal = len(result.Sets.Review)
 		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
@@ -266,13 +283,43 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
 func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork) {
+	all := codeCandidatesForWork(root, loaded.set, work)
+	if len(all) == 0 {
+		return
+	}
+	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), codeCandidateBudget(loaded.cfg, loaded.set, all))
+	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
+		result.Stop = fail.GlobalStop
+		return
+	}
+	plan, err := codebatch.BuildPlanWithBudget(root, result.Governance.CompositeIdentity,
+		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
+		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), codeCandidateBudget(loaded.cfg, loaded.set, all))
+	if err != nil {
+		return
+	}
+	result.CodePlan = transportCodePlan(plan)
+	result.Batch.TransportBudgetBytes = plan.TransportBudgetBytes
+	for _, candidate := range plan.Candidates {
+		result.Candidates = append(result.Candidates, volumeMaintainCandidate{Domain: cognition.ScopeCode,
+			Change: candidate.Change, ObjectRef: candidate.ObjectRef, Path: candidate.Path,
+			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
+			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
+	}
+}
+
+// codeCandidatesForWork turns the shared authoring work into the candidate list
+// a batch is cut from: a target the Code Volume already describes is an update
+// carrying its existing Entry, any other is a create. Maintain plans from it and
+// the Guide projects the same batch from it (PlanCodeBatchIncluded).
+func codeCandidatesForWork(root string, set *cognition.Set, work volumegovernance.CodeAuthoringWork) []codebatch.Candidate {
 	all := []codebatch.Candidate{}
 	for _, path := range work.Targets {
 		fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
 		if hashErr != nil {
 			continue
 		}
-		if object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+path); object != nil {
+		if object := cognitionObjectByRef(set.Volumes[cognition.ScopeCode], "code:"+path); object != nil {
 			all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
 				ObjectRef: object.CanonicalRef, Path: path, ExistingEntry: object.CanonicalLine,
 				SourceSHA256: fingerprint.SHA256}})
@@ -281,27 +328,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
 			ObjectRef: "code:" + path, Path: path, SourceSHA256: fingerprint.SHA256}})
 	}
-	if len(all) == 0 {
-		return
-	}
-	_, selected := codebatch.Select(all, codeBatchLimit(loaded.cfg))
-	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
-		result.Stop = fail.GlobalStop
-		return
-	}
-	plan, err := codebatch.BuildPlan(root, result.Governance.CompositeIdentity,
-		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg))
-	if err != nil {
-		return
-	}
-	result.CodePlan = &plan
-	for _, candidate := range plan.Candidates {
-		result.Candidates = append(result.Candidates, volumeMaintainCandidate{Domain: cognition.ScopeCode,
-			Change: candidate.Change, ObjectRef: candidate.ObjectRef, Path: candidate.Path,
-			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
-			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
-	}
+	return all
 }
 
 // firstUnspellableCandidate asks, for every directory a create candidate of this

@@ -176,7 +176,7 @@ while Verify reported aligned (#74).
 
 ## Files appear under the Host's own data directory
 
-If helper scripts or entry drafts show up under `~/.claude/projects/<project>/…/tool-results/` (or the equivalent for another Host), the Host spilled an oversized tool result to disk and the model kept working next to it. aoci never writes there: its writes are `.aoci/` and the formal Volume files inside the repository, plus a tiny CAS lock file under the system temp directory. The cause is a Maintain response or authoring batch larger than the Host window; current versions size the batch (`code_cognition_batch_entries`, default 20) and bound the governance enumerations so the response fits inline. Upgrade, or lower the team batch size, and let the model author entries directly as `aoci_update_entry` arguments.
+If helper scripts or entry drafts show up under `~/.claude/projects/<project>/…/tool-results/` (or the equivalent for another Host), the Host spilled an oversized tool result to disk and the model kept working next to it. aoci never writes there: its writes are `.aoci/` and the formal Volume files inside the repository, plus a tiny CAS lock file under the system temp directory. The cause is a Maintain response or authoring batch larger than the Host window; current versions cut the batch by the transport budget (`maintain_transport_budget_bytes`, default 24 KiB) under the cap `code_cognition_batch_entries` (default 50) and bound the governance enumerations so the response fits inline. Upgrade, or lower the team budget, and let the model author entries directly as `aoci_update_entry` arguments.
 
 ## Initial cognition authoring is unexpectedly slow
 
@@ -188,12 +188,19 @@ confirmation on every AOCI tool call; after reviewing the exact project-level
 server, use the Host's project or session trust controls instead of weakening a
 global policy.
 
-The Code authoring batch defaults to 20 entries. A larger batch reduces model
-round trips when the Host can carry the response; increase it gradually rather
-than assuming the wire ceiling is safe:
+The Code authoring batch is cut by two settings: the cap
+`code_cognition_batch_entries` (default 50) and the response budget
+`maintain_transport_budget_bytes` (default 24 KiB), and the budget is the
+operative bound in practice: about 27 new Entries or 12 updated ones per round
+at the default. A larger budget reduces model round trips when the Host can
+carry the response. Claude Code delivers about 50 KB inline, so a repository
+initialized with `--agent claude` starts at 40 KiB; Codex truncates a tool
+result near 10,000 tokens and keeps the default. Raise it gradually rather than
+assuming a window:
 
 ```bash
-aoci --repo . config set code_cognition_batch_entries 50
+aoci --repo . config set maintain_transport_budget_bytes 40960
+aoci --repo . config set code_cognition_batch_entries 100
 ```
 
 `overview_delivery.chunk_tokens` affects Whole-Index delivery, not semantic
@@ -212,12 +219,15 @@ latency, batch count, and `deterministic_ms` before attributing the delay.
 
 For scale, one observed Codex session with a built-in model authored a
 20-entry batch in about seven minutes on a 590-file Java repository, which
-puts the whole first index near three hours at the default batch; the
-deterministic side of each batch was well under a second. Raising the batch to
-50 cuts the round trips by more than half on that Host. Codex's built-in models
-also truncate a tool result around 10,000 tokens, so keep
-`overview_delivery.chunk_tokens` at its default of 8000 there rather than
-raising it.
+put the whole first index near three hours at the then-default batch of 20;
+the deterministic side of each batch was well under a second. Since
+v0.1.0-rc16 the batch is cut by the transport budget, so on that Host the
+round trips fall only when the budget rises, and Codex's built-in models
+truncate a tool result around 10,000 tokens, so keep
+`overview_delivery.chunk_tokens` at its default of 7000 there rather than
+raising it, and keep `maintain_transport_budget_bytes` at its default of 24 KiB:
+a Maintain response is subject to the same cap, and an update batch of long
+existing Entries is the response most likely to reach it.
 
 ## Windows host cannot start MCP
 

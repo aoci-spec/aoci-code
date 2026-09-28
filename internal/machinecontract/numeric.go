@@ -42,19 +42,39 @@ const (
 
 	// Overview delivery is transport framing only. These values do not enter
 	// Index, Baseline, Managed Scope, cognition-budget, or semantic identity.
-	OverviewChunkTokensDefault = 8000
+	OverviewChunkTokensDefault = 7000
 	OverviewChunkTokensMin     = 4000
 	OverviewChunkTokensMax     = 24000
 
 	// Code Cognition authoring batches: how many candidates one Maintain asks
 	// the model to author in a single aoci_update_entry call. The ceiling is
 	// the wire maximum a call may carry (EntriesBatchMaxItems); the default is
-	// sized for what a model authors inline in one call and for a Maintain
-	// response that fits ordinary host tool-result windows. A team raises it
-	// through configuration when its host and model can carry more.
-	CodeCognitionBatchEntriesDefault = 20
+	// the upper bound of one batch; the transport budget below decides how
+	// many candidates actually fit, so a create-only batch carries more than a
+	// batch of long existing Entries. A team raises it through configuration
+	// when its host and model can carry more.
+	CodeCognitionBatchEntriesDefault = 50
 	CodeCognitionBatchEntriesMin     = 1
 	CodeCognitionBatchEntriesMax     = EntriesBatchMaxItems
+
+	// MaintainTransportBudgetBytes bounds the bytes of one Maintain response:
+	// the current Code batch is cut where the next candidate would push the
+	// response past it, after the fixed part (authoring_meta, instructions,
+	// bounded governance, identities) is reserved. Sized under the smallest
+	// common host tool-result window (Codex truncates near 10000 tokens; this
+	// JSON runs about 3.4 bytes per token) with margin. Team-owned; zero in
+	// configuration means this default.
+	MaintainTransportBudgetBytesDefault = 24 << 10
+	MaintainTransportBudgetBytesMin     = 16 << 10
+	MaintainTransportBudgetBytesMax     = 192 << 10
+
+	// Claude Code delivers a tool result inline up to about 50 KB (measured on
+	// the real host, v0.1.0-rc10), so a repository initialized for that host
+	// starts with a larger Maintain budget and Overview chunk than the
+	// defaults sized for Codex. init writes these into the team configuration
+	// only when the fields are unset; a mixed-host team lowers them.
+	MaintainTransportBudgetBytesClaudeCode = 40 << 10
+	OverviewChunkTokensClaudeCode          = 12000
 
 	// MaintainTransportListLimit bounds the per-item enumerations Maintain
 	// carries for situational awareness (governance findings, drift lists,

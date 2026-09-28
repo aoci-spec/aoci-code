@@ -94,8 +94,8 @@ func TestSaveLocalRemovesCognitionRefreshThreshold(t *testing.T) {
 }
 
 func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
-	if got := machinecontract.OverviewChunkTokensDefault; got != 8000 {
-		t.Fatalf("machine default overview chunk tokens = %d, want 8000", got)
+	if got := machinecontract.OverviewChunkTokensDefault; got != 7000 {
+		t.Fatalf("machine default overview chunk tokens = %d, want 7000", got)
 	}
 	if got := DefaultConfig().OverviewDelivery.ChunkTokens; got != machinecontract.OverviewChunkTokensDefault {
 		t.Fatalf("default overview chunk tokens = %d", got)
@@ -106,8 +106,8 @@ func TestOverviewChunkTokensDefaultBoundsAndTeamAuthority(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if legacy.OverviewDelivery.ChunkTokens != 8000 {
-		t.Fatalf("missing legacy chunk_tokens default = %d, want 8000", legacy.OverviewDelivery.ChunkTokens)
+	if legacy.OverviewDelivery.ChunkTokens != 7000 {
+		t.Fatalf("missing legacy chunk_tokens default = %d, want 7000", legacy.OverviewDelivery.ChunkTokens)
 	}
 	for _, value := range []int{4000, 12000, 20000, 24000} {
 		explicitRoot := t.TempDir()
@@ -204,5 +204,73 @@ func TestSaveLocalRemovesDatabaseCognitionBatchLimits(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "database_cognition_batch_") || !strings.Contains(string(raw), `"manual_key"`) {
 		t.Fatalf("local batch policy was not cleaned safely: %s", raw)
+	}
+}
+
+func TestMaintainTransportBudgetDefaultBoundsAndTeamAuthority(t *testing.T) {
+	if got := DefaultConfig().MaintainTransportBudget(); got != machinecontract.MaintainTransportBudgetBytesDefault {
+		t.Fatalf("default transport budget = %d", got)
+	}
+	legacyRoot := t.TempDir()
+	writeLineEndingConfigFile(t, FilePath(legacyRoot), `{"version":2}`+"\n")
+	legacy, err := Load(legacyRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.MaintainTransportBudgetBytes != 0 || legacy.MaintainTransportBudget() != machinecontract.MaintainTransportBudgetBytesDefault {
+		t.Fatalf("a configuration without the key resolves the machine default: %d", legacy.MaintainTransportBudget())
+	}
+	root := t.TempDir()
+	writeLineEndingConfigFile(t, FilePath(root), `{"version":2,"maintain_transport_budget_bytes":40960}`+"\n")
+	writeLineEndingConfigFile(t, LocalFilePath(root), `{"version":2,"maintain_transport_budget_bytes":196608}`+"\n")
+	loaded, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.MaintainTransportBudget() != 40960 {
+		t.Fatalf("local layer overrode the team transport budget: %d", loaded.MaintainTransportBudget())
+	}
+	for _, value := range []int{machinecontract.MaintainTransportBudgetBytesMin - 1, machinecontract.MaintainTransportBudgetBytesMax + 1} {
+		invalidRoot := t.TempDir()
+		writeLineEndingConfigFile(t, FilePath(invalidRoot), fmt.Sprintf(`{"version":2,"maintain_transport_budget_bytes":%d}`, value)+"\n")
+		if _, err := Load(invalidRoot); err == nil {
+			t.Fatalf("invalid transport budget %d was accepted", value)
+		}
+		if err := DefaultConfig().SetMaintainTransportBudgetBytes(value); err == nil {
+			t.Fatalf("setter accepted %d", value)
+		}
+	}
+	claude := DefaultConfig()
+	if err := claude.SetHostTransportDefaults("claude"); err != nil {
+		t.Fatal(err)
+	}
+	if claude.MaintainTransportBudget() != machinecontract.MaintainTransportBudgetBytesClaudeCode || claude.OverviewDelivery.ChunkTokens != machinecontract.OverviewChunkTokensClaudeCode {
+		t.Fatalf("claude host defaults: budget=%d chunk=%d", claude.MaintainTransportBudget(), claude.OverviewDelivery.ChunkTokens)
+	}
+	explicit := DefaultConfig()
+	if err := explicit.SetMaintainTransportBudgetBytes(16384); err != nil {
+		t.Fatal(err)
+	}
+	if err := explicit.SetHostTransportDefaults("claude"); err != nil || explicit.MaintainTransportBudget() != 16384 {
+		t.Fatalf("host defaults must not override an explicit team budget: %v %d", err, explicit.MaintainTransportBudget())
+	}
+	other := DefaultConfig()
+	if err := other.SetHostTransportDefaults("codex"); err != nil || other.MaintainTransportBudgetBytes != 0 {
+		t.Fatalf("only claude gets host defaults: %v %d", err, other.MaintainTransportBudgetBytes)
+	}
+}
+
+func TestSaveLocalRemovesMaintainTransportBudget(t *testing.T) {
+	root := t.TempDir()
+	writeLineEndingConfigFile(t, LocalFilePath(root), `{"version":2,"maintain_transport_budget_bytes":40960,"manual_key":"keep"}`+"\n")
+	if err := SaveLocal(root, DefaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(LocalFilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "maintain_transport_budget_bytes") || !strings.Contains(string(raw), `"manual_key"`) {
+		t.Fatalf("local transport budget was not cleaned safely: %s", raw)
 	}
 }

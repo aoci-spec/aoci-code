@@ -294,9 +294,16 @@ func TestDailyMaintainBuildsAndAppliesOneMixedCodeDatabaseBatch(t *testing.T) {
 		t.Fatalf("mixed-domain authoring contracts are missing, reordered, or detached from Meta: instructions=%#v", maintain.Instructions)
 	}
 	wantWrite := candidateRefs(maintain.Candidates)
-	if strings.Join(maintain.Sets.Write, ",") != strings.Join(wantWrite, ",") ||
+	// With candidates on the wire the write set is a five-item sample of the
+	// candidate references plus the complete count.
+	wantSample := wantWrite
+	wantTotal := 0
+	if len(wantWrite) > maintainCandidateSampleLimit {
+		wantSample, wantTotal = wantWrite[:maintainCandidateSampleLimit], len(wantWrite)
+	}
+	if strings.Join(maintain.Sets.Write, ",") != strings.Join(wantSample, ",") || maintain.Sets.WriteTotal != wantTotal ||
 		strings.Join(maintain.Sets.Guard, ",") != "code,database,database_binding,database_evidence,meta,root" ||
-		len(maintain.Sets.Review) <= len(maintain.Sets.Write) {
+		len(maintain.Sets.Review) < len(maintain.Sets.Write) {
 		t.Fatalf("daily Review/Write/Guard closure mismatch: sets=%#v candidates=%#v", maintain.Sets, maintain.Candidates)
 	}
 	reviewed := map[string]bool{}
@@ -659,6 +666,9 @@ func buildDatabaseAgentNativeRepo(t *testing.T) (string, map[string][]dbevidence
 		{SourceID: "mysqltemp", Engine: dbevidence.EngineMySQL, Database: "aoci_test", Namespaces: []string{"aoci_test"}, CredentialEnv: "AOCI_D1_TEST_MYSQL_DSN", ConnectTimeoutSeconds: 10, QueryTimeoutSeconds: 30, Enabled: true},
 	}
 	// 混合 100 对象批检验的是上限处的原子写入, 不是默认批量。
+	if err := cfg.SetMaintainTransportBudgetBytes(machinecontract.MaintainTransportBudgetBytesMax); err != nil {
+		t.Fatal(err)
+	}
 	if err := cfg.SetCodeCognitionBatchEntries(machinecontract.EntriesBatchMaxItems); err != nil {
 		t.Fatal(err)
 	}

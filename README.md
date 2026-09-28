@@ -710,7 +710,7 @@ When an Overview exceeds the project's chunk budget:
 4. local search, old memory, supplemental source reading, or direct file reads must not be presented as complete delivery;
 5. pending recovery or an inconsistent snapshot fails closed without mixing content.
 
-`overview_delivery.chunk_tokens` is the only delivery-size setting. Its default is `8000`, with a valid range from `4000` to `24000`. `check_only=true` is a compact checkpoint without a chunk chain.
+`overview_delivery.chunk_tokens` is the only delivery-size setting. Its default is `7000`, with a valid range from `4000` to `24000`. `check_only=true` is a compact checkpoint without a chunk chain.
 
 AOCI declares a per-tool result-size allowance on `aoci_overview`. A host that would otherwise persist a large tool result to disk, putting only a preview in the model's context (for index delivery, a silent failure), raises that threshold for this tool alone. On Claude Code this makes the full `24000` usable, delivering a 480-object index in three chunks instead of five. Nothing is probed: the declaration is static, and a host that does not recognize it ignores it, as the MCP specification requires.
 
@@ -952,7 +952,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 61 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 63 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full
@@ -961,7 +961,7 @@ and CLI only:
   optional model track puts a real AI agent — any model your OpenCode
   installation exposes — through the two small repositories and scores the end
   state from public surfaces.
-- **Upgrade axis** — 40 checks per released version, over five repository
+- **Upgrade axis** — 48 checks per released version, over six repository
   shapes: every published release builds and authors a repository with its own
   binary, then the binary under test must govern it without moving an identity,
   demanding a Scope Change, or rewriting a formal asset, and what it then

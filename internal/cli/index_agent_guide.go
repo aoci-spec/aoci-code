@@ -19,6 +19,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/mcptools"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
@@ -120,6 +121,7 @@ type volumeAgentGuide struct {
 type volumeGuideBatch struct {
 	TotalTargets         int    `json:"total_targets"`
 	MaxEntries           int    `json:"max_entries"`
+	TransportBudgetBytes int    `json:"transport_budget_bytes,omitempty"`
 	Included             int    `json:"included"`
 	Remaining            int    `json:"remaining"`
 	ContinuationRequired bool   `json:"continuation_required"`
@@ -315,15 +317,25 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 		work := volumegovernance.CodeAuthoringWorkFor(set, facts.CodeDrift)
 		total := len(work.Targets) +
 			facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
-		// Guide projects the same team batch size Maintain will plan with, so
+		// Guide projects the batch Maintain will actually issue, cut by the
+		// transport budget under the team cap through the same selection, so
 		// the model sees one number for how much a round asks of it.
 		batchLimit := cfg.CodeCognitionBatchLimit()
-		included := total
-		if included > batchLimit {
-			included = batchLimit
+		included := mcptools.PlanCodeBatchIncluded(root, cfg, set, work)
+		databaseTotal := facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
+		if capacity := batchLimit - included; databaseTotal > 0 && capacity > 0 {
+			objectLimit, _ := cfg.DatabaseCognitionBatchLimits()
+			if objectLimit > capacity {
+				objectLimit = capacity
+			}
+			if databaseTotal < objectLimit {
+				objectLimit = databaseTotal
+			}
+			included += objectLimit
 		}
 		guide.Batch = &volumeGuideBatch{TotalTargets: total, MaxEntries: batchLimit,
-			Included: included, Remaining: total - included, ContinuationRequired: total > included,
+			TransportBudgetBytes: cfg.MaintainTransportBudget(),
+			Included:             included, Remaining: total - included, ContinuationRequired: total > included,
 			NextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch}
 		guide.NextAction = guide.Batch.NextAction
 		contract, contractErr := authoringcontract.Build(set.Meta.Raw, facts.AffectedDomains, textassets.ActiveLocale())

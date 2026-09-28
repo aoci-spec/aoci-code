@@ -724,7 +724,7 @@ func handleMCPUpdateBatch(
 			PreserveOtherCandidates: preserveOtherCandidates,
 			RetryScope:              retryScope,
 			NextAction:              nextAction,
-			CodePlan:                fail.CodePlan,
+			CodePlan:                transportCodePlanPtr(fail.CodePlan),
 			Stop:                    fail.GlobalStop,
 		}))
 	}
@@ -755,7 +755,13 @@ func handleMCPUpdateBatch(
 	var optimization *cognitionOptimizationStatus
 	var optimizationErr error
 	if optimizationContext != nil && !aligned {
-		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch")
+		// Name the facts the inspector saw; a bare sentence sent one user
+		// through the same retry five times without learning why (#90).
+		sample := findings
+		if len(sample) > 5 {
+			sample = append(append([]string{}, sample[:5]...), fmt.Sprintf("(+%d more)", len(findings)-5))
+		}
+		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch: %s", strings.Join(sample, "; "))
 	}
 	if optimizationContext != nil && !optimizationContext.AlreadyAdvanced && optimizationRecoveryNeedsCompletion && optimizationErr == nil {
 		// Archive the retained existing transaction proof before advancing the

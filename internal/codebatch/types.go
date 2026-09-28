@@ -37,21 +37,27 @@ type Candidate struct {
 }
 
 type Plan struct {
-	Version                      string      `json:"version"`
-	PlanID                       string      `json:"plan_id"`
-	BatchID                      string      `json:"batch_id"`
-	CompositeIdentity            string      `json:"composite_identity"`
-	ScopePolicyIdentity          string      `json:"scope_policy_identity"`
-	CodeVolumePath               string      `json:"code_volume_path"`
-	CodeVolumeSHA256             string      `json:"code_volume_sha256"`
-	TotalTargets                 int         `json:"total_targets"`
-	MaxEntries                   int         `json:"max_entries"`
-	Included                     int         `json:"included"`
-	Remaining                    int         `json:"remaining"`
-	CompleteCandidateSetForBatch bool        `json:"complete_candidate_set_for_current_batch"`
-	ContinuationRequired         bool        `json:"continuation_required"`
-	Candidates                   []Candidate `json:"candidates"`
-	NextAction                   string      `json:"next_action"`
+	Version                      string `json:"version"`
+	PlanID                       string `json:"plan_id"`
+	BatchID                      string `json:"batch_id"`
+	CompositeIdentity            string `json:"composite_identity"`
+	ScopePolicyIdentity          string `json:"scope_policy_identity"`
+	CodeVolumePath               string `json:"code_volume_path"`
+	CodeVolumeSHA256             string `json:"code_volume_sha256"`
+	TotalTargets                 int    `json:"total_targets"`
+	MaxEntries                   int    `json:"max_entries"`
+	Included                     int    `json:"included"`
+	Remaining                    int    `json:"remaining"`
+	CompleteCandidateSetForBatch bool   `json:"complete_candidate_set_for_current_batch"`
+	ContinuationRequired         bool   `json:"continuation_required"`
+	// TransportBudgetBytes is the Maintain response budget that bounded this
+	// batch; zero means the batch was cut by count alone.
+	TransportBudgetBytes int `json:"transport_budget_bytes,omitempty"`
+	// Candidates is the issued batch. It stays in the disk receipt and in
+	// process; the wire response carries the same objects once, as the
+	// top-level candidates, so a response never repeats an existing Entry.
+	Candidates []Candidate `json:"candidates,omitempty"`
+	NextAction string      `json:"next_action"`
 }
 
 type Submission struct {

@@ -125,3 +125,69 @@ func TestFirstScanAnnouncesHeldSourcesAndAutoModeReachesAligned(t *testing.T) {
 		t.Fatalf("guide must be complete with nothing to execute: %+v", guide)
 	}
 }
+
+// scan tells the operator what the first build costs, and a dry run adds the
+// one recipe that still narrows the scope for free: an exclude rule before the
+// first scan.
+func TestScanReportsTheAuthoringEstimateAndDryRunHintsAtNarrowing(t *testing.T) {
+	root := t.TempDir()
+	writeHeldSourcesTree(t, root)
+	for index := 0; index < 3; index++ {
+		path := filepath.Join(root, "pkg", "svc_"+string(rune('a'+index))+".go")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("package pkg\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if code, out := runHeldSourcesCLI(t, root, "init", "--locale", "en-US"); code != ExitOK {
+		t.Fatalf("init: code=%d\n%s", code, out)
+	}
+	// The human lines go to the process stdout, as every scan line does.
+	code, out := runHeldSourcesCLIWithStdout(t, root, "scan", "--dry-run")
+	if code != ExitOK || !strings.Contains(out, "need an Entry") || !strings.Contains(out, "scope rule add") {
+		t.Fatalf("dry run must print the estimate and the narrowing recipe: code=%d\n%s", code, out)
+	}
+	code, out = runHeldSourcesCLI(t, root, "scan", "--json")
+	if code != ExitOK {
+		t.Fatalf("scan: code=%d\n%s", code, out)
+	}
+	var scan struct {
+		Estimate struct {
+			Targets              int `json:"targets"`
+			Rounds               int `json:"rounds"`
+			BatchLimit           int `json:"batch_limit"`
+			TransportBudgetBytes int `json:"transport_budget_bytes"`
+		} `json:"authoring_estimate"`
+	}
+	if err := json.Unmarshal([]byte(out), &scan); err != nil {
+		t.Fatalf("scan --json: %v\n%s", err, out)
+	}
+	// main.go, three package sources, and what init generated need Entries;
+	// the three held files do not, and one round covers them all.
+	if scan.Estimate.Targets < 4 || scan.Estimate.Targets > 8 || scan.Estimate.Rounds != 1 ||
+		scan.Estimate.BatchLimit == 0 || scan.Estimate.TransportBudgetBytes == 0 {
+		t.Fatalf("authoring estimate: %+v", scan.Estimate)
+	}
+}
+
+func runHeldSourcesCLIWithStdout(t *testing.T, root string, args ...string) (int, string) {
+	t.Helper()
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := os.Stdout
+	os.Stdout = writer
+	done := make(chan string)
+	go func() {
+		var captured bytes.Buffer
+		_, _ = captured.ReadFrom(reader)
+		done <- captured.String()
+	}()
+	code, out := runHeldSourcesCLI(t, root, args...)
+	os.Stdout = original
+	_ = writer.Close()
+	return code, out + <-done
+}

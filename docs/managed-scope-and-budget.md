@@ -260,9 +260,9 @@ The budget governs what may be written. It does not govern what a model can
 receive, and those two ceilings are not the same number.
 
 A Whole-Index is delivered as a chunk chain, `overview_delivery.chunk_tokens`
-per chunk with a default of 8000, so the index size decides how many round trips
-a complete delivery takes: about 8 chunks at 58000 tokens, about 50 at 400000,
-about 92 at 733000. Every chunk is a place where a host context compaction can
+per chunk with a default of 7000, so the index size decides how many round trips
+a complete delivery takes: about 9 chunks at 58000 tokens, about 58 at 400000,
+about 105 at 733000. Every chunk is a place where a host context compaction can
 void the chain, and only the closing attestation detects that it happened. There
 is no partial-repository delivery to fall back on — `aoci_overview` scopes by
 domain (`code`, `database`, `all`), never by subset.

@@ -138,7 +138,7 @@ func TestVolumesPolicyChangeOverStaleSourceAppliesThenMaintainAuthors(t *testing
 		planned.Candidates[0].Path != "main.go" {
 		t.Fatalf("Maintain must plan the retained stale source after Apply: %#v", planned)
 	}
-	applied := applyVolumeBatch(t, session, codeBatchArguments(planned.CodePlan))
+	applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(planned)))
 	if applied.Status != autoStatusApplied || !applied.Aligned {
 		t.Fatalf("authoring the retained source must align the repository: %#v", applied)
 	}

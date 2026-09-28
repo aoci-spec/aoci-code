@@ -236,6 +236,9 @@ func init() {
 				if governanceErr := cfg.SetNewProjectGovernance(scopeProfile); governanceErr != nil {
 					return &ExitError{Code: ExitConfig, Err: governanceErr}
 				}
+				if transportErr := cfg.SetHostTransportDefaults(agent); transportErr != nil {
+					return &ExitError{Code: ExitConfig, Err: transportErr}
+				}
 				evaluation, evaluationErr := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
 					WalkOptions: cfg.WalkOptions(), CurationExclude: cfg.CurationExclude})
 				if evaluationErr != nil {

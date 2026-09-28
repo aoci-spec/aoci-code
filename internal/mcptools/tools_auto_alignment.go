@@ -12,6 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
 func inspectAutoAlignment(
@@ -155,24 +156,22 @@ func inspectCognitionVolumeAlignment(
 		if detectErr != nil {
 			return false, 1, []string{"snapshot: " + detectErr.Error()}, receipt
 		}
-		classification, _, _, classifyErr := curation.BuildClassification(root, loaded.cfg, detected.Missing)
-		if classifyErr != nil {
-			return false, 1, []string{"curation: " + classifyErr.Error()}, receipt
-		}
-		for _, rel := range detected.Stale {
+		// Held sources (empty, binary, oversize, curation-excluded) are the
+		// same informational facts Verify reports; they are never debt here
+		// either, or an optimization batch beside one image could never
+		// finalize (#90).
+		drift := volumegovernance.ClassifyCodeDrift(root, loaded.cfg, detected)
+		for _, rel := range drift.Stale {
 			findings = append(findings, "stale: "+rel)
 		}
-		for _, rel := range detected.Orphan {
+		for _, rel := range drift.Orphan {
 			findings = append(findings, "orphan: "+rel)
 		}
-		for _, rel := range detected.Unbaselined {
+		for _, rel := range drift.Unbaselined {
 			findings = append(findings, "unbaselined: "+rel)
 		}
-		for _, rel := range classification.Actionable {
+		for _, rel := range drift.Missing {
 			findings = append(findings, "missing: "+rel)
-		}
-		for _, pending := range classification.Pending {
-			findings = append(findings, "pending_curation: "+pending.Path)
 		}
 		if loaded.cfg.EffectiveManagedScope().ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
 			for _, rel := range detected.ObservedNew {

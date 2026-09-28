@@ -194,6 +194,11 @@ type Config struct {
 	// Team-owned: a batch size is a shared authoring contract, not a personal
 	// preference, so local configuration cannot override it.
 	CodeCognitionBatchEntries int `json:"code_cognition_batch_entries,omitempty"`
+	// MaintainTransportBudgetBytes bounds the bytes of one Maintain response;
+	// the current batch is cut where the next candidate would exceed it. Zero
+	// means the machine default. Team-owned for the same reason as the batch
+	// size: the host window is a shared fact of the authoring contract.
+	MaintainTransportBudgetBytes int `json:"maintain_transport_budget_bytes,omitempty"`
 
 	AI AIConfig `json:"ai"`
 }
@@ -336,6 +341,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamDatabaseCognitionBatchObjects := cfg.DatabaseCognitionBatchObjects
 	teamDatabaseCognitionBatchEvidenceBytes := cfg.DatabaseCognitionBatchEvidenceBytes
 	teamCodeCognitionBatchEntries := cfg.CodeCognitionBatchEntries
+	teamMaintainTransportBudgetBytes := cfg.MaintainTransportBudgetBytes
 
 	if err := applyJSONFileIfExists(
 		LocalFilePath(repoRoot),
@@ -360,6 +366,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.DatabaseCognitionBatchObjects = teamDatabaseCognitionBatchObjects
 	cfg.DatabaseCognitionBatchEvidenceBytes = teamDatabaseCognitionBatchEvidenceBytes
 	cfg.CodeCognitionBatchEntries = teamCodeCognitionBatchEntries
+	cfg.MaintainTransportBudgetBytes = teamMaintainTransportBudgetBytes
 
 	applyFallbacks(cfg)
 
@@ -385,6 +392,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 		return nil, err
 	}
 	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
 		return nil, err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
@@ -430,6 +440,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 		return nil, err
 	}
 	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
 		return nil, err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
@@ -776,6 +789,9 @@ func loadBaseSnapshot(repoRoot string) (*Config, string, error) {
 	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
 		return nil, "", err
 	}
+	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
+		return nil, "", err
+	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
 		return nil, "", err
 	}
@@ -860,6 +876,9 @@ func Save(
 		return err
 	}
 	if err := validateCodeCognitionBatchEntries(cfg); err != nil {
+		return err
+	}
+	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
 		return err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
@@ -951,6 +970,7 @@ func SaveLocal(
 	delete(existing, "database_cognition_batch_objects")
 	delete(existing, "database_cognition_batch_evidence_bytes")
 	delete(existing, "code_cognition_batch_entries")
+	delete(existing, "maintain_transport_budget_bytes")
 	delete(existing, "managed_scope")
 	delete(existing, "cognition_budget")
 

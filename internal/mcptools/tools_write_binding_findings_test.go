@@ -20,10 +20,10 @@ func TestCodeBatchBindingDefectsNameTheCandidateAndField(t *testing.T) {
 			root := buildLargeCodeCandidateRepo(t, 3)
 			session := connectMCPClient(t, root)
 			maintain := maintainVolumeBatch(t, session)
-			if maintain.CodePlan == nil || len(maintain.CodePlan.Candidates) != 3 {
+			if maintain.CodePlan == nil || len(maintain.Candidates) != 3 {
 				t.Fatalf("expected three candidates: %#v", maintain.CodePlan)
 			}
-			arguments := codeBatchArguments(maintain.CodePlan)
+			arguments := codeBatchArguments(wireCodePlan(maintain))
 			entries := arguments["entries"].([]map[string]any)
 			test.mutate(entries[1])
 			result := applyVolumeBatch(t, session, arguments)
@@ -34,7 +34,7 @@ func TestCodeBatchBindingDefectsNameTheCandidateAndField(t *testing.T) {
 				t.Fatalf("expected exactly one finding: %#v", result.Findings)
 			}
 			finding := result.Findings[0]
-			if finding.CandidateIndex != 2 || finding.Path != maintain.CodePlan.Candidates[1].Path ||
+			if finding.CandidateIndex != 2 || finding.Path != maintain.Candidates[1].Path ||
 				finding.Field != test.field || finding.SafeRepairAction == "" {
 				t.Fatalf("finding must name candidate 2, its path, the %s field, and a repair action: %#v", test.field, finding)
 			}

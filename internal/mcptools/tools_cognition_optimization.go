@@ -19,6 +19,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -117,7 +118,9 @@ func handleCognitionOptimizationMaintain(
 	} else {
 		selection, err = selectOptimizationTargets(root, loaded, input.ObjectRefs)
 		if err == nil && selection.TotalTargets > 0 {
-			plan, _, err = buildOptimizationCodePlan(root, codeBatchLimit(loaded.cfg), facts, selection.Batch)
+			var issued []codebatch.Candidate
+			plan, issued, err = buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, selection.Batch)
+			selection = trimOptimizationSelection(selection, len(issued))
 		}
 		if err == nil && selection.TotalTargets > 0 {
 			orderedRefs := optimizationSelectionRefs(selection)
@@ -147,7 +150,7 @@ func handleCognitionOptimizationMaintain(
 		Version: 1, Status: autoStatusApplied, Result: volumegovernance.ResultAligned, Aligned: true,
 		RequestedScope: input.Scope, AffectedDomains: []string{}, Candidates: []volumeMaintainCandidate{},
 		OrphanRemovals: []string{}, Sets: volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta", cognition.ScopeCode}},
-		CodePlan: &orderedPlan, Governance: facts,
+		CodePlan: transportCodePlan(orderedPlan), Governance: facts,
 		Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		NextAction: "review_complete_cognition_optimization_batch",
@@ -164,7 +167,7 @@ func handleCognitionOptimizationMaintain(
 	result.Batch = volumeAuthoringBatch{
 		LogicalPlan: orderedPlan.PlanID, BatchIdentity: orderedPlan.BatchID,
 		TotalTargets: checkpoint.Checkpoint.ReviewedCount + len(checkpoint.Checkpoint.RemainingObjectRefs),
-		MaxEntries:   codeBatchLimit(loaded.cfg), Included: len(selection.Batch),
+		MaxEntries:   codeBatchLimit(loaded.cfg), TransportBudgetBytes: orderedPlan.TransportBudgetBytes, Included: len(selection.Batch),
 		Remaining:            len(checkpoint.Checkpoint.RemainingObjectRefs) - len(selection.Batch),
 		CompleteCandidateSet: true,
 		ContinuationRequired: len(checkpoint.Checkpoint.RemainingObjectRefs) > len(selection.Batch),
@@ -239,8 +242,13 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}
 	ordered := reorderOptimizationSelection(measured, refs)
-	plan, _, err := buildOptimizationCodePlan(root, codeBatchLimit(loaded.cfg), facts, ordered.Batch)
-	return plan, ordered, err
+	plan, issued, err := buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, ordered.Batch)
+	if err != nil {
+		return plan, ordered, err
+	}
+	// The checkpoint keeps every remaining reference; only the batch shrinks.
+	ordered.Batch = append([]cognitionoptimization.Candidate{}, ordered.Batch[:len(issued)]...)
+	return plan, ordered, nil
 }
 
 func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, checkpoint cognitionoptimization.Checkpoint) (codebatch.Plan, cognitionoptimization.Selection, error) {
@@ -310,16 +318,47 @@ func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs 
 	return result, nil
 }
 
-func buildOptimizationCodePlan(root string, batchLimit int, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
+// buildOptimizationCodePlan issues the batch for an importance-ordered
+// selection. The transport budget cuts that order, never the object-reference
+// order the plan sorts by, so the review priority the selector chose survives
+// the cut; the plan is then built over exactly the issued prefix, and the
+// caller trims its selection to the returned candidates.
+func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.Set, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
 	values := make([]codebatch.Candidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		values = append(values, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
 			ObjectRef: candidate.ObjectRef, Path: candidate.Path, SourceSHA256: candidate.SourceSHA256,
 			ExistingEntry: candidate.ExistingEntry}})
 	}
+	if len(values) == 0 {
+		return codebatch.Plan{}, values, fmt.Errorf("optimization batch is empty")
+	}
+	budget := optimizationCandidateBudget(cfg, set, values)
+	issued := values[:codebatch.PrefixWithinBudget(values, codeBatchLimit(cfg), budget)]
 	plan, err := codebatch.BuildPlan(root, facts.CompositeIdentity, facts.ManagedScope.PolicyIdentity,
-		facts.Code.Path, facts.Code.SHA256, values, batchLimit)
-	return plan, values, err
+		facts.Code.Path, facts.Code.SHA256, issued, len(issued))
+	if err != nil {
+		return codebatch.Plan{}, issued, err
+	}
+	plan.MaxEntries = codeBatchLimit(cfg)
+	plan.TransportBudgetBytes = budget.Total
+	return plan, issued, nil
+}
+
+// trimOptimizationSelection keeps the issued prefix of an importance-ordered
+// selection as its batch and returns the cut candidates to the front of the
+// remaining references, so nothing the selector chose is lost.
+func trimOptimizationSelection(selection cognitionoptimization.Selection, issued int) cognitionoptimization.Selection {
+	if issued >= len(selection.Batch) {
+		return selection
+	}
+	cut := make([]string, 0, len(selection.Batch)-issued+len(selection.RemainingObjectRefs))
+	for _, candidate := range selection.Batch[issued:] {
+		cut = append(cut, candidate.ObjectRef)
+	}
+	selection.RemainingObjectRefs = append(cut, selection.RemainingObjectRefs...)
+	selection.Batch = append([]cognitionoptimization.Candidate{}, selection.Batch[:issued]...)
+	return selection
 }
 
 func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, issued codebatch.Candidate, batchID string, explicit bool) volumeMaintainCandidate {

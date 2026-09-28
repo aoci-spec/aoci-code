@@ -66,14 +66,26 @@ func decodeMaintainJSON(t *testing.T, raw string) map[string]any {
 
 func TestMaintainPlansTheTeamBatchSizeNotTheWireCeiling(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 60)
-	response := decodeMaintainJSON(t, callMaintain(t, root))
+	raw := callMaintain(t, root)
+	response := decodeMaintainJSON(t, raw)
 	plan := response["code_plan"].(map[string]any)
+	// The cap is the machine default; the transport budget decides how many
+	// of the 60 creates one response carries, and the whole response stays
+	// under that budget.
+	included := int(plan["included"].(float64))
 	if int(plan["max_entries"].(float64)) != machinecontract.CodeCognitionBatchEntriesDefault ||
-		int(plan["included"].(float64)) != machinecontract.CodeCognitionBatchEntriesDefault {
-		t.Fatalf("默认批量必须是机器默认 %d, 不是线上上限: %+v", machinecontract.CodeCognitionBatchEntriesDefault, plan)
+		included < 20 || included > machinecontract.CodeCognitionBatchEntriesDefault ||
+		int(plan["transport_budget_bytes"].(float64)) != machinecontract.MaintainTransportBudgetBytesDefault {
+		t.Fatalf("默认批量必须是机器默认上限 %d 之内、按传输预算裁定: %+v", machinecontract.CodeCognitionBatchEntriesDefault, plan)
 	}
-	if len(response["candidates"].([]any)) != machinecontract.CodeCognitionBatchEntriesDefault {
-		t.Fatalf("候选数必须等于批量: %d", len(response["candidates"].([]any)))
+	if len(response["candidates"].([]any)) != included {
+		t.Fatalf("候选数必须等于批量: %d != %d", len(response["candidates"].([]any)), included)
+	}
+	if plan["candidates"] != nil {
+		t.Fatalf("上线的 code_plan 不得重复候选清单: %+v", plan["candidates"])
+	}
+	if len(raw) > machinecontract.MaintainTransportBudgetBytesDefault {
+		t.Fatalf("Maintain 响应 %d 字节超过传输预算 %d", len(raw), machinecontract.MaintainTransportBudgetBytesDefault)
 	}
 
 	// 团队配置改批量: Maintain 立即按新值切批, Guide 与它一致。
@@ -105,7 +117,9 @@ func TestMaintainBoundsGovernanceListsForTransport(t *testing.T) {
 	raw := callMaintain(t, root)
 	response := decodeMaintainJSON(t, raw)
 	governance := response["governance"].(map[string]any)
-	limit := machinecontract.MaintainTransportListLimit
+	// With candidates on the wire the governance lists keep a five-item
+	// sample; the complete counts still travel in list_truncation.
+	limit := maintainCandidateSampleLimit
 	findings := governance["findings"].([]any)
 	missing := governance["code_drift"].(map[string]any)["missing"].([]any)
 	if len(findings) != limit || len(missing) != limit {
@@ -153,5 +167,48 @@ func TestBoundListsForTransportKeepsCountsAndScalars(t *testing.T) {
 	}
 	if volumegovernance.BoundListsForTransport(facts, 100).ListTruncation != nil {
 		t.Fatal("清单未超限时不得出现裁剪自报")
+	}
+}
+
+// Deep trees carry their paths in every candidate and in the review and write
+// samples; the reservation measures those samples on the candidates, so a
+// Java-shaped tree still answers under the team budget and still carries a
+// batch worth authoring.
+func TestMaintainResponseStaysUnderBudgetWithLongPaths(t *testing.T) {
+	root := buildSingleCodeWriteRepo(t, false)
+	directory := filepath.Join("ruoyi-admin", "src", "main", "java", "com", "example", "web", "controller", "system", "monitor")
+	for i := 0; i < 45; i++ {
+		rel := filepath.Join(directory, fmt.Sprintf("SysOperationLogQueryController%03d.java", i))
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(root, rel)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, rel), []byte(fmt.Sprintf("package monitor;\n\npublic class C%03d {}\n", i)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, _, err := baseline.Snapshot(root, cfg.WalkOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
+		t.Fatal(err)
+	}
+	raw := callMaintain(t, root)
+	response := decodeMaintainJSON(t, raw)
+	plan := response["code_plan"].(map[string]any)
+	included := int(plan["included"].(float64))
+	if len(raw) > machinecontract.MaintainTransportBudgetBytesDefault {
+		t.Fatalf("long-path Maintain response %d bytes exceeds the budget %d (included=%d)", len(raw), machinecontract.MaintainTransportBudgetBytesDefault, included)
+	}
+	if included < 15 {
+		t.Fatalf("long paths cut the batch too far: included=%d", included)
+	}
+	sets := response["sets"].(map[string]any)
+	if len(sets["write"].([]any)) != maintainCandidateSampleLimit || int(sets["write_total"].(float64)) != included {
+		t.Fatalf("write set must be a five-item sample with the complete count: %v", sets)
 	}
 }

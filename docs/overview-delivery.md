@@ -8,8 +8,8 @@ state remain in Metadata. `check_only=true` remains a compact checkpoint with
 no body.
 
 `overview_delivery.chunk_tokens` is the only delivery-size setting. It defaults
-to 8,000 tokens and accepts 4,000 through 24,000. Missing configuration also
-uses 8,000. An invalid value fails
+to 7,000 tokens and accepts 4,000 through 24,000. Missing configuration also
+uses 7,000. An invalid value fails
 instead of being adjusted. This setting affects transport only; it does not
 change formal cognition or any governance identity.
 

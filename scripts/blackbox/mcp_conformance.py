@@ -308,13 +308,14 @@ def maintain_diag(text):
     }, ensure_ascii=False)
 ok("maintain.aligned_no_candidates", (not err) and '"aligned":true' in t.replace(" ",""), maintain_diag(t))
 # the authoring batch envelope advertises the machine-default team batch size
-# (20): sized for inline authoring in one call and a Maintain response that
-# fits ordinary host tool-result windows, never the 200 wire ceiling.
+# (50): the cap under which the 24 KiB transport budget cuts each batch so a
+# Maintain response fits ordinary host tool-result windows, never the 200
+# wire ceiling.
 try:
     _mb = (json.loads(t).get("authoring_batch") or {}).get("max_entries")
 except Exception:
     _mb = None
-ok("maintain.default_batch_size_20", _mb == 20, f"authoring_batch.max_entries={_mb}")
+ok("maintain.default_batch_cap_50", _mb == 50, f"authoring_batch.max_entries={_mb}")
 
 # negative paths (same session)
 bad = s.call("aoci_overview", {"cursor":"deadbeef:8000:1:deadbeef"})

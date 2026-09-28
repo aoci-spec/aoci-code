@@ -260,9 +260,15 @@ For authoring, a logical plan is the complete set of currently actionable
 targets under one Managed Scope and Composite preimage. It may exceed one batch
 and is not an atomic-write boundary. Maintain deterministically issues one
 current machine batch of at most the team batch size — the configuration key
-`code_cognition_batch_entries`, machine default 20, never above the wire
-ceiling EntriesBatchMaxItems=200 — and reports
-logical_plan, batch_identity, total_targets, max_entries, included, remaining,
+`code_cognition_batch_entries`, machine default 50, never above the wire
+ceiling EntriesBatchMaxItems=200 — cut earlier where the Code part of the
+response would exceed the team transport budget
+`maintain_transport_budget_bytes` (machine default 24 KiB, inclusive range
+16 KiB through 192 KiB; the batch always carries at least one candidate;
+Database candidates keep their own `database_cognition_batch_evidence_bytes`
+bound) — and reports
+logical_plan, batch_identity, total_targets, max_entries,
+transport_budget_bytes, included, remaining,
 continuation_required, Composite and Scope identities, exact candidates,
 source or Evidence bindings, and next_action. "Complete candidate set" means
 all candidates in that current machine-issued batch. It never means that one

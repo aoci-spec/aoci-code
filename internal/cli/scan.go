@@ -137,13 +137,15 @@ func init() {
 				return err
 			}
 			skipped := classifyScanSkippedSources(root, cfg, snap)
+			estimate := estimateScanAuthoring(cfg, skipped)
 			result := struct {
-				Version          string                   `json:"version"`
-				DryRun           bool                     `json:"dry_run"`
-				Inventory        afs.SafeInventorySummary `json:"safe_inventory"`
-				FingerprintCount int                      `json:"fingerprint_count"`
-				SkippedSources   scanSkippedSources       `json:"skipped_sources"`
-			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap), SkippedSources: skipped}
+				Version           string                   `json:"version"`
+				DryRun            bool                     `json:"dry_run"`
+				Inventory         afs.SafeInventorySummary `json:"safe_inventory"`
+				FingerprintCount  int                      `json:"fingerprint_count"`
+				SkippedSources    scanSkippedSources       `json:"skipped_sources"`
+				AuthoringEstimate scanAuthoringEstimate    `json:"authoring_estimate"`
+			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap), SkippedSources: skipped, AuthoringEstimate: estimate}
 
 			if dryRun {
 				if flagJSON {
@@ -152,6 +154,7 @@ func init() {
 				if !flagQuiet {
 					fmt.Println(cliMessage("scan.dry_run", len(snap), len(warns)))
 					printScanSkippedSources(skipped)
+					printScanAuthoringEstimate(root, estimate, true)
 				}
 				return nil
 			}
@@ -172,6 +175,7 @@ func init() {
 			if !flagQuiet {
 				fmt.Println(cliMessage("scan.complete", len(snap), time.Since(start).Milliseconds()))
 				printScanSkippedSources(skipped)
+				printScanAuthoringEstimate(root, estimate, false)
 			}
 			return nil
 		},

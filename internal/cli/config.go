@@ -82,13 +82,15 @@ func init() {
 				fmt.Println(cfg.OverviewDelivery.ChunkTokens)
 			case "code_cognition_batch_entries":
 				fmt.Println(cfg.CodeCognitionBatchLimit())
+			case "maintain_transport_budget_bytes":
+				fmt.Println(cfg.MaintainTransportBudget())
 			default:
 				return &ExitError{
 					Code: ExitConfig,
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries",
+						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -208,6 +210,18 @@ func init() {
 						machinecontract.CodeCognitionBatchEntriesMax,
 					)}
 				}
+			case "maintain_transport_budget_bytes":
+				parsed, parseErr := strconv.Atoi(value)
+				if parseErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_integer", value)}
+				}
+				if setErr := cfg.SetMaintainTransportBudgetBytes(parsed); setErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage(
+						"config.maintain_transport_budget_bytes_range",
+						machinecontract.MaintainTransportBudgetBytesMin,
+						machinecontract.MaintainTransportBudgetBytesMax,
+					)}
+				}
 			case "installed_agents":
 				return &ExitError{
 					Code: ExitConfig,
@@ -219,7 +233,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries",
+						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}

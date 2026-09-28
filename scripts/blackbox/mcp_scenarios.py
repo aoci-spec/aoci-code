@@ -230,6 +230,11 @@ def make_fixture(name, nfiles, batch_entries=None):
     if batch_entries is not None:
         rc, _, out, errs = cli(d, "config", "set", "code_cognition_batch_entries", str(batch_entries))
         if rc != 0: raise RuntimeError(f"config set code_cognition_batch_entries failed: {out[:200]} {errs[:200]}")
+        if batch_entries > 50:
+            # The transport budget is the operative bound; a fixture that wants
+            # the wire ceiling per batch raises it to the maximum as well.
+            rc, _, out, errs = cli(d, "config", "set", "maintain_transport_budget_bytes", str(192 * 1024))
+            if rc != 0: raise RuntimeError(f"config set maintain_transport_budget_bytes failed: {out[:200]} {errs[:200]}")
         mark_team_raised_batch(d)
     rc, _, out, errs = cli(d, "scan")
     if rc != 0: raise RuntimeError(f"scan failed: {out[:200]} {errs[:200]}")
@@ -569,61 +574,108 @@ def group_e():
     fit an ordinary Host tool-result window and stay actionable inline. This is
     the failure a real user hit — a ~1400-file repository answered its first
     Maintain with ~330 KB at 200 per batch, the Host spilled it to disk, and the
-    model fell back to scripts that broke on encoding, quoting, and paths."""
+    model fell back to scripts that broke on encoding, quoting, and paths.
+    Since v0.1.0-rc16 the batch is cut by a byte budget
+    (maintain_transport_budget_bytes, default 24 KiB) under a count cap
+    (code_cognition_batch_entries, default 50): a create batch carries more
+    candidates than one of long existing Entries, the plan no longer repeats
+    the candidates, and the response itself stays under the budget."""
     g = "E"
     NF = 260
+    BUDGET = 24 * 1024
     fx = make_fixture("fx-large", NF)
     s = Session(fx)
     m, t, err = maintain(s)
     plan = m.get("code_plan") or {}
     total = NF + INIT_GENERATED_TARGETS
-    ok = (not err) and plan.get("max_entries") == 20 and plan.get("included") == 20 \
-        and plan.get("remaining") == total - 20 and len(m.get("candidates") or []) == 20
-    record(g, "E1.default-batch-is-20", "PASS" if ok else "FAIL",
-           f"max_entries={plan.get('max_entries')} included={plan.get('included')} remaining={plan.get('remaining')} cands={len(m.get('candidates') or [])}")
+    included = plan.get("included") or 0
+    ok = (not err) and plan.get("max_entries") == 50 and 20 <= included <= 50 \
+        and plan.get("remaining") == total - included and len(m.get("candidates") or []) == included \
+        and plan.get("transport_budget_bytes") == BUDGET and plan.get("candidates") is None
+    record(g, "E1.default-batch-is-budgeted", "PASS" if ok else "FAIL",
+           f"max_entries={plan.get('max_entries')} included={included} remaining={plan.get('remaining')} "
+           f"cands={len(m.get('candidates') or [])} budget={plan.get('transport_budget_bytes')} plan_cands={plan.get('candidates') is not None}")
+    # The Guide shows the model the batch Maintain will issue, not the count cap.
+    rc_g, guide, _, _ = cli(fx, "index", "agent", "guide", "--agent", "codex", expect_ok=False)
+    gbatch = (guide.get("authoring_batch") or guide.get("batch") or {}) if isinstance(guide, dict) else {}
+    ok = gbatch.get("included") == included and gbatch.get("remaining") == plan.get("remaining") \
+        and gbatch.get("max_entries") == 50 and gbatch.get("transport_budget_bytes") == BUDGET
+    record(g, "E1b.guide-projects-the-budgeted-batch", "PASS" if ok else "FAIL",
+           f"guide.included={gbatch.get('included')} guide.remaining={gbatch.get('remaining')} maintain.included={included} budget={gbatch.get('transport_budget_bytes')}")
     size = len(t.encode("utf-8"))
     gov = m.get("governance") or {}
     trunc = gov.get("list_truncation") or {}
     totals = trunc.get("totals") or {}
     findings = gov.get("findings") or []
     missing = (gov.get("code_drift") or {}).get("missing") or []
-    ok = size < 48 * 1024 and len(findings) == 20 and len(missing) == 20 \
-        and totals.get("findings") == total and totals.get("code_drift.missing") == total and trunc.get("limit") == 20
-    record(g, "E2.first-maintain-fits-host-window", "PASS" if ok else "FAIL",
+    ok = size <= BUDGET and len(findings) == 5 and len(missing) == 5 \
+        and totals.get("findings") == total and totals.get("code_drift.missing") == total and trunc.get("limit") == 5
+    record(g, "E2.first-maintain-fits-transport-budget", "PASS" if ok else "FAIL",
            f"bytes={size} findings={len(findings)}/{totals.get('findings')} missing={len(missing)}/{totals.get('code_drift.missing')} limit={trunc.get('limit')}")
     instr = " ".join(m.get("instructions") or [])
-    ok = "aoci_update_entry" in instr and "governance.budget" in instr and "aoci_maintain again" in instr
-    record(g, "E3.instructions-say-inline-tokens-remaintain", "PASS" if ok else "FAIL", instr[-200:])
-    # candidates and plan stay complete and actionable: author the batch inline.
-    r, tw, err = submit_batch(s, m)
-    ok = r.get("status") == "applied" and r.get("applied") == 20 and r.get("remaining") == total - 20 \
+    ok = "aoci_update_entry" in instr and "governance.budget" in instr and "aoci_maintain again" in instr and "parallel" in instr
+    record(g, "E3.instructions-say-inline-parallel-remaintain", "PASS" if ok else "FAIL", instr[-200:])
+    # candidates and plan stay complete and actionable: author the batch inline,
+    # with S fields as long as a real C7 Entry carries, so the update batch
+    # below meets long existing Entries.
+    long_s = ("Keep the deterministic externally visible behavior of this fixture stable across refactors; " * 4).strip()
+    def long_entries(entries):
+        for e in entries:
+            base = os.path.basename(e["path"])
+            e["new_entry"] = f"{base}[CG8S]: F:Provides the {base} fixture behavior for the large repository | R:- | A:- | S:{long_s}"
+    r, tw, err = submit_batch(s, m, mutate=long_entries)
+    ok = r.get("status") == "applied" and r.get("applied") == included and r.get("remaining") == total - included \
         and "maintain" in (r.get("next_action") or "").lower()
     record(g, "E4.batch-applies-and-continues", "PASS" if ok else "FAIL",
            f"status={r.get('status')} applied={r.get('applied')} remaining={r.get('remaining')} next={str(r.get('next_action'))[:80]}")
-    # the next Maintain issues the next 20 against the new preimage, same size, same shape
+    # the next Maintain issues the next budgeted batch against the new preimage, same shape
     m2, t2, _ = maintain(s)
     p2 = m2.get("code_plan") or {}
-    ok = p2.get("included") == 20 and p2.get("remaining") == total - 40 and len(t2.encode("utf-8")) < 48 * 1024
+    included2 = p2.get("included") or 0
+    ok = 20 <= included2 <= 50 and p2.get("remaining") == total - included - included2 and len(t2.encode("utf-8")) <= BUDGET
     record(g, "E4b.next-maintain-pages-next-batch", "PASS" if ok else "FAIL",
-           f"included={p2.get('included')} remaining={p2.get('remaining')} bytes={len(t2.encode('utf-8'))}")
+           f"included={included2} remaining={p2.get('remaining')} bytes={len(t2.encode('utf-8'))}")
     s.close()
     # Verify keeps the complete enumeration: the transport bound is Maintain-only.
     rc, v, _, _ = cli(fx, "verify", expect_ok=False)
     vmissing = ((v.get("governance") or {}).get("code_drift") or {}).get("missing") or []
     vtrunc = (v.get("governance") or {}).get("list_truncation")
-    ok = len(vmissing) == total - 20 and vtrunc is None
+    ok = len(vmissing) == total - included and vtrunc is None
     record(g, "E5.verify-lists-every-item", "PASS" if ok else "FAIL", f"verify.missing={len(vmissing)} truncation={vtrunc}")
-    # Team configuration moves the batch; out-of-range values are rejected.
-    rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", "50")
+    # An update batch carries every existing Entry once, so long Entries mean
+    # fewer candidates per round, never a response past the budget: this is the
+    # shape that overflowed Codex's tool-result cap at a fixed 20 per batch.
+    authored = [c["path"] for c in (m.get("candidates") or [])]
+    for rel in authored:
+        with open(os.path.join(fx, rel), "a", encoding="utf-8") as fh:
+            fh.write("\n// touched after the first batch\n")
     s = Session(fx)
-    m2, t2, err2 = maintain(s)
+    m3, t3, err3 = maintain(s)
     s.close()
-    p2 = m2.get("code_plan") or {}
+    p3 = m3.get("code_plan") or {}
+    cands3 = m3.get("candidates") or []
+    included3 = p3.get("included") or 0
+    ok = (not err3) and 5 <= included3 < included and all(c.get("existing_entry") for c in cands3) \
+        and len(cands3) == included3 and len(t3.encode("utf-8")) <= BUDGET and p3.get("remaining") == total - included3
+    record(g, "E7.long-entry-update-batch-fits-budget", "PASS" if ok else "FAIL",
+           f"included={included3} (create batch was {included}) bytes={len(t3.encode('utf-8'))} existing={sum(1 for c in cands3 if c.get('existing_entry'))}/{len(cands3)} remaining={p3.get('remaining')}")
+    # Team configuration moves the cap and the budget; out-of-range values are rejected.
+    rc, _, out, errs = cli(fx, "config", "set", "code_cognition_batch_entries", "50")
+    rcb, _, _, _ = cli(fx, "config", "set", "maintain_transport_budget_bytes", "65536")
+    s = Session(fx)
+    m4, t4, err4 = maintain(s)
+    s.close()
+    p4 = m4.get("code_plan") or {}
     rc0, _, _, e0 = cli(fx, "config", "set", "code_cognition_batch_entries", "0", expect_ok=False)
     rc201, _, _, e201 = cli(fx, "config", "set", "code_cognition_batch_entries", "201", expect_ok=False)
-    ok = rc == 0 and p2.get("max_entries") == 50 and p2.get("included") == 50 and rc0 != 0 and rc201 != 0
-    record(g, "E6.batch-configurable-and-bounded", "PASS" if ok else "FAIL",
-           f"set50 rc={rc} max_entries={p2.get('max_entries')} included={p2.get('included')} set0_rc={rc0} set201_rc={rc201}")
+    rclow, _, _, _ = cli(fx, "config", "set", "maintain_transport_budget_bytes", "16383", expect_ok=False)
+    rchigh, _, _, _ = cli(fx, "config", "set", "maintain_transport_budget_bytes", "196609", expect_ok=False)
+    ok = rc == 0 and rcb == 0 and p4.get("max_entries") == 50 and p4.get("included") == 50 \
+        and p4.get("transport_budget_bytes") == 65536 and len(t4.encode("utf-8")) <= 65536 \
+        and rc0 != 0 and rc201 != 0 and rclow != 0 and rchigh != 0
+    record(g, "E6.batch-and-budget-configurable-and-bounded", "PASS" if ok else "FAIL",
+           f"set50 rc={rc} budget rc={rcb} max_entries={p4.get('max_entries')} included={p4.get('included')} "
+           f"budget={p4.get('transport_budget_bytes')} bytes={len(t4.encode('utf-8'))} set0={rc0} set201={rc201} low={rclow} high={rchigh}")
 
 
 # ================================================================ GROUP F
@@ -985,7 +1037,10 @@ def group_f_held_sources():
         markers = [str(o) for o in (m.get("orphan_remove_candidates") or [])]
         cands = {c.get("path") for c in (m.get("candidates") or [])}
         drift = gov.get("code_drift") or {}
-        causes = {f.get("target"): f.get("cause") for f in (gov.get("findings") or []) if f.get("code") == "code_skipped"}
+        # Maintain samples its findings while it carries candidates (five since
+        # rc16); the complete held-source causes come from Verify.
+        _, vdoc, _, _ = cli(d, "verify", expect_ok=False)
+        causes = {f.get("target"): f.get("cause") for f in ((vdoc.get("governance") or {}).get("findings") or []) if f.get("code") == "code_skipped"}
         first_ok = (m.get("status") == "repair_required" and not markers and bool(m.get("authoring_meta"))
                     and not (cands & probes) and set(drift.get("skipped") or []) == probes
                     and causes == {"assets/logo.png": "binary", "data/empty.txt": "empty", "data/dump.txt": "oversize"})

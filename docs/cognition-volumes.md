@@ -266,11 +266,16 @@ placeholder. Guide returns one of `aligned`, `authoring_required`,
 
 No-argument Maintain selects the affected domain automatically and emits one
 current machine batch of exact model authoring targets:
-by default 20 exact model authoring targets, and never more than
-200 exact model authoring targets (the wire ceiling). The team batch size
-`code_cognition_batch_entries` moves it (`aoci config set
-code_cognition_batch_entries N`). The batch comes with Review/Write/Guard
-closure and the affected-domain authoring contract. The response separates the
+at most 50 exact model authoring targets by default, never more than
+200 exact model authoring targets (the wire ceiling), and cut earlier where the
+response would exceed the transport budget `maintain_transport_budget_bytes`
+(default 24 KiB), so a batch of new Entries carries more candidates than a
+batch of long existing ones. The team cap and the budget move it (`aoci config
+set code_cognition_batch_entries N`, `aoci config set
+maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
+closure (while candidates are present the review and write lists are a
+five-item sample with `review_total` and `write_total` counts) and the
+affected-domain authoring contract. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
 and a continuation action. The limit is per request and atomic Apply, never per
@@ -284,9 +289,10 @@ which reproduces the same batch and candidate identities from the unchanged
 repository. The Maintain response itself stays inside ordinary Host tool-result
 windows regardless of repository size: candidates, plans, and receipts are
 always complete, while per-item governance enumerations (`governance.findings`,
-`governance.code_drift.*`, `sets.review`) keep a leading sample of 20 and
-report complete counts under `governance.list_truncation` and
-`sets.review_total`; `aoci verify --json` and `aoci check --json` still list
+`governance.code_drift.*`, `sets.review`, `sets.write`) keep a leading sample
+of 20, or of five while the response carries candidates, and report complete
+counts under `governance.list_truncation`, `sets.review_total`, and
+`sets.write_total`; `aoci verify --json` and `aoci check --json` still list
 every item. Raise the batch only when both the Host window and the model can
 carry it — a 1,400-file repository at 200 per batch answered its first Maintain
 with roughly 330 KB, which no Host displays inline.

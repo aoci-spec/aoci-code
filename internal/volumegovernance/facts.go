@@ -148,6 +148,26 @@ type heldSources struct {
 	held       map[string]bool
 }
 
+// ClassifyCodeDrift is the one projection of a raw Code drift detection into
+// governance debt: held sources (empty, binary, oversize, or curation-excluded
+// index files) leave Missing, Stale, and Unbaselined and are reported as
+// Skipped and CurationExcluded instead. Assess and the post-Apply alignment
+// inspector both consume it, so a write can never be judged unaligned over a
+// file Verify would never count as debt (#90).
+func ClassifyCodeDrift(root string, cfg *config.Config, detected *baseline.DetectResult) Drift {
+	drift, _ := classifyCodeDrift(root, cfg, detected)
+	return drift
+}
+
+func classifyCodeDrift(root string, cfg *config.Config, detected *baseline.DetectResult) (Drift, heldSources) {
+	held := classifyHeldSources(root, cfg, detected.Missing)
+	return Drift{Missing: held.actionable, Orphan: append([]string{}, detected.Orphan...),
+		Stale: held.without(detected.Stale), Unbaselined: held.without(detected.Unbaselined),
+		LineEndingOnly: detected.LineEndingOnly, ObservedNew: detected.ObservedNew,
+		ObservedChanged: detected.ObservedChanged, ObservedRemoved: detected.ObservedRemoved,
+		Skipped: held.skippedPaths(), CurationExcluded: held.excludedPaths()}, held
+}
+
 func classifyHeldSources(root string, cfg *config.Config, missing []string) heldSources {
 	result := heldSources{actionable: append([]string{}, missing...), held: map[string]bool{}}
 	classification, _, _, err := curation.BuildClassification(root, cfg, missing)
@@ -315,6 +335,13 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 		CurationExcluded: cutStrings("code_drift.curation_excluded", facts.CodeDrift.CurationExcluded),
 	}
 	bounded.PendingTransactionFiles = cutStrings("pending_transaction_files", facts.PendingTransactionFiles)
+	if len(facts.Budget.Violations) > limit {
+		// One violation per Entry over its band: a migrated index in observe
+		// mode can carry hundreds, each with its path, and none of them feeds
+		// a Maintain decision the candidates do not already carry.
+		totals["budget.violations"] = len(facts.Budget.Violations)
+		bounded.Budget.Violations = append([]cognitionbudget.Violation{}, facts.Budget.Violations[:limit]...)
+	}
 	if len(facts.Findings) > limit {
 		totals["findings"] = len(facts.Findings)
 		bounded.Findings = append([]Finding{}, facts.Findings[:limit]...)
@@ -552,13 +579,10 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 		facts.Findings = append(facts.Findings, Finding{Code: "code_drift_unavailable", Domain: cognition.ScopeCode})
 		return
 	}
-	orphans := append(append([]string{}, detected.Orphan...), ownershipOrphans...)
-	orphans = sortedUnique(orphans)
-	held := classifyHeldSources(root, cfg, detected.Missing)
-	facts.CodeDrift = Drift{Missing: held.actionable, Orphan: orphans, Stale: held.without(detected.Stale),
-		Unbaselined: held.without(detected.Unbaselined), LineEndingOnly: detected.LineEndingOnly,
-		ObservedNew: detected.ObservedNew, ObservedChanged: detected.ObservedChanged, ObservedRemoved: detected.ObservedRemoved,
-		Skipped: held.skippedPaths(), CurationExcluded: held.excludedPaths()}
+	drift, held := classifyCodeDrift(root, cfg, detected)
+	orphans := sortedUnique(append(append([]string{}, drift.Orphan...), ownershipOrphans...))
+	drift.Orphan = orphans
+	facts.CodeDrift = drift
 	if managed.Evaluation == nil {
 		facts.CodeSourceCount = len(copyState.Snapshot)
 	}
