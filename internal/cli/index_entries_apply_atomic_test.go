@@ -36,9 +36,9 @@ const (
 	manualAtomicNewB = "b.go[XUT5T]: F:原子新职责乙 | R:a.go | A:- | S:-"
 )
 
-// blockBaselineBackupReplacement以非空目录占据备份目标。
-// POSIX rename不能覆盖目录，Windows回退删除也不能移除非空目录，
-// 因而两端都会在真实AtomicWrite备份阶段稳定失败。
+// blockBaselineBackupReplacement occupies the backup target with a nonempty
+// directory. Keep it open so Windows cannot rename it aside during AtomicWrite's
+// fallback; POSIX already rejects replacing the directory with a file.
 func blockBaselineBackupReplacement(t *testing.T, root string) func() {
 	t.Helper()
 	backupPath := filepath.Join(root, ".aoci", "baseline.json.bak")
@@ -49,12 +49,20 @@ func blockBaselineBackupReplacement(t *testing.T, root string) func() {
 	if err := os.WriteFile(blockerPath, []byte("block\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	backup, err := os.Open(backupPath)
+	if err != nil {
+		t.Fatal(err)
+	}
 	blocked := true
-	return func() {
+	unblock := func() {
+		t.Helper()
 		if !blocked {
 			return
 		}
 		blocked = false
+		if err := backup.Close(); err != nil {
+			t.Fatal(err)
+		}
 		if err := os.Remove(blockerPath); err != nil {
 			t.Fatal(err)
 		}
@@ -62,6 +70,8 @@ func blockBaselineBackupReplacement(t *testing.T, root string) func() {
 			t.Fatal(err)
 		}
 	}
+	t.Cleanup(unblock)
+	return unblock
 }
 
 // buildManualAtomicEntriesRepo构造不启用Host-Agent Plan防线的Endpoint草稿仓。
