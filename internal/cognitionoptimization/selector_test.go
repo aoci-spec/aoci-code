@@ -97,3 +97,37 @@ func alignedEntry(objectRef string, importance int, relation, constraint string)
 	line := fmt.Sprintf("%s[CD%dS]: F:fixture responsibility | R:%s | A:- | S:%s", path, importance, relation, constraint)
 	return AlignedEntry{ObjectRef: objectRef, Path: path, SourceSHA256: fmt.Sprintf("%064x", importance+len(path)), ExistingEntry: line}
 }
+
+func TestSelectReviewsHighImportanceEntriesWithoutSAfterBudgetPressure(t *testing.T) {
+	policy := cognitionbudget.DefaultPolicy(machinecontract.BudgetModeObserve)
+	entries := []AlignedEntry{
+		alignedEntry("code:filled9.go", 9, "-", "callers must not cache the value"),
+		alignedEntry("code:absent8.go", 8, "-", "-"),
+		alignedEntry("code:absent6.go", machinecontract.HighImportanceMinC-1, "-", "-"),
+		alignedEntry("code:absent7.go", machinecontract.HighImportanceMinC, "-", "-"),
+		alignedEntry("code:overage7.go", 7, strings.Repeat("r", 90*3), "-"),
+	}
+	selection, err := Select(entries, policy, SelectOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(selection.Batch))
+	for _, candidate := range selection.Batch {
+		got = append(got, candidate.ObjectRef)
+	}
+	// Budget pressure first, then the high-importance Entries without S by C,
+	// then everything else by C: the C6 Entry without S is not a signal.
+	want := []string{"code:overage7.go", "code:absent8.go", "code:absent7.go", "code:filled9.go", "code:absent6.go"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unexpected review order: got=%v want=%v", got, want)
+	}
+	flags := map[string]bool{}
+	for _, candidate := range selection.Batch {
+		flags[candidate.ObjectRef] = candidate.SAbsentHighImportance
+	}
+	// overage7 also carries S:- at C7: the flag is a fact about the Entry, the
+	// budget pressure is what put it first.
+	if !flags["code:absent8.go"] || !flags["code:absent7.go"] || !flags["code:overage7.go"] || flags["code:absent6.go"] || flags["code:filled9.go"] {
+		t.Fatalf("s_absent_high_importance flags wrong: %#v", flags)
+	}
+}

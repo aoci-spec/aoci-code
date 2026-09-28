@@ -30,6 +30,19 @@ func assertGuideMatchesGolden(
 ) {
 	t.Helper()
 
+	// `make update-goldens` rewrites the golden from the production renderer;
+	// a changed Guide text is never re-blessed by pasting a failed assertion.
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(
+			filepath.Join("..", "..", "testdata", "golden", name),
+			[]byte(renderGuideGoldenSubject(guide)),
+			0o644,
+		); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
 	expected, err := os.ReadFile(
 		filepath.Join(
 			"..",

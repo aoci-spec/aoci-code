@@ -17,7 +17,7 @@ func TestEntriesBaseInstructionsRemainOrdered(
 			locale:    LegacyLocale,
 			utf8Token: "UTF-8 JSON文件",
 			policyTokens: []string{
-				"C6-C9对象应优先识别有证据支持的S约束",
+				"C6-C9对象在写S:-之前，先到行为真正被决定的地方找有证据支持的S约束",
 				"只有无法由F/R/A推导且影响系统理解或修改的重要约束才写入S",
 				"不存在合格约束时保持S:-",
 			},
@@ -26,7 +26,7 @@ func TestEntriesBaseInstructionsRemainOrdered(
 			locale:    DefaultLocale,
 			utf8Token: "UTF-8 JSON file",
 			policyTokens: []string{
-				"For C6-C9 objects, actively look for evidence-backed S constraints",
+				"For C6-C9 objects, before settling on S:- look for evidence-backed S constraints where the behaviour is actually decided",
 				"Use S only when the constraint cannot be inferred from F/R/A and affects system understanding or modification",
 				"Keep S:- when no qualifying constraint exists",
 			},

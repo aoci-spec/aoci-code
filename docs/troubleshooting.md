@@ -217,6 +217,21 @@ the authoring contract may also shorten the first build. AOCI does not select
 the Host model. Change one factor at a time and compare confirmations, model
 latency, batch count, and `deterministic_ms` before attributing the delay.
 
+Before the first `scan`, check what the index role holds. A first build that is
+slow because the model is authoring Entries for jQuery, Bootstrap, or a font
+directory is a scope problem, not a throughput problem. A repository
+initialized with the production profile carries seven starter `observe` rules
+for vendored static assets and generated bundles: `libs`, `lib`, and `plugins`
+directories under `static/`, `*.min.js`, `*.min.css`, `*.map`, and `fonts/`
+(`vendor`, `dist`, and `build` directories are already refused by the safety
+boundary), described under "Starter rules for vendored static assets" in
+[`managed-scope-and-budget.md`](managed-scope-and-budget.md). Run
+`aoci scope status` and `aoci scope rule list` before that scan, and
+`aoci scope explain <path>` on any directory you suspect; add an `observe` rule
+for a third-party directory the starter set does not name, or remove a starter
+rule whose path holds your own code. After the first scan, narrowing the index
+is a coverage reduction that needs approval, so this is the cheap moment.
+
 For scale, one observed Codex session with a built-in model authored a
 20-entry batch in about seven minutes on a 590-file Java repository, which
 put the whole first index near three hours at the then-default batch of 20;

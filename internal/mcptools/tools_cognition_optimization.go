@@ -181,6 +181,13 @@ func handleCognitionOptimizationMaintain(
 	}
 	result.AuthoringMeta = contract.AuthoringMeta
 	result.Instructions = contract.Instructions
+	if optimizationBatchReviewsSAbsent(result.Candidates) {
+		// The selector surfaced a high-importance Entry without S. The model
+		// gets the same "look where the behaviour is decided" instruction the
+		// authoring contract carries, plus the one fact specific to this
+		// batch: returning the Entry unchanged is a valid outcome.
+		result.Instructions = append(result.Instructions, mcpMessage("volumes.optimization.review"))
+	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
@@ -361,8 +368,25 @@ func trimOptimizationSelection(selection cognitionoptimization.Selection, issued
 	return selection
 }
 
+// optimizationReasonSAbsentHighImportance names the selection reason for a
+// C>=HighImportanceMinC Entry carrying S:-; budget overage and an explicit
+// object_ref still take precedence, matching the selector's order.
+const optimizationReasonSAbsentHighImportance = "s_absent_high_importance"
+
+func optimizationBatchReviewsSAbsent(candidates []volumeMaintainCandidate) bool {
+	for _, candidate := range candidates {
+		if candidate.SelectionReason == optimizationReasonSAbsentHighImportance {
+			return true
+		}
+	}
+	return false
+}
+
 func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, issued codebatch.Candidate, batchID string, explicit bool) volumeMaintainCandidate {
 	reason := "c_importance_and_entry_cost"
+	if measured.SAbsentHighImportance {
+		reason = optimizationReasonSAbsentHighImportance
+	}
 	if measured.TargetOverageTokens > 0 {
 		reason = "c_band_target_overage"
 	}

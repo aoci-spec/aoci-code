@@ -90,6 +90,15 @@ func TestSystemPromptSnapshotsRemainCompatible(
 					"%x",
 					digest[:],
 				)
+				// `make update-goldens` regenerates the digest from the
+				// production renderer; a changed prompt is never re-blessed
+				// by copying a hash out of a failed assertion.
+				if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+					if err := os.WriteFile(filepath.Join("..", "..", "testdata", "golden", current.goldenFile), []byte(actual+"\n"), 0o644); err != nil {
+						t.Fatal(err)
+					}
+					return
+				}
 				expected := strings.TrimSpace(
 					readPromptGolden(
 						t,

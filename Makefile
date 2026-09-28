@@ -127,6 +127,8 @@ update-goldens:
 	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/hooks -run '^TestAgentsNewFileOutputMatchesCompatibilityDigest$$' -count=1
 	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/index -run '^TestRuntimeRulesMatchCompatibilityDigest$$' -count=1
 	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/mcptools -run '^TestRegenerateListToolsGolden$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/prompt -run '^TestSystemPromptSnapshotsRemainCompatible$$|^TestCompletePromptOutputSnapshot$$' -count=1
+	AOCI_UPDATE_GOLDEN=1 $(GO_BIN) test ./internal/cli -run 'GuideMatchesGoldenByteForByte$$' -count=1
 
 # 深度静态分析(五重归零第五重;开发期工具,不进 go.mod)。
 # Full Confidence要求固定工具已安装，禁止把缺少工具误报为通过。

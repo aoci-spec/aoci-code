@@ -111,6 +111,36 @@ def deploy(repo_key, work_root, tag):
     return dst
 
 
+# A real Java repository (RuoYi) put 141 third-party files under static/ajax/libs/
+# into the index role and the model spent a third of the first build authoring
+# Entries for jQuery. init now persists starter observe rules for the production
+# profile, so the first scan must classify a vendored bundle as observe while the
+# project's own code beside it keeps index. The probe is planted in the working
+# copy before init, so the frozen masters and every count bound to them stay as
+# they are.
+STATIC_PROBE_ROLES = {"static/ajax/libs/jquery.min.js": "observe", "static/app/js/ry-ui.js": "index"}
+
+
+def plant_static_probe(fx):
+    for rel, body in (("static/ajax/libs/jquery.min.js", '/*! jQuery v3.7.1 */!function(e,t){"use strict"}();\n'),
+                      ("static/app/js/ry-ui.js", "// project code under static/, not a vendored bundle\nwindow.ry = {ready: true};\n")):
+        path = os.path.join(fx, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    sh(fx, "git", "add", "-A")
+    sh(fx, "git", "commit", "-q", "-m", "static probe")
+
+
+def baseline_roles(fx, rels):
+    path = os.path.join(fx, ".aoci", "baseline.json")
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        files = json.load(fh).get("files") or {}
+    return {rel: (files.get(rel) or {}).get("role") for rel in rels}
+
+
 # Curation 探针 (空/超限/二进制) 不是授权债务: 首次 Maintain 照常发批, 探针以
 # code_skipped 只读上报并带原因, 自动模式一路对齐。团队排除若在首次 scan 之前落进初始
 # 策略, 探针改记 code_curation_excluded; 事后再改会构成覆盖缩减、要求真人复核
@@ -283,6 +313,7 @@ def suite_bringup(rep, work):
     g = "bringup"
     for key in ("a", "b"):
         fx = deploy(key, work, "bringup")
+        plant_static_probe(fx)
         rc, _, out, errs = cli(fx, "init", "--locale", "en-US")
         rec_ok = rc == 0 and os.path.exists(os.path.join(fx, "AGENTS.md"))
         rep.rec(g, f"repo-{key}.init-en", "PASS" if rec_ok else "FAIL", (out + errs)[:150] if not rec_ok else "")
@@ -293,6 +324,9 @@ def suite_bringup(rep, work):
         rc, _, out, errs = cli(fx, "scan")
         ok = rc == 0 and os.path.exists(os.path.join(fx, ".aoci", "baseline.json"))
         rep.rec(g, f"repo-{key}.scan", "PASS" if ok else "FAIL")
+        roles = baseline_roles(fx, STATIC_PROBE_ROLES)
+        rep.rec(g, f"repo-{key}.starter-rules-observe-vendored-static",
+                "PASS" if roles == STATIC_PROBE_ROLES else "FAIL", f"roles={roles}")
         rc, _, out, _ = cli(fx, "doctor", expect_ok=False)
         rep.rec(g, f"repo-{key}.doctor-post-scan", "PASS" if rc == 0 else "FAIL",
                 "" if rc == 0 else out[-200:])

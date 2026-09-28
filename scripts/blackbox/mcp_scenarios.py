@@ -1652,6 +1652,78 @@ def group_o_optimization():
 
 
 
+def group_o_s_absent_priority():
+    """A high-importance Entry with S:- is reviewed first, with its reason named.
+
+    A RuoYi build under Codex left S:- on two thirds of its C7-C9 Entries and
+    nothing surfaced them: the selector ordered by budget pressure and C only,
+    so an empty S at C8 sat behind every filled C9 Entry. Budget pressure still
+    comes first, then C>=7 Entries without S, then everything else by C; the
+    candidate names the reason and the instructions say that returning the
+    Entry unchanged is a valid outcome. This authors a 3-file fixture, rewrites
+    one Entry to C8 with S:- and one to C9 with S filled through the direct
+    path, then checks the optimization batch order, reason, instruction, and
+    that the unchanged batch still completes.
+    """
+    g = "O"
+    name = "O2.high-importance-entry-without-s-is-reviewed-first"
+    d = make_fixture("fx-optimization-s", 3)
+    s = Session(d)
+    try:
+        m, t, err = maintain(s)
+        rounds = 0
+        while m.get("status") == "repair_required" and rounds < 5:
+            res, t2, err2 = submit_batch(s, m)
+            if res.get("status") != "applied":
+                record(g, name, "FAIL", f"authoring failed: {t2[:160]}")
+                return
+            if res.get("aligned"):
+                break
+            m, t, err = maintain(s)
+            rounds += 1
+
+        def sha(rel):
+            with open(os.path.join(d, rel), "rb") as fh:
+                return hashlib.sha256(fh.read()).hexdigest()
+
+        def direct(rel, text):
+            body, _ = text_of(s.call("aoci_update_entry", {"entries": [
+                {"path": rel, "source_sha256": sha(rel), "new_entry": text}]}))
+            return jload(body) or {}, body
+
+        absent, ta = direct("pkg/f001.go", "f001.go[CG8T]: F:Provides fixture constant unit 1 | R:- | A:- | S:-")
+        filled, tf = direct("pkg/f002.go", "f002.go[CG9T]: F:Provides fixture constant unit 2 | R:- | A:- | S:Callers must not cache the value across restarts")
+        if absent.get("status") != "applied" or filled.get("status") != "applied":
+            record(g, name, "FAIL", f"direct rewrites failed: {ta[:120]} | {tf[:120]}")
+            return
+        opt_text, _ = text_of(s.call("aoci_maintain", {"intent": "cognition_optimization"}))
+        opt = jload(opt_text) or {}
+        cands = opt.get("candidates") or []
+        plan = opt.get("code_plan") or {}
+        order = [c.get("path") for c in cands]
+        reasons = {c.get("path"): c.get("selection_reason") for c in cands}
+        instructed = "s_absent_high_importance" in " ".join(opt.get("instructions") or [])
+        # The fixture also carries the init-generated AGENTS.md and .gitattributes
+        # Entries at C5, so only the head of the order is pinned: the C8 Entry
+        # without S, then the filled C9 one, then everything else by C and size.
+        others_flagged = [pth for pth, why in reasons.items() if pth != "pkg/f001.go" and why == "s_absent_high_importance"]
+        if (order[:2] != ["pkg/f001.go", "pkg/f002.go"] or reasons.get("pkg/f001.go") != "s_absent_high_importance"
+                or others_flagged or not instructed or not plan.get("batch_id")):
+            record(g, name, "FAIL", f"order={order} reasons={reasons} instructed={instructed} | {opt_text[:160]}")
+            return
+        done_text, _ = text_of(s.call("aoci_update_entry", {"code_batch_id": plan["batch_id"], "entries": [
+            {"path": c["path"], "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
+             "new_entry": c.get("existing_entry")} for c in cands]}, timeout=300))
+        done = jload(done_text) or {}
+        state = (done.get("optimization") or {}).get("state")
+        ok = state == "complete"
+        record(g, name, "PASS" if ok else "FAIL",
+               f"order={order} reason(f001)={reasons.get('pkg/f001.go')} instructed={instructed} "
+               f"unchanged_batch_status={done.get('status')} state={state}" + ("" if ok else f" | {done_text[:150]}"))
+    finally:
+        s.close()
+
+
 # ---------------------------------------------------------------- group P
 def group_p_special_names():
     """Directory and file names the section grammar could not spell (#58, #60).
@@ -1973,6 +2045,7 @@ if __name__ == "__main__":
     group_u()
     group_u_detach()
     group_o_optimization()
+    group_o_s_absent_priority()
     group_p_special_names()
     group_p_unspellable_directory()
     ok, detail = host_window_summary()

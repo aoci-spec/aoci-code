@@ -237,6 +237,15 @@ type BudgetFacts struct {
 	R                []cognitionbudget.FieldBand `json:"r"`
 	S                []cognitionbudget.FieldBand `json:"s"`
 	Violations       []cognitionbudget.Violation `json:"violations"`
+	// SCoverage and the three high-importance figures are the same S-presence
+	// facts cognitionbudget.Report carries for a Legacy index, measured here
+	// over the Code Volume: the population a cognition_optimization pass
+	// reviews. They are a few integers per band and stay outside the transport
+	// bounding lists.
+	SCoverage                    []cognitionbudget.SCoverageBand `json:"s_coverage"`
+	HighImportanceEntries        int                             `json:"high_importance_entries"`
+	HighImportanceSAbsent        int                             `json:"high_importance_s_absent"`
+	HighImportanceSAbsentPercent int                             `json:"high_importance_s_absent_percent"`
 }
 
 type Finding struct {
@@ -830,10 +839,12 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 	policy, err := cognitionbudget.Normalize(cfg.EffectiveCognitionBudget())
 	if err != nil {
 		return BudgetFacts{Status: machinecontract.BudgetStatusExceeded,
-			Violations: []cognitionbudget.Violation{{Code: "cognition_budget_policy_invalid"}}}
+			Violations: []cognitionbudget.Violation{{Code: "cognition_budget_policy_invalid"}},
+			SCoverage:  []cognitionbudget.SCoverageBand{}}
 	}
 	bytes := len(set.Root.Raw) + len(set.Meta.Raw)
 	violations := []cognitionbudget.Violation{}
+	coverage := cognitionbudget.NewSCoverageTally(policy.S)
 	for _, id := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
 		asset := enabledAsset(set, id)
 		if asset == nil {
@@ -844,6 +855,9 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 			for _, violation := range cognitionbudget.ValidateEntry(object.CanonicalLine, policy) {
 				violation.Path = object.CanonicalRef
 				violations = append(violations, violation)
+			}
+			if id == cognition.ScopeCode {
+				coverage.Add(object.Entry)
 			}
 		}
 	}
@@ -869,7 +883,10 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 	return BudgetFacts{Mode: policy.Mode, Status: status, WholeIndexTokens: tokens,
 		TargetTokens: policy.WholeIndex.TargetTokens, WarningTokens: policy.WholeIndex.WarningTokens,
 		MaxTokens: policy.WholeIndex.MaxTokens, R: append([]cognitionbudget.FieldBand{}, policy.R...),
-		S: append([]cognitionbudget.FieldBand{}, policy.S...), Violations: violations}
+		S: append([]cognitionbudget.FieldBand{}, policy.S...), Violations: violations,
+		SCoverage: coverage.Bands, HighImportanceEntries: coverage.HighImportanceEntries,
+		HighImportanceSAbsent:        coverage.HighImportanceSAbsent,
+		HighImportanceSAbsentPercent: coverage.HighImportanceSAbsentPercent()}
 }
 
 // baselineMatches judges a formal Volume against its Baseline record through

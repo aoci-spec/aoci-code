@@ -118,6 +118,10 @@ func (cfg *Config) EffectiveCognitionBudget() cognitionbudget.Policy {
 // not already exist, so upgrades never silently enable enforcement.
 func (cfg *Config) SetNewProjectGovernance(profile string) error {
 	scope := managedscope.DefaultPolicy(profile)
+	// The starter rules are persisted here and nowhere else: DefaultPolicy is
+	// the preimage an old config without rules still resolves, and a built-in
+	// rule would move every existing identity. See managedscope.StarterRules.
+	scope.Rules = append(scope.Rules, managedscope.StarterRules(profile)...)
 	normalizedScope, err := managedscope.Normalize(scope)
 	if err != nil {
 		return err

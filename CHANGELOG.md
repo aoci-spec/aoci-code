@@ -2,6 +2,45 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+S coverage on high-importance Entries. A real-repository build under Codex
+came back with `S:-` on 78 percent of its Entries and on two thirds of its
+C7-C9 ones, and a source audit found most of those were misses. The authoring
+contract, the Guide field rules, and the public S discipline now say where to
+look before writing `S:-` on a C6+ object: the implementation behind an
+interface, the aspect or interceptor that wraps it, the SQL, templates, or
+scripts it executes or feeds, the configuration that overrides it, and the
+cache, transaction, soft-delete, and uniqueness rules on its persistence path;
+a C7+ `S:-` written without that look is as wrong as an invented S. The
+starter Meta example is now a C7 Entry with every field filled and an S one
+sentence long inside the C7 band, where the previous starter showed
+`R:- | A:- | S:-`. Existing repositories keep their Meta bytes.
+
+- `aoci verify`, `aoci check`, `aoci scope status`, and the Maintain
+  `governance.budget` carry `s_coverage`: Entries and Entries with S per C
+  band, plus the count and share of C7+ Entries without S. `check` prints one
+  line and, at or above the machine hint threshold of 25 percent, suggests one
+  `cognition_optimization` pass. A hint, never a gate.
+- `cognition_optimization` reviews C7+ Entries without S right after budget
+  overage and before plain C order. Each candidate carries `selection_reason`
+  (new value `s_absent_high_importance`), and the batch instructions say that
+  returning such an Entry unchanged is a valid result.
+- `aoci init` with the production profile persists seven starter `observe`
+  rules (`starter-vendored-*`, source `builtin`) for vendored static assets
+  and generated bundles: `libs`, `lib`, and `plugins` under `static/`,
+  `*.min.js`, `*.min.css`, `*.map`, and `fonts/`. A first build no longer
+  authors Entries for jQuery or Bootstrap. Written only when no config
+  exists; `DefaultPolicy`, the built-in profile rules, and existing
+  repositories are untouched, a user rule overrides a starter rule at any
+  order, and `aoci scope rule remove` drops one before the first scan
+  without approval. (`vendor`, `dist`, and `build` directories were already
+  refused by the safety boundary.)
+- `make update-goldens` also regenerates the prompt snapshot digests.
+- Black-box: 64 fault-injection scenarios (O2 checks the optimization review
+  order, reason, and unchanged-batch completion); the lifecycle suite asserts
+  the starter rules after `init` and `scan`.
+
 ## v0.1.0-rc16
 
 First-build speed and two recovery fixes. A Maintain response no longer

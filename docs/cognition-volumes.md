@@ -229,6 +229,17 @@ system-level semantic change lands, run one explicit `cognition_optimization`
 pass (or read the Whole-Index and update the affected Entries directly) so that
 class of drift gets a model review instead of rotting silently.
 
+The pass orders its review candidates deterministically: Entries over their
+C-band maximum first, then Entries over their target, then Entries at C7 or
+above whose S is `-`, then the rest by C and size. Each candidate names its
+`selection_reason` (`c_band_target_overage`, `s_absent_high_importance`,
+`explicit_object_ref`, or `c_importance_and_entry_cost`). An empty S on a
+high-importance Entry is a review signal read off the Entry, not a verdict:
+the model looks at where the object's behaviour is decided and either authors
+the constraint or returns the Entry unchanged, and an all-unchanged batch is a
+valid result. `aoci verify` and `aoci check` report S coverage per C band and
+suggest this pass when more than a quarter of the C7+ Entries carry `S:-`.
+
 The projected CognitionSet must pass the same loader, FRAS-v2, Volume boundary,
 Meta dictionary, identity, and single-Entry relation form checks before the existing Diff/P-23,
 write lock, CAS, AtomicWrite, Baseline, Ledger, governance receipt, and Recovery

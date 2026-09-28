@@ -121,6 +121,8 @@ func renderVerifyHuman(
 		fmt.Fprintln(&builder, cliMessage("verify.cognition_budget", report.CognitionBudget.WholeIndexTokens,
 			report.CognitionBudget.TargetTokens, report.CognitionBudget.WarningTokens, report.CognitionBudget.MaxTokens,
 			report.CognitionBudget.Mode, report.CognitionBudget.Status, len(report.CognitionBudget.Violations)))
+		writeSCoverage(&builder, report.CognitionBudget.SCoverage, report.CognitionBudget.HighImportanceEntries,
+			report.CognitionBudget.HighImportanceSAbsent, report.CognitionBudget.HighImportanceSAbsentPercent)
 	}
 
 	if len(report.FormatWarnings) > 0 {

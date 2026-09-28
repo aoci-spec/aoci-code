@@ -96,6 +96,17 @@ const (
 	DatabaseCognitionBatchEvidenceBytesDefault = 64 << 10
 	DatabaseCognitionBatchEvidenceBytesMin     = 32 << 10
 	DatabaseCognitionBatchEvidenceBytesMax     = 16 << 20
+
+	// HighImportanceMinC is the lowest C Importance at which an Entry without
+	// S is a review signal rather than an ordinary outcome. The S coverage
+	// report, the operator hint, and the optimization selector all read this
+	// one value so they can never disagree about what "high importance" means.
+	HighImportanceMinC = 7
+	// HighImportanceSAbsentHintPercent is the share of high-importance Entries
+	// carrying S:- above which Verify and Check tell the operator to run one
+	// cognition_optimization pass. It is a hint threshold, never a gate: a
+	// repository authored by a model that looked and found nothing stays green.
+	HighImportanceSAbsentHintPercent = 25
 )
 
 // FRASV2Limits is the immutable density contract for new cognition objects.

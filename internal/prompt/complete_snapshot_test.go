@@ -77,6 +77,12 @@ func TestCompletePromptOutputSnapshot(t *testing.T) {
 	digest := sha256.Sum256(actual)
 	actualHash := fmt.Sprintf("%x", digest[:])
 	goldenPath := filepath.Join("..", "..", "testdata", "golden", "prompt_complete_outputs.sha256")
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(goldenPath, []byte(actualHash+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	expected, err := os.ReadFile(goldenPath)
 	if err != nil {
 		t.Fatal(err)

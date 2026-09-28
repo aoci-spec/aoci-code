@@ -499,7 +499,7 @@ S: F、R、A 之外的重要补充信息
 ```text
 #Canonical-Tag-Authoring: compact A+B+C+[D]+E; dotted形态仅用于读取兼容
 #Code canonical identity example: code:path/to/file.go
-#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:- | A:- | S:-
+#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:code:config/load.go | A:main | S:配置文件缺失时直接非零退出，不回退到内置默认值
 #[Tag dictionary: code]
 #A Layer: C-共享基础 E-入口边界 A-应用编排 D-领域逻辑 K-算法计算 M-中间件 P-持久化 I-集成适配 R-运行基础 L-库与SDK F-声明配置 O-运维交付 T-测试验证 S-文档规范 X-开发工具 Z-其他
 #B Module: G-跨域通用 U-用户交互 B-核心业务 D-数据状态 I-身份权限 N-网络协议 M-消息事件 S-安全隐私 C-配置策略 O-可观测性 R-可靠性恢复 P-性能资源 W-流程调度 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量保障 E-扩展插件 Z-其他
@@ -913,7 +913,7 @@ aoci --repo . index agent guide --agent codex --json
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 46 项只读检查，覆盖 MCP 线协议表面；
-- **故障注入场景** —— 63 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
+- **故障注入场景** —— 64 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复与
   并发写入者的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

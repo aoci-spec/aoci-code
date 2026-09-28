@@ -65,6 +65,7 @@ type optimizationMaintainPayload struct {
 	Batch        volumeAuthoringBatch           `json:"authoring_batch"`
 	Governance   *volumegovernance.Facts        `json:"governance"`
 	Optimization *optimizationProgressPayload   `json:"optimization"`
+	Instructions []string                       `json:"instructions"`
 }
 
 type optimizationUpdatePayload struct {
@@ -347,6 +348,17 @@ func TestCognitionOptimizationManagedScopeBudgetPressureReducesTokensWithoutGene
 		byRef["code:optimized/0001.go"].ExistingEntry != strings.Split(codeBefore, "\n")[3] ||
 		byRef["code:optimized/0002.go"].ExistingEntry != strings.Split(codeBefore, "\n")[4] {
 		t.Fatal("selector generated, truncated, or retagged existing Entry semantics")
+	}
+	// The C9 Entry carries S:- and no budget pressure: it is reviewed right
+	// after the two over-target Entries, says why, and the batch instructions
+	// tell the model that returning it unchanged is a valid outcome.
+	if maintain.Candidates[2].ObjectRef != "code:optimized/0002.go" ||
+		byRef["code:optimized/0002.go"].SelectionReason != optimizationReasonSAbsentHighImportance ||
+		byRef["code:optimized/0001.go"].SelectionReason == optimizationReasonSAbsentHighImportance {
+		t.Fatalf("high-importance Entry without S was not surfaced with its reason: %#v", maintain.Candidates)
+	}
+	if !strings.Contains(strings.Join(maintain.Instructions, "\n"), optimizationReasonSAbsentHighImportance) {
+		t.Fatalf("optimization instructions do not explain the s_absent_high_importance review: %#v", maintain.Instructions)
 	}
 	if !strings.HasSuffix(byRef["code:optimized/0002.go"].ExistingEntry, " | S:-") {
 		t.Fatal("high C automatically gained an S field")

@@ -132,6 +132,48 @@ requires a real TTY. Existing safety refusals remain refusals. After Apply, the 
 modules are absent from the formal index and cannot support a complete
 cross-module conclusion.
 
+## Starter rules for vendored static assets
+
+A repository initialized with the production profile starts with seven `observe`
+rules for the third-party bundles that live inside a project's own tree. They
+come from a real Java repository, where the profile put 141 files under
+`static/ajax/libs/`, 52 minified bundles, and 17 fonts into the index role and
+the model spent a third of the first build authoring Entries for jQuery and
+Bootstrap. `aoci init` writes them into `.aoci/config.json` exactly once, only
+when no config exists yet. An existing repository never receives them, and the
+profile's built-in rules and `DefaultPolicy` are unchanged, so no identity
+moves at an upgrade. The rules are named `starter-vendored-<slug>`:
+
+| Rule | Pattern |
+| --- | --- |
+| `starter-vendored-static-libs` | `**/static/**/libs/**` |
+| `starter-vendored-static-lib` | `**/static/**/lib/**` |
+| `starter-vendored-static-plugins` | `**/static/**/plugins/**` |
+| `starter-vendored-min-js` | `**/*.min.js` |
+| `starter-vendored-min-css` | `**/*.min.css` |
+| `starter-vendored-source-map` | `**/*.map` |
+| `starter-vendored-fonts` | `**/fonts/**` |
+
+A `lib` or `plugins` directory outside `static/` is not matched: `src/lib` is
+ordinary code and keeps the index role. No rule names a `vendor`, `dist`, or
+`build` directory, because the safety boundary already refuses any path with
+one of those segments before rules run. The rules carry source `builtin`, the
+lowest rule priority, so the profile's own test and fixture rules still win on
+an overlapping path, and any rule added with `aoci scope rule add` overrides
+them whatever its `--order`. `aoci scope rule reset production` restores the
+bare profile and drops them as well.
+
+Check the roles before the first `scan` with `aoci scope rule list` and
+`aoci scope explain <path>`. If one of these paths holds your own code, remove
+the rule before that scan; nothing needs approval yet:
+
+```text
+aoci --repo . scope rule remove starter-vendored-static-lib
+```
+
+After the first `scan` the same removal widens the index and is an ordinary
+Scope Change: run `aoci scope activate` afterwards, as for a deferred module.
+
 ## Files that never need an Entry
 
 Managed Scope decides which files are in the index role; it does not decide
@@ -277,6 +319,26 @@ in the parts that matter — not to postpone the role decision.
 Judgement still applies in the other direction: a Whole-Index far above the
 ceiling is one a model cannot assimilate in a single delivery, so role reduction
 is the first answer and a raise is the second.
+
+### S coverage
+
+The budget report also measures how many Entries carry an S at all. `aoci
+verify --json` (`cognition_budget.s_coverage`), `aoci check`, `aoci scope
+status`, and the Maintain response (`governance.budget.s_coverage`) list one
+row per S band of the effective policy with `min_c`, `max_c`, `entries`, and
+`s_present`; an S is present when it is neither empty nor the explicit `S:-`.
+Three headline fields follow: `high_importance_entries` (Entries at or above
+the machine constant `HighImportanceMinC`, currently C7),
+`high_importance_s_absent`, and `high_importance_s_absent_percent`. Under
+Volumes v1 the tally covers the Code Volume, which is the population a
+`cognition_optimization` pass reviews.
+
+When at least one high-importance Entry exists and the absent share reaches the
+machine constant `HighImportanceSAbsentHintPercent` (currently 25), `check` and
+`verify` print one hint: run `aoci_maintain` with
+`intent=cognition_optimization` so a model re-reads those Entries. It is a
+hint, not a gate. It adds no issue and changes no exit code, and a repository
+whose model looked and found nothing worth recording stays green.
 
 ### Content-volatile files whose cognition never changes
 

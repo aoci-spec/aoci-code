@@ -78,7 +78,7 @@ func TestVolumeMetaTemplatesExposeExpandedFixedDictionaries(t *testing.T) {
 	}
 	expected := map[string]expectedMeta{
 		textassets.DefaultLocale: {
-			codeExample: "#Code Entry example: file.go[EG7T]: F:Runs the example application | R:- | A:- | S:-",
+			codeExample: "#Code Entry example: file.go[EG7T]: F:Runs the example application | R:code:config/load.go | A:main | S:Exits non-zero when the config file is missing; it never falls back to built-in defaults",
 			codeA:       "#A Layer: C-SharedFoundation E-EntryBoundary A-ApplicationOrchestration D-DomainLogic K-AlgorithmComputation M-Middleware P-Persistence I-IntegrationAdapter R-RuntimeFoundation L-LibrarySDK F-DeclarativeConfiguration O-OperationsDelivery T-TestValidation S-DocumentationSpecification X-DevelopmentTooling Z-Other",
 			codeB:       "#B Module: G-CrossDomain U-UserInteraction B-CoreBusiness D-DataState I-IdentityAccess N-NetworkProtocol M-MessageEvent S-SecurityPrivacy C-ConfigurationPolicy O-Observability R-ReliabilityRecovery P-PerformanceResource W-WorkflowScheduling A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityAssurance E-ExtensionPlugin Z-Other",
 			importance:  "#C Importance: 9-highest 8-very-high 7-high 6-above-average 5-medium 4-below-average 3-low 2-very-low 1-lowest",
@@ -88,7 +88,7 @@ func TestVolumeMetaTemplatesExposeExpandedFixedDictionaries(t *testing.T) {
 			databaseE:   "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100",
 		},
 		textassets.LegacyLocale: {
-			codeExample: "#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:- | A:- | S:-",
+			codeExample: "#Code Entry example: file.go[EG7T]: F:运行示例应用 | R:code:config/load.go | A:main | S:配置文件缺失时直接非零退出，不回退到内置默认值",
 			codeA:       "#A Layer: C-共享基础 E-入口边界 A-应用编排 D-领域逻辑 K-算法计算 M-中间件 P-持久化 I-集成适配 R-运行基础 L-库与SDK F-声明配置 O-运维交付 T-测试验证 S-文档规范 X-开发工具 Z-其他",
 			codeB:       "#B Module: G-跨域通用 U-用户交互 B-核心业务 D-数据状态 I-身份权限 N-网络协议 M-消息事件 S-安全隐私 C-配置策略 O-可观测性 R-可靠性恢复 P-性能资源 W-流程调度 A-分析智能 H-硬件设备 L-本地化 V-构建发布 Q-质量保障 E-扩展插件 Z-其他",
 			importance:  "#C Importance: 9-最高 8-很高 7-高 6-较高 5-中等 4-较低 3-低 2-很低 1-最低",

@@ -33,16 +33,33 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/draft"
 	"github.com/aoci-spec/aoci-code/internal/indexgen"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
+
+// writeSCoverage prints the S coverage line and, when the machine hint rule
+// fires, the one hint that points the operator at a cognition_optimization
+// pass. Both are operator information: neither enters issues nor moves the
+// exit code, and the Legacy Report and the Volumes budget facts feed it the
+// same four figures.
+func writeSCoverage(out io.Writer, bands []cognitionbudget.SCoverageBand, highEntries, highAbsent, highPercent int) {
+	fmt.Fprintln(out, cliMessage("check.s_coverage", machinecontract.HighImportanceMinC, highEntries-highAbsent,
+		highEntries, highPercent, cognitionbudget.FormatSCoverageBands(bands)))
+	if cognitionbudget.HighImportanceSAbsentHint(highEntries, highPercent) {
+		fmt.Fprintln(out, cliMessage("check.hint_s_coverage", highPercent, machinecontract.HighImportanceMinC,
+			machinecontract.HighImportanceSAbsentHintPercent))
+	}
+}
 
 type checkReport struct {
 	OK                      bool                    `json:"ok"`
@@ -363,6 +380,10 @@ func runCheckCommand(
 		fmt.Fprintln(out, cliMessage("check.hint_squota"))
 	}
 
+	if budget := score.CognitionBudget; budget != nil {
+		writeSCoverage(out, budget.SCoverage, budget.HighImportanceEntries, budget.HighImportanceSAbsent, budget.HighImportanceSAbsentPercent)
+	}
+
 	if eScaleDimension.Bad > 0 {
 		fmt.Fprintln(out, cliMessage("check.hint_escale"))
 	}
@@ -404,6 +425,10 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("check.ok"))
 	} else {
 		fmt.Fprint(cmd.OutOrStdout(), cliMessage("check.volumes_drift", report.NextAction, len(report.Findings)))
+	}
+	if !flagJSON && facts.Code.Enabled {
+		writeSCoverage(cmd.OutOrStdout(), facts.Budget.SCoverage, facts.Budget.HighImportanceEntries,
+			facts.Budget.HighImportanceSAbsent, facts.Budget.HighImportanceSAbsentPercent)
 	}
 	if exitCode != ExitOK {
 		return &ExitError{Code: exitCode}

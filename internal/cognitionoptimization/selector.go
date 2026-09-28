@@ -13,6 +13,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
 // MaxBatchEntries is the existing AOCI entry-update transaction boundary.
@@ -51,6 +52,11 @@ type Candidate struct {
 	MaxOverageTokens         int       `json:"max_overage_tokens"`
 	TargetPressureBasisPoint int64     `json:"target_pressure_basis_points"`
 	MaxPressureBasisPoint    int64     `json:"max_pressure_basis_points"`
+	// SAbsentHighImportance marks a C>=HighImportanceMinC Entry whose S is "-".
+	// It is a structural fact read off the Entry, not a judgement that an S is
+	// owed: the model reviewing the candidate may return it unchanged. Budget
+	// pressure still outranks it, so an over-budget Entry is reviewed first.
+	SAbsentHighImportance bool `json:"s_absent_high_importance"`
 }
 
 // SelectOptions optionally restricts optimization to exact canonical Code
@@ -70,7 +76,9 @@ type Selection struct {
 
 // Select measures and deterministically orders complete aligned Code entries.
 // Entries exceeding their current C-band max come first, then entries exceeding
-// target, followed by higher-C and larger entries. ObjectRef is the final stable
+// target, then C>=HighImportanceMinC entries whose S is "-" (a review signal
+// read off the Entry, never a verdict), followed by higher-C and larger
+// entries. ObjectRef is the final stable
 // tie-breaker. No entry text is synthesized or modified.
 func Select(entries []AlignedEntry, policy cognitionbudget.Policy, options SelectOptions) (Selection, error) {
 	normalized, err := cognitionbudget.Normalize(policy)
@@ -127,6 +135,9 @@ func Select(entries []AlignedEntry, policy cognitionbudget.Policy, options Selec
 		}
 		if left.TargetPressureBasisPoint != right.TargetPressureBasisPoint {
 			return left.TargetPressureBasisPoint > right.TargetPressureBasisPoint
+		}
+		if left.SAbsentHighImportance != right.SAbsentHighImportance {
+			return left.SAbsentHighImportance
 		}
 		if left.Importance != right.Importance {
 			return left.Importance > right.Importance
@@ -199,6 +210,7 @@ func measureCandidate(current AlignedEntry, policy cognitionbudget.Policy) (Cand
 		MaxOverageTokens:         rMaxOver + sMaxOver,
 		TargetPressureBasisPoint: pressureBasisPoints(cost.RTokens, rBand.TargetTokens) + pressureBasisPoints(cost.STokens, sBand.TargetTokens),
 		MaxPressureBasisPoint:    pressureBasisPoints(cost.RTokens, rBand.MaxTokens) + pressureBasisPoints(cost.STokens, sBand.MaxTokens),
+		SAbsentHighImportance:    (entry.S == "" || entry.S == "-") && importance >= machinecontract.HighImportanceMinC,
 	}, nil
 }
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -58,7 +59,7 @@ func TestFreshMetaContractExamplesComeFromActualAssembly(t *testing.T) {
 			}
 			assertExampleTag(t, output.Examples[cognition.ScopeCode], "EG7T")
 			assertExampleTag(t, output.Examples[cognition.ScopeDatabase], "EI7T")
-			assertFormalMetaHighImportanceDashExample(t, template)
+			assertFormalMetaHighImportanceFilledExample(t, template)
 			assertSoftSAuthoringPolicy(t, locale, output.Instructions)
 			assertStarterClassificationPolicy(t, locale, output.Instructions)
 			assertDeliveredExamples(t, []byte(template), output)
@@ -117,13 +118,13 @@ func assertSoftSAuthoringPolicy(t *testing.T, locale string, instructions []stri
 	required := map[string][]string{
 		textassets.DefaultLocale: {
 			"C6-C9 objects",
-			"actively look for evidence-backed S constraints",
+			"look for evidence-backed S constraints where the behaviour is actually decided",
 			"cannot be inferred from F/R/A",
 			"affects system understanding or modification",
 			"Keep S:- when no qualifying constraint exists",
 		},
 		textassets.LegacyLocale: {
-			"C6-C9对象应优先识别有证据支持的S约束",
+			"C6-C9对象在写S:-之前，先到行为真正被决定的地方找有证据支持的S约束",
 			"无法由F/R/A推导",
 			"影响系统理解或修改",
 			"不存在合格约束时保持S:-",
@@ -139,7 +140,14 @@ func assertSoftSAuthoringPolicy(t *testing.T, locale string, instructions []stri
 	}
 }
 
-func assertFormalMetaHighImportanceDashExample(t *testing.T, meta string) {
+// assertFormalMetaHighImportanceFilledExample pins the starter example to a
+// high-C Entry with every field filled. Until rc16 the starter showed a C7
+// object with S:-, meant as a counterweight against invented S; in practice
+// models pattern-match the example, and a real-repository build under Codex
+// came back with S:- on 78 percent of its Entries and on two thirds of its
+// C7-C9 ones. The S stays one sentence inside the C7 token band, so the
+// example calibrates length as well as presence.
+func assertFormalMetaHighImportanceFilledExample(t *testing.T, meta string) {
 	t.Helper()
 	const prefix = "#Code Entry example: "
 	for _, line := range strings.Split(meta, "\n") {
@@ -151,8 +159,18 @@ func assertFormalMetaHighImportanceDashExample(t *testing.T, meta string) {
 			t.Fatalf("formal Meta example is not a valid Entry: %q", line)
 		}
 		importance, err := strconv.Atoi(entry.TagsParsed["C"])
-		if err != nil || importance < 6 || entry.S != "-" {
-			t.Fatalf("formal Meta must retain its compatible high-C S:- example: %#v", entry)
+		if err != nil || importance < 6 {
+			t.Fatalf("formal Meta example must keep a high-C tag: %#v", entry)
+		}
+		if entry.S == "" || entry.S == "-" || entry.R == "-" || entry.Api == "-" {
+			t.Fatalf("formal Meta example must show every field filled, S included: %#v", entry)
+		}
+		band, ok := cognitionbudget.LimitFor(cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce).S, importance)
+		if !ok {
+			t.Fatalf("no S band for the example importance %d", importance)
+		}
+		if tokens := cognitionbudget.EstimateTokens([]byte(entry.S)); tokens > band.MaxTokens || len([]rune(entry.S)) > machinecontract.DefaultSQuotaForC(importance) {
+			t.Fatalf("formal Meta example S must stay inside its C band: %d tokens, %d runes: %#v", tokens, len([]rune(entry.S)), entry)
 		}
 		return
 	}

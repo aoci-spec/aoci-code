@@ -511,7 +511,7 @@ The following excerpt is copied verbatim from the current `en-US` Volume Meta te
 ```text
 #Canonical-Tag-Authoring: compact A+B+C+[D]+E; dotted form is read compatibility only
 #Code canonical identity example: code:path/to/file.go
-#Code Entry example: file.go[EG7T]: F:Runs the example application | R:- | A:- | S:-
+#Code Entry example: file.go[EG7T]: F:Runs the example application | R:code:config/load.go | A:main | S:Exits non-zero when the config file is missing; it never falls back to built-in defaults
 #[Tag dictionary: code]
 #A Layer: C-SharedFoundation E-EntryBoundary A-ApplicationOrchestration D-DomainLogic K-AlgorithmComputation M-Middleware P-Persistence I-IntegrationAdapter R-RuntimeFoundation L-LibrarySDK F-DeclarativeConfiguration O-OperationsDelivery T-TestValidation S-DocumentationSpecification X-DevelopmentTooling Z-Other
 #B Module: G-CrossDomain U-UserInteraction B-CoreBusiness D-DataState I-IdentityAccess N-NetworkProtocol M-MessageEvent S-SecurityPrivacy C-ConfigurationPolicy O-Observability R-ReliabilityRecovery P-PerformanceResource W-WorkflowScheduling A-AnalyticsIntelligence H-HardwareDevice L-Localization V-BuildRelease Q-QualityAssurance E-ExtensionPlugin Z-Other
@@ -952,7 +952,7 @@ binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
 - **Protocol conformance** — 46 read-only checks of the MCP wire surface;
-- **Fault-injection scenarios** — 63 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 64 scenarios covering cursor tampering,
   crash recovery, and racing writers on disposable fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:
   `repo-a` (TypeScript) and `repo-b` (Python + MySQL) run the full

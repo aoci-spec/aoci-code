@@ -80,6 +80,20 @@ statement, would a model do something wrong?"
 - other current facts that cannot be derived from the file name, tag, F, R, or
   A but must be known before modifying the file.
 
+High-importance objects (C6 and above) look at where the behaviour is actually
+decided before settling on S:-:
+- the implementation behind an interface, and the aspect, filter, or
+  interceptor that wraps it;
+- the SQL, templates, or scripts it executes or feeds, and the configuration
+  that overrides it;
+- the cache, transaction, soft-delete, and uniqueness rules on its persistence
+  path.
+For a C7 or higher object, S:- asserts that the author looked there and found
+nothing a modifier could get wrong; an S:- written without that look is as
+wrong as an invented S. This is writing discipline, not a machine gate: the
+machine only counts S presence per C band and offers a hint, and never judges
+whether a particular S:- is right.
+
 Boundary division: system-level principles, capability boundaries, and global
 prohibitions belong in the Header; whether a file is included or excluded is
 governed by Curation; future plans, deferred features, and roadmaps do not

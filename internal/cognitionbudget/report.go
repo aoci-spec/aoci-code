@@ -29,6 +29,16 @@ type Violation struct {
 	Maximum    int    `json:"max_tokens"`
 }
 
+// SCoverageBand is the S-presence tally of one policy S band: how many Entries
+// fall inside it and how many of those carry an S that is neither empty nor
+// the explicit "-".
+type SCoverageBand struct {
+	MinC     int `json:"min_c"`
+	MaxC     int `json:"max_c"`
+	Entries  int `json:"entries"`
+	SPresent int `json:"s_present"`
+}
+
 type Report struct {
 	Version          string           `json:"version"`
 	Mode             string           `json:"mode"`
@@ -49,6 +59,100 @@ type Report struct {
 	LargestS         []EntryCost      `json:"largest_s"`
 	Violations       []Violation      `json:"violations"`
 	Policy           WholeIndexPolicy `json:"whole_index_policy"`
+	// SCoverage tallies S presence per normalized policy S band, in band
+	// order. The three high-importance figures are the headline the operator
+	// hint reads: a real-repository build came back with S:- on most C7+
+	// Entries and nothing in the product measured it. Nothing here gates.
+	SCoverage                    []SCoverageBand `json:"s_coverage"`
+	HighImportanceEntries        int             `json:"high_importance_entries"`
+	HighImportanceSAbsent        int             `json:"high_importance_s_absent"`
+	HighImportanceSAbsentPercent int             `json:"high_importance_s_absent_percent"`
+}
+
+// SCoverageTally accumulates S presence per policy S band and over
+// high-importance Entries. Build feeds it every Entry of a Legacy index and
+// volumegovernance feeds it every Code Volume object, so the two layouts can
+// never disagree about what "has S" or "high importance" means.
+type SCoverageTally struct {
+	Bands                 []SCoverageBand
+	HighImportanceEntries int
+	HighImportanceSAbsent int
+}
+
+// NewSCoverageTally starts a tally with one empty band per policy S band, in
+// the order the normalized policy lists them.
+func NewSCoverageTally(sBands []FieldBand) *SCoverageTally {
+	tally := &SCoverageTally{Bands: make([]SCoverageBand, 0, len(sBands))}
+	for _, band := range sBands {
+		tally.Bands = append(tally.Bands, SCoverageBand{MinC: band.MinC, MaxC: band.MaxC})
+	}
+	return tally
+}
+
+// Add counts one Entry. An Entry whose C tag does not parse has importance 0,
+// falls inside no band, and is never high importance, so it is counted nowhere.
+func (t *SCoverageTally) Add(entry *index.Entry) {
+	if t == nil || entry == nil {
+		return
+	}
+	importance := entryImportance(entry)
+	present := SPresent(entry.S)
+	for position := range t.Bands {
+		band := &t.Bands[position]
+		if importance < band.MinC || importance > band.MaxC {
+			continue
+		}
+		band.Entries++
+		if present {
+			band.SPresent++
+		}
+		break
+	}
+	if importance >= machinecontract.HighImportanceMinC {
+		t.HighImportanceEntries++
+		if !present {
+			t.HighImportanceSAbsent++
+		}
+	}
+}
+
+// HighImportanceSAbsentPercent is the integer share of high-importance Entries
+// without S, and 0 when there are none to measure.
+func (t *SCoverageTally) HighImportanceSAbsentPercent() int {
+	if t == nil || t.HighImportanceEntries == 0 {
+		return 0
+	}
+	return t.HighImportanceSAbsent * 100 / t.HighImportanceEntries
+}
+
+// SPresent reports whether an S field carries content. The parser stores an
+// authored "S:-" as the literal "-" and an Entry with no S segment as "".
+func SPresent(s string) bool {
+	s = strings.TrimSpace(s)
+	return s != "" && s != "-"
+}
+
+// HighImportanceSAbsentHint is the one rule behind the operator hint in Check
+// and Verify: at least one high-importance Entry exists and the absent share
+// reached machinecontract.HighImportanceSAbsentHintPercent. It is a hint,
+// never a gate; a repository authored by a model that looked and found
+// nothing to record stays green.
+func HighImportanceSAbsentHint(highImportanceEntries, absentPercent int) bool {
+	return highImportanceEntries > 0 && absentPercent >= machinecontract.HighImportanceSAbsentHintPercent
+}
+
+// FormatSCoverageBands renders the per-band tally for a human line, such as
+// "C1-4 12/30, C5-7 8/20, C8 4/9, C9 1/1".
+func FormatSCoverageBands(bands []SCoverageBand) string {
+	parts := make([]string, 0, len(bands))
+	for _, band := range bands {
+		label := fmt.Sprintf("C%d", band.MinC)
+		if band.MaxC != band.MinC {
+			label = fmt.Sprintf("C%d-%d", band.MinC, band.MaxC)
+		}
+		parts = append(parts, fmt.Sprintf("%s %d/%d", label, band.SPresent, band.Entries))
+	}
+	return strings.Join(parts, ", ")
 }
 
 type Validation struct {
@@ -107,6 +211,7 @@ func Build(repositoryRoot string, raw []byte, policy Policy) (*Report, error) {
 	}
 	report.HeaderTokens = headerBytes / 3
 	entries := []EntryCost{}
+	coverage := NewSCoverageTally(normalized.S)
 	for _, section := range doc.Sections {
 		for _, entry := range section.Entries {
 			importance := entryImportance(entry)
@@ -114,6 +219,7 @@ func Build(repositoryRoot string, raw []byte, policy Policy) (*Report, error) {
 				RTokens: len([]byte(entry.R)) / 3, ATokens: len([]byte(entry.Api)) / 3, STokens: len([]byte(entry.S)) / 3,
 				TotalTokens: len([]byte(entry.FullLine)) / 3}
 			entries = append(entries, cost)
+			coverage.Add(entry)
 			report.FTokens += cost.FTokens
 			report.RTokens += cost.RTokens
 			report.ATokens += cost.ATokens
@@ -127,6 +233,10 @@ func Build(repositoryRoot string, raw []byte, policy Policy) (*Report, error) {
 		}
 	}
 	report.EntryCount = len(entries)
+	report.SCoverage = coverage.Bands
+	report.HighImportanceEntries = coverage.HighImportanceEntries
+	report.HighImportanceSAbsent = coverage.HighImportanceSAbsent
+	report.HighImportanceSAbsentPercent = coverage.HighImportanceSAbsentPercent()
 	report.StructureTokens = report.WholeIndexTokens - report.HeaderTokens - report.FTokens - report.RTokens - report.ATokens - report.STokens
 	if report.StructureTokens < 0 {
 		report.StructureTokens = 0
@@ -316,6 +426,7 @@ func Summary(report *Report) string {
 	if report == nil {
 		return ""
 	}
-	return fmt.Sprintf("whole_index=%d target=%d warning=%d max=%d status=%s", report.WholeIndexTokens,
-		report.TargetTokens, report.WarningTokens, report.MaxTokens, report.Status)
+	return fmt.Sprintf("whole_index=%d target=%d warning=%d max=%d status=%s | S coverage: C%d+ %d/%d have S",
+		report.WholeIndexTokens, report.TargetTokens, report.WarningTokens, report.MaxTokens, report.Status,
+		machinecontract.HighImportanceMinC, report.HighImportanceEntries-report.HighImportanceSAbsent, report.HighImportanceEntries)
 }
