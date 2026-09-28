@@ -28,5 +28,6 @@ func UntrustedRepositoryGitCommand(root string, args ...string) *exec.Cmd {
 	}
 	command := exec.Command("git", append(hardened, args...)...)
 	command.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")
+	hideChildConsole(command)
 	return command
 }

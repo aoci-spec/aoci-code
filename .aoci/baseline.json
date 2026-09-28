@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-28T11:09:33Z",
+  "updated_at": "2026-09-28T11:10:54Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -132,9 +132,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "e4fc3abc68f9f19097ec85223417a446e6b00478e99809496b9129c375a2efb4",
-      "size": 191213,
-      "normalized_sha256": "e4fc3abc68f9f19097ec85223417a446e6b00478e99809496b9129c375a2efb4"
+      "sha256": "b169f37e8ede6a3256a3215466c8ddae27a0f052c7ec9a40fe38443218e11028",
+      "size": 191966,
+      "normalized_sha256": "b169f37e8ede6a3256a3215466c8ddae27a0f052c7ec9a40fe38443218e11028"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3374,10 +3374,18 @@
     },
     "internal/fs/git_command.go": {
       "role": "index",
-      "sha256": "a7d0df7300f6afb5e3e5325fa440ac2b80d63d6749a6eec28d7126659be4b716",
-      "size": 1422,
-      "normalized_sha256": "a7d0df7300f6afb5e3e5325fa440ac2b80d63d6749a6eec28d7126659be4b716",
-      "format_sha256": "a7d0df7300f6afb5e3e5325fa440ac2b80d63d6749a6eec28d7126659be4b716",
+      "sha256": "74cc7ee6360a0b04fd9f43cb81609c5183cb6bf03774a329b2b437b87b4c6db0",
+      "size": 1449,
+      "normalized_sha256": "74cc7ee6360a0b04fd9f43cb81609c5183cb6bf03774a329b2b437b87b4c6db0",
+      "format_sha256": "74cc7ee6360a0b04fd9f43cb81609c5183cb6bf03774a329b2b437b87b4c6db0",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/git_command_other.go": {
+      "role": "index",
+      "sha256": "a054df8cac3b22cb2715ad32aaa41804976ba9b6a5d0b6f36820641eecd559bd",
+      "size": 190,
+      "normalized_sha256": "a054df8cac3b22cb2715ad32aaa41804976ba9b6a5d0b6f36820641eecd559bd",
+      "format_sha256": "a054df8cac3b22cb2715ad32aaa41804976ba9b6a5d0b6f36820641eecd559bd",
       "format_kind": "gofmt"
     },
     "internal/fs/git_command_test.go": {
@@ -3386,6 +3394,22 @@
       "size": 2448,
       "normalized_sha256": "675bc2ee7a526804b1e43703d90d8435a41e0fffbbc35ce57812c386993682ce",
       "format_sha256": "675bc2ee7a526804b1e43703d90d8435a41e0fffbbc35ce57812c386993682ce",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/git_command_windows.go": {
+      "role": "index",
+      "sha256": "24b15acb130c883e02d3da14b67816a3b18b4f2be18ccaeefac15a9a4ef67c9a",
+      "size": 1065,
+      "normalized_sha256": "24b15acb130c883e02d3da14b67816a3b18b4f2be18ccaeefac15a9a4ef67c9a",
+      "format_sha256": "24b15acb130c883e02d3da14b67816a3b18b4f2be18ccaeefac15a9a4ef67c9a",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/git_command_windows_test.go": {
+      "role": "observe",
+      "sha256": "bb481c990c647c5f02f8ec7fe9208ba51045409e458b9819bdf0586d48020eda",
+      "size": 881,
+      "normalized_sha256": "bb481c990c647c5f02f8ec7fe9208ba51045409e458b9819bdf0586d48020eda",
+      "format_sha256": "bb481c990c647c5f02f8ec7fe9208ba51045409e458b9819bdf0586d48020eda",
       "format_kind": "gofmt"
     },
     "internal/fs/git_ignore.go": {
