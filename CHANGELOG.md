@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc17
 
 S coverage on high-importance Entries. A real-repository build under Codex
 came back with `S:-` on 78 percent of its Entries and on two thirds of its
