@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc16
 
 First-build speed and two recovery fixes. A Maintain response no longer
 repeats the issued batch inside `code_plan`, trims its governance samples to
