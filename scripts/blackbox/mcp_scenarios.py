@@ -399,7 +399,18 @@ def group_b():
     m, t, err = maintain(s)
     r, t, err = submit_batch(s, m, mutate=lambda es: es.__setitem__(0, {**es[0], "source_sha256": "0" * 64}))
     zero_write = r.get("formal_writes_started") in (False, None) and r.get("status") != "applied"
-    record(g, "B4.wrong-source-sha", "PASS" if zero_write else "FAIL", (r.get("status") or t[:100]) + " zero-write" if zero_write else t[:200])
+    # The finding must let the model recover from the response it has: rc16
+    # took code_plan.candidates off the wire, and until this check the repair
+    # action still sent the model there. expected is the issued binding, the
+    # action names the candidates list and the finding's own expected value.
+    issued = (m.get("candidates") or [{}])[0].get("source_sha256")
+    mism = [f for f in (r.get("findings") or []) if f.get("rule_code") == "code_candidate_source_sha256_mismatch"]
+    action = (mism[0].get("safe_repair_action") or "") if mism else ""
+    named = bool(mism) and mism[0].get("expected") == issued and mism[0].get("actual") == "0" * 64 \
+        and "candidates" in action and "expected" in action and "code_plan.candidates" not in action
+    ok4 = zero_write and named
+    record(g, "B4.wrong-source-sha", "PASS" if ok4 else "FAIL",
+           (r.get("status") or t[:100]) + f" zero-write finding_names_issued_binding={named}" if ok4 else t[:200])
     r, t, err = submit_batch(s, m)  # correct bindings
     record(g, "B4.correct-resubmit", "PASS" if r.get("status") == "applied" else "FAIL", t[:150])
 

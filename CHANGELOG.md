@@ -2,6 +2,21 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Fix the repair guidance for a mistyped or self-computed Code binding. Since
+  rc16 the Maintain response no longer repeats `code_plan.candidates`, but the
+  `code_candidate_source_sha256_mismatch`, `code_candidate_id_mismatch`, and
+  `code_candidate_path_mismatch` repair actions still told the model to copy
+  the value from there, so a first build whose model had hashed a file itself
+  was refused with zero writes (correct) and then could not recover. The
+  actions now name the Maintain response's `candidates` list and the finding's
+  own `expected` value, the source_sha256 action says never to compute the
+  hash, and the cause states the fact the server has already checked: the file
+  on disk still matches the issued binding, so the submitted value came from
+  other bytes. Black-box B4 requires the finding to be recoverable from the
+  response alone.
+
 ## v0.1.0-rc17
 
 S coverage on high-importance Entries. A real-repository build under Codex
