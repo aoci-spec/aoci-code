@@ -37,9 +37,15 @@ func init() {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
-			out, _ := json.MarshalIndent(cfg, "", "  ")
-			fmt.Println(string(out))
-			return nil
+			if flagJSON {
+				return writePlannerJSON(cmd, cfg)
+			}
+			out, err := json.MarshalIndent(cfg, "", "  ")
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), string(out))
+			return err
 		},
 	}
 
@@ -57,34 +63,8 @@ func init() {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
 
-			switch args[0] {
-			case "exclude_dirs":
-				fmt.Println(strings.Join(cfg.ExcludeDirs, ","))
-			case "exclude_files":
-				fmt.Println(strings.Join(cfg.ExcludeFiles, ","))
-			case "curation_exclude":
-				fmt.Println(strings.Join(cfg.CurationExclude, ","))
-			case "index_path":
-				fmt.Println(cfg.IndexPath)
-			case "locale":
-				fmt.Println(cfg.Locale)
-			case "hook_strict":
-				fmt.Println(cfg.HookStrict)
-			case "ledger_enabled":
-				fmt.Println(cfg.LedgerEnabled)
-			case "installed_agents":
-				fmt.Println(strings.Join(cfg.InstalledAgents, ","))
-			case "automation_mode":
-				fmt.Println(cfg.EffectiveAutomationMode())
-			case "cognition_refresh_threshold":
-				fmt.Println(cfg.CognitionRefreshThreshold)
-			case "overview_delivery.chunk_tokens":
-				fmt.Println(cfg.OverviewDelivery.ChunkTokens)
-			case "code_cognition_batch_entries":
-				fmt.Println(cfg.CodeCognitionBatchLimit())
-			case "maintain_transport_budget_bytes":
-				fmt.Println(cfg.MaintainTransportBudget())
-			default:
+			value, ok := configValue(cfg, args[0], flagJSON)
+			if !ok {
 				return &ExitError{
 					Code: ExitConfig,
 					Msg: cliMessage(
@@ -94,7 +74,11 @@ func init() {
 					),
 				}
 			}
-			return nil
+			if flagJSON {
+				return writePlannerJSON(cmd, value)
+			}
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), value)
+			return err
 		},
 	}
 
@@ -252,18 +236,29 @@ func init() {
 					return &ExitError{Code: ExitConfig, Msg: err.Error()}
 				}
 			}
+			if flagJSON {
+				value, ok := configValue(cfg, key, true)
+				if !ok {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.unknown_key", key, "")}
+				}
+				return writePlannerJSON(cmd, struct {
+					OK    bool   `json:"ok"`
+					Key   string `json:"key"`
+					Value any    `json:"value"`
+				}{OK: true, Key: key, Value: value})
+			}
 			if !flagQuiet {
-				fmt.Println(cliMessage("config.saved", key))
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("config.saved", key))
 				if key == "locale" {
 					if cfg.LocaleMigration != nil {
-						fmt.Println(cliMessage(
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage(
 							"config.locale_migration_pending",
 							cfg.LocaleMigration.HeaderPending,
 							len(cfg.LocaleMigration.EntryPaths),
 							len(cfg.LocaleMigration.CurationPaths),
 						))
 					}
-					fmt.Println(cliMessage("config.restart_mcp"))
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("config.restart_mcp"))
 				}
 			}
 			return nil
@@ -272,6 +267,51 @@ func init() {
 
 	cmd.AddCommand(listCmd, getCmd, setCmd)
 	registerCommand(cmd)
+}
+
+func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
+	switch key {
+	case "exclude_dirs":
+		if jsonMode {
+			return cfg.ExcludeDirs, true
+		}
+		return strings.Join(cfg.ExcludeDirs, ","), true
+	case "exclude_files":
+		if jsonMode {
+			return cfg.ExcludeFiles, true
+		}
+		return strings.Join(cfg.ExcludeFiles, ","), true
+	case "curation_exclude":
+		if jsonMode {
+			return cfg.CurationExclude, true
+		}
+		return strings.Join(cfg.CurationExclude, ","), true
+	case "index_path":
+		return cfg.IndexPath, true
+	case "locale":
+		return cfg.Locale, true
+	case "hook_strict":
+		return cfg.HookStrict, true
+	case "ledger_enabled":
+		return cfg.LedgerEnabled, true
+	case "installed_agents":
+		if jsonMode {
+			return cfg.InstalledAgents, true
+		}
+		return strings.Join(cfg.InstalledAgents, ","), true
+	case "automation_mode":
+		return cfg.EffectiveAutomationMode(), true
+	case "cognition_refresh_threshold":
+		return cfg.CognitionRefreshThreshold, true
+	case "overview_delivery.chunk_tokens":
+		return cfg.OverviewDelivery.ChunkTokens, true
+	case "code_cognition_batch_entries":
+		return cfg.CodeCognitionBatchLimit(), true
+	case "maintain_transport_budget_bytes":
+		return cfg.MaintainTransportBudget(), true
+	default:
+		return nil, false
+	}
 }
 
 func splitCSV(raw string) []string {

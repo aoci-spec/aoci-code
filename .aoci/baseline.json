@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-09-29T16:15:50Z",
+  "updated_at": "2026-10-02T19:10:57Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "8567b2fde0aa491340d77d6dd2022c01cb0d12e566ba262678e36f7222f98206",
-      "size": 195231,
-      "normalized_sha256": "8567b2fde0aa491340d77d6dd2022c01cb0d12e566ba262678e36f7222f98206"
+      "sha256": "979a39b5d832a94c186d55de87c77594cb627085d4d00c71e3c5dfeabe9408c8",
+      "size": 195187,
+      "normalized_sha256": "979a39b5d832a94c186d55de87c77594cb627085d4d00c71e3c5dfeabe9408c8"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -800,10 +800,10 @@
     },
     "internal/cli/config.go": {
       "role": "index",
-      "sha256": "a8cd1f352a109f2b38ec1204f0abcde03bd316e248482a468037765c5183f6f1",
-      "size": 8820,
-      "normalized_sha256": "a8cd1f352a109f2b38ec1204f0abcde03bd316e248482a468037765c5183f6f1",
-      "format_sha256": "a8cd1f352a109f2b38ec1204f0abcde03bd316e248482a468037765c5183f6f1",
+      "sha256": "8efdc62b33ee232093b13e63f3dece3cbe0a345b763adb565d33f939de1ed9ad",
+      "size": 9821,
+      "normalized_sha256": "8efdc62b33ee232093b13e63f3dece3cbe0a345b763adb565d33f939de1ed9ad",
+      "format_sha256": "8efdc62b33ee232093b13e63f3dece3cbe0a345b763adb565d33f939de1ed9ad",
       "format_kind": "gofmt"
     },
     "internal/cli/config_automation_test.go": {
@@ -820,6 +820,14 @@
       "size": 1590,
       "normalized_sha256": "60f1f2051cb2cf9c0bcd586e385ff46d6a1fbf3920da9aea7d0c25264458ac88",
       "format_sha256": "60f1f2051cb2cf9c0bcd586e385ff46d6a1fbf3920da9aea7d0c25264458ac88",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/config_json_test.go": {
+      "role": "observe",
+      "sha256": "0d2f693496f2ea29f672eddad18dbec1b242240bee02ad64f4d4833a15457679",
+      "size": 2990,
+      "normalized_sha256": "0d2f693496f2ea29f672eddad18dbec1b242240bee02ad64f4d4833a15457679",
+      "format_sha256": "0d2f693496f2ea29f672eddad18dbec1b242240bee02ad64f4d4833a15457679",
       "format_kind": "gofmt"
     },
     "internal/cli/config_overview_delivery_test.go": {
