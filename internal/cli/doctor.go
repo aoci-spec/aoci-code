@@ -222,6 +222,7 @@ func newDoctorCmd() *cobra.Command {
 			markInstalled(rep, cliMessage("doctor.label.claude_hook"), hooks.IsClaudeHookInstalled(root))
 			markInstalled(rep, cliMessage("doctor.label.codex_mcp"), hooks.IsCodexMCPInstalled(root))
 			markInstalled(rep, cliMessage("doctor.label.opencode_mcp"), hooks.IsOpenCodeMCPInstalled(root))
+			markInstalled(rep, cliMessage("doctor.label.workbuddy_mcp"), hooks.IsWorkBuddyMCPInstalled(root))
 
 			// —— 组三: AI 增强层 ——
 			rep.group(cliMessage("doctor.group.ai"))

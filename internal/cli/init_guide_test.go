@@ -38,14 +38,19 @@ func TestInitAgentGuideCommand(
 				"opencode --json",
 		},
 		{
+			agent: "workbuddy",
+			want: "aoci index agent guide --agent " +
+				"workbuddy --json",
+		},
+		{
 			agent: "",
 			want: "aoci index agent guide --agent " +
-				"<codex|claude|cursor|opencode> --json",
+				"<codex|claude|cursor|opencode|workbuddy> --json",
 		},
 		{
 			agent: "all",
 			want: "aoci index agent guide --agent " +
-				"<codex|claude|cursor|opencode> --json",
+				"<codex|claude|cursor|opencode|workbuddy> --json",
 		},
 	}
 
