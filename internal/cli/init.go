@@ -46,6 +46,11 @@ func initAgentCandidatePaths(agent string) []string {
 		return []string{".codex/config.toml"}
 	case "opencode":
 		return []string{"opencode.json"}
+	case "workbuddy":
+		// 机器级用户文件(~/.workbuddy/mcp.json),仓库内没有任何候选路径。
+		// 返回 nil 让 init 跳过指纹比对与 .gitignore 写入 —— 宿主配置在仓库
+		// 外,不该进 .gitignore,也不该被当成仓库资产推进 Baseline。
+		return nil
 	default:
 		return nil
 	}
@@ -101,13 +106,13 @@ func initAgentGuideCommand(
 	agent string,
 ) string {
 	switch agent {
-	case "claude", "codex", "cursor", "opencode":
+	case "claude", "codex", "cursor", "opencode", "workbuddy":
 		return "aoci index agent guide --agent " +
 			agent +
 			" --json"
 	default:
 		return "aoci index agent guide --agent " +
-			"<codex|claude|cursor|opencode> --json"
+			"<codex|claude|cursor|opencode|workbuddy> --json"
 	}
 }
 
@@ -141,7 +146,7 @@ func init() {
 				}
 			}
 			switch agent {
-			case "", "claude", "codex", "cursor", "opencode", "all":
+			case "", "claude", "codex", "cursor", "opencode", "workbuddy", "all":
 			default:
 				return &ExitError{
 					Code: ExitConfig,
@@ -389,9 +394,17 @@ func init() {
 
 			outputLines = append(outputLines, cliMessage("init.config_ready"))
 			beforeAgents, beforeAgentsExisted := fingerprintInitPath(root, "AGENTS.md")
+			// 区块落位按宿主能力分:WorkBuddy 只把 AGENTS.md 开头约 8000 字符
+			// 注入模型上下文(实测截断),落文末的区块永远读不到,所以该宿主
+			// 改插文首;其余宿主保持既有"文末追加"行为不变。
+			agentsPlacement := hooks.AgentsBlockAppend
+			if agent == "workbuddy" {
+				agentsPlacement = hooks.AgentsBlockPrepend
+			}
 			agentsMessage, err :=
-				hooks.EnsureAgentsBlock(
+				hooks.EnsureAgentsBlockAt(
 					root,
+					agentsPlacement,
 				)
 			if err != nil {
 				return err
@@ -417,6 +430,11 @@ func init() {
 						"codex",
 						"cursor",
 					}
+					// all 刻意不含 workbuddy: 它的写入面是**机器级**用户文件
+					// ~/.workbuddy/mcp.json,对所有项目生效。把它塞进"批量装
+					// 项目级宿主配置"的集合里,等于让一次 init 改到仓库之外
+					// 的全局配置,超出了 all 的既有语义(帮助文案已承诺
+					// "all 保持既有 claude/codex/cursor 集合")。
 				}
 
 				for _, agentName := range agents {

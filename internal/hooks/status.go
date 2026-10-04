@@ -13,6 +13,9 @@
 //     (aoci 以无关形式出现误报已装)随之消除;
 //   - Codex: 委托 codex.go 的 hasCodexTable(与写入端幂等同一实现,逐行判定
 //     注释行免疫,审查事故防线单点承载)。
+//   - WorkBuddy: 委托 workbuddy.go 的 workbuddyServerMatches(与写入端选键
+//     同一实现),遍历该文件全部 server 条目找"绑定当前仓库的那一条";
+//     因为该文件是机器级共享的,判据不能只认某个固定键名。
 //
 // 判据取值原则: 任何读取/解析失败一律返回 false(视为未安装)—— 诊断场景宁可
 // 报"未装"促使用户检查,绝不误报"已装"给出虚假安全感。
@@ -85,4 +88,27 @@ func IsCodexMCPInstalled(root string) bool {
 func IsOpenCodeMCPInstalled(root string) bool {
 	plan, err := prepareOpenCodeMCP(root)
 	return err == nil && plan.Current
+}
+
+// IsWorkBuddyMCPInstalled 判断机器级 ~/.workbuddy/mcp.json 里是否存在任一
+// server 条目绑定当前仓库的 aoci binary 与 --repo。
+// 判据: 委托 workbuddyServerMatches(workbuddy.go,与写入端选键同一实现)。
+// 该文件被所有项目共享,所以"已配置"= 存在某条绑定当前仓库,而不是"存在
+// 名为 aoci 的键"——后者会把别的仓库的 aoci 误报成本仓库已装。
+func IsWorkBuddyMCPInstalled(root string) bool {
+	path, err := workbuddyConfigPath()
+	if err != nil {
+		return false
+	}
+	doc, err := readWorkBuddyDocument(path)
+	if err != nil {
+		return false
+	}
+	data := NewTplData(root)
+	for _, entry := range workbuddyServersOf(doc) {
+		if workbuddyServerMatches(entry, data) {
+			return true
+		}
+	}
+	return false
 }

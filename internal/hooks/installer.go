@@ -9,6 +9,8 @@
 //   - claude 全量(MCP 配置 + 可选 hook);codex 写项目级 MCP 配置,
 //     --hooks 时额外安装 compact_prompt + SessionStart(compact) hook;
 //     opencode 严格合并项目级 V1 opencode.json;
+//     workbuddy 写机器级用户 MCP 配置 ~/.workbuddy/mcp.json(键名退让见
+//     workbuddy.go),不写仓库内文件;
 //     cursor 只输出参考片段(诚实占位)。
 //
 // 路径形态(Windows 真机教训): TplData 的 BinPath/RepoRoot 统一转正斜杠 ——
@@ -169,10 +171,31 @@ func loadAgentsTemplate() (string, error) {
 	return value, nil
 }
 
-// EnsureAgentsBlock 在仓库根 AGENTS.md 写入/替换 aoci 标记区块。
+// AgentsBlockPlacement 决定"文件里还没有 aoci 区块"时新区块的落位。
+// 已有区块永远整块替换、位置不动，所以本选项只在首次落块时生效一次。
+type AgentsBlockPlacement int
+
+const (
+	// AgentsBlockAppend 追加到文末(既有行为;宿主会读完整份规则文件时用它)。
+	AgentsBlockAppend AgentsBlockPlacement = iota
+	// AgentsBlockPrepend 插到文首。给"宿主只把规则文件开头一段注入模型
+	// 上下文"的场景用: WorkBuddy 实测注入截断在 8000 字符,文末区块永远
+	// 进不了模型上下文,只有落在文首才读得到。
+	AgentsBlockPrepend
+)
+
+// EnsureAgentsBlock 在仓库根 AGENTS.md 写入/替换 aoci 标记区块(文末落位)。
 // 已有区块整块替换,区块外内容一个字节不动;无区块则文末追加;文件不存在则新建。
 // 返回动作说明。
 func EnsureAgentsBlock(root string) (string, error) {
+	return EnsureAgentsBlockAt(root, AgentsBlockAppend)
+}
+
+// EnsureAgentsBlockAt 与 EnsureAgentsBlock 同义,但由 placement 指定首次落块位置。
+func EnsureAgentsBlockAt(
+	root string,
+	placement AgentsBlockPlacement,
+) (string, error) {
 	agentsTemplate, err := loadAgentsTemplate()
 	if err != nil {
 		return "", err
@@ -215,6 +238,17 @@ func EnsureAgentsBlock(root string) (string, error) {
 		}
 		return hookMessage("hook.agents_updated"), nil
 	}
+	// 文首插入:给"宿主只注入规则文件开头一段"的场景,让区块落在可读范围内。
+	if placement == AgentsBlockPrepend {
+		sep := "\n"
+		if !strings.HasPrefix(text, "\n") {
+			sep = "\n\n"
+		}
+		if err := BackupThenWrite(path, []byte(block+sep+text)); err != nil {
+			return "", err
+		}
+		return hookMessage("hook.agents_prepended"), nil
+	}
 	// 文末追加
 	sep := "\n"
 	if !strings.HasSuffix(text, "\n") {
@@ -255,6 +289,11 @@ func Detect(root string) []string {
 		fileExists(filepath.Join(root, ".opencode", "opencode.jsonc")) {
 		found = append(found, "opencode")
 	}
+	// workbuddy: 机器级用户 MCP 文件。WorkBuddy 全局只有这一个入口,项目内
+	// 不存在它的任何配置文件,所以这里只能查用户家目录 —— 查项目目录必然漏报。
+	if home != "" && fileExists(filepath.Join(home, ".workbuddy", "mcp.json")) {
+		found = append(found, "workbuddy")
+	}
 	return found
 }
 
@@ -263,6 +302,8 @@ func Detect(root string) []string {
 // codex: 写项目级 .codex/config.toml 的 [mcp_servers.aoci],--hooks 时同时安装
 // compact_prompt 与 SessionStart(compact) hook;
 // opencode: 严格创建/合并项目级 OpenCode V1 opencode.json;
+// workbuddy: 合并写入机器级用户文件 ~/.workbuddy/mcp.json(该宿主只有这一个
+// 入口;已有 aoci 键绑别的仓库时退让为 aoci-<项目名>,绝不覆盖);
 // cursor: 输出参考配置片段(诚实占位,不写文件)。
 // 返回面向用户的多行结果说明。
 func Install(root, agent string, withHooks bool) (string, error) {
@@ -307,6 +348,10 @@ func Install(root, agent string, withHooks bool) (string, error) {
 		return strings.TrimRight(b.String(), "\n"), nil
 	case "opencode":
 		return InstallOpenCodeMCP(root)
+	case "workbuddy":
+		// WorkBuddy 无写前生命周期 hook 接入面:withHooks 在此被有意忽略,
+		// 不静默假装安装(见 workbuddy.go 文件头纪律)。
+		return InstallWorkBuddyMCP(root)
 	case "cursor":
 		out, err := renderLocaleTemplate(
 			"codex-cursor-stubs.txt.tmpl",
