@@ -121,7 +121,7 @@ Root、Meta 与参与其中的对象 Volume 共同组成当前 Whole-Index。在
 
 - 经验证的 Release 软件包，或 canonical AOCI-CODE 源码仓库的工作副本；
 - 从源码构建时，需要 `go.mod` 声明的 Go 工具链、`make` 及仓库要求的其他工具；使用已验证的 Release 二进制本身不需要 Go 或 `make`；
-- 一个受支持的 MCP 宿主，例如 Codex、Claude Code、Cursor 或 OpenCode；
+- 一个受支持的 MCP 宿主，例如 Codex、Claude Code、Cursor、OpenCode 或 WorkBuddy；
 - 对目标仓库的正常读写权限。
 
 AOCI-CODE 接入的是 MCP 宿主，不直接接入模型供应商 API。DeepSeek 等模型只有在承载它们的
@@ -250,7 +250,7 @@ Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给�
 "$AOCI" --repo . doctor
 ```
 
-要确认宿主此刻真正连着哪一个 AOCI，看服务端自报的身份，而不是磁盘上的文件：任何 `aoci_overview` 的 `check_only` 响应、或任何 `aoci_maintain` 响应里，`cognition_receipt.mcp_service_version` 是正在运行的版本，`runtime_repository_root` 是它治理的仓库。对应的二进制路径是项目 `.mcp.json` 或等价宿主配置（`.codex/config.toml`、`opencode.json`、`.cursor/mcp.json`）里的 `command`。替换磁盘上的字节不会改变已在运行的 MCP 进程，因此升级或回滚后要按这些事实复核。
+要确认宿主此刻真正连着哪一个 AOCI，看服务端自报的身份，而不是磁盘上的文件：任何 `aoci_overview` 的 `check_only` 响应、或任何 `aoci_maintain` 响应里，`cognition_receipt.mcp_service_version` 是正在运行的版本，`runtime_repository_root` 是它治理的仓库。对应的二进制路径是项目 `.mcp.json` 或等价宿主配置（`.codex/config.toml`、`opencode.json`、`.cursor/mcp.json`，或机器级的 `~/.workbuddy/mcp.json`）里的 `command`。替换磁盘上的字节不会改变已在运行的 MCP 进程，因此升级或回滚后要按这些事实复核。
 
 如需一次性演练，可使用仓库中的 `examples/minimal-repository`。
 
@@ -299,7 +299,7 @@ aoci.database.txt           Database：可选的表级认知；默认不存在
 
 新项目初始化时会创建 Volume Root、Meta 和一个空的 Code Volume；Database 默认不存在。AOCI-CODE 不会自动生成仓库业务语义或 Database 语义。
 
-`aoci init --agent <name>` 还会写入宿主集成配置（`.mcp.json`、`.claude/settings.json`、`.codex/config.toml` 或 `opencode.json`），其中的命令与仓库路径是本机绑定的绝对路径。请把这些文件加入仓库的 `.gitignore` 且不要提交：提交后的副本在任何其他机器上都会失效，而安装器按条目是否存在做幂等判断，在那台机器上重跑 `init` 会静默保留坏路径。
+`aoci init --agent <name>` 还会写入宿主集成配置（`.mcp.json`、`.claude/settings.json`、`.codex/config.toml`、`opencode.json`，或机器级的 `~/.workbuddy/mcp.json`），其中的命令与仓库路径是本机绑定的绝对路径。请把**项目级**的那些文件加入仓库的 `.gitignore` 且不要提交：提交后的副本在任何其他机器上都会失效，而安装器按条目是否存在做幂等判断，在那台机器上重跑 `init` 会静默保留坏路径。WorkBuddy 的文件是机器级而非项目级，不属于任何仓库，`init` 为该宿主不往工作区写任何东西。
 
 
 ## 🔄 一次完整开发任务如何运行
@@ -533,7 +533,7 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 ## 🔌 宿主集成
 
-`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置，并可通过 `--hooks` 选择安装上下文压缩prompt与 `SessionStart(compact)`，但仍不安装文件编辑Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效且没有发生已知Host上下文压缩，后续任务会复用当前认知，不会机械地重复注入整个索引。
+`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置，并可通过 `--hooks` 选择安装上下文压缩prompt与 `SessionStart(compact)`，但仍不安装文件编辑Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置；WorkBuddy 则合并写入机器级的 `~/.workbuddy/mcp.json`、不往仓库里写任何东西——该文件被所有项目共享而 server 硬绑 `--repo`，所以它**绝不覆盖**指向别的仓库的 `aoci` 键，而是改写 `aoci-<项目名>`，两个键名都被占用时报错交人工；该宿主没有写前 Hook 接口，故 `--hooks` 在此无效；又因它只把 `AGENTS.md` 开头一段注入模型上下文，`init` 会把托管区块放到该文件**最前面**（其它宿主仍保持文末追加）。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效且没有发生已知Host上下文压缩，后续任务会复用当前认知，不会机械地重复注入整个索引。
 
 | 宿主 | 当前接入方式 | 边界 |
 | --- | --- | --- |
@@ -541,6 +541,7 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 | **Claude Code** | 项目级 MCP；可选 `PreToolUse` 薄守卫 | Hook 只负责写前提示或 Stale 守卫，不是 AI Agent runtime |
 | **OpenCode V1** | 通过 `--agent opencode` 写入严格的项目根 `opencode.json` | 工具已加载可直接继续；否则刷新或重新打开项目会话 |
 | **Cursor** | 返回 MCP 参考配置片段 | 不写入项目配置，仍需按宿主手工完成接入 |
+| **WorkBuddy** | 通过 `--agent workbuddy` 合并写入机器级 `~/.workbuddy/mcp.json` | 机器级而非项目级：一份文件服务所有项目，每个仓库需要自己的条目（或自己的 server 键名）；该宿主没有写前 Hook 接口，`--hooks` 在此无效 |
 | **其他 MCP Host** | 连接标准 stdio Server | 需要手工配置并完成宿主专项验证 |
 
 ```bash
@@ -549,6 +550,7 @@ aoci --repo /absolute/path/to/repository init --agent codex --hooks
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
+aoci --repo /absolute/path/to/repository init --agent workbuddy
 ```
 
 Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recovery状态，以及立即重载指令；不得保留或摘要Whole-Index或Overview/Attestation正文。`PreCompact` Hook不能向宿主压缩输入注入文本，也不能从中删除历史，因此无法单独落实该边界。依赖此能力前，应通过Codex `/hooks` 审查并信任安装的项目Hook。

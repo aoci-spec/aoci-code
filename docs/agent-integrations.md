@@ -11,11 +11,14 @@ session only when it has not loaded the new server; hosts that support dynamic
 MCP reload do not require a blanket application restart.
 
 The host configuration files written by `aoci init --agent` (`.mcp.json`,
-`.claude/settings.json`, `.codex/config.toml`, `opencode.json`) embed
-machine-bound absolute binary and repository paths, and must not be committed:
-a committed copy is broken on every other machine, and because each installer
-detects an existing entry by key presence, re-running `init` there silently
-keeps the broken paths.
+`.claude/settings.json`, `.codex/config.toml`, `opencode.json`,
+`~/.workbuddy/mcp.json`) embed machine-bound absolute binary and repository
+paths. Every project-level one must not be committed: a committed copy is broken
+on every other machine, and because each installer detects an existing entry by
+key presence, re-running `init` there silently keeps the broken paths.
+WorkBuddy's file is the exception that proves the rule: it is machine-level
+rather than project-level, so it never belongs to a repository, and `init`
+writes nothing into the working tree for that host.
 
 `init` adds the files it just wrote to the repository's `.gitignore` under its
 own marked block, so an ordinary `init` then `scan` leaves them out of Git and
@@ -169,6 +172,45 @@ Cursor version before adding it manually:
 ```
 
 This limitation must remain visible in compatibility claims; a reference template is not native-host validation.
+
+## WorkBuddy
+
+```bash
+aoci --repo /absolute/path/to/repository init --agent workbuddy
+```
+
+WorkBuddy has no project-scoped MCP configuration surface. Its only entry is the
+machine-level `~/.workbuddy/mcp.json`, so `init` merges an entry there and
+writes nothing into the repository: no Baseline path, no `.gitignore` line, and
+no host file for `git status` to report. The merged entry has the same shape
+every other stdio host uses:
+
+```json
+{
+  "mcpServers": {
+    "aoci": {
+      "command": "/absolute/path/to/aoci",
+      "args": ["--repo", "/absolute/path/to/repository", "mcp"]
+    }
+  }
+}
+```
+
+That file is shared by every project while an aoci server is bound to one
+`--repo`, so this installer never overwrites a foreign entry. When an `aoci`
+key already points at a different repository it writes `aoci-<project>` instead
+and leaves the existing entry byte-for-byte intact; when that scoped key is also
+taken by a third repository it reports the conflict and changes nothing.
+
+Two host facts shape the rest of the behavior:
+
+- No pre-write lifecycle hook surface exists, so `--hooks` is inert for this
+  host. The installer ignores it rather than pretending it installed a hook.
+- The host injects roughly the first 8000 characters of `AGENTS.md` into model
+  context, so a managed block appended at the end of that file is never read.
+  For this host alone, `init` places the managed block at the top of `AGENTS.md`;
+  every other host keeps the existing append behavior, and a file that already
+  carries the block still gets an in-place replacement that never moves it.
 
 ## Deterministic offline mode
 

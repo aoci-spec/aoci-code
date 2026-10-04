@@ -4,6 +4,22 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Add WorkBuddy as a first-class `init --agent` host. WorkBuddy exposes no
+  project-scoped MCP surface — its only entry is the machine-level
+  `~/.workbuddy/mcp.json` — so `init --agent workbuddy` merges an entry there
+  and writes nothing into the repository: no Baseline path, no `.gitignore`
+  line, no host file for `git status` to report. Because that file is shared by
+  every project while a server is bound to one `--repo`, the installer never
+  overwrites a foreign entry: an `aoci` key already pointing at another
+  repository stays byte-for-byte intact and the new entry is written as
+  `aoci-<project>`, and a conflict on both keys is reported rather than
+  resolved. The status predicate scans every entry for one bound to the current
+  repository, so another repository's `aoci` never reads as installed here.
+  `--hooks` is inert for this host because it exposes no pre-write lifecycle
+  hook surface, and the managed `AGENTS.md` block is prepended for this host
+  alone, because that host injects only the first few thousand characters of the
+  file into model context and a trailing block is never read; every other host
+  keeps the existing append behavior, guarded by a regression test.
 - Fix the repair guidance for a mistyped or self-computed Code binding. Since
   rc16 the Maintain response no longer repeats `code_plan.candidates`, but the
   `code_candidate_source_sha256_mismatch`, `code_candidate_id_mismatch`, and

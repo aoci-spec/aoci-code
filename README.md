@@ -128,7 +128,7 @@ How long the first index takes depends on repository size. A normal integration 
 
 - A verified release package or a checkout of the canonical AOCI-CODE source repository.
 - For source builds only: the Go toolchain declared by `go.mod`, `make`, and the other tools the repository requires.
-- A supported MCP host, such as Codex, Claude Code, Cursor, or OpenCode.
+- A supported MCP host, such as Codex, Claude Code, Cursor, OpenCode, or WorkBuddy.
 - Normal read and write access to the target repository.
 
 AOCI-CODE integrates with the MCP host, not with a model-provider API. DeepSeek
@@ -260,7 +260,7 @@ The index and the current managed source should converge back to `aligned`. If t
 "$AOCI" --repo . doctor
 ```
 
-To confirm which AOCI the host is actually connected to, read what the server reports about itself rather than what is on disk. In any `aoci_overview` `check_only` response or any `aoci_maintain` response, `cognition_receipt.mcp_service_version` is the running version and `runtime_repository_root` is the repository it governs. The matching binary path is the `command` in the project's `.mcp.json` or the equivalent host configuration: `.codex/config.toml`, `opencode.json`, or `.cursor/mcp.json`. Replacing bytes on disk does not change a running MCP process, so recheck against those facts after an upgrade or a rollback.
+To confirm which AOCI the host is actually connected to, read what the server reports about itself rather than what is on disk. In any `aoci_overview` `check_only` response or any `aoci_maintain` response, `cognition_receipt.mcp_service_version` is the running version and `runtime_repository_root` is the repository it governs. The matching binary path is the `command` in the project's `.mcp.json` or the equivalent host configuration: `.codex/config.toml`, `opencode.json`, `.cursor/mcp.json`, or the machine-level `~/.workbuddy/mcp.json`. Replacing bytes on disk does not change a running MCP process, so recheck against those facts after an upgrade or a rollback.
 
 For a one-off walkthrough, use `examples/minimal-repository` in the repository.
 
@@ -310,11 +310,15 @@ aoci.database.txt           Database: optional table-level entries; absent by de
 Initializing a new project creates the Root, Meta, and an empty Code Volume; Database is absent by default. AOCI-CODE does not generate business meaning for the repository or the database on its own.
 
 `aoci init --agent <name>` additionally writes host integration configuration
-(`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, or `opencode.json`)
-whose command and repository paths are machine-bound absolute paths. Add those
-files to the repository's `.gitignore` and do not commit them: a committed copy
-breaks on every other machine, and because the installers detect an existing
-entry by key presence, re-running `init` there silently keeps the broken paths.
+(`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, `opencode.json`, or
+the machine-level `~/.workbuddy/mcp.json`)
+whose command and repository paths are machine-bound absolute paths. Add the
+project-level ones to the repository's `.gitignore` and do not commit them: a
+committed copy breaks on every other machine, and because the installers detect
+an existing entry by key presence, re-running `init` there silently keeps the
+broken paths. The WorkBuddy file is machine-level rather than project-level, so
+it belongs to no repository and `init` writes nothing into the working tree for
+that host.
 
 ## How a development task runs
 
@@ -551,6 +555,7 @@ The Code Volume, the Database Volume, and scope can evolve together, but they sh
 - **Claude Code** can install a `PreToolUse` hook.
 - **OpenCode V1** gets a strict project-level `opencode.json`.
 - **Cursor** only returns a reference configuration snippet; nothing is written to the project.
+- **WorkBuddy** gets a merged entry in the machine-level `~/.workbuddy/mcp.json` and nothing in the repository. A foreign `aoci` key is never overwritten; the entry is written as `aoci-<project>` instead, and a conflict on both keys is reported rather than resolved. `--hooks` is inert because that host exposes no pre-write hook surface, and the managed agent block is placed at the top of `AGENTS.md` because this host injects only its first few thousand characters into model context.
 
 After configuration, check whether the current host session already exposes the AOCI tools. Refresh or reopen that project session only if it has not loaded the new server. A new session normally reads the rules and the Whole-Index once. While the index identity remains valid and no known host compaction has occurred, later tasks reuse what the model already has; the whole index is not injected again mechanically.
 
@@ -560,6 +565,7 @@ After configuration, check whether the current host session already exposes the 
 | **Claude Code** | Project-level MCP; optional thin `PreToolUse` guard | The hook only provides a pre-write reminder or stale guard; it is not the agent runtime |
 | **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; you complete the integration manually for the host |
+| **WorkBuddy** | Merged entry in the machine-level `~/.workbuddy/mcp.json` via `--agent workbuddy` | Machine-level, not project-scoped: one file serves every project, and each repository needs its own entry (or its own server key). No pre-write hook surface, so `--hooks` does nothing here |
 | **Other MCP hosts** | Connect to the standard stdio server | Require manual configuration and host-specific validation |
 
 ```bash
@@ -568,6 +574,7 @@ aoci --repo /absolute/path/to/repository init --agent codex --hooks
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor
+aoci --repo /absolute/path/to/repository init --agent workbuddy
 ```
 
 Codex `--hooks` limits a compaction handoff to receipt identity, unfinished

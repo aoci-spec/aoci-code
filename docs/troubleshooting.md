@@ -80,7 +80,8 @@ while `aoci doctor` still reports the Claude or Codex integration as installed,
 because doctor and the installers check entry presence, not path validity.
 OpenCode instead fails closed with an `mcp.aoci` conflict. Remove the stale
 `aoci` entry (`mcpServers.aoci` in `.mcp.json`, the `[mcp_servers.aoci]` table
-in `.codex/config.toml`, `mcp.aoci` in `opencode.json`, and any stale
+in `.codex/config.toml`, `mcp.aoci` in `opencode.json`, the `aoci` key in
+`~/.workbuddy/mcp.json`, and any stale
 `PreToolUse` command in `.claude/settings.json`), then re-run
 `aoci --repo <root> init --agent <name>` from the new location.
 
@@ -96,6 +97,14 @@ Remove that global entry and configure AOCI inside the intended project:
 OpenCode V1, or `.cursor/mcp.json` for Cursor. `aoci init --agent cursor` prints
 the Cursor configuration but does not write it. After moving the entry, refresh
 or reopen only the intended project session if its tools have not reloaded.
+
+WorkBuddy is the one host with no project-level surface at all: its only entry
+is the machine-level `~/.workbuddy/mcp.json`, so scoping cannot be achieved by
+moving a file. `aoci init --agent workbuddy` therefore keeps every repository
+in that one file under its own server key (`aoci`, then `aoci-<project>` for
+further repositories) instead of overwriting a foreign entry. Projects still
+expose the union of those tools, so remove the entry whose `--repo` you no longer
+want rather than expecting per-project isolation from the host.
 
 ## MCP closes with EOF
 
@@ -310,7 +319,10 @@ asset and the rule that hides it; remove the rule and run `scan` again.
 cognition meant to be committed, exactly as this repository commits its own.
 Only the host integration file `init` writes — `opencode.json`, `.mcp.json`,
 `.codex/config.toml` — carries machine-bound absolute paths and belongs in
-`.gitignore`, which `init` arranges by itself.
+`.gitignore`, which `init` arranges by itself. WorkBuddy's
+`~/.workbuddy/mcp.json` also carries machine-bound absolute paths, but it is
+machine-level rather than project-level: it belongs to no repository, and
+`init --agent workbuddy` writes nothing into the working tree.
 
 ## A Volume reports line-ending-only difference
 
