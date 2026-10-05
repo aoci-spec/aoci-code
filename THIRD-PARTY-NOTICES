@@ -1229,7 +1229,7 @@ Pinned license SHA-256: 5e3400b93bbb099e83e52bab885e7441750673c21f97988ca3f12406
       of your accepting any such warranty or additional liability.
 ----- END PINNED LICENSE TEXT -----
 
-Module: github.com/spf13/pflag v1.0.9
+Module: github.com/spf13/pflag v1.0.10
 Pinned license file: LICENSE
 Pinned license SHA-256: b8514c577c1c4b46cee454d5a882b15fa411e72c5bd7f801f241591789fce61a
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1672,7 +1672,7 @@ github.com/segmentio/encoding v0.5.4
   Reachability: all release targets
   Detected license: MIT
 
-github.com/spf13/pflag v1.0.9
+github.com/spf13/pflag v1.0.10
   Reachability: all release targets
   Detected license: BSD-3-Clause
 
