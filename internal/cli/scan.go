@@ -91,11 +91,11 @@ func init() {
 					if stateErr == nil {
 						stateErr = errors.New("managed_scope_evaluation_unavailable")
 					}
-					return errors.New(cliMessage("scan.snapshot_error", stateErr))
+					return withCause(cliMessage("scan.snapshot_error", stateErr), stateErr)
 				}
 				snap, err = managedscope.Snapshot(root, state.Evaluation, managedscope.SnapshotOptions{HighRiskContentApproved: false})
 				if err != nil {
-					return errors.New(cliMessage("scan.snapshot_error", err))
+					return withCause(cliMessage("scan.snapshot_error", err), err)
 				}
 				inventorySummary = state.Evaluation.SafeInventory
 				budgetPolicy := cfg.EffectiveCognitionBudget()
@@ -120,7 +120,7 @@ func init() {
 				}
 			}
 			if err != nil {
-				return errors.New(cliMessage("scan.snapshot_error", err))
+				return withCause(cliMessage("scan.snapshot_error", err), err)
 			}
 			for _, w := range warns {
 				fmt.Fprintln(os.Stderr, cliMessage("scan.warning"), localeSafeCLIDetail(w))

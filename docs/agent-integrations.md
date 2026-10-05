@@ -170,6 +170,39 @@ Cursor version before adding it manually:
 
 This limitation must remain visible in compatibility claims; a reference template is not native-host validation.
 
+## Qoder
+
+```bash
+aoci --repo /absolute/path/to/repository init --agent qoder
+```
+
+Qoder reads the same project-level `.mcp.json` that Claude Code reads, so
+`init --agent qoder` writes that one file and the managed `AGENTS.md` block,
+records the host, and installs no hook (`--hooks` is reported as ignored).
+Qoder also reads a repository-root `AGENTS.md` on its own. The transport
+settings stay at the Codex-sized defaults because Qoder's tool-result window
+has not been measured.
+
+Validated: Qoder CLI (`@qoder-ai/qodercli` 1.1.64, Linux) lists the server
+from that file with `qoder mcp list` as `aoci ... (stdio) - Connected` and
+`qoder mcp get aoci` names `.mcp.json` as its project-scope source; project
+servers ask for a one-time approval in Qoder. An agent run that calls the tools
+needs a signed-in Qoder account and was not exercised here. Qoder IDE: the
+desktop product takes the same `mcpServers` block through Settings > MCP; the
+reference below is the block to paste, and whether the IDE also reads the
+project `.mcp.json` is not documented by Qoder, so paste it rather than assume.
+
+```json
+{
+  "mcpServers": {
+    "aoci": {
+      "command": "/absolute/path/to/aoci",
+      "args": ["--repo", "/absolute/path/to/repository", "mcp"]
+    }
+  }
+}
+```
+
 ## Deterministic offline mode
 
 AI is disabled by default. To make that state explicit:

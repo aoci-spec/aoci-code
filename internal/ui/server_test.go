@@ -106,7 +106,7 @@ func TestStateReportsTheSharedGovernanceFacts(t *testing.T) {
 	if c := snapshot.Coverage; c == nil || c.Files == 0 || c.Lines == 0 || c.Unreadable != 0 || c.EstimatedTokens != c.Bytes/3 || c.IndexTokens == 0 {
 		t.Fatalf("coverage not measured: %+v", snapshot.Coverage)
 	}
-	for _, key := range []string{"claude_mcp", "claude_hook", "codex_mcp", "opencode_mcp", "agents_block"} {
+	for _, key := range []string{"claude_mcp", "claude_hook", "codex_mcp", "opencode_mcp", "qoder_mcp", "agents_block"} {
 		if _, present := snapshot.Integrations[key]; !present {
 			t.Fatalf("integration %s missing", key)
 		}

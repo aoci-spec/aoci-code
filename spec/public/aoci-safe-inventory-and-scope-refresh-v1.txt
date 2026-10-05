@@ -34,6 +34,15 @@ names as policy candidates. Their bodies remain unread until a winning index
 or observe role requires a fingerprint. Hard safety exclusions always run
 first and cannot be reopened by this option.
 
+A Git-ignored directory whose every path is already a hard exclusion (a
+built-in generated, runtime, or VCS directory name, or a configured excluded
+directory) is reported as a single exclusion entry for that directory, and Git
+is not asked to list what is beneath it. Every other Git-ignored path,
+including an ignored file inside an untracked directory and every file in an
+ignored directory without such a name, is reported individually as before, so
+this changes no candidate, opt-in, rule outcome, or identity. A Git version
+that cannot report directories this way falls back to the per-file listing.
+
 Before any candidate file is opened or hashed, the inventory rejects unsafe
 relative paths, symbolic links, junctions/reparse points exposed as unsafe
 objects, non-regular files, and cross-platform case-folding collisions. It
@@ -63,7 +72,7 @@ Project include/exclude and Curation decisions remain separate authorities and
 existing configuration remains readable.
 
 The deterministic summary reports Git tracked, non-ignored untracked,
-ignored, built-in sensitive, runtime, generated, configured and unsafe-object
+ignored (a collapsed directory counts once), built-in sensitive, runtime, generated, configured and unsafe-object
 exclusions, final managed candidates, review_visible_count,
 auto_blocker_count, the compatibility required_human_review projection, rules
 identity, and inclusion/exclusion identity. required_human_review retains its

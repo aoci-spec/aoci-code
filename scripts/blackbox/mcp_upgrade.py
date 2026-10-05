@@ -2,11 +2,13 @@
 """AOCI upgrade-axis harness — a repository written by a previously released
 binary must stay governable by the binary under test.
 
-升级轴回归（每个已发布版本 48 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
+升级轴回归（每个已发布版本 64 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
 aligned,再让被测二进制跑上去,断言身份不变、不索要 Scope Change、不改写正式资产。
-六种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
+八种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
 (根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根, 一种
-嵌套 worktree 形状(在 <repo>/.worktrees/wt 里建的索引合回主检出后从主检出读, #77)。
+嵌套 worktree 形状(在 <repo>/.worktrees/wt 里建的索引合回主检出后从主检出读, #77),
+一种在途批次形状, 两种 git 忽略目录形状(被用户规则拉进索引的 gen/api.go; 几百个
+文件的 node_modules 加一个被 observe 规则观察的 out/ 文件, #97)。
 
 Why this suite exists at all: the other three suites build every fixture with the
 binary under test, so a preimage that changed between versions is invisible to
@@ -47,7 +49,19 @@ resolves root files as `(x)/repo/<file>` in every checkout while the origin stay
 aligned. v0.1.0-rc13 read both sides aligned; a pre-release build of rc14 did
 not, and the last check is what reports it.
 
-The published number is 48 checks *per released version* (8 per repository
+The last two shapes put git-ignored directories under the released index (#97).
+A released binary listed every file of an ignored directory one by one, and a
+rule could pull such a file into the index or observe role; a later Safe
+Inventory that collapses an ignored directory into one exclusion must not take
+those objects away. `ignoredpull` ignores `gen/` and has a user rule index
+`gen/**` before the released scan, so `gen/api.go` carries an Entry: the binary
+under test must read it aligned with no orphan, and its own MCP Maintain and
+update must then re-author a changed tracked file and the new one beside it.
+`ignoredtree` ignores a `node_modules/` of a few hundred files and an `out/`
+whose one file a user rule observes: collapsing the first must not move the
+composite identity, and the second must stay observed.
+
+The published number is 64 checks *per released version* (8 per repository
 shape), not a total: a total would change on every release and stop being a
 property of this suite.
 
@@ -93,7 +107,11 @@ CHECKS_PER_SHAPE = 8
 # older batch rule (a fixed count of 20 up to rc15, a byte budget since rc16)
 # is still on disk when the binary under test plans, and it must author to
 # aligned over it instead of wedging on the stale receipt.
-SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree", "inflight")
+# "ignoredpull" and "ignoredtree" put git-ignored directories under the released
+# index (#97); IGNORED_SHAPES below holds what each plants and which rule the
+# released binary adds before its scan.
+SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree", "inflight",
+          "ignoredpull", "ignoredtree")
 CHECKS_PER_VERSION = CHECKS_PER_SHAPE * len(SHAPES)
 CHECK_NAMES = ("post_scan_identity_stable", "aligned_repo_stays_aligned",
                "composite_identity_unchanged", "no_scope_change_demanded",
@@ -204,6 +222,32 @@ FIXTURE = {
 }
 ENTRY_F = "Fixture object authored by the upgrade-axis regression track"
 
+# The git-ignored trees of the #97 shapes. Nothing under them is committed:
+# "ignored" are the .gitignore lines, "files" what is written beneath them,
+# "rule" the user rule the released binary adds between init and scan, and
+# "probe" the path whose role in the released Baseline proves that rule took
+# effect. A release that gave the probe another role would leave the shape
+# testing nothing, so that is reported instead of passing silently. The rules
+# are user rules rather than starter rules because starter rules exist only
+# from rc17 on, and the shape has to mean the same thing for every release.
+IGNORED_TREE_FILES = 300
+IGNORED_SHAPES = {
+    "ignoredpull": {
+        "ignored": ("gen/",),
+        "files": {"gen/api.go": "package gen\n\n// API is generated, and a rule indexes it.\nfunc API() int { return 1 }\n"},
+        "rule": ("pull-gen", "index", "gen/**", "the generated API surface is indexed"),
+        "probe": ("gen/api.go", "index"),
+    },
+    "ignoredtree": {
+        "ignored": ("node_modules/", "out/"),
+        "files": dict({f"node_modules/pkg{i:03d}/index.js": f"module.exports = {i};\n"
+                       for i in range(IGNORED_TREE_FILES)},
+                      **{"out/app.js": "// Build output, observed by a rule.\nexport const app = 1;\n"}),
+        "rule": ("observe-out", "observe", "out/**", "build output is observed, not indexed"),
+        "probe": ("out/app.js", "observe"),
+    },
+}
+
 
 def make_fixture(path):
     for rel, body in FIXTURE.items():
@@ -213,6 +257,28 @@ def make_fixture(path):
             fh.write(body)
     for args in (["init", "-q"], ["add", "-A"], ["commit", "-qm", "fixture"]):
         git(path, *args)
+
+
+# Write a shape's ignored tree and commit only the .gitignore that hides it.
+def plant_ignored(path, spec):
+    with open(os.path.join(path, ".gitignore"), "a", encoding="utf-8", newline="\n") as fh:
+        fh.write("".join(line + "\n" for line in spec["ignored"]))
+    for rel, body in spec["files"].items():
+        full = os.path.join(path, *rel.split("/"))
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+    git(path, "add", "-A")
+    git(path, "commit", "-qm", "ignore generated trees")
+
+
+def baseline_role(repo, rel):
+    try:
+        with open(os.path.join(repo, ".aoci", "baseline.json"), encoding="utf-8") as fh:
+            files = json.load(fh).get("files") or {}
+    except (OSError, ValueError):
+        return None
+    return (files.get(rel) or {}).get("role")
 
 
 def git(path, *args):
@@ -242,6 +308,13 @@ def verify_facts(binary, repo):
     for vol in doc.get("volumes") or []:
         if vol.get("id") == "code":
             code_objects = vol.get("object_count") or 0
+    drift = gov.get("code_drift") or {}
+    # An object the index or the Baseline still holds but the inventory no
+    # longer offers. Either one fails alignment already; they are named so a
+    # failure says which objects an upgrade took away.
+    orphans = {f.get("target") for f in gov.get("findings") or []
+               if isinstance(f, dict) and f.get("code") == "code_orphan"}
+    orphans.update(p for p in drift.get("orphan") or [] if isinstance(p, str))
     return {
         "code_object_count": code_objects,
         "aligned": gov.get("governance_aligned"),
@@ -254,6 +327,8 @@ def verify_facts(binary, repo):
         "budget_max_tokens": budget.get("max_tokens"),
         "next_required_action": gov.get("next_required_action"),
         "finding_count": len(gov.get("findings") or []),
+        "orphans": sorted(p for p in orphans if p),
+        "observed_removed": sorted(p for p in drift.get("observed_removed") or [] if isinstance(p, str)),
     }
 
 
@@ -396,6 +471,35 @@ def overview_delivery(session):
     return doc
 
 
+# Governance as a host drives it: author every candidate the binary's own MCP
+# Maintain issues and submit each batch whole through aoci_update_entry, until
+# Maintain reports aligned. Returns (aligned, authored paths, last response),
+# so a failure names the step that stopped it.
+def mcp_author_to_aligned(binary, repo, rounds=8):
+    authored, last = [], None
+    with Session(binary, repo) as s:
+        for _ in range(rounds):
+            planned = maintain_facts(s.call("aoci_maintain"))
+            last = planned
+            if planned is None:
+                return False, authored, last
+            cands = planned.get("candidates") or []
+            if planned.get("aligned") is True and not cands:
+                return True, authored, last
+            batch = (planned.get("code_plan") or {}).get("batch_id")
+            if not cands or not batch:
+                return False, authored, last
+            entries = [{"path": c["path"], "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
+                        "new_entry": f"{os.path.basename(c['path'])}[CG5T]: F:{ENTRY_F} | R:- | A:- | S:-"}
+                       for c in cands]
+            applied = maintain_facts(s.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}))
+            last = applied
+            if not applied or applied.get("status") != "applied":
+                return False, authored, last
+            authored.extend(c["path"] for c in cands)
+    return False, authored, last
+
+
 def strip_budget_block(repo):
     path = os.path.join(repo, ".aoci", "config.json")
     with open(path, encoding="utf-8") as fh:
@@ -427,6 +531,9 @@ def check_version(version, shape, old_binary, workdir):
         git(repo, "commit", "-qm", "ignore worktrees")
         authoring = os.path.join(repo, ".worktrees", "wt")
         git(repo, "worktree", "add", "-q", os.path.join(".worktrees", "wt"), "-b", "feat/index")
+    ignored = IGNORED_SHAPES.get(shape)
+    if ignored:
+        plant_ignored(repo, ignored)
     run(old_binary, authoring, "init", "--locale", "en-US", check=True)
     # The block must go before scan: scan is what stamps budget_policy_identity
     # into the Baseline, and stamping the explicit block would defeat the shape.
@@ -434,7 +541,20 @@ def check_version(version, shape, old_binary, workdir):
         for name in CHECK_NAMES:
             ok(f"{tag}.{name}", False, "this release wrote no cognition_budget block to remove")
         return
+    # Likewise the rule: added before the first scan it is part of the initial
+    # policy, so the released Baseline carries the ignored object in its role.
+    if ignored:
+        rule_id, action, pattern, reason = ignored["rule"]
+        run(old_binary, authoring, "scope", "rule", "add", rule_id, "--action", action,
+            "--pattern", pattern, "--reason", reason, check=True)
     run(old_binary, authoring, "scan", check=True)
+    if ignored:
+        probe, want = ignored["probe"]
+        got = baseline_role(authoring, probe)
+        if got != want:
+            for name in CHECK_NAMES:
+                ok(f"{tag}.{name}", False, f"the released Baseline gives {probe} role {got}, not {want}")
+            return
 
     # 1. Identity stability is observable before a single Entry exists: scan is
     #    what stamps the policy and budget identities into the Baseline.
@@ -461,8 +581,11 @@ def check_version(version, shape, old_binary, workdir):
     new = verify_facts(BIN, repo)
 
     # 2-4. The upgrade must not move alignment, identity, or governance posture.
-    ok(f"{tag}.aligned_repo_stays_aligned", bool(new and new["aligned"]),
-       "" if (new and new["aligned"]) else f"new={new}")
+    #      Alignment includes keeping every object the release governed: an
+    #      orphaned Entry or an observed object gone from the inventory is an
+    #      upgrade that took away what the released Baseline holds.
+    stays = bool(new and new["aligned"] and not new["orphans"] and not new["observed_removed"])
+    ok(f"{tag}.aligned_repo_stays_aligned", stays, "" if stays else f"new={new}")
     ok(f"{tag}.composite_identity_unchanged",
        bool(new and old and new["composite_identity"] == old["composite_identity"]),
        "" if (new and old and new["composite_identity"] == old["composite_identity"])
@@ -504,6 +627,7 @@ def check_version(version, shape, old_binary, workdir):
     os.makedirs(os.path.dirname(grown), exist_ok=True)
     with open(grown, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("package grow\n\n// Grow is authored by the binary under test.\nfunc Grow() {}\n")
+    how = ""
     if shape == "inflight":
         # The released binary issues the batch for the new file and the session
         # ends without a submission, exactly what a lost host context leaves
@@ -525,14 +649,30 @@ def check_version(version, shape, old_binary, workdir):
                 grew = bool(applied and applied.get("status") == "applied" and applied.get("aligned") is True)
         if not grew:
             grew = author_to_aligned(BIN, repo)
+    elif shape == "ignoredpull":
+        # Further governance beside the rule-pulled object, only through the MCP
+        # path a host drives and with no CLI fallback: a changed tracked file and
+        # the new one must both be issued by the binary under test's own Maintain
+        # and applied by its own update, and the rule-pulled Entry must survive.
+        with open(os.path.join(repo, "greet.go"), "a", encoding="utf-8", newline="\n") as fh:
+            fh.write("\n// Changed after the upgrade.\n")
+        aligned, authored, last = mcp_author_to_aligned(BIN, repo)
+        grew = aligned and {"greet.go", "pkg/new dir/grow.go"} <= set(authored)
+        if not grew:
+            how = f" mcp_authored={authored} last={json.dumps(last)[:300] if last else last}"
     else:
         grew = author_to_aligned(BIN, repo)
     checkout = os.path.join(workdir, f"{version}-{shape}-checkout")
     shutil.copytree(repo, checkout)
     moved = verify_facts(BIN, checkout)
-    held = bool(grew and moved and moved["aligned"])
+    held = bool(grew and moved and moved["aligned"] and not moved["orphans"])
+    if ignored:
+        # Every object the release governed is still there, plus the grown one:
+        # an upgrade that quietly dropped the rule-pulled Entry stays aligned
+        # once it is gone, and only the count shows it.
+        held = held and moved["code_object_count"] == code_objects + 1
     ok(f"{tag}.growth_stays_aligned_in_a_checkout", held,
-       "" if held else f"authored_in_place={grew} checkout={moved}")
+       "" if held else f"authored_in_place={grew}{how} released_objects={code_objects} checkout={moved}")
 
 
 def main():

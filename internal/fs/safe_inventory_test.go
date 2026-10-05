@@ -1,12 +1,16 @@
 package fs
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func gitCommand(t *testing.T, root string, arguments ...string) {
@@ -334,4 +338,264 @@ func TestSafeInventoryRuntimeAndSecretMatrix(t *testing.T) {
 	if report.Summary.BuiltinSensitiveExcluded < 3 || report.Summary.RuntimeExcluded < 7 || report.Summary.GeneratedExcluded < 1 {
 		t.Fatalf("safety categories not fully counted: %#v", report.Summary)
 	}
+}
+
+// #97: git used to enumerate every file under an ignored directory on every
+// scan, and a pnpm workspace whose node_modules links form a cycle never
+// finished on Windows. A git-ignored directory whose every file is a hard
+// exclusion anyway (built-in name such as node_modules, or an exclude_dirs
+// component) is now one exclusion line; growing it changes nothing else.
+func TestSafeInventoryCollapsesHardExcludedIgnoredDirectories(t *testing.T) {
+	for _, includeIgnored := range []bool{false, true} {
+		root := t.TempDir()
+		gitCommand(t, root, "init", "-q")
+		mustWrite(t, root, ".gitignore", "node_modules/\n.venv/\n*.local.txt\n")
+		mustWrite(t, root, "src/main.go", "package main\n")
+		gitCommand(t, root, "add", ".gitignore", "src/main.go")
+		mustWrite(t, root, "node_modules/a/b/x.js", "x\n")
+		mustWrite(t, root, ".venv/lib/site.py", "x = 1\n")
+		mustWrite(t, root, "notes.local.txt", "local notes\n")
+		options := WalkOptions{IncludeIgnoredCandidates: includeIgnored, ExcludeDirs: []string{".venv"}}
+		before, err := BuildSafeInventory(root, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exclusionCategory(before, "node_modules/") != SafetyGenerated || exclusionCategory(before, ".venv/") != SafetyConfigured {
+			t.Fatalf("includeIgnored=%v: hard-excluded ignored directories must be one line each with their category: %#v", includeIgnored, before.Exclusions)
+		}
+		for _, path := range []string{"node_modules/a/b/x.js", ".venv/lib/site.py"} {
+			if containsPath(before.ManagedCandidates, path) || containsPath(before.IgnoredPaths, path) || hasExclusion(before, path) {
+				t.Fatalf("includeIgnored=%v: %s sits under a collapsed directory and must not be enumerated: %#v", includeIgnored, path, before)
+			}
+		}
+		if includeIgnored != containsPath(before.ManagedCandidates, "notes.local.txt") {
+			t.Fatalf("includeIgnored=%v: a loose ignored file keeps its rc17 treatment: %#v", includeIgnored, before)
+		}
+		for i := 0; i < 300; i++ {
+			mustWrite(t, root, fmt.Sprintf("node_modules/pkg%03d/index.js", i), "module.exports = 1\n")
+		}
+		after, err := BuildSafeInventory(root, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(after.ManagedCandidates, before.ManagedCandidates) || !reflect.DeepEqual(after.Exclusions, before.Exclusions) ||
+			after.Summary.InclusionExclusionIdentity != before.Summary.InclusionExclusionIdentity || after.Summary.Ignored != before.Summary.Ignored {
+			t.Fatalf("includeIgnored=%v: growing a collapsed directory changed the inventory: before=%#v after=%#v", includeIgnored, before.Summary, after.Summary)
+		}
+	}
+}
+
+// The collapse may only hide paths that were hard exclusions in rc17. Over a
+// tree with every ignored shape, the collapsed inventory and the full rc17
+// listing must agree on every candidate, tracked path, ignored candidate and
+// selection identity; the exclusion lists may differ only by collapsed lines
+// standing in for the per-file lines beneath them.
+func TestSafeInventoryCollapseKeepsTheRc17CandidateSet(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, ".gitignore", "node_modules/\ngen/\nout/\nsecrets/\n*.log\n.env\npublic/\n")
+	mustWrite(t, root, "src/main.go", "package main\n")
+	mustWrite(t, root, "mixed/keep.txt", "tracked\n")
+	gitCommand(t, root, "add", ".gitignore", "src/main.go", "mixed/keep.txt")
+	for _, rel := range []string{
+		"node_modules/a/b/x.js", "node_modules/c.js", "app/node_modules/d.js", "gen/api.go", "gen/sub/model.go",
+		"out/x.go", "secrets/prod.pem", "app/.env", "app/src/x.log", "src/newpkg/y.log", "mixed/b.log",
+		"public/app.js.map", "public/fonts/a.woff", "dist/bundle.js",
+	} {
+		mustWrite(t, root, rel, "content\n")
+	}
+	for _, options := range []WalkOptions{
+		{},
+		{IncludeIgnoredCandidates: true},
+		{IncludeIgnoredCandidates: true, HighRiskOptIn: []string{"secrets/prod.pem", "app/.env"}},
+	} {
+		collapseIgnoredDirectories = false
+		full, err := BuildSafeInventory(root, options)
+		collapseIgnoredDirectories = true
+		if err != nil {
+			t.Fatal(err)
+		}
+		collapsed, err := BuildSafeInventory(root, options)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(collapsed.ManagedCandidates, full.ManagedCandidates) ||
+			!reflect.DeepEqual(collapsed.TrackedPaths, full.TrackedPaths) ||
+			!reflect.DeepEqual(collapsed.IgnoredPaths, full.IgnoredPaths) ||
+			collapsed.Summary.InclusionExclusionIdentity != full.Summary.InclusionExclusionIdentity ||
+			collapsed.Summary.RulesIdentity != full.Summary.RulesIdentity ||
+			collapsed.Summary.AutoBlockerCount != full.Summary.AutoBlockerCount {
+			t.Fatalf("options=%#v: collapsing changed the candidate set:\nfull=%#v\ncollapsed=%#v", options, full, collapsed)
+		}
+		collapsedDirs := []string{}
+		for _, exclusion := range collapsed.Exclusions {
+			if strings.HasSuffix(exclusion.PathSummary, "/") {
+				collapsedDirs = append(collapsedDirs, exclusion.PathSummary)
+			}
+		}
+		if !reflect.DeepEqual(collapsedDirs, []string{"app/node_modules/", "node_modules/"}) {
+			t.Fatalf("only the built-in ignored directories may collapse: %v", collapsedDirs)
+		}
+		for _, exclusion := range full.Exclusions {
+			under := false
+			for _, dir := range collapsedDirs {
+				under = under || strings.HasPrefix(exclusion.PathSummary, dir)
+			}
+			if !under && !hasExclusion(collapsed, exclusion.PathSummary) {
+				t.Fatalf("an exclusion outside the collapsed directories disappeared: %#v", exclusion)
+			}
+			if under && exclusion.Category != SafetyGenerated {
+				t.Fatalf("a path under a collapsed directory was not a hard exclusion in the full listing: %#v", exclusion)
+			}
+		}
+		if options.HighRiskOptIn != nil && (!containsPath(collapsed.ManagedCandidates, "secrets/prod.pem") || !containsPath(collapsed.ManagedCandidates, "app/.env")) {
+			t.Fatalf("an opt-in inside an ignored, non-built-in directory must still work: %#v", collapsed.ManagedCandidates)
+		}
+	}
+}
+
+// Ignored files inside untracked, non-ignored directories are listed one by
+// one, as before; `--directory --no-empty-directory` had hidden them.
+func TestSafeInventoryListsIgnoredFilesInsideUntrackedDirectories(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, ".gitignore", "*.log\n")
+	gitCommand(t, root, "add", ".gitignore")
+	mustWrite(t, root, "app/src/x.log", "log\n")
+	mustWrite(t, root, "src/newpkg/y.log", "log\n")
+	report, err := BuildSafeInventory(root, WalkOptions{IncludeIgnoredCandidates: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"app/src/x.log", "src/newpkg/y.log"} {
+		if !hasExclusion(report, path) {
+			t.Fatalf("ignored file %s inside an untracked directory must stay listed: %#v", path, report.Exclusions)
+		}
+	}
+}
+
+// A directory that matches an ignore pattern but still holds tracked files is
+// not a hard exclusion unless its name is built in: its loose ignored files
+// are listed as before.
+func TestSafeInventoryKeepsIgnoredFilesBesideTrackedOnes(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, ".gitignore", "output/\n")
+	mustWrite(t, root, "output/keep.txt", "tracked on purpose\n")
+	gitCommand(t, root, "add", "-f", ".gitignore", "output/keep.txt")
+	mustWrite(t, root, "output/out.js", "generated\n")
+
+	report, err := BuildSafeInventory(root, WalkOptions{IncludeIgnoredCandidates: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasExclusion(report, "output/") || !containsPath(report.ManagedCandidates, "output/keep.txt") {
+		t.Fatalf("a non-built-in directory must not be collapsed: %#v", report)
+	}
+	if !containsPath(report.IgnoredPaths, "output/out.js") {
+		t.Fatalf("the loose ignored file beside a tracked one must still be listed: %#v", report)
+	}
+}
+
+// git before 2.16 has no --ignored=matching; the inventory then falls back to
+// the rc17 listing instead of failing.
+func TestGitIgnoredPathsFallsBackWhenStatusMatchingIsUnavailable(t *testing.T) {
+	calls := [][]string{}
+	run := func(args ...string) ([]byte, error) {
+		calls = append(calls, args)
+		if args[0] == "status" {
+			return nil, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: "error: unknown option `ignored=matching'"}
+		}
+		return []byte("gen/api.go\x00node_modules/x.js\x00"), nil
+	}
+	files, collapsed, err := gitIgnoredPaths(run, func(string) bool { return true })
+	if err != nil || len(collapsed) != 0 || !reflect.DeepEqual(files, []string{"gen/api.go", "node_modules/x.js"}) {
+		t.Fatalf("fallback must return the full listing: files=%v collapsed=%v err=%v calls=%v", files, collapsed, err, calls)
+	}
+	if len(calls) != 2 || calls[1][0] != "ls-files" {
+		t.Fatalf("fallback must run the rc17 ls-files listing: %v", calls)
+	}
+}
+
+// Expansion pathspecs are literal: a directory named with glob characters
+// means itself.
+func TestLiteralPathspecBatchesAreLiteralAndBounded(t *testing.T) {
+	batches := literalPathspecBatches([]string{"gen", "a[b]*"})
+	if !reflect.DeepEqual(batches, [][]string{{":(literal)gen/", ":(literal)a[b]*/"}}) {
+		t.Fatalf("unexpected pathspecs: %v", batches)
+	}
+	many := []string{}
+	for i := 0; i < 3000; i++ {
+		many = append(many, fmt.Sprintf("directory-with-a-long-name-%04d", i))
+	}
+	total := 0
+	for _, batch := range literalPathspecBatches(many) {
+		size := 0
+		for _, spec := range batch {
+			size += len(spec) + 1
+		}
+		if size > 16<<10+64 {
+			t.Fatalf("a batch exceeds the command-line bound: %d bytes", size)
+		}
+		total += len(batch)
+	}
+	if total != len(many) {
+		t.Fatalf("batches lost directories: %d of %d", total, len(many))
+	}
+}
+
+func TestTailWriterKeepsABoundedRuneSafeTail(t *testing.T) {
+	w := &tailWriter{limit: 8}
+	for i := 0; i < 1000; i++ {
+		_, _ = w.Write([]byte("warning: Filename too long\n"))
+	}
+	if len(w.data) > 8 {
+		t.Fatalf("tail grew past its limit: %d", len(w.data))
+	}
+	w = &tailWriter{limit: 5}
+	_, _ = w.Write([]byte("ab错误"))
+	if tail := gitStderrTail(w); !utf8.ValidString(tail) || tail != "误" {
+		t.Fatalf("tail must start on a rune boundary: %q", tail)
+	}
+}
+
+// The ls-files enumeration is where #97 failed; its stderr must reach the
+// error, not only the rev-parse probe's.
+func TestSafeInventoryListingFailureCarriesGitStderr(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, "src/main.go", "package main\n")
+	gitCommand(t, root, "add", "src/main.go")
+	if err := os.WriteFile(filepath.Join(root, ".git", "index"), []byte("DIRC garbage that is not an index"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := BuildSafeInventory(root, WalkOptions{})
+	var query *GitQueryError
+	if !errors.As(err, &query) || query.Error() != "safe_inventory_git_query_failed" || !strings.Contains(strings.ToLower(query.Stderr), "index") {
+		t.Fatalf("a failed listing must carry git's stderr: %v", err)
+	}
+}
+
+func TestSafeInventoryGitFailureCarriesGitStderr(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, root, ".git/HEAD", "not a repository\n")
+	mustWrite(t, root, "src/main.go", "package main\n")
+
+	_, err := BuildSafeInventory(root, WalkOptions{})
+	var query *GitQueryError
+	if !errors.As(err, &query) || query.Error() != "safe_inventory_git_query_failed" {
+		t.Fatalf("a failed git query must be a GitQueryError with the stable code: %v", err)
+	}
+	if strings.TrimSpace(query.Stderr) == "" {
+		t.Fatalf("the failure must carry git's own stderr so an operator can tell why: %#v", query)
+	}
+}
+
+func hasExclusion(report *SafeInventory, path string) bool {
+	for _, exclusion := range report.Exclusions {
+		if exclusion.PathSummary == path {
+			return true
+		}
+	}
+	return false
 }

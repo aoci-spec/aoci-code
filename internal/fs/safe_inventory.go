@@ -11,9 +11,56 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
+
+// GitQueryError is the failure of one Git inventory command. Error() stays the
+// bare machine code so every caller that matches on it keeps working; Stderr
+// carries the tail of what git itself said, which is the one fact an
+// operator needs to tell a killed git from a refusing one (#97 was diagnosed
+// with an external shim because the code alone said nothing).
+type GitQueryError struct {
+	Code   string
+	Stderr string
+}
+
+func (e *GitQueryError) Error() string { return e.Code }
+
+// gitStderrTailBytes bounds how much of git's stderr a failure keeps. A
+// runaway enumeration can print tens of megabytes of warnings; the last lines
+// are the ones that explain the exit.
+const gitStderrTailBytes = 2048
+
+// tailWriter keeps only the last limit bytes written to it, so capturing a
+// git process's stderr costs O(limit) memory whatever git prints.
+type tailWriter struct {
+	limit int
+	data  []byte
+}
+
+func (w *tailWriter) Write(p []byte) (int, error) {
+	if len(p) >= w.limit {
+		w.data = append(w.data[:0], p[len(p)-w.limit:]...)
+		return len(p), nil
+	}
+	if overflow := len(w.data) + len(p) - w.limit; overflow > 0 {
+		w.data = append(w.data[:0], w.data[overflow:]...)
+	}
+	w.data = append(w.data, p...)
+	return len(p), nil
+}
+
+// gitStderrTail returns the captured tail starting at a rune boundary, so a
+// cut through a multi-byte character never yields invalid UTF-8.
+func gitStderrTail(w *tailWriter) string {
+	data := w.data
+	for len(data) > 0 && !utf8.RuneStart(data[0]) {
+		data = data[1:]
+	}
+	return strings.TrimSpace(string(data))
+}
 
 const SafeInventoryVersion = machinecontract.SafeInventoryV2
 
@@ -89,7 +136,11 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		}
 		optIn[clean] = true
 	}
-	tracked, untracked, ignored, gitRepository, err := gitInventory(absRoot)
+	collapsible := func(dir string) bool {
+		_, _, hard := HardExcludedDirectory(dir, opt)
+		return hard && collapseIgnoredDirectories
+	}
+	tracked, untracked, ignored, ignoredDirs, gitRepository, err := gitInventory(absRoot, collapsible)
 	if err != nil {
 		return nil, err
 	}
@@ -100,18 +151,26 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		if err != nil {
 			return nil, err
 		}
-		ignored = nil
+		ignored, ignoredDirs = nil, nil
 	}
 
 	report := &SafeInventory{Summary: SafeInventorySummary{
 		Version: SafeInventoryVersion, GitRepository: gitRepository,
-		GitTracked: len(tracked), NonignoredUntracked: len(untracked), Ignored: len(ignored),
+		GitTracked: len(tracked), NonignoredUntracked: len(untracked), Ignored: len(ignored) + len(ignoredDirs),
 	}, ManagedCandidates: []string{}, TrackedPaths: []string{}, IgnoredPaths: []string{}, Exclusions: []SafeInventoryExclusion{}}
 	if !gitRepository {
 		for _, exclusion := range pruned {
 			report.addExclusion(exclusion.PathSummary, exclusion.Category, exclusion.RuleSource, false)
 		}
 	} else {
+		// A collapsed ignored directory is one audit line. Only a directory
+		// whose every file was already a hard exclusion is collapsed (see
+		// gitIgnoredPaths), so the line carries that same category and
+		// nothing a rule or an opt-in could reach is hidden behind it.
+		for _, dir := range ignoredDirs {
+			category, source, _ := HardExcludedDirectory(dir, opt)
+			report.addExclusion(dir+"/", category, source, false)
+		}
 		// Git ignored names are classified before any content read. Consumers
 		// that request policy evaluation may retain otherwise-safe names as
 		// candidates; ordinary Safe Inventory continues to exclude them.
@@ -225,46 +284,170 @@ func (summary *SafeInventorySummary) addReviewVisible(count int) {
 	summary.RequiredHumanReview += count
 }
 
-func gitInventory(root string) (tracked, untracked, ignored []string, gitRepository bool, err error) {
+func gitInventory(root string, collapsible func(dir string) bool) (tracked, untracked, ignored, collapsed []string, gitRepository bool, err error) {
 	if _, statErr := os.Lstat(filepath.Join(root, ".git")); statErr != nil {
 		if errors.Is(statErr, os.ErrNotExist) {
-			return nil, nil, nil, false, nil
+			return nil, nil, nil, nil, false, nil
 		}
-		return nil, nil, nil, false, fmt.Errorf("safe_inventory_git_boundary_unavailable")
+		return nil, nil, nil, nil, false, fmt.Errorf("safe_inventory_git_boundary_unavailable")
 	}
 	probe := UntrustedRepositoryGitCommand(root, "rev-parse", "--show-toplevel")
+	probeStderr := &tailWriter{limit: gitStderrTailBytes}
+	probe.Stderr = probeStderr
 	probeOutput, probeErr := probe.Output()
 	var executableError *exec.Error
 	if errors.As(probeErr, &executableError) {
-		return nil, nil, nil, true, fmt.Errorf("safe_inventory_git_unavailable")
+		return nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_unavailable")
 	}
 	if probeErr != nil {
-		return nil, nil, nil, true, fmt.Errorf("safe_inventory_git_query_failed")
+		return nil, nil, nil, nil, true, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: gitStderrTail(probeStderr)}
 	}
 	if !sameGitRootPath(strings.TrimSpace(string(probeOutput)), root, runtime.GOOS) {
 		// Once a .git boundary is present, an unverifiable or foreign repository
 		// root must not silently downgrade to non-Git traversal. Doing so could
 		// hide tracked sensitive files from the required-review signal.
-		return nil, nil, nil, true, fmt.Errorf("safe_inventory_git_boundary_mismatch")
+		return nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_boundary_mismatch")
 	}
-	run := func(args ...string) ([]string, error) {
+	run := func(args ...string) ([]byte, error) {
 		command := UntrustedRepositoryGitCommand(root, append([]string{"-c", "core.quotepath=false"}, args...)...)
+		stderr := &tailWriter{limit: gitStderrTailBytes}
+		command.Stderr = stderr
 		data, commandErr := command.Output()
 		if commandErr != nil {
-			return nil, fmt.Errorf("safe_inventory_git_query_failed")
+			return nil, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: gitStderrTail(stderr)}
 		}
-		return splitNULPaths(data), nil
+		return data, nil
 	}
-	tracked, err = run("ls-files", "-z", "--cached")
+	data, err := run("ls-files", "-z", "--cached")
 	if err != nil {
-		return nil, nil, nil, true, err
+		return nil, nil, nil, nil, true, err
 	}
-	untracked, err = run("ls-files", "-z", "--others", "--exclude-standard")
+	tracked = splitNULPaths(data)
+	if data, err = run("ls-files", "-z", "--others", "--exclude-standard"); err != nil {
+		return nil, nil, nil, nil, true, err
+	}
+	untracked = splitNULPaths(data)
+	ignored, collapsed, err = gitIgnoredPaths(run, collapsible)
 	if err != nil {
-		return nil, nil, nil, true, err
+		return nil, nil, nil, nil, true, err
 	}
-	ignored, err = run("ls-files", "-z", "--others", "--ignored", "--exclude-standard")
-	return tracked, untracked, ignored, true, err
+	return tracked, untracked, ignored, collapsed, true, nil
+}
+
+// gitIgnoredPaths lists git-ignored files without walking the ignored
+// directories whose every file is a hard exclusion anyway (#97).
+//
+// Until rc18 the inventory ran `git ls-files --others --ignored`, which lists
+// every file under every ignored directory: a node_modules with tens of
+// thousands of files cost seconds on every scan, verify and Maintain, and a
+// pnpm workspace whose package links form a cycle never finished on Windows.
+// Yet every one of those files was then excluded by its built-in directory
+// category (node_modules, dist, target, ...) or by exclude_dirs, before any
+// rule could see it. `git status --ignored=matching` reports a directory that
+// matches an ignore pattern as one "dir/" entry without listing what is under
+// it, and lists every other ignored file individually, including ignored files
+// inside untracked directories. A matched directory is collapsed only when
+// collapsible says every path beneath it is a hard exclusion; any other
+// matched directory (gen/, out/, public/) is expanded with the rc17 listing
+// restricted to it, so its files stay policy candidates exactly as before and
+// no persisted role or identity changes. A git too old for --ignored=matching
+// (before 2.16) falls back to the rc17 listing.
+func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(dir string) bool) (files, collapsed []string, err error) {
+	data, statusErr := run("status", "--porcelain=v1", "-z", "--ignored=matching", "--untracked-files=all", "--no-renames", "--ignore-submodules=all")
+	if statusErr != nil {
+		data, err = run("ls-files", "-z", "--others", "--ignored", "--exclude-standard")
+		if err != nil {
+			return nil, nil, err
+		}
+		return splitNULPaths(data), nil, nil
+	}
+	seen := map[string]bool{}
+	expand := []string{}
+	for _, record := range strings.Split(string(data), "\x00") {
+		if !strings.HasPrefix(record, "!! ") {
+			continue
+		}
+		value := record[3:]
+		isDirectory := strings.HasSuffix(value, "/")
+		clean, ok := safeRelativePath(value)
+		if !ok {
+			continue
+		}
+		switch {
+		case isDirectory && collapsible(clean):
+			collapsed = append(collapsed, clean)
+		case isDirectory:
+			expand = append(expand, clean)
+		case !seen[clean]:
+			seen[clean] = true
+			files = append(files, clean)
+		}
+	}
+	for _, batch := range literalPathspecBatches(expand) {
+		data, err = run(append([]string{"ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--"}, batch...)...)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, path := range splitNULPaths(data) {
+			if !seen[path] {
+				seen[path] = true
+				files = append(files, path)
+			}
+		}
+	}
+	sort.Strings(files)
+	sort.Strings(collapsed)
+	return files, collapsed, nil
+}
+
+// literalPathspecBatches turns directories into literal pathspecs (so a
+// directory named with *, ? or [ means itself) and splits them so no single
+// git command line grows past what Windows accepts.
+func literalPathspecBatches(dirs []string) [][]string {
+	const maxBatchBytes = 16 << 10
+	batches := [][]string{}
+	current, size := []string{}, 0
+	for _, dir := range dirs {
+		spec := ":(literal)" + dir + "/"
+		if len(current) > 0 && size+len(spec) > maxBatchBytes {
+			batches = append(batches, current)
+			current, size = []string{}, 0
+		}
+		current = append(current, spec)
+		size += len(spec) + 1
+	}
+	if len(current) > 0 {
+		batches = append(batches, current)
+	}
+	return batches
+}
+
+// collapseIgnoredDirectories lets tests compare the collapsed inventory with
+// the full rc17 listing over the same tree; production never turns it off.
+var collapseIgnoredDirectories = true
+
+// collapsedCategoryProbe is a neutral file name: no built-in file rule and no
+// sensitive-name rule matches it, so the category it gets under a directory
+// comes from the directory's own path alone, which is the category every file
+// beneath that directory gets.
+const collapsedCategoryProbe = "aoci-collapse-probe"
+
+// HardExcludedDirectory reports whether every path beneath dir is a hard
+// exclusion: a built-in safety category that follows from the directory path
+// itself, or a project exclude_dirs component. Only such a git-ignored
+// directory may be collapsed without changing any candidate.
+func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string, ok bool) {
+	if category, source := BuiltInSafetyCategory(dir + "/" + collapsedCategoryProbe); category != "" {
+		return category, source, true
+	}
+	for _, part := range strings.Split(dir, "/") {
+		for _, excluded := range opt.ExcludeDirs {
+			if part == strings.TrimSpace(excluded) {
+				return SafetyConfigured, "project_config", true
+			}
+		}
+	}
+	return "", "", false
 }
 
 func sameGitRootPath(gitRoot, inventoryRoot, goos string) bool {

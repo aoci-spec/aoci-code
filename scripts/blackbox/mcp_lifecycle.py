@@ -132,6 +132,57 @@ def plant_static_probe(fx):
     sh(fx, "git", "commit", "-q", "-m", "static probe")
 
 
+IGNORED_TREE_FILES = 400
+
+
+def plant_ignored_tree(fx):
+    """#97: an ignored directory full of files (and a symlink back into it) must
+    cost the inventory one line, not one entry per file. node_modules is in
+    .gitignore, so git is the only thing that could ever walk it.
+
+    The link node_modules/loop-target/back points at "..", which from
+    loop-target is node_modules itself: a real cycle. git lstat()s a symlink and
+    never follows it, so the link is not what this check discriminates on; it is
+    there so a walker that did follow links would loop. Returns whether the cycle
+    was planted, so the record says so; where os.symlink is unavailable or not
+    permitted (Windows without the privilege) the tree is planted without it
+    and the check is unchanged."""
+    os.makedirs(os.path.join(fx, "node_modules", "loop-target"), exist_ok=True)
+    for i in range(IGNORED_TREE_FILES):
+        d = os.path.join(fx, "node_modules", f"pkg{i:03d}")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "index.js"), "w", encoding="utf-8") as fh:
+            fh.write("module.exports = %d;\n" % i)
+    link = os.path.join(fx, "node_modules", "loop-target", "back")
+    try:
+        os.symlink("..", link, target_is_directory=True)
+        planted = os.path.samefile(link, os.path.join(fx, "node_modules"))
+    except (OSError, NotImplementedError):
+        planted = False
+    gi = os.path.join(fx, ".gitignore")
+    existing = open(gi, encoding="utf-8").read() if os.path.exists(gi) else ""
+    if "node_modules" not in existing:
+        with open(gi, "a", encoding="utf-8") as fh:
+            fh.write(("" if existing.endswith("\n") or not existing else "\n") + "node_modules/\n")
+        sh(fx, "git", "add", ".gitignore")
+        sh(fx, "git", "commit", "-q", "-m", "ignore node_modules")
+    return planted
+
+
+def ignored_tree_facts(fx):
+    """How the inventory accounted for the planted tree: the collapsed entry and the ignored count."""
+    rc, _, out, _ = cli(fx, "scope", "status", "--json", expect_ok=False)
+    try:
+        status = json.loads(out)
+    except ValueError:
+        return {"rc": rc, "ignored": None, "collapsed": False, "descended": None}
+    ev = status.get("evaluation") or {}
+    summary = ev.get("safe_inventory") or {}
+    paths = [e.get("path") for k in ("index", "observe", "exclude") for e in (ev.get(k) or [])]
+    return {"rc": rc, "ignored": summary.get("ignored"), "collapsed": "node_modules/" in paths,
+            "descended": any(p.startswith("node_modules/pkg") for p in paths if p)}
+
+
 def baseline_roles(fx, rels):
     path = os.path.join(fx, ".aoci", "baseline.json")
     if not os.path.exists(path):
@@ -314,6 +365,7 @@ def suite_bringup(rep, work):
     for key in ("a", "b"):
         fx = deploy(key, work, "bringup")
         plant_static_probe(fx)
+        symlink_planted = plant_ignored_tree(fx)
         rc, _, out, errs = cli(fx, "init", "--locale", "en-US")
         rec_ok = rc == 0 and os.path.exists(os.path.join(fx, "AGENTS.md"))
         rep.rec(g, f"repo-{key}.init-en", "PASS" if rec_ok else "FAIL", (out + errs)[:150] if not rec_ok else "")
@@ -327,6 +379,9 @@ def suite_bringup(rep, work):
         roles = baseline_roles(fx, STATIC_PROBE_ROLES)
         rep.rec(g, f"repo-{key}.starter-rules-observe-vendored-static",
                 "PASS" if roles == STATIC_PROBE_ROLES else "FAIL", f"roles={roles}")
+        facts = dict(ignored_tree_facts(fx), symlink_planted=symlink_planted)
+        ok = facts["rc"] == 0 and facts["collapsed"] and not facts["descended"] and (facts["ignored"] or 0) < IGNORED_TREE_FILES
+        rep.rec(g, f"repo-{key}.ignored-directory-collapsed-not-walked", "PASS" if ok else "FAIL", f"facts={facts}")
         rc, _, out, _ = cli(fx, "doctor", expect_ok=False)
         rep.rec(g, f"repo-{key}.doctor-post-scan", "PASS" if rc == 0 else "FAIL",
                 "" if rc == 0 else out[-200:])

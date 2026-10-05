@@ -90,6 +90,14 @@ and protocol tokens. A missing asset, duplicate key, unknown key, invalid
 format signature, or template-rendering failure is fatal. There is no fallback
 between official locales and no output may combine them.
 
+One documented exception: when a Safe Inventory git query fails, the CLI
+prints the tail of git's own stderr on the line after the error, verbatim and
+untranslated, introduced by a localized label that says so. git's text is the
+only evidence of why it failed (a corrupt index, a killed process, a wall of
+`Filename too long`), and suppressing it under a mismatched locale would hide
+exactly what the operator needs. It is written to stderr only, never into a
+`--json` result and never into the MCP stdout stream.
+
 These gates establish structural and protocol parity. They do not claim to
 prove the semantic quality of a translation; that remains a review and
 real-product acceptance responsibility.

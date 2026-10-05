@@ -10,7 +10,7 @@ with the repository clone (binary Release archives do not include `scripts/`).
 | `mcp_conformance.py` | The MCP wire surface honors its contract: handshake, the nine-tool registry, input schemas, response shapes, error behavior, clean handling of malformed input. Read-only. | python3, git, a built binary | seconds |
 | `mcp_scenarios.py` | Safety under hostile handling: cursor replay/tampering, write-lifecycle rejections, crash injection during Apply, racing writers. Disposable fixture repositories; the host repository is only read. | same as above | minutes |
 | `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, re-alignment, and the governance walks (curation probes, post-scan exclusion, and a pending policy edit over a changed source), while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
-| `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in four repository shapes. | above + network access on the first run (binaries are cached) | minutes |
+| `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in eight repository shapes. | above + network access on the first run (binaries are cached) | minutes |
 
 ## Running
 
@@ -32,7 +32,7 @@ Fault-injection scenarios (64 scenarios, disposable fixtures in a temp dir):
 python3 scripts/blackbox/mcp_scenarios.py
 ```
 
-Upgrade axis (48 checks per released version, over six repository shapes;
+Upgrade axis (64 checks per released version, over eight repository shapes;
 downloads and checksum-verifies each release once into a gitignored cache):
 
 ```bash
@@ -60,7 +60,14 @@ it red for `spacedroot` alone. The fourth shape, `cutsegment`, puts the
 repository under a directory whose name begins with `(`, where the truncated
 root is an ancestor of the full one: a reader that recognises the old writer
 only by a section outside the truncated root misreads every checkout there
-while the origin stays aligned. A run that cannot
+while the origin stays aligned. The last two shapes put git-ignored directories
+under the released index. In `ignoredpull` a user rule indexes `gen/**` while
+`.gitignore` hides `gen/`, so the release authors an Entry for `gen/api.go`; the
+binary under test must read it aligned with no orphan, and its own MCP Maintain
+and update must then re-author a changed file beside it. In `ignoredtree` a
+`node_modules/` of 300 files and an `out/` whose one file a user rule observes
+are both ignored; the composite identity must not move and the observed file
+must stay observed. A run that cannot
 fetch a release fails; pass `--allow-offline` to downgrade that to a skip. One
 exemption is deliberate: the newest CHANGELOG section may precede its GitHub
 release by the one commit the release cut takes, so a 404 for that version

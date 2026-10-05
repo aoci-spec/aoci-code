@@ -195,6 +195,21 @@ any other object. Held files are not the lever for size: excluding a
 directory of generated assets is still a Managed Scope rule, and a rule added
 after the first scan is a coverage reduction that needs approval.
 
+A git-ignored directory whose every file is a hard exclusion anyway, because
+its name is a built-in generated, runtime, or VCS directory (`node_modules`,
+`dist`, `target`, `.runtime`, ...) or a component listed in `exclude_dirs`, is
+one line in the inventory with that category, and git does not list what is
+beneath it. Through v0.1.0-rc17 the inventory had git list every one of those
+files on every `scan`, `verify`, and Maintain, only to exclude them; a
+`node_modules` with tens of thousands of files cost tens of seconds per call,
+and a pnpm workspace whose package links form a cycle never finished on
+Windows (#97). Every other git-ignored path is listed one by one as before: an
+ignored directory such as `gen/` or `out/`, and ignored files inside untracked
+directories. Those files keep the `exclude` role with rule source
+`git_ignored` unless a rule gives them another role, so a rule or an exact
+high-risk opt-in reaches them exactly as it did, and no candidate, role, or
+identity changes on upgrade.
+
 ## Scale boundary
 
 A **new** project's Whole-Index budget defaults to 200000 target / 300000

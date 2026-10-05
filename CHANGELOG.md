@@ -4,6 +4,52 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+Inventory speed on large ignored trees, and a few host and CLI fixes.
+
+- Safe Inventory no longer has git list ignored directories whose every file
+  was a hard exclusion anyway (#97). The ignored listing now uses
+  `git status --ignored=matching`: a git-ignored `node_modules`, `dist`,
+  `target`, or other built-in generated, runtime, or VCS directory, and any
+  directory named in `exclude_dirs`, is one inventory line instead of one entry
+  per file on every `scan`, `verify`, and Maintain, and a pnpm workspace whose
+  package links form a cycle no longer runs forever on Windows. Every other
+  ignored path is listed one by one as before (an ignored `gen/` or `out/`, and
+  ignored files inside untracked directories), so no candidate, rule outcome,
+  opt-in, role, or persisted identity changes on upgrade; a test pins the
+  candidate set and identities against the full listing. git before 2.16 falls
+  back to the full listing.
+- When the inventory's git query fails, `init`, `scan`, `scope`, and
+  `source manifest` keep the machine code (`safe_inventory_git_query_failed`)
+  and print git's own stderr, verbatim and bounded to its last 2 KiB, on the
+  next line of stderr, in human and `--json` modes alike; the localization
+  notes record this as the one verbatim exception. `verify`, `check`, and
+  Maintain report the failure as a business-source finding, so run
+  `aoci scan` to see git's message. `scope explain` reports a path under an
+  `exclude_dirs` directory as a configured exclusion.
+- `config list`, `config get`, and `config set` honour the global `--json`
+  flag (#94, PR #95 by @dakjdakd): typed JSON values for `get`, and an
+  `{ok, key, value}` result for `set` whose `value` is what the next
+  `config get` returns (local overrides included); setting `locale` adds
+  `restart_mcp_required` and, when a migration is pending, a
+  `locale_migration` summary with the numbers human mode prints. Output goes
+  through the command writer; human-mode output is byte-for-byte unchanged.
+- `init --agent qoder` writes the project-level `.mcp.json` that Qoder CLI
+  reads (verified with `qoder mcp list`), the managed `AGENTS.md` block, and
+  no hook; `doctor` and the `aoci ui` status page gain a Qoder row (backed by
+  that shared file), and `Detect` recognises a project `.qoder` directory or a
+  user-level `~/.qoder`. The Qoder IDE takes the same `mcpServers` block
+  through its settings.
+- The Maintain authoring instructions now say that batches are not user
+  decisions: after a successful write the model calls Maintain again until
+  `remaining` is 0 without asking the user to continue. A Qoder session had
+  stopped after the first of 53 batches to ask.
+- `github.com/spf13/pflag` 1.0.9 to 1.0.10 (PR #93); module set unchanged.
+- Black-box: lifecycle bringup plants an ignored `node_modules` tree with a
+  symlink cycle and asserts the inventory collapses it; the upgrade axis gains
+  shapes for a rule-pulled file inside an ignored directory and for an ignored
+  `node_modules` tree; a Windows test builds a junction cycle inside an ignored
+  `node_modules`.
+
 - Fix the repair guidance for a mistyped or self-computed Code binding. Since
   rc16 the Maintain response no longer repeats `code_plan.candidates`, but the
   `code_candidate_source_sha256_mismatch`, `code_candidate_id_mismatch`, and

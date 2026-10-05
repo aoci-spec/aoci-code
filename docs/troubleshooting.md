@@ -232,6 +232,33 @@ for a third-party directory the starter set does not name, or remove a starter
 rule whose path holds your own code. After the first scan, narrowing the index
 is a coverage reduction that needs approval, so this is the cheap moment.
 
+If `scan`, `verify`, or every Maintain is slow or never returns on a
+repository with a large ignored tree, the cause before v0.1.0-rc18 was the
+inventory asking git to list every ignored file: a `node_modules` with tens of
+thousands of files cost tens of seconds on every call, and a pnpm workspace
+whose package links form a cycle never finished on Windows (`Filename too
+long` warnings by the megabyte, #97). Since rc18 a git-ignored `node_modules`,
+`dist`, `target`, or `exclude_dirs` directory is one inventory line and git
+does not list it. On an older release, keep `node_modules` outside the working
+tree for as long as you use AOCI there, or upgrade; moving it out only for the
+first `init` and `scan` does not help later `verify` and Maintain calls. Do not
+rename it inside the repository: a renamed directory no longer matches the
+ignore rule and git then walks all of it.
+
+When the inventory's git query fails, the error reads
+`safe_inventory_git_query_failed`, and `init`, `scan`, `scope`, and
+`source manifest` print git's own stderr, verbatim, on the next line. `verify`,
+`check`, and Maintain report the same failure as a
+`business_source_manifest_invalid` finding; run `aoci scan` to see git's
+message.
+
+If the index itself is too large for the Host's context (one report: a 123K
+token index in a 256K window, re-read after every compaction), the lever is
+scope, not delivery: set the directories the model never needs to `observe`
+with a scope rule before the first scan, or narrow with an approved Scope
+Change after it, and raise the Host's context window where the Host allows it.
+Delivery by importance tier is planned for the 0.2.0 line.
+
 For scale, one observed Codex session with a built-in model authored a
 20-entry batch in about seven minutes on a 590-file Java repository, which
 put the whole first index near three hours at the then-default batch of 20;

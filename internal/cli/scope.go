@@ -207,6 +207,14 @@ func newScopeExplainCmd() *cobra.Command {
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
 						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + category}
+				} else if afs.PathExcludedByConfig(rel, cfg.WalkOptions()) {
+					// A path under an exclude_dirs directory is a configured hard
+					// exclusion; since rc18 a git-ignored directory of that kind is
+					// one inventory line, so its files are not in the evaluation.
+					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
+						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
+						RulePriority: 700, SafetyStatus: afs.SafetyConfigured, GitStatus: "future_or_absent", ReadsContent: false,
+						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "project_config:" + afs.SafetyConfigured}
 				} else {
 					curated := containsScopePath(cfg.CurationExclude, rel)
 					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), rel, false, curated)
@@ -1030,7 +1038,7 @@ func rejectUnsupportedGlob(pattern, kind string) error {
 }
 
 func managedScopeExitError(err error) error {
-	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: cliMessage("scope.error", err.Error())}
+	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: cliMessage("scope.error", err.Error()), Err: err}
 }
 
 // managedScopeApprovalEffect renders what a human is actually being asked to

@@ -89,6 +89,9 @@ func buildSnapshot(root string, options Options, running []Instance) (Snapshot, 
 	snapshot.Integrations = map[string]bool{
 		"claude_mcp": hooks.IsClaudeMCPInstalled(root), "claude_hook": hooks.IsClaudeHookInstalled(root),
 		"codex_mcp": hooks.IsCodexMCPInstalled(root), "opencode_mcp": hooks.IsOpenCodeMCPInstalled(root),
+		// Qoder CLI reads the same project .mcp.json Claude Code does, so its
+		// row shares the Claude Code check, as the doctor row does.
+		"qoder_mcp":    hooks.IsClaudeMCPInstalled(root),
 		"agents_block": hooks.IsAgentsBlockPresent(root),
 	}
 	cfg, err := config.Load(root)

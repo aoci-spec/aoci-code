@@ -30,7 +30,7 @@ func newBusinessSourceManifestCmd() *cobra.Command {
 		}
 		manifest, err := businesssource.Build(root, generatedAt)
 		if err != nil {
-			return &ExitError{Code: ExitInvalid, MachineCode: "business_source_manifest_invalid", Msg: cliMessage("business.source.error", err.Error())}
+			return &ExitError{Code: ExitInvalid, MachineCode: "business_source_manifest_invalid", Msg: cliMessage("business.source.error", err.Error()), Err: err}
 		}
 		if flagJSON {
 			return writePlannerJSON(cmd, manifest)

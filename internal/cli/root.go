@@ -92,6 +92,10 @@ func (e *ExitError) Error() string {
 	)
 }
 
+// Unwrap exposes the wrapped cause so errors.As can reach a typed failure such
+// as a Safe Inventory git query error; the exit mapping itself is unchanged.
+func (e *ExitError) Unwrap() error { return e.Err }
+
 // ExitCode实现exitCoder接口。
 func (e *ExitError) ExitCode() int {
 	return e.Code
@@ -604,6 +608,7 @@ func finishDirectExecution(
 		cliMessage("cli.error_prefix"),
 		localizedCLIErrorMessage(err, code),
 	)
+	writeGitQueryDetail(stderr, err)
 
 	return code
 }
@@ -664,6 +669,7 @@ func finishBufferedExecution(
 			cliMessage("cli.error_prefix"),
 			localizedCLIErrorMessage(err, code),
 		)
+		writeGitQueryDetail(stderr, err)
 
 		return code
 	}
@@ -680,6 +686,7 @@ func finishBufferedExecution(
 				envelopeErr,
 			)
 		}
+		writeGitQueryDetail(stderr, err)
 
 		return code
 	}
@@ -689,6 +696,7 @@ func finishBufferedExecution(
 		cliMessage("cli.error_prefix"),
 		localizedCLIErrorMessage(err, code),
 	)
+	writeGitQueryDetail(stderr, err)
 
 	return code
 }

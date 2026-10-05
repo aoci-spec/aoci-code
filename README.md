@@ -560,6 +560,7 @@ After configuration, check whether the current host session already exposes the 
 | **Claude Code** | Project-level MCP; optional thin `PreToolUse` guard | The hook only provides a pre-write reminder or stale guard; it is not the agent runtime |
 | **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; you complete the integration manually for the host |
+| **Qoder** | `--agent qoder` writes the project-level `.mcp.json` Qoder CLI reads (verified with `qoder mcp list`); the IDE takes the same block through Settings > MCP | No hook surface; `--hooks` is reported as ignored |
 | **Other MCP hosts** | Connect to the standard stdio server | Require manual configuration and host-specific validation |
 
 ```bash
@@ -961,7 +962,7 @@ and CLI only:
   optional model track puts a real AI agent — any model your OpenCode
   installation exposes — through the two small repositories and scores the end
   state from public surfaces.
-- **Upgrade axis** — 48 checks per released version, over six repository
+- **Upgrade axis** — 64 checks per released version, over eight repository
   shapes: every published release builds and authors a repository with its own
   binary, then the binary under test must govern it without moving an identity,
   demanding a Scope Change, or rewriting a formal asset, and what it then

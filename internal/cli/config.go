@@ -237,15 +237,41 @@ func init() {
 				}
 			}
 			if flagJSON {
-				value, ok := configValue(cfg, key, true)
+				// value is exactly what `aoci --json config get <key>` returns
+				// right after this set. get reads the effective configuration
+				// through config.Load (team layer merged with config.local.json)
+				// and projects it with configValue in JSON mode, so the result is
+				// reloaded and projected the same way instead of being taken from
+				// the team-layer cfg that was just saved: a local override of the
+				// key shows here exactly as the next get will show it.
+				// The team file is already saved. If the merged view cannot be
+				// loaded (a malformed config.local.json), the set still succeeded,
+				// so report the saved team value rather than failing after the
+				// write; the next get reports the local file's error itself.
+				effective, loadErr := config.Load(root)
+				if loadErr != nil {
+					effective = cfg
+				}
+				value, ok := configValue(effective, key, true)
 				if !ok {
 					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.unknown_key", key, "")}
 				}
-				return writePlannerJSON(cmd, struct {
-					OK    bool   `json:"ok"`
-					Key   string `json:"key"`
-					Value any    `json:"value"`
-				}{OK: true, Key: key, Value: value})
+				result := configSetJSONResult{OK: true, Key: key, Value: value}
+				if key == "locale" {
+					// Human mode prints these two facts as notices below. JSON
+					// mode carries them as typed fields with the same numbers,
+					// because a running MCP process keeps its startup locale and a
+					// pending migration receipt was just written.
+					result.RestartMCPRequired = true
+					if cfg.LocaleMigration != nil {
+						result.LocaleMigration = &configSetLocaleMigrationJSON{
+							HeaderPending: cfg.LocaleMigration.HeaderPending,
+							EntryPaths:    len(cfg.LocaleMigration.EntryPaths),
+							CurationPaths: len(cfg.LocaleMigration.CurationPaths),
+						}
+					}
+				}
+				return writePlannerJSON(cmd, result)
 			}
 			if !flagQuiet {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("config.saved", key))
@@ -267,6 +293,26 @@ func init() {
 
 	cmd.AddCommand(listCmd, getCmd, setCmd)
 	registerCommand(cmd)
+}
+
+// configSetJSONResult is the `aoci --json config set` result. Value is the
+// value the next `aoci --json config get <key>` returns. The two locale fields
+// are set only when the key is locale and are omitted otherwise.
+type configSetJSONResult struct {
+	OK                 bool                          `json:"ok"`
+	Key                string                        `json:"key"`
+	Value              any                           `json:"value"`
+	RestartMCPRequired bool                          `json:"restart_mcp_required,omitempty"`
+	LocaleMigration    *configSetLocaleMigrationJSON `json:"locale_migration,omitempty"`
+}
+
+// configSetLocaleMigrationJSON summarizes the pending locale-migration receipt
+// with the same three numbers the human config.locale_migration_pending line
+// prints: Header pending, and the Entry and Curation path counts.
+type configSetLocaleMigrationJSON struct {
+	HeaderPending bool `json:"header_pending"`
+	EntryPaths    int  `json:"entry_paths"`
+	CurationPaths int  `json:"curation_paths"`
 }
 
 func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {

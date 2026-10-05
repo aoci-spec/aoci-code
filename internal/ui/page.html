@@ -426,7 +426,7 @@
     const procs = running.length ? running.map(i =>
         `<tr><td>PID ${i.pid}</td><td class="mono">${esc((i.executable||"").split("/").pop())}${i.executable_replaced_on_disk?` <span class="warn">${esc(t("ui.page.replaced_on_disk"))}</span>`:""}</td></tr>`).join("")
       : `<tr><td colspan="2" class="faint">${esc(t("ui.page.no_running_server"))}</td></tr>`;
-    const keys = ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","agents_block"];
+    const keys = ["claude_mcp","claude_hook","codex_mcp","opencode_mcp","qoder_mcp","agents_block"];
     $("env").innerHTML = `<table class="env">${procs}` + keys.map((k, i) =>
       `<tr class="${i===0?"sep":""}"><td>${i===0?esc(t("ui.page.integrations")):""}</td><td><span class="ig ${ig[k]?"ok":"faint"}">${ig[k]?"●":"○"}</span>${esc(t("ui.page.integration."+k))}</td></tr>`).join("") + `</table>`;
   }

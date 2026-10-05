@@ -14,6 +14,14 @@ Managed Scope can retain otherwise-safe ignored path names for rule evaluation
 without weakening hard exclusions. Only a winning `index` or `observe` role
 allows later fingerprinting.
 
+A Git-ignored directory whose every file is a hard exclusion anyway, such as
+`node_modules`, `dist`, `target`, or a directory named in `exclude_dirs`, is one
+line in the inventory, and Git is never asked to list it (#97: before rc18 a
+large `node_modules` cost seconds on every call, and a pnpm workspace whose
+links form a cycle never finished on Windows). Every other ignored directory,
+`gen/` or `out/` for example, is listed file by file as before, so a rule or
+an exact opt-in reaches its files exactly as it did.
+
 Use the machine receipt when an AI Agent needs complete counts:
 
 ```text

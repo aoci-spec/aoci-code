@@ -247,6 +247,11 @@ func Detect(root string) []string {
 	if dirExists(filepath.Join(root, ".cursor")) {
 		found = append(found, "cursor")
 	}
+	// qoder: 项目 .qoder/（rules、settings.local.json）或用户级 ~/.qoder/
+	if dirExists(filepath.Join(root, ".qoder")) ||
+		(home != "" && dirExists(filepath.Join(home, ".qoder"))) {
+		found = append(found, "qoder")
+	}
 	// opencode: 项目级根配置或嵌套配置实物；单独的 .opencode 目录可能只含
 	// skills/commands，不足以证明 MCP 配置环境，不能据此误报。
 	if fileExists(filepath.Join(root, "opencode.json")) ||
@@ -282,6 +287,15 @@ func Install(root, agent string, withHooks bool) (string, error) {
 			b.WriteString(hmsg + "\n")
 		}
 		return strings.TrimRight(b.String(), "\n"), nil
+	case "qoder":
+		// Qoder CLI reads the project-level .mcp.json (verified: `qoder mcp list`
+		// reports the server Connected); the IDE takes the same mcpServers block
+		// through its settings. No hook surface exists, so --hooks is inert here.
+		msg, err := InstallClaudeMCP(root)
+		if err != nil {
+			return "", err
+		}
+		return msg + "\n" + hookMessage("hook.qoder_shares_mcp_json"), nil
 	case "codex":
 		var b strings.Builder
 		// 冲突预检必须在 MCP 写入前完成,保证用户自定义压缩策略
