@@ -2,7 +2,7 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc18
 
 Inventory speed on large ignored trees, and a few host and CLI fixes.
 
