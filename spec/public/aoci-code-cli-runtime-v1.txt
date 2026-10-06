@@ -56,6 +56,34 @@ its contract explicitly says otherwise, but local audit evidence can still be
 written when enabled. Formal writes use the existing validation, lock, CAS,
 atomic-write, and recovery pipeline.
 
+Configuration commands
+----------------------
+
+`aoci config list`, `aoci config get <key>`, and `aoci config set <key> <value>`
+read and write team configuration through the loader the configuration runtime
+contract describes. `list` and `get` read the effective configuration, the team
+file merged with eligible local overrides; `set` writes the team file only, so
+a local override never leaks into it.
+
+Under `--json`, `list` emits the effective configuration object, `get` emits
+the key's value as a typed JSON value (string, boolean, integer, or array,
+never prose), and `set` emits one result object:
+
+  ok: true
+  key: the key that was set
+  value: the effective value after the write, exactly what the next
+    `config get <key>` returns, so a local override of the same key shows
+    here as it will show there
+  restart_mcp_required: true, present only when the key is `locale`, because
+    a running `aoci mcp` keeps its startup locale
+  locale_migration: present only when a `locale` set leaves a migration
+    pending: `header_pending` (boolean), `entry_paths` and `curation_paths`
+    (counts), the same numbers human output prints
+
+The accepted keys are the ones the unknown-key message lists. An unknown key
+or an invalid value exits 3 with the ordinary version-1 error envelope before
+any write. Human output of these commands is not changed by this contract.
+
 Managed Scope activation
 ------------------------
 

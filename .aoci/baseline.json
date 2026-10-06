@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-05T10:38:50Z",
+  "updated_at": "2026-10-06T08:09:26Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "eb5830a85c7e041edc3dbefdf92538b6e93eca8e70c3bf31a05c28d9e6ad01fa",
-      "size": 196032,
-      "normalized_sha256": "eb5830a85c7e041edc3dbefdf92538b6e93eca8e70c3bf31a05c28d9e6ad01fa"
+      "sha256": "05e2c8d7de9a56fa2d6573bc320048bc150e8cc8a3a2a453d3699b7abd6bec56",
+      "size": 196108,
+      "normalized_sha256": "05e2c8d7de9a56fa2d6573bc320048bc150e8cc8a3a2a453d3699b7abd6bec56"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6315,9 +6315,10 @@
       "normalized_sha256": "74ed0ffa26595cc4bc9193b94a9d01b09631287b425b7632bcfc04658abdab10"
     },
     "spec/public/aoci-code-cli-runtime-v1.txt": {
-      "sha256": "f30af8c547ec3bc51a5a8300f57b5d8e452d4ea726637f0aa1319e89600e921d",
-      "size": 5855,
-      "normalized_sha256": "f30af8c547ec3bc51a5a8300f57b5d8e452d4ea726637f0aa1319e89600e921d"
+      "role": "index",
+      "sha256": "4a6813ace59e3870c31920b1cb96d822ad300ace21654cdda1147531a77a2a13",
+      "size": 7232,
+      "normalized_sha256": "4a6813ace59e3870c31920b1cb96d822ad300ace21654cdda1147531a77a2a13"
     },
     "spec/public/aoci-cognition-refresh-v1.txt": {
       "role": "index",
