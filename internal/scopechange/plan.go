@@ -610,7 +610,13 @@ func transactionRelevantEvaluation(value *managedscope.Evaluation, active *basel
 		if active != nil {
 			_, previouslyGoverned = active.Files[item.Path]
 		}
-		if item.RuleSource == machinecontract.ScopeRuleSafety && !previouslyGoverned && item.GitStatus != "tracked" {
+		// A path that was never governed and that no rule could ever read is
+		// not part of the change: a built-in safety exclusion of an untracked
+		// file, or any Git-ignored file (#101). Git-ignored files are policy
+		// candidates only so that a rule may pull one in; left in the envelope,
+		// a lock or cache file that another tool writes between preview and
+		// Apply made the replay fail with managed_scope_replay_mismatch.
+		if !previouslyGoverned && ((item.RuleSource == machinecontract.ScopeRuleSafety && item.GitStatus != "tracked") || item.GitStatus == "ignored") {
 			continue
 		}
 		result.Exclude = append(result.Exclude, item)
@@ -640,6 +646,19 @@ func transactionRelevantEvaluation(value *managedscope.Evaluation, active *basel
 			summary.UnsafeFilesystemExcluded++
 		}
 	}
+	// The candidate count and the selection identity are recomputed from the
+	// paths kept above for the same reason: the raw inventory counts every
+	// Git-ignored candidate, so a new ignored file moved both.
+	selected := []string{}
+	for _, group := range [][]managedscope.PathEvaluation{result.Index, result.Observe, result.Exclude} {
+		for _, item := range group {
+			if item.RuleSource != machinecontract.ScopeRuleSafety {
+				selected = append(selected, item.Path)
+			}
+		}
+	}
+	summary.FinalManagedCandidates = len(selected)
+	summary.InclusionExclusionIdentity = afs.ManagedSelectionIdentity(summary.RulesIdentity, selected)
 	result.SafeInventory = summary
 	return &result
 }
