@@ -11,6 +11,8 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
+<a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
+
 ## What it does
 
 **Build large systems without losing the plot.** In Codex, Claude Code, Cursor, OpenCode, and similar agents, your agent starts every task already knowing the whole system: what each file is for, what it depends on, and what must not break. It stops searching and re-reading the codebase for every request. People who are not professional developers can keep iterating on their own systems; professional developers can hand the whole system to an agent and keep their attention on architecture and design.
@@ -30,6 +32,14 @@ atomic.go[CG9L]: F:Provides durable replace CAS, create CAS, atomic writes, and 
 ```
 
 **F** is what the file is responsible for, **R** is what you have to read along with it, **A** is what callers depend on, and **S** is what you cannot infer from the code but must not get wrong. The tag `[CG9L]` places the file by layer, domain, importance, and size. A few hundred lines like this cover a whole system, and an agent can read them in one pass. [The entry format](#what-one-entry-records-fras) explains each field.
+
+## How is this different from CodeGraph?
+
+- **CodeGraph** parses your code into a graph of symbols and calls. When the agent asks a question, it returns the exact source and call paths. It is a precise lookup tool for the task at hand.
+- **AOCI-CODE** has the model write one line per file and table: what it is for, what it connects to, and what must not break. The agent reads the whole index first, so it knows the system before the task starts. The index lives in Git and is kept in step with the code.
+- Use both: the index to know the system, CodeGraph to fetch the exact code while working.
+
+[The full comparison](#how-it-differs-from-a-repo-map-rag-lsp-or-a-code-graph) covers RAG, LSP, and repo maps too.
 
 ## What to expect
 

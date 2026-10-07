@@ -11,6 +11,8 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
+<a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
+
 ## 1. 🎯 AOCI-CODE 能做什么
 
 1.1 **在 Code Agent 里持续迭代开发系统。** 在 Codex、Claude Code、Cursor、OpenCode 等 Agent 中，从零起步一直演进到 50 万行代码加数据库的完整系统。Agent 始终带着 AOCI 索引提供的整体系统认知工作，而不是每个任务都重新搜索、重读整个代码库。非专业开发者可以持续迭代开发自己的系统；专业开发者可以把整个系统交给 Agent 协同演进，把精力放在架构和设计决策上。
@@ -28,6 +30,14 @@
 2.2 **有数据库的系统，建议再建数据库索引。** 目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5。先建代码索引，再建数据库索引，代码认知与表级认知一起交付时，Agent 对系统的理解更完整。
 
 2.3 **只读你的系统，不联网，不存凭据。** AOCI-CODE 只读取源码和数据库的表结构，不读业务数据；写入的只有项目目录内的索引文件和自身状态，以及用户缓存目录里状态页的登记记录。它不访问互联网、不上传任何内容，唯一会打开的连接是你声明的数据库（只取表结构）和它自己的本机回环状态页。数据库凭据只通过环境变量名引用，从不保存。索引内容由你自己的 Agent 在本地撰写，走的是你已经在用的模型通道，AOCI-CODE 不引入任何新的数据出口。
+
+## 🔍 和 CodeGraph 有什么区别？
+
+- **CodeGraph** 用解析器把代码变成符号和调用关系的图。Agent 提问时，它返回对应的源码和调用路径。它是干活时的精确查询工具。
+- **AOCI-CODE** 让模型给每个文件和数据表各写一行：它是干什么的、和什么相连、什么不能改坏。Agent 先读完整份索引，开工前就认识整个系统。索引存在 Git 里，随代码一起维护。
+- 两个可以一起用：索引用来认识系统，CodeGraph 用来在干活时取精确代码。
+
+与 RAG、LSP、Repo Map 的完整对比见下文[「与其他代码理解方法的关系」](#-与其他代码理解方法的关系)。
 
 ## 🚀 一键使用
 
