@@ -162,6 +162,9 @@ before/after token reports, risk, write/guard sets, and recovery direction.
 Risk distinguishes any approval-bound budget_policy_change from a proven
 budget_relaxation; Legacy observe to a stricter enforce policy is not relaxation.
 Preview and the mode-selected authorization Receipt bind one Envelope digest.
+A Git-ignored path that no rule governs and that the active Baseline does not
+hold is not part of the Envelope, so a file another tool writes between
+Preview and Apply does not change the replay identity.
 Apply reuses the global cognition
 lock, CAS, AtomicWrite, Baseline, Ledger, receipt/archive, and recovery pipeline.
 The Preview is also a managed-scope-change-envelope/v2 document through its

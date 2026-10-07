@@ -1006,6 +1006,61 @@ def group_f_activate():
         s.close()
 
 
+def group_f_ignored_tool_file():
+    """A file another tool writes into a Git-ignored directory between preview
+    and Apply is not part of the change (#101).
+
+    Git-ignored files are policy candidates so that a rule may pull one in, and
+    until rc19 they stayed in the Scope Change envelope with the inventory
+    counts that include them. CodeGraph's watcher rewriting its lock file while
+    a human reviewed a preview then made Apply fail with a replay mismatch, an
+    error that reads as the operator's fault when no sequence of correct steps
+    could pass. The ignore rule lives in .git/info/exclude so that the rule
+    itself is not a new candidate, and the directory name is one no built-in
+    rule knows, so what is under test is the envelope, not a safety category.
+    """
+    g, name = "F", "F12.ignored-tool-file-between-preview-and-apply-keeps-replay-stable"
+    d = make_fixture("scope-ignored-tool-file", 1)
+    # Author the fixture first so that the only thing between the repository
+    # and aligned afterwards is the policy change itself.
+    s = Session(d)
+    try:
+        m, _, _ = maintain(s)
+        applied, text, _ = submit_batch(s, m)
+    finally:
+        s.close()
+    if applied.get("status") != "applied":
+        record(g, name, "FAIL", f"fixture authoring failed: {text[:160]}")
+        return
+    with open(os.path.join(d, ".git", "info", "exclude"), "a", encoding="utf-8") as fh:
+        fh.write(".toolstate/\n")
+    rc, _, out, errs = cli(d, "scope", "rule", "add", "no-op-future",
+                           "--action", "exclude", "--pattern", "never-present.txt",
+                           "--pattern-kind", "file", "--order", "100",
+                           "--reason", "scenario no-op policy change")
+    if rc != 0:
+        record(g, name, "FAIL", f"scope rule add failed: {(out + errs)[:160]}")
+        return
+    candidate = os.path.join(WORK, "fx-scope-ignored-tool-candidates.json")
+    with open(candidate, "w", encoding="utf-8") as fh:
+        fh.write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')
+    rc, _, out, errs = cli(d, "scope", "preview", "--candidate-file", candidate, expect_ok=False)
+    if rc != 0:
+        record(g, name, "FAIL", f"scope preview failed: {(out + errs)[:160]}")
+        return
+    preview = os.path.join(WORK, "fx-scope-ignored-tool-preview.json")
+    with open(preview, "w", encoding="utf-8") as fh:
+        fh.write(out)
+    os.makedirs(os.path.join(d, ".toolstate"), exist_ok=True)
+    with open(os.path.join(d, ".toolstate", "tool.lock"), "w", encoding="utf-8") as fh:
+        fh.write("pid 4242\n")
+    rc, result, out, errs = cli(d, "scope", "apply", "--preview-file", preview, expect_ok=False)
+    aligned, _ = fixture_aligned(d)
+    ok = rc == 0 and result.get("status") == "applied" and aligned
+    record(g, name, "PASS" if ok else "FAIL",
+           f"rc={rc} status={result.get('status')} aligned={aligned} | {(out + errs)[:160] if rc else ''}")
+
+
 def group_f_held_sources():
     """A first scan over an image, an empty file, and a file above the read limit
     reaches aligned in auto mode: the three are held out as code_skipped with their
@@ -2049,6 +2104,7 @@ if __name__ == "__main__":
     group_n()
     group_f_scope()
     group_f_activate()
+    group_f_ignored_tool_file()
     group_f_held_sources()
     group_f_deleted_observe()
     group_f_excluded_tracked()

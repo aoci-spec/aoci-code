@@ -35,7 +35,7 @@ func exclusionCategory(report *SafeInventory, path string) string {
 func TestSafeInventoryGitAwareBoundaries(t *testing.T) {
 	root := t.TempDir()
 	gitCommand(t, root, "init", "-q")
-	mustWrite(t, root, ".gitignore", ".env\n.runtime/\ndist/\n")
+	mustWrite(t, root, ".gitignore", ".env\n.runtime/\nnode_modules/\n")
 	mustWrite(t, root, "src/tracked.go", "package source\n")
 	mustWrite(t, root, "tracked.pem", "must never be inventoried as content\n")
 	mustWrite(t, root, "package-lock.json", "{}\n")
@@ -43,7 +43,7 @@ func TestSafeInventoryGitAwareBoundaries(t *testing.T) {
 	mustWrite(t, root, "src/new.go", "package source\r\n")
 	mustWrite(t, root, ".env", "SECRET=redacted\n")
 	mustWrite(t, root, ".runtime/mysql/data/file.ibd", "runtime\n")
-	mustWrite(t, root, "dist/app.js", "generated\n")
+	mustWrite(t, root, "node_modules/app.js", "generated\n")
 
 	report, err := BuildSafeInventory(root, WalkOptions{})
 	if err != nil {
@@ -58,7 +58,7 @@ func TestSafeInventoryGitAwareBoundaries(t *testing.T) {
 			t.Fatalf("expected managed path %s: %#v", path, report)
 		}
 	}
-	for _, path := range []string{"tracked.pem", ".env", ".runtime/mysql/data/file.ibd", "dist/app.js"} {
+	for _, path := range []string{"tracked.pem", ".env", ".runtime/mysql/data/file.ibd", "node_modules/app.js"} {
 		if managed[path] {
 			t.Fatalf("unsafe path became managed: %s", path)
 		}
@@ -233,7 +233,7 @@ func TestSafeInventoryNonGitRootReadsNoChildGitignore(t *testing.T) {
 func TestSafeInventoryExcludeOnlyArtifactsRemainAutoEligible(t *testing.T) {
 	root := t.TempDir()
 	for _, path := range []string{
-		"logs/service.log", "cache/item.bin", "build/app.js", "dist/app.js", "coverage/index.html",
+		"logs/service.log", "build/app.js", "dist/app.js", "coverage/index.html",
 		"uploads/blob.bin", "node_modules/pkg/index.js", "vendor/pkg/file.go", "backup/state.json",
 		"artifacts/release.bin", "third-party-dist/library.min.js", "storage/.gitkeep",
 	} {
@@ -244,7 +244,10 @@ func TestSafeInventoryExcludeOnlyArtifactsRemainAutoEligible(t *testing.T) {
 		mustWrite(t, root, path, body)
 	}
 	mustWrite(t, root, "src/main.go", "package main\n")
-	report, err := BuildSafeInventory(root, WalkOptions{})
+	// build, dist, coverage, uploads, vendor, backup and artifacts are
+	// exclude_dirs entries, not built-in rules, so the options carry them as
+	// init writes them into the team configuration.
+	report, err := BuildSafeInventory(root, WalkOptions{ExcludeDirs: []string{"build", "dist", "coverage", "uploads", "vendor", "backup", "artifacts"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +317,7 @@ func TestSafeInventoryRuntimeAndSecretMatrix(t *testing.T) {
 	root := t.TempDir()
 	for _, path := range []string{
 		"service.log", "service.pid", "service.sock", "dump.rdb", "appendonly.aof",
-		"mysql-data/table.ibd", "pgdata/PG_VERSION", ".pm2/dump.pm2", "cache/result.bin",
+		"mysql-data/table.ibd", "pgdata/PG_VERSION", ".pm2/dump.pm2", ".cache/result.bin",
 		"credentials.json", "server.key", ".env.production", ".aoci/evidence/cache.json",
 	} {
 		mustWrite(t, root, path, "excluded body must not be inventoried\n")
@@ -598,4 +601,97 @@ func hasExclusion(report *SafeInventory, path string) bool {
 		}
 	}
 	return false
+}
+
+// #100: a directory named backup, cache, build or coverage is a feature or
+// module name as often as an artifact name, so the name alone is no longer a
+// built-in safety rule. Such a path is a candidate unless exclude_dirs names
+// the component, and then the exclusion says which entry to remove.
+func TestSafeInventoryAmbiguousDirectoryNamesAreGovernedByExcludeDirs(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	for _, path := range []string{
+		"src/pages/Settings/Backups/index.tsx", "src/backup/restore.go", "src/cache/store.rs",
+		"tests/api/coverage/matcher.ts", "views/tool/build/index.vue", "src/main.go",
+	} {
+		mustWrite(t, root, path, "source\n")
+	}
+	mustWrite(t, root, "node_modules/pkg/index.js", "module.exports = 1\n")
+	gitCommand(t, root, "add", ".")
+
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"src/pages/Settings/Backups/index.tsx", "src/backup/restore.go", "src/cache/store.rs", "tests/api/coverage/matcher.ts", "views/tool/build/index.vue"} {
+		if !containsPath(report.ManagedCandidates, path) {
+			t.Fatalf("%s is source but was dropped (category=%q): %#v", path, exclusionCategory(report, path), report.Exclusions)
+		}
+	}
+	if exclusionCategory(report, "node_modules/pkg/index.js") != SafetyGenerated {
+		t.Fatalf("node_modules stays a built-in rule: %#v", report.Exclusions)
+	}
+
+	report, err = BuildSafeInventory(root, WalkOptions{ExcludeDirs: []string{"backup", "build"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsPath(report.ManagedCandidates, "src/backup/restore.go") || containsPath(report.ManagedCandidates, "views/tool/build/index.vue") {
+		t.Fatalf("exclude_dirs no longer keeps the named components out: %#v", report.ManagedCandidates)
+	}
+	if !containsPath(report.ManagedCandidates, "src/pages/Settings/Backups/index.tsx") || !containsPath(report.ManagedCandidates, "src/cache/store.rs") {
+		t.Fatalf("exclude_dirs matching is exact per component: %#v", report.ManagedCandidates)
+	}
+	for path, source := range map[string]string{"src/backup/restore.go": "exclude_dirs:backup", "views/tool/build/index.vue": "exclude_dirs:build"} {
+		if exclusionCategory(report, path) != SafetyConfigured || exclusionSource(report, path) != source {
+			t.Fatalf("%s must report the exclude_dirs entry that removes it: %#v", path, report.Exclusions)
+		}
+	}
+	report, err = BuildSafeInventory(root, WalkOptions{ExcludeFiles: []string{"*.vue"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exclusionSource(report, "views/tool/build/index.vue") != "exclude_files:*.vue" {
+		t.Fatalf("an exclude_files match must name its pattern: %#v", report.Exclusions)
+	}
+}
+
+// .codegraph is a tool's per-project runtime state, rewritten by its watcher
+// while an agent works (#101); it is hard excluded like .aoci, whether or not
+// the repository ignores it, so it can never become an index candidate.
+func TestSafeInventoryCodeGraphStateIsToolRuntime(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, root, "src/main.go", "package main\n")
+	mustWrite(t, root, ".codegraph/codegraph.lock", "pid 1\n")
+	mustWrite(t, root, ".codegraph/codegraph.db", "sqlite\n")
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A non-Git root prunes the directory itself; a Git root lists or
+	// collapses what is under it. Either way the line is a tool runtime one.
+	found := false
+	for _, exclusion := range report.Exclusions {
+		if strings.HasPrefix(exclusion.PathSummary, ".codegraph") {
+			found = true
+			if exclusion.Category != SafetyRuntime || exclusion.RuleSource != "builtin_tool_runtime" {
+				t.Fatalf(".codegraph must be a built-in tool runtime exclusion: %#v", exclusion)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf(".codegraph was not excluded at all: %#v", report.Exclusions)
+	}
+	if containsPath(report.ManagedCandidates, ".codegraph/codegraph.lock") {
+		t.Fatalf("a tool lock file became a candidate: %#v", report.ManagedCandidates)
+	}
+}
+
+func exclusionSource(report *SafeInventory, path string) string {
+	for _, exclusion := range report.Exclusions {
+		if exclusion.PathSummary == path {
+			return exclusion.RuleSource
+		}
+	}
+	return ""
 }

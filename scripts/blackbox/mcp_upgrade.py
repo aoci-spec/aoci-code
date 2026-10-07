@@ -219,6 +219,14 @@ FIXTURE = {
     "greet.go": 'package main\n\n// Greet returns the banner.\nfunc Greet() string { return "hi" }\n',
     os.path.join("internal", "foo", "foo.go"):
         "package foo\n\n// Sum adds two ints.\nfunc Sum(a, b int) int { return a + b }\n",
+    # A tracked module whose directory name is in the default exclude_dirs
+    # (#100). Every release excluded it, first through a built-in rule and
+    # from rc19 through the exclude_dirs entry init persisted, so across the
+    # upgrade it must stay out without becoming Missing, an orphan, or a
+    # candidate; the day the default changes for new repositories, an old
+    # repository keeps its persisted list.
+    os.path.join("src", "backup", "restore.go"):
+        "package backup\n\n// Restore is a feature, not an artifact.\nfunc Restore() bool { return true }\n",
 }
 ENTRY_F = "Fixture object authored by the upgrade-axis regression track"
 

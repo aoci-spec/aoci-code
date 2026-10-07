@@ -325,6 +325,34 @@ this boundary even without a coverage reduction. With `--json`, the paths and
 commands are in the error's `details` object. Existing safety refusals still
 require resolving the reported cause.
 
+## A directory named `backup`, `cache`, `build`, or `coverage` is missing from the index
+
+Run `aoci scope explain <path>`. Through v0.1.0-rc18 those names were a
+built-in safety rule matched against every path component, so a feature module
+named like an artifact directory was excluded with no finding and no rule could
+pull it back (#100). Since rc19 the explanation reads
+`exclude_dirs:<name>:configured`: the component is in `exclude_dirs` in
+`.aoci/config.json`, which `init` fills with the usual artifact names. Remove
+the name with `aoci config set exclude_dirs ...`, run `aoci scope activate`,
+and the files become Missing Entries for the next Maintain; keep a root-level
+directory of that name out with an ordinary exclude rule. A path that
+`explain` reports as `builtin_generated_directory` (`node_modules`,
+`__pycache__`, ...) stays out.
+
+## `scope apply` fails with a replay mismatch after another tool wrote a file
+
+Through v0.1.0-rc18 a file that appeared in a git-ignored directory between
+`scope preview` and `scope apply` (CodeGraph rewriting `.codegraph/` while a
+human reviewed the preview, for example) changed the replay envelope, and
+Apply stopped with `deterministic_replay_failed` or
+`managed_scope_replay_mismatch` although every step was correct (#101). Since
+rc19 a git-ignored path that no rule governs is not part of the envelope, and
+`.codegraph` is a built-in runtime directory. A preview minted by rc18 or
+older fails replay once after the upgrade: run `scope preview` again. On an
+older release, add the tool's directory to `exclude_dirs` and run
+`aoci scope activate` first; the directory is then one inventory line and its
+files are never listed.
+
 ## The cognition layer must be visible to Git
 
 `scan` takes its file inventory from Git. A formal cognition asset covered by

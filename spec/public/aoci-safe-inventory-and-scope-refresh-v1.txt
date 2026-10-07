@@ -47,13 +47,21 @@ Before any candidate file is opened or hashed, the inventory rejects unsafe
 relative paths, symbolic links, junctions/reparse points exposed as unsafe
 objects, non-regular files, and cross-platform case-folding collisions. It
 then applies built-in exclusions for secret variants, private keys and
-credentials, runtime state, dependency/runtime trees, generated build/test
-output, logs/PIDs/sockets, database data files/directories, PM2 state, AOCI
-Draft/transaction/Evidence/Ledger runtime content, platform temporary files,
-binary databases, uploads, backups, cached/generated artifacts, and named
+credentials, runtime state, dependency trees and framework caches whose names
+never denote source (`node_modules`, `__pycache__`, `.next`, `.nuxt`,
+`.output`, `.cache`), logs/PIDs/sockets, database data files/directories, PM2
+state, AOCI Draft/transaction/Evidence/Ledger runtime content, the `.codegraph`
+tool runtime, platform temporary files, binary databases, and named
 third-party distribution output. Empty `.gitkeep` repository placeholders are
 generated artifacts. `.env.example`-style templates are not secret variants.
 `package-lock.json` is not a built-in secret or runtime exclusion.
+
+Generated build and test output, uploads, backups, caches, and vendored trees
+are not a built-in rule: a directory name that can denote source as well as
+an artifact is governed by the project `exclude_dirs` list, which
+initialization persists with the usual artifact names and a Scope Change can
+edit. A configured exclusion names the `exclude_dirs` or `exclude_files` entry
+that produced it.
 
 An excluded file's body is not read and no content SHA is calculated. It does
 not enter model prompts, the Baseline, Evidence, Candidates, or Ledger body.

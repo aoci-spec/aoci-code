@@ -195,11 +195,28 @@ any other object. Held files are not the lever for size: excluding a
 directory of generated assets is still a Managed Scope rule, and a rule added
 after the first scan is a coverage reduction that needs approval.
 
+Two kinds of directory name keep files out before any rule runs. A built-in
+name is one that never denotes source: `node_modules`, `__pycache__`, `.next`,
+`.nuxt`, `.output`, `.cache`, the `.git`, `.aoci`, and `.codegraph` runtime
+trees, and the runtime and database data directories. A configured name comes
+from `exclude_dirs` in `.aoci/config.json`, which `init` fills with the usual
+artifact names (`dist`, `build`, `target`, `coverage`, `tmp`, `uploads`,
+`backup`, `backups`, `artifacts`, `vendor`, ...) and which matches any path
+component at any depth. Through v0.1.0-rc18 the second list was also built
+in, so a feature module named `backup`, `cache`, or `build` (`src/backup`,
+`views/monitor/cache`, `tests/api/coverage`) was silently dropped and no rule
+could bring it back (#100). Since rc19 only the first list is built in.
+`scope explain` reports a configured exclusion as `exclude_dirs:<name>`; to
+index such a module, remove the name from `exclude_dirs` with
+`aoci config set exclude_dirs ...` and run `aoci scope activate`, then keep a
+root-level dump directory of the same name out with an ordinary exclude rule.
+`cache` and `temp` were never in the default `exclude_dirs`, so a tracked
+module under one of those names becomes a Missing Entry on upgrade and is
+authored like any other new source.
+
 A git-ignored directory whose every file is a hard exclusion anyway, because
-its name is a built-in generated, runtime, or VCS directory (`node_modules`,
-`dist`, `target`, `.runtime`, ...) or a component listed in `exclude_dirs`, is
-one line in the inventory with that category, and git does not list what is
-beneath it. Through v0.1.0-rc17 the inventory had git list every one of those
+its name is built in or a component listed in `exclude_dirs`, is one line in
+the inventory with that category, and git does not list what is beneath it. Through v0.1.0-rc17 the inventory had git list every one of those
 files on every `scan`, `verify`, and Maintain, only to exclude them; a
 `node_modules` with tens of thousands of files cost tens of seconds per call,
 and a pnpm workspace whose package links form a cycle never finished on

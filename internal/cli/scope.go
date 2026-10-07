@@ -207,14 +207,14 @@ func newScopeExplainCmd() *cobra.Command {
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
 						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + category}
-				} else if afs.PathExcludedByConfig(rel, cfg.WalkOptions()) {
+				} else if source, excluded := afs.ConfiguredExclusionSource(rel, cfg.WalkOptions()); excluded {
 					// A path under an exclude_dirs directory is a configured hard
 					// exclusion; since rc18 a git-ignored directory of that kind is
 					// one inventory line, so its files are not in the evaluation.
 					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: afs.SafetyConfigured, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "project_config:" + afs.SafetyConfigured}
+						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + afs.SafetyConfigured}
 				} else {
 					curated := containsScopePath(cfg.CurationExclude, rel)
 					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), rel, false, curated)

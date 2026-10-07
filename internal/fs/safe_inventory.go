@@ -209,8 +209,8 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 			report.addExclusion(rel, category, source, trackedPath)
 			continue
 		}
-		if configuredPathExcluded(rel, opt) {
-			report.addExclusion(rel, SafetyConfigured, "project_config", trackedPath)
+		if source, excluded := ConfiguredExclusionSource(rel, opt); excluded {
+			report.addExclusion(rel, SafetyConfigured, source, trackedPath)
 			continue
 		}
 		info, statErr := os.Lstat(filepath.Join(absRoot, filepath.FromSlash(rel)))
@@ -443,7 +443,7 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 	for _, part := range strings.Split(dir, "/") {
 		for _, excluded := range opt.ExcludeDirs {
 			if part == strings.TrimSpace(excluded) {
-				return SafetyConfigured, "project_config", true
+				return SafetyConfigured, "exclude_dirs:" + part, true
 			}
 		}
 	}
@@ -544,8 +544,17 @@ func BuiltInSafetyCategory(rel string) (category, source string) {
 			return SafetyRuntime, "builtin_aoci_runtime"
 		case ".runtime", ".pm2", "pm2", "run", "pids", "logs", "mysql-data", "postgres-data", "postgresql-data", "pgdata", "pg_wal", "pg_xact", "redis-data":
 			return SafetyRuntime, "builtin_runtime_directory"
-		case "node_modules", "vendor", "dist", "build", "coverage", "cache", ".cache", "tmp", "temp", "__pycache__", ".next", ".nuxt", "target",
-			"uploads", "backup", "backups", "artifacts", ".output", "third-party-dist", "third_party_dist":
+		case ".codegraph":
+			// CodeGraph's per-project state (SQLite graph, lock), rewritten by
+			// its watcher while an agent works; a tool runtime like .aoci.
+			return SafetyRuntime, "builtin_tool_runtime"
+		// Only names that never denote source are a built-in rule. backup,
+		// build, cache, coverage, dist, target, tmp, uploads, vendor and the
+		// like are feature and module names as often as artifact names (#100:
+		// src/backup, views/monitor/cache, tests/api/coverage), so they are
+		// governed by exclude_dirs, which init writes into the team
+		// configuration and a Scope Change can edit.
+		case "node_modules", "__pycache__", ".cache", ".next", ".nuxt", ".output", "third-party-dist", "third_party_dist":
 			return SafetyGenerated, "builtin_generated_directory"
 		}
 	}
@@ -587,15 +596,29 @@ func sensitiveBase(base string) bool {
 }
 
 func configuredPathExcluded(rel string, opt WalkOptions) bool {
+	_, excluded := ConfiguredExclusionSource(rel, opt)
+	return excluded
+}
+
+// ConfiguredExclusionSource names the project configuration entry that keeps
+// rel out: "exclude_dirs:<name>" for the first matching directory component,
+// "exclude_files:<pattern>" for a file pattern. The name is what the operator
+// removes from the team configuration to let the path back in (#100).
+func ConfiguredExclusionSource(rel string, opt WalkOptions) (source string, excluded bool) {
 	parts := strings.Split(rel, "/")
 	for _, part := range parts[:len(parts)-1] {
-		for _, excluded := range opt.ExcludeDirs {
-			if part == strings.TrimSpace(excluded) {
-				return true
+		for _, entry := range opt.ExcludeDirs {
+			if part == strings.TrimSpace(entry) {
+				return "exclude_dirs:" + part, true
 			}
 		}
 	}
-	return MatchExcludePattern(rel, opt.ExcludeFiles)
+	for _, pattern := range opt.ExcludeFiles {
+		if MatchExcludePattern(rel, []string{pattern}) {
+			return "exclude_files:" + strings.TrimSpace(pattern), true
+		}
+	}
+	return "", false
 }
 
 // PathExcludedByConfig reports project policy exclusions without reading the
@@ -610,6 +633,13 @@ func safeRelativePath(value string) (string, bool) {
 	return clean, value != "" && clean != "." && clean != ".." && !strings.HasPrefix(clean, "../") && !filepath.IsAbs(value)
 }
 
+// safeInventoryRulesIdentity enters every repository's applied Managed Scope
+// identity (managedscope.evaluationIdentity), so the built-in rule tokens must
+// not move when a built-in rule changes: bumping one turns every existing
+// repository into scope_change_required on upgrade (the rc19 axis run that
+// tried generated-v4 failed 80 checks). A built-in change is drift the next
+// Maintain surfaces as Missing or Orphan Entries, never a policy edit the
+// operator must re-approve; the tokens change only with the inventory version.
 func safeInventoryRulesIdentity(opt WalkOptions) string {
 	values := []string{SafeInventoryVersion, "sensitive-v1", "runtime-v1", "generated-v3", fmt.Sprint(opt.IncludeIgnoredCandidates)}
 	values = append(values, opt.ExcludeDirs...)

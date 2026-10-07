@@ -2,6 +2,39 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Scope Change replay no longer depends on files other tools write (#101).
+  A Git-ignored path that no rule governs and that the active Baseline does
+  not hold leaves the transaction envelope, and the candidate count and
+  selection identity the envelope carries are recomputed from the paths kept,
+  so a lock or cache file appearing between `scope preview` and `scope apply`
+  (CodeGraph's watcher, for one) no longer ends in `deterministic_replay_failed`
+  or `managed_scope_replay_mismatch`. A preview minted by rc18 or older fails
+  replay once after the upgrade; run `scope preview` again. `.codegraph` is a
+  built-in runtime directory like `.aoci`. Found and diagnosed by @Zedthm and
+  @mahirhir.
+- Directory names that can denote source are no longer a built-in safety rule
+  (#100). Through rc18 `backup`, `backups`, `build`, `cache`, `coverage`,
+  `dist`, `target`, `temp`, `tmp`, `uploads`, `artifacts`, and `vendor` were
+  matched against every path component and hard excluded with no way back:
+  `src/backup`, `views/monitor/cache`, and `tests/api/coverage` were dropped
+  from the index silently. The built-in rule now keeps only names that never
+  denote source (`node_modules`, `__pycache__`, `.next`, `.nuxt`, `.output`,
+  `.cache`, the third-party distribution names); the rest are governed by
+  `exclude_dirs`, which `init` already writes into `.aoci/config.json`, so an
+  existing repository changes no role on upgrade and now has a door: remove
+  the name with `aoci config set exclude_dirs ...` and run
+  `aoci scope activate`. `scope explain` reports a configured exclusion as
+  `exclude_dirs:<name>` or `exclude_files:<pattern>` instead of
+  `project_config`. Two names were never in the default list: a tracked module
+  under a nested `cache/` or `temp/` becomes a Missing Entry after the upgrade
+  and is authored like any new source; a git-ignored one stays excluded but is
+  listed per file rather than collapsed unless `exclude_dirs` names it.
+- Black-box: a scenario plants a file in a git-ignored directory between
+  preview and apply; the upgrade-axis fixture carries a tracked module named
+  `backup` that every release must keep out across the upgrade.
+
 ## v0.1.0-rc18
 
 Inventory speed on large ignored trees, and a few host and CLI fixes.

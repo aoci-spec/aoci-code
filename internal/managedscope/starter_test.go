@@ -1,6 +1,7 @@
 package managedscope
 
 import (
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"strings"
 	"testing"
 
@@ -112,7 +113,9 @@ func TestStarterRulesBuildKeepsInitialApprovalAutomatic(t *testing.T) {
 		"src/lib/util.ts":                "export const util = 1;\n",
 		"src/app.go":                     "package src\n",
 	})
-	evaluation, err := Build(root, starterPolicy(t), BuildOptions{})
+	// dist is an exclude_dirs entry, which init persists; the options carry it
+	// the way a repository's configuration does.
+	evaluation, err := Build(root, starterPolicy(t), BuildOptions{WalkOptions: afs.WalkOptions{ExcludeDirs: []string{"dist"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +137,7 @@ func TestStarterRulesBuildKeepsInitialApprovalAutomatic(t *testing.T) {
 			t.Fatalf("%s role=%q found=%v, want %q", path, item.Role, ok, role)
 		}
 	}
-	// The hard safety boundary refuses dist/ before any rule runs, so a map
+	// The configured exclusion refuses dist/ before any rule runs, so a map
 	// file there is neither indexed nor observed, whatever the starter rule says.
 	for _, group := range [][]PathEvaluation{evaluation.Index, evaluation.Observe} {
 		for _, item := range group {

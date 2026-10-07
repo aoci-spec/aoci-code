@@ -154,8 +154,8 @@ func removedReason(root, path string, options afs.WalkOptions, exclusions map[st
 		safe := exclusion.Category == afs.SafetySensitive || exclusion.Category == afs.SafetyRuntime || exclusion.Category == afs.SafetyGenerated || exclusion.Category == afs.SafetyUnsafe
 		return exclusion.Category, exclusion.RuleSource, exclusion.GitTracked, safe
 	}
-	if afs.PathExcludedByConfig(path, options) {
-		return afs.SafetyConfigured, "project_config", false, false
+	if source, excluded := afs.ConfiguredExclusionSource(path, options); excluded {
+		return afs.SafetyConfigured, source, false, false
 	}
 	if _, exists := rawCurrent[path]; exists && !formalCognitionAsset(path) && !selectedBusinessPaths[path] {
 		return "curation_excluded", "curation", false, false
