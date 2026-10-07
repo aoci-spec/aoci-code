@@ -219,16 +219,39 @@ FIXTURE = {
     "greet.go": 'package main\n\n// Greet returns the banner.\nfunc Greet() string { return "hi" }\n',
     os.path.join("internal", "foo", "foo.go"):
         "package foo\n\n// Sum adds two ints.\nfunc Sum(a, b int) int { return a + b }\n",
-    # A tracked module whose directory name is in the default exclude_dirs
-    # (#100). Every release excluded it, first through a built-in rule and
-    # from rc19 through the exclude_dirs entry init persisted, so across the
-    # upgrade it must stay out without becoming Missing, an orphan, or a
-    # candidate; the day the default changes for new repositories, an old
-    # repository keeps its persisted list.
+}
+ENTRY_F = "Fixture object authored by the upgrade-axis regression track"
+
+# A tracked module whose directory name is in the default exclude_dirs (#100).
+# Every release excluded it, first through a built-in rule and from rc19
+# through the exclude_dirs entry init persisted, so across the upgrade it must
+# stay out without becoming Missing, an orphan, or a candidate; the day the
+# default changes for new repositories, an old repository keeps its persisted
+# list. It is planted from rc7 on: releases before that keyed the initial auto
+# approval on every excluded tracked path and refuse init over one
+# (initial_scope_requires_machine_decision), which is a fact about those
+# releases, not about the upgrade.
+BACKUP_MODULE = {
     os.path.join("src", "backup", "restore.go"):
         "package backup\n\n// Restore is a feature, not an artifact.\nfunc Restore() bool { return true }\n",
 }
-ENTRY_F = "Fixture object authored by the upgrade-axis regression track"
+BACKUP_MODULE_FLOOR = 7
+
+
+def release_number(version):
+    """v0.1.0-rc18 -> 18; a final release sorts after every candidate."""
+    match = re.search(r"-rc(\d+)$", version)
+    return int(match.group(1)) if match else 10 ** 6
+
+
+def plant_backup_module(path):
+    for rel, body in BACKUP_MODULE.items():
+        full = os.path.join(path, rel)
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+    git(path, "add", "-A")
+    git(path, "commit", "-qm", "track a module named backup")
 
 # The git-ignored trees of the #97 shapes. Nothing under them is committed:
 # "ignored" are the .gitignore lines, "files" what is written beneath them,
@@ -528,6 +551,8 @@ def check_version(version, shape, old_binary, workdir):
         repo = os.path.join(workdir, f"{version}-cutsegment", "(x)", "repo")
     os.makedirs(repo, exist_ok=True)
     make_fixture(repo)
+    if release_number(version) >= BACKUP_MODULE_FLOOR:
+        plant_backup_module(repo)
     # The worktree shape authors in a git worktree nested under the primary
     # checkout and reads from the primary checkout after the merge; every other
     # shape authors and reads at the same root.
