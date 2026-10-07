@@ -2,7 +2,10 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc19
+
+Two fixes from user reports: Scope Change replay, and directory names that
+hid source from the index.
 
 - Scope Change replay no longer depends on files other tools write (#101).
   A Git-ignored path that no rule governs and that the active Baseline does
