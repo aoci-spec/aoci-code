@@ -37,6 +37,9 @@ hid source from the index.
 - Black-box: a scenario plants a file in a git-ignored directory between
   preview and apply; the upgrade-axis fixture carries a tracked module named
   `backup` that every release must keep out across the upgrade.
+- Dependencies: `golang.org/x/text` 0.41.0 (GO-2026-6629, a panic on crafted
+  input in `x/text/secure/precis`, reachable through the database drivers'
+  SASL preparation) and `golang.org/x/sync` 0.22.0 with it.
 
 ## v0.1.0-rc18
 

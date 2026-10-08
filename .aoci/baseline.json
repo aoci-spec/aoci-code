@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-07T16:33:33Z",
+  "updated_at": "2026-10-08T03:40:06Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "33c3d4e7999f9644c9fdc4de15d65e6418fb52fdad4e485fe077e48501a0ca69",
-      "size": 109431,
-      "normalized_sha256": "33c3d4e7999f9644c9fdc4de15d65e6418fb52fdad4e485fe077e48501a0ca69"
+      "sha256": "d7a084d8406f0e00c9231afa09eaaa2e999e867cae92f2f30778a57bcb24023d",
+      "size": 109643,
+      "normalized_sha256": "d7a084d8406f0e00c9231afa09eaaa2e999e867cae92f2f30778a57bcb24023d"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -125,9 +125,9 @@
     },
     "THIRD-PARTY-NOTICES": {
       "role": "index",
-      "sha256": "d587c3ba8d160cefb0e101cafb327590d9f2ffe4c62b4abd426415fceeef42d4",
+      "sha256": "5bb322f8aa26edde5d866f89e36a9db7f20b150c496cf978b4c2f22108ba9598",
       "size": 88767,
-      "normalized_sha256": "d587c3ba8d160cefb0e101cafb327590d9f2ffe4c62b4abd426415fceeef42d4"
+      "normalized_sha256": "5bb322f8aa26edde5d866f89e36a9db7f20b150c496cf978b4c2f22108ba9598"
     },
     "TRADEMARKS": {
       "role": "index",
@@ -326,15 +326,15 @@
     },
     "go.mod": {
       "role": "index",
-      "sha256": "e78bd14fd04f964308fc8897f531c3141e21a8d5924328098489c19b22ed21e7",
+      "sha256": "a69a389ff5463b047f799a92a4790d376f73b6c14b5898cccd667d5a4dfe7f1a",
       "size": 1216,
-      "normalized_sha256": "e78bd14fd04f964308fc8897f531c3141e21a8d5924328098489c19b22ed21e7"
+      "normalized_sha256": "a69a389ff5463b047f799a92a4790d376f73b6c14b5898cccd667d5a4dfe7f1a"
     },
     "go.sum": {
       "role": "index",
-      "sha256": "d0a2f33435d6a6eb48079e2f82e3ad44b013e0d55d905e2696097a951e73a8ba",
+      "sha256": "1c5b270d10e610c1b722ad0c4f390eb854808569e0393319e4f4fbd537213ba3",
       "size": 13669,
-      "normalized_sha256": "d0a2f33435d6a6eb48079e2f82e3ad44b013e0d55d905e2696097a951e73a8ba"
+      "normalized_sha256": "1c5b270d10e610c1b722ad0c4f390eb854808569e0393319e4f4fbd537213ba3"
     },
     "internal/authoringcontract/contract.go": {
       "role": "index",
