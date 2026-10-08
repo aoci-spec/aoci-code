@@ -74,6 +74,30 @@ func defaultExcludeDirs() []string {
 	}
 }
 
+// These ambiguous names are artifacts by default only at the repository root
+// in newly initialized repositories. Existing exclude_dirs lists stay intact.
+func newProjectRootExcludeDirs() []string {
+	return []string{"backup", "build", "cache", "coverage", "dist", "target", "tmp", "uploads", "artifacts", "vendor"}
+}
+
+// SetNewProjectArtifactExclusions persists the new-project choice before the
+// first inventory. The remaining exclude_dirs entries still match at any depth.
+func (cfg *Config) SetNewProjectArtifactExclusions() {
+	rootDirs := newProjectRootExcludeDirs()
+	rootSet := make(map[string]bool, len(rootDirs))
+	for _, dir := range rootDirs {
+		rootSet[dir] = true
+	}
+	anywhere := make([]string, 0, len(cfg.ExcludeDirs))
+	for _, dir := range cfg.ExcludeDirs {
+		if !rootSet[dir] {
+			anywhere = append(anywhere, dir)
+		}
+	}
+	cfg.ExcludeDirs = anywhere
+	cfg.ExcludeRootDirs = rootDirs
+}
+
 func defaultExcludeFiles() []string {
 	return []string{
 		"*.backup.*",
@@ -133,8 +157,9 @@ type Config struct {
 
 	IndexPath string `json:"index_path"`
 
-	ExcludeDirs  []string `json:"exclude_dirs"`
-	ExcludeFiles []string `json:"exclude_files"`
+	ExcludeDirs     []string `json:"exclude_dirs"`
+	ExcludeRootDirs []string `json:"exclude_root_dirs,omitempty"`
+	ExcludeFiles    []string `json:"exclude_files"`
 
 	// 历史保留字段，当前不自动映射为文件模式。
 	ExcludeExts []string `json:"exclude_exts"`
@@ -337,6 +362,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamLocale := cfg.Locale
 	teamLocaleMigration := cloneLocaleMigration(cfg.LocaleMigration)
 	teamSafeInventoryHighRiskOptIn := append([]string{}, cfg.SafeInventoryHighRiskOptIn...)
+	teamExcludeRootDirs := append([]string(nil), cfg.ExcludeRootDirs...)
 	teamDatabaseSources := append([]dbevidence.SourceConfig{}, cfg.DatabaseSources...)
 	teamDatabaseCognitionBatchObjects := cfg.DatabaseCognitionBatchObjects
 	teamDatabaseCognitionBatchEvidenceBytes := cfg.DatabaseCognitionBatchEvidenceBytes
@@ -362,6 +388,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.Locale = teamLocale
 	cfg.LocaleMigration = teamLocaleMigration
 	cfg.SafeInventoryHighRiskOptIn = teamSafeInventoryHighRiskOptIn
+	cfg.ExcludeRootDirs = teamExcludeRootDirs
 	cfg.DatabaseSources = teamDatabaseSources
 	cfg.DatabaseCognitionBatchObjects = teamDatabaseCognitionBatchObjects
 	cfg.DatabaseCognitionBatchEvidenceBytes = teamDatabaseCognitionBatchEvidenceBytes
@@ -973,6 +1000,7 @@ func SaveLocal(
 	delete(existing, "maintain_transport_budget_bytes")
 	delete(existing, "managed_scope")
 	delete(existing, "cognition_budget")
+	delete(existing, "exclude_root_dirs")
 
 	if err := os.MkdirAll(
 		dirPath(repoRoot),
@@ -1075,9 +1103,10 @@ func saveToPathCAS(targetPath string, cfg *Config, expectedSHA256 string) error 
 // CurationExclude、Automation和LineEndingTolerance都不进入遍历层。
 func (configValue *Config) WalkOptions() fs.WalkOptions {
 	return fs.WalkOptions{
-		ExcludeDirs:   configValue.ExcludeDirs,
-		ExcludeFiles:  configValue.ExcludeFiles,
-		HighRiskOptIn: append([]string{}, configValue.SafeInventoryHighRiskOptIn...),
+		ExcludeDirs:     configValue.ExcludeDirs,
+		ExcludeRootDirs: configValue.ExcludeRootDirs,
+		ExcludeFiles:    configValue.ExcludeFiles,
+		HighRiskOptIn:   append([]string{}, configValue.SafeInventoryHighRiskOptIn...),
 	}
 }
 

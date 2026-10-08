@@ -2,12 +2,12 @@
 """AOCI upgrade-axis harness — a repository written by a previously released
 binary must stay governable by the binary under test.
 
-升级轴回归（每个已发布版本 64 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
+升级轴回归（每个已发布版本 72 项检查）：用**旧的已发布二进制**建仓、扫描、授权到
 aligned,再让被测二进制跑上去,断言身份不变、不索要 Scope Change、不改写正式资产。
-八种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
+九种仓库形状各跑一遍: 两种 config 形状解析的是不同的预算 preimage, 两种路径形状
 (根路径含空格 / 某个路径段以 "(" 开头)承载的是旧读法截断出来的两种段根, 一种
 嵌套 worktree 形状(在 <repo>/.worktrees/wt 里建的索引合回主检出后从主检出读, #77),
-一种在途批次形状, 两种 git 忽略目录形状(被用户规则拉进索引的 gen/api.go; 几百个
+一种在途批次形状, 一种旧版目录排除形状, 两种 git 忽略目录形状(被用户规则拉进索引的 gen/api.go; 几百个
 文件的 node_modules 加一个被 observe 规则观察的 out/ 文件, #97)。
 
 Why this suite exists at all: the other three suites build every fixture with the
@@ -61,7 +61,11 @@ update must then re-author a changed tracked file and the new one beside it.
 whose one file a user rule observes: collapsing the first must not move the
 composite identity, and the second must stay observed.
 
-The published number is 64 checks *per released version* (8 per repository
+`legacydirs` tracks root `build/` and nested `src/build/` and `src/vendor/`
+before the released binary initializes the repository. Its persisted
+any-depth exclusions must remain active after the upgrade (#104).
+
+The published number is 72 checks *per released version* (8 per repository
 shape), not a total: a total would change on every release and stop being a
 property of this suite.
 
@@ -107,11 +111,12 @@ CHECKS_PER_SHAPE = 8
 # older batch rule (a fixed count of 20 up to rc15, a byte budget since rc16)
 # is still on disk when the binary under test plans, and it must author to
 # aligned over it instead of wedging on the stale receipt.
+# "legacydirs" pins old any-depth exclusions with tracked root and nested paths.
 # "ignoredpull" and "ignoredtree" put git-ignored directories under the released
 # index (#97); IGNORED_SHAPES below holds what each plants and which rule the
 # released binary adds before its scan.
 SHAPES = ("init", "nobudget", "spacedroot", "cutsegment", "worktree", "inflight",
-          "ignoredpull", "ignoredtree")
+          "legacydirs", "ignoredpull", "ignoredtree")
 CHECKS_PER_VERSION = CHECKS_PER_SHAPE * len(SHAPES)
 CHECK_NAMES = ("post_scan_identity_stable", "aligned_repo_stays_aligned",
                "composite_identity_unchanged", "no_scope_change_demanded",
@@ -237,6 +242,12 @@ BACKUP_MODULE = {
 }
 BACKUP_MODULE_FLOOR = 7
 
+LEGACY_ARTIFACT_FILES = {
+    "build/output.txt": "generated output\n",
+    "src/build/tool.go": "package build\n\nfunc Tool() {}\n",
+    "src/vendor/parser.go": "package vendor\n\nfunc Parse() {}\n",
+}
+
 
 def release_number(version):
     """v0.1.0-rc18 -> 18; a final release sorts after every candidate."""
@@ -252,6 +263,16 @@ def plant_backup_module(path):
             fh.write(body)
     git(path, "add", "-A")
     git(path, "commit", "-qm", "track a module named backup")
+
+
+def plant_legacy_artifact_dirs(path):
+    for rel, body in LEGACY_ARTIFACT_FILES.items():
+        full = os.path.join(path, *rel.split("/"))
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(body)
+    git(path, "add", "-A")
+    git(path, "commit", "-qm", "track old artifact directory names")
 
 # The git-ignored trees of the #97 shapes. Nothing under them is committed:
 # "ignored" are the .gitignore lines, "files" what is written beneath them,
@@ -553,6 +574,8 @@ def check_version(version, shape, old_binary, workdir):
     make_fixture(repo)
     if release_number(version) >= BACKUP_MODULE_FLOOR:
         plant_backup_module(repo)
+    if shape == "legacydirs" and release_number(version) >= BACKUP_MODULE_FLOOR:
+        plant_legacy_artifact_dirs(repo)
     # The worktree shape authors in a git worktree nested under the primary
     # checkout and reads from the primary checkout after the merge; every other
     # shape authors and reads at the same root.
@@ -581,6 +604,12 @@ def check_version(version, shape, old_binary, workdir):
         run(old_binary, authoring, "scope", "rule", "add", rule_id, "--action", action,
             "--pattern", pattern, "--reason", reason, check=True)
     run(old_binary, authoring, "scan", check=True)
+    if shape == "legacydirs" and release_number(version) >= BACKUP_MODULE_FLOOR:
+        included = [path for path in LEGACY_ARTIFACT_FILES if baseline_role(authoring, path) is not None]
+        if included:
+            for name in CHECK_NAMES:
+                ok(f"{tag}.{name}", False, f"released binary included legacy exclusions: {included}")
+            return
     if ignored:
         probe, want = ignored["probe"]
         got = baseline_role(authoring, probe)

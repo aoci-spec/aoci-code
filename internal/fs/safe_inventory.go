@@ -440,6 +440,12 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 	if category, source := BuiltInSafetyCategory(dir + "/" + collapsedCategoryProbe); category != "" {
 		return category, source, true
 	}
+	rootDir := strings.Split(dir, "/")[0]
+	for _, excluded := range opt.ExcludeRootDirs {
+		if rootDir == strings.TrimSpace(excluded) {
+			return SafetyConfigured, "exclude_root_dirs:" + strings.TrimSpace(excluded), true
+		}
+	}
 	for _, part := range strings.Split(dir, "/") {
 		for _, excluded := range opt.ExcludeDirs {
 			if part == strings.TrimSpace(excluded) {
@@ -601,11 +607,17 @@ func configuredPathExcluded(rel string, opt WalkOptions) bool {
 }
 
 // ConfiguredExclusionSource names the project configuration entry that keeps
-// rel out: "exclude_dirs:<name>" for the first matching directory component,
-// "exclude_files:<pattern>" for a file pattern. The name is what the operator
-// removes from the team configuration to let the path back in (#100).
+// rel out: "exclude_root_dirs:<name>" at the repository root,
+// "exclude_dirs:<name>" at any depth, or "exclude_files:<pattern>" for a file.
 func ConfiguredExclusionSource(rel string, opt WalkOptions) (source string, excluded bool) {
 	parts := strings.Split(rel, "/")
+	if len(parts) > 1 {
+		for _, entry := range opt.ExcludeRootDirs {
+			if parts[0] == strings.TrimSpace(entry) {
+				return "exclude_root_dirs:" + parts[0], true
+			}
+		}
+	}
 	for _, part := range parts[:len(parts)-1] {
 		for _, entry := range opt.ExcludeDirs {
 			if part == strings.TrimSpace(entry) {
@@ -645,6 +657,11 @@ func safeInventoryRulesIdentity(opt WalkOptions) string {
 	values = append(values, opt.ExcludeDirs...)
 	values = append(values, opt.ExcludeFiles...)
 	values = append(values, opt.HighRiskOptIn...)
+	// An absent field is the exact pre-rc20 identity, including its hash.
+	if len(opt.ExcludeRootDirs) > 0 {
+		values = append(values, "exclude_root_dirs:v1")
+		values = append(values, opt.ExcludeRootDirs...)
+	}
 	return digestStrings(values)
 }
 

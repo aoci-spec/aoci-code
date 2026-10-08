@@ -70,7 +70,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -111,6 +111,8 @@ func init() {
 			switch key {
 			case "exclude_dirs":
 				cfg.ExcludeDirs = splitCSV(value)
+			case "exclude_root_dirs":
+				cfg.ExcludeRootDirs = splitCSV(value)
 			case "exclude_files":
 				cfg.ExcludeFiles = splitCSV(value)
 			case "curation_exclude":
@@ -217,7 +219,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -322,6 +324,11 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 			return cfg.ExcludeDirs, true
 		}
 		return strings.Join(cfg.ExcludeDirs, ","), true
+	case "exclude_root_dirs":
+		if jsonMode {
+			return append([]string{}, cfg.ExcludeRootDirs...), true
+		}
+		return strings.Join(cfg.ExcludeRootDirs, ","), true
 	case "exclude_files":
 		if jsonMode {
 			return cfg.ExcludeFiles, true

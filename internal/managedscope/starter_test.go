@@ -22,8 +22,8 @@ func starterPolicy(t *testing.T) Policy {
 }
 
 func TestStarterRulesExistOnlyForProductionInAFixedOrder(t *testing.T) {
-	// No vendor, dist, or build pattern: the safety boundary refuses those
-	// segments before rules run, so such a rule could never match.
+	// No vendor, dist, or build pattern: artifact exclusions belong to the
+	// repository's persisted inventory policy, not the starter rule set.
 	want := []string{"**/static/**/libs/**", "**/static/**/lib/**", "**/static/**/plugins/**",
 		"**/*.min.js", "**/*.min.css", "**/*.map", "**/fonts/**"}
 	rules := StarterRules(machinecontract.ScopeProfileProduction)

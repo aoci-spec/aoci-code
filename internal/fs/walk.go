@@ -21,6 +21,8 @@ import "strings"
 type WalkOptions struct {
 	// ExcludeDirs 目录名排除(按目录基名匹配,如 node_modules)
 	ExcludeDirs []string
+	// ExcludeRootDirs matches only the first repository-relative directory.
+	ExcludeRootDirs []string
 	// ExcludeFiles 文件排除模式,语义对齐平台 matchExcludePattern:
 	// *.bak 后缀 / backup_* 前缀 / *.backup.* 包含 / 无 * 则基名或相对路径精确
 	ExcludeFiles []string

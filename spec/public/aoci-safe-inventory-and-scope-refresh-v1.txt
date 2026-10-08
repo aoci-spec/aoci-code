@@ -58,10 +58,18 @@ generated artifacts. `.env.example`-style templates are not secret variants.
 
 Generated build and test output, uploads, backups, caches, and vendored trees
 are not a built-in rule: a directory name that can denote source as well as
-an artifact is governed by the project `exclude_dirs` list, which
-initialization persists with the usual artifact names and a Scope Change can
-edit. A configured exclusion names the `exclude_dirs` or `exclude_files` entry
-that produced it.
+an artifact is governed by project configuration. New initialization persists
+ambiguous names (`backup`, `build`, `cache`, `coverage`, `dist`, `target`, `tmp`,
+`uploads`, `artifacts`, `vendor`) in `exclude_root_dirs`, which matches only
+the first directory under the repository root. `exclude_dirs` keeps its
+any-depth component matching for other names and for repositories initialized
+before this policy. Existing repositories retain their persisted lists and
+opt in only through a Scope Change. Otherwise-safe nested Git-ignored paths
+retain the default Exclude role unless an explicit Managed Scope rule includes
+them; root-level configured exclusions cannot be overridden by such a rule.
+A configured exclusion names the `exclude_root_dirs`, `exclude_dirs`, or
+`exclude_files` entry that produced it; an absent root-only list does not
+change an old repository's Safe Inventory rules identity.
 
 An excluded file's body is not read and no content SHA is calculated. It does
 not enter model prompts, the Baseline, Evidence, Candidates, or Ledger body.

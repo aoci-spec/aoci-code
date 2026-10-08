@@ -15,7 +15,8 @@ without weakening hard exclusions. Only a winning `index` or `observe` role
 allows later fingerprinting.
 
 A Git-ignored directory whose every file is a hard exclusion anyway, such as
-`node_modules`, `dist`, `target`, or a directory named in `exclude_dirs`, is one
+`node_modules`, a directory named in `exclude_dirs`, or a root directory named
+in `exclude_root_dirs`, is one
 line in the inventory, and Git is never asked to list it (#97: before rc18 a
 large `node_modules` cost seconds on every call, and a pnpm workspace whose
 links form a cycle never finished on Windows). Every other ignored directory,

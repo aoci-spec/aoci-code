@@ -656,6 +656,42 @@ func TestSafeInventoryAmbiguousDirectoryNamesAreGovernedByExcludeDirs(t *testing
 	}
 }
 
+func TestSafeInventoryRootOnlyArtifactDirectories(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	for _, rel := range []string{"build/bundle.js", "cache/object", "src/build/tool.go", "src/cache/store.go", "src/vendor/parser.go"} {
+		mustWrite(t, root, rel, "source\n")
+	}
+	gitCommand(t, root, "add", ".")
+	opt := WalkOptions{ExcludeRootDirs: []string{"build", "cache", "vendor"}}
+	report, err := BuildSafeInventory(root, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{"build/bundle.js", "cache/object"} {
+		if source := exclusionSource(report, rel); source != "exclude_root_dirs:"+strings.Split(rel, "/")[0] {
+			t.Errorf("%s exclusion source = %q", rel, source)
+		}
+	}
+	for _, rel := range []string{"src/build/tool.go", "src/cache/store.go", "src/vendor/parser.go"} {
+		if !containsPath(report.ManagedCandidates, rel) {
+			t.Errorf("tracked nested source %s was excluded", rel)
+		}
+	}
+	if _, _, hard := HardExcludedDirectory("build", opt); !hard {
+		t.Fatal("root build directory should be collapsible when git-ignored")
+	}
+	if _, _, hard := HardExcludedDirectory("src/build", opt); hard {
+		t.Fatal("nested build directory must not be collapsed")
+	}
+	if safeInventoryRulesIdentity(opt) == safeInventoryRulesIdentity(WalkOptions{}) {
+		t.Fatal("root-only policy must enter the scope identity")
+	}
+	if safeInventoryRulesIdentity(WalkOptions{ExcludeRootDirs: []string{}}) != safeInventoryRulesIdentity(WalkOptions{}) {
+		t.Fatal("an absent policy must retain the legacy rules identity")
+	}
+}
+
 // .codegraph is a tool's per-project runtime state, rewritten by its watcher
 // while an agent works (#101); it is hard excluded like .aoci, whether or not
 // the repository ignores it, so it can never become an index candidate.

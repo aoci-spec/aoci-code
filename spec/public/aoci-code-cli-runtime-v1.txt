@@ -64,6 +64,8 @@ read and write team configuration through the loader the configuration runtime
 contract describes. `list` and `get` read the effective configuration, the team
 file merged with eligible local overrides; `set` writes the team file only, so
 a local override never leaks into it.
+`exclude_root_dirs` is a comma-separated root-only directory list; like
+`exclude_dirs`, changing it after the first scan requires Scope Change.
 
 Under `--json`, `list` emits the effective configuration object, `get` emits
 the key's value as a typed JSON value (string, boolean, integer, or array,

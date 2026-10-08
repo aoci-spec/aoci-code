@@ -233,6 +233,7 @@ func init() {
 			}
 
 			if !configExisted {
+				cfg.SetNewProjectArtifactExclusions()
 				if setErr := cfg.SetAutomationMode(
 					config.AutomationModeAuto,
 				); setErr != nil {

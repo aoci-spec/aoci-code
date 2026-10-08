@@ -649,7 +649,7 @@
   "doctor.endpoint_not_probed": "未探测(加 --net 发起一次真实连通测试)",
   "doctor.endpoint_prompt_failed": "探测Prompt资源无效: %v",
   "doctor.endpoint_succeeded": "成功(%s)",
-  "doctor.exclude_gaps": "团队 exclude_dirs 缺少当前默认技术产物项: %s(工具缓存可能被判虚假 Missing;建议维护者用 aoci config 补入,本命令不代改)",
+  "doctor.exclude_gaps": "团队目录排除配置缺少当前默认技术产物项: %s(工具缓存可能被判虚假 Missing;建议维护者用 aoci config 补入,本命令不代改)",
   "doctor.exit_error": "doctor 检查发现问题(退出码 %d)",
   "doctor.failed": "诊断完成: %d 项需要处理(见上方 [✗])。",
   "doctor.group.agents": "Agent 接入",

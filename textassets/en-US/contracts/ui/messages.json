@@ -649,7 +649,7 @@
   "doctor.endpoint_not_probed": "not probed (add --net to perform one real connectivity test)",
   "doctor.endpoint_prompt_failed": "probe Prompt asset is invalid: %v",
   "doctor.endpoint_succeeded": "succeeded (%s)",
-  "doctor.exclude_gaps": "team exclude_dirs lacks current default technical-artifact entries: %s (tool caches may appear as false Missing files; a maintainer can add them with aoci config; Doctor does not edit configuration)",
+  "doctor.exclude_gaps": "team directory exclusions lack current default technical-artifact entries: %s (tool caches may appear as false Missing files; a maintainer can add them with aoci config; Doctor does not edit configuration)",
   "doctor.exit_error": "Doctor found a problem (exit code %d)",
   "doctor.failed": "Diagnostics complete: %d item(s) require attention (see [✗] above).",
   "doctor.group.agents": "Agent integrations",
