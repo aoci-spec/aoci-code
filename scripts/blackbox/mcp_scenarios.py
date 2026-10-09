@@ -1726,10 +1726,13 @@ def group_o_s_absent_priority():
     so an empty S at C8 sat behind every filled C9 Entry. Budget pressure still
     comes first, then C>=7 Entries without S, then everything else by C; the
     candidate names the reason and the instructions say that returning the
-    Entry unchanged is a valid outcome. This authors a 3-file fixture, rewrites
-    one Entry to C8 with S:- and one to C9 with S filled through the direct
-    path, then checks the optimization batch order, reason, instruction, and
-    that the unchanged batch still completes.
+    Entry unchanged is a valid outcome. Since rc20 an Entry whose E scale
+    letter its line count contradicts (#103) ranks right after those, still
+    ahead of C order, with reason e_scale_mismatch. This authors a 3-file
+    fixture, rewrites one Entry to C8 with S:-, one to C9 with S filled, and
+    one to M at three lines through the direct path, then checks the
+    optimization batch order, reasons, instruction, and that the unchanged
+    batch still completes.
     """
     g = "O"
     name = "O2.high-importance-entry-without-s-is-reviewed-first"
@@ -1759,8 +1762,9 @@ def group_o_s_absent_priority():
 
         absent, ta = direct("pkg/f001.go", "f001.go[CG8T]: F:Provides fixture constant unit 1 | R:- | A:- | S:-")
         filled, tf = direct("pkg/f002.go", "f002.go[CG9T]: F:Provides fixture constant unit 2 | R:- | A:- | S:Callers must not cache the value across restarts")
-        if absent.get("status") != "applied" or filled.get("status") != "applied":
-            record(g, name, "FAIL", f"direct rewrites failed: {ta[:120]} | {tf[:120]}")
+        wrong, tw = direct("pkg/f003.go", "f003.go[CG5M]: F:Provides fixture constant unit 3 | R:- | A:- | S:-")
+        if absent.get("status") != "applied" or filled.get("status") != "applied" or wrong.get("status") != "applied":
+            record(g, name, "FAIL", f"direct rewrites failed: {ta[:120]} | {tf[:120]} | {tw[:120]}")
             return
         opt_text, _ = text_of(s.call("aoci_maintain", {"intent": "cognition_optimization"}))
         opt = jload(opt_text) or {}
@@ -1770,10 +1774,17 @@ def group_o_s_absent_priority():
         reasons = {c.get("path"): c.get("selection_reason") for c in cands}
         instructed = "s_absent_high_importance" in " ".join(opt.get("instructions") or [])
         # The fixture also carries the init-generated AGENTS.md and .gitattributes
-        # Entries at C5, so only the head of the order is pinned: the C8 Entry
-        # without S, then the filled C9 one, then everything else by C and size.
+        # Entries at C5, so only the structure of the order is pinned: the C8
+        # Entry without S first; then exactly the Entries whose E letter the
+        # line count contradicts (f003 tagged M at three lines, and the template
+        # tags the init-generated AGENTS.md T); then the filled C9 one; then
+        # everything else by C and size.
         others_flagged = [pth for pth, why in reasons.items() if pth != "pkg/f001.go" and why == "s_absent_high_importance"]
-        if (order[:2] != ["pkg/f001.go", "pkg/f002.go"] or reasons.get("pkg/f001.go") != "s_absent_high_importance"
+        scale_flagged = sorted(pth for pth, why in reasons.items() if why == "e_scale_mismatch")
+        f002_at = order.index("pkg/f002.go") if "pkg/f002.go" in order else -1
+        between = sorted(order[1:f002_at]) if f002_at > 0 else None
+        if (order[:1] != ["pkg/f001.go"] or reasons.get("pkg/f001.go") != "s_absent_high_importance"
+                or "pkg/f003.go" not in scale_flagged or between != scale_flagged
                 or others_flagged or not instructed or not plan.get("batch_id")):
             record(g, name, "FAIL", f"order={order} reasons={reasons} instructed={instructed} | {opt_text[:160]}")
             return
