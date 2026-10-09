@@ -27,6 +27,10 @@ type AlignedEntry struct {
 	Path          string `json:"path"`
 	SourceSHA256  string `json:"source_sha256"`
 	ExistingEntry string `json:"existing_entry"`
+	// EScaleMismatch is set by the caller when the Entry's E scale letter
+	// contradicts the source line count under the Meta thresholds; the
+	// selector only ranks it, after S absence and before importance.
+	EScaleMismatch bool `json:"e_scale_mismatch,omitempty"`
 }
 
 // EntryCost uses the same deterministic byte/3 estimate as cognitionbudget.
@@ -57,6 +61,9 @@ type Candidate struct {
 	// owed: the model reviewing the candidate may return it unchanged. Budget
 	// pressure still outranks it, so an over-budget Entry is reviewed first.
 	SAbsentHighImportance bool `json:"s_absent_high_importance"`
+	// EScaleMismatchFact repeats the aligned entry's E scale fact on the wire
+	// so a host sees why the candidate ranked where it did.
+	EScaleMismatchFact bool `json:"e_scale_mismatch,omitempty"`
 }
 
 // SelectOptions optionally restricts optimization to exact canonical Code
@@ -139,6 +146,9 @@ func Select(entries []AlignedEntry, policy cognitionbudget.Policy, options Selec
 		if left.SAbsentHighImportance != right.SAbsentHighImportance {
 			return left.SAbsentHighImportance
 		}
+		if left.EScaleMismatch != right.EScaleMismatch {
+			return left.EScaleMismatch
+		}
 		if left.Importance != right.Importance {
 			return left.Importance > right.Importance
 		}
@@ -211,6 +221,7 @@ func measureCandidate(current AlignedEntry, policy cognitionbudget.Policy) (Cand
 		TargetPressureBasisPoint: pressureBasisPoints(cost.RTokens, rBand.TargetTokens) + pressureBasisPoints(cost.STokens, sBand.TargetTokens),
 		MaxPressureBasisPoint:    pressureBasisPoints(cost.RTokens, rBand.MaxTokens) + pressureBasisPoints(cost.STokens, sBand.MaxTokens),
 		SAbsentHighImportance:    (entry.S == "" || entry.S == "-") && importance >= machinecontract.HighImportanceMinC,
+		EScaleMismatchFact:       current.EScaleMismatch,
 	}, nil
 }
 

@@ -214,6 +214,13 @@ root-level dump directory of the same name out with an ordinary exclude rule.
 module under one of those names becomes a Missing Entry on upgrade and is
 authored like any other new source.
 
+A git submodule is its own repository. The superproject tracks only its
+commit, so `scan` lists none of its files, reports the gitlink as one
+`git_submodule` boundary, and says how many submodules it left alone;
+`scope explain` on a path beneath one names the boundary. To index a
+submodule's code, initialize the submodule itself as a repository. Indexing
+submodules from the superproject is planned (#107).
+
 A git-ignored directory whose every file is a hard exclusion anyway, because
 its name is built in or a component listed in `exclude_dirs`, is one line in
 the inventory with that category, and git does not list what is beneath it. Through v0.1.0-rc17 the inventory had git list every one of those

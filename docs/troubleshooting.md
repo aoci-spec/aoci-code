@@ -353,6 +353,37 @@ older release, add the tool's directory to `exclude_dirs` and run
 `aoci scope activate` first; the directory is then one inventory line and its
 files are never listed.
 
+## Files inside a git submodule are missing from the index
+
+A submodule is a separate repository: the superproject tracks only its
+commit, so `scan` lists none of its files, announces how many submodules it
+left alone, and `scope explain <path>` on anything beneath one answers
+`git_submodule`. Initialize the submodule itself to index its code. Before
+rc20 the gitlink was reported as `unsafe_filesystem_object`, which said
+nothing about why (#107).
+
+## After a large rename, nothing seems able to refresh the Baseline
+
+Under Volumes v1 the Baseline is maintained, not rescanned. Run
+`aoci_maintain`: it issues the new paths as Missing Entries and names the old
+ones as orphans, and stops until each orphan is removed with
+`aoci_remove_entry` (one object per call); the next Maintain then issues the
+rest. `aoci scan --force` refuses over a Managed Scope Baseline by design, and
+`aoci baseline scope plan` and `preview` are the Legacy refresh and refuse with
+`baseline_scope_managed_scope_unsupported`; since rc20 both refusals say so
+instead of pointing at each other (#102). A policy edit is applied with
+`aoci scope activate`.
+
+## Entries carry a scale letter the file size contradicts
+
+`verify` and `check` audit every Code Entry's E letter against the source
+line count under the Meta's own bands and print how many disagree, with a
+sample; `--json` carries the list under `e_scale`. It is information only: a
+file growing across a band is ordinary, the letter is corrected on the
+Entry's next drift, and `aoci_maintain` with `intent=cognition_optimization`
+ranks those Entries for review right after high-importance Entries without an
+S (#103).
+
 ## The cognition layer must be visible to Git
 
 `scan` takes its file inventory from Git. A formal cognition asset covered by

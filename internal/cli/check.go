@@ -34,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -46,6 +47,25 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
+
+// writeEScale prints the informational E scale audit: how many Code Entries
+// carry a scale letter the source's line count contradicts, a short sample,
+// and where to correct them. It never changes the exit code (#103).
+func writeEScale(out io.Writer, facts volumegovernance.EScaleFacts) {
+	if facts.Checked == 0 {
+		return
+	}
+	fmt.Fprintln(out, cliMessage("check.e_scale", facts.Mismatched, facts.Checked))
+	for i, item := range facts.Items {
+		if i == 5 {
+			break
+		}
+		fmt.Fprintln(out, cliMessage("check.e_scale_item", item.Path, item.Actual, item.FileLines, strings.Join(item.Expected, "/")))
+	}
+	if facts.Mismatched > 0 {
+		fmt.Fprintln(out, cliMessage("check.hint_e_scale"))
+	}
+}
 
 // writeSCoverage prints the S coverage line and, when the machine hint rule
 // fires, the one hint that points the operator at a cognition_optimization
@@ -71,13 +91,14 @@ type checkReport struct {
 }
 
 type volumeCheckReport struct {
-	OK                bool                       `json:"ok"`
-	ExitCode          int                        `json:"exit_code"`
-	StructureValid    bool                       `json:"structure_valid"`
-	GovernanceAligned bool                       `json:"governance_aligned"`
-	Findings          []volumegovernance.Finding `json:"findings"`
-	NextAction        string                     `json:"next_action"`
-	Governance        *volumegovernance.Facts    `json:"governance"`
+	EScale            *volumegovernance.EScaleFacts `json:"e_scale,omitempty"`
+	OK                bool                          `json:"ok"`
+	ExitCode          int                           `json:"exit_code"`
+	StructureValid    bool                          `json:"structure_valid"`
+	GovernanceAligned bool                          `json:"governance_aligned"`
+	Findings          []volumegovernance.Finding    `json:"findings"`
+	NextAction        string                        `json:"next_action"`
+	Governance        *volumegovernance.Facts       `json:"governance"`
 }
 
 func dimByName(score *indexgen.Score, name string) indexgen.Dimension {
@@ -408,10 +429,11 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 	if !facts.GovernanceAligned {
 		exitCode = ExitDrift
 	}
+	escale := volumegovernance.AssessEScale(root, set)
 	report := volumeCheckReport{OK: exitCode == ExitOK, ExitCode: exitCode,
 		StructureValid: facts.StructureValid, GovernanceAligned: facts.GovernanceAligned,
 		Findings: append([]volumegovernance.Finding{}, facts.Findings...), NextAction: facts.NextRequiredAction,
-		Governance: facts}
+		Governance: facts, EScale: &escale}
 	ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "check", Source: ledger.SourceHuman,
 		PathsCount: facts.CodeSourceCount, DurationMs: time.Since(start).Milliseconds(),
 		DriftWarned: !report.OK, WarningsCount: len(report.Findings), ExitCode: &exitCode})
@@ -429,6 +451,9 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 	if !flagJSON && facts.Code.Enabled {
 		writeSCoverage(cmd.OutOrStdout(), facts.Budget.SCoverage, facts.Budget.HighImportanceEntries,
 			facts.Budget.HighImportanceSAbsent, facts.Budget.HighImportanceSAbsentPercent)
+	}
+	if !flagJSON && facts.Code.Enabled {
+		writeEScale(cmd.OutOrStdout(), escale)
 	}
 	if exitCode != ExitOK {
 		return &ExitError{Code: exitCode}

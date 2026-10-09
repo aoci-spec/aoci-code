@@ -797,7 +797,7 @@ aoci --repo . cognition system evolution \
 | 模式 | 行为 |
 | --- | --- |
 | **Agent-native** | 当前宿主模型读取证据并创作语义；AOCI-CODE 不需要第二个模型 API |
-| **Endpoint-native** | 可选的用户配置 OpenAI-compatible endpoint 起草候选；密钥保留在环境变量中 |
+| **Endpoint-native**（仅 Legacy 布局） | Legacy 布局下可选的用户配置 OpenAI-compatible endpoint 起草候选，密钥保留在环境变量中。Volumes v1 仓库只通过宿主 Agent 写条目；那里 `.aoci/config.json` 的 `ai` 块只服务 `aoci ai test` 和 `doctor --net` |
 | **Deterministic-only** | 禁用 AI，保留扫描、Baseline、校验、查询、Scope、治理、CI 和恢复能力；新语义仍需模型或人类创作 |
 
 - AOCI-CODE 本身默认本地优先，没有默认云端点、托管源码上传服务或必须运行的后台 Server。

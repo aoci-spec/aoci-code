@@ -140,7 +140,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		_, _, hard := HardExcludedDirectory(dir, opt)
 		return hard && collapseIgnoredDirectories
 	}
-	tracked, untracked, ignored, ignoredDirs, gitRepository, err := gitInventory(absRoot, collapsible)
+	tracked, untracked, ignored, ignoredDirs, gitlinks, gitRepository, err := gitInventory(absRoot, collapsible)
 	if err != nil {
 		return nil, err
 	}
@@ -204,6 +204,13 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		}
 		seen[rel] = true
 		trackedPath := trackedSet[rel]
+		if gitlinks[rel] {
+			// A gitlink is a repository boundary, whatever its name: the
+			// superproject tracks the submodule's commit, never its files, so
+			// the line names the boundary instead of an unsafe object.
+			report.addExclusion(rel, SafetyUnsafe, "git_submodule", trackedPath)
+			continue
+		}
 		category, source := BuiltInSafetyCategory(rel)
 		if category != "" && !optIn[rel] {
 			report.addExclusion(rel, category, source, trackedPath)
@@ -284,12 +291,12 @@ func (summary *SafeInventorySummary) addReviewVisible(count int) {
 	summary.RequiredHumanReview += count
 }
 
-func gitInventory(root string, collapsible func(dir string) bool) (tracked, untracked, ignored, collapsed []string, gitRepository bool, err error) {
+func gitInventory(root string, collapsible func(dir string) bool) (tracked, untracked, ignored, collapsed []string, gitlinks map[string]bool, gitRepository bool, err error) {
 	if _, statErr := os.Lstat(filepath.Join(root, ".git")); statErr != nil {
 		if errors.Is(statErr, os.ErrNotExist) {
-			return nil, nil, nil, nil, false, nil
+			return nil, nil, nil, nil, nil, false, nil
 		}
-		return nil, nil, nil, nil, false, fmt.Errorf("safe_inventory_git_boundary_unavailable")
+		return nil, nil, nil, nil, nil, false, fmt.Errorf("safe_inventory_git_boundary_unavailable")
 	}
 	probe := UntrustedRepositoryGitCommand(root, "rev-parse", "--show-toplevel")
 	probeStderr := &tailWriter{limit: gitStderrTailBytes}
@@ -297,16 +304,16 @@ func gitInventory(root string, collapsible func(dir string) bool) (tracked, untr
 	probeOutput, probeErr := probe.Output()
 	var executableError *exec.Error
 	if errors.As(probeErr, &executableError) {
-		return nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_unavailable")
+		return nil, nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_unavailable")
 	}
 	if probeErr != nil {
-		return nil, nil, nil, nil, true, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: gitStderrTail(probeStderr)}
+		return nil, nil, nil, nil, nil, true, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: gitStderrTail(probeStderr)}
 	}
 	if !sameGitRootPath(strings.TrimSpace(string(probeOutput)), root, runtime.GOOS) {
 		// Once a .git boundary is present, an unverifiable or foreign repository
 		// root must not silently downgrade to non-Git traversal. Doing so could
 		// hide tracked sensitive files from the required-review signal.
-		return nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_boundary_mismatch")
+		return nil, nil, nil, nil, nil, true, fmt.Errorf("safe_inventory_git_boundary_mismatch")
 	}
 	run := func(args ...string) ([]byte, error) {
 		command := UntrustedRepositoryGitCommand(root, append([]string{"-c", "core.quotepath=false"}, args...)...)
@@ -318,20 +325,20 @@ func gitInventory(root string, collapsible func(dir string) bool) (tracked, untr
 		}
 		return data, nil
 	}
-	data, err := run("ls-files", "-z", "--cached")
+	data, err := run("ls-files", "-z", "--cached", "--stage")
 	if err != nil {
-		return nil, nil, nil, nil, true, err
+		return nil, nil, nil, nil, nil, true, err
 	}
-	tracked = splitNULPaths(data)
+	tracked, gitlinks = splitNULStageEntries(data)
 	if data, err = run("ls-files", "-z", "--others", "--exclude-standard"); err != nil {
-		return nil, nil, nil, nil, true, err
+		return nil, nil, nil, nil, nil, true, err
 	}
 	untracked = splitNULPaths(data)
 	ignored, collapsed, err = gitIgnoredPaths(run, collapsible)
 	if err != nil {
-		return nil, nil, nil, nil, true, err
+		return nil, nil, nil, nil, nil, true, err
 	}
-	return tracked, untracked, ignored, collapsed, true, nil
+	return tracked, untracked, ignored, collapsed, gitlinks, true, nil
 }
 
 // gitIgnoredPaths lists git-ignored files without walking the ignored
@@ -467,6 +474,31 @@ func sameGitRootPath(gitRoot, inventoryRoot, goos string) bool {
 		return gitErr == nil && rootErr == nil && os.SameFile(gitInfo, rootInfo)
 	}
 	return filepath.Clean(strings.TrimSpace(gitRoot)) == filepath.Clean(inventoryRoot)
+}
+
+// splitNULStageEntries reads `git ls-files -z --stage` records
+// ("<mode> <object> <stage>\t<path>") into the tracked path list and the set
+// of gitlinks (mode 160000). A submodule is its own repository: the
+// superproject tracks only its commit, so none of its files are listed here,
+// and the gitlink itself is reported as a submodule boundary (#107).
+func splitNULStageEntries(data []byte) (paths []string, gitlinks map[string]bool) {
+	gitlinks = map[string]bool{}
+	for _, record := range strings.Split(string(data), "\x00") {
+		tab := strings.IndexByte(record, '\t')
+		if tab < 0 {
+			continue
+		}
+		clean, ok := safeRelativePath(record[tab+1:])
+		if !ok {
+			continue
+		}
+		paths = append(paths, clean)
+		if strings.HasPrefix(record, "160000 ") {
+			gitlinks[clean] = true
+		}
+	}
+	sort.Strings(paths)
+	return paths, gitlinks
 }
 
 func splitNULPaths(data []byte) []string {

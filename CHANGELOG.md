@@ -2,6 +2,32 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- `verify` and `check` audit each Code Entry's E scale letter against the
+  source line count under the Meta's bands and report the mismatches, as
+  information that never changes the exit code (`e_scale` in `--json`);
+  `aoci_maintain` with `intent=cognition_optimization` ranks such Entries for
+  review after high-importance Entries without an S, with selection reason
+  `e_scale_mismatch` (#103, reported by @Rosenls). Through rc19 the letter was
+  checked only in the Legacy layout.
+- A git submodule is reported as a `git_submodule` boundary instead of an
+  `unsafe_filesystem_object`: `scan` says how many submodules it left alone,
+  and `scope explain` on a path beneath one names the boundary (#107, reported
+  by @zsjlfb). Indexing a submodule's code still means initializing the
+  submodule itself.
+- The refusals a stale Managed Scope Baseline meets now name the path that
+  works: `scan --force` points at `aoci_maintain`, `aoci_remove_entry`, and
+  `aoci scope activate`, and `baseline scope plan`/`preview` say they are the
+  Legacy refresh (#102, reported by @Lixiang9716).
+- Docs: the index format contract states that an Entry's leading name is the
+  bare file name within its directory section (#103); the README's execution
+  mode table marks endpoint-native drafting as Legacy-only and says what the
+  `ai` configuration block serves in a Volumes v1 repository.
+- Tests: the 1,000-object governance timing moved from a five-second
+  wall-clock assertion to a benchmark that full-confidence runs (PR #108 by
+  @dayebishouji).
+
 ## v0.1.0-rc19
 
 Two fixes from user reports: Scope Change replay, and directory names that

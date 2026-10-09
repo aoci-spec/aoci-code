@@ -158,7 +158,7 @@ func TestCognitionOptimizationBudgetCutsInImportanceOrderAndCompletes(t *testing
 			if err != nil {
 				t.Fatal(err)
 			}
-			entries, err := optimizationAlignedEntries(root, set.Volumes[cognition.ScopeCode], nil)
+			entries, err := optimizationAlignedEntries(root, nil, set.Volumes[cognition.ScopeCode], nil)
 			if err != nil {
 				t.Fatal(err)
 			}

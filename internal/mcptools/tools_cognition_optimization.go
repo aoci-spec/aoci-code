@@ -220,7 +220,7 @@ func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cogni
 }
 
 func selectOptimizationTargets(root string, loaded *cognitionRepoCtx, objectRefs []string) (cognitionoptimization.Selection, error) {
-	entries, err := optimizationAlignedEntries(root, loaded.set.Volumes[cognition.ScopeCode], objectRefs)
+	entries, err := optimizationAlignedEntries(root, optimizationEScaleThresholds(loaded.set), loaded.set.Volumes[cognition.ScopeCode], objectRefs)
 	if err != nil {
 		return cognitionoptimization.Selection{}, err
 	}
@@ -238,7 +238,7 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, fmt.Errorf("optimization checkpoint has no remaining objects")
 	}
 	refs := append([]string{}, remaining[:limit]...)
-	entries, err := optimizationAlignedEntries(root, loaded.set.Volumes[cognition.ScopeCode], refs)
+	entries, err := optimizationAlignedEntries(root, optimizationEScaleThresholds(loaded.set), loaded.set.Volumes[cognition.ScopeCode], refs)
 	if err != nil {
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}
@@ -271,6 +271,7 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, fmt.Errorf("optimization checkpoint batch exceeds remaining objects")
 	}
 	entries := make([]cognitionoptimization.AlignedEntry, 0, len(receipt.Targets))
+	thresholds := optimizationEScaleThresholds(loaded.set)
 	wanted := map[string]bool{}
 	for _, ref := range checkpoint.RemainingObjectRefs[:len(receipt.Targets)] {
 		wanted[ref] = true
@@ -280,7 +281,8 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 			return codebatch.Plan{}, cognitionoptimization.Selection{}, fmt.Errorf("optimization receipt does not match checkpoint prefix")
 		}
 		entries = append(entries, cognitionoptimization.AlignedEntry{ObjectRef: target.ObjectRef, Path: target.Path,
-			SourceSHA256: target.SourceSHA256, ExistingEntry: target.ExistingEntry})
+			SourceSHA256: target.SourceSHA256, ExistingEntry: target.ExistingEntry,
+			EScaleMismatch: optimizationEScaleMismatch(root, thresholds, target.Path, target.ExistingEntry)})
 	}
 	measured, err := cognitionoptimization.Select(entries, loaded.cfg.EffectiveCognitionBudget(), cognitionoptimization.SelectOptions{MaxEntries: len(entries)})
 	if err != nil {
@@ -299,7 +301,7 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 	return reorderOptimizationPlan(plan, selection.Batch), selection, nil
 }
 
-func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs []string) ([]cognitionoptimization.AlignedEntry, error) {
+func optimizationAlignedEntries(root string, thresholds *index.EScaleThresholds, asset *cognition.Asset, objectRefs []string) ([]cognitionoptimization.AlignedEntry, error) {
 	if asset == nil {
 		return nil, fmt.Errorf("code Volume is absent")
 	}
@@ -320,7 +322,8 @@ func optimizationAlignedEntries(root string, asset *cognition.Asset, objectRefs 
 			return nil, fmt.Errorf("hash %s: %w", object.CanonicalRef, err)
 		}
 		result = append(result, cognitionoptimization.AlignedEntry{ObjectRef: object.CanonicalRef,
-			Path: object.Entry.RelPath, SourceSHA256: fingerprint.SHA256, ExistingEntry: object.CanonicalLine})
+			Path: object.Entry.RelPath, SourceSHA256: fingerprint.SHA256, ExistingEntry: object.CanonicalLine,
+			EScaleMismatch: optimizationEScaleMismatch(root, thresholds, object.Entry.RelPath, object.CanonicalLine)})
 	}
 	return result, nil
 }
@@ -373,6 +376,38 @@ func trimOptimizationSelection(selection cognitionoptimization.Selection, issued
 // object_ref still take precedence, matching the selector's order.
 const optimizationReasonSAbsentHighImportance = "s_absent_high_importance"
 
+// optimizationReasonEScaleMismatch names the selection reason for an Entry
+// whose E scale letter contradicts its source line count; S absence and
+// budget overage still outrank it, matching the selector's order.
+const optimizationReasonEScaleMismatch = "e_scale_mismatch"
+
+// optimizationEScaleThresholds reads the Meta's code E scale bands once per
+// request; nil means the Meta declares none and nothing is judged.
+func optimizationEScaleThresholds(set *cognition.Set) *index.EScaleThresholds {
+	if set == nil || len(set.Meta.Raw) == 0 {
+		return nil
+	}
+	thresholds := index.ExtractEScaleThresholds(index.ScopedDictionaryText(string(set.Meta.Raw), "code"))
+	if thresholds == nil || !thresholds.HasThresholds() {
+		return nil
+	}
+	return thresholds
+}
+
+// optimizationEScaleMismatch is the same judgement Verify and Check report,
+// made per aligned Entry so the selector can rank it; an unreadable source or
+// a path outside the audit counts as no mismatch.
+func optimizationEScaleMismatch(root string, thresholds *index.EScaleThresholds, rel, line string) bool {
+	if thresholds == nil || rel == "" || !index.ShouldCheckEScalePath(rel) {
+		return false
+	}
+	lines, err := afs.CountFileLines(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		return false
+	}
+	return index.CheckEScaleDetail(line, lines, thresholds) != nil
+}
+
 func optimizationBatchReviewsSAbsent(candidates []volumeMaintainCandidate) bool {
 	for _, candidate := range candidates {
 		if candidate.SelectionReason == optimizationReasonSAbsentHighImportance {
@@ -384,6 +419,9 @@ func optimizationBatchReviewsSAbsent(candidates []volumeMaintainCandidate) bool 
 
 func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, issued codebatch.Candidate, batchID string, explicit bool) volumeMaintainCandidate {
 	reason := "c_importance_and_entry_cost"
+	if measured.EScaleMismatchFact {
+		reason = optimizationReasonEScaleMismatch
+	}
 	if measured.SAbsentHighImportance {
 		reason = optimizationReasonSAbsentHighImportance
 	}

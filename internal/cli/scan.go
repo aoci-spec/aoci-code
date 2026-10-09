@@ -81,6 +81,7 @@ func init() {
 			var snap map[string]baseline.Fingerprint
 			var warns []string
 			var inventorySummary afs.SafeInventorySummary
+			var submodules int
 			var managedReceipt *baseline.ManagedScopeState
 			if cfg.ManagedScope != nil || cfg.CognitionBudget != nil {
 				if exists {
@@ -98,6 +99,7 @@ func init() {
 					return withCause(cliMessage("scan.snapshot_error", err), err)
 				}
 				inventorySummary = state.Evaluation.SafeInventory
+				submodules = countSubmoduleEvaluations(state.Evaluation.Exclude)
 				budgetPolicy := cfg.EffectiveCognitionBudget()
 				budgetIdentity, identityErr := cognitionbudget.Identity(budgetPolicy)
 				if identityErr != nil {
@@ -117,6 +119,7 @@ func init() {
 				snap, warns, inventory, err = baseline.SnapshotWithInventory(root, cfg.WalkOptions())
 				if err == nil {
 					inventorySummary = inventory.Summary
+					submodules = countInventorySubmodules(inventory)
 				}
 			}
 			if err != nil {
@@ -144,8 +147,9 @@ func init() {
 				Inventory         afs.SafeInventorySummary `json:"safe_inventory"`
 				FingerprintCount  int                      `json:"fingerprint_count"`
 				SkippedSources    scanSkippedSources       `json:"skipped_sources"`
+				GitSubmodules     int                      `json:"git_submodules"`
 				AuthoringEstimate scanAuthoringEstimate    `json:"authoring_estimate"`
-			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap), SkippedSources: skipped, AuthoringEstimate: estimate}
+			}{Version: afs.SafeInventoryVersion, DryRun: dryRun, Inventory: inventorySummary, FingerprintCount: len(snap), SkippedSources: skipped, GitSubmodules: submodules, AuthoringEstimate: estimate}
 
 			if dryRun {
 				if flagJSON {
@@ -154,6 +158,7 @@ func init() {
 				if !flagQuiet {
 					fmt.Println(cliMessage("scan.dry_run", len(snap), len(warns)))
 					printScanSkippedSources(skipped)
+					printScanSubmodules(submodules)
 					printScanAuthoringEstimate(root, estimate, true)
 				}
 				return nil
@@ -175,6 +180,7 @@ func init() {
 			if !flagQuiet {
 				fmt.Println(cliMessage("scan.complete", len(snap), time.Since(start).Milliseconds()))
 				printScanSkippedSources(skipped)
+				printScanSubmodules(submodules)
 				printScanAuthoringEstimate(root, estimate, false)
 			}
 			return nil
@@ -263,4 +269,37 @@ func sortedUniqueStrings(values []string) []string {
 		}
 	}
 	return result
+}
+
+// A gitlink is reported by Safe Inventory as an exclusion with rule source
+// git_submodule, and by Managed Scope as a safety exclusion whose reason starts
+// with that source. scan says so once, because a submodule's code is indexed
+// only by initializing the submodule itself (#107).
+func countSubmoduleEvaluations(items []managedscope.PathEvaluation) int {
+	count := 0
+	for _, item := range items {
+		if strings.HasPrefix(item.Reason, "git_submodule:") {
+			count++
+		}
+	}
+	return count
+}
+
+func countInventorySubmodules(inventory *afs.SafeInventory) int {
+	count := 0
+	if inventory == nil {
+		return 0
+	}
+	for _, exclusion := range inventory.Exclusions {
+		if exclusion.RuleSource == "git_submodule" {
+			count++
+		}
+	}
+	return count
+}
+
+func printScanSubmodules(count int) {
+	if count > 0 {
+		fmt.Println(cliMessage("scan.submodules_skipped", count))
+	}
 }

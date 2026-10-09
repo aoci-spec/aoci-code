@@ -838,7 +838,7 @@ Every System Cognition result reports `derived=true`; the relation projection ad
 | Mode | Behavior |
 | --- | --- |
 | **Agent-native** | The current host model reads evidence and writes the entries; AOCI-CODE does not require a second model API |
-| **Endpoint-native** | An optional user-configured OpenAI-compatible endpoint drafts candidates; the key stays in an environment variable |
+| **Endpoint-native** (Legacy layout only) | In the Legacy layout an optional user-configured OpenAI-compatible endpoint drafts candidates, with the key in an environment variable. A Volumes v1 repository authors through the host agent only; there the `ai` block in `.aoci/config.json` serves `aoci ai test` and `doctor --net` |
 | **Deterministic-only** | Disables AI while keeping scanning, Baseline, validation, queries, scope, governance, CI, and recovery; new entries still require a model or a human author |
 
 - AOCI-CODE is local-first by default, with no default cloud endpoint, no hosted source-upload service, and no required background server.

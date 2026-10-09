@@ -202,7 +202,14 @@ func newScopeExplainCmd() *cobra.Command {
 			}
 			item, found := findScopeEvaluation(evaluation, rel)
 			if !found {
-				if category, source := afs.BuiltInSafetyCategory(rel); category != "" {
+				if parent := submoduleParent(rel, evaluation.Exclude); parent != "" {
+					// A path at or under a gitlink belongs to another repository; the
+					// superproject never lists it, so explain names the boundary (#107).
+					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
+						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
+						RulePriority: 700, SafetyStatus: afs.SafetyUnsafe, GitStatus: "future_or_absent", ReadsContent: false,
+						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "git_submodule:" + afs.SafetyUnsafe}
+				} else if category, source := afs.BuiltInSafetyCategory(rel); category != "" {
 					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
@@ -231,8 +238,25 @@ func newScopeExplainCmd() *cobra.Command {
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.explain_summary", item.Path, item.Role, matched,
 				item.RuleSource, item.RulePriority, item.SafetyStatus, item.ReadsContent, item.EntersWholeIndex,
 				item.EntersObserveFingerprint, item.Reason))
+			if strings.HasPrefix(item.Reason, "git_submodule:") {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.explain_submodule_hint"))
+			}
 			return nil
 		}}
+}
+
+// submoduleParent returns the gitlink that rel is or sits under, from the
+// evaluation's safety exclusions, or "" when there is none.
+func submoduleParent(rel string, items []managedscope.PathEvaluation) string {
+	for _, item := range items {
+		if !strings.HasPrefix(item.Reason, "git_submodule:") {
+			continue
+		}
+		if rel == item.Path || strings.HasPrefix(rel, item.Path+"/") {
+			return item.Path
+		}
+	}
+	return ""
 }
 
 func newScopeRuleCmd() *cobra.Command {

@@ -186,5 +186,11 @@ func scopeExitError(err error) error {
 		return &ExitError{Code: ExitInvalid, MachineCode: "interaction_required", Details: interaction.State,
 			Msg: cliMessage("baseline.scope.error", err.Error())}
 	}
-	return &ExitError{Code: ExitInvalid, MachineCode: "baseline_scope_invalid", Msg: cliMessage("baseline.scope.error", err.Error())}
+	message := cliMessage("baseline.scope.error", err.Error())
+	if err.Error() == "baseline_scope_managed_scope_unsupported" {
+		// #102: both refusals used to point at each other. Name the path that
+		// does work under Managed Scope.
+		message += "\n" + cliMessage("baseline.scope.managed_scope_hint")
+	}
+	return &ExitError{Code: ExitInvalid, MachineCode: "baseline_scope_invalid", Msg: message}
 }

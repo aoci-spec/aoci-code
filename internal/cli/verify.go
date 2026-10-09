@@ -74,18 +74,19 @@ type volumeVerifyAsset struct {
 }
 
 type volumeVerifyReport struct {
-	Root              string                  `json:"root"`
-	LayoutMode        string                  `json:"layout_mode"`
-	LayoutVersion     string                  `json:"layout_version"`
-	StructureValid    bool                    `json:"structure_valid"`
-	GovernanceAligned bool                    `json:"governance_aligned"`
-	ReadOnlyCandidate bool                    `json:"read_only_candidate"`
-	RootSHA256        string                  `json:"root_sha256"`
-	MetaSHA256        string                  `json:"meta_sha256"`
-	CompositeIdentity string                  `json:"composite_identity"`
-	Volumes           []volumeVerifyAsset     `json:"volumes"`
-	Warnings          []cognition.Finding     `json:"warnings,omitempty"`
-	Governance        *volumegovernance.Facts `json:"governance"`
+	Root              string                        `json:"root"`
+	LayoutMode        string                        `json:"layout_mode"`
+	LayoutVersion     string                        `json:"layout_version"`
+	StructureValid    bool                          `json:"structure_valid"`
+	GovernanceAligned bool                          `json:"governance_aligned"`
+	ReadOnlyCandidate bool                          `json:"read_only_candidate"`
+	RootSHA256        string                        `json:"root_sha256"`
+	MetaSHA256        string                        `json:"meta_sha256"`
+	CompositeIdentity string                        `json:"composite_identity"`
+	Volumes           []volumeVerifyAsset           `json:"volumes"`
+	Warnings          []cognition.Finding           `json:"warnings,omitempty"`
+	Governance        *volumegovernance.Facts       `json:"governance"`
+	EScale            *volumegovernance.EScaleFacts `json:"e_scale,omitempty"`
 }
 
 func init() {
@@ -350,6 +351,8 @@ func renderVolumeVerify(cmd *cobra.Command, root string, paths config.Paths, cfg
 		MetaSHA256: set.Meta.SHA256, CompositeIdentity: set.CompositeIdentity,
 		Warnings: append([]cognition.Finding{}, set.Warnings...), Governance: facts,
 	}
+	escale := volumegovernance.AssessEScale(root, set)
+	report.EScale = &escale
 	for _, id := range []string{"meta", "code", "database"} {
 		asset := set.Volumes[id]
 		if asset == nil {
@@ -386,6 +389,9 @@ func renderVolumeVerify(cmd *cobra.Command, root string, paths config.Paths, cfg
 	}
 	if !flagQuiet {
 		_, err = fmt.Fprint(cmd.OutOrStdout(), human)
+		if err == nil && report.EScale != nil {
+			writeEScale(cmd.OutOrStdout(), *report.EScale)
+		}
 	}
 	if err != nil {
 		return err

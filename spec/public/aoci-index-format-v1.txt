@@ -57,7 +57,10 @@ Directory and file names
 ------------------------
 
 A directory section header is `===`, an optional description, the absolute
-directory ending in `/`, and `===`. The path starts at the first `/`, or at a
+directory ending in `/`, and `===`. An Entry's leading name is the bare file
+name within its directory section: a reader resolves it against the section
+header, never against the repository root, and a tool that parses Entries line
+by line must carry the current section along. The path starts at the first `/`, or at a
 drive letter followed by `:/`. Readers first apply the original reading, in
 which the path ends at the first whitespace, `=`, `(`, or `（` and the rest of
 the header is an annotation. When that remainder itself ends the header with
