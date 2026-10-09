@@ -255,6 +255,20 @@ def release_number(version):
     return int(match.group(1)) if match else 10 ** 6
 
 
+# rc20 initializes exclude_root_dirs (#104): a planted name is an artifact at
+# the root or where git ignores it, and a tracked nested module is source.
+ROOT_LIST_FLOOR = 20
+
+
+def legacy_artifact_roles(version):
+    """What the released binary's own policy makes of the planted names, which
+    the binary under test must preserve: every name an any-depth exclusion
+    before rc20, the root list from rc20 on."""
+    if release_number(version) >= ROOT_LIST_FLOOR:
+        return {"build/output.txt": "exclude", "src/build/tool.go": "index", "src/vendor/parser.go": "index"}
+    return {path: "exclude" for path in LEGACY_ARTIFACT_FILES}
+
+
 def plant_backup_module(path):
     for rel, body in BACKUP_MODULE.items():
         full = os.path.join(path, rel)
@@ -613,10 +627,13 @@ def check_version(version, shape, old_binary, workdir):
             "--pattern", pattern, "--reason", reason, check=True)
     run(old_binary, authoring, "scan", check=True)
     if shape == "legacydirs" and release_number(version) >= BACKUP_MODULE_FLOOR:
-        included = [path for path in LEGACY_ARTIFACT_FILES if baseline_role(authoring, path) is not None]
-        if included:
+        want = legacy_artifact_roles(version)
+        got = {path: baseline_role(authoring, path) for path in LEGACY_ARTIFACT_FILES}
+        wrong = {path: got[path] for path, role in want.items()
+                 if got[path] != (None if role == "exclude" else role)}
+        if wrong:
             for name in CHECK_NAMES:
-                ok(f"{tag}.{name}", False, f"released binary included legacy exclusions: {included}")
+                ok(f"{tag}.{name}", False, f"released binary's Baseline roles for the planted names: {wrong}, policy expects {want}")
             return
     if ignored:
         probe, want = ignored["probe"]
@@ -657,12 +674,14 @@ def check_version(version, shape, old_binary, workdir):
     stays = bool(new and new["aligned"] and not new["orphans"] and not new["observed_removed"])
     detail = "" if stays else f"new={new}"
     if shape == "legacydirs" and release_number(version) >= BACKUP_MODULE_FLOOR:
-        # The shape's purpose, asserted directly: the persisted any-depth
-        # exclusions must still hold under the binary under test (#104).
+        # The shape's purpose, asserted directly: the released policy's roles
+        # for the planted names must still hold under the binary under test,
+        # any-depth exclusions before rc20 and the root list from rc20 on (#104).
+        want = legacy_artifact_roles(version)
         roles = {path: explain_role(BIN, repo, path) for path in LEGACY_ARTIFACT_FILES}
-        if any(role != "exclude" for role in roles.values()):
+        if roles != want:
             stays = False
-            detail = f"legacy exclusions after the upgrade: {roles} {detail}"
+            detail = f"planted-name roles after the upgrade: {roles}, policy expects {want} {detail}"
     ok(f"{tag}.aligned_repo_stays_aligned", stays, detail)
     ok(f"{tag}.composite_identity_unchanged",
        bool(new and old and new["composite_identity"] == old["composite_identity"]),

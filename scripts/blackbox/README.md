@@ -60,9 +60,10 @@ it red for `spacedroot` alone. The fourth shape, `cutsegment`, puts the
 repository under a directory whose name begins with `(`, where the truncated
 root is an ancestor of the full one: a reader that recognises the old writer
 only by a section outside the truncated root misreads every checkout there
-while the origin stays aligned. `legacydirs` pins the old any-depth artifact
-exclusions with tracked root and nested paths, so a new repository default
-cannot silently change an existing repository's scope. The last two shapes put git-ignored directories
+while the origin stays aligned. `legacydirs` plants tracked root and nested
+artifact names and pins what the released policy made of them, any-depth
+exclusions before rc20 and the root list from rc20 on, so a new repository
+default cannot silently change an existing repository's scope. The last two shapes put git-ignored directories
 under the released index. In `ignoredpull` a user rule indexes `gen/**` while
 `.gitignore` hides `gen/`, so the release authors an Entry for `gen/api.go`; the
 binary under test must read it aligned with no orphan, and its own MCP Maintain
