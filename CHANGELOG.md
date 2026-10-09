@@ -24,6 +24,24 @@ All notable public changes to AOCI-CODE will be documented in this file.
   bare file name within its directory section (#103); the README's execution
   mode table marks endpoint-native drafting as Legacy-only and says what the
   `ai` configuration block serves in a Volumes v1 repository.
+- New repositories get `exclude_root_dirs` (#104, PR #105 by @dayebishouji):
+  `init` persists `backup`, `backups`, `build`, `cache`, `coverage`, `dist`,
+  `target`, `tmp`, `uploads`, `artifacts`, and `vendor` there instead of in
+  `exclude_dirs`, so those names exclude a directory at the repository root
+  or wherever git ignores it, while a tracked nested `src/build/tool.go` or
+  `views/monitor/cache/index.vue` is source. A git-ignored nested directory of
+  such a name stays one inventory line (#97). Existing repositories keep
+  their any-depth `exclude_dirs` and their identity; opting in is a config
+  change plus `aoci scope activate`. `config get`/`set`, `doctor`, and
+  `scope explain` know the field; the upgrade axis gains a `legacydirs` shape
+  and publishes 72 checks per released version over nine shapes. A repository
+  that carries the field needs rc20 or later on every machine: an older
+  binary demands a Scope Change over it and drops the field when it saves the
+  team configuration. The Baseline reads Entry paths through the same lists
+  as the inventory, so an Entry under a root-excluded directory is skipped
+  rather than reported as an orphan; `config set` on either directory list
+  takes `build/` as `build`, drops duplicates, and refuses `app/build`, which
+  could never match.
 - Tests: the 1,000-object governance timing moved from a five-second
   wall-clock assertion to a benchmark that full-confidence runs (PR #108 by
   @dayebishouji).

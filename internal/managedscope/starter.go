@@ -55,10 +55,11 @@ const starterRuleReason = "vendored static assets and generated bundles are obse
 // any user rule overrides a starter rule at any Order, so a team whose own code
 // lives under static/lib reclaims it with one `--action index` rule.
 //
-// No starter rule names a `vendor`, `dist`, or `build` directory: the hard
-// safety boundary (fs.BuiltInSafetyCategory) already refuses any path with one
-// of those segments before rules run, so such a rule could never be the winner
-// and would only sit as a dead entry in every new repository's config.
+// No starter rule names a `vendor`, `dist`, or `build` directory: in a new
+// repository those names are configured exclusions (exclude_root_dirs) at the
+// root and wherever git ignores them, a hard boundary before rules run, while
+// a tracked nested module of that name is source by design (#104); a team
+// that wants such a module out adds its own rule.
 //
 // Any profile other than production returns nil: `full` indexes everything by
 // definition and `custom` starts from an empty rule set the team owns.

@@ -10,6 +10,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -75,5 +76,60 @@ func TestDefaultTechnicalExcludeDirsConsistent(t *testing.T) {
 			t.Fatalf("第%d项不一致: %s vs %s",
 				i, exported[i], inline[i])
 		}
+	}
+}
+
+func TestNewProjectArtifactExclusionsLeaveLegacyDefaultsAlone(t *testing.T) {
+	legacy := DefaultConfig()
+	if len(legacy.ExcludeRootDirs) != 0 {
+		t.Fatalf("legacy defaults gained a root policy: %v", legacy.ExcludeRootDirs)
+	}
+	newProject := DefaultConfig()
+	newProject.SetNewProjectArtifactExclusions()
+	root := map[string]bool{}
+	for _, dir := range newProject.ExcludeRootDirs {
+		root[dir] = true
+	}
+	for _, name := range []string{"backup", "backups", "build", "cache", "coverage", "dist", "target", "tmp", "uploads", "artifacts", "vendor"} {
+		if !root[name] {
+			t.Errorf("new project root policy is missing %s", name)
+		}
+		for _, anywhere := range newProject.ExcludeDirs {
+			if anywhere == name {
+				t.Errorf("%s still excludes nested source", name)
+			}
+		}
+	}
+	if len(newProject.ExcludeDirs) >= len(legacy.ExcludeDirs) {
+		t.Fatalf("the new-project policy must move names out of exclude_dirs: new=%v legacy=%v", newProject.ExcludeDirs, legacy.ExcludeDirs)
+	}
+}
+
+func TestRootExclusionsAreTeamOwned(t *testing.T) {
+	root := t.TempDir()
+	base := DefaultConfig()
+	base.SetNewProjectArtifactExclusions()
+	if err := Save(root, base); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(LocalFilePath(root), []byte(`{"exclude_root_dirs":["local-only"]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	merged, err := Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(merged.ExcludeRootDirs) != len(base.ExcludeRootDirs) || merged.ExcludeRootDirs[0] != base.ExcludeRootDirs[0] {
+		t.Fatalf("local configuration overrode team root exclusions: %v", merged.ExcludeRootDirs)
+	}
+	if err := SaveLocal(root, merged); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(LocalFilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "exclude_root_dirs") {
+		t.Fatalf("SaveLocal retained the team-only root policy: %s", raw)
 	}
 }

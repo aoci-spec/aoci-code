@@ -76,6 +76,32 @@ func TestProductionProfileAndUserPrecedence(t *testing.T) {
 	}
 }
 
+func TestRootOnlyArtifactPolicyKeepsNestedTrackedSourceAndIgnoredArtifacts(t *testing.T) {
+	root := t.TempDir()
+	gitScopeFixture(t, root, "init", "-q")
+	writeScopeFixture(t, root, ".gitignore", "src/cache/generated.go\n")
+	writeScopeFixture(t, root, "src/cache/store.go", "package cache\n")
+	writeScopeFixture(t, root, "src/cache/generated.go", "package cache\n")
+	writeScopeFixture(t, root, "cache/output", "generated\n")
+	gitScopeFixture(t, root, "add", ".gitignore", "src/cache/store.go", "cache/output")
+	result, err := Build(root, DefaultPolicy(machinecontract.ScopeProfileProduction), BuildOptions{
+		WalkOptions: fs.WalkOptions{ExcludeRootDirs: []string{"cache"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]string{
+		"src/cache/store.go":     machinecontract.ScopeRoleIndex,
+		"src/cache/generated.go": machinecontract.ScopeRoleExclude,
+		"cache/output":           machinecontract.ScopeRoleExclude,
+	} {
+		item, ok := evaluationForPath(result, path)
+		if !ok || item.Role != want {
+			t.Fatalf("%s role=%q found=%t, want %s", path, item.Role, ok, want)
+		}
+	}
+}
+
 func TestLastMatchingUserRuleWinsAndDirectorySlashNormalizes(t *testing.T) {
 	policy := DefaultPolicy(machinecontract.ScopeProfileProduction)
 	policy.Rules = []Rule{

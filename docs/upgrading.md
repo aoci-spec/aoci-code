@@ -83,4 +83,15 @@ Finish or discard any pending preview/approval pair before replacing the binary.
 After the upgrade, regenerate the preview and re-approve; the plan itself is
 unchanged where `interaction_required` did not move.
 
+## A repository initialized by rc20 or later needs rc20 on every machine
+
+`init` now persists `exclude_root_dirs` in the team configuration. A binary
+older than rc20 does not know the field: it evaluates the repository without
+it, so its policy identity differs from the active one and every governance
+surface answers `scope_change_required`; and because the configuration writer
+keeps only the fields it knows, one `aoci config set` from that binary drops
+the field from `.aoci/config.json`. Upgrade every machine that works on such
+a repository before touching the team configuration. Repositories initialized
+before rc20 carry no such field and are read identically by rc19 and rc20.
+
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

@@ -332,10 +332,15 @@ built-in safety rule matched against every path component, so a feature module
 named like an artifact directory was excluded with no finding and no rule could
 pull it back (#100). Since rc19 the explanation reads
 `exclude_dirs:<name>:configured`: the component is in `exclude_dirs` in
-`.aoci/config.json`, which `init` fills with the usual artifact names. Remove
-the name with `aoci config set exclude_dirs ...`, run `aoci scope activate`,
-and the files become Missing Entries for the next Maintain; keep a root-level
-directory of that name out with an ordinary exclude rule. A path that
+`.aoci/config.json`, which `init` filled with the usual artifact names before
+rc20. Remove the name with `aoci config set exclude_dirs ...`, run
+`aoci scope activate`, and the files become Missing Entries for the next
+Maintain; keep a root-level directory of that name out by adding it to
+`exclude_root_dirs`. A repository initialized by rc20 or later already uses
+`exclude_root_dirs` for those names, so a tracked nested module is never
+excluded by its name there and the explanation reads
+`exclude_root_dirs:<name>:configured` only at the root or under a git-ignored
+directory of that name. A path that
 `explain` reports as `builtin_generated_directory` (`node_modules`,
 `__pycache__`, ...) stays out.
 

@@ -35,6 +35,8 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/config"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
 
 // runInit 以 flagRepo 覆盖定根执行 `aoci init`。
@@ -147,6 +149,71 @@ func TestInitNoBaselineNoAdvance(t *testing.T) {
 	}
 	if _, exists, err := baseline.Load(root); err != nil || exists {
 		t.Fatalf("init 不得越权建基线(全量承认归 scan): exists=%v err=%v", exists, err)
+	}
+}
+
+func TestInitPersistsRootOnlyArtifactDefaultsOnlyForNewRepositories(t *testing.T) {
+	root := t.TempDir()
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source, ok := afs.ConfiguredExclusionSource("build/output", cfg.WalkOptions()); !ok || source != "exclude_root_dirs:build" {
+		t.Fatalf("root build should be excluded by the persisted policy: %q, %t", source, ok)
+	}
+	if _, ok := afs.ConfiguredExclusionSource("src/build/tool.go", cfg.WalkOptions()); ok {
+		t.Fatal("nested tracked build source should remain a candidate")
+	}
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err = config.LoadBase(root)
+	if err != nil || len(cfg.ExcludeRootDirs) == 0 {
+		t.Fatalf("idempotent init lost the root policy: cfg=%#v err=%v", cfg, err)
+	}
+	for _, rel := range []string{"src/build/tool.go", "build/output"} {
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("fixture\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	if code := executeCLI([]string{"--repo", root, "--quiet", "scan"}, &stdout, &stderr); code != ExitOK {
+		t.Fatalf("scan failed: code=%d stderr=%s", code, stderr.String())
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("scan baseline: exists=%t err=%v", exists, err)
+	}
+	if _, ok := state.Files["src/build/tool.go"]; !ok {
+		t.Fatal("new-repository scan dropped nested source")
+	}
+	if _, ok := state.Files["build/output"]; ok {
+		t.Fatal("new-repository scan included root build artifact")
+	}
+
+	oldRoot := t.TempDir()
+	if err := config.Save(oldRoot, config.DefaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runInit(t, oldRoot, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	old, err := config.LoadBase(oldRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(old.ExcludeRootDirs) != 0 {
+		t.Fatalf("existing repository gained new defaults: %v", old.ExcludeRootDirs)
+	}
+	if source, ok := afs.ConfiguredExclusionSource("src/build/tool.go", old.WalkOptions()); !ok || source != "exclude_dirs:build" {
+		t.Fatalf("existing repository must keep nested exclusion: %q, %t", source, ok)
 	}
 }
 

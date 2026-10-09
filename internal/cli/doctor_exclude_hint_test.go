@@ -67,6 +67,16 @@ func TestMissingTechnicalExcludeDirs(t *testing.T) {
 		t.Fatalf("全量默认落盘不得报缺项: %v", got)
 	}
 
+	rootNew := t.TempDir()
+	newCfg := config.DefaultConfig()
+	newCfg.SetNewProjectArtifactExclusions()
+	if err := config.Save(rootNew, newCfg); err != nil {
+		t.Fatal(err)
+	}
+	if got := missingTechnicalExcludeDirs(rootNew); len(got) != 0 {
+		t.Fatalf("new-project root exclusions must satisfy the doctor hint: %v", got)
+	}
+
 	// 判决4: config.json 不存在 → 零缺项
 	root4 := t.TempDir()
 	if got := missingTechnicalExcludeDirs(root4); len(got) != 0 {

@@ -174,14 +174,26 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		// Git ignored names are classified before any content read. Consumers
 		// that request policy evaluation may retain otherwise-safe names as
 		// candidates; ordinary Safe Inventory continues to exclude them.
+		// Precedence mirrors the candidate loop below: a built-in category
+		// unless the path is opted in, then a configured exclusion, which no
+		// opt-in or rule overrides.
 		for _, rel := range ignored {
+			if category, source := BuiltInSafetyCategory(rel); category != "" && !optIn[rel] {
+				report.addExclusion(rel, category, source, false)
+				continue
+			}
+			if source, artifact := ignoredArtifactSource(rel, opt); artifact {
+				// An ignored file under an exclude_root_dirs name at any depth
+				// is an artifact, never a candidate a rule could pull in; the
+				// exclude_dirs names reach ConfiguredExclusionSource below.
+				report.addExclusion(rel, SafetyConfigured, source, false)
+				continue
+			}
 			if optIn[rel] {
 				untracked = append(untracked, rel)
 				continue
 			}
-			if category, source := BuiltInSafetyCategory(rel); category != "" {
-				report.addExclusion(rel, category, source, false)
-			} else if opt.IncludeIgnoredCandidates {
+			if opt.IncludeIgnoredCandidates {
 				untracked = append(untracked, rel)
 				report.IgnoredPaths = append(report.IgnoredPaths, rel)
 			} else {
@@ -447,6 +459,13 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 	if category, source := BuiltInSafetyCategory(dir + "/" + collapsedCategoryProbe); category != "" {
 		return category, source, true
 	}
+	// dir is a git-ignored directory by construction, and an ignored directory
+	// carrying an exclude_root_dirs name is an artifact at any depth (#104: a
+	// name counts as an artifact at the root or when git ignores it), so
+	// packages/*/dist collapses to one line like a root dist/ does (#97).
+	if source, ok := ignoredArtifactSource(dir+"/"+collapsedCategoryProbe, opt); ok {
+		return SafetyConfigured, source, true
+	}
 	for _, part := range strings.Split(dir, "/") {
 		for _, excluded := range opt.ExcludeDirs {
 			if part == strings.TrimSpace(excluded) {
@@ -455,6 +474,21 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 		}
 	}
 	return "", "", false
+}
+
+// ignoredArtifactSource names the exclude_root_dirs entry that keeps a
+// git-ignored path out at any depth: tracked files under such a name are
+// source, ignored ones are build output, caches, or dumps, whatever the depth.
+func ignoredArtifactSource(rel string, opt WalkOptions) (source string, ok bool) {
+	parts := strings.Split(rel, "/")
+	for _, part := range parts[:len(parts)-1] {
+		for _, entry := range opt.ExcludeRootDirs {
+			if part == strings.TrimSpace(entry) {
+				return "exclude_root_dirs:" + part, true
+			}
+		}
+	}
+	return "", false
 }
 
 func sameGitRootPath(gitRoot, inventoryRoot, goos string) bool {
@@ -633,11 +667,17 @@ func configuredPathExcluded(rel string, opt WalkOptions) bool {
 }
 
 // ConfiguredExclusionSource names the project configuration entry that keeps
-// rel out: "exclude_dirs:<name>" for the first matching directory component,
-// "exclude_files:<pattern>" for a file pattern. The name is what the operator
-// removes from the team configuration to let the path back in (#100).
+// rel out: "exclude_root_dirs:<name>" at the repository root,
+// "exclude_dirs:<name>" at any depth, or "exclude_files:<pattern>" for a file.
 func ConfiguredExclusionSource(rel string, opt WalkOptions) (source string, excluded bool) {
 	parts := strings.Split(rel, "/")
+	if len(parts) > 1 {
+		for _, entry := range opt.ExcludeRootDirs {
+			if parts[0] == strings.TrimSpace(entry) {
+				return "exclude_root_dirs:" + parts[0], true
+			}
+		}
+	}
 	for _, part := range parts[:len(parts)-1] {
 		for _, entry := range opt.ExcludeDirs {
 			if part == strings.TrimSpace(entry) {
@@ -677,6 +717,11 @@ func safeInventoryRulesIdentity(opt WalkOptions) string {
 	values = append(values, opt.ExcludeDirs...)
 	values = append(values, opt.ExcludeFiles...)
 	values = append(values, opt.HighRiskOptIn...)
+	// An absent field is the exact pre-rc20 identity, including its hash.
+	if len(opt.ExcludeRootDirs) > 0 {
+		values = append(values, "exclude_root_dirs:v1")
+		values = append(values, opt.ExcludeRootDirs...)
+	}
 	return digestStrings(values)
 }
 

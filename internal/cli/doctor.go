@@ -100,7 +100,8 @@ func missingTechnicalExcludeDirs(root string) []string {
 	}
 
 	var raw struct {
-		ExcludeDirs *[]string `json:"exclude_dirs"`
+		ExcludeDirs     *[]string `json:"exclude_dirs"`
+		ExcludeRootDirs []string  `json:"exclude_root_dirs"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil
@@ -111,6 +112,9 @@ func missingTechnicalExcludeDirs(root string) []string {
 
 	declared := map[string]bool{}
 	for _, d := range *raw.ExcludeDirs {
+		declared[d] = true
+	}
+	for _, d := range raw.ExcludeRootDirs {
 		declared[d] = true
 	}
 

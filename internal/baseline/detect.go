@@ -132,6 +132,12 @@ func EquivalentFingerprints(
 }
 
 // isExcludedRel判断索引条目路径是否落在与磁盘快照相同的排除口径内。
+//
+// 配置清单只有一处实现: 目录清单委托 fs.ConfiguredExclusionSource, 与 Safe
+// Inventory 同判 exclude_dirs 与 exclude_root_dirs(rc20 前此处自带一份只认
+// exclude_dirs 的实现, 新仓 backup/ 之下的条目被报成 Orphan 而非跳过)。
+// 目录条目保留尾部斜杠, 其最后一段对清单而言仍是目录; 文件模式照旧按去掉
+// 斜杠的名字匹配。
 func isExcludedRel(
 	relPath string,
 	options afs.WalkOptions,
@@ -139,37 +145,32 @@ func isExcludedRel(
 	if category, _ := afs.BuiltInSafetyCategory(relPath); category != "" {
 		return true
 	}
-	excludedDirectories := map[string]bool{
-		".aoci": true,
-	}
-
-	for _, directory := range options.ExcludeDirs {
-		directory = strings.TrimSpace(
-			directory,
-		)
-		if directory != "" {
-			excludedDirectories[directory] = true
-		}
-	}
 
 	clean := strings.TrimSuffix(
 		relPath,
 		"/",
 	)
-	segments := strings.Split(
+	directories := strings.Split(
 		clean,
 		"/",
 	)
-
-	lastDirectoryIndex := len(segments) - 1
 	if !strings.HasSuffix(relPath, "/") {
-		lastDirectoryIndex--
+		directories = directories[:len(directories)-1]
 	}
-
-	for index := 0; index <= lastDirectoryIndex; index++ {
-		if excludedDirectories[segments[index]] {
+	for _, segment := range directories {
+		if segment == ".aoci" {
 			return true
 		}
+	}
+
+	if _, excluded := afs.ConfiguredExclusionSource(
+		relPath,
+		afs.WalkOptions{
+			ExcludeDirs:     options.ExcludeDirs,
+			ExcludeRootDirs: options.ExcludeRootDirs,
+		},
+	); excluded {
+		return true
 	}
 
 	return afs.MatchExcludePattern(

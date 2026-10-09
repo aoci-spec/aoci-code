@@ -60,6 +60,7 @@ func TestConfigCommandsHonorJSONOutput(t *testing.T) {
 		}{
 			{"locale", textassets.LegacyLocale},
 			{"exclude_dirs", []any{"vendor", "third_party"}},
+			{"exclude_root_dirs", []any{}},
 			{"overview_delivery.chunk_tokens", float64(9000)},
 			{"hook_strict", false},
 			{"ledger_enabled", true},
@@ -101,6 +102,8 @@ func TestConfigCommandsHonorJSONOutput(t *testing.T) {
 			value any
 		}{
 			{"exclude_dirs", "a, b", []any{"a", "b"}},
+			{"exclude_root_dirs", "build, cache", []any{"build", "cache"}},
+			{"exclude_root_dirs", "build/, cache, build", []any{"build", "cache"}},
 			{"overview_delivery.chunk_tokens", "12000", float64(12000)},
 			{"code_cognition_batch_entries", "20", float64(20)},
 			{"hook_strict", "true", true},

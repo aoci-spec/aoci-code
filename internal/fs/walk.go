@@ -2,7 +2,9 @@
 // 索引条目: walk.go[FS.Walk.8.Xp.S]
 //
 // 纪律:
-//   - exclude_dirs 用 fs.SkipDir 在 walk 层剪枝而非遍历后过滤(node_modules 几万文件级性能差异);
+//   - 遍历层只按内置类别剪枝(node_modules 几万文件级性能差异);exclude_dirs 与
+//     exclude_root_dirs 在 BuildSafeInventory 逐文件判定, git 仓库里被忽略且整体
+//     命中硬排除的目录折叠为一行(HardExcludedDirectory);
 //   - 不跟随符号链接(防环与越界);
 //   - 内置无条件排除仅两个: .aoci(防自吞)与 .git(VCS 内部目录零索引价值且含二进制 pack,
 //     2026-07-10 httpx 实弹缺陷: 新仓 init 后默认配置为空,.git 全量扫入 inventory/基线),
@@ -21,6 +23,9 @@ import "strings"
 type WalkOptions struct {
 	// ExcludeDirs 目录名排除(按目录基名匹配,如 node_modules)
 	ExcludeDirs []string
+	// ExcludeRootDirs matches the first repository-relative directory, and a
+	// git-ignored directory of that name at any depth (ignoredArtifactSource).
+	ExcludeRootDirs []string
 	// ExcludeFiles 文件排除模式,语义对齐平台 matchExcludePattern:
 	// *.bak 后缀 / backup_* 前缀 / *.backup.* 包含 / 无 * 则基名或相对路径精确
 	ExcludeFiles []string

@@ -70,7 +70,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -110,7 +110,17 @@ func init() {
 
 			switch key {
 			case "exclude_dirs":
-				cfg.ExcludeDirs = splitCSV(value)
+				names, nameErr := directoryNames(value)
+				if nameErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: nameErr.Error()}
+				}
+				cfg.ExcludeDirs = names
+			case "exclude_root_dirs":
+				names, nameErr := directoryNames(value)
+				if nameErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: nameErr.Error()}
+				}
+				cfg.ExcludeRootDirs = names
 			case "exclude_files":
 				cfg.ExcludeFiles = splitCSV(value)
 			case "curation_exclude":
@@ -217,7 +227,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -322,6 +332,11 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 			return cfg.ExcludeDirs, true
 		}
 		return strings.Join(cfg.ExcludeDirs, ","), true
+	case "exclude_root_dirs":
+		if jsonMode {
+			return append([]string{}, cfg.ExcludeRootDirs...), true
+		}
+		return strings.Join(cfg.ExcludeRootDirs, ","), true
 	case "exclude_files":
 		if jsonMode {
 			return cfg.ExcludeFiles, true
@@ -358,6 +373,27 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 	default:
 		return nil, false
 	}
+}
+
+// directoryNames parses the value of exclude_dirs or exclude_root_dirs. Both
+// lists match one path component, so the gitignore spelling `build/` is the
+// name without its slash, a duplicate is one entry, and a path such as
+// `app/build` can never match and is refused instead of saved as a dead entry.
+func directoryNames(raw string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, part := range splitCSV(raw) {
+		name := strings.TrimRight(part, `/\`)
+		if name == "" || strings.ContainsAny(name, `/\`) {
+			return nil, errors.New(cliMessage("config.bad_directory_name", part))
+		}
+		if seen[name] {
+			continue
+		}
+		seen[name] = true
+		out = append(out, name)
+	}
+	return out, nil
 }
 
 func splitCSV(raw string) []string {

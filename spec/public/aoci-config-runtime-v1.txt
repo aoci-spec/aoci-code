@@ -20,6 +20,14 @@ and installed Host integrations are team-owned settings. A batch size is a
 shared authoring contract between the machine and every Host that maintains
 the repository, so the local layer cannot change it.
 
+`exclude_root_dirs` is a team-owned directory exclusion list that matches
+at the repository root and wherever Git ignores a directory of that name.
+New `init` persists ambiguous artifact names there; an absent list retains
+the old any-depth `exclude_dirs` behavior and policy identity. Changing either
+list after the first scan requires a governed Scope Change. Both lists hold
+directory names, never paths: `config set` drops a trailing separator and
+duplicates and refuses a value containing a path separator.
+
 Secrets and network configuration
 ---------------------------------
 
