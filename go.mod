@@ -1,6 +1,6 @@
 module github.com/aoci-spec/aoci-code
 
-go 1.26.6
+go 1.26.9
 
 require (
 	gitcode.com/opengauss/openGauss-connector-go-pq v1.0.8

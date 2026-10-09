@@ -46,6 +46,11 @@ artifact names for new repositories, and a benchmark.
   rather than reported as an orphan; `config set` on either directory list
   takes `build/` as `build`, drops duplicates, and refuses `app/build`, which
   could never match.
+- Toolchain: Go 1.26.9. govulncheck reports nine standard-library advisories
+  against 1.26.6 (GO-2026-6603, 6605, 6607, 6608, 6610, 6611, 6612, 6613,
+  6617 in `net/http`, `net/textproto`, and `crypto/tls`, which the status
+  page and the database drivers link), all fixed in 1.26.9; release binaries
+  are built with it and `go.mod` requires it.
 - Tests: the 1,000-object governance timing moved from a five-second
   wall-clock assertion to a benchmark that full-confidence runs (PR #108 by
   @dayebishouji).
