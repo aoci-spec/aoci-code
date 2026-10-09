@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-08T03:40:06Z",
+  "updated_at": "2026-10-09T03:15:55Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -6049,10 +6049,10 @@
     },
     "internal/volumegovernance/facts_test.go": {
       "role": "observe",
-      "sha256": "0510458d554eeccc6bb2a15d12fbd6b418eb5b4d899101b2a654112d424cd85e",
-      "size": 19960,
-      "normalized_sha256": "0510458d554eeccc6bb2a15d12fbd6b418eb5b4d899101b2a654112d424cd85e",
-      "format_sha256": "0510458d554eeccc6bb2a15d12fbd6b418eb5b4d899101b2a654112d424cd85e",
+      "sha256": "d82417d7cf3440b8dfc981e490325db5c483a769f749b945c37d51fbf70ff0e9",
+      "size": 20107,
+      "normalized_sha256": "d82417d7cf3440b8dfc981e490325db5c483a769f749b945c37d51fbf70ff0e9",
+      "format_sha256": "d82417d7cf3440b8dfc981e490325db5c483a769f749b945c37d51fbf70ff0e9",
       "format_kind": "gofmt"
     },
     "internal/volumegovernance/held_sources_test.go": {
