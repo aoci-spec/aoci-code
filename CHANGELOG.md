@@ -2,7 +2,11 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc20
+
+Five user reports and two contributed pull requests: an E scale audit,
+submodule boundaries, refusals that name the working path, root-anchored
+artifact names for new repositories, and a benchmark.
 
 - `verify` and `check` audit each Code Entry's E scale letter against the
   source line count under the Meta's bands and report the mismatches, as
