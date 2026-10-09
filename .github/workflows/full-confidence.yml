@@ -142,6 +142,7 @@ jobs:
           go test -run '^$' -bench '^BenchmarkMigrationScale$/^objects-(1|100|1000)$/' -benchtime=1x ./internal/migrationapply
           go test -run '^$' -bench 'Benchmark(BootstrapScale|BootstrapPlannerScale)$' -benchtime=1x ./internal/bootstrapapply ./internal/cognitionplan
           go test -run '^$' -bench 'Benchmark(DatabaseCognitionScale|ResolveImpactLargeIndependentSet|ResolveImpactTenThousandMixedSet)$' -benchtime=1x ./internal/dbcognition ./internal/cognition
+          go test -run '^$' -bench '^BenchmarkFacts1000CodeObjects$' -benchtime=1x ./internal/volumegovernance
 
   native-lifecycle:
     timeout-minutes: 45

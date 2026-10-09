@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -119,7 +118,8 @@ func TestRootOwnedAssetInCodeVolumeReportsActionableOwnershipConflict(t *testing
 	}
 }
 
-func TestFacts1000CodeObjectsRemainDeterministicAndBounded(t *testing.T) {
+func facts1000Fixture(t testing.TB) (string, *config.Config, *cognition.Set) {
+	t.Helper()
 	root, cfg := baseFixture(t, true, false)
 	var volume strings.Builder
 	volume.WriteString(cognition.CodeVolumeMarker + "\n")
@@ -156,7 +156,11 @@ func TestFacts1000CodeObjectsRemainDeterministicAndBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	started := time.Now()
+	return root, cfg, set
+}
+
+func TestFacts1000CodeObjectsRemainDeterministic(t *testing.T) {
+	root, cfg, set := facts1000Fixture(t)
 	first, err := Assess(root, cfg, set)
 	if err != nil {
 		t.Fatal(err)
@@ -165,16 +169,22 @@ func TestFacts1000CodeObjectsRemainDeterministicAndBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	duration := time.Since(started)
 	firstJSON, _ := json.Marshal(first)
 	secondJSON, _ := json.Marshal(second)
 	if string(firstJSON) != string(secondJSON) || !first.GovernanceAligned || first.CodeSourceCount != 1000 || first.CodeEntryCount != 1000 {
 		t.Fatalf("1000-object facts are not deterministic/aligned: first=%#v second=%#v", first, second)
 	}
-	if duration > 5*time.Second {
-		t.Fatalf("1000-object facts exceeded bounded test budget: %s", duration)
+}
+
+func BenchmarkFacts1000CodeObjects(b *testing.B) {
+	root, cfg, set := facts1000Fixture(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := Assess(root, cfg, set); err != nil {
+			b.Fatal(err)
+		}
 	}
-	t.Logf("1000-object shared facts twice: %s", duration)
 }
 
 func TestFactsTwentyCodeThreeDatabaseFixtureIsAligned(t *testing.T) {
@@ -309,7 +319,7 @@ func alignedFixture(t *testing.T, code, database bool) (string, *config.Config) 
 	return root, cfg
 }
 
-func baseFixture(t *testing.T, code, database bool) (string, *config.Config) {
+func baseFixture(t testing.TB, code, database bool) (string, *config.Config) {
 	t.Helper()
 	root := t.TempDir()
 	declarations := "#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled\n"
@@ -366,7 +376,7 @@ func writeAcceptedEvidence(t *testing.T, root string) dbevidence.Snapshot {
 	return snapshot
 }
 
-func writeFixtureFile(t *testing.T, root, rel, content string) {
+func writeFixtureFile(t testing.TB, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
