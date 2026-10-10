@@ -99,7 +99,7 @@ func newDatabaseVerifyCmd() *cobra.Command {
 					if sourceErr.Code == "evidence_invalid" {
 						return renderDatabaseSourceFailure(cmd, source, string(dbevidence.DriftEvidenceInvalid), "database_evidence_invalid", ExitInvalid)
 					}
-					if sourceErr.Code != "configuration_invalid" && sourceErr.Code != "credential_env_missing" && sourceErr.Code != "source_disabled" {
+					if sourceErr.Code != "configuration_invalid" && sourceErr.Code != "credential_env_missing" && sourceErr.Code != "source_disabled" && sourceErr.Code != "engine_not_implemented" {
 						return renderDatabaseSourceFailure(cmd, source, string(dbevidence.DriftSourceUnavailable), "database_"+sourceErr.Code, ExitDrift)
 					}
 				}

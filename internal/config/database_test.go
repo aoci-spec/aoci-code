@@ -91,6 +91,30 @@ func TestOpenGaussDatabaseSourceRoundTripsInTeamConfig(t *testing.T) {
 	}
 }
 
+func TestSQLitePathRoundTripsWithoutServerCredentials(t *testing.T) {
+	root := t.TempDir()
+	cfg := DefaultConfig()
+	cfg.DatabaseSources = []dbevidence.SourceConfig{{SourceID: "local", Engine: dbevidence.EngineSQLite, Path: "data/app.db", Enabled: true}}
+	if err := Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(loaded.DatabaseSources) != 1 || loaded.DatabaseSources[0].Path != "data/app.db" ||
+		loaded.DatabaseSources[0].CredentialEnv != "" || loaded.DatabaseSources[0].Database != "" {
+		t.Fatalf("SQLite source changed after round trip: %+v", loaded.DatabaseSources)
+	}
+	data, err := os.ReadFile(FilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stringContains(string(data), `"credential_env"`) || stringContains(string(data), `"database":`) {
+		t.Fatalf("SQLite source wrote server-only fields: %s", data)
+	}
+}
+
 func TestDatabaseSourceConfigRejectsUnknownAndOpenGaussAliases(t *testing.T) {
 	for _, engine := range []string{"openGauss", "gaussdb", "open_gauss", "og", "postgres", "unknown"} {
 		t.Run(engine, func(t *testing.T) {
