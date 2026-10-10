@@ -18,18 +18,20 @@ const (
 	EnginePostgreSQL Engine = "postgresql"
 	EngineMySQL      Engine = "mysql"
 	EngineOpenGauss  Engine = "opengauss"
+	EngineSQLite     Engine = "sqlite"
 )
 
 type SourceConfig struct {
 	SourceID              string   `json:"source_id"`
 	Engine                Engine   `json:"engine"`
-	Database              string   `json:"database"`
+	Database              string   `json:"database,omitempty"`
+	Path                  string   `json:"path,omitempty"`
 	Namespaces            []string `json:"namespaces"`
 	IncludeNamespaces     []string `json:"include_namespaces,omitempty"`
 	ExcludeNamespaces     []string `json:"exclude_namespaces,omitempty"`
 	IncludeTables         []string `json:"include_tables,omitempty"`
 	ExcludeTables         []string `json:"exclude_tables,omitempty"`
-	CredentialEnv         string   `json:"credential_env"`
+	CredentialEnv         string   `json:"credential_env,omitempty"`
 	ConnectTimeoutSeconds int      `json:"connect_timeout_seconds"`
 	QueryTimeoutSeconds   int      `json:"query_timeout_seconds"`
 	Enabled               bool     `json:"enabled"`

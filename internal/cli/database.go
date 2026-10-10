@@ -29,7 +29,7 @@ func newDatabaseSourceCmd() *cobra.Command {
 }
 
 func newDatabaseSourceAddCmd() *cobra.Command {
-	var sourceID, engine, database, credentialEnv string
+	var sourceID, engine, database, filePath, credentialEnv string
 	var namespaces, includeNamespaces, excludeNamespaces, includeTables, excludeTables []string
 	var connectTimeout, queryTimeout int
 	var disabled, replace bool
@@ -38,7 +38,7 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 		Short: cliMessage("cli.short.database_source_add"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			defer func() {
-				sourceID, engine, database, credentialEnv = "", "", "", ""
+				sourceID, engine, database, filePath, credentialEnv = "", "", "", "", ""
 				namespaces, includeNamespaces, excludeNamespaces, includeTables, excludeTables = nil, nil, nil, nil, nil
 				connectTimeout, queryTimeout = 10, 30
 				disabled, replace = false, false
@@ -51,11 +51,11 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
-			if credentialEnv == "" {
+			if credentialEnv == "" && engine != string(dbevidence.EngineSQLite) {
 				credentialEnv = dbevidence.DefaultCredentialEnv(sourceID)
 			}
 			source := dbevidence.SourceConfig{
-				SourceID: sourceID, Engine: dbevidence.Engine(engine), Database: database,
+				SourceID: sourceID, Engine: dbevidence.Engine(engine), Database: database, Path: filePath,
 				Namespaces: namespaces, IncludeNamespaces: includeNamespaces, ExcludeNamespaces: excludeNamespaces,
 				IncludeTables: includeTables, ExcludeTables: excludeTables, CredentialEnv: credentialEnv,
 				ConnectTimeoutSeconds: connectTimeout, QueryTimeoutSeconds: queryTimeout, Enabled: !disabled,
@@ -89,7 +89,11 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 					NetworkAccessed bool                    `json:"network_accessed"`
 				}{1, source, false, false})
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.saved", source.SourceID, source.CredentialEnv))
+			if source.Engine == dbevidence.EngineSQLite {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.sqlite_saved", source.SourceID, source.Path))
+			} else {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.saved", source.SourceID, source.CredentialEnv))
+			}
 			return nil
 		},
 	}
@@ -97,6 +101,7 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 	flags.StringVar(&sourceID, "source-id", "", cliMessage("database.flag.source_id"))
 	flags.StringVar(&engine, "engine", "", cliMessage("database.flag.engine"))
 	flags.StringVar(&database, "database-name", "", cliMessage("database.flag.database"))
+	flags.StringVar(&filePath, "path", "", cliMessage("database.flag.path"))
 	flags.StringSliceVar(&namespaces, "namespace", nil, cliMessage("database.flag.namespace"))
 	flags.StringSliceVar(&includeNamespaces, "include-namespace", nil, cliMessage("database.flag.include_namespace"))
 	flags.StringSliceVar(&excludeNamespaces, "exclude-namespace", nil, cliMessage("database.flag.exclude_namespace"))
@@ -109,7 +114,6 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 	flags.BoolVar(&replace, "replace", false, cliMessage("database.flag.replace"))
 	_ = command.MarkFlagRequired("source-id")
 	_ = command.MarkFlagRequired("engine")
-	_ = command.MarkFlagRequired("database-name")
 	return command
 }
 
@@ -138,7 +142,11 @@ func newDatabaseSourceListCmd() *cobra.Command {
 				return nil
 			}
 			for _, source := range sources {
-				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.row", source.SourceID, source.Engine, source.Database, source.CredentialEnv, source.Enabled))
+				if source.Engine == dbevidence.EngineSQLite {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.sqlite_row", source.SourceID, source.Engine, source.Path, source.Enabled))
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.source.row", source.SourceID, source.Engine, source.Database, source.CredentialEnv, source.Enabled))
+				}
 			}
 			return nil
 		},
@@ -227,7 +235,7 @@ func databaseSourceExitError(err error) error {
 		return &ExitError{Code: ExitInternal, MachineCode: "database_internal", Msg: cliMessage("database.error.internal")}
 	}
 	code := ExitInternal
-	if sourceErr.Code == "configuration_invalid" || sourceErr.Code == "credential_env_missing" || sourceErr.Code == "source_disabled" {
+	if sourceErr.Code == "configuration_invalid" || sourceErr.Code == "credential_env_missing" || sourceErr.Code == "source_disabled" || sourceErr.Code == "engine_not_implemented" {
 		code = ExitConfig
 	}
 	if sourceErr.Code == "credential_env_missing" {
