@@ -301,7 +301,10 @@ blocker the Host can clear itself (baseline_missing, observed_pending,
 scope_change_required, cognition_budget_exceeded); an evidence_required
 Maintain needs a fresh snapshot and its acceptance. None of those actions
 exists on the nine-tool surface, so each such result carries an additive
-optional next_commands array holding the runnable spellings. The spellings
+optional next_commands array holding the runnable spellings. For
+scope_change_required these include scope status and scope activate; activation
+applies safe changes or returns a preview and approval commands without a
+formal write when human approval is required. The spellings
 compose from one set of machine-owned command suffixes shared with the CLI
 Guide's blocked remediation, so the two surfaces cannot spell one command two
 ways, and each is prefixed by the running server's own absolute executable

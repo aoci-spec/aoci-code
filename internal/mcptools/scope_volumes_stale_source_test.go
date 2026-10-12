@@ -81,8 +81,10 @@ func TestVolumesPolicyChangeOverStaleSourceAppliesThenMaintainAuthors(t *testing
 	addNoOpExcludeRule(t, root)
 
 	blockedText := callVolumeTool(t, session, "aoci_maintain", map[string]any{})
-	if !strings.Contains(blockedText, `"status":"stopped"`) || !strings.Contains(blockedText, "scope_change_required") {
-		t.Fatalf("a pending policy edit must stop Maintain with scope_change_required: %s", blockedText)
+	if !strings.Contains(blockedText, `"status":"stopped"`) ||
+		!strings.Contains(blockedText, "scope_change_required") ||
+		!strings.Contains(blockedText, machinecontract.RemediationCommandScopeActivate) {
+		t.Fatalf("a pending policy edit must stop Maintain and name activation: %s", blockedText)
 	}
 
 	// The candidate that used to be the only way past the stale guard is

@@ -73,6 +73,7 @@ func EvolutionNarrativeTerms() []string {
 const (
 	RemediationCommandScan                   = "scan"
 	RemediationCommandScopeStatus            = "scope status --json"
+	RemediationCommandScopeActivate          = "scope activate --json"
 	RemediationCommandScopeAcknowledge       = "scope acknowledge --reviewed-by {agent} --json"
 	RemediationCommandScopeBudgetSet         = "scope budget set --max-tokens {tokens}"
 	RemediationCommandVerify                 = "verify --json"

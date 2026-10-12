@@ -150,5 +150,8 @@ func TestScopeChangeRemediationNeverAdvisesScanInEveryOfficialLocale(t *testing.
 				t.Errorf("scope-change remediation for %s must mention %s: %q", locale, required, message)
 			}
 		}
+		if !strings.Contains(message, "scope_activate") {
+			t.Errorf("scope-change remediation for %s must name the activation command: %q", locale, message)
+		}
 	}
 }

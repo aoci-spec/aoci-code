@@ -90,7 +90,8 @@ func blockedNextCommands(facts *volumegovernance.Facts) []string {
 			add(machinecontract.RemediationCommandScopeStatus,
 				machinecontract.RemediationCommandScopeAcknowledge)
 		case "scope_change_required":
-			add(machinecontract.RemediationCommandScopeStatus)
+			add(machinecontract.RemediationCommandScopeStatus,
+				machinecontract.RemediationCommandScopeActivate)
 		case "cognition_budget_exceeded":
 			add(machinecontract.RemediationCommandScopeStatus,
 				machinecontract.RemediationCommandScopeBudgetSet)

@@ -262,6 +262,7 @@ func bindAgentGuideCommands(
 		&commands.Verify,
 		&commands.ScopePreview,
 		&commands.ScopeStatus,
+		&commands.ScopeActivate,
 		&commands.ScopeAcknowledge,
 		&commands.ScopeBudget,
 	}

@@ -46,6 +46,15 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		t.Fatalf("duplicate findings duplicated a command: %v", blocked)
 	}
 
+	scopeCommands := blockedNextCommands(&volumegovernance.Facts{Findings: []volumegovernance.Finding{
+		{Code: "scope_change_required"}, {Code: "scope_change_required"},
+	}})
+	if len(scopeCommands) != 2 ||
+		!strings.HasSuffix(scopeCommands[0], " "+machinecontract.RemediationCommandScopeStatus) ||
+		!strings.HasSuffix(scopeCommands[1], " "+machinecontract.RemediationCommandScopeActivate) {
+		t.Fatalf("scope blocker must name status then activation once: %v", scopeCommands)
+	}
+
 	if commands := blockedNextCommands(&volumegovernance.Facts{}); commands != nil {
 		t.Fatalf("no clearable blocker must yield no commands, got %v", commands)
 	}

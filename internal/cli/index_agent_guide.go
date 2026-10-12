@@ -43,6 +43,7 @@ type agentGuideCommands struct {
 	Verify           string `json:"verify,omitempty"`
 	ScopePreview     string `json:"scope_preview,omitempty"`
 	ScopeStatus      string `json:"scope_status,omitempty"`
+	ScopeActivate    string `json:"scope_activate,omitempty"`
 	ScopeAcknowledge string `json:"scope_acknowledge,omitempty"`
 	ScopeBudget      string `json:"scope_budget,omitempty"`
 }
@@ -416,6 +417,7 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 	}
 	if scopeChange {
 		guide.Commands.ScopePreview = "aoci " + machinecontract.RemediationCommandScopeStatus
+		guide.Commands.ScopeActivate = "aoci " + machinecontract.RemediationCommandScopeActivate
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_scope_change"))
 	}
 	// observe_change_policy defaults to review_required, so an ordinary change to

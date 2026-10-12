@@ -77,3 +77,17 @@ func TestBudgetBlockedGuideHandsBackBothLevers(t *testing.T) {
 		t.Fatalf("SafeNextAction omits the raise lever: %q", guide.Stop.SafeNextAction)
 	}
 }
+
+func TestScopeBlockedVolumeGuideNamesActivation(t *testing.T) {
+	guide := volumeAgentGuide{}
+	applyVolumeBlockedRemediation(&guide, &volumegovernance.Facts{
+		Findings: []volumegovernance.Finding{{Code: "scope_change_required"}},
+	})
+	if guide.Commands.ScopePreview != "aoci scope status --json" ||
+		guide.Commands.ScopeActivate != "aoci scope activate --json" {
+		t.Fatalf("scope change guide commands = %+v", guide.Commands)
+	}
+	if len(guide.Instructions) != 1 || !strings.Contains(guide.Instructions[0], "scope_activate") {
+		t.Fatalf("scope change guide instructions = %q", guide.Instructions)
+	}
+}
