@@ -194,7 +194,7 @@ func TestInstallCodexCompactionConflictsAreAtomic(t *testing.T) {
 			if len(backups) != 0 {
 				t.Fatalf("conflicting install created backups despite zero-write preflight: %v", backups)
 			}
-			if strings.Contains(string(after), codexMarker) {
+			if strings.Contains(string(after), "[mcp_servers.aoci]") {
 				t.Fatal("MCP configuration was written before compaction conflict detection")
 			}
 		})
@@ -341,6 +341,39 @@ func TestInstallCodexMCPIdempotent(t *testing.T) {
 	after, _ := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
 	if string(before) != string(after) {
 		t.Fatal("幂等跳过不得改动文件")
+	}
+}
+
+func TestInstallCodexMCPRecognizesQuotedTable(t *testing.T) {
+	for _, header := range []string{
+		`[mcp_servers."aoci"]`,
+		`[mcp_servers.'aoci']`,
+		`[ "mcp_servers" . "aoci" ] # existing server`,
+	} {
+		t.Run(header, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, ".codex", "config.toml")
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				t.Fatal(err)
+			}
+			existing := header + "\ncommand = \"/usr/bin/aoci\"\n"
+			if err := os.WriteFile(path, []byte(existing), 0644); err != nil {
+				t.Fatal(err)
+			}
+			if !IsCodexMCPInstalled(root) {
+				t.Fatal("quoted aoci table must be recognized as installed")
+			}
+			if _, err := InstallCodexMCP(root); err != nil {
+				t.Fatal(err)
+			}
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != existing {
+				t.Fatalf("installation changed an existing aoci table:\n%s", after)
+			}
+		})
 	}
 }
 

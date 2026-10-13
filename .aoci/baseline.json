@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-13T02:55:06Z",
+  "updated_at": "2026-10-13T04:14:28Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "1ad12c1ef0cd3a2c85cc5c79475319870cc49ce9be88abfadff4d533c1dd3d24",
-      "size": 207150,
-      "normalized_sha256": "1ad12c1ef0cd3a2c85cc5c79475319870cc49ce9be88abfadff4d533c1dd3d24"
+      "sha256": "a841203699cef41f766da121290924a45139db2a1f99c58aa99c7a3de93fcb68",
+      "size": 207198,
+      "normalized_sha256": "a841203699cef41f766da121290924a45139db2a1f99c58aa99c7a3de93fcb68"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3905,18 +3905,18 @@
     },
     "internal/hooks/codex.go": {
       "role": "index",
-      "sha256": "e7c669abafe95f8704ca13e7df359d7fa3a990185eda2287750a0383f5c81f61",
-      "size": 10037,
-      "normalized_sha256": "e7c669abafe95f8704ca13e7df359d7fa3a990185eda2287750a0383f5c81f61",
-      "format_sha256": "e7c669abafe95f8704ca13e7df359d7fa3a990185eda2287750a0383f5c81f61",
+      "sha256": "824e2c1aa4ba25893eaa84e0a170b2c4abddd0f208c37a13242d1c41c339352a",
+      "size": 9884,
+      "normalized_sha256": "824e2c1aa4ba25893eaa84e0a170b2c4abddd0f208c37a13242d1c41c339352a",
+      "format_sha256": "824e2c1aa4ba25893eaa84e0a170b2c4abddd0f208c37a13242d1c41c339352a",
       "format_kind": "gofmt"
     },
     "internal/hooks/codex_test.go": {
       "role": "observe",
-      "sha256": "5051178f5a5e5bcddad7c13a82015f22a6ad7b4074e4c7c6c882fbdbeed364c8",
-      "size": 12922,
-      "normalized_sha256": "5051178f5a5e5bcddad7c13a82015f22a6ad7b4074e4c7c6c882fbdbeed364c8",
-      "format_sha256": "5051178f5a5e5bcddad7c13a82015f22a6ad7b4074e4c7c6c882fbdbeed364c8",
+      "sha256": "e1a32f8eed02170731121115ab9e5e3ac636fe5552399e9a26f8aee299eabe16",
+      "size": 13864,
+      "normalized_sha256": "e1a32f8eed02170731121115ab9e5e3ac636fe5552399e9a26f8aee299eabe16",
+      "format_sha256": "e1a32f8eed02170731121115ab9e5e3ac636fe5552399e9a26f8aee299eabe16",
       "format_kind": "gofmt"
     },
     "internal/hooks/installer.go": {
@@ -4009,10 +4009,10 @@
     },
     "internal/hooks/status.go": {
       "role": "index",
-      "sha256": "ea8666c1140fd1300f9200492233059048fe58ebc552a65e02acb85fcb1809a8",
-      "size": 3975,
-      "normalized_sha256": "ea8666c1140fd1300f9200492233059048fe58ebc552a65e02acb85fcb1809a8",
-      "format_sha256": "ea8666c1140fd1300f9200492233059048fe58ebc552a65e02acb85fcb1809a8",
+      "sha256": "3d49a121058ac7026a595dabf96a8b9ab17183098547d05e38f8d44ccb94a19d",
+      "size": 3966,
+      "normalized_sha256": "3d49a121058ac7026a595dabf96a8b9ab17183098547d05e38f8d44ccb94a19d",
+      "format_sha256": "3d49a121058ac7026a595dabf96a8b9ab17183098547d05e38f8d44ccb94a19d",
       "format_kind": "gofmt"
     },
     "internal/hooks/status_test.go": {

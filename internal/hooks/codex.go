@@ -7,8 +7,8 @@
 //   - 不引入 TOML 解析依赖: 采用"表追加"策略 —— 在 TOML 语法下,文件末尾追加
 //     一个不重复的 [table] 是恒安全操作;已存在 [mcp_servers.aoci] 即跳过(幂等),
 //     其余任何形态的既有内容一字节不动,复杂合并场景不做猜测;
-//   - 幂等判据 = 逐行 TrimSpace 后以 "[mcp_servers.aoci]" 为前缀的非注释行
-//     (审查修正: 早期的全文子串检测会被注释行 #[mcp_servers.aoci] 误判为已安装);
+//   - 幂等判据 = 完整的 aoci MCP 表头，包括 TOML 等价的引号键写法；
+//     注释行 #[mcp_servers.aoci] 不算已安装;
 //   - 写前经 BackupThenWrite 备份;渲染产物先过 safety 闸门(RenderTemplate 内置);
 //   - Codex 仅对"受信任项目"加载项目级配置,信任动作归用户在 Codex 侧完成,
 //     本函数在返回文案中提示;
@@ -23,15 +23,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 const (
-	// codexMarker 是 MCP 配置的幂等判据表头。
-	codexMarker = "[mcp_servers.aoci]"
-
 	// 以下 marker 是 AOCI 托管 Codex 压缩配置的稳定所有权边界。
 	// 用户自定义 compact_prompt 没有 prompt marker,安装器必须失败关闭。
 	codexCompactPromptMarker = "# aoci:codex-compact-prompt:v1"
@@ -39,20 +37,20 @@ const (
 	codexUTF8BOM             = "\ufeff"
 )
 
+var codexMCPTableHeader = regexp.MustCompile(`^\[[ \t]*("mcp_servers"|'mcp_servers'|mcp_servers)[ \t]*\.[ \t]*("aoci"|'aoci'|aoci)[ \t]*\][ \t]*(#.*)?$`)
+
 type codexCompactPromptState struct {
 	Managed          bool
 	Custom           bool
 	ExperimentalFile bool
 }
 
-// hasCodexTable 判断 TOML 文本是否已含 aoci 表(逐行判定,注释行免疫)。
-// 判据: 某行去除首尾空白后以 [mcp_servers.aoci] 开头 ——
-// TOML 表头行允许尾随注释(如 "[mcp_servers.aoci] # 由 aoci 写入"),故用前缀而非全等;
-// 以 # 开头的注释行天然不满足前缀条件,不会误判。
+// hasCodexTable 判断 TOML 文本是否已含 aoci 表，包括等价的引号键写法。
+// 只识别完整表头及可选的尾随注释，注释行不会误判。
 func hasCodexTable(text string) bool {
 	text = strings.TrimPrefix(text, codexUTF8BOM)
 	for _, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), codexMarker) {
+		if codexMCPTableHeader.MatchString(strings.TrimSpace(line)) {
 			return true
 		}
 	}

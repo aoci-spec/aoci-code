@@ -69,8 +69,8 @@ func IsClaudeHookInstalled(root string) bool {
 }
 
 // IsCodexMCPInstalled 判断 .codex/config.toml 是否已配置 aoci MCP server。
-// 判据: 委托 hasCodexTable(codex.go,与写入端幂等同一实现)—— 逐行 TrimSpace
-// 后前缀匹配 [mcp_servers.aoci],注释行天然免疫(审查事故防线单点承载)。
+// 判据: 委托 hasCodexTable(codex.go,与写入端幂等同一实现)—— 识别完整表头及
+// 等价的引号键写法，注释行免疫(审查事故防线单点承载)。
 func IsCodexMCPInstalled(root string) bool {
 	data, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
 	if err != nil {
