@@ -53,6 +53,17 @@ const (
 	// DefaultChatCompletionsPath 是 OpenAI 兼容的补全端点路径后缀。
 	// BaseURL 通常形如 https://host/v1,拼接此路径得到 /v1/chat/completions。
 	DefaultChatCompletionsPath = "/chat/completions"
+
+	// DefaultAnthropicMessagesPath 是 Anthropic Messages 协议的端点路径后缀。
+	// BaseURL 形如 https://host(智谱 Coding Plan 即 https://open.bigmodel.cn/api/anthropic),
+	// 拼接此路径得到 /v1/messages。
+	DefaultAnthropicMessagesPath = "/v1/messages"
+)
+
+// Provider 协议标识。空值按 openai-compatible 处理(向后兼容既有配置)。
+const (
+	ProviderOpenAICompatible = "openai-compatible"
+	ProviderAnthropic        = "anthropic"
 )
 
 // Options 是构造 Client 所需的裸参数(不依赖任何业务结构,便于独立测试)。
@@ -63,6 +74,10 @@ type Options struct {
 
 	// Model 是调用所用模型名。必填 —— 为空时构造 Client 返回错误。
 	Model string
+
+	// Provider 是端点线协议: openai-compatible(默认) 或 anthropic。
+	// 空值回退 openai-compatible(兼容既有配置);非法值构造时报错。
+	Provider string
 
 	// APIKey 是"已从环境变量读出的真实密钥"。允许为空:
 	// 空表示端点无需认证(典型内网自部署),请求不带 Authorization 头。
@@ -86,19 +101,28 @@ type Options struct {
 type Client struct {
 	baseURL        string
 	model          string
+	provider       string
 	apiKey         string
 	maxInputTokens int
 	httpClient     *http.Client
 }
 
 // NewClient 从 Options 构造 Client,并对必填项做校验。
-// 校验: BaseURL 与 Model 均不可为空(APIKey 可为空 —— 内网免认证)。
+// 校验: BaseURL 与 Model 均不可为空(APIKey 可为空 —— 内网免认证);
+// Provider 为空回退 openai-compatible,非法值报错。
 func NewClient(opts Options) (*Client, error) {
 	if opts.BaseURL == "" {
 		return nil, &Error{Kind: KindConfig, Message: "AI 端点 base_url 未配置(不能为空)"}
 	}
 	if opts.Model == "" {
 		return nil, &Error{Kind: KindConfig, Message: "AI 模型 model 未配置(不能为空)"}
+	}
+	provider := opts.Provider
+	if provider == "" {
+		provider = ProviderOpenAICompatible
+	}
+	if provider != ProviderOpenAICompatible && provider != ProviderAnthropic {
+		return nil, &Error{Kind: KindConfig, Message: "AI 协议 provider 非法(仅支持 openai-compatible / anthropic): " + provider}
 	}
 
 	hc := opts.HTTPClient
@@ -110,6 +134,7 @@ func NewClient(opts Options) (*Client, error) {
 	return &Client{
 		baseURL:        opts.BaseURL,
 		model:          opts.Model,
+		provider:       provider,
 		apiKey:         opts.APIKey,
 		maxInputTokens: opts.MaxInputTokens,
 		httpClient:     hc,

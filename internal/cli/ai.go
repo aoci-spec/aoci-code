@@ -403,6 +403,7 @@ func configToLLMOptions(cfg *config.Config) (llm.Options, bool) {
 	return llm.Options{
 		BaseURL:        cfg.AI.BaseURL,
 		Model:          cfg.AI.Model,
+		Provider:       cfg.AI.Provider,
 		APIKey:         apiKey,
 		Timeout:        timeout,
 		MaxInputTokens: cfg.AI.MaxInputTokens,
