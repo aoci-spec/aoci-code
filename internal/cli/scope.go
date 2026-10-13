@@ -1063,7 +1063,11 @@ func rejectUnsupportedGlob(pattern, kind string) error {
 }
 
 func managedScopeExitError(err error) error {
-	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: cliMessage("scope.error", err.Error()), Err: err}
+	message := cliMessage("scope.error", err.Error())
+	if strings.HasPrefix(err.Error(), "managed_scope_formal_volume_baseline_drift:") {
+		message += "\n" + cliMessage("scope.formal_volume_baseline_drift_hint")
+	}
+	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: message, Err: err}
 }
 
 // managedScopeApprovalEffect renders what a human is actually being asked to

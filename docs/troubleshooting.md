@@ -105,6 +105,39 @@ stdio MCP is incremental. Keep stdin open, send `initialize`, wait for its respo
 
 They do not change the formal index or Baseline. With Ledger enabled they may append local audit events, and Verify may write Verify History. Use an isolated copy when an audit requires literally zero filesystem writes.
 
+## Formal Volume Baseline drift
+
+`managed_scope_formal_volume_baseline_drift: <asset>` means Scope Change could
+not read a formal cognition asset or its fingerprint differs from the active
+Baseline. This can follow an out-of-band edit to a Volume even when its syntax
+still passes validation. It is different from an indexed business source
+becoming Stale or a desired policy changing. `scope activate` cannot approve
+that edit, `baseline scope` is a Legacy refresh that refuses Managed Scope,
+and `scan --force` is not a recovery override.
+
+Preserve the current formal assets, Baseline, and transaction evidence before
+attempting recovery. Check that the named asset is readable, then inspect
+`aoci index agent guide --json` for pending Recovery and follow the existing
+receipt-specific resume or rollback route in
+[Overview refuses on a file under `.aoci/transactions`](#overview-refuses-on-a-file-under-aocitransactions).
+Do not discard a
+receipt or overwrite its preimage to make activation pass.
+
+If there is no recoverable transaction, use a known matching backup or Git
+snapshot: first verify the formal assets and Baseline belong together, then
+restore that consistent state and replay the intended changes through the
+supported authoring/removal workflow. Preserve any later work separately;
+restoring only one file from an unrelated snapshot is not a consistent
+recovery. Without a verified matching state, stop for maintainer-reviewed
+recovery. Editing Baseline hashes merely accepts unverified bytes and is not
+a supported substitute. After recovery, run Verify, Check, and the Guide;
+resume any remaining source or policy maintenance from their current results.
+
+For byte-identical orphan Entry lines in different directory sections, the
+path-based deletion fix in commit `6b4f0cc` addresses the original refusal
+(#117). Use an official release containing that fix when available; manually
+deleting lines from a formal Volume can instead create this Baseline drift.
+
 ## A run returns `repair_required`
 
 Repair only the candidates explicitly identified by the current response, preserve their source and candidate/batch bindings, and resubmit the complete current machine-issued batch. Do not drop unrelated candidates or construct a replacement state manually. If `remaining` is nonzero after a successful Apply, call Maintain again; do not reduce Scope or slice the returned batch to fit transport.
