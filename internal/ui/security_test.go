@@ -93,6 +93,38 @@ func TestPageRegistryAuthenticationAndLegacyStopCompatibility(t *testing.T) {
 	}
 }
 
+func TestRegistrationReplacementTightensExistingPermissions(t *testing.T) {
+	dir := t.TempDir()
+	previous := Registration{PID: 10, Root: "/synthetic/repository", URL: "http://127.0.0.1:12345/"}
+	if err := Register(dir, previous); err != nil {
+		t.Fatal(err)
+	}
+	path := registrationPath(dir, previous.Root)
+	// Simulate a registration written with broader permissions before the
+	// capability was introduced. Reusing its pathname must not inherit them.
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	replacement := Registration{PID: 20, Root: previous.Root,
+		URL: "http://127.0.0.1:12346/#access_token=" + strings.Repeat("c", 64)}
+	if err := Register(dir, replacement); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := Registered(dir, replacement.Root)
+	if !ok || got.PID != replacement.PID || got.URL != replacement.URL || !HasAccessToken(got.URL) {
+		t.Fatal("replacement registration lost its process or capability binding")
+	}
+	if runtime.GOOS != "windows" {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("replacement inherited public permissions: %v", info.Mode().Perm())
+		}
+	}
+}
+
 func TestPageSendsCapabilityOnlyInHeaders(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {

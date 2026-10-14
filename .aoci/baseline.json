@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-14T14:19:18Z",
+  "updated_at": "2026-10-14T15:21:48Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -6347,10 +6347,10 @@
     },
     "internal/ui/security_test.go": {
       "role": "observe",
-      "sha256": "6ba525c648d1c67fae124faa8ff847c356ef21d87fc37bbd67d6c27214c7ac29",
-      "size": 5393,
-      "normalized_sha256": "6ba525c648d1c67fae124faa8ff847c356ef21d87fc37bbd67d6c27214c7ac29",
-      "format_sha256": "6ba525c648d1c67fae124faa8ff847c356ef21d87fc37bbd67d6c27214c7ac29",
+      "sha256": "2174731e3ab773056e98610b89125dfc090f69c709f9f86f2ee6e55636c5f485",
+      "size": 6563,
+      "normalized_sha256": "2174731e3ab773056e98610b89125dfc090f69c709f9f86f2ee6e55636c5f485",
+      "format_sha256": "2174731e3ab773056e98610b89125dfc090f69c709f9f86f2ee6e55636c5f485",
       "format_kind": "gofmt"
     },
     "internal/ui/server.go": {
