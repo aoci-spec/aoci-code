@@ -34,7 +34,20 @@ remediation and disclosure, and publish guidance when disclosure is safe.
 - MCP stdio stdout is reserved for JSON-RPC; logs and diagnostics use stderr.
 - Configuration stores credential environment-variable names, not values.
 - Optional model access uses only an explicitly configured endpoint.
+- Model HTTP clients refuse redirects, including caller-supplied clients.
+  Endpoint error bodies and transport details are not formatted into errors
+  that callers may log or persist. Endpoint URLs cannot contain credentials,
+  query strings, or fragments.
+- Host-configuration backups use owner-only file permissions. This protects
+  configuration content independently of Git ignore rules; on Windows,
+  restrict access to the containing directory with the operating system ACL.
+- The optional loopback status page requires a fresh per-process capability
+  for repository data. Its printed URL and private user-cache registration
+  carry that capability; do not share them or put them into public logs.
 - Formal asset updates use validation, locking, CAS, atomic writes, and recovery.
+  A filesystem without native atomic exchange cannot start a governed CAS
+  replacement. Use a filesystem supporting that primitive; cooperating-writer
+  locks alone cannot protect against an external editor's atomic replacement.
 - Database Evidence collectors are limited to schema/catalog metadata and do
   not issue DDL or DML.
 - Checksums establish artifact integrity but do not identify the publisher;

@@ -139,7 +139,9 @@ func backupCurrent(path string) error {
 		digest := sha256.Sum256(old)
 		bak := path + ".backup." + time.Now().Format("20060102_150405") +
 			"." + hex.EncodeToString(digest[:])
-		if err := afs.AtomicWrite(bak, old); err != nil {
+		// Host configurations may include credentials for unrelated servers.
+		// Backups are private even when the original configuration is public.
+		if err := afs.AtomicWriteMode(bak, old, 0o600); err != nil {
 			return errors.New(hookMessage("hook.backup_error", path, err))
 		}
 	}

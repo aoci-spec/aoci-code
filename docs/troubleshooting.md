@@ -477,3 +477,35 @@ it:
 aoci ui --detach --json
 aoci ui --stop
 ```
+
+Open the complete link printed by the current process: the fragment carries
+the page's access capability. Repository API requests without it return 401.
+The browser stores it for the current tab, never in persistent local storage,
+and removes it from the address bar when session storage is available. Do not
+share the readiness link. A legacy page can still be stopped, but a new detach
+command refuses to replace its registration while it is live: run
+`aoci ui --stop` for that repository first. Only authenticated pages are reused.
+Before downgrading, stop the page
+using the same binary that started it.
+
+## Governed writes on filesystems without atomic exchange
+
+On Linux, a governed replacement requires native `RENAME_EXCHANGE`. If the
+filesystem refuses it, the operation returns `ErrAtomicCASUnavailable` without
+replacing the target; move the checkout to a filesystem supporting atomic
+exchange, such as the Linux filesystem inside WSL, rather than a DrvFs mount.
+The former link/rename compatibility path is no longer used for new writes
+because it cannot preserve a concurrent replacement by an external editor.
+Older capture/intent artifacts retain their format and recovery reader. If a
+recovery needs an exchange the current filesystem cannot provide, preserve the
+artifacts and recover on a supported filesystem. Do not delete recovery files
+or accept a weakened replacement to clear the error.
+
+## Model endpoint refusals
+
+Configure the final HTTP(S) completion base URL directly. The optional model
+client does not follow redirects, and base URLs with user information, query
+strings or fragments are refused. Authentication remains in the configured
+credential environment variable. Error output keeps the HTTP status and error
+category, but omits the endpoint's arbitrary error text and transport detail;
+diagnose those details in the provider's own protected logs.

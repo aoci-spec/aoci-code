@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Host-configuration backups are owner-only. Optional model clients reject
+  redirects and credential-bearing base URLs, preserve caller-owned HTTP
+  clients, and expose status/category diagnostics without endpoint error
+  bodies or transport details. No MCP or formal-asset schema changes.
+- The loopback status page protects repository data with a per-process
+  capability carried in the readiness URL fragment and sent by the browser
+  in Authorization headers. The static shell contains no capability or
+  repository data. Registrations keep their existing shape; legacy pages can
+  be stopped but must be stopped before a new detach command replaces them.
+
 - Every `aoci` invocation built its command tree by decoding the embedded
   localization manifest once per localized flag, several hundred times, about
   half a second before the first byte of output. The decoded manifest is now
@@ -90,17 +100,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   exists, rendered "Repair only the reported  of this candidate"; each now
   has its own action naming the identity and the create/update alternative,
   and no field-less finding renders a blank.
-- Governed CAS writes work on filesystems that refuse `RENAME_EXCHANGE`,
-  such as WSL DrvFs (`/mnt/*`, 9p), where every Entry batch and Managed Scope
-  write failed with "原子交换目标失败: invalid argument" while `init` and
-  `scan` worked (#116). The primitive is probed and, when refused, emulated
-  with a hard link and two renames that end in the primitive's exact
-  post-state; crash states converge through the existing recovery. On such
-  a filesystem the replacement window is link-to-rename rather than zero: a
-  writer outside aoci that replaces the target by rename in that instant is
-  overwritten rather than detected, while in-place modification is still
-  caught; every aoci writer is serialized by the CAS lock. Verified on a real
-  DrvFs mount.
+- Governed CAS writes fail closed on filesystems that refuse native
+  `RENAME_EXCHANGE`, including WSL DrvFs (#116). The unreleased link/rename
+  fallback was removed because it could overwrite a non-cooperating writer's
+  replacement. Existing capture/intent artifacts keep their recovery reader;
+  recover on a filesystem with native exchange if rollback needs it.
 - Strict decoders of governance and protocol artifacts (receipts, run
   manifests, previews, checkpoints, onboarding sessions, Curation documents,
   Host-Agent stage requests) reject two keys that differ only by letter case:

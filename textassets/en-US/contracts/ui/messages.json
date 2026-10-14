@@ -1760,5 +1760,6 @@
   "ui.stopped": "Stopped the AOCI panel (PID %d).",
   "ui.none_running": "No AOCI panel is running for this repository.",
   "ui.error.detach_failed": "could not start the panel in the background: %s",
-  "ui.error.registry": "cannot locate the panel registry (user cache directory): %s"
+  "ui.error.registry": "cannot locate the panel registry (user cache directory): %s",
+  "ui.error.legacy_page": "an unauthenticated legacy panel is still running; run aoci ui --stop for this repository before starting a new panel"
 }

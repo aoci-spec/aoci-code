@@ -57,12 +57,13 @@ func buildVolumesRepo(t *testing.T) string {
 func testServer(t *testing.T, roots ...string) *server {
 	t.Helper()
 	options := Options{Roots: roots, Locale: "en-US", BinaryVersion: "test"}
-	return &server{options: options, roots: normalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US")), allowedHost: "example.com"}
+	return &server{options: options, roots: normalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US")), allowedHost: "example.com", accessToken: strings.Repeat("a", 64)}
 }
 
 func get(t *testing.T, handler http.Handler, target string, headers map[string]string) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.Header.Set("Authorization", "Bearer "+strings.Repeat("a", 64))
 	for key, value := range headers {
 		request.Header.Set(key, value)
 	}
@@ -404,7 +405,11 @@ func TestServeListensOnLoopbackAndStopsWithContext(t *testing.T) {
 		if !strings.HasPrefix(url, "http://127.0.0.1:") {
 			t.Fatalf("url %q", url)
 		}
-		response, err := http.Get(url + "api/repos")
+		request, err := pageRequest(url, "/api/repos")
+		if err != nil {
+			t.Fatal(err)
+		}
+		response, err := http.DefaultClient.Do(request)
 		if err != nil || response.StatusCode != http.StatusOK {
 			t.Fatalf("repos: %v %v", err, response)
 		}
@@ -431,6 +436,7 @@ func TestGuardAcceptsTheDefaultPortHostForm(t *testing.T) {
 	for host, want := range map[string]int{"127.0.0.1": http.StatusOK, "127.0.0.1:80": http.StatusOK,
 		"127.0.0.1:8080": http.StatusForbidden, "localhost": http.StatusForbidden} {
 		request := httptest.NewRequest(http.MethodGet, "/api/repos", nil)
+		request.Header.Set("Authorization", "Bearer "+server.accessToken)
 		request.Host = host
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
@@ -466,7 +472,7 @@ func TestServeRejectsUnexpectedHost(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("server did not become ready")
 	}
-	request, err := http.NewRequest(http.MethodGet, url+"api/repos", nil)
+	request, err := pageRequest(url, "/api/repos")
 	if err != nil {
 		t.Fatal(err)
 	}

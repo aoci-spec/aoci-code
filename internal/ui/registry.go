@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -74,11 +76,7 @@ func Register(dir string, reg Registration) error {
 		return err
 	}
 	path := registrationPath(dir, reg.Root)
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return fs.AtomicWriteMode(path, append(data, '\n'), 0o600)
 }
 
 // Unregister removes the registration for root when it belongs to pid, or
@@ -119,8 +117,12 @@ func Registered(dir, root string) (Registration, bool) {
 // list this root. A live PID is not enough — the number may have been reused
 // by an unrelated process, and that process must never be signalled.
 func Live(reg Registration, timeout time.Duration) bool {
-	client := &http.Client{Timeout: timeout}
-	resp, err := client.Get(strings.TrimSuffix(reg.URL, "/") + "/api/repos")
+	request, err := pageRequest(reg.URL, "/api/repos")
+	if err != nil {
+		return false
+	}
+	client := &http.Client{Timeout: timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := client.Do(request)
 	if err != nil {
 		return false
 	}
@@ -141,6 +143,46 @@ func Live(reg Registration, timeout time.Duration) bool {
 		}
 	}
 	return false
+}
+
+// HasAccessToken prevents a new detach command from silently reusing an old
+// unauthenticated page. Live still recognises old registrations for --stop.
+func HasAccessToken(rawURL string) bool {
+	request, err := pageRequest(rawURL, "/api/repos")
+	return err == nil && request.Header.Get("Authorization") != ""
+}
+
+func pageRequest(rawURL, path string) (*http.Request, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, errors.New("invalid local page URL")
+	}
+	ip := net.ParseIP(parsed.Hostname())
+	if parsed.Scheme != "http" || ip == nil || !ip.IsLoopback() || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery {
+		return nil, errors.New("invalid local page URL")
+	}
+	fragment, err := url.ParseQuery(parsed.Fragment)
+	if err != nil {
+		return nil, errors.New("invalid local page credential")
+	}
+	token := fragment.Get("access_token")
+	if parsed.Fragment != "" && (len(fragment) != 1 || len(fragment["access_token"]) != 1 || len(token) != 64) {
+		return nil, errors.New("invalid local page credential")
+	}
+	if token != "" {
+		if _, err := hex.DecodeString(token); err != nil {
+			return nil, errors.New("invalid local page credential")
+		}
+	}
+	parsed.Path, parsed.RawPath, parsed.Fragment, parsed.RawFragment = path, "", "", ""
+	request, err := http.NewRequest(http.MethodGet, parsed.String(), nil)
+	if err != nil {
+		return nil, errors.New("invalid local page URL")
+	}
+	if token != "" {
+		request.Header.Set("Authorization", "Bearer "+token)
+	}
+	return request, nil
 }
 
 // Stop ends the page registered for root. Liveness is proved through the

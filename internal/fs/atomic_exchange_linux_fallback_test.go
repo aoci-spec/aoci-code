@@ -4,22 +4,12 @@ package fs
 
 import (
 	"errors"
+	"golang.org/x/sys/unix"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"golang.org/x/sys/unix"
 )
-
-// A filesystem that refuses RENAME_EXCHANGE outright (DrvFs answers EINVAL)
-// must still complete every governed CAS write through the link emulation,
-// with the same preimage capture, rollback, and recovery contract the
-// primitive gives. ext4 honours the flag, so the refusal is injected at the
-// syscall seam; everything after it — the link, the two renames, the digests,
-// the rollback, and the recovery bookkeeping — is real. Each public-entry
-// test here mirrors the ext4 test that pins the same outcome, so the two
-// paths can never drift apart unnoticed.
 
 func withRenameat2ExchangeAnswer(t *testing.T, answer error) {
 	t.Helper()
@@ -56,182 +46,59 @@ func casTestWriteTarget(t *testing.T, data []byte, perm os.FileMode) string {
 	return path
 }
 
-// Locks: each "cannot honour the flag" answer routes to the link emulation and
-// the write completes exactly as on ext4 — new bytes canonical, the target's
-// own permission kept, and no intent, swap, capture, or staging name left
-// beside it. Drop the fallback and every governed write under /mnt/c fails
-// again with "原子交换目标失败: invalid argument".
-func TestAtomicWriteCASEmulatesTheExchangeWhenTheFlagIsRefused(t *testing.T) {
+func TestAtomicWriteCASRefusesUnsupportedExchange(t *testing.T) {
 	for _, refusal := range []error{unix.EINVAL, unix.ENOSYS, unix.EOPNOTSUPP} {
 		t.Run(refusal.Error(), func(t *testing.T) {
 			withRenameat2ExchangeAnswer(t, refusal)
 			original := []byte("original\n")
 			path := casTestWriteTarget(t, original, 0o640)
-			if err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original)); err != nil {
-				t.Fatalf("the emulation must complete the write: %v", err)
+			err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original))
+			if !errors.Is(err, ErrAtomicCASUnavailable) {
+				t.Fatalf("unsupported exchange must fail closed: %v", err)
 			}
-			if got := casTestRead(t, path); got != "ours\n" {
-				t.Fatalf("canonical bytes = %q", got)
+			if casTestRead(t, path) != string(original) {
+				t.Fatal("unsupported exchange changed target")
 			}
 			info, err := os.Stat(path)
 			if err != nil || info.Mode().Perm() != 0o640 {
-				t.Fatalf("target permission must survive the emulation: err=%v mode=%v", err, info.Mode().Perm())
+				t.Fatal("target permission changed")
 			}
 			if names := casTestNeighbours(t, path); len(names) != 0 {
-				t.Fatalf("a completed write must leave nothing beside the target: %v", names)
+				t.Fatalf("unexpected artifacts: %v", names)
 			}
 		})
 	}
 }
 
-// Locks: through the emulation a stale expectation is still refused before
-// anything is exchanged, and the target keeps its bytes.
-func TestAtomicWriteCASEmulationRefusesAStaleExpectation(t *testing.T) {
-	withRenameat2ExchangeAnswer(t, unix.EINVAL)
+func TestAtomicWriteCASUnsupportedExchangePreservesExternalReplacement(t *testing.T) {
 	original := []byte("original\n")
-	path := casTestWriteTarget(t, original, 0o644)
-	err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest([]byte("something else\n")))
-	if !errors.Is(err, ErrAtomicCASConflict) {
-		t.Fatalf("a stale expectation must be a CAS conflict: %v", err)
-	}
-	if got := casTestRead(t, path); got != string(original) {
-		t.Fatalf("a refused write changed the target: %q", got)
-	}
-	if names := casTestNeighbours(t, path); len(names) != 0 {
-		t.Fatalf("a refused write must leave nothing beside the target: %v", names)
-	}
-}
-
-// Locks: the same outcome TestAtomicWriteCASPreservesChangeAtReplacementBoundary
-// pins for the primitive. A writer that modifies the target in place after the
-// preimage check and before the exchange is still caught by the emulation,
-// because the capture link shares the inode and its bytes arrive in the swap
-// as the captured preimage: the call is an ordinary conflict, not a recovery
-// condition, the external bytes end up canonical, and nothing is left beside
-// the target.
-func TestAtomicWriteCASEmulationRestoresTheWriteAtTheReplacementBoundary(t *testing.T) {
-	withRenameat2ExchangeAnswer(t, unix.EINVAL)
-	original := []byte("original\n")
-	external := []byte("external-at-boundary\n")
-	path := casTestWriteTarget(t, original, 0o644)
-	previousHook := beforeAtomicCASExchange
-	beforeAtomicCASExchange = func(target string) {
-		if err := os.WriteFile(target, external, 0o644); err != nil {
-			t.Fatalf("inject boundary write: %v", err)
+	path := casTestWriteTarget(t, original, 0o600)
+	previous := renameat2Exchange
+	renameat2Exchange = func(first, second string) error {
+		replacement := first + ".external"
+		if err := os.WriteFile(replacement, []byte("external\n"), 0o600); err != nil {
+			t.Fatal(err)
 		}
-	}
-	t.Cleanup(func() { beforeAtomicCASExchange = previousHook })
-
-	err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original))
-	if !errors.Is(err, ErrAtomicCASConflict) || errors.Is(err, ErrAtomicCASRecovery) {
-		t.Fatalf("a boundary write is an ordinary conflict through the emulation too: %v", err)
-	}
-	if got := casTestRead(t, path); got != string(external) {
-		t.Fatalf("the external bytes captured at the exchange must be restored: %q", got)
-	}
-	if names := casTestNeighbours(t, path); len(names) != 0 {
-		t.Fatalf("a rolled-back conflict must leave nothing beside the target: %v", names)
-	}
-}
-
-// Locks: the same outcome TestAtomicWriteCASQuarantinesCapturedVersionWhenRollbackRaces
-// pins for the primitive, driven through three consecutive emulated exchanges
-// (capture, rollback, re-exchange) that reuse one capture name in both
-// directions. The newest external version stays canonical, the version caught
-// at the first exchange is quarantined rather than deleted, and the intent and
-// swap are cleared.
-func TestAtomicWriteCASEmulationQuarantinesTheCapturedVersionWhenRollbackRaces(t *testing.T) {
-	withRenameat2ExchangeAnswer(t, unix.EINVAL)
-	original := []byte("original\n")
-	boundary := []byte("external-at-boundary\n")
-	later := []byte("external-during-rollback\n")
-	path := casTestWriteTarget(t, original, 0o644)
-	previousBoundary := beforeAtomicCASExchange
-	beforeAtomicCASExchange = func(target string) {
-		if err := os.WriteFile(target, boundary, 0o644); err != nil {
-			t.Fatalf("inject boundary write: %v", err)
+		if err := os.Rename(replacement, first); err != nil {
+			t.Fatal(err)
 		}
+		return unix.EINVAL
 	}
-	previousExchange := exchangeAtomicPathsPlatform
-	calls := 0
-	exchangeAtomicPathsPlatform = func(first, second string) error {
-		calls++
-		if calls == 2 {
-			if err := os.WriteFile(first, later, 0o644); err != nil {
-				t.Fatalf("inject rollback-race write: %v", err)
-			}
-		}
-		return previousExchange(first, second)
-	}
-	t.Cleanup(func() {
-		beforeAtomicCASExchange = previousBoundary
-		exchangeAtomicPathsPlatform = previousExchange
-	})
-
-	err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original))
-	if !errors.Is(err, ErrAtomicCASConflict) || !errors.Is(err, ErrAtomicCASRecovery) {
-		t.Fatalf("rollback race must report conflict and recovery together: %v", err)
-	}
-	if calls != 3 {
-		t.Fatalf("expected exchange, rollback, and re-exchange, got %d exchanges", calls)
-	}
-	if got := casTestRead(t, path); got != string(later) {
-		t.Fatalf("newest external version must stay canonical: %q", got)
-	}
-	names := casTestNeighbours(t, path)
-	if len(names) != 1 || !strings.HasPrefix(names[0], "asset.txt.aoci-cas-conflict.") {
-		t.Fatalf("exactly the quarantine file may remain beside the target: %v", names)
-	}
-	if got := casTestRead(t, filepath.Join(filepath.Dir(path), names[0])); got != string(boundary) {
-		t.Fatalf("quarantine must hold the version captured at the first exchange: %q", got)
-	}
-}
-
-// Locks: when the flag is refused and the link step of the emulation is
-// refused too, the error names both failures and the target is untouched. The
-// capture name is aoci's own staging name, so a stray file there is what a
-// crashed emulation leaves, and recovery converges it (state (a): the swap
-// still exists, so the capture is redundant) before the next call, which then
-// succeeds.
-func TestAtomicWriteCASNamesBothFailuresWhenTheLinkFallbackIsRefused(t *testing.T) {
-	withRenameat2ExchangeAnswer(t, unix.EINVAL)
-	original := []byte("original\n")
-	path := casTestWriteTarget(t, original, 0o644)
-	capture := atomicExchangeCapturePath(path + ".aoci-cas.swap")
-	if err := os.WriteFile(capture, []byte("stray\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
+	t.Cleanup(func() { renameat2Exchange = previous })
 	err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original))
 	if !errors.Is(err, ErrAtomicCASUnavailable) {
-		t.Fatalf("a refused fallback is reported as unavailable, never as success: %v", err)
+		t.Fatalf("expected refusal: %v", err)
 	}
-	if !strings.Contains(err.Error(), "renameat2 refused the exchange flag (invalid argument)") ||
-		!strings.Contains(err.Error(), "link fallback failed: link: file exists") {
-		t.Fatalf("error must name both steps: %v", err)
-	}
-	if got := casTestRead(t, path); got != string(original) {
-		t.Fatalf("a refused exchange changed the target: %q", got)
+	if casTestRead(t, path) != "external\n" {
+		t.Fatal("external replacement lost")
 	}
 	if names := casTestNeighbours(t, path); len(names) != 0 {
-		t.Fatalf("recovery after the refusal must leave nothing beside the target: %v", names)
-	}
-	if err := AtomicWriteCAS(path, []byte("ours\n"), casTestDigest(original)); err != nil {
-		t.Fatalf("the next call must succeed once the stray capture is gone: %v", err)
-	}
-	if got := casTestRead(t, path); got != "ours\n" {
-		t.Fatalf("canonical bytes = %q", got)
+		t.Fatalf("unexpected artifacts: %v", names)
 	}
 }
 
-// Locks: each state a crash inside the emulation can leave on disk converges
-// exactly one way, and it converges whether or not the filesystem the next
-// call runs on honours the flag — an index crashed on DrvFs may be recovered
-// after a move to ext4. The states are hand-built: a capture link beside a
-// still-present swap means rename(second, first) never happened, a capture
-// with the swap absent means it did and rename(capture, second) did not. Both
-// directions of the exchange (the write, its rollback, and the rollback's
-// re-exchange) share the one capture name, so all three are covered.
+// Existing capture/intent formats still converge on a filesystem providing
+// native exchange. No new unsupported-filesystem write is authorised by recovery.
 func TestAtomicWriteCASConvergesEachEmulationCrashState(t *testing.T) {
 	original := []byte("original\n")
 	ours := []byte("ours\n")
@@ -296,7 +163,7 @@ func TestAtomicWriteCASConvergesEachEmulationCrashState(t *testing.T) {
 	for _, flag := range []struct {
 		name   string
 		answer error // nil keeps the real primitive
-	}{{name: "flag refused", answer: unix.EINVAL}, {name: "flag honoured"}} {
+	}{{name: "flag honoured"}} {
 		t.Run(flag.name, func(t *testing.T) {
 			if flag.answer != nil {
 				withRenameat2ExchangeAnswer(t, flag.answer)
@@ -360,10 +227,6 @@ func TestAtomicWriteCASConvergesEachEmulationCrashState(t *testing.T) {
 	}
 }
 
-// Locks: where the flag is honoured the primitive is taken and the capture
-// name is never consulted. A sentinel planted at that name survives the write
-// untouched; had the fallback run, its link step would have been refused and
-// recovery would have removed the sentinel as a stray capture.
 func TestAtomicWriteCASUsesThePrimitiveWhereTheFlagIsHonoured(t *testing.T) {
 	skipUnlessTheExchangeFlagIsHonoured(t)
 	original := []byte("original\n")
@@ -423,70 +286,6 @@ func TestExchangeAtomicPathsPropagatesRealRefusalsWithoutFallback(t *testing.T) 
 	}
 }
 
-// Locks: the emulation ends in the primitive's post-state — first names
-// second's old inode and second names first's old inode, not copies of their
-// bytes — and leaves no capture. A failure of the rename over first unlinks
-// the capture again, names its step, and leaves first untouched.
-func TestExchangeAtomicPathsByLinkSwapsInodes(t *testing.T) {
-	dir := t.TempDir()
-	first := filepath.Join(dir, "first")
-	second := filepath.Join(dir, "second")
-	if err := os.WriteFile(first, []byte("first\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(second, []byte("second\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	firstBefore, err := os.Stat(first)
-	if err != nil {
-		t.Fatal(err)
-	}
-	secondBefore, err := os.Stat(second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := exchangeAtomicPathsByLink(first, second); err != nil {
-		t.Fatalf("emulated exchange failed: %v", err)
-	}
-	firstAfter, err := os.Stat(first)
-	if err != nil {
-		t.Fatal(err)
-	}
-	secondAfter, err := os.Stat(second)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !os.SameFile(firstAfter, secondBefore) || !os.SameFile(secondAfter, firstBefore) {
-		t.Fatal("the emulation must swap the inodes, not rewrite bytes")
-	}
-	if casTestRead(t, first) != "second\n" || casTestRead(t, second) != "first\n" {
-		t.Fatal("bytes did not follow the inodes")
-	}
-	if entries, _ := os.ReadDir(dir); len(entries) != 2 {
-		t.Fatalf("the capture must not survive a completed exchange: %v", entries)
-	}
-
-	// The rename over first fails because second is gone: the capture is
-	// unlinked again and first keeps its inode.
-	if err := os.Remove(second); err != nil {
-		t.Fatal(err)
-	}
-	err = exchangeAtomicPathsByLink(first, second)
-	if !errors.Is(err, unix.ENOENT) || !strings.HasPrefix(err.Error(), "rename second over first: ") {
-		t.Fatalf("the failing step must be named and its errno unwrap: %v", err)
-	}
-	firstKept, err := os.Stat(first)
-	if err != nil || !os.SameFile(firstKept, firstAfter) {
-		t.Fatalf("first must be untouched after a failed emulation: %v", err)
-	}
-	if entries, _ := os.ReadDir(dir); len(entries) != 1 {
-		t.Fatalf("the capture must be unlinked after a failed rename: %v", entries)
-	}
-}
-
-// Locks: normalization is a no-op without a capture, removes a capture that
-// still has its swap beside it, and promotes a capture whose swap is absent
-// into the swap — the two crash states, converged before any digest is read.
 func TestNormalizeAtomicExchangeArtifactsConvergesBothCaptureStates(t *testing.T) {
 	dir := t.TempDir()
 	swap := filepath.Join(dir, "asset.txt.aoci-cas.swap")

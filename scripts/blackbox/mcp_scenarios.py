@@ -1993,7 +1993,11 @@ def stop_ui(process):
         process.kill()
 
 def ui_get(base, path):
-    with urllib.request.urlopen(base.rstrip("/") + path, timeout=10) as response:
+    address, fragment = urllib.parse.urldefrag(base)
+    token = urllib.parse.parse_qs(fragment).get("access_token", [""])[0]
+    request = urllib.request.Request(address.rstrip("/") + path,
+                                     headers={"Authorization": "Bearer " + token})
+    with urllib.request.urlopen(request, timeout=10) as response:
         return response.status, response.read().decode("utf-8")
 
 def group_u():
@@ -2022,6 +2026,13 @@ def group_u():
                     "code_entry_count", "code_source_count", "next_required_action")
         differing = [k for k in compared if facts.get(k) != governance.get(k)]
         same = bool(governance) and not differing and snapshot.get("composite_identity") == report.get("composite_identity")
+        # The readiness fragment authorises this client, never an anonymous
+        # request from another local process. Keep the normal facts check too.
+        try:
+            with urllib.request.urlopen(urllib.parse.urldefrag(base)[0] + "api/repos", timeout=3):
+                same = False
+        except urllib.error.HTTPError as error:
+            same = same and error.code == 401
         record(g, "U1.page-serves-the-same-facts-as-verify", "PASS" if same else "FAIL",
                f"agree on {len(compared)} fields, result={facts.get('result')}" if same
                else f"differ: {differing} page={facts.get('result')} verify={governance.get('result')}"[:200])
@@ -2100,9 +2111,9 @@ def group_u_detach():
 
     def answers(url):
         try:
-            with urllib.request.urlopen(url + "api/repos", timeout=3) as r:
-                return any(os.path.normcase(os.path.normpath(item.get("root", ""))) == want
-                           for item in json.loads(r.read().decode("utf-8")))
+            _, body = ui_get(url, "/api/repos")
+            return any(os.path.normcase(os.path.normpath(item.get("root", ""))) == want
+                       for item in json.loads(body))
         except Exception:
             return False
 

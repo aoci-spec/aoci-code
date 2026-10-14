@@ -32,6 +32,7 @@ package llm
 
 import (
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -100,11 +101,23 @@ func NewClient(opts Options) (*Client, error) {
 	if opts.Model == "" {
 		return nil, &Error{Kind: KindConfig, Message: "AI 模型 model 未配置(不能为空)"}
 	}
+	endpoint, err := url.Parse(opts.BaseURL)
+	if err != nil || endpoint.Hostname() == "" ||
+		(endpoint.Scheme != "https" && endpoint.Scheme != "http") ||
+		endpoint.User != nil || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" {
+		return nil, &Error{Kind: KindConfig, Message: "AI 端点地址非法"}
+	}
 
 	hc := opts.HTTPClient
 	if hc == nil {
 		// 兜底超时(第二层防御):正常路径由调用方 context 先触发,此处仅防无限挂起。
 		hc = &http.Client{Timeout: clientHardTimeout}
+	}
+	// Copy caller-owned clients: preserve transports and deadlines without
+	// changing their redirect policy outside this authoring client.
+	boundedClient := *hc
+	boundedClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
 
 	return &Client{
@@ -112,7 +125,7 @@ func NewClient(opts Options) (*Client, error) {
 		model:          opts.Model,
 		apiKey:         opts.APIKey,
 		maxInputTokens: opts.MaxInputTokens,
-		httpClient:     hc,
+		httpClient:     &boundedClient,
 	}, nil
 }
 

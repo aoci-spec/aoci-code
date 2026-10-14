@@ -125,6 +125,11 @@ func stopUI(cmd *cobra.Command, registry, root string) error {
 // otherwise starts the same command as a detached child.
 func detachUI(cmd *cobra.Command, registry, root string, port int, host string, discover bool, also []string, open bool) error {
 	if reg, ok := ui.Registered(registry, root); ok && ui.Live(reg, time.Second) {
+		if !ui.HasAccessToken(reg.URL) {
+			// Keep the old registration reachable by --stop. Starting another
+			// page would overwrite it and leave the unprotected process running.
+			return &ExitError{Code: ExitConfig, Msg: cliMessage("ui.error.legacy_page")}
+		}
 		reportDetached(cmd, reg.URL, reg.PID, -1, true)
 		if open {
 			openBrowser(reg.URL)

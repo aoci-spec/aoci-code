@@ -64,9 +64,8 @@ func (e *Error) Error() string {
 	if e.StatusCode != 0 {
 		base = fmt.Sprintf("%s (HTTP %d)", base, e.StatusCode)
 	}
-	if e.Err != nil {
-		base = fmt.Sprintf("%s: %v", base, e.Err)
-	}
+	// Transport errors may contain URLs, credentials, headers or response
+	// fragments. Preserve Unwrap for classification, never format that cause.
 	return base
 }
 

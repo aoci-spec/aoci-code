@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -148,14 +147,11 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 		}
 	}
 
-	// 非 2xx: 归类并尽量带上端点返回的错误信息
+	// Error bodies are untrusted and can echo credentials or source content.
+	// Keep only the status classification; callers persist these errors.
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		kind := classifyHTTPStatus(resp.StatusCode)
-		msg := endpointErrorMessage(respBody)
-		if msg == "" {
-			msg = "端点返回非成功状态"
-		}
-		return nil, &Error{Kind: kind, Message: msg, StatusCode: resp.StatusCode}
+		return nil, &Error{Kind: kind, Message: "端点返回非成功状态", StatusCode: resp.StatusCode}
 	}
 
 	var wire wireChatResponse
@@ -164,8 +160,8 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 	}
 
 	// 某些端点以 200 + error 体表达错误
-	if wire.Error != nil && wire.Error.Message != "" {
-		return nil, &Error{Kind: KindHTTP, Message: "端点返回错误: " + wire.Error.Message, StatusCode: resp.StatusCode}
+	if wire.Error != nil {
+		return nil, &Error{Kind: KindHTTP, Message: "端点返回错误", StatusCode: resp.StatusCode}
 	}
 
 	if len(wire.Choices) == 0 {
@@ -196,30 +192,7 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 func (c *Client) completionsURL() (string, error) {
 	trimmed := strings.TrimRight(c.baseURL, "/")
 	full := trimmed + DefaultChatCompletionsPath
-	if _, err := url.ParseRequestURI(full); err != nil {
-		return "", &Error{Kind: KindConfig, Message: fmt.Sprintf("端点地址非法: %s", full), Err: err}
-	}
 	return full, nil
-}
-
-// endpointErrorMessage 尝试从端点错误响应体中提取可读信息(尽力而为,失败返回空)。
-func endpointErrorMessage(body []byte) string {
-	var probe struct {
-		Error *struct {
-			Message string `json:"message"`
-		} `json:"error"`
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(body, &probe); err != nil {
-		return ""
-	}
-	if probe.Error != nil && probe.Error.Message != "" {
-		return "端点错误: " + probe.Error.Message
-	}
-	if probe.Message != "" {
-		return "端点错误: " + probe.Message
-	}
-	return ""
 }
 
 // isTimeoutErr 判断是否为网络超时类错误(net.Error 的 Timeout)。

@@ -46,8 +46,34 @@ duplicated. `aoci ui --stop` ends the registered page, proving liveness through
 the page itself before any signal is sent. Registrations live in the user's
 cache directory (or AOCI_UI_REGISTRY_DIR), never in the repository.
 
+The readiness URL contains a per-process access capability in its fragment.
+The static page shell is public on loopback; repository lists, state, entries,
+and raw assets require that capability in the Authorization header, including
+HEAD and conditional requests. The browser retains it only in tab session
+storage, removes the fragment when storage succeeds, and sends no credential
+in request URLs. Treat the printed link and private registration as credentials.
+Registrations retain their existing JSON shape and use owner-only file modes.
+Legacy tokenless registrations remain readable for --stop, but a new --detach
+refuses to reuse or replace a live legacy registration until --stop completes.
+Older binaries cannot authenticate new pages; stop pages
+with the binary that started them before a downgrade. MCP schemas and formal
+cognition formats are unchanged.
+
 State and writes
 ----------------
+
+Optional model requests use the final configured HTTP(S) base URL and never
+follow redirects. URL user information, query strings and fragments are
+refused by the client. Error diagnostics retain category and HTTP status,
+not arbitrary endpoint response bodies or formatted transport causes; this
+also applies to failure notes persisted by endpoint-native drafting.
+
+Host-configuration backups are published with owner-only file permissions.
+On Windows, directory ACLs remain the operating-system access boundary.
+Governed CAS replacement requires native atomic exchange. Unsupported
+filesystems fail closed rather than emulating a weaker replacement. Existing
+capture/intent artifacts remain readable, but recovery that needs exchange
+must run on a supporting filesystem; no persistent schema is changed.
 
 Command help and the live Guide identify whether an operation is observational,
 prepares a candidate, requires human interaction, or can update formal assets.
