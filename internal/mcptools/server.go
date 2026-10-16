@@ -8,7 +8,7 @@
 //   - 九工具名固定(aoci_rules/aoci_overview/aoci_get_entries/aoci_search/
 //     aoci_update_entry/aoci_report/aoci_remove_entry/aoci_header/aoci_maintain),
 //     改名破坏 AGENTS.md 模板与实验可复现性;
-//   - 每次工具调用现读 index/baseline/config,不做进程内缓存 —— 索引会被 MCP 外通道
+//   - 每次工具调用现读 index/baseline/config；V2 续传只复用经实时守卫确认的不可变交付 —— 索引会被 MCP 外通道
 //     (编辑器手改/git pull)修改,缓存视图违反「过期索引比没有更危险」第一戒律;
 //   - 参数全 string/[]string,返回纯文本;
 //   - handler 内 panic 经 guard 恢复: stderr 记录 + 返回 MCP error 结果,不崩进程;
@@ -290,6 +290,7 @@ func newMCPServer(root, version string) (*mcp.Server, error) {
 		return nil, err
 	}
 	srv := mcp.NewServer(&mcp.Implementation{Name: machinecontract.MCPServerName, Version: version}, nil)
+	srv.AddReceivingMiddleware(overviewSchemaDiagnostics(root, cfg.LedgerEnabled))
 	refreshSession := newCognitionRefreshSession()
 	registerReadTools(srv, root, version, descriptions, inputSchemas, refreshSession)
 	registerWriteTools(srv, root, version, descriptions, inputSchemas, refreshSession)

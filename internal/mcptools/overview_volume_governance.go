@@ -10,6 +10,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
@@ -23,9 +24,14 @@ func inspectVolumeGovernance(
 	root string,
 	loaded *cognitionRepoCtx,
 ) (semanticChangeFacts, string, *Fail) {
-	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	semantic, identity, _, fail := inspectVolumeGovernanceWithSnapshot(root, loaded)
+	return semantic, identity, fail
+}
+
+func inspectVolumeGovernanceWithSnapshot(root string, loaded *cognitionRepoCtx) (semanticChangeFacts, string, *managedstate.State, *Fail) {
+	facts, snapshot, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
 	if err != nil {
-		return semanticChangeFacts{}, "", &Fail{
+		return semanticChangeFacts{}, "", nil, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("maintain.snapshot_failed", localeSafeMCPDetail(err.Error())),
 		}
@@ -37,7 +43,7 @@ func inspectVolumeGovernance(
 		baselineIdentity = fingerprint.SHA256
 	case os.IsNotExist(hashErr):
 	default:
-		return semanticChangeFacts{}, "", &Fail{
+		return semanticChangeFacts{}, "", nil, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("maintain.snapshot_failed", localeSafeMCPDetail(hashErr.Error())),
 		}
@@ -54,13 +60,13 @@ func inspectVolumeGovernance(
 		BaselineSHA256 string                 `json:"baseline_sha256"`
 	}{Facts: identityFacts, BaselineSHA256: baselineIdentity})
 	if err != nil {
-		return semanticChangeFacts{}, "", &Fail{
+		return semanticChangeFacts{}, "", nil, &Fail{
 			Code: errInternal,
 			Msg:  mcpMessage("mcp.error.internal_recovered"),
 		}
 	}
 	digest := sha256.Sum256(encoded)
-	return semanticFactsFromVolumeGovernance(loaded, facts), hex.EncodeToString(digest[:]), nil
+	return semanticFactsFromVolumeGovernance(loaded, facts), hex.EncodeToString(digest[:]), snapshot, nil
 }
 
 func semanticFactsFromVolumeGovernance(

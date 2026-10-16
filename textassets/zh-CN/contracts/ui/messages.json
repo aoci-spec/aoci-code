@@ -1765,5 +1765,6 @@
   "ui.none_running": "本仓库没有正在运行的 AOCI 面板。",
   "ui.error.detach_failed": "无法在后台启动面板：%s",
   "ui.error.registry": "无法定位面板登记目录（用户缓存目录）：%s",
-  "ui.error.legacy_page": "旧版未认证面板仍在运行；请先对本仓库运行 aoci ui --stop，再启动新面板"
+  "ui.error.legacy_page": "旧版未认证面板仍在运行；请先对本仓库运行 aoci ui --stop，再启动新面板",
+  "overview.attestation.schema_expected": "Attestation Schema 在语义评分前拒绝了请求。challenge_answers 的每项必须且只能包含 ordinal、object_identity、tag、core_f，additionalProperties=false。请使用 object_identity；object 和 object_ref 无效。"
 }

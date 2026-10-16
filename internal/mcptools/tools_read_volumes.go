@@ -12,6 +12,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
 func handleVolumeOverview(
@@ -20,6 +21,7 @@ func handleVolumeOverview(
 	loaded *cognitionRepoCtx,
 	refreshSession *cognitionRefreshSession,
 	start time.Time,
+	owner volumeDeliveryOwner,
 ) *mcp.CallToolResult {
 	view, err := loaded.set.Scope(input.Scope)
 	if err != nil {
@@ -30,9 +32,55 @@ func handleVolumeOverview(
 		return failResult(fail)
 	}
 	current := newVolumeCognitionReceipt(root, mcpServiceVersion, loaded.set, view)
-	semantic, governanceIdentity, semanticFail := inspectVolumeGovernance(root, loaded)
+	// V2 is ephemeral and owner-bound. Never reconstruct an unknown V2 token.
+	if strings.HasPrefix(input.Cursor, "v2:") {
+		if input.CheckOnly {
+			return errResult(errBadArgs, "overview_cursor_requires_full_delivery", "")
+		}
+		if len(input.Cursor) > machinecontract.OverviewDeliveryCursorMaxBytes {
+			return errResult(errBadArgs, "overview_cursor_invalid", "")
+		}
+		parts := strings.Split(input.Cursor, ":")
+		if len(parts) != 7 {
+			return errResult(errBadArgs, "overview_cursor_invalid", "")
+		}
+		entry := refreshSession.deliveries.lookup(parts[1], owner)
+		if entry == nil {
+			return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
+		}
+		legacy, err := entry.decode(input.Cursor)
+		if err != nil {
+			return errResult(errBadArgs, err.Error(), "")
+		}
+		if entry.ctx.ScopeIdentity != view.ScopeIdentity || entry.ctx.RequestedScope != view.RequestedScope || entry.ctx.EffectiveScope != view.EffectiveScope || entry.tokens != loaded.cfg.OverviewDelivery.ChunkTokens {
+			return overviewSnapshotFailure()
+		}
+		input.Cursor = legacy
+		return serveVolumeDelivery(root, input, loaded, refreshSession, entry, start)
+	}
+	// Proof halves reuse only a complete delivery owned by this Host session.
+	if !input.CheckOnly && input.Cursor == "" && (input.HostConfirmation != nil || input.ModelAttestation != nil) {
+		hash := ""
+		if input.HostConfirmation != nil {
+			hash = input.HostConfirmation.BodySHA256
+		}
+		if entry := refreshSession.deliveries.proof(owner, view.ScopeIdentity, hash); entry != nil && entry.ctx.RequestedScope == view.RequestedScope {
+			if entry.guard.validate(root, loaded) == nil {
+				return serveVolumeDelivery(root, input, loaded, refreshSession, entry, start)
+			}
+			// Live governance still scores an already changed proof as unaligned.
+			refreshSession.deliveries.remove(entry)
+		}
+	}
+	metadata, metadataErr := deliveryMetadata(root, loaded)
+	semantic, governanceIdentity, state, semanticFail := inspectVolumeGovernanceWithSnapshot(root, loaded)
+	work := overviewWork{GovernanceEvals: 1}
 	if semanticFail != nil {
 		return failResult(semanticFail)
+	}
+	var guard *overviewSourceGuard
+	if metadataErr == nil && input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil && !input.CheckOnly {
+		guard = newOverviewSourceGuard(loaded, metadata, state)
 	}
 
 	refreshSession.mu.Lock()
@@ -82,6 +130,7 @@ func handleVolumeOverview(
 		})
 		return textResult(output)
 	}
+	work.BodyBuilds++
 	body, sequence, sequenceErr := buildVolumeOverviewBody(view)
 	if sequenceErr != nil {
 		return errResult(errInternal, sequenceErr.Error(), "")
@@ -97,7 +146,7 @@ func handleVolumeOverview(
 		current, assessment, eventID, true,
 	)
 	delivered = receiptWithDeliveredVolumes(delivered, view)
-	delivery, renderErr := renderOverviewDelivery(overviewRenderContext{
+	renderCtx := overviewRenderContext{
 		Root: root, MCPServiceVersion: mcpServiceVersion,
 		LayoutMode: string(loaded.set.LayoutMode), RequestedScope: view.RequestedScope,
 		EffectiveScope: view.EffectiveScope, AssetState: view.AssetState,
@@ -105,20 +154,52 @@ func handleVolumeOverview(
 		EntryCount: view.ObjectCount, SectionCount: countVolumeSections(view),
 		EstimatedTokens: volumeScopeBytes(view) / 3,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
-		Session: refreshSession,
-	}, input, loaded.cfg.OverviewDelivery.ChunkTokens)
+		Session: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
+	}
+	var entry *volumeDelivery
+	if guard != nil {
+		prepared, err := prepareOverview(renderCtx, loaded.cfg.OverviewDelivery.ChunkTokens)
+		if err != nil {
+			return errResult(errBadArgs, err.Error(), "")
+		}
+		renderCtx.Prepared = prepared
+		entry, err = newVolumeDelivery(owner, renderCtx, guard, semantic, governanceIdentity, loaded.cfg.OverviewDelivery.ChunkTokens)
+		if err != nil {
+			return errResult(errInternal, err.Error(), "")
+		}
+		renderCtx = entry.ctx
+	}
+	delivery, renderErr := renderOverviewDelivery(renderCtx, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 	if renderErr != nil {
 		return errResult(errBadArgs, renderErr.Error(), "")
 	}
 	if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
-	if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceIdentity); snapshotFail != nil {
-		return failResult(snapshotFail)
+	if guard != nil {
+		if err := guard.validate(root, loaded); err != nil {
+			return overviewSnapshotFailure()
+		}
+		if err := refreshSession.deliveries.put(entry); err != nil {
+			return errResult(errBadArgs, err.Error(), "")
+		}
+		if err := rewriteVolumeCursor(&delivery, entry); err != nil {
+			refreshSession.deliveries.remove(entry)
+			return errResult(errInternal, err.Error(), "")
+		}
+		if deliveryCompleted(delivery, entry) {
+			refreshSession.deliveries.completed(entry)
+		}
+	} else {
+		work.GovernanceEvals++
+		if snapshotFail := confirmVolumeGovernanceSnapshot(root, loaded, governanceIdentity); snapshotFail != nil {
+			return failResult(snapshotFail)
+		}
 	}
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
-	return textResult(delivery.Output)
+	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, framed)
+	return overviewWorkResult(delivery, work)
 }
 
 func renderAbsentVolumeOverview(
