@@ -70,7 +70,7 @@ jobs:
           cache: true
       # make full 跑整个模块的 go test 与 race; internal/ui 的页面 JavaScript 回归测试
       # 在没有 node 时静默跳过, 这里显式装 Node 22 LTS。
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       - name: install pinned analysis tools
