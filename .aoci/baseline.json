@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-14T19:35:29Z",
+  "updated_at": "2026-10-17T08:47:34Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f",
-      "size": 208106,
-      "normalized_sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f"
+      "sha256": "570f0b958f19e9a980d8574123e11d09aba2d997a88a86ef49b9aabd56946625",
+      "size": 208114,
+      "normalized_sha256": "570f0b958f19e9a980d8574123e11d09aba2d997a88a86ef49b9aabd56946625"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -563,10 +563,10 @@
     },
     "internal/businesssource/manifest.go": {
       "role": "index",
-      "sha256": "d55e30895ca801c036fb646e62da549227af4936231102f6bcd1bf2ca1d2c393",
-      "size": 9045,
-      "normalized_sha256": "d55e30895ca801c036fb646e62da549227af4936231102f6bcd1bf2ca1d2c393",
-      "format_sha256": "d55e30895ca801c036fb646e62da549227af4936231102f6bcd1bf2ca1d2c393",
+      "sha256": "52381fae17ef5b480b422914d8dcb7c570ae6f315f51d34078b277029f8f25f5",
+      "size": 9120,
+      "normalized_sha256": "52381fae17ef5b480b422914d8dcb7c570ae6f315f51d34078b277029f8f25f5",
+      "format_sha256": "52381fae17ef5b480b422914d8dcb7c570ae6f315f51d34078b277029f8f25f5",
       "format_kind": "gofmt"
     },
     "internal/businesssource/manifest_test.go": {
