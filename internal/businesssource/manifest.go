@@ -74,16 +74,20 @@ func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("business_source_configuration_invalid")
 	}
-	inventory, err := afs.BuildSafeInventory(root, cfg.WalkOptions())
-	if err != nil {
-		return nil, fmt.Errorf("business_source_inventory_invalid: %w", err)
+	managed := cfg.ManagedScope != nil || cfg.CognitionBudget != nil
+	var inventory *afs.SafeInventory
+	if !managed {
+		inventory, err = afs.BuildSafeInventory(root, cfg.WalkOptions())
+		if err != nil {
+			return nil, fmt.Errorf("business_source_inventory_invalid: %w", err)
+		}
 	}
 	curationDocument, _, curationSHA, err := curation.Load(root)
 	if err != nil {
 		return nil, fmt.Errorf("business_source_curation_invalid")
 	}
 	formal := map[string]bool{"aoci.txt": true, "aoci.meta.txt": true, "aoci.code.txt": true, "aoci.database.txt": true}
-	if cfg.ManagedScope != nil || cfg.CognitionBudget != nil {
+	if managed {
 		state, stateErr := managedstate.Load(root, cfg)
 		if stateErr != nil {
 			return nil, fmt.Errorf("business_source_managed_scope_invalid: %w", stateErr)
