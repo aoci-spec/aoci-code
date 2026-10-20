@@ -893,9 +893,11 @@ func observedEvidenceChanges(active *baseline.Baseline, desired map[string]basel
 		// fell between those two: the Safe Inventory evaluates it as an unsafe
 		// filesystem object, so it stayed in roles and read as reclassified. It is
 		// gone, and status always said so -- the two lists could then never match
-		// and scope acknowledge refused forever, naming neither path.
+		// and scope acknowledge refused forever, naming neither path. An aligned
+		// policy can also retain an old Observe fingerprint for a now-excluded
+		// path; status reports that as removed, so review must cover it too.
 		_, governed := roles[path]
-		if !governed || vanished[path] {
+		if !governed || vanished[path] || (policyAligned && roles[path] == machinecontract.ScopeRoleExclude) {
 			changes = append(changes, path)
 		}
 	}

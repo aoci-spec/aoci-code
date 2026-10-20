@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-14T19:35:29Z",
+  "updated_at": "2026-10-20T02:59:09Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f",
-      "size": 208106,
-      "normalized_sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f"
+      "sha256": "30ba00473155385023411c2553f7f4473defddae4681ab3ae582bbb28884b971",
+      "size": 208111,
+      "normalized_sha256": "30ba00473155385023411c2553f7f4473defddae4681ab3ae582bbb28884b971"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2338,10 +2338,10 @@
     },
     "internal/cli/scope_test.go": {
       "role": "observe",
-      "sha256": "e4951c39bc94a232e93f011ffce0d15376fce379e65fad28b089dd626852bde5",
-      "size": 22906,
-      "normalized_sha256": "e4951c39bc94a232e93f011ffce0d15376fce379e65fad28b089dd626852bde5",
-      "format_sha256": "e4951c39bc94a232e93f011ffce0d15376fce379e65fad28b089dd626852bde5",
+      "sha256": "df1caac325359b017ace0a9eedf316a8e09a129bd1d1aa058e14a80fac563814",
+      "size": 25624,
+      "normalized_sha256": "df1caac325359b017ace0a9eedf316a8e09a129bd1d1aa058e14a80fac563814",
+      "format_sha256": "df1caac325359b017ace0a9eedf316a8e09a129bd1d1aa058e14a80fac563814",
       "format_kind": "gofmt"
     },
     "internal/cli/status.go": {
@@ -6109,10 +6109,10 @@
     },
     "internal/scopechange/plan.go": {
       "role": "index",
-      "sha256": "ccaf2884bb33dea993aaa6252e00cd1f72d73bbff2276524279ca5c24cea5600",
-      "size": 66102,
-      "normalized_sha256": "ccaf2884bb33dea993aaa6252e00cd1f72d73bbff2276524279ca5c24cea5600",
-      "format_sha256": "ccaf2884bb33dea993aaa6252e00cd1f72d73bbff2276524279ca5c24cea5600",
+      "sha256": "923798d76c472982bedeff05f58e5faf4e1610eaa37a7633ec67d3c21b8bd317",
+      "size": 66329,
+      "normalized_sha256": "923798d76c472982bedeff05f58e5faf4e1610eaa37a7633ec67d3c21b8bd317",
+      "format_sha256": "923798d76c472982bedeff05f58e5faf4e1610eaa37a7633ec67d3c21b8bd317",
       "format_kind": "gofmt"
     },
     "internal/scopechange/posture_relaxation_test.go": {

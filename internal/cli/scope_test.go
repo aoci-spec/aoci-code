@@ -201,6 +201,68 @@ func TestScopeAcknowledgeAdvancesOnlyReviewedObserveFingerprint(t *testing.T) {
 	}
 }
 
+func TestScopeAcknowledgeRetiresExcludedObserveFingerprint(t *testing.T) {
+	root := buildScopeCLIRepo(t)
+	indexBefore, err := os.ReadFile(filepath.Join(root, "aoci.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	active, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	fixturePath := "fixtures/case.txt"
+	fixture, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(fixturePath)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.Role = machinecontract.ScopeRoleObserve
+	active.Files[fixturePath] = fixture
+	if err := baseline.Save(root, active); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main_test.go"), []byte("package sample\n// reviewed change\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	status, err := buildScopePolicyStatus(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.PolicyIdentityAligned || status.ObservedPendingReview != 2 || status.Drift == nil ||
+		len(status.Drift.ObservedRemoved) != 1 || status.Drift.ObservedRemoved[0] != fixturePath {
+		t.Fatalf("fixture did not reproduce aligned policy with an excluded Observe record: %+v", status)
+	}
+	incomplete := scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{},
+		ObserveReview: &scopechange.ObserveReview{Paths: []string{"main_test.go"},
+			ReviewStatus: scopechange.ReviewStatusReviewed, Reviewer: "model-reviewer"}}
+	if _, err := scopechange.Build(root, "2026-10-20T00:00:00Z", incomplete); err == nil ||
+		err.Error() != "observed_evidence_review_required" {
+		t.Fatalf("unreviewed excluded fingerprint was allowed to retire: %v", err)
+	}
+	if output, err := runScopeCLI(t, root, "acknowledge", "--reviewed-by=model-reviewer"); err != nil {
+		t.Fatalf("acknowledge failed: %v: %s", err, output)
+	}
+	updated, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load updated Baseline: exists=%t err=%v", exists, err)
+	}
+	if _, retained := updated.Files[fixturePath]; retained {
+		t.Fatal("excluded Observe fingerprint remained in Baseline")
+	}
+	if updated.Files["main_test.go"].SHA256 == active.Files["main_test.go"].SHA256 {
+		t.Fatal("reviewed Observe fingerprint did not advance")
+	}
+	status, err = buildScopePolicyStatus(root, true)
+	if err != nil || status.ObservedPendingReview != 0 || status.Stage != "aligned" {
+		t.Fatalf("acknowledged state is not aligned: status=%+v err=%v", status, err)
+	}
+	if indexAfter, err := os.ReadFile(filepath.Join(root, "aoci.txt")); err != nil || !bytes.Equal(indexAfter, indexBefore) {
+		t.Fatalf("acknowledge changed Whole-Index: %v", err)
+	}
+}
+
 func TestScopeAcknowledgePreservesIndexAuthoringDebt(t *testing.T) {
 	root := buildScopeCLIRepo(t)
 	indexBefore, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
