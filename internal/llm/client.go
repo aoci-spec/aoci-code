@@ -133,6 +133,17 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 	}
 	defer resp.Body.Close()
 
+	// Error bodies are untrusted and can echo credentials or source content.
+	// Classify before reading so a faulty body cannot mask the HTTP status.
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		kind := classifyHTTPStatus(resp.StatusCode)
+		if resp.StatusCode < 400 {
+			// Redirects are never followed; the base URL must be the final address.
+			return nil, &Error{Kind: kind, Message: "端点返回重定向,未跟随", StatusCode: resp.StatusCode}
+		}
+		return nil, &Error{Kind: kind, Message: "端点返回非成功状态", StatusCode: resp.StatusCode}
+	}
+
 	// 响应体读取加上限(防御超大响应导致 OOM);LimitReader 至多读 maxResponseBytes+1 字节
 	limited := io.LimitReader(resp.Body, maxResponseBytes+1)
 	respBody, err := io.ReadAll(limited)
@@ -145,17 +156,6 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 			Message:    fmt.Sprintf("端点响应体超过上限 %d 字节,已中止(疑似异常端点)", maxResponseBytes),
 			StatusCode: resp.StatusCode,
 		}
-	}
-
-	// Error bodies are untrusted and can echo credentials or source content.
-	// Keep only the status classification; callers persist these errors.
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		kind := classifyHTTPStatus(resp.StatusCode)
-		if resp.StatusCode < 400 {
-			// Redirects are never followed; the base URL must be the final address.
-			return nil, &Error{Kind: kind, Message: "端点返回重定向,未跟随", StatusCode: resp.StatusCode}
-		}
-		return nil, &Error{Kind: kind, Message: "端点返回非成功状态", StatusCode: resp.StatusCode}
 	}
 
 	var wire wireChatResponse
