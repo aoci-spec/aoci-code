@@ -137,6 +137,9 @@ func (c *Client) Complete(ctx context.Context, req CompletionRequest) (*Completi
 	limited := io.LimitReader(resp.Body, maxResponseBytes+1)
 	respBody, err := io.ReadAll(limited)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || isTimeoutErr(err) {
+			return nil, &Error{Kind: KindTimeout, Message: "读取端点响应超时", StatusCode: resp.StatusCode, Err: err}
+		}
 		return nil, &Error{Kind: KindNetwork, Message: "读取端点响应失败", StatusCode: resp.StatusCode, Err: err}
 	}
 	if len(respBody) > maxResponseBytes {

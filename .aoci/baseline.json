@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-14T19:35:29Z",
+  "updated_at": "2026-10-20T03:17:06Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f",
-      "size": 208106,
-      "normalized_sha256": "21fc0c3b60157f4d7f815c5e884b49f91c3b032115ce2ca5452e33e7c156355f"
+      "sha256": "88be018e6af3578520996d0e605ea6ea3b5715aa47aba4b83309b96ee6055f55",
+      "size": 208103,
+      "normalized_sha256": "88be018e6af3578520996d0e605ea6ea3b5715aa47aba4b83309b96ee6055f55"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4503,6 +4503,14 @@
       "format_sha256": "80bb955178c89fbaf698779cc07503c4fd627c99a44b0b03a3dec6538f514115",
       "format_kind": "gofmt"
     },
+    "internal/llm/body_read_test.go": {
+      "role": "observe",
+      "sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
+      "size": 1848,
+      "normalized_sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
+      "format_sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
+      "format_kind": "gofmt"
+    },
     "internal/llm/cause_test.go": {
       "role": "observe",
       "sha256": "73d76b68c71303425bbaf48e88b3e05d302e5e80da6cdd1e6fe1a576b1118d01",
@@ -4513,10 +4521,10 @@
     },
     "internal/llm/client.go": {
       "role": "index",
-      "sha256": "8a88d7fd97cbb517e0b1293fecb0b6007cdaccd09cf4eb8e1c9eb1d6a57e2bda",
-      "size": 7138,
-      "normalized_sha256": "8a88d7fd97cbb517e0b1293fecb0b6007cdaccd09cf4eb8e1c9eb1d6a57e2bda",
-      "format_sha256": "8a88d7fd97cbb517e0b1293fecb0b6007cdaccd09cf4eb8e1c9eb1d6a57e2bda",
+      "sha256": "2b699d01792d9907c4b068c09f1c225de7871f98da96e4e0e408901d4695e25b",
+      "size": 7328,
+      "normalized_sha256": "2b699d01792d9907c4b068c09f1c225de7871f98da96e4e0e408901d4695e25b",
+      "format_sha256": "2b699d01792d9907c4b068c09f1c225de7871f98da96e4e0e408901d4695e25b",
       "format_kind": "gofmt"
     },
     "internal/llm/client_test.go": {
