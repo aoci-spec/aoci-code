@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-20T03:17:06Z",
+  "updated_at": "2026-10-20T03:25:01Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -4505,10 +4505,10 @@
     },
     "internal/llm/body_read_test.go": {
       "role": "observe",
-      "sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
-      "size": 1848,
-      "normalized_sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
-      "format_sha256": "8677617334597fc63903beee12c128a2394415ca2e3ee473ab19f4a4f62a4d2a",
+      "sha256": "f947ea99b2d5bbfe7487c8509960c898254f7af50fda04ad9135dcf9b373b17b",
+      "size": 1842,
+      "normalized_sha256": "f947ea99b2d5bbfe7487c8509960c898254f7af50fda04ad9135dcf9b373b17b",
+      "format_sha256": "f947ea99b2d5bbfe7487c8509960c898254f7af50fda04ad9135dcf9b373b17b",
       "format_kind": "gofmt"
     },
     "internal/llm/cause_test.go": {

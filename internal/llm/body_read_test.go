@@ -13,7 +13,7 @@ import (
 type bodyFailureTransport struct{ cause error }
 
 func (transport bodyFailureTransport) RoundTrip(*http.Request) (*http.Response, error) {
-	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bodyFailureReader{transport.cause})}, nil
+	return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bodyFailureReader(transport))}, nil
 }
 
 type bodyFailureReader struct{ cause error }
