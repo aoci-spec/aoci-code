@@ -219,20 +219,29 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	}
 	var guideOutput bytes.Buffer
 	guideOutput.WriteString(mustCLI(t, root, "--json", "index", "agent", "guide", "--agent", "codex"))
-	for _, want := range []string{`"stage": "authoring_required"`, "index header show",
-		`"authoring_meta": "#AOCI-META-VOLUME: 1`, "EG7T", "code:path/to/file", "database://source/namespace/table",
+	var renderedGuide volumeAgentGuide
+	if err := json.Unmarshal(guideOutput.Bytes(), &renderedGuide); err != nil {
+		t.Fatal(err)
+	}
+	if renderedGuide.Stage != "authoring_required" {
+		t.Fatalf("首次Guide阶段错误: %q", renderedGuide.Stage)
+	}
+	if !strings.Contains(renderedGuide.Commands.HeaderShow, "index header show") {
+		t.Fatalf("首次Guide缺少Header命令: %q", renderedGuide.Commands.HeaderShow)
+	}
+	if renderedGuide.AuthoringMeta != string(actualMeta) {
+		t.Fatal("首次Guide未原样交付正式Meta")
+	}
+	instructions := strings.Join(renderedGuide.Instructions, "\n")
+	for _, want := range []string{"EG7T", "code:path/to/file", "database://source/namespace/table",
 		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", "remaining nonzero",
-		"commands.verify, commands.check (the aggregate Check), and commands.guide in that order", line} {
-		if !strings.Contains(guideOutput.String(), want) {
-			t.Fatalf("首次Guide未自动交付作者化合同 %q:\n%s", want, guideOutput.String())
+		"commands.verify, commands.check (the aggregate Check), and commands.guide in that order"} {
+		if !strings.Contains(instructions, want) {
+			t.Fatalf("首次Guide未自动交付作者化合同 %q:\n%s", want, instructions)
 		}
 	}
 	if strings.Contains(guideOutput.String(), `"plan"`) {
 		t.Fatalf("Volumes Guide暴露了Legacy-only Plan命令:\n%s", guideOutput.String())
-	}
-	var renderedGuide volumeAgentGuide
-	if err := json.Unmarshal(guideOutput.Bytes(), &renderedGuide); err != nil {
-		t.Fatal(err)
 	}
 	executable, err := currentAgentExecutablePath()
 	if err != nil {
