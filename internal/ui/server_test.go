@@ -57,7 +57,7 @@ func buildVolumesRepo(t *testing.T) string {
 func testServer(t *testing.T, roots ...string) *server {
 	t.Helper()
 	options := Options{Roots: roots, Locale: "en-US", BinaryVersion: "test"}
-	return &server{options: options, roots: normalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US")), allowedHost: "example.com", accessToken: strings.Repeat("a", 64)}
+	return &server{options: options, roots: NormalizeRoots(roots), cache: newRepoCache(), page: []byte(renderPage("en-US")), allowedHost: "example.com", accessToken: strings.Repeat("a", 64)}
 }
 
 func get(t *testing.T, handler http.Handler, target string, headers map[string]string) *httptest.ResponseRecorder {

@@ -51,7 +51,7 @@ func newUICmd() *cobra.Command {
 			} else if flagRepo != "" {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
-			roots = append(roots, also...)
+			roots = ui.NormalizeRoots(append(roots, also...))
 			if stop || detach {
 				if len(roots) == 0 {
 					return &ExitError{Code: ExitConfig, Msg: cliMessage("ui.error.no_repository")}

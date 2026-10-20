@@ -91,7 +91,7 @@ func Serve(ctx context.Context, options Options, ready func(url string, reposito
 	if ip := net.ParseIP(host); ip == nil || !ip.IsLoopback() {
 		return &detailError{kind: ErrNotLoopback, detail: host}
 	}
-	roots := normalizeRoots(options.Roots)
+	roots := NormalizeRoots(options.Roots)
 	if options.Discover {
 		for _, instance := range discoverRunningServers() {
 			if instance.Root != "" {
@@ -136,7 +136,9 @@ func Serve(ctx context.Context, options Options, ready func(url string, reposito
 	return nil
 }
 
-func normalizeRoots(roots []string) []string {
+// NormalizeRoots returns unique absolute roots in input order, skipping blank
+// or unresolvable paths. Serving and registry lookups must share this identity.
+func NormalizeRoots(roots []string) []string {
 	result := []string{}
 	for _, root := range roots {
 		if strings.TrimSpace(root) == "" {
