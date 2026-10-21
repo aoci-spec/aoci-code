@@ -279,6 +279,17 @@ all candidates in that current machine-issued batch. It never means that one
 request must contain the entire logical plan or Whole-Index, and it never
 authorizes the Host to take an arbitrary slice of Maintain output.
 
+Code candidates may carry additive file_lines and expected_e evidence in ordinary
+Maintain and cognition_optimization. file_lines is a non-negative integer counted
+from the same byte stream whose SHA-256 equals the candidate source_sha256;
+unreadable or changed bytes omit both fields. expected_e contains the sorted
+bands from the Meta code dictionary that contain this line count, including
+shared boundaries. Missing numeric thresholds or a dictionary gap omit expected_e.
+A counted empty file reports file_lines=0. Database candidates omit these fields.
+The transport budget reserves their bytes before cutting a batch. These fields
+do not enter persisted receipts or identity preimages, generate semantics, change
+selection priority, or replace source revalidation, CAS, and Recovery at Apply.
+
 Each current batch is an independent atomic Apply. A successful Apply advances
 the formal Volume and Baseline to a new preimage. If remaining is nonzero, the
 Host calls no-argument Maintain again and receives the next complete current

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -19,6 +21,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -38,6 +41,8 @@ type volumeMaintainCandidate struct {
 	EvidenceSHA256      string                     `json:"evidence_sha256,omitempty"`
 	CandidateID         string                     `json:"candidate_id,omitempty"`
 	BatchID             string                     `json:"batch_id,omitempty"`
+	FileLines           *int                       `json:"file_lines,omitempty"`
+	ExpectedE           []string                   `json:"expected_e,omitempty"`
 	ModelAuthoringOnly  bool                       `json:"model_authoring_only"`
 	Importance          int                        `json:"importance,omitempty"`
 	Cost                *cognitionOptimizationCost `json:"cost,omitempty"`
@@ -300,11 +305,14 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	}
 	result.CodePlan = transportCodePlan(plan)
 	result.Batch.TransportBudgetBytes = plan.TransportBudgetBytes
+	thresholds := optimizationEScaleThresholds(loaded.set)
 	for _, candidate := range plan.Candidates {
-		result.Candidates = append(result.Candidates, volumeMaintainCandidate{Domain: cognition.ScopeCode,
+		item := volumeMaintainCandidate{Domain: cognition.ScopeCode,
 			Change: candidate.Change, ObjectRef: candidate.ObjectRef, Path: candidate.Path,
 			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
-			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
+			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true}
+		fillVolumeCandidateScale(root, thresholds, &item)
+		result.Candidates = append(result.Candidates, item)
 	}
 }
 
@@ -460,4 +468,25 @@ func sortedUniqueStrings(values []string) []string {
 		}
 	}
 	return result
+}
+
+// fillVolumeCandidateScale supplies advisory physical evidence, never a Tag or
+// Entry. Count and digest consume the same stream; a changed or unreadable
+// source leaves the facts absent and the existing Apply source guard in force.
+func fillVolumeCandidateScale(root string, thresholds *index.EScaleThresholds, candidate *volumeMaintainCandidate) {
+	if candidate.Domain != cognition.ScopeCode || candidate.SourceSHA256 == "" || !index.ShouldCheckEScalePath(candidate.Path) {
+		return
+	}
+	source, err := os.Open(filepath.Join(root, filepath.FromSlash(candidate.Path)))
+	if err != nil {
+		return
+	}
+	defer source.Close()
+	digest := sha256.New()
+	lines, err := afs.CountLines(io.TeeReader(source, digest))
+	if err != nil || fmt.Sprintf("%x", digest.Sum(nil)) != candidate.SourceSHA256 {
+		return
+	}
+	candidate.FileLines = &lines
+	candidate.ExpectedE = index.ExpectedEScaleSymbols(lines, thresholds)
 }

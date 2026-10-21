@@ -49,12 +49,14 @@ func maintainTransportBudget(cfg *config.Config) int {
 // themselves: a Java tree with 90-byte paths carries samples three times the
 // size of a flat fixture's, which a constant cannot know.
 func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
-	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates), Size: codeCandidateWireSize, Total: maintainTransportBudget(cfg)}
+	reserve := scaleEvidenceWireReserve(set)
+	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates), Size: func(candidate codebatch.Candidate) int { return codeCandidateWireSize(candidate) + reserve }, Total: maintainTransportBudget(cfg)}
 }
 
 func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
+	reserve := scaleEvidenceWireReserve(set)
 	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
-		return codeCandidateWireSize(candidate) + optimizationCandidateExtraBytes
+		return codeCandidateWireSize(candidate) + reserve + optimizationCandidateExtraBytes
 	}}
 }
 
@@ -168,4 +170,16 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 		limit = machinecontract.CodeCognitionBatchEntriesDefault
 	}
 	return codebatch.CountBatches(candidates, limit, codeCandidateBudget(cfg, set, candidates))
+}
+
+// Reserve the maximum integer width and every declared numeric band: custom
+// dictionaries and overlapping boundaries can return more than one symbol.
+// These fields are advisory transport facts, not receipt identity inputs.
+func scaleEvidenceWireReserve(set *cognition.Set) int {
+	maxLines := int(^uint(0) >> 1)
+	data, _ := json.Marshal(struct {
+		FileLines int      `json:"file_lines"`
+		ExpectedE []string `json:"expected_e,omitempty"`
+	}{maxLines, optimizationEScaleThresholds(set).Symbols()})
+	return len(data)
 }

@@ -293,6 +293,16 @@ and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
 
+Code candidates in ordinary Maintain and `cognition_optimization` include
+`file_lines` when the counted source bytes match `source_sha256`. They include
+`expected_e` when the Code section of Meta assigns those lines to numeric bands;
+overlapping boundaries can return several symbols. Missing or unreadable
+sources and digest mismatches omit both facts; absent or unparseable thresholds
+and gaps omit `expected_e`. Zero lines is an explicit value, not missing evidence.
+These are advisory facts, not a generated Tag or Entry. The host still reads the
+source and authors the complete Entry. Existing source/CAS/recovery checks and
+warning-only E-scale validation are unchanged.
+
 The batch is sized so the model authors it inline as the arguments of one
 `aoci_update_entry` call: no intermediate files, helper scripts, or shell
 staging are needed, and a lost context is recovered by calling Maintain again,

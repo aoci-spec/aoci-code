@@ -21,13 +21,18 @@ func CountFileLines(path string) (int, error) {
 		return 0, err
 	}
 	defer f.Close()
+	return CountLines(f)
+}
 
+// CountLines counts a stream with the same final-line rules as CountFileLines.
+// Callers may tee the stream to bind the count to its exact source digest.
+func CountLines(reader io.Reader) (int, error) {
 	buf := make([]byte, 32*1024)
 	count := 0
 	lastByte := byte('\n') // 哨兵: 空文件不触发末行+1
 	empty := true
 	for {
-		n, rerr := f.Read(buf)
+		n, rerr := reader.Read(buf)
 		if n > 0 {
 			empty = false
 			count += bytes.Count(buf[:n], []byte{'\n'})

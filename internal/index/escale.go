@@ -75,6 +75,20 @@ func (t *EScaleThresholds) HasThresholds() bool {
 	return t != nil && len(t.ranges) > 0
 }
 
+// Symbols returns the declared machine-readable bands in stable order. It is
+// also the upper bound on any ExpectedEScaleSymbols result for wire sizing.
+func (t *EScaleThresholds) Symbols() []string {
+	if t == nil {
+		return nil
+	}
+	symbols := make([]string, 0, len(t.ranges))
+	for symbol := range t.ranges {
+		symbols = append(symbols, symbol)
+	}
+	sort.Strings(symbols)
+	return symbols
+}
+
 // SawEScaleLine 判断头部是否存在被识别为 E规模 的字典行(无论阈值提取是否成功)。
 // 与 HasThresholds 组合出三态(R51 跳过可见分型):
 // 无行(未声明) / 有行无阈值(在场但机器不可解析,上层应点名而非笼统报未声明) /

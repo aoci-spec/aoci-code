@@ -155,12 +155,15 @@ func handleCognitionOptimizationMaintain(
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
+	thresholds := optimizationEScaleThresholds(loaded.set)
 	for _, candidate := range selection.Batch {
 		issued := optimizationPlanCandidate(orderedPlan, candidate.ObjectRef)
 		if issued == nil {
 			return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_candidate_identity_missing"})
 		}
-		result.Candidates = append(result.Candidates, optimizationMaintainCandidate(candidate, *issued, orderedPlan.BatchID, len(input.ObjectRefs) != 0))
+		item := optimizationMaintainCandidate(candidate, *issued, orderedPlan.BatchID, len(input.ObjectRefs) != 0)
+		fillVolumeCandidateScale(root, thresholds, &item)
+		result.Candidates = append(result.Candidates, item)
 	}
 	result.Sets.Write = candidateRefs(result.Candidates)
 	result.Sets.Review = reviewClosure(loaded.set, result.Candidates)

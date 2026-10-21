@@ -3,8 +3,12 @@
 package fs
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -38,3 +42,20 @@ func TestCountFileLines(t *testing.T) {
 		t.Fatal("缺失文件应报错")
 	}
 }
+
+func TestCountLinesStreamDigestAndReadError(t *testing.T) {
+	body := strings.Repeat("line\n", 20000) + "last"
+	var captured bytes.Buffer
+	lines, err := CountLines(io.TeeReader(strings.NewReader(body), &captured))
+	if err != nil || lines != 20001 || captured.String() != body {
+		t.Fatalf("stream count=%d error=%v", lines, err)
+	}
+	failure := errors.New("synthetic read failure")
+	if _, err = CountLines(lineErrorReader{failure}); !errors.Is(err, failure) {
+		t.Fatalf("read error was lost: %v", err)
+	}
+}
+
+type lineErrorReader struct{ err error }
+
+func (r lineErrorReader) Read(p []byte) (int, error) { return copy(p, "partial"), r.err }
