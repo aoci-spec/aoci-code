@@ -167,6 +167,16 @@ silently preferring one would write content the operator did not intend. Hook
 runtime input carries a small private bound and fails open on a read error or an
 oversize payload, because hook infrastructure must never block a workflow.
 
+Hook configuration failures
+---------------------------
+
+Hook locale selection reads configuration without materializing a legacy Locale
+migration. If configuration cannot be loaded, hooks use the default Locale:
+pretool remains silent and exits 0 on that configuration failure, while
+codex-compact still emits its refresh context and fresh refresh_event_id.
+Ordinary commands continue to report configuration failures as exit 3. Existing
+Recovery gates and strict pretool blocking for actual stale Entries are unchanged.
+
 Layout-scoped read commands
 ---------------------------
 

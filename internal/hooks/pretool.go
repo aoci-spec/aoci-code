@@ -65,7 +65,7 @@ func HandlePreTool(
 	}
 
 	// 任意环境加载失败均静默放行。
-	configValue, err := config.Load(root)
+	configValue, err := config.LoadReadOnly(root)
 	if err != nil {
 		return PretoolResult{}
 	}

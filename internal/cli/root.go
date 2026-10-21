@@ -409,15 +409,22 @@ func activateInvocationLocale(args []string) error {
 		locale = requested
 	} else {
 		explicitRepo := repoArgument(args)
+		command, _ := rootCommandToken(args)
+		hookInvocation := command == "hook"
 		if root, err := config.FindRepoRoot(".", explicitRepo); err == nil {
 			var cfg *config.Config
 			var loadErr error
-			if isCognitionPlannerInvocation(args) {
+			if isCognitionPlannerInvocation(args) || hookInvocation {
 				cfg, loadErr = config.LoadReadOnly(root)
 			} else {
 				cfg, loadErr = config.Load(root)
 			}
 			if loadErr != nil {
+				// Locale selection must neither migrate configuration nor prevent
+				// a hook from reaching its own fail-open or refresh-context path.
+				if hookInvocation {
+					return textassets.SetActiveLocale(textassets.DefaultLocale)
+				}
 				return loadErr
 			}
 			locale = cfg.Locale
