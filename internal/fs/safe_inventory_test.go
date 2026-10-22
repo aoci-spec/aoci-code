@@ -104,6 +104,26 @@ func TestSameGitRootPathNormalizesWindowsGitOutput(t *testing.T) {
 	}
 }
 
+func TestSameGitRootPathResolvesSymlinkedComponents(t *testing.T) {
+	root := t.TempDir()
+	alias := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-alias")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Fatal(err)
+	}
+	// git prints the resolved toplevel, so a --repo spelled through the alias
+	// must still be recognized as this repository rather than foreign.
+	if !sameGitRootPath(root, alias, runtime.GOOS) {
+		t.Fatal("a symlinked --repo spelling must identify the same Git root")
+	}
+	foreign := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-foreign")
+	if err := os.MkdirAll(foreign, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if sameGitRootPath(foreign, root, runtime.GOOS) {
+		t.Fatal("a different directory must not pass boundary validation")
+	}
+}
+
 func TestSafeInventoryRejectsUnverifiableGitBoundary(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, root, ".git/HEAD", "not a repository\n")

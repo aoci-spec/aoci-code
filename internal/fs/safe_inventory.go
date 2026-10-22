@@ -507,7 +507,18 @@ func sameGitRootPath(gitRoot, inventoryRoot, goos string) bool {
 		rootInfo, rootErr := os.Stat(inventoryRoot)
 		return gitErr == nil && rootErr == nil && os.SameFile(gitInfo, rootInfo)
 	}
-	return filepath.Clean(strings.TrimSpace(gitRoot)) == filepath.Clean(inventoryRoot)
+	if filepath.Clean(strings.TrimSpace(gitRoot)) == filepath.Clean(inventoryRoot) {
+		return true
+	}
+	// A --repo spelled through a symlinked component (/tmp on macOS is
+	// /private/tmp) names the same directory but not the same string: git
+	// prints the resolved toplevel, so the lexical comparison above rejects a
+	// repository the operator is standing in. Compare directory identity
+	// before calling the boundary foreign. The .git probe already proved a
+	// boundary exists here, so this only settles which path spells it.
+	gitInfo, gitErr := os.Stat(filepath.Clean(strings.TrimSpace(gitRoot)))
+	rootInfo, rootErr := os.Stat(filepath.Clean(inventoryRoot))
+	return gitErr == nil && rootErr == nil && os.SameFile(gitInfo, rootInfo)
 }
 
 // splitNULStageEntries reads `git ls-files -z --stage` records
