@@ -25,14 +25,17 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
 	"github.com/aoci-spec/aoci-code/internal/llm"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/spf13/cobra"
 )
 
@@ -165,6 +168,16 @@ func newDoctorCmd() *cobra.Command {
 			if missing := missingTechnicalExcludeDirs(root); len(missing) > 0 {
 				rep.line(stateInfo, cliMessage("doctor.label.exclude_gaps"),
 					cliMessage("doctor.exclude_gaps", strings.Join(missing, ", ")))
+			}
+
+			// 敏感文件名规则集(#148): 旧仓缺省 v1。列出 v2 会移出索引的已索引路径,
+			// 信息态,零静默修改;选入是维护者发起的一次治理 Scope Change。
+			if cfgErr == nil && afs.NormalizeSensitiveNameRules(cfg.SensitiveNameRules) != afs.SensitiveNameRulesV2 {
+				if candidates := sensitiveNameUpgradeCandidates(root); len(candidates) > 0 {
+					rep.line(stateInfo, cliMessage("doctor.label.sensitive_name_rules"),
+						cliMessage("doctor.sensitive_name_rules", afs.NormalizeSensitiveNameRules(cfg.SensitiveNameRules),
+							len(candidates), previewPaths(candidates, 5)))
+				}
 			}
 
 			// aoci.txt 解析
@@ -342,3 +355,30 @@ func (e *doctorExitError) Error() string {
 
 // ExitCode 供退出码映射读取。
 func (e *doctorExitError) ExitCode() int { return e.code }
+
+// sensitiveNameUpgradeCandidates lists, sorted, the Baseline index-role paths
+// the v2 sensitive-name rule set would exclude (#148). It reads only the
+// Baseline: no content and no inventory walk, so doctor stays light.
+func sensitiveNameUpgradeCandidates(root string) []string {
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		return nil
+	}
+	paths := make([]string, 0, len(state.Files))
+	for path, fingerprint := range state.Files {
+		if fingerprint.Role == "" || fingerprint.Role == machinecontract.ScopeRoleIndex {
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	return afs.SensitiveNameUpgradeCandidates(paths)
+}
+
+// previewPaths keeps a doctor line readable on a large repository: the first
+// limit paths and an ellipsis, with the count printed beside them.
+func previewPaths(paths []string, limit int) string {
+	if len(paths) <= limit {
+		return strings.Join(paths, ", ")
+	}
+	return strings.Join(paths[:limit], ", ") + ", ..."
+}

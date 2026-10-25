@@ -2,6 +2,34 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
+changes a persisted preimage names the binary every machine then needs.
+
+- Built-in sensitive-name rules are a selectable set (#148). `v1` is the rule
+  every release through rc22 applied: `.env` and `.env.<name>`, named
+  credential files, private keys, `secrets.*`. `v2` adds the shapes
+  operational repositories use for credentials: a file name with an `env`
+  component after the first (`prod.env`, `manager-login.env`,
+  `api.env.local`) and a credential word (`credential`, `secret`,
+  `password`, `passwd`, `apikey`, `token`, `api-key`, and their plurals) as a
+  whole word of a data or configuration file name (`api-credentials.yaml`,
+  `token.txt`, `passwords.json`). Under `v2` a name ending in `.example`,
+  `.sample`, `.template`, or `.dist` is a template whatever precedes the
+  suffix, a source file such as `tokenizer.go` is never
+  matched, and a directory keeps the `v1` classification. The set is the
+  team configuration key `sensitive_name_rules`: `init` persists `v2` for a
+  new repository; an absent key is `v1` and keeps every existing
+  repository's scope identity; `aoci config set sensitive_name_rules v2` on
+  an initialized repository is a governed Scope Change whose coverage
+  reduction `scope activate` pauses for approval; `aoci doctor` lists the
+  indexed paths `v2` would take out. A repository that carries the key needs
+  this release on every machine: an older binary evaluates it under `v1`
+  and answers `scope_change_required`. The Safe Inventory summary gains
+  `sensitive_name_rules`; no MCP tool name, input schema, or formal-asset
+  format changes.
+
 ## v0.1.0-rc22
 
 The rc21 soak's findings and nine contributed fixes: the S hard limit is the

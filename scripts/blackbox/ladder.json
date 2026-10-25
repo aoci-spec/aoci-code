@@ -13,9 +13,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-fast-148.txt (branch v0.2.0-line, #148)"
    }
   },
   {
@@ -31,9 +31,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22-final.txt (candidate tree 231db0e: all gates, conformance 53/53, scenarios 75, lifecycle 87 PASS incl. database, axis-self 80/80; first run on 332fa42 in make-verify-rc22.txt)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt (branch v0.2.0-line, #148)"
    }
   },
   {
@@ -50,9 +50,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt (53/53)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt"
    }
   },
   {
@@ -70,9 +70,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt (75 PASS)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt"
    }
   },
   {
@@ -87,9 +87,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/lifecycle-core-rc22.txt (45 PASS, 2 CHAR, after b9e637e)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt and lifecycle-bringup-148.txt (new sensitive-name-rules lane, 5 checks)"
    }
   },
   {
@@ -105,9 +105,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/lifecycle-database-rc22.txt and lifecycle-database57-rc22.txt (mysql:8.4 and mysql:5.7)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -151,9 +151,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/axis-rc22-recent3.txt (--recent 3)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/axis-148-recent1.txt (--recent 1: rc22 reads a v0.2.0-line repository as scope_change_required, DOWNGRADE_FLOOR moved)"
    }
   },
   {
@@ -281,9 +281,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-verify-148.txt"
    }
   },
   {
@@ -314,9 +314,9 @@
     "ci.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/make-fast-148.txt (safety clean) and a direct run on 2026-10-26"
    }
   }
  ]

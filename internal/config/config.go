@@ -170,6 +170,10 @@ type Config struct {
 	// SafeInventoryHighRiskOptIn is an exact-path, team-owned exception list.
 	// It never accepts globs and does not weaken the default for any other path.
 	SafeInventoryHighRiskOptIn []string `json:"safe_inventory_high_risk_opt_in,omitempty"`
+	// SensitiveNameRules selects the built-in sensitive-name rule set (fs.SensitiveNameRulesV1
+	// or V2). Team-owned and absent in old repositories, where absence is the rc22 identity;
+	// init writes V2 for a new repository and a change is a governed Scope Change (#148).
+	SensitiveNameRules string `json:"sensitive_name_rules,omitempty"`
 
 	// CurationExclude 是“工具看得见但维护者裁决不收录”的团队负空间。
 	// 唯一匹配事实源为 Config.CurationExcluded。
@@ -366,6 +370,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamLocaleMigration := cloneLocaleMigration(cfg.LocaleMigration)
 	teamSafeInventoryHighRiskOptIn := append([]string{}, cfg.SafeInventoryHighRiskOptIn...)
 	teamExcludeRootDirs := append([]string(nil), cfg.ExcludeRootDirs...)
+	teamSensitiveNameRules := cfg.SensitiveNameRules
 	teamDatabaseSources := append([]dbevidence.SourceConfig{}, cfg.DatabaseSources...)
 	teamDatabaseCognitionBatchObjects := cfg.DatabaseCognitionBatchObjects
 	teamDatabaseCognitionBatchEvidenceBytes := cfg.DatabaseCognitionBatchEvidenceBytes
@@ -392,6 +397,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.LocaleMigration = teamLocaleMigration
 	cfg.SafeInventoryHighRiskOptIn = teamSafeInventoryHighRiskOptIn
 	cfg.ExcludeRootDirs = teamExcludeRootDirs
+	cfg.SensitiveNameRules = teamSensitiveNameRules
 	cfg.DatabaseSources = teamDatabaseSources
 	cfg.DatabaseCognitionBatchObjects = teamDatabaseCognitionBatchObjects
 	cfg.DatabaseCognitionBatchEvidenceBytes = teamDatabaseCognitionBatchEvidenceBytes
@@ -410,6 +416,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 		return nil, err
 	}
 	if err := validateLocale(cfg.Locale); err != nil {
+		return nil, err
+	}
+	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
 		return nil, err
 	}
 	if err := normalizeLocaleMigration(cfg); err != nil {
@@ -458,6 +467,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
 	}
 	if err := validateLocale(cfg.Locale); err != nil {
+		return nil, err
+	}
+	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
 		return nil, err
 	}
 	if err := normalizeLocaleMigration(cfg); err != nil {
@@ -596,6 +608,16 @@ func applyTeamJSONFile(repoRoot string, cfg *Config, materializeLegacyLocale boo
 		if err := saveToPath(configPath, repoRoot, cfg); err != nil {
 			return fmt.Errorf("materialize legacy project locale: %w", err)
 		}
+	}
+	return nil
+}
+
+// validateSensitiveNameRules accepts an absent value (the rc22 rule set) or a
+// named rule set; anything else would silently fall back to V1 while the
+// operator believed V2 was active.
+func validateSensitiveNameRules(rules string) error {
+	if !fs.ValidSensitiveNameRules(rules) {
+		return fmt.Errorf("sensitive_name_rules_invalid: %q", rules)
 	}
 	return nil
 }
@@ -1004,6 +1026,7 @@ func SaveLocal(
 	delete(existing, "managed_scope")
 	delete(existing, "cognition_budget")
 	delete(existing, "exclude_root_dirs")
+	delete(existing, "sensitive_name_rules")
 
 	if err := os.MkdirAll(
 		dirPath(repoRoot),
@@ -1106,10 +1129,11 @@ func saveToPathCAS(targetPath string, cfg *Config, expectedSHA256 string) error 
 // CurationExclude、Automation和LineEndingTolerance都不进入遍历层。
 func (configValue *Config) WalkOptions() fs.WalkOptions {
 	return fs.WalkOptions{
-		ExcludeDirs:     configValue.ExcludeDirs,
-		ExcludeRootDirs: configValue.ExcludeRootDirs,
-		ExcludeFiles:    configValue.ExcludeFiles,
-		HighRiskOptIn:   append([]string{}, configValue.SafeInventoryHighRiskOptIn...),
+		ExcludeDirs:        configValue.ExcludeDirs,
+		ExcludeRootDirs:    configValue.ExcludeRootDirs,
+		ExcludeFiles:       configValue.ExcludeFiles,
+		HighRiskOptIn:      append([]string{}, configValue.SafeInventoryHighRiskOptIn...),
+		SensitiveNameRules: configValue.SensitiveNameRules,
 	}
 }
 

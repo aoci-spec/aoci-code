@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
@@ -70,7 +71,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -121,6 +122,13 @@ func init() {
 					return &ExitError{Code: ExitConfig, Msg: nameErr.Error()}
 				}
 				cfg.ExcludeRootDirs = names
+			case "sensitive_name_rules":
+				// A rule-set name, never a free value: an unknown name would be
+				// read as v1 while the operator believed v2 was active.
+				if value == "" || !afs.ValidSensitiveNameRules(value) {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_sensitive_name_rules", value)}
+				}
+				cfg.SensitiveNameRules = value
 			case "exclude_files":
 				cfg.ExcludeFiles = splitCSV(value)
 			case "curation_exclude":
@@ -227,7 +235,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_root_dirs/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes",
 					),
 				}
 			}
@@ -337,6 +345,10 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 			return append([]string{}, cfg.ExcludeRootDirs...), true
 		}
 		return strings.Join(cfg.ExcludeRootDirs, ","), true
+	case "sensitive_name_rules":
+		// The effective rule set: an absent key is v1, so an old repository
+		// answers v1 rather than an empty string.
+		return afs.NormalizeSensitiveNameRules(cfg.SensitiveNameRules), true
 	case "exclude_files":
 		if jsonMode {
 			return cfg.ExcludeFiles, true

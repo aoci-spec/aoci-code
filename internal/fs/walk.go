@@ -38,6 +38,12 @@ type WalkOptions struct {
 	// excludes sensitive, runtime, generated, and unsafe objects before any
 	// content read. Legacy callers leave this false and retain rc17 behavior.
 	IncludeIgnoredCandidates bool
+	// SensitiveNameRules selects the built-in sensitive-name rule set: "" or
+	// SensitiveNameRulesV1 is the rc22 set, SensitiveNameRulesV2 adds the
+	// shapes operational repositories use for credentials (#148). The value is
+	// persisted team configuration, never a built-in default, because the rule
+	// set enters every scope identity (safeInventoryRulesIdentity).
+	SensitiveNameRules string
 }
 
 // WalkRepo 遍历仓库,返回排序后的相对路径列表(正斜杠,仅普通文件)。

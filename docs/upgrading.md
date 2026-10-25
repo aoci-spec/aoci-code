@@ -94,4 +94,20 @@ the field from `.aoci/config.json`. Upgrade every machine that works on such
 a repository before touching the team configuration. Repositories initialized
 before rc20 carry no such field and are read identically by rc19 and rc20.
 
+## A repository initialized by the 0.2.0 line needs that binary on every machine
+
+`init` now persists `sensitive_name_rules: "v2"` in the team configuration
+(#148). The rule set enters the Safe Inventory rules identity, so a binary
+older than this release evaluates such a repository under the `v1` rules it
+knows, computes a different policy identity, and answers
+`scope_change_required` on every governance surface; one `aoci config set`
+from that binary drops the key from `.aoci/config.json`. Upgrade every
+machine that works on such a repository before touching the team
+configuration. Repositories initialized earlier carry no key, are read as
+`v1` by every binary, and keep their identity; a team opts in with
+`aoci config set sensitive_name_rules v2` followed by `aoci scope activate`,
+which previews the paths the new rule takes out of the index and pauses for
+approval because that is a coverage reduction. `aoci doctor` lists those
+paths beforehand without changing anything.
+
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

@@ -147,7 +147,7 @@ func Build(repositoryRoot, timestamp string) (*Preview, error) {
 }
 
 func removedReason(root, path string, options afs.WalkOptions, exclusions map[string]afs.SafeInventoryExclusion, rawCurrent map[string]baseline.Fingerprint, selectedBusinessPaths map[string]bool) (string, string, bool, bool) {
-	if category, source := afs.BuiltInSafetyCategory(path); category != "" {
+	if category, source := afs.BuiltInSafetyCategory(path, options.SensitiveNameRules); category != "" {
 		return category, source, false, true
 	}
 	if exclusion, exists := exclusions[path]; exists {

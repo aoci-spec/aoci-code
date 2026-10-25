@@ -142,7 +142,7 @@ func isExcludedRel(
 	relPath string,
 	options afs.WalkOptions,
 ) bool {
-	if category, _ := afs.BuiltInSafetyCategory(relPath); category != "" {
+	if category, _ := afs.BuiltInSafetyCategory(relPath, options.SensitiveNameRules); category != "" {
 		return true
 	}
 

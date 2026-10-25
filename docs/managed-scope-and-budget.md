@@ -232,6 +232,30 @@ carries `exclude_root_dirs` needs rc20 or later on every machine: an older
 binary neither honours the field nor preserves it when it saves the team
 configuration.
 
+The built-in sensitive-name rule is likewise a persisted choice, the team key
+`sensitive_name_rules` (#148). `v1` is the rule every release through rc22
+applied: `.env` and `.env.<name>`, named credential files, private keys, and
+`secrets.*`. `v2` adds the shapes operational repositories use: a file name
+with an `env` component after the first (`prod.env`, `manager-login.env`,
+`api.env.local`) and a credential word (`credential`, `secret`, `password`,
+`passwd`, `apikey`, `token`, `api-key`, and their plurals) as a whole word of
+a data or configuration file name (`api-credentials.yaml`, `token.txt`,
+`passwords.json`). Under `v2` a name ending in `.example`, `.sample`, `.template`, or
+`.dist` is a template whatever precedes the suffix (`v1` exempts only
+`.env.<name>` templates, so `secrets.yaml.example` is sensitive under `v1`
+and a template under `v2`), a source file such as `tokenizer.go`
+or `password_hasher.go` is never matched because the rule reads names and
+never content, and a directory keeps the `v1` classification. `init`
+persists `v2` for a new repository. An initialized repository keeps `v1`
+until its team runs `aoci config set sensitive_name_rules v2` and then
+`aoci scope activate`: the preview lists every indexed path the new rule
+excludes, and because that is a coverage reduction the activation pauses for
+approval. `aoci doctor` lists the same paths beforehand, and `scope explain`
+reads `builtin_sensitive_name:sensitive` for one of them afterwards. A path
+the team still wants indexed goes in `safe_inventory_high_risk_opt_in` as an
+exact path. A repository that carries the key needs this release on every
+machine, as with `exclude_root_dirs`.
+
 A git submodule is its own repository. The superproject tracks only its
 commit, so `scan` lists none of its files, reports the gitlink as one
 `git_submodule` boundary, and says how many submodules it left alone;

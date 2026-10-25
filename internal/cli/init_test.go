@@ -92,6 +92,9 @@ func TestInitPersistsRootOnlyArtifactDefaultsOnlyForNewRepositories(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
+	if cfg.SensitiveNameRules != afs.SensitiveNameRulesV2 || cfg.WalkOptions().SensitiveNameRules != afs.SensitiveNameRulesV2 {
+		t.Fatalf("a new repository must persist the v2 sensitive-name rules (#148): %q", cfg.SensitiveNameRules)
+	}
 	if source, ok := afs.ConfiguredExclusionSource("build/output", cfg.WalkOptions()); !ok || source != "exclude_root_dirs:build" {
 		t.Fatalf("root build should be excluded by the persisted policy: %q, %t", source, ok)
 	}

@@ -377,6 +377,21 @@ directory of that name. A path that
 `explain` reports as `builtin_generated_directory` (`node_modules`,
 `__pycache__`, ...) stays out.
 
+## A `prod.env` or `api-credentials.yaml` file is in the index
+
+Run `aoci config get sensitive_name_rules`. Through v0.1.0 the built-in
+sensitive-name rule (`v1`) knew `.env` and `.env.<name>`, named credential
+files, private keys, and `secrets.*`; a `prod.env`, `manager-login.env`, or
+`api-credentials.yaml` was source like any other file (#148). The `v2` set
+matches those shapes by name, and `init` persists it for new repositories.
+A repository initialized earlier keeps `v1`, because the rule set is part of
+its scope identity. `aoci doctor` lists the indexed paths `v2` would take
+out; opt in with `aoci config set sensitive_name_rules v2`, then run
+`aoci scope activate` and approve the coverage reduction, and the next
+Maintain retires their Entries. Until then an `exclude` rule on the exact
+path keeps a file out, and afterwards a `safe_inventory_high_risk_opt_in`
+entry keeps a `v2`-excluded path in.
+
 ## `scope apply` fails with a replay mismatch after another tool wrote a file
 
 Through v0.1.0-rc18 a file that appeared in a git-ignored directory between

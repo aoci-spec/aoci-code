@@ -58,7 +58,7 @@ if "AOCI_SCENARIO_WORK" not in os.environ:
     _LIB_WORK = tempfile.mkdtemp(prefix="aoci-lifecycle-lib-")
     os.environ["AOCI_SCENARIO_WORK"] = _LIB_WORK
     atexit.register(shutil.rmtree, _LIB_WORK, True)
-from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain, host_window_summary, mark_team_raised_batch  # noqa: E402
+from mcp_scenarios import Session, text_of, jload, parse_kv, meta_and_body, cli, sh, maintain, host_window_summary, mark_team_raised_batch, repo_digest  # noqa: E402
 
 REPO = os.environ.get("AOCI_REPO", os.path.dirname(os.path.dirname(_HERE)))
 BIN = os.environ.get("AOCI_BIN", os.path.join(REPO, "build", "aoci"))
@@ -456,6 +456,7 @@ def suite_bringup(rep, work):
     suite_cognition_visibility(rep, work)
     suite_bringup_submodule(rep, work)
     suite_bringup_exclude_root_dirs(rep, work)
+    suite_bringup_sensitive_name_rules(rep, work)
     suite_bringup_remove_entry(rep, work)
     suite_bringup_machine_documents(rep, work)
     suite_bringup_locale_twins(rep, work)
@@ -579,6 +580,104 @@ def suite_bringup_exclude_root_dirs(rep, work):
     ok = rc != 0 and result.get("ok") is False and "app/build" in blob and stored == ["build", "cache"]
     rep.rec(g, "repo-a.exclude-root-dirs.config-set-refuses-a-path", "PASS" if ok else "FAIL",
             f"rc={rc} stored={stored} | {' '.join(blob.split())[:120]}")
+
+
+# #148: names operational repositories give their credentials. The bodies are
+# placeholders; the rule reads names and never content.
+SENSITIVE_NAME_PROBES = {
+    "conf/prod.env": "DB_HOST=db.internal\nDB_PORT=5432\n",
+    "config/api-credentials.yaml": "service: shopfloor\nregion: eu-west\n",
+    "config/secrets.yaml.example": "service: shopfloor\nregion: <fill in>\n",
+    "src/tokenizer.ts": "// splits a query into tokens; the name is not a credential\nexport const tokenize = (s: string) => s.split(/\\s+/);\n",
+    "src/password_hasher.ts": "// hashes a password; source, not a secret\nexport const hash = (p: string) => p;\n",
+}
+
+
+def plant_sensitive_name_probes(fx):
+    for rel, body in SENSITIVE_NAME_PROBES.items():
+        path = os.path.join(fx, *rel.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(body)
+    sh(fx, "git", "add", "-A")
+    sh(fx, "git", "commit", "-q", "-m", "credential-shaped names")
+
+
+def suite_bringup_sensitive_name_rules(rep, work):
+    """sensitive_name_rules is a persisted rule-set choice (#148).
+
+    A fresh init persists v2, so a tracked conf/prod.env or api-credentials.yaml
+    is excluded by name with the built-in sensitive reason and never read, while
+    secrets.yaml.example is a template and tokenizer.ts is source. A team
+    configuration without the key is read under v1, the rc22 rule, so the same
+    prod.env is index there and doctor lists it as what v2 would take out;
+    config set refuses a third value and keeps the stored one; config set v2
+    makes the next verify answer scope_change_required, and scope activate
+    previews the removal and pauses for approval because it is a coverage
+    reduction, writing no formal byte.
+    """
+    g = "bringup"
+    fx = deploy("a", work, "sensitive")
+    plant_sensitive_name_probes(fx)
+    init_only(fx)
+    rc, value, _, _ = cli(fx, "config", "get", "sensitive_name_rules", expect_ok=False)
+    rep.rec(g, "repo-a.sensitive-name-rules.init-persists-v2", "PASS" if rc == 0 and value == "v2" else "FAIL",
+            f"rc={rc} value={value}")
+    rc, _, out, errs = cli(fx, "scan")
+    roles = baseline_roles(fx, list(SENSITIVE_NAME_PROBES))
+    want = {"conf/prod.env": None, "config/api-credentials.yaml": None, "config/secrets.yaml.example": "index",
+            "src/tokenizer.ts": "index", "src/password_hasher.ts": "index"}
+    rc_e, item, _, _ = cli(fx, "scope", "explain", "conf/prod.env", expect_ok=False)
+    ok = (rc == 0 and roles == want and item.get("role") == "exclude"
+          and item.get("reason") == "builtin_sensitive_name:sensitive" and item.get("reads_content") is False)
+    rep.rec(g, "repo-a.sensitive-name-rules.v2-excludes-credential-names-and-keeps-source", "PASS" if ok else "FAIL",
+            f"rc={rc} roles={roles} explain={item.get('role')}/{item.get('reason')}/{item.get('reads_content')}")
+    # The rc22 shape: a team configuration without the key is read as v1.
+    old = deploy("a", work, "sensitive-v1")
+    plant_sensitive_name_probes(old)
+    init_only(old)
+    cfg_path = os.path.join(old, ".aoci", "config.json")
+    with open(cfg_path, encoding="utf-8") as fh:
+        cfg = json.load(fh)
+    cfg.pop("sensitive_name_rules", None)
+    with open(cfg_path, "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+    rc, _, _, _ = cli(old, "scan")
+    rc_g, value, _, _ = cli(old, "config", "get", "sensitive_name_rules", expect_ok=False)
+    roles = baseline_roles(old, ["conf/prod.env", "config/api-credentials.yaml", "config/secrets.yaml.example"])
+    rc_d, text = human(old, "doctor")
+    listed = "conf/prod.env" in text and "config/api-credentials.yaml" in text
+    ok = (rc == 0 and rc_g == 0 and value == "v1" and rc_d == 0 and listed
+          and roles == {"conf/prod.env": "index", "config/api-credentials.yaml": "index", "config/secrets.yaml.example": None})
+    rep.rec(g, "repo-a.sensitive-name-rules.absent-key-is-v1-and-doctor-lists-the-upgrade", "PASS" if ok else "FAIL",
+            f"rc={rc} value={value} roles={roles} doctor_rc={rc_d} listed={listed}")
+    rc, result, out, errs = cli(old, "config", "set", "sensitive_name_rules", "v3", expect_ok=False)
+    rc2, stored, _, _ = cli(old, "config", "get", "sensitive_name_rules", expect_ok=False)
+    blob = (result.get("message") or "") + out + errs
+    ok = rc != 0 and result.get("ok") is False and "v3" in blob and stored == "v1"
+    rep.rec(g, "repo-a.sensitive-name-rules.config-set-refuses-a-third-value", "PASS" if ok else "FAIL",
+            f"rc={rc} stored={stored} | {' '.join(blob.split())[:120]}")
+    rc, result, _, _ = cli(old, "config", "set", "sensitive_name_rules", "v2", expect_ok=False)
+    rc_v, v, _, _ = cli(old, "verify", expect_ok=False)
+    scope = (v.get("governance") or {}).get("managed_scope") or {}
+    before = repo_digest(old)
+    rc_a, act, out, errs = cli(old, "scope", "activate", expect_ok=False)
+    after = repo_digest(old)
+    unchanged = all(before[p] == after.get(p) for p in (".aoci/baseline.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt"))
+    details = act.get("details") or {}
+    previewed = False
+    try:
+        with open(details.get("preview_file", ""), encoding="utf-8") as fh:
+            previewed = "conf/prod.env" in fh.read()
+    except OSError:
+        pass
+    ok = (rc == 0 and result.get("value") == "v2" and scope.get("scope_change_required") is True
+          and rc_a == 2 and act.get("error_code") == "managed_scope_human_approval_required"
+          and details.get("interaction_required") is True and unchanged and previewed)
+    rep.rec(g, "repo-a.sensitive-name-rules.opting-in-is-a-governed-coverage-reduction", "PASS" if ok else "FAIL",
+            f"set_rc={rc} scope_change_required={scope.get('scope_change_required')} activate_rc={rc_a} "
+            f"error={act.get('error_code')} unchanged={unchanged} previewed={previewed}")
 
 
 def suite_bringup_remove_entry(rep, work):

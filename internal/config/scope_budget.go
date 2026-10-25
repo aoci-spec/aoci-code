@@ -52,7 +52,7 @@ func MutateSafeInventoryHighRiskOptIn(repositoryRoot string, mutate func([]strin
 			if normalizeErr != nil {
 				return fmt.Errorf("safe_inventory_high_risk_opt_in_invalid")
 			}
-			category, _ := afs.BuiltInSafetyCategory(normalized)
+			category, _ := afs.BuiltInSafetyCategory(normalized, cfg.SensitiveNameRules)
 			if category != afs.SafetySensitive {
 				return fmt.Errorf("safe_inventory_high_risk_opt_in_forbidden")
 			}
@@ -132,6 +132,10 @@ func (cfg *Config) SetNewProjectGovernance(profile string) error {
 	}
 	cfg.ManagedScope = &normalizedScope
 	cfg.CognitionBudget = &budget
+	// The V2 sensitive-name rule set is a new-project default for the same
+	// reason: the rule set enters every scope identity, so an old repository
+	// keeps V1 until its team asks for the Scope Change (#148).
+	cfg.SensitiveNameRules = afs.SensitiveNameRulesV2
 	return nil
 }
 

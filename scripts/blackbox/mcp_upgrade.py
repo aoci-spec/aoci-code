@@ -278,7 +278,20 @@ BACKUP_MODULE = {
     os.path.join("src", "backup", "restore.go"):
         "package backup\n\n// Restore is a feature, not an artifact.\nfunc Restore() bool { return true }\n",
 }
-BACKUP_MODULE_FLOOR = 7
+def release_number(version):
+    """v0.1.0-rc18 -> (0, 1, 0, 18). A final release (v0.1.0) sorts after every
+    candidate of its line, and a label that is no version (`candidate`, the
+    --self label under an Unreleased section) after every release. The floors
+    below are the same tuples, so a 0.2.0 candidate compares above every
+    0.1.0 release, which an rc-number-only reading got backwards."""
+    match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)(?:-rc(\d+))?", version)
+    if not match:
+        return (10 ** 6, 0, 0, 0)
+    major, minor, patch, rc = match.groups()
+    return (int(major), int(minor), int(patch), int(rc) if rc else 10 ** 6)
+
+
+BACKUP_MODULE_FLOOR = release_number("v0.1.0-rc7")
 
 LEGACY_ARTIFACT_FILES = {
     "build/output.txt": "generated output\n",
@@ -287,15 +300,9 @@ LEGACY_ARTIFACT_FILES = {
 }
 
 
-def release_number(version):
-    """v0.1.0-rc18 -> 18; a final release sorts after every candidate."""
-    match = re.search(r"-rc(\d+)$", version)
-    return int(match.group(1)) if match else 10 ** 6
-
-
 # rc20 initializes exclude_root_dirs (#104): a planted name is an artifact at
 # the root or where git ignores it, and a tracked nested module is source.
-ROOT_LIST_FLOOR = 20
+ROOT_LIST_FLOOR = release_number("v0.1.0-rc20")
 
 
 def legacy_artifact_roles(version):
@@ -309,25 +316,32 @@ def legacy_artifact_roles(version):
 
 # The downgrade shape runs for every release; the floor says which answer each
 # one owes. It is the newest release that introduced a persisted preimage the
-# binary under test still writes, today exclude_root_dirs (#104, the fact
-# ROOT_LIST_FLOOR records for the other direction). A release from the floor on
-# shares every preimage, so it must read the fixture aligned with the same
-# desired and active policy identity and its Maintain must reach `aligned`. A
-# release before it computes the desired identity from fewer fields, so it must
-# answer scope_change_required, exactly what docs/upgrading.md promises, and its
-# Maintain must stop on that named state. Both sides must read the stamped
-# active identity, budget, layout and composite identity back unchanged.
+# binary under test still writes: exclude_root_dirs from rc20 (#104, the fact
+# ROOT_LIST_FLOOR records for the other direction) and sensitive_name_rules
+# from the first 0.2.0 candidate (#148, SENSITIVE_RULES_FLOOR). A release from
+# the floor on shares every preimage, so it must read the fixture aligned with
+# the same desired and active policy identity and its Maintain must reach
+# `aligned`. A release before it computes the desired identity from fewer
+# fields, so it must answer scope_change_required, exactly what
+# docs/upgrading.md promises, and its Maintain must stop on that named state.
+# Both sides must read the stamped active identity, budget, layout and
+# composite identity back unchanged.
 # Evidence, 2026-10-13, every cached release v0.1.0-rc1..rc20 against a
 # post-rc20 build: rc20 reads the fixture aligned; rc1..rc19 answer
 # scope_change_required on verify, check and Maintain with exit 1, valid JSON
 # and empty stderr, rc1..rc5 adding a business_source_manifest_invalid finding
 # for a manifest newer than they are; no release rewrote a guarded byte or left
-# a file under .aoci, and the binary under test grew to aligned afterwards. A
-# candidate that adds a persisted preimage moves this floor, and its release
-# notes must say which binary every machine then needs; a candidate whose
-# repository an older reader cannot handle at all turns the shape red before
-# the tag, on the first `--recent` run after the change.
-DOWNGRADE_FLOOR = ROOT_LIST_FLOOR
+# a file under .aoci, and the binary under test grew to aligned afterwards.
+# Evidence, 2026-10-26, v0.1.0-rc22 against the first 0.2.0-line build: rc22
+# answers scope_change_required on the fixture that build initializes, because
+# init now persists sensitive_name_rules and rc22 evaluates the repository
+# under the v1 rules it knows. A candidate that adds a persisted preimage moves
+# this floor, and its release notes must say which binary every machine then
+# needs; a candidate whose repository an older reader cannot handle at all
+# turns the shape red before the tag, on the first `--recent` run after the
+# change.
+SENSITIVE_RULES_FLOOR = release_number("v0.2.0-rc1")
+DOWNGRADE_FLOOR = SENSITIVE_RULES_FLOOR
 
 # The read-only surface the released binary runs over the fixture, in order:
 # the planted path is the backup module, whose role every release decides by

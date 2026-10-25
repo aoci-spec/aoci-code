@@ -100,8 +100,10 @@ type SafeInventorySummary struct {
 	// excluded, and an excluded path is never opened. Authorization must key on
 	// AutoBlockerCount instead, which counts only paths whose content an explicit
 	// opt-in will read.
-	RequiredHumanReview        int    `json:"required_human_review"`
-	RulesIdentity              string `json:"rules_identity"`
+	RequiredHumanReview int    `json:"required_human_review"`
+	RulesIdentity       string `json:"rules_identity"`
+	// SensitiveNameRules is the rule set the identity above was computed with.
+	SensitiveNameRules         string `json:"sensitive_name_rules"`
 	InclusionExclusionIdentity string `json:"inclusion_exclusion_identity"`
 }
 
@@ -130,7 +132,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		if !ok {
 			return nil, fmt.Errorf("safe_inventory_high_risk_opt_in_invalid")
 		}
-		category, _ := BuiltInSafetyCategory(clean)
+		category, _ := BuiltInSafetyCategory(clean, opt.SensitiveNameRules)
 		if category != SafetySensitive {
 			return nil, fmt.Errorf("safe_inventory_high_risk_opt_in_forbidden")
 		}
@@ -147,7 +149,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 	var pruned []SafeInventoryExclusion
 	if !gitRepository {
 		tracked = nil
-		untracked, pruned, err = traversePathNames(absRoot)
+		untracked, pruned, err = traversePathNames(absRoot, opt)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +180,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		// unless the path is opted in, then a configured exclusion, which no
 		// opt-in or rule overrides.
 		for _, rel := range ignored {
-			if category, source := BuiltInSafetyCategory(rel); category != "" && !optIn[rel] {
+			if category, source := BuiltInSafetyCategory(rel, opt.SensitiveNameRules); category != "" && !optIn[rel] {
 				report.addExclusion(rel, category, source, false)
 				continue
 			}
@@ -223,7 +225,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 			report.addExclusion(rel, SafetyUnsafe, "git_submodule", trackedPath)
 			continue
 		}
-		category, source := BuiltInSafetyCategory(rel)
+		category, source := BuiltInSafetyCategory(rel, opt.SensitiveNameRules)
 		if category != "" && !optIn[rel] {
 			report.addExclusion(rel, category, source, trackedPath)
 			continue
@@ -257,6 +259,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 	sort.Slice(report.Exclusions, func(i, j int) bool { return report.Exclusions[i].PathSummary < report.Exclusions[j].PathSummary })
 	report.Summary.FinalManagedCandidates = len(report.ManagedCandidates)
 	report.Summary.RulesIdentity = safeInventoryRulesIdentity(opt)
+	report.Summary.SensitiveNameRules = NormalizeSensitiveNameRules(opt.SensitiveNameRules)
 	report.Summary.InclusionExclusionIdentity = safeInventorySelectionIdentity(report)
 	return report, nil
 }
@@ -456,7 +459,7 @@ const collapsedCategoryProbe = "aoci-collapse-probe"
 // itself, or a project exclude_dirs component. Only such a git-ignored
 // directory may be collapsed without changing any candidate.
 func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string, ok bool) {
-	if category, source := BuiltInSafetyCategory(dir + "/" + collapsedCategoryProbe); category != "" {
+	if category, source := BuiltInSafetyCategory(dir+"/"+collapsedCategoryProbe, opt.SensitiveNameRules); category != "" {
 		return category, source, true
 	}
 	// dir is a git-ignored directory by construction, and an ignored directory
@@ -558,7 +561,7 @@ func splitNULPaths(data []byte) []string {
 	return result
 }
 
-func traversePathNames(root string) ([]string, []SafeInventoryExclusion, error) {
+func traversePathNames(root string, opt WalkOptions) ([]string, []SafeInventoryExclusion, error) {
 	result := []string{}
 	pruned := []SafeInventoryExclusion{}
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -576,7 +579,15 @@ func traversePathNames(root string) ([]string, []SafeInventoryExclusion, error) 
 			return nil
 		}
 		rel = filepath.ToSlash(rel)
-		category, _ := BuiltInSafetyCategory(rel)
+		rules := opt.SensitiveNameRules
+		if entry.IsDir() {
+			// The v2 sensitive-name rule reads file names: a Go package named
+			// token or a secrets/ directory of templates is walked, and each
+			// file beneath it is classified on its own. A directory keeps the
+			// v1 classification under either set.
+			rules = SensitiveNameRulesV1
+		}
+		category, source := BuiltInSafetyCategory(rel, rules)
 		if unsafePlatformObject(path) {
 			pruned = append(pruned, SafeInventoryExclusion{PathSummary: rel, Category: SafetyUnsafe, RuleSource: "filesystem_boundary"})
 			if entry.IsDir() {
@@ -586,7 +597,6 @@ func traversePathNames(root string) ([]string, []SafeInventoryExclusion, error) 
 		}
 		if entry.IsDir() {
 			if category != "" {
-				_, source := BuiltInSafetyCategory(rel)
 				pruned = append(pruned, SafeInventoryExclusion{PathSummary: rel, Category: category, RuleSource: source})
 				return filepath.SkipDir
 			}
@@ -604,8 +614,32 @@ func traversePathNames(root string) ([]string, []SafeInventoryExclusion, error) 
 	return result, pruned, err
 }
 
+// Sensitive-name rule sets. V1 is the rc22 built-in; V2 adds the credential
+// shapes of #148. The selected set is persisted team configuration
+// (sensitive_name_rules) and enters the Safe Inventory rules identity, so an
+// absent value keeps the exact rc22 identity and a change is a Scope Change.
+const (
+	SensitiveNameRulesV1 = "v1"
+	SensitiveNameRulesV2 = "v2"
+)
+
+// NormalizeSensitiveNameRules maps the configured value to a rule set; an
+// absent value is V1 so old repositories keep their identity.
+func NormalizeSensitiveNameRules(rules string) string {
+	if rules == SensitiveNameRulesV2 {
+		return SensitiveNameRulesV2
+	}
+	return SensitiveNameRulesV1
+}
+
+// ValidSensitiveNameRules reports whether a configured value names a rule set.
+func ValidSensitiveNameRules(rules string) bool {
+	return rules == "" || rules == SensitiveNameRulesV1 || rules == SensitiveNameRulesV2
+}
+
 // BuiltInSafetyCategory classifies only names and never opens the target.
-func BuiltInSafetyCategory(rel string) (category, source string) {
+// rules selects the sensitive-name rule set (NormalizeSensitiveNameRules).
+func BuiltInSafetyCategory(rel string, rules string) (category, source string) {
 	clean, ok := safeRelativePath(rel)
 	if !ok {
 		return SafetyUnsafe, "path_boundary"
@@ -638,7 +672,7 @@ func BuiltInSafetyCategory(rel string) (category, source string) {
 	if strings.Contains(lower, "/mysql/data/") || strings.Contains(lower, "/postgres/data/") || strings.Contains(lower, "/postgresql/data/") || strings.Contains(lower, "/redis/data/") {
 		return SafetyRuntime, "builtin_database_runtime"
 	}
-	if sensitiveBase(base) {
+	if sensitiveBase(base, rules) {
 		return SafetySensitive, "builtin_sensitive_name"
 	}
 	if strings.HasSuffix(base, ".log") || strings.HasSuffix(base, ".pid") || strings.HasSuffix(base, ".sock") || strings.HasSuffix(base, ".socket") ||
@@ -654,7 +688,18 @@ func BuiltInSafetyCategory(rel string) (category, source string) {
 	return "", ""
 }
 
-func sensitiveBase(base string) bool {
+// sensitiveBase classifies a lower-cased file name under the selected rule
+// set. v1 is the rc22 rule byte for byte: it is part of every existing
+// repository's scope identity, so it never changes; v2 (#148) is the
+// superset below.
+func sensitiveBase(base string, rules string) bool {
+	if NormalizeSensitiveNameRules(rules) == SensitiveNameRulesV2 {
+		return sensitiveBaseV2(base)
+	}
+	return sensitiveBaseV1(base)
+}
+
+func sensitiveBaseV1(base string) bool {
 	if strings.HasPrefix(base, ".env.") && (strings.HasSuffix(base, ".example") || strings.HasSuffix(base, ".sample") || strings.HasSuffix(base, ".template")) {
 		return false
 	}
@@ -670,6 +715,87 @@ func sensitiveBase(base string) bool {
 		}
 	}
 	return base == "id_rsa" || base == "id_ed25519"
+}
+
+// sensitiveNameTemplateSuffixes end a name that is a template of a secret, not
+// a secret: prod.env.example documents the shape and carries no value.
+var sensitiveNameTemplateSuffixes = []string{".example", ".sample", ".template", ".dist"}
+
+// sensitiveNameDataExtensions are the extensions the keyword rule applies to:
+// configuration and data files, where a credential word names the content.
+// Source files are left alone (password_hasher.go, tokenizer.py, secret_test.go
+// are code), as is any extension outside this set.
+var sensitiveNameDataExtensions = map[string]bool{
+	"env": true, "yaml": true, "yml": true, "json": true, "toml": true, "ini": true, "cfg": true, "conf": true,
+	"config": true, "properties": true, "txt": true, "secret": true, "secrets": true, "xml": true, "csv": true,
+	"list": true, "lst": true, "cred": true, "creds": true, "auth": true, "token": true, "tokens": true,
+}
+
+// sensitiveNameKeywords are matched as whole words of the base name, split on
+// '.', '-' and '_': token.txt and api_token.json match, tokenizer.cfg does not.
+var sensitiveNameKeywords = map[string]bool{
+	"credential": true, "credentials": true, "secret": true, "secrets": true, "password": true, "passwords": true,
+	"passwd": true, "apikey": true, "apikeys": true, "token": true, "tokens": true,
+}
+
+// sensitiveBaseV2 is the #148 rule set, evaluated on the lower-cased file
+// name only. A name ending in a template suffix is a template whatever
+// precedes it (secrets.yaml.example, prod.env.dist), where v1 exempts only
+// .env.<name> templates. Otherwise every v1 name is sensitive, and so is:
+//   - a name whose dot-separated components after the first include "env"
+//     (prod.env, manager-login.env, api.env.local);
+//   - a credential keyword as a whole word (credentials, secret, password,
+//     passwd, apikey, token, or the pair api-key / api_key) in a name whose
+//     extension is a data or configuration extension, or that has no
+//     extension.
+func sensitiveBaseV2(base string) bool {
+	for _, suffix := range sensitiveNameTemplateSuffixes {
+		if strings.HasSuffix(base, suffix) {
+			return false
+		}
+	}
+	if sensitiveBaseV1(base) {
+		return true
+	}
+	components := strings.Split(base, ".")
+	for _, component := range components[1:] {
+		if component == "env" {
+			return true
+		}
+	}
+	extension := ""
+	if len(components) > 1 {
+		extension = components[len(components)-1]
+	}
+	if extension != "" && !sensitiveNameDataExtensions[extension] {
+		return false
+	}
+	words := strings.FieldsFunc(base, func(r rune) bool { return r == '.' || r == '-' || r == '_' })
+	for index, word := range words {
+		if sensitiveNameKeywords[word] {
+			return true
+		}
+		if word == "api" && index+1 < len(words) && words[index+1] == "key" {
+			return true
+		}
+	}
+	return false
+}
+
+// SensitiveNameUpgradeCandidates returns, in input order, the paths the V2
+// rule set classifies as built-in sensitive while V1 does not. It reads no
+// content; doctor uses it to show what a sensitive_name_rules upgrade would
+// take out of the index before the operator asks for the Scope Change.
+func SensitiveNameUpgradeCandidates(paths []string) []string {
+	var result []string
+	for _, rel := range paths {
+		v1, _ := BuiltInSafetyCategory(rel, SensitiveNameRulesV1)
+		v2, _ := BuiltInSafetyCategory(rel, SensitiveNameRulesV2)
+		if v1 == "" && v2 == SafetySensitive {
+			result = append(result, rel)
+		}
+	}
+	return result
 }
 
 func configuredPathExcluded(rel string, opt WalkOptions) bool {
@@ -724,7 +850,8 @@ func safeRelativePath(value string) (string, bool) {
 // Maintain surfaces as Missing or Orphan Entries, never a policy edit the
 // operator must re-approve; the tokens change only with the inventory version.
 func safeInventoryRulesIdentity(opt WalkOptions) string {
-	values := []string{SafeInventoryVersion, "sensitive-v1", "runtime-v1", "generated-v3", fmt.Sprint(opt.IncludeIgnoredCandidates)}
+	// "sensitive-v1" is the rc22 spelling: an absent sensitive_name_rules keeps it.
+	values := []string{SafeInventoryVersion, "sensitive-" + NormalizeSensitiveNameRules(opt.SensitiveNameRules), "runtime-v1", "generated-v3", fmt.Sprint(opt.IncludeIgnoredCandidates)}
 	values = append(values, opt.ExcludeDirs...)
 	values = append(values, opt.ExcludeFiles...)
 	values = append(values, opt.HighRiskOptIn...)

@@ -28,6 +28,13 @@ list after the first scan requires a governed Scope Change. Both lists hold
 directory names, never paths: `config set` drops a trailing separator and
 duplicates and refuses a value containing a path separator.
 
+`sensitive_name_rules` is a team-owned selector for the built-in
+sensitive-name rule set of Safe Inventory, `v1` or `v2` as the Safe Inventory
+contract defines them. New `init` persists `v2`; an absent key is `v1` and
+retains the old rules identity. The local layer cannot change it, `config
+set` refuses any other value, and changing it after the first scan requires
+a governed Scope Change.
+
 Secrets and network configuration
 ---------------------------------
 

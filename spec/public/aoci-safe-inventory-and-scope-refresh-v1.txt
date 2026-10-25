@@ -56,6 +56,26 @@ third-party distribution output. Empty `.gitkeep` repository placeholders are
 generated artifacts. `.env.example`-style templates are not secret variants.
 `package-lock.json` is not a built-in secret or runtime exclusion.
 
+The built-in secret-name rule has two rule sets, selected by the team
+configuration key `sensitive_name_rules`. `v1` is the original set: `.env`
+and its `.env.<name>` variants, named credential files, private keys, and
+`secrets.*`. `v2` adds the shapes operational repositories use for
+credentials: a file name with an `env` component after its first component
+(`prod.env`, `manager-login.env`, `api.env.local`), and a credential word
+(`credential`, `credentials`, `secret`, `secrets`, `password`, `passwords`,
+`passwd`, `apikey`, `apikeys`, `token`, `tokens`, or the pair `api-key` /
+`api_key`) as a whole word of a file name whose extension is a data or
+configuration extension or that has no extension. Under `v2` a name ending in
+`.example`, `.sample`, `.template`, or `.dist` is a template, whatever
+precedes the suffix, where `v1` exempts only `.env.<name>` templates; a source file such as `tokenizer.go` or `password_hasher.go` is never
+matched, because the rule reads names and never content; and a directory
+keeps the `v1` classification. The selected set enters the rules identity:
+an absent key is `v1` and leaves an existing repository's identity
+unchanged, new initialization persists `v2`, and changing the key on an
+initialized repository is a governed Scope Change whose coverage reduction
+requires approval. A binary that does not know the key evaluates such a
+repository under `v1` and answers `scope_change_required`.
+
 Generated build and test output, uploads, backups, caches, and vendored trees
 are not a built-in rule: a directory name that can denote source as well as
 an artifact is governed by project configuration. New initialization persists

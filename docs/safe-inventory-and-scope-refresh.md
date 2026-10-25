@@ -42,6 +42,14 @@ generated, AOCI/VCS, or unsafe filesystem objects cannot use this exception.
 Templates such as `.env.example` are not treated as secrets, and
 `package-lock.json` remains governed by project policy/Curation.
 
+The built-in secret-name rule has two sets, chosen by the team key
+`sensitive_name_rules`: `v1`, the original names, and `v2`, which also
+matches `prod.env`-style names and credential words in data and
+configuration file names (#148). `init` persists `v2` for a new repository;
+an absent key means `v1` and keeps an old repository's identity, and
+changing it is a Scope Change. [Managed Scope and cognition
+budgets](managed-scope-and-budget.md) lists the exact shapes.
+
 ## Changing an existing Baseline's scope
 
 Do not use `scan --force` to conceal managed-set changes. Build a versioned

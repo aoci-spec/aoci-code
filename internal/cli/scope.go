@@ -210,7 +210,7 @@ func newScopeExplainCmd() *cobra.Command {
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: afs.SafetyUnsafe, GitStatus: "future_or_absent", ReadsContent: false,
 						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "git_submodule:" + afs.SafetyUnsafe}
-				} else if category, source := afs.BuiltInSafetyCategory(rel); category != "" {
+				} else if category, source := afs.BuiltInSafetyCategory(rel, cfg.WalkOptions().SensitiveNameRules); category != "" {
 					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
 						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
 						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
@@ -942,7 +942,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		snapshot, driftBaseline = filteredSnapshot, &filteredBaseline
 	}
 	status.Drift = baseline.DetectManagedScope(root, document, driftBaseline, snapshot,
-		afs.WalkOptions{HighRiskOptIn: cfg.SafeInventoryHighRiskOptIn}, cfg.LineEndingTolerance)
+		afs.WalkOptions{HighRiskOptIn: cfg.SafeInventoryHighRiskOptIn, SensitiveNameRules: cfg.SensitiveNameRules}, cfg.LineEndingTolerance)
 	status.ObservedPendingReview = len(status.Drift.ObservedNew) + len(status.Drift.ObservedChanged) + len(status.Drift.ObservedRemoved)
 	status.AuthoringTargets = len(status.Drift.Missing)
 	if status.ObservedPendingReview > 0 && policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
