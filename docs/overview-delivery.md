@@ -34,11 +34,32 @@ bytes, token estimate, SHA, cursor, and completion. A cursor binds the Index,
 Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
 reordered, cross-Index, or cross-configuration chains fail closed; an exact
 replay of a genuine cursor idempotently re-serves the identical Chunk.
-No persistent delivery Session or transaction is created. Because a cursor is
-deterministically re-derivable from those bound facts, an unchanged Index and
-Chunk budget accept the same cursor across MCP process restarts; the Volumes
-governance binding below remains in-memory session state and does not carry
-across processes.
+No persistent delivery Session or transaction is created.
+
+A Volumes v1 delivery whose governance is aligned is prepared once and reused
+for continuation (#132). The first request runs the complete governance
+assessment, frames the body, and records a guard over its inputs: the
+effective configuration and the raw config, Baseline, and Curation bytes, the
+composite CognitionSet identity, Safe Inventory membership and Git status, the
+rules identity and blockers, and the raw SHA-256 and size of every index and
+observe source. Each continuation re-checks that guard, which costs an
+inventory listing and one hash per governed source, instead of repeating the
+policy evaluation and rebuilding the body, so a continuation that took over a
+minute on a large repository takes seconds. The cursor of such a delivery
+starts with `v2:` and is bound to the MCP Host session: a changed input
+answers `overview_snapshot_changed`, and expiry (15 idle minutes or 60
+minutes in all), eviction, a foreign Host, or a process restart answers
+`overview_session_unavailable_restart_required`. In every such case the Host
+starts again at Chunk 1; nothing is reconstructed from a `v2:` token. The
+proof halves submitted after the chain reuse the same delivery, so the
+Attestation call no longer repeats the assessment either. A repository with
+an enabled Database Volume, a pending scope change, or source warnings keeps
+the live path, as does a delivery the server cannot retain within its 32
+deliveries and 64 MiB; those chains carry the reconstructable v1 cursor,
+which an unchanged Index and Chunk budget still accept across process
+restarts. Successful Volumes responses carry `_meta.aoci_work` with
+`governance_evals` and `body_builds`, counters that let a suite prove which
+path served a call.
 
 For Volumes v1, Overview reads live governance from the same read-only facts
 calculator as Verify, Check, Guide, and Maintain. It does not reuse a prior

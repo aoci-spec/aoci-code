@@ -28,7 +28,6 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
-	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -171,12 +170,6 @@ func registerReadTools(
 			return guard(
 				func() *mcp.CallToolResult {
 					start := time.Now()
-					if input.ModelAttestation != nil {
-						cfg, err := config.Load(root)
-						if err == nil {
-							ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "overview_attestation_schema_accepted", Source: ledger.SourceAgent, Result: "accepted"})
-						}
-					}
 					if err := validateOverviewCognitionStateVersion(input.CognitionStateVersion); err != nil {
 						return errResult(
 							errBadArgs,
@@ -194,6 +187,10 @@ func registerReadTools(
 					loaded, fail := loadCognitionCtx(root)
 					if fail != nil {
 						return failResult(fail)
+					}
+					if input.ModelAttestation != nil {
+						// The SDK validated the arguments before this handler ran.
+						ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "overview_attestation_schema_accepted", Source: ledger.SourceAgent, Result: "accepted"})
 					}
 					if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 						return handleVolumeOverview(root, mcpServiceVersion, input, loaded, refreshSession, start, volumeOwner(request))

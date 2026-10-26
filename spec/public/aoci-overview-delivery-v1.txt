@@ -113,10 +113,12 @@ retains the original path. The optimization never upgrades a dirty verdict.
 Each MCP server retains at most 32 deliveries and 64 MiB of conservatively
 accounted retained payloads, including proof evidence. Proof replacement reserves
 a conservative high-water byte cost before retaining it; growth evicts other
-deliveries as needed, and an oversize proof fails explicitly without scoring.
+deliveries as needed, and a proof the store cannot retain drops the delivery
+and is scored on the live-governance path.
 A delivery expires after 15 idle minutes or 60
 minutes from creation, even with active replay. Insertion evicts the oldest
-used delivery as necessary; oversize deliveries fail explicitly. Cleanup occurs
+used delivery as necessary; a delivery the store cannot retain is served the
+original live-governance way with a v1 cursor. Cleanup occurs
 on store operations. A held request may finish from its immutable snapshot
 when concurrent insertion evicts its store entry; future cursors fail cleanly.
 

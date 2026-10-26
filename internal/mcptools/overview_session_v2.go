@@ -289,13 +289,16 @@ func deliveryCompleted(delivery overviewRendered, entry *volumeDelivery) bool {
 
 // The token is bound to both the immutable snapshot and its Host session.
 // Postflight repeats the cheap input guard, never the full policy evaluation.
+// A nil result means the store could not retain the proof this call carries:
+// the delivery is dropped and the caller serves the request the live way.
 func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx, refresh *cognitionRefreshSession, entry *volumeDelivery, start time.Time) *mcp.CallToolResult {
 	if err := entry.guard.validate(root, loaded); err != nil {
 		refresh.deliveries.remove(entry)
 		return overviewSnapshotFailure()
 	}
 	if err := refresh.deliveries.reserveProof(entry, input.ModelAttestation); err != nil {
-		return errResult(errBadArgs, err.Error(), "")
+		refresh.deliveries.remove(entry)
+		return nil
 	}
 	hostReasons, eventID, fail := normalizeRefreshInput(input)
 	if fail != nil {

@@ -56,7 +56,11 @@ func handleVolumeOverview(
 			return overviewSnapshotFailure()
 		}
 		input.Cursor = legacy
-		return serveVolumeDelivery(root, input, loaded, refreshSession, entry, start)
+		if result := serveVolumeDelivery(root, input, loaded, refreshSession, entry, start); result != nil {
+			return result
+		}
+		// The store could not retain the proof this call carries: the entry is
+		// gone and the inner v1 cursor continues on the live path below.
 	}
 	// Proof halves reuse only a complete delivery owned by this Host session.
 	if !input.CheckOnly && input.Cursor == "" && (input.HostConfirmation != nil || input.ModelAttestation != nil) {
@@ -66,10 +70,14 @@ func handleVolumeOverview(
 		}
 		if entry := refreshSession.deliveries.proof(owner, view.ScopeIdentity, hash); entry != nil && entry.ctx.RequestedScope == view.RequestedScope {
 			if entry.guard.validate(root, loaded) == nil {
-				return serveVolumeDelivery(root, input, loaded, refreshSession, entry, start)
+				if result := serveVolumeDelivery(root, input, loaded, refreshSession, entry, start); result != nil {
+					return result
+				}
+				// The store could not retain this proof; score it the live way.
+			} else {
+				// Live governance still scores an already changed proof as unaligned.
+				refreshSession.deliveries.remove(entry)
 			}
-			// Live governance still scores an already changed proof as unaligned.
-			refreshSession.deliveries.remove(entry)
 		}
 	}
 	metadata, metadataErr := deliveryMetadata(root, loaded)
@@ -180,9 +188,14 @@ func handleVolumeOverview(
 		if err := guard.validate(root, loaded); err != nil {
 			return overviewSnapshotFailure()
 		}
+		// A delivery the store cannot retain (an index larger than the
+		// retained-payload budget allows) is served the original live way: the
+		// v1 cursor stays and continuation re-runs governance as before.
 		if err := refreshSession.deliveries.put(entry); err != nil {
-			return errResult(errBadArgs, err.Error(), "")
+			guard = nil
 		}
+	}
+	if guard != nil {
 		if err := rewriteVolumeCursor(&delivery, entry); err != nil {
 			refreshSession.deliveries.remove(entry)
 			return errResult(errInternal, err.Error(), "")

@@ -29,6 +29,24 @@ changes a persisted preimage names the binary every machine then needs.
   and answers `scope_change_required`. The Safe Inventory summary gains
   `sensitive_name_rules`; no MCP tool name, input schema, or formal-asset
   format changes.
+- Overview continuation reuses a guarded immutable delivery (#132, whloong).
+  The first Volumes request runs the full governance assessment once, frames
+  the body, and records a guard over its inputs: configuration, Baseline and
+  Curation bytes, the composite CognitionSet identity, Safe Inventory
+  membership and Git status, the rules identity and blockers, and every
+  index and observe source's raw digest and size. Continuation re-checks the
+  guard instead of repeating policy evaluation and rebuilding the body, and
+  the proof halves reuse the same delivery. Such cursors start with `v2:`
+  and are bound to the MCP Host session: drift answers
+  `overview_snapshot_changed`; expiry, eviction, a foreign Host, or a process
+  restart answers `overview_session_unavailable_restart_required`, and the
+  Host starts again at Chunk 1. Database-enabled repositories, a pending
+  scope change, source warnings, and a delivery the server cannot retain
+  keep the live path with the reconstructable v1 cursor. The chunk receipt
+  stays `overview-chunk-receipt/v1`; Volumes responses gain
+  `_meta.aoci_work`; an attestation whose answers use `object` or
+  `object_ref` is refused by schema with a message naming `object_identity`;
+  the Ledger records the delivery and proof events.
 
 ## v0.1.0-rc22
 
