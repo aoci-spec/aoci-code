@@ -37,7 +37,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -95,33 +94,6 @@ var publishPreparedLockOwner = os.Link
 // 成功返回锁句柄;等待超时返回包裹 ErrLockTimeout 的错误;其他 IO 故障原样返回。
 func AcquireIndexLock(root string) (*Lock, error) {
 	return acquireLockWith(filepath.Join(root, ".aoci", "lock"), DefaultLockTimeout, DefaultLockStale)
-}
-
-// AcquireManifestLock串行化同一Draft Run的Manifest读改写审计。
-func AcquireManifestLock(root, runID string) (*Lock, error) {
-	if strings.TrimSpace(runID) == "" || filepath.Base(runID) != runID ||
-		strings.ContainsAny(runID, `/\\`) {
-		return nil, fmt.Errorf("manifest锁run_id非法: %q", runID)
-	}
-	return acquireLockWith(
-		filepath.Join(root, ".aoci", "drafts", runID, "manifest.lock"),
-		DefaultLockTimeout,
-		DefaultLockStale,
-	)
-}
-
-// AcquireEntriesRunLock把同一Entries run的Check→Diff→Apply→Application串成
-// 一次治理租约；Manifest自身的细粒度锁仍可在租约内保护各次原子审计写入。
-func AcquireEntriesRunLock(root, runID string) (*Lock, error) {
-	if strings.TrimSpace(runID) == "" || filepath.Base(runID) != runID ||
-		strings.ContainsAny(runID, `/\`) {
-		return nil, fmt.Errorf("entries run锁run_id非法: %q", runID)
-	}
-	return acquireLockWith(
-		filepath.Join(root, ".aoci", "drafts", runID, "entries-finalize.lock"),
-		DefaultLockTimeout,
-		DefaultLockStale,
-	)
 }
 
 // acquireLockWith 带参版本(测试注入短超时/短陈旧阈值;生产入口恒走 AcquireIndexLock)

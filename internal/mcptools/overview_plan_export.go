@@ -63,6 +63,21 @@ func PlanOverviewChunks(root string, set *cognition.Set, scope string, chunkToke
 // path frames and chunks. A status surface that shows "the whole index" shows
 // this, never a second concatenation that could drift from what an agent
 // receives.
+func OverviewBody(set *cognition.Set, scope string) (string, error) {
+	if set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
+		return "", fmt.Errorf("overview_plan_layout_unsupported")
+	}
+	view, err := set.Scope(scope)
+	if err != nil {
+		return "", err
+	}
+	if !view.Available {
+		return "", nil
+	}
+	body, _, err := buildVolumeOverviewBody(view)
+	return body, err
+}
+
 // FramedOverviewBody renders scope exactly as a full delivery frames it:
 // start marker, body, end marker, with the receipt's byte count and SHA-256.
 // The embeddable engine reports it, so a Host's confirmed body_sha256 and the
@@ -85,19 +100,4 @@ func FramedOverviewBody(root string, set *cognition.Set, scope string) (text, sh
 	}
 	framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
 	return framed.Text, framed.Receipt.BodySHA256, framed.Receipt.BodyUTF8Bytes, nil
-}
-
-func OverviewBody(set *cognition.Set, scope string) (string, error) {
-	if set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
-		return "", fmt.Errorf("overview_plan_layout_unsupported")
-	}
-	view, err := set.Scope(scope)
-	if err != nil {
-		return "", err
-	}
-	if !view.Available {
-		return "", nil
-	}
-	body, _, err := buildVolumeOverviewBody(view)
-	return body, err
 }

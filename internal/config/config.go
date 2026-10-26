@@ -742,58 +742,6 @@ func normalizeMigrationPaths(paths []string) ([]string, error) {
 	return result, nil
 }
 
-// AdvanceLocaleMigration removes only assets proven to have completed their
-// locale rewrite. It is safe to call repeatedly with the same paths.
-func AdvanceLocaleMigration(
-	repoRoot string,
-	headerComplete bool,
-	entryPaths []string,
-	curationPaths []string,
-) error {
-	for attempt := 0; attempt < 3; attempt++ {
-		cfg, expectedSHA256, err := loadBaseSnapshot(repoRoot)
-		if err != nil {
-			return err
-		}
-		if cfg.LocaleMigration == nil {
-			return nil
-		}
-		if headerComplete {
-			cfg.LocaleMigration.HeaderPending = false
-			cfg.LocaleMigration.ManagedIndexTextPending = false
-			cfg.LocaleMigration.AgentsManagedBlockPending = false
-			cfg.LocaleMigration.GovernanceEntryPaths = nil
-			cfg.LocaleMigration.EntryPaths = removeGovernanceMigrationPaths(
-				cfg.LocaleMigration.EntryPaths,
-			)
-		}
-		cfg.LocaleMigration.EntryPaths = removeMigrationPaths(
-			cfg.LocaleMigration.EntryPaths,
-			entryPaths,
-		)
-		cfg.LocaleMigration.CurationPaths = removeMigrationPaths(
-			cfg.LocaleMigration.CurationPaths,
-			curationPaths,
-		)
-		if !cfg.LocaleMigration.HeaderPending &&
-			!cfg.LocaleMigration.ManagedIndexTextPending &&
-			!cfg.LocaleMigration.AgentsManagedBlockPending &&
-			len(cfg.LocaleMigration.EntryPaths) == 0 &&
-			len(cfg.LocaleMigration.GovernanceEntryPaths) == 0 &&
-			len(cfg.LocaleMigration.CurationPaths) == 0 {
-			cfg.LocaleMigration = nil
-		}
-		if err := saveToPathCAS(FilePath(repoRoot), cfg, expectedSHA256); err != nil {
-			if errors.Is(err, fs.ErrAtomicCASConflict) {
-				continue
-			}
-			return err
-		}
-		return nil
-	}
-	return fmt.Errorf("advance locale migration: %w", fs.ErrAtomicCASConflict)
-}
-
 func removeGovernanceMigrationPaths(paths []string) []string {
 	result := make([]string, 0, len(paths))
 	for _, relPath := range paths {
@@ -849,23 +797,6 @@ func loadBaseSnapshot(repoRoot string) (*Config, string, error) {
 	}
 	digest := sha256.Sum256(data)
 	return cfg, hex.EncodeToString(digest[:]), nil
-}
-
-func removeMigrationPaths(current, completed []string) []string {
-	if len(current) == 0 || len(completed) == 0 {
-		return current
-	}
-	done := make(map[string]struct{}, len(completed))
-	for _, path := range completed {
-		done[path] = struct{}{}
-	}
-	result := make([]string, 0, len(current))
-	for _, path := range current {
-		if _, exists := done[path]; !exists {
-			result = append(result, path)
-		}
-	}
-	return result
 }
 
 func applyJSONFileIfExists(

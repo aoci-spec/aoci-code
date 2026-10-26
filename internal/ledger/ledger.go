@@ -401,15 +401,3 @@ func readLedgerLine(reader *bufio.Reader, maxBytes int) ([]byte, bool, error) {
 func EstimateTokens(text string) int {
 	return utf8.RuneCountInString(text) * 6 / 10
 }
-
-// EndpointHash计算端点URL或任意敏感标识的脱敏哈希。
-// 空输入返回空串。
-func EndpointHash(baseURL string) string {
-	if baseURL == "" {
-		return ""
-	}
-
-	sum := sha256.Sum256([]byte(baseURL))
-
-	return hex.EncodeToString(sum[:])[:16]
-}

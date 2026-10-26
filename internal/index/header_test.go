@@ -168,19 +168,3 @@ func TestValidateHeaderTextBareLineAndBlank(t *testing.T) {
 		t.Fatalf("空行与纯空白行应合法,得到 ln=%d", ln)
 	}
 }
-
-func TestRenderHeaderDiff(t *testing.T) {
-	got := RenderHeaderDiff("#a\n#b\n#c", "#a\n#B\n#c")
-	want := "  #a\n- #b\n+ #B\n  #c\n"
-	if got != want {
-		t.Fatalf("diff 不符:\n得到: %q\n期望: %q", got, want)
-	}
-}
-
-func TestRenderHeaderDiffOldEmpty(t *testing.T) {
-	got := RenderHeaderDiff("", "#x\n#y")
-	want := "+ #x\n+ #y\n"
-	if got != want {
-		t.Fatalf("空旧头 diff 不符: %q", got)
-	}
-}

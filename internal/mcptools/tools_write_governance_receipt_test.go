@@ -1,8 +1,6 @@
 package mcptools
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -87,21 +85,5 @@ func TestRecoveryAndGovernanceReceiptsRejectNonCanonicalJSON(t *testing.T) {
 				t.Fatal("non-canonical proof JSON must fail closed")
 			}
 		})
-	}
-}
-
-func TestPendingGovernanceAssetCheckUsesConfiguredIndexPath(t *testing.T) {
-	root := t.TempDir()
-	indexPath := filepath.Join(root, ".aoci", "custom-index.txt")
-	if err := os.MkdirAll(filepath.Dir(indexPath), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(indexPath+".aoci-cas.intent", []byte("pending"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := rejectOtherPendingGovernanceAssets(
-		root, indexPath, strings.Repeat("a", 64),
-	); err == nil {
-		t.Fatal("a configured-index CAS recovery asset must block supersession")
 	}
 }

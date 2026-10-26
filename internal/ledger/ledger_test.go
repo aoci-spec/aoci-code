@@ -9,8 +9,7 @@
 //  6. 损坏行跳过并计数;
 //  7. enabled=false静默跳过;
 //  8. Recent最近n条且保持正序;
-//  9. EndpointHash确定性、长度、区分度和空入参;
-//  10. EstimateTokens粗估系数。
+//  9. EstimateTokens粗估系数。
 //
 // 全部用例经t.TempDir造仓,不依赖真实用户仓库。
 package ledger
@@ -98,7 +97,7 @@ func TestAppendAndRecentV8RoundTrip(t *testing.T) {
 
 		Model:         "qwen2.5-coder",
 		Provider:      "openai-compatible",
-		EndpointHash:  EndpointHash("http://10.0.0.5:8000/v1"),
+		EndpointHash:  "6e0b3f1c9a2d4e85",
 		InputTokens:   120,
 		OutputTokens:  16,
 		TokenSrc:      TokenSourceExact,
@@ -485,32 +484,6 @@ func TestRecentLimit(t *testing.T) {
 				got[index].Op,
 			)
 		}
-	}
-}
-
-// TestEndpointHash验证端点哈希的确定性、脱敏和格式。
-func TestEndpointHash(t *testing.T) {
-	hashOne := EndpointHash("http://10.0.0.5:8000/v1")
-	hashTwo := EndpointHash("http://10.0.0.5:8000/v1")
-	hashThree := EndpointHash("https://api.example.com/v1")
-
-	if hashOne == "" {
-		t.Fatal("非空入参不应返回空哈希")
-	}
-	if hashOne != hashTwo {
-		t.Fatalf("同入参哈希不确定: %s vs %s", hashOne, hashTwo)
-	}
-	if hashOne == hashThree {
-		t.Fatalf("不同端点哈希碰撞: %s", hashOne)
-	}
-
-	assertHexString(t, hashOne, 16)
-
-	if EndpointHash("") != "" {
-		t.Fatal("空入参应返回空串")
-	}
-	if hashOne == "http://10.0.0.5:8000/v1" {
-		t.Fatal("哈希输出不应等于端点原文")
 	}
 }
 

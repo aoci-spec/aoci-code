@@ -129,6 +129,7 @@ type assessment struct {
 type autoCandidate struct {
 	Path         string `json:"path"`
 	SourceSHA256 string `json:"source_sha256"`
+	CandidateID  string `json:"candidate_id"`
 }
 
 type autoResult struct {
@@ -136,7 +137,10 @@ type autoResult struct {
 	Aligned    bool              `json:"aligned"`
 	Candidates []autoCandidate   `json:"candidates"`
 	Findings   []json.RawMessage `json:"findings"`
-	Metrics    struct {
+	CodePlan   struct {
+		BatchID string `json:"batch_id"`
+	} `json:"code_plan"`
+	Metrics struct {
 		DeterministicMS int64 `json:"deterministic_ms"`
 	} `json:"metrics"`
 }
@@ -225,7 +229,7 @@ func runThresholdExperiment(binary, root string) (experimentReport, error) {
 		RepositoryCommit: commit,
 		Threshold:        30,
 	}
-	report.IndexSHA256Before, err = fileSHA256(filepath.Join(root, "aoci.txt"))
+	report.IndexSHA256Before, err = fileSHA256(filepath.Join(root, codeVolumePath))
 	if err != nil {
 		return report, err
 	}
@@ -332,7 +336,7 @@ func runThresholdExperiment(binary, root string) (experimentReport, error) {
 		return report, err
 	}
 	report.RepeatedBodyDelivered = true
-	report.IndexSHA256After, err = fileSHA256(filepath.Join(root, "aoci.txt"))
+	report.IndexSHA256After, err = fileSHA256(filepath.Join(root, codeVolumePath))
 	if err != nil {
 		return report, err
 	}
@@ -363,7 +367,7 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 		Threshold:           1,
 		HostEventSimulation: true,
 	}
-	report.IndexSHA256Before, err = fileSHA256(filepath.Join(root, "aoci.txt"))
+	report.IndexSHA256Before, err = fileSHA256(filepath.Join(root, codeVolumePath))
 	if err != nil {
 		return report, err
 	}
@@ -480,7 +484,7 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 	if _, err := recordAttestedOverview(client, root, mergedInput, 0, &report); err != nil {
 		return report, err
 	}
-	report.IndexSHA256After, err = fileSHA256(filepath.Join(root, "aoci.txt"))
+	report.IndexSHA256After, err = fileSHA256(filepath.Join(root, codeVolumePath))
 	if err != nil {
 		return report, err
 	}
@@ -499,11 +503,19 @@ func runCompactionExperiment(binary, root string) (experimentReport, error) {
 	return report, nil
 }
 
+// codeVolumePath is the Volume that holds a fresh repository's Entries; the
+// Root manifest names it and never changes when an Entry is written.
+const codeVolumePath = "aoci.code.txt"
+
+// createFixture builds the repository a fresh project gets: sources committed,
+// then init (a Volumes v1 layout), the team refresh threshold and transport
+// budget, the first scan,
+// and every Entry authored through the ordinary Maintain batches, the only
+// path a Volumes Entry is written by. The authoring calls are fixture setup,
+// not experiment evidence, so the Ledger they wrote is removed before the
+// experiment starts counting.
 func createFixture(binary, root string, files, threshold int) (string, error) {
 	if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
-		return "", err
-	}
-	if err := os.MkdirAll(filepath.Join(root, ".aoci"), 0o755); err != nil {
 		return "", err
 	}
 	for number := 0; number < files; number++ {
@@ -514,44 +526,75 @@ func createFixture(binary, root string, files, threshold int) (string, error) {
 			return "", err
 		}
 	}
-	configBody := fmt.Sprintf("{\n  \"version\": 2,\n  \"locale\": \"en-US\",\n  \"index_path\": \"aoci.txt\",\n  \"cognition_refresh_threshold\": %d\n}\n", threshold)
-	if err := writeText(filepath.Join(root, ".aoci", "config.json"), configBody); err != nil {
-		return "", err
-	}
-	var index strings.Builder
-	index.WriteString("#====R67 Long-Run Fixture Complete Index====\n")
-	index.WriteString("#Locale: en-US\n#===Header Index===\n")
-	index.WriteString("#[Deployment] Static text fixture exercised by an isolated black-box runner\n")
-	index.WriteString("#[System] Synthetic repository for cognition refresh ordering and idempotency\n")
-	index.WriteString("#[Overall Rules] Entries describe independent text fixture components\n")
-	index.WriteString("#[Correct Index Examples]\n")
-	index.WriteString("#file-000.txt[X.Y.5.T]: F:fixture component | R:- | A:- | S:Each file is independent test evidence\n")
-	index.WriteString("#===Index Rules===\n#[Format] filename[tag]: F:function | R:relationships | A:interface | S:information\n")
-	index.WriteString("#A Layer: X-Fixture\n#B Module: Y-Refresh\n#C Importance: 5-routine\n#D Trait (optional): Z-test\n#E Scale: T-tiny<100\n")
-	index.WriteString("#S quota: C9-8≤600 C7-4≤200 C3-1≤50\n#===Index Rules Complete===\n#===Header Index Complete===\n\n#Code Index\n")
-	index.WriteString("===Repository " + filepath.ToSlash(root) + "/===\n")
-	index.WriteString("aoci.txt[X.Y.5.T]: F:fixture cognition | R:src | A:- | S:Maintained only through the candidate governance path\n")
-	index.WriteString("===Sources " + filepath.ToSlash(filepath.Join(root, "src")) + "/===\n")
-	for number := 0; number < files; number++ {
-		fmt.Fprintf(&index, "file-%03d.txt[X.Y.5.T]: F:fixture component | R:- | A:- | S:Independent baseline component %03d\n", number, number)
-	}
-	index.WriteString("#Code Index Complete\n")
-	if err := writeText(filepath.Join(root, "aoci.txt"), index.String()); err != nil {
-		return "", err
-	}
-	if evidence, err := runCommand(binary, "--repo", root, "--quiet", "scan"); err != nil {
-		return "", fmt.Errorf("initial scan: %w: %s", err, evidence.Output)
-	}
-	commands := [][]string{
+	for _, args := range [][]string{
 		{"git", "init", "-q"},
 		{"git", "config", "user.name", "AOCI Blackbox"},
 		{"git", "config", "user.email", "blackbox@example.invalid"},
-		{"git", "add", "aoci.txt", "src", ".aoci/config.json", ".aoci/baseline.json"},
-	}
-	for _, args := range commands {
+	} {
 		if evidence, err := runCommandAt(root, args[0], args[1:]...); err != nil {
 			return "", fmt.Errorf("%s: %w: %s", strings.Join(args, " "), err, evidence.Output)
 		}
+	}
+	for _, args := range [][]string{
+		{"--repo", root, "--quiet", "init", "--locale", "en-US"},
+		{"--repo", root, "--quiet", "config", "set", "cognition_refresh_threshold", strconv.Itoa(threshold)},
+		// One maintenance cycle is one Maintain call here: the team transport
+		// budget is raised so every batch of this fixture fits one response,
+		// as a team with a large Host window would set it.
+		{"--repo", root, "--quiet", "config", "set", "maintain_transport_budget_bytes", strconv.Itoa(192 * 1024)},
+		{"--repo", root, "--quiet", "scan"},
+	} {
+		if evidence, err := runCommand(binary, args...); err != nil {
+			return "", fmt.Errorf("%s: %w: %s", strings.Join(args[2:], " "), err, evidence.Output)
+		}
+	}
+	client, err := startMCP(binary, root)
+	if err != nil {
+		return "", err
+	}
+	aligned := false
+	for round := 0; round < 8 && !aligned; round++ {
+		text, err := client.tool("aoci_maintain", map[string]any{})
+		if err != nil {
+			client.close()
+			return "", err
+		}
+		var result autoResult
+		if err := json.Unmarshal([]byte(text), &result); err != nil {
+			client.close()
+			return "", fmt.Errorf("decode fixture Maintain: %w: %s", err, text)
+		}
+		if result.Status == "applied" && result.Aligned {
+			aligned = true
+			break
+		}
+		if result.Status != "repair_required" || len(result.Candidates) == 0 {
+			client.close()
+			return "", fmt.Errorf("fixture Maintain issued no batch: %s", text)
+		}
+		text, err = client.tool("aoci_update_entry", map[string]any{
+			"code_batch_id": result.CodePlan.BatchID,
+			"entries":       fixtureEntries(result.Candidates, "Fixture component authored for the long-run subject"),
+		})
+		if err != nil {
+			client.close()
+			return "", err
+		}
+		var applied autoResult
+		if err := json.Unmarshal([]byte(text), &applied); err != nil || applied.Status != "applied" {
+			client.close()
+			return "", fmt.Errorf("fixture batch did not apply: %v: %s", err, text)
+		}
+	}
+	client.close()
+	if !aligned {
+		return "", errors.New("fixture authoring did not align within eight batches")
+	}
+	if err := os.Remove(filepath.Join(root, ".aoci", "ledger.jsonl")); err != nil && !os.IsNotExist(err) {
+		return "", err
+	}
+	if evidence, err := runCommandAt(root, "git", "add", "-A"); err != nil {
+		return "", fmt.Errorf("git add: %w: %s", err, evidence.Output)
 	}
 	commit := exec.Command("git", "commit", "-q", "-m", "fixture: freeze long-run subject")
 	commit.Dir = root
@@ -569,6 +612,22 @@ func createFixture(binary, root string, files, threshold int) (string, error) {
 	return strings.TrimSpace(evidence.Output), nil
 }
 
+// fixtureEntries writes one compact-tagged Entry per issued candidate, bound
+// to the candidate's identity and source digest exactly as Maintain issued it.
+// The tag is the starter Code dictionary's general routine tiny object.
+func fixtureEntries(candidates []autoCandidate, s string) []map[string]any {
+	entries := make([]map[string]any, 0, len(candidates))
+	for _, candidate := range candidates {
+		entries = append(entries, map[string]any{
+			"path":          candidate.Path,
+			"source_sha256": candidate.SourceSHA256,
+			"candidate_id":  candidate.CandidateID,
+			"new_entry":     fmt.Sprintf("%s[CG5T]: F:fixture component | R:- | A:- | S:%s", filepath.Base(candidate.Path), s),
+		})
+	}
+	return entries
+}
+
 func maintainAndApply(client *rpcClient, label string) (int64, int, error) {
 	text, err := client.tool("aoci_maintain", map[string]any{})
 	if err != nil {
@@ -581,26 +640,14 @@ func maintainAndApply(client *rpcClient, label string) (int64, int, error) {
 	if result.Status != "repair_required" || len(result.Candidates) == 0 {
 		return result.Metrics.DeterministicMS, 0, fmt.Errorf("maintain did not return semantic candidates: %s", text)
 	}
-	entries := make([]map[string]any, 0, len(result.Candidates))
-	for _, candidate := range result.Candidates {
-		base := filepath.Base(candidate.Path)
-		entries = append(entries, map[string]any{
-			"path":          candidate.Path,
-			"source_sha256": candidate.SourceSHA256,
-			"new_entry": fmt.Sprintf(
-				"%s[X.Y.5.T]: F:updated fixture | R:- | A:- | S:Semantic evidence produced by the %s black-box task",
-				base,
-				label,
-			),
-		})
-	}
+	entries := fixtureEntries(result.Candidates, "Semantic evidence produced by the "+label+" black-box task")
 	broken := append([]map[string]any{}, entries...)
 	broken[0] = map[string]any{}
 	for key, value := range entries[0] {
 		broken[0][key] = value
 	}
 	broken[0]["new_entry"] = "deliberately invalid test-only candidate"
-	text, err = client.tool("aoci_update_entry", map[string]any{"entries": broken})
+	text, err = client.tool("aoci_update_entry", map[string]any{"code_batch_id": result.CodePlan.BatchID, "entries": broken})
 	if err != nil {
 		return result.Metrics.DeterministicMS, 0, err
 	}
@@ -611,7 +658,7 @@ func maintainAndApply(client *rpcClient, label string) (int64, int, error) {
 	if repair.Status != "repair_required" || len(repair.Findings) == 0 {
 		return result.Metrics.DeterministicMS, 0, fmt.Errorf("invalid candidate did not request bounded repair: %s", text)
 	}
-	text, err = client.tool("aoci_update_entry", map[string]any{"entries": entries})
+	text, err = client.tool("aoci_update_entry", map[string]any{"code_batch_id": result.CodePlan.BatchID, "entries": entries})
 	if err != nil {
 		return result.Metrics.DeterministicMS + repair.Metrics.DeterministicMS, 1, err
 	}
@@ -880,12 +927,33 @@ func recordAttestedOverview(
 	return client.tool("aoci_overview", attestationArguments)
 }
 
+// deliveredCodeVolume returns the exact Code Volume bytes inside a delivered
+// all-scope body: the text after that asset's banner and closing rule, up to
+// the next asset's opening rule. The formal Entry sequence a Challenge counts
+// is that Volume's Entries in order, since the Root and Meta hold none.
+func deliveredCodeVolume(body string) (string, error) {
+	const rule = "──────────────────────────────\n"
+	banner := strings.Index(body, "AOCI Cognition Asset: id=code ")
+	if banner < 0 {
+		return "", errors.New("delivered body has no Code Volume")
+	}
+	afterBanner := strings.Index(body[banner:], "\n"+rule)
+	if afterBanner < 0 {
+		return "", errors.New("the Code Volume banner is not closed")
+	}
+	volume := body[banner+afterBanner+1+len(rule):]
+	if next := strings.Index(volume, rule+"AOCI Cognition Asset: "); next >= 0 {
+		volume = volume[:next]
+	}
+	return volume, nil
+}
+
 // buildAttestationArguments derives every semantic answer from the delivered
 // body. The deliberate wrong-answer count is a test fixture; no source,
 // Memory, Search, or Entry lookup participates in Attestation.
 func buildAttestationArguments(root, delivered string, wrongAnswers int) (map[string]any, error) {
-	const start = "<<<AOCI_OVERVIEW_BODY_BEGIN/v1 scope=repository_full>>>\n"
-	const end = "<<<AOCI_OVERVIEW_BODY_END/v1 scope=repository_full>>>"
+	const start = "<<<AOCI_OVERVIEW_BODY_BEGIN/v1 scope=all>>>\n"
+	const end = "<<<AOCI_OVERVIEW_BODY_END/v1 scope=all>>>"
 	startOffset := strings.Index(delivered, start)
 	if startOffset < 0 {
 		return nil, errors.New("overview start marker missing")
@@ -895,7 +963,10 @@ func buildAttestationArguments(root, delivered string, wrongAnswers int) (map[st
 	if endOffset < 0 {
 		return nil, errors.New("overview end marker missing")
 	}
-	content := delivered[contentStart : contentStart+endOffset]
+	content, err := deliveredCodeVolume(delivered[contentStart : contentStart+endOffset])
+	if err != nil {
+		return nil, err
+	}
 	document, warnings := index.Parse(content)
 	if len(warnings) != 0 {
 		return nil, fmt.Errorf("delivered index warnings: %+v", warnings)
@@ -1019,8 +1090,10 @@ func metadataValue(text, key string) (string, error) {
 	return "", fmt.Errorf("overview metadata missing %s", key)
 }
 
+// containsIndexBody reports whether a response carries cognition: the framed
+// body's start marker, which no compact checkpoint or stop ever prints.
 func containsIndexBody(text string) bool {
-	return strings.Contains(text, "#====R67 Long-Run Fixture Complete Index====")
+	return strings.Contains(text, "<<<AOCI_OVERVIEW_BODY_BEGIN/v1 ")
 }
 
 func checkpoint(label string, value assessment) semanticCheckpoint {

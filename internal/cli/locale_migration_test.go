@@ -11,26 +11,18 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-func TestLocaleProtectedAndHostErrorsAreBilingual(t *testing.T) {
+func TestLocaleHostErrorsAreBilingual(t *testing.T) {
 	previous := textassets.ActiveLocale()
 	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
-	oldEntry := "main.go[XAP9T]: F:旧职责 | R:src/client.go | A:Client.Send | S:-"
-	newEntry := "main.go[XAP9T]: F:New responsibility | R:src/client.go | A:Client.Drop | S:-"
 	for _, current := range []struct {
-		locale          string
-		protectedAnchor string
-		hostAnchor      string
+		locale     string
+		hostAnchor string
 	}{
-		{textassets.DefaultLocale, "protected paths, identifiers, APIs", "cannot be quoted safely for PowerShell"},
-		{textassets.LegacyLocale, "受保护的路径、标识符、API", "无法为PowerShell安全引用"},
+		{textassets.DefaultLocale, "cannot be quoted safely for PowerShell"},
+		{textassets.LegacyLocale, "无法为PowerShell安全引用"},
 	} {
 		if err := textassets.SetActiveLocale(current.locale); err != nil {
 			t.Fatal(err)
-		}
-		protectedErr := validateLocaleEntryProtectedFacts(oldEntry, newEntry)
-		if protectedErr == nil || !strings.Contains(protectedErr.Error(), current.protectedAnchor) ||
-			!strings.Contains(protectedErr.Error(), "main.go") || !strings.Contains(protectedErr.Error(), "Client.Send") {
-			t.Errorf("%s protected-fact error lost semantics or facts: %v", current.locale, protectedErr)
 		}
 		_, hostErr := agentCommandPrefixFor("windows", `C:\aoci\bad$path.exe`)
 		if hostErr == nil || !strings.Contains(hostErr.Error(), current.hostAnchor) ||
@@ -104,53 +96,6 @@ func TestCheckFailsWhileAnyLocaleManagedSurfaceIsPending(t *testing.T) {
 	}
 	if !strings.Contains(output, "Locale") {
 		t.Fatalf("Check did not identify the Locale migration blocker:\n%s", output)
-	}
-}
-
-func TestLocaleEntryMigrationPreservesPathsTagsAPIsAndProjectNames(t *testing.T) {
-	oldLine := "src/main.go[XAP9T]: F:AOCI进程入口 | R:internal/cli/root.go,中文专有名词(共享夹具) | A:Run,PublicAPI,追加当前状态 | S:保持source_sha256与Plan一致"
-	valid := "src/main.go[XAP9T]: F:AOCI process entry point | R:internal/cli/root.go,中文专有名词(shared fixture) | A:Run,PublicAPI,returns current status | S:keeps source_sha256 consistent with Plan in a full-silo workflow."
-	if err := validateLocaleEntryProtectedFacts(oldLine, valid); err != nil {
-		t.Fatal(err)
-	}
-	cases := []string{
-		"src/main.go[XAP9T]: F:AOCI process entry point | R:internal/cli/new.go,中文专有名词(shared fixture) | A:Run,PublicAPI,returns current status | S:keeps source_sha256 consistent with Plan",
-		"src/main.go[XAP9T]: F:AOCI process entry point | R:internal/cli/root.go,中文专有名词(shared fixture) | A:Execute,PublicAPI,returns current status | S:keeps source_sha256 consistent with Plan",
-		"src/main.go[XAP9T]: F:AOCI process entry point | R:internal/cli/root.go,中文专有名词(shared fixture) | A:Run,PublicAPI,returns current status | S:keeps source_hash consistent with Plan",
-		"src/main.go[YAP9T]: F:AOCI process entry point | R:internal/cli/root.go,中文专有名词(shared fixture) | A:Run,PublicAPI,returns current status | S:keeps source_sha256 consistent with Plan",
-	}
-	for _, candidate := range cases {
-		if err := validateLocaleEntryProtectedFacts(oldLine, candidate); err == nil {
-			t.Fatalf("protected fact mutation passed: %s", candidate)
-		}
-	}
-}
-
-func TestLocaleEntryMigrationPreservesSlashSeparatedIdentifiers(t *testing.T) {
-	oldLine := `platform_style.txt[TFX5T]: F:平台紧凑标签夹具 | R:internal/index/parser_test.go | A:- | S:锁"CLI能读平台旧索引"元协议主张;含中文|[]<>全角混排与S1/S2变体与分区注释;裸头部旧形态保留作兼容用例`
-	valid := `platform_style.txt[TFX5T]: F:Platform compact label fixture | R:internal/index/parser_test.go | A:- | S:Locks the "CLI reads legacy platform index" contract; covers Chinese punctuation and S1/S2 variants.`
-	if err := validateLocaleEntryProtectedFacts(oldLine, valid); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestLocaleEntryMigrationDoesNotFreezeTargetLocaleCompoundProse(t *testing.T) {
-	zh := `main.go[CRT9OT]: F:AOCI进程入口 | R:internal/cli/root.go | A:Run | S:使用--json并保持S1/S2协议与source_sha256绑定`
-	en := `main.go[CRT9OT]: F:AOCI Go process ID | R:internal/cli/root.go | A:Run | S:Uses --json throughout a --json S1/S2 contract bound to source_sha256 in a Cross-Compilation freezeA, sign(s), 4-state, terms/values/pools workflow.`
-	evidence := []byte("package main\nfunc Run() { use(source_sha256, `S1/S2`, `--json`) }\n")
-	if err := validateLocaleEntryProtectedFactsWithEvidence(zh, en, evidence); err != nil {
-		t.Fatal(err)
-	}
-	if err := validateLocaleEntryProtectedFactsWithEvidence(en, zh, evidence); err != nil {
-		t.Fatal(err)
-	}
-	changed := strings.Replace(en, "S1/S2", "S1/S3", 1)
-	if err := validateLocaleEntryProtectedFactsWithEvidence(en, changed, evidence); err == nil {
-		t.Fatal("changed slash-separated identifier passed")
-	}
-	changed = strings.Replace(en, "A:Run", "A:Execute", 1)
-	if err := validateLocaleEntryProtectedFactsWithEvidence(en, changed, evidence); err == nil {
-		t.Fatal("changed source-evidenced API passed")
 	}
 }
 

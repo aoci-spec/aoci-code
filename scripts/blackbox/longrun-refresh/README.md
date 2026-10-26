@@ -2,7 +2,12 @@
 
 This runner starts the candidate AOCI binary as a real stdio MCP server and
 creates two isolated Git repositories under a temporary directory. It never
-connects to an AI endpoint or a production repository.
+connects to an AI endpoint or a production repository. Each repository is the
+one a fresh project gets: `init` writes the Volumes v1 layout, the team sets its
+refresh threshold and a transport budget that fits every batch of the fixture
+in one response, and the fixture's Entries are authored through ordinary
+Maintain batches before the subject commit is frozen; the authoring calls are
+setup, so their Ledger is removed before the experiment counts.
 
 ```bash
 go run ./scripts/blackbox/longrun-refresh \

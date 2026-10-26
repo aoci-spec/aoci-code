@@ -226,12 +226,6 @@ func formatSQuota(unit, separator string) string {
 	return result
 }
 
-// FormatSQuota derives the canonical bands with locale-owned presentation
-// units and separators. Numeric boundaries remain owned by this package.
-func FormatSQuota(unit, separator string) string {
-	return formatSQuota(unit, separator)
-}
-
 func formatSQuotaBand(band SQuotaBand, unit string) string {
 	return fmt.Sprintf(
 		"C%d-%d≤%d%s",
