@@ -20,7 +20,8 @@ import (
 )
 
 type cognitionRefreshSession struct {
-	mu sync.Mutex
+	mu         sync.Mutex
+	deliveries *volumeDeliveryStore
 
 	established    bool
 	generation     int
@@ -55,6 +56,7 @@ type overviewDeliveryEvidence struct {
 
 func newCognitionRefreshSession() *cognitionRefreshSession {
 	return &cognitionRefreshSession{
+		deliveries:          newVolumeDeliveryStore(),
 		pendingReasons:      map[string]bool{},
 		pendingEvents:       map[string]bool{},
 		consumedEvents:      map[string]bool{},

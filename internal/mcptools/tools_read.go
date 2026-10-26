@@ -28,6 +28,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -170,6 +171,12 @@ func registerReadTools(
 			return guard(
 				func() *mcp.CallToolResult {
 					start := time.Now()
+					if input.ModelAttestation != nil {
+						cfg, err := config.Load(root)
+						if err == nil {
+							ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "overview_attestation_schema_accepted", Source: ledger.SourceAgent, Result: "accepted"})
+						}
+					}
 					if err := validateOverviewCognitionStateVersion(input.CognitionStateVersion); err != nil {
 						return errResult(
 							errBadArgs,
@@ -189,7 +196,7 @@ func registerReadTools(
 						return failResult(fail)
 					}
 					if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
-						return handleVolumeOverview(root, mcpServiceVersion, input, loaded, refreshSession, start)
+						return handleVolumeOverview(root, mcpServiceVersion, input, loaded, refreshSession, start, volumeOwner(request))
 					}
 					repository := loaded.legacyRepo()
 
@@ -266,7 +273,7 @@ func registerReadTools(
 						EntryCount: entryCount, SectionCount: sectionCount,
 						EstimatedTokens: len(repository.text) / 3,
 						Receipt:         deliveredReceipt, Assessment: assessment,
-						Sequence: sequence, Session: refreshSession,
+						Sequence: sequence, Session: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
 					}, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 					if resourceErr != nil {
 						return errResult(errBadArgs, resourceErr.Error(), "")
@@ -287,6 +294,7 @@ func registerReadTools(
 						),
 					)
 
+					recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, frameOverviewBody(root, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, repository.text))
 					return textResult(delivery.Output)
 				},
 			), nil, nil

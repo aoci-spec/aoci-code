@@ -394,6 +394,19 @@ func BoundListsForTransport(facts *Facts, limit int) *Facts {
 // governance authorities. The result is deterministic for the same formal
 // bytes, Baseline, configuration, Curation, and saved Database Evidence.
 func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error) {
+	return assess(root, cfg, set, nil)
+}
+
+// AssessWithSnapshot returns the same governance verdict and the Code source
+// snapshot that actually determined it. It does not rescan or relax a check.
+// The caller may reuse the verdict only while all of its inputs remain equal.
+func AssessWithSnapshot(root string, cfg *config.Config, set *cognition.Set) (*Facts, *managedstate.State, error) {
+	var snapshot *managedstate.State
+	facts, err := assess(root, cfg, set, &snapshot)
+	return facts, snapshot, err
+}
+
+func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **managedstate.State) (*Facts, error) {
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
 		return nil, fmt.Errorf("volumes_governance_input_invalid")
 	}
@@ -427,7 +440,7 @@ func Assess(root string, cfg *config.Config, set *cognition.Set) (*Facts, error)
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		assessCode(root, cfg, set, state, facts)
+		assessCode(root, cfg, set, state, facts, snapshot)
 	}
 	if asset := enabledAsset(set, cognition.ScopeDatabase); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeDatabase)
@@ -535,7 +548,7 @@ func emptyDrift() Drift {
 		Skipped: []string{}, CurationExcluded: []string{}}
 }
 
-func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts) {
+func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts, snapshot **managedstate.State) {
 	asset := set.Volumes[cognition.ScopeCode]
 	ownershipConflicts := map[string]cognition.OwnershipConflict{}
 	ownershipOrphans := []string{}
@@ -558,6 +571,9 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "managed_scope_invalid", Domain: cognition.ScopeCode})
 		return
+	}
+	if snapshot != nil {
+		*snapshot = managed
 	}
 	facts.ManagedScope = ManagedScopeFacts{Aligned: !managed.ScopeChangeRequired,
 		ScopeChangeRequired: managed.ScopeChangeRequired, PolicyIdentity: managed.DesiredPolicyIdentity,

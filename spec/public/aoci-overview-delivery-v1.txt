@@ -78,16 +78,51 @@ Attestation answer ordinals, and object coverage all consume this exact shared
 ordered sequence. There is no display ordinal, line-number ordinal, Chunk-local
 ordinal, or implicit offset.
 
-The opaque cursor binds the Index SHA-256, configured `chunk_tokens`, next Entry
-ordinal, and previous Chunk SHA-256. Invalid, missing, reordered, or cross-chain
-use fails closed; an exact replay of a genuine cursor idempotently re-serves
-the identical Chunk bytes. A changed Index returns
-`overview_snapshot_changed` and requires a restart at Chunk 1. A changed
-configuration returns `overview_chunk_tokens_changed` and also requires a
-restart. AOCI persists no delivery transaction or Session. The cursor is
-deterministically re-derivable from the bound facts alone, so an unchanged
-Index and `chunk_tokens` accept the same cursor across MCP process restarts;
-the Volumes governance binding remains in-memory session state.
+The reconstructable v1 cursor binds the Index SHA-256, configured
+`chunk_tokens`, next Entry ordinal, and previous Chunk SHA-256. Its existing
+live-governance path remains compatible across MCP process restarts.
+
+Eligible Volumes deliveries use an ephemeral v2 cursor. It additionally binds
+an unpredictable delivery id, the originating MCP Host session, and an HMAC
+under a private per-delivery secret. The server retains immutable canonical
+body bytes, Entry sequence, Challenge, and chunk spans; it retains no mutable
+chunk position. Exact replay idempotently returns the same chunk body. A
+foreign Host, changed token, unavailable session, expiry, eviction, or process
+restart fails closed and requires a fresh request at Chunk 1. No delivery state
+is persisted. The chunk receipt remains `overview-chunk-receipt/v1`; only the
+opaque continuation token is versioned.
+
+The initial eligible request runs the complete governance assessment once and
+captures its actual managed-state fingerprints. Before publishing it, a strict
+input guard confirms the effective configuration and raw base/local config,
+Baseline and Curation bytes, the composite CognitionSet identity and every
+formal asset, Safe Inventory membership and Git tracked/ignored status, safety
+rules identity/blockers, and raw SHA-256 and size of every index/observe source.
+Continuation repeats this guard before and after rendering. It does not trust
+mtime, rerun policy evaluation over every excluded candidate, or reconstruct
+body/sequence/Challenge/spans. Recovery and pending AtomicWrite intents still
+fail closed. Even a same-size change with restored mtime invalidates the chain.
+Commit-only HEAD changes are not governance drift, as in the existing binding;
+Ledger and other safety-excluded runtime records are not source identities.
+
+Database-enabled deliveries retain the original live-governance path because
+Evidence expiry and connector state require a separate reusable guard. A Code
+snapshot with pending scope-policy alignment or unreadable source warnings also
+retains the original path. The optimization never upgrades a dirty verdict.
+
+Each MCP server retains at most 32 deliveries and 64 MiB of conservatively
+accounted retained payloads, including proof evidence. Proof replacement reserves
+a conservative high-water byte cost before retaining it; growth evicts other
+deliveries as needed, and an oversize proof fails explicitly without scoring.
+A delivery expires after 15 idle minutes or 60
+minutes from creation, even with active replay. Insertion evicts the oldest
+used delivery as necessary; oversize deliveries fail explicitly. Cleanup occurs
+on store operations. A held request may finish from its immutable snapshot
+when concurrent insertion evicts its store entry; future cursors fail cleanly.
+
+Successful Volumes responses expose optional MCP result `_meta.aoci_work` with
+`governance_evals` and `body_builds`, counted at the actual full-work call sites.
+These diagnostic counters do not participate in cognition identity or scoring.
 
 Full-body receipt and Host confirmation
 ---------------------------------------
@@ -314,3 +349,22 @@ manual fallback or diagnostic only. It does not provide equivalent Chunk-chain
 integrity, governance or Baseline state, pending-transaction protection, or
 Attestation proof. v1 adds no file-read Attestation, command, tool, or second
 state machine.
+
+Attestation schema diagnostics
+------------------------------
+
+Every `model_cognition_attestation.challenge_answers` item requires exactly
+`ordinal`, `object_identity`, `tag`, and `core_f`, with
+`additionalProperties=false`. The MCP Schema already carries this structure;
+the tool description also spells it out for Hosts that flatten nested items.
+`object` and `object_ref` are not aliases. A schema rejection explicitly names
+`object_identity` and occurs before the semantic scorer. Host-side conversion
+of the published JSON Schema is outside the server and is not proven repaired
+by the description fallback.
+
+Ledger operations separately record `overview_delivery_completed`,
+`overview_host_confirmation_accepted`, `overview_attestation_schema_rejected`,
+`overview_attestation_schema_accepted`, `overview_attestation_scoring_started`,
+and `overview_attestation_scored` (result pass, partial, or fail). Schema errors
+carry no cognition-level or semantic-score claim. Semantic thresholds and
+strict proof fields are unchanged.

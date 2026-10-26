@@ -327,21 +327,44 @@ def group_a():
 
     # A2: tampered ordinal inside the cursor
     parts = cur2.split(":")
-    bad_ord = ":".join([parts[0], parts[1], str(int(parts[2]) + 37), parts[3]])
+    # V2 wraps the legacy payload with a session id and MAC. Mutating the
+    # payload must fail without repairing/re-signing its authentication.
+    v2 = parts[0] == "v2"
+    ordinal_offset, sha_offset = (4, 5) if v2 else (2, 3)
+    ordinal_parts = parts.copy()
+    ordinal_parts[ordinal_offset] = str(int(parts[ordinal_offset]) + 37)
+    bad_ord = ":".join(ordinal_parts)
     t, err = text_of(s.call("aoci_overview", {"cursor": bad_ord}))
     record(g, "A2.tampered-ordinal", "PASS" if is_rejection(t, err) else "FAIL", t[:150])
 
     # A3: tampered previous-chunk sha
-    bad_sha = ":".join(parts[:3] + ["0" * 64])
+    sha_parts = parts.copy()
+    sha_parts[sha_offset] = "0" * 64
+    bad_sha = ":".join(sha_parts)
     t, err = text_of(s.call("aoci_overview", {"cursor": bad_sha}))
     record(g, "A3.tampered-prev-sha", "PASS" if is_rejection(t, err) else "FAIL", t[:150])
 
-    # A4: cursor across server processes. Documented: with an unchanged Index and
-    # chunk_tokens, the same cursor is accepted across MCP process restarts.
+    # A4: v2 state is intentionally ephemeral and must reject after restart.
+    # Legacy v1 remains reconstructable with live governance validation.
     s2 = Session(REAL)
     t, err = text_of(s2.call("aoci_overview", {"cursor": cur2}))
     mx, bx = meta_and_body(t)
-    if bx is not None:
+    if v2:
+        rejected = bx is None and is_rejection(t, err) and "overview_session_unavailable_restart_required" in t
+        # Keep the old wire compatibility promise under the same safety scenario.
+        legacy_cursor = ":".join(parts[2:6])
+        legacy_text, legacy_err = text_of(s2.call("aoci_overview", {"cursor": legacy_cursor}))
+        legacy_meta, legacy_body = meta_and_body(legacy_text)
+        original_text, original_err = text_of(s.call("aoci_overview", {"cursor": cur2}))
+        original_meta, original_body = meta_and_body(original_text)
+        compatible = (not legacy_err and not original_err and legacy_body is not None
+                      and legacy_body == original_body
+                      and legacy_meta.get("chunk_sha256") == original_meta.get("chunk_sha256"))
+        ok = rejected and compatible
+        record(g, "A4.cross-session-cursor", "PASS" if ok else "FAIL",
+               "v2 rejected safely after restart; v1 reconstructs identical chunk bytes"
+               if ok else f"v2_rejected={rejected} v1_compatible={compatible}: {t[:100]}")
+    elif bx is not None:
         ok = hashlib.sha256(bx.encode()).hexdigest() == mx.get("chunk_sha256")
         record(g, "A4.cross-session-cursor", "PASS" if ok else "FAIL",
                "deterministic re-derivation, chunk sha self-consistent" if ok else "served chunk failed its own sha")
@@ -583,11 +606,8 @@ def group_d(bigfx=None):
         record(g, "D2.index-change-mid-chain", "PASS" if ok else "FAIL", t[:150])
     sC.close()
 
-    # D3: baseline-only change mid-chain (identical entry text) — the formal
-    # Index bytes are unchanged, so per the documented cursor semantics the
-    # continuation must proceed (delivered bytes == current formal bytes).
-    # Baseline participates only in the session-scoped Level-4 governance
-    # binding, never in the chunk-chain stop list.
+    # D3: V2 binds Baseline bytes and must reject baseline-only drift.
+    # V1 retains its old byte-compatible continuation with live governance.
     sC = Session(fx)
     t, _ = text_of(sC.call("aoci_overview"))
     mm, _ = meta_and_body(t)
@@ -598,9 +618,20 @@ def group_d(bigfx=None):
         st = land_write(fx, "f012.go", "Provides fixture constant unit 12")  # unchanged text => index bytes stable
         t, err = text_of(sC.call("aoci_overview", {"cursor": cur}))
         mc, bc = meta_and_body(t)
-        if st == "applied" and not err and (mc.get("completed") or mc.get("chunk_index")):
+        if cur.startswith("v2:"):
+            stopped = bc is None and is_rejection(t, err) and "overview_snapshot_changed" in t
+            legacy_cursor = ":".join(cur.split(":")[2:6])
+            legacy_text, legacy_err = text_of(sC.call("aoci_overview", {"cursor": legacy_cursor}))
+            legacy_meta, legacy_body = meta_and_body(legacy_text)
+            compatible = (not legacy_err and legacy_body is not None
+                          and legacy_meta.get("index_sha256") == mm.get("index_sha256"))
+            ok = st == "applied" and stopped and compatible
+            record(g, "D3.baseline-only-mid-chain", "PASS" if ok else "FAIL",
+                   "v2 rejects Baseline drift; v1 preserves byte-compatible continuation"
+                   if ok else f"v2_stopped={stopped} v1_compatible={compatible}: {t[:100]}")
+        elif st == "applied" and not err and (mc.get("completed") or mc.get("chunk_index")):
             record(g, "D3.baseline-only-mid-chain", "PASS",
-                   "continuation proceeds; index bytes unchanged, Baseline only binds the Level-4 governance plane")
+                   "v1 proceeds with unchanged Index bytes and live governance")
         else:
             record(g, "D3.baseline-only-mid-chain", "FAIL", t[:150])
     sC.close()

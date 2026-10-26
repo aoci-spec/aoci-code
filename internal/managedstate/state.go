@@ -12,11 +12,13 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
 
 type State struct {
+	Inventory             *afs.SafeInventory              `json:"-"` // Actual Legacy selection, not a second scan.
 	Legacy                bool                            `json:"legacy"`
 	ScopeChangeRequired   bool                            `json:"scope_change_required"`
 	PolicyAligned         bool                            `json:"policy_aligned"`
@@ -42,7 +44,7 @@ func Load(root string, cfg *config.Config) (*State, error) {
 	state := &State{Snapshot: map[string]baseline.Fingerprint{}, Baseline: value, Warnings: []string{}}
 	if cfg.ManagedScope == nil && cfg.CognitionBudget == nil && (!exists || value.ManagedScope == nil) {
 		state.Legacy, state.PolicyAligned, state.BudgetAligned = true, true, true
-		state.Snapshot, state.Warnings, err = baseline.Snapshot(root, cfg.WalkOptions())
+		state.Snapshot, state.Warnings, state.Inventory, err = baseline.SnapshotWithInventory(root, cfg.WalkOptions())
 		return state, err
 	}
 	curationExclude, err := CurationExclusions(root, cfg, value)

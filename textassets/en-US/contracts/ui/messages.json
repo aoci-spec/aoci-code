@@ -1768,5 +1768,6 @@
   "ui.none_running": "No AOCI panel is running for this repository.",
   "ui.error.detach_failed": "could not start the panel in the background: %s",
   "ui.error.registry": "cannot locate the panel registry (user cache directory): %s",
-  "ui.error.legacy_page": "an unauthenticated legacy panel is still running; run aoci ui --stop for this repository before starting a new panel"
+  "ui.error.legacy_page": "an unauthenticated legacy panel is still running; run aoci ui --stop for this repository before starting a new panel",
+  "overview.attestation.schema_expected": "Attestation schema rejected before semantic scoring. Every challenge_answers item requires exactly ordinal, object_identity, tag, core_f with additionalProperties=false. Use object_identity; object and object_ref are invalid."
 }

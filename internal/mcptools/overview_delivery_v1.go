@@ -167,6 +167,25 @@ type overviewRenderContext struct {
 	// Attestation per delivered body so the two may arrive in separate calls
 	// in either order; nil keeps rendering a pure function of the input.
 	Session *cognitionRefreshSession
+	// Prepared is immutable. Pure render callers may omit it; a delivery session
+	// supplies it to reuse the exact frame, canonical sequence and chunk plan.
+	Prepared      *preparedOverview
+	LedgerEnabled bool
+}
+
+type preparedOverview struct {
+	body      framedOverviewBody
+	challenge overviewChallenge
+	spans     []overviewChunkSpan
+}
+
+func prepareOverview(ctx overviewRenderContext, tokens int) (*preparedOverview, error) {
+	body := frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
+	spans, err := planOverviewChunks(body.Text, tokens, len(body.Receipt.StartMarker)+1, ctx.Sequence)
+	if err != nil {
+		return nil, err
+	}
+	return &preparedOverview{body: body, challenge: buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence), spans: spans}, nil
 }
 
 type overviewDeliveryFacts struct {
@@ -198,8 +217,14 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	if len(ctx.Sequence) != ctx.EntryCount {
 		return overviewRendered{}, fmt.Errorf("overview_cognition_sequence_count_mismatch")
 	}
-	challenge := buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence)
-	framed := frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
+	var challenge overviewChallenge
+	var framed framedOverviewBody
+	if ctx.Prepared != nil {
+		challenge, framed = ctx.Prepared.challenge, ctx.Prepared.body
+	} else {
+		challenge = buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence)
+		framed = frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
+	}
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
 	if input.HostConfirmation == nil && input.ModelAttestation == nil && input.Cursor == "" {
@@ -210,10 +235,16 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	// The two proof halves each bind this exact body, so the half missing from
 	// this call may be the one an earlier call already delivered.
 	hostStatus, report = ctx.Session.mergeDeliveryEvidence(framed.Receipt.BodySHA256, hostStatus, report)
+	if report != nil {
+		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scoring_started", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: "started"})
+	}
 	attestation := assessOverviewAttestation(
 		challenge, ctx.EntryCount, ctx.EstimatedTokens,
 		hostStatus, ctx.Assessment.Semantic.GovernanceAligned, report,
 	)
+	if report != nil {
+		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scored", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: attestation.ModelAttestation})
+	}
 	facts := overviewDeliveryFacts{
 		IndexSHA256: ctx.ScopeIdentity, IndexBytes: ctx.ContentBytes,
 		EstimatedTokens: ctx.EstimatedTokens, SectionCount: ctx.SectionCount,
@@ -402,9 +433,15 @@ func renderOverviewChunk(
 	includeCognitionStateV2 bool,
 ) (string, error) {
 	contentStart := len(body.Receipt.StartMarker) + 1
-	spans, err := planOverviewChunks(body.Text, chunkTokens, contentStart, ctx.Sequence)
-	if err != nil {
-		return "", err
+	var spans []overviewChunkSpan
+	if ctx.Prepared != nil {
+		spans = ctx.Prepared.spans
+	} else {
+		var err error
+		spans, err = planOverviewChunks(body.Text, chunkTokens, contentStart, ctx.Sequence)
+		if err != nil {
+			return "", err
+		}
 	}
 	chunkIndex := 0
 	previousSHA := ""
