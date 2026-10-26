@@ -57,60 +57,6 @@ func TestMaintainToolDescriptionKeepsGovernanceFields(
 	}
 }
 
-func TestMaintainDictionaryMessagesKeepRecoveryCommands(
-	t *testing.T,
-) {
-	unparseable := MustRender(
-		LegacyLocale,
-		ContractMaintainDictionaryUnparseable,
-		nil,
-	)
-
-	for _, token := range []string{
-		"头部字典不可解析",
-		"#A层级",
-		"aoci二进制版本",
-		"agent不要",
-	} {
-		if !strings.Contains(
-			unparseable,
-			token,
-		) {
-			t.Fatalf(
-				"不可解析字典说明缺少%q:\n%s",
-				token,
-				unparseable,
-			)
-		}
-	}
-
-	missing := MustRender(
-		LegacyLocale,
-		ContractMaintainDictionaryMissing,
-		nil,
-	)
-
-	for _, token := range []string{
-		"头部字典未建立",
-		"A层级/B模块",
-		"aoci index header draft",
-		"diff",
-		"apply",
-		"agent不要",
-	} {
-		if !strings.Contains(
-			missing,
-			token,
-		) {
-			t.Fatalf(
-				"缺失字典说明缺少%q:\n%s",
-				token,
-				missing,
-			)
-		}
-	}
-}
-
 func TestMaintainFinalApplyActionsRequireBilingualTerminalProof(t *testing.T) {
 	tests := []struct {
 		locale    string

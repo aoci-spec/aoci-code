@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -57,63 +56,49 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 		cfg.LocaleMigration = nil
 		return nil
 	}
+	// The Legacy authoring surfaces that re-authored a Header and its Entries
+	// in the new Locale are retired (0.2.0): a Legacy index keeps the Locale
+	// it was written in until it migrates to Volumes.
+	return errors.New(cliMessage("locale.legacy_read_only", fromLocale, target))
+}
 
-	document, _ := index.Parse(string(data))
-	index.ResolveRelPaths(document, root)
-	entrySet := map[string]struct{}{}
-	governanceEntrySet := map[string]struct{}{}
-	for _, section := range document.Sections {
-		for _, entry := range section.Entries {
-			if entry.RelPath == "" {
-				return errors.New(cliMessage(
-					"locale.unresolved_entry",
-					entry.Filename,
-				))
-			}
-			if isAOCIGovernanceEntryPath(entry.RelPath) {
-				governanceEntrySet[entry.RelPath] = struct{}{}
-			} else {
-				entrySet[entry.RelPath] = struct{}{}
-			}
-		}
-	}
-	entryPaths := sortedLocaleMigrationPaths(entrySet)
+// Coverage of a pending Legacy locale migration, reported by check for
+// repositories that still carry such a receipt from an earlier release.
+type localeMigrationCoverageCount struct {
+	Total   int `json:"total"`
+	Pending int `json:"pending"`
+}
 
-	curationDocument, _, _, err := curation.Load(root)
-	if err != nil {
-		return errors.New(cliMessage("locale.read_curation_error", err))
-	}
-	curationSet := map[string]struct{}{}
-	for _, decision := range curationDocument.Decisions {
-		if _, profileErr := curation.ProfilePath(root, decision.Path); profileErr != nil {
-			return errors.New(cliMessage(
-				"locale.unavailable_curation",
-				decision.Path,
-				profileErr,
-			))
-		}
-		curationSet[decision.Path] = struct{}{}
-	}
+type localeMigrationCoverageStatus struct {
+	Total   int    `json:"total"`
+	Pending int    `json:"pending"`
+	Status  string `json:"status"`
+}
 
-	cfg.Locale = target
-	cfg.LocaleMigration = &config.LocaleMigration{
-		Version:                   2,
-		FromLocale:                fromLocale,
-		ToLocale:                  target,
-		HeaderPending:             true,
-		HeaderTotal:               1,
-		EntryPaths:                entryPaths,
-		EntryTotal:                len(entryPaths),
-		GovernanceEntryPaths:      sortedLocaleMigrationPaths(governanceEntrySet),
-		GovernanceEntryTotal:      len(governanceEntrySet),
-		CurationPaths:             sortedLocaleMigrationPaths(curationSet),
-		CurationTotal:             len(curationSet),
-		ManagedIndexTextPending:   true,
-		ManagedIndexTextTotal:     countManagedIndexTextTargets(document),
-		AgentsManagedBlockPending: true,
-		AgentsManagedBlockTotal:   1,
-	}
-	return nil
+type localeMigrationExclusion struct {
+	Surface string `json:"surface"`
+	Reason  string `json:"reason"`
+}
+
+type localeMigrationUnresolved struct {
+	Target string `json:"target"`
+	Count  int    `json:"count"`
+	Reason string `json:"reason"`
+}
+
+type localeMigrationCoverage struct {
+	Active             bool                          `json:"active"`
+	FromLocale         string                        `json:"from_locale,omitempty"`
+	ToLocale           string                        `json:"to_locale,omitempty"`
+	Header             localeMigrationCoverageCount  `json:"header"`
+	OrdinaryEntries    localeMigrationCoverageCount  `json:"ordinary_entries"`
+	GovernanceEntries  localeMigrationCoverageCount  `json:"governance_entries"`
+	Curation           localeMigrationCoverageCount  `json:"curation"`
+	ManagedIndexText   localeMigrationCoverageCount  `json:"managed_index_text"`
+	AgentsManagedBlock localeMigrationCoverageStatus `json:"agents_managed_block"`
+	RuntimeContracts   localeMigrationCoverageStatus `json:"runtime_contracts"`
+	Excluded           []localeMigrationExclusion    `json:"excluded"`
+	Unresolved         []localeMigrationUnresolved   `json:"unresolved"`
 }
 
 // isAOCIGovernanceEntryPath identifies repository-internal machine governance
@@ -122,32 +107,6 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 func isAOCIGovernanceEntryPath(relPath string) bool {
 	relPath = strings.TrimPrefix(filepath.ToSlash(strings.TrimSpace(relPath)), "./")
 	return relPath == config.DirName || strings.HasPrefix(relPath, config.DirName+"/")
-}
-
-// countManagedIndexTextTargets counts the formal non-Entry surfaces after the
-// Header. Every directory-section line and every non-empty explanatory line is
-// one target; path tokens remain protected during candidate validation.
-func countManagedIndexTextTargets(document *index.Document) int {
-	if document == nil {
-		return 0
-	}
-	entryLines := map[int]struct{}{}
-	for _, section := range document.Sections {
-		for _, entry := range section.Entries {
-			entryLines[entry.LineNo] = struct{}{}
-		}
-	}
-	count := 0
-	for _, section := range document.Sections {
-		for offset, line := range section.RawLines {
-			lineNo := section.StartLine + offset
-			if _, entry := entryLines[lineNo]; entry || strings.TrimSpace(line) == "" {
-				continue
-			}
-			count++
-		}
-	}
-	return count
 }
 
 // ensureManagedAgentsLocale rewrites only the AOCI-managed AGENTS block from
@@ -262,19 +221,6 @@ func pendingStatus(pending bool) string {
 		return "pending"
 	}
 	return "aligned"
-}
-
-func localeMigrationContainsOrdinaryEntry(cfg *config.Config, relPath string) bool {
-	if cfg == nil || cfg.LocaleMigration == nil {
-		return false
-	}
-	ordinary, _ := splitLocaleMigrationEntryPaths(cfg.LocaleMigration)
-	for _, pending := range ordinary {
-		if pending == relPath {
-			return true
-		}
-	}
-	return false
 }
 
 var localeTechnicalTokenRE = regexp.MustCompile(`--?[A-Za-z0-9][A-Za-z0-9_-]*|[A-Za-z0-9_][A-Za-z0-9_-]*(?:[./:@#%+<>=][A-Za-z0-9_-]+)*`)
@@ -542,143 +488,5 @@ func sortedStringCounts(values map[string]int) []string {
 		}
 	}
 	sort.Strings(result)
-	return result
-}
-
-type localeIndexCandidateSummary struct {
-	OrdinaryEntries   int
-	GovernanceEntries int
-	ManagedText       int
-}
-
-// validateLocaleIndexCandidate proves that the Header-stage full-index
-// candidate changes only AOCI-managed explanatory text and explicitly removes
-// the receipt-bound legacy .aoci Entries. Ordinary Entries remain byte-for-byte
-// unchanged until their source-bound Entries stages run.
-func validateLocaleIndexCandidate(
-	currentText,
-	candidateText,
-	repoRoot,
-	targetLocale string,
-	migration *config.LocaleMigration,
-) (localeIndexCandidateSummary, error) {
-	if migration == nil {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage("locale.candidate.migration_required"))
-	}
-	candidateHeader, _ := index.ExtractHeader(candidateText)
-	candidateLocale, explicit, err := index.DetectLocale(candidateHeader)
-	if err != nil || !explicit || candidateLocale != targetLocale {
-		if err == nil {
-			err = fmt.Errorf("%s", cliMessage("locale.candidate.marker_required", targetLocale))
-		}
-		return localeIndexCandidateSummary{}, err
-	}
-
-	current, _ := index.Parse(currentText)
-	candidate, warnings := index.Parse(candidateText)
-	if len(warnings) > 0 {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-			"locale.candidate.parser_warning", localeSafeCLIDetail(warnings[0].Msg),
-		))
-	}
-	index.ResolveRelPaths(current, repoRoot)
-	index.ResolveRelPaths(candidate, repoRoot)
-
-	if len(current.Sections) != len(candidate.Sections) {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage("locale.candidate.section_count_changed"))
-	}
-	for position := range current.Sections {
-		if current.Sections[position].AbsPath != candidate.Sections[position].AbsPath {
-			return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-				"locale.candidate.directory_path_changed",
-				position+1,
-				current.Sections[position].AbsPath,
-				candidate.Sections[position].AbsPath,
-			))
-		}
-	}
-
-	ordinaryPending, governancePending := splitLocaleMigrationEntryPaths(migration)
-	ordinarySet := makeStringSet(ordinaryPending)
-	governanceSet := makeStringSet(governancePending)
-	currentOrdinary := map[string]string{}
-	currentGovernance := map[string]string{}
-	for _, section := range current.Sections {
-		for _, entry := range section.Entries {
-			if entry.RelPath == "" {
-				return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-					"locale.candidate.current_path_unresolved", entry.Filename,
-				))
-			}
-			if isAOCIGovernanceEntryPath(entry.RelPath) {
-				if _, expected := governanceSet[entry.RelPath]; !expected {
-					return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-						"locale.candidate.governance_unreceipted", entry.RelPath,
-					))
-				}
-				currentGovernance[entry.RelPath] = entry.FullLine
-				continue
-			}
-			currentOrdinary[entry.RelPath] = entry.FullLine
-		}
-	}
-	if len(currentGovernance) != len(governanceSet) {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage("locale.candidate.governance_receipt_mismatch"))
-	}
-	candidateOrdinary := map[string]string{}
-	for _, section := range candidate.Sections {
-		for _, entry := range section.Entries {
-			if entry.RelPath == "" {
-				return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-					"locale.candidate.candidate_path_unresolved", entry.Filename,
-				))
-			}
-			if isAOCIGovernanceEntryPath(entry.RelPath) {
-				return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-					"locale.candidate.legacy_governance_retained", entry.RelPath,
-				))
-			}
-			candidateOrdinary[entry.RelPath] = entry.FullLine
-		}
-	}
-	if len(currentOrdinary) != len(candidateOrdinary) {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage("locale.candidate.ordinary_set_changed"))
-	}
-	for relPath, oldLine := range currentOrdinary {
-		newLine, present := candidateOrdinary[relPath]
-		if !present || newLine != oldLine {
-			return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-				"locale.candidate.ordinary_changed_early", relPath,
-			))
-		}
-	}
-	for relPath := range ordinarySet {
-		if _, present := currentOrdinary[relPath]; !present {
-			return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-				"locale.candidate.ordinary_missing", relPath,
-			))
-		}
-	}
-
-	managedCount := countManagedIndexTextTargets(candidate)
-	if managedCount != migration.ManagedIndexTextTotal {
-		return localeIndexCandidateSummary{}, fmt.Errorf("%s", cliMessage(
-			"locale.candidate.managed_count_changed",
-			managedCount,
-			migration.ManagedIndexTextTotal,
-		))
-	}
-	return localeIndexCandidateSummary{
-		OrdinaryEntries:   len(currentOrdinary),
-		GovernanceEntries: len(currentGovernance),
-		ManagedText:       managedCount,
-	}, nil
-}
-
-func makeStringSet(values []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		result[strings.TrimSpace(value)] = struct{}{}
-	}
 	return result
 }

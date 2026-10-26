@@ -1,1 +1,1 @@
-review 允许执行 Stage、Check 与 Diff，但必须在 Apply 前等待批准
+review 允许 Maintain 发候选、Scope Change 预览计划，但必须在 Apply 前等待批准

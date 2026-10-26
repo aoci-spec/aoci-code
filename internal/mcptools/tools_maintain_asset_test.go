@@ -49,37 +49,3 @@ func TestMaintainToolDescriptionMatchesGoldenByteForByte(
 		)
 	}
 }
-
-func TestMaintainDictionaryUnparseableMatchesGoldenByteForByte(
-	t *testing.T,
-) {
-	actual := maintainDictionaryUnparseableMessage() + "\n"
-	expected := readMaintainGolden(
-		t,
-		"maintain_dictionary_unparseable.txt",
-	)
-
-	if actual != expected {
-		t.Fatalf(
-			"Maintain dictionary-unparseable message changed during asset migration:\n%s",
-			actual,
-		)
-	}
-}
-
-func TestMaintainDictionaryMissingMatchesGoldenByteForByte(
-	t *testing.T,
-) {
-	actual := maintainDictionaryMissingMessage() + "\n"
-	expected := readMaintainGolden(
-		t,
-		"maintain_dictionary_missing.txt",
-	)
-
-	if actual != expected {
-		t.Fatalf(
-			"Maintain dictionary-missing message changed during asset migration:\n%s",
-			actual,
-		)
-	}
-}

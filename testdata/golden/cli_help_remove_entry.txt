@@ -1,3 +1,3 @@
-Remove the complete Entry line for a specified file from the index. A typical use is manual cleanup after aoci index update reports a deleted orphan.
-Removing the Entry for a live file is also allowed; the file will then appear as Missing in verify, prompting Entry regeneration. Use --preview before applying the change.
+Remove the complete Entry line for a specified object. A typical use is cleanup after aoci_maintain or verify reports a deleted orphan. Use --preview before applying the change.
 Under a Volumes v1 layout removal is orphan-only on both surfaces: the file must already be gone from the tree or out of the active Managed Scope, and a plain repository-relative path names the same Code object as code:<path>.
+Under the Legacy single-file layout the command refuses with legacy_read_only_migrate_required since 0.2.0: migrate to Volumes v1 first.

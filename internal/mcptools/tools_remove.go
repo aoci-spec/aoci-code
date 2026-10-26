@@ -40,7 +40,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"os"
 	"path/filepath"
@@ -48,11 +47,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/fs"
-	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
@@ -114,7 +111,6 @@ type removePlan struct {
 	baselinePostimage  string
 }
 
-var saveRemoveBaseline = baseline.SaveUnderIndexLock
 var writeRemoveIndex = fs.AtomicWriteCAS
 var removeRecoveryFile = os.Remove
 var lstatRemoveTarget = os.Lstat
@@ -195,120 +191,13 @@ func planRemoveEntry(root, rawPath string, orphanOnly bool) (*removePlan, *Fail)
 		return planVolumeRemoveEntry(root, ref, orphanOnly)
 	}
 
-	rc, fail := loadRepoCtx(root)
-	if fail != nil {
+	// Not a Volumes object: a Legacy single-file layout, read-only since
+	// 0.2.0, or no layout at all. Let the Legacy loader name an absent or
+	// Volumes index as before, and refuse the Legacy write itself.
+	if _, fail := loadRepoCtx(root); fail != nil {
 		return nil, fail
 	}
-
-	recovery, recoveryErr := loadRemoveRecovery(root, rel)
-	if recoveryErr != nil && !os.IsNotExist(recoveryErr) {
-		return nil, &Fail{Code: errInternal, Msg: writeMessage(
-			"remove.recovery_read_failed",
-			localeSafeWriteDetail(recoveryErr.Error()),
-		)}
-	}
-	if os.IsNotExist(recoveryErr) {
-		recovery = nil
-	}
-
-	var staleReceipt *removeRecovery
-	entry := index.FindEntry(rc.doc, rel)
-	if entry != nil && recovery != nil {
-		currentHash := indexTextHash(rc.text)
-		if !recovery.Completed && currentHash == recovery.PreIndexSHA256 {
-			if entry.FullLine == recovery.RemovedLine {
-				resumedText, removeErr := index.RemoveEntryForPath(rc.text, root, rel, entry.FullLine)
-				if removeErr == nil && indexTextHash(resumedText) == recovery.PostIndexSHA256 {
-					return &removePlan{
-						out:     &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine},
-						newText: resumedText, rc: rc, indexHash: currentHash,
-						orphanOnly: orphanOnly,
-					}, nil
-				}
-			}
-			return nil, &Fail{Code: errWriteConflict,
-				Msg:  writeMessage("remove.recovery_entry_reappeared"),
-				Hint: writeMessage("remove.hint.new_decision")}
-		}
-		if recovery.Completed || entry.FullLine != recovery.RemovedLine {
-			// The Entry came back after a completed removal, or with different
-			// text than the receipt recorded: the decision that receipt carried
-			// no longer describes this Entry, so a retry cannot stand in for a
-			// new one.
-			return nil, &Fail{Code: errWriteConflict,
-				Msg:  writeMessage("remove.recovery_entry_reappeared"),
-				Hint: writeMessage("remove.hint.new_decision")}
-		}
-		// The index moved past an unfinished receipt while the Entry it
-		// recorded is still here unchanged: the receipt binds an index version
-		// that no longer exists, the decision still describes this Entry, and
-		// the commit discards the receipt under the lock before re-planning.
-		// Until v0.1.0-rc15 every retry stopped here with recovery_entry_reappeared.
-		staleReceipt = recovery
-	}
-	if entry == nil {
-		if recovery != nil {
-			currentHash := indexTextHash(rc.text)
-			if currentHash != recovery.PostIndexSHA256 {
-				if recovery.Completed {
-					return nil, &Fail{Code: errBadArgs,
-						Msg:  writeMessage("remove.already_completed", rel),
-						Hint: writeMessage("remove.hint.no_repeat")}
-				}
-				if currentHash == recovery.PreIndexSHA256 {
-					return nil, &Fail{Code: errWriteConflict,
-						Msg:  writeMessage("remove.recovery_postimage_drift"),
-						Hint: writeMessage("remove.hint.inspect_recovery")}
-				}
-				// The index moved past the receipt and the Entry is gone: the
-				// removal's postcondition holds and only the receipt is
-				// unfinished, so the commit closes it as superseded.
-				return &removePlan{
-					out:     &RemoveOutcome{Rel: rel, RemovedLine: recovery.RemovedLine, Superseded: true},
-					newText: rc.text, rc: rc, indexHash: currentHash, superseded: true, staleReceipt: recovery,
-					orphanOnly: orphanOnly,
-				}, nil
-			}
-			return &removePlan{
-				out:     &RemoveOutcome{Rel: rel, RemovedLine: recovery.RemovedLine},
-				newText: rc.text, rc: rc, indexHash: currentHash, alreadyApplied: true,
-				orphanOnly: orphanOnly,
-			}, nil
-		}
-		return nil, &Fail{
-			Code: "bad_args",
-			Msg:  writeMessage("remove.entry_missing", rel),
-			Hint: writeMessage("remove.hint.confirm_entry"),
-		}
-	}
-
-	if orphanOnly {
-		if orphanFail := requireRemoveTargetAbsent(root, rel); orphanFail != nil {
-			return nil, orphanFail
-		}
-	}
-
-	// Path-keyed, so a byte-identical line in another section stays (#117).
-	newText, rmErr := index.RemoveEntryForPath(rc.text, root, rel, entry.FullLine)
-	if rmErr != nil {
-		return nil, &Fail{
-			Code: "write_conflict",
-			Msg: writeMessage(
-				"remove.transform_failed",
-				localeSafeWriteDetail(rmErr.Error()),
-			),
-			Hint: writeMessage("remove.hint.refresh"),
-		}
-	}
-
-	return &removePlan{
-		out:          &RemoveOutcome{Rel: rel, RemovedLine: entry.FullLine, StaleReceiptDiscarded: staleReceipt != nil},
-		staleReceipt: staleReceipt,
-		newText:      newText,
-		rc:           rc,
-		indexHash:    indexTextHash(rc.text),
-		orphanOnly:   orphanOnly,
-	}, nil
+	return nil, legacyReadOnlyFail()
 }
 
 // volumeCodeRef maps a plain repository-relative path onto its canonical Code
@@ -326,236 +215,6 @@ func volumeCodeRef(root, rel string) (string, bool) {
 		return "", false
 	}
 	return "code:" + rel, true
-}
-
-func requireRemoveTargetAbsent(root, rel string) *Fail {
-	_, statErr := lstatRemoveTarget(filepath.Join(root, filepath.FromSlash(rel)))
-	switch {
-	case statErr == nil:
-		return &Fail{
-			Code: errBadArgs,
-			Msg:  writeMessage("remove.live_target", rel),
-			Hint: writeMessage("remove.hint.live_target"),
-		}
-	case os.IsNotExist(statErr):
-		return nil
-	default:
-		return &Fail{
-			Code: errInternal,
-			Msg: writeMessage(
-				"remove.orphan_check_failed",
-				rel,
-				localeSafeWriteDetail(statErr.Error()),
-			),
-			Hint: writeMessage("remove.hint.orphan_check"),
-		}
-	}
-}
-
-// commitRemove 删除管线后半段: 取锁 → CAS 校验 → 原子落盘 → 索引自身基线前移(D51) → 落账 → 释锁。
-func commitRemove(root, source string, p *removePlan) *Fail {
-	// —— 防线一: 跨进程写锁(与 update 管线同款,见 tools_write.go 包注释) ——
-	lock, lerr := fs.AcquireIndexLock(root)
-	if lerr != nil {
-		if errors.Is(lerr, fs.ErrLockTimeout) {
-			return &Fail{Code: "write_conflict",
-				Msg: writeMessage(
-					"remove.lock_timeout",
-					localeSafeWriteDetail(lerr.Error()),
-				),
-				Hint: writeMessage("remove.hint.lock_timeout")}
-		}
-		return &Fail{Code: "internal", Msg: writeMessage(
-			"remove.lock_failed",
-			localeSafeWriteDetail(lerr.Error()),
-		), Hint: writeMessage("remove.hint.lock_failed")}
-	}
-	defer func() {
-		if rerr := lock.Release(); rerr != nil {
-			fmt.Fprintln(os.Stderr, writeMessage(
-				"remove.lock_release_warning",
-				localeSafeWriteDetail(rerr.Error()),
-			))
-		}
-	}()
-	if transactionFail := pendingHeaderTransactionFail(root); transactionFail != nil {
-		return transactionFail
-	}
-	if fail := rejectOtherRemovePending(root, p); fail != nil {
-		return fail
-	}
-	if p.superseded {
-		return closeSupersededRemove(root, source, p, func() *Fail {
-			raw, err := os.ReadFile(p.rc.paths.IndexPath)
-			if err != nil {
-				return &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(err.Error()))}
-			}
-			doc, _ := index.Parse(string(raw))
-			index.ResolveRelPaths(doc, root)
-			if index.FindEntry(doc, p.out.Rel) != nil {
-				return &Fail{Code: errWriteConflict, Msg: "remove_superseded_object_reappeared"}
-			}
-			return nil
-		})
-	}
-	if p.orphanOnly {
-		if orphanFail := requireRemoveTargetAbsent(root, p.out.Rel); orphanFail != nil {
-			return orphanFail
-		}
-	}
-
-	// —— 防线二: CAS 新鲜度校验(防非协作方修改) ——
-	curText, rerr := os.ReadFile(p.rc.paths.IndexPath)
-	if rerr != nil {
-		return &Fail{Code: "internal", Msg: writeMessage(
-			"remove.cas_read_failed",
-			localeSafeWriteDetail(rerr.Error()),
-		), Hint: writeMessage("remove.hint.check_index")}
-	}
-	if indexTextHash(string(curText)) != p.indexHash {
-		return &Fail{Code: "write_conflict",
-			Msg:  writeMessage("remove.cas_stale"),
-			Hint: writeMessage("remove.hint.replan")}
-	}
-	state, exists, loadErr := baseline.Load(root)
-	if loadErr != nil {
-		return &Fail{Code: errInternal,
-			Msg: writeMessage(
-				"remove.baseline_read_failed",
-				localeSafeWriteDetail(loadErr.Error()),
-			),
-			Hint: writeMessage("remove.hint.baseline_read")}
-	}
-	if !exists || state == nil {
-		state = baseline.NewBaseline(nil)
-	}
-
-	expectedPostimage := indexTextHash(p.newText)
-	if !p.alreadyApplied {
-		// The stale receipt goes only now, after every admission check has
-		// passed and immediately before the fresh receipt takes its place, so
-		// a commit that refuses leaves the receipt where it was.
-		if p.staleReceipt != nil {
-			if fail := discardStaleReceipt(root, source, p); fail != nil {
-				return fail
-			}
-		}
-		intent := removeRecovery{
-			Version: 1, Rel: p.out.Rel, RemovedLine: p.out.RemovedLine,
-			PreIndexSHA256: p.indexHash, PostIndexSHA256: expectedPostimage,
-		}
-		if intentErr := saveRemoveRecovery(root, intent); intentErr != nil {
-			return &Fail{Code: errInternal, Msg: writeMessage(
-				"remove.recovery_save_failed",
-				localeSafeWriteDetail(intentErr.Error()),
-			), Hint: writeMessage("remove.hint.index_unchanged")}
-		}
-		if wErr := writeRemoveIndex(p.rc.paths.IndexPath, []byte(p.newText), p.indexHash); wErr != nil {
-			code := errInternal
-			if errors.Is(wErr, fs.ErrAtomicCASConflict) {
-				code = errWriteConflict
-			}
-			current, hashErr := baseline.HashFile(p.rc.paths.IndexPath)
-			postimageWritten := hashErr == nil && current.SHA256 == expectedPostimage
-			preimagePreserved := hashErr == nil && current.SHA256 == p.indexHash
-			if preimagePreserved {
-				if cleanupErr := removeRecoveryFile(removeRecoveryPath(root, p.out.Rel)); cleanupErr != nil && !os.IsNotExist(cleanupErr) {
-					return &Fail{Code: errInternal,
-						Msg: writeMessage(
-							"remove.recovery_cleanup_unapplied_failed",
-							localeSafeWriteDetail(cleanupErr.Error()),
-						),
-						Hint: writeMessage("remove.hint.transaction_permissions")}
-				}
-			}
-			if postimageWritten {
-				return &Fail{Code: errInternal,
-					Msg: writeMessage(
-						"remove.postimage_recovery_incomplete",
-						localeSafeWriteDetail(wErr.Error()),
-					),
-					Hint: writeMessage("remove.hint.resume_baseline")}
-			}
-			return &Fail{Code: code, Msg: writeMessage(
-				"remove.index_write_failed",
-				localeSafeWriteDetail(wErr.Error()),
-			), Hint: writeMessage("remove.hint.disk_permissions")}
-		}
-	}
-	// 索引自身基线前移。正式索引已写后任一失败都必须明确返回stopped事实，
-	// 不能继续渲染“基线已前移”。
-	var baselineFail *Fail
-	fingerprint, hashErr := baseline.HashFile(p.rc.paths.IndexPath)
-	if hashErr != nil {
-		baselineFail = &Fail{Code: errInternal,
-			Msg: writeMessage(
-				"remove.index_hash_failed",
-				localeSafeWriteDetail(hashErr.Error()),
-			),
-			Hint: writeMessage("remove.hint.no_repeat_repair")}
-	} else if fingerprint.SHA256 != expectedPostimage {
-		baselineFail = &Fail{Code: errWriteConflict,
-			Msg:  writeMessage("remove.postimage_changed"),
-			Hint: writeMessage("remove.hint.preserve_recovery")}
-	} else {
-		baseline.UpdateOne(state, p.rc.cfg.IndexPath, fingerprint)
-		if saveErr := saveRemoveBaseline(root, state); saveErr != nil {
-			baselineFail = &Fail{Code: errInternal,
-				Msg: writeMessage(
-					"remove.baseline_save_failed",
-					localeSafeWriteDetail(saveErr.Error()),
-				),
-				Hint: writeMessage("remove.hint.retry_baseline")}
-		}
-	}
-	if baselineFail == nil {
-		confirmed, confirmErr := baseline.HashFile(p.rc.paths.IndexPath)
-		if confirmErr != nil || confirmed.SHA256 != expectedPostimage {
-			baselineFail = &Fail{Code: errWriteConflict,
-				Msg:  writeMessage("remove.baseline_postimage_changed"),
-				Hint: writeMessage("remove.hint.inspect_external")}
-		}
-	}
-	if baselineFail == nil {
-		completedIntent := removeRecovery{
-			Version: 1, Rel: p.out.Rel, RemovedLine: p.out.RemovedLine,
-			PreIndexSHA256: p.indexHash, PostIndexSHA256: expectedPostimage,
-			Completed: true,
-		}
-		if intentErr := saveRemoveRecovery(root, completedIntent); intentErr != nil {
-			baselineFail = &Fail{Code: errInternal,
-				Msg: writeMessage(
-					"remove.completion_marker_failed",
-					localeSafeWriteDetail(intentErr.Error()),
-				),
-				Hint: writeMessage("remove.hint.retry_recovery")}
-		} else if cleanupErr := removeRecoveryFile(removeRecoveryPath(root, p.out.Rel)); cleanupErr != nil && !os.IsNotExist(cleanupErr) {
-			baselineFail = &Fail{Code: errInternal,
-				Msg: writeMessage(
-					"remove.recovery_cleanup_failed",
-					localeSafeWriteDetail(cleanupErr.Error()),
-				),
-				Hint: writeMessage("remove.hint.retry_cleanup")}
-		}
-	}
-	result := ledger.ResultOK
-	if baselineFail != nil {
-		result = ledger.ResultError
-	}
-	appliedCount := 1
-	recoveredCount := 0
-	duplicateApplies := 0
-	if p.alreadyApplied {
-		appliedCount = 0
-		recoveredCount = 1
-		duplicateApplies = 1
-	}
-	ledger.Append(root, p.rc.cfg.LedgerEnabled, ledger.Event{
-		Op: "remove_entry", PathsCount: 1, AppliedCount: appliedCount,
-		RecoveredCount: recoveredCount, DuplicateApplies: duplicateApplies,
-		Source: source, Result: result,
-	})
-	return baselineFail
 }
 
 func removeRecoveryPath(root, rel string) string {
@@ -621,13 +280,9 @@ func ApplyRemoveEntry(root, rawPath, source string, orphanOnly, dryRun bool) (*R
 	if dryRun {
 		return p.out, nil
 	}
-	if p.volumeMode {
-		if fail := commitVolumeRemove(root, source, p); fail != nil {
-			return nil, fail
-		}
-		return p.out, nil
-	}
-	if fail := commitRemove(root, source, p); fail != nil {
+	// planRemoveEntry answers a Volumes plan or a refusal: the Legacy commit
+	// left with the Legacy authoring surfaces (0.2.0).
+	if fail := commitVolumeRemove(root, source, p); fail != nil {
 		return nil, fail
 	}
 	return p.out, nil
@@ -691,17 +346,6 @@ func (p *removePlan) receiptKey() string {
 	return p.out.Rel
 }
 
-func removeTransactionID(root, key string) string {
-	return strings.TrimSuffix(strings.TrimPrefix(filepath.Base(removeRecoveryPath(root, key)), "remove-"), ".json")
-}
-
-func shortSHA(value string) string {
-	if len(value) > 12 {
-		return value[:12]
-	}
-	return value
-}
-
 // rejectOtherRemovePending fails closed on every pending receipt except this
 // removal's own: a foreign file, another object's receipt, or an unfinished
 // batch means the state is not one this write can prove it is extending.
@@ -715,32 +359,6 @@ func rejectOtherRemovePending(root string, p *removePlan) *Fail {
 			Hint: writeMessage("remove.hint.inspect_recovery")}
 	}
 	return nil
-}
-
-// reloadStaleReceipt re-reads the receipt the plan judged stale and proves,
-// under the lock, that it is still that receipt and that the index or Volume
-// still matches neither of its images. A receipt that now matches one is not
-// stale: the ordinary resume arms own it on the next call.
-func reloadStaleReceipt(root string, p *removePlan) (*removeRecovery, *Fail) {
-	judged := p.staleReceipt
-	current, err := loadRemoveRecovery(root, p.receiptKey())
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_read_failed", localeSafeWriteDetail(err.Error()))}
-	}
-	if judged == nil || current.PreIndexSHA256 != judged.PreIndexSHA256 || current.PostIndexSHA256 != judged.PostIndexSHA256 {
-		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_changed_since_plan", Hint: writeMessage("remove.hint.replan")}
-	}
-	raw, readErr := os.ReadFile(p.rc.paths.IndexPath)
-	if readErr != nil {
-		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(readErr.Error()))}
-	}
-	if hash := indexTextHash(string(raw)); hash == current.PreIndexSHA256 || hash == current.PostIndexSHA256 {
-		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_no_longer_stale", Hint: writeMessage("remove.hint.replan")}
-	}
-	return current, nil
 }
 
 // closeSupersededRemove finishes a receipt the index or Volume has moved past
@@ -817,4 +435,41 @@ func discardStaleReceipt(root, source string, p *removePlan) *Fail {
 		return &Fail{Code: errInternal, Msg: "remove_stale_receipt_discard_failed"}
 	}
 	return nil
+}
+
+// reloadStaleReceipt re-reads the receipt the plan judged stale and proves,
+// under the lock, that it is still that receipt and that the index or Volume
+// still matches neither of its images. A receipt that now matches one is not
+// stale: the ordinary resume arms own it on the next call.
+func reloadStaleReceipt(root string, p *removePlan) (*removeRecovery, *Fail) {
+	judged := p.staleReceipt
+	current, err := loadRemoveRecovery(root, p.receiptKey())
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_read_failed", localeSafeWriteDetail(err.Error()))}
+	}
+	if judged == nil || current.PreIndexSHA256 != judged.PreIndexSHA256 || current.PostIndexSHA256 != judged.PostIndexSHA256 {
+		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_changed_since_plan", Hint: writeMessage("remove.hint.replan")}
+	}
+	raw, readErr := os.ReadFile(p.rc.paths.IndexPath)
+	if readErr != nil {
+		return nil, &Fail{Code: errInternal, Msg: writeMessage("remove.cas_read_failed", localeSafeWriteDetail(readErr.Error()))}
+	}
+	if hash := indexTextHash(string(raw)); hash == current.PreIndexSHA256 || hash == current.PostIndexSHA256 {
+		return nil, &Fail{Code: errWriteConflict, Msg: "remove_receipt_no_longer_stale", Hint: writeMessage("remove.hint.replan")}
+	}
+	return current, nil
+}
+
+func removeTransactionID(root, key string) string {
+	return strings.TrimSuffix(strings.TrimPrefix(filepath.Base(removeRecoveryPath(root, key)), "remove-"), ".json")
+}
+
+func shortSHA(value string) string {
+	if len(value) > 12 {
+		return value[:12]
+	}
+	return value
 }

@@ -29,9 +29,6 @@ func init() {
 
 	indexCommand.AddCommand(newIndexInventoryCmd())
 	indexCommand.AddCommand(newIndexHeaderCmd())
-	indexCommand.AddCommand(newIndexBuildCmd())
-	indexCommand.AddCommand(newIndexUpdateCmd())
-	indexCommand.AddCommand(newIndexEntriesCmd())
 	indexCommand.AddCommand(newIndexScoreCmd())
 	indexCommand.AddCommand(newIndexAgentCmd())
 

@@ -39,7 +39,7 @@
       "protocol_tokens": [
         "Guide",
         "Header",
-        "aoci index header draft"
+        "aoci cognition onboard start"
       ]
     },
     {
@@ -51,7 +51,7 @@
       "protocol_tokens": [
         "auto",
         "Guide",
-        "Entries Stage",
+        "aoci_update_entry",
         "Check",
         "Diff",
         "P-23",
@@ -70,9 +70,7 @@
       "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
       "protocol_tokens": [
         "review",
-        "Stage",
-        "Check",
-        "Diff",
+        "Maintain",
         "Apply"
       ]
     },
@@ -80,13 +78,11 @@
       "id": "contracts/init/automation-legacy",
       "kind": "contract",
       "path": "contracts/init/automation-legacy.txt",
-      "description": "Post-init explanation for legacy repositories without a declared automation block",
+      "description": "Post-init explanation for automation.mode=legacy, the compatibility authorization of repositories without a declared automation block",
       "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
       "protocol_tokens": [
         "legacy",
-        "Stage",
-        "Check",
-        "Diff",
+        "Maintain",
         "Apply"
       ]
     },
@@ -98,7 +94,6 @@
       "used_by": "internal/cli/init_messages.go:agentAutomationInitHint",
       "protocol_tokens": [
         "off",
-        "Stage",
         "Apply"
       ]
     },

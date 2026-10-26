@@ -26,11 +26,15 @@ func buildVolumeRepo(t *testing.T, includeCode, includeDatabase bool) string {
 
 // buildVolumeRepoWithMeta is buildVolumeRepo with the Meta Volume text
 // supplied by the test; an empty metaOverride keeps the fixture's default Meta.
+// buildVolumeRepoWithMeta is buildVolumeRepo with the Meta Volume text
+// supplied by the test; an empty metaOverride keeps the fixture's default Meta.
 func buildVolumeRepoWithMeta(t *testing.T, includeCode, includeDatabase bool, metaOverride string) string {
 	t.Helper()
 	return buildVolumeRepoAt(t, t.TempDir(), includeCode, includeDatabase, metaOverride)
 }
 
+// buildVolumeRepoAt is buildVolumeRepoWithMeta at a root the test chooses, so a
+// fixture can live under a path the section-header grammar has to spell.
 // buildVolumeRepoAt is buildVolumeRepoWithMeta at a root the test chooses, so a
 // fixture can live under a path the section-header grammar has to spell.
 func buildVolumeRepoAt(t *testing.T, root string, includeCode, includeDatabase bool, metaOverride string) string {
@@ -457,32 +461,6 @@ func TestVolumeHeaderSearchAndGetEntries(t *testing.T) {
 	code := resText(t, handleGetEntries(root, "test-version", getEntriesIn{Paths: []string{"main.go"}}, nil))
 	if !strings.Contains(code, "volume_id=code object_ref=code:main.go") {
 		t.Fatalf("compatible code path lookup failed:\n%s", code)
-	}
-}
-
-func TestVolumeFormalWriteEntrypointsFailBeforeMutation(t *testing.T) {
-	root := buildVolumeRepo(t, true, true)
-	rootBefore, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
-	if _, fail := planUpdateEntry(root, "main.go", "main.go[CD9S]: F:x | R:- | A:- | S:-"); fail == nil || fail.Code != errVolumeReadOnly {
-		t.Fatalf("update did not fail closed: %#v", fail)
-	}
-	// A plain path names the Code object under Volumes v1 (#112), so the
-	// refusal is the Volume pipeline's own: the object is absent, nothing is
-	// written. The Legacy loader's volume_read_only is no longer the answer.
-	if _, fail := planRemoveEntry(root, "gone.go", false); fail == nil || fail.Code != errBadArgs || fail.FormalWritesStarted {
-		t.Fatalf("remove did not fail closed: %#v", fail)
-	}
-	report := handleReport(root, reportIn{Path: "main.go", Note: "fixture"})
-	if !report.IsError || !strings.Contains(resText(t, report), errVolumeReadOnly) {
-		t.Fatalf("report did not fail closed: %s", resText(t, report))
-	}
-	maintain := resText(t, handleMaintain(root))
-	if !strings.Contains(maintain, errVolumeReadOnly) {
-		t.Fatalf("maintain did not fail closed: %s", maintain)
-	}
-	rootAfter, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
-	if string(rootBefore) != string(rootAfter) {
-		t.Fatal("Volume write guard modified Root")
 	}
 }
 

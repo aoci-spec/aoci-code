@@ -1,28 +1,17 @@
-// aoci_report待办登记能力。
-//
-// 对索引状态没有把握时只追加结构化待办，不修改正式索引或Baseline。
+// aoci_report: the Legacy follow-up record is retired (0.2.0), so the tool
+// validates its arguments and answers each layout's read-only refusal.
 package mcptools
 
 import (
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
-	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
 type reportIn struct {
-	Path string `json:"path"`
-	Note string `json:"note"`
-}
-
-type reportRec struct {
-	Ts   string `json:"ts"`
 	Path string `json:"path"`
 	Note string `json:"note"`
 }
@@ -34,12 +23,9 @@ func handleReport(
 	if fail := validateWriteMessages(requiredReportMessages); fail != nil {
 		return failResult(fail)
 	}
-	start := time.Now()
-
-	rel, err := afs.NormalizeRelPath(
+	if _, err := afs.NormalizeRelPath(
 		in.Path,
-	)
-	if err != nil {
+	); err != nil {
 		return errResult(
 			errPathUnsafe,
 			writeMessage(
@@ -67,124 +53,11 @@ func handleReport(
 		)
 	}
 
-	rc, fail := loadRepoCtx(
-		root,
-	)
-	if fail != nil {
-		return failResult(
-			fail,
-		)
+	// Since 0.2.0 no layout records a report. Volumes v1 keeps answering
+	// volume_read_only exactly as the Legacy loader did; a Legacy layout, or an
+	// index that cannot be loaded at all, answers the read-only token.
+	if loaded, loadFail := loadCognitionCtx(root); loadFail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
+		return failResult(&Fail{Code: errVolumeReadOnly, Msg: mcpMessage("mcp.error.volume_read_only"), Hint: mcpMessage("mcp.error.volume_read_only_hint")})
 	}
-
-	record := reportRec{
-		Ts: time.Now().
-			UTC().
-			Format(time.RFC3339),
-		Path: rel,
-		Note: note,
-	}
-
-	data, _ := json.Marshal(
-		record,
-	)
-
-	if err := appendLine(
-		rc.paths.ReportsPath,
-		data,
-	); err != nil {
-		return errResult(
-			errInternal,
-			writeMessage(
-				"report.write_failed",
-				localeSafeWriteDetail(err.Error()),
-			),
-			"",
-		)
-	}
-
-	pending := countLines(
-		rc.paths.ReportsPath,
-	)
-
-	ledger.Append(
-		root,
-		rc.cfg.LedgerEnabled,
-		ledger.Event{
-			Op:         "report",
-			PathsCount: 1,
-			DurationMs: time.Since(
-				start,
-			).Milliseconds(),
-			Source: ledger.SourceAgent,
-		},
-	)
-
-	return textResult(
-		writeMessage(
-			"report.recorded",
-			rel,
-			note,
-			pending,
-		),
-	)
-}
-
-func appendLine(
-	targetPath string,
-	line []byte,
-) error {
-	if err := os.MkdirAll(
-		filepath.Dir(targetPath),
-		0o755,
-	); err != nil {
-		return err
-	}
-
-	file, err := os.OpenFile(
-		targetPath,
-		os.O_APPEND|
-			os.O_CREATE|
-			os.O_WRONLY,
-		0o644,
-	)
-	if err != nil {
-		return err
-	}
-
-	defer file.Close()
-
-	_, err = file.Write(
-		append(
-			line,
-			'\n',
-		),
-	)
-
-	return err
-}
-
-func countLines(
-	targetPath string,
-) int {
-	data, err := os.ReadFile(
-		targetPath,
-	)
-	if err != nil {
-		return 0
-	}
-
-	count := 0
-
-	for _, line := range strings.Split(
-		string(data),
-		"\n",
-	) {
-		if strings.TrimSpace(
-			line,
-		) != "" {
-			count++
-		}
-	}
-
-	return count
+	return failResult(legacyReadOnlyFail())
 }

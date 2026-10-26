@@ -238,3 +238,12 @@ func RefreshReasons() []string {
 		RefreshReasonPhaseTransition,
 	}
 }
+
+// Legacy (single-file) layouts are read-only from 0.2.0: their authoring
+// surfaces are retired, every write tool and Guide answers this state, and the
+// Legacy-to-Volumes migration is the one next action. Reads, Overview, verify,
+// check, scan, and status --deep keep working.
+const (
+	StatusLegacyReadOnlyMigrateRequired   = "legacy_read_only_migrate_required"
+	MaintainActionMigrateLegacyRepository = "migrate_legacy_repository"
+)

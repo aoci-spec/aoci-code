@@ -516,3 +516,12 @@ func collectCurationExcludedMissing(
 
 	return items
 }
+
+// localizePlanWarnings keeps machine warning text safe for the active Locale.
+func localizePlanWarnings(warnings []string) []string {
+	localized := make([]string, 0, len(warnings))
+	for _, warning := range warnings {
+		localized = append(localized, localeSafeCLIDetail(warning))
+	}
+	return localized
+}

@@ -1,1 +1,1 @@
-legacy 是旧仓兼容态，允许执行 Stage、Check 与 Diff，但必须在 Apply 前等待批准
+legacy 是未声明 automation 块的旧仓兼容授权：Maintain 照常发候选、普通 Apply 照常进行，只有高风险 Scope 变更仍须在 Apply 前等待批准

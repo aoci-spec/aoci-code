@@ -172,62 +172,31 @@ func TestConfigSetLocaleJSONCarriesRestartAndMigrationFacts(t *testing.T) {
 		}
 	})
 
-	t.Run("legacy index with pending migration", func(t *testing.T) {
+	t.Run("legacy index refuses a new locale", func(t *testing.T) {
+		// Since 0.2.0 the Legacy layout is read-only: the stage pipeline that
+		// re-authored a Header and its Entries in the new Locale is retired,
+		// so a Legacy index keeps its Locale and no migration receipt is minted.
 		if err := textassets.SetActiveLocale(textassets.LegacyLocale); err != nil {
 			t.Fatal(err)
 		}
-		jsonRoot := writeLocaleMigrationFixture(t)
-		humanRoot := writeLocaleMigrationFixture(t)
-
-		stdout, stderr := runConfigJSON(t, jsonRoot, "set", "locale", textassets.DefaultLocale)
-		result := decodeConfigSetResult(t, stdout)
-		assertConfigSetResultKeys(t, result, "ok", "key", "value", "restart_mcp_required", "locale_migration")
-		assertJSONValue(t, "config set locale value", result["value"], textassets.DefaultLocale)
-		assertJSONValue(t, "config set locale restart_mcp_required", result["restart_mcp_required"], true)
-		assertConfigSetMatchesGet(t, jsonRoot, "locale", result)
-		if len(stderr) != 0 {
-			t.Fatalf("config set locale wrote diagnostics on success: %s", stderr)
+		root := writeLocaleMigrationFixture(t)
+		var stdout, stderr bytes.Buffer
+		if code := executeCLI([]string{"--repo", root, "--json", "config", "set", "locale", textassets.DefaultLocale}, &stdout, &stderr); code != ExitConfig {
+			t.Fatalf("config set locale on a Legacy index must be refused: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
 		}
-
-		var migration map[string]json.RawMessage
-		if err := json.Unmarshal(result["locale_migration"], &migration); err != nil {
-			t.Fatalf("locale_migration is not a JSON object: %v\n%s", err, stdout)
+		if blob := stdout.String() + stderr.String(); !strings.Contains(blob, "0.2.0") {
+			t.Fatalf("the refusal must say the layout is read-only since 0.2.0: %s", blob)
 		}
-		if got := sortedRawKeys(migration); strings.Join(got, ",") != "curation_paths,entry_paths,header_pending" {
-			t.Fatalf("locale_migration keys = %v\n%s", got, stdout)
-		}
-		assertJSONValue(t, "locale_migration.header_pending", migration["header_pending"], true)
-		assertJSONValue(t, "locale_migration.entry_paths", migration["entry_paths"], float64(2))
-		assertJSONValue(t, "locale_migration.curation_paths", migration["curation_paths"], float64(1))
-
-		receipt, err := config.LoadBase(jsonRoot)
+		receipt, err := config.LoadBase(root)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if receipt.LocaleMigration == nil || !receipt.LocaleMigration.HeaderPending ||
-			len(receipt.LocaleMigration.EntryPaths) != 2 || len(receipt.LocaleMigration.CurationPaths) != 1 {
-			t.Fatalf("persisted receipt does not match the JSON summary: %+v", receipt.LocaleMigration)
+		if receipt.LocaleMigration != nil || receipt.Locale != textassets.LegacyLocale {
+			t.Fatalf("a refused locale change left state behind: locale=%q receipt=%+v", receipt.Locale, receipt.LocaleMigration)
 		}
-
-		// Human mode on an identical fixture prints the same three numbers.
 		var humanStdout, humanStderr bytes.Buffer
-		if code := executeCLI(
-			[]string{"--repo", humanRoot, "config", "set", "locale", textassets.DefaultLocale},
-			&humanStdout,
-			&humanStderr,
-		); code != ExitOK {
-			t.Fatalf("human config set locale failed: code=%d stdout=%s stderr=%s", code, humanStdout.String(), humanStderr.String())
-		}
-		if err := textassets.SetActiveLocale(textassets.DefaultLocale); err != nil {
-			t.Fatal(err)
-		}
-		wantMigration := cliMessage("config.locale_migration_pending", true, 2, 1)
-		wantRestart := cliMessage("config.restart_mcp")
-		if err := textassets.SetActiveLocale(textassets.LegacyLocale); err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(humanStdout.String(), wantMigration) || !strings.Contains(humanStdout.String(), wantRestart) {
-			t.Fatalf("human config set locale output lacks the notices:\n%s\nwant lines:\n%s\n%s", humanStdout.String(), wantMigration, wantRestart)
+		if code := executeCLI([]string{"--repo", root, "config", "set", "locale", textassets.DefaultLocale}, &humanStdout, &humanStderr); code != ExitConfig {
+			t.Fatalf("human config set locale on a Legacy index must be refused: code=%d stdout=%s stderr=%s", code, humanStdout.String(), humanStderr.String())
 		}
 	})
 }

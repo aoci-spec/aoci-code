@@ -1,1 +1,1 @@
-Header dictionary: the full-index Guide will issue the Header candidate workflow. You can also run aoci index header draft with a configured endpoint.
+Header dictionary: this minimal skeleton is a Legacy single-file index, read-only since 0.2.0. Run aoci cognition onboard start --json to bootstrap it into Volumes v1; there the Guide issues the Header candidate workflow.

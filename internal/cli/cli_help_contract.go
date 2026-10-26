@@ -43,13 +43,6 @@ func indexLongHelp() string {
 	)
 }
 
-// indexUpdateLongHelp返回Index Update稳定说明。
-func indexUpdateLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpIndexUpdateLong,
-	)
-}
-
 // verifyLongHelp返回Verify四态与治理债务稳定说明。
 func verifyLongHelp() string {
 	return observationLongHelp(
@@ -89,41 +82,6 @@ func scanLongHelp() string {
 func removeEntryLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpRemoveEntryLong,
-	)
-}
-
-// aiLongHelp返回AI增强层稳定总说明。
-func aiLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpAILong,
-	)
-}
-
-// aiSetupLongHelp返回AI配置写入与密钥纪律稳定说明。
-func aiSetupLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpAISetupLong,
-	)
-}
-
-// aiTestLongHelp返回AI端点最小探测稳定说明。
-func aiTestLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpAITestLong,
-	)
-}
-
-// indexBuildLongHelp返回Entries起草目标选择稳定说明。
-func indexBuildLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpIndexBuildLong,
-	)
-}
-
-// headerDraftLongHelp返回Header Draft-first稳定说明。
-func headerDraftLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpHeaderDraftLong,
 	)
 }
 
@@ -177,24 +135,10 @@ func indexAgentLongHelp() string {
 	)
 }
 
-// indexAgentHeaderLongHelp返回Host-Agent Header接入稳定说明。
-func indexAgentHeaderLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpIndexAgentHeaderLong,
-	)
-}
-
 // updateEntryLongHelp返回单条Entry写入稳定说明。
 func updateEntryLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpUpdateEntryLong,
-	)
-}
-
-// entriesCheckLongHelp返回Entries Check治理稳定说明。
-func entriesCheckLongHelp() string {
-	return cliHelpText(
-		textassets.ContractHelpEntriesCheckLong,
 	)
 }
 

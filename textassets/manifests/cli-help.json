@@ -53,23 +53,6 @@
       ]
     },
     {
-      "id": "contracts/help/index-update-long",
-      "kind": "contract",
-      "path": "contracts/help/index-update-long.txt",
-      "description": "Stable Index Update classification and no-network dry-run contract",
-      "used_by": "internal/cli/cli_help_contract.go:indexUpdateLongHelp",
-      "protocol_tokens": [
-        "changed:",
-        "new:",
-        "curation_excluded:",
-        "pending_curation:",
-        "skipped_missing:",
-        "deleted/unbaselined:",
-        "CRLF/LF",
-        "--dry-run"
-      ]
-    },
-    {
       "id": "contracts/help/verify-long",
       "kind": "contract",
       "path": "contracts/help/verify-long.txt",
@@ -140,9 +123,9 @@
       "description": "Stable Remove Entry contract for orphan cleanup, live-file deletion consequences and preview",
       "used_by": "internal/cli/cli_help_contract.go:removeEntryLongHelp",
       "protocol_tokens": [
-        "aoci index update",
+        "aoci_maintain",
         "deleted",
-        "Missing",
+        "orphan",
         "verify",
         "--preview"
       ]

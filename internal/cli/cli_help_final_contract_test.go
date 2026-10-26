@@ -70,31 +70,6 @@ func TestFinalCLIHelpFunctionsUseTextAssets(
 		observation bool
 	}{
 		{
-			name: "ai",
-			id:   textassets.ContractHelpAILong,
-			got:  aiLongHelp,
-		},
-		{
-			name: "ai setup",
-			id:   textassets.ContractHelpAISetupLong,
-			got:  aiSetupLongHelp,
-		},
-		{
-			name: "ai test",
-			id:   textassets.ContractHelpAITestLong,
-			got:  aiTestLongHelp,
-		},
-		{
-			name: "index build",
-			id:   textassets.ContractHelpIndexBuildLong,
-			got:  indexBuildLongHelp,
-		},
-		{
-			name: "header draft",
-			id:   textassets.ContractHelpHeaderDraftLong,
-			got:  headerDraftLongHelp,
-		},
-		{
 			name:        "index score",
 			id:          textassets.ContractHelpIndexScoreLong,
 			got:         indexScoreLongHelp,
@@ -106,19 +81,9 @@ func TestFinalCLIHelpFunctionsUseTextAssets(
 			got:  indexAgentLongHelp,
 		},
 		{
-			name: "index agent header",
-			id:   textassets.ContractHelpIndexAgentHeaderLong,
-			got:  indexAgentHeaderLongHelp,
-		},
-		{
 			name: "update-entry",
 			id:   textassets.ContractHelpUpdateEntryLong,
 			got:  updateEntryLongHelp,
-		},
-		{
-			name: "entries check",
-			id:   textassets.ContractHelpEntriesCheckLong,
-			got:  entriesCheckLongHelp,
 		},
 	}
 
@@ -154,44 +119,11 @@ func TestFinalCLIHelpFunctionsUseTextAssets(
 func TestFinalCLICommandsWireStableLongHelp(
 	t *testing.T,
 ) {
-	aiCommand := newAICmd()
-
 	tests := []struct {
 		name     string
 		command  *cobra.Command
 		expected string
 	}{
-		{
-			name:     "ai",
-			command:  aiCommand,
-			expected: aiLongHelp(),
-		},
-		{
-			name: "ai setup",
-			command: findCLICommand(
-				aiCommand,
-				"setup",
-			),
-			expected: aiSetupLongHelp(),
-		},
-		{
-			name: "ai test",
-			command: findCLICommand(
-				aiCommand,
-				"test",
-			),
-			expected: aiTestLongHelp(),
-		},
-		{
-			name:     "index build",
-			command:  newIndexBuildCmd(),
-			expected: indexBuildLongHelp(),
-		},
-		{
-			name:     "header draft",
-			command:  newHeaderDraftCmd(),
-			expected: headerDraftLongHelp(),
-		},
 		{
 			name:     "index score",
 			command:  newIndexScoreCmd(),
@@ -208,19 +140,9 @@ func TestFinalCLICommandsWireStableLongHelp(
 			expected: indexAgentLongHelp(),
 		},
 		{
-			name:     "index agent header",
-			command:  newIndexAgentHeaderCmd(),
-			expected: indexAgentHeaderLongHelp(),
-		},
-		{
 			name:     "update-entry",
 			command:  newUpdateEntryCmd(),
 			expected: updateEntryLongHelp(),
-		},
-		{
-			name:     "entries check",
-			command:  newEntriesCheckCmd(),
-			expected: entriesCheckLongHelp(),
 		},
 	}
 
@@ -256,18 +178,6 @@ func TestDecoratedHostAgentCommandsKeepNoLocalLongCopy(
 		{
 			name:    "guide",
 			command: newIndexAgentGuideCmd(),
-		},
-		{
-			name:    "entries stage",
-			command: newIndexAgentStageCmd(),
-		},
-		{
-			name:    "header stage",
-			command: newIndexAgentHeaderStageCmd(),
-		},
-		{
-			name:    "curation stage",
-			command: newAgentCurationStageCmd(),
 		},
 	}
 

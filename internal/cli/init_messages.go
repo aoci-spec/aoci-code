@@ -64,19 +64,19 @@ func initHeaderDictionaryMessage() (string, error) {
 
 // agentAutomationInitHint返回init完成后的模式说明。
 //
-// 模式解析与权限策略仍复用resolveAgentAutomationPolicy；文本资产只表达已经
-// 决定的策略，不参与权限计算。
+// 模式解析复用config.ParseAutomationMode；文本资产只表达已经决定的模式，
+// 不参与权限计算。
 func agentAutomationInitHint(
 	rawMode string,
 ) (string, error) {
-	policy, err := resolveAgentAutomationPolicy(
+	mode, err := config.ParseAutomationMode(
 		rawMode,
 	)
 	if err != nil {
 		return cliMessage("init.automation_invalid"), nil
 	}
 
-	switch policy.Mode {
+	switch mode {
 	case config.AutomationModeAuto:
 		return textassets.RenderScalar(
 			textassets.ActiveLocale(),

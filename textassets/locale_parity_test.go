@@ -12,9 +12,7 @@ func TestOfficialLocaleAssetsAreNotAccidentalCopies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	allowedIdentical := map[string]bool{
-		"prompts/ai-probe-user.txt": true,
-	}
+	allowedIdentical := map[string]bool{}
 	identical := []string{}
 	for _, asset := range manifest.Assets {
 		en, err := fs.ReadFile(embeddedAssets, path.Join(DefaultLocale, asset.Path))

@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
+	"regexp"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
@@ -27,8 +28,33 @@ import (
 
 const agentGuideVersion = 1
 
+// agentStageNameRe bounds the --agent label: an audit label, not authentication.
+var agentStageNameRe = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
+// newIndexAgentCmd mounts `aoci index agent`. Since 0.2.0 the group holds only
+// guide: the Legacy plan, stage, check, diff, apply, and curation commands left
+// with the Legacy authoring surfaces, and Volumes authoring runs through MCP.
+func newIndexAgentCmd() *cobra.Command {
+	command := &cobra.Command{
+		Use:   "agent",
+		Short: cliMessage("cli.short.agent"),
+		Long:  indexAgentLongHelp(),
+	}
+	command.AddCommand(newIndexAgentGuideCmd())
+	return command
+}
+
+// Guide modes. The Legacy stage modes (execute, prepare_and_review, observe)
+// left with the Legacy authoring surfaces; a Volumes Guide is blocked,
+// governance-bound, or complete, and a Legacy layout is always blocked.
+const (
+	agentGuideModeBlocked  = "blocked"
+	agentGuideModeComplete = "complete"
+)
+
 type agentGuideCommands struct {
 	Guide            string `json:"guide"`
+	Onboard          string `json:"onboard,omitempty"`
 	Plan             string `json:"plan,omitempty"`
 	Scan             string `json:"scan,omitempty"`
 	HeaderShow       string `json:"header_show,omitempty"`
@@ -46,59 +72,6 @@ type agentGuideCommands struct {
 	ScopeActivate    string `json:"scope_activate,omitempty"`
 	ScopeAcknowledge string `json:"scope_acknowledge,omitempty"`
 	ScopeBudget      string `json:"scope_budget,omitempty"`
-}
-
-type agentGuideBatch struct {
-	MaxEntries int               `json:"max_entries"`
-	Included   int               `json:"included"`
-	Remaining  int               `json:"remaining"`
-	Targets    []agentPlanTarget `json:"targets"`
-}
-
-type agentGuideCurationBatch struct {
-	MaxDecisions int                       `json:"max_decisions"`
-	Included     int                       `json:"included"`
-	Remaining    int                       `json:"remaining"`
-	Targets      []agentPlanCurationTarget `json:"targets"`
-}
-
-type agentGuideNextAction struct {
-	Action                   string            `json:"action"`
-	Command                  string            `json:"command,omitempty"`
-	ToolName                 string            `json:"tool_name,omitempty"`
-	RequiredParameters       map[string]string `json:"required_parameters"`
-	Agent                    string            `json:"agent"`
-	SchemaVersion            string            `json:"schema_version"`
-	RequestFile              string            `json:"request_file,omitempty"`
-	ExpectedPreimage         string            `json:"expected_preimage"`
-	PlanOrRunIdentity        string            `json:"plan_or_run_identity"`
-	TTYRequired              bool              `json:"tty_required"`
-	AutomaticallyRetryable   bool              `json:"automatically_retryable"`
-	TransportCorrectionLimit int               `json:"transport_schema_correction_limit"`
-	SuccessNextAction        string            `json:"success_next_action"`
-}
-
-type agentGuide struct {
-	Version int        `json:"version"`
-	Agent   string     `json:"agent"`
-	Mode    string     `json:"mode"`
-	Plan    *agentPlan `json:"plan"`
-
-	Complete         bool `json:"complete"`
-	ApprovalRequired bool `json:"approval_required"`
-	StopBeforeApply  bool `json:"stop_before_apply"`
-
-	Message            string               `json:"message"`
-	Instructions       []string             `json:"instructions"`
-	Commands           agentGuideCommands   `json:"commands"`
-	NextActionContract agentGuideNextAction `json:"next_action_contract"`
-
-	HeaderStageRequest   *agentHeaderStageRequest   `json:"header_stage_request,omitempty"`
-	EntriesStageRequest  *agentStageRequest         `json:"entries_stage_request,omitempty"`
-	CurationStageRequest *agentCurationStageRequest `json:"curation_stage_request,omitempty"`
-
-	Batch         *agentGuideBatch         `json:"batch,omitempty"`
-	CurationBatch *agentGuideCurationBatch `json:"curation_batch,omitempty"`
 }
 
 type volumeAgentGuide struct {
@@ -179,9 +152,6 @@ func newIndexAgentGuideCmd() *cobra.Command {
 					Err:  err,
 				}
 			}
-			if err := guardPendingEntriesForAgent(repoRoot); err != nil {
-				return &ExitError{Code: ExitInvalid, Err: err}
-			}
 			set, cognitionErr := cognition.Load(repoRoot, cfg.IndexPath)
 			if cognitionErr != nil {
 				if set != nil && set.LayoutMode == cognition.LayoutVolumesV1 {
@@ -194,74 +164,7 @@ func newIndexAgentGuideCmd() *cobra.Command {
 			if set.LayoutMode == cognition.LayoutVolumesV1 {
 				return writeVolumeAgentGuide(cmd, repoRoot, cfg, set, agentName)
 			}
-			if err := guardPendingReceiptsForLegacyAgent(repoRoot); err != nil {
-				return &ExitError{Code: ExitInvalid, Err: err}
-			}
-
-			doc, indexPath, err := loadIndexForCLI(
-				cmd,
-				repoRoot,
-				cfg,
-			)
-			if err != nil {
-				return &ExitError{
-					Code: ExitConfig,
-					Err:  err,
-				}
-			}
-
-			plan, err := buildAgentPlan(
-				repoRoot,
-				cfg,
-				doc,
-				indexPath,
-			)
-			if err != nil {
-				var buildErr *agentPlanBuildError
-
-				if errors.As(
-					err,
-					&buildErr,
-				) {
-					return &ExitError{
-						Code: buildErr.Code,
-						Err:  buildErr.Err,
-					}
-				}
-
-				return &ExitError{
-					Code: ExitInternal,
-					Err:  err,
-				}
-			}
-
-			guide, err := buildAgentGuide(
-				agentName,
-				plan,
-			)
-			if err != nil {
-				return &ExitError{
-					Code: ExitInternal,
-					Err:  err,
-				}
-			}
-
-			if err := finalizeAgentGuideRuntimeContract(guide); err != nil {
-				return &ExitError{Code: ExitInternal, Err: err}
-			}
-
-			if flagJSON {
-				return writeAgentGuideJSON(
-					cmd.OutOrStdout(),
-					guide,
-				)
-			}
-
-			fmt.Fprint(
-				cmd.OutOrStdout(),
-				renderAgentGuide(guide),
-			)
-			return nil
+			return writeLegacyReadOnlyGuide(cmd, repoRoot, agentName)
 		},
 	}
 
@@ -502,211 +405,6 @@ func writeVolumeMetaBlockedGuide(cmd *cobra.Command, agent string, stop *volumeG
 	return err
 }
 
-func buildAgentGuide(
-	agentName string,
-	plan *agentPlan,
-) (*agentGuide, error) {
-	agentName = strings.TrimSpace(
-		agentName,
-	)
-	if !agentStageNameRe.MatchString(
-		agentName,
-	) {
-		return nil, fmt.Errorf("%s", cliMessage("guide.agent_invalid", agentName))
-	}
-	if plan == nil {
-		return nil, fmt.Errorf("%s", cliMessage("guide.plan_nil"))
-	}
-	policy, err := resolveAgentAutomationPolicy(
-		plan.AutomationMode,
-	)
-	if err != nil {
-		return nil, err
-	}
-	assetIDs, err := requiredGuideAssetIDs(plan, policy)
-	if err != nil {
-		return nil, err
-	}
-	if err := validateGuideAssets(assetIDs...); err != nil {
-		return nil, err
-	}
-
-	guide := newAgentGuideBase(
-		agentName,
-		plan,
-	)
-
-	switch plan.Stage {
-	case agentPlanStageBaselineRequired:
-		buildBaselineGuide(
-			guide,
-			plan,
-		)
-
-	case agentPlanStageHeaderRequired:
-		buildHeaderGuide(
-			guide,
-			plan,
-			policy,
-		)
-
-	case agentPlanStageIndexReviewRequired:
-		guide.Mode = agentGuideModeBlocked
-		guide.ApprovalRequired = true
-		guide.Message = indexReviewBlockedMessage()
-		guide.Instructions = append(
-			guide.Instructions,
-			indexReviewBlockedInstructions()...,
-		)
-
-	case agentPlanStageEntriesRequired:
-		buildEntriesGuide(
-			guide,
-			plan,
-			policy,
-		)
-
-	case agentPlanStageCurationRequired:
-		buildCurationGuide(
-			guide,
-			plan,
-			policy,
-		)
-
-	case agentPlanStageOrphanReview:
-		guide.Mode = agentGuideModeBlocked
-		guide.ApprovalRequired = true
-		guide.Message = orphanReviewBlockedMessage()
-		guide.Instructions = append(
-			guide.Instructions,
-			orphanReviewBlockedInstructions()...,
-		)
-
-	case agentPlanStageScopeChangeRequired:
-		guide.Mode = agentGuideModeBlocked
-		guide.Message = cliMessage("guide.scope_change_required")
-		guide.Commands.ScopePreview = "aoci scope preview --candidate-file {candidate_file} --json"
-		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
-		guide.Instructions = append(guide.Instructions,
-			cliMessage("guide.scope_change_instruction_status"),
-			cliMessage("guide.scope_change_instruction_preview"))
-
-	case agentPlanStageObservedReview:
-		guide.Mode = agentGuideModeBlocked
-		guide.Message = cliMessage("guide.observed_review_required")
-		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
-		guide.Commands.ScopeAcknowledge = "aoci " + machinecontract.RemediationCommandScopeAcknowledge
-		guide.Instructions = append(guide.Instructions,
-			cliMessage("guide.observed_review_instruction_evidence"),
-			cliMessage("guide.observed_review_instruction_ack"))
-
-	case agentPlanStageCompressionRequired, agentPlanStageBudgetExceeded:
-		if plan.Governance == nil || plan.Governance.CognitionBudget == nil {
-			return nil, fmt.Errorf("%s", cliMessage("guide.governance_budget_missing"))
-		}
-		guide.Mode = agentGuideModeBlocked
-		guide.Message = cliMessage("guide.compression_required", plan.Governance.CognitionBudget.WholeIndexTokens,
-			plan.Governance.CognitionBudget.MaxTokens, len(plan.Governance.CognitionBudget.Violations))
-		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
-		guide.Instructions = append(guide.Instructions,
-			cliMessage("guide.compression_instruction_model"),
-			cliMessage("guide.compression_instruction_gate"))
-
-	case agentPlanStageAligned:
-		buildAlignedGuide(
-			guide,
-			plan,
-		)
-
-	default:
-		return nil, fmt.Errorf("%s", cliMessage("guide.stage_unknown", plan.Stage))
-	}
-
-	return guide, nil
-}
-
-func renderAgentGuide(
-	guide *agentGuide,
-) string {
-	if guide == nil ||
-		guide.Plan == nil {
-		return ""
-	}
-
-	var builder strings.Builder
-
-	fmt.Fprintf(
-		&builder,
-		"AOCI agent guide v%d\n",
-		guide.Version,
-	)
-	fmt.Fprintf(
-		&builder,
-		"agent: %s | automation.mode: %s | mode: %s | stage: %s\n",
-		guide.Agent,
-		guide.Plan.AutomationMode,
-		guide.Mode,
-		guide.Plan.Stage,
-	)
-	fmt.Fprintf(
-		&builder,
-		"plan_id: %s\n",
-		guide.Plan.PlanID,
-	)
-	fmt.Fprint(&builder, cliMessage(
-		"guide.render.missing_summary",
-		guide.Plan.Summary.Missing,
-		guide.Plan.Summary.ActionableNew,
-		guide.Plan.Summary.IncludedMissing,
-		guide.Plan.Summary.CurationExcluded,
-		guide.Plan.Summary.SkippedMissing,
-		guide.Plan.Summary.PendingCuration,
-	))
-	fmt.Fprintf(
-		&builder,
-		"approval_required: %t | stop_before_apply: %t | complete: %t\n",
-		guide.ApprovalRequired,
-		guide.StopBeforeApply,
-		guide.Complete,
-	)
-
-	builder.WriteString(cliMessage(
-		"guide.render.conclusion",
-		localeSafeCLIDetail(guide.Message),
-	))
-
-	for position, instruction := range guide.Instructions {
-		fmt.Fprintf(
-			&builder,
-			"%d. %s\n",
-			position+1,
-			instruction,
-		)
-	}
-
-	if guide.Batch != nil {
-		fmt.Fprint(&builder, cliMessage(
-			"guide.render.entries_batch",
-			guide.Batch.Included,
-			guide.Batch.Remaining,
-			guide.Batch.MaxEntries,
-		))
-	}
-
-	if guide.CurationBatch != nil {
-		fmt.Fprint(&builder, cliMessage(
-			"guide.render.curation_batch",
-			guide.CurationBatch.Included,
-			guide.CurationBatch.Remaining,
-			guide.CurationBatch.MaxDecisions,
-		))
-	}
-
-	builder.WriteString(cliMessage("guide.render.json_hint"))
-
-	return builder.String()
-}
-
 // executableFindingCount counts the findings a model or operator can act on.
 // Informational findings (skipped sources, curation exclusions, line-ending
 // equivalence) describe the repository and demand nothing, so promising them
@@ -742,4 +440,68 @@ func recoveryPendingAction(operation, file string) string {
 		return cliMessage("guide.recovery_pending.scope", file)
 	}
 	return cliMessage("guide.recovery_pending.unknown", file)
+}
+
+// writeLegacyReadOnlyGuide is the one Guide a Legacy single-file layout gets
+// from 0.2.0 on. Its authoring surfaces are retired, so the Guide is blocked
+// with a single next action, the Legacy-to-Volumes migration; verify, check,
+// Overview, and search keep reading the layout.
+func writeLegacyReadOnlyGuide(cmd *cobra.Command, root, agent string) error {
+	guide := buildLegacyReadOnlyGuide(root, agent)
+	if err := finalizeVolumeAgentGuideRuntimeContract(guide); err != nil {
+		return &ExitError{Code: ExitInternal, Err: err}
+	}
+	if flagJSON {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(guide)
+	}
+	_, err := fmt.Fprint(cmd.OutOrStdout(), cliMessage("guide.volumes_summary",
+		guide.Stage, guide.Complete, guide.NextAction, strings.Join(guide.AffectedDomains, ",")))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("guide.legacy_read_only.message"))
+	return err
+}
+
+// buildLegacyReadOnlyGuide names the migration as the one next action and,
+// when transaction receipts are pending, the closure each receipt needs first:
+// the onboard command refuses while any receipt is pending, so the operator
+// learns the order here instead of from that refusal.
+func buildLegacyReadOnlyGuide(root, agent string) *volumeAgentGuide {
+	findings := []volumegovernance.Finding{{Code: machinecontract.StatusLegacyReadOnlyMigrateRequired}}
+	instructions := []string{
+		cliMessage("guide.legacy_read_only.instruction_migrate"),
+		cliMessage("guide.legacy_read_only.instruction_read"),
+	}
+	if pending, err := cognitiontxn.Pending(root); err == nil && len(pending) > 0 {
+		files := make([]string, 0, len(pending))
+		for _, receipt := range pending {
+			files = append(files, receipt.Filename)
+			instructions = append(instructions, recoveryPendingAction(receipt.Operation, receipt.Filename))
+		}
+		findings = append(findings, volumegovernance.Finding{
+			Code:   "recovery_pending",
+			Target: strings.Join(files, ","),
+			Cause:  cliMessage("guide.recovery_pending.cause", strings.Join(files, ", ")),
+		})
+	}
+	return &volumeAgentGuide{
+		Version:         agentGuideVersion,
+		Agent:           agent,
+		Mode:            agentGuideModeBlocked,
+		Stage:           machinecontract.StatusLegacyReadOnlyMigrateRequired,
+		Complete:        false,
+		NextAction:      machinecontract.MaintainActionMigrateLegacyRepository,
+		AffectedDomains: []string{},
+		Findings:        findings,
+		Instructions:    instructions,
+		Commands: agentGuideCommands{
+			Guide:   "aoci index agent guide --agent " + agent + " --json",
+			Onboard: "aoci " + machinecontract.RemediationCommandCognitionOnboardStart,
+			Verify:  "aoci " + machinecontract.RemediationCommandVerify,
+			Check:   "aoci " + machinecontract.RemediationCommandAggregateCheck,
+		},
+	}
 }

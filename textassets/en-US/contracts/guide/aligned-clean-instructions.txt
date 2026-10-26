@@ -1,2 +1,0 @@
-End the full-index generation loop. Do not create empty drafts or repeat Apply.
-Treat this aligned result as checkpoint evidence. The Agent decides whether the next phase needs repository-wide cognition; an ordinary explicit Overview then delivers the complete requested scope, while check_only remains the compact assessment path.

@@ -19,7 +19,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -27,14 +26,12 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
-	"github.com/aoci-spec/aoci-code/internal/llm"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/spf13/cobra"
 )
@@ -132,7 +129,6 @@ func missingTechnicalExcludeDirs(root string) []string {
 
 // newDoctorCmd 构造 `aoci doctor` 命令。
 func newDoctorCmd() *cobra.Command {
-	var withNet bool
 
 	cmd := &cobra.Command{
 		Use:   "doctor",
@@ -241,39 +237,6 @@ func newDoctorCmd() *cobra.Command {
 			markInstalled(rep, cliMessage("doctor.label.opencode_mcp"), hooks.IsOpenCodeMCPInstalled(root))
 			markInstalled(rep, cliMessage("doctor.label.qoder_mcp"), hooks.IsClaudeMCPInstalled(root))
 
-			// —— 组三: AI 增强层 ——
-			rep.group(cliMessage("doctor.group.ai"))
-
-			if !cfg.IsAIEnabled() {
-				if cfg.AI.Enabled && cfg.AI.BaseURL == "" {
-					rep.line(stateFail, cliMessage("doctor.label.ai_status"), cliMessage("doctor.ai_incomplete"))
-				} else {
-					rep.line(stateNA, cliMessage("doctor.label.ai_status"), cliMessage("doctor.ai_disabled"))
-				}
-				// 数据主权行照常给出(即使未启用也明确"无外发")
-				rep.line(stateInfo, cliMessage("doctor.label.data_sovereignty"), cliMessage("doctor.no_exfiltration"))
-			} else {
-				rep.line(statePass, cliMessage("doctor.label.ai_status"), cliMessage("doctor.ai_enabled", cfg.AI.Model))
-				// 数据主权透明行 —— doctor 最重要的输出之一
-				rep.line(stateInfo, cliMessage("doctor.label.data_destination"), cfg.AI.BaseURL)
-
-				// 密钥状态: 只报有无,绝不打印值
-				if cfg.AI.APIKeyEnv == "" {
-					rep.line(stateInfo, cliMessage("doctor.label.secret"), cliMessage("doctor.no_auth"))
-				} else if os.Getenv(cfg.AI.APIKeyEnv) != "" {
-					rep.line(statePass, cliMessage("doctor.label.secret"), cliMessage("doctor.secret_set", cfg.AI.APIKeyEnv))
-				} else {
-					rep.line(stateFail, cliMessage("doctor.label.secret"), cliMessage("doctor.secret_missing", cfg.AI.APIKeyEnv, cfg.AI.APIKeyEnv))
-				}
-
-				// 端点连通: 仅 --net 才做
-				if withNet {
-					doctorProbeEndpoint(rep, cfg)
-				} else {
-					rep.line(stateInfo, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_not_probed"))
-				}
-			}
-
 			// —— 组四: 平台特性 ——
 			rep.group(cliMessage("doctor.group.platform"))
 			if runtime.GOOS == "windows" {
@@ -293,7 +256,6 @@ func newDoctorCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&withNet, "net", false, cliMessage("cli.flag.doctor_net"))
 	return cmd
 }
 
@@ -305,45 +267,6 @@ func markInstalled(rep *doctorReport, label string, installed bool) {
 	} else {
 		rep.line(stateInfo, label, cliMessage("doctor.not_installed"))
 	}
-}
-
-// doctorProbeEndpoint 执行一次端点连通探测(仅 --net;复用 configToLLMOptions 唯一读密钥)。
-func doctorProbeEndpoint(rep *doctorReport, cfg *config.Config) {
-	opts, keyMissing := configToLLMOptions(cfg)
-	if keyMissing {
-		rep.line(stateFail, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_key_missing", cfg.AI.APIKeyEnv))
-		return
-	}
-	client, err := llm.NewClient(opts)
-	if err != nil {
-		rep.line(stateFail, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_client_failed", err))
-		return
-	}
-
-	timeout := time.Duration(cfg.AI.TimeoutSeconds) * time.Second
-	if cfg.AI.TimeoutSeconds <= 0 {
-		timeout = llm.DefaultTimeout
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	request, err := aiTestProbeRequest()
-	if err != nil {
-		rep.line(stateFail, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_prompt_failed", err))
-		return
-	}
-
-	start := time.Now()
-	_, callErr := client.Complete(
-		ctx,
-		request,
-	)
-	elapsed := time.Since(start).Round(time.Millisecond)
-
-	if callErr != nil {
-		rep.line(stateFail, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_failed", elapsed, callErr))
-		return
-	}
-	rep.line(statePass, cliMessage("doctor.label.endpoint"), cliMessage("doctor.endpoint_succeeded", elapsed))
 }
 
 // doctorExitError 承载 doctor 的退出码,交由 root.go 的 Execute 映射为进程退出码。

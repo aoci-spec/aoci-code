@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -30,21 +29,6 @@ func TestRequireHumanPhraseReturnsExecutableInteractionContractWithoutTTY(t *tes
 		state.Digest != "abc" || state.ConfirmationPhrase != "APPROVE X abc" || state.ExactCommand == "" ||
 		state.ModelSelfApproval || state.FormalWritesStarted {
 		t.Fatalf("unsafe or incomplete interaction state: %#v", state)
-	}
-}
-
-func TestGuideNextActionContractCarriesAgentSchemaAndPreimage(t *testing.T) {
-	guide := &agentGuide{Agent: "codex", Plan: &agentPlan{
-		PlanID: "plan-1", Stage: agentPlanStageEntriesRequired, NextAction: agentPlanActionStageEntries,
-		RepositoryRoot: "/repo", IndexSHA256: strings.Repeat("a", 64),
-	}, Commands: agentGuideCommands{EntriesStage: "'aoci' index agent entries stage", Guide: "'aoci' index agent guide"}}
-	populateAgentNextActionContract(guide)
-	action := guide.NextActionContract
-	if action.Agent != "codex" || action.RequiredParameters["agent"] != "codex" ||
-		action.SchemaVersion != "agent-entries-stage-request/v1" || action.RequestFile == "" ||
-		action.ExpectedPreimage != strings.Repeat("a", 64) || action.PlanOrRunIdentity != "plan-1" ||
-		action.TransportCorrectionLimit != 1 || !action.AutomaticallyRetryable || action.SuccessNextAction == "" {
-		t.Fatalf("incomplete next action contract: %#v", action)
 	}
 }
 

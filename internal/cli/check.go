@@ -40,7 +40,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/internal/draft"
 	"github.com/aoci-spec/aoci-code/internal/indexgen"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -82,12 +81,10 @@ func writeSCoverage(out io.Writer, bands []cognitionbudget.SCoverageBand, highEn
 }
 
 type checkReport struct {
-	OK                      bool                    `json:"ok"`
-	Issues                  []string                `json:"issues"`
-	Score                   *indexgen.Score         `json:"score"`
-	PendingDraftRun         string                  `json:"pending_draft_run,omitempty"`
-	PendingCurationDraftRun string                  `json:"pending_curation_draft_run,omitempty"`
-	LocaleMigration         localeMigrationCoverage `json:"locale_migration"`
+	OK              bool                    `json:"ok"`
+	Issues          []string                `json:"issues"`
+	Score           *indexgen.Score         `json:"score"`
+	LocaleMigration localeMigrationCoverage `json:"locale_migration"`
 }
 
 type volumeCheckReport struct {
@@ -109,19 +106,6 @@ func dimByName(score *indexgen.Score, name string) indexgen.Dimension {
 	}
 
 	return indexgen.Dimension{Name: name}
-}
-
-func pendingDraftRun(root, kind string) string {
-	runID, _ := draft.LatestPendingRun(root, kind)
-	return runID
-}
-
-func pendingEntriesRun(root string) string {
-	return pendingDraftRun(root, draft.KindEntries)
-}
-
-func pendingCurationRun(root string) string {
-	return pendingDraftRun(root, draft.KindCuration)
 }
 
 func init() {
@@ -170,8 +154,8 @@ func runCheckCommand(
 		return &ExitError{Code: ExitInternal, Err: err}
 	}
 
-	pendingEntries := pendingEntriesRun(repoRoot)
-	pendingCuration := pendingCurationRun(repoRoot)
+	// Legacy draft runs ended with the Legacy authoring surfaces (0.2.0); the
+	// report keeps both fields, always empty, so its JSON shape is unchanged.
 
 	formatDimension := dimByName(score, "format")
 	dictDimension := dimByName(score, "dict")
@@ -258,33 +242,11 @@ func runCheckCommand(
 		)
 	}
 
-	if pendingEntries != "" {
-		issues = append(
-			issues,
-			cliMessage(
-				"check.issue_entries_draft",
-				pendingEntries,
-			),
-		)
-	}
-
-	if pendingCuration != "" {
-		issues = append(
-			issues,
-			cliMessage(
-				"check.issue_curation_draft",
-				pendingCuration,
-			),
-		)
-	}
-
 	report := &checkReport{
-		OK:                      len(issues) == 0,
-		Issues:                  issues,
-		Score:                   score,
-		PendingDraftRun:         pendingEntries,
-		PendingCurationDraftRun: pendingCuration,
-		LocaleMigration:         localeCoverage,
+		OK:              len(issues) == 0,
+		Issues:          issues,
+		Score:           score,
+		LocaleMigration: localeCoverage,
 	}
 
 	exitCode := ExitOK

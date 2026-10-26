@@ -13,7 +13,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
-	"github.com/aoci-spec/aoci-code/internal/draft"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/indexgen"
 )
@@ -413,51 +412,5 @@ func TestCheckFileCurationDecisionSemantics(
 				}
 			}
 		})
-	}
-}
-
-func TestCheckPendingCurationDraftBlocks(
-	t *testing.T,
-) {
-	root := buildSingleCurationCheckRepo(
-		t,
-		curation.DecisionExclude,
-	)
-
-	runID, err := draft.NewRun(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := draft.SaveManifest(
-		root,
-		&draft.Manifest{
-			RunID: runID,
-			Kind:  draft.KindCuration,
-		},
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	output, err := runCheck(t, root)
-
-	var exitError *ExitError
-	if !errors.As(err, &exitError) ||
-		exitError.Code != ExitDrift {
-		t.Fatalf(
-			"Curation草稿悬置应阻断check: %v\n%s",
-			err,
-			output,
-		)
-	}
-
-	if !strings.Contains(
-		output,
-		"Curation草稿批次悬置 run "+runID,
-	) {
-		t.Fatalf(
-			"check应显示Curation run_id:\n%s",
-			output,
-		)
 	}
 }

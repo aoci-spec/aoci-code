@@ -1,1 +1,0 @@
-An Entries Stage request file is limited to {{.EntriesMaxBodyBytes}} bytes ({{.EntriesMaxBodyHuman}}) and {{.EntriesMaxEntries}} candidates per batch.

@@ -39,17 +39,6 @@ type databaseMaintainResult struct {
 	NextAction        string                 `json:"next_action"`
 }
 
-type allMaintainResult struct {
-	Version         int                    `json:"version"`
-	Status          string                 `json:"status"`
-	Aligned         bool                   `json:"aligned"`
-	RequestedScope  string                 `json:"requested_scope"`
-	EffectiveScopes []string               `json:"effective_scopes"`
-	Code            autoResult             `json:"code"`
-	Database        databaseMaintainResult `json:"database"`
-	NextAction      string                 `json:"next_action"`
-}
-
 func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	loaded, fail := loadCognitionCtx(root)
 	if input.Intent != "" {
@@ -80,65 +69,17 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 		}
 	}
+	// Not a Volumes v1 layout: a Legacy single-file index, or none. Legacy is
+	// read-only since 0.2.0, so Code maintenance answers the migration; the
+	// Database scope still reads its saved Evidence.
 	switch input.Scope {
-	case "", cognition.ScopeCode:
-		return handleMaintainWithVersion(root, mcpServiceVersion, refreshSession)
+	case "", cognition.ScopeCode, cognition.ScopeAll:
+		return handleLegacyReadOnlyMaintain(root, mcpServiceVersion)
 	case cognition.ScopeDatabase:
 		return handleDatabaseMaintain(root, mcpServiceVersion, input.Scope)
-	case cognition.ScopeAll:
-		return handleAllMaintain(root, mcpServiceVersion, refreshSession)
 	default:
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 	}
-}
-
-func handleAllMaintain(root, mcpServiceVersion string, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
-	codeResult := handleMaintainWithVersion(root, mcpServiceVersion, refreshSession)
-	if codeResult.IsError {
-		return codeResult
-	}
-	databaseResult := handleDatabaseMaintain(root, mcpServiceVersion, cognition.ScopeDatabase)
-	if databaseResult.IsError {
-		return databaseResult
-	}
-	var code autoResult
-	var database databaseMaintainResult
-	if err := decodeMaintainToolResult(codeResult, &code); err != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "code_maintain_result_invalid"})
-	}
-	if err := decodeMaintainToolResult(databaseResult, &database); err != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "database_maintain_result_invalid"})
-	}
-	status := autoStatusApplied
-	if code.Status == autoStatusStopped || database.Status == autoStatusStopped {
-		status = autoStatusStopped
-	} else if code.Status == autoStatusRepairRequired || database.Status == autoStatusRepairRequired {
-		status = autoStatusRepairRequired
-	}
-	result := allMaintainResult{
-		Version: 1, Status: status, Aligned: code.Aligned && database.Aligned,
-		RequestedScope: cognition.ScopeAll, EffectiveScopes: []string{cognition.ScopeCode, cognition.ScopeDatabase},
-		Code: code, Database: database, NextAction: machinecontract.DatabaseCognitionActionReviewAllScopes,
-	}
-	if result.Aligned {
-		result.NextAction = machinecontract.DatabaseCognitionActionNoActionRequired
-	}
-	data, err := json.Marshal(result)
-	if err != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "all_maintain_result_invalid"})
-	}
-	return textResult(string(data) + "\n")
-}
-
-func decodeMaintainToolResult(result *mcp.CallToolResult, target any) error {
-	if result == nil || len(result.Content) != 1 {
-		return json.Unmarshal(nil, target)
-	}
-	content, ok := result.Content[0].(*mcp.TextContent)
-	if !ok {
-		return json.Unmarshal(nil, target)
-	}
-	return json.Unmarshal([]byte(content.Text), target)
 }
 
 func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp.CallToolResult {

@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
-
 	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
@@ -52,26 +50,6 @@ func exitError(diagnostics string, code int) error {
 		return nil
 	}
 	return &ExitError{Code: code, Msg: strings.TrimSpace(diagnostics)}
-}
-
-// runBelowRecoveryGate executes one freshly constructed command from inside
-// root without the root command tree, for the pipeline behaviors the
-// recovery gate keeps off the command line: while a write receipt is pending
-// the gate routes operators to the recovery commands, yet the apply pipeline
-// itself must still recover an identical replay. The repository root comes
-// from the working directory, so no package flag is touched, and the
-// directory is restored when the test ends.
-func runBelowRecoveryGate(t *testing.T, root string, command *cobra.Command, args ...string) (string, error) {
-	t.Helper()
-	t.Chdir(root)
-	command.SilenceUsage = true
-	command.SilenceErrors = true
-	var output bytes.Buffer
-	command.SetOut(&output)
-	command.SetErr(&output)
-	command.SetArgs(args)
-	err := command.Execute()
-	return output.String(), err
 }
 
 // runCLIPrinted is runCLI with the process stdout captured as well and

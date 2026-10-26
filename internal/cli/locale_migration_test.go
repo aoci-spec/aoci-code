@@ -1,302 +1,15 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
-	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
-
-func TestLocaleMigrationBlocksAlignmentAcrossHeaderEntriesAndCuration(t *testing.T) {
-	root := t.TempDir()
-	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
-	agentPlanWriteFile(t, root, "keep.go", "package main\n")
-	agentPlanWriteFile(t, root, "empty.bin", "")
-	indexText := "#Locale: zh-CN\n" + agentPlanHeader(true) +
-		"\n===代码索引" + rootSlash + "/===\n" +
-		"aoci.txt[XRT9T]: F:索引本体 | R:- | A:- | S:-\n" +
-		"keep.go[XAP7T]: F:对齐文件 | R:- | A:- | S:-\n"
-	agentPlanWriteFile(t, root, "aoci.txt", indexText)
-
-	profile, err := curation.ProfilePath(root, "empty.bin")
-	if err != nil {
-		t.Fatal(err)
-	}
-	curationDocument := curation.NewDocument()
-	curationDocument.Decisions = []curation.Decision{{
-		Path:         "empty.bin",
-		Decision:     curation.DecisionExclude,
-		Role:         "空占位文件",
-		Reason:       "不承载运行语义",
-		Confidence:   100,
-		SourceSHA256: profile.SourceSHA256,
-		Agent:        "locale-test",
-		UpdatedAt:    time.Now().UTC().Format(time.RFC3339),
-	}}
-	if err := curation.Save(root, curationDocument); err != nil {
-		t.Fatal(err)
-	}
-	cfg := config.DefaultConfig()
-	cfg.Locale = textassets.LegacyLocale
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	saveCurrentBaseline(t, root, cfg)
-
-	if err := prepareLocaleChange(root, cfg, textassets.DefaultLocale); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	assertMigrationReceipt(t, cfg.LocaleMigration, true, []string{"aoci.txt", "keep.go"}, []string{"empty.bin"})
-	assertLocalePlanStage(t, root, agentPlanStageHeaderRequired)
-
-	englishIndex := strings.Replace(indexText, "#Locale: zh-CN", "#Locale: en-US", 1)
-	englishIndex = strings.ReplaceAll(englishIndex, "#A层级:", "#A Layer:")
-	englishIndex = strings.ReplaceAll(englishIndex, "#B模块:", "#B Module:")
-	englishIndex = strings.ReplaceAll(englishIndex, "#C重要度:", "#C Importance:")
-	englishIndex = strings.ReplaceAll(englishIndex, "#E规模:", "#E Scale:")
-	agentPlanWriteFile(t, root, "aoci.txt", englishIndex)
-	if err := config.AdvanceLocaleMigration(root, true, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err = config.LoadBase(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	saveCurrentBaseline(t, root, cfg)
-	assertLocalePlanStage(t, root, agentPlanStageEntriesRequired)
-
-	englishIndex = strings.Replace(englishIndex,
-		"F:索引本体 | R:- | A:- | S:-",
-		"F:Stores the formal cognition index | R:- | A:- | S:-", 1)
-	englishIndex = strings.Replace(englishIndex,
-		"F:对齐文件 | R:- | A:- | S:-",
-		"F:Defines the aligned sample | R:- | A:- | S:-", 1)
-	agentPlanWriteFile(t, root, "aoci.txt", englishIndex)
-	if err := config.AdvanceLocaleMigration(root, false, []string{"aoci.txt", "keep.go"}, nil); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err = config.LoadBase(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	saveCurrentBaseline(t, root, cfg)
-	assertLocalePlanStage(t, root, agentPlanStageCurationRequired)
-
-	curationDocument.Decisions[0].Role = "Empty placeholder"
-	curationDocument.Decisions[0].Reason = "Carries no repository semantics"
-	curationDocument.Decisions[0].UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-	if err := curation.Save(root, curationDocument); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.AdvanceLocaleMigration(root, false, nil, []string{"empty.bin"}); err != nil {
-		t.Fatal(err)
-	}
-	assertLocalePlanStage(t, root, agentPlanStageAligned)
-
-	cfg, err = config.LoadBase(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := prepareLocaleChange(root, cfg, textassets.LegacyLocale); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	assertLocalePlanStage(t, root, agentPlanStageHeaderRequired)
-}
-
-func saveCurrentBaseline(t *testing.T, root string, cfg *config.Config) {
-	t.Helper()
-	snapshot, _, err := baseline.Snapshot(root, cfg.WalkOptions())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func assertLocalePlanStage(t *testing.T, root, expected string) {
-	t.Helper()
-	cfg, err := config.Load(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(root, cfg.IndexPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	document, _ := index.Parse(string(data))
-	index.ResolveRelPaths(document, root)
-	plan, err := buildAgentPlan(root, cfg, document, filepath.Join(root, cfg.IndexPath))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plan.Stage != expected {
-		t.Fatalf("locale migration plan stage = %s, want %s: %+v", plan.Stage, expected, plan)
-	}
-}
-
-func assertMigrationReceipt(t *testing.T, receipt *config.LocaleMigration, header bool, entries, curationPaths []string) {
-	t.Helper()
-	if receipt == nil || receipt.HeaderPending != header ||
-		strings.Join(receipt.EntryPaths, ",") != strings.Join(entries, ",") ||
-		strings.Join(receipt.CurationPaths, ",") != strings.Join(curationPaths, ",") {
-		t.Fatalf("unexpected locale migration receipt: %+v", receipt)
-	}
-}
-
-func TestOfficialRepositoryLocaleInventoryHas827EntriesAndFiveGovernanceTargets(t *testing.T) {
-	root := t.TempDir()
-	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
-	var body strings.Builder
-	body.WriteString("legacy header\n===源码仓" + rootSlash + "/===\n")
-	governance := []string{
-		".aoci/baseline.json",
-		".aoci/config.json",
-		".aoci/ledger.jsonl",
-		".aoci/reports.jsonl",
-		".aoci/verify_history",
-	}
-	for _, relPath := range governance {
-		fmt.Fprintf(&body, "%s[XRT9T]: F:机器治理资产 | R:- | A:- | S:-\n", relPath)
-	}
-	for position := 0; position < 822; position++ {
-		fmt.Fprintf(&body, "src/file-%03d.go[XRT9T]: F:源码语义 | R:- | A:API%d | S:-\n", position, position)
-	}
-	if err := os.WriteFile(filepath.Join(root, "aoci.txt"), []byte(body.String()), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg := config.DefaultConfig()
-	cfg.Locale = textassets.LegacyLocale
-	if err := prepareLocaleChange(root, cfg, textassets.DefaultLocale); err != nil {
-		t.Fatal(err)
-	}
-	receipt := cfg.LocaleMigration
-	if receipt == nil || receipt.EntryTotal != 822 || receipt.GovernanceEntryTotal != 5 ||
-		len(receipt.EntryPaths) != 822 || len(receipt.GovernanceEntryPaths) != 5 {
-		t.Fatalf("827/5 inventory was not classified deterministically: %+v", receipt)
-	}
-	coverage := buildLocaleMigrationCoverage(cfg)
-	if coverage.OrdinaryEntries.Total != 822 || coverage.GovernanceEntries.Total != 5 ||
-		coverage.Header.Pending != 1 || coverage.ManagedIndexText.Pending == 0 ||
-		coverage.AgentsManagedBlock.Pending != 1 {
-		t.Fatalf("unexpected migration coverage: %+v", coverage)
-	}
-}
-
-func TestLocaleManagedIndexCandidateReclassifiesGovernanceWithoutVolatileEvidence(t *testing.T) {
-	root := t.TempDir()
-	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
-	oldHeader := "#Locale: zh-CN\n" + agentPlanHeader(true)
-	newHeader := strings.NewReplacer(
-		"#Locale: zh-CN", "#Locale: en-US",
-		"#A层级:", "#A Layer:",
-		"#B模块:", "#B Module:",
-		"#C重要度:", "#C Importance:",
-		"#E规模:", "#E Scale:",
-	).Replace(oldHeader)
-	ordinary := "keep.go[XAP7T]: F:保留到源码绑定阶段 | R:中文专有名词 | A:KeepAPI | S:-"
-	governance := ".aoci/ledger.jsonl[XRT9T]: F:易变台账 | R:- | A:- | S:-"
-	current := oldHeader + "\n===中文目录标签" + rootSlash + "/===\n" + ordinary + "\n" + governance + "\n#中文索引说明\n"
-	candidate := newHeader + "\n===English directory label" + rootSlash + "/===\n" + ordinary + "\n#English index explanation\n"
-	doc, _ := index.Parse(current)
-	index.ResolveRelPaths(doc, root)
-	migration := &config.LocaleMigration{
-		Version: 2, FromLocale: textassets.LegacyLocale, ToLocale: textassets.DefaultLocale,
-		HeaderPending: true, HeaderTotal: 1,
-		EntryPaths: []string{"keep.go"}, EntryTotal: 1,
-		GovernanceEntryPaths: []string{".aoci/ledger.jsonl"}, GovernanceEntryTotal: 1,
-		ManagedIndexTextPending: true, ManagedIndexTextTotal: countManagedIndexTextTargets(doc),
-		AgentsManagedBlockPending: true, AgentsManagedBlockTotal: 1,
-	}
-	summary, err := validateLocaleIndexCandidate(current, candidate, root, textassets.DefaultLocale, migration)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if summary.OrdinaryEntries != 1 || summary.GovernanceEntries != 1 || summary.ManagedText != 2 {
-		t.Fatalf("unexpected candidate summary: %+v", summary)
-	}
-	if !strings.Contains(candidate, "中文专有名词") || !strings.Contains(candidate, "KeepAPI") {
-		t.Fatal("protected project name or API was translated")
-	}
-
-	changedOrdinary := strings.Replace(candidate, ordinary,
-		"keep.go[XAP7T]: F:translated too early | R:中文专有名词 | A:KeepAPI | S:-", 1)
-	if _, err := validateLocaleIndexCandidate(current, changedOrdinary, root, textassets.DefaultLocale, migration); err == nil ||
-		!strings.Contains(err.Error(), "keep.go") {
-		t.Fatalf("ordinary Entry mutation was not rejected: %v", err)
-	}
-	retainedGovernance := strings.Replace(candidate, ordinary+"\n", ordinary+"\n"+governance+"\n", 1)
-	if _, err := validateLocaleIndexCandidate(current, retainedGovernance, root, textassets.DefaultLocale, migration); err == nil ||
-		!strings.Contains(err.Error(), ".aoci/ledger.jsonl") {
-		t.Fatalf("governance Entry retention was not rejected: %v", err)
-	}
-}
-
-func TestLocaleHeaderStageManagedSurfaceErrorIsBilingual(t *testing.T) {
-	root := buildAgentPlanMixedRepo(t, false, true)
-	cfg, _, _ := agentPlanLoadDocument(t, root)
-	if err := prepareLocaleChange(root, cfg, textassets.DefaultLocale); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	cfg, document, indexPath := agentPlanLoadDocument(t, root)
-	plan, err := buildAgentPlan(root, cfg, document, indexPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plan.Stage != agentPlanStageHeaderRequired {
-		t.Fatalf("migration plan stage=%s, want %s", plan.Stage, agentPlanStageHeaderRequired)
-	}
-	previous := textassets.ActiveLocale()
-	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
-	for _, current := range []struct {
-		locale  string
-		anchors []string
-	}{
-		{textassets.DefaultLocale, []string{"requires managed_index_text", "Header", "directory metadata", "governance Entry reclassification"}},
-		{textassets.LegacyLocale, []string{"必须提供managed_index_text", "Header", "目录元数据", "治理Entry重分类"}},
-	} {
-		if err := textassets.SetActiveLocale(current.locale); err != nil {
-			t.Fatal(err)
-		}
-		localizedPlan, planErr := buildAgentPlan(root, cfg, document, indexPath)
-		if planErr != nil {
-			t.Fatal(planErr)
-		}
-		request := agentHeaderStageRequest{
-			Version: agentHeaderStageVersion,
-			PlanID:  localizedPlan.PlanID,
-			Agent:   "codex",
-			Header:  "#Locale: en-US\n#A Layer: X-Source\n#B Module: Y-Core\n",
-		}
-		_, stageErr := stageAgentHeader(root, cfg, document, indexPath, request)
-		if stageErr == nil {
-			t.Fatalf("%s accepted Locale migration Header without managed_index_text", current.locale)
-		}
-		for _, anchor := range current.anchors {
-			if !strings.Contains(stageErr.Error(), anchor) {
-				t.Errorf("%s Header Stage error is missing %q: %v", current.locale, anchor, stageErr)
-			}
-		}
-	}
-}
 
 func TestLocaleProtectedAndHostErrorsAreBilingual(t *testing.T) {
 	previous := textassets.ActiveLocale()
@@ -364,81 +77,19 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 	}
 }
 
-func TestHeaderCompletionClearsAllHeaderSurfacesButKeepsOrdinaryEntryReceipt(t *testing.T) {
-	root := t.TempDir()
-	cfg := config.DefaultConfig()
-	cfg.Locale = textassets.DefaultLocale
-	cfg.LocaleMigration = &config.LocaleMigration{
-		Version: 2, FromLocale: textassets.LegacyLocale, ToLocale: textassets.DefaultLocale,
-		HeaderPending: true, HeaderTotal: 1,
-		EntryPaths: []string{"keep.go"}, EntryTotal: 1,
-		GovernanceEntryPaths: []string{".aoci/verify_history"}, GovernanceEntryTotal: 1,
-		ManagedIndexTextPending: true, ManagedIndexTextTotal: 4,
-		AgentsManagedBlockPending: true, AgentsManagedBlockTotal: 1,
-	}
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.AdvanceLocaleMigration(root, true, nil, nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := config.AdvanceLocaleMigration(root, true, nil, nil); err != nil {
-		t.Fatalf("repeated Header completion must be idempotent: %v", err)
-	}
-	loaded, err := config.LoadBase(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	receipt := loaded.LocaleMigration
-	if receipt == nil || receipt.HeaderPending || receipt.ManagedIndexTextPending ||
-		receipt.AgentsManagedBlockPending || len(receipt.GovernanceEntryPaths) != 0 ||
-		strings.Join(receipt.EntryPaths, ",") != "keep.go" {
-		t.Fatalf("header completion did not advance exact surfaces: %+v", receipt)
-	}
-	coverage := buildLocaleMigrationCoverage(loaded)
-	if coverage.OrdinaryEntries.Pending != 1 || coverage.GovernanceEntries.Pending != 0 ||
-		coverage.Header.Pending != 0 || coverage.ManagedIndexText.Pending != 0 {
-		t.Fatalf("unexpected post-Header coverage: %+v", coverage)
-	}
-}
-
-func TestManagedIndexCandidateSupportsEnglishToChinese(t *testing.T) {
-	root := t.TempDir()
-	rootSlash := strings.TrimRight(filepath.ToSlash(root), "/")
-	englishHeader := "#Locale: en-US\n" + strings.NewReplacer(
-		"#A层级:", "#A Layer:",
-		"#B模块:", "#B Module:",
-		"#C重要度:", "#C Importance:",
-		"#E规模:", "#E Scale:",
-	).Replace(agentPlanHeader(true))
-	chineseHeader := "#Locale: zh-CN\n" + agentPlanHeader(true)
-	ordinary := "keep.go[XAP7T]: F:Keep semantics until Entries stage | R:ProjectName | A:KeepAPI | S:-"
-	governance := ".aoci/reports.jsonl[XRT9T]: F:machine report stream | R:- | A:- | S:-"
-	current := englishHeader + "\n===Configuration " + rootSlash + "/===\n" + ordinary + "\n" + governance + "\n#Index note\n"
-	candidate := chineseHeader + "\n===配置 " + rootSlash + "/===\n" + ordinary + "\n#索引说明\n"
-	document, _ := index.Parse(current)
-	index.ResolveRelPaths(document, root)
-	migration := &config.LocaleMigration{
-		Version: 2, FromLocale: textassets.DefaultLocale, ToLocale: textassets.LegacyLocale,
-		HeaderPending: true, HeaderTotal: 1,
-		EntryPaths: []string{"keep.go"}, EntryTotal: 1,
-		GovernanceEntryPaths: []string{".aoci/reports.jsonl"}, GovernanceEntryTotal: 1,
-		ManagedIndexTextPending: true, ManagedIndexTextTotal: countManagedIndexTextTargets(document),
-		AgentsManagedBlockPending: true, AgentsManagedBlockTotal: 1,
-	}
-	if _, err := validateLocaleIndexCandidate(current, candidate, root, textassets.LegacyLocale, migration); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestCheckFailsWhileAnyLocaleManagedSurfaceIsPending(t *testing.T) {
 	root := buildUpdateRepo(t)
 	cfg, err := config.LoadBase(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := prepareLocaleChange(root, cfg, textassets.DefaultLocale); err != nil {
-		t.Fatal(err)
+	// A receipt an earlier release minted: 0.2.0 no longer mints one (the
+	// stage pipeline that completed it is retired) but still reports it.
+	cfg.Locale = textassets.DefaultLocale
+	cfg.LocaleMigration = &config.LocaleMigration{
+		Version: 2, FromLocale: textassets.LegacyLocale, ToLocale: textassets.DefaultLocale,
+		HeaderPending: true, HeaderTotal: 1, EntryPaths: []string{"a.go"}, EntryTotal: 1,
+		AgentsManagedBlockPending: true, AgentsManagedBlockTotal: 1,
 	}
 	if err := config.Save(root, cfg); err != nil {
 		t.Fatal(err)
@@ -540,5 +191,32 @@ func TestLocaleMigrationChangesOnlyAgentsManagedBlock(t *testing.T) {
 	managed := text[begin : end+len("<!-- aoci:end -->")]
 	if hanTextPattern.MatchString(managed) {
 		t.Fatalf("en-US managed AGENTS block still contains unexpected Han text:\n%s", managed)
+	}
+}
+
+// Since 0.2.0 a Legacy index keeps the Locale it was written in: the stage
+// pipeline that re-authored it is retired, so a different target Locale is
+// refused with a bilingual-safe message, the same Locale is a no-op, and a
+// repository without an index simply takes the new Locale.
+func TestLegacyLocaleChangeIsRefusedOnceAnIndexExists(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.DefaultConfig()
+	if err := prepareLocaleChange(root, cfg, textassets.DefaultLocale); err != nil {
+		t.Fatalf("a repository without an index must take the new Locale: %v", err)
+	}
+	if cfg.Locale != textassets.DefaultLocale || cfg.LocaleMigration != nil {
+		t.Fatalf("locale not set or a migration receipt was minted: %#v", cfg)
+	}
+	index := "#AOCI-LOCALE: zh-CN\n#头\n===段 /repo/===\nf.go[XC5T]: F:x | R:- | A:- | S:-\n"
+	if err := os.WriteFile(filepath.Join(root, cfg.IndexPath), []byte(index), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Locale = textassets.LegacyLocale
+	if err := prepareLocaleChange(root, cfg, textassets.LegacyLocale); err != nil || cfg.LocaleMigration != nil {
+		t.Fatalf("the same Locale must be a no-op: err=%v receipt=%#v", err, cfg.LocaleMigration)
+	}
+	err := prepareLocaleChange(root, cfg, textassets.DefaultLocale)
+	if err == nil || !strings.Contains(err.Error(), "0.2.0") || cfg.LocaleMigration != nil || cfg.Locale != textassets.LegacyLocale {
+		t.Fatalf("a Legacy index must refuse a new Locale without minting a receipt: err=%v cfg=%#v", err, cfg)
 	}
 }

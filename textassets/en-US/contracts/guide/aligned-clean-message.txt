@@ -1,1 +1,0 @@
-The repository, AOCI index, and Baseline are fully aligned across all four raw states.

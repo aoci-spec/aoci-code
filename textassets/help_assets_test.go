@@ -13,7 +13,6 @@ func TestCLIHelpAssetsRenderWithoutTrailingNewline(
 		ContractHelpRootLong,
 		ContractHelpDoctorLong,
 		ContractHelpIndexLong,
-		ContractHelpIndexUpdateLong,
 		ContractHelpVerifyLong,
 		ContractHelpCheckLong,
 		ContractHelpReadObservationAudit,
@@ -103,15 +102,6 @@ func TestCLIHelpAssetsKeepStableContracts(
 			},
 		},
 		{
-			id: ContractHelpIndexUpdateLong,
-			anchors: []string{
-				"curation_excluded:",
-				"pending_curation:",
-				"CRLF/LF",
-				"--dry-run",
-			},
-		},
-		{
 			id: ContractHelpVerifyLong,
 			anchors: []string{
 				"Result.Missing",
@@ -158,9 +148,9 @@ func TestCLIHelpAssetsKeepStableContracts(
 		{
 			id: ContractHelpRemoveEntryLong,
 			anchors: []string{
-				"aoci index update",
+				"aoci_maintain",
 				"deleted",
-				"Missing",
+				"orphan",
 				"verify",
 				"--preview",
 			},

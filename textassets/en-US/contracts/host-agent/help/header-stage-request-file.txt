@@ -1,1 +1,0 @@
-Read a host-Agent Header candidate from a plain UTF-8 JSON file; maximum {{.HeaderMaxBodyBytes}} bytes (recommended on Windows)

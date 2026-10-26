@@ -27,7 +27,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
-	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
@@ -253,128 +252,12 @@ func planUpdateEntriesAtomic(
 			Repairable: true,
 		}
 	}
-	var initialContext *repoCtx
-	var changeEnvelope *cognitionChangeEnvelope
+	// A Legacy single-file layout is read-only since 0.2.0: its authoring
+	// surfaces are retired, and the one next step is the migration to Volumes.
 	if loaded.set.LayoutMode == cognition.LayoutLegacyMonolithic {
-		for _, item := range normalized {
-			if item.objectRef != "" {
-				return nil, &Fail{Code: errBadArgs, Msg: writeMessage("entry.batch.path_invalid", 1, item.objectRef, "Legacy updates require repository-relative paths")}
-			}
-		}
-		initialContext = loaded.legacyRepo()
-	} else {
-		return planCognitionVolumeUpdates(root, loaded, normalized, start)
+		return nil, legacyReadOnlyFail()
 	}
-
-	workingText := initialContext.text
-	workingDocument := initialContext.doc
-	outcomes := make([]*UpdateOutcome, 0, len(normalized))
-	rels := make([]string, 0, len(normalized))
-	indexSourceMismatch := false
-	managedWriteState, targetFail := loadManagedWriteState(root, initialContext)
-	if targetFail != nil {
-		return nil, targetFail
-	}
-
-	for itemIndex, item := range normalized {
-		if targetFail := validateManagedEntryTarget(managedWriteState, item.rel); targetFail != nil {
-			return nil, targetFail
-		}
-		if item.sourceSHA256 != "" {
-			current, hashErr := baseline.HashFile(filepath.Join(
-				root,
-				filepath.FromSlash(item.rel),
-			))
-			if hashErr != nil {
-				return nil, &Fail{
-					Code: errInternal,
-					Msg:  writeMessage("entry.batch.source_hash_failed", item.rel, localeSafeWriteDetail(hashErr.Error())),
-				}
-			}
-			if current.SHA256 != item.sourceSHA256 {
-				if item.rel == initialContext.cfg.IndexPath {
-					indexSourceMismatch = true
-				} else {
-					return nil, &Fail{
-						Code: errWriteConflict,
-						Msg:  writeMessage("entry.batch.source_cas_conflict", item.rel),
-						Hint: writeMessage("entry.batch.hint.refresh_binding"),
-					}
-				}
-			}
-		}
-		workingContext := *initialContext
-		workingContext.text = workingText
-		workingContext.doc = workingDocument
-
-		outcome, nextText, itemFail := prepareUpdateEntry(
-			root,
-			item.rel,
-			item.newEntry,
-			&workingContext,
-		)
-		if itemFail != nil {
-			for findingIndex := range itemFail.Findings {
-				if itemFail.Findings[findingIndex].CandidateIndex == 0 {
-					itemFail.Findings[findingIndex].CandidateIndex = item.originalCandidateIndex
-				}
-			}
-			itemFail.Msg = writeMessage(
-				"entry.batch.item_plan_failed",
-				itemIndex+1,
-				len(normalized),
-				item.rel,
-				itemFail.Msg,
-			)
-			return nil, itemFail
-		}
-
-		nextDocument, _ := index.Parse(nextText)
-		if nextDocument == nil || len(nextDocument.Sections) == 0 {
-			return nil, &Fail{
-				Code: errInternal,
-				Msg:  writeMessage("entry.batch.reparse_failed", itemIndex+1),
-				Hint: writeMessage("entry.batch.hint.inspect_structure"),
-			}
-		}
-		index.ResolveRelPaths(nextDocument, root)
-		if changeEnvelope != nil {
-			if findings := cognition.ValidateProjectedCodeVolume(
-				loaded.set,
-				[]byte(nextText),
-			); len(findings) > 0 {
-				return nil, &Fail{
-					Code: errImpactResolutionFailed,
-					Msg: writeMessage(
-						"entry.volume.projected_invalid",
-						findings[0].Code,
-					),
-					Hint: writeMessage("entry.volume.hint.regenerate_candidate"),
-				}
-			}
-		}
-
-		outcomes = append(outcomes, outcome)
-		rels = append(rels, item.rel)
-		workingText = nextText
-		workingDocument = nextDocument
-	}
-	if budgetFail := validateProjectedEntryBudget(root, initialContext, workingText); budgetFail != nil {
-		return nil, budgetFail
-	}
-
-	return &atomicBatchPlan{
-		outcomes:            outcomes,
-		finalText:           workingText,
-		rels:                rels,
-		normalizedItems:     normalized,
-		rc:                  initialContext,
-		indexHash:           indexTextHash(initialContext.text),
-		indexSourceMismatch: indexSourceMismatch,
-		changeEnvelope:      changeEnvelope,
-		batchKey:            atomicBatchKey(normalized),
-		start:               start,
-	}, nil
+	return planCognitionVolumeUpdates(root, loaded, normalized, start)
 }
 
 // commitAtomicBatch 在一个写锁临界区内执行一次 CAS 和一次 AtomicWrite。

@@ -211,8 +211,6 @@ var requiredReportMessages = map[string][]any{
 	"report.path_rejected":                     {"path", "detail"},
 	"report.hint.relative_path":                nil,
 	"report.note_empty":                        nil,
-	"report.write_failed":                      {"detail"},
-	"report.recorded":                          {"path", "note", 1},
 	"ledger.localized_detail_unavailable":      nil,
 	"ledger.localized_detail_with_facts":       {"facts"},
 	"ledger.marshal_failed":                    {"detail"},
@@ -394,62 +392,6 @@ type updateEntryItemIn struct {
 	SourceSHA256 string `json:"source_sha256,omitempty"`
 	CandidateID  string `json:"candidate_id,omitempty"`
 	BatchID      string `json:"-"`
-}
-
-func ApplyUpdateEntry(
-	root,
-	rawPath,
-	rawEntry,
-	source string,
-	dryRun bool,
-) (*UpdateOutcome, *Fail) {
-	start := time.Now()
-
-	plan, fail := planUpdateEntry(
-		root,
-		rawPath,
-		rawEntry,
-	)
-	if fail != nil {
-		if !dryRun {
-			appendWriteFailEvent(
-				root,
-				"update_entry",
-				source,
-				fail.Code,
-				start,
-			)
-		}
-
-		return nil, fail
-	}
-
-	plan.out.DryRun = dryRun
-
-	if dryRun {
-		plan.out.BaselineNote =
-			writeMessage("entry.write.preview_note")
-
-		return plan.out, nil
-	}
-
-	if fail := commitPlan(
-		root,
-		source,
-		plan,
-	); fail != nil {
-		appendWriteFailEvent(
-			root,
-			"update_entry",
-			source,
-			fail.Code,
-			start,
-		)
-
-		return nil, fail
-	}
-
-	return plan.out, nil
 }
 
 func RenderOutcome(

@@ -12,7 +12,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -180,4 +182,17 @@ func exitCodeForFail(code string) int {
 	default:
 		return ExitConfig // 3: 参数/路径/冲突/未初始化等前置条件问题
 	}
+}
+
+// validEntrySourceSHA256 accepts only a complete lower-case raw SHA-256.
+func validEntrySourceSHA256(value string) bool {
+	return len(value) == 64 && strings.Trim(value, "0123456789abcdef") == ""
+}
+
+const entriesAutoStatusRepairRequired = machinecontract.AutoStatusRepairRequired
+
+func writeEntriesJSON(writer io.Writer, value any) error {
+	encoder := json.NewEncoder(writer)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(value)
 }

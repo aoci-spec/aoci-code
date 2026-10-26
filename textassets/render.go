@@ -7,14 +7,6 @@ import (
 	"text/template"
 )
 
-const (
-	// PromptHeaderUser injects repository facts into the Header drafting request.
-	PromptHeaderUser ID = "prompts/header-user"
-
-	// PromptEntryUser injects one target file and its evidence into an Entry request.
-	PromptEntryUser ID = "prompts/entry-user"
-)
-
 // Render executes one embedded asset as a strict text/template.
 //
 // The asset source is loaded through the same locale and manifest checks as Load.

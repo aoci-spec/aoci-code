@@ -82,7 +82,7 @@ jobs:
       - name: CAS, Recovery, Migration, Scope, and Database safety
         run: |
           go test -short -count=1 ./internal/fs ./internal/baseline ./internal/bootstrapapply ./internal/migrationapply ./internal/scopechange ./internal/dbevidence ./internal/dbcognition ./internal/onboarding
-          go test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestAlignedCleanGuideMatchesGoldenByteForByte|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestEntriesAutoCleanupFailureRetryOnlyCompletesRecovery|TestHeaderApplyKeepsRecoveryWhenCASWritesThenReturnsError|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt|TestAgentPlanIDIgnoresOnlyVolatileExcludedRuntimeCounts)$' ./internal/cli
+          go test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt)$' ./internal/cli
       - name: timing
         if: always()
         run: echo "lifecycle-smoke_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"

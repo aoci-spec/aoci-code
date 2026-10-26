@@ -15,9 +15,6 @@ const (
 	// ContractHelpIndexLong说明Index命令组的各治理工序。
 	ContractHelpIndexLong ID = "contracts/help/index-long"
 
-	// ContractHelpIndexUpdateLong说明Update的漂移分类与零外发边界。
-	ContractHelpIndexUpdateLong ID = "contracts/help/index-update-long"
-
 	// ContractHelpVerifyLong说明Verify原始事实、治理债务与退出码。
 	ContractHelpVerifyLong ID = "contracts/help/verify-long"
 

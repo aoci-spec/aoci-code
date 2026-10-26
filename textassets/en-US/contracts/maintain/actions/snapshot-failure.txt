@@ -1,1 +1,0 @@
-Check that the repository directories are readable, then retry

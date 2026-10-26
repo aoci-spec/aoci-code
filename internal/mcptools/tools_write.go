@@ -16,7 +16,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/textassets"
 	"os"
 	"path"
@@ -33,7 +32,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
-	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
 
 // UpdateOutcome是一条目标的规划或应用结果。
@@ -46,19 +44,6 @@ type UpdateOutcome struct {
 	DryRun       bool
 }
 
-type planResult struct {
-	out       *UpdateOutcome
-	newText   string
-	rc        *repoCtx
-	indexHash string
-	start     time.Time
-}
-
-var (
-	writeSingleIndex   = afs.AtomicWriteCAS
-	saveSingleBaseline = baseline.SaveUnderIndexLock
-)
-
 func indexTextHash(
 	text string,
 ) string {
@@ -69,23 +54,6 @@ func indexTextHash(
 	return hex.EncodeToString(
 		sum[:],
 	)
-}
-
-// resultForFailCode把Fail.Code映射为Ledger终态分类。
-func resultForFailCode(
-	code string,
-) string {
-	switch code {
-	case errBadArgs,
-		errPathUnsafe:
-		return ledger.ResultRejected
-
-	case errWriteConflict:
-		return ledger.ResultConflict
-
-	default:
-		return ledger.ResultError
-	}
 }
 
 // appendWriteFailEvent记录失败路径；配置加载失败时静默跳过。
@@ -396,317 +364,11 @@ func renderEntryWriteDiff(oldLine, newLine string) string {
 	)
 }
 
-func planUpdateEntry(
-	root,
-	rawPath,
-	rawEntry string,
-) (*planResult, *Fail) {
-	start := time.Now()
-	if fail := validateEntryWriteMessages(); fail != nil {
-		return nil, fail
-	}
-
-	rel, err := afs.NormalizeRelPath(
-		rawPath,
-	)
-	if err != nil {
-		return nil, &Fail{
-			Code: errPathUnsafe,
-			Msg:  writeMessage("entry.write.path_rejected", rawPath, localizeRelPathError(err)),
-			Hint: writeMessage("entry.write.hint.relative_path"),
-		}
-	}
-
-	rc, fail := loadRepoCtx(
-		root,
-	)
-	if fail != nil {
-		return nil, fail
-	}
-	managedWriteState, targetFail := loadManagedWriteState(root, rc)
-	if targetFail != nil {
-		return nil, targetFail
-	}
-	if targetFail := validateManagedEntryTarget(managedWriteState, rel); targetFail != nil {
-		return nil, targetFail
-	}
-	outcome, newText, fail :=
-		prepareUpdateEntry(
-			root,
-			rel,
-			rawEntry,
-			rc,
-		)
-
-	if fail != nil {
-		return nil, fail
-	}
-	if budgetFail := validateProjectedEntryBudget(root, rc, newText); budgetFail != nil {
-		return nil, budgetFail
-	}
-
-	return &planResult{
-		out:       outcome,
-		newText:   newText,
-		rc:        rc,
-		indexHash: indexTextHash(rc.text),
-		start:     start,
-	}, nil
-}
-
-func loadManagedWriteState(root string, rc *repoCtx) (*managedstate.State, *Fail) {
-	if rc == nil || rc.cfg == nil || (rc.cfg.ManagedScope == nil && rc.cfg.CognitionBudget == nil) {
-		return nil, nil
-	}
-	state, err := managedstate.Load(root, rc.cfg)
-	if err != nil {
-		return nil, &Fail{Code: errCandidateInvalid, Msg: "managed_scope_state_invalid: " + localeSafeWriteDetail(err.Error())}
-	}
-	return state, nil
-}
-
-func validateManagedEntryTarget(state *managedstate.State, rel string) *Fail {
-	if state == nil {
-		return nil
-	}
-	if state.ScopeChangeRequired {
-		return &Fail{Code: errCandidateInvalid, Msg: "scope_change_required"}
-	}
-	if state.Legacy || state.Evaluation == nil {
-		return nil
-	}
-	for _, item := range state.Evaluation.Index {
-		if item.Path == rel {
-			return nil
-		}
-	}
-	return &Fail{Code: errCandidateInvalid, Msg: "managed_scope_target_not_index: " + rel}
-}
-
 func asManagedIndexFingerprint(state *baseline.Baseline, fingerprint baseline.Fingerprint) baseline.Fingerprint {
 	if state != nil && state.ManagedScope != nil {
 		fingerprint.Role = machinecontract.ScopeRoleIndex
 	}
 	return fingerprint
-}
-
-func validateProjectedEntryBudget(root string, rc *repoCtx, projected string) *Fail {
-	if rc == nil || rc.cfg == nil || rc.cfg.CognitionBudget == nil {
-		return nil
-	}
-	policy := rc.cfg.EffectiveCognitionBudget()
-	projection, err := cognitionbudget.ValidateProjected(root, []byte(rc.text), []byte(projected), policy)
-	if err != nil {
-		return &Fail{Code: errCandidateInvalid, Msg: writeMessage("entry.write.budget_projection_failed", localeSafeWriteDetail(err.Error())),
-			Hint: writeMessage("entry.write.hint.budget_reauthor")}
-	}
-	wholeExceeded := projection.ProjectedWholeIndexTokens > projection.MaxTokens
-	if !wholeExceeded && (policy.Mode != machinecontract.BudgetModeEnforce || projection.Allowed) {
-		return nil
-	}
-	detail, _ := json.Marshal(projection)
-	code := "whole_index_budget_exceeded"
-	if !wholeExceeded && len(projection.Violations) > 0 {
-		code = projection.Violations[0].Code
-	}
-	return &Fail{Code: errCandidateInvalid, Msg: writeMessage("entry.write.budget_failed", code, string(detail)),
-		Hint: writeMessage("entry.write.hint.budget_reauthor")}
-}
-
-func commitPlan(
-	root,
-	source string,
-	plan *planResult,
-) *Fail {
-	lock, lockErr := afs.AcquireIndexLock(
-		root,
-	)
-
-	if lockErr != nil {
-		if errors.Is(
-			lockErr,
-			afs.ErrLockTimeout,
-		) {
-			return &Fail{
-				Code: errWriteConflict,
-				Msg:  writeMessage("entry.write.lock_timeout", localeSafeWriteDetail(lockErr.Error())),
-				Hint: writeMessage("entry.write.hint.lock_timeout"),
-			}
-		}
-
-		return &Fail{
-			Code: errInternal,
-			Msg:  writeMessage("entry.write.lock_failed", localeSafeWriteDetail(lockErr.Error())),
-			Hint: writeMessage("entry.write.hint.lock_failed"),
-		}
-	}
-
-	defer func() {
-		if releaseErr := lock.Release(); releaseErr != nil {
-			fmt.Fprintln(os.Stderr, writeMessage(
-				"entry.write.lock_release_warning",
-				localeSafeWriteDetail(releaseErr.Error()),
-			))
-		}
-	}()
-	if transactionFail := pendingHeaderTransactionFail(root); transactionFail != nil {
-		return transactionFail
-	}
-	// A single Legacy update owns no receipt, so any pending one is another
-	// transaction's state that this write cannot prove it is extending.
-	if other, err := cognitiontxn.OtherPending(root, ""); err != nil {
-		return &Fail{Code: errInternal, Msg: writeMessage("entry.transaction.read_failed", localeSafeWriteDetail(err.Error()))}
-	} else if other != "" {
-		return &Fail{Code: errWriteConflict, Msg: "entry_other_transaction_pending: " + other,
-			Hint: writeMessage("entry.transaction.hint.recover_header")}
-	}
-
-	currentText, readErr := os.ReadFile(
-		plan.rc.paths.IndexPath,
-	)
-	if readErr != nil {
-		return &Fail{
-			Code: errInternal,
-			Msg:  writeMessage("entry.write.cas_read_failed", localeSafeWriteDetail(readErr.Error())),
-			Hint: writeMessage("entry.write.hint.check_index"),
-		}
-	}
-
-	if indexTextHash(
-		string(currentText),
-	) != plan.indexHash {
-		return &Fail{
-			Code: errWriteConflict,
-			Msg:  writeMessage("entry.write.cas_stale"),
-			Hint: writeMessage("entry.write.hint.replan"),
-		}
-	}
-	baselineState, baselineExists, baselineErr := baseline.Load(root)
-	if baselineErr != nil {
-		return &Fail{
-			Code: errInternal,
-			Msg:  writeMessage("entry.write.baseline_read_failed", localeSafeWriteDetail(baselineErr.Error())),
-			Hint: writeMessage("entry.write.hint.baseline_read"),
-		}
-	}
-	if !baselineExists || baselineState == nil {
-		baselineState = baseline.NewBaseline(nil)
-	}
-
-	if writeErr := writeSingleIndex(
-		plan.rc.paths.IndexPath,
-		[]byte(plan.newText),
-		plan.indexHash,
-	); writeErr != nil {
-		code := errInternal
-		if errors.Is(writeErr, afs.ErrAtomicCASConflict) {
-			code = errWriteConflict
-		}
-		return &Fail{
-			Code: code,
-			Msg:  writeMessage("entry.write.index_write_failed", localeSafeWriteDetail(writeErr.Error())),
-			Hint: writeMessage("entry.write.hint.disk_permissions"),
-		}
-	}
-	expectedIndexSHA256 := indexTextHash(plan.newText)
-	writtenIndex, writtenIndexErr := baseline.HashFile(plan.rc.paths.IndexPath)
-	if writtenIndexErr != nil || writtenIndex.SHA256 != expectedIndexSHA256 {
-		return &Fail{
-			Code: errWriteConflict,
-			Msg:  writeMessage("entry.write.postimage_unconfirmed"),
-			Hint: writeMessage("entry.write.hint.external_index"),
-		}
-	}
-
-	targetMoved := false
-
-	targetPath := filepath.Join(
-		root,
-		filepath.FromSlash(
-			plan.out.Rel,
-		),
-	)
-
-	if fingerprint, hashErr :=
-		baseline.HashFile(
-			targetPath,
-		); hashErr == nil {
-		fingerprint = asManagedIndexFingerprint(baselineState, fingerprint)
-		baseline.UpdateOne(
-			baselineState,
-			plan.out.Rel,
-			fingerprint,
-		)
-
-		targetMoved = true
-	}
-
-	indexMoved := false
-
-	if fingerprint, hashErr :=
-		baseline.HashFile(plan.rc.paths.IndexPath); hashErr == nil &&
-		fingerprint.SHA256 == expectedIndexSHA256 {
-		fingerprint = asManagedIndexFingerprint(baselineState, fingerprint)
-		baseline.UpdateOne(
-			baselineState,
-			plan.rc.cfg.IndexPath,
-			fingerprint,
-		)
-
-		indexMoved = true
-	}
-
-	switch {
-	case !targetMoved &&
-		!indexMoved:
-		return &Fail{
-			Code: errInternal,
-			Msg:  writeMessage("entry.write.hash_unavailable"),
-			Hint: writeMessage("entry.write.hint.retry_same_candidate"),
-		}
-
-	default:
-		if saveErr := saveSingleBaseline(
-			root,
-			baselineState,
-		); saveErr != nil {
-			return &Fail{
-				Code: errInternal,
-				Msg:  writeMessage("entry.write.baseline_save_failed", localeSafeWriteDetail(saveErr.Error())),
-				Hint: writeMessage("entry.write.hint.retry_same_candidate"),
-			}
-		} else if targetMoved {
-			plan.out.BaselineNote =
-				writeMessage("entry.write.baseline_advanced_target")
-		} else {
-			plan.out.BaselineNote =
-				writeMessage("entry.write.baseline_advanced_index")
-		}
-	}
-	confirmedIndex, confirmIndexErr := baseline.HashFile(plan.rc.paths.IndexPath)
-	if confirmIndexErr != nil || confirmedIndex.SHA256 != expectedIndexSHA256 {
-		return &Fail{
-			Code: errWriteConflict,
-			Msg:  writeMessage("entry.write.baseline_postimage_changed"),
-			Hint: writeMessage("entry.write.hint.baseline_postimage_changed"),
-		}
-	}
-
-	ledger.Append(
-		root,
-		plan.rc.cfg.LedgerEnabled,
-		ledger.Event{
-			Op:         "update_entry",
-			PathsCount: 1,
-			DurationMs: time.Since(
-				plan.start,
-			).Milliseconds(),
-			Source: source,
-			Result: ledger.ResultOK,
-		},
-	)
-
-	return nil
 }
 
 // directoryUnspellableFail is the one answer to a directory, or a repository
@@ -741,4 +403,21 @@ func directoryUnspellableFail(root, rel, indexPath string, unspellable *index.Di
 			Cause: cause, SafeNextAction: action,
 		},
 		Repairable: false}
+}
+
+// resultForFailCode把Fail.Code映射为Ledger终态分类。
+func resultForFailCode(
+	code string,
+) string {
+	switch code {
+	case errBadArgs,
+		errPathUnsafe:
+		return ledger.ResultRejected
+
+	case errWriteConflict:
+		return ledger.ResultConflict
+
+	default:
+		return ledger.ResultError
+	}
 }

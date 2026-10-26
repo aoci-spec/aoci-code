@@ -31,23 +31,6 @@ func sourceSHA256(t *testing.T, root, rel string) string {
 	return fingerprint.SHA256
 }
 
-func candidatePaths(result autoResult) map[string]bool {
-	paths := make(map[string]bool, len(result.Candidates))
-	for _, candidate := range result.Candidates {
-		paths[candidate.Path] = true
-	}
-	return paths
-}
-
-func hasFinding(result autoResult, finding string) bool {
-	for _, current := range result.Findings {
-		if current.RuleCode == finding || current.Code == finding || current.Cause == finding || current.Message == finding {
-			return true
-		}
-	}
-	return false
-}
-
 func joinedFindingText(result autoResult) string {
 	parts := make([]string, 0, len(result.Findings))
 	for _, finding := range result.Findings {

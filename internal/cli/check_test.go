@@ -9,7 +9,6 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/internal/draft"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
@@ -99,7 +98,7 @@ func TestCheckDriftRepo(t *testing.T) {
 	) ||
 		!strings.Contains(
 			output,
-			"aoci index update",
+			"aoci cognition onboard start",
 		) {
 		t.Fatalf(
 			"issues应按行动分型并给出建议: %s",
@@ -239,101 +238,6 @@ func TestCheckCurationExcludedUsesGovernanceWording(
 	}
 
 	assertCheckLedger(t, root, 0)
-}
-
-// TestCheckDraftPendingThenApplied验证草稿悬置只由applied_at决定。
-func TestCheckDraftPendingThenApplied(
-	t *testing.T,
-) {
-	root := buildUpdateRepo(t)
-
-	runID, err := draft.NewRun(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := draft.SaveManifest(
-		root,
-		&draft.Manifest{
-			RunID: runID,
-			Kind:  draft.KindEntries,
-		},
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	output, pendingErr := runCheck(
-		t,
-		root,
-	)
-
-	exitErr, ok := pendingErr.(*ExitError)
-	if !ok ||
-		exitErr.Code != ExitDrift {
-		t.Fatalf(
-			"未打标应ExitDrift: err=%v\n%s",
-			pendingErr,
-			output,
-		)
-	}
-
-	if !strings.Contains(
-		output,
-		"草稿批次悬置 run "+runID,
-	) ||
-		!strings.Contains(
-			output,
-			"未经全量干净应用",
-		) {
-		t.Fatalf(
-			"issues应含run_id与判定文案: %s",
-			output,
-		)
-	}
-
-	assertCheckLedger(t, root, 1)
-
-	if err := draft.MarkApplied(
-		root,
-		runID,
-	); err != nil {
-		t.Fatalf(
-			"MarkApplied失败: %v",
-			err,
-		)
-	}
-
-	output, appliedErr := runCheck(
-		t,
-		root,
-	)
-	if appliedErr != nil {
-		t.Fatalf(
-			"打标后check应成功: %v\n%s",
-			appliedErr,
-			output,
-		)
-	}
-
-	if !strings.Contains(
-		output,
-		"✓ 可提交",
-	) {
-		t.Fatalf(
-			"打标后应报可提交: %s",
-			output,
-		)
-	}
-
-	if strings.Contains(
-		output,
-		runID,
-	) {
-		t.Fatalf(
-			"打标后不得再报该批次: %s",
-			output,
-		)
-	}
 }
 
 // assertCheckLedger断言最近check事件的WarningsCount。

@@ -1,5 +1,5 @@
-从索引中删除指定文件的条目(整行)。典型场景: aoci index update 报出
-deleted(孤儿)后的人工清理。删除活文件的条目同样允许 —— 删除后该文件
-将以 Missing 态出现在 verify 中,提示重建条目。操作前建议 --preview 确认。
+从索引中删除指定对象的条目(整行)。典型场景: aoci_maintain 或 verify 报出
+deleted(orphan 孤儿)后的清理。操作前建议 --preview 确认。
 在 Volumes v1 布局下,两个入口都只允许删除孤儿条目: 文件须已从目录树消失
 或已不在生效的 Managed Scope 内;普通的仓库相对路径与 code:<path> 指向同一个 Code 对象。
+在 Legacy 单文件布局下,本命令自 0.2.0 起拒绝并答 legacy_read_only_migrate_required: 请先迁移到 Volumes v1。

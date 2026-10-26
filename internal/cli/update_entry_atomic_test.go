@@ -4,96 +4,14 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"unicode"
-	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
-	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/textassets"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
-
-func runBoundUpdateEntry(
-	t *testing.T,
-	root,
-	sourceSHA256 string,
-) error {
-	t.Helper()
-	arguments := []string{"--quiet", "update-entry"}
-	arguments = append(arguments, boundUpdateEntryArguments(sourceSHA256)...)
-	_, stderr, code := runCLI(t, root, arguments...)
-	return exitError(stderr, code)
-}
-
-// boundUpdateEntryArguments are the update-entry arguments every binding case
-// shares, with the source binding appended when one is given.
-func boundUpdateEntryArguments(sourceSHA256 string) []string {
-	arguments := []string{
-		"--path", "a.go",
-		"--entry", "a.go[XUT5T]: F:Exercises public single-entry recovery | R:- | A:- | S:Preserves source binding",
-	}
-	if sourceSHA256 != "" {
-		arguments = append(arguments, "--source-sha256", sourceSHA256)
-	}
-	return arguments
-}
-
-func TestUpdateEntryCLIProductionOutputFollowsProjectLocale(t *testing.T) {
-	root, _ := buildManualAtomicEntriesRepo(t)
-	if err := os.WriteFile(filepath.Join(root, "c.go"), []byte("package demo\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cfg, err := config.Load(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg.Locale = textassets.DefaultLocale
-	if err := config.Save(root, cfg); err != nil {
-		t.Fatal(err)
-	}
-	entry := "c.go[XUT5T]: F:Provides an English CLI output fixture | R:- | A:- | S:Preserves source binding"
-	preview := mustCLI(t, root, "update-entry", "--path", "c.go", "--entry", entry, "--preview")
-	assertNoHanCLIOutput(t, "en-US preview", preview)
-	if !utf8.ValidString(preview) {
-		t.Fatal("en-US preview is not valid UTF-8")
-	}
-
-	fingerprint, err := baseline.HashFile(filepath.Join(root, "c.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	applied := mustCLI(t, root, "update-entry", "--path", "c.go", "--entry", entry, "--source-sha256", fingerprint.SHA256)
-	assertNoHanCLIOutput(t, "en-US apply", applied)
-
-	var jsonOutput, jsonError bytes.Buffer
-	code := executeCLI(
-		[]string{"--repo", root, "--json", "update-entry"},
-		&jsonOutput,
-		&jsonError,
-	)
-	if code != ExitConfig || !strings.Contains(jsonOutput.String(), `"error_code"`) {
-		t.Fatalf("en-US JSON rejection mismatch: code=%d stdout=%s stderr=%s", code, jsonOutput.String(), jsonError.String())
-	}
-	assertNoHanCLIOutput(t, "en-US JSON", jsonOutput.String()+jsonError.String())
-}
-
-func TestUpdateEntryCLIChinesePreviewRemainsChinese(t *testing.T) {
-	root, _ := buildManualAtomicEntriesRepo(t)
-	output := mustCLI(t, root, "update-entry",
-		"--path", "a.go",
-		"--entry", "a.go[XUT5T]: F:中文预览 | R:- | A:- | S:保留绑定",
-		"--preview",
-	)
-	for _, anchor := range []string{"预览", "正式索引", "零写入"} {
-		if !strings.Contains(output, anchor) {
-			t.Fatalf("zh-CN preview missing %q: %s", anchor, output)
-		}
-	}
-}
 
 func TestUpdateEntryCLIPreviewReturnsSharedRepairFindingJSON(t *testing.T) {
 	root, _ := alignedVolumeCLIFixture(t, true, false)
@@ -132,45 +50,31 @@ func TestUpdateEntryCLIPreviewReturnsSharedRepairFindingJSON(t *testing.T) {
 	}
 }
 
-func assertNoHanCLIOutput(t *testing.T, label, value string) {
-	t.Helper()
-	for _, character := range value {
-		if unicode.Is(unicode.Han, character) {
-			t.Fatalf("%s contains Han character %q: %s", label, character, value)
-		}
-	}
-}
-
-func TestUpdateEntryCLIRequiresBindingAndReportsBaselineFailure(t *testing.T) {
+// Since 0.2.0 the Legacy single-file layout is read-only: the human update
+// command answers the same machine token as the MCP tools, even for a
+// preview, and writes nothing.
+func TestUpdateEntryCLIRefusesLegacyLayout(t *testing.T) {
 	root, _ := buildManualAtomicEntriesRepo(t)
-	indexBefore := readManualAtomicIndex(t, root)
-	missingErr := runBoundUpdateEntry(t, root, "")
-	var exitErr *ExitError
-	if !errors.As(missingErr, &exitErr) || exitErr.Code != ExitConfig ||
-		!strings.Contains(missingErr.Error(), "source-sha256") {
-		t.Fatalf("non-preview public single-entry update must require source binding: %v", missingErr)
-	}
-	if readManualAtomicIndex(t, root) != indexBefore {
-		t.Fatal("missing source binding must not write the formal index")
-	}
-	fingerprint, err := baseline.HashFile(filepath.Join(root, "a.go"))
+	before, err := os.ReadFile(filepath.Join(root, "aoci.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	unblockBaseline := blockBaselineBackupReplacement(t, root)
-	applyErr := runBoundUpdateEntry(t, root, fingerprint.SHA256)
-	if !errors.As(applyErr, &exitErr) || exitErr.Code != ExitInternal ||
-		!strings.Contains(applyErr.Error(), "Baseline") {
-		t.Fatalf("public single-entry update must not report Baseline failure as success: %v", applyErr)
+	for _, args := range [][]string{
+		{"--repo", root, "update-entry", "--path", "a.go", "--entry", manualAtomicNewA, "--preview"},
+		{"--repo", root, "update-entry", "--path", "a.go", "--entry", manualAtomicNewA, "--source-sha256", strings.Repeat("0", 64)},
+	} {
+		var stdout, stderr bytes.Buffer
+		code := executeCLI(args, &stdout, &stderr)
+		blob := stdout.String() + stderr.String()
+		if code == ExitOK || !strings.Contains(blob, machinecontract.StatusLegacyReadOnlyMigrateRequired) {
+			t.Fatalf("%v: expected the read-only refusal, got exit %d:\n%s", args[2:], code, blob)
+		}
 	}
-	if !strings.Contains(readManualAtomicIndex(t, root), "Exercises public single-entry recovery") {
-		t.Fatal("the index write before Baseline failure must remain visible")
+	after, err := os.ReadFile(filepath.Join(root, "aoci.txt"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	unblockBaseline()
-	// The failed write left its receipt, so the command line now routes to the
-	// recovery commands; the replay semantics belong to the write pipeline
-	// itself and are exercised below that gate.
-	if output, err := runBelowRecoveryGate(t, root, newUpdateEntryCmd(), boundUpdateEntryArguments(fingerprint.SHA256)...); err != nil {
-		t.Fatalf("replaying the same binding should recover only Baseline: %v\n%s", err, output)
+	if string(after) != string(before) {
+		t.Fatal("a refused Legacy update changed the index")
 	}
 }

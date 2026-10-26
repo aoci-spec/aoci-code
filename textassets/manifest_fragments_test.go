@@ -5,16 +5,15 @@ import (
 	"testing"
 )
 
-func TestReadManifestMergesHostAgentFragment(t *testing.T) {
+func TestReadManifestMergesMaintainFragment(t *testing.T) {
 	manifest, err := ReadManifest()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	wanted := map[string]bool{
-		string(ContractHostRuntimeBaseInstructions): false,
-		string(ContractHostHelpEntriesStageLong):    false,
-		string(ContractHostHelpGuideLong):           false,
+		string(ContractMaintainActionAligned):         false,
+		string(ContractMaintainActionApplyFinalProof): false,
 	}
 	for _, asset := range manifest.Assets {
 		if _, exists := wanted[asset.ID]; exists {

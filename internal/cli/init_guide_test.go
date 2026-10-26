@@ -76,11 +76,11 @@ func TestInitAutomationGuideHint(
 			mode: config.AutomationModeAuto,
 			wants: []string{
 				"严格按当前 Guide 阶段连续执行",
-				"Entries Stage 内部完成 Check、Diff、P-23 与原子 Apply",
+				"每个 aoci_update_entry 批次在内部完成校验、Diff、P-23 与原子 Apply",
 				"任何写入批次applied后都按当前Guide返回的后续命令继续",
-				"Volumes中remaining非零时继续Maintain",
+				"remaining非零时继续Maintain",
 				"最终批次remaining=0后依次执行Verify、Aggregate Check和Guide",
-				"repair_required 时只修失败条目并自动重新 Stage",
+				"repair_required 时只修失败条目并重提同一完整批次",
 				"不要求用户继续",
 				"只有审批/外部动作边界、不可证明Recovery、第三方冲突或其他真实安全故障才停止用户任务",
 			},
@@ -94,13 +94,13 @@ func TestInitAutomationGuideHint(
 		{
 			mode: config.AutomationModeLegacy,
 			wants: []string{
-				"旧仓兼容态",
+				"旧仓兼容授权",
 			},
 		},
 		{
 			mode: config.AutomationModeOff,
 			wants: []string{
-				"不生成候选、不 Stage、不 Apply",
+				"不发候选、不进入 Apply",
 			},
 		},
 	}
@@ -149,10 +149,10 @@ func TestInitOutputPointsToConcreteCodexGuide(
 		"aoci index agent guide --agent codex --json",
 		"automation.mode=auto",
 		"auto follows the current Guide stage continuously and exactly",
-		"Entries Stage completes Check, Diff, P-23, and atomic Apply internally",
+		"Each aoci_update_entry batch completes validation, Diff, P-23 review, and atomic Apply internally",
 		"After any applied write batch, follow the next commands returned by the current Guide",
-		"For Volumes, continue Maintain while remaining is nonzero",
-		"after the final remaining=0 batch, run Verify, aggregate Check, and Guide",
+		"continue Maintain while remaining is nonzero",
+		"after the final remaining=0 batch run Verify, aggregate Check, and Guide",
 		"On repair_required, fix only the failed Entries",
 		"without asking the user to continue",
 	} {

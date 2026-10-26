@@ -135,16 +135,6 @@ func TestCLIHelpAssetsMatchRealCommandTree(
 		t,
 		findCLICommand(
 			root,
-			"index",
-			"update",
-		),
-		"cli_help_index_update.txt",
-	)
-
-	assertCLIHelpGolden(
-		t,
-		findCLICommand(
-			root,
 			"verify",
 		),
 		"cli_help_verify.txt",

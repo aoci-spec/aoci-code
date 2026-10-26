@@ -79,6 +79,7 @@ const (
 	RemediationCommandVerify                 = "verify --json"
 	RemediationCommandAggregateCheck         = "check --json"
 	RemediationCommandAgentGuide             = "index agent guide --agent {agent} --json"
+	RemediationCommandCognitionOnboardStart  = "cognition onboard start --json"
 	RemediationCommandDatabaseSnapshot       = "database snapshot --source {source} --json"
 	RemediationCommandDatabaseBaselineAccept = "database baseline accept --source {source} --json"
 )

@@ -10,7 +10,7 @@ func TestMustRenderRemovesOneTerminalNewline(
 ) {
 	raw, err := Render(
 		LegacyLocale,
-		ContractGuideAlignedCleanMessage,
+		ContractGuideBaselineFirstMessage,
 		nil,
 	)
 	if err != nil {
@@ -29,7 +29,7 @@ func TestMustRenderRemovesOneTerminalNewline(
 
 	scalar := MustRender(
 		LegacyLocale,
-		ContractGuideAlignedCleanMessage,
+		ContractGuideBaselineFirstMessage,
 		nil,
 	)
 
@@ -49,24 +49,6 @@ func TestMustRenderRemovesOneTerminalNewline(
 			raw,
 			scalar,
 		)
-	}
-}
-
-func TestAlignedCleanGuideStaysWithinCognitionBoundary(t *testing.T) {
-	for _, locale := range []string{DefaultLocale, LegacyLocale} {
-		text, err := Load(locale, ContractGuideAlignedCleanInstructions)
-		if err != nil {
-			t.Fatal(err)
-		}
-		lines := strings.Split(strings.TrimSuffix(text, "\n"), "\n")
-		if len(lines) != 2 {
-			t.Fatalf("%s aligned-clean Guide must contain exactly two cognition instructions: %q", locale, text)
-		}
-		for _, removed := range []string{"Fast", "Full Confidence", "Release Rehearsal"} {
-			if strings.Contains(text, removed) {
-				t.Fatalf("%s aligned-clean Guide retains general development method %q", locale, removed)
-			}
-		}
 	}
 }
 
@@ -103,85 +85,6 @@ func TestRenderLinesPreservesInstructionOrder(
 		t.Fatalf(
 			"unexpected second instruction: %q",
 			lines[1],
-		)
-	}
-}
-
-func TestGuideBaseInstructionPreservesCurrentStageBindings(
-	t *testing.T,
-) {
-	lines, err := RenderLines(
-		LegacyLocale,
-		ContractGuideBaseInstructions,
-		nil,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(lines) != 1 {
-		t.Fatalf(
-			"expected one Guide base instruction, got %d: %+v",
-			len(lines),
-			lines,
-		)
-	}
-
-	instruction := lines[0]
-	for _, anchor := range []string{
-		"只有instructions明确要求时才重新运行guide",
-		"plan_id",
-		"source_sha256",
-		"run_id",
-	} {
-		if !strings.Contains(instruction, anchor) {
-			t.Fatalf(
-				"Guide base instruction缺少当前阶段绑定%q: %s",
-				anchor,
-				instruction,
-			)
-		}
-	}
-	if strings.Contains(
-		instruction,
-		"每完成一个允许动作后重新运行guide",
-	) {
-		t.Fatalf(
-			"Guide base instruction仍要求多步阶段中途重跑: %s",
-			instruction,
-		)
-	}
-}
-
-func TestObserveMessageRendersScope(
-	t *testing.T,
-) {
-	message := MustRender(
-		LegacyLocale,
-		ContractGuideObserveMessage,
-		struct {
-			Scope string
-		}{
-			Scope: "EntriesRequired",
-		},
-	)
-
-	if !strings.Contains(
-		message,
-		"EntriesRequired事实",
-	) {
-		t.Fatalf(
-			"observe message did not render scope: %q",
-			message,
-		)
-	}
-
-	if strings.HasSuffix(
-		message,
-		"\n",
-	) {
-		t.Fatalf(
-			"observe scalar message contains a terminal newline: %q",
-			message,
 		)
 	}
 }

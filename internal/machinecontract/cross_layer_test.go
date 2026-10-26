@@ -25,20 +25,6 @@ func readRepositoryFile(t *testing.T, path ...string) string {
 func TestSQuotaModelAndStaticContractsMatchMachineAuthority(t *testing.T) {
 	numeric := machinecontract.NumericText()
 
-	for _, id := range []textassets.ID{
-		textassets.PromptHeaderContentBlocks,
-		textassets.PromptHeaderDictRules,
-		textassets.PromptEntryFieldRules,
-	} {
-		rendered, err := textassets.Render(textassets.LegacyLocale, id, numeric)
-		if err != nil {
-			t.Fatalf("render %s: %v", id, err)
-		}
-		if !strings.Contains(rendered, numeric.SQuotaDefaultExample) {
-			t.Fatalf("模型Prompt %s未派生默认S配额: %s", id, rendered)
-		}
-	}
-
 	compactLine := "#S配额: " + numeric.SQuotaDefaultCompact
 	staticContracts := map[string]string{
 		"minimal template": readRepositoryFile(t, "textassets", "zh-CN", "templates", "minimal-index.txt.tmpl"),
@@ -71,55 +57,6 @@ func TestSQuotaModelAndStaticContractsMatchMachineAuthority(t *testing.T) {
 	if total := len(quotaRowPattern.FindAllString(discipline, -1)); total != matchedRows {
 		t.Errorf("S discipline含机器合同之外的默认配额行: total=%d matched=%d", total, matchedRows)
 	}
-}
-
-func TestStageModelAndWindowsContractsMatchMachineAuthority(t *testing.T) {
-	numeric := machinecontract.NumericText()
-	tests := []struct {
-		id      textassets.ID
-		anchors []string
-	}{
-		{
-			id: textassets.ContractHostRuntimeHeaderStageLimit,
-			anchors: []string{
-				fmt.Sprintf("%d字节", numeric.HeaderMaxBodyBytes),
-				numeric.HeaderMaxBodyHuman,
-				fmt.Sprintf("%d字节", numeric.HeaderMaxHeaderBytes),
-				numeric.HeaderMaxHeaderHuman,
-			},
-		},
-		{
-			id: textassets.ContractHostRuntimeEntriesStageLimit,
-			anchors: []string{
-				fmt.Sprintf("%d字节", numeric.EntriesMaxBodyBytes),
-				numeric.EntriesMaxBodyHuman,
-				fmt.Sprintf("最多%d条", numeric.EntriesMaxEntries),
-			},
-		},
-		{
-			id: textassets.ContractHostRuntimeCurationStageLimit,
-			anchors: []string{
-				fmt.Sprintf("%d字节", numeric.CurationMaxBodyBytes),
-				numeric.CurationMaxBodyHuman,
-				fmt.Sprintf("最多%d项", numeric.CurationMaxDecisions),
-			},
-		},
-	}
-
-	for _, current := range tests {
-		rendered, err := textassets.Render(textassets.LegacyLocale, current.id, numeric)
-		if err != nil {
-			t.Fatalf("render %s: %v", current.id, err)
-		}
-		for _, anchor := range current.anchors {
-			if !strings.Contains(rendered, anchor) {
-				t.Errorf("Host-Agent合同 %s 缺少机器派生值%q", current.id, anchor)
-			}
-		}
-	}
-
-	windows := readRepositoryFile(t, "docs", "windows-host-agent.md")
-	assertWindowsStageLimits(t, windows, numeric)
 }
 
 func TestPublicSpecsDelegateToMachineAuthority(t *testing.T) {
@@ -181,18 +118,6 @@ func TestStatusTokensMatchMachineAuthority(t *testing.T) {
 				machinecontract.AutoStatusRepairRequired,
 				machinecontract.AutoStatusStopped,
 			),
-		},
-		{
-			id: textassets.ContractGuideEntriesAutoInstructions,
-			tokens: []string{
-				"auto_finalize.status=" + machinecontract.AutoStatusApplied,
-				"auto_finalize.status=" + machinecontract.AutoStatusRepairRequired,
-				"auto_finalize.status=" + machinecontract.AutoStatusStopped,
-			},
-		},
-		{
-			id:     textassets.ContractHostHelpGuideLong,
-			tokens: machinecontract.AutoStatuses(),
 		},
 		{
 			id:     textassets.ContractInitAutomationAuto,
@@ -382,9 +307,7 @@ func TestContractAuthorityMapCoversEveryEntryLayer(t *testing.T) {
 				anchors []string
 			}{
 				{"runtime-rules", textassets.ContractRuntimeRules, current.runtimeAnchors},
-				{"Guide base", textassets.ContractGuideBaseInstructions, current.guideAnchors},
 				{"MCP rules description", textassets.ContractMCPRulesDescription, current.mcpAnchors},
-				{"Entry fact Prompt", textassets.PromptEntryFactRules, current.entryPromptAnchors},
 			}
 			for _, asset := range assets {
 				body, loadErr := textassets.Load(current.locale, asset.id)
@@ -415,41 +338,6 @@ func extractSQuotaDeclarations(content string) []string {
 		}
 	}
 	return declarations
-}
-
-func assertWindowsStageLimits(
-	t *testing.T,
-	windows string,
-	numeric machinecontract.NumericTextValues,
-) {
-	t.Helper()
-	requestPattern := regexp.MustCompile(
-		`(?m)^请求总大小 ([0-9]+ (?:KiB|MiB))（([0-9]+)字节）$`,
-	)
-	wantRequests := map[string]string{
-		numeric.EntriesMaxBodyHuman:  fmt.Sprint(numeric.EntriesMaxBodyBytes),
-		numeric.HeaderMaxBodyHuman:   fmt.Sprint(numeric.HeaderMaxBodyBytes),
-		numeric.CurationMaxBodyHuman: fmt.Sprint(numeric.CurationMaxBodyBytes),
-	}
-	matches := requestPattern.FindAllStringSubmatch(windows, -1)
-	if len(matches) != len(wantRequests) {
-		t.Fatalf("Windows文档请求上限数量不符: got=%v want=%v", matches, wantRequests)
-	}
-	for _, match := range matches {
-		if wantRequests[match[1]] != match[2] {
-			t.Errorf("Windows文档请求上限不符: got=%v want=%v", match[1:], wantRequests)
-		}
-	}
-
-	for _, anchor := range []string{
-		fmt.Sprintf("最多%d条候选", numeric.EntriesMaxEntries),
-		fmt.Sprintf("header字段 %s（%d字节）", numeric.HeaderMaxHeaderHuman, numeric.HeaderMaxHeaderBytes),
-		fmt.Sprintf("最多%d项决策", numeric.CurationMaxDecisions),
-	} {
-		if strings.Count(windows, anchor) != 1 {
-			t.Errorf("Windows文档批次或Header上限未严格匹配: want %q", anchor)
-		}
-	}
 }
 
 func TestDeliveryAndVolumesDocsMatchMachineAuthority(t *testing.T) {

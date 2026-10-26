@@ -118,7 +118,8 @@ func TestRecoveryPendingActionNamesEveryKind(t *testing.T) {
 func TestRecoveryGateTakesTheNarrowestKind(t *testing.T) {
 	if !recoveryGateAllows("remove", "aoci verify") || recoveryGateAllows("bootstrap", "aoci verify") ||
 		!recoveryGateAllows("bootstrap", "aoci index agent guide") || !recoveryGateAllows("remove", "aoci remove-entry") ||
-		recoveryGateAllows("entries", "aoci remove-entry") || !recoveryGateAllows("header", "aoci index header apply") ||
+		recoveryGateAllows("entries", "aoci remove-entry") || !recoveryGateAllows("entries", "aoci update-entry") ||
+		!recoveryGateAllows("header", "aoci index header show") || recoveryGateAllows("header", "aoci update-entry") ||
 		recoveryGateAllows("unknown", "aoci scan") || !recoveryGateAllows("unknown", "aoci check") {
 		t.Fatal("per-kind allowances changed")
 	}

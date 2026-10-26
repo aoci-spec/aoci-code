@@ -1,1 +1,1 @@
-review allows Stage, Check, and Diff, but requires approval before Apply
+review lets Maintain issue candidates and Scope Change preview its plan, but requires approval before Apply

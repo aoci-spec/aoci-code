@@ -131,42 +131,6 @@ func TestFinishBufferedExecutionPreservesMachineErrorCode(
 	}
 }
 
-// TestSetEntriesAutoFinalizeErrorPreservesMachineErrorCode验证Host-Agent
-// auto_finalize.error使用同一精确领域分类，而不是按退出码推导为config。
-func TestSetEntriesAutoFinalizeErrorPreservesMachineErrorCode(
-	t *testing.T,
-) {
-	result := &entriesAutoFinalizeResult{
-		Status:     entriesAutoStatusStopped,
-		FailedStep: entriesAutoStepApply,
-		RunID:      "20260724T170005Z",
-	}
-
-	setEntriesAutoFinalizeError(
-		result,
-		&ExitError{
-			Code:        ExitConfig,
-			MachineCode: "write_conflict",
-			Err: errors.New(
-				"auto原子应用失败[write_conflict]",
-			),
-		},
-	)
-
-	if result.Error == nil ||
-		result.Error.ExitCode != ExitConfig ||
-		result.Error.Code != "write_conflict" ||
-		!strings.Contains(
-			result.Error.Message,
-			"write_conflict",
-		) {
-		t.Fatalf(
-			"Auto领域错误码透传不符: %+v",
-			result.Error,
-		)
-	}
-}
-
 func TestFinishBufferedExecutionDoesNotAppendSecondJSON(
 	t *testing.T,
 ) {

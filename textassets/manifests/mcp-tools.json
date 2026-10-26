@@ -269,14 +269,13 @@
       "used_by": "internal/index/query.go:ParseTagFilter",
       "protocol_tokens": [
         "search.bad_filter_format",
-        "prompt.unnamed_project",
         "overview.cognition_state.attestation_interpretation_v2",
         "cognition-state/v2",
         "model_cognition_usable"
       ],
       "locale_anchors": {
         "zh-CN": [
-          "未命名项目"
+          "未完成的事务收据"
         ]
       }
     }

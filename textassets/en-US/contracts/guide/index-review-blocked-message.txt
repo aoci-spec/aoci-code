@@ -1,1 +1,0 @@
-The formal index has external drift relative to the Baseline. The host Agent must stop for maintainer review.

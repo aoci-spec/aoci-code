@@ -170,10 +170,6 @@ func newRootCmd() *cobra.Command {
 	)
 
 	root.AddCommand(
-		newAICmd(),
-	)
-
-	root.AddCommand(
 		newDoctorCmd(),
 	)
 
@@ -185,9 +181,6 @@ func newRootCmd() *cobra.Command {
 	root.InitDefaultHelpCmd()
 	initializeCobraFlags(root)
 	root.SetUsageTemplate(localizedUsageTemplate())
-	decorateHostAgentHelp(
-		root,
-	)
 	refreshCommandLocalization(root)
 	installCLIHelpAssetGuard(root)
 
@@ -855,7 +848,9 @@ func writeBytes(
 // always the read-only Guide and the MCP server, then the kind's own status,
 // resume, and rollback controls. MCP write receipts close through the MCP
 // tools the Guide names (a foreign file, by hand), so their read-only surfaces
-// and the CLI closures stay open while other writes wait.
+// and the CLI closures stay open while other writes wait. A Legacy Header
+// receipt has no closure in this release (0.1.x wrote it and 0.1.x finishes
+// it), so only its read surface stays open.
 func recoveryGateAllows(operation, path string) bool {
 	if path == "aoci index agent guide" || path == "aoci mcp" {
 		return true
@@ -878,9 +873,9 @@ func recoveryGateAllows(operation, path string) bool {
 		case "remove":
 			return path == "aoci remove-entry"
 		case "entries":
-			return path == "aoci index entries recover" || path == "aoci index entries check"
+			return path == "aoci update-entry"
 		case "header":
-			return path == "aoci index header show" || path == "aoci index header diff" || path == "aoci index header apply"
+			return path == "aoci index header show"
 		}
 	}
 	return false

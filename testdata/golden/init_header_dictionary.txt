@@ -1,1 +1,1 @@
-头部字典: 完整索引Guide会发放Header候选流程；也可使用已配置端点运行 aoci index header draft。
+头部字典: 这个最小骨架是 Legacy 单文件索引，自 0.2.0 起只读；请运行 aoci cognition onboard start --json 把它引导为 Volumes v1，Guide 会在那里发放 Header 候选流程。

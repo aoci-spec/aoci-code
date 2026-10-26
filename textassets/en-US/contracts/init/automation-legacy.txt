@@ -1,1 +1,1 @@
-legacy is the compatibility mode for existing repositories. Stage, Check, and Diff may run, but approval is required before Apply
+legacy is the compatibility authorization of existing repositories that declared no automation block: Maintain issues candidates and ordinary Apply proceeds, while high-risk Scope changes still wait for approval before Apply

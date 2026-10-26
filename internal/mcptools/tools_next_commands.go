@@ -116,3 +116,12 @@ func evidenceNextCommands() []string {
 		machinecontract.RemediationCommandDatabaseBaselineAccept,
 	)
 }
+
+// legacyMigrationNextCommands names the one path out of a read-only Legacy
+// layout: the Legacy-to-Volumes onboarding, then the Guide that confirms it.
+func legacyMigrationNextCommands() []string {
+	return composeNextCommands(nextCommandPrefix(),
+		machinecontract.RemediationCommandCognitionOnboardStart,
+		machinecontract.RemediationCommandAgentGuide,
+	)
+}

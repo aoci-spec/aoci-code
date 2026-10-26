@@ -165,15 +165,15 @@ func TestDoctor_HealthyProject(t *testing.T) {
 
 	// 断言结构性事实(不断言具体数值,避免随项目演进脆化):
 
-	// 1. 四个分组标题都出现
-	for _, group := range []string{"仓库与核心资产", "Agent 接入", "AI 增强层", "平台特性"} {
+	// 1. 三个分组标题都出现(AI 增强层随 Legacy 写作面退役,0.2.0)
+	for _, group := range []string{"仓库与核心资产", "Agent 接入", "平台特性"} {
 		if !strings.Contains(out, group) {
 			t.Errorf("输出应含分组标题 %q", group)
 		}
 	}
 
 	// 2. 关键检查项标签出现
-	for _, label := range []string{"仓库根定位", "配置加载", "基线文件", "AI 启用状态", "数据主权"} {
+	for _, label := range []string{"仓库根定位", "配置加载", "基线文件"} {
 		if !strings.Contains(out, label) {
 			t.Errorf("输出应含检查项 %q", label)
 		}

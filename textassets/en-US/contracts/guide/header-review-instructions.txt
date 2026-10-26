@@ -1,3 +1,0 @@
-Run header diff and show the complete diff.
-stop_before_apply=true: wait for approval before header apply.
-After approval, run Apply, verify, and then guide again.
