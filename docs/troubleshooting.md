@@ -254,11 +254,12 @@ latency, batch count, and `deterministic_ms` before attributing the delay.
 Before the first `scan`, check what the index role holds. A first build that is
 slow because the model is authoring Entries for jQuery, Bootstrap, or a font
 directory is a scope problem, not a throughput problem. A repository
-initialized with the production profile carries seven starter `observe` rules
-for vendored static assets and generated bundles: `libs`, `lib`, and `plugins`
-directories under `static/`, `*.min.js`, `*.min.css`, `*.map`, and `fonts/`
-(`vendor`, `dist`, and `build` directories are already refused by the safety
-boundary), described under "Starter rules for vendored static assets" in
+initialized with the production profile carries starter `observe` rules for
+vendored static assets and generated bundles: `libs`, `lib`, and `plugins`
+directories under `static/`, `*.min.js`, `*.min.css`, `*.map`, `fonts/`, and
+since 0.2.0 `third_party/` and `third-party/` trees, `*.svg`, `*.crt`, `*.cer`,
+and the common lockfiles (`vendor`, `dist`, and `build` directories are already
+refused by the safety boundary), described under "Starter rules for vendored static assets" in
 [`managed-scope-and-budget.md`](managed-scope-and-budget.md). Run
 `aoci scope status` and `aoci scope rule list` before that scan, and
 `aoci scope explain <path>` on any directory you suspect; add an `observe` rule

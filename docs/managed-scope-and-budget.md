@@ -137,8 +137,10 @@ cross-module conclusion.
 
 ## Starter rules for vendored static assets
 
-A repository initialized with the production profile starts with seven `observe`
-rules for the third-party bundles that live inside a project's own tree. They
+A repository initialized with the production profile starts with twenty `observe`
+rules for material that a first build would otherwise author Entries for
+without gaining system cognition. The first seven cover the third-party bundles
+that live inside a project's own tree. They
 come from a real Java repository, where the profile put 141 files under
 `static/ajax/libs/`, 52 minified bundles, and 17 fonts into the index role and
 the model spent a third of the first build authoring Entries for jQuery and
@@ -156,6 +158,27 @@ moves at an upgrade. The rules are named `starter-vendored-<slug>`:
 | `starter-vendored-min-css` | `**/*.min.css` |
 | `starter-vendored-source-map` | `**/*.map` |
 | `starter-vendored-fonts` | `**/fonts/**` |
+| `starter-vendored-third-party` | `**/third_party/**` |
+| `starter-vendored-third-party-dash` | `**/third-party/**` |
+| `starter-vendored-svg` | `**/*.svg` |
+| `starter-vendored-certificate-crt` | `**/*.crt` |
+| `starter-vendored-certificate-cer` | `**/*.cer` |
+| `starter-vendored-npm-lock` | `**/package-lock.json` |
+| `starter-vendored-yarn-lock` | `**/yarn.lock` |
+| `starter-vendored-pnpm-lock` | `**/pnpm-lock.yaml` |
+| `starter-vendored-cargo-lock` | `**/Cargo.lock` |
+| `starter-vendored-poetry-lock` | `**/poetry.lock` |
+| `starter-vendored-gemfile-lock` | `**/Gemfile.lock` |
+| `starter-vendored-composer-lock` | `**/composer.lock` |
+| `starter-vendored-go-sum` | `**/go.sum` |
+
+The last thirteen arrived in 0.2.0: a vendored `third_party` or `third-party`
+tree (this repository's own carried connector is 57 Entries, an eighth of its
+index), SVG markup, public certificates, and the generated lockfiles of the
+common package managers. A private key is never in this list because the
+built-in sensitive-name rules already exclude it, and each lockfile's manifest,
+such as `package.json` or `go.mod`, keeps the index role. A repository
+initialized before 0.2.0 keeps the seven rules it was born with.
 
 A `lib` or `plugins` directory outside `static/` is not matched: `src/lib` is
 ordinary code and keeps the index role. No rule names a `vendor`, `dist`, or

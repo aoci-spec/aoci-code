@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-26T15:49:35Z",
+  "updated_at": "2026-10-26T16:15:55Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "eb7beae480ad17807d1ec86aaee0d33309c9ec7e2f44477b6c2cf8b313216f56",
-      "size": 135527,
-      "normalized_sha256": "eb7beae480ad17807d1ec86aaee0d33309c9ec7e2f44477b6c2cf8b313216f56"
+      "sha256": "ab29d54c27519fcba26181c6ba7756c53c52d021f3ca1d7e32cefd765f352e72",
+      "size": 137054,
+      "normalized_sha256": "ab29d54c27519fcba26181c6ba7756c53c52d021f3ca1d7e32cefd765f352e72"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "7d5db0ad986cad6c9f05a675c7996e5db2522e51dbf1f13dc07c791df130af4d",
-      "size": 203549,
-      "normalized_sha256": "7d5db0ad986cad6c9f05a675c7996e5db2522e51dbf1f13dc07c791df130af4d"
+      "sha256": "0c721a75431e1f505233c43fb430bb3503947a6ad15e02cb8c08ea9f5ff44e9f",
+      "size": 203693,
+      "normalized_sha256": "0c721a75431e1f505233c43fb430bb3503947a6ad15e02cb8c08ea9f5ff44e9f"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -233,9 +233,9 @@
     },
     "docs/managed-scope-and-budget.md": {
       "role": "index",
-      "sha256": "e04fd42d9fc6bbd843de1ae96b04e4b2776d841909559d98b3bb62eec3a76e6e",
-      "size": 27821,
-      "normalized_sha256": "e04fd42d9fc6bbd843de1ae96b04e4b2776d841909559d98b3bb62eec3a76e6e"
+      "sha256": "7301cb5aeed243dd8dd18a00dd006597becff4f1038e8124ae038dc9db3307d3",
+      "size": 29152,
+      "normalized_sha256": "7301cb5aeed243dd8dd18a00dd006597becff4f1038e8124ae038dc9db3307d3"
     },
     "docs/overview-delivery.md": {
       "role": "index",
@@ -263,9 +263,9 @@
     },
     "docs/troubleshooting.md": {
       "role": "index",
-      "sha256": "97b869d79f31efae2adad45aadd25116adc9c774065250f0291eed39252c4b00",
-      "size": 32528,
-      "normalized_sha256": "97b869d79f31efae2adad45aadd25116adc9c774065250f0291eed39252c4b00"
+      "sha256": "550880797698d5f99209ce9f3693bebadbeb1cd6e83ebd94b0c95cffc98827c6",
+      "size": 32628,
+      "normalized_sha256": "550880797698d5f99209ce9f3693bebadbeb1cd6e83ebd94b0c95cffc98827c6"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -1692,10 +1692,10 @@
     },
     "internal/cli/init_starter_rules_test.go": {
       "role": "observe",
-      "sha256": "260f3352d9f7f78e9276f618bddf65028c10e0778626ffc36a0fa478d95118b4",
-      "size": 5668,
-      "normalized_sha256": "260f3352d9f7f78e9276f618bddf65028c10e0778626ffc36a0fa478d95118b4",
-      "format_sha256": "260f3352d9f7f78e9276f618bddf65028c10e0778626ffc36a0fa478d95118b4",
+      "sha256": "709339bfea0a899054d5fd48b3f02b67f0249db622c32f6bd0cddd8cf29bed02",
+      "size": 6461,
+      "normalized_sha256": "709339bfea0a899054d5fd48b3f02b67f0249db622c32f6bd0cddd8cf29bed02",
+      "format_sha256": "709339bfea0a899054d5fd48b3f02b67f0249db622c32f6bd0cddd8cf29bed02",
       "format_kind": "gofmt"
     },
     "internal/cli/init_test.go": {
@@ -2723,10 +2723,10 @@
     },
     "internal/config/starter_rules_test.go": {
       "role": "observe",
-      "sha256": "7a5b807817494482b70467cc56d51263bbe0d1fbfe4b38bee2e6312e203741d0",
-      "size": 2575,
-      "normalized_sha256": "7a5b807817494482b70467cc56d51263bbe0d1fbfe4b38bee2e6312e203741d0",
-      "format_sha256": "7a5b807817494482b70467cc56d51263bbe0d1fbfe4b38bee2e6312e203741d0",
+      "sha256": "ad7ede43ac55c17a354e6f03053e3ae5aa6bd33b664dbfb84a9606245a6d8d30",
+      "size": 2674,
+      "normalized_sha256": "ad7ede43ac55c17a354e6f03053e3ae5aa6bd33b664dbfb84a9606245a6d8d30",
+      "format_sha256": "ad7ede43ac55c17a354e6f03053e3ae5aa6bd33b664dbfb84a9606245a6d8d30",
       "format_kind": "gofmt"
     },
     "internal/curation/classify.go": {
@@ -4315,18 +4315,18 @@
     },
     "internal/managedscope/starter.go": {
       "role": "index",
-      "sha256": "ee221d2a4d6f3efd91746f82922dbb6552529d3244e68dd04b77e961ba86b68e",
-      "size": 4516,
-      "normalized_sha256": "ee221d2a4d6f3efd91746f82922dbb6552529d3244e68dd04b77e961ba86b68e",
-      "format_sha256": "ee221d2a4d6f3efd91746f82922dbb6552529d3244e68dd04b77e961ba86b68e",
+      "sha256": "e3e379956b69b98f548c1704d8b99c03edad6ca28e73b7f31dcf87712b925f19",
+      "size": 6520,
+      "normalized_sha256": "e3e379956b69b98f548c1704d8b99c03edad6ca28e73b7f31dcf87712b925f19",
+      "format_sha256": "e3e379956b69b98f548c1704d8b99c03edad6ca28e73b7f31dcf87712b925f19",
       "format_kind": "gofmt"
     },
     "internal/managedscope/starter_test.go": {
       "role": "observe",
-      "sha256": "3d3518c7aba116cbb6cf5bc4cca2bc787987a1145b0fccfdef31e3ab07a25c66",
-      "size": 8330,
-      "normalized_sha256": "3d3518c7aba116cbb6cf5bc4cca2bc787987a1145b0fccfdef31e3ab07a25c66",
-      "format_sha256": "3d3518c7aba116cbb6cf5bc4cca2bc787987a1145b0fccfdef31e3ab07a25c66",
+      "sha256": "6385ccf6a1559d9cd45b0a288c750073d615ebcf347a04757d2a85e21399de23",
+      "size": 8639,
+      "normalized_sha256": "6385ccf6a1559d9cd45b0a288c750073d615ebcf347a04757d2a85e21399de23",
+      "format_sha256": "6385ccf6a1559d9cd45b0a288c750073d615ebcf347a04757d2a85e21399de23",
       "format_kind": "gofmt"
     },
     "internal/managedscope/types.go": {
@@ -6063,9 +6063,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "aecc406cb3a71100ab94d50d99563db3d219329e02243f6e23897ddc73c3ce8c",
-      "size": 10205,
-      "normalized_sha256": "aecc406cb3a71100ab94d50d99563db3d219329e02243f6e23897ddc73c3ce8c"
+      "sha256": "2f7939b3ccd05828bbde6a1d242d45d431b282ac7ee1b044c3ef65cace1429ce",
+      "size": 10251,
+      "normalized_sha256": "2f7939b3ccd05828bbde6a1d242d45d431b282ac7ee1b044c3ef65cace1429ce"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",
@@ -6089,15 +6089,15 @@
     },
     "scripts/blackbox/mcp_conformance.py": {
       "role": "index",
-      "sha256": "84c0c6ee46bbd35cee987fa01e2bb7edd3d87d7fd8e0cb7cc511d6926f230ba1",
+      "sha256": "5bf26feadbab5e117daefddb4de7a16f681109967326108e535e0975006ff7a4",
       "size": 36480,
-      "normalized_sha256": "84c0c6ee46bbd35cee987fa01e2bb7edd3d87d7fd8e0cb7cc511d6926f230ba1"
+      "normalized_sha256": "5bf26feadbab5e117daefddb4de7a16f681109967326108e535e0975006ff7a4"
     },
     "scripts/blackbox/mcp_lifecycle.py": {
       "role": "index",
-      "sha256": "16ba77f166dcb1e1c2dff2f56fcb3afd19440affcae268f76e9daa8750fa6ea5",
-      "size": 100754,
-      "normalized_sha256": "16ba77f166dcb1e1c2dff2f56fcb3afd19440affcae268f76e9daa8750fa6ea5"
+      "sha256": "d69f7375dd99f1fdd4c27a250acc606ccd35e727399f9e859e0291f370df878a",
+      "size": 100980,
+      "normalized_sha256": "d69f7375dd99f1fdd4c27a250acc606ccd35e727399f9e859e0291f370df878a"
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "index",
@@ -6729,9 +6729,9 @@
     },
     "textassets/en-US/contracts/runtime-rules.txt": {
       "role": "observe",
-      "sha256": "84ae4f4ad07d023a105a83986223c39c3d37d2cfbf725463d7e358c12db3f018",
-      "size": 18203,
-      "normalized_sha256": "84ae4f4ad07d023a105a83986223c39c3d37d2cfbf725463d7e358c12db3f018"
+      "sha256": "88228613bde0340b77ce58a63e7eb458fc42abf336f9eb17265aaa356dd6cf8b",
+      "size": 8181,
+      "normalized_sha256": "88228613bde0340b77ce58a63e7eb458fc42abf336f9eb17265aaa356dd6cf8b"
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
@@ -7317,9 +7317,9 @@
     },
     "textassets/zh-CN/contracts/runtime-rules.txt": {
       "role": "observe",
-      "sha256": "a197088ca1229cfaee600d91f95a9f8eab56b56426e8fde5fa94a05408401e3c",
-      "size": 15665,
-      "normalized_sha256": "a197088ca1229cfaee600d91f95a9f8eab56b56426e8fde5fa94a05408401e3c"
+      "sha256": "ac0750f10c060d96e688b5be7fb560067e5616a009957264090d38b49319530d",
+      "size": 7688,
+      "normalized_sha256": "ac0750f10c060d96e688b5be7fb560067e5616a009957264090d38b49319530d"
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",

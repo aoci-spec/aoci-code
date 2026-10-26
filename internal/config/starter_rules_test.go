@@ -28,8 +28,9 @@ func TestSetNewProjectGovernanceWritesStarterRulesForProductionOnly(t *testing.T
 	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ManagedScope == nil || len(cfg.ManagedScope.Rules) != 7 || starterRuleCount(cfg.ManagedScope.Rules) != 7 {
-		t.Fatalf("a new production repository must carry exactly the seven starter rules: %+v", cfg.ManagedScope)
+	starters := len(managedscope.StarterRules(machinecontract.ScopeProfileProduction))
+	if cfg.ManagedScope == nil || len(cfg.ManagedScope.Rules) != starters || starterRuleCount(cfg.ManagedScope.Rules) != starters {
+		t.Fatalf("a new production repository must carry exactly the starter rules: %+v", cfg.ManagedScope)
 	}
 	for _, rule := range cfg.ManagedScope.Rules {
 		if rule.Action != machinecontract.ScopeRoleObserve || rule.Source != machinecontract.ScopeRuleBuiltin {
@@ -44,7 +45,7 @@ func TestSetNewProjectGovernanceWritesStarterRulesForProductionOnly(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.ManagedScope == nil || starterRuleCount(loaded.ManagedScope.Rules) != 7 {
+	if loaded.ManagedScope == nil || starterRuleCount(loaded.ManagedScope.Rules) != starters {
 		t.Fatalf("starter rules did not survive the config round trip: %+v", loaded.ManagedScope)
 	}
 	for _, profile := range []string{machinecontract.ScopeProfileFull, machinecontract.ScopeProfileCustom} {

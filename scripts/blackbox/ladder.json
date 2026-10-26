@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-slim.txt (branch v0.2.0-line, tools/list slimming)"
+    "evidence": ".aoci/dev-tools/make-fast-starter.txt (branch v0.2.0-line, rules slimming + starter rules)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt (branch v0.2.0-line, tools/list slimming)"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt (branch v0.2.0-line, rules slimming + starter rules)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt (53 passed)"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt (76 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt (76 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt (92 PASS, 3 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt (93 PASS, 2 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-slim.txt"
+    "evidence": ".aoci/dev-tools/make-verify-starter.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/public-text-slim.txt (287 files clean)"
+    "evidence": ".aoci/dev-tools/public-text-starter.txt (288 files clean)"
    }
   }
  ]

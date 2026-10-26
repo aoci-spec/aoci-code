@@ -15,6 +15,15 @@ const starterRuleOrderBase = 100
 const starterRuleReason = "vendored static assets and generated bundles are observed, not indexed; " +
 	"delete this rule before the first scan if the path holds your own code"
 
+const starterThirdPartyReason = "third-party source trees are observed, not indexed; " +
+	"delete this rule before the first scan if the path holds your own code"
+
+const starterAssetReason = "vector images and public certificates are observed, not indexed; " +
+	"delete this rule before the first scan to author Entries for them"
+
+const starterLockfileReason = "dependency lockfiles are generated pins and are observed, not indexed; " +
+	"the manifest beside each one carries its semantics"
+
 // StarterRules are the observe rules a NEW production-profile repository is
 // born with. On a real Java repository (RuoYi, 702 files) `aoci init` with the
 // production profile put every file into the index role — 141 third-party files
@@ -61,25 +70,47 @@ const starterRuleReason = "vendored static assets and generated bundles are obse
 // a tracked nested module of that name is source by design (#104); a team
 // that wants such a module out adds its own rule.
 //
+// The second group (0.2.0) carries the same reasoning to the material a first
+// build otherwise spends its rounds on without gaining system cognition: a
+// vendored third_party or third-party tree (this repository's own carried
+// connector is 57 Entries, an eighth of its index), SVG markup, public
+// certificates (private keys are already a built-in sensitive exclusion), and
+// the generated lockfiles of the common package managers, whose manifests stay
+// indexed. Appending keeps the first seven rules' ids and orders, so a
+// repository initialized before 0.2.0 compares equal to the rules it carries.
+//
 // Any profile other than production returns nil: `full` indexes everything by
 // definition and `custom` starts from an empty rule set the team owns.
 func StarterRules(profile string) []Rule {
 	if profile != machinecontract.ScopeProfileProduction {
 		return nil
 	}
-	items := []struct{ slug, pattern string }{
-		{"static-libs", "**/static/**/libs/**"},
-		{"static-lib", "**/static/**/lib/**"},
-		{"static-plugins", "**/static/**/plugins/**"},
-		{"min-js", "**/*.min.js"},
-		{"min-css", "**/*.min.css"},
-		{"source-map", "**/*.map"},
-		{"fonts", "**/fonts/**"},
+	items := []struct{ slug, pattern, reason string }{
+		{"static-libs", "**/static/**/libs/**", starterRuleReason},
+		{"static-lib", "**/static/**/lib/**", starterRuleReason},
+		{"static-plugins", "**/static/**/plugins/**", starterRuleReason},
+		{"min-js", "**/*.min.js", starterRuleReason},
+		{"min-css", "**/*.min.css", starterRuleReason},
+		{"source-map", "**/*.map", starterRuleReason},
+		{"fonts", "**/fonts/**", starterRuleReason},
+		{"third-party", "**/third_party/**", starterThirdPartyReason},
+		{"third-party-dash", "**/third-party/**", starterThirdPartyReason},
+		{"svg", "**/*.svg", starterAssetReason},
+		{"certificate-crt", "**/*.crt", starterAssetReason},
+		{"certificate-cer", "**/*.cer", starterAssetReason},
+		{"npm-lock", "**/package-lock.json", starterLockfileReason},
+		{"yarn-lock", "**/yarn.lock", starterLockfileReason},
+		{"pnpm-lock", "**/pnpm-lock.yaml", starterLockfileReason},
+		{"cargo-lock", "**/Cargo.lock", starterLockfileReason},
+		{"poetry-lock", "**/poetry.lock", starterLockfileReason},
+		{"gemfile-lock", "**/Gemfile.lock", starterLockfileReason},
+		{"composer-lock", "**/composer.lock", starterLockfileReason},
+		{"go-sum", "**/go.sum", starterLockfileReason},
 	}
 	rules := make([]Rule, 0, len(items))
 	for index, item := range items {
 		rules = append(rules, Rule{RuleID: StarterRuleIDPrefix + item.slug, Action: machinecontract.ScopeRoleObserve,
-			Pattern: item.pattern, PatternKind: machinecontract.ScopePatternGlob, Reason: starterRuleReason,
+			Pattern: item.pattern, PatternKind: machinecontract.ScopePatternGlob, Reason: item.reason,
 			Source: machinecontract.ScopeRuleBuiltin, CreatedBy: StarterRuleCreatedBy,
 			Order: starterRuleOrderBase + index, Enabled: true})
 	}

@@ -126,6 +126,18 @@ changes a persisted preimage names the binary every machine then needs.
   in the attestation prompt, the Overview responses, and the specs. The items
   are renumbered 1 to 11. The prescribed success and failure sentences, the
   capacity stop, and every stop condition of a stopped write stay.
+- A new production repository starts with thirteen more starter `observe`
+  rules, so its first build stops authoring Entries for material that gives no
+  system cognition: `third_party/` and `third-party/` trees, `*.svg`, public
+  certificates (`*.crt`, `*.cer`; private keys were already a built-in
+  sensitive exclusion), and the lockfiles `package-lock.json`, `yarn.lock`,
+  `pnpm-lock.yaml`, `Cargo.lock`, `poetry.lock`, `Gemfile.lock`,
+  `composer.lock`, and `go.sum`, whose manifests keep the index role. Like the
+  first seven, `aoci init` persists them only when no config exists, so an
+  existing repository's rules, roles, and scope identity do not change; the
+  first seven keep their ids and orders. The lifecycle suite's lockfile
+  characterization becomes an assertion that `package-lock.json` is observed
+  and never an authoring candidate.
 
 ## v0.1.0-rc22
 

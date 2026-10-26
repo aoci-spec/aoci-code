@@ -27,6 +27,11 @@ var starterRuleFixtureRoles = map[string]string{
 	"assets/fonts/a.woff2":           machinecontract.ScopeRoleObserve,
 	"static/js/app.js.map":           machinecontract.ScopeRoleObserve,
 	"static/ruoyi/js/ry-ui.js":       machinecontract.ScopeRoleIndex,
+	"third_party/zlib/inflate.c":     machinecontract.ScopeRoleObserve,
+	"web/package-lock.json":          machinecontract.ScopeRoleObserve,
+	"web/package.json":               machinecontract.ScopeRoleIndex,
+	"docs/diagram.svg":               machinecontract.ScopeRoleObserve,
+	"certs/ca.crt":                   machinecontract.ScopeRoleObserve,
 	"src/lib/util.ts":                machinecontract.ScopeRoleIndex,
 	"src/app.go":                     machinecontract.ScopeRoleIndex,
 }
@@ -40,6 +45,11 @@ func starterRuleFixture(t *testing.T) string {
 		"assets/fonts/a.woff2":           "not a real font\n",
 		"static/js/app.js.map":           "{\"version\":3}\n",
 		"static/ruoyi/js/ry-ui.js":       "window.ry = {};\n",
+		"third_party/zlib/inflate.c":     "int inflate(void) { return 0; }\n",
+		"web/package-lock.json":          "{\"lockfileVersion\": 3}\n",
+		"web/package.json":               "{\"name\": \"web\"}\n",
+		"docs/diagram.svg":               "<svg xmlns=\"http://www.w3.org/2000/svg\"/>\n",
+		"certs/ca.crt":                   "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n",
 		"src/lib/util.ts":                "export const util = 1;\n",
 		"src/app.go":                     "package src\n",
 	} {
@@ -88,8 +98,8 @@ func TestInitPersistsStarterRulesAndScanObservesVendoredStatic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.ManagedScope == nil || len(starterRuleIDs(cfg.ManagedScope.Rules)) != 7 {
-		t.Fatalf("init did not persist the seven starter rules: %+v", cfg.ManagedScope)
+	if cfg.ManagedScope == nil || len(starterRuleIDs(cfg.ManagedScope.Rules)) != len(managedscope.StarterRules(machinecontract.ScopeProfileProduction)) {
+		t.Fatalf("init did not persist the starter rules: %+v", cfg.ManagedScope)
 	}
 	value := scanBaseline(t, root)
 	for rel, role := range starterRuleFixtureRoles {

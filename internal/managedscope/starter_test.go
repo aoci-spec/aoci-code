@@ -25,7 +25,10 @@ func TestStarterRulesExistOnlyForProductionInAFixedOrder(t *testing.T) {
 	// No vendor, dist, or build pattern: artifact exclusions belong to the
 	// repository's persisted inventory policy, not the starter rule set.
 	want := []string{"**/static/**/libs/**", "**/static/**/lib/**", "**/static/**/plugins/**",
-		"**/*.min.js", "**/*.min.css", "**/*.map", "**/fonts/**"}
+		"**/*.min.js", "**/*.min.css", "**/*.map", "**/fonts/**",
+		"**/third_party/**", "**/third-party/**", "**/*.svg", "**/*.crt", "**/*.cer",
+		"**/package-lock.json", "**/yarn.lock", "**/pnpm-lock.yaml", "**/Cargo.lock",
+		"**/poetry.lock", "**/Gemfile.lock", "**/composer.lock", "**/go.sum"}
 	rules := StarterRules(machinecontract.ScopeProfileProduction)
 	if len(rules) != len(want) {
 		t.Fatalf("production starter rules: got %d, want %d: %+v", len(rules), len(want), rules)
@@ -54,8 +57,8 @@ func TestStarterRulesExistOnlyForProductionInAFixedOrder(t *testing.T) {
 
 func TestStarterRulesNormalizeWithoutTouchingDefaultPolicy(t *testing.T) {
 	normalized := starterPolicy(t)
-	if len(normalized.Rules) != 7 {
-		t.Fatalf("Normalize kept %d rules, want 7: %+v", len(normalized.Rules), normalized.Rules)
+	if want := len(StarterRules(machinecontract.ScopeProfileProduction)); len(normalized.Rules) != want {
+		t.Fatalf("Normalize kept %d rules, want %d: %+v", len(normalized.Rules), want, normalized.Rules)
 	}
 	for _, rule := range normalized.Rules {
 		if !strings.HasPrefix(rule.RuleID, StarterRuleIDPrefix) || rule.Source != machinecontract.ScopeRuleBuiltin {

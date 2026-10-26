@@ -1449,7 +1449,10 @@ def suite_governance(rep, work):
               if f.get("code") == "code_skipped"}
     want = {"data/empty.txt": "empty", "data/audit_dump_rows.txt": "oversize", "assets/logo.png": "binary"}
     rep.rec(g, "probe-causes-named", "PASS" if causes == want else "FAIL", f"causes={causes}")
-    rep.rec(g, "lockfile-classification", "CHAR", f"candidate={'package-lock.json' in cands}")
+    # A new production repository persists the lockfile starter rules, so the
+    # fixture's package-lock.json is observed and never an authoring candidate.
+    rep.rec(g, "lockfile-observed-not-candidate", "PASS" if "package-lock.json" not in cands else "FAIL",
+            f"candidate={'package-lock.json' in cands}")
     ok_all, rounds, detail = author_all(fx)
     al, v = aligned(fx)
     rep.rec(g, "auto-mode-aligns-with-probes-held", "PASS" if ok_all and al else "FAIL",
