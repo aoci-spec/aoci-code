@@ -185,12 +185,12 @@ func TestFreshIndexUnderSpecialRootStaysConsistentAcrossInserts(t *testing.T) {
 			t.Fatalf("insert %s: %v", target.rel, err)
 		}
 	}
-	if strings.Count(text, "===/work/my project (v2)/repo/") != 1 || !strings.HasPrefix(text, "#head\n\n===/work/my project (v2)/repo/===\n") {
-		t.Fatalf("the root section, and only it, carries the full root, and it comes first:\n%s", text)
+	if strings.Contains(text, "/work/") || !strings.HasPrefix(text, "#head\n\n==="+NeutralRepositoryRoot+"/===\n") {
+		t.Fatalf("a new index begins with the neutral root section and never records the runtime root:\n%s", text)
 	}
-	for _, header := range []string{"===/work/my/src/===\n", "===/work/my/src/deep dir/===\n", "===/work/my/pages/[id]/===\n"} {
-		if !strings.Contains(text, header) {
-			t.Fatalf("later sections continue the root as the original reading reads it back; missing %q:\n%s", header, text)
+	for _, header := range []string{"/src/===\n", "/src/deep dir/===\n", "/pages/[id]/===\n"} {
+		if !strings.Contains(text, "==="+NeutralRepositoryRoot+header) {
+			t.Fatalf("later sections continue the neutral root; missing %q:\n%s", header, text)
 		}
 	}
 	for _, at := range []string{root, "/srv/checkout"} {
@@ -453,10 +453,11 @@ func TestInsertRefusesASectionThatWouldResolveSomewhereElse(t *testing.T) {
 // 与克隆解析一致; 连读回来的根都没有时才拒绝, 并点名是仓库根。
 func TestFreshIndexUnderARootNoHeaderCanSpell(t *testing.T) {
 	for _, shape := range []struct{ root, recorded string }{
-		{"/(x)/repo", "/repo"},
-		{"C:/(backup)/repo", "/repo"},
-		{"/home/u/s /repo", "/home/u/s"},
-		{"/home/u/ s/repo", "/home/u"},
+		{"/(x)/repo", NeutralRepositoryRoot},
+		{"C:/(backup)/repo", NeutralRepositoryRoot},
+		{"/home/u/s /repo", NeutralRepositoryRoot},
+		{"/home/u/ s/repo", NeutralRepositoryRoot},
+		{"/(x)", NeutralRepositoryRoot},
 	} {
 		text := "#head\n"
 		var err error
@@ -478,10 +479,6 @@ func TestFreshIndexUnderARootNoHeaderCanSpell(t *testing.T) {
 				t.Fatalf("root %q read at %q: %q, want %q\n%s", shape.root, at, got, want, text)
 			}
 		}
-	}
-	var unspellable *DirectoryUnspellableError
-	if _, err := InsertEntry("#head\n", "main.go", "main.go[CG5T]: F:m | R:- | A:- | S:-", "/(x)"); !errors.As(err, &unspellable) || !unspellable.Root {
-		t.Fatalf("a root with no spellable reading at all is refused as the root: %v", err)
 	}
 }
 
@@ -542,14 +539,11 @@ func TestFreshIndexWithoutRootEntriesReadsTheSameEverywhere(t *testing.T) {
 			}
 		}
 		if first := firstDirectorySection(buildDoc(t, text)); first == nil || len(first.Entries) != 0 ||
-			normalizeRootPath(first.AbsPath) != normalizeRootPath(shape.root) {
-			t.Fatalf("a new index whose first Entry lives in a directory begins with its empty root section, spelled in full:\n%s", text)
+			normalizeRootPath(first.AbsPath) != NeutralRepositoryRoot {
+			t.Fatalf("a new index whose first Entry lives in a directory begins with its empty neutral root section:\n%s", text)
 		}
-		// Only the root section carries the full root; the rest hang from it as the
-		// original reading reads it back, the single shape every release has written.
-		if legacyRoot := normalizeRootPath(firstDirectorySection(buildDoc(t, text)).LegacyAbsPath); legacyRoot != normalizeRootPath(shape.root) &&
-			strings.Count(text, "==="+shape.root+"/") != 1 {
-			t.Fatalf("under a root holding a cut character only the root section is spelled in full:\n%s", text)
+		if strings.Contains(text, shape.root) {
+			t.Fatalf("a new index never records the runtime root:\n%s", text)
 		}
 	}
 }

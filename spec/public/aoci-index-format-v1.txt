@@ -29,7 +29,12 @@ Code section roots and clone relocation
 The absolute path token in a Legacy or Code Volume directory section header is
 the structural coordinate captured when that section family was created. It is
 historical text, not the runtime repository root, a source-access path, or a
-semantic object identity. The runtime repository root is resolved for each
+semantic object identity. Since 0.2.0 a writer creating the first directory
+section of an index records the neutral root `/<repository>` instead of the
+machine path it runs under, so a new index carries no author directory, and
+later sections continue under it like any historical root; no checkout can sit
+under it (`<` and `>` are reserved on Windows), so it always resolves by
+relocation. An index created earlier keeps the root it records. The runtime repository root is resolved for each
 invocation; an explicit `--repo` binds it directly and takes precedence over
 repository discovery, as defined by the CLI runtime contract.
 
@@ -47,9 +52,10 @@ It does not make a Code Volume directory section header a runtime path or a
 Volume declaration. Implementations and integrations must not conflate these
 two path fields.
 
-Because historical section roots remain versioned text, a repository intended
-for publication should review them for unwanted hostnames, user names, secret
-material, or other private topology before its first public commit. Such a
+Because historical section roots remain versioned text, a repository whose
+index was created before 0.2.0 and is intended for publication should review
+them for unwanted hostnames, user names, secret material, or other private
+topology before its first public commit. Such a
 review is a disclosure boundary; it does not change the logical-relocation
 contract and is not authorization to edit formal cognition assets directly.
 
@@ -100,15 +106,17 @@ root only while a section sits there; an index without one, which earlier
 writers could leave behind, may resolve differently in a copy than at its
 origin.
 
-Under a root holding one of those characters, the root section spells the root
-in full and every later section continues it as the original reading reads it
-back, that is, truncated at the character. Every release has written this one
-shape, so a reader older than this rule still resolves every section of it
-whose own directory name it can read. When the repository root has no header
-that reads back to it at all (its first segment begins with `(`, `（`, or `=`,
-or one of its segments begins or ends with whitespace), the root section
-records the root as such a header reads back, and the index resolves by
-relocation at the origin exactly as it does in a copy.
+Releases before 0.2.0 recorded the machine root, and those indexes stay
+readable as written. Under a root holding one of those characters, the root
+section spells the root in full and every later section continues it as the
+original reading reads it back, that is, truncated at the character. Every
+release before 0.2.0 wrote this one shape, so a reader older than this rule
+still resolves every section of it whose own directory name it can read. When
+the repository root had no header that reads back to it at all (its first
+segment begins with `(`, `（`, or `=`, or one of its segments begins or ends
+with whitespace), the root section recorded the root as such a header reads
+back, and the index resolves by relocation at the origin exactly as it does in
+a copy. The neutral root has none of those characters.
 
 Readers recognise that shape from the text alone, before the runtime root is
 consulted, so that the origin and a copy at any other path read it identically;

@@ -239,38 +239,18 @@ func planNewSection(doc *Document, repoRoot, relPath string) ([]string, error) {
 		relDir = ""
 	}
 
-	// The runtime root itself may have no header that reads back to it: its first
-	// segment begins with a cut character (C:/(backup)/repo), or a segment begins or
-	// ends with whitespace. Section roots are coordinates, not runtime paths, so a
-	// new index records what such a header reads back to, which is the root every
-	// release up to rc13 continued from there; the index then resolves by relocation
-	// here exactly as it does in a clone. An index that already has sections derived
-	// its root from headers that were read, so this is a new index only.
+	// A new index begins with its root section under NeutralRepositoryRoot, which
+	// spells by construction, so no runtime path, however its segments read, reaches
+	// the written text. An existing index continues the root its own headers read
+	// back to (appendSectionRoot); one whose root cannot be spelled back is refused
+	// as the root rather than written somewhere the next read resolves elsewhere.
 	if !headerSpells(root + "/") {
-		spelled, ok := spellableRoot(root)
-		if !ok {
-			return nil, &DirectoryUnspellableError{Directory: root, Root: true}
-		}
-		root = spelled
+		return nil, &DirectoryUnspellableError{Directory: root, Root: true}
 	}
-	// A new index begins with its root section, spelled in full, and every other
-	// section hangs from that root as the original reading reads it back. Under a
-	// clean root the two are the same path. Under a root that holds a cut character
-	// this is, byte for byte, the shape every earlier release wrote there, so one
-	// shape exists in the wild, the reader's old-writer rule covers all of it, and an
-	// older reader still resolves every section whose own name it can read. Later
-	// inserts find that root through the reader (appendSectionRoot); only the first
-	// directory section of a new index has nothing to read it from yet.
 	fresh := firstDirectorySection(doc) == nil
-	family := root
-	if fresh {
-		if _, legacyPath, _, ok := matchDirHeader("===" + root + "/==="); ok && normalizeRootPath(legacyPath) != "" {
-			family = normalizeRootPath(legacyPath)
-		}
-	}
 	absDir := root + "/"
 	if relDir != "" {
-		absDir = family + "/" + relDir + "/"
+		absDir = root + "/" + relDir + "/"
 	}
 
 	// Fail closed on a directory the header grammar cannot spell back (a segment
@@ -295,17 +275,6 @@ func planNewSection(doc *Document, repoRoot, relPath string) ([]string, error) {
 		return nil, &DirectoryUnspellableError{Directory: relDir}
 	}
 	return headers, nil
-}
-
-// spellableRoot returns what a section header for root reads back to, when that
-// is itself a root a header can spell.
-func spellableRoot(root string) (string, bool) {
-	_, _, readBack, ok := matchDirHeader("===" + root + "/===")
-	spelled := normalizeRootPath(readBack)
-	if !ok || spelled == "" || !headerSpells(spelled+"/") {
-		return "", false
-	}
-	return spelled, true
 }
 
 // sectionsResolveLast reports whether, with headers appended to doc's sections
@@ -405,12 +374,21 @@ func appendSectionRoot(doc *Document, repoRoot string) (string, error) {
 	if hasDirectorySection {
 		return root, nil
 	}
-	root = normalizeRootPath(repoRoot)
-	if root == "" {
-		return "", errors.New("运行时仓库根为空,无法建立首个目录段")
-	}
-	return root, nil
+	// A new index records no machine path. Its first section names
+	// NeutralRepositoryRoot, so the committed index never publishes the author's
+	// directory, and later sections continue under it like any historical root.
+	return NeutralRepositoryRoot, nil
 }
+
+// NeutralRepositoryRoot is the section root a writer gives a new index. Readers
+// need nothing special for it: a root no checkout can sit under always misses
+// the runtime root and resolves by relocation, the way a clone made at another
+// path resolves the author's root; the released rc22 reader resolves it, and
+// its writer appends under it, exactly that way. It cannot be a real directory on Windows, where < and
+// > are reserved, nor plausibly one on Unix; a plain name such as /repo could,
+// and a checkout under /repo/<dir> that contains <dir>/ would then match some
+// sections directly and misread them.
+const NeutralRepositoryRoot = "/<repository>"
 
 // appendIndexForNewSection 计算"追加新段"的插入下标(0 起,插在该下标之前的位置):
 // 从文末向前跳过连续的空行与 # 注释行,落点即负空间说明区/闭合标记之前。

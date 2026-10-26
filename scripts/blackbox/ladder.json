@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-fast-mig.txt (branch v0.2.0-line, linear migration template)"
+    "evidence": ".aoci/dev-tools/make-fast-neutral.txt (branch v0.2.0-line, neutral section root)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt (branch v0.2.0-line, linear migration template)"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (branch v0.2.0-line, neutral section root)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt (53 passed)"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt (76 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (76 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt (93 PASS, 2 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (93 PASS, 2 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-mig.txt"
+    "evidence": ".aoci/dev-tools/make-verify-neutral.txt"
    }
   },
   {
@@ -315,8 +315,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/public-text-starter.txt (288 files clean)"
+    "date": "2026-10-27",
+    "evidence": ".aoci/dev-tools/public-text-neutral.txt (288 files clean)"
    }
   }
  ]

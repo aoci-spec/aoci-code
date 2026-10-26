@@ -147,6 +147,17 @@ changes a persisted preimage names the binary every machine then needs.
   the same attribution rules takes 2.6 s and 28 s; no mapping, receipt, or
   result changes. The nightly benchmark comparison now covers the 10,000-Entry
   migration too.
+- A new index no longer publishes the machine it was written on. The first
+  directory section of a Code Volume (or Legacy index) recorded the author's
+  absolute repository path, often with a user name, and every later section
+  continued it into the committed file. A writer creating that first section
+  now records the neutral root `/<repository>`; every other section continues
+  under it. Readers need no change: no checkout can sit under that root, so it
+  resolves the way a clone at another path resolves its author's root, and the
+  rc22 reader resolves it and its writer appends under it the same way. A
+  repository whose path the header grammar could not spell back is no longer
+  refused for that reason. An existing index keeps the root it records; the
+  format spec and troubleshooting notes say which indexes carry which root.
 
 ## v0.1.0-rc22
 

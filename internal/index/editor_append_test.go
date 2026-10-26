@@ -107,7 +107,7 @@ func TestInsertEntry_AllCommentDocFallback(t *testing.T) {
 	// 新段头应在头部之后
 	found := false
 	for i, l := range lines {
-		if strings.Contains(l, "===/repo/newdir/===") {
+		if strings.Contains(l, "==="+NeutralRepositoryRoot+"/newdir/===") {
 			if i < 3 {
 				t.Errorf("新段头(行%d)插到了头部规范区内", i)
 			}
