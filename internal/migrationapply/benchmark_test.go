@@ -132,6 +132,36 @@ func migrationScaleFixture(b testing.TB, objectCount int) string {
 
 func preparedMigrationScaleFixture(b testing.TB, root string) (*ApplyEnvelope, *Approval) {
 	b.Helper()
+	snapshot, plan, candidate := migrationScaleInputs(b, root)
+	preview, err := cognitionplan.ValidateCandidate(root, plan, candidate)
+	if err != nil {
+		b.Fatal(err)
+	}
+	template, err := BuildMappingTemplate(root, snapshot, plan, candidate)
+	if err != nil {
+		b.Fatal(err)
+	}
+	mapping, err := ValidateMapping(root, snapshot, plan, candidate, authorApplyGradeMapping(b, template))
+	if err != nil {
+		b.Fatal(err)
+	}
+	envelope, err := Prepare(root, &ApplyRequest{Version: machinecontract.CognitionMigrationApplyRequestV2,
+		Snapshot: *snapshot, Plan: *plan, Mapping: *mapping, Candidate: *candidate, Preview: *preview,
+		BaselineTimestamp: "2026-07-30T00:00:00Z"})
+	if err != nil {
+		b.Fatal(err)
+	}
+	approval, err := RecordApproval(envelope, "test-human", "2026-07-30T00:01:00Z", envelope.EnvelopeDigest)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return envelope, approval
+}
+
+// migrationScaleInputs captures the snapshot, plans the migration, and builds
+// the model-authored candidate the scale fixture migrates to.
+func migrationScaleInputs(b testing.TB, root string) (*LegacySnapshot, *cognitionplan.Plan, *cognitionplan.LayoutCandidate) {
+	b.Helper()
 	snapshot, err := CaptureSnapshot(root, "en-US", []string{"code"}, "2026-07-30T00:00:00Z")
 	if err != nil {
 		b.Fatal(err)
@@ -170,27 +200,5 @@ func preparedMigrationScaleFixture(b testing.TB, root string) (*ApplyEnvelope, *
 	sort.Slice(candidate.MappingResolutions, func(i, j int) bool {
 		return candidate.MappingResolutions[i].UnitID < candidate.MappingResolutions[j].UnitID
 	})
-	preview, err := cognitionplan.ValidateCandidate(root, plan, candidate)
-	if err != nil {
-		b.Fatal(err)
-	}
-	template, err := BuildMappingTemplate(root, snapshot, plan, candidate)
-	if err != nil {
-		b.Fatal(err)
-	}
-	mapping, err := ValidateMapping(root, snapshot, plan, candidate, authorApplyGradeMapping(b, template))
-	if err != nil {
-		b.Fatal(err)
-	}
-	envelope, err := Prepare(root, &ApplyRequest{Version: machinecontract.CognitionMigrationApplyRequestV2,
-		Snapshot: *snapshot, Plan: *plan, Mapping: *mapping, Candidate: *candidate, Preview: *preview,
-		BaselineTimestamp: "2026-07-30T00:00:00Z"})
-	if err != nil {
-		b.Fatal(err)
-	}
-	approval, err := RecordApproval(envelope, "test-human", "2026-07-30T00:01:00Z", envelope.EnvelopeDigest)
-	if err != nil {
-		b.Fatal(err)
-	}
-	return envelope, approval
+	return snapshot, plan, candidate
 }

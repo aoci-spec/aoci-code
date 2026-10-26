@@ -138,6 +138,15 @@ changes a persisted preimage names the binary every machine then needs.
   first seven keep their ids and orders. The lifecycle suite's lockfile
   characterization becomes an assertion that `package-lock.json` is observed
   and never an authoring candidate.
+- Migrating a large Legacy index no longer takes hours. Since the Legacy layout
+  is read-only, migration to Volumes is how every Legacy repository continues,
+  and its mapping template compared each Entry's field atoms by rescanning every
+  range, so its cost grew with the cube of the Entry count: one
+  prepare-apply-status pass took 47 s at 1,000 Entries, and a 10,000-Entry run
+  was still in the template after seven and a half hours. One indexed pass with
+  the same attribution rules takes 2.6 s and 28 s; no mapping, receipt, or
+  result changes. The nightly benchmark comparison now covers the 10,000-Entry
+  migration too.
 
 ## v0.1.0-rc22
 

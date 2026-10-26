@@ -7,10 +7,13 @@ line, writes bench-results.json, and compares each median with the committed
 baseline in scripts/bench-baseline.json. A benchmark more than THRESHOLD percent
 slower than its baseline is reported as a GitHub Actions ::warning:: annotation.
 
-One exception to 3x/3: the 1000-object migration fixtures. One iteration of
-each of their four sub-benchmarks takes about a minute on a fast machine, so
-3x/3 is 36 iterations and took 54 minutes locally; they run one iteration,
-one sample, exactly as the step always ran them, and the summary says so.
+One exception to 3x/3: the 10,000-object migration fixtures. One iteration of
+each of their four sub-benchmarks takes about half a minute on a fast machine,
+so they run one iteration, one sample, and the summary says so. Until 0.2.0
+the migration mapping template was cubic in the Entry count: the 1000-object
+fixtures took about a minute an iteration (3x/3 took 54 minutes) and the
+10,000-object ones hours, so those were never run; both now scale linearly
+and the 1000-object fixtures take the ordinary 3x/3.
 
 The comparison never fails the run: shared runners are noisy and the baseline
 was measured on one machine, so the numbers are advisory. Only a benchmark that
@@ -48,9 +51,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # One entry per go test invocation, mirroring the performance fixtures step.
 # A group may pin benchtime and count; the others take the command line values.
 GROUPS = [
-    {"bench": "^BenchmarkMigrationScale$/^objects-(1|100)$/", "packages": ["./internal/migrationapply"]},
-    # About a minute per iteration and four sub-benchmarks: one iteration, one sample.
-    {"bench": "^BenchmarkMigrationScale$/^objects-1000$/", "packages": ["./internal/migrationapply"],
+    {"bench": "^BenchmarkMigrationScale$/^objects-(1|100|1000)$/", "packages": ["./internal/migrationapply"]},
+    # About half a minute per iteration and four sub-benchmarks: one iteration, one sample.
+    {"bench": "^BenchmarkMigrationScale$/^objects-10000$/", "packages": ["./internal/migrationapply"],
      "benchtime": "1x", "count": 1},
     {"bench": "Benchmark(BootstrapScale|BootstrapPlannerScale)$",
      "packages": ["./internal/bootstrapapply", "./internal/cognitionplan"]},

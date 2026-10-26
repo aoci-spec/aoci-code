@@ -104,6 +104,7 @@ func ValidateMapping(repositoryRoot string, snapshot *LegacySnapshot, plan *cogn
 		return nil, err
 	}
 
+	atoms := newEntryAtomIndex(snapshot.Ranges, targetRanges)
 	entryTotal, entryMapped, semanticTotal, semanticMapped := 0, 0, 0, 0
 	preservedFields, regeneratedFields, fieldPreservedEntries, fullRegeneratedEntries, canonicalizedEntries := 0, 0, 0, 0, 0
 	unexplained, ambiguous, duplicates := 0, 0, 0
@@ -187,7 +188,7 @@ func ValidateMapping(repositoryRoot string, snapshot *LegacySnapshot, plan *cogn
 			if source.Kind == "entry" {
 				switch record.MappingMode {
 				case machinecontract.CognitionMappingFieldPreserved:
-					preserved, regenerated, canonicalized, preservationErr := validateEntryPreservation(source, target, record.EntryPreservation, snapshot.Ranges, targetRanges)
+					preserved, regenerated, canonicalized, preservationErr := validateEntryPreservation(source, target, record.EntryPreservation, atoms)
 					if preservationErr != nil {
 						return nil, preservationErr
 					}
@@ -467,6 +468,7 @@ func buildEntryPreservationProposals(repositoryRoot string, snapshot *LegacySnap
 			targetByObject[target.Object] = append(targetByObject[target.Object], target)
 		}
 	}
+	atoms := newEntryAtomIndex(snapshot.Ranges, targets)
 	for _, source := range snapshot.Ranges {
 		if source.Kind != "entry" {
 			continue
@@ -480,7 +482,7 @@ func buildEntryPreservationProposals(repositoryRoot string, snapshot *LegacySnap
 		if len(matches) != 1 {
 			continue
 		}
-		preserved, regenerated := compareEntryFields(source, matches[0], snapshot.Ranges, targets)
+		preserved, regenerated := compareEntryFields(source, matches[0], atoms)
 		result[source.Identity] = &EntryPreservation{
 			Version: machinecontract.CognitionEntryPreservationV1, PreservedFields: preserved, RegeneratedFields: regenerated,
 			IdentityCanonicalizationProposal: &IdentityCanonicalizationProposal{
@@ -493,9 +495,9 @@ func buildEntryPreservationProposals(repositoryRoot string, snapshot *LegacySnap
 	return result
 }
 
-func compareEntryFields(source ByteRange, target TargetRange, sourceRanges []ByteRange, targetRanges []TargetRange) ([]string, []string) {
-	sourceAtoms := sourceEntryAtoms(source.Identity, sourceRanges)
-	targetAtoms := targetEntryAtoms(target.Identity, targetRanges)
+func compareEntryFields(source ByteRange, target TargetRange, atoms *entryAtomIndex) ([]string, []string) {
+	sourceAtoms := atoms.sourceAtoms(source.Identity)
+	targetAtoms := atoms.targetAtoms(target.Identity)
 	preserved := []string{}
 	regenerated := []string{}
 	for _, field := range []string{"tags", "F", "R", "A", "S"} {
@@ -509,44 +511,84 @@ func compareEntryFields(source ByteRange, target TargetRange, sourceRanges []Byt
 	return preserved, regenerated
 }
 
-func sourceEntryAtoms(parent string, ranges []ByteRange) map[string]string {
-	result := map[string]string{}
-	for _, item := range ranges {
-		if item.ParentID == parent {
-			result[item.Kind] = item.SHA256
-		}
-	}
-	return result
+// entryAtomIndex answers, for one set of Legacy source ranges and candidate
+// target ranges, which field atoms belong to an Entry and how many target
+// Entries name an object. The questions used to be answered by rescanning every
+// range for every Entry, and finding a target atom's parent rescanned every
+// range again, so a mapping template was cubic in the Entry count: a 1,000-Entry
+// Legacy index took most of a minute and a 10,000-Entry one hours, on the only
+// path a Legacy repository has into Volumes. One pass now gives the same
+// answers under the same rules: a source atom belongs to its ParentID; a target
+// atom belongs to the first Entry, in range order, of the same asset and object
+// whose bytes contain it; an Entry has no parent; a kind seen twice under one
+// parent keeps the later SHA-256.
+type entryAtomIndex struct {
+	source  map[string]map[string]string
+	target  map[string]map[string]string
+	objects map[targetObjectKey]int
 }
 
-func targetEntryAtoms(parent string, ranges []TargetRange) map[string]string {
-	result := map[string]string{}
-	for _, item := range ranges {
-		if targetParentIdentity(item, ranges) == parent {
-			result[item.Kind] = item.SHA256
+type targetObjectKey struct{ asset, object string }
+
+func newEntryAtomIndex(sourceRanges []ByteRange, targetRanges []TargetRange) *entryAtomIndex {
+	atoms := &entryAtomIndex{
+		source:  map[string]map[string]string{},
+		target:  map[string]map[string]string{},
+		objects: map[targetObjectKey]int{},
+	}
+	for _, item := range sourceRanges {
+		atoms.add(atoms.source, item.ParentID, item.Kind, item.SHA256)
+	}
+	entries := map[targetObjectKey][]TargetRange{}
+	for _, item := range targetRanges {
+		if item.Kind == "entry" {
+			key := targetObjectKey{asset: item.Asset, object: item.Object}
+			entries[key] = append(entries[key], item)
+			atoms.objects[key]++
 		}
 	}
-	return result
+	for _, item := range targetRanges {
+		parent := ""
+		if item.Kind != "entry" {
+			for _, possible := range entries[targetObjectKey{asset: item.Asset, object: item.Object}] {
+				if item.ByteStart >= possible.ByteStart && item.ByteEnd <= possible.ByteEnd {
+					parent = possible.Identity
+					break
+				}
+			}
+		}
+		atoms.add(atoms.target, parent, item.Kind, item.SHA256)
+	}
+	return atoms
 }
 
-func targetParentIdentity(item TargetRange, ranges []TargetRange) string {
-	if item.Kind == "entry" {
-		return ""
+func (atoms *entryAtomIndex) add(byParent map[string]map[string]string, parent, kind, sha string) {
+	values := byParent[parent]
+	if values == nil {
+		values = map[string]string{}
+		byParent[parent] = values
 	}
-	for _, possible := range ranges {
-		if possible.Kind == "entry" && possible.Asset == item.Asset && possible.Object == item.Object &&
-			item.ByteStart >= possible.ByteStart && item.ByteEnd <= possible.ByteEnd {
-			return possible.Identity
-		}
-	}
-	return ""
+	values[kind] = sha
+}
+
+// sourceAtoms and targetAtoms return the kind-to-SHA-256 map of one parent's
+// atoms; callers only read it.
+func (atoms *entryAtomIndex) sourceAtoms(parent string) map[string]string {
+	return atoms.source[parent]
+}
+func (atoms *entryAtomIndex) targetAtoms(parent string) map[string]string {
+	return atoms.target[parent]
+}
+
+func (atoms *entryAtomIndex) targetObjectCount(asset, object string) int {
+	return atoms.objects[targetObjectKey{asset: asset, object: object}]
 }
 
 func fieldAtomKind(field string) string {
 	return map[string]string{"tags": "entry_tag", "F": "entry_f", "R": "entry_r", "A": "entry_a", "S": "entry_s"}[field]
 }
 
-func validateEntryPreservation(source ByteRange, target TargetRange, preservation *EntryPreservation, sourceRanges []ByteRange, targetRanges []TargetRange) (int, int, bool, error) {
+func validateEntryPreservation(source ByteRange, target TargetRange, preservation *EntryPreservation, atoms *entryAtomIndex) (int, int, bool, error) {
 	if preservation == nil || preservation.Version != machinecontract.CognitionEntryPreservationV1 ||
 		preservation.ReviewStatus != machinecontract.CognitionMigrationSemanticReviewed || strings.TrimSpace(preservation.Reviewer) == "" {
 		return 0, 0, false, fmt.Errorf("migration_entry_preservation_review_incomplete: %s", source.Identity)
@@ -564,8 +606,8 @@ func validateEntryPreservation(source ByteRange, target TargetRange, preservatio
 		}
 		classification[field] = "regenerated"
 	}
-	sourceAtoms := sourceEntryAtoms(source.Identity, sourceRanges)
-	targetAtoms := targetEntryAtoms(target.Identity, targetRanges)
+	sourceAtoms := atoms.sourceAtoms(source.Identity)
+	targetAtoms := atoms.targetAtoms(target.Identity)
 	for _, field := range []string{"tags", "F", "R", "A", "S"} {
 		if classification[field] == "" {
 			return 0, 0, false, fmt.Errorf("migration_entry_preservation_fields_incomplete: %s", source.Identity)
@@ -582,7 +624,7 @@ func validateEntryPreservation(source ByteRange, target TargetRange, preservatio
 		if !proposal.OneToOne || !proposal.TargetExists || !proposal.RepresentationOnly ||
 			proposal.ReviewStatus != machinecontract.CognitionMigrationSemanticReviewed || strings.TrimSpace(proposal.Reviewer) == "" ||
 			proposal.TargetObjectIdentity != target.Object || !canonicalIdentityRepresentation(proposal.SourceObjectIdentity, proposal.TargetObjectIdentity, target.Asset) ||
-			countTargetObject(targetRanges, target.Asset, target.Object) != 1 {
+			atoms.targetObjectCount(target.Asset, target.Object) != 1 {
 			return 0, 0, false, fmt.Errorf("migration_identity_canonicalization_invalid: %s", source.Identity)
 		}
 		canonicalized = true
@@ -600,16 +642,6 @@ func canonicalIdentityRepresentation(source, target, asset string) bool {
 		return strings.HasPrefix(source, "database://") && target == source
 	}
 	return false
-}
-
-func countTargetObject(ranges []TargetRange, asset, object string) int {
-	count := 0
-	for _, item := range ranges {
-		if item.Kind == "entry" && item.Asset == asset && item.Object == object {
-			count++
-		}
-	}
-	return count
 }
 
 func candidateTargetRanges(repositoryRoot string, plan *cognitionplan.Plan, candidate *cognitionplan.LayoutCandidate) (*cognition.Set, []TargetRange, error) {
