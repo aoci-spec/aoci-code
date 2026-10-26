@@ -110,4 +110,37 @@ which previews the paths the new rule takes out of the index and pauses for
 approval because that is a coverage reduction. `aoci doctor` lists those
 paths beforehand without changing anything.
 
+## The Legacy single-file layout is read-only from 0.2.0
+
+A repository whose `aoci.txt` carries its own Header and Entries, with no
+`#AOCI-ROOT-MANIFEST` line, is the Legacy layout that `init` wrote before
+Cognition Volumes. From 0.2.0 it can be read but not authored. `verify`,
+`check`, `status --deep`, `index score`, `index inventory`, `index header
+show`, `aoci_overview`, `aoci_get_entries`, `aoci_search`, and `aoci_header`
+keep working. `aoci_maintain` stops with `legacy_read_only_migrate_required`
+and `next_action=migrate_legacy_repository`; `aoci_update_entry`,
+`aoci_remove_entry`, `aoci_report`, `update-entry`, and `remove-entry` refuse
+with that token and write nothing; `index agent guide` returns a blocked
+guide whose commands carry the migration; `config set locale` and
+`init --locale` cannot change the Locale the index was written in. The
+retired commands are `ai` (the `ai` configuration block is still read for
+compatibility and used by nothing), `index build`, `index update`,
+`index entries`, `index header draft|diff|apply`,
+`index agent plan|stage|header|curation`, and `doctor --net`.
+
+The exit is the existing migration: `aoci cognition onboard start --json`
+plans the Legacy-to-Volumes migration, approval and application follow its
+next steps, and the migrated repository is maintained like any Volumes v1
+repository. One Legacy write remains: a Managed Scope transaction can still
+retire an Entry by disposition or carry a source-bound Entry candidate for a
+stale Index source, so a Legacy repository can reach the active policy the
+migration requires.
+
+Close pending Legacy work before upgrading. A `header-*.json` receipt under
+`.aoci/transactions`, left by a Legacy Header write, gates every write and
+the migration until it is closed, and 0.2.0 has no command that closes it:
+finish it with the 0.1.x binary that wrote it (`aoci index header diff`, then
+`apply`, for that run). Entries, Header, and Curation draft runs that a
+Legacy Stage left under `.aoci` are inert in 0.2.0; nothing applies them.
+
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

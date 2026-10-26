@@ -205,29 +205,7 @@ project `.mcp.json` is not documented by Qoder, so paste it rather than assume.
 
 ## Deterministic offline mode
 
-AI is disabled by default. To make that state explicit:
-
-```bash
-aoci --repo . ai setup --disable --local
-aoci --repo . ai status
-```
-
-Initialization, scanning, inventory, status, validation, querying, governed writes, and CI can operate without an AI endpoint. New repository semantics still require a host AI Agent or configured endpoint; AOCI-CODE does not fabricate them.
-
-## User-owned endpoint mode
-
-Configure only the endpoint and the name of an environment variable that holds its secret:
-
-```bash
-export AOCI_AI_KEY='set-outside-command-history'
-aoci --repo . ai setup --local --enable \
-  --provider openai-compatible \
-  --base-url https://endpoint.example.invalid/v1 \
-  --model model-id \
-  --key-env AOCI_AI_KEY
-```
-
-`--local` keeps machine-specific endpoint configuration out of Git. AOCI never accepts the secret value as a flag and never stores it in project configuration. `aoci ai test` performs a real network request; run it only intentionally.
+The binary ships no model client and calls no endpoint. Initialization, scanning, inventory, status, validation, querying, governed writes, and CI operate without network access; new repository semantics come from the host AI Agent, and AOCI-CODE does not fabricate them.
 
 ## Shared workflow boundary
 

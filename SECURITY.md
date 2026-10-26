@@ -33,11 +33,8 @@ remediation and disclosure, and publish guidance when disclosure is safe.
 
 - MCP stdio stdout is reserved for JSON-RPC; logs and diagnostics use stderr.
 - Configuration stores credential environment-variable names, not values.
-- Optional model access uses only an explicitly configured endpoint.
-- Model HTTP clients refuse redirects, including caller-supplied clients.
-  Endpoint error bodies and transport details are not formatted into errors
-  that callers may log or persist. Endpoint URLs cannot contain credentials,
-  query strings, or fragments.
+- The binary ships no model endpoint client; its only outbound connections
+  are the explicitly triggered, read-only database evidence reads.
 - Backups written beside host configuration and formal assets use owner-only
   file permissions, independently of Git ignore rules; on Windows, restrict
   access to the containing directory with the operating system ACL.

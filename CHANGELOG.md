@@ -47,6 +47,30 @@ changes a persisted preimage names the binary every machine then needs.
   `_meta.aoci_work`; an attestation whose answers use `object` or
   `object_ref` is refused by schema with a message naming `object_identity`;
   the Ledger records the delivery and proof events.
+- The Legacy single-file layout is read-only. Its authoring surfaces are
+  retired: the `ai` command group and the model endpoint client (the `ai`
+  configuration block is still read for compatibility and used by nothing),
+  `index build`, `index update`, `index entries`, `index header
+  draft|diff|apply`, `index agent plan|stage|header|curation`, `doctor --net`,
+  and the Legacy drafting, prompt, workflow, and run-manifest packages. On a
+  Legacy repository `aoci_maintain` stops with one finding whose cause starts
+  with `legacy_read_only_migrate_required`,
+  `next_action=migrate_legacy_repository`, and `next_commands` carrying
+  `cognition onboard start --json` and the Guide; `aoci_update_entry`,
+  `aoci_remove_entry`, `aoci_report`, `update-entry`, and `remove-entry`
+  answer that token and write nothing; `index agent guide` returns a blocked
+  guide at that stage, naming any pending transaction receipt and its
+  closure; `config set locale` and `init --locale` refuse to change the
+  Locale a Legacy index was written in. Reads (`verify`, `check`,
+  `status --deep`, `index score`, `index inventory`, `index header show`,
+  Overview, search, get_entries, header) and the Legacy-to-Volumes migration
+  keep their contracts, and a Managed Scope transaction still retires an
+  Entry by disposition or carries the source-bound Entry candidate a stale
+  Legacy source needs. A pending `header-*.json` receipt from a Legacy Header
+  write is closed with the 0.1.x binary that wrote it; unfinished Legacy
+  draft runs are inert. The nine-tool MCP surface, input schemas, and
+  formal-asset formats are unchanged; `docs/upgrading.md` has the operator
+  notes.
 
 ## v0.1.0-rc22
 

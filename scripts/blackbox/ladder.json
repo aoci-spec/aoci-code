@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-132.txt (branch v0.2.0-line, PR #132 port 9d4b757 + 2b204a3)"
+    "evidence": ".aoci/dev-tools/make-fast-legacy.txt (branch v0.2.0-line, Legacy retirement)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt (branch v0.2.0-line, PR #132)"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt (branch v0.2.0-line, Legacy retirement)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt (53/53, v2 cursors)"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt (75 PASS; A2-A4/D3 on v2 cursors)"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt (92 PASS, 3 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-132.txt"
+    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-132.txt (safety clean)"
+    "evidence": ".aoci/dev-tools/make-fast-legacy.txt (safety clean) and a direct run on 2026-10-26"
    }
   }
  ]

@@ -62,14 +62,14 @@ candidate in the complete current machine-issued batch through
 `aoci_update_entry`, and finishes with Verify, Check, and Guide. Repeat Maintain
 only when a successful batch reports remaining work.
 
-`status --deep`, `index score`, and `index agent plan` are Legacy-only workflow
-commands. They are not the Fresh/Volumes onboarding or maintenance path.
+`status --deep` and `index score` are Legacy-only read commands. They are not
+the Fresh/Volumes onboarding or maintenance path; a Legacy repository is
+read-only since 0.2.0 and migrates with `aoci cognition onboard start --json`.
 
 ## Choose an execution mode
 
 - Agent-native: Codex, Claude Code, Cursor, or another MCP-capable host generates semantics while AOCI-CODE governs them.
-- Endpoint-native: the optional AI layer sends source only to the endpoint explicitly configured by the user.
-- Deterministic-only: keep AI disabled and use scanning, status, validation, querying, and CI without semantic generation.
+- Deterministic-only: no host model in the loop; scanning, status, validation, querying, and CI run without semantic generation.
 
 See [`agent-integrations.md`](agent-integrations.md) for host setup and data-flow boundaries.
 

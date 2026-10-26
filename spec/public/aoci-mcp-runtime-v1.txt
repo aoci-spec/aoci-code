@@ -39,3 +39,18 @@ error result; it is not printed as a second stdout message.
 
 The nine-tool identity is independent from optional CLI lifecycle commands.
 Changing a CLI command does not implicitly add, remove, or rename an MCP tool.
+
+Layout acceptance
+-----------------
+
+Every tool reads both layouts. On a Volumes v1 repository the write tools
+(`aoci_maintain`, `aoci_update_entry`, `aoci_remove_entry`) follow the
+Cognition Volumes contract and `aoci_report` answers `volume_read_only`. On a
+Legacy single-file layout no tool writes since 0.2.0: `aoci_maintain` answers
+`status=stopped` with one finding whose cause starts with
+`legacy_read_only_migrate_required`, `next_action=migrate_legacy_repository`,
+and `next_commands` carrying `cognition onboard start --json` and the Guide;
+`aoci_update_entry`, `aoci_remove_entry`, and `aoci_report` return the error
+code `legacy_read_only_migrate_required`. `aoci_overview`, `aoci_get_entries`,
+`aoci_search`, `aoci_header`, and `aoci_rules` keep their Legacy read
+behavior. No tool is added, removed, or renamed by this rule.

@@ -799,10 +799,9 @@ aoci --repo . cognition system evolution \
 | 模式 | 行为 |
 | --- | --- |
 | **Agent-native** | 当前宿主模型读取证据并创作语义；AOCI-CODE 不需要第二个模型 API |
-| **Endpoint-native**（仅 Legacy 布局） | Legacy 布局下可选的用户配置 OpenAI-compatible endpoint 起草候选，密钥保留在环境变量中。Volumes v1 仓库只通过宿主 Agent 写条目；那里 `.aoci/config.json` 的 `ai` 块只服务 `aoci ai test` 和 `doctor --net` |
-| **Deterministic-only** | 禁用 AI，保留扫描、Baseline、校验、查询、Scope、治理、CI 和恢复能力；新语义仍需模型或人类创作 |
+| **Deterministic-only** | 不把宿主模型放进循环：扫描、Baseline、校验、查询、Scope、治理、CI 和恢复都可运行；新语义仍需模型或人类创作 |
 
-- AOCI-CODE 本身默认本地优先，没有默认云端点、托管源码上传服务或必须运行的后台 Server。
+- AOCI-CODE 本身本地优先：二进制不带模型客户端，没有云端点、托管源码上传服务或必须运行的后台 Server。
 - Agent-native 模式的数据处理取决于用户选择的宿主及其产品政策，而不是由 AOCI-CODE 代为上传。
 - 数据库网络访问必须显式触发，并限制为只读 Schema 元数据。
 - Ledger、草稿、事务和恢复证据默认保存在 `.aoci/`，通常被 Git 忽略；正式认知与团队治理资产可以进入 Git。
@@ -852,7 +851,7 @@ AOCI-CODE 与现有工具互补，不替代它们。
 | **写入安全** | 跨进程锁、CAS、同目录临时文件、平台原子替换和失败关闭 |
 | **数据库** | 核心运行不依赖业务数据库；可选 PostgreSQL/MySQL/openGauss Schema Evidence 使用纯 Go 驱动 |
 | **系统认知** | 从权威资产即时派生的 Lineage、Relations、Impact、Snapshot 与 Evolution 投影 |
-| **运行方式** | Agent-native、Endpoint-native、Deterministic-only |
+| **运行方式** | Agent-native、Deterministic-only |
 
 AOCI-CODE 不要求 Neo4j、向量数据库、长期 Daemon 或 AOCI 云服务。启用 Database Cognition 时，目标数据库只是显式、只读的 Schema Evidence 来源，不是 AOCI 自身的状态存储。
 
@@ -860,14 +859,15 @@ AOCI-CODE 不要求 Neo4j、向量数据库、长期 Daemon 或 AOCI 云服务�
 
 ### 🧭 为什么 Legacy `status --deep` 仍显示漂移？
 
-`status --deep`、`index score` 和 `index agent plan` 仅用于 Legacy。对于
+`status --deep` 和 `index score` 仅用于 Legacy 只读诊断。对于
 Cognition Volumes 仓库，应先运行实时 Guide，让宿主调用普通无参数
 `aoci_maintain`，通过 `aoci_update_entry` 提交完整当前批次，并以 Verify、
 Check、Guide 收口。不要直接修改 Baseline，也不要跳过源码绑定或恢复步骤。
 
-Legacy 布局本身已弃用。新建与迁移后的仓库都以 Volumes v1 为唯一支持路线，
-仅用于 Legacy 的命令计划在 v0.2.0 移除；请在此之前用 `aoci cognition migration`
-完成迁移。
+Legacy 布局自 0.2.0 起只读：写作命令已移除，所有写工具都答
+`legacy_read_only_migrate_required`，`status --deep` 显示的漂移只能靠迁移消除。
+运行 `aoci cognition onboard start --json` 并按其下一步执行，再让宿主维护它
+产出的 Volumes v1 仓库。
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

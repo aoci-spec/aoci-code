@@ -22,8 +22,8 @@ Guide action contract
 
 Every machine Guide result carries one `next_action_contract` derived from the
 same facts as its human instructions. It contains action, exact command or MCP
-tool name, complete required parameters, Agent ID, schema version, request-file
-path when applicable, expected preimage, Plan/Run identity, TTY requirement,
+tool name, complete required parameters, Agent ID, schema version, expected
+preimage, Plan or transaction identity, TTY requirement,
 automatic-retry flag, one transport-schema correction limit, and success next
 action.
 

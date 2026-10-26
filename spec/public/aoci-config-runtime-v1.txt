@@ -38,11 +38,12 @@ a governed Scope Change.
 Secrets and network configuration
 ---------------------------------
 
-AI support is disabled by default and has no default endpoint. `api_key_env`
-stores an environment-variable name, not a credential value. Database Source
-configuration likewise stores the credential environment-variable name rather
-than the credential. Secret values must not be persisted in configuration,
-formal cognition, Ledger records, or prompt snapshots.
+The `ai` block is accepted for compatibility with files written before 0.2.0
+and consumed by nothing: the binary ships no model endpoint client. Its
+`api_key_env` was always an environment-variable name, not a credential value.
+Database Source configuration stores the credential environment-variable name
+rather than the credential. Secret values must not be persisted in
+configuration, formal cognition, or Ledger records.
 
 Compatibility and validation
 ----------------------------

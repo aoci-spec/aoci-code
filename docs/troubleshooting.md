@@ -193,10 +193,11 @@ layout transaction first: its resume and rollback proceed over MCP write
 receipts, which are then closed as above. An `entries-*.json`
 receipt resumes when the same complete batch is resubmitted through
 `aoci_update_entry` (Maintain issues no candidates while it is pending, so the
-batch comes from the model's own context), a `header-*.json` receipt is
-finished with `aoci index header diff` and `aoci index header apply` for that
-run, bootstrap, migration, and scope receipts have their `status`, `resume`,
-and `rollback` commands, and a reversal receipt has `status` and `resume`. A
+batch comes from the model's own context), a `header-*.json` receipt is a Legacy
+Header write that 0.2.0 can no longer finish (close it with the 0.1.x binary
+that wrote it, `aoci index header diff` then `apply` for that run, before
+migrating), bootstrap, migration, and scope receipts have their `status`,
+`resume`, and `rollback` commands, and a reversal receipt has `status` and `resume`. A
 file whose name matches no receipt kind is not something AOCI wrote: inspect
 it and move it out of the directory by hand. While an MCP write receipt or a
 foreign file is pending, `verify`, `check`, `status`, `scope status`,
@@ -308,10 +309,6 @@ existing Entries is the response most likely to reach it.
 
 Use an absolute `.exe` path and explicit `--repo` path. Avoid PowerShell 5 text pipelines for signed or non-ASCII JSON. See [`windows-host-agent.en.md`](windows-host-agent.en.md) (English) or the Chinese original [`windows-host-agent.md`](windows-host-agent.md).
 
-## AI endpoint fails
-
-Run `aoci ai status` first. Use `aoci ai test` only when a real network request is intended. Configuration stores an environment-variable name, so confirm the named variable exists without printing its value. Deterministic offline commands remain available when AI is disabled.
-
 ## Alignment does not converge
 
 Follow the current Guide. For Cognition Volumes, call ordinary no-argument
@@ -320,10 +317,12 @@ batch, submit that batch through `aoci_update_entry`, and finish with Verify,
 Check, and Guide. Do not infer recovery solely from old logs or documentation;
 the Guide is bound to current repository evidence.
 
-`status --deep`, `index score`, and `index agent plan` diagnose or drive Legacy
-repositories only. A `volume_read_only` response from one of those commands
-means the command is not the Volumes route; it does not by itself prove that the
-CLI and running MCP Server have different versions.
+`status --deep` and `index score` read Legacy repositories only. A
+`volume_read_only` response from one of those commands means the command is
+not the Volumes route; it does not by itself prove that the CLI and running MCP
+Server have different versions. The converse answer,
+`legacy_read_only_migrate_required` from a write tool, means the repository is
+still the Legacy layout: migrate with `aoci cognition onboard start --json`.
 
 If Maintain stops with `scope_change_required` instead of offering candidates,
 no batch will converge anything until the policy is active; the next section
@@ -538,13 +537,3 @@ complete printed link: `--open` on some systems hands the browser the URL
 without its fragment. Before downgrading, stop the page using the same binary
 that started it.
 
-## Model endpoint refusals
-
-Configure the final HTTP(S) completion base URL directly. The optional model
-client does not follow redirects, and base URLs with user information, query
-strings or fragments are refused. Authentication remains in the configured
-credential environment variable. Error output keeps the HTTP status, the error
-category, and a sanitized cause class (dns, refused, reset, unreachable, tls,
-timeout, redirect), but omits the endpoint's own error text and the raw
-transport error. For a provider-side rejection read the provider's logs; for a
-connection failure check the address, port, DNS name, and certificate directly.

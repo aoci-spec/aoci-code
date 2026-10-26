@@ -323,9 +323,10 @@ path, quoted for the host shell, because the MCP binary is whatever path the
 Host configuration names and need not be on PATH. When that path cannot be
 resolved the field is omitted rather than filled with a bare aoci.
 Placeholders such as {agent}, {tokens}, and {source} are the Host's to fill.
-Continuation batches, Optimization, repair_required, and Legacy results carry
-no next_commands, and orphan removal needs none because aoci_remove_entry is
-already on the surface. The array is advisory: it changes no state,
+Continuation batches, Optimization, and repair_required carry no
+next_commands; a Legacy layout's read-only stop carries the migration commands;
+and orphan removal needs none because aoci_remove_entry is already on the
+surface. The array is advisory: it changes no state,
 next_action remains the machine decision, and a Host that ignores it loses
 nothing the CLI Guide does not already say.
 
@@ -422,8 +423,8 @@ Meta/Header repair action. candidate_index=0, empty candidate paths, and empty
 candidate retry identities are forbidden on this path. Guide remains in its
 existing blocked state with next_action=repair_meta_tag_dictionary and never
 asks the Host to resubmit an unchanged Code batch or perform a generic replan.
-Unrelated legacy Maintain and stopped findings retain their existing string
-form. Structured candidate findings retain code, object_ref, and message as
+The Legacy read-only stop and unrelated stopped findings retain their existing
+string form. Structured candidate findings retain code, object_ref, and message as
 compatibility aliases while rule_code and the exact machine facts are
 authoritative.
 
@@ -524,10 +525,10 @@ preserved owner, and true source/database unchanged facts.
 
 The Change Envelope, Guard Set, write order, and recovery evidence are internal
 and are not rendered to the Agent. Normal MCP output identifies only the
-affected Volume or Volumes and alignment state. Legacy planning, output,
-Baseline, CAS, AtomicWrite, Ledger, and recovery behavior are unchanged. No
-second Maintain, Guide, Apply, Baseline, Ledger, or Recovery system is
-introduced.
+affected Volume or Volumes and alignment state. A Legacy layout enters none of
+this write path: since 0.2.0 it is read-only and answers
+legacy_read_only_migrate_required until Migration. No second Maintain, Guide,
+Apply, Baseline, Ledger, or Recovery system is introduced.
 
 ## R73 derived System Cognition
 

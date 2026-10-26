@@ -40,10 +40,11 @@ machine-issued batch and submits it through `aoci_update_entry`; a successful
 non-final batch returns to Maintain, and the final batch closes with Verify,
 Aggregate Check, and Guide.
 
-`status --deep`, `index score`, and `index agent plan` remain Legacy-only. They
-must not be used as fallback maintenance commands for a Volumes repository.
-Existing Legacy repositories retain those commands and their established
-contracts; this compatibility does not make Legacy the Fresh default.
+`status --deep` and `index score` remain Legacy-only read commands. They must
+not be used as fallback maintenance commands for a Volumes repository. Existing
+Legacy repositories keep those reads and the migration route and are otherwise
+read-only since 0.2.0; this compatibility does not make Legacy the Fresh
+default.
 
 The four responsibilities are deliberately singular:
 

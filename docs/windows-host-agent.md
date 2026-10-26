@@ -4,7 +4,7 @@
 
 > English rendering: [windows-host-agent.en.md](windows-host-agent.en.md).
 >
-> 范围说明：本文档的Entries/Header/Curation Stage流水线（第5-13节与16.3节）适用于Legacy单体索引仓库。Volume-first新仓库（当前默认初始化布局）的Windows流程是当前Guide + 普通无参数aoci_maintain + aoci_update_entry，见[cognition-volumes.md](cognition-volumes.md)；安装、认知复用、PowerShell与双指纹章节对两种布局均适用。
+> 范围说明：本文档描述Volumes v1仓库（当前默认初始化布局）的Windows流程：当前Guide + 普通无参数aoci_maintain + aoci_update_entry，见[cognition-volumes.md](cognition-volumes.md)。Legacy单体索引仓库自0.2.0起只读：写工具一律答legacy_read_only_migrate_required，Guide只给出迁移这一个下一步；安装、认知复用、PowerShell与双指纹章节对它同样适用。
 
 ## 1. 稳定安装路径
 
@@ -218,7 +218,7 @@ aoci index agent guide --agent codex --json
 - 标签字典；
 - 每条标签；
 - F、R、A、S；
-- Curation decision、role、reason、confidence。
+- Scope与Curation决定的role、reason。
 
 禁止用以下方式生成、预填、拼接或改写语义：
 
@@ -249,7 +249,7 @@ F：
 - 写简短明确的核心功能锚点；
 - 通常控制在10个字以内；
 - 语义完整优先；
-- 长度不产生机器Warning或硬拒（仅Legacy v1条目；Volumes v1对象受FRAS v2硬限F≤160 rune，权威为internal/machinecontract）。
+- 受FRAS v2硬限F≤160 rune（权威为internal/machinecontract）；Legacy v1条目只读，不再受理。
 
 R：
 
@@ -271,17 +271,9 @@ S：
 
 ### 6.2 Curation纪律
 
-每项decision、role、reason和confidence必须逐项调查。
+每项Scope或Curation决定的role与reason必须逐项调查。
 
 路径、扩展名和empty、binary、oversize等物理画像只能作为调查线索。
-
-Guide模板中的：
-
-~~~text
-confidence = -1
-~~~
-
-是无效占位，必须替换为0至100的JSON整数。
 
 ## 7. Guide命令必须原样执行
 
@@ -296,60 +288,46 @@ confidence = -1
 - 不依赖交互终端PATH；
 - 不复用旧命令、旧plan_id、旧run_id或旧摘要。
 
-## 8. Entries Auto三态
+## 8. aoci_update_entry三态
 
-（Legacy Stage流水线的终态契约；Volumes仓库的对应终态见aoci_update_entry的applied/repair_required/stopped结果，语义一致。）
-
-automation.mode=auto时，Entries Stage先保存标准草稿，再在内部执行机器预检和自动收口。
-
-Host-Agent必须读取：
+aoci_update_entry是唯一的条目写入口。每次提交当前机器批次后，Host-Agent必须读取结果的终态字段：
 
 ~~~text
-auto_finalize.status
+status
 ~~~
 
 ### 8.1 applied
 
 ~~~text
-auto_finalize.status = applied
+status = applied
 ~~~
 
-表示当前批次已经完成：
-
-- Check；
-- Diff；
-- P-23审阅记录；
-- 原子Apply；
-- Application审计。
+表示当前批次已经完成校验、Diff、P-23审阅、原子Apply与审计。
 
 处理方式：
 
-- 不重复调用Entries Check、Diff或Apply；
-- 执行Stage返回的绝对路径next_command；
-- 正常情况下该命令是Verify；
-- Verify后重新运行Guide；
-- 继续后续阶段或批次。
+- 不重复提交同一批次；
+- 按结果的next_action与next_commands继续；
+- remaining非零时再次调用aoci_maintain取下一批；
+- 最终批次后依次执行Verify、Aggregate Check与Guide。
 
 ### 8.2 repair_required
 
 ~~~text
-auto_finalize.status = repair_required
+status = repair_required
 ~~~
 
 表示候选内容存在可修复错误，机器预检已经正常完成，但正式资产零写入。
 
 典型错误：
 
-- Entry结构或文件名错误；
+- 候选与source_sha256不符或对象身份错误；
 - 标签字典维度或符号错误；
-- Host-Agent或Endpoint新生成标签不可解析；
-- 某个草稿目标缺少可应用候选。
+- F、R、A、S超出FRAS v2硬限；
+- 某个候选缺少必填字段。
 
 稳定合同：
 
-- Entries Stage进程退出码为0；
-- auto_finalize.error为空；
-- next_command为空；
 - attempted为完整批次数，applied=0，remaining=attempted；
 - formal_writes_started=false；
 - finding_count与findings长度一致；
@@ -357,66 +335,55 @@ auto_finalize.status = repair_required
 - retry_scope只包含失败对象；
 - 正式资产零写入；
 - Baseline不前移；
-- 不形成Diff或Application；
-- 失败Run与Check审计继续保留。
+- 不形成收据。
 
 Host-Agent必须：
 
-1. 读取auto_finalize.findings。
+1. 读取findings。
    每条Finding固定包含candidate_index、path、canonical_object_identity、
    domain、field、rule_code、expected、actual、cause和safe_repair_action；
    机器Token不本地化，cause和safe_repair_action按项目Locale输出。
 2. 只修正findings中的失败条目。
 3. 其他候选保持原样。
-4. 保留path和source_sha256。
-5. 重写当前请求中的同一完整批次。
-6. 重新执行Guide返回的同一条Entries Stage命令。
-7. 让新的Stage调用创建新Run。
+4. 保留path、candidate_id和source_sha256。
+5. 重新提交同一完整批次。
 
 Host Agent不得（本节所称 Host Agent 即 Host-Agent 协议角色）：
 
 - 要求用户回复“继续”；
 - 把普通回复边界当成停止点；
-- 调用Entries Check、Diff或Apply；
 - 绕过机器校验；
-- 修改或删除旧Run；
+- 缩小批次或只提交修好的条目；
 - 重新生成与findings无关的正确候选。
 
 同一批次的全部可修候选错误必须在第一次返回，并按domain、path、field、
-rule_code、原始candidate_index稳定排序。source SHA漂移、Plan过期、CAS冲突、
+rule_code、原始candidate_index稳定排序。source SHA漂移、CAS冲突、
 Recovery pending、第三方冲突、正式写入或写后审计失败仍为stopped或既有硬失败，
 不得改标为repair_required。
 
 ### 8.3 stopped
 
 ~~~text
-auto_finalize.status = stopped
+status = stopped
 ~~~
 
 才表示自动流程无法安全继续。
 
-当前版本对stopped写入尝试另有证据驱动的自动闭合：已证零写入自动关闭旧Run并重新Plan；完整Intent带可证postimage自动Resume；策略选择的Rollback带精确preimage自动回滚后重排。只有审批边界、不可证恢复状态、第三方字节冲突等真实安全边界才停给用户。
+当前版本对stopped写入尝试另有证据驱动的自动闭合：已证零写入自动关闭并重新取批；完整Intent带可证postimage自动Resume；策略选择的Rollback带精确preimage自动回滚后重排。只有审批边界、不可证恢复状态、第三方字节冲突等真实安全边界才停给用户。
 
-必须停止并报告：
-
-~~~text
-failed_step
-error
-recovery
-asset_written
-audit_recorded
-~~~
+必须停止并报告结果中的stop事实与audit。
 
 真正停止原因包括：
 
-- Generation Plan或源码摘要变化；
-- Manifest或Generation State损坏；
-- P-23、Diff或审计无法形成可信记录；
+- 源码摘要变化；
+- 收据链损坏或不可证；
+- Diff或审计无法形成可信记录；
 - CAS或并发写入冲突；
 - 用户批准缺失；
 - 正式资产写入状态不确定；
 - 写后审计失败；
-- 文件系统或运行环境故障。
+- 文件系统或运行环境故障；
+- scope_change_required或legacy_read_only_migrate_required。
 
 候选内容错误不得伪装成stopped，也不得升级为用户交互停点。
 
@@ -429,31 +396,11 @@ audit_recorded
 一致性、审批、写入状态或运行环境故障才停止。
 ~~~
 
-## 9. Stage请求使用普通UTF-8文件
+## 9. 中文JSON不走文本管道
 
-Windows PowerShell 5文本管道可能按本地代码页重新编码中文。
+条目写入只经MCP的aoci_update_entry；MCP stdio始终是原始UTF-8 JSON-RPC，不经PowerShell文本管道，也不需要中间文件（见11.1）。
 
-优先使用：
-
-~~~text
---request-file <UTF-8 JSON文件>
-~~~
-
-支持：
-
-- UTF-8无BOM或BOM；
-- Windows绝对路径；
-- 正斜杠或反斜杠；
-- 空格和中文路径；
-- 中文JSON内容。
-
-拒绝：
-
-- 目录；
-- 设备或命名管道；
-- UTF-16或非法UTF-8；
-- 空文件；
-- 超过协议上限的文件。
+仍需向CLI传文件的治理命令（scope preview --candidate-file、scope approve --approval-file、cognition migration的snapshot与mapping文件）一律使用UTF-8文件；Windows PowerShell 5文本管道可能按本地代码页重新编码中文。
 
 PowerShell 5写入UTF-8无BOM：
 
@@ -468,24 +415,7 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 )
 ~~~
 
-不得使用普通`>`保存中文JSON，也不得把中文JSON通过普通管道传给`--stdin-json`。
-
-### 9.1 已对齐仓库的显式Header语义刷新
-
-通常Header Stage只接受`header_required`计划，并省略请求中的`intent`。当正式
-Header需要反映已经实现且已经完成Entry治理的新系统边界时，必须先让仓库回到
-`aligned`，重新取得当前`plan_id`，再在Header Stage请求中显式填写：
-
-~~~json
-{
-  "intent": "semantic_refresh"
-}
-~~~
-
-该意图只开放Header语义刷新，不开放任意阶段写入。Stage把它固化到草稿Manifest；
-Diff、P-23审阅、automation.mode批准、Apply、CAS和Baseline事务保持不变。任何源码、
-索引、Header、Baseline或治理状态变化都会使Plan绑定过期。禁止手工编辑正式Header或
-Manifest来绕过该入口。
+不得使用普通`>`保存中文JSON，也不得把中文JSON通过普通管道喂给任何命令。
 
 ## 10. PowerShell 5原生捕获JSON
 
@@ -501,35 +431,7 @@ $exitCode = $LASTEXITCODE
 $result = ($raw -join [Environment]::NewLine) | ConvertFrom-Json
 ~~~
 
-Entries Stage捕获：
-
-~~~powershell
-$raw = & 'C:\aoci\bin\aoci.exe' `
-    --repo $repo `
-    index agent stage `
-    --request-file $requestPath `
-    --json
-
-$exitCode = $LASTEXITCODE
-$stage = ($raw -join [Environment]::NewLine) | ConvertFrom-Json
-
-$stage.auto_finalize.status
-$stage.auto_finalize.findings
-$stage.auto_finalize.error
-$stage.auto_finalize.recovery
-$stage.auto_finalize.asset_written
-$stage.next_command
-~~~
-
-判定：
-
-~~~text
-applied         → exitCode=0，执行next_command
-repair_required → exitCode=0，只修findings并重新Stage
-stopped         → 按failed_step、error和recovery停止报告
-~~~
-
-不得仅根据exitCode=0判断已经Apply，必须读取auto_finalize.status。
+aoci_update_entry的结果不经PowerShell：按第8节读取status，不得仅凭调用成功判断已经Apply。
 
 stdout和stderr必须分离；不要使用`2>&1`污染待解析JSON。
 
@@ -543,21 +445,18 @@ ProcessStartInfo只用于：
 ## 11. 请求大小与批次上限
 
 ~~~text
-Entries Stage：
-请求总大小 16 MiB（16777216字节）
-最多200条候选
+aoci_update_entry：
+单批最多200条候选（code_cognition_batch_entries上限）
 
-Header Stage：
-请求总大小 4 MiB（4194304字节）
-header字段 512 KiB（524288字节）
-
-Curation Stage：
-请求总大小 8 MiB（8388608字节）
-最多200项决策
+FRAS v2：
+F ≤160 rune
+R ≤8项、≤360 rune
+A ≤6项、≤400 rune
+S按重要度分档：C8–9 ≤600 rune，C4–7 ≤200 rune，C1–3 ≤50 rune
 ~~~
 
 这些是协议硬上限，不表示模型必须处理到上限。
-数值权威位于 `internal/machinecontract/numeric.go`；Guide 与 CLI Help 在运行时从该合同派生，本文由跨层等价测试锁定。
+数值权威位于 `internal/machinecontract/numeric.go`；Guide 与 CLI Help 在运行时从该合同派生。
 
 ### 11.1 Volumes 授权批次按宿主窗口标定，不需要中间文件
 
@@ -569,7 +468,7 @@ Curation Stage：
 
 ## 12. Missing机器字段兼容
 
-（本节字段分类适用于Legacy单体仓库；Volumes verify返回layout_mode/volumes/governance结构。）
+（本节字段分类适用于Legacy单体仓库的只读verify与check；Volumes verify返回layout_mode/volumes/governance结构。）
 
 Verify：
 
@@ -582,17 +481,6 @@ Score与Check：
 ~~~text
 missing = raw_missing
 pending_curation = pending_curation_missing
-~~~
-
-Plan与Guide：
-
-~~~text
-summary.missing = summary.raw_missing
-summary.actionable_new = summary.actionable_missing
-summary.curation_excluded = summary.curation_excluded_missing
-summary.pending_curation = summary.pending_curation_missing
-curation_targets = pending_curation_missing
-curation_excluded = curation_excluded_missing
 ~~~
 
 治理终态允许raw_missing大于0，前提是：
@@ -609,33 +497,16 @@ unbaselined = 0
 
 ## 13. Apply与安全重试
 
-独立Apply报告可能返回：
-
-~~~text
-applied
-rejected
-applied_with_warnings
-asset_written_audit_failed
-~~~
-
-Entries Stage auto_finalize返回：
-
-~~~text
-applied
-repair_required
-stopped
-~~~
-
 处理原则：
 
-- asset_written=false：正式资产零写入，可按恢复动作重试；
-- asset_written=true：不得盲目重复Apply；
-- asset_written_audit_failed：先运行只读Verify、Check和Guide；
+- 零写入（formal_writes_started=false或已证零写入）可按恢复动作重试；
+- 正式写入已开始时不得盲目重复提交，由收据决定Resume或Rollback；
+- 写后审计失败先运行只读Verify、Check和Guide；
 - 不得仅凭非零退出码判断未写入；
 - 不得仅凭退出码0判断已经Apply；
-- repair_required读取findings后自动重新Stage；
+- repair_required读取findings后重提同一完整批次；
 - Warning-only批次允许Auto Apply；
-- F长度与措辞质量不是机器阻断项（仅Legacy v1；Volumes v1受FRAS v2硬限）。
+- F、R、A、S受FRAS v2硬限；措辞质量不是机器阻断项。
 
 ## 14. LF与CRLF双指纹
 
@@ -663,11 +534,10 @@ stopped
 - 多个原因合并为一次checkpoint评估，相同refresh_event_id幂等；
 - 首次Guide从`.codex/config.toml`解析绝对命令；
 - Guide命令不依赖PATH；
-- Guide包含applied、repair_required和stopped三态；
+- aoci_update_entry返回applied、repair_required或stopped三态；
 - repair_required不要求用户回复“继续”；
-- repair_required退出码为0且正式资产零写入；
+- repair_required正式资产零写入；
 - Host-Agent只修findings中的失败项；
-- 新Stage产生新Run；
 - stopped只用于一致性、审批、写入状态或环境故障；
 - JSON可以被PowerShell 5直接ConvertFrom-Json；
 - MCP继续使用原始UTF-8 JSON-RPC；
@@ -687,44 +557,37 @@ stopped
 
 ### 16.2 纯模型语义
 
-（Legacy Stage验收项；Volumes仓库以Guide+Maintain批次验收。）
-
-- Header、标签、FRAS和Curation逐项由模型生成；
+- Header、标签、FRAS与Scope/Curation决定逐项由模型生成；
 - 不用AST、路径、模板或脚本代写；
-- F长度不产生机器阻断（仅Legacy v1；Volumes v1受FRAS v2硬限）；
-- confidence=-1未替换时拒绝。
+- F、R、A、S受FRAS v2硬限。
 
-### 16.3 Entries Auto修复
+### 16.3 aoci_update_entry修复
 
 - 全净候选返回applied；
-- 文件名错误返回repair_required；
+- source_sha256不符返回repair_required；
 - 字典维度错误返回repair_required；
 - 新生成不可解析标签返回repair_required；
-- repair_required退出码为0；
 - 正式索引零写入；
-- 不形成Diff或Application；
-- 旧Run与Check审计保留；
+- 不形成收据；
 - 只修findings中的失败项；
 - 其他候选保持原样；
-- 同一完整批次重新Stage；
-- 新Stage形成新Run；
+- 同一完整批次重新提交；
 - 不要求用户回复“继续”；
-- 不调用Entries Check、Diff或Apply；
 - 普通回复边界不终止完整生成；
-- Plan变化、CAS冲突或写入状态不确定时停止。
+- 源码摘要漂移、CAS冲突或写入状态不确定时停止。
 
 ### 16.4 JSON与UTF-8
 
 - UTF-8无BOM及BOM请求可用；
 - 中文路径和正文无损；
 - UTF-16、非法UTF-8、目录和超限请求明确拒绝；
-- Verify、Check、Plan、Guide和Entries Stage均可直接ConvertFrom-Json；
+- Verify、Check和Guide均可直接ConvertFrom-Json；
 - stdout不与stderr混合。
 
 ### 16.5 最终治理
 
 - Verify与Check基于最后源码状态；
 - Guide返回aligned、complete或准确停点；
-- Raw Missing三分守恒；
+- Missing、Stale与Orphan归零或被显式Scope决定解释；
 - 已排除或技术跳过文件不被强制生成Entry；
 - 最终AOCI认知维护收敛。

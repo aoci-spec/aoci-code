@@ -845,10 +845,9 @@ Every System Cognition result reports `derived=true`; the relation projection ad
 | Mode | Behavior |
 | --- | --- |
 | **Agent-native** | The current host model reads evidence and writes the entries; AOCI-CODE does not require a second model API |
-| **Endpoint-native** (Legacy layout only) | In the Legacy layout an optional user-configured OpenAI-compatible endpoint drafts candidates, with the key in an environment variable. A Volumes v1 repository authors through the host agent only; there the `ai` block in `.aoci/config.json` serves `aoci ai test` and `doctor --net` |
-| **Deterministic-only** | Disables AI while keeping scanning, Baseline, validation, queries, scope, governance, CI, and recovery; new entries still require a model or a human author |
+| **Deterministic-only** | No host model in the loop: scanning, Baseline, validation, queries, scope, governance, CI, and recovery all run; new entries still require a model or a human author |
 
-- AOCI-CODE is local-first by default, with no default cloud endpoint, no hosted source-upload service, and no required background server.
+- AOCI-CODE is local-first: the binary ships no model client and has no cloud endpoint, no hosted source-upload service, and no required background server.
 - Data handling in Agent-native mode depends on the host you choose and its product policies; AOCI-CODE does not upload data on the host's behalf.
 - Database network access must be triggered explicitly and is restricted to read-only schema metadata.
 - The ledger, drafts, transactions, and recovery evidence are stored under `.aoci/` by default and are normally ignored by Git; the index files and team-governance assets may be committed to Git.
@@ -892,7 +891,7 @@ The recommended combination: AOCI-CODE provides the global semantic prior; code 
 | **Write safety** | Cross-process locks, CAS, same-directory temporary files, platform-atomic replacement, and fail-closed behavior |
 | **Database** | Core operation does not depend on a business database; optional PostgreSQL/MySQL/openGauss schema evidence uses pure-Go drivers |
 | **System cognition** | Lineage, Relations, Impact, Snapshot, and Evolution projections derived on demand from authoritative assets |
-| **Execution modes** | Agent-native, Endpoint-native, Deterministic-only |
+| **Execution modes** | Agent-native, Deterministic-only |
 
 AOCI-CODE does not require Neo4j, a vector database, a long-running daemon, or an AOCI cloud service. When Database Cognition is enabled, the target database is only an explicit, read-only source of schema evidence, not AOCI's own state store.
 
@@ -900,16 +899,17 @@ AOCI-CODE does not require Neo4j, a vector database, a long-running daemon, or a
 
 ### Why does Legacy `status --deep` still show drift?
 
-`status --deep`, `index score`, and `index agent plan` are Legacy-only. For a
+`status --deep` and `index score` are Legacy-only read commands. For a
 Cognition Volumes repository, run the live guide and let the host use ordinary
 no-argument `aoci_maintain`, submit the complete current batch through
 `aoci_update_entry`, and close with Verify, Check, and the guide. Do not modify
 the Baseline directly or skip source-binding and recovery steps.
 
-The Legacy layout itself is deprecated. Volumes v1 is the supported path for
-new and migrated repositories, and the Legacy-only commands are scheduled for
-removal in v0.2.0; migrate a Legacy repository with `aoci cognition migration`
-before then.
+The Legacy layout is read-only since 0.2.0. Its authoring commands are gone,
+every write tool answers `legacy_read_only_migrate_required`, and the drift
+`status --deep` shows is cleared by migrating: run
+`aoci cognition onboard start --json`, follow its next steps, and let the host
+maintain the Volumes v1 repository it produces.
 
 ```bash
 aoci --repo . index agent guide --agent codex --json

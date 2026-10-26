@@ -234,5 +234,3 @@ Use an absolute binary path in MCP configuration. This avoids accidentally selec
 ```bash
 aoci --repo /path/to/repository doctor
 ```
-
-Use `doctor --net` only when an intentional endpoint connectivity test is acceptable.

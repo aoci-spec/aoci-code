@@ -63,12 +63,26 @@ cognition formats are unchanged.
 State and writes
 ----------------
 
-Optional model requests use the final configured HTTP(S) base URL and never
-follow redirects. URL user information, query strings and fragments are
-refused by the client. Error diagnostics retain the category, the HTTP status, and a sanitized
-cause class (dns, refused, reset, unreachable, tls, timeout, redirect), not
-arbitrary endpoint response bodies or formatted transport causes; this also
-applies to failure notes persisted by endpoint-native drafting.
+The binary ships no model endpoint client. Repository semantics are written
+only by the Host model through the governed MCP write tools or `update-entry`;
+the `ai` configuration block is read for compatibility and consumed by nothing.
+
+A Legacy single-file layout (`aoci.txt` carrying its own Header and Entries,
+no Root manifest) is read-only since 0.2.0. Its authoring commands are
+retired: `ai`, `index build`, `index update`, `index entries`, `index header
+draft`, `index header diff`, `index header apply`, `index agent plan`, `index
+agent stage`, `index agent header`, `index agent curation`, and `doctor
+--net`. `update-entry` and `remove-entry` on that layout exit with
+`legacy_read_only_migrate_required` and write nothing; `index agent guide`
+returns a blocked guide whose stage is that token and whose commands carry
+`cognition onboard start --json`; `init --locale` and `config set locale`
+refuse to change the Locale a Legacy index was written in. Reads (`verify`,
+`check`, `status --deep`, `index score`, `index inventory`, `index header
+show`, `scope status`, `capabilities`) and the Legacy-to-Volumes migration
+(`cognition onboard`, `cognition bootstrap`, `cognition migration`) keep
+their contracts. The Managed Scope transaction is the one path that still
+edits a Legacy index document: a disposition retires an Entry, and a stale
+Index source still needs its source-bound Entry candidate there.
 
 Backups written beside host configuration and formal assets are published
 with owner-only file permissions. On Windows, directory ACLs remain the
@@ -110,6 +124,10 @@ never prose), and `set` emits one result object:
     pending: `header_pending` (boolean), `entry_paths` and `curation_paths`
     (counts), the same numbers human output prints
 
+On a Legacy single-file index, `set locale` to a Locale other than the one
+the index was written in exits 3 before any write: that index is read-only
+until it migrates to Volumes v1.
+
 The accepted keys are the ones the unknown-key message lists. An unknown key
 or an invalid value exits 3 with the ordinary version-1 error envelope before
 any write. Human output of these commands is not changed by this contract.
@@ -127,8 +145,9 @@ active Baseline receipt and the Plan moves no object, Entry, or fingerprint,
 activation reports `already_aligned` with exit status 0, starts no formal
 write, and records no transaction. `scope status` and `scope show` carry
 `repository_root`, the root the reading was taken from.
-In particular, Legacy stale sources still require explicit Entry candidates;
-Volumes source drift remains available to subsequent ordinary maintenance.
+In particular, a Legacy stale source still requires an explicit Entry candidate,
+the one Legacy index write this release retains; Volumes source drift remains
+available to subsequent ordinary maintenance.
 
 When the preview does not require human interaction, activation attempts Apply.
 Success exits 0 and `--json` emits the existing `managed-scope-change-result/v2`
@@ -183,6 +202,10 @@ Layout-scoped read commands
 Read-only commands this contract declares Legacy-only, including status --deep,
 diagnose a Volumes v1 layout instead of reporting a result their governance path
 owns.
+
+The Legacy layout itself is read-only since 0.2.0 (see State and writes): the
+retired authoring commands are absent from the command tree, and every
+remaining write entry point answers legacy_read_only_migrate_required there.
 
 Compatibility
 -------------

@@ -16,14 +16,14 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 	checks := map[string][]string{
 		"README.md": {
 			"Legacy-only deep status; not the Cognition Volumes maintenance route",
-			"`status --deep`, `index score`, and `index agent plan` are Legacy-only",
+			"`status --deep` and `index score` are Legacy-only read commands",
 			"basic, recommended, or full verification level",
 			"**OpenCode V1**",
 			"init --agent opencode",
 		},
 		"README.zh-CN.md": {
 			"仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线",
-			"`status --deep`、`index score` 和 `index agent plan` 仅用于 Legacy",
+			"`status --deep` 和 `index score` 仅用于 Legacy 只读诊断",
 			"基础、推荐或完整校验层级",
 			"**OpenCode V1**",
 			"init --agent opencode",
@@ -31,7 +31,7 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 		filepath.Join("docs", "getting-started.md"): {
 			"Fresh initialization uses Code-only Cognition Volumes",
 			"calls ordinary no-argument `aoci_maintain`",
-			"`status --deep`, `index score`, and `index agent plan` are Legacy-only",
+			"`status --deep` and `index score` are Legacy-only read commands",
 		},
 		filepath.Join("docs", "cognition-volumes.md"): {
 			"Fresh initialization now creates a semantic-",

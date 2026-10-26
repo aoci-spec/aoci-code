@@ -346,7 +346,9 @@ and `dispositions` empty, nothing else. `scope activate` supplies it for you.
 Under the Legacy layout, one `aoci.txt` holds every Entry and the transaction
 edits that document. An index source whose bytes changed since the Baseline
 therefore needs an Entry candidate, and a plan without one fails closed with
-`managed_scope_index_source_stale: <path>`.
+`managed_scope_index_source_stale: <path>`. This transaction is the one Legacy
+index write 0.2.0 retains: every other Legacy authoring surface is retired,
+and the layout migrates first.
 
 Under Volumes v1, `aoci.txt` is the Root manifest and holds no Entries. Entries
 live in the Code Volume and are written only through `aoci_maintain` and
