@@ -59,6 +59,29 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.TTY.RequiredFor, "bootstrap_review_apply") {
 		t.Fatalf("bootstrap TTY scope is not policy-qualified: %#v", manifest.TTY.RequiredFor)
 	}
+	// The dialog is a second channel to the same person, never a third kind of
+	// approval: every action it serves is one the terminal serves, and the two
+	// lists partition the terminal's.
+	dialog := manifest.HostDialog
+	if dialog.ModelSelfApproval || dialog.Mechanism != machinecontract.ApprovalMechanismHostElicitationConfirmation ||
+		dialog.MCPTool != "aoci_maintain" || dialog.Intent != machinecontract.MaintainIntentHumanApproval ||
+		dialog.DefaultChannel != machinecontract.HumanApprovalChannelTTYOrHostDialog ||
+		!reflect.DeepEqual(dialog.Channels, machinecontract.HumanApprovalChannels()) ||
+		!reflect.DeepEqual(dialog.Kinds, machinecontract.HumanApprovalKinds()) {
+		t.Fatalf("host dialog contract: %#v", dialog)
+	}
+	covered := map[string]int{}
+	for _, action := range append(append([]string{}, dialog.AvailableFor...), dialog.TerminalOnlyFor...) {
+		covered[action]++
+	}
+	for _, action := range manifest.TTY.RequiredFor {
+		if covered[action] != 1 {
+			t.Fatalf("%s is not in exactly one host dialog list: %#v", action, dialog)
+		}
+	}
+	if len(covered) != len(manifest.TTY.RequiredFor) {
+		t.Fatalf("the host dialog names an action the terminal does not: %#v", dialog)
+	}
 }
 
 func containsCapability(values []string, want string) bool {

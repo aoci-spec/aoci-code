@@ -358,12 +358,37 @@ that path; the fields are listed in `docs/managed-scope-and-budget.md` under
 is the other exit in either layout.
 
 If activation answers `managed_scope_human_approval_required` (exit 2), it saved
-the preview under `.aoci/scope-change/` and printed the approve and apply
-commands. Run them in order, replacing `<id>` with your reviewer identity;
-approve requires a real TTY. Review mode and policy relaxations can require
-this boundary even without a coverage reduction. With `--json`, the paths and
-commands are in the error's `details` object. Existing safety refusals still
-require resolving the reported cause.
+the preview under `.aoci/scope-change/` and a person has to approve it. In an
+MCP host that shows dialogs, the agent calls `aoci_maintain` with the
+`host_dialog_request` arguments from the error's `details` and the person
+answers in the dialog. Otherwise run the printed approve and apply commands in
+order, replacing `<id>` with your reviewer identity; approve requires a real
+TTY. Review mode and policy relaxations can require this boundary even without
+a coverage reduction. With `--json`, the paths and commands are in the error's
+`details` object. Existing safety refusals still require resolving the
+reported cause.
+
+## The approval dialog never appears
+
+`aoci_maintain` with `intent=human_approval` reports why in `status`:
+
+- `host_dialog_unavailable`: the MCP host did not declare form elicitation, so
+  it cannot show the dialog. Approve in a terminal with the two commands in
+  `next_commands`.
+- `host_dialog_disabled`: the team set `human_approval_channel` to `tty_only`.
+  Approve in a terminal, or change the setting with
+  `aoci config set human_approval_channel tty_or_host_dialog`.
+- `tty_required`: the repository lists high-risk content in
+  `safe_inventory_high_risk_opt_in`, so its approvals stay in the terminal.
+- `stale`: the repository changed after the preview was saved. Run
+  `aoci scope activate` (or `aoci cognition onboard prepare`) again and ask
+  again.
+
+`rejected` and `dismissed` mean the dialog did appear: the person said no or
+closed it. Nothing was written in either case, and `message` says what to do
+next. A host that limits how long one tool call may run can close the dialog
+before the person answers, which also reads `dismissed`; raising the host's
+MCP tool timeout gives the person more time.
 
 ## A directory named `backup`, `cache`, `build`, or `coverage` is missing from the index
 

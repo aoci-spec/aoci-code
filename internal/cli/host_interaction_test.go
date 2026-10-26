@@ -19,7 +19,8 @@ func TestRequireHumanPhraseReturnsExecutableInteractionContractWithoutTTY(t *tes
 	os.Stdin = readEnd
 	t.Cleanup(func() { os.Stdin = oldStdin })
 
-	err = requireHumanPhrase(&cobra.Command{}, "APPROVE X abc", "prompt", "'aoci' 'approve'", "abc", "write_set_count=2", "apply")
+	err = requireHumanConfirmation(&cobra.Command{}, humanConfirmation{Phrase: "APPROVE X abc", Prompt: "prompt",
+		ExactCommand: "'aoci' 'approve'", Digest: "abc", SafeSummary: "write_set_count=2", ResumeAction: "apply"})
 	var interaction *hostInteractionError
 	if !errors.As(err, &interaction) {
 		t.Fatalf("expected interaction contract, got %v", err)

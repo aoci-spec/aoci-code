@@ -225,9 +225,14 @@ at most one purely transport-schema mismatch; semantic repair still follows
 the normal model-owned path.
 
 Protected approval commands expose `aoci-host-interaction/v1` when no real TTY
-is attached. A PTY-capable Host can use its exact command and confirmation
-phrase. AOCI preserves the TTY and no-self-approval guard; this is not evidence
-that Codex Desktop or another external Host automatically allocates a PTY.
+is attached. When the action has a dialog route, that object carries
+`host_dialog_request`, the exact `aoci_maintain` call (`intent=human_approval`)
+that shows the change to the person in the MCP host's dialog and records their
+Approve or Reject; a host that declares MCP form elicitation can make it as
+written. Otherwise a PTY-capable Host can use the exact command and
+confirmation phrase. The model never approves: AOCI preserves the TTY guard,
+the dialog is answered by the person, and this is not evidence that Codex
+Desktop or another external Host automatically allocates a PTY.
 
 For every host, obtain `aoci_rules` once and establish one complete Overview
 at the start of a normal task, then keep reusing that cognition while it

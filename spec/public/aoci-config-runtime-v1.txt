@@ -35,6 +35,13 @@ retains the old rules identity. The local layer cannot change it, `config
 set` refuses any other value, and changing it after the first scan requires
 a governed Scope Change.
 
+`human_approval_channel` is a team-owned choice of how a protected change may
+reach its person: `tty_or_host_dialog` (absent, the default) admits the
+terminal phrase and the MCP host's dialog, and `tty_only` admits the terminal
+alone. The local layer cannot change it and `config set` refuses any other
+value. Apply judges it when a transaction starts. It enters no policy, scope,
+or authorization identity, so changing it is not a Scope Change.
+
 Secrets and network configuration
 ---------------------------------
 

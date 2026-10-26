@@ -22,6 +22,9 @@ type scopeActivationApproval struct {
 	PreviewFile         string `json:"preview_file"`
 	ApproveCommand      string `json:"approve_command"`
 	ApplyCommand        string `json:"apply_command"`
+	// HostDialogRequest asks the same person in the MCP host's dialog; the
+	// approve command is the terminal route for a host that cannot show one.
+	HostDialogRequest *hostDialogRequest `json:"host_dialog_request,omitempty"`
 }
 
 func newScopeActivateCmd() *cobra.Command {
@@ -126,12 +129,18 @@ func pauseScopeActivation(cmd *cobra.Command, root string, preview *scopechange.
 	continuation := scopeActivationApproval{
 		InteractionRequired: true,
 		PreviewFile:         previewFile,
+		HostDialogRequest:   scopeChangeDialogRequest(root, previewFile),
 		ApproveCommand: hostInteractionCommand("--repo", root, "scope", "approve", "--preview-file", previewFile,
 			"--actor", "<id>", "--out-file", approvalFile),
 		ApplyCommand: hostInteractionCommand("--repo", root, "scope", "apply", "--preview-file", previewFile,
 			"--approval-file", approvalFile),
 	}
+	message := cliMessage("scope.activate_approval_required", previewFile, continuation.ApproveCommand, continuation.ApplyCommand)
+	if continuation.HostDialogRequest != nil && scopechange.HostDialogEligible(preview) {
+		message = cliMessage("scope.activate_approval_required_dialog", previewFile, continuation.ApproveCommand, continuation.ApplyCommand)
+	} else {
+		continuation.HostDialogRequest = nil
+	}
 	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_human_approval_required",
-		Msg:     cliMessage("scope.activate_approval_required", previewFile, continuation.ApproveCommand, continuation.ApplyCommand),
-		Details: continuation}
+		Msg: message, Details: continuation}
 }

@@ -58,6 +58,9 @@ func registerMaintainTool(
 		) {
 			result := guard(
 				func() *mcp.CallToolResult {
+					if input.Intent == machinecontract.MaintainIntentHumanApproval {
+						return handleHumanApproval(ctx, request.Session, root, input)
+					}
 					return handleMaintainInput(root, mcpServiceVersion, input, refreshSession)
 				},
 			)

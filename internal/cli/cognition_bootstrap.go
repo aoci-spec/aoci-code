@@ -90,11 +90,14 @@ func newCognitionBootstrapPrepareCmd() *cobra.Command {
 }
 
 func newCognitionBootstrapApproveCmd() *cobra.Command {
-	var envelopeFile, actor string
+	var envelopeFile, actor, outFile string
 	command := &cobra.Command{
 		Use:   "approve",
 		Short: cliMessage("cli.short.cognition_bootstrap_approve"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := validatePlannerOutput(outFile); err != nil {
+				return bootstrapExitError(err)
+			}
 			data, err := readPlannerInput(envelopeFile)
 			if err != nil {
 				return bootstrapExitError(err)
@@ -105,7 +108,10 @@ func newCognitionBootstrapApproveCmd() *cobra.Command {
 			}
 			phrase := "APPROVE BOOTSTRAP " + envelope.EnvelopeDigest
 			exact := hostInteractionCommand("cognition", "bootstrap", "approve", "--envelope-file", envelopeFile, "--actor", actor, "--json")
-			if err := requireHumanPhrase(cmd, phrase, cliMessage("cognition.bootstrap.approval_prompt", envelope.EnvelopeDigest, strings.Join(envelope.WriteSet, ", "), phrase), exact, envelope.EnvelopeDigest, fmt.Sprintf("write_set_count=%d", len(envelope.WriteSet)), "cognition bootstrap apply"); err != nil {
+			if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
+				Prompt:       cliMessage("cognition.bootstrap.approval_prompt", envelope.EnvelopeDigest, strings.Join(envelope.WriteSet, ", "), phrase),
+				ExactCommand: exact, Digest: envelope.EnvelopeDigest, SafeSummary: fmt.Sprintf("write_set_count=%d", len(envelope.WriteSet)),
+				ResumeAction: "cognition bootstrap apply", NotApproved: cliMessage("cli.approval.next.bootstrap")}); err != nil {
 				return bootstrapExitError(err)
 			}
 			approval, err := bootstrapapply.RecordApproval(
@@ -113,6 +119,9 @@ func newCognitionBootstrapApproveCmd() *cobra.Command {
 			)
 			if err != nil {
 				return bootstrapExitError(err)
+			}
+			if strings.TrimSpace(outFile) != "" {
+				return writePlannerArtifact(cmd, approval, outFile)
 			}
 			if flagJSON {
 				return writePlannerJSON(cmd, approval)
@@ -123,6 +132,7 @@ func newCognitionBootstrapApproveCmd() *cobra.Command {
 	}
 	command.Flags().StringVar(&envelopeFile, "envelope-file", "", cliMessage("cognition.bootstrap.flag.envelope_file"))
 	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("cognition.bootstrap.flag.out_file"))
 	_ = command.MarkFlagRequired("envelope-file")
 	_ = command.MarkFlagRequired("actor")
 	return command
@@ -269,8 +279,7 @@ func writeBootstrapResult(cmd *cobra.Command, result *bootstrapapply.ApplyResult
 func bootstrapExitError(err error) error {
 	var interaction *hostInteractionError
 	if errors.As(err, &interaction) {
-		return &ExitError{Code: ExitInvalid, MachineCode: "interaction_required", Details: interaction.State,
-			Msg: cliMessage("cognition.bootstrap.error", textassets.DiagnosticFacts(err.Error()))}
+		return interactionExitError(interaction)
 	}
 	return &ExitError{
 		Code: ExitInvalid, MachineCode: "cognition_bootstrap_invalid",

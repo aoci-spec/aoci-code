@@ -81,7 +81,10 @@ func newBaselineScopeApproveCmd() *cobra.Command {
 			return scopeExitError(fmt.Errorf("baseline_scope_approval_not_required"))
 		}
 		exact := hostInteractionCommand("baseline", "scope", "approve", "--preview-file", previewFile, "--actor", actor, "--json")
-		if err := requireHumanPhrase(cmd, preview.Plan.ConfirmationPhrase, cliMessage("baseline.scope.approval_prompt", preview.Plan.PlanID, preview.Plan.ConfirmationPhrase), exact, preview.Plan.PlanID, fmt.Sprintf("removed_count=%d", len(preview.Plan.Removed)), "baseline scope apply"); err != nil {
+		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: preview.Plan.ConfirmationPhrase,
+			Prompt:       cliMessage("baseline.scope.approval_prompt", preview.Plan.PlanID, preview.Plan.ConfirmationPhrase),
+			ExactCommand: exact, Digest: preview.Plan.PlanID, SafeSummary: fmt.Sprintf("removed_count=%d", len(preview.Plan.Removed)),
+			ResumeAction: "baseline scope apply"}); err != nil {
 			return scopeExitError(err)
 		}
 		approval, err := scoperefresh.NewApproval(preview, actor, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339))
@@ -183,8 +186,7 @@ func writeScopeResult(cmd *cobra.Command, result *scoperefresh.ApplyResult) erro
 func scopeExitError(err error) error {
 	var interaction *hostInteractionError
 	if errors.As(err, &interaction) {
-		return &ExitError{Code: ExitInvalid, MachineCode: "interaction_required", Details: interaction.State,
-			Msg: cliMessage("baseline.scope.error", err.Error())}
+		return interactionExitError(interaction)
 	}
 	message := cliMessage("baseline.scope.error", err.Error())
 	if err.Error() == "baseline_scope_managed_scope_unsupported" {

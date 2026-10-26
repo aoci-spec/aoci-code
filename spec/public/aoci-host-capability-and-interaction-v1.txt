@@ -9,8 +9,8 @@ It reports `product=AOCI-CODE`, `binary=aoci`, the canonical repository and Go
 module, the AOCI version and commit, MCP protocol, sorted nine-tool list and
 identity, CLI lifecycle capabilities, input contract versions, detected
 layout, supported Planner/Apply/Recovery families, required Agent fields, TTY
-requirements, Database capabilities, Overview delivery modes, compatibility
-strategy, and `network_accessed=false`.
+requirements, the host-dialog approval channel, Database capabilities, Overview
+delivery modes, compatibility strategy, and `network_accessed=false`.
 
 The manifest is produced by `aoci --json capabilities`. It reads layout bytes
 but writes no formal or runtime asset. Hosts may cache it for one process/service
@@ -40,13 +40,52 @@ Human interaction contract
 terminal. It includes `interaction_required=true`,
 `interaction_kind=human_tty_digest_confirmation`, an OS-quoted exact command,
 full digest, safe summary, exact phrase, resume action, `tty_required=true`,
-`model_self_approval=false`, and whether formal writes started.
+`model_self_approval=false`, and whether formal writes started. Where the
+action also has a dialog route (below), it carries `host_dialog_request`: the
+exact `aoci_maintain` call that asks the same person in the MCP host's dialog.
 
-AOCI continues to require an actual character-device TTY and exact phrase. It
-does not support `--yes`, piped model approval, blanket approval, or approval
-reuse across Envelopes. A PTY-capable Host can execute the exact command in an
-interactive adapter. This contract does not claim that Codex Desktop or any
-other external Host automatically allocates a PTY.
+The terminal channel continues to require an actual character-device TTY and
+exact phrase. It does not support `--yes`, piped model approval, blanket
+approval, or approval reuse across Envelopes. A PTY-capable Host can execute
+the exact command in an interactive adapter. This contract does not claim that
+Codex Desktop or any other external Host automatically allocates a PTY. The
+prompt says that pressing Enter rejects; anything but the exact phrase is a
+rejection, and the person is told that nothing changed and what to do next.
+
+Host dialog approval
+--------------------
+
+A person may approve a protected action through a second channel: the MCP
+host's dialog (`host_elicitation_confirmation`). `aoci_maintain` with
+`intent=human_approval` and `approval_request` opens an MCP form elicitation
+for one pending change: `kind=scope_change` with the `preview_file` a paused
+`scope activate` saved under `.aoci/`, or `kind=onboarding` for the prepared
+review of the current onboarding session, Bootstrap or Legacy Migration.
+
+AOCI reads the change from disk and describes it itself; the caller names only
+where it is. A Scope Change preview is first replayed against the repository
+and an onboarding envelope's external guards are checked, and a change that no
+longer matches answers `status=stale` without asking anyone. The dialog asks
+for one decision, approve or reject, and an optional note. Approve records an
+approval bound exactly as a terminal approval is (the same envelope, write
+set, and recovery policy) where the apply command reads it, and returns that
+command in `next_commands`; nothing is applied. Reject or decline writes
+nothing and returns `status=rejected` with what to do next and the person's
+note in `human_note`. Dismissing the dialog is `status=dismissed`. A host that
+declares no form elicitation answers `host_dialog_unavailable`. Every outcome
+that leaves the decision to a terminal carries the terminal approve and apply
+commands, and an approval already recorded for the same change answers
+`already_approved` without asking again.
+
+The team setting `human_approval_channel` decides whether a dialog answer
+counts: `tty_or_host_dialog` (absent, the default) or `tty_only`. Apply judges
+it when a transaction starts and never on Resume. A repository that admits
+high-risk content (`safe_inventory_high_risk_opt_in`) keeps its Scope Change
+approvals in the terminal, and Migration reversal, Migration rollback, the
+Legacy baseline scope refresh, and the high-risk pre-read approval have no
+dialog route. The host vouches that a person answered. A host automation that
+answers dialogs for the person is the host's responsibility, which is why a
+team can require the terminal; the model itself cannot answer the dialog.
 
 Fresh Auto authorization is not a human-interaction simulation. A machine-
 selected and Session-pinned Fresh policy may produce

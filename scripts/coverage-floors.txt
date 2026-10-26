@@ -19,11 +19,11 @@ github.com/aoci-spec/aoci-code/internal/managedstate 50.6
 github.com/aoci-spec/aoci-code/internal/cognitionbaseline 0.0
 github.com/aoci-spec/aoci-code/internal/codebatch 64.9
 github.com/aoci-spec/aoci-code/internal/fs 81.6
-github.com/aoci-spec/aoci-code/internal/scopechange 78.5
+github.com/aoci-spec/aoci-code/internal/scopechange 78.9
 github.com/aoci-spec/aoci-code/internal/baseline 73.0
 github.com/aoci-spec/aoci-code/internal/mcptools 80.7
 github.com/aoci-spec/aoci-code/internal/cli 66.4
 github.com/aoci-spec/aoci-code/internal/cognition 80.4
 github.com/aoci-spec/aoci-code/internal/index 81.5
-github.com/aoci-spec/aoci-code/internal/migrationapply 72.9
+github.com/aoci-spec/aoci-code/internal/migrationapply 73.3
 github.com/aoci-spec/aoci-code/internal/bootstrapapply 70.5

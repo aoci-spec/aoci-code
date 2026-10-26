@@ -19,11 +19,115 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
+	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 var transactionFault = func(string) error { return nil }
 
 func NewApproval(preview *Preview, actor, approvedAt string) (*Approval, error) {
+	return newApproval(preview, actor, approvedAt, machinecontract.ApprovalMechanismInteractiveDigestConfirmation)
+}
+
+// NewHostDialogApproval records the answer a person gave in the MCP host's
+// dialog. It binds exactly what a terminal approval binds; only the mechanism
+// differs, and Apply admits it only when the team channel does and the plan
+// is eligible (HostDialogEligible).
+func NewHostDialogApproval(preview *Preview, actor, approvedAt string) (*Approval, error) {
+	if preview == nil || !HostDialogEligible(preview) {
+		return nil, fmt.Errorf("managed_scope_host_dialog_approval_not_eligible")
+	}
+	return newApproval(preview, actor, approvedAt, machinecontract.ApprovalMechanismHostElicitationConfirmation)
+}
+
+// HostDialogEligible reports whether a person may approve this plan in the
+// host's dialog. A repository that admits high-risk content keeps every
+// approval in the terminal: that content may be credentials, and a dialog can
+// be answered by a host-side automation the team never sees.
+func HostDialogEligible(preview *Preview) bool {
+	return preview != nil && !preview.Plan.Risk.HighRiskOptIn
+}
+
+// ApprovalEffect is one consequence a person approving a plan must see. Kind
+// names it (entry_removes, coverage, posture, budget, high_risk, or none when
+// the plan carries no such consequence) and Args fill its sentence.
+type ApprovalEffect struct {
+	Kind string
+	Args []any
+}
+
+// ApprovalEffects lists what a person is actually being asked to approve, in
+// the order the terminal prompt and the host dialog both print it.
+//
+// A 64-hex confirmation phrase proves an approval is bound to one exact plan,
+// but it tells the approver nothing about the consequence. A confirmation that
+// cannot be understood is not a decision, so the list leads with the effects
+// that matter — destroyed cognition, lost coverage, a weakened posture — and
+// says so plainly when a change carries none of them.
+func ApprovalEffects(preview *Preview) []ApprovalEffect {
+	plan := preview.Plan
+	effects := []ApprovalEffect{}
+	if count := len(plan.EntryRemoves); count > 0 {
+		effects = append(effects, ApprovalEffect{Kind: "entry_removes", Args: []any{count}})
+	}
+	if count := len(plan.CoverageReductions); count > 0 {
+		effects = append(effects, ApprovalEffect{Kind: "coverage", Args: []any{count}})
+	}
+	if plan.Risk.ApprovalPolicyRelaxation {
+		// Only the destination is named. Preview.Baseline is the postimage, so it
+		// already carries the new posture and reading the origin from it would
+		// print the same mode twice; the preimage mode is not part of the public
+		// plan shape, and widening that shape to decorate one prompt is not worth
+		// it when the approver already knows what they are leaving.
+		effects = append(effects, ApprovalEffect{Kind: "posture", Args: []any{plan.AuthorizationPolicy.EffectiveMode}})
+	}
+	if plan.Risk.BudgetRelaxation {
+		effects = append(effects, ApprovalEffect{Kind: "budget"})
+	}
+	if plan.Risk.HighRiskOptIn {
+		effects = append(effects, ApprovalEffect{Kind: "high_risk"})
+	}
+	if len(effects) == 0 {
+		effects = append(effects, ApprovalEffect{Kind: "none"})
+	}
+	return effects
+}
+
+// ApprovalEffectSummary renders ApprovalEffects in the active Locale: the one
+// sentence the terminal prompt and the host dialog both print.
+func ApprovalEffectSummary(preview *Preview) string {
+	parts := []string{}
+	for _, effect := range ApprovalEffects(preview) {
+		var key string
+		switch effect.Kind {
+		case "entry_removes":
+			key = "scope.approval_effect.entry_removes"
+		case "coverage":
+			key = "scope.approval_effect.coverage"
+		case "posture":
+			key = "scope.approval_effect.posture"
+		case "budget":
+			key = "scope.approval_effect.budget"
+		case "high_risk":
+			key = "scope.approval_effect.high_risk"
+		default:
+			key = "scope.approval_effect.none"
+		}
+		text, err := textassets.Message(textassets.ActiveLocale(), key, effect.Args...)
+		if err != nil {
+			text = "[text_asset_error:" + key + "]"
+		}
+		parts = append(parts, text)
+	}
+	return strings.Join(parts, "; ")
+}
+
+// ApprovalBinds reports whether a decoded approval authorizes exactly this
+// preview, whatever channel recorded it.
+func ApprovalBinds(preview *Preview, approval *Approval) bool {
+	return preview != nil && approval != nil && validateApproval(preview, approval) == nil
+}
+
+func newApproval(preview *Preview, actor, approvedAt, mechanism string) (*Approval, error) {
 	if preview == nil || !cognitiontxn.ValidAuditActor(actor) {
 		return nil, fmt.Errorf("managed_scope_approval_actor_invalid")
 	}
@@ -34,7 +138,7 @@ func NewApproval(preview *Preview, actor, approvedAt string) (*Approval, error) 
 	approval := &Approval{Version: machinecontract.ManagedScopeChangeApprovalV2,
 		EnvelopeDigest: preview.EnvelopeDigest, ApprovedWriteSet: append([]string{}, preview.Plan.WriteSet...),
 		ApprovedRecoveryPolicy: preview.Plan.RecoveryDirection, Actor: actor,
-		Mechanism: machinecontract.ApprovalMechanismInteractiveDigestConfirmation, ApprovedAt: approvedAt}
+		Mechanism: mechanism, ApprovedAt: approvedAt}
 	approval.ApprovalDigest, err = approvalIdentity(*approval)
 	return approval, err
 }
@@ -78,7 +182,7 @@ func validateApproval(preview *Preview, approval *Approval) error {
 		return nil
 	}
 	if approval == nil || approval.Version != machinecontract.ManagedScopeChangeApprovalV2 ||
-		approval.EnvelopeDigest != preview.EnvelopeDigest || approval.Mechanism != machinecontract.ApprovalMechanismInteractiveDigestConfirmation ||
+		approval.EnvelopeDigest != preview.EnvelopeDigest || !humanApprovalMechanism(approval.Mechanism) ||
 		approval.ApprovedRecoveryPolicy != preview.Plan.RecoveryDirection ||
 		!equalStrings(approval.ApprovedWriteSet, preview.Plan.WriteSet) || !cognitiontxn.ValidAuditActor(approval.Actor) {
 		return fmt.Errorf("managed_scope_human_approval_required")
@@ -86,6 +190,29 @@ func validateApproval(preview *Preview, approval *Approval) error {
 	want, err := approvalIdentity(*approval)
 	if err != nil || want != approval.ApprovalDigest {
 		return fmt.Errorf("managed_scope_approval_digest_mismatch")
+	}
+	return nil
+}
+
+// humanApprovalMechanism names the channels a person's approval may arrive
+// through. Recovery replays an Intent with this structural check alone: the
+// team channel is judged once, when Apply starts, never again on Resume.
+func humanApprovalMechanism(mechanism string) bool {
+	return mechanism == machinecontract.ApprovalMechanismInteractiveDigestConfirmation ||
+		mechanism == machinecontract.ApprovalMechanismHostElicitationConfirmation
+}
+
+// admitApprovalChannel applies the team channel and the plan's eligibility to
+// an approval about to start a transaction.
+func admitApprovalChannel(cfg *config.Config, preview *Preview, approval *Approval) error {
+	if approval == nil || approval.Mechanism != machinecontract.ApprovalMechanismHostElicitationConfirmation {
+		return nil
+	}
+	if !cfg.AdmitsApprovalMechanism(approval.Mechanism) {
+		return fmt.Errorf("managed_scope_host_dialog_approval_disabled: human_approval_channel=%s", cfg.EffectiveHumanApprovalChannel())
+	}
+	if !HostDialogEligible(preview) {
+		return fmt.Errorf("managed_scope_host_dialog_approval_not_eligible")
 	}
 	return nil
 }
@@ -163,6 +290,9 @@ func ApplyAuthorized(repositoryRoot string, preview *Preview, approval *Approval
 			return nil, fmt.Errorf("managed_scope_policy_bound_approval_not_authoritative")
 		}
 		if err := validateApproval(preview, approval); err != nil {
+			return nil, err
+		}
+		if err := admitApprovalChannel(cfg, preview, approval); err != nil {
 			return nil, err
 		}
 	case machinecontract.ApplyAuthorizationOff:

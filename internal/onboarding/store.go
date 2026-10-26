@@ -200,3 +200,38 @@ func mustRel(root, path string) string {
 	}
 	return rel
 }
+
+// HumanApprovalArtifact is where a person's approval of a prepared review is
+// kept beside the envelope it approves, whichever channel recorded it; onboard
+// apply takes the repository-relative path.
+const HumanApprovalArtifact = "human-approval.json"
+
+// AwaitingApproval returns the session and its prepared envelope bytes while a
+// review is waiting for its person, and an error naming the state otherwise.
+func AwaitingApproval(root string) (*Session, []byte, error) {
+	session, err := LoadRequired(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	if session.ApprovalState != "interaction_required" || session.EnvelopeArtifact == "" {
+		return nil, nil, fmt.Errorf("onboarding_approval_not_pending: %s", session.ApprovalState)
+	}
+	data, err := readArtifact(root, session.EnvelopeArtifact)
+	if err != nil {
+		return nil, nil, err
+	}
+	return session, data, nil
+}
+
+// HumanApprovalPath returns the absolute and repository-relative location of
+// the session's human approval artifact.
+func HumanApprovalPath(root string, session *Session) (string, string) {
+	path := artifactPath(root, session, HumanApprovalArtifact)
+	return path, filepath.ToSlash(mustRel(root, path))
+}
+
+// SaveHumanApproval stores an approval at HumanApprovalPath. Identical bytes
+// already there are reused; different bytes are a conflict, never replaced.
+func SaveHumanApproval(root string, session *Session, data []byte) (string, error) {
+	return saveArtifactBytes(root, session, HumanApprovalArtifact, data)
+}

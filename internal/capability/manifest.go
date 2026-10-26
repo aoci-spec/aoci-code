@@ -18,30 +18,48 @@ type TTYRequirement struct {
 	ModelSelfApproval bool     `json:"model_self_approval"`
 }
 
+// HostDialogRequirement is the second channel to the same person: the MCP
+// host's dialog, which aoci_maintain opens with intent=human_approval. Every
+// action in AvailableFor may also be approved in a terminal; TerminalOnlyFor
+// stays in the terminal whatever the team channel says.
+type HostDialogRequirement struct {
+	AvailableFor      []string `json:"available_for"`
+	TerminalOnlyFor   []string `json:"terminal_only_for"`
+	Mechanism         string   `json:"mechanism"`
+	MCPTool           string   `json:"mcp_tool"`
+	Intent            string   `json:"intent"`
+	Kinds             []string `json:"kinds"`
+	TeamSetting       string   `json:"team_setting"`
+	Channels          []string `json:"channels"`
+	DefaultChannel    string   `json:"default_channel"`
+	ModelSelfApproval bool     `json:"model_self_approval"`
+}
+
 type Manifest struct {
-	Version                  string         `json:"version"`
-	Product                  string         `json:"product"`
-	Binary                   string         `json:"binary"`
-	CanonicalRepository      string         `json:"canonical_repository"`
-	GoModule                 string         `json:"go_module"`
-	AOCIVersion              string         `json:"aoci_version"`
-	Commit                   string         `json:"commit"`
-	MCPProtocol              string         `json:"mcp_protocol"`
-	MCPTools                 []string       `json:"mcp_tools"`
-	MCPToolCount             int            `json:"mcp_tool_count"`
-	MCPToolNameIdentity      string         `json:"mcp_tool_name_identity"`
-	CLILifecycleCapabilities []string       `json:"cli_lifecycle_capabilities"`
-	InputSchemaVersions      []string       `json:"input_schema_versions"`
-	CurrentLayout            string         `json:"current_layout"`
-	SupportedPlanner         []string       `json:"supported_planner"`
-	SupportedApply           []string       `json:"supported_apply"`
-	SupportedRecovery        []string       `json:"supported_recovery"`
-	RequiredAgentFields      []string       `json:"required_agent_fields"`
-	TTY                      TTYRequirement `json:"tty"`
-	DatabaseCapabilities     []string       `json:"database_capabilities"`
-	OverviewDeliveryModes    []string       `json:"overview_delivery_modes"`
-	CompatibilityStrategy    []string       `json:"compatibility_strategy"`
-	NetworkAccessed          bool           `json:"network_accessed"`
+	Version                  string                `json:"version"`
+	Product                  string                `json:"product"`
+	Binary                   string                `json:"binary"`
+	CanonicalRepository      string                `json:"canonical_repository"`
+	GoModule                 string                `json:"go_module"`
+	AOCIVersion              string                `json:"aoci_version"`
+	Commit                   string                `json:"commit"`
+	MCPProtocol              string                `json:"mcp_protocol"`
+	MCPTools                 []string              `json:"mcp_tools"`
+	MCPToolCount             int                   `json:"mcp_tool_count"`
+	MCPToolNameIdentity      string                `json:"mcp_tool_name_identity"`
+	CLILifecycleCapabilities []string              `json:"cli_lifecycle_capabilities"`
+	InputSchemaVersions      []string              `json:"input_schema_versions"`
+	CurrentLayout            string                `json:"current_layout"`
+	SupportedPlanner         []string              `json:"supported_planner"`
+	SupportedApply           []string              `json:"supported_apply"`
+	SupportedRecovery        []string              `json:"supported_recovery"`
+	RequiredAgentFields      []string              `json:"required_agent_fields"`
+	TTY                      TTYRequirement        `json:"tty"`
+	HostDialog               HostDialogRequirement `json:"host_dialog"`
+	DatabaseCapabilities     []string              `json:"database_capabilities"`
+	OverviewDeliveryModes    []string              `json:"overview_delivery_modes"`
+	CompatibilityStrategy    []string              `json:"compatibility_strategy"`
+	NetworkAccessed          bool                  `json:"network_accessed"`
 }
 
 func Build(repositoryRoot, version, commit string) (*Manifest, error) {
@@ -91,6 +109,13 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 		RequiredAgentFields: []string{"agent", "schema_version", "request_file", "expected_preimage", "plan_or_run_identity"},
 		TTY: TTYRequirement{RequiredFor: []string{"bootstrap_review_apply", "migration_apply", "migration_reversal", "ordinary_legacy_scope_reduction", "managed_scope_review", "high_risk_exact_opt_in", "budget_relaxation_review"},
 			Mechanism: machinecontract.ApprovalMechanismInteractiveDigestConfirmation, DigestRequired: true, YesFlagAllowed: false, ModelSelfApproval: false},
+		HostDialog: HostDialogRequirement{
+			AvailableFor:    []string{"bootstrap_review_apply", "migration_apply", "managed_scope_review", "budget_relaxation_review"},
+			TerminalOnlyFor: []string{"migration_reversal", "ordinary_legacy_scope_reduction", "high_risk_exact_opt_in"},
+			Mechanism:       machinecontract.ApprovalMechanismHostElicitationConfirmation, MCPTool: "aoci_maintain",
+			Intent: machinecontract.MaintainIntentHumanApproval, Kinds: machinecontract.HumanApprovalKinds(),
+			TeamSetting: "human_approval_channel", Channels: machinecontract.HumanApprovalChannels(),
+			DefaultChannel: machinecontract.HumanApprovalChannelTTYOrHostDialog, ModelSelfApproval: false},
 		DatabaseCapabilities:  []string{"postgresql_schema_evidence", "opengauss_schema_evidence", "mysql_schema_evidence", "database_cognition", "independent_database_cognition_bootstrap", "environment_credential_provider", "database_access_preflight_v1", "database_to_code_impact_v1", "business_rows_read_zero", "ddl_dml_zero"},
 		OverviewDeliveryModes: []string{"full", "checkpoint", "blocked", "scope_absent", "chunked_full"},
 		CompatibilityStrategy: []string{"legacy_monolithic_read", "volumes_v1_read_write", "baseline_v1_read", "additive_json_fields", "fail_closed_unknown_schema"},

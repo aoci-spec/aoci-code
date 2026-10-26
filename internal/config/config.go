@@ -174,6 +174,10 @@ type Config struct {
 	// or V2). Team-owned and absent in old repositories, where absence is the rc22 identity;
 	// init writes V2 for a new repository and a change is a governed Scope Change (#148).
 	SensitiveNameRules string `json:"sensitive_name_rules,omitempty"`
+	// HumanApprovalChannel says how a protected change may reach its person:
+	// tty_or_host_dialog (absent) or tty_only. Team-owned, because whether a
+	// host's dialog counts as a person's answer is a team decision.
+	HumanApprovalChannel string `json:"human_approval_channel,omitempty"`
 
 	// CurationExclude 是“工具看得见但维护者裁决不收录”的团队负空间。
 	// 唯一匹配事实源为 Config.CurationExcluded。
@@ -371,6 +375,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamSafeInventoryHighRiskOptIn := append([]string{}, cfg.SafeInventoryHighRiskOptIn...)
 	teamExcludeRootDirs := append([]string(nil), cfg.ExcludeRootDirs...)
 	teamSensitiveNameRules := cfg.SensitiveNameRules
+	teamHumanApprovalChannel := cfg.HumanApprovalChannel
 	teamDatabaseSources := append([]dbevidence.SourceConfig{}, cfg.DatabaseSources...)
 	teamDatabaseCognitionBatchObjects := cfg.DatabaseCognitionBatchObjects
 	teamDatabaseCognitionBatchEvidenceBytes := cfg.DatabaseCognitionBatchEvidenceBytes
@@ -398,6 +403,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.SafeInventoryHighRiskOptIn = teamSafeInventoryHighRiskOptIn
 	cfg.ExcludeRootDirs = teamExcludeRootDirs
 	cfg.SensitiveNameRules = teamSensitiveNameRules
+	cfg.HumanApprovalChannel = teamHumanApprovalChannel
 	cfg.DatabaseSources = teamDatabaseSources
 	cfg.DatabaseCognitionBatchObjects = teamDatabaseCognitionBatchObjects
 	cfg.DatabaseCognitionBatchEvidenceBytes = teamDatabaseCognitionBatchEvidenceBytes
@@ -419,6 +425,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 		return nil, err
 	}
 	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
+		return nil, err
+	}
+	if err := validateHumanApprovalChannel(cfg.HumanApprovalChannel); err != nil {
 		return nil, err
 	}
 	if err := normalizeLocaleMigration(cfg); err != nil {
@@ -470,6 +479,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 		return nil, err
 	}
 	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
+		return nil, err
+	}
+	if err := validateHumanApprovalChannel(cfg.HumanApprovalChannel); err != nil {
 		return nil, err
 	}
 	if err := normalizeLocaleMigration(cfg); err != nil {
@@ -958,6 +970,7 @@ func SaveLocal(
 	delete(existing, "cognition_budget")
 	delete(existing, "exclude_root_dirs")
 	delete(existing, "sensitive_name_rules")
+	delete(existing, "human_approval_channel")
 
 	if err := os.MkdirAll(
 		dirPath(repoRoot),

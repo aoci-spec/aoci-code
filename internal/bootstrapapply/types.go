@@ -17,6 +17,8 @@ const (
 	RecoveryPolicy          = machinecontract.CognitionBootstrapRecoveryPolicy
 	ApprovalMechanism       = machinecontract.CognitionBootstrapApprovalMechanism
 	AutoApprovalMechanism   = machinecontract.CognitionBootstrapAutoApprovalMechanism
+	// HostDialogApprovalMechanism is a person's answer in the MCP host dialog.
+	HostDialogApprovalMechanism = machinecontract.ApprovalMechanismHostElicitationConfirmation
 
 	StatePreimage       = machinecontract.CognitionBootstrapDiskPreimage
 	StatePostimage      = machinecontract.CognitionBootstrapDiskPostimage

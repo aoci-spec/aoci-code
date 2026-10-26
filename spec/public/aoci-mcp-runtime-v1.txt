@@ -64,3 +64,15 @@ and `next_commands` carrying `cognition onboard start --json` and the Guide;
 code `legacy_read_only_migrate_required`. `aoci_overview`, `aoci_get_entries`,
 `aoci_search`, `aoci_header`, and `aoci_rules` keep their Legacy read
 behavior. No tool is added, removed, or renamed by this rule.
+
+Human approval
+--------------
+
+`aoci_maintain` with `intent=human_approval` and `approval_request` asks a
+person rather than the model: it opens an MCP form elicitation for one pending
+protected change and records only the answer, as
+`aoci-host-capability-and-interaction-v1.txt` defines. It answers on both
+layouts, because the way out of a Legacy layout, the migration, needs that
+approval. A client that declares no form elicitation receives
+`host_dialog_unavailable` and the terminal commands, and no dialog is sent.
+The intent adds no tool.

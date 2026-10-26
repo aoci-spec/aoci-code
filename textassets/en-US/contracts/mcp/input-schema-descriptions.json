@@ -6,7 +6,8 @@
     "volume_id": "Volumes v1 object Volume: code or database"
   },
   "aoci_maintain": {
-    "intent": "Only cognition_optimization: a bound review of aligned Volumes v1 Code Entries; omit for ordinary Maintain",
+    "approval_request": "Only with intent=human_approval: kind scope_change with the preview_file a paused scope activate saved, or kind onboarding for the prepared review of the current onboarding session",
+    "intent": "cognition_optimization: a bound review of aligned Volumes v1 Code Entries; human_approval: ask the person, in a host dialog, to approve the pending change approval_request names; omit for ordinary Maintain",
     "object_refs": "code:<path> references that limit cognition_optimization candidates; only with that intent",
     "scope": "Advanced diagnostic scope; omit it on the ordinary path so shared governance chooses"
   },

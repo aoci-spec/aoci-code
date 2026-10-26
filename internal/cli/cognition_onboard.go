@@ -205,7 +205,8 @@ func newOnboardPrepareCmd() *cobra.Command {
 			InteractionKind: "human_tty_digest_confirmation", ExactCommand: exact, Digest: digest,
 			SafeSummary: fmt.Sprintf("write_set_count=%d", writeCount), ConfirmationPhrase: "APPROVE " + strings.ToUpper(session.Operation) + " " + digest,
 			ResumeAction: hostInteractionCommand("cognition", "onboard", "apply", "--approval-file", "{approval_file}", "--json"),
-			TTYRequired:  true, ModelSelfApproval: false, FormalWritesStarted: false}
+			TTYRequired:  true, ModelSelfApproval: false, FormalWritesStarted: false,
+			HostDialogRequest: onboardingDialogRequest(root)}
 		return writePlannerJSON(cmd, struct {
 			Session     *onboarding.Session     `json:"session"`
 			Envelope    any                     `json:"envelope"`

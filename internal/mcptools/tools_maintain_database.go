@@ -17,9 +17,10 @@ import (
 )
 
 type maintainIn struct {
-	Scope      string   `json:"scope,omitempty"`
-	Intent     string   `json:"intent,omitempty"`
-	ObjectRefs []string `json:"object_refs,omitempty"`
+	Scope           string                `json:"scope,omitempty"`
+	Intent          string                `json:"intent,omitempty"`
+	ObjectRefs      []string              `json:"object_refs,omitempty"`
+	ApprovalRequest *humanApprovalRequest `json:"approval_request,omitempty"`
 }
 
 const maintainIntentCognitionOptimization = "cognition_optimization"
@@ -40,6 +41,15 @@ type databaseMaintainResult struct {
 }
 
 func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+	// human_approval opens a host dialog, so it is served where the MCP
+	// session is in hand (registerMaintainTool); reaching here means there is
+	// no session to ask through.
+	if input.Intent == machinecontract.MaintainIntentHumanApproval {
+		return failResult(&Fail{Code: errBadArgs, Msg: "human_approval_requires_mcp_session"})
+	}
+	if input.ApprovalRequest != nil {
+		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_approval_request_requires_human_approval"})
+	}
 	loaded, fail := loadCognitionCtx(root)
 	if input.Intent != "" {
 		if input.Intent != maintainIntentCognitionOptimization {

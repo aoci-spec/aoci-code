@@ -140,10 +140,10 @@ func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
 			continue
 		}
 		if _, required := tool.InputSchema["required"]; required {
-			t.Fatal("aoci_maintain additive optimization fields must remain optional")
+			t.Fatal("aoci_maintain additive optimization and approval fields must remain optional")
 		}
 		properties, ok := tool.InputSchema["properties"].(map[string]any)
-		if !ok || len(properties) != 3 {
+		if !ok || len(properties) != 4 {
 			t.Fatalf("aoci_maintain properties changed unexpectedly: %#v", tool.InputSchema)
 		}
 		scope, ok := properties["scope"].(map[string]any)
@@ -159,8 +159,18 @@ func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
 			t.Fatalf("aoci_maintain intent schema is invalid: %#v", intent)
 		}
 		intentEnum, ok := intent["enum"].([]any)
-		if !ok || len(intentEnum) != 1 || intentEnum[0] != "cognition_optimization" {
+		if !ok || len(intentEnum) != 2 || intentEnum[0] != "cognition_optimization" || intentEnum[1] != "human_approval" {
 			t.Fatalf("aoci_maintain intent enum is invalid: %#v", intent["enum"])
+		}
+		request, ok := properties["approval_request"].(map[string]any)
+		if !ok || request["type"] != "object" || request["additionalProperties"] != false {
+			t.Fatalf("aoci_maintain approval_request must be a closed object: %#v", properties["approval_request"])
+		}
+		requestProperties, _ := request["properties"].(map[string]any)
+		kind, _ := requestProperties["kind"].(map[string]any)
+		kinds, _ := kind["enum"].([]any)
+		if len(requestProperties) != 2 || len(kinds) != 2 || kinds[0] != "scope_change" || kinds[1] != "onboarding" {
+			t.Fatalf("aoci_maintain approval_request fields changed: %#v", request)
 		}
 		objectRefs, ok := properties["object_refs"].(map[string]any)
 		if !ok || objectRefs["type"] != "array" {

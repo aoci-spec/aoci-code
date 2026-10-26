@@ -68,6 +68,9 @@ func Apply(root string, envelope *ApplyEnvelope, approval *Approval) (*ApplyResu
 				return nil, err
 			}
 		}
+		if err := AdmitApprovalChannel(absRoot, approval); err != nil {
+			return nil, err
+		}
 		replayed, prepareErr := Prepare(absRoot, &ApplyRequest{
 			Version: envelope.RequestVersion, Plan: envelope.Plan, Candidate: envelope.Candidate,
 			Preview: envelope.Preview, BaselineTimestamp: envelope.PreparedAt,

@@ -168,9 +168,19 @@ required `details` fields:
   approve_command: shell-quoted command bound to this executable and repository
   apply_command: shell-quoted command using the same preview and approval file
 
+When the team's `human_approval_channel` admits the host dialog and the plan is
+eligible for it, `details` also carries `host_dialog_request`: `tool` is
+`aoci_maintain` and `arguments` are `intent=human_approval` with an
+`approval_request` naming `kind=scope_change` and the repository-relative
+`preview_file`. A host that shows MCP dialogs makes that call and the person
+answers there; the approval it records lands where `apply_command` reads it.
+
 The commands use `scope approve --actor <id> --out-file` followed by
 `scope apply --approval-file`; the operator replaces the quoted <id> placeholder
-with their reviewer identity. Approve retains its real-TTY digest confirmation.
+with their reviewer identity. Approve retains its real-TTY digest confirmation;
+its prompt says that Enter rejects, and a rejection prints what to do next.
+`cognition migration approve` and `cognition bootstrap approve` take the same
+`--out-file`.
 Saving the preview is a runtime artifact write, not a formal cognition or
 Baseline write. Apply still refuses changed sources or other stale guards and
 never treats the saved preview alone as approval.

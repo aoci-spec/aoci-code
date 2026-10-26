@@ -63,6 +63,9 @@ func Apply(root string, envelope *ApplyEnvelope, approval *Approval) (*ApplyResu
 
 	intent, loadErr := loadRecoveryAt(intentPath(absRoot, transactionID), transactionID)
 	if errors.Is(loadErr, os.ErrNotExist) {
+		if err := AdmitApprovalChannel(absRoot, approval); err != nil {
+			return nil, err
+		}
 		replayed, prepareErr := Prepare(absRoot, &ApplyRequest{
 			Version: envelope.RequestVersion, Snapshot: envelope.Snapshot, Plan: envelope.Plan,
 			Mapping: envelope.Mapping, Candidate: envelope.Candidate, Preview: envelope.Preview,

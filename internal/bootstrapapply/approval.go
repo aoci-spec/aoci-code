@@ -34,6 +34,23 @@ func RecordApproval(envelope *ApplyEnvelope, actor, approvedAt, confirmedEnvelop
 	return newApproval(envelope, actor, approvedAt, ApprovalMechanism)
 }
 
+// RecordHostDialogApproval records the answer a person gave in the MCP host's
+// dialog for this exact envelope. It binds what RecordApproval binds; Apply
+// admits it only while the team's human_approval_channel does.
+func RecordHostDialogApproval(envelope *ApplyEnvelope, actor, approvedAt string) (*Approval, error) {
+	if err := validateEnvelope(envelope); err != nil {
+		return nil, err
+	}
+	if envelope.AutomationPolicy.Mode == config.AutomationModeOff {
+		return nil, fmt.Errorf("bootstrap_automation_off_apply_forbidden")
+	}
+	actor = strings.TrimSpace(actor)
+	if !cognitiontxn.ValidAuditActor(actor) {
+		return nil, fmt.Errorf("bootstrap_approval_actor_invalid")
+	}
+	return newApproval(envelope, actor, approvedAt, HostDialogApprovalMechanism)
+}
+
 // RecordPolicyBoundAutoApproval binds a complete new-project Bootstrap to the
 // repository's explicit automation.mode=auto policy. It has no Legacy
 // Migration path and does not write any formal asset.
@@ -85,7 +102,8 @@ func validateApproval(envelope *ApplyEnvelope, approval *Approval) error {
 	}
 	if approval == nil || approval.Version != machinecontract.CognitionBootstrapApprovalV1 ||
 		approval.Operation != OperationBootstrap ||
-		(approval.Mechanism != ApprovalMechanism && approval.Mechanism != AutoApprovalMechanism) ||
+		(approval.Mechanism != ApprovalMechanism && approval.Mechanism != AutoApprovalMechanism &&
+			approval.Mechanism != HostDialogApprovalMechanism) ||
 		approval.ApprovedRecoveryPolicy != RecoveryPolicy || !cognitiontxn.ValidAuditActor(approval.Actor) {
 		return fmt.Errorf("bootstrap_approval_invalid")
 	}
@@ -204,6 +222,23 @@ func containsTargetKind(envelope *ApplyEnvelope, kind string) bool {
 		}
 	}
 	return false
+}
+
+// AdmitApprovalChannel applies the team's human_approval_channel to an approval
+// about to start a transaction. Resume never asks again: an Intent that
+// started under the old channel finishes under it.
+func AdmitApprovalChannel(root string, approval *Approval) error {
+	if approval == nil || approval.Mechanism != HostDialogApprovalMechanism {
+		return nil
+	}
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		return fmt.Errorf("bootstrap_approval_channel_unreadable")
+	}
+	if !cfg.AdmitsApprovalMechanism(approval.Mechanism) {
+		return fmt.Errorf("bootstrap_host_dialog_approval_disabled: human_approval_channel=%s", cfg.EffectiveHumanApprovalChannel())
+	}
+	return nil
 }
 
 // ValidateApproval exposes the existing Bootstrap approval guard to Host

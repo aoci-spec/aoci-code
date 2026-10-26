@@ -17,7 +17,7 @@ import (
 )
 
 // These tests cover the credential path that had no coverage at all, because
-// requireHumanPhrase consulted os.Stdin directly and no test could get past it.
+// requireHumanConfirmation consulted os.Stdin directly and no test could get past it.
 
 // grantTTY makes the confirmed branch reachable. It is package-private on
 // purpose: no flag and no environment variable can reach it, so a model still

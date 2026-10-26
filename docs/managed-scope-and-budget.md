@@ -30,16 +30,18 @@ immutable `policy_bound_auto` Receipt, then run `scope apply` with that Receipt.
 is used. The Receipt binds the exact policy, Envelope, current formal preimages,
 projected index and budget facts, Retention Review, guards, writes, and recovery
 direction. It is stored in the transaction Intent, so Resume does not approve
-again. `review` still uses `scope approve` in a real TTY, `legacy` retains its
-compatibility boundary, and `off` produces Plan/Preview only and writes nothing.
+again. `review` needs a person's approval, in the MCP host's dialog or with
+`scope approve` in a real TTY (see "Approving a change" below), `legacy` retains
+its compatibility boundary, and `off` produces Plan/Preview only and writes
+nothing.
 Resume or roll back an interrupted transaction with the matching scope commands.
 
 Tightening the posture needs nothing special, but **lowering** it — for example
 `review` back to `auto` — is an `approval_policy_relaxation`. A posture may not
 ratify its own weakening, so `policy_bound_auto` refuses it and the transition
 is authorized under the posture the current Baseline receipt proves: the plan
-reports `interaction_required`, and one `scope approve` in a real TTY ratifies
-it. From the next transaction onward the receipt reads the relaxed posture and
+reports `interaction_required`, and one approval by a person, in the host's
+dialog or with `scope approve` in a real TTY, ratifies it. From the next transaction onward the receipt reads the relaxed posture and
 ordinary changes are automatic again. A posture is therefore reversible through
 the same governed path that tightened it, at the cost of exactly one review.
 
@@ -51,6 +53,38 @@ already there, and is written readable by its owner alone, because until the
 change is applied anything that can read it can stand in for the human who
 typed the phrase. `scope safety approve` and `baseline scope approve` take the
 same flag.
+
+## Approving a change
+
+When a change needs a person, activation saves the preview and stops with
+`managed_scope_human_approval_required`. The person can answer in either of
+two places, and both record the same approval:
+
+- **In the agent's window.** If the MCP host shows dialogs (MCP form
+  elicitation), the agent calls `aoci_maintain` with the `host_dialog_request`
+  arguments from the error's details. The person sees what the change does, as
+  AOCI reads it from the preview, and chooses Approve or Reject; they may leave
+  a note for the agent. Approve records the approval next to the preview and
+  nothing else: the agent then runs the `scope apply` command the result
+  returns. Reject writes nothing, and the result tells the agent what the
+  person can do next.
+- **In a terminal.** The person runs the printed `scope approve` command,
+  replacing `<id>` with their name, and types the phrase it shows. Pressing
+  Enter without typing rejects.
+
+After a rejection nothing has changed, but the desired policy still differs
+from the active one, so Maintain keeps answering `scope_change_required`. To
+drop the change, undo the rule edit (`aoci scope rule remove <rule-id>`, or
+restore `.aoci/config.json`) and run `aoci scope activate`; it answers
+`already_aligned`. To change it, edit the rules and activate again for a new
+preview.
+
+The team setting `human_approval_channel` decides whether a dialog answer
+counts. The default, `tty_or_host_dialog`, accepts both;
+`aoci config set human_approval_channel tty_only` accepts the terminal alone,
+and `scope apply` then refuses an approval recorded in a dialog. A repository
+that lists high-risk content in `safe_inventory_high_risk_opt_in` approves in
+the terminal only, because that content may be credentials.
 
 The Candidate Set may include a reviewed Curation postimage. A Scope Preview
 is also the single versioned Apply Envelope; its digest binds candidates,
@@ -336,9 +370,12 @@ aoci scope activate
 
 Raising a budget is a policy relaxation, so activation stops with exit 2 and
 prints the approve and apply commands. The preview is retained under
-`.aoci/scope-change/`; `scope approve` requires a real TTY and its digest phrase.
-With `--json`, the error details contain `preview_file`, `approve_command`, and
-`apply_command`. Successful activation returns the existing Scope Change result.
+`.aoci/scope-change/`; a person approves it in the MCP host's dialog or with
+`scope approve` and its digest phrase in a real TTY ("Approving a change"
+above). With `--json`, the error details contain `preview_file`,
+`approve_command`, `apply_command`, and, when the dialog route is open,
+`host_dialog_request`. Successful activation returns the existing Scope Change
+result.
 
 For explicit candidate workflows, also keep artifacts under `.aoci/scope-change/`.
 A new worktree file between preview and apply can change the bound inventory

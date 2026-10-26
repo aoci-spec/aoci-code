@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-fast-neutral.txt (branch v0.2.0-line, neutral section root)"
+    "evidence": ".aoci/dev-tools/make-fast-dialog.txt (branch v0.2.0-line, host dialog approval)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (branch v0.2.0-line, neutral section root)"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt (branch v0.2.0-line, host dialog approval)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (53 passed)"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (76 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt (78 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (93 PASS, 2 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt (93 PASS, 2 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -218,8 +218,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/nightly-cap.txt (every target 20s without a crash)"
+    "date": "2026-10-27",
+    "evidence": ".aoci/dev-tools/fuzz-smoke-dialog.txt (12 targets, 20s each, no crash)"
    }
   },
   {
@@ -233,8 +233,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/coverage-floors-cap.txt (13 packages at or above floors)"
+    "date": "2026-10-27",
+    "evidence": ".aoci/dev-tools/coverage-floors-dialog.txt (13 packages at or above their floors)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-neutral.txt"
+    "evidence": ".aoci/dev-tools/make-verify-dialog.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/public-text-neutral.txt (288 files clean)"
+    "evidence": ".aoci/dev-tools/public-text-dialog.txt (290 files clean)"
    }
   }
  ]

@@ -21,7 +21,9 @@
         "continuation_required",
         "intent=cognition_optimization",
         "object_refs",
-        "aoci_update_entry"
+        "aoci_update_entry",
+        "intent=human_approval",
+        "approval_request"
       ],
       "locale_anchors": {
         "zh-CN": [

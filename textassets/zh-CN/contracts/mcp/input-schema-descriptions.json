@@ -6,7 +6,8 @@
     "volume_id": "Volumes v1对象卷：code或database"
   },
   "aoci_maintain": {
-    "intent": "只有cognition_optimization：对aligned的Volumes v1 Code Entry做绑定审查；普通Maintain省略",
+    "approval_request": "只与intent=human_approval同用：kind=scope_change配合暂停的scope activate保存的preview_file，或kind=onboarding指当前onboarding会话已准备好的审批",
+    "intent": "cognition_optimization：对aligned的Volumes v1 Code Entry做绑定审查；human_approval：在宿主对话框里请人批准approval_request指定的待批变更；普通Maintain省略",
     "object_refs": "限制cognition_optimization候选的code:<仓库相对路径>引用；只能与该intent同用",
     "scope": "高级诊断scope；普通路径省略，由共享治理决定"
   },

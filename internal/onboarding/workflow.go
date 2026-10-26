@@ -692,6 +692,12 @@ func Apply(root, approvalRelativeOrAbsolute string) (any, error) {
 		if err == nil {
 			err = bootstrapapply.ValidateApproval(bootstrapEnvelope, bootstrapApproval)
 		}
+		// The channel is judged before the session records the approval: once
+		// it does, abort is refused, so a refusal after that point would leave
+		// the session holding an approval Apply never accepts.
+		if err == nil {
+			err = bootstrapapply.AdmitApprovalChannel(root, bootstrapApproval)
+		}
 	} else {
 		migrationEnvelope, err = migrationapply.DecodeApplyEnvelope(envelopeData)
 		if err == nil {
@@ -699,6 +705,9 @@ func Apply(root, approvalRelativeOrAbsolute string) (any, error) {
 		}
 		if err == nil {
 			err = migrationapply.ValidateApproval(migrationEnvelope, migrationApproval)
+		}
+		if err == nil {
+			err = migrationapply.AdmitApprovalChannel(root, migrationApproval)
 		}
 	}
 	if err != nil {

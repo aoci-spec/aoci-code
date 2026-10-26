@@ -158,6 +158,34 @@ changes a persisted preimage names the binary every machine then needs.
   repository whose path the header grammar could not spell back is no longer
   refused for that reason. An existing index keeps the root it records; the
   format spec and troubleshooting notes say which indexes carry which root.
+- A person can approve a protected change in the agent's window. Approvals
+  used to need a terminal: people did not know they had to open one and type
+  a 64-character phrase, and saying no left them with an error and no next
+  step. `aoci_maintain` with `intent=human_approval` and `approval_request`
+  (`kind=scope_change` with the preview a paused `scope activate` saved, or
+  `kind=onboarding` for the prepared Bootstrap or Legacy Migration review)
+  shows the change through MCP form elicitation, described by AOCI from the
+  saved preview or envelope, and records the person's Approve or Reject with
+  an optional note for the agent. Approve writes an approval bound exactly as
+  a terminal approval is, under the new mechanism
+  `host_elicitation_confirmation`, where `scope apply` or `onboard apply`
+  reads it, and returns that command; nothing is applied. Reject writes
+  nothing and says what to do next. A stale preview is never shown; a host
+  without dialogs, a dismissed dialog, and a terminal-only repository get the
+  terminal commands. `scope activate`, a non-terminal `scope approve`, and
+  `onboard prepare` now carry the call as `host_dialog_request`. The terminal
+  prompt says Enter rejects and, on a rejection, what to do next;
+  `cognition migration approve` and `cognition bootstrap approve` gain
+  `--out-file`. The team key `human_approval_channel` (`tty_or_host_dialog`
+  by default, or `tty_only`) decides whether a dialog answer counts, judged
+  when Apply starts a transaction and never on Resume; it enters no scope or
+  authorization identity. A repository with `safe_inventory_high_risk_opt_in`
+  keeps Scope Change approvals in the terminal, and Migration reversal and
+  rollback, the Legacy baseline scope refresh, and the high-risk pre-read
+  approval stay terminal-only. The `aoci_maintain` input schema gains the
+  `human_approval` intent and the optional `approval_request` object; the
+  capability manifest gains `host_dialog`. An approval recorded in a dialog
+  needs this release to apply.
 
 ## v0.1.0-rc22
 

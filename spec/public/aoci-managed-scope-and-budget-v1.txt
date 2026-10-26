@@ -92,9 +92,11 @@ aoci-apply-authorization-policy/v1 is the executable authorization authority.
 approval_mode=inherit follows the team-owned automation.mode. An explicit auto
 or review is a project override, except automation.mode=off always wins and
 forbids Apply. Effective auto uses standing team authorization; review requires
-interactive_digest_confirmation in a real character-device TTY; legacy keeps
-the prior compatibility boundary; off permits Plan and Preview but writes
-nothing.
+a person's approval, interactive_digest_confirmation in a real character-device
+TTY or host_elicitation_confirmation in the MCP host's dialog while the team's
+human_approval_channel admits it and the repository admits no high-risk
+content; legacy keeps the prior compatibility boundary; off permits Plan and
+Preview but writes nothing.
 
 Auto is not model self-approval and does not omit evidence. After deterministic
 replay and all hard gates, AOCI creates aoci-policy-bound-approval/v1 before

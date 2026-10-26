@@ -131,7 +131,10 @@ compatibility and used by nothing), `index build`, `index update`,
 The exit is the existing migration: `aoci cognition onboard start --json`
 plans the Legacy-to-Volumes migration, approval and application follow its
 next steps, and the migrated repository is maintained like any Volumes v1
-repository. One Legacy write remains: a Managed Scope transaction can still
+repository. The approval is a person's: `onboard prepare` returns an
+`interaction` object whose `host_dialog_request` asks them in the MCP host's
+dialog, and whose exact command (with `--out-file`) is the terminal route;
+`onboard apply` then takes the recorded approval. One Legacy write remains: a Managed Scope transaction can still
 retire an Entry by disposition or carry a source-bound Entry candidate for a
 stale Index source, so a Legacy repository can reach the active policy the
 migration requires.

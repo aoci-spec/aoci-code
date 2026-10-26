@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -603,8 +604,10 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 		}
 		phrase := "APPROVE HIGH RISK READ " + evaluation.PolicyIdentity
 		exact := hostInteractionCommand("scope", "safety", "approve", "--actor", actor, "--json")
-		if err := requireHumanPhrase(cmd, phrase, cliMessage("scope.safety_approval_prompt", strings.Join(cfg.SafeInventoryHighRiskOptIn, ","), phrase),
-			exact, evaluation.PolicyIdentity, fmt.Sprintf("exact_paths=%d", len(cfg.SafeInventoryHighRiskOptIn)), "high risk content read"); err != nil {
+		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
+			Prompt:       cliMessage("scope.safety_approval_prompt", strings.Join(cfg.SafeInventoryHighRiskOptIn, ","), phrase),
+			ExactCommand: exact, Digest: evaluation.PolicyIdentity,
+			SafeSummary: fmt.Sprintf("exact_paths=%d", len(cfg.SafeInventoryHighRiskOptIn)), ResumeAction: "high risk content read"}); err != nil {
 			return managedScopeExitError(err)
 		}
 		approval, err := scopechange.NewSafetyApproval(evaluation.PolicyIdentity, cfg.SafeInventoryHighRiskOptIn, actor,
@@ -668,9 +671,15 @@ func newScopeApproveCmd() *cobra.Command {
 		}
 		exact := hostInteractionCommand("scope", "approve", "--preview-file", previewFile, "--actor", actor, "--json")
 		effect := managedScopeApprovalEffect(preview)
-		if err := requireHumanPhrase(cmd, preview.Plan.ConfirmationPhrase,
-			cliMessage("scope.approval_prompt", effect, preview.Plan.PlanID, preview.Plan.ConfirmationPhrase), exact,
-			preview.Plan.PlanID, fmt.Sprintf("entry_removals=%d", len(preview.Plan.EntryRemoves)), "managed scope apply"); err != nil {
+		var dialog *hostDialogRequest
+		if root, rootErr := resolveRepoRoot(); rootErr == nil && scopechange.HostDialogEligible(preview) {
+			dialog = scopeChangeDialogRequest(root, previewFile)
+		}
+		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: preview.Plan.ConfirmationPhrase,
+			Prompt:       cliMessage("scope.approval_prompt", effect, preview.Plan.PlanID, preview.Plan.ConfirmationPhrase),
+			ExactCommand: exact, Digest: preview.Plan.PlanID,
+			SafeSummary: fmt.Sprintf("entry_removals=%d", len(preview.Plan.EntryRemoves)), ResumeAction: "managed scope apply",
+			NotApproved: cliMessage("cli.approval.next.scope_change"), Dialog: dialog}); err != nil {
 			return managedScopeExitError(err)
 		}
 		approval, err := scopechange.NewApproval(preview, actor, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339))
@@ -1063,6 +1072,10 @@ func rejectUnsupportedGlob(pattern, kind string) error {
 }
 
 func managedScopeExitError(err error) error {
+	var interaction *hostInteractionError
+	if errors.As(err, &interaction) {
+		return interactionExitError(interaction)
+	}
 	message := cliMessage("scope.error", err.Error())
 	if strings.HasPrefix(err.Error(), "managed_scope_formal_volume_baseline_drift:") {
 		message += "\n" + cliMessage("scope.formal_volume_baseline_drift_hint")
@@ -1070,40 +1083,8 @@ func managedScopeExitError(err error) error {
 	return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Msg: message, Err: err}
 }
 
-// managedScopeApprovalEffect renders what a human is actually being asked to
-// approve.
-//
-// A 64-hex confirmation phrase proves the approval is bound to one exact plan,
-// but it tells the approver nothing about the consequence. A confirmation that
-// cannot be understood is not a decision, so the prompt leads with the effects
-// that matter — destroyed cognition, lost coverage, a weakened posture — and
-// says so plainly when a change carries none of them.
+// managedScopeApprovalEffect renders the consequences scopechange.ApprovalEffects
+// selects, so the terminal prompt and the host dialog name the same effects.
 func managedScopeApprovalEffect(preview *scopechange.Preview) string {
-	plan := preview.Plan
-	effects := []string{}
-	if count := len(plan.EntryRemoves); count > 0 {
-		effects = append(effects, cliMessage("scope.approval_effect.entry_removes", count))
-	}
-	if count := len(plan.CoverageReductions); count > 0 {
-		effects = append(effects, cliMessage("scope.approval_effect.coverage", count))
-	}
-	if plan.Risk.ApprovalPolicyRelaxation {
-		// Only the destination is named. Preview.Baseline is the postimage, so it
-		// already carries the new posture and reading the origin from it would
-		// print the same mode twice; the preimage mode is not part of the public
-		// plan shape, and widening that shape to decorate one prompt is not worth
-		// it when the approver already knows what they are leaving.
-		effects = append(effects, cliMessage("scope.approval_effect.posture",
-			plan.AuthorizationPolicy.EffectiveMode))
-	}
-	if plan.Risk.BudgetRelaxation {
-		effects = append(effects, cliMessage("scope.approval_effect.budget"))
-	}
-	if plan.Risk.HighRiskOptIn {
-		effects = append(effects, cliMessage("scope.approval_effect.high_risk"))
-	}
-	if len(effects) == 0 {
-		return cliMessage("scope.approval_effect.none")
-	}
-	return strings.Join(effects, "; ")
+	return scopechange.ApprovalEffectSummary(preview)
 }

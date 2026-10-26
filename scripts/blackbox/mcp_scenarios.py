@@ -120,14 +120,19 @@ def host_window_summary(limit=HOST_WINDOW_BYTES):
 
 # ---------------------------------------------------------------- MCP client
 class Session:
-    def __init__(self, repo):
+    def __init__(self, repo, capabilities=None, on_request=None):
+        """`capabilities` is what this client declares at initialize; `on_request`
+        answers a request the server sends while a call is in flight (the
+        elicitation/create of a host dialog), returning its result or None for
+        method-not-found."""
         self.repo = repo
+        self.on_request = on_request
         self.p = subprocess.Popen([BIN, "--repo", repo, "mcp"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8", bufsize=1)
         self.stderr_capture = BoundedStderr(self.p.stderr)
         self.next_id = 1
-        self.rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": {},
+        self.rpc("initialize", {"protocolVersion": "2025-06-18", "capabilities": capabilities or {},
                                 "clientInfo": {"name": "aoci-scenarios", "version": "1.0"}})
         self.notify("notifications/initialized")
     def send_raw(self, line):
@@ -145,7 +150,18 @@ class Session:
                 if not line: continue
                 try: obj = json.loads(line)
                 except Exception: continue
+                if "method" in obj and "id" in obj:
+                    self.answer(obj)
+                    continue
                 if obj.get("id") == rid: return obj
+
+    def answer(self, request):
+        result = self.on_request(request.get("method"), request.get("params") or {}) if self.on_request else None
+        if result is None:
+            reply = {"jsonrpc": "2.0", "id": request["id"], "error": {"code": -32601, "message": "method not found"}}
+        else:
+            reply = {"jsonrpc": "2.0", "id": request["id"], "result": result}
+        self.send_raw(json.dumps(reply))
 
     def notify(self, method, params=None):
         msg = {"jsonrpc": "2.0", "method": method}
@@ -1099,6 +1115,105 @@ def group_f_activate():
                f"aligned={aligned} approval_rc={rc} unchanged={unchanged} saved={saved} commands={commands}")
     finally:
         s.close()
+
+
+def group_f_host_dialog():
+    """A person approves or rejects a paused Scope Change in the host's dialog.
+
+    The terminal was the only way to approve, and people did not know to open
+    one and type a 64-character phrase. aoci_maintain intent=human_approval asks
+    through MCP form elicitation instead. Driven here by a client that declares
+    elicitation and answers it, against the real binary: a host without dialogs
+    and a person who rejects leave every formal byte as it was and say what
+    happens next; a person who approves records an approval that scope apply
+    takes to aligned.
+    """
+    g = "F"
+    approve_name = "F13.host-dialog-approval-is-recorded-and-applies-to-aligned"
+    reject_name = "F14.host-dialog-rejection-or-no-dialog-changes-nothing"
+    d = make_fixture("scope-host-dialog", 1)
+    s = Session(d)
+    try:
+        m, _, _ = maintain(s)
+        applied, text, _ = submit_batch(s, m)
+    finally:
+        s.close()
+    if applied.get("status") != "applied":
+        for name in (reject_name, approve_name):
+            record(g, name, "FAIL", f"fixture authoring failed: {text[:160]}")
+        return
+    rc, _, out, errs = cli(d, "scope", "approval-mode", "review")
+    rc2, result, out2, errs2 = cli(d, "scope", "activate", expect_ok=False)
+    details = result.get("details") or {}
+    request = details.get("host_dialog_request") or {}
+    arguments = request.get("arguments") or {}
+    preview = details.get("preview_file", "")
+    approval = os.path.join(os.path.dirname(preview), "approval.json") if preview else ""
+    if rc != 0 or rc2 != 2 or request.get("tool") != "aoci_maintain" or not arguments or not preview:
+        for name in (reject_name, approve_name):
+            record(g, name, "FAIL", f"activation did not offer a dialog route: rc={rc}/{rc2} | {(out2 + errs2)[:160]}")
+        return
+    watched = (".aoci/config.json", ".aoci/baseline.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt")
+    before = repo_digest(d)
+
+    plain = Session(d)
+    try:
+        t1, err1 = text_of(plain.call("aoci_maintain", arguments))
+    finally:
+        plain.close()
+    unavailable = jload(t1)
+    shown = []
+    def reject(method, params):
+        if method != "elicitation/create":
+            return None
+        shown.append(params.get("message", ""))
+        return {"action": "accept", "content": {"decision": "reject", "note": "not this week"}}
+    rejecting = Session(d, capabilities={"elicitation": {}}, on_request=reject)
+    try:
+        t2, err2 = text_of(rejecting.call("aoci_maintain", arguments))
+    finally:
+        rejecting.close()
+    rejected = jload(t2)
+    after = repo_digest(d)
+    unchanged = all(before.get(p) == after.get(p) for p in watched)
+    absent = not os.path.exists(approval)
+    ok = (not err1 and unavailable.get("status") == "host_dialog_unavailable"
+          and len(unavailable.get("next_commands") or []) == 2
+          and not err2 and rejected.get("status") == "rejected" and rejected.get("human_note") == "not this week"
+          and len(shown) == 1 and "scope rule remove" in (rejected.get("message") or "") and absent and unchanged)
+    record(g, reject_name, "PASS" if ok else "FAIL",
+           f"no_dialog={unavailable.get('status')} rejected={rejected.get('status')} shown={len(shown)} "
+           f"approval_absent={absent} unchanged={unchanged}" + ("" if ok else f" | {t1[:120]} | {t2[:160]}"))
+
+    shown = []
+    def approve(method, params):
+        if method != "elicitation/create":
+            return None
+        shown.append(params.get("message", ""))
+        return {"action": "accept", "content": {"decision": "approve"}}
+    approving = Session(d, capabilities={"elicitation": {}}, on_request=approve)
+    try:
+        t3, err3 = text_of(approving.call("aoci_maintain", arguments))
+    finally:
+        approving.close()
+    approved = jload(t3)
+    recorded = {}
+    try:
+        with open(approval, encoding="utf-8") as fh:
+            recorded = json.load(fh)
+    except (OSError, ValueError):
+        pass
+    untouched = all(before.get(p) == repo_digest(d).get(p) for p in watched)
+    applies = any("--approval-file" in command for command in approved.get("next_commands") or [])
+    rc4, _, out4, errs4 = cli(d, "scope", "apply", "--preview-file", preview, "--approval-file", approval, expect_ok=False)
+    aligned, _ = fixture_aligned(d)
+    ok = (not err3 and approved.get("status") == "approved" and len(shown) == 1 and applies
+          and recorded.get("approval_mechanism") == "host_elicitation_confirmation"
+          and untouched and rc4 == 0 and aligned)
+    record(g, approve_name, "PASS" if ok else "FAIL",
+           f"approved={approved.get('status')} shown={len(shown)} mechanism={recorded.get('approval_mechanism')} "
+           f"untouched_before_apply={untouched} apply_rc={rc4} aligned={aligned}"
+           + ("" if ok else f" | {t3[:160]} | {(out4 + errs4)[:160]}"))
 
 
 def group_f_ignored_tool_file():
@@ -2364,6 +2479,7 @@ GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),
     ("N", group_n), ("F", group_f_scope), ("F", group_f_activate), ("F", group_f_ignored_tool_file),
     ("F", group_f_held_sources), ("F", group_f_deleted_observe), ("F", group_f_excluded_tracked),
+    ("F", group_f_host_dialog),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
     ("H", group_h),
