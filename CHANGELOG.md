@@ -117,6 +117,15 @@ changes a persisted preimage names the binary every machine then needs.
   item descriptions. The remove-entry description no longer sends a
   non-orphan decision to `aoci_report`, which records nothing since 0.2.0. No
   tool, field, type, or validation rule changes.
+- The session contract `aoci_rules` returns is 55% smaller (en-US about
+  18.4 KB to 8.3 KB, zh-CN 15.7 KB to 7.7 KB), the other text every session
+  reads before its task. Each rule keeps its effect and every phrase and token
+  the tests and the manifest lock; what goes is repetition (the ordinal
+  definition, the per-reason compaction narrative, the semantic-count
+  breakdown, the projection's compatibility notes) whose authority already sits
+  in the attestation prompt, the Overview responses, and the specs. The items
+  are renumbered 1 to 11. The prescribed success and failure sentences, the
+  capacity stop, and every stop condition of a stopped write stay.
 
 ## v0.1.0-rc22
 

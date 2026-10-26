@@ -165,7 +165,7 @@ ok("tools.inputSchemas.present", schemas_ok)
 
 rules_text, err = text_of(s.call("aoci_rules"))
 ok("rules.no_error", not err)
-ok("rules.new_numbering", all(number in rules_text for number in ("1a.", "2a.", "4a.", "4d.")))
+ok("rules.new_numbering", all(number in rules_text for number in ("1a.", "1b.", "2a.", "2b.")))
 ok("rules.machine_facts", "cognition_refresh_threshold: 30" in rules_text)
 
 # Full overview chain with byte-level integrity verification.
@@ -511,7 +511,7 @@ try:
     rulesZ, _ = text_of(sZ.call("aoci_rules"))
     def _machine_facts(text):
         return [ln for ln in text.splitlines() if re.match(r"^(cognition_refresh_threshold|overview_delivery\.[a-z_]+): ", ln)]
-    anchors = ("1a.", "2a.", "4a.", "4d.")
+    anchors = ("1a.", "1b.", "2a.", "2b.")
     cond = (has_cjk(rulesZ) and not has_cjk(rulesE) and all(a in rulesZ for a in anchors) and all(a in rulesE for a in anchors)
             and _machine_facts(rulesE) == _machine_facts(rulesZ) and len(_machine_facts(rulesZ)) == 4
             and rulesE.splitlines()[0] != rulesZ.splitlines()[0])
