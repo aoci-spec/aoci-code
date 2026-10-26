@@ -294,7 +294,10 @@ func NewServer(root, version string) (*mcp.Server, error) {
 		return nil, err
 	}
 	srv := mcp.NewServer(&mcp.Implementation{Name: machinecontract.MCPServerName, Version: version}, nil)
-	srv.AddReceivingMiddleware(overviewSchemaDiagnostics(root, cfg.LedgerEnabled))
+	srv.AddReceivingMiddleware(
+		overviewSchemaDiagnostics(root, cfg.LedgerEnabled),
+		compactToolListing(advertisedMCPInputSchemas(inputSchemas)),
+	)
 	refreshSession := newCognitionRefreshSession()
 	registerReadTools(srv, root, version, descriptions, inputSchemas, refreshSession)
 	registerWriteTools(srv, root, version, descriptions, inputSchemas, refreshSession)

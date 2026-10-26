@@ -104,6 +104,19 @@ changes a persisted preimage names the binary every machine then needs.
   `overview_capacity_stop` events. The runtime rules, the AGENTS block, the
   Codex post-compaction instruction, and the Overview description state the
   stop; no tool, input schema, or receipt format changes.
+- `tools/list` is 45% smaller (en-US 26.0 KB to 14.3 KB, zh-CN 23.7 KB to
+  13.6 KB), a cost every session pays on Hosts that load tool schemas up front.
+  Descriptions keep what a tool does, when to call it, its write boundary, and
+  every contract phrase the tests lock; the procedure they repeated stays in
+  `aoci_rules`, the Guide, and the final Chunk's `attestation_prompt`. The
+  Overview members `cognition_receipt` and `probe_answers` are listed as plain
+  objects while calls are still validated against their closed shapes, so a
+  malformed receipt or probe answer is refused exactly as before; the nested
+  attestation field descriptions moved to the prompt they duplicated, and the
+  single-Entry compatibility fields of `aoci_update_entry` share the `entries`
+  item descriptions. The remove-entry description no longer sends a
+  non-orphan decision to `aoci_report`, which records nothing since 0.2.0. No
+  tool, field, type, or validation rule changes.
 
 ## v0.1.0-rc22
 

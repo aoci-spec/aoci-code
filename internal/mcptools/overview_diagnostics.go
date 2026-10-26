@@ -37,6 +37,35 @@ func overviewSchemaDiagnostics(root string, enabled bool) mcp.Middleware {
 	}
 }
 
+// compactToolListing shows a Host the advertised schemas on tools/list while
+// every call is still validated against the closed schema its tool registered.
+// The SDK lists the registered *mcp.Tool values themselves, so each replaced
+// tool is a copy and the registration is never touched.
+func compactToolListing(advertised map[string]any) mcp.Middleware {
+	return func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
+			result, err := next(ctx, method, request)
+			listed, ok := result.(*mcp.ListToolsResult)
+			if err != nil || method != "tools/list" || !ok || len(advertised) == 0 {
+				return result, err
+			}
+			copied := *listed
+			copied.Tools = make([]*mcp.Tool, len(listed.Tools))
+			for index, tool := range listed.Tools {
+				schema, replace := advertised[tool.Name]
+				if !replace || tool == nil {
+					copied.Tools[index] = tool
+					continue
+				}
+				shown := *tool
+				shown.InputSchema = schema
+				copied.Tools[index] = &shown
+			}
+			return &copied, nil
+		}
+	}
+}
+
 func recordOverviewProofEvents(root string, enabled bool, input overviewIn, delivery overviewRendered, body framedOverviewBody) {
 	chain := delivery.Facts.ChainID
 	if delivery.Facts.DeliveryMode == overviewDeliveryFull || (delivery.Facts.DeliveryMode == overviewDeliveryChunked && strings.HasSuffix(delivery.Output, body.Receipt.EndMarker+"\n")) {

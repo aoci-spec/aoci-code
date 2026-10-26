@@ -18,15 +18,12 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_overview": {
 		"scope", "cognition_state_version", "cognition_receipt", "model_cognition_state", "scope_covered", "check_only",
 		"refresh_reasons", "refresh_event_id", "stable_checkpoint", "host_delivery_confirmation", "model_cognition_attestation",
-		"model_cognition_attestation.index_sha256", "model_cognition_attestation.entry_sequence_sha256", "model_cognition_attestation.entry_count",
-		"model_cognition_attestation.system_mastery_percent", "model_cognition_attestation.challenge_answers[].ordinal",
-		"model_cognition_attestation.challenge_answers[].object_identity", "cursor",
-		"probe", "probe_answers",
+		"cursor", "probe", "probe_answers",
 	},
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
 	"aoci_update_entry": {
-		"path", "object_ref", "new_entry", "source_sha256", "candidate_id", "batch_id", "code_batch_id", "entries",
+		"new_entry", "batch_id", "code_batch_id", "entries",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
 	},
 	"aoci_maintain":     {"scope", "intent", "object_refs"},
@@ -165,6 +162,12 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 		return result
 	}
 
+	describedObject := func(description string, properties map[string]any, required ...string) map[string]any {
+		result := object(properties, required...)
+		result["description"] = description
+		return result
+	}
+
 	switch toolName {
 	case "aoci_get_entries":
 		paths := nullableProperty(descriptions["paths"], map[string]any{
@@ -214,12 +217,15 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"type":  "array",
 			"items": item,
 		})
+		// The single-Entry compatibility fields share their meaning with the
+		// entries[] item fields, so only new_entry names the mode.
+		plainString := map[string]any{"type": "string"}
 		return object(map[string]any{
-			"path":          stringProperty("path"),
-			"object_ref":    stringProperty("object_ref"),
+			"path":          plainString,
+			"object_ref":    plainString,
 			"new_entry":     stringProperty("new_entry"),
-			"source_sha256": stringProperty("source_sha256"),
-			"candidate_id":  stringProperty("candidate_id"),
+			"source_sha256": plainString,
+			"candidate_id":  plainString,
 			"batch_id":      stringProperty("batch_id"),
 			"code_batch_id": stringProperty("code_batch_id"),
 			"entries":       entries,
@@ -338,28 +344,25 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 				"version": map[string]any{"type": "string"}, "body_sha256": map[string]any{"type": "string"},
 				"body_bytes": map[string]any{"type": "integer"}, "end_marker_observed": map[string]any{"type": "boolean"},
 			}, "version", "body_sha256", "body_bytes", "end_marker_observed"),
-			"model_cognition_attestation": object(map[string]any{
+			"model_cognition_attestation": describedObject(descriptions["model_cognition_attestation"], map[string]any{
 				"version":                   map[string]any{"type": "string", "const": modelCognitionAttestationV1},
-				"index_sha256":              map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$", "description": descriptions["model_cognition_attestation.index_sha256"]},
-				"entry_sequence_sha256":     map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$", "description": descriptions["model_cognition_attestation.entry_sequence_sha256"]},
-				"entry_count":               map[string]any{"type": "integer", "minimum": 0, "description": descriptions["model_cognition_attestation.entry_count"]},
+				"index_sha256":              map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+				"entry_sequence_sha256":     map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+				"entry_count":               map[string]any{"type": "integer", "minimum": 0},
 				"challenge_digest":          map[string]any{"type": "string", "maxLength": 128},
 				"reported_entry_count":      map[string]any{"type": "integer", "minimum": 0},
 				"reported_estimated_tokens": map[string]any{"type": "integer", "minimum": 0},
 				"coverage_percent":          percentSchema(),
-				"system_mastery_percent": map[string]any{
-					"type": "number", "minimum": 0, "maximum": 100,
-					"description": descriptions["model_cognition_attestation.system_mastery_percent"],
-				},
-				"confidence_percent":  percentSchema(),
-				"truncation_detected": map[string]any{"type": "boolean"},
-				"unseen_sections":     stringArraySchema(),
-				"uncertainty_reasons": stringArraySchema(),
+				"system_mastery_percent":    percentSchema(),
+				"confidence_percent":        percentSchema(),
+				"truncation_detected":       map[string]any{"type": "boolean"},
+				"unseen_sections":           stringArraySchema(),
+				"uncertainty_reasons":       stringArraySchema(),
 				"challenge_answers": map[string]any{
 					"type": "array", "maxItems": 12,
 					"items": object(map[string]any{
-						"ordinal":         map[string]any{"type": "integer", "minimum": 1, "description": descriptions["model_cognition_attestation.challenge_answers[].ordinal"]},
-						"object_identity": map[string]any{"type": "string", "maxLength": 4096, "description": descriptions["model_cognition_attestation.challenge_answers[].object_identity"]},
+						"ordinal":         map[string]any{"type": "integer", "minimum": 1},
+						"object_identity": map[string]any{"type": "string", "maxLength": 4096},
 						"tag":             map[string]any{"type": "string", "maxLength": 256},
 						"core_f":          map[string]any{"type": "string", "maxLength": 16384},
 					}, "ordinal", "object_identity", "tag", "core_f"),
@@ -367,7 +370,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			}, "version", "index_sha256", "entry_sequence_sha256", "entry_count", "challenge_digest", "reported_entry_count", "reported_estimated_tokens", "coverage_percent", "system_mastery_percent", "confidence_percent", "truncation_detected", "unseen_sections", "uncertainty_reasons", "challenge_answers"),
 			"cursor": stringProperty("cursor"),
 			"probe":  booleanProperty("probe"),
-			"probe_answers": object(map[string]any{
+			"probe_answers": describedObject(descriptions["probe_answers"], map[string]any{
 				"version": map[string]any{"type": "string", "const": cognitionProbeV1},
 				"digest":  map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
 				"answers": map[string]any{
@@ -384,6 +387,41 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 	}
 
 	return nil, fmt.Errorf("%s", mcpMessage("mcp.asset.input_schema_unknown_tool", toolName))
+}
+
+// advertisedMCPInputSchemas returns, per tool, the schema tools/list shows
+// when it differs from the closed schema the SDK validates every call against.
+// Only two Overview members differ, and only in how much they spell out: a
+// Host passes cognition_receipt back exactly as a previous response returned
+// it, and probe_answers answers the probe that check_only just issued, so
+// listing their full shapes cost every session about 2.9 KB of tools/list
+// while a call that breaks the closed shapes is still refused unchanged.
+func advertisedMCPInputSchemas(strict mcpInputSchemas) map[string]any {
+	overview, ok := strict["aoci_overview"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	properties, ok := overview["properties"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	compact := make(map[string]any, len(properties))
+	for name, property := range properties {
+		compact[name] = property
+	}
+	receiptDescription, _ := properties["cognition_receipt"].(map[string]any)["description"].(string)
+	compact["cognition_receipt"] = map[string]any{
+		"description": receiptDescription,
+		"anyOf":       []any{map[string]any{"type": "null"}, map[string]any{"type": "object"}},
+	}
+	probeDescription, _ := properties["probe_answers"].(map[string]any)["description"].(string)
+	compact["probe_answers"] = map[string]any{"type": "object", "description": probeDescription}
+	advertised := make(map[string]any, len(overview))
+	for key, value := range overview {
+		advertised[key] = value
+	}
+	advertised["properties"] = compact
+	return map[string]any{"aoci_overview": advertised}
 }
 
 func percentSchema() map[string]any {

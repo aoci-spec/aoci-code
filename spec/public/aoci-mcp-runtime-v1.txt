@@ -37,6 +37,16 @@ machine contract. Tools resolve the repository passed to the server and load
 current repository state for each call. A protocol error is returned as an MCP
 error result; it is not printed as a second stdout message.
 
+Descriptions say what a tool does, when to call it, and what it may write; the
+session contract (`aoci_rules`), the Guide, and each response's own fields carry
+the procedure, so a description does not repeat them. Every call is validated
+against the closed input schema its tool registered. `tools/list` shows that
+schema except for two `aoci_overview` members a Host never composes from
+scratch: `cognition_receipt`, which passes back a receipt a previous response
+returned, and `probe_answers`, which answers the probe `check_only` just issued.
+They are listed as plain objects and keep their closed shapes for validation,
+so a call that breaks either shape is refused exactly as before.
+
 The nine-tool identity is independent from optional CLI lifecycle commands.
 Changing a CLI command does not implicitly add, remove, or rename an MCP tool.
 
