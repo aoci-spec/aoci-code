@@ -240,7 +240,9 @@ reliably present, reload them; then, before business continuation, declare
 cursor, confirmation, and Attestation sequence. Do not substitute `check_only`
 or a cognition probe. Once fresh transport completes, the existing partial or
 failed Attestation rule permits source-bound continuation without a second
-automatic Overview.
+automatic Overview. A reload that cannot fit does not loop: after one reload is
+itself compacted, the next answers `delivery_mode=capacity_stop` without a
+body, consumes the generation, and the task continues source-bound.
 
 The binding rules for chunk continuation, Attestation, the
 single same-response schema-only correction, prohibited cognition supplements,

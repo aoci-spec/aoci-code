@@ -44,6 +44,13 @@ type cognitionRefreshSession struct {
 	// 调用合并提交完全等价。一次全新的完整交付(不带任一字段、无游标)重置该
 	// body 的证据, 使每次交付尝试仍各自取证。
 	deliveryEvidence map[string]*overviewDeliveryEvidence
+	// compactionAttempt, capacity, chains, and chainOrder belong to the
+	// Host-capacity loop breaker and the delivery chain IDs the Ledger
+	// carries (overview_capacity.go).
+	compactionAttempt *compactionDeliveryAttempt
+	capacity          *hostCapacityVerdict
+	chains            map[string]string
+	chainOrder        []string
 }
 
 // overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存
@@ -138,6 +145,9 @@ type cognitionRefreshAssessment struct {
 	OverviewReads    int                 `json:"overview_reads"`
 	LocalRecalls     int                 `json:"local_recalls"`
 	NextAction       string              `json:"next_action"`
+	// Interruption is set when this evaluation recorded a compaction reload
+	// interrupted by compaction; the handler writes it to the Ledger.
+	Interruption *hostCapacityInterruption `json:"-"`
 }
 
 func inspectSemanticChanges(
@@ -490,6 +500,10 @@ func (session *cognitionRefreshSession) evaluate(
 	eventID string,
 ) cognitionRefreshAssessment {
 	session.adoptReliableReceipt(input.Receipt, current, input.ModelState)
+	// Read before this request's reasons join the pending set: a fresh
+	// compaction declaration over an open compaction reload is the
+	// interruption the Host-capacity verdict records.
+	interruption := session.noteCompactionDeclaration(hostReasons, eventID)
 	initial := !session.established
 	hadPending := len(session.pendingReasons) > 0
 
@@ -588,6 +602,7 @@ func (session *cognitionRefreshSession) evaluate(
 		OverviewReads:    0,
 		LocalRecalls:     0,
 		NextAction:       refreshNextAction(status),
+		Interruption:     interruption,
 	}
 }
 
@@ -740,6 +755,8 @@ func (session *cognitionRefreshSession) markDeliveryAttempt(receipt cognitionRec
 	for eventID := range session.pendingEvents {
 		session.consumeEvent(eventID)
 	}
+	// The pending compaction events are consumed, so no reload is open.
+	session.compactionAttempt = nil
 	session.established = true
 	session.generation = receipt.RefreshGeneration
 	session.lastReceipt = receipt

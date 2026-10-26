@@ -108,16 +108,32 @@ func handleVolumeOverview(
 				probeResult = gradeCognitionProbe(input.ProbeAnswers, view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
 			}
 		}
+		var plan *overviewDeliveryPlan
+		var capacity *hostCapacityFacts
+		if view.Available {
+			body, sequence, planErr := buildVolumeOverviewBody(view)
+			if planErr != nil {
+				return errResult(errInternal, planErr.Error(), "")
+			}
+			framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
+			measured, planErr := planOverviewDelivery(framed, sequence, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, volumeScopeBytes(view)/3, loaded.cfg.OverviewDelivery.ChunkTokens)
+			if planErr != nil {
+				return errResult(errBadArgs, planErr.Error(), "")
+			}
+			plan = &measured
+			capacity = refreshSession.capacityFacts(measured.EstimatedTokens)
+		}
 		compact := renderOverviewCheckpoint(
 			assessment, input,
 			view.EffectiveScope == cognition.ScopeAll,
-			probe, probeResult,
+			probe, probeResult, plan, capacity,
 		)
 		ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{
 			Op: "cognition_check", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent,
 			AOCIToolCalls: 1, OutputBytes: len(compact), EstimatedTokens: len(compact) / 3,
 			IndexSHA256: view.ScopeIdentity,
 		})
+		recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 		return textResult(compact)
 	}
 	if deliveryFail := pendingCognitionDeliveryFail(root, loaded.set); deliveryFail != nil {
@@ -144,6 +160,25 @@ func handleVolumeOverview(
 		return errResult(errInternal, sequenceErr.Error(), "")
 	}
 	framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
+	fresh := input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil
+	estimatedTokens := volumeScopeBytes(view) / 3
+	if fresh && refreshSession.capacityStopApplies(estimatedTokens) {
+		plan, planErr := planOverviewDelivery(framed, sequence, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, estimatedTokens, loaded.cfg.OverviewDelivery.ChunkTokens)
+		if planErr != nil {
+			return errResult(errBadArgs, planErr.Error(), "")
+		}
+		capacity := refreshSession.capacityFacts(estimatedTokens)
+		receipt := refreshSession.consumeCapacityStop(current, eventID)
+		output := renderOverviewCapacityStop(capacityStopView{
+			Root: root, MCPServiceVersion: mcpServiceVersion, LayoutMode: string(loaded.set.LayoutMode),
+			RequestedScope: view.RequestedScope, EffectiveScope: view.EffectiveScope,
+			Plan: plan, Capacity: capacity, GovernanceAligned: assessment.Semantic.GovernanceAligned,
+			Receipt: receipt, CognitionStateV2: cognitionStateV2Requested(input),
+			FullScope: view.EffectiveScope == cognition.ScopeAll,
+		})
+		recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, capacity, plan, assessment.RefreshReasons)
+		return textResult(output)
+	}
 	keyDigest := sha256.Sum256([]byte(view.ScopeIdentity + "\x00" + framed.Receipt.BodySHA256))
 	governanceKey := hex.EncodeToString(keyDigest[:])
 	if !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input) {
@@ -209,9 +244,11 @@ func handleVolumeOverview(
 			return failResult(snapshotFail)
 		}
 	}
+	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll, assessment.RefreshReasons, estimatedTokens)
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, framed)
+	recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 	return overviewWorkResult(delivery, work)
 }
 

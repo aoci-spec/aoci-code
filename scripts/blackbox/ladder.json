@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-engine.txt (branch v0.2.0-line, engine library)"
+    "evidence": ".aoci/dev-tools/make-fast-cap.txt (branch v0.2.0-line, #114 capacity stop + Legacy cleanup)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt (branch v0.2.0-line, engine library)"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt (branch v0.2.0-line, #114 capacity stop + Legacy cleanup)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt (76 PASS, A6 capacity stop)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt (92 PASS, 3 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -217,9 +217,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/fuzz-smoke-rc22.txt (FuzzParse found the doubled-BOM input, fixed in 32f2298, FuzzParse re-run 45s clean; other targets clean)"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/nightly-cap.txt (every target 20s without a crash)"
    }
   },
   {
@@ -232,9 +232,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/coverage-floors-rc22.txt"
+    "version": "unreleased",
+    "date": "2026-10-26",
+    "evidence": ".aoci/dev-tools/coverage-floors-cap.txt (13 packages at or above floors)"
    }
   },
   {
@@ -249,7 +249,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/longrun-132.txt (overall_passed=true on the reused-delivery server)"
+    "evidence": ".aoci/dev-tools/nightly-cap.txt (Volumes fixture, overall_passed)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
+    "evidence": ".aoci/dev-tools/make-verify-cap.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-engine.txt (safety clean) and a direct run on 2026-10-26"
+    "evidence": ".aoci/dev-tools/public-text-cap.txt (287 files clean)"
    }
   }
  ]

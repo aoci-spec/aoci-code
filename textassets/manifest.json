@@ -58,7 +58,9 @@
         "recovery",
         "format-only",
         "aoci.txt",
-        ".aoci"
+        ".aoci",
+        "capacity_stop",
+        "host_context_capacity_exceeded"
       ],
       "locale_anchors": {
         "zh-CN": [

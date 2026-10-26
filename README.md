@@ -709,7 +709,7 @@ At the start of a new conversation, an agent normally loads one complete Overvie
 
 Within the same conversation, the model decides whether to load again based on its own state, except after a known host context compaction. A compacted handoff may preserve only receipt identity, unfinished write or recovery state, and an immediate reload instruction; it must not retain or summarize Whole-Index or Overview header, entry, chunk, challenge, or attestation bodies. Index content or a receipt copied into that handoff cannot prove that the model's current picture is reliable.
 
-Before continuing business work after known compaction, the agent reloads the rules if they are no longer reliably present, declares `context_compaction` with a fresh event ID, and completes one ordinary full Overview cursor, confirmation, and attestation sequence. `check_only` and the cognition probe are not substitutes. After fresh complete transport, the existing partial or failed attestation rule still permits source-bound continuation without a second automatic Overview. For a semantic change or a major phase boundary without known compaction, AOCI provides refresh thresholds, checkpoints, and identity facts, and the model decides whether it needs to restore its system-level picture for the task.
+Before continuing business work after known compaction, the agent reloads the rules if they are no longer reliably present, declares `context_compaction` with a fresh event ID, and completes one ordinary full Overview cursor, confirmation, and attestation sequence. `check_only` and the cognition probe are not substitutes. After fresh complete transport, the existing partial or failed attestation rule still permits source-bound continuation without a second automatic Overview. If the index cannot fit the host's context, the reload does not loop: once a reload has itself been compacted, the server answers the next one with `delivery_mode=capacity_stop`, and the task continues source-bound. For a semantic change or a major phase boundary without known compaction, AOCI provides refresh thresholds, checkpoints, and identity facts, and the model decides whether it needs to restore its system-level picture for the task.
 
 The body of each complete Overview consists of a start marker, the exact content of the current formal index, and an end marker.
 
@@ -971,7 +971,7 @@ and CLI only:
 
 - **Protocol conformance** — 53 read-only checks of the MCP wire surface,
   with the locale-dependent sentences repeated under `zh-CN`;
-- **Fault-injection scenarios** — 75 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 76 scenarios covering cursor tampering,
   crash recovery, racing writers, and the pre-write hook on disposable
   fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:

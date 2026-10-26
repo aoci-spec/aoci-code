@@ -157,6 +157,20 @@ const (
 	OverviewDeliveryGuidanceSourceBound   = "full_system_claim_disabled_source_bound_task_continuation_allowed"
 )
 
+// Host capacity (#114). A context-compaction reload that is itself interrupted
+// by another compaction proves the Whole-Index does not fit the Host's
+// post-compaction context; from then on, for the life of that MCP server
+// session, a fresh reload of a scope at least that large answers the
+// capacity stop instead of another chain that could only loop.
+const (
+	OverviewDeliveryModeCapacityStop            = "capacity_stop"
+	OverviewFallbackHostContextCapacityExceeded = "host_context_capacity_exceeded"
+	// The compaction_reload fact check_only reports: what a fresh reload of the
+	// requested scope would get now.
+	OverviewCompactionReloadDeliver      = "deliver"
+	OverviewCompactionReloadCapacityStop = OverviewDeliveryModeCapacityStop
+)
+
 // AutoStatuses returns the canonical auto-finalization vocabulary in protocol
 // order. The returned slice is new so callers cannot mutate package state.
 func AutoStatuses() []string {
@@ -236,6 +250,15 @@ func RefreshReasons() []string {
 		RefreshReasonContextCompaction,
 		RefreshReasonSemanticThreshold,
 		RefreshReasonPhaseTransition,
+	}
+}
+
+// OverviewCapacityTokens returns the Host-capacity stop's machine words, the
+// ones the runtime contract and the Overview description must spell exactly.
+func OverviewCapacityTokens() []string {
+	return []string{
+		OverviewDeliveryModeCapacityStop,
+		OverviewFallbackHostContextCapacityExceeded,
 	}
 }
 

@@ -192,6 +192,49 @@ The AI Agent continues the existing source-bound task without a second automatic
 Overview. If repository semantics changed, it first stabilizes code and tests,
 runs Maintain once, resolves governance, and proves Verify/Check/Guide aligned.
 
+## When the index does not fit: the capacity stop
+
+The compaction reload assumes the Whole-Index fits the Host's context after
+the compaction. When it does not, the reload is compacted before it finishes,
+the Host is told to reload again, and the session never starts its task (#114).
+The MCP server outlives Host compactions, so it watches for exactly that: a
+fresh complete delivery of the whole scope started while a declared
+`context_compaction` was pending, followed by another fresh
+`context_compaction` declaration before the reload was proven. That
+interruption is the capacity verdict, sized at the interrupted reload's
+estimated tokens.
+
+From then on, for the life of that server process, a fresh request for a scope
+at least that large, made while a compaction refresh is pending, answers
+`delivery_mode=capacity_stop` with
+`fallback_reason=host_context_capacity_exceeded`. The stop carries no body. It
+consumes the refresh generation with an uncertain receipt and
+`delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`,
+so the AI Agent continues the business task source-bound without an
+unqualified complete-system claim and does not ask again. Lowering
+`chunk_tokens` does not help: it bounds one response, not the cumulative
+context.
+
+Nothing the Host can hold is withheld. An explicit Overview requested while no
+compaction refresh is pending still delivers the complete scope, a smaller
+scope (`code`, `database`, `meta`, or `project`) still delivers, and a chain
+the Host already holds a cursor for continues. Scoped reads never count toward
+the verdict. The verdict is never written to disk; a fresh Host session starts
+without it. To restore complete cognition on such a Host, shrink the index
+with Managed Scope (`aoci scope rule add --action observe` for directories the
+model never needs, then `aoci scope activate`) or give the Host a larger
+context.
+
+`check_only` reports the cost before any transfer: `delivery_plan` carries the
+scope's estimated tokens, framed-body bytes, `chunk_tokens`, and `chunk_count`,
+and `host_capacity` carries the verdict and whether a compaction reload of the
+requested scope would deliver or stop. Every Overview Ledger event carries a
+`delivery_chain_id` shared by one chain's chunks and proof calls, with
+`chunk_index`, `chunk_count`, `delivery_completed`, and the refresh reasons it
+answered, so an auditor joins a chain by ID instead of by time adjacency; the
+interruption and the stop are their own events. The normative rule is section
+12 of [`aoci-cognition-refresh-v1.txt`](../spec/public/aoci-cognition-refresh-v1.txt).
+
 ## Long-running Host continuity
 
 A question about progress, design, architecture, timing, or an error is a
@@ -220,6 +263,7 @@ This table is documentation and test traceability, not runtime state.
 | Context compaction, Challenge passing (8/10 or better) | Full refresh then continue | Lost framework recall | continue with reliable receipt | Existing refresh session | Overview refresh tests |
 | Context compaction, Challenge 7/10 or 0/10 | Absolute task stop and repeated ready status | Only complete-system claim is unproven | continue source-bound; uncertain receipt; consume generation | `recordAttestedDelivery` and delivery guidance | `TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt` |
 | Host truncation, missing/reordered Chunk, cursor, Index, or config change | Stop | Incomplete or mixed formal body | hard block cognition chain | Existing Chunk and snapshot validation | Overview delivery and cursor tests |
+| Compaction reload interrupted by another compaction | Unbounded reload loop (#114) | Whole-Index does not fit the Host's context | capacity stop: no body, generation consumed, source-bound continuation | Host-capacity verdict in the server session | `TestCompactionReloadInterruptedByCompactionAnswersTheCapacityStop`; scenario A6 |
 | Dirty repository during refresh | Could refresh repeatedly before stable work | Formal cognition is stale | finish work, Maintain once, Verify/Check/Guide, then optional refresh | Existing semantic facts and Guide | refresh threshold tests; longrun black box |
 | `repair_required` | Sometimes surfaced as user stop | Candidate semantics or shape is repairable; zero formal writes | bounded auto repair of failed candidates only | Existing findings and full-batch resubmission | `aoci_update_entry` repair tests; longrun black box repair injection |
 | Candidate binding drifts before the formal write | `stopped` surfaced directly | Candidate binding changed | zero-write closure and a fresh Maintain batch, reusing only unchanged SHA-bound semantics | Existing candidate binding and Change Envelope | `aoci_update_entry` source-drift and zero-write tests |

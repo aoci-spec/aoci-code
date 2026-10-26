@@ -685,7 +685,7 @@ MCP 模式下，stdout 仅用于 JSON-RPC，日志和诊断写入 stderr。运�
 
 在同一对话过程中，除已知Host上下文压缩外，模型会根据自身认知状态按需决定是否再次加载。压缩handoff只能保留receipt身份、未完成write或Recovery状态，以及立即重载指令；不得保留或摘要Whole-Index，也不得保留或摘要Overview Header、Entry、Chunk、Challenge或Attestation正文。复制进handoff的索引语义或receipt不能证明当前模型认知可靠。
 
-已知发生压缩后，继续业务工作前，Agent在Rules已无法可靠保留时先重新读取Rules，再使用新的事件ID声明 `context_compaction`，并完成一次普通完整Overview的cursor、确认与Attestation序列。`check_only`和认知probe不能替代该流程。完成新的完整传输后，即使Attestation为partial或fail，也继续按既有规则执行source-bound任务，不再自动调用第二次Overview。对于没有已知压缩的语义变化或主要阶段边界，AOCI提供刷新阈值、Checkpoint和身份事实，由模型结合当前任务判断是否恢复系统级认知。
+已知发生压缩后，继续业务工作前，Agent在Rules已无法可靠保留时先重新读取Rules，再使用新的事件ID声明 `context_compaction`，并完成一次普通完整Overview的cursor、确认与Attestation序列。`check_only`和认知probe不能替代该流程。完成新的完整传输后，即使Attestation为partial或fail，也继续按既有规则执行source-bound任务，不再自动调用第二次Overview。若索引装不进宿主上下文，重载不会循环：一次重载本身被压缩打断后，服务器以 `delivery_mode=capacity_stop` 答复下一次重载，任务按source-bound继续。对于没有已知压缩的语义变化或主要阶段边界，AOCI提供刷新阈值、Checkpoint和身份事实，由模型结合当前任务判断是否恢复系统级认知。
 
 每次完整 Overview 的正文都由起始标记、当前正式索引的精确内容和结束标记组成。
 
@@ -927,7 +927,7 @@ aoci --repo . index agent guide --agent codex --json
 
 - **协议一致性** —— 53 项只读检查，覆盖 MCP 线协议表面，locale 相关语句另在
   `zh-CN` 下复核一遍；
-- **故障注入场景** —— 75 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复、
+- **故障注入场景** —— 76 个场景，在一次性夹具仓库上检验游标篡改、崩溃恢复、
   并发写入者与写前 hook 的安全性；
 - **冻结真实项目生命周期** —— 三个随仓库冻结的夹具项目：`repo-a`（TypeScript）
   与 `repo-b`（Python + MySQL）走完从 `init` 到漂移重对齐的完整生命周期，

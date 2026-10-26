@@ -98,15 +98,21 @@ type overviewCheckpointEnvelope struct {
 	CognitionStateV2       *overviewCognitionStateV2  `json:"cognition_state_v2,omitempty"`
 	CognitionProbe         *cognitionProbe            `json:"cognition_probe,omitempty"`
 	ProbeResult            *cognitionProbeResult      `json:"probe_result,omitempty"`
+	// DeliveryPlan is what a fresh complete delivery of the requested scope
+	// would transport; HostCapacity is the server session's capacity verdict
+	// and what a compaction reload of that scope would get (#114).
+	DeliveryPlan *overviewDeliveryPlan `json:"delivery_plan,omitempty"`
+	HostCapacity *hostCapacityFacts    `json:"host_capacity,omitempty"`
 }
 
 func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overviewIn, fullScope bool,
-	probe *cognitionProbe, probeResult *cognitionProbeResult) string {
+	probe *cognitionProbe, probeResult *cognitionProbeResult, plan *overviewDeliveryPlan, capacity *hostCapacityFacts) string {
 	envelope := overviewCheckpointEnvelope{
 		RequestMode: overviewRequestCheckOnly, DeliveryMode: overviewDeliveryCheckpoint,
 		FullTextIncluded: false, Reason: "explicit_check_only",
 		ServerDeliveryComplete: true, HostDeliveryStatus: hostDeliveryIncomplete,
 		Assessment: assessment, CognitionProbe: probe, ProbeResult: probeResult,
+		DeliveryPlan: plan, HostCapacity: capacity,
 	}
 	if cognitionStateV2Requested(input) {
 		state := assessOverviewCognitionStateV2(
@@ -202,6 +208,21 @@ type overviewDeliveryFacts struct {
 	BodySHA256         string
 	HostDeliveryStatus string
 	Attestation        overviewAttestationResult
+	// Position of this response in its delivery chain, known for full and
+	// chunked deliveries; ChainID and RefreshReasons are set by the handler
+	// that owns the session (#114).
+	ChunkKnown     bool
+	ChunkIndex     int
+	ChunkCount     int
+	Completed      bool
+	ChainID        string
+	RefreshReasons []string
+}
+
+// overviewChunkPosition is where one chunk response sits in its chain.
+type overviewChunkPosition struct {
+	Index, Count int
+	Completed    bool
 }
 
 type overviewRendered struct {
@@ -281,6 +302,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		// responses remain unchanged.
 		output := metadata + "\n" + framed.Text + renderOverviewCognitionLevelMessage(level)
 		facts.OutputBytes = len(output)
+		facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, 1, 1, true
 		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 	}
 
@@ -288,7 +310,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	if cursor == "" {
 		cursor = "start"
 	}
-	output, err := renderOverviewChunk(
+	output, position, err := renderOverviewChunk(
 		ctx, framed, challenge, cursor, chunkTokens, attestation,
 		cognitionStateV2Requested(input),
 	)
@@ -298,6 +320,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.DeliveryMode = overviewDeliveryChunked
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
+	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
 	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 }
 
@@ -431,7 +454,7 @@ func renderOverviewChunk(
 	chunkTokens int,
 	attestation overviewAttestationResult,
 	includeCognitionStateV2 bool,
-) (string, error) {
+) (string, overviewChunkPosition, error) {
 	contentStart := len(body.Receipt.StartMarker) + 1
 	var spans []overviewChunkSpan
 	if ctx.Prepared != nil {
@@ -440,7 +463,7 @@ func renderOverviewChunk(
 		var err error
 		spans, err = planOverviewChunks(body.Text, chunkTokens, contentStart, ctx.Sequence)
 		if err != nil {
-			return "", err
+			return "", overviewChunkPosition{}, err
 		}
 	}
 	chunkIndex := 0
@@ -448,7 +471,7 @@ func renderOverviewChunk(
 	if cursor != "start" {
 		nextOrdinal, prior, decodeErr := decodeOverviewCursor(cursor, ctx.ScopeIdentity, chunkTokens)
 		if decodeErr != nil {
-			return "", decodeErr
+			return "", overviewChunkPosition{}, decodeErr
 		}
 		previousSHA = prior
 		chunkIndex = -1
@@ -459,12 +482,12 @@ func renderOverviewChunk(
 			}
 		}
 		if chunkIndex <= 0 {
-			return "", fmt.Errorf("overview_cursor_out_of_order")
+			return "", overviewChunkPosition{}, fmt.Errorf("overview_cursor_out_of_order")
 		}
 		priorSpan := spans[chunkIndex-1]
 		digest := sha256.Sum256([]byte(body.Text[priorSpan.Start:priorSpan.End]))
 		if previousSHA != hex.EncodeToString(digest[:]) {
-			return "", fmt.Errorf("overview_cursor_chain_mismatch")
+			return "", overviewChunkPosition{}, fmt.Errorf("overview_cursor_chain_mismatch")
 		}
 	}
 
@@ -534,7 +557,8 @@ func renderOverviewChunk(
 		metadata["host_delivery_confirmation_version"] = overviewDeliveryReceiptV1
 	}
 	encoded, _ := json.Marshal(metadata)
-	return string(encoded) + "\n" + overviewChunkBodyMarker + "\n" + chunk, nil
+	position := overviewChunkPosition{Index: chunkIndex + 1, Count: len(spans), Completed: completed}
+	return string(encoded) + "\n" + overviewChunkBodyMarker + "\n" + chunk, position, nil
 }
 
 func planOverviewChunks(
@@ -667,12 +691,22 @@ func (facts overviewDeliveryFacts) ledgerEvent(durationMs int64) ledger.Event {
 	if facts.FullTextIncluded || facts.DeliveryMode == overviewDeliveryChunked {
 		overviewReads = 1
 	}
-	return ledger.Event{
+	event := ledger.Event{
 		Op: "overview", DurationMs: durationMs, Source: ledger.SourceAgent,
 		DeliveryMode: facts.DeliveryMode, FullTextIncluded: &fullTextIncluded,
 		IndexSHA256: facts.IndexSHA256, IndexBytes: facts.IndexBytes,
 		OutputBytes: facts.OutputBytes, EstimatedTokens: facts.EstimatedTokens,
 		SectionCount: facts.SectionCount, EntryCount: facts.EntryCount,
 		SemanticFiles: facts.SemanticFiles, AOCIToolCalls: 1, OverviewReads: overviewReads,
+		DeliveryChainID: facts.ChainID, RefreshReasons: facts.RefreshReasons,
 	}
+	if facts.ChunkKnown {
+		completed := facts.Completed
+		event.ChunkIndex, event.ChunkCount, event.DeliveryCompleted = facts.ChunkIndex, facts.ChunkCount, &completed
+	}
+	if facts.DeliveryMode == overviewDeliveryAttestation {
+		event.HostDeliveryStatus = facts.HostDeliveryStatus
+		event.Result = facts.Attestation.ModelAttestation
+	}
+	return event
 }

@@ -323,9 +323,11 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 		refresh.deliveries.completed(entry)
 	}
 	refresh.mu.Lock()
+	refresh.noteDeliveryChain(&delivery, ctx.Prepared.body.Receipt.BodySHA256, false, false, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
 	refresh.recordAttestedDelivery(ctx.Receipt, delivery.Attestation, entry.semantic.GovernanceAligned)
 	refresh.mu.Unlock()
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, ctx.Prepared.body)
+	recordCapacityEvents(root, loaded.cfg.LedgerEnabled, ctx.ScopeIdentity, ctx.Assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 	return overviewWorkResult(delivery, overviewWork{})
 }

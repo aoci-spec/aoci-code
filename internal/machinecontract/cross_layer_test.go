@@ -117,6 +117,8 @@ func TestStatusTokensMatchMachineAuthority(t *testing.T) {
 				"status="+machinecontract.AutoStatusApplied,
 				machinecontract.AutoStatusRepairRequired,
 				machinecontract.AutoStatusStopped,
+				machinecontract.OverviewCapacityTokens()[0],
+				machinecontract.OverviewCapacityTokens()[1],
 			),
 		},
 		{

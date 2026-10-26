@@ -372,6 +372,45 @@ def group_a():
         record(g, "A4.cross-session-cursor", "FAIL", t[:150])
     s.close(); s2.close()
 
+    # A6: the #114 loop breaker. A compaction reload that is itself compacted
+    # before it is proven makes the next reload a capacity stop (no body, the
+    # generation consumed) instead of another chain; check_only shows the
+    # plan and the verdict first; an explicit request with nothing pending
+    # still delivers; the verdict dies with the server process.
+    COMPACTION = ["context_compaction"]
+    s = Session(REAL)
+    t, err = text_of(s.call("aoci_overview", {"refresh_reasons": COMPACTION, "refresh_event_id": "a6-compact-1"}))
+    first, _ = meta_and_body(t)
+    stop_text, stop_err = text_of(s.call("aoci_overview", {"refresh_reasons": COMPACTION, "refresh_event_id": "a6-compact-2"}))
+    stop = parse_kv(stop_text)
+    check_text, _ = text_of(s.call("aoci_overview", {"check_only": True}))
+    check = jload(check_text)
+    again = parse_kv(text_of(s.call("aoci_overview", {"refresh_reasons": COMPACTION, "refresh_event_id": "a6-compact-3"}))[0])
+    explicit, _ = meta_and_body(text_of(s.call("aoci_overview"))[0])
+    s.close()
+    s2 = Session(REAL)
+    fresh, _ = meta_and_body(text_of(s2.call("aoci_overview", {"refresh_reasons": COMPACTION, "refresh_event_id": "a6-compact-4"}))[0])
+    s2.close()
+    capacity = check.get("host_capacity") or {}
+    plan = check.get("delivery_plan") or {}
+    checks = {
+        "first_reload_chunked": first.get("continuation_required") is True and first.get("chunk_index") == 1,
+        "stop_mode": stop.get("delivery_mode") == "capacity_stop" and stop.get("fallback_reason") == "host_context_capacity_exceeded",
+        "stop_has_no_body": MARK not in stop_text and "<<<AOCI_OVERVIEW_BODY_BEGIN" not in stop_text and not stop_err,
+        "stop_consumes": stop.get("completed") is False and stop.get("refresh_status") == "refresh_not_required"
+                         and stop.get("delivery_guidance") == "full_system_claim_disabled_source_bound_task_continuation_allowed",
+        "stop_names_interrupted_chunk": stop.get("interrupted_chunks_served") == 1 and str(stop.get("interrupted_delivery_chain_id", "")).startswith("chain-"),
+        "check_only_plan_and_verdict": capacity.get("verdict") is True and capacity.get("compaction_reload") == "capacity_stop"
+                                        and plan.get("chunk_count") == first.get("chunk_count"),
+        "later_reload_stops": again.get("delivery_mode") == "capacity_stop" and again.get("capacity_interruptions") == 1,
+        "explicit_request_delivers": explicit.get("chunk_index") == 1,
+        "new_process_has_no_verdict": fresh.get("chunk_index") == 1,
+    }
+    failed = [name for name, ok in checks.items() if not ok]
+    record(g, "A6.compaction-reload-capacity-stop", "PASS" if not failed else "FAIL",
+           "interrupted reload stops; plan and verdict visible; explicit and new-process reloads deliver"
+           if not failed else f"failed={failed} stop={stop_text[:160]}")
+
 # ================================================================ GROUP B (+A5)
 def group_b():
     """Write lifecycle on a 160-file fixture: establish, stale refresh, repair

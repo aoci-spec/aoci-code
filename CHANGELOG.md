@@ -84,6 +84,26 @@ changes a persisted preimage names the binary every machine then needs.
   carry until that connector is published as a module. Contract:
   `spec/public/aoci-engine-library-v1.txt`. No tool, schema, or asset
   format changes.
+- A context-compaction reload that cannot fit no longer loops (#114). The MCP
+  server watches for a fresh complete delivery started under a pending
+  `context_compaction` that is followed by another `context_compaction`
+  before it was proven; that interruption is the Host-capacity verdict.
+  From then on, in that server session, a fresh request for a scope at least
+  that large, made while a compaction refresh is pending, answers
+  `delivery_mode=capacity_stop` with
+  `fallback_reason=host_context_capacity_exceeded`: no body, the refresh
+  generation consumed with an uncertain receipt and the source-bound delivery
+  guidance, so the task continues without an unqualified complete-system
+  claim. Explicit requests with no compaction pending, smaller scopes, and
+  chains the Host already holds still deliver; scoped reads never count; the
+  verdict is never persisted. `check_only` gains `delivery_plan` (the whole
+  chain's estimated tokens, framed-body bytes, and chunk count) and
+  `host_capacity`. Overview Ledger events gain `delivery_chain_id`,
+  `chunk_index`, `chunk_count`, `delivery_completed`, `refresh_reasons`, and
+  `host_delivery_status`, plus `overview_delivery_interrupted` and
+  `overview_capacity_stop` events. The runtime rules, the AGENTS block, the
+  Codex post-compaction instruction, and the Overview description state the
+  stop; no tool, input schema, or receipt format changes.
 
 ## v0.1.0-rc22
 

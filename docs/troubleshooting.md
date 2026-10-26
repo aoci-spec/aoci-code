@@ -291,7 +291,12 @@ token index in a 256K window, re-read after every compaction), the lever is
 scope, not delivery: set the directories the model never needs to `observe`
 with a scope rule before the first scan, or narrow with an approved Scope
 Change after it, and raise the Host's context window where the Host allows it.
-Delivery by importance tier is planned for the 0.2.0 line.
+Since the 0.2.0 line the reload no longer loops: once a compaction reload has
+itself been compacted, the server answers the next one with
+`delivery_mode=capacity_stop` and the task continues source-bound (see
+[`cognition-refresh.md`](cognition-refresh.md)); `check_only` reports the whole
+chain's `estimated_tokens` and `chunk_count` under `delivery_plan` before any
+transfer. Lowering `chunk_tokens` does not help in either case.
 
 For scale, one observed Codex session with a built-in model authored a
 20-entry batch in about seven minutes on a 590-file Java repository, which

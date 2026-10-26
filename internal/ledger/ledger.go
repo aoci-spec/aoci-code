@@ -154,6 +154,19 @@ type Event struct {
 	SectionCount     int    `json:"section_count,omitempty"`
 	EntryCount       int    `json:"entry_count,omitempty"`
 
+	// Overview delivery chains (#114): a fresh complete delivery mints one
+	// chain ID that its continuations and proof calls inherit, so an auditor
+	// joins a chain by ID instead of by time adjacency. Each delivered
+	// response records its chunk position and whether it completed the body;
+	// an attestation call records the Host confirmation it carried.
+	DeliveryChainID    string   `json:"delivery_chain_id,omitempty"`
+	ChunkIndex         int      `json:"chunk_index,omitempty"`
+	ChunkCount         int      `json:"chunk_count,omitempty"`
+	DeliveryCompleted  *bool    `json:"delivery_completed,omitempty"`
+	RefreshReasons     []string `json:"refresh_reasons,omitempty"`
+	RefreshEventID     string   `json:"refresh_event_id,omitempty"`
+	HostDeliveryStatus string   `json:"host_delivery_status,omitempty"`
+
 	// Auto路径的低开销与防重事实。
 	AOCIToolCalls     int `json:"aoci_tool_calls,omitempty"`
 	ShellAOCICalls    int `json:"shell_aoci_calls,omitempty"`

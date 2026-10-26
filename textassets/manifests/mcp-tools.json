@@ -41,7 +41,9 @@
         "strict_attestation_verified",
         "governance_aligned",
         "current_system_cognition_reliable",
-        "aoci_maintain"
+        "aoci_maintain",
+        "capacity_stop",
+        "host_context_capacity_exceeded"
       ],
       "locale_anchors": {
         "zh-CN": [

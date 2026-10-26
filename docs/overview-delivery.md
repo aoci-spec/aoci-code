@@ -176,6 +176,18 @@ reported instead as loaded and delivery-verified with complete cognition
 verification unfinished. Detailed cursors, SHA values, Metadata, and
 Attestation JSON remain machine evidence.
 
+A Host whose context cannot hold the Whole-Index after a compaction gets the
+capacity stop instead of an endless reload: once the server has watched a
+compaction reload be interrupted by another compaction, a fresh request for a
+scope at least that large, made while a compaction refresh is pending, answers
+`delivery_mode=capacity_stop` with `fallback_reason=host_context_capacity_exceeded`
+and no body, consumes the refresh generation, and leaves the task to continue
+source-bound. `check_only` shows the whole chain's cost first: `delivery_plan`
+carries the estimated tokens, framed-body bytes, `chunk_tokens`, and
+`chunk_count`, and `host_capacity` says whether a compaction reload of that
+scope would deliver or stop. Ledger events of one chain share a
+`delivery_chain_id`. See [`cognition-refresh.md`](cognition-refresh.md).
+
 With a normal AOCI MCP, use Rules, the automatic Chunk chain, then Attestation.
 Direct segmented reading of `aoci.txt` is only a no-MCP fallback or diagnostic;
 it lacks equivalent Chunk-chain integrity, governance and Baseline state,

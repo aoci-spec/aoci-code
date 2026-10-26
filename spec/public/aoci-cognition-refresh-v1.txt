@@ -114,7 +114,9 @@ AOCI delivers the complete requested scope whenever it can form one coherent,
 verified CognitionSet. It does not suppress the body because a matching receipt
 exists, no checkpoint reason is pending, or the semantic count is below the
 threshold. Repeated ordinary calls therefore repeat the complete requested
-scope. One complete, Host-confirmed, governance-aligned Attestation attempt
+scope. The one exception is the Host-capacity stop of section 12, which answers
+a pending compaction refresh this server session has proven the Host cannot
+hold. One complete, Host-confirmed, governance-aligned Attestation attempt
 advances the receipt generation and consumes pending checkpoint reasons. A
 passing Attestation records a reliable receipt. A partial or failed Attestation
 records an uncertain receipt and disables a full-system claim without
@@ -185,7 +187,8 @@ do not consume the event or establish a reliable complete-cognition receipt.
 - aoci_overview without arguments requests complete Legacy cognition or the
   complete Volumes all scope on every ordinary call.
 - check_only always returns compact JSON and never transmits the index body.
-- repeated ordinary Overview calls return the complete requested scope.
+- repeated ordinary Overview calls return the complete requested scope,
+  except the Host-capacity stop of section 12.
 - an oversized Whole-Index begins the deterministic Entry-boundary continuation
   chain at Chunk 1 according to `overview_delivery.chunk_tokens`; it does not
   first attempt one oversized response.
@@ -252,3 +255,56 @@ be issued or answered after a Host compaction, and an answer reconstructed from
 a compacted handoff or summary is not retained cognition. A known event takes
 the direct declaration and ordinary Overview path above regardless of how much
 index-shaped text the handoff appears to contain.
+
+12. Host capacity
+
+A context-compaction refresh asks for one fresh complete Overview, and that
+reload assumes the Whole-Index fits the Host's post-compaction context. When it
+does not, the reload is itself compacted before it can finish, the refresh is
+asked for again, and the session never reaches its task. The MCP server process
+outlives Host compactions, so the server records what the Host cannot:
+
+- a compaction reload attempt opens when a fresh complete delivery of the
+  complete scope (Volumes all, Legacy repository) starts while a declared
+  context_compaction is pending. A later chunk of the same chain advances it.
+  A proof half for its body, or any confirmed and attested delivery that
+  consumes the pending events, closes it. Scoped deliveries never open an
+  attempt: the reload this section protects is the Whole-Index, so an
+  unattested small read can never lower the verdict;
+- a context_compaction declared with a fresh refresh_event_id while an attempt
+  is open is an interruption. It sets the Host-capacity verdict to the
+  attempt's estimated tokens (the smallest interrupted size wins) and closes
+  the attempt;
+- while a declared context_compaction is pending and the verdict covers a scope
+  at least as large as the requested one, a fresh complete request answers
+  delivery_mode=capacity_stop with
+  fallback_reason=host_context_capacity_exceeded instead of a chain. The stop
+  carries no body and no cognition level. It consumes the pending events,
+  advances the generation with an uncertain receipt, and reports
+  refresh_status=refresh_not_required,
+  delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed,
+  the measured plan, and the verdict. The Host continues the business task
+  source-bound without an unqualified complete-system claim and does not retry;
+  lowering chunk_tokens bounds one response, not the cumulative context.
+
+The verdict lives in the server session only. It is never persisted, a server
+restart clears it, and it changes no identity, receipt format, or tool schema.
+An explicit ordinary request made while no compaction refresh is pending still
+delivers the complete scope, a scope below the verdict (code, database, meta,
+project) still delivers, and continuation and proof calls for a chain the Host
+already holds are served as before.
+
+check_only reports delivery_plan (scope, scope identity, Entry count, estimated
+tokens, framed-body bytes, chunk_tokens, and chunk count, measured by the
+delivery path's own chunk planner) and host_capacity (verdict, failed size,
+interruptions, the interrupted chain and how far it got, and
+compaction_reload=deliver or capacity_stop for the requested scope) before any
+transfer.
+
+Every Overview Ledger event carries delivery_chain_id: a fresh complete
+delivery mints it, and its continuations and proof calls inherit it by body
+identity. Delivered responses record chunk_index, chunk_count,
+delivery_completed, and the refresh_reasons they answered; attestation calls
+record host_delivery_status and the attestation result. An interruption
+records overview_delivery_interrupted with the interrupted chain and chunk, and
+the stop records overview_capacity_stop.

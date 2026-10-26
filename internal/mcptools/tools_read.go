@@ -232,7 +232,18 @@ func registerReadTools(
 								probeResult = gradeCognitionProbe(input.ProbeAnswers, currentReceipt.IndexSHA256, assessment.Receipt.RefreshGeneration, sequence)
 							}
 						}
-						compact := renderOverviewCheckpoint(assessment, input, true, probe, probeResult)
+						_, legacyEntries := countOverviewDimensions(repository.doc)
+						legacySequence, sequenceErr := legacyOverviewSequence(repository.doc, repository.text)
+						if sequenceErr != nil {
+							return errResult(errInternal, sequenceErr.Error(), "")
+						}
+						legacyFramed := frameOverviewBody(root, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, legacyEntries, repository.text)
+						measured, planErr := planOverviewDelivery(legacyFramed, legacySequence, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, legacyEntries, len(repository.text)/3, loaded.cfg.OverviewDelivery.ChunkTokens)
+						if planErr != nil {
+							return errResult(errBadArgs, planErr.Error(), "")
+						}
+						compact := renderOverviewCheckpoint(assessment, input, true, probe, probeResult, &measured, refreshSession.capacityFacts(measured.EstimatedTokens))
+						recordCapacityEvents(root, repository.cfg.LedgerEnabled, currentReceipt.IndexSHA256, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 						ledger.Append(root, repository.cfg.LedgerEnabled, ledger.Event{
 							Op:              "cognition_check",
 							DurationMs:      time.Since(start).Milliseconds(),
@@ -260,6 +271,25 @@ func registerReadTools(
 					if sequenceErr != nil {
 						return errResult(errInternal, sequenceErr.Error(), "")
 					}
+					legacyFramed := frameOverviewBody(root, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, repository.text)
+					fresh := input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil
+					estimatedTokens := len(repository.text) / 3
+					if fresh && refreshSession.capacityStopApplies(estimatedTokens) {
+						plan, planErr := planOverviewDelivery(legacyFramed, sequence, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, estimatedTokens, loaded.cfg.OverviewDelivery.ChunkTokens)
+						if planErr != nil {
+							return errResult(errBadArgs, planErr.Error(), "")
+						}
+						capacity := refreshSession.capacityFacts(estimatedTokens)
+						receipt := refreshSession.consumeCapacityStop(currentReceipt, eventID)
+						output := renderOverviewCapacityStop(capacityStopView{
+							Root: root, MCPServiceVersion: mcpServiceVersion, LayoutMode: string(loaded.set.LayoutMode),
+							RequestedScope: cognitionScopeRepositoryFull, EffectiveScope: cognitionScopeRepositoryFull,
+							Plan: plan, Capacity: capacity, GovernanceAligned: assessment.Semantic.GovernanceAligned,
+							Receipt: receipt, CognitionStateV2: cognitionStateV2Requested(input), FullScope: true,
+						})
+						recordCapacityEvents(root, repository.cfg.LedgerEnabled, currentReceipt.IndexSHA256, assessment.Interruption, capacity, plan, assessment.RefreshReasons)
+						return textResult(output)
+					}
 					delivery, resourceErr := renderOverviewDelivery(overviewRenderContext{
 						Root: root, MCPServiceVersion: mcpServiceVersion,
 						LayoutMode:     string(loaded.set.LayoutMode),
@@ -278,6 +308,7 @@ func registerReadTools(
 					if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
 						return failResult(snapshotFail)
 					}
+					refreshSession.noteDeliveryChain(&delivery, legacyFramed.Receipt.BodySHA256, fresh, true, assessment.RefreshReasons, estimatedTokens)
 					refreshSession.recordAttestedDelivery(
 						deliveredReceipt, delivery.Attestation, markDelivered,
 					)
@@ -291,7 +322,8 @@ func registerReadTools(
 						),
 					)
 
-					recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, frameOverviewBody(root, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, repository.text))
+					recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, legacyFramed)
+					recordCapacityEvents(root, repository.cfg.LedgerEnabled, currentReceipt.IndexSHA256, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 					return textResult(delivery.Output)
 				},
 			), nil, nil

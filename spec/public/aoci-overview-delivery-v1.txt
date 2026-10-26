@@ -27,7 +27,18 @@ may be delivered but is unreliable as current implementation evidence.
 
 Only explicit `check_only=true` produces `request_mode=check_only`,
 `delivery_mode=checkpoint`, and no cognition body or chunk chain. Pending
-Recovery or an incoherent snapshot fails closed without mixed content.
+Recovery or an incoherent snapshot fails closed without mixed content. The
+checkpoint carries `delivery_plan`, the whole chain a fresh complete delivery of
+the requested scope would transport (estimated tokens, framed-body bytes,
+`chunk_tokens`, and `chunk_count` from the same planner), and `host_capacity`.
+
+`delivery_mode=capacity_stop` with
+`fallback_reason=host_context_capacity_exceeded` answers a fresh complete
+request while a declared `context_compaction` refresh is pending and this
+server session has watched a compaction reload of a scope at least as large be
+interrupted by another compaction (aoci-cognition-refresh-v1.txt section 12).
+It carries no body, `completed=false`, `continuation_required=false`, the plan,
+the verdict, and the consumed uncertain receipt.
 
 Chunk configuration
 -------------------
@@ -309,7 +320,8 @@ but it does not prohibit honest answers or task-bound source/test inspection.
 
 For context-compaction refresh, a complete, Host-confirmed,
 governance-aligned attempt consumes the refresh generation even when
-Attestation is partial or failed. That result records an uncertain receipt and
+Attestation is partial or failed. A capacity stop consumes it too: the Host
+does not retry, does not lower `chunk_tokens`, and continues source-bound. That result records an uncertain receipt and
 `delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`;
 the Host continues the existing source-bound task without a second automatic
 Overview. It does not claim complete-system cognition and must not repair the
@@ -367,6 +379,10 @@ by the description fallback.
 Ledger operations separately record `overview_delivery_completed`,
 `overview_host_confirmation_accepted`, `overview_attestation_schema_rejected`,
 `overview_attestation_schema_accepted`, `overview_attestation_scoring_started`,
-and `overview_attestation_scored` (result pass, partial, or fail). Schema errors
+and `overview_attestation_scored` (result pass, partial, or fail), plus
+`overview_delivery_interrupted` and `overview_capacity_stop` for the Host
+capacity stop. Overview events carry `delivery_chain_id`, which a fresh complete
+delivery mints and its continuations and proof calls inherit, and delivered
+responses carry `chunk_index`, `chunk_count`, and `delivery_completed`. Schema errors
 carry no cognition-level or semantic-score claim. Semantic thresholds and
 strict proof fields are unchanged.

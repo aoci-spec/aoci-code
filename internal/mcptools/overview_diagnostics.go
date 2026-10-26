@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -37,10 +38,34 @@ func overviewSchemaDiagnostics(root string, enabled bool) mcp.Middleware {
 }
 
 func recordOverviewProofEvents(root string, enabled bool, input overviewIn, delivery overviewRendered, body framedOverviewBody) {
+	chain := delivery.Facts.ChainID
 	if delivery.Facts.DeliveryMode == overviewDeliveryFull || (delivery.Facts.DeliveryMode == overviewDeliveryChunked && strings.HasSuffix(delivery.Output, body.Receipt.EndMarker+"\n")) {
-		ledger.Append(root, enabled, ledger.Event{Op: "overview_delivery_completed", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "completed"})
+		ledger.Append(root, enabled, ledger.Event{Op: "overview_delivery_completed", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "completed", DeliveryChainID: chain})
 	}
 	if input.HostConfirmation != nil && hostDeliveryStatus(input.HostConfirmation, body) == hostDeliveryConfirmed {
-		ledger.Append(root, enabled, ledger.Event{Op: "overview_host_confirmation_accepted", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "accepted"})
+		ledger.Append(root, enabled, ledger.Event{Op: "overview_host_confirmation_accepted", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "accepted", DeliveryChainID: chain})
+	}
+}
+
+// recordCapacityEvents writes the Host-capacity facts one request produced: the
+// interruption its compaction declaration recorded and the stop it received.
+func recordCapacityEvents(root string, enabled bool, indexSHA256 string, interruption *hostCapacityInterruption, stop *hostCapacityFacts, plan overviewDeliveryPlan, reasons []string) {
+	if interruption != nil {
+		completed := false
+		ledger.Append(root, enabled, ledger.Event{
+			Op: "overview_delivery_interrupted", Source: ledger.SourceAgent, IndexSHA256: indexSHA256,
+			DeliveryChainID: interruption.ChainID, ChunkIndex: interruption.ChunksServed, ChunkCount: interruption.ChunkCount,
+			DeliveryCompleted: &completed, EstimatedTokens: interruption.EstimatedTokens, RefreshEventID: interruption.EventID,
+			RefreshReasons: []string{machinecontract.RefreshReasonContextCompaction}, Result: machinecontract.OverviewFallbackHostContextCapacityExceeded,
+		})
+	}
+	if stop != nil {
+		ledger.Append(root, enabled, ledger.Event{
+			Op: "overview_capacity_stop", Source: ledger.SourceAgent, IndexSHA256: indexSHA256,
+			DeliveryMode: machinecontract.OverviewDeliveryModeCapacityStop, FallbackReason: machinecontract.OverviewFallbackHostContextCapacityExceeded,
+			EstimatedTokens: plan.EstimatedTokens, ChunkCount: plan.ChunkCount, EntryCount: plan.EntryCount,
+			DeliveryChainID: stop.InterruptedDeliveryChainID, RefreshReasons: reasons, AOCIToolCalls: 1,
+			Result: machinecontract.OverviewDeliveryModeCapacityStop,
+		})
 	}
 }
