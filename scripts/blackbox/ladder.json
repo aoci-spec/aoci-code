@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-legacy.txt (branch v0.2.0-line, Legacy retirement)"
+    "evidence": ".aoci/dev-tools/make-fast-engine.txt (branch v0.2.0-line, engine library)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt (branch v0.2.0-line, Legacy retirement)"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt (branch v0.2.0-line, engine library)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-verify-legacy.txt"
+    "evidence": ".aoci/dev-tools/make-verify-engine.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/make-fast-legacy.txt (safety clean) and a direct run on 2026-10-26"
+    "evidence": ".aoci/dev-tools/make-fast-engine.txt (safety clean) and a direct run on 2026-10-26"
    }
   }
  ]

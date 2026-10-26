@@ -31,7 +31,7 @@ binary="$SMOKE_ROOT/aoci"
 repository="$SMOKE_ROOT/repository"
 
 CGO_ENABLED=0 "$go_bin" build -trimpath \
-  -ldflags "-s -w -buildid= -X github.com/aoci-spec/aoci-code/internal/cli.version=clean-room -X github.com/aoci-spec/aoci-code/internal/cli.commit=$commit -X github.com/aoci-spec/aoci-code/internal/cli.buildDate=$build_date" \
+  -ldflags "-s -w -buildid= -X github.com/aoci-spec/aoci-code/internal/buildinfo.Version=clean-room -X github.com/aoci-spec/aoci-code/internal/buildinfo.Commit=$commit -X github.com/aoci-spec/aoci-code/internal/buildinfo.BuildDate=$build_date" \
   -o "$binary" ./cmd/aoci
 
 mkdir -p "$repository"

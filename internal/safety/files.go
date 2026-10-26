@@ -68,6 +68,7 @@ func PublicTextFiles(root string, explicit []string) ([]string, error) {
 	}{
 		{directory: "templates", extension: ".tmpl"},
 		{directory: filepath.Join("internal", "mcptools"), extension: ".go"},
+		{directory: "engine", extension: ".go"},
 		{directory: filepath.Join("internal", "ui"), extension: ".html"},
 	} {
 		entries, err := os.ReadDir(filepath.Join(root, current.directory))

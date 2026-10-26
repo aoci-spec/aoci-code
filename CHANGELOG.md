@@ -71,6 +71,19 @@ changes a persisted preimage names the binary every machine then needs.
   draft runs are inert. The nine-tool MCP surface, input schemas, and
   formal-asset formats are unchanged; `docs/upgrading.md` has the operator
   notes.
+- The engine kernel is importable: `github.com/aoci-spec/aoci-code/engine`.
+  `Open` resolves a repository the way the CLI does; `Cognition`,
+  `Overview`, `Governance`, and `Identity` project the loader, the delivery
+  framer, and the shared governance facts, so a Host's confirmed
+  `body_sha256` and the library's digest are one computation; `Connect`
+  hosts the nine MCP tools in process over an in-memory transport and
+  `ServeStdio` serves them as `aoci mcp` does. `Version` reports the
+  build-injected or module version, which now lives in `internal/buildinfo`,
+  the ldflags target of every build. `examples/engine-embed` shows the
+  embedding, including the openGauss connector replace an importer must
+  carry until that connector is published as a module. Contract:
+  `spec/public/aoci-engine-library-v1.txt`. No tool, schema, or asset
+  format changes.
 
 ## v0.1.0-rc22
 

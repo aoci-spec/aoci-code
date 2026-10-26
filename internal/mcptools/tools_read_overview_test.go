@@ -903,7 +903,7 @@ func TestOverviewEntryExceedsChunkBudget(t *testing.T) {
 
 func TestOverviewExplicitCallsAlwaysDeliverCompleteBody(t *testing.T) {
 	root := buildRepo(t)
-	server, err := newMCPServer(root, "refresh-suppression-test")
+	server, err := NewServer(root, "refresh-suppression-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -949,7 +949,7 @@ func TestOverviewDirtyFormalCognitionIsDeliveredButUnreliable(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "src", "a.go"), []byte("changed"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	server, err := newMCPServer(root, "dirty-overview-test")
+	server, err := NewServer(root, "dirty-overview-test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1092,7 +1092,7 @@ func TestOverviewCheckOnlyReusesOrRefreshes(t *testing.T) {
 		t.Fatal(fail.Msg)
 	}
 	receipt := newCognitionReceipt(root, version, repository.text, "repository_full")
-	server, err := newMCPServer(root, version)
+	server, err := NewServer(root, version)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1161,7 +1161,7 @@ func TestOverviewUsesServerRuntimeVersion(
 	root := buildRepo(t)
 	const runtimeVersion = "v7.6.5-from-run-stdio"
 
-	server, err := newMCPServer(
+	server, err := NewServer(
 		root,
 		runtimeVersion,
 	)

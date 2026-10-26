@@ -19,9 +19,9 @@ builds:
       - -trimpath
     ldflags:
       - -s -w -buildid=
-      - -X github.com/aoci-spec/aoci-code/internal/cli.version={{.Version}}
-      - -X github.com/aoci-spec/aoci-code/internal/cli.commit={{.FullCommit}}
-      - -X github.com/aoci-spec/aoci-code/internal/cli.buildDate={{.CommitDate}}
+      - -X github.com/aoci-spec/aoci-code/internal/buildinfo.Version={{.Version}}
+      - -X github.com/aoci-spec/aoci-code/internal/buildinfo.Commit={{.FullCommit}}
+      - -X github.com/aoci-spec/aoci-code/internal/buildinfo.BuildDate={{.CommitDate}}
 
 archives:
   - id: default

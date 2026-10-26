@@ -1,0 +1,89 @@
+AOCI-CODE Engine Library Contract v1
+====================================
+
+Identity
+--------
+
+The embeddable kernel is the Go package `github.com/aoci-spec/aoci-code/engine`
+of the public module. It is the kernel the `aoci` binary runs behind its CLI
+and MCP entry points, offered as a third entry point: one implementation,
+three ways in. It calls no model, holds no credential, and reaches no remote
+service.
+
+Stability
+---------
+
+Exported identifiers of the package are additive within a major version: a
+name, a field, or a result may be added, never renamed, removed, or given a
+different meaning. Every result is a projection of formal bytes or of the
+shared governance assessment; the contracts this directory already publishes
+(index format, Volumes, Managed Scope, Overview delivery, MCP runtime) remain
+authoritative for what those bytes and facts mean.
+
+Surface
+-------
+
+Open(path) resolves the repository that contains path exactly as the CLI does
+without --repo (the nearest .git, then the nearest .aoci), loads the effective
+team configuration without materializing any upgrade, and binds the runtime
+text catalog to the repository Locale. One process serves one Locale at a
+time.
+
+Repository.Cognition() returns the loaded formal cognition: layout, formal
+assets with their exact SHA-256, every Entry in formal order with its Volume,
+domain, object kind, canonical identity, path, tag, and F/R/A/S fields, and
+loader warnings. A damaged layout fails closed as it does for the CLI and the
+tools.
+
+Repository.Overview(scope) returns the complete body `aoci_overview` delivers
+for the scope, framed by the delivery path itself, so its SHA-256 and byte
+count are the body_sha256 and body_utf8_bytes a Host confirms, together with
+the scope identity (index_sha256), Entry count, token estimate, and chunk
+plan. Volumes v1 only.
+
+Repository.Governance() returns the deterministic fact set Verify, Check,
+Guide, Maintain, and Overview share, without writing Verify History or a
+Ledger event: alignment, result, next required action, findings, drift
+counts, recovery and conflict flags, and the complete fact set as the JSON
+`verify --json` reports under governance. Volumes v1 only.
+
+Repository.Identity() returns what a published cognition is: the SHA-256 of
+each formal asset, the composite identity, the complete-scope identity, the
+Baseline digest, the Entry count, and the engine version.
+
+Repository.NewMCPServer(), ServeStdio(ctx), and Connect(ctx) expose the nine
+MCP tools assembled by the constructor `aoci mcp` uses: over the caller's
+transport, over the process's standard streams, or over an in-memory session
+whose Call executes a tool's own handler and returns the tool's own result
+text, error flag, and _meta. The nine-tool identity, input schemas, and
+response shapes are those of the MCP runtime contract; the library adds,
+removes, and renames nothing there.
+
+Version() reports the version a build injected, else the module version the
+Go toolchain recorded for the importer, else dev. Commit() reports the full
+commit a build injected, else none.
+
+Layouts
+-------
+
+A Legacy single-file layout is read-only since 0.2.0. Cognition, Identity,
+and the nine tools answer on it, the write tools with
+legacy_read_only_migrate_required; Overview and Governance return
+ErrLayoutUnsupported.
+
+Importing
+---------
+
+The module pins the reviewed openGauss connector through a local replace
+directive. Until that connector is published as a module, an importer must
+carry the same replace (examples/engine-embed/go.mod shows both directives);
+without it the build resolves the unpatched upstream connector and fails.
+This is a packaging limitation of this version, not a term of the library.
+
+Compatibility
+-------------
+
+The library adds no CLI command and no MCP tool. A change to it changes no
+nine-tool identity, formal asset format, or persisted identity. The build
+identity the binary prints lives in internal/buildinfo, the ldflags target of
+every build, so the library and the CLI report one version.

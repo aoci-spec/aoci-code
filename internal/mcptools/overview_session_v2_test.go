@@ -290,7 +290,7 @@ func TestOverviewV2StoreBoundsAndExpiry(t *testing.T) {
 
 func TestOverviewV2MCPHostIsolation(t *testing.T) {
 	root := chunkSessionRepo(t)
-	server, err := newMCPServer(root, "test")
+	server, err := NewServer(root, "test")
 	if err != nil {
 		t.Fatal(err)
 	}

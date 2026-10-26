@@ -258,16 +258,20 @@ func RunStdio(ctx context.Context, root, version string) error {
 	if executable, err := os.Executable(); err == nil {
 		RecordServiceBinaryIdentity(executable)
 	}
-	srv, err := newMCPServer(root, version)
+	srv, err := NewServer(root, version)
 	if err != nil {
 		return err
 	}
 	return srv.Run(ctx, &mcp.StdioTransport{})
 }
 
-// newMCPServer使用同一启动版本装配协议握手与运行时工具。
-// version只能来自RunStdio调用方，禁止在工具层从Git、PATH、索引或配置反推。
-func newMCPServer(root, version string) (*mcp.Server, error) {
+// NewServer assembles the protocol handshake and the nine runtime tools
+// for one repository under the version the caller injects. RunStdio uses it
+// for the aoci mcp command; the embeddable engine uses it to host the same
+// server over an in-memory transport. The version comes only from the
+// caller: the tool layer never infers it from Git, PATH, the index, or
+// configuration.
+func NewServer(root, version string) (*mcp.Server, error) {
 	cfg, err := config.Load(root)
 	if err != nil {
 		return nil, err

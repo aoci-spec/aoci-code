@@ -158,7 +158,7 @@ func setRepoLocale(t *testing.T, root, locale string) {
 
 func connectMCPClient(t *testing.T, root string) *mcp.ClientSession {
 	t.Helper()
-	server, err := newMCPServer(root, "locale-contract-test")
+	server, err := NewServer(root, "locale-contract-test")
 	if err != nil {
 		t.Fatal(err)
 	}

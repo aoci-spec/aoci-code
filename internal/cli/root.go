@@ -31,6 +31,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/aoci-spec/aoci-code/internal/buildinfo"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -38,11 +39,12 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// 版本信息由Makefile经-ldflags注入。
+// 版本信息由构建经 -ldflags 注入 internal/buildinfo；这里只是别名，
+// 让命令树与可嵌入引擎报告同一身份。
 var (
-	version   = "dev"
-	commit    = "none"
-	buildDate = "unknown"
+	version   = buildinfo.Version
+	commit    = buildinfo.Commit
+	buildDate = buildinfo.BuildDate
 )
 
 // 退出码契约常量。

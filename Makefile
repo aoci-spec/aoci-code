@@ -7,9 +7,9 @@
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo none)
 DATE    := $(shell TZ=UTC0 git show -s --date=format-local:'%Y-%m-%dT%H:%M:%SZ' --format=%cd HEAD 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
-LDFLAGS := -X github.com/aoci-spec/aoci-code/internal/cli.version=$(VERSION) \
-           -X github.com/aoci-spec/aoci-code/internal/cli.commit=$(COMMIT) \
-           -X github.com/aoci-spec/aoci-code/internal/cli.buildDate=$(DATE)
+LDFLAGS := -X github.com/aoci-spec/aoci-code/internal/buildinfo.Version=$(VERSION) \
+           -X github.com/aoci-spec/aoci-code/internal/buildinfo.Commit=$(COMMIT) \
+           -X github.com/aoci-spec/aoci-code/internal/buildinfo.BuildDate=$(DATE)
 
 # Non-login automation shells may omit an installed Go toolchain from PATH.
 # Resolve one trusted installation once and bind every target to it.
@@ -50,6 +50,7 @@ test:
 # 独立示例仓包含自己的go.mod，不会被根模块./...自动覆盖。
 example-test:
 	cd examples/minimal-repository && $(GO_BIN) test ./... -count=1
+	cd examples/engine-embed && $(GO_BIN) vet ./... && CGO_ENABLED=0 $(GO_BIN) build -o /dev/null ./...
 
 # 静态检查(官方 vet)
 vet:
@@ -161,6 +162,7 @@ fast-builds:
 	@mkdir -p build
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast ./cmd/aoci
 	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 $(GO_BIN) build -o build/aoci-fast.exe ./cmd/aoci
+	cd examples/engine-embed && CGO_ENABLED=0 $(GO_BIN) build -o /dev/null ./...
 
 # The timeout is per test binary and exists to stop a hang, not to pace the
 # suite: internal/cli under the race detector takes about 12 minutes on a shared

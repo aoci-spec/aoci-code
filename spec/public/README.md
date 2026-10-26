@@ -16,6 +16,7 @@ and `--help` output remain authoritative when a prose document is less specific.
 | Database Evidence | `aoci-database-evidence-v1.txt`, `aoci-database-table-fras-v1.txt`, `aoci-database-cognition-authoring-v1.txt` |
 | Host integration | `aoci-host-capability-and-interaction-v1.txt`, `aoci-host-cognition-messaging-v2.txt`, `aoci-overview-delivery-v1.txt`, `aoci-cognition-refresh-v1.txt`, `aoci-cognition-state-v2.txt` |
 | Derived system cognition | `aoci-system-cognition-runtime-v1.txt` |
+| Engine library | `aoci-engine-library-v1.txt` |
 
 Planner derivation, patent material, commercial design, research records, and
 experimental protocols are not part of this public contract set.

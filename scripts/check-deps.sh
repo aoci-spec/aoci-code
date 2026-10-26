@@ -29,16 +29,14 @@ CORE_PKGS=(
   "${MODULE}/internal/curation"
   "${MODULE}/internal/mcptools"
   "${MODULE}/internal/dbevidence"
+  "${MODULE}/engine"
 )
 
 # AI编排层:
-# 只允许CLI命令层等上层消费者依赖，确定性核心不得直接或传递依赖。
-AI_PKGS=(
-  "${MODULE}/internal/llm"
-  "${MODULE}/internal/prompt"
-  "${MODULE}/internal/draft"
-  "${MODULE}/internal/workflow"
-)
+# 0.2.0 退役了模型端点层(internal/llm/prompt/draft/workflow 已删除)，引擎
+# 不调用模型。该列表留空而不删除：任何重新引入的模型客户端包必须先登记
+# 在这里，才能被这道闸挡在核心层(含可嵌入的 engine 包)之外。
+AI_PKGS=()
 
 # 直接依赖是系统部署与供应链边界，必须与架构声明同步。x/sys只提供标准库
 # 缺失的原子路径交换、Windows Job Object与Linux subreaper系统调用封装；

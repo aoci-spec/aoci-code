@@ -219,7 +219,7 @@ func findSchemaTypeArray(value any, path string) (string, bool) {
 func canonicalListTools(t *testing.T) []byte {
 	t.Helper()
 	root := buildRepo(t)
-	server, err := newMCPServer(root, "asset-test")
+	server, err := NewServer(root, "asset-test")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -383,8 +383,8 @@ func TestMakefileAndGoReleaserKeepCanonicalBuildIdentity(t *testing.T) {
 	goreleaser := readRepositoryFile(t, ".goreleaser.yml")
 	for _, fragment := range []string{
 		"draft-to-release transition",
-		"internal/cli.commit={{.FullCommit}}",
-		"internal/cli.buildDate={{.CommitDate}}",
+		"internal/buildinfo.Commit={{.FullCommit}}",
+		"internal/buildinfo.BuildDate={{.CommitDate}}",
 		"release:\n  disable: true",
 	} {
 		requireRepositoryText(t, goreleaser, fragment)
