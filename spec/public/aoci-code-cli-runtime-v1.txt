@@ -29,6 +29,11 @@ One `--json` invocation emits at most one top-level business result or error
 envelope. Human-readable errors are written to stderr. The `aoci mcp` command
 uses a direct stdio protocol path described by the MCP runtime contract.
 
+`status` distinguishes a missing Baseline from an unreadable or invalid one.
+A missing Baseline remains a successful status result with
+baseline_exists=false; a Baseline read or decode failure exits 2 and uses the
+existing error envelope under `--json`, rather than reporting it as missing.
+
 `aoci ui` serves a local, read-only status page for one or more repositories:
 identity, index header, Code and Database Volumes, budget, the Overview chunk
 plan at the configured chunk_tokens, governance drift, host integrations, the
