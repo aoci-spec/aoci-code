@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-27T15:19:54Z",
+  "updated_at": "2026-10-27T15:38:59Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "16aa6fa2a75f66d8f874f156dd486e8481d9b7cde6164a6d57ee525205ffd5d3",
-      "size": 147998,
-      "normalized_sha256": "16aa6fa2a75f66d8f874f156dd486e8481d9b7cde6164a6d57ee525205ffd5d3"
+      "sha256": "19ef0ac9b8c2b222abdbc17236f6929f14090bc013efc5e19a3338baf178cf54",
+      "size": 148505,
+      "normalized_sha256": "19ef0ac9b8c2b222abdbc17236f6929f14090bc013efc5e19a3338baf178cf54"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "d7eb7d11fadba42ade5aa202c069659ae4f460f1f94d5eb5d074cc1b3554d7a1",
-      "size": 213021,
-      "normalized_sha256": "d7eb7d11fadba42ade5aa202c069659ae4f460f1f94d5eb5d074cc1b3554d7a1"
+      "sha256": "8639dd509b0ebb640a87bbddb4f44556e1bf803600d454a463a32c5a5b7e1f10",
+      "size": 213183,
+      "normalized_sha256": "8639dd509b0ebb640a87bbddb4f44556e1bf803600d454a463a32c5a5b7e1f10"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1596,10 +1596,10 @@
     },
     "internal/cli/init.go": {
       "role": "index",
-      "sha256": "24e52a5282836252c3eefd7ca85e9d0be2174f08ab44a0ce7e4dba7dfca0de45",
-      "size": 19181,
-      "normalized_sha256": "24e52a5282836252c3eefd7ca85e9d0be2174f08ab44a0ce7e4dba7dfca0de45",
-      "format_sha256": "24e52a5282836252c3eefd7ca85e9d0be2174f08ab44a0ce7e4dba7dfca0de45",
+      "sha256": "5a9f502592ddab7015fb9ed7675a6db4fd63cc6d9be7e2f66050f07983ef831b",
+      "size": 19611,
+      "normalized_sha256": "5a9f502592ddab7015fb9ed7675a6db4fd63cc6d9be7e2f66050f07983ef831b",
+      "format_sha256": "5a9f502592ddab7015fb9ed7675a6db4fd63cc6d9be7e2f66050f07983ef831b",
       "format_kind": "gofmt"
     },
     "internal/cli/init_asset_test.go": {
@@ -1624,6 +1624,14 @@
       "size": 2103,
       "normalized_sha256": "d215bf03f171189b3dedd32abaa4af8ef440c0c70f291fa86e2d99cae8adbb21",
       "format_sha256": "d215bf03f171189b3dedd32abaa4af8ef440c0c70f291fa86e2d99cae8adbb21",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/init_existing_config_test.go": {
+      "role": "observe",
+      "sha256": "b3a80a7d93d77c4ad00aa53a86258d461d8d1314d7d16c135691df12707e4741",
+      "size": 2676,
+      "normalized_sha256": "b3a80a7d93d77c4ad00aa53a86258d461d8d1314d7d16c135691df12707e4741",
+      "format_sha256": "b3a80a7d93d77c4ad00aa53a86258d461d8d1314d7d16c135691df12707e4741",
       "format_kind": "gofmt"
     },
     "internal/cli/init_git_failure_detail_test.go": {

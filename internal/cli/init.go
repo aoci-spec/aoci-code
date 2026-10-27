@@ -267,6 +267,12 @@ func init() {
 				root,
 				cfg.IndexPath,
 			)
+			// A missing index starts Volume-first wherever the Root can live at
+			// aoci.txt, also under a configuration that predates it: the Legacy
+			// layout is read-only, so a Legacy skeleton would leave nothing to do
+			// but migrate an empty index. Only a custom index_path, which Volumes
+			// cannot use as its Root, still gets the Legacy skeleton.
+			volumeFirst := !configExisted || filepath.ToSlash(cfg.IndexPath) == "aoci.txt"
 
 			var nextStepMessage string
 			var fullIndexMessage string
@@ -296,7 +302,7 @@ func init() {
 				if !os.IsNotExist(statErr) {
 					return statErr
 				}
-				if !configExisted {
+				if volumeFirst {
 					volumeAssets, err = renderInitialVolumeAssets(root)
 					if err != nil {
 						return err
@@ -368,7 +374,7 @@ func init() {
 			); statErr == nil {
 				outputLines = append(outputLines, cliMessage("init.existing_skip", cfg.IndexPath))
 			} else {
-				if !configExisted {
+				if volumeFirst {
 					postimages, initErr := initializeVolumeFirst(root, cfg.IndexPath, volumeAssets)
 					if initErr != nil {
 						return initErr

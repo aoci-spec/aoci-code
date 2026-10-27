@@ -292,6 +292,13 @@ changes a persisted preimage names the binary every machine then needs.
   `mcp_protocols` lists the five negotiated revisions. The conformance suite
   gains a sessionless lane (58 checks) and the scenarios a sessionless dialog
   (80 scenarios).
+- `aoci init` under an existing configuration with no index starts the
+  Volume-first layout. It used to write the Legacy minimal skeleton there, for
+  example after the aoci files were deleted to start over or under a
+  configuration written before `init`, and with the Legacy layout read-only
+  the Guide could only route that empty index to a migration. The
+  configuration's own settings stay as they were. Only a custom `index_path`,
+  which cannot hold a Volumes Root, still gets the Legacy skeleton.
 
 ## v0.1.0-rc22
 
