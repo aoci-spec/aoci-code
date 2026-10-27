@@ -21,6 +21,20 @@ const (
 	EngineSQLite     Engine = "sqlite"
 )
 
+// EngineCollectable reports whether AOCI collects catalog Evidence from a
+// source of engine. Any other declared engine is a declaration only: access
+// and collection answer engine_not_implemented, and governance, Database
+// Bootstrap, auto eligibility, and Entry removal never wait for its Evidence.
+// Each of them asks this one function, so a declaration can never block one
+// surface while another skips it.
+func EngineCollectable(engine Engine) bool {
+	switch engine {
+	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
+		return true
+	}
+	return false
+}
+
 type SourceConfig struct {
 	SourceID              string   `json:"source_id"`
 	Engine                Engine   `json:"engine"`

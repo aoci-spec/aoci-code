@@ -140,7 +140,7 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	if !source.Enabled {
 		return SourceManifest{}, nil, &SourceError{Code: "source_disabled", SourceID: source.SourceID, Op: "connect"}
 	}
-	if source.Engine == EngineSQLite {
+	if !EngineCollectable(source.Engine) {
 		return SourceManifest{}, nil, &SourceError{Code: "engine_not_implemented", SourceID: source.SourceID, Op: "collect"}
 	}
 	provider := collector.credentialProvider

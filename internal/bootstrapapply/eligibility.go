@@ -189,7 +189,7 @@ func currentDatabaseEvidenceAccepted(root string) bool {
 		acceptedBySource[source.SourceID] = source.SourceSnapshotSHA256
 	}
 	for _, source := range cfg.DatabaseSources {
-		if !source.Enabled {
+		if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 			continue
 		}
 		_, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)

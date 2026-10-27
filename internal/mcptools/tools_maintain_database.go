@@ -129,7 +129,8 @@ func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp
 		result.Findings = append(result.Findings, assessment.NextAction)
 	case assessment.BlockingSourceCount > 0 || assessment.Summary.Orphan+assessment.Summary.EvidenceUnavailable+assessment.Summary.EvidenceInvalid+assessment.Summary.SourceDisabled > 0:
 		for _, source := range assessment.Sources {
-			if source.State != machinecontract.DatabaseCognitionCurrent {
+			// A declared-only source blocks nothing, so it is no finding here.
+			if source.State != machinecontract.DatabaseCognitionCurrent && source.State != machinecontract.DatabaseCognitionEngineNotImplemented {
 				result.Findings = append(result.Findings, source.State+": "+source.SourceID)
 			}
 		}

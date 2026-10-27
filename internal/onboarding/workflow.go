@@ -152,10 +152,16 @@ func CollectDatabaseEvidence(ctx context.Context, root string, collector snapsho
 	if len(cfg.DatabaseSources) == 0 {
 		return nil, fmt.Errorf("onboarding_database_source_confirmation_required")
 	}
+	collected, declaredOnly := 0, []string{}
 	for _, source := range cfg.DatabaseSources {
 		if !source.Enabled {
 			continue
 		}
+		if !dbevidence.EngineCollectable(source.Engine) {
+			declaredOnly = append(declaredOnly, source.SourceID)
+			continue
+		}
+		collected++
 		firstManifest, first, firstFiles, err := collector.Snapshot(ctx, source)
 		if err != nil {
 			return nil, err
@@ -173,6 +179,9 @@ func CollectDatabaseEvidence(ctx context.Context, root string, collector snapsho
 		if err := dbevidence.AcceptSnapshot(root, first, first.SourceSnapshotSHA256); err != nil {
 			return nil, fmt.Errorf("onboarding_database_baseline_accept_failed")
 		}
+	}
+	if collected == 0 && len(declaredOnly) != 0 {
+		return nil, fmt.Errorf("onboarding_database_engine_not_implemented: %s", strings.Join(declaredOnly, ","))
 	}
 	oldPlan, err := loadPlan(root, session)
 	if err != nil {

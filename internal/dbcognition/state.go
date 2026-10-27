@@ -38,6 +38,11 @@ func Assess(root string, sources []dbevidence.SourceConfig, set *cognition.Set, 
 			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: machinecontract.DatabaseCognitionSourceDisabled})
 			continue
 		}
+		if !dbevidence.EngineCollectable(source.Engine) {
+			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionEngineNotImplemented
+			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: machinecontract.DatabaseCognitionEngineNotImplemented})
+			continue
+		}
 		manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)
 		if err != nil {
 			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionEvidenceInvalid
@@ -174,12 +179,15 @@ func assessAbsentVolume(root string, sources []dbevidence.SourceConfig, result *
 	}
 	ordered := append([]dbevidence.SourceConfig{}, sources...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].SourceID < ordered[j].SourceID })
+	collectable := 0
 	for _, source := range ordered {
 		state := SourceState{SourceID: source.SourceID}
 		switch {
 		case !source.Enabled:
 			state.State = machinecontract.DatabaseCognitionSourceDisabled
 			state.ErrorCode = "database_source_disabled"
+		case !dbevidence.EngineCollectable(source.Engine):
+			state.State = machinecontract.DatabaseCognitionEngineNotImplemented
 		case acceptedErr != nil:
 			state.State = machinecontract.DatabaseCognitionEvidenceInvalid
 			state.ErrorCode = "database_evidence_baseline_invalid"
@@ -208,10 +216,22 @@ func assessAbsentVolume(root string, sources []dbevidence.SourceConfig, result *
 				result.EvidenceTableCount += len(snapshot.Tables)
 			}
 		}
+		if state.State == machinecontract.DatabaseCognitionEngineNotImplemented {
+			result.Sources = append(result.Sources, state)
+			continue
+		}
+		collectable++
 		if state.State != machinecontract.DatabaseCognitionCurrent {
 			result.BlockingSourceCount++
 		}
 		result.Sources = append(result.Sources, state)
+	}
+	// Declarations alone leave nothing to bootstrap: there is no Evidence a
+	// Database Volume could be built from, which is the no-configuration case.
+	if collectable == 0 {
+		result.CognitionCurrent = true
+		result.NextAction = machinecontract.DatabaseCognitionActionNoConfiguration
+		return
 	}
 	result.CognitionCurrent = false
 	if result.BlockingSourceCount == 0 {

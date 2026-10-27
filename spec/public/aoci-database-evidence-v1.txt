@@ -40,6 +40,13 @@ an absolute path names that exact file. URI filenames and credential-shaped
 values are rejected. Saving or listing this declaration never opens the file
 or scans for database files. SQLite access, inspect, snapshot, and verify still
 fail closed with engine_not_implemented until the read-only collector lands.
+Until then a sqlite source is a declaration only: Database governance, Database
+Cognition Bootstrap, policy-bound auto eligibility, Database Entry removal, and
+onboarding collection require Evidence only from sources whose engine has a
+collector, and governance reports each sqlite source as the informational
+finding database_source_engine_not_implemented, with Database Cognition source
+state engine_not_implemented. Declarations alone are the no-configuration case
+for an absent Database Volume.
 
 No source means no database connection, evidence file, database warning, or
 database Missing state. Database access occurs only for explicit database

@@ -73,6 +73,9 @@ const (
 	// FindingCodeCurationExcluded marks an index-role file without an Entry that
 	// curation policy keeps out; Cause names the policy source.
 	FindingCodeCurationExcluded = "code_curation_excluded"
+	// FindingCodeDatabaseEngineNotImplemented names a declared database source
+	// whose engine has no collector yet; nothing waits for its Evidence.
+	FindingCodeDatabaseEngineNotImplemented = "database_source_engine_not_implemented"
 )
 
 // Informational reports whether a finding code describes a fact that neither
@@ -84,7 +87,7 @@ func Informational(code string) bool {
 	case "code_volume_line_ending_only", "database_volume_line_ending_only",
 		"root_volume_line_ending_only", "meta_volume_line_ending_only",
 		"root_volume_baseline_drift", "meta_volume_baseline_drift",
-		FindingCodeSkipped, FindingCodeCurationExcluded:
+		FindingCodeSkipped, FindingCodeCurationExcluded, FindingCodeDatabaseEngineNotImplemented:
 		return true
 	}
 	return false
@@ -831,7 +834,7 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 		}
 		current := true
 		for _, source := range cfg.DatabaseSources {
-			if !source.Enabled {
+			if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 				continue
 			}
 			_, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)
@@ -850,7 +853,11 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 		}
 	}
 	for _, source := range assessment.Sources {
-		if source.State != machinecontract.DatabaseCognitionCurrent {
+		switch source.State {
+		case machinecontract.DatabaseCognitionCurrent:
+		case machinecontract.DatabaseCognitionEngineNotImplemented:
+			facts.Findings = append(facts.Findings, Finding{Code: FindingCodeDatabaseEngineNotImplemented, Domain: cognition.ScopeDatabase, Target: source.SourceID})
+		default:
 			facts.Findings = append(facts.Findings, Finding{Code: source.State, Domain: cognition.ScopeDatabase, Target: source.SourceID})
 		}
 	}
@@ -864,7 +871,7 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 func appendDatabaseSourceFindings(facts *Facts, sources []dbevidence.SourceConfig, code string) {
 	added := false
 	for _, source := range sources {
-		if !source.Enabled {
+		if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 			continue
 		}
 		facts.Findings = append(facts.Findings, Finding{Code: code, Domain: cognition.ScopeDatabase, Target: source.SourceID})

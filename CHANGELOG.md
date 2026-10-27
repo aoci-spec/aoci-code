@@ -260,8 +260,12 @@ changes a persisted preimage names the binary every machine then needs.
   namespace, with no database name and no credential environment variable;
   URI filenames, `:memory:`, and server-only fields are refused. Nothing opens
   the file yet: SQLite access, inspect, snapshot, and verify answer
-  `database_engine_not_implemented` until the read-only collector lands, so a
-  repository with a Database Volume should not declare one before then. The
+  `database_engine_not_implemented` until the read-only collector lands. Until
+  then such a source neither feeds nor blocks a Database Volume: governance,
+  Database Cognition Bootstrap, the policy-bound auto check, Database Entry
+  removal, and onboarding collection wait for Evidence only from sources a
+  collector exists for, and Verify, Check, and Guide report the SQLite source
+  as the informational `database_source_engine_not_implemented`. The
   team configuration's `database` and `credential_env` fields become
   `omitempty`: a SQLite declaration writes neither, and a server declaration
   is written exactly as before.

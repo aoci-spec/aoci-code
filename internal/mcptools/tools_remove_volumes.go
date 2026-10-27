@@ -350,7 +350,7 @@ func savedEvidenceGuardIdentity(root string, cfg *config.Config, volumeID string
 	}
 	sources := []sourceGuard{}
 	for _, source := range cfg.DatabaseSources {
-		if !source.Enabled {
+		if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 			continue
 		}
 		_, snapshot, snapshotExists, snapshotErr := dbevidence.LoadSnapshot(root, source.SourceID)

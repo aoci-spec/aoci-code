@@ -43,6 +43,9 @@ const (
 	DatabaseCognitionEvidenceUnavailable = "evidence_unavailable"
 	DatabaseCognitionEvidenceInvalid     = "evidence_invalid"
 	DatabaseCognitionSourceDisabled      = "source_disabled"
+	// DatabaseCognitionEngineNotImplemented is a declared source whose engine
+	// has no collector yet: it neither feeds nor blocks Database Cognition.
+	DatabaseCognitionEngineNotImplemented = "engine_not_implemented"
 
 	DatabaseCognitionVolumeAbsent = "database_volume_absent"
 

@@ -144,7 +144,7 @@ func prepare(root string, preparedAt time.Time) (*Preview, error) {
 	}
 	evidenceSources := []EvidenceSource{}
 	for _, source := range sources {
-		if !source.Enabled {
+		if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 			continue
 		}
 		manifest, snapshot, snapshotExists, loadErr := dbevidence.LoadSnapshot(absRoot, source.SourceID)

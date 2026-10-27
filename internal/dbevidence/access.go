@@ -73,7 +73,7 @@ func InspectAccess(ctx context.Context, source SourceConfig, provider Credential
 	if err := NormalizeSource(&source); err != nil {
 		return AccessPlan{}, &SourceError{Code: "configuration_invalid", SourceID: "invalid", Op: "access_preflight"}
 	}
-	if source.Engine == EngineSQLite {
+	if !EngineCollectable(source.Engine) {
 		return AccessPlan{}, &SourceError{Code: "engine_not_implemented", SourceID: source.SourceID, Op: "access_preflight"}
 	}
 	if provider == nil {
