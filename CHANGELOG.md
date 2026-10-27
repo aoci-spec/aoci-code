@@ -193,7 +193,8 @@ changes a persisted preimage names the binary every machine then needs.
   could not be told apart after the fact, and a failing `check` read as
   `result=ok` beside `exit_code=1`. Ledger schema 9 adds `governance_result`,
   `blocker`, `next_action`, `formal_writes_started`, and `batch_id` to
-  Maintain, `update_entries_batch`, and `human_approval` events, and
+  Maintain, `update_entries_batch` (and `update_entries_batch_recover`, which
+  reconciles Entries already in place), and `human_approval` events, and
   `check_passed` with the verdict to `check` and `verify`, whose `result` now
   only says the command ran. A refused candidate is recorded as
   `repair_required`. The fields are machine tokens; no source, Entry text, or

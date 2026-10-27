@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-fast-151.txt (branch v0.2.0-line, #150 Ledger outcomes + #151 observe review)"
+    "evidence": ".aoci/dev-tools/make-fast-150b.txt (branch v0.2.0-line, #150 Ledger outcomes + #151 observe review + reconcile join)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt (branch v0.2.0-line, #150 Ledger outcomes + #151 observe review)"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt (branch v0.2.0-line, #150 Ledger outcomes + #151 observe review + reconcile join)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt (53 passed)"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt (79 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt (79 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt (93 PASS, 2 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt (93 PASS, 2 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -234,7 +234,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/coverage-floors-151.txt (13 packages at or above their floors)"
+    "evidence": ".aoci/dev-tools/coverage-floors-150b.txt (13 packages at or above their floors)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-151.txt"
+    "evidence": ".aoci/dev-tools/make-verify-150b.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/public-text-151.txt (293 files clean)"
+    "evidence": ".aoci/dev-tools/public-text-150b.txt (293 files clean)"
    }
   }
  ]

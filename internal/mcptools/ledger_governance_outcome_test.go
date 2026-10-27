@@ -78,6 +78,15 @@ func TestLedgerTellsAuthoringRefusalAndWriteApart(t *testing.T) {
 	if write == nil || !flagIs(write.FormalWritesStarted, true) || write.BatchID != batchID || write.AppliedCount != 1 {
 		t.Fatalf("the write does not join its Maintain: %#v", write)
 	}
+	// Resubmitting Entries already in place reconciles without a formal write
+	// and still joins its Maintain.
+	if again := applyVolumeBatch(t, session, arguments); again.Status != autoStatusApplied || again.FormalWritesStarted {
+		t.Fatalf("resubmitted batch: %#v", again)
+	}
+	reconciled := ledgerEvents(t, root, "update_entries_batch_recover")
+	if len(reconciled) != 1 || reconciled[0].BatchID != batchID || !flagIs(reconciled[0].FormalWritesStarted, false) {
+		t.Fatalf("a reconciled batch does not join its Maintain: %#v", reconciled)
+	}
 }
 
 func TestLedgerNamesWhatBlockedMaintain(t *testing.T) {

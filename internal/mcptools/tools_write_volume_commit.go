@@ -1203,8 +1203,11 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 			return "", false, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.governance_persist_failed", localeSafeWriteDetail(err.Error()))}
 		}
 	}
+	// The Entries were already in place, so this call wrote no formal bytes;
+	// batch_id still joins it to the Maintain that issued the batch (#150).
 	ledgerEvent := ledger.Event{Op: "update_entries_batch_recover", PathsCount: len(plan.rels), DurationMs: time.Since(plan.start).Milliseconds(), Source: source,
-		Result: ledger.ResultOK, RecoveredCount: len(plan.rels), DuplicateApplies: 1, RecoveryTransactionID: plan.batchKey}
+		Result: ledger.ResultOK, RecoveredCount: len(plan.rels), DuplicateApplies: 1, RecoveryTransactionID: plan.batchKey,
+		FormalWritesStarted: ledgerFlag(false), BatchID: plannedBatchID(plan)}
 	if err := ensureVolumeLedger(root, plan.rc.cfg.LedgerEnabled, ledgerEvent); err != nil {
 		return "entries_ledger_persist_failed", false, nil
 	}

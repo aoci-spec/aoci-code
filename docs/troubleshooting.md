@@ -117,7 +117,9 @@ carried (`authoring_required`, `blocked`, `evidence_required`, `aligned`);
 `scope_change_required`, or `recovery_pending`; `next_action` is the action the
 response named; `formal_writes_started` says whether formal assets were
 touched; and `batch_id` joins a Maintain to the `update_entries_batch` that
-consumed its batch. A refused candidate reads `result=repair_required`, not
+consumed its batch, or to the `update_entries_batch_recover` that reconciled
+it when the submitted Entries were already in place, as a resubmission of
+unchanged Entries is. A refused candidate reads `result=repair_required`, not
 `error`. For `check` and `verify`, `result` means the command ran and
 `check_passed` is the verdict, so a failing check is `check_passed=false` with
 its exit code. Events written before schema 9 carry none of these fields and
