@@ -147,7 +147,8 @@ changes a persisted preimage names the binary every machine then needs.
   the same attribution rules takes 2.6 s and 28 s; no mapping, receipt, or
   result changes. The nightly benchmark comparison now covers the 10,000-Entry
   migration too.
-- A new index no longer publishes the machine it was written on. The first
+- A new index no longer publishes the machine it was written on (#76, first
+  proposed in #81 by dayebishouji). The first
   directory section of a Code Volume (or Legacy index) recorded the author's
   absolute repository path, often with a user name, and every later section
   continued it into the committed file. A writer creating that first section
