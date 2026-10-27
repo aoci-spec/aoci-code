@@ -98,7 +98,7 @@
       "id": "contracts/maintain/actions/apply-duplicate-final-proof",
       "kind": "contract",
       "path": "contracts/maintain/actions/apply-duplicate-final-proof.txt",
-      "description": "Duplicate final Volumes Apply action preserving zero-write facts while requiring terminal proof",
+      "description": "Final Volumes Apply action for a batch whose Entries were already in place, preserving zero-write facts while requiring terminal proof",
       "used_by": "internal/mcptools/tools_auto_result.go:autoApplyNextAction",
       "protocol_tokens": [
         "remaining=0",

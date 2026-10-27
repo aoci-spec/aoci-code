@@ -190,7 +190,7 @@ func mustJSONText(value string) string {
 }
 
 // autoApplyNextAction从同一结构化终态生成模型可见说明。
-// 重复批次的请求处理成功不等于发生正式写入，必须显式说明Applied=0，
+// 条目已在位（重复提交或原样重提）的请求处理成功不等于发生正式写入，必须显式说明Applied=0，
 // 禁止宿主从Attempted或首次应用数量推断本次写入数。
 func autoApplyNextAction(
 	volumes bool,

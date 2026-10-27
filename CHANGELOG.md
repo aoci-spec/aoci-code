@@ -220,6 +220,15 @@ changes a persisted preimage names the binary every machine then needs.
   `scope acknowledge` route. `scope acknowledge` is unchanged. The
   `aoci_maintain` input schema gains the `observe_review` intent and object;
   no tool is added and no formal-asset format changes.
+- A final Volumes Apply whose Entries were already in place no longer calls
+  the batch repeated. Resubmitting a stale Entry's identical text is a first
+  submission that writes no formal bytes and advances the Baseline, yet
+  `aoci update-entry` printed "Repeated batch" and the `aoci_update_entry`
+  result's `next_action` named "the repeated final Volumes batch". Both now
+  say the Entries were already in place; the `next_action` adds that they
+  come from an earlier Apply or an unchanged resubmission and that the
+  Baseline binds the current sources. Status, counts, `duplicate_applies`,
+  and Ledger events are unchanged.
 
 ## v0.1.0-rc22
 

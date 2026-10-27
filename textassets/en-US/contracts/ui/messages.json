@@ -420,7 +420,7 @@
   "entries.recovery_receipt.postimage_mismatch": "The replay-prevention receipt postimage does not match the current index",
   "entry.batch.baseline_read_failed": "Could not read Baseline for the atomic batch: %s",
   "entry.batch.baseline_save_failed": "The complete index batch was written atomically, but Baseline could not advance: %s",
-  "entry.batch.duplicate_heading": "Repeated batch: the formal index performed zero writes",
+  "entry.batch.duplicate_heading": "Entries already in place: the formal index performed zero writes",
   "entry.batch.duplicate_path": "The atomic batch contains duplicate path: %s",
   "entry.batch.empty": "The atomic Entry batch is empty",
   "entry.batch.generation_plan_stale": "The Host-Agent Generation Plan index preimage is stale; the complete batch performed zero writes",

@@ -420,7 +420,7 @@
   "entries.recovery_receipt.postimage_mismatch": "防重恢复收据postimage与当前索引不匹配",
   "entry.batch.baseline_read_failed": "原子批量读取Baseline失败: %s",
   "entry.batch.baseline_save_failed": "索引整批已原子写入，但批量基线前移失败: %s",
-  "entry.batch.duplicate_heading": "重复批次: 正式索引零写入",
+  "entry.batch.duplicate_heading": "条目已在位: 正式索引零写入",
   "entry.batch.duplicate_path": "原子批次包含重复路径: %s",
   "entry.batch.empty": "原子批量回写目标为空",
   "entry.batch.generation_plan_stale": "Host-Agent Generation Plan的索引preimage已过期，整批零写入",
