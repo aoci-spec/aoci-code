@@ -756,6 +756,7 @@
   "mcp.human_approval.field.note_description": "比如拒绝的原因，或者你希望怎么改。",
   "mcp.human_approval.result.approved": "对方已在宿主对话框里批准。变更还没有应用：运行 next_commands 应用它。",
   "mcp.human_approval.result.already_approved": "这次变更在 %s 已有批准记录；运行 next_commands 应用它。",
+  "mcp.human_approval.result.answer_unbound": "这个回答对应的不是当前待批准的变更：对话框显示之后变更有了变化，或者请求状态不是本服务器签发的。什么都没有记录；再调用一次，让对方看到当前的变更。",
   "mcp.human_approval.result.rejected.scope_change": "对方拒绝了这次变更，所以什么都没有改变。.aoci/config.json 里的目标策略仍与生效策略不同，在解决之前 Maintain 会一直回答 scope_change_required。请问对方想怎么做。要放弃这次变更：撤销规则改动（aoci scope rule remove <rule-id>，或恢复 .aoci/config.json），再运行 aoci scope activate，它会回答 already_aligned。要修改变更：改好规则后再次运行 aoci scope activate，生成新的预览再请对方批准。对方若留了话，在 human_note 里。",
   "mcp.human_approval.result.rejected.migration": "对方拒绝了这次迁移，所以什么都没有改变，仓库保留原来的 Legacy 索引，照常可读。请问对方想怎么做。要改了再试：运行 aoci cognition onboard abort，再运行 aoci cognition onboard start；要保持现状：什么都不用做。对方若留了话，在 human_note 里。",
   "mcp.human_approval.result.rejected.bootstrap": "对方拒绝了这份初始索引，所以什么都没有写入。请问对方想怎么做。要改了再试：运行 aoci cognition onboard abort，再运行 aoci cognition onboard start；要到此为止：什么都不用做。对方若留了话，在 human_note 里。",

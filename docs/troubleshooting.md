@@ -400,7 +400,10 @@ reported cause.
   `safe_inventory_high_risk_opt_in`, so its approvals stay in the terminal.
 - `stale`: the repository changed after the preview was saved. Run
   `aoci scope activate` (or `aoci cognition onboard prepare`) again and ask
-  again.
+  again. On the `2026-07-28` revision `stale` after a dialog means the answer
+  came back beside a `requestState` this server process did not issue for that
+  dialog: the change moved after it was shown, or the server restarted in
+  between. Call again and the person sees the current change.
 
 `rejected` and `dismissed` mean the dialog did appear: the person said no or
 closed it. Nothing was written in either case, and `message` says what to do

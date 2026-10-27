@@ -2,7 +2,7 @@
 """AOCI MCP stdio conformance harness — drives build/aoci mcp as a real client.
 Protocol-level tests only; zero formal writes expected (verified afterward by git/verify).
 
-MCP stdio 一致性检查（53项）：以真实客户端身份走 initialize→tools 全链路，
+MCP stdio 一致性检查（58项）：以真实客户端身份走 initialize→tools 全链路，
 只读不写，跑完用 git status / aoci verify 复核零写入。最后一段 locale 孪生
 检查在临时目录铸造两个同样的三文件夹具（init --locale en-US / zh-CN），对照
 人类语句随 locale 变化而机器字段、键集、错误码与摘要不变；宿主仓库仍只读。
@@ -153,23 +153,15 @@ init = s.rpc("initialize", {"protocolVersion":"2025-06-18",
 si = (init.get("result") or {}).get("serverInfo") or {}
 ok("initialize.serverInfo.version",
    (si.get("version") == EXPECT_VERSION) if EXPECT_VERSION else bool(si.get("version")), str(si))
-# Negotiation stops at the handshake era: a sessionless request at 2026-07-28
-# (no initialize, the revision in per-request _meta) is refused with the
-# supported list instead of being served, because that revision drops the
-# handshake and blocks the elicitation aoci_maintain intent=human_approval uses.
+# The handshake never answers past its own era: a client offering the
+# sessionless 2026-07-28 revision in initialize is answered with 2025-11-25.
 probe = Session()
-refusal = probe.rpc("server/discover", {"_meta": {
-    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-    "io.modelcontextprotocol/clientInfo": {"name": "aoci-conformance-probe", "version": "1.0"},
-    "io.modelcontextprotocol/clientCapabilities": {}}})
+newest = (probe.rpc("initialize", {"protocolVersion": "2026-07-28", "capabilities": {},
+    "clientInfo": {"name": "aoci-conformance-probe", "version": "1.0"}}).get("result") or {}).get("protocolVersion")
 probe.close()
-refused = refusal.get("error") if isinstance(refusal.get("error"), dict) else {}
-refused_data = refused.get("data") if isinstance(refused.get("data"), dict) else {}
 negotiated = (init.get("result") or {}).get("protocolVersion")
-ok("initialize.protocolVersion",
-   negotiated in ("2025-06-18","2025-03-26") and refused.get("code") == -32022
-   and refused_data.get("supported") == ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
-   f"offered 2025-06-18 -> {negotiated}; 2026-07-28 -> {refused.get('code')} {refused_data.get('supported')}")
+ok("initialize.protocolVersion", negotiated in ("2025-06-18","2025-03-26") and newest == "2025-11-25",
+   f"offered 2025-06-18 -> {negotiated}; offered 2026-07-28 -> {newest}")
 s.notify("notifications/initialized")
 
 tl = s.rpc("tools/list")
@@ -601,6 +593,48 @@ finally:
 for _name in LOCALE_CHECKS:
     _cond, _detail = _verdicts.get(_name, (False, _abort or "not reached"))
     ok(_name, _cond, _detail)
+
+# ---------- Session 5: the sessionless 2026-07-28 revision ----------
+# A client on this revision never calls initialize: every request carries the
+# revision, client information, and capabilities in _meta. The lane walks what
+# a Host reaches that way: discovery, the nine tools, the rules, and a complete
+# Overview chain attested to the strict level.
+SESSIONLESS = "2026-07-28"
+class SessionlessSession(Session):
+    META = {"io.modelcontextprotocol/protocolVersion": SESSIONLESS,
+            "io.modelcontextprotocol/clientInfo": {"name": "aoci-conformance-sessionless", "version": "1.0"},
+            "io.modelcontextprotocol/clientCapabilities": {}}
+    def rpc(self, method, params=None, timeout=120):
+        params = dict(params or {})
+        params["_meta"] = dict(self.META)
+        return super().rpc(method, params, timeout)
+
+s5 = SessionlessSession()
+discovered = s5.rpc("server/discover").get("result") or {}
+ok("sessionless.discover", discovered.get("supportedVersions") == [SESSIONLESS, "2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]
+   and "tools" in (discovered.get("capabilities") or {}), str(discovered)[:200])
+listed = (s5.rpc("tools/list").get("result") or {}).get("tools", [])
+ok("sessionless.tools", sorted(t.get("name") for t in listed) == sorted(NINE)
+   and all(isinstance(t.get("inputSchema"), dict) for t in listed), str(len(listed)))
+rules5, rerr5 = text_of(s5.call("aoci_rules"))
+ok("sessionless.rules", (not rerr5) and "cognition_refresh_threshold: 30" in rules5, rules5[:120])
+attested5 = ""
+try:
+    chunks5 = list(overview_chunks(s5))
+    first5, last5 = chunks5[0][0], chunks5[-1][0]
+    whole5 = "".join(b for _, b in chunks5)
+    seq5 = parse_entry_seq(whole5)
+    ords5 = last5["challenge_ordinals"] if isinstance(last5["challenge_ordinals"], list) else [int(x) for x in str(last5["challenge_ordinals"]).split(",")]
+    attested5, aerr5 = text_of(s5.call("aoci_overview", {
+        "host_delivery_confirmation": {"version": "overview-delivery-receipt/v1", "body_sha256": first5["body_sha256"],
+                                       "body_bytes": first5["body_utf8_bytes"], "end_marker_observed": True},
+        "model_cognition_attestation": attestation_for(last5, first5, seq5, ords5)}))
+    chain5 = (not aerr5) and hashlib.sha256(whole5.encode()).hexdigest() == first5["body_sha256"] and len(chunks5) == first5["chunk_count"]
+except Exception as error:
+    chain5, attested5 = False, f"chain failed: {error}"
+ok("sessionless.overview_attested", chain5 and "model_attestation: pass" in attested5 and "cognition_level: 4" in attested5, attested5[:240])
+ok("sessionless.stdout_purity", not s5.nonjson_stdout, str(s5.nonjson_stdout[:2]))
+s5.close()
 
 # ---------- host window: every non-Overview tool result fits an ordinary host window ----------
 # Claude Code spills tool results past ~25k tokens to a file; a real user's index

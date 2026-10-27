@@ -2,11 +2,17 @@ package mcptools
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -39,6 +45,9 @@ const (
 	humanApprovalListedPaths   = 5
 	humanApprovalActorMaxRunes = 64
 	humanApprovalArtifactMode  = 0o600
+	// humanApprovalInputKey labels the one input request a dialog round
+	// carries on a sessionless revision; the client echoes it in its answer.
+	humanApprovalInputKey = "human_approval"
 )
 
 type humanApprovalRequest struct {
@@ -103,7 +112,7 @@ func validateHumanApprovalRequest(input maintainIn) *Fail {
 	return nil
 }
 
-func handleHumanApproval(ctx context.Context, session *mcp.ServerSession, root string, input maintainIn) *mcp.CallToolResult {
+func handleHumanApproval(ctx context.Context, request *mcp.CallToolRequest, root string, input maintainIn) *mcp.CallToolResult {
 	start := time.Now()
 	if fail := validateHumanApprovalRequest(input); fail != nil {
 		return failResult(fail)
@@ -126,9 +135,15 @@ func handleHumanApproval(ctx context.Context, session *mcp.ServerSession, root s
 	}
 	result := early
 	if result == nil {
-		result, fail = decideHumanApproval(ctx, session, cfg, pending)
+		var dialog *mcp.CallToolResult
+		result, dialog, fail = decideHumanApproval(ctx, request, cfg, pending)
 		if fail != nil {
 			return failResult(fail)
+		}
+		if dialog != nil {
+			// Nobody has answered yet: the client shows the form and calls
+			// again with the answer, and that call records the outcome.
+			return dialog
 		}
 	}
 	// The person's answer is the human's event; every outcome that asked no
@@ -153,18 +168,23 @@ func handleHumanApproval(ctx context.Context, session *mcp.ServerSession, root s
 // decideHumanApproval runs the gates in the order a person would want them:
 // an approval already on record is reported before anyone is asked again, a
 // repository whose approvals stay in the terminal says so before the host is
-// probed, and only then does the dialog open.
-func decideHumanApproval(ctx context.Context, session *mcp.ServerSession, cfg *config.Config, pending *pendingApproval) (*humanApprovalResult, *Fail) {
+// probed, and only then does the dialog open. On a sessionless revision the
+// dialog is a round of its own, returned instead of a result.
+func decideHumanApproval(ctx context.Context, request *mcp.CallToolRequest, cfg *config.Config, pending *pendingApproval) (*humanApprovalResult, *mcp.CallToolResult, *Fail) {
+	var session *mcp.ServerSession
+	if request != nil {
+		session = request.Session
+	}
 	result := &humanApprovalResult{Version: humanApprovalResultVersion, Kind: pending.kind, Summary: pending.summary}
 	conflict := &Fail{Code: errWriteConflict, Msg: "human_approval_file_conflict: " + pending.approvalRel,
 		Hint: mcpMessage("mcp.human_approval.hint.file_conflict", pending.approvalRel)}
 	if existing, err := os.ReadFile(pending.approvalPath); err == nil {
 		binds, mechanism := pending.bindsExisting(existing)
 		if !binds {
-			return nil, conflict
+			return nil, nil, conflict
 		}
 		if !cfg.AdmitsApprovalMechanism(mechanism) {
-			return nil, &Fail{Code: errWriteConflict, Msg: "human_approval_file_not_admitted: " + pending.approvalRel,
+			return nil, nil, &Fail{Code: errWriteConflict, Msg: "human_approval_file_not_admitted: " + pending.approvalRel,
 				Hint: mcpMessage("mcp.human_approval.hint.file_not_admitted", pending.approvalRel)}
 		}
 		result.Status = machinecontract.HumanApprovalStatusAlreadyApproved
@@ -172,36 +192,44 @@ func decideHumanApproval(ctx context.Context, session *mcp.ServerSession, cfg *c
 		result.Message = mcpMessage("mcp.human_approval.result.already_approved", pending.approvalRel)
 		result.NextAction = machinecontract.HumanApprovalActionApply
 		result.NextCommands = humanApprovalCommands(pending.apply)
-		return result, nil
+		return result, nil, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, conflict
+		return nil, nil, conflict
 	}
 	if !pending.eligible {
 		return terminalApprovalResult(result, pending, machinecontract.HumanApprovalStatusTTYRequired,
-			mcpMessage("mcp.human_approval.result.tty_required")), nil
+			mcpMessage("mcp.human_approval.result.tty_required")), nil, nil
 	}
 	if !cfg.AdmitsApprovalMechanism(machinecontract.ApprovalMechanismHostElicitationConfirmation) {
 		return terminalApprovalResult(result, pending, machinecontract.HumanApprovalStatusHostDialogDisabled,
-			mcpMessage("mcp.human_approval.result.host_dialog_disabled")), nil
+			mcpMessage("mcp.human_approval.result.host_dialog_disabled")), nil, nil
 	}
 	if !hostShowsDialogs(session) {
 		return terminalApprovalResult(result, pending, machinecontract.HumanApprovalStatusHostDialogUnavailable,
-			mcpMessage("mcp.human_approval.result.host_dialog_unavailable")), nil
+			mcpMessage("mcp.human_approval.result.host_dialog_unavailable")), nil, nil
 	}
-	answer, err := session.Elicit(ctx, &mcp.ElicitParams{Mode: "form", Message: pending.dialog,
-		RequestedSchema: humanApprovalFormSchema()})
-	if err != nil || answer == nil || answer.Action == "cancel" {
+	answer, dialog, unbound := humanApprovalAsk(ctx, request, session, pending)
+	if dialog != nil {
+		return nil, dialog, nil
+	}
+	if unbound {
+		result.Status = machinecontract.HumanApprovalStatusStale
+		result.Message = mcpMessage("mcp.human_approval.result.answer_unbound")
+		result.NextAction = machinecontract.HumanApprovalActionAskAgain
+		return result, nil, nil
+	}
+	decision, note, decided := humanApprovalAnswer(answer)
+	if !decided {
 		return terminalApprovalResult(result, pending, machinecontract.HumanApprovalStatusDismissed,
-			mcpMessage("mcp.human_approval.result.dismissed")), nil
+			mcpMessage("mcp.human_approval.result.dismissed")), nil, nil
 	}
-	decision, note := humanApprovalAnswer(answer)
 	result.HumanNote = note
 	if decision != machinecontract.HumanApprovalDecisionApprove {
 		result.Status = machinecontract.HumanApprovalStatusRejected
 		result.Message = pending.rejected
 		result.NextAction = machinecontract.HumanApprovalActionAskPerson
 		result.NextCommands = humanApprovalCommands(pending.status)
-		return result, nil
+		return result, nil, nil
 	}
 	data, err := pending.record(hostDialogActor(session), time.Now().UTC().Truncate(time.Second).Format(time.RFC3339))
 	if err == nil {
@@ -209,7 +237,7 @@ func decideHumanApproval(ctx context.Context, session *mcp.ServerSession, cfg *c
 	}
 	if err != nil {
 		return terminalApprovalResult(result, pending, machinecontract.HumanApprovalStatusDismissed,
-			mcpMessage("mcp.human_approval.result.record_failed", localeSafeMCPDetail(err.Error()))), nil
+			mcpMessage("mcp.human_approval.result.record_failed", localeSafeMCPDetail(err.Error()))), nil, nil
 	}
 	result.Status = machinecontract.HumanApprovalStatusApproved
 	result.ApprovalFile = pending.approvalRel
@@ -217,7 +245,62 @@ func decideHumanApproval(ctx context.Context, session *mcp.ServerSession, cfg *c
 	result.Message = mcpMessage("mcp.human_approval.result.approved")
 	result.NextAction = machinecontract.HumanApprovalActionApply
 	result.NextCommands = humanApprovalCommands(pending.apply)
-	return result, nil
+	return result, nil, nil
+}
+
+// humanApprovalAsk gets the person's answer. Before the sessionless revision
+// the server asks with its own elicitation request and waits for the reply.
+// From that revision on such a request is refused, so the first call returns
+// the form as an input request and the client calls again with the answer,
+// which counts only beside the request state this process issued for the
+// same dialog text. A host failure or a closed dialog yields no answer.
+func humanApprovalAsk(ctx context.Context, request *mcp.CallToolRequest, session *mcp.ServerSession, pending *pendingApproval) (*mcp.ElicitResult, *mcp.CallToolResult, bool) {
+	form := &mcp.ElicitParams{Mode: "form", Message: pending.dialog, RequestedSchema: humanApprovalFormSchema()}
+	if !asksThroughInputRequests(session) || request == nil || request.Params == nil {
+		answer, err := session.Elicit(ctx, form)
+		if err != nil {
+			return nil, nil, false
+		}
+		return answer, nil, false
+	}
+	state := humanApprovalState(pending)
+	response, answered := request.Params.InputResponses[humanApprovalInputKey]
+	if !answered {
+		return nil, &mcp.CallToolResult{InputRequests: mcp.InputRequestMap{humanApprovalInputKey: form}, RequestState: state}, false
+	}
+	if !hmac.Equal([]byte(request.Params.RequestState), []byte(state)) {
+		return nil, nil, true
+	}
+	answer, _ := response.(*mcp.ElicitResult)
+	return answer, nil, false
+}
+
+// asksThroughInputRequests reports whether the session negotiated a revision
+// on which the server may not send its own requests.
+func asksThroughInputRequests(session *mcp.ServerSession) bool {
+	if session == nil {
+		return false
+	}
+	params := session.InitializeParams()
+	return params != nil && params.ProtocolVersion >= machinecontract.MCPProtocolSessionless
+}
+
+var humanApprovalStateKey = sync.OnceValue(func() []byte {
+	key := make([]byte, sha256.Size)
+	_, _ = rand.Read(key)
+	return key
+})
+
+// humanApprovalState binds a dialog round to what the person is shown: the
+// kind, where the approval is recorded, and the exact dialog text, under a
+// key only this process holds. An answer to another dialog, from before a
+// restart, or beside an edited state therefore records nothing.
+func humanApprovalState(pending *pendingApproval) string {
+	mac := hmac.New(sha256.New, humanApprovalStateKey())
+	for _, part := range []string{"aoci-human-approval-state/v1", pending.kind, pending.approvalRel, pending.dialog} {
+		fmt.Fprintf(mac, "%d:%s;", len(part), part)
+	}
+	return "v1:" + hex.EncodeToString(mac.Sum(nil))
 }
 
 // terminalApprovalResult is every outcome that leaves the decision to a
@@ -273,19 +356,33 @@ func humanApprovalFormSchema() map[string]any {
 	}
 }
 
-// humanApprovalAnswer reads the form. Decline is a rejection: the person made
-// an explicit choice, and it carries no note.
-func humanApprovalAnswer(answer *mcp.ElicitResult) (string, string) {
-	if answer.Action != "accept" {
-		return machinecontract.HumanApprovalDecisionReject, ""
+// humanApprovalAnswer reads the form and reports whether it decided anything.
+// Decline is a rejection: the person made an explicit choice, and it carries
+// no note. A closed dialog decides nothing, and so does an accepted form
+// without one of the two decisions: the SDK checks a reply to its own
+// elicitation against the form, but nothing checks an answer that comes back
+// as an input response, so the decision is checked here.
+func humanApprovalAnswer(answer *mcp.ElicitResult) (string, string, bool) {
+	if answer == nil {
+		return "", "", false
+	}
+	switch answer.Action {
+	case "accept":
+	case "decline":
+		return machinecontract.HumanApprovalDecisionReject, "", true
+	default:
+		return "", "", false
 	}
 	decision, _ := answer.Content["decision"].(string)
+	if decision != machinecontract.HumanApprovalDecisionApprove && decision != machinecontract.HumanApprovalDecisionReject {
+		return "", "", false
+	}
 	note, _ := answer.Content["note"].(string)
 	note = strings.TrimSpace(note)
 	if utf8.RuneCountInString(note) > humanApprovalNoteMaxRunes {
 		note = string([]rune(note)[:humanApprovalNoteMaxRunes])
 	}
-	return decision, note
+	return decision, note, true
 }
 
 // hostDialogActor names who approved for the audit record: the dialog of the

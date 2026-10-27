@@ -22,14 +22,14 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (53 checks, read-only): the host repository is only read;
+Protocol conformance (58 checks, read-only): the host repository is only read;
 the locale twin lane mints its two fixtures in a temp dir and removes them.
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (79 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (80 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:

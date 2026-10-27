@@ -73,7 +73,16 @@ func scopeApprovalArguments(previewFile string) map[string]any {
 // askHost calls aoci_maintain from a host that answers every dialog with
 // answer, or declares no dialogs when answer is nil, and returns the result,
 // its raw text, whether it was a tool error, and the dialogs it was shown.
+// The host speaks the newest revision, where the dialog is an input request.
 func askHost(t *testing.T, root string, client *mcp.Implementation, arguments map[string]any, answer *mcp.ElicitResult) (map[string]any, string, bool, []*mcp.ElicitParams) {
+	t.Helper()
+	return askHostAt(t, root, client, arguments, answer, "")
+}
+
+// askHostAt is askHost from a host that asks for protocol, or the newest
+// revision when protocol is empty; a handshake-era host gets the server's own
+// elicitation request.
+func askHostAt(t *testing.T, root string, client *mcp.Implementation, arguments map[string]any, answer *mcp.ElicitResult, protocol string) (map[string]any, string, bool, []*mcp.ElicitParams) {
 	t.Helper()
 	server, err := NewServer(root, "human-approval-test")
 	if err != nil {
@@ -98,11 +107,18 @@ func askHost(t *testing.T, root string, client *mcp.Implementation, arguments ma
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	clientSession, err := mcp.NewClient(client, options).Connect(ctx, clientTransport, nil)
+	var sessionOptions *mcp.ClientSessionOptions
+	if protocol != "" {
+		sessionOptions = &mcp.ClientSessionOptions{ProtocolVersion: protocol}
+	}
+	clientSession, err := mcp.NewClient(client, options).Connect(ctx, clientTransport, sessionOptions)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer clientSession.Close()
+	if protocol != "" && clientSession.InitializeResult().ProtocolVersion != protocol {
+		t.Fatalf("host negotiated %q, want %q", clientSession.InitializeResult().ProtocolVersion, protocol)
+	}
 	result, err := clientSession.CallTool(ctx, &mcp.CallToolParams{Name: "aoci_maintain", Arguments: arguments})
 	if err != nil {
 		t.Fatal(err)
@@ -121,10 +137,20 @@ func approveAnswer() *mcp.ElicitResult {
 	return &mcp.ElicitResult{Action: "accept", Content: map[string]any{"decision": "approve"}}
 }
 
+// humanApprovalProtocols are the two ways a host is asked: an input request on
+// the newest revision, the server's own elicitation on the handshake's newest.
+var humanApprovalProtocols = []string{machinecontract.MCPProtocolCurrent, machinecontract.MCPProtocolHandshakeNewest}
+
 func TestHumanApprovalRecordsTheApprovalApplyReads(t *testing.T) {
+	for _, protocol := range humanApprovalProtocols {
+		t.Run(protocol, func(t *testing.T) { humanApprovalRecordsTheApprovalApplyReads(t, protocol) })
+	}
+}
+
+func humanApprovalRecordsTheApprovalApplyReads(t *testing.T, protocol string) {
 	root, previewRel, preview := pendingScopeApprovalRepo(t)
-	result, text, isError, shown := askHost(t, root, &mcp.Implementation{Name: "Claude Code / Desktop", Version: "1"},
-		scopeApprovalArguments(previewRel), approveAnswer())
+	result, text, isError, shown := askHostAt(t, root, &mcp.Implementation{Name: "Claude Code / Desktop", Version: "1"},
+		scopeApprovalArguments(previewRel), approveAnswer(), protocol)
 	if isError || result["status"] != machinecontract.HumanApprovalStatusApproved || len(shown) != 1 {
 		t.Fatalf("approval not recorded: %s", text)
 	}
@@ -150,7 +176,7 @@ func TestHumanApprovalRecordsTheApprovalApplyReads(t *testing.T) {
 	if result["approval_file"] != ".aoci/scope-change/pending/approval.json" || result["formal_writes_started"] != false {
 		t.Fatalf("approval location: %s", text)
 	}
-	again, _, _, shownAgain := askHost(t, root, nil, scopeApprovalArguments(previewRel), approveAnswer())
+	again, _, _, shownAgain := askHostAt(t, root, nil, scopeApprovalArguments(previewRel), approveAnswer(), protocol)
 	if again["status"] != machinecontract.HumanApprovalStatusAlreadyApproved || len(shownAgain) != 0 ||
 		again["approval_mechanism"] != machinecontract.ApprovalMechanismHostElicitationConfirmation {
 		t.Fatalf("a recorded approval was asked again: %v", again)
@@ -172,19 +198,21 @@ func TestHumanApprovalOutcomesThatWriteNothing(t *testing.T) {
 		"cancel":    {&mcp.ElicitResult{Action: "cancel"}, machinecontract.HumanApprovalStatusDismissed, machinecontract.HumanApprovalActionAskAgain, ""},
 		"no-dialog": {nil, machinecontract.HumanApprovalStatusHostDialogUnavailable, machinecontract.HumanApprovalActionTerminal, ""},
 	} {
-		t.Run(name, func(t *testing.T) {
-			root, previewRel, _ := pendingScopeApprovalRepo(t)
-			result, text, isError, _ := askHost(t, root, nil, scopeApprovalArguments(previewRel), test.answer)
-			if isError || result["status"] != test.status || result["next_action"] != test.action {
-				t.Fatalf("%s: %s", name, text)
-			}
-			if note, _ := result["human_note"].(string); note != test.note {
-				t.Fatalf("%s: note %q", name, note)
-			}
-			if _, err := os.Stat(filepath.Join(root, ".aoci", "scope-change", "pending", "approval.json")); !os.IsNotExist(err) {
-				t.Fatalf("%s left an approval: %v", name, err)
-			}
-		})
+		for _, protocol := range humanApprovalProtocols {
+			t.Run(name+"/"+protocol, func(t *testing.T) {
+				root, previewRel, _ := pendingScopeApprovalRepo(t)
+				result, text, isError, _ := askHostAt(t, root, nil, scopeApprovalArguments(previewRel), test.answer, protocol)
+				if isError || result["status"] != test.status || result["next_action"] != test.action {
+					t.Fatalf("%s: %s", name, text)
+				}
+				if note, _ := result["human_note"].(string); note != test.note {
+					t.Fatalf("%s: note %q", name, note)
+				}
+				if _, err := os.Stat(filepath.Join(root, ".aoci", "scope-change", "pending", "approval.json")); !os.IsNotExist(err) {
+					t.Fatalf("%s left an approval: %v", name, err)
+				}
+			})
+		}
 	}
 }
 

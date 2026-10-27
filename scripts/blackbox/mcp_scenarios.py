@@ -1216,6 +1216,94 @@ def group_f_host_dialog():
            + ("" if ok else f" | {t3[:160]} | {(out4 + errs4)[:160]}"))
 
 
+class SessionlessSession(Session):
+    """A client on the sessionless 2026-07-28 revision: it never calls
+    initialize and sends its revision, client information, and capabilities
+    in every request's _meta."""
+    def __init__(self, repo, capabilities=None):
+        self.repo = repo
+        self.on_request = None
+        self.meta = {"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                     "io.modelcontextprotocol/clientInfo": {"name": "aoci-scenarios-sessionless", "version": "1.0"},
+                     "io.modelcontextprotocol/clientCapabilities": capabilities or {}}
+        self.p = subprocess.Popen([BIN, "--repo", repo, "mcp"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            text=True, encoding="utf-8", bufsize=1)
+        self.stderr_capture = BoundedStderr(self.p.stderr)
+        self.next_id = 1
+    def rpc(self, method, params=None, timeout=120):
+        params = dict(params or {})
+        params["_meta"] = dict(self.meta)
+        return super().rpc(method, params, timeout)
+
+
+def group_f_sessionless_dialog():
+    """The host dialog on the sessionless 2026-07-28 revision.
+
+    That revision forbids a server's own requests, so the dialog travels as an
+    input request: the first call returns the form and a request state and
+    writes nothing, and the client calls again with the person's answer beside
+    that state. Driven by a raw sessionless client against the real binary: an
+    answer beside a forged state records nothing, and the issued state with an
+    approval records one that scope apply takes to aligned.
+    """
+    g, name = "F", "F16.sessionless-dialog-round-binds-the-answer-and-applies-to-aligned"
+    d = make_fixture("scope-sessionless-dialog", 1)
+    s = Session(d)
+    try:
+        m, _, _ = maintain(s)
+        applied, text, _ = submit_batch(s, m)
+    finally:
+        s.close()
+    if applied.get("status") != "applied":
+        record(g, name, "FAIL", f"fixture authoring failed: {text[:160]}")
+        return
+    rc, _, _, _ = cli(d, "scope", "approval-mode", "review")
+    rc2, result, out2, errs2 = cli(d, "scope", "activate", expect_ok=False)
+    details = result.get("details") or {}
+    arguments = (details.get("host_dialog_request") or {}).get("arguments") or {}
+    preview = details.get("preview_file", "")
+    approval = os.path.join(os.path.dirname(preview), "approval.json") if preview else ""
+    if rc != 0 or rc2 != 2 or not arguments or not preview:
+        record(g, name, "FAIL", f"activation did not offer a dialog route: rc={rc}/{rc2} | {(out2 + errs2)[:160]}")
+        return
+    watched = (".aoci/config.json", ".aoci/baseline.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt")
+    before = repo_digest(d)
+    s = SessionlessSession(d, capabilities={"elicitation": {"form": {}}})
+    try:
+        first = s.rpc("tools/call", {"name": "aoci_maintain", "arguments": arguments}).get("result") or {}
+        form = (first.get("inputRequests") or {}).get("human_approval") or {}
+        state = first.get("requestState") or ""
+        asked = (first.get("resultType") == "input_required" and form.get("method") == "elicitation/create"
+                 and (form.get("params") or {}).get("mode") == "form" and state.startswith("v1:") and not os.path.exists(approval))
+        answer = {"human_approval": {"action": "accept", "content": {"decision": "approve"}}}
+        t2, err2 = text_of(s.rpc("tools/call", {"name": "aoci_maintain", "arguments": arguments,
+                                                 "inputResponses": answer, "requestState": "v1:" + "0" * 64}))
+        forged = jload(t2)
+        forged_ok = not err2 and forged.get("status") == "stale" and not os.path.exists(approval)
+        t3, err3 = text_of(s.rpc("tools/call", {"name": "aoci_maintain", "arguments": arguments,
+                                                 "inputResponses": answer, "requestState": state}))
+        approved = jload(t3)
+    finally:
+        s.close()
+    recorded = {}
+    try:
+        with open(approval, encoding="utf-8") as fh:
+            recorded = json.load(fh)
+    except (OSError, ValueError):
+        pass
+    untouched = all(before.get(path) == repo_digest(d).get(path) for path in watched)
+    rc4, _, out4, errs4 = cli(d, "scope", "apply", "--preview-file", preview, "--approval-file", approval, expect_ok=False)
+    aligned, _ = fixture_aligned(d)
+    ok = (asked and forged_ok and not err3 and approved.get("status") == "approved"
+          and recorded.get("approval_mechanism") == "host_elicitation_confirmation"
+          and untouched and rc4 == 0 and aligned)
+    record(g, name, "PASS" if ok else "FAIL",
+           f"asked={asked} forged={forged.get('status')} approved={approved.get('status')} "
+           f"mechanism={recorded.get('approval_mechanism')} untouched_before_apply={untouched} apply_rc={rc4} aligned={aligned}"
+           + ("" if ok else f" | {str(first)[:160]} | {t2[:120]} | {t3[:160]} | {(out4 + errs4)[:120]}"))
+
+
 def group_f_observe_review():
     """A Host reviews changed Observe evidence without leaving MCP (#151).
 
@@ -2535,7 +2623,7 @@ GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),
     ("N", group_n), ("F", group_f_scope), ("F", group_f_activate), ("F", group_f_ignored_tool_file),
     ("F", group_f_held_sources), ("F", group_f_deleted_observe), ("F", group_f_excluded_tracked),
-    ("F", group_f_host_dialog), ("F", group_f_observe_review),
+    ("F", group_f_host_dialog), ("F", group_f_observe_review), ("F", group_f_sessionless_dialog),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
     ("H", group_h),

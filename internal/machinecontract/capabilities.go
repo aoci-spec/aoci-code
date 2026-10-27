@@ -27,7 +27,15 @@ const (
 	CognitionOnboardingCompleteV1 = "cognition-onboarding-completion/v1"
 	CognitionOnboardingCompleteV2 = "cognition-onboarding-completion/v2"
 	HostInteractionV1             = "aoci-host-interaction/v1"
-	MCPProtocolCurrent            = "2025-11-25"
+	// MCPProtocolCurrent is the newest MCP revision the server serves.
+	MCPProtocolCurrent = "2026-07-28"
+	// MCPProtocolHandshakeNewest is the newest revision the initialize
+	// handshake negotiates; the SDK caps an initialize answer there.
+	MCPProtocolHandshakeNewest = "2025-11-25"
+	// MCPProtocolSessionless is the first revision without the handshake.
+	// From it on a server may not send its own requests, so asking the person
+	// travels as an input request the client answers by calling again.
+	MCPProtocolSessionless = "2026-07-28"
 )
 
 var mcpToolNames = []string{
@@ -36,12 +44,11 @@ var mcpToolNames = []string{
 }
 
 // mcpSupportedProtocolVersions are the MCP revisions the server negotiates,
-// newest first. They stop at MCPProtocolCurrent, the newest revision with the
-// initialize handshake: 2026-07-28 removes that handshake and blocks the
-// server-initiated elicitation that aoci_maintain intent=human_approval
-// relies on, and no black-box suite speaks it, so the SDK's newer default is
-// narrowed to the set every release before go-sdk 1.7 negotiated.
-var mcpSupportedProtocolVersions = []string{MCPProtocolCurrent, "2025-06-18", "2025-03-26", "2024-11-05"}
+// newest first. A revision joins only once a black-box suite speaks it and
+// every tool works on it: 2026-07-28 joined when the host-dialog approval
+// moved to input requests, since that revision refuses the server-initiated
+// elicitation the approval used before.
+var mcpSupportedProtocolVersions = []string{MCPProtocolCurrent, MCPProtocolHandshakeNewest, "2025-06-18", "2025-03-26", "2024-11-05"}
 
 // MCPSupportedProtocolVersions returns a copy of the negotiated revisions,
 // newest first.

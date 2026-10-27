@@ -6,7 +6,8 @@ Capability Manifest
 
 `aoci-capability-manifest/v1` is the single read-only CLI capability document.
 It reports `product=AOCI-CODE`, `binary=aoci`, the canonical repository and Go
-module, the AOCI version and commit, MCP protocol, sorted nine-tool list and
+module, the AOCI version and commit, the current and negotiated MCP protocol
+revisions, sorted nine-tool list and
 identity, CLI lifecycle capabilities, input contract versions, detected
 layout, supported Planner/Apply/Recovery families, required Agent fields, TTY
 requirements, the host-dialog approval channel, Database capabilities, Overview
@@ -61,6 +62,17 @@ host's dialog (`host_elicitation_confirmation`). `aoci_maintain` with
 for one pending change: `kind=scope_change` with the `preview_file` a paused
 `scope activate` saved under `.aoci/`, or `kind=onboarding` for the prepared
 review of the current onboarding session, Bootstrap or Legacy Migration.
+
+On the sessionless `2026-07-28` revision a server may not send that request
+itself, so the dialog is a round of its own. The first call writes nothing and
+answers `resultType=input_required` with the form under
+`inputRequests.human_approval` and a `requestState`; the client shows the form
+and calls again with the answer in `inputResponses` beside the same
+`requestState`. The answer counts only beside the state that round issued for
+the same dialog text in the same server process: any other state answers
+`status=stale` with nothing written, and an accepted form without approve or
+reject is `status=dismissed`. Earlier revisions keep the server's own
+elicitation request and wait for its reply.
 
 AOCI reads the change from disk and describes it itself; the caller names only
 where it is. A Scope Change preview is first replayed against the repository

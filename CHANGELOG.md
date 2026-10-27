@@ -277,6 +277,21 @@ changes a persisted preimage names the binary every machine then needs.
   at 16 MiB. The release binary gains one module, `golang.org/x/time` v0.15.0
   (BSD-3-Clause, from the Go project), for 23 in all; `THIRD-PARTY-NOTICES`
   and the supply-chain guide list it.
+- The MCP server serves the sessionless `2026-07-28` revision (#66). A client
+  on it sends its revision, client information, and capabilities in every
+  request's `_meta` and may start with `server/discover`; the `initialize`
+  handshake still answers at most `2025-11-25`, and older clients are served
+  as before. That revision forbids a server's own requests, so the host-dialog
+  approval travels as an input request there: the first
+  `aoci_maintain intent=human_approval` call returns the form and a
+  `requestState` and writes nothing, and the client calls again with the
+  person's answer beside that state. An answer beside any other state is
+  `stale` and records nothing, and an accepted form without approve or reject
+  is `dismissed`; earlier revisions keep the server's own elicitation request.
+  The capability manifest's `mcp_protocol` becomes `2026-07-28` and the new
+  `mcp_protocols` lists the five negotiated revisions. The conformance suite
+  gains a sessionless lane (58 checks) and the scenarios a sessionless dialog
+  (80 scenarios).
 
 ## v0.1.0-rc22
 

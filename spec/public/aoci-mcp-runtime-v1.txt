@@ -13,17 +13,17 @@ writes it. A repository with a Legacy index and no configuration, or with a
 configuration that predates the Locale field, is served as `zh-CN` without
 recording that Locale; an ordinary CLI command records it.
 
-The current MCP protocol identity is `2025-11-25`. The server negotiates
-`2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05` through the
-`initialize` handshake and does not serve the `2026-07-28` revision, which
-removes that handshake and the server-initiated elicitation
-`aoci_maintain intent=human_approval` relies on: a client that offers it in
-`initialize` is answered with `2025-11-25`, and a sessionless request carrying
-it in `_meta` is refused with JSON-RPC error `-32022` whose data lists the four
-supported versions. One inbound JSON-RPC frame is bounded at 16 MiB. A
-`tools/list` result carries the cache hints `ttlMs: 0` and `cacheScope:
-public`, so a Host refetches the list instead of caching it, and an unknown
-method answers `-32601`.
+The current MCP protocol identity is `2026-07-28`. The server negotiates
+`2026-07-28`, `2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05`,
+newest first, and the capability manifest lists them as `mcp_protocols`. A
+client on the sessionless `2026-07-28` revision sends its revision, client
+information, and capabilities in each request's `_meta` and may begin with
+`server/discover`; the `initialize` handshake answers at most `2025-11-25`. A
+sessionless request at any other revision is refused with JSON-RPC error
+`-32022` whose data lists the supported versions. One inbound JSON-RPC frame is
+bounded at 16 MiB. A `tools/list` result carries the cache hints `ttlMs: 0` and
+`cacheScope: public`, so a Host refetches the list instead of caching it, and
+an unknown method answers `-32601`.
 
 Tool surface
 ------------
@@ -85,7 +85,8 @@ Human approval
 
 `aoci_maintain` with `intent=human_approval` and `approval_request` asks a
 person rather than the model: it opens an MCP form elicitation for one pending
-protected change and records only the answer, as
+protected change, the server's own request before `2026-07-28` and an input
+request on that revision, and records only the answer, as
 `aoci-host-capability-and-interaction-v1.txt` defines. It answers on both
 layouts, because the way out of a Legacy layout, the migration, needs that
 approval. A client that declares no form elicitation receives

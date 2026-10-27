@@ -44,6 +44,7 @@ type Manifest struct {
 	AOCIVersion              string                `json:"aoci_version"`
 	Commit                   string                `json:"commit"`
 	MCPProtocol              string                `json:"mcp_protocol"`
+	MCPProtocols             []string              `json:"mcp_protocols"`
 	MCPTools                 []string              `json:"mcp_tools"`
 	MCPToolCount             int                   `json:"mcp_tool_count"`
 	MCPToolNameIdentity      string                `json:"mcp_tool_name_identity"`
@@ -73,7 +74,7 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 		Product: machinecontract.ProductName, Binary: machinecontract.BinaryName,
 		CanonicalRepository: machinecontract.CanonicalRepository, GoModule: machinecontract.GoModulePath,
 		AOCIVersion: version, Commit: commit,
-		MCPProtocol: machinecontract.MCPProtocolCurrent, MCPTools: tools, MCPToolCount: len(tools), MCPToolNameIdentity: machinecontract.MCPToolNameIdentity(),
+		MCPProtocol: machinecontract.MCPProtocolCurrent, MCPProtocols: machinecontract.MCPSupportedProtocolVersions(), MCPTools: tools, MCPToolCount: len(tools), MCPToolNameIdentity: machinecontract.MCPToolNameIdentity(),
 		CLILifecycleCapabilities: []string{"bootstrap", "database_cognition_bootstrap", "migration", "migration_reversal", "baseline_scope_refresh", "managed_scope_change", "policy_bound_auto_authorization", "fresh_bootstrap_auto_eligibility_v1", "observe_evidence_review", "cognition_budget", "cognition_onboarding", "fresh_bootstrap_semantic_authoring_v2", "cognition_lineage_v1", "database_to_code_impact_v1", "cognition_evolution_v1", "narrow_system_relation_projection_v1"},
 		InputSchemaVersions: []string{machinecontract.CapabilityManifestV1, machinecontract.SafeInventoryV2, machinecontract.BaselineScopePlanV1,
 			machinecontract.BaselineScopePreviewV1, machinecontract.BaselineScopeApprovalV1, machinecontract.BaselineScopeApplyResultV1,
