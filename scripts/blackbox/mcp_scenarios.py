@@ -2680,12 +2680,18 @@ def main(argv=None):
     for letter, fn in GROUP_RUNS:
         if wanted and letter not in wanted:
             continue
-        if fn is group_b:
-            bigfx = group_b()
-        elif fn is group_d:
-            group_d(bigfx)
-        else:
-            fn()
+        # A group that dies part way, such as a status-page request that stalls
+        # past its timeout, is recorded as that group's failure: the remaining
+        # groups still run and the summary still prints, and the run stays red.
+        try:
+            if fn is group_b:
+                bigfx = group_b()
+            elif fn is group_d:
+                group_d(bigfx)
+            else:
+                fn()
+        except Exception as error:
+            record(letter, f"{fn.__name__}.crashed", "FAIL", f"{type(error).__name__}: {error}"[:200])
     ok, detail = host_window_summary()
     record("W", "W1.every-non-overview-response-fits-host-window", "PASS" if ok else "FAIL", detail)
     print()
