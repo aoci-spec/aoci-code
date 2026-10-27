@@ -271,6 +271,10 @@ outlives Host compactions, so the server records what the Host cannot:
   consumes the pending events, closes it. Scoped deliveries never open an
   attempt: the reload this section protects is the Whole-Index, so an
   unattested small read can never lower the verdict;
+- an incomplete Host confirmation without a model proof half does not close
+  the attempt. The next fresh compaction declaration still interrupts it.
+  The independent model proof path, including a failed semantic assessment,
+  retains its existing closing behavior;
 - a context_compaction declared with a fresh refresh_event_id while an attempt
   is open is an interruption. It sets the Host-capacity verdict to the
   attempt's estimated tokens (the smallest interrupted size wins) and closes

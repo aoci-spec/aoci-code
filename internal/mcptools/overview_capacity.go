@@ -215,6 +215,11 @@ func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRend
 	delivery.Facts.ChainID = chainID
 	delivery.Facts.RefreshReasons = append([]string(nil), reasons...)
 	if delivery.Facts.DeliveryMode == overviewDeliveryAttestation {
+		// An incomplete confirmation alone proves no transport. Keep the
+		// attempt open without changing the independent model-proof path.
+		if delivery.Attestation.DeliveryIntegrity == deliveryIntegrityIncomplete && !delivery.Attestation.ReportProvided {
+			return
+		}
 		if attempt := session.compactionAttempt; attempt != nil && attempt.ScopeIdentity == delivery.Facts.IndexSHA256 {
 			session.compactionAttempt = nil
 		}

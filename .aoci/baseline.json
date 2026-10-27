@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-27T02:06:07Z",
+  "updated_at": "2026-10-27T03:10:24Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "6302d09b7945bb97625f30f7d0bff97f68b81dad4105ec014b820d5196da257c",
-      "size": 208591,
-      "normalized_sha256": "6302d09b7945bb97625f30f7d0bff97f68b81dad4105ec014b820d5196da257c"
+      "sha256": "198fb96a87424b2ac052903714cbf8f39843a833d48821d81f07bb3f9c8887c3",
+      "size": 208550,
+      "normalized_sha256": "198fb96a87424b2ac052903714cbf8f39843a833d48821d81f07bb3f9c8887c3"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4499,10 +4499,18 @@
     },
     "internal/mcptools/overview_capacity.go": {
       "role": "index",
-      "sha256": "64ee7378cc7fe62362ad53b430053070f83e5138610765f9d2dca327a41908d9",
-      "size": 14818,
-      "normalized_sha256": "64ee7378cc7fe62362ad53b430053070f83e5138610765f9d2dca327a41908d9",
-      "format_sha256": "64ee7378cc7fe62362ad53b430053070f83e5138610765f9d2dca327a41908d9",
+      "sha256": "af9e18d9d64afd82d1b4ae9ecbf54e97a3a5c3fdcdfa8f7c991f79a9c35d0444",
+      "size": 15086,
+      "normalized_sha256": "af9e18d9d64afd82d1b4ae9ecbf54e97a3a5c3fdcdfa8f7c991f79a9c35d0444",
+      "format_sha256": "af9e18d9d64afd82d1b4ae9ecbf54e97a3a5c3fdcdfa8f7c991f79a9c35d0444",
+      "format_kind": "gofmt"
+    },
+    "internal/mcptools/overview_capacity_confirmation_test.go": {
+      "role": "observe",
+      "sha256": "284a86c250440745700037bd6f76fbec66fec4b80cd3793ba9f088b9533d5e68",
+      "size": 3996,
+      "normalized_sha256": "284a86c250440745700037bd6f76fbec66fec4b80cd3793ba9f088b9533d5e68",
+      "format_sha256": "284a86c250440745700037bd6f76fbec66fec4b80cd3793ba9f088b9533d5e68",
       "format_kind": "gofmt"
     },
     "internal/mcptools/overview_capacity_test.go": {
@@ -6371,9 +6379,9 @@
     },
     "spec/public/aoci-cognition-refresh-v1.txt": {
       "role": "index",
-      "sha256": "79047a46a76edf597cbe1c69ea22c690329828842e47c63d7b3c2faf1303c070",
-      "size": 16654,
-      "normalized_sha256": "79047a46a76edf597cbe1c69ea22c690329828842e47c63d7b3c2faf1303c070"
+      "sha256": "1117778f7021c3c7964ad0b97987086740574fc4b08f1e968d8acf4f1dbf0a09",
+      "size": 16921,
+      "normalized_sha256": "1117778f7021c3c7964ad0b97987086740574fc4b08f1e968d8acf4f1dbf0a09"
     },
     "spec/public/aoci-cognition-state-v2.txt": {
       "role": "index",
