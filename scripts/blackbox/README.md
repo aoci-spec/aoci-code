@@ -131,8 +131,9 @@ the Legacy layout is read-only and migration is its one exit, so this runner
 proves that exit end to end. The last release that authors Legacy indexes
 (`LEGACY_RELEASE`, default v0.1.0-rc22, taken checksum-verified from the
 upgrade axis's cache through `mcp_upgrade.py --fetch`) builds a small Legacy
-repository the way its users did and proves it aligned with its own Verify and
-Check. The binary under test must then route it to onboarding, refuse a write,
+repository in each Locale, en-US and zh-CN, the way its users did, since the
+two Headers differ in every line, and proves each aligned with its own Verify
+and Check. The binary under test must then route it to onboarding, refuse a write,
 and carry it through the migration: the authoring batches, the mapping
 template, Preview, Prepare, an approval the runner gives as the person in the
 host dialog, and Apply. After the Guide's onboard command the runner spells no
@@ -143,7 +144,8 @@ the Code Volume must hold every Legacy business Entry byte for byte and not
 the Root-owned self-Entry. The runner plays the host and its model; plans,
 templates, Previews, approval records, and Apply decisions are the binary's,
 and the result is judged from the published files as text. `--keep` retains
-the repository:
+the repositories and `--locale` runs one Locale. Any release that authored
+Legacy indexes can be the author; v0.1.0-rc8 through rc22 all migrate:
 
 ```bash
 make legacy-migration BUILD_BIN=build/aoci-<label>

@@ -256,7 +256,7 @@
    "id": "legacy-migration",
    "cadence": "nightly",
    "command": "make legacy-migration BUILD_BIN=build/aoci-<label>",
-   "proves": "A Legacy repository the last Legacy-authoring release built and aligned migrates, through onboarding and a host-dialog approval, to aligned Volumes v1 with every Code Entry byte for byte, running only the commands each result names: the one exit from the read-only Legacy layout",
+   "proves": "A Legacy repository in each Locale, built and aligned by the last Legacy-authoring release, migrates through onboarding and a host-dialog approval to aligned Volumes v1 with every Code Entry byte for byte, running only the commands each result names: the one exit from the read-only Legacy layout",
    "preconditions": [
     "network or the upgrade-axis cache for the LEGACY_RELEASE binary (default v0.1.0-rc22)"
    ],
@@ -266,7 +266,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-28",
-    "evidence": ".aoci/dev-tools/legacy-migration-drill-proto.txt (12/12 following only next_commands; the 76bed8f build fails at the first named step)"
+    "evidence": ".aoci/dev-tools/legacy-migration-drill-zh.txt (24/24: en-US and zh-CN Legacy indexes, rc22 author, following only next_commands)"
    }
   },
   {

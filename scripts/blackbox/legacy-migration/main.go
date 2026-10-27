@@ -1,8 +1,8 @@
 // Command legacy-migration drills the one way out of the Legacy layout, which
 // 0.2.0 makes read-only. A released binary that could still author a Legacy
-// index builds one the way its users did and proves it aligned; the binary
-// under test then migrates it as a host would, to an aligned Volumes v1
-// repository whose Code Entries are the Legacy ones. After the Guide's onboard
+// index builds one in each Locale the way its users did and proves it aligned;
+// the binary under test then migrates each as a host would, to an aligned
+// Volumes v1 repository whose Code Entries are the Legacy ones. After the Guide's onboard
 // command the runner spells no command of its own: it runs what each result
 // names in next_commands, in a POSIX shell from the repository root, with its
 // own files in place of the placeholders, so a migration a host cannot follow
@@ -38,6 +38,9 @@ import (
 
 var passed, failed int
 
+// round names the locale whose Legacy index the checks below belong to.
+var round string
+
 func check(name string, ok bool, detail string) bool {
 	status := "PASS"
 	if ok {
@@ -46,7 +49,7 @@ func check(name string, ok bool, detail string) bool {
 		status = "FAIL"
 		failed++
 	}
-	line := status + " " + name
+	line := status + " " + round + "/" + name
 	if detail != "" {
 		line += " | " + detail
 	}
@@ -57,7 +60,8 @@ func check(name string, ok bool, detail string) bool {
 func main() {
 	binary := flag.String("binary", "", "the AOCI binary under test")
 	legacyBinary := flag.String("legacy-binary", "", "a released AOCI binary that still authors Legacy indexes (v0.1.0-rc22 or older)")
-	keep := flag.Bool("keep", false, "retain the disposable repository")
+	keep := flag.Bool("keep", false, "retain the disposable repositories")
+	only := flag.String("locale", "", "migrate only the Legacy index written in this Locale (default: every Locale)")
 	flag.Parse()
 	if *binary == "" || *legacyBinary == "" {
 		fmt.Fprintln(os.Stderr, "usage: legacy-migration --binary <aoci under test> --legacy-binary <released aoci that authors Legacy>")
@@ -72,10 +76,15 @@ func main() {
 	if !*keep {
 		defer os.RemoveAll(dir)
 	}
-	root := filepath.Join(dir, "repository")
-	fmt.Printf("legacy-migration | under test %s | Legacy author %s | %s\n", version(under), version(released), root)
-	if err := run(under, released, root); err != nil {
-		check("drill.completed", false, err.Error())
+	fmt.Printf("legacy-migration | under test %s | Legacy author %s | %s\n", version(under), version(released), dir)
+	for _, locale := range []string{"en-US", "zh-CN"} {
+		if *only != "" && *only != locale {
+			continue
+		}
+		round = locale
+		if err := run(under, released, filepath.Join(dir, locale, "repository"), fixtures[locale]); err != nil {
+			check("drill.completed", false, err.Error())
+		}
 	}
 	if *keep {
 		fmt.Println("kept " + dir)
@@ -86,8 +95,8 @@ func main() {
 	}
 }
 
-func run(under, released, root string) error {
-	legacy, err := authorLegacyRepository(released, root)
+func run(under, released, root string, fixture legacyFixture) error {
+	legacy, err := authorLegacyRepository(released, root, fixture)
 	if err != nil {
 		return fmt.Errorf("building the Legacy fixture: %w", err)
 	}
@@ -118,7 +127,7 @@ func run(under, released, root string) error {
 	if err != nil {
 		return err
 	}
-	candidate, err := authorCandidate(plan, legacy, root)
+	candidate, err := authorCandidate(plan, legacy, root, fixture)
 	if err != nil {
 		return err
 	}
@@ -180,15 +189,59 @@ func run(under, released, root string) error {
 	return nil
 }
 
-// selfEntry is the Entry a Legacy index holds for itself, which Verify asks for
-// and which the migration must move to the Root rather than into Code.
-const selfEntry = "aoci.txt[CG8M]: F:Holds this repository's complete AOCI cognition index | R:- | A:- | S:-"
+// legacyFixture is one Locale's Legacy repository: the Header dictionary
+// lines that replace the skeleton's placeholders, the business Entries the
+// model writes, the Entry the index holds for itself (which Verify asks for
+// and the migration must move to the Root rather than into Code), and the
+// candidate Meta's dictionaries. A Legacy index keeps the Locale it was
+// written in, and the two Headers differ in every line, so each is migrated.
+type legacyFixture struct {
+	header    map[string]string
+	entries   map[string]string
+	selfEntry string
+	meta      []string
+}
 
-// legacyIndex is what the released binary wrote: the exact index text and
-// the Entry lines of the business files, keyed by repository-relative path.
+var fixtures = map[string]legacyFixture{
+	"en-US": {
+		header: map[string]string{`(?m)^#A Layer: .*$`: "#A Layer: C-Code X-EntryPoint", `(?m)^#B Module: .*$`: "#B Module: G-General",
+			`(?m)^#D Trait \(optional\): .*$`: "#D Trait (optional): -"},
+		entries: map[string]string{
+			".gitattributes": ".gitattributes[CG3T]: F:Normalizes repository text line endings so content hashes stay deterministic | R:- | A:- | S:-",
+			"AGENTS.md":      "AGENTS.md[CG5T]: F:Tells agents how to establish, reuse, and maintain AOCI cognition for this repository | R:- | A:- | S:-",
+			"pkg/util.go":    "util.go[CG5T]: F:Adds two integers for the example program | R:- | A:Add | S:-",
+			"src/main.go":    "main.go[XG7T]: F:Prints a greeting as the example program entry point | R:- | A:main | S:-",
+		},
+		selfEntry: "aoci.txt[CG8M]: F:Holds this repository's complete AOCI cognition index | R:- | A:- | S:-",
+		meta: []string{"#[Tag dictionary: code]", "#A Layer: C-Code X-EntryPoint", "#B Module: G-General",
+			"#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge", "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100",
+			"#[Tag dictionary: database]", "#A Layer: D-Database", "#B Module: S-Schema",
+			"#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge", "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100"},
+	},
+	"zh-CN": {
+		header: map[string]string{`(?m)^#A层级: .*$`: "#A层级: C-代码 X-入口", `(?m)^#B模块: .*$`: "#B模块: G-通用",
+			`(?m)^#D特征\(可选\): .*$`: "#D特征(可选): -"},
+		entries: map[string]string{
+			".gitattributes": ".gitattributes[CG3T]: F:统一仓库文本换行符，保证内容哈希稳定 | R:- | A:- | S:-",
+			"AGENTS.md":      "AGENTS.md[CG5T]: F:告诉智能体如何建立、复用和维护本仓库的 AOCI 认知 | R:- | A:- | S:-",
+			"pkg/util.go":    "util.go[CG5T]: F:为示例程序做整数加法 | R:- | A:Add | S:-",
+			"src/main.go":    "main.go[XG7T]: F:示例程序入口，打印问候语 | R:- | A:main | S:-",
+		},
+		selfEntry: "aoci.txt[CG8M]: F:保存本仓库完整的 AOCI 认知索引 | R:- | A:- | S:-",
+		meta: []string{"#[Tag dictionary: code]", "#A Layer: C-代码 X-入口", "#B Module: G-通用",
+			"#C Importance: 9-最高 8-很高 7-高 5-中等 3-低 1-最低", "#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100",
+			"#[Tag dictionary: database]", "#A Layer: E-实体主表", "#B Module: G-跨域通用",
+			"#C Importance: 9-最高 8-很高 7-高 5-中等 3-低 1-最低", "#E Scale: L-大>400 M-中200-400 S-小100-200 T-微<100"},
+	},
+}
+
+// legacyIndex is what the released binary wrote: the exact index text, the
+// Entry lines of the business files keyed by repository-relative path, and
+// the index's own Entry.
 type legacyIndex struct {
-	text    string
-	entries map[string]string
+	text      string
+	entries   map[string]string
+	selfEntry string
 }
 
 // authorLegacyRepository builds a Legacy repository with released commands
@@ -196,7 +249,7 @@ type legacyIndex struct {
 // the Legacy skeleton, the Header gets a real tag dictionary before the first
 // scan, Maintain issues the business files, the Legacy write path records
 // them, and the CLI records the self-Entry Verify asks for.
-func authorLegacyRepository(released, root string) (*legacyIndex, error) {
+func authorLegacyRepository(released, root string, fixture legacyFixture) (*legacyIndex, error) {
 	files := map[string]string{
 		"src/main.go": "package main\n\nimport \"fmt\"\n\nfunc main() { fmt.Println(\"hello\") }\n",
 		"pkg/util.go": "package pkg\n\n// Add returns a+b.\nfunc Add(a, b int) int { return a + b }\n",
@@ -206,7 +259,7 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 			return nil, err
 		}
 	}
-	if err := writeText(filepath.Join(root, ".aoci", "config.json"), "{\n  \"locale\": \"en-US\"\n}\n"); err != nil {
+	if err := writeText(filepath.Join(root, ".aoci", "config.json"), "{\n  \"locale\": \""+round+"\"\n}\n"); err != nil {
 		return nil, err
 	}
 	for _, args := range [][]string{{"init", "-q"}, {"config", "user.email", "drill@example.invalid"}, {"config", "user.name", "drill"},
@@ -224,9 +277,12 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 		return nil, err
 	}
 	text := string(data)
-	for pattern, line := range map[string]string{`(?m)^#A Layer: .*$`: "#A Layer: C-Code X-EntryPoint", `(?m)^#B Module: .*$`: "#B Module: G-General",
-		`(?m)^#D Trait \(optional\): .*$`: "#D Trait (optional): -"} {
-		text = regexp.MustCompile(pattern).ReplaceAllString(text, line)
+	for pattern, line := range fixture.header {
+		replaced := regexp.MustCompile(pattern).ReplaceAllString(text, line)
+		if replaced == text {
+			return nil, fmt.Errorf("the released skeleton has no line matching %s", pattern)
+		}
+		text = replaced
 	}
 	if err := writeText(indexPath, text); err != nil {
 		return nil, err
@@ -234,12 +290,7 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 	if _, err := succeed(released, root, "scan"); err != nil {
 		return nil, fmt.Errorf("released scan: %w", err)
 	}
-	authored := map[string]string{
-		".gitattributes": ".gitattributes[CG3T]: F:Normalizes repository text line endings so content hashes stay deterministic | R:- | A:- | S:-",
-		"AGENTS.md":      "AGENTS.md[CG5T]: F:Tells agents how to establish, reuse, and maintain AOCI cognition for this repository | R:- | A:- | S:-",
-		"pkg/util.go":    "util.go[CG5T]: F:Adds two integers for the example program | R:- | A:Add | S:-",
-		"src/main.go":    "main.go[XG7T]: F:Prints a greeting as the example program entry point | R:- | A:main | S:-",
-	}
+	authored := fixture.entries
 	maintained, err := callTool(released, root, "aoci_maintain", map[string]any{}, nil)
 	if err != nil {
 		return nil, err
@@ -265,7 +316,7 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := succeed(released, root, "update-entry", "--path", "aoci.txt", "--source-sha256", digest, "--entry", selfEntry); err != nil {
+	if _, err := succeed(released, root, "update-entry", "--path", "aoci.txt", "--source-sha256", digest, "--entry", fixture.selfEntry); err != nil {
 		return nil, fmt.Errorf("released self-Entry: %w", err)
 	}
 	_, _, verifyCode, _ := cliRaw(released, root, "verify")
@@ -279,9 +330,9 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 	if err != nil {
 		return nil, err
 	}
-	legacy := &legacyIndex{text: string(final), entries: authored}
+	legacy := &legacyIndex{text: string(final), entries: authored, selfEntry: fixture.selfEntry}
 	recorded := 0
-	for _, line := range append(mapValues(authored), selfEntry) {
+	for _, line := range append(mapValues(authored), fixture.selfEntry) {
 		if strings.Contains(legacy.text, "\n"+line+"\n") {
 			recorded++
 		}
@@ -360,17 +411,14 @@ func loadPlan(root string, session map[string]any) (*cognitionplan.Plan, error) 
 // dictionary admits the Legacy tags and which carries one reviewed rule line
 // per Legacy Header atom, and a Code Volume holding the Legacy business
 // Entries byte for byte in their sections, without the Root-owned self-Entry.
-func authorCandidate(plan *cognitionplan.Plan, legacy *legacyIndex, root string) (*cognitionplan.LayoutCandidate, error) {
+func authorCandidate(plan *cognitionplan.Plan, legacy *legacyIndex, root string, fixture legacyFixture) (*cognitionplan.LayoutCandidate, error) {
 	rootLines := []string{cognition.RootManifestMarker, "#Format-Version: cognition-volumes/v1", "#Locale: " + plan.Locale,
 		"#Project: Legacy migration drill", "#Global-Invariants: Keep the meaning of every migrated Entry",
 		"#Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled",
 		"#Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled"}
-	metaLines := []string{cognition.MetaVolumeMarker, "#Object-Protocol: repository-cognition-object/v2", "#FRAS-Discipline: 2",
-		"#FRAS-v2-Limits-Authority: machine-contract", "#S-Admission: non-inferable-and-error-preventing", "#Object-Kinds: code=file database=table",
-		"#[Tag dictionary: code]", "#A Layer: C-Code X-EntryPoint", "#B Module: G-General",
-		"#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge", "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100",
-		"#[Tag dictionary: database]", "#A Layer: D-Database", "#B Module: S-Schema",
-		"#C Importance: 9-core 8-high-frequency 7-business 5-routine 3-supporting 1-edge", "#E Scale: L-large>400 M-medium200-400 S-small100-200 T-tiny<100"}
+	metaLines := append([]string{cognition.MetaVolumeMarker, "#Object-Protocol: repository-cognition-object/v2", "#FRAS-Discipline: 2",
+		"#FRAS-v2-Limits-Authority: machine-contract", "#S-Admission: non-inferable-and-error-preventing", "#Object-Kinds: code=file database=table"},
+		fixture.meta...)
 	headerAtoms := 0
 	for _, record := range plan.Mapping.Records {
 		if record.UnitKind != "entry" && record.Mode != machinecontract.CognitionMappingStructuralOnly {
@@ -620,8 +668,8 @@ func checkEntriesPreserved(root string, legacy *legacyIndex) {
 	sort.Strings(missing)
 	volumes := rootErr == nil && strings.HasPrefix(string(rootData), cognition.RootManifestMarker)
 	check("entries.code_volume_carries_the_legacy_entries", codeErr == nil && volumes && len(missing) == 0 &&
-		len(got) == len(legacy.entries) && !got[selfEntry], fmt.Sprintf("volumes_root=%t code_entries=%d changed_or_missing=%v self_entry_in_code=%t",
-		volumes, len(got), missing, got[selfEntry]))
+		len(got) == len(legacy.entries) && !got[legacy.selfEntry], fmt.Sprintf("volumes_root=%t code_entries=%d changed_or_missing=%v self_entry_in_code=%t",
+		volumes, len(got), missing, got[legacy.selfEntry]))
 }
 
 // host runs what AOCI's results name, as a host's shell would: from the
