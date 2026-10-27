@@ -312,7 +312,7 @@ func applyUpdateEntriesAtomicBound(
 	if fail != nil {
 		if !dryRun {
 			appendWriteFailEvent(
-				root, "update_entries_batch", source, fail.Code, start,
+				root, "update_entries_batch", source, fail, start,
 			)
 		}
 		return nil, fail
@@ -325,7 +325,7 @@ func applyUpdateEntriesAtomicBound(
 			Hint: writeMessage("entry.batch.hint.refresh_binding"),
 		}
 		if !dryRun {
-			appendWriteFailEvent(root, "update_entries_batch", source, fail.Code, start)
+			appendWriteFailEvent(root, "update_entries_batch", source, fail, start)
 		}
 		return nil, fail
 	}
@@ -336,7 +336,7 @@ func applyUpdateEntriesAtomicBound(
 			Hint: writeMessage("entry.batch.hint.generation_plan_stale"),
 		}
 		if !dryRun {
-			appendWriteFailEvent(root, "update_entries_batch", source, fail.Code, start)
+			appendWriteFailEvent(root, "update_entries_batch", source, fail, start)
 		}
 		return nil, fail
 	}
@@ -359,7 +359,7 @@ func applyUpdateEntriesAtomicBound(
 	if plan.volumePlan != nil && plan.volumePlan.allPost {
 		baselineNote, baselineComplete, reconcileFail := reconcileCognitionVolumeBatch(root, source, plan, retainRecovery)
 		if reconcileFail != nil {
-			appendWriteFailEvent(root, "update_entries_batch", source, reconcileFail.Code, start)
+			appendWriteFailEvent(root, "update_entries_batch", source, reconcileFail, start)
 			return nil, reconcileFail
 		}
 		return &AtomicBatchOutcome{
@@ -373,7 +373,7 @@ func applyUpdateEntriesAtomicBound(
 	)
 	if fail != nil {
 		appendWriteFailEvent(
-			root, "update_entries_batch", source, fail.Code, start,
+			root, "update_entries_batch", source, fail, start,
 		)
 		return nil, fail
 	}

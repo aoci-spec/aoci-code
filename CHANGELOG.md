@@ -187,6 +187,18 @@ changes a persisted preimage names the binary every machine then needs.
   capability manifest gains `host_dialog`. An approval recorded in a dialog
   needs this release to apply.
 
+- The Ledger says why a governed call ended where it did (#150). Maintain
+  events wrote only `repair_required` or `error`, so waiting for authoring,
+  waiting for an observe review, a refused candidate, and a recovery stop
+  could not be told apart after the fact, and a failing `check` read as
+  `result=ok` beside `exit_code=1`. Ledger schema 9 adds `governance_result`,
+  `blocker`, `next_action`, `formal_writes_started`, and `batch_id` to
+  Maintain, `update_entries_batch`, and `human_approval` events, and
+  `check_passed` with the verdict to `check` and `verify`, whose `result` now
+  only says the command ran. A refused candidate is recorded as
+  `repair_required`. The fields are machine tokens; no source, Entry text, or
+  connection detail is recorded, and no MCP response changes.
+
 ## v0.1.0-rc22
 
 The rc21 soak's findings and nine contributed fixes: the S hard limit is the

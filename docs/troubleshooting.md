@@ -107,6 +107,22 @@ stdio MCP is incremental. Keep stdin open, send `initialize`, wait for its respo
 
 They do not change the formal index or Baseline. With Ledger enabled they may append local audit events, and Verify may write Verify History. Use an isolated copy when an audit requires literally zero filesystem writes.
 
+## Reading what happened from `.aoci/ledger.jsonl`
+
+`result` stays coarse: a Maintain waiting for authoring reads
+`repair_required`, and a stopped one reads `error`. Since Ledger schema 9 the
+event also says why. `governance_result` is the machine verdict the response
+carried (`authoring_required`, `blocked`, `evidence_required`, `aligned`);
+`blocker` is the finding that stopped it, such as `observed_pending`,
+`scope_change_required`, or `recovery_pending`; `next_action` is the action the
+response named; `formal_writes_started` says whether formal assets were
+touched; and `batch_id` joins a Maintain to the `update_entries_batch` that
+consumed its batch. A refused candidate reads `result=repair_required`, not
+`error`. For `check` and `verify`, `result` means the command ran and
+`check_passed` is the verdict, so a failing check is `check_passed=false` with
+its exit code. Events written before schema 9 carry none of these fields and
+cannot be reclassified.
+
 ## Formal Volume Baseline drift
 
 `managed_scope_formal_volume_baseline_drift: <asset>` means Scope Change could

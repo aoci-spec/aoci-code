@@ -58,7 +58,8 @@ import (
 )
 
 // EventSchemaVersion是当前新写入Ledger事件的机器协议版本。
-const EventSchemaVersion = 8
+// 9 adds the governance outcome fields (#150).
+const EventSchemaVersion = 9
 
 // Source枚举:事件发起方。
 const (
@@ -176,6 +177,20 @@ type Event struct {
 	FormatOnlyFiles   int `json:"format_only_files,omitempty"`
 	DuplicateApplies  int `json:"duplicate_applies,omitempty"`
 	RepeatedMaintains int `json:"repeated_maintains,omitempty"`
+
+	// Governance outcome of a governed call (#150). result keeps its coarse
+	// meaning; these say which machine verdict the call reached, the finding
+	// that stopped it, the next action it named, whether formal writes began,
+	// and the batch it bound. For check and verify, result is that the
+	// command ran and check_passed is the verdict, so a failing check no
+	// longer reads as ok with exit_code=1. Machine tokens only: never source,
+	// Entry text, or connection details.
+	GovernanceResult    string `json:"governance_result,omitempty"`
+	Blocker             string `json:"blocker,omitempty"`
+	NextAction          string `json:"next_action,omitempty"`
+	FormalWritesStarted *bool  `json:"formal_writes_started,omitempty"`
+	BatchID             string `json:"batch_id,omitempty"`
+	CheckPassed         *bool  `json:"check_passed,omitempty"`
 
 	// Entries post-write recovery and supersession proof.
 	RecoveryStatus        string   `json:"recovery_status,omitempty"`

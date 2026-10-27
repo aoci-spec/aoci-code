@@ -132,16 +132,15 @@ func handleHumanApproval(ctx context.Context, session *mcp.ServerSession, root s
 		}
 	}
 	// The person's answer is the human's event; every outcome that asked no
-	// one is the agent's, and names why in fail_code.
-	event := ledger.Event{Op: "human_approval", Source: ledger.SourceAgent, Result: ledger.ResultError,
-		FailCode: result.Status, DurationMs: time.Since(start).Milliseconds()}
+	// one is the agent's. governance_result names which outcome it was.
+	event := ledger.Event{Op: "human_approval", Source: ledger.SourceAgent, Result: ledger.ResultOK,
+		GovernanceResult: result.Status, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
+		DurationMs: time.Since(start).Milliseconds()}
 	switch result.Status {
 	case machinecontract.HumanApprovalStatusApproved:
-		event.Source, event.Result, event.FailCode = ledger.SourceHuman, ledger.ResultOK, ""
+		event.Source = ledger.SourceHuman
 	case machinecontract.HumanApprovalStatusRejected:
-		event.Source, event.Result, event.FailCode = ledger.SourceHuman, ledger.ResultRejected, ""
-	case machinecontract.HumanApprovalStatusAlreadyApproved:
-		event.Result, event.FailCode = ledger.ResultOK, ""
+		event.Source, event.Result = ledger.SourceHuman, ledger.ResultRejected
 	}
 	ledger.Append(root, cfg.LedgerEnabled, event)
 	data, err := json.Marshal(result)

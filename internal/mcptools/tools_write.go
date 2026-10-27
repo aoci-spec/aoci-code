@@ -57,31 +57,35 @@ func indexTextHash(
 }
 
 // appendWriteFailEvent记录失败路径；配置加载失败时静默跳过。
+// appendWriteFailEvent records a refused or failed write. A repairable
+// refusal is the candidate-validation outcome the response calls
+// repair_required, not an execution error, and the event says whether formal
+// writes had begun (#150).
 func appendWriteFailEvent(
 	root,
 	op,
-	source,
-	failCode string,
+	source string,
+	fail *Fail,
 	start time.Time,
 ) {
 	cfg, err := config.Load(
 		root,
 	)
-	if err != nil {
+	if err != nil || fail == nil {
 		return
 	}
-
-	ledger.Append(
-		root,
-		cfg.LedgerEnabled,
-		ledger.Event{
-			Op:         op,
-			DurationMs: time.Since(start).Milliseconds(),
-			Source:     source,
-			Result:     resultForFailCode(failCode),
-			FailCode:   failCode,
-		},
-	)
+	event := ledger.Event{
+		Op:                  op,
+		DurationMs:          time.Since(start).Milliseconds(),
+		Source:              source,
+		Result:              resultForFailCode(fail.Code),
+		FailCode:            fail.Code,
+		FormalWritesStarted: ledgerFlag(fail.FormalWritesStarted),
+	}
+	if fail.Repairable {
+		event.Result, event.GovernanceResult = ledger.ResultRepairRequired, autoStatusRepairRequired
+	}
+	ledger.Append(root, cfg.LedgerEnabled, event)
 }
 
 // prepareUpdateEntry在调用方提供的当前索引上下文上规划一条更新。

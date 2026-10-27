@@ -193,9 +193,14 @@ func handleCognitionOptimizationMaintain(
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
-	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
+	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledger.ResultOK, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
-		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
+		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
+		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false)}
+	if result.CodePlan != nil {
+		event.BatchID = result.CodePlan.BatchID
+	}
+	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
 	boundMaintainTransport(&result)
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {

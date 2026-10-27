@@ -296,6 +296,7 @@ func runVerify(
 		exitCode = ExitDrift
 	}
 
+	passed := exitCode == ExitOK
 	ledger.Append(
 		root,
 		cfg.LedgerEnabled,
@@ -306,6 +307,7 @@ func runVerify(
 			DriftWarned: unresolved > 0,
 			Source:      ledger.SourceHuman,
 			ExitCode:    &exitCode,
+			CheckPassed: &passed,
 		},
 	)
 
@@ -376,7 +378,11 @@ func renderVolumeVerify(cmd *cobra.Command, root string, paths config.Paths, cfg
 	if !report.GovernanceAligned {
 		exitCode = ExitDrift
 	}
-	ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "verify", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceHuman, EntryCount: volumeObjectCount(set), ExitCode: &exitCode})
+	// result says verify ran; check_passed is its verdict (#150).
+	passed := exitCode == ExitOK
+	ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "verify", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceHuman,
+		EntryCount: volumeObjectCount(set), ExitCode: &exitCode,
+		GovernanceResult: facts.Result, NextAction: facts.NextRequiredAction, CheckPassed: &passed})
 	if flagJSON {
 		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(data))
 		if err != nil {

@@ -25,6 +25,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -83,7 +84,10 @@ func handleLegacyReadOnlyMaintain(root, mcpServiceVersion string) *mcp.CallToolR
 	if repository, fail := loadRepoCtx(root); fail == nil {
 		indexText = repository.text
 	}
-	ledger.Append(root, true, ledger.Event{Op: "maintain", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent, Result: machinecontract.StatusLegacyReadOnlyMigrateRequired})
+	ledger.Append(root, true, ledger.Event{Op: "maintain", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent,
+		Result: machinecontract.StatusLegacyReadOnlyMigrateRequired, GovernanceResult: volumegovernance.ResultBlocked,
+		Blocker: machinecontract.StatusLegacyReadOnlyMigrateRequired, NextAction: machinecontract.MaintainActionMigrateLegacyRepository,
+		FormalWritesStarted: ledgerFlag(false)})
 	return textResult(renderAutoResult(autoResult{
 		Version: 1,
 		Status:  autoStatusStopped,

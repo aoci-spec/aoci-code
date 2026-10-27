@@ -13,6 +13,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -159,10 +160,22 @@ func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp
 	} else if result.Status == autoStatusRepairRequired {
 		ledgerResult = ledger.ResultRepairRequired
 	}
-	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{
+	event := ledger.Event{
 		Op: "maintain", Source: ledger.SourceAgent, Result: ledgerResult,
 		PathsCount: result.Metrics.SemanticFiles, DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: result.Metrics.SemanticFiles,
-	})
+		GovernanceResult: volumegovernance.ResultBlocked, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
+	}
+	switch {
+	case result.Aligned:
+		event.GovernanceResult = volumegovernance.ResultAligned
+	case result.Plan != nil:
+		event.GovernanceResult, event.BatchID = volumegovernance.ResultAuthoringRequired, result.Plan.BatchID
+	case len(result.Findings) > 0:
+		// A database finding is "<state>: <identity>" or a bare action token;
+		// the Ledger keeps the token and never the source or table identity.
+		event.Blocker = strings.TrimSpace(strings.SplitN(result.Findings[0], ":", 2)[0])
+	}
+	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
 	return textResult(string(data) + "\n")
 }

@@ -254,6 +254,7 @@ func runCheckCommand(
 		exitCode = ExitDrift
 	}
 
+	passed := report.OK
 	ledger.Append(
 		repoRoot,
 		cfg.LedgerEnabled,
@@ -265,6 +266,7 @@ func runCheckCommand(
 			DriftWarned:   actionableDrift > 0,
 			WarningsCount: len(issues),
 			ExitCode:      &exitCode,
+			CheckPassed:   &passed,
 		},
 	)
 
@@ -396,9 +398,12 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 		StructureValid: facts.StructureValid, GovernanceAligned: facts.GovernanceAligned,
 		Findings: append([]volumegovernance.Finding{}, facts.Findings...), NextAction: facts.NextRequiredAction,
 		Governance: facts, EScale: &escale}
+	// result says the check ran; check_passed is its verdict (#150).
+	passed := report.OK
 	ledger.Append(root, cfg.LedgerEnabled, ledger.Event{Op: "check", Source: ledger.SourceHuman,
 		PathsCount: facts.CodeSourceCount, DurationMs: time.Since(start).Milliseconds(),
-		DriftWarned: !report.OK, WarningsCount: len(report.Findings), ExitCode: &exitCode})
+		DriftWarned: !report.OK, WarningsCount: len(report.Findings), ExitCode: &exitCode,
+		GovernanceResult: facts.Result, NextAction: facts.NextRequiredAction, CheckPassed: &passed})
 	if flagJSON {
 		encoder := json.NewEncoder(cmd.OutOrStdout())
 		encoder.SetIndent("", "  ")

@@ -985,7 +985,8 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 		}
 	}
 	ledgerEvent := ledger.Event{Op: "update_entries_batch", PathsCount: len(plan.rels), DurationMs: time.Since(plan.start).Milliseconds(), Source: source,
-		Result: ledger.ResultOK, AppliedCount: len(plan.rels), RecoveryTransactionID: plan.batchKey}
+		Result: ledger.ResultOK, AppliedCount: len(plan.rels), RecoveryTransactionID: plan.batchKey,
+		FormalWritesStarted: ledgerFlag(true), BatchID: plannedBatchID(plan)}
 	if err := ensureVolumeLedger(root, plan.rc.cfg.LedgerEnabled, ledgerEvent); err != nil {
 		return "entries_ledger_persist_failed", false, nil
 	}
@@ -995,6 +996,17 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 		}
 	}
 	return note, true, nil
+}
+
+// plannedBatchID is the machine batch a write consumed, the batch_id its
+// Maintain recorded, so the Ledger joins the two (#150).
+func plannedBatchID(plan *atomicBatchPlan) string {
+	for _, item := range plan.normalizedItems {
+		if item.batchID != "" {
+			return item.batchID
+		}
+	}
+	return ""
 }
 
 func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPlan) *Fail {

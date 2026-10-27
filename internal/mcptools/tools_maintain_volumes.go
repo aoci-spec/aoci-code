@@ -228,9 +228,18 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	} else if result.Status == autoStatusRepairRequired {
 		ledgerResult = ledger.ResultRepairRequired
 	}
-	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
+	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
-		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates)})
+		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
+		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
+		BatchID: result.Batch.BatchIdentity}
+	if result.CodePlan != nil && result.CodePlan.BatchID != "" {
+		event.BatchID = result.CodePlan.BatchID
+	}
+	if result.Status == autoStatusStopped {
+		event.Blocker = maintainBlocker(facts, result.OrphanRemovals, result.Stop != nil)
+	}
+	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
 	boundMaintainTransport(&result)
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {
@@ -498,8 +507,17 @@ func fillVolumeCandidateScale(root string, thresholds *index.EScaleThresholds, c
 // that acts on next_action alone no longer tries to remove orphans that do not
 // exist when the only blocker is a pending Observe review (#147).
 func blockedNextAction(facts *volumegovernance.Facts, orphans []string) string {
+	_, action := blockingFinding(facts, orphans)
+	return action
+}
+
+// blockingFinding is the one choice of which finding stops a blocked Maintain
+// and the action that clears it, in Guide-stop precedence: next_action and
+// the Ledger's blocker read the same answer. code is empty when no finding
+// names the stop.
+func blockingFinding(facts *volumegovernance.Facts, orphans []string) (string, string) {
 	if len(orphans) > 0 {
-		return machinecontract.MaintainActionExplicitOrphanRemove
+		return "orphan", machinecontract.MaintainActionExplicitOrphanRemove
 	}
 	codes := map[string]bool{}
 	if facts != nil {
@@ -515,8 +533,27 @@ func blockedNextAction(facts *volumegovernance.Facts, orphans []string) string {
 		{"cognition_budget_exceeded", machinecontract.MaintainActionResolveCognitionBudget},
 	} {
 		if codes[step.code] {
-			return step.action
+			return step.code, step.action
 		}
 	}
-	return machinecontract.MaintainActionResolveBlocker
+	if facts != nil && len(facts.Findings) > 0 {
+		return facts.Findings[0].Code, machinecontract.MaintainActionResolveBlocker
+	}
+	return "", machinecontract.MaintainActionResolveBlocker
+}
+
+// maintainBlocker names, for the Ledger, what stopped a Maintain: the
+// unspellable directory that withholds a batch, otherwise the blocking
+// finding.
+func maintainBlocker(facts *volumegovernance.Facts, orphans []string, unspellable bool) string {
+	if unspellable {
+		return errDirectoryUnspellable
+	}
+	code, _ := blockingFinding(facts, orphans)
+	return code
+}
+
+// ledgerFlag is a Ledger boolean that records false as well as true.
+func ledgerFlag(value bool) *bool {
+	return &value
 }
