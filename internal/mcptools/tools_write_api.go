@@ -771,7 +771,7 @@ func withVolumeBatchIDs(input []updateEntryItemIn, codeBatchID, databaseBatchID 
 }
 
 func appendAutoFinalizeEvent(root, status string, metrics autoMetrics) {
-	cfg, err := config.Load(root)
+	cfg, err := config.LoadReadOnly(root)
 	if err != nil || cfg == nil {
 		return
 	}

@@ -1018,7 +1018,7 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 			volumePlan.recovery.CodeBatchID == volumePlan.codeReceipt.BatchID &&
 			codeRecoveryPostimage(root, volumePlan.recovery)
 		if !recoveredPostimage {
-			cfg, err := config.Load(root)
+			cfg, err := config.LoadReadOnly(root)
 			if err != nil {
 				return &Fail{Code: errWriteConflict, Msg: "code_candidate_configuration_changed"}
 			}
@@ -1035,7 +1035,7 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 		}
 	}
 	if volumePlan.databaseReceipt != nil {
-		cfg, err := config.Load(root)
+		cfg, err := config.LoadReadOnly(root)
 		if err != nil {
 			return &Fail{Code: errWriteConflict, Msg: "database_candidate_configuration_changed"}
 		}

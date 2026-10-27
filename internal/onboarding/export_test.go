@@ -55,9 +55,8 @@ func PreparedBootstrapReviewForTest(t *testing.T, configure func(*config.Config)
 
 // PreparedLegacyMigrationForTest builds a Legacy repository whose migration
 // session has stopped at its human approval. The team configuration is
-// written before the session starts, as init leaves it in a real repository:
-// a server started on a repository without one materializes it, and that
-// write would drift the prepared envelope. configure edits it first.
+// written before the session starts, as init leaves it in a real repository;
+// configure edits it first.
 func PreparedLegacyMigrationForTest(t *testing.T, configure func(*config.Config)) string {
 	t.Helper()
 	root := t.TempDir()

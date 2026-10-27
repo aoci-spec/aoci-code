@@ -173,7 +173,7 @@ func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
 			Hint: mcpMessage("overview.delivery.pending_recovery_hint"),
 		}
 	}
-	cfg, err := config.Load(root)
+	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
 		return nil, &Fail{Code: errIndexInvalid, Msg: mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())), Hint: mcpMessage("mcp.error.invalid_config_hint")}
 	}
@@ -272,7 +272,10 @@ func RunStdio(ctx context.Context, root, version string) error {
 // caller: the tool layer never infers it from Git, PATH, the index, or
 // configuration.
 func NewServer(root, version string) (*mcp.Server, error) {
-	cfg, err := config.Load(root)
+	// The server only reads configuration: Load would write the legacy Locale
+	// upgrade into a repository that has none, drifting the configuration
+	// bytes a prepared migration or Scope preview is bound to.
+	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
 		return nil, err
 	}

@@ -68,7 +68,7 @@ func appendWriteFailEvent(
 	fail *Fail,
 	start time.Time,
 ) {
-	cfg, err := config.Load(
+	cfg, err := config.LoadReadOnly(
 		root,
 	)
 	if err != nil || fail == nil {

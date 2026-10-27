@@ -8,6 +8,11 @@ Transport and identity
 `serverInfo.version` is the version injected into the running binary. Stdout is
 reserved for JSON-RPC frames. Logs and diagnostics are written to stderr.
 
+The server reads the team configuration at startup and on every call and never
+writes it. A repository with a Legacy index and no configuration, or with a
+configuration that predates the Locale field, is served as `zh-CN` without
+recording that Locale; an ordinary CLI command records it.
+
 The current MCP protocol identity is `2025-11-25`.
 
 Tool surface

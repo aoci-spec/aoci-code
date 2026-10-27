@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-fast-dup.txt (branch v0.2.0-line, Entries-already-in-place wording)"
+    "evidence": ".aoci/dev-tools/make-fast-cfgro.txt (branch v0.2.0-line, MCP reads configuration without writing it)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt (branch v0.2.0-line, Entries-already-in-place wording)"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (branch v0.2.0-line, MCP reads configuration without writing it)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt (53 passed)"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (53 passed)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt (79 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (79 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt (93 PASS, 2 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (93 PASS, 2 CHAR)"
    }
   },
   {
@@ -107,7 +107,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt (mysql:8.4 lane inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (mysql:8.4 lane inside make verify)"
    }
   },
   {
@@ -234,7 +234,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/coverage-floors-dup.txt (13 packages at or above their floors)"
+    "evidence": ".aoci/dev-tools/coverage-floors-cfgro.txt (13 packages at or above their floors)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-dup.txt"
+    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/public-text-dup.txt (293 files clean)"
+    "evidence": ".aoci/dev-tools/public-text-cfgro.txt (294 files clean)"
    }
   }
  ]

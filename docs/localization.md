@@ -23,10 +23,12 @@ after changing Locale, restart the host's AOCI MCP process.
 ## Existing projects
 
 An existing project created before the Locale field was introduced, with an
-index but no Locale field, is deterministically treated as `zh-CN`. AOCI
-materializes `"locale": "zh-CN"` in the shared
-configuration without rewriting `aoci.txt`. This rule uses project state, not
-language detection or model inference.
+index but no Locale field, is deterministically treated as `zh-CN`. An ordinary
+CLI command materializes `"locale": "zh-CN"` in the shared configuration
+without rewriting `aoci.txt`. The MCP server and the hooks resolve the same
+Locale without writing the configuration, so starting a server cannot change
+the bytes a prepared migration or Scope Change preview is bound to. This rule
+uses project state, not language detection or model inference.
 
 ## Changing an indexed project
 

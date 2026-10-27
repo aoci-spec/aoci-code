@@ -229,6 +229,15 @@ changes a persisted preimage names the binary every machine then needs.
   come from an earlier Apply or an unchanged resubmission and that the
   Baseline binds the current sources. Status, counts, `duplicate_applies`,
   and Ledger events are unchanged.
+- The MCP server no longer writes the team configuration. Started on a
+  repository whose configuration predates the Locale field, or that has a
+  Legacy index and no configuration, it wrote `"locale": "zh-CN"` into
+  `.aoci/config.json`, which drifted the bytes a migration envelope or Scope
+  Change preview prepared before the server started is bound to, so that
+  approval or Apply answered stale. The server now resolves the same `zh-CN`
+  without writing it, and an ordinary CLI command still records it. A
+  repository that already has its configuration, which `init` writes, sees
+  no change.
 
 ## v0.1.0-rc22
 
