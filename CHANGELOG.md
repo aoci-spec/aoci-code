@@ -254,6 +254,17 @@ changes a persisted preimage names the binary every machine then needs.
   message, in the repository's Locale, that names the file, says it was left
   unchanged, and asks for it to be inspected before it is rebuilt. A missing
   Baseline is still a successful status result.
+- A SQLite source can be declared (#109, dayebishouji; first slice of #83).
+  `aoci database source add --engine sqlite --path data/app.db` saves one
+  explicit file, relative to the repository root or absolute, in the `main`
+  namespace, with no database name and no credential environment variable;
+  URI filenames, `:memory:`, and server-only fields are refused. Nothing opens
+  the file yet: SQLite access, inspect, snapshot, and verify answer
+  `database_engine_not_implemented` until the read-only collector lands, so a
+  repository with a Database Volume should not declare one before then. The
+  team configuration's `database` and `credential_env` fields become
+  `omitempty`: a SQLite declaration writes neither, and a server declaration
+  is written exactly as before.
 
 ## v0.1.0-rc22
 

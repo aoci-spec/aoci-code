@@ -49,7 +49,10 @@ specific file. The declaration defaults to the `main` namespace. This first
 step only saves and lists the declaration: `source access`, `source inspect`,
 `snapshot`, and `verify` return `database_engine_not_implemented` until the
 SQLite read-only collector lands. No file is opened or searched for at this
-stage.
+stage. Until then, do not declare a SQLite source in a repository that already
+has a Database Volume: Database governance waits for Evidence from every enabled
+source, and a SQLite source cannot produce any yet, so Verify, Check, and Guide
+would stay at evidence_required.
 
 The include/exclude flags accept Go-style glob patterns over the entire
 identifier and may be repeated. A slash is an identifier character, not a path
