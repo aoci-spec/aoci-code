@@ -127,7 +127,11 @@ func init() {
 			// Baseline概况。默认模式只读取元数据，不重新哈希仓库。
 			baselineValue, exists, loadErr := baseline.Load(root)
 			if loadErr != nil {
-				return &ExitError{Code: ExitInvalid, Err: loadErr}
+				return &ExitError{
+					Code: ExitInvalid,
+					Err:  loadErr,
+					Msg:  cliMessage("status.baseline_unreadable", localeSafeCLIDetail(loadErr.Error())),
+				}
 			}
 			if exists {
 				report.BaselineExists = true

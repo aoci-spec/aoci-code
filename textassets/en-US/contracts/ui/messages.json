@@ -940,6 +940,7 @@
   "search.missing_query": "provide at least one of keyword or tag_filter",
   "status.baseline_exists": "%d files (updated %s)",
   "status.baseline_missing": "missing — run aoci scan first",
+  "status.baseline_unreadable": "The Baseline .aoci/baseline.json cannot be read and was left unchanged; inspect it before deciding whether to rebuild it: %s",
   "status.deep_budget": "Cognition budget: %s | mode=%s | violations=%d",
   "status.deep_counts": "deep: Missing %d | Orphan %d | Stale %d | Unbaselined %d | LineEndingOnly %d",
   "status.deep_managed": "Managed Scope: change_required=%t | ObservedNew=%d | ObservedChanged=%d | ObservedRemoved=%d | review_required=%t",

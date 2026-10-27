@@ -95,3 +95,39 @@ func TestStatusDistinguishesPresentAndMissingBaseline(t *testing.T) {
 		})
 	}
 }
+
+// The loader reports an unreadable Baseline in zh-CN, so without a message of
+// its own an en-US status fell back to the generic invalid-input sentence,
+// which tells the reader to retry with another candidate. Each Locale names
+// the file, says it was left unchanged, and keeps the loader's facts.
+func TestStatusNamesTheUnreadableBaselineInTheRepositoryLocale(t *testing.T) {
+	for locale, want := range map[string][]string{
+		"en-US": {".aoci/baseline.json", "cannot be read and was left unchanged", "baseline.json"},
+		"zh-CN": {".aoci/baseline.json", "文件未被修改", "请人工核对"},
+	} {
+		t.Run(locale, func(t *testing.T) {
+			root := t.TempDir()
+			cfg := config.DefaultConfig()
+			cfg.Locale = locale
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), []byte("{broken"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			if code := executeCLI([]string{"--repo", root, "status"}, &stdout, &stderr); code != ExitInvalid {
+				t.Fatalf("unreadable Baseline: exit=%d stdout=%s stderr=%s", code, &stdout, &stderr)
+			}
+			message := stderr.String()
+			for _, fragment := range want {
+				if !strings.Contains(message, fragment) {
+					t.Fatalf("missing %q in the %s message: %s", fragment, locale, message)
+				}
+			}
+			if strings.Contains(message, "error_code=invalid") {
+				t.Fatalf("status fell back to the generic invalid-input message: %s", message)
+			}
+		})
+	}
+}

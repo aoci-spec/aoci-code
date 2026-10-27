@@ -238,6 +238,21 @@ changes a persisted preimage names the binary every machine then needs.
   without writing it, and an ordinary CLI command still records it. A
   repository that already has its configuration, which `init` writes, sees
   no change.
+- A compaction reload that the Host failed to confirm still reaches the
+  capacity stop (#154, dayebishouji). A Host delivery confirmation with a
+  wrong body hash, a wrong byte count, or no end marker answers
+  `host_delivery_incomplete`, and that call also closed the open reload
+  attempt, so the compaction that followed restarted the reload at Chunk 1
+  instead of answering `capacity_stop`. An incomplete confirmation without a
+  model proof half now leaves the attempt open; a model proof half, passing
+  or failing, and a complete confirmation close it as before.
+- `aoci status` reports an unreadable Baseline instead of a missing one
+  (#153, dayebishouji). A corrupt `.aoci/baseline.json`, or a directory in
+  its place, read as `baseline_exists=false` with exit 0 and a hint to create
+  a Baseline. It now exits 2 with the error envelope under `--json` and a
+  message, in the repository's Locale, that names the file, says it was left
+  unchanged, and asks for it to be inspected before it is rebuilt. A missing
+  Baseline is still a successful status result.
 
 ## v0.1.0-rc22
 

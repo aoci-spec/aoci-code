@@ -940,6 +940,7 @@
   "search.missing_query": "keyword 与 tag_filter 至少提供一个",
   "status.baseline_exists": "%d 文件(更新于 %s)",
   "status.baseline_missing": "不存在 —— 请先 aoci scan",
+  "status.baseline_unreadable": "无法读取 Baseline .aoci/baseline.json，文件未被修改：%s",
   "status.deep_budget": "认知预算: %s | mode=%s | violations=%d",
   "status.deep_counts": "deep: Missing %d | Orphan %d | Stale %d | Unbaselined %d | LineEndingOnly %d",
   "status.deep_managed": "Managed Scope: change_required=%t | ObservedNew=%d | ObservedChanged=%d | ObservedRemoved=%d | review_required=%t",
