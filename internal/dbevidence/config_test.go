@@ -86,6 +86,37 @@ func TestOpenGaussDefaultsToPublicAndRejectsAliases(t *testing.T) {
 	}
 }
 
+func TestSQLiteSourceRequiresOnlyExplicitFilePath(t *testing.T) {
+	source := SourceConfig{SourceID: "local", Engine: EngineSQLite, Path: "data/app.db", Enabled: true}
+	if err := NormalizeSource(&source); err != nil {
+		t.Fatal(err)
+	}
+	if len(source.Namespaces) != 1 || source.Namespaces[0] != "main" || source.Database != "" || source.CredentialEnv != "" {
+		t.Fatalf("unexpected SQLite defaults: %+v", source)
+	}
+	for name, mutate := range map[string]func(*SourceConfig){
+		"missing path":    func(s *SourceConfig) { s.Path = "" },
+		"URI path":        func(s *SourceConfig) { s.Path = "file:app.db?mode=rw" },
+		"memory database": func(s *SourceConfig) { s.Path = ":memory:" },
+		"connection URI":  func(s *SourceConfig) { s.Path = "https://example.test/app.db" },
+		"database name":   func(s *SourceConfig) { s.Database = "app" },
+		"credential env":  func(s *SourceConfig) { s.CredentialEnv = "AOCI_DB_LOCAL_DSN" },
+		"other namespace": func(s *SourceConfig) { s.Namespaces = []string{"temp"} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := source
+			mutate(&candidate)
+			if err := NormalizeSource(&candidate); err == nil {
+				t.Fatal("unsupported SQLite source declaration was accepted")
+			}
+		})
+	}
+	server := SourceConfig{SourceID: "primary", Engine: EnginePostgreSQL, Database: "app", CredentialEnv: "AOCI_DB_PRIMARY_DSN", Path: "data/app.db"}
+	if err := NormalizeSource(&server); err == nil {
+		t.Fatal("server source accepted SQLite path")
+	}
+}
+
 func TestTableFiltersTreatSlashAsIdentifierText(t *testing.T) {
 	source := SourceConfig{SourceID: "primary", Engine: EnginePostgreSQL, Database: "app", Namespaces: []string{"public"}, IncludeTables: []string{"sales*"}, CredentialEnv: "AOCI_DB_DSN", Enabled: true}
 	if err := NormalizeSource(&source); err != nil {

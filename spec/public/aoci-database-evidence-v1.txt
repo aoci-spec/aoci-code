@@ -26,11 +26,20 @@ draft, truncate a candidate, or create/update/delete formal cognition.
 
 2. Explicit source configuration
 
-Team configuration may contain database_sources. Each declaration contains a
+Team configuration may contain database_sources. Each server declaration contains a
 logical source_id, engine (postgresql, mysql, or opengauss), database, namespaces,
 include/exclude namespace and table globs, credential_env, connect and query
 timeouts, and enabled. credential_env is an environment variable name. A DSN,
 password, token, host, IP, or username is invalid as team configuration.
+
+As an additive 0.2.0 preparation step, a sqlite declaration may instead carry
+one explicit path and the main namespace. It does not require database or
+credential_env; those server-only fields are rejected for sqlite, and path is
+rejected for server engines. A relative path is relative to the repository root;
+an absolute path names that exact file. URI filenames and credential-shaped
+values are rejected. Saving or listing this declaration never opens the file
+or scans for database files. SQLite access, inspect, snapshot, and verify still
+fail closed with engine_not_implemented until the read-only collector lands.
 
 No source means no database connection, evidence file, database warning, or
 database Missing state. Database access occurs only for explicit database

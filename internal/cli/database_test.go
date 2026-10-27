@@ -96,6 +96,62 @@ func TestDatabaseSourceCLIAcceptsCanonicalOpenGaussEngine(t *testing.T) {
 	}
 }
 
+func TestDatabaseSourceCLIStoresSQLitePathWithoutCredentials(t *testing.T) {
+	root := databaseCLIRepo(t)
+	var stdout, stderr bytes.Buffer
+	add := []string{"--repo", root, "--json", "database", "source", "add",
+		"--source-id", "local", "--engine", "sqlite", "--path", "data/app.db"}
+	if code := executeCLI(add, &stdout, &stderr); code != ExitOK {
+		t.Fatalf("SQLite source add failed: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil || len(cfg.DatabaseSources) != 1 || cfg.DatabaseSources[0].Path != "data/app.db" ||
+		cfg.DatabaseSources[0].CredentialEnv != "" || cfg.DatabaseSources[0].Database != "" {
+		t.Fatalf("bad SQLite source: cfg=%+v err=%v", cfg, err)
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := executeCLI([]string{"--repo", root, "--json", "database", "source", "list"}, &stdout, &stderr); code != ExitOK {
+		t.Fatalf("SQLite source list failed: code=%d stderr=%s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"path": "data/app.db"`) || strings.Contains(stdout.String(), `"credential_env"`) {
+		t.Fatalf("SQLite source list exposed server-only configuration: %s", stdout.String())
+	}
+	for _, command := range []string{"access", "inspect"} {
+		stdout.Reset()
+		stderr.Reset()
+		args := []string{"--repo", root, "--json", "database", "source", command, "--source", "local"}
+		if code := executeCLI(args, &stdout, &stderr); code != ExitConfig || !strings.Contains(stdout.String()+stderr.String(), "database_engine_not_implemented") {
+			t.Fatalf("SQLite %s did not fail closed: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
+		}
+	}
+	for _, command := range []string{"snapshot", "verify"} {
+		stdout.Reset()
+		stderr.Reset()
+		args := []string{"--repo", root, "--json", "database", command, "--source", "local"}
+		if code := executeCLI(args, &stdout, &stderr); code != ExitConfig || !strings.Contains(stdout.String()+stderr.String(), "database_engine_not_implemented") {
+			t.Fatalf("SQLite %s did not fail closed: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
+		}
+	}
+}
+
+func TestDatabaseSourceCLIStillRequiresServerDatabaseName(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--path", "data/app.db"}} {
+		root := databaseCLIRepo(t)
+		args := []string{"--repo", root, "--json", "database", "source", "add",
+			"--source-id", "primary", "--engine", "postgresql"}
+		args = append(args, extra...)
+		var stdout, stderr bytes.Buffer
+		if code := executeCLI(args, &stdout, &stderr); code != ExitConfig {
+			t.Fatalf("server source without database name was accepted: code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+		}
+		cfg, err := config.LoadBase(root)
+		if err != nil || len(cfg.DatabaseSources) != 0 {
+			t.Fatalf("rejected source changed configuration: cfg=%+v err=%v", cfg, err)
+		}
+	}
+}
+
 func TestDatabaseSourceCLIRejectsUnknownAndOpenGaussAliases(t *testing.T) {
 	for _, engine := range []string{"openGauss", "gaussdb", "open_gauss", "og", "postgres", "unknown"} {
 		t.Run(engine, func(t *testing.T) {

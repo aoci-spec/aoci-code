@@ -3,6 +3,7 @@ package dbevidence
 import (
 	"fmt"
 	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sort"
@@ -61,16 +62,33 @@ func NormalizeSource(source *SourceConfig) error {
 		return fmt.Errorf("source_id must match %s and be a logical non-secret name", sourceIDPattern)
 	}
 	if !supportedEngine(source.Engine) {
-		return fmt.Errorf("engine must be postgresql, mysql, or opengauss")
+		return fmt.Errorf("engine must be postgresql, mysql, opengauss, or sqlite")
 	}
-	if looksCredentialLike(source.Database) {
-		return fmt.Errorf("database must be a name, not connection or credential material")
-	}
-	if err := validateIdentifier("database", source.Database); err != nil {
-		return err
-	}
-	if !envNamePattern.MatchString(source.CredentialEnv) {
-		return fmt.Errorf("credential_env must be an environment variable name, not a credential value")
+	if source.Engine == EngineSQLite {
+		if source.Database != "" || source.CredentialEnv != "" {
+			return fmt.Errorf("sqlite uses path instead of database and credential_env")
+		}
+		if err := validateIdentifier("path", source.Path); err != nil {
+			return err
+		}
+		if looksCredentialLike(source.Path) || strings.HasPrefix(strings.ToLower(source.Path), "file:") ||
+			strings.EqualFold(source.Path, ":memory:") ||
+			filepath.Clean(source.Path) == "." {
+			return fmt.Errorf("sqlite path must name one database file, not a URI or credential")
+		}
+	} else {
+		if source.Path != "" {
+			return fmt.Errorf("path is only valid for sqlite")
+		}
+		if looksCredentialLike(source.Database) {
+			return fmt.Errorf("database must be a name, not connection or credential material")
+		}
+		if err := validateIdentifier("database", source.Database); err != nil {
+			return err
+		}
+		if !envNamePattern.MatchString(source.CredentialEnv) {
+			return fmt.Errorf("credential_env must be an environment variable name, not a credential value")
+		}
 	}
 	if source.ConnectTimeoutSeconds == 0 {
 		source.ConnectTimeoutSeconds = defaultConnectTimeoutSeconds
@@ -92,6 +110,8 @@ func NormalizeSource(source *SourceConfig) error {
 	if len(source.Namespaces) == 0 {
 		if source.Engine == EnginePostgreSQL || source.Engine == EngineOpenGauss {
 			source.Namespaces = []string{"public"}
+		} else if source.Engine == EngineSQLite {
+			source.Namespaces = []string{"main"}
 		} else {
 			source.Namespaces = []string{source.Database}
 		}
@@ -102,6 +122,9 @@ func NormalizeSource(source *SourceConfig) error {
 				return fmt.Errorf("mysql namespace must equal the configured database in v1")
 			}
 		}
+	}
+	if source.Engine == EngineSQLite && (len(source.Namespaces) != 1 || source.Namespaces[0] != "main") {
+		return fmt.Errorf("sqlite namespace must be main in v1")
 	}
 	for _, target := range []struct {
 		name  string
@@ -236,7 +259,7 @@ func systemNamespace(engine Engine, namespace string) bool {
 
 func supportedEngine(engine Engine) bool {
 	switch engine {
-	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
+	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss, EngineSQLite:
 		return true
 	default:
 		return false

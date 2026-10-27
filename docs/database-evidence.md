@@ -36,6 +36,21 @@ aoci database source add \
 For MySQL, `--namespace` must equal `--database-name` in v1. `--namespace`
 defaults to `public` for PostgreSQL and openGauss and to the configured
 database for MySQL.
+
+SQLite source declarations can be prepared separately with a single explicit
+file path, without a database name or credential environment variable:
+
+```bash
+aoci database source add --source-id local --engine sqlite --path data/app.db
+```
+
+Relative paths are anchored to the repository root; absolute paths name one
+specific file. The declaration defaults to the `main` namespace. This first
+step only saves and lists the declaration: `source access`, `source inspect`,
+`snapshot`, and `verify` return `database_engine_not_implemented` until the
+SQLite read-only collector lands. No file is opened or searched for at this
+stage.
+
 The include/exclude flags accept Go-style glob patterns over the entire
 identifier and may be repeated. A slash is an identifier character, not a path
 separator:
@@ -45,8 +60,9 @@ separator:
 ```
 
 `source_id` is a stable project-local logical name, not a host, IP, username,
-or credential. The team file stores only `credential_env`. Put the connection
-string in that environment variable:
+or credential. For server sources, the team file stores only `credential_env`
+as a credential reference. Put the connection string in that environment
+variable:
 
 ```bash
 export AOCI_DB_PRIMARY_DSN='<user-owned connection string>'
