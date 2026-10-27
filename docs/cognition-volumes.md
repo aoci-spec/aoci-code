@@ -344,6 +344,16 @@ machine decision, and a blocked result names its blocker there:
 `acknowledge_observed_evidence`, `resolve_cognition_budget`, or
 `resolve_blocker`, in that precedence.
 
+Pending observations also have an MCP route. A Maintain blocked by them
+carries `observe_review`: the new, changed, or removed Observe paths with the
+SHA-256 of their current bytes, the `review_digest` binding the complete list,
+and `confirm_request`, the call that confirms it. `aoci_maintain` with
+`intent=observe_review` and that digest runs the `scope acknowledge`
+transaction over exactly the listed bytes; a digest the current list no
+longer has answers `stale` with the current listing and writes nothing. A
+list too long to show in full carries no confirmation and goes through the
+terminal route. See `managed-scope-and-budget.md`.
+
 The current repair path closes an ownership-conflicting Entry,
 which is one of those governed orphans. Ordinary
 orphan removal still rejects a still-valid relation. The only exception is an

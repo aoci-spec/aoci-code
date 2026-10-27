@@ -270,3 +270,19 @@ const (
 	StatusLegacyReadOnlyMigrateRequired   = "legacy_read_only_migrate_required"
 	MaintainActionMigrateLegacyRepository = "migrate_legacy_repository"
 )
+
+// Observe review through MCP (#151). A Maintain blocked by observed_pending
+// publishes the pending evidence and the digest that binds it; the
+// observe_review intent confirms that exact list through the same Scope
+// transaction as scope acknowledge.
+const (
+	MaintainIntentObserveReview = "observe_review"
+
+	ObserveReviewStatusAcknowledged          = "acknowledged"
+	ObserveReviewStatusStale                 = "stale"
+	ObserveReviewStatusNotPending            = "not_pending"
+	ObserveReviewStatusHumanApprovalRequired = "human_approval_required"
+
+	ObserveReviewActionReviewCurrent = "review_current_observe_evidence"
+	ObserveReviewActionHumanApproval = "request_human_approval"
+)

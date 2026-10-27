@@ -37,6 +37,15 @@ func TestMaintainToolDescriptionMatchesGoldenByteForByte(
 	t *testing.T,
 ) {
 	actual := maintainToolDescription() + "\n"
+	// AOCI_UPDATE_GOLDEN=1 (make update-goldens) writes the production
+	// rendering back instead of comparing against it.
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		path := filepath.Join("..", "..", "testdata", "golden", "maintain_tool_description.txt")
+		if err := os.WriteFile(path, []byte(actual), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
 	expected := readMaintainGolden(
 		t,
 		"maintain_tool_description.txt",

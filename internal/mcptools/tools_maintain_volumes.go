@@ -107,6 +107,9 @@ type volumeMaintainResult struct {
 	// is issued, so that the model is not asked to author Entries the update path
 	// would have to refuse. Absent otherwise.
 	Stop *GlobalStopFacts `json:"stop,omitempty"`
+	// ObserveReview lists the Observe evidence a review_required policy is
+	// waiting on, with the digest the observe_review intent confirms (#151).
+	ObserveReview *observeReviewListing `json:"observe_review,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -197,6 +200,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		result.Status, result.Aligned, result.Result = autoStatusStopped, false, volumegovernance.ResultBlocked
 		result.NextAction = blockedNextAction(facts, result.OrphanRemovals)
 		result.NextCommands = blockedNextCommands(facts)
+		result.ObserveReview = observeReviewFor(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
 	default:

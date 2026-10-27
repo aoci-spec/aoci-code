@@ -26,7 +26,7 @@ var mcpInputSchemaFields = map[string][]string{
 		"new_entry", "batch_id", "code_batch_id", "entries",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
 	},
-	"aoci_maintain":     {"scope", "intent", "object_refs", "approval_request"},
+	"aoci_maintain":     {"scope", "intent", "object_refs", "approval_request", "observe_review"},
 	"aoci_report":       {"path", "note"},
 	"aoci_remove_entry": {"path"},
 }
@@ -236,7 +236,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"scope": map[string]any{"type": "string", "description": descriptions["scope"], "enum": []string{cognition.ScopeCode, cognition.ScopeDatabase, cognition.ScopeAll}},
 			"intent": map[string]any{
 				"type": "string", "description": descriptions["intent"],
-				"enum": []string{"cognition_optimization", machinecontract.MaintainIntentHumanApproval},
+				"enum": []string{"cognition_optimization", machinecontract.MaintainIntentHumanApproval, machinecontract.MaintainIntentObserveReview},
 			},
 			"object_refs": map[string]any{
 				"type": "array", "description": descriptions["object_refs"],
@@ -248,6 +248,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 				"kind":         map[string]any{"type": "string", "enum": machinecontract.HumanApprovalKinds()},
 				"preview_file": map[string]any{"type": "string"},
 			}, "kind"),
+			"observe_review": describedObject(descriptions["observe_review"], map[string]any{
+				"review_digest": map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+				"reviewed_by":   map[string]any{"type": "string"},
+			}, "review_digest", "reviewed_by"),
 		}), nil
 
 	case "aoci_overview":

@@ -1216,6 +1216,62 @@ def group_f_host_dialog():
            + ("" if ok else f" | {t3[:160]} | {(out4 + errs4)[:160]}"))
 
 
+def group_f_observe_review():
+    """A Host reviews changed Observe evidence without leaving MCP (#151).
+
+    The acceptance the reporter proposed: in an aligned repository change only
+    one test file the production profile observes, then list the evidence,
+    review it, confirm it, and reach maintenance from MCP alone; and once the
+    bytes move again, the confirmation issued for the old listing must not be
+    usable.
+    """
+    g, name = "F", "F15.observe-review-confirms-the-listed-bytes-and-refuses-moved-ones"
+    d = make_fixture("observe-review", 1)
+    s = Session(d)
+    try:
+        m, _, _ = maintain(s)
+        applied, text, _ = submit_batch(s, m)
+        if applied.get("status") != "applied":
+            record(g, name, "FAIL", f"fixture authoring failed: {text[:160]}")
+            return
+        test_file = os.path.join(d, "pkg", "f001_test.go")
+        with open(test_file, "w", encoding="utf-8") as fh:
+            fh.write('package pkg\n\nimport "testing"\n\nfunc TestF001(t *testing.T) {}\n')
+        rc, _, out, errs = cli(d, "scope", "acknowledge", "--reviewed-by", "fixture")
+        if rc != 0:
+            record(g, name, "FAIL", f"baselining the observed test failed: {(out + errs)[:160]}")
+            return
+        with open(test_file, "a", encoding="utf-8") as fh:
+            fh.write("\n// reviewed change\n")
+        blocked, t1, _ = maintain(s)
+        listing = blocked.get("observe_review") or {}
+        listed = [item.get("path") for item in listing.get("evidence") or []]
+        before = repo_digest(d)
+        with open(test_file, "a", encoding="utf-8") as fh:
+            fh.write("// moved after the listing\n")
+        t2, err2 = text_of(s.call("aoci_maintain", {"intent": "observe_review", "observe_review": {
+            "review_digest": listing.get("review_digest", ""), "reviewed_by": "scenario-host"}}))
+        stale = jload(t2)
+        unchanged = before.get(".aoci/baseline.json") == repo_digest(d).get(".aoci/baseline.json")
+        fresh = (stale.get("observe_review") or {}).get("review_digest", "")
+        t3, err3 = text_of(s.call("aoci_maintain", {"intent": "observe_review", "observe_review": {
+            "review_digest": fresh, "reviewed_by": "scenario-host"}}))
+        confirmed = jload(t3)
+        after, t4, _ = maintain(s)
+    finally:
+        s.close()
+    aligned, _ = fixture_aligned(d)
+    ok = (blocked.get("next_action") == "acknowledge_observed_evidence" and listed == ["pkg/f001_test.go"]
+          and listing.get("confirm_request") is not None
+          and not err2 and stale.get("status") == "stale" and unchanged and fresh and fresh != listing.get("review_digest")
+          and not err3 and confirmed.get("status") == "acknowledged" and confirmed.get("formal_writes_started") is True
+          and confirmed.get("review_digest") == fresh and confirmed.get("acknowledged_paths") == ["pkg/f001_test.go"]
+          and after.get("observe_review") is None and after.get("next_action") != "acknowledge_observed_evidence" and aligned)
+    record(g, name, "PASS" if ok else "FAIL",
+           f"listed={listed} stale={stale.get('status')} baseline_unchanged={unchanged} confirmed={confirmed.get('status')} "
+           f"after={after.get('next_action')} aligned={aligned}" + ("" if ok else f" | {t1[:120]} | {t2[:120]} | {t3[:120]}"))
+
+
 def group_f_ignored_tool_file():
     """A file another tool writes into a Git-ignored directory between preview
     and Apply is not part of the change (#101).
@@ -2479,7 +2535,7 @@ GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),
     ("N", group_n), ("F", group_f_scope), ("F", group_f_activate), ("F", group_f_ignored_tool_file),
     ("F", group_f_held_sources), ("F", group_f_deleted_observe), ("F", group_f_excluded_tracked),
-    ("F", group_f_host_dialog),
+    ("F", group_f_host_dialog), ("F", group_f_observe_review),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
     ("H", group_h),

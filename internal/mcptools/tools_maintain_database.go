@@ -22,6 +22,7 @@ type maintainIn struct {
 	Intent          string                `json:"intent,omitempty"`
 	ObjectRefs      []string              `json:"object_refs,omitempty"`
 	ApprovalRequest *humanApprovalRequest `json:"approval_request,omitempty"`
+	ObserveReview   *observeReviewRequest `json:"observe_review,omitempty"`
 }
 
 const maintainIntentCognitionOptimization = "cognition_optimization"
@@ -50,6 +51,12 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	}
 	if input.ApprovalRequest != nil {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_approval_request_requires_human_approval"})
+	}
+	if input.Intent == machinecontract.MaintainIntentObserveReview {
+		return handleObserveReview(root, input)
+	}
+	if input.ObserveReview != nil {
+		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_observe_review_requires_observe_review_intent"})
 	}
 	loaded, fail := loadCognitionCtx(root)
 	if input.Intent != "" {

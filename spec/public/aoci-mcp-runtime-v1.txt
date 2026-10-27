@@ -76,3 +76,14 @@ layouts, because the way out of a Legacy layout, the migration, needs that
 approval. A client that declares no form elicitation receives
 `host_dialog_unavailable` and the terminal commands, and no dialog is sent.
 The intent adds no tool.
+
+Observe review
+--------------
+
+`aoci_maintain` with `intent=observe_review` and `observe_review`
+(`review_digest`, `reviewed_by`) records that the Host reviewed the Observe
+evidence a blocked Maintain listed, through the Scope transaction
+`scope acknowledge` runs, as `aoci-cognition-volumes-v1.txt` defines. A
+digest the current list no longer has writes nothing. It answers on a Volumes
+layout only; a Legacy layout answers `legacy_read_only_migrate_required`. The
+intent adds no tool.

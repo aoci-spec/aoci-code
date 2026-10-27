@@ -23,7 +23,9 @@
         "object_refs",
         "aoci_update_entry",
         "intent=human_approval",
-        "approval_request"
+        "approval_request",
+        "intent=observe_review",
+        "review_digest"
       ],
       "locale_anchors": {
         "zh-CN": [

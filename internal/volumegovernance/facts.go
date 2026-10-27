@@ -4,6 +4,8 @@
 package volumegovernance
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -303,6 +305,66 @@ type Facts struct {
 	// leading sample and carries the complete counts. Verify, Check, and Guide
 	// never set it; their lists stay complete.
 	ListTruncation *ListTruncation `json:"list_truncation,omitempty"`
+	// ObservedEvidence is the Observe evidence waiting for review, each item
+	// with its current digest, and ObservedReviewDigest binds the whole list
+	// (#151). They stay out of the governance JSON: Maintain publishes them as
+	// observe_review, and the observe_review intent recomputes and compares,
+	// so a review confirms exactly the bytes it was shown.
+	ObservedEvidence     []ObservedEvidence `json:"-"`
+	ObservedReviewDigest string             `json:"-"`
+}
+
+// ObservedEvidence is one Observe source whose bytes moved since the active
+// Baseline. SHA256 is the current raw digest, empty for a removed file.
+type ObservedEvidence struct {
+	Path   string `json:"path"`
+	Change string `json:"change"`
+	SHA256 string `json:"sha256,omitempty"`
+}
+
+const (
+	ObservedChangeNew     = "new"
+	ObservedChangeChanged = "changed"
+	ObservedChangeRemoved = "removed"
+)
+
+// ObservedReviewDigest binds a complete pending-evidence list: every path, how
+// it moved, and its current bytes. Empty when nothing waits for review.
+func ObservedReviewDigest(evidence []ObservedEvidence) string {
+	if len(evidence) == 0 {
+		return ""
+	}
+	ordered := append([]ObservedEvidence{}, evidence...)
+	sort.Slice(ordered, func(left, right int) bool {
+		if ordered[left].Path != ordered[right].Path {
+			return ordered[left].Path < ordered[right].Path
+		}
+		return ordered[left].Change < ordered[right].Change
+	})
+	hash := sha256.New()
+	hash.Write([]byte("observed-review/v1\n"))
+	for _, item := range ordered {
+		hash.Write([]byte(item.Change + "\t" + item.Path + "\t" + item.SHA256 + "\n"))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+func observedEvidence(drift Drift, snapshot map[string]baseline.Fingerprint) []ObservedEvidence {
+	evidence := []ObservedEvidence{}
+	for _, group := range []struct {
+		change string
+		paths  []string
+	}{{ObservedChangeNew, drift.ObservedNew}, {ObservedChangeChanged, drift.ObservedChanged}, {ObservedChangeRemoved, drift.ObservedRemoved}} {
+		for _, path := range group.paths {
+			item := ObservedEvidence{Path: path, Change: group.change}
+			if group.change != ObservedChangeRemoved {
+				item.SHA256 = snapshot[path].SHA256
+			}
+			evidence = append(evidence, item)
+		}
+	}
+	sort.Slice(evidence, func(left, right int) bool { return evidence[left].Path < evidence[right].Path })
+	return evidence
 }
 
 // ListTruncation reports the sample bound applied to per-item enumerations
@@ -614,6 +676,8 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	if cfg.EffectiveManagedScope().ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
 		facts.ManagedScope.ObservedPendingReview = len(detected.ObservedNew) + len(detected.ObservedChanged) + len(detected.ObservedRemoved)
+		facts.ObservedEvidence = observedEvidence(drift, copyState.Snapshot)
+		facts.ObservedReviewDigest = ObservedReviewDigest(facts.ObservedEvidence)
 	}
 	for _, item := range []struct {
 		code string

@@ -20,8 +20,10 @@ observe has no Entry and consumes no Whole-Index tokens, but its deterministic
 source fingerprint remains in the same Baseline. New, changed, and removed
 observe paths produce ObservedNew, ObservedChanged, and ObservedRemoved. Under
 review_required, an exact reviewed set must advance through the governed Scope
-transaction. exclude has no Entry or fingerprint; its content is not opened and
-does not enter Prompt, Evidence, Candidate, or Ledger bodies.
+transaction, submitted by scope acknowledge or, on MCP, by aoci_maintain
+intent=observe_review naming the review_digest of the listing a blocked
+Maintain published. exclude has no Entry or fingerprint; its content is not
+opened and does not enter Prompt, Evidence, Candidate, or Ledger bodies.
 
 3. Policy and evaluation
 

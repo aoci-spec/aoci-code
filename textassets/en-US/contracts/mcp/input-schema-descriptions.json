@@ -7,8 +7,9 @@
   },
   "aoci_maintain": {
     "approval_request": "Only with intent=human_approval: kind scope_change with the preview_file a paused scope activate saved, or kind onboarding for the prepared review of the current onboarding session",
-    "intent": "cognition_optimization: a bound review of aligned Volumes v1 Code Entries; human_approval: ask the person, in a host dialog, to approve the pending change approval_request names; omit for ordinary Maintain",
+    "intent": "cognition_optimization: a bound review of aligned Volumes v1 Code Entries; human_approval: ask the person, in a host dialog, to approve the pending change approval_request names; observe_review: confirm the observe evidence a blocked Maintain listed; omit for ordinary Maintain",
     "object_refs": "code:<path> references that limit cognition_optimization candidates; only with that intent",
+    "observe_review": "Only with intent=observe_review: the review_digest a blocked Maintain published in observe_review, and who reviewed the evidence",
     "scope": "Advanced diagnostic scope; omit it on the ordinary path so shared governance chooses"
   },
   "aoci_overview": {

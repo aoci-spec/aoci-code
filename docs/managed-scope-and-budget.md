@@ -105,8 +105,32 @@ role transition. It never deletes the corresponding business source.
 
 Observe changes do not create Entries. Review their impact on production,
 Spec, platform, or Header cognition, update formal Entries when needed, then
-run `aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
+record the review. From a terminal that is
+`aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
 opened and produces no drift.
+
+A Host on MCP records the same review without a terminal. A Maintain blocked
+by pending observations carries `observe_review`: each new, changed, or
+removed Observe path with the SHA-256 of its current bytes, a `review_digest`
+binding the complete list, and `confirm_request`, the exact call that confirms
+it. After reading those files the Host calls `aoci_maintain` with
+`intent=observe_review` and `observe_review: {review_digest, reviewed_by}`.
+AOCI recomputes the list first. If a listed file's bytes moved, or a file
+joined or left the list, the call answers `status=stale` with the current
+listing and writes nothing, so nothing is acknowledged unread. Otherwise it
+runs the transaction `scope acknowledge` runs, with the same Baseline, Ledger,
+CAS, Recovery, and approval rules, and answers `acknowledged` with the
+confirmed `review_digest`, the count, and the `acknowledged_paths`. A list
+longer than Maintain shows in full lists only its leading items, with `total`
+and `truncated=true`, and carries no `confirm_request`: the Scope transaction
+acknowledges only the complete set, and nothing may be confirmed unseen, so
+that list is read with `scope status --json` and recorded with
+`scope acknowledge`. When the governance posture needs a person, it saves the
+preview under
+`.aoci/scope-change/` and answers `human_approval_required` with the dialog
+request (when the team channel admits the dialog) and the terminal approve and
+apply commands. A pending Scope Change is refused until `scope activate` has
+applied it.
 
 ## Container directories and progressive onboarding
 

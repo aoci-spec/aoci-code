@@ -338,6 +338,32 @@ acknowledge_observed_evidence, and resolve_cognition_budget whose finding is
 present, and resolve_blocker when none is. A Host acting on the token alone
 never removes orphans that the result did not list.
 
+A Maintain blocked by observed_pending also carries observe_review: the
+pending Observe evidence as path, change (new, changed, or removed), and the
+sha256 of the current bytes, which a removed item omits; total;
+review_digest, an opaque digest binding the complete list; and
+confirm_request, the exact aoci_maintain call that confirms it. A list
+longer than the transport list limit shows its leading items with
+truncated=true and carries no confirm_request, and the intent refuses it as
+observe_review_list_exceeds_mcp_listing: the Scope transaction acknowledges
+only the complete set and a Host confirms only what it was shown, so that
+list goes through scope status and scope acknowledge.
+aoci_maintain with intent=observe_review and observe_review {review_digest,
+reviewed_by} recomputes the list before anything else. A digest the current
+list does not have answers status=stale with the current listing and
+next_action review_current_observe_evidence, and writes nothing; no pending
+evidence answers not_pending. A current digest runs the Scope transaction
+scope acknowledge runs over exactly the listed paths, after proving that the
+preview fingerprints equal the listed bytes, and answers acknowledged with
+formal_writes_started=true, the confirmed review_digest, acknowledged and
+acknowledged_paths, and next_action
+call_no_argument_aoci_maintain_for_current_machine_batch. An authorization
+posture that needs a person saves the preview under .aoci/scope-change/ and
+answers human_approval_required with preview_file, the host_dialog_request
+when the team channel admits the dialog, and the terminal approve and apply
+commands; next_action is request_human_approval. A pending Scope Change is
+refused as observe_review_requires_active_policy.
+
 The existing aoci_update_entry tool accepts one complete current machine batch with
 multiple Code creates/updates, multiple Database creates/updates, or both in
 one already declared CognitionSet. Code uses path and current source SHA.

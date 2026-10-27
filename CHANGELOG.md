@@ -198,6 +198,27 @@ changes a persisted preimage names the binary every machine then needs.
   only says the command ran. A refused candidate is recorded as
   `repair_required`. The fields are machine tokens; no source, Entry text, or
   connection detail is recorded, and no MCP response changes.
+- A Host reviews changed Observe evidence without leaving MCP (#151). A
+  Maintain blocked by `observed_pending` carries `observe_review`: each new,
+  changed, or removed Observe path with the SHA-256 of its current bytes, a
+  `review_digest` binding the complete list, and `confirm_request`, the exact
+  `aoci_maintain` call that confirms it. After reading the files the Host
+  calls `aoci_maintain` with `intent=observe_review` and
+  `observe_review: {review_digest, reviewed_by}`. AOCI recomputes the list;
+  when a listed file's bytes moved or the list changed, the call answers
+  `status=stale` with the current listing and writes nothing. A current
+  confirmation runs the transaction `scope acknowledge` runs, with the same
+  Baseline, Ledger, CAS, Recovery, and approval rules, and answers
+  `acknowledged` with the confirmed `review_digest`, the count, and
+  `acknowledged_paths`; a posture that needs a person saves the preview under
+  `.aoci/scope-change/` and answers `human_approval_required` with the dialog
+  request and the terminal commands. A list longer than Maintain shows in full
+  lists its leading items with `total` and `truncated` and has no MCP
+  confirmation, since nothing may be confirmed unseen and the transaction
+  acknowledges only the complete set; it keeps the `scope status` and
+  `scope acknowledge` route. `scope acknowledge` is unchanged. The
+  `aoci_maintain` input schema gains the `observe_review` intent and object;
+  no tool is added and no formal-asset format changes.
 
 ## v0.1.0-rc22
 
