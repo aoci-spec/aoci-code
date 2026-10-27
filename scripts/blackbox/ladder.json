@@ -253,6 +253,23 @@
    }
   },
   {
+   "id": "legacy-migration",
+   "cadence": "nightly",
+   "command": "make legacy-migration BUILD_BIN=build/aoci-<label>",
+   "proves": "A Legacy repository the last Legacy-authoring release built and aligned migrates, through onboarding and a host-dialog approval, to aligned Volumes v1 with every Code Entry byte for byte: the one exit from the read-only Legacy layout",
+   "preconditions": [
+    "network or the upgrade-axis cache for the LEGACY_RELEASE binary (default v0.1.0-rc22)"
+   ],
+   "runs_in": [
+    "full-confidence.yml"
+   ],
+   "last_verified": {
+    "version": "unreleased",
+    "date": "2026-10-28",
+    "evidence": ".aoci/dev-tools/legacy-migration-drill.txt (12/12 on the final tree, rc22 as the Legacy author; rc22 under test fails 3)"
+   }
+  },
+  {
    "id": "bench-compare",
    "cadence": "nightly",
    "command": "python3 scripts/bench-compare.py",

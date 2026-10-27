@@ -97,6 +97,7 @@ Usage:  python3 scripts/blackbox/mcp_upgrade.py
         python3 scripts/blackbox/mcp_upgrade.py --recent 3
         python3 scripts/blackbox/mcp_upgrade.py --self
         python3 scripts/blackbox/mcp_upgrade.py --allow-offline
+        python3 scripts/blackbox/mcp_upgrade.py --fetch v0.1.0-rc22   # cache one release, print its path
 Env:    AOCI_REPO / AOCI_BIN override the repository and binary under test;
         AOCI_UPGRADE_CACHE overrides the downloaded-binary cache directory;
         AOCI_UPGRADE_SLUG overrides the owner/repo the releases are fetched from.
@@ -1044,7 +1045,13 @@ def main():
                          "CHANGELOG version (or `candidate` under an Unreleased section); downloads nothing")
     ap.add_argument("--allow-offline", action="store_true",
                     help="report a download failure as a skip instead of failing the run")
+    ap.add_argument("--fetch", metavar="TAG",
+                    help="only download one release binary into the cache, checksum-verified, and print its path")
     args = ap.parse_args()
+
+    if args.fetch:
+        print(fetch_release_binary(args.fetch))
+        return 0
 
     if not os.path.exists(BIN):
         print(f"binary under test not found: {BIN} (run make build, or set AOCI_BIN)")

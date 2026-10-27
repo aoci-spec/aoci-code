@@ -3,7 +3,7 @@
 Four standalone Python suites exercise a built `aoci` binary strictly from
 outside the process: they speak the public stdio MCP protocol and the public
 CLI, never import internal packages, and use only the Python standard library.
-A fifth runner, written in Go, takes the same outside stance. They ship with
+Two runners written in Go take the same outside stance. They ship with
 the repository clone (binary Release archives do not include `scripts/`).
 
 | Suite | Proves | Needs | Typical time |
@@ -13,6 +13,7 @@ the repository clone (binary Release archives do not include `scripts/`).
 | `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, re-alignment, the governance walks (curation probes, post-scan exclusion, and a pending policy edit over a changed source), and the bring-up lanes (a git submodule boundary, `exclude_root_dirs` roles with `config set` normalization, `remove-entry --preview` and the real removal of an orphan, the `source manifest` and `capabilities` machine documents, and a zh-CN run compared with an en-US run of the same commands: no en-US sentence fragment in the human output, identical `--json` machine fields), while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 | `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in ten repository shapes; the tenth turns the axis around, so each release also has to read a repository the binary under test wrote. `--self` runs the same shapes with the binary under test in both roles, before a tag exists. | above + network access on the first run (binaries are cached; `--self` needs none) | minutes |
 | `longrun-refresh/` (Go; `make longrun-refresh`) | The long-running cognition refresh contract against a real stdio MCP server over two disposable Git repositories: the 29-versus-30 semantic threshold, compact `check_only`, Dirty delivery marked unreliable, a simulated Host compaction with a partial Attestation, three-reason merging, one injected `repair_required` correction, and final Verify/Check/Guide alignment. Writes a JSON report; see its own README. | go, git, a built binary | seconds |
+| `legacy-migration/` (Go; `make legacy-migration`) | The one exit from the read-only Legacy layout: a repository the last Legacy-authoring release built and aligned migrates through onboarding and a host-dialog approval to aligned Volumes v1, every Code Entry carried byte for byte. | go, git, python3, a built binary, network once for the release binary (cached) | seconds |
 
 ## Running
 
@@ -124,6 +125,28 @@ a push to `main` runs `--recent 3`, so the releases a change can realistically
 meet are proved on every push, and the nightly schedule and a manual dispatch
 run the whole list, which grows with every release and is what keeps the oldest
 preimages honest.
+
+Legacy migration drill (a disposable repository in a temp dir). Since 0.2.0
+the Legacy layout is read-only and migration is its one exit, so this runner
+proves that exit end to end. The last release that authors Legacy indexes
+(`LEGACY_RELEASE`, default v0.1.0-rc22, taken checksum-verified from the
+upgrade axis's cache through `mcp_upgrade.py --fetch`) builds a small Legacy
+repository the way its users did and proves it aligned with its own Verify and
+Check. The binary under test must then route it to onboarding, refuse a write,
+and carry it through the migration: the authoring batches, the mapping
+template, Preview, Prepare, an approval the runner gives as the person in the
+host dialog, and Apply. Verify, Check, and the Guide must report the result
+aligned, and the Code Volume must hold every Legacy business Entry byte for
+byte and not the Root-owned self-Entry. The runner plays the host and its
+model; plans, templates, Previews, approval records, and Apply decisions are
+the binary's, and the result is judged from the published files as text.
+`--keep` retains the repository:
+
+```bash
+make legacy-migration BUILD_BIN=build/aoci-<label>
+go run ./scripts/blackbox/legacy-migration --binary build/aoci-<label> \
+  --legacy-binary "$(python3 scripts/blackbox/mcp_upgrade.py --fetch v0.1.0-rc22)" --keep
+```
 
 Lifecycle, deterministic track only (no AI involved; `database` pulls
 `mysql:8.4` and needs a working Docker daemon — drop it via `--suites`):

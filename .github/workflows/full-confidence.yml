@@ -140,6 +140,14 @@ jobs:
             python3 scripts/blackbox/mcp_upgrade.py
           fi
           git diff --exit-code
+      # Legacy 迁移演练: 0.2.0 起 Legacy 布局只读, 迁移是唯一出口。最后一个能写
+      # Legacy 的发布版(rc22, 经升级轴的缓存校验后取用)建仓并对齐, 被测二进制经
+      # onboarding 与宿主弹框审批迁到对齐的 Volumes v1, 每条 Code Entry 逐字节保留。
+      # 几秒钟, 所以三种触发都跑。
+      - name: black-box Legacy migration drill
+        run: |
+          make legacy-migration
+          git diff --exit-code
       # 长程认知刷新黑盒(R67-A): Go runner 起真二进制的 stdio MCP, 在两个一次性仓库
       # 上跑阈值实验与压缩恢复实验。只在夜间与手动触发时跑; 推送触发不跑。
       - name: long-running cognition refresh black box

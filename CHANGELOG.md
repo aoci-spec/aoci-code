@@ -299,6 +299,14 @@ changes a persisted preimage names the binary every machine then needs.
   the Guide could only route that empty index to a migration. The
   configuration's own settings stay as they were. Only a custom `index_path`,
   which cannot hold a Volumes Root, still gets the Legacy skeleton.
+- The Legacy-to-Volumes migration is drilled end to end. `make
+  legacy-migration` has the v0.1.0-rc22 release build and align a Legacy
+  repository; the binary under test then migrates it through onboarding, with
+  the approval given in the host dialog, and Verify, Check, and the Guide must
+  report the result aligned with every Code Entry carried byte for byte. The
+  full-confidence line runs it on every trigger, and
+  `mcp_upgrade.py --fetch <tag>` caches one checksum-verified release binary
+  for it.
 
 ## v0.1.0-rc22
 

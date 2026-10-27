@@ -37,7 +37,7 @@ OPENGAUSS_PATCH_GO_FILES := \
 	third_party/openGauss-connector-go-pq/ssl.go \
 	third_party/openGauss-connector-go-pq/aoci_security_patch_test.go
 
-.PHONY: build test fast fast-test fast-builds full verify release-check race vuln fuzz-smoke database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck coverage-floors ladder check cross clean axis-self longrun-refresh
+.PHONY: build test fast fast-test fast-builds full verify release-check race vuln fuzz-smoke database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck coverage-floors ladder check cross clean axis-self longrun-refresh legacy-migration
 
 # 静态编译单二进制,使用Go目标平台的原生可执行文件后缀。
 build:
@@ -232,6 +232,17 @@ clean-room-smoke:
 # it on schedule and dispatch. The JSON report lands under the ignored build/.
 longrun-refresh: build
 	$(GO_BIN) run ./scripts/blackbox/longrun-refresh --binary "$(abspath $(BUILD_BIN))" --output build/longrun-refresh-report.json
+
+# Legacy migration drill. LEGACY_RELEASE, the last release that authors Legacy
+# indexes, builds and aligns a Legacy repository; BUILD_BIN, for which that
+# layout is read-only, must migrate it through onboarding, approved in the host
+# dialog, to aligned Volumes v1 carrying every Code Entry byte for byte. The
+# release binary comes checksum-verified through the upgrade axis's cache. Not
+# part of full; the full-confidence line runs it after the axis.
+LEGACY_RELEASE ?= v0.1.0-rc22
+legacy-migration: build
+	legacy_bin="$$(python3 scripts/blackbox/mcp_upgrade.py --fetch $(LEGACY_RELEASE))" && \
+		$(GO_BIN) run ./scripts/blackbox/legacy-migration --binary "$(abspath $(BUILD_BIN))" --legacy-binary "$$legacy_bin"
 
 # Tier 1: complete confidence gate. Ordinary commits do not run or wait for it.
 full: toolchain-preflight build $(FULL_GATES)
