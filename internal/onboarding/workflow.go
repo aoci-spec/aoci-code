@@ -359,17 +359,13 @@ func Next(root string, maxObjects int, maxEvidenceBytes int64) (*AuthoringBatch,
 	if len(tasks) == 0 {
 		next = "preview"
 	}
-	data, _ := json.Marshal(tasks)
 	batchVersion := LegacyBatchVersion
-	digestInput := append([]byte(session.OnboardingSessionID+"\x00"), data...)
 	var requirement *cognitionplan.SemanticAuthoringRequirement
 	if session.Version == SessionVersion {
 		batchVersion = BatchVersion
 		requirement = cognitionplan.SemanticAuthoringRequirementForPlan(plan, nil)
-		digestInput = append([]byte(batchVersion+"\x00"+session.OnboardingSessionID+"\x00"+plan.PlanID+"\x00"+requirement.EvidenceBindingSHA256+"\x00"), data...)
 	}
-	digest := sha256.Sum256(digestInput)
-	batchID := hex.EncodeToString(digest[:])
+	batchID := authoringBatchID(session, plan, tasks)
 	if session.Version == SessionVersion && len(tasks) != 0 {
 		if session.ActiveAuthoringBatch != nil {
 			if session.ActiveAuthoringBatch.BatchID != batchID {
@@ -389,12 +385,70 @@ func Next(root string, maxObjects int, maxEvidenceBytes int64) (*AuthoringBatch,
 			}
 		}
 	}
+	var template *Completion
+	if len(tasks) != 0 {
+		template = completionTemplate(session, batchID, tasks)
+	}
 	return &AuthoringBatch{
 		Version: batchVersion, OnboardingSessionID: session.OnboardingSessionID,
 		BatchID: batchID, Tasks: tasks, ObjectCount: len(tasks), EvidenceBytes: evidenceBytes,
 		CompletedCount: len(session.CompletedAuthoringTargets), PendingCount: len(session.PendingAuthoringTargets),
 		NextAction: next, SemanticGenerated: false, SemanticAuthoringRequirement: requirement,
+		CompletionTemplate: template,
 	}, nil
+}
+
+// authoringBatchID is the identity of the batch that issues tasks, which are
+// in plan order. Next names a batch with it and a completion receipt is
+// checked against it, so one batch never has two spellings.
+func authoringBatchID(session *Session, plan *cognitionplan.Plan, tasks []cognitionplan.AuthoringTask) string {
+	data, _ := json.Marshal(tasks)
+	digestInput := append([]byte(session.OnboardingSessionID+"\x00"), data...)
+	if session.Version == SessionVersion {
+		requirement := cognitionplan.SemanticAuthoringRequirementForPlan(plan, nil)
+		digestInput = append([]byte(BatchVersion+"\x00"+session.OnboardingSessionID+"\x00"+plan.PlanID+"\x00"+requirement.EvidenceBindingSHA256+"\x00"), data...)
+	}
+	digest := sha256.Sum256(digestInput)
+	return hex.EncodeToString(digest[:])
+}
+
+// planTasks returns the plan's authoring tasks named by ids, in plan order,
+// which is the order Next issues them in.
+func planTasks(plan *cognitionplan.Plan, ids []string) []cognitionplan.AuthoringTask {
+	wanted := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		wanted[id] = true
+	}
+	tasks := make([]cognitionplan.AuthoringTask, 0, len(ids))
+	for _, task := range plan.AuthoringTasks {
+		if wanted[task.TaskID] {
+			tasks = append(tasks, task)
+		}
+	}
+	return tasks
+}
+
+// completionTemplate is the receipt that completes a batch once the Host has
+// authored its tasks: the version the session takes, the session, the batch,
+// and the batch's task identities. A v2 receipt also carries the Host's
+// semantic_authoring_declaration, built from semantic_authoring_requirement;
+// that assertion is the Host's, so the template never contains it.
+func completionTemplate(session *Session, batchID string, tasks []cognitionplan.AuthoringTask) *Completion {
+	version := LegacyCompletionVersion
+	if session.Version == SessionVersion {
+		version = CompletionVersion
+	}
+	ids := make([]string, 0, len(tasks))
+	for _, task := range tasks {
+		ids = append(ids, task.TaskID)
+	}
+	return &Completion{Version: version, SessionID: session.OnboardingSessionID, BatchID: batchID, CompletedTasks: ids}
+}
+
+// completionMismatch names the receipt field that does not fit the session,
+// as a machine token the diagnostic filter keeps.
+func completionMismatch(field string) error {
+	return fmt.Errorf("onboarding_completion_contract_mismatch field=%s", field)
 }
 
 func CompleteTasks(root string, completion Completion) (*Session, error) {
@@ -413,9 +467,13 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 		return nil, err
 	}
 	if session.Version == SessionVersion {
-		if completion.Version != CompletionVersion || session.ActiveAuthoringBatch == nil ||
-			completion.BatchID != session.ActiveAuthoringBatch.BatchID || !sameStringSet(completion.CompletedTasks, session.ActiveAuthoringBatch.TaskIDs) {
-			return nil, fmt.Errorf("onboarding_completion_contract_mismatch")
+		switch {
+		case completion.Version != CompletionVersion:
+			return nil, completionMismatch("version")
+		case session.ActiveAuthoringBatch == nil || completion.BatchID != session.ActiveAuthoringBatch.BatchID:
+			return nil, completionMismatch("batch_id")
+		case !sameStringSet(completion.CompletedTasks, session.ActiveAuthoringBatch.TaskIDs):
+			return nil, completionMismatch("completed_task_ids")
 		}
 		if err := cognitionplan.ValidateSemanticAuthoringDeclaration(plan, completion.SemanticAuthoringDeclaration); err != nil {
 			return nil, fmt.Errorf("onboarding_%w", err)
@@ -423,8 +481,10 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 		if session.SemanticAuthoringDeclaration != nil && !sameSemanticAuthoringDeclaration(session.SemanticAuthoringDeclaration, completion.SemanticAuthoringDeclaration) {
 			return nil, fmt.Errorf("onboarding_semantic_authoring_run_mismatch")
 		}
-	} else if completion.Version != LegacyCompletionVersion || completion.BatchID != "" || completion.SemanticAuthoringDeclaration != nil {
-		return nil, fmt.Errorf("onboarding_completion_contract_mismatch")
+	} else if completion.Version != LegacyCompletionVersion {
+		return nil, completionMismatch("version")
+	} else if completion.SemanticAuthoringDeclaration != nil {
+		return nil, completionMismatch("semantic_authoring_declaration")
 	}
 	pending := map[string]bool{}
 	for _, id := range session.PendingAuthoringTargets {
@@ -440,6 +500,13 @@ func CompleteTasks(root string, completion Completion) (*Session, error) {
 		}
 		delete(pending, id)
 		completed[id] = true
+	}
+	// A v1 receipt may name the batch it completes, as completion_template
+	// does, but only the batch that issued exactly these tasks; one naming no
+	// batch may complete any pending subset, as it always could.
+	if session.Version != SessionVersion && completion.BatchID != "" &&
+		completion.BatchID != authoringBatchID(session, plan, planTasks(plan, completion.CompletedTasks)) {
+		return nil, completionMismatch("batch_id")
 	}
 	if session.Version == SessionVersion {
 		if session.SemanticAuthoringDeclaration == nil {

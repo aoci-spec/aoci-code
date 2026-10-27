@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/bootstrapapply"
+	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/jsonstrict"
 	"github.com/aoci-spec/aoci-code/internal/migrationapply"
 	"github.com/aoci-spec/aoci-code/internal/onboarding"
@@ -103,7 +104,11 @@ func newOnboardNextCmd() *cobra.Command {
 			return onboardingExitError(err)
 		}
 		if flagJSON {
-			return writePlannerJSON(cmd, batch)
+			output := onboardingBatchOutput{AuthoringBatch: batch}
+			if session, err := onboarding.LoadRequired(root); err == nil {
+				output.NextCommands = onboardingBatchNextCommands(root, session, batch)
+			}
+			return writePlannerJSON(cmd, output)
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.batch_summary", batch.ObjectCount, batch.EvidenceBytes, batch.CompletedCount, batch.PendingCount, batch.SemanticGenerated))
 		return nil
@@ -152,7 +157,11 @@ func newOnboardPreviewCmd() *cobra.Command {
 		if err != nil {
 			return onboardingExitError(err)
 		}
-		return writePlannerJSON(cmd, preview)
+		output := onboardingPreviewOutput{Preview: preview}
+		if session, err := onboarding.LoadRequired(root); err == nil {
+			output.NextCommands = onboardingNextCommands(root, session)
+		}
+		return writePlannerJSON(cmd, output)
 	}}
 	command.Flags().StringVar(&candidateFile, "candidate-file", "", cliMessage("cognition.plan.flag.candidate_file"))
 	command.Flags().StringVar(&mappingFile, "mapping-file", "", cliMessage("cognition.migration.flag.mapping_file"))
@@ -184,11 +193,13 @@ func newOnboardPrepareCmd() *cobra.Command {
 					TTYRequired bool   `json:"tty_required"`
 					NextAction  string `json:"next_action"`
 				} `json:"authorization"`
+				NextCommands []string `json:"next_commands,omitempty"`
 			}{Session: session, Envelope: envelope, Authorization: struct {
 				Mechanism   string `json:"mechanism"`
 				TTYRequired bool   `json:"tty_required"`
 				NextAction  string `json:"next_action"`
-			}{Mechanism: "policy_bound_auto", TTYRequired: false, NextAction: session.NextAction}})
+			}{Mechanism: "policy_bound_auto", TTYRequired: false, NextAction: session.NextAction},
+				NextCommands: onboardingNextCommands(root, session)})
 		}
 		var digest string
 		var writeCount int
@@ -228,6 +239,22 @@ func newOnboardApplyCmd() *cobra.Command {
 		if err != nil {
 			return onboardingExitError(err)
 		}
+		var commands []string
+		if session, err := onboarding.LoadRequired(root); err == nil {
+			commands = onboardingNextCommands(root, session)
+		}
+		switch value := result.(type) {
+		case *migrationapply.ApplyResult:
+			return writePlannerJSON(cmd, struct {
+				*migrationapply.ApplyResult
+				NextCommands []string `json:"next_commands,omitempty"`
+			}{value, commands})
+		case *bootstrapapply.ApplyResult:
+			return writePlannerJSON(cmd, struct {
+				*bootstrapapply.ApplyResult
+				NextCommands []string `json:"next_commands,omitempty"`
+			}{value, commands})
+		}
 		return writePlannerJSON(cmd, result)
 	}}
 	command.Flags().StringVar(&approvalFile, "approval-file", "", cliMessage("cognition.bootstrap.flag.approval_file"))
@@ -249,9 +276,26 @@ func newOnboardAbortCmd() *cobra.Command {
 	}}
 }
 
+// The onboarding outputs carry next_commands beside their own fields, which
+// keep their shape; the commands are never persisted with the session.
+type onboardingSessionOutput struct {
+	*onboarding.Session
+	NextCommands []string `json:"next_commands,omitempty"`
+}
+
+type onboardingBatchOutput struct {
+	*onboarding.AuthoringBatch
+	NextCommands []string `json:"next_commands,omitempty"`
+}
+
+type onboardingPreviewOutput struct {
+	*cognitionplan.Preview
+	NextCommands []string `json:"next_commands,omitempty"`
+}
+
 func writeOnboardingSession(cmd *cobra.Command, root string, session *onboarding.Session) error {
 	if flagJSON {
-		return writePlannerJSON(cmd, session)
+		return writePlannerJSON(cmd, onboardingSessionOutput{Session: session, NextCommands: onboardingNextCommands(root, session)})
 	}
 	policy := onboarding.EffectiveAutomationPolicy(session)
 	if session.Operation == "bootstrap" && policy.Mode == "auto" {

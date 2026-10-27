@@ -57,8 +57,11 @@ func newMigrationMappingCmd() *cobra.Command {
 }
 
 func newMigrationMappingTemplateCmd() *cobra.Command {
-	var snapshotFile, planFile, candidateFile string
+	var snapshotFile, planFile, candidateFile, outFile string
 	command := &cobra.Command{Use: "template", Short: cliMessage("cli.short.cognition_migration_mapping_template"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if err := validatePlannerOutput(outFile); err != nil {
+			return migrationExitError(err)
+		}
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return migrationExitError(err)
@@ -71,13 +74,16 @@ func newMigrationMappingTemplateCmd() *cobra.Command {
 		if err != nil {
 			return migrationExitError(err)
 		}
-		if flagJSON {
-			return writePlannerJSON(cmd, mapping)
+		// The Host completes the template in place, so --out-file writes it
+		// to a new file rather than leaving a shell redirect to re-encode it.
+		if flagJSON || strings.TrimSpace(outFile) != "" {
+			return writePlannerArtifact(cmd, mapping, outFile)
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("cognition.migration.mapping_template_summary", len(mapping.Records), len(mapping.TargetRanges), len(mapping.AuthoringTasks)))
 		return nil
 	}}
 	bindMigrationAuthoringFlags(command, &snapshotFile, &planFile, &candidateFile)
+	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("cognition.migration.flag.mapping_out_file"))
 	return command
 }
 

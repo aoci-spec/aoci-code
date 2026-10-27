@@ -236,7 +236,8 @@ longrun-refresh: build
 # Legacy migration drill. LEGACY_RELEASE, the last release that authors Legacy
 # indexes, builds and aligns a Legacy repository; BUILD_BIN, for which that
 # layout is read-only, must migrate it through onboarding, approved in the host
-# dialog, to aligned Volumes v1 carrying every Code Entry byte for byte. The
+# dialog, to aligned Volumes v1 carrying every Code Entry byte for byte, while
+# the runner runs only the commands each result names. The
 # release binary comes checksum-verified through the upgrade axis's cache. Not
 # part of full; the full-confidence line runs it after the axis.
 LEGACY_RELEASE ?= v0.1.0-rc22

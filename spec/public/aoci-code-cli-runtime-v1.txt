@@ -89,6 +89,24 @@ their contracts. The Managed Scope transaction is the one path that still
 edits a Legacy index document: a disposition retires an Entry, and a stale
 Index source still needs its source-bound Entry candidate there.
 
+Onboarding results name their continuation. Under `--json`, `cognition
+onboard start`, `status`, `resume`, `next`, `preview`, `apply`, and a
+policy-bound `prepare` add `next_commands`: the commands that continue the
+session from its state, built from the machine command suffixes and bound to
+the running binary as the Guide's commands are, with `{completion_file}`,
+`{candidate_file}`, `{mapping_file}`, and `{agent}` left for the Host to fill
+and the session's own Plan and Snapshot paths filled in. The field is
+omitted when there is no next command or the binary cannot be bound, and it
+is never persisted with the session. A batch with tasks also carries
+`completion_template`, the receipt that completes it once its tasks are
+authored. A v1 receipt, which every Migration session takes, may name the
+batch it completes as the template does, or no batch for any pending
+subset; a v2 receipt also needs the Host's own
+`semantic_authoring_declaration`, which no template contains. A receipt that
+does not fit is refused as `onboarding_completion_contract_mismatch
+field=<field>`. `cognition migration mapping template --out-file <path>`
+writes the template to a new owner-readable file instead of stdout.
+
 Backups written beside host configuration and formal assets are published
 with owner-only file permissions. On Windows, directory ACLs remain the
 operating-system access boundary.

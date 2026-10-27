@@ -83,3 +83,19 @@ const (
 	RemediationCommandDatabaseSnapshot       = "database snapshot --source {source} --json"
 	RemediationCommandDatabaseBaselineAccept = "database baseline accept --source {source} --json"
 )
+
+// Onboarding continuation suffixes are what each onboarding result's
+// next_commands is spelled from. {completion_file}, {candidate_file}, and
+// {mapping_file} are host-filled too: the receipt the Host writes, the
+// candidate it authors, and the mapping template it saves and completes.
+// {plan_file} and {snapshot_file} name the session's own artifacts, which the
+// CLI fills in itself.
+const (
+	OnboardingCommandNext            = "cognition onboard next --json"
+	OnboardingCommandComplete        = "cognition onboard next --completion-file {completion_file} --json"
+	OnboardingCommandMappingTemplate = "cognition migration mapping template --plan-file {plan_file} --snapshot-file {snapshot_file} --candidate-file {candidate_file} --out-file {mapping_file} --json"
+	OnboardingCommandPreview         = "cognition onboard preview --candidate-file {candidate_file} --json"
+	OnboardingCommandPreviewMapping  = "cognition onboard preview --candidate-file {candidate_file} --mapping-file {mapping_file} --json"
+	OnboardingCommandPrepare         = "cognition onboard prepare --json"
+	OnboardingCommandResume          = "cognition onboard resume --json"
+)

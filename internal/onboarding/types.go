@@ -112,6 +112,9 @@ type AuthoringBatch struct {
 	NextAction                   string                                      `json:"next_action"`
 	SemanticGenerated            bool                                        `json:"semantic_generated"`
 	SemanticAuthoringRequirement *cognitionplan.SemanticAuthoringRequirement `json:"semantic_authoring_requirement,omitempty"`
+	// CompletionTemplate is the receipt that completes this batch; it is
+	// absent once no task is pending.
+	CompletionTemplate *Completion `json:"completion_template,omitempty"`
 }
 
 type Completion struct {

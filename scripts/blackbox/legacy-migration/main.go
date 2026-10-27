@@ -1,11 +1,15 @@
 // Command legacy-migration drills the one way out of the Legacy layout, which
 // 0.2.0 makes read-only. A released binary that could still author a Legacy
 // index builds one the way its users did and proves it aligned; the binary
-// under test then migrates it through onboarding as a host would, to an
-// aligned Volumes v1 repository whose Code Entries are the Legacy ones. The
-// runner plays the host and its model only: every plan, mapping template,
-// preview, approval record, and Apply decision is the binary's, and the
-// Entries it authors are transport, not semantics worth keeping.
+// under test then migrates it as a host would, to an aligned Volumes v1
+// repository whose Code Entries are the Legacy ones. After the Guide's onboard
+// command the runner spells no command of its own: it runs what each result
+// names in next_commands, in a POSIX shell from the repository root, with its
+// own files in place of the placeholders, so a migration a host cannot follow
+// from the output fails here. The runner plays the host and its model only:
+// every plan, mapping template, preview, approval record, and Apply decision is
+// the binary's, and the Entries it authors are transport, not semantics worth
+// keeping.
 package main
 
 import (
@@ -87,19 +91,30 @@ func run(under, released, root string) error {
 	if err != nil {
 		return fmt.Errorf("building the Legacy fixture: %w", err)
 	}
-	if !checkLegacyStop(under, root) {
+	onboard, routed := checkLegacyStop(under, root)
+	if !routed {
 		return errors.New("the Legacy layout is not routed to migration")
 	}
-	session, err := cli(under, root, "cognition", "onboard", "start")
+	work := filepath.Dir(root)
+	h := &host{root: root, files: map[string]string{
+		"{completion_file}": filepath.Join(work, "completion.json"),
+		"{candidate_file}":  filepath.Join(work, "candidate.json"),
+		"{mapping_file}":    filepath.Join(work, "mapping.json"),
+	}}
+	session, err := h.runJSON(onboard)
 	if err != nil {
 		return err
 	}
-	check("onboard.session_is_a_migration", session["operation"] == "migration" && session["current_layout"] == "legacy",
-		fmt.Sprintf("operation=%v layout=%v", session["operation"], session["current_layout"]))
-	if err := completeAuthoring(under, root, session); err != nil {
+	commands := nextCommands(session)
+	if !check("onboard.session_is_a_migration_and_names_its_batch", session["operation"] == "migration" && session["current_layout"] == "legacy" &&
+		named(commands, "cognition onboard next"), fmt.Sprintf("operation=%v layout=%v next_commands=%q", session["operation"], session["current_layout"], commands)) {
+		return errors.New("the session does not name its batch")
+	}
+	finished, err := completeAuthoring(h, commands[0])
+	if err != nil {
 		return err
 	}
-	plan, snapshotFile, err := loadPlan(root, session)
+	plan, err := loadPlan(root, session)
 	if err != nil {
 		return err
 	}
@@ -107,33 +122,34 @@ func run(under, released, root string) error {
 	if err != nil {
 		return err
 	}
-	candidateFile := filepath.Join(filepath.Dir(root), "candidate.json")
-	if err := writeJSON(candidateFile, candidate); err != nil {
+	if err := writeJSON(h.files["{candidate_file}"], candidate); err != nil {
 		return err
 	}
-	templateData, err := succeed(under, root, "cognition", "migration", "mapping", "template",
-		"--plan-file", filepath.Join(root, filepath.FromSlash(stringField(session, "plan_artifact"))),
-		"--snapshot-file", snapshotFile, "--candidate-file", candidateFile)
-	if err != nil {
+	if _, err := h.runJSON(finished[0]); err != nil {
 		return fmt.Errorf("mapping template: %w", err)
 	}
+	templateData, err := os.ReadFile(h.files["{mapping_file}"])
+	if err != nil {
+		return err
+	}
 	template, err := migrationapply.DecodeMapping(templateData)
-	if !check("migration.mapping_template_issued", err == nil && template != nil && len(template.Records) > 0, errorText(err)) {
+	if !check("migration.mapping_template_written_where_named", err == nil && template != nil && len(template.Records) > 0, errorText(err)) {
 		return errors.New("no mapping template")
 	}
 	mapping, err := authorMapping(template)
 	if err != nil {
 		return err
 	}
-	mappingFile := filepath.Join(filepath.Dir(root), "mapping.json")
-	if err := writeJSON(mappingFile, mapping); err != nil {
+	if err := writeJSON(h.files["{mapping_file}"], mapping); err != nil {
 		return err
 	}
-	preview, err := cli(under, root, "cognition", "onboard", "preview", "--candidate-file", candidateFile, "--mapping-file", mappingFile)
-	if !check("onboard.preview_is_ready", err == nil && preview["approval_digest"] != nil, errorText(err)+compact(preview)) {
+	preview, err := h.runJSON(finished[1])
+	commands = nextCommands(preview)
+	if !check("onboard.preview_is_ready_and_names_prepare", err == nil && preview["approval_digest"] != nil && named(commands, "cognition onboard prepare"),
+		errorText(err)+fmt.Sprintf(" next_commands=%q", commands)) {
 		return errors.New("preview not ready")
 	}
-	prepared, err := cli(under, root, "cognition", "onboard", "prepare")
+	prepared, err := h.runJSON(commands[0])
 	if err != nil {
 		return err
 	}
@@ -148,17 +164,18 @@ func run(under, released, root string) error {
 	if err != nil {
 		return err
 	}
-	approvalFile, _ := approval["approval_file"].(string)
-	if !check("approval.host_dialog_records_the_decision", approval["status"] == machinecontract.HumanApprovalStatusApproved &&
-		shown == 1 && approvalFile != "", fmt.Sprintf("status=%v shown=%d file=%s", approval["status"], shown, approvalFile)) {
+	commands = nextCommands(approval)
+	if !check("approval.host_dialog_records_the_decision_and_names_apply", approval["status"] == machinecontract.HumanApprovalStatusApproved &&
+		shown == 1 && named(commands, "cognition onboard apply"), fmt.Sprintf("status=%v shown=%d next_commands=%q", approval["status"], shown, commands)) {
 		return errors.New("the person's approval was not recorded")
 	}
-	applied, err := cli(under, root, "cognition", "onboard", "apply", "--approval-file", filepath.Join(root, filepath.FromSlash(approvalFile)))
-	if !check("onboard.apply_reaches_volumes", err == nil && applied["formal_assets_complete"] == true &&
-		applied["active_layout"] == machinecontract.CognitionPlannerVolumes, errorText(err)+compact(applied)) {
+	applied, err := h.runJSON(commands[0])
+	commands = nextCommands(applied)
+	if !check("onboard.apply_reaches_volumes_and_names_the_proof", err == nil && applied["formal_assets_complete"] == true &&
+		applied["active_layout"] == machinecontract.CognitionPlannerVolumes && len(commands) == 3, errorText(err)+compact(applied)) {
 		return errors.New("apply did not complete")
 	}
-	checkAligned(under, root)
+	checkAligned(h, commands)
 	checkEntriesPreserved(root, legacy)
 	return nil
 }
@@ -277,8 +294,8 @@ func authorLegacyRepository(released, root string) (*legacyIndex, error) {
 }
 
 // checkLegacyStop proves the read-only stop before anything is migrated: the
-// Guide routes to onboarding and a write tool refuses.
-func checkLegacyStop(under, root string) bool {
+// Guide routes to onboarding, naming the command, and a write tool refuses.
+func checkLegacyStop(under, root string) (string, bool) {
 	guide, _ := cli(under, root, "index", "agent", "guide", "--agent", "claude")
 	commands, _ := guide["commands"].(map[string]any)
 	onboard, _ := commands["onboard"].(string)
@@ -287,65 +304,56 @@ func checkLegacyStop(under, root string) bool {
 	text, _ := callToolText(under, root, "aoci_update_entry", map[string]any{"entries": []map[string]any{{"path": "src/main.go",
 		"source_sha256": strings.Repeat("0", 64), "candidate_id": strings.Repeat("0", 64), "new_entry": "main.go[XG7T]: F:x | R:- | A:- | S:-"}}})
 	refused := check("legacy.write_tools_refuse_before_migration", strings.Contains(text, machinecontract.StatusLegacyReadOnlyMigrateRequired), firstLine(text))
-	return routed && refused
+	return onboard, routed && refused
 }
 
-// completeAuthoring submits a completion receipt for every batch onboarding
-// issues: the host model reads each batch and authors the candidate below.
-// The receipt follows the batch's contract: a v1 batch (every Migration
-// session) takes the v1 receipt, which names no batch, and a v2 batch takes
-// the v2 receipt with its batch and the Host's authoring-run declaration.
-func completeAuthoring(under, root string, session map[string]any) error {
-	id := stringField(session, "onboarding_session_id")
-	receipt := filepath.Join(filepath.Dir(root), "completion.json")
-	args := []string{"cognition", "onboard", "next"}
+// completeAuthoring follows the batches: the host model reads each batch and
+// authors the candidate below, and submits the receipt the batch hands out
+// with the command it names. It returns what the last batch names next.
+func completeAuthoring(h *host, command string) ([]string, error) {
 	for round := 0; round < 20; round++ {
-		batch, err := cli(under, root, args...)
+		batch, err := h.runJSON(command)
 		if err != nil {
-			return fmt.Errorf("onboard next: %w", err)
+			return nil, fmt.Errorf("onboard next: %w", err)
 		}
+		next := nextCommands(batch)
 		tasks, _ := batch["tasks"].([]any)
 		if len(tasks) == 0 {
 			pending, _ := batch["pending_count"].(float64)
-			check("onboard.authoring_batches_complete", pending == 0, fmt.Sprintf("rounds=%d next_action=%v", round, batch["next_action"]))
-			return nil
+			done := pending == 0 && len(next) == 2 && named(next[:1], "cognition migration mapping template") && named(next[1:], "cognition onboard preview")
+			check("onboard.batches_hand_out_their_receipts", done, fmt.Sprintf("rounds=%d next_commands=%q", round, next))
+			if !done {
+				return nil, errors.New("finished authoring does not name the mapping template and Preview")
+			}
+			return next, nil
 		}
-		completed := []string{}
-		for _, value := range tasks {
-			task, _ := value.(map[string]any)
-			completed = append(completed, stringField(task, "task_id"))
+		template, _ := batch["completion_template"].(map[string]any)
+		if template == nil || !named(next, "--completion-file") {
+			check("onboard.batches_hand_out_their_receipts", false, fmt.Sprintf("round %d: template=%t next_commands=%q", round, template != nil, next))
+			return nil, errors.New("a batch does not hand out its receipt")
 		}
-		completion := map[string]any{"version": machinecontract.CognitionOnboardingCompleteV1, "onboarding_session_id": id,
-			"completed_task_ids": completed}
-		if batch["version"] == machinecontract.CognitionOnboardingBatchV2 {
-			requirement, _ := batch["semantic_authoring_requirement"].(map[string]any)
-			completion["version"], completion["batch_id"] = machinecontract.CognitionOnboardingCompleteV2, batch["batch_id"]
-			completion["semantic_authoring_declaration"] = map[string]any{"version": machinecontract.SemanticAuthoringProvenanceV1,
-				"origin": machinecontract.SemanticAuthoringOriginHostModel, "authoring_run_id": "legacy-migration-drill",
-				"discovery_plan_id": requirement["discovery_plan_id"], "evidence_binding_sha256": requirement["evidence_binding_sha256"]}
+		if err := writeJSON(h.files["{completion_file}"], template); err != nil {
+			return nil, err
 		}
-		if err := writeJSON(receipt, completion); err != nil {
-			return err
-		}
-		args = []string{"cognition", "onboard", "next", "--completion-file", receipt}
+		command = next[0]
 	}
-	check("onboard.authoring_batches_complete", false, "more than 20 batches")
-	return errors.New("authoring did not finish")
+	check("onboard.batches_hand_out_their_receipts", false, "more than 20 batches")
+	return nil, errors.New("authoring did not finish")
 }
 
-func loadPlan(root string, session map[string]any) (*cognitionplan.Plan, string, error) {
+func loadPlan(root string, session map[string]any) (*cognitionplan.Plan, error) {
 	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(stringField(session, "plan_artifact"))))
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	plan, err := cognitionplan.DecodePlan(data)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if plan.Mapping == nil {
-		return nil, "", errors.New("the Migration Plan carries no mapping")
+		return nil, errors.New("the Migration Plan carries no mapping")
 	}
-	return plan, filepath.Join(root, filepath.FromSlash(stringField(session, "snapshot_artifact"))), nil
+	return plan, nil
 }
 
 // authorCandidate is the host model's Volumes layout: a Root, a Meta whose
@@ -581,12 +589,13 @@ func approveInDialog(under, root string, arguments map[string]any) (map[string]a
 	return result, shown, err
 }
 
-func checkAligned(under, root string) {
-	_, _, verifyCode, _ := cliRaw(under, root, "verify")
-	_, _, checkCode, _ := cliRaw(under, root, "check")
-	guide, _ := cli(under, root, "index", "agent", "guide", "--agent", "claude")
-	check("governance.verify_check_and_guide_aligned", verifyCode == 0 && checkCode == 0 && guide["complete"] == true &&
-		guide["next_action"] == "none", fmt.Sprintf("verify=%d check=%d guide=%v/%v", verifyCode, checkCode, guide["stage"], guide["next_action"]))
+// checkAligned runs the terminal proof Apply named: Verify, Check, Guide.
+func checkAligned(h *host, commands []string) {
+	_, verifyCode, verifyErr := h.run(commands[0])
+	_, checkCode, checkErr := h.run(commands[1])
+	guide, guideErr := h.runJSON(commands[2])
+	check("governance.verify_check_and_guide_aligned", verifyErr == nil && checkErr == nil && guideErr == nil && verifyCode == 0 && checkCode == 0 &&
+		guide["complete"] == true && guide["next_action"] == "none", fmt.Sprintf("verify=%d check=%d guide=%v/%v", verifyCode, checkCode, guide["stage"], guide["next_action"]))
 }
 
 // checkEntriesPreserved reads the published assets as plain text, not through
@@ -613,6 +622,87 @@ func checkEntriesPreserved(root string, legacy *legacyIndex) {
 	check("entries.code_volume_carries_the_legacy_entries", codeErr == nil && volumes && len(missing) == 0 &&
 		len(got) == len(legacy.entries) && !got[selfEntry], fmt.Sprintf("volumes_root=%t code_entries=%d changed_or_missing=%v self_entry_in_code=%t",
 		volumes, len(got), missing, got[selfEntry]))
+}
+
+// host runs what AOCI's results name, as a host's shell would: from the
+// repository root, with its own files in place of the placeholders.
+type host struct {
+	root  string
+	files map[string]string
+}
+
+var placeholder = regexp.MustCompile(`\{[a-z_]+\}`)
+
+func (h *host) run(spelled string) ([]byte, int, error) {
+	filled := strings.ReplaceAll(spelled, "{agent}", "claude")
+	for name, path := range h.files {
+		filled = strings.ReplaceAll(filled, name, posixQuote(path))
+	}
+	if left := placeholder.FindString(filled); left != "" || filled == "" {
+		return nil, -1, fmt.Errorf("cannot run %q: placeholder %s left unfilled", spelled, left)
+	}
+	command := exec.Command("sh", "-c", filled)
+	command.Dir = h.root
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	err := command.Run()
+	code := 0
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		code, err = exit.ExitCode(), nil
+	}
+	if err != nil {
+		return nil, -1, err
+	}
+	if code != 0 {
+		var envelope struct {
+			Message string `json:"message"`
+		}
+		reason := firstLine(stderr.String())
+		if json.Unmarshal(stdout.Bytes(), &envelope) == nil && envelope.Message != "" {
+			reason = envelope.Message
+		}
+		return stdout.Bytes(), code, fmt.Errorf("%s exited %d: %s", filled, code, reason)
+	}
+	return stdout.Bytes(), 0, nil
+}
+
+// runJSON runs one named command that must succeed and decodes the JSON object
+// it prints, or an empty object when it prints nothing.
+func (h *host) runJSON(spelled string) (map[string]any, error) {
+	stdout, _, err := h.run(spelled)
+	if err != nil {
+		return map[string]any{}, err
+	}
+	decoded := map[string]any{}
+	if len(bytes.TrimSpace(stdout)) > 0 {
+		if err := json.Unmarshal(stdout, &decoded); err != nil {
+			return decoded, fmt.Errorf("%s: output is not one JSON object: %v", spelled, err)
+		}
+	}
+	return decoded, nil
+}
+
+// nextCommands is the next_commands list a result names.
+func nextCommands(result map[string]any) []string {
+	values, _ := result["next_commands"].([]any)
+	commands := make([]string, 0, len(values))
+	for _, value := range values {
+		if command, ok := value.(string); ok {
+			commands = append(commands, command)
+		}
+	}
+	return commands
+}
+
+// named reports whether the first command names the given words, however
+// the shell quoting splits them: MCP results quote every argument.
+func named(commands []string, words string) bool {
+	return len(commands) > 0 && strings.Contains(strings.ReplaceAll(commands[0], "'", ""), words)
+}
+
+func posixQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
 }
 
 // cli runs one --json command that must succeed and decodes its single JSON

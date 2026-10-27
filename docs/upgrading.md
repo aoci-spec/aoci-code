@@ -130,11 +130,12 @@ compatibility and used by nothing), `index build`, `index update`,
 
 The exit is the existing migration: `aoci cognition onboard start --json`
 plans the Legacy-to-Volumes migration, approval and application follow its
-next steps, and the migrated repository is maintained like any Volumes v1
-repository. The approval is a person's: `onboard prepare` returns an
-`interaction` object whose `host_dialog_request` asks them in the MCP host's
-dialog, and whose exact command (with `--out-file`) is the terminal route;
-`onboard apply` then takes the recorded approval. One Legacy write remains: a Managed Scope transaction can still
+next steps (the next section walks through them), and the migrated repository
+is maintained like any Volumes v1 repository. The approval is a person's:
+`onboard prepare` returns an `interaction` object whose `host_dialog_request`
+asks them in the MCP host's dialog, and whose exact command (with
+`--out-file`) is the terminal route; `onboard apply` then takes the recorded
+approval. One Legacy write remains: a Managed Scope transaction can still
 retire an Entry by disposition or carry a source-bound Entry candidate for a
 stale Index source, so a Legacy repository can reach the active policy the
 migration requires.
@@ -145,5 +146,86 @@ the migration until it is closed, and 0.2.0 has no command that closes it:
 finish it with the 0.1.x binary that wrote it (`aoci index header diff`, then
 `apply`, for that run). Entries, Header, and Curation draft runs that a
 Legacy Stage left under `.aoci` are inert in 0.2.0; nothing applies them.
+
+## Migrating a Legacy repository, step by step
+
+The migration is model-authored: AOCI plans it, checks every file the host
+writes, and applies only what a person approved. Under `--json` each
+`cognition onboard` result names its continuation in `next_commands`, spelled
+with the running binary (Prepare names it in `interaction`);
+`{completion_file}`, `{candidate_file}`, `{mapping_file}`, and `{agent}` are
+the paths and the name the host chooses. Run the commands from the
+repository root. `scripts/blackbox/legacy-migration` in the source tree
+performs every step below for a small repository.
+
+1. `aoci cognition onboard start --json` creates the session. Its
+   `plan_artifact` and `snapshot_artifact` are the Migration Plan and the
+   Legacy Snapshot under `.aoci/onboarding/<session>/artifacts/`.
+2. `aoci cognition onboard next --json` returns a batch of authoring tasks:
+   the Root's project fields (`root:project`), the Meta (`meta:governance`),
+   each Code file (`code:<path>`), and one decision per Legacy Header atom or
+   Entry (`mapping:<unit>`), each with its evidence. Author that part of the
+   candidate, write the batch's `completion_template` to `{completion_file}`
+   unchanged, and run the command `next_commands` gives. Repeat until a batch
+   has no tasks. A Migration takes `cognition-onboarding-completion/v1`; a
+   receipt that does not fit is refused as
+   `onboarding_completion_contract_mismatch field=<field>`.
+3. Write the candidate, one `cognition-layout-candidate/v1` file:
+
+   ```json
+   {"version": "cognition-layout-candidate/v1", "plan_id": "<the plan's plan_id>",
+    "assets": [{"asset_id": "root", "path": "aoci.txt", "content": "..."},
+               {"asset_id": "meta", "path": "aoci.meta.txt", "content": "..."},
+               {"asset_id": "code", "path": "aoci.code.txt", "content": "..."}],
+    "mapping_resolutions": [{"unit_id": "<unit>", "target_asset": "code",
+      "target_ref": "code:src/main.go", "reviewer": "<agent>", "semantic_reviewed": true}]}
+   ```
+
+   Start each asset from the Plan's `candidate_frameworks` item with the same
+   `asset_id` and replace every `MODEL_AUTHORING_REQUIRED` line: the Root's
+   `#Project:` and `#Global-Invariants:`, the Meta's tag dictionaries, which
+   must admit every tag the migrated Entries keep, and the Code Volume's
+   sections and Entries. Every Index-role file has exactly one Entry. An Entry
+   carried over unchanged is its Legacy line byte for byte under its Legacy
+   section header. The index's own Entry (`aoci.txt[...]`) stays out of Code:
+   the Root owns it. `mapping_resolutions` holds one item for each record of
+   the Plan's `semantic_mapping.records` whose `mode` is not
+   `structural_only`, sorted by `unit_id`: a Legacy Entry resolves to `code`
+   and its `code:<path>`, the index's own Entry to `root` with an empty
+   `target_ref`, and a Header atom to `root` or `meta`.
+4. Run the mapping template command from `next_commands`. It writes the
+   `cognition-migration-mapping/v2` template to `{mapping_file}`, which must
+   not exist yet. Its `target_ranges` are the candidate's lines: every Entry
+   and each of its fields, and every Root or Meta line written in place of a
+   placeholder. Structural records come filled in. Complete every other record with a `semantic_role`, `review_status`
+   `semantic_reviewed`, a `reviewer`, the `target_asset`, `target_object`, and
+   `target_semantic_range_identity` of one target range, and a `mapping_mode`:
+   - `preserved` when that range holds the record's exact bytes, as a
+     carried-over Entry and its fields do. Drop the record's `author:` task:
+     every task left in `authoring_tasks` must be reviewed.
+   - `model_regenerated` otherwise. Its `authoring_task_id` names a task that
+     lists the record in `source_identities` and the range in
+     `candidate_range_identities`, with `status` `semantic_reviewed` and a
+     `reviewer`. A regenerated Entry also names a `mapping_groups` item that
+     holds the record, the range, and that task.
+
+   Header atoms are always `model_regenerated`, into Root or Meta lines. The
+   index's own Entry and its fields go to one Root line together, in one
+   group. Each target range takes one record or one group, so give the Meta
+   enough reviewed lines to receive the Header, or group the atoms that one
+   line covers. A field targets the same object as its Entry. An Entry that
+   keeps only some fields may use `field_preserved` instead: the same task and
+   group, plus a reviewed `entry_preservation` that starts from its task's
+   `entry_preservation_proposal`.
+5. Run the preview command from `next_commands` with the candidate and the
+   mapping. A ready Preview names `onboard prepare` next.
+6. `aoci cognition onboard prepare --json` freezes the write set and returns
+   `interaction`: `host_dialog_request` asks the person in the MCP host's
+   dialog, and its exact command is the terminal route. The model never
+   approves.
+7. `aoci cognition onboard apply --approval-file <approval_file> --json`
+   applies the approved migration and names Verify, Check, and the Guide, or
+   the Guide alone while governance still has work.
+   From there the repository is maintained like any Volumes v1 repository.
 
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

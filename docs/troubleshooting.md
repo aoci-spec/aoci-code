@@ -348,7 +348,8 @@ the Guide is bound to current repository evidence.
 not the Volumes route; it does not by itself prove that the CLI and running MCP
 Server have different versions. The converse answer,
 `legacy_read_only_migrate_required` from a write tool, means the repository is
-still the Legacy layout: migrate with `aoci cognition onboard start --json`.
+still the Legacy layout: migrate with `aoci cognition onboard start --json`
+and its `next_commands`; `docs/upgrading.md` walks through every step.
 
 If Maintain stops with `scope_change_required` instead of offering candidates,
 no batch will converge anything until the policy is active; the next section

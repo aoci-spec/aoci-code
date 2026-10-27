@@ -13,7 +13,7 @@ the repository clone (binary Release archives do not include `scripts/`).
 | `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, re-alignment, the governance walks (curation probes, post-scan exclusion, and a pending policy edit over a changed source), and the bring-up lanes (a git submodule boundary, `exclude_root_dirs` roles with `config set` normalization, `remove-entry --preview` and the real removal of an orphan, the `source manifest` and `capabilities` machine documents, and a zh-CN run compared with an en-US run of the same commands: no en-US sentence fragment in the human output, identical `--json` machine fields), while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 | `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in ten repository shapes; the tenth turns the axis around, so each release also has to read a repository the binary under test wrote. `--self` runs the same shapes with the binary under test in both roles, before a tag exists. | above + network access on the first run (binaries are cached; `--self` needs none) | minutes |
 | `longrun-refresh/` (Go; `make longrun-refresh`) | The long-running cognition refresh contract against a real stdio MCP server over two disposable Git repositories: the 29-versus-30 semantic threshold, compact `check_only`, Dirty delivery marked unreliable, a simulated Host compaction with a partial Attestation, three-reason merging, one injected `repair_required` correction, and final Verify/Check/Guide alignment. Writes a JSON report; see its own README. | go, git, a built binary | seconds |
-| `legacy-migration/` (Go; `make legacy-migration`) | The one exit from the read-only Legacy layout: a repository the last Legacy-authoring release built and aligned migrates through onboarding and a host-dialog approval to aligned Volumes v1, every Code Entry carried byte for byte. | go, git, python3, a built binary, network once for the release binary (cached) | seconds |
+| `legacy-migration/` (Go; `make legacy-migration`) | The one exit from the read-only Legacy layout: a repository the last Legacy-authoring release built and aligned migrates through onboarding and a host-dialog approval to aligned Volumes v1, every Code Entry carried byte for byte, by running only the commands each result names. | go, git, python3, a POSIX shell, a built binary, network once for the release binary (cached) | seconds |
 
 ## Running
 
@@ -135,12 +135,15 @@ repository the way its users did and proves it aligned with its own Verify and
 Check. The binary under test must then route it to onboarding, refuse a write,
 and carry it through the migration: the authoring batches, the mapping
 template, Preview, Prepare, an approval the runner gives as the person in the
-host dialog, and Apply. Verify, Check, and the Guide must report the result
-aligned, and the Code Volume must hold every Legacy business Entry byte for
-byte and not the Root-owned self-Entry. The runner plays the host and its
-model; plans, templates, Previews, approval records, and Apply decisions are
-the binary's, and the result is judged from the published files as text.
-`--keep` retains the repository:
+host dialog, and Apply. After the Guide's onboard command the runner spells no
+command itself: it runs what each result names in `next_commands`, in a POSIX
+shell from the repository root, so a step a host could not find in the output
+fails here. Verify, Check, and the Guide must report the result aligned, and
+the Code Volume must hold every Legacy business Entry byte for byte and not
+the Root-owned self-Entry. The runner plays the host and its model; plans,
+templates, Previews, approval records, and Apply decisions are the binary's,
+and the result is judged from the published files as text. `--keep` retains
+the repository:
 
 ```bash
 make legacy-migration BUILD_BIN=build/aoci-<label>
