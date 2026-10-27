@@ -35,6 +35,20 @@ var mcpToolNames = []string{
 	"aoci_report", "aoci_rules", "aoci_search", "aoci_update_entry",
 }
 
+// mcpSupportedProtocolVersions are the MCP revisions the server negotiates,
+// newest first. They stop at MCPProtocolCurrent, the newest revision with the
+// initialize handshake: 2026-07-28 removes that handshake and blocks the
+// server-initiated elicitation that aoci_maintain intent=human_approval
+// relies on, and no black-box suite speaks it, so the SDK's newer default is
+// narrowed to the set every release before go-sdk 1.7 negotiated.
+var mcpSupportedProtocolVersions = []string{MCPProtocolCurrent, "2025-06-18", "2025-03-26", "2024-11-05"}
+
+// MCPSupportedProtocolVersions returns a copy of the negotiated revisions,
+// newest first.
+func MCPSupportedProtocolVersions() []string {
+	return append([]string{}, mcpSupportedProtocolVersions...)
+}
+
 func MCPToolNames() []string {
 	result := append([]string{}, mcpToolNames...)
 	sort.Strings(result)

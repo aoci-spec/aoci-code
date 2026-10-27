@@ -81,7 +81,7 @@ union to match `THIRD-PARTY-NOTICES`. Local AOCI packages can be reported as
 `Unknown` because dependency scanners do not classify the main module; those
 rows are not interpreted as third-party dependency licenses.
 
-The current release-binary union contains 22 modules. The authoritative pinned
+The current release-binary union contains 23 modules. The authoritative pinned
 inventory, license-file hashes, retained license texts, and the MCP Go SDK's
 Apache-2.0 transition with residual MIT contributions and CC-BY-4.0
 documentation classification are recorded in `THIRD-PARTY-NOTICES`. All three

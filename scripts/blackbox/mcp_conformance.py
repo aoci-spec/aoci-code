@@ -153,7 +153,23 @@ init = s.rpc("initialize", {"protocolVersion":"2025-06-18",
 si = (init.get("result") or {}).get("serverInfo") or {}
 ok("initialize.serverInfo.version",
    (si.get("version") == EXPECT_VERSION) if EXPECT_VERSION else bool(si.get("version")), str(si))
-ok("initialize.protocolVersion", (init.get("result") or {}).get("protocolVersion") in ("2025-06-18","2025-03-26"), str(init.get("result",{}).get("protocolVersion")))
+# Negotiation stops at the handshake era: a sessionless request at 2026-07-28
+# (no initialize, the revision in per-request _meta) is refused with the
+# supported list instead of being served, because that revision drops the
+# handshake and blocks the elicitation aoci_maintain intent=human_approval uses.
+probe = Session()
+refusal = probe.rpc("server/discover", {"_meta": {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+    "io.modelcontextprotocol/clientInfo": {"name": "aoci-conformance-probe", "version": "1.0"},
+    "io.modelcontextprotocol/clientCapabilities": {}}})
+probe.close()
+refused = refusal.get("error") if isinstance(refusal.get("error"), dict) else {}
+refused_data = refused.get("data") if isinstance(refused.get("data"), dict) else {}
+negotiated = (init.get("result") or {}).get("protocolVersion")
+ok("initialize.protocolVersion",
+   negotiated in ("2025-06-18","2025-03-26") and refused.get("code") == -32022
+   and refused_data.get("supported") == ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"],
+   f"offered 2025-06-18 -> {negotiated}; 2026-07-28 -> {refused.get('code')} {refused_data.get('supported')}")
 s.notify("notifications/initialized")
 
 tl = s.rpc("tools/list")

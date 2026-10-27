@@ -773,7 +773,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ----- END PINNED LICENSE TEXT -----
 
-Module: github.com/modelcontextprotocol/go-sdk v1.6.1
+Module: github.com/modelcontextprotocol/go-sdk v1.8.0
 Pinned license file: LICENSE
 Pinned license SHA-256: af679003d933f045393a6a029f43da113f9ae364eac651d9ae268392985580f5
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1294,7 +1294,7 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ----- END PINNED LICENSE TEXT -----
 
-Modules: golang.org/x/oauth2 v0.35.0; golang.org/x/sync v0.22.0; golang.org/x/sys v0.48.0; golang.org/x/text v0.41.0
+Modules: golang.org/x/oauth2 v0.35.0; golang.org/x/sync v0.22.0; golang.org/x/sys v0.48.0; golang.org/x/text v0.41.0; golang.org/x/time v0.15.0
 Pinned license file: LICENSE
 Pinned license SHA-256: 911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad
 ----- BEGIN PINNED LICENSE TEXT -----
@@ -1590,8 +1590,8 @@ Reachable Go dependency inventory
 
 This technical inventory is the deterministic union of the package closure for
 `./cmd/aoci`, with CGO disabled, across the GoReleaser release matrix:
-Linux, macOS, and Windows on amd64 and arm64. The current union contains 22
-modules. Twenty-one are reachable on every release target; mousetrap is reached
+Linux, macOS, and Windows on amd64 and arm64. The current union contains 23
+modules. Twenty-two are reachable on every release target; mousetrap is reached
 only by the Windows targets. The inventory records detector output and upstream
 license-file evidence. It is not a final legal attribution or legal conclusion
 and must be regenerated from the final immutable release commit and reconciled
@@ -1618,7 +1618,7 @@ github.com/jackc/pgx/v5 v5.11.0
   Reachability: all release targets
   Detected license: MIT
 
-github.com/modelcontextprotocol/go-sdk v1.6.1
+github.com/modelcontextprotocol/go-sdk v1.8.0
   Reachability: all release targets
   Detector result for the reachable Go package: Apache-2.0
   Upstream license status: the module LICENSE describes an ongoing transition
@@ -1637,7 +1637,7 @@ golang.org/x/sys v0.48.0
   Reachability: all release targets
   Detected license: BSD-3-Clause
 
-Indirect dependencies (16)
+Indirect dependencies (17)
 --------------------------
 
 filippo.io/edwards25519 v1.2.0
@@ -1700,6 +1700,10 @@ golang.org/x/text v0.41.0
   Reachability: all release targets
   Detected license: BSD-3-Clause
 
+golang.org/x/time v0.15.0
+  Reachability: all release targets
+  Detected license: BSD-3-Clause
+
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
   Reachability: all release targets
   Detected license: BSD-3-Clause
@@ -1711,7 +1715,7 @@ The complete pinned module-root license texts are retained above, but this
 technical preparation does not constitute legal approval. Authorized review
 must still:
 
-- reconcile the 22-module inventory and license hashes with the final immutable
+- reconcile the 23-module inventory and license hashes with the final immutable
   source commit, release SBOM, archive contents, and reachable package set;
 - confirm the corresponding-source delivery method and any additional notice
   needed for the MPL-2.0-covered MySQL driver;

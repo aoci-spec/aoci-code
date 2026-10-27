@@ -265,6 +265,18 @@ changes a persisted preimage names the binary every machine then needs.
   team configuration's `database` and `credential_env` fields become
   `omitempty`: a SQLite declaration writes neither, and a server declaration
   is written exactly as before.
+- The MCP server runs on go-sdk 1.8.0 (#66) and negotiates the same
+  revisions as before: `2025-11-25`, `2025-06-18`, `2025-03-26`, and
+  `2024-11-05`. The SDK's newer `2026-07-28` revision removes the
+  `initialize` handshake and blocks the server-initiated elicitation the
+  host-dialog approval uses, so a client offering it in `initialize` is
+  answered with `2025-11-25` and a sessionless request carrying it is refused
+  with `-32022`; serving it is a later step with its own harness arm. On the
+  wire, `tools/list` adds `ttlMs: 0` and `cacheScope: public`, an unknown
+  method answers `-32601` instead of code 0, and one inbound frame is bounded
+  at 16 MiB. The release binary gains one module, `golang.org/x/time` v0.15.0
+  (BSD-3-Clause, from the Go project), for 23 in all; `THIRD-PARTY-NOTICES`
+  and the supply-chain guide list it.
 
 ## v0.1.0-rc22
 

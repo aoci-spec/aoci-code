@@ -13,7 +13,17 @@ writes it. A repository with a Legacy index and no configuration, or with a
 configuration that predates the Locale field, is served as `zh-CN` without
 recording that Locale; an ordinary CLI command records it.
 
-The current MCP protocol identity is `2025-11-25`.
+The current MCP protocol identity is `2025-11-25`. The server negotiates
+`2025-11-25`, `2025-06-18`, `2025-03-26`, and `2024-11-05` through the
+`initialize` handshake and does not serve the `2026-07-28` revision, which
+removes that handshake and the server-initiated elicitation
+`aoci_maintain intent=human_approval` relies on: a client that offers it in
+`initialize` is answered with `2025-11-25`, and a sessionless request carrying
+it in `_meta` is refused with JSON-RPC error `-32022` whose data lists the four
+supported versions. One inbound JSON-RPC frame is bounded at 16 MiB. A
+`tools/list` result carries the cache hints `ttlMs: 0` and `cacheScope:
+public`, so a Host refetches the list instead of caching it, and an unknown
+method answers `-32601`.
 
 Tool surface
 ------------

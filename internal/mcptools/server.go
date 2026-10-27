@@ -296,7 +296,8 @@ func NewServer(root, version string) (*mcp.Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	srv := mcp.NewServer(&mcp.Implementation{Name: machinecontract.MCPServerName, Version: version}, nil)
+	srv := mcp.NewServer(&mcp.Implementation{Name: machinecontract.MCPServerName, Version: version},
+		&mcp.ServerOptions{SupportedProtocolVersions: machinecontract.MCPSupportedProtocolVersions()})
 	srv.AddReceivingMiddleware(
 		overviewSchemaDiagnostics(root, cfg.LedgerEnabled),
 		compactToolListing(advertisedMCPInputSchemas(inputSchemas)),
