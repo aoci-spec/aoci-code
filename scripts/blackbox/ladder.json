@@ -152,8 +152,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/axis-148-recent1.txt (--recent 1: rc22 reads a v0.2.0-line repository as scope_change_required, DOWNGRADE_FLOOR moved)"
+    "date": "2026-10-27",
+    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): linux-full upgrade axis over every released binary green"
    }
   },
   {
@@ -202,9 +202,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc4",
-    "date": "2026-08-13",
-    "evidence": "local replay PASS; nightly CI job opengauss-integration since"
+    "version": "unreleased",
+    "date": "2026-10-27",
+    "evidence": "full-confidence 40468456782 on 576d711: opengauss-integration ran TestOpenGaussRealCatalogCollectionAndDrift against opengauss 6.0.5, green"
    }
   },
   {
@@ -219,7 +219,7 @@
    "last_verified": {
     "version": "unreleased",
     "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/fuzz-smoke-dialog.txt (12 targets, 20s each, no crash)"
+    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): fuzz smoke green; attempt 1 stopped FuzzNormalizeRelPath at the 30s limit with context deadline exceeded and no failing input, two local 30s runs green"
    }
   },
   {
@@ -248,8 +248,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-26",
-    "evidence": ".aoci/dev-tools/nightly-cap.txt (Volumes fixture, overall_passed)"
+    "date": "2026-10-27",
+    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): linux-full long-running cognition refresh black box green"
    }
   },
   {
@@ -298,9 +298,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc20",
-    "date": "2026-10-13",
-    "evidence": "full-confidence 38294486403 native-lifecycle x3 and windows-scenarios green"
+    "version": "unreleased",
+    "date": "2026-10-27",
+    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): native-lifecycle macos-15, macos-15-intel, windows-latest; windows-scenarios and macos-conformance green"
    }
   },
   {
