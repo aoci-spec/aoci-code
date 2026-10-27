@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-27T02:06:07Z",
+  "updated_at": "2026-10-27T03:10:24Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "6302d09b7945bb97625f30f7d0bff97f68b81dad4105ec014b820d5196da257c",
-      "size": 208591,
-      "normalized_sha256": "6302d09b7945bb97625f30f7d0bff97f68b81dad4105ec014b820d5196da257c"
+      "sha256": "95d4a688f0e0606fbd16bb95a4dd441ad4fca1dfe0ef5c6c9e3aaaacb8b20009",
+      "size": 208701,
+      "normalized_sha256": "95d4a688f0e0606fbd16bb95a4dd441ad4fca1dfe0ef5c6c9e3aaaacb8b20009"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1996,10 +1996,18 @@
     },
     "internal/cli/status.go": {
       "role": "index",
-      "sha256": "97ce809e9c325b193e71f2f106db8f5915b72c849a6643fcfe00a3bcbdb82272",
-      "size": 11503,
-      "normalized_sha256": "97ce809e9c325b193e71f2f106db8f5915b72c849a6643fcfe00a3bcbdb82272",
-      "format_sha256": "97ce809e9c325b193e71f2f106db8f5915b72c849a6643fcfe00a3bcbdb82272",
+      "sha256": "035fb39c03dc9ab8aad68a8cf3e23557912a34a9ec7623bb061bce0bcd654a4b",
+      "size": 11525,
+      "normalized_sha256": "035fb39c03dc9ab8aad68a8cf3e23557912a34a9ec7623bb061bce0bcd654a4b",
+      "format_sha256": "035fb39c03dc9ab8aad68a8cf3e23557912a34a9ec7623bb061bce0bcd654a4b",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/status_baseline_errors_test.go": {
+      "role": "observe",
+      "sha256": "bb1876f2798d3e1d7f3d542c7ec36dae3babc79862fd71712c231abda035ae77",
+      "size": 3084,
+      "normalized_sha256": "bb1876f2798d3e1d7f3d542c7ec36dae3babc79862fd71712c231abda035ae77",
+      "format_sha256": "bb1876f2798d3e1d7f3d542c7ec36dae3babc79862fd71712c231abda035ae77",
       "format_kind": "gofmt"
     },
     "internal/cli/status_deep_missing_index_test.go": {
@@ -6365,9 +6373,9 @@
     },
     "spec/public/aoci-code-cli-runtime-v1.txt": {
       "role": "index",
-      "sha256": "0652cfcb2559464390081c4cdf7e5b1654e921af66d1dd0675ba6e1eea9b59fa",
-      "size": 12168,
-      "normalized_sha256": "0652cfcb2559464390081c4cdf7e5b1654e921af66d1dd0675ba6e1eea9b59fa"
+      "sha256": "cac8b5e56303509d9356cccefb6dea6a65182ff8316578089da7e315132a97a5",
+      "size": 12460,
+      "normalized_sha256": "cac8b5e56303509d9356cccefb6dea6a65182ff8316578089da7e315132a97a5"
     },
     "spec/public/aoci-cognition-refresh-v1.txt": {
       "role": "index",

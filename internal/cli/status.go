@@ -125,9 +125,11 @@ func init() {
 			}
 
 			// Baseline概况。默认模式只读取元数据，不重新哈希仓库。
-			if baselineValue, exists, loadErr :=
-				baseline.Load(root); loadErr == nil &&
-				exists {
+			baselineValue, exists, loadErr := baseline.Load(root)
+			if loadErr != nil {
+				return &ExitError{Code: ExitInvalid, Err: loadErr}
+			}
+			if exists {
 				report.BaselineExists = true
 				report.BaselineFiles = len(
 					baselineValue.Files,
@@ -323,8 +325,8 @@ func init() {
 // buildStatusDeepCounts计算status --deep使用的统一漂移计数。
 //
 // 它与Verify和Score共用baseline.DetectWith及团队换行策略。
-// Baseline损坏沿用status既有宽容读取语义：按无Baseline计算Unbaselined，
-// 不在本辅助函数内重建或修改任何资产。
+// 命令入口先拒绝无法读取或损坏的Baseline；
+// 本辅助函数不重建或修改任何资产。
 func buildStatusDeepCounts(
 	root string,
 	indexPath string,
