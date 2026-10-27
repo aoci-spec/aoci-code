@@ -13,6 +13,8 @@
 
 <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
 
+https://github.com/user-attachments/assets/78fcbeeb-013a-4ad3-aeee-c1dc303d2501
+
 ## 1. 🎯 AOCI-CODE 能做什么
 
 1.1 **在 Code Agent 里持续迭代开发系统。** 在 Codex、Claude Code、Cursor、OpenCode 等 Agent 中，从零起步一直演进到 50 万行代码加数据库的完整系统。Agent 始终带着 AOCI 索引提供的整体系统认知工作，而不是每个任务都重新搜索、重读整个代码库。非专业开发者可以持续迭代开发自己的系统；专业开发者可以把整个系统交给 Agent 协同演进，把精力放在架构和设计决策上。

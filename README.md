@@ -13,6 +13,8 @@
 
 <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
 
+https://github.com/user-attachments/assets/31636873-3e05-401f-849a-1f1ea87cd0a4
+
 ## What it does
 
 **Build large systems without losing the plot.** In Codex, Claude Code, Cursor, OpenCode, and similar agents, your agent starts every task already knowing the whole system: what each file is for, what it depends on, and what must not break. It stops searching and re-reading the codebase for every request. People who are not professional developers can keep iterating on their own systems; professional developers can hand the whole system to an agent and keep their attention on architecture and design.

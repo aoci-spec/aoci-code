@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-27T09:22:00Z",
+  "updated_at": "2026-10-27T13:23:34Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -107,15 +107,15 @@
     },
     "README.md": {
       "role": "index",
-      "sha256": "c46f3aa2761e3768d09d57ceff4b33face7810ee3bc9b13d389bb23d31221b85",
-      "size": 77874,
-      "normalized_sha256": "c46f3aa2761e3768d09d57ceff4b33face7810ee3bc9b13d389bb23d31221b85"
+      "sha256": "f5254cdeaf4fcfbc7e9ca2df5409b1f8046549618e62cd662b81915fedab2aa0",
+      "size": 77955,
+      "normalized_sha256": "f5254cdeaf4fcfbc7e9ca2df5409b1f8046549618e62cd662b81915fedab2aa0"
     },
     "README.zh-CN.md": {
       "role": "index",
-      "sha256": "1093456ca972dcf874ebbe457407c599beb7767b062fcbc09372ff59232a9412",
-      "size": 69871,
-      "normalized_sha256": "1093456ca972dcf874ebbe457407c599beb7767b062fcbc09372ff59232a9412"
+      "sha256": "24da0c948dc6a0516eccb7db7219c83b9a94227a9a8d89e99dab56546d2880f8",
+      "size": 69952,
+      "normalized_sha256": "24da0c948dc6a0516eccb7db7219c83b9a94227a9a8d89e99dab56546d2880f8"
     },
     "SECURITY.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "f06b39f5f0c5b67b0a05cd49cff2f3310a8fb93315e5e6e561e2bd4c52a81eb8",
-      "size": 211334,
-      "normalized_sha256": "f06b39f5f0c5b67b0a05cd49cff2f3310a8fb93315e5e6e561e2bd4c52a81eb8"
+      "sha256": "f23cb981d0e6804d5739e1cd0901df1ff3fa2e874e418762930ac757bd63ccb0",
+      "size": 211353,
+      "normalized_sha256": "f23cb981d0e6804d5739e1cd0901df1ff3fa2e874e418762930ac757bd63ccb0"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -173,9 +173,9 @@
     },
     "docs/agent-integrations.md": {
       "role": "index",
-      "sha256": "e0d1375d87ba35445a3768035ae660859ccbda8069d592a8e9cce891ae21e058",
-      "size": 13120,
-      "normalized_sha256": "e0d1375d87ba35445a3768035ae660859ccbda8069d592a8e9cce891ae21e058"
+      "sha256": "61e7c2188c0a1704a92ce98d4a4e0d52933a1f5bf986812f6968bf6e1a760d6f",
+      "size": 15340,
+      "normalized_sha256": "61e7c2188c0a1704a92ce98d4a4e0d52933a1f5bf986812f6968bf6e1a760d6f"
     },
     "docs/cognition-refresh.md": {
       "role": "index",
@@ -221,9 +221,9 @@
     },
     "docs/install.md": {
       "role": "index",
-      "sha256": "b835327fbb27bc02d3cd1b4eb5e76e1cda5ee128b821dd04f844b6b27a77eb58",
-      "size": 9053,
-      "normalized_sha256": "b835327fbb27bc02d3cd1b4eb5e76e1cda5ee128b821dd04f844b6b27a77eb58"
+      "sha256": "dab7e733b042fe36261637910aa425ae97c08364b2ebcdb93b00cffb3754e0dc",
+      "size": 9464,
+      "normalized_sha256": "dab7e733b042fe36261637910aa425ae97c08364b2ebcdb93b00cffb3754e0dc"
     },
     "docs/localization.md": {
       "role": "index",

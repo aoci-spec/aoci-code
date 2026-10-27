@@ -105,6 +105,12 @@ dependencies.
 The browser and public Release URLs can download public assets without a GitHub
 login. `gh release download` and `gh api` use the GitHub API and may require
 `gh auth login` under the installed CLI version, local policy, or API limits.
+Where `github.com` itself is unreachable but the API host is, the same assets
+are served by the REST asset endpoint,
+`https://api.github.com/repos/aoci-spec/aoci-code/releases/assets/<asset-id>`
+with `Accept: application/octet-stream` (the asset ids come from
+`.../releases/tags/<tag>`); it redirects to `objects.githubusercontent.com`,
+and the checksum and signature verification below apply unchanged (#113).
 `gh attestation verify --bundle` verifies the downloaded provenance bundle
 without a GitHub API login. By default it may still use the network to obtain
 the Sigstore trusted root; a fully offline verification requires supplying an

@@ -203,6 +203,54 @@ project `.mcp.json` is not documented by Qoder, so paste it rather than assume.
 }
 ```
 
+## Several repositories in one Host session
+
+One `aoci mcp` process serves one repository. Its root is fixed when it
+starts, by `--repo` or, without it, the working directory, and every receipt,
+Ledger event, and Baseline it reads or writes belongs to that root. To work
+across several repositories in one session, initialize and index each
+repository on its own, then register one server entry per repository in the
+configuration that session loads, each with its own name and its own
+`--repo`:
+
+```json
+{
+  "mcpServers": {
+    "aoci-frontend": {
+      "command": "/absolute/path/to/aoci",
+      "args": ["--repo", "/absolute/path/to/frontend", "mcp"]
+    },
+    "aoci-backend": {
+      "command": "/absolute/path/to/aoci",
+      "args": ["--repo", "/absolute/path/to/backend", "mcp"]
+    }
+  }
+}
+```
+
+That is the shape of `.mcp.json` for Claude Code and Qoder and of
+`.cursor/mcp.json` for Cursor; for a session started in a directory above the
+repositories, the file goes in that directory. Codex takes the same pair as
+two `[mcp_servers.<name>]` tables and OpenCode as two entries under `mcp`.
+Every server exposes the same nine tools, and Hosts tell the copies apart by
+the entry name (Claude Code calls them `mcp__aoci-frontend__aoci_overview` and
+`mcp__aoci-backend__aoci_overview`), so name each entry after its repository.
+
+Cognition does not carry from one server to the other. Read `aoci_rules`,
+establish the complete Overview, and attest against each server whose
+repository the task depends on: a receipt names the repository root it was
+issued for and says nothing about the other repository. Close each
+repository's changes with its own server's `aoci_maintain`. A configuration
+file in a directory above the repositories lies outside both, so it never
+enters either repository's Managed Scope. The optional hooks that
+`init --hooks` installs stay in each repository's own Host settings, bound to
+that repository, and the servers do not depend on them.
+
+AOCI does not ask the Host for MCP roots (`roots/list`). The protocol
+deprecated Roots in its 2026-07-28 revision in favor of passing directories
+through tool parameters, resource URIs, or server configuration, and `--repo`
+is server configuration.
+
 ## Deterministic offline mode
 
 The binary ships no model client and calls no endpoint. Initialization, scanning, inventory, status, validation, querying, governed writes, and CI operate without network access; new repository semantics come from the host AI Agent, and AOCI-CODE does not fabricate them.
