@@ -1,2 +1,2 @@
-为Codex、Claude Code等宿主Agent提供确定性任务协议。
-plan返回带哈希的事实计划；guide返回阶段化动作；stage接入Entries候选；curation治理特殊文件语义裁决。
+为 Codex、Claude Code 等宿主 Agent 提供确定性的 Guide。
+guide:          返回当前阶段、阻断项与清除它们的命令；只读。

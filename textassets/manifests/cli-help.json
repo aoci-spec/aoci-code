@@ -15,7 +15,7 @@
       "locale_anchors": {
         "zh-CN": [
           "零依赖离线工具",
-          "AI 端点"
+          "不内置模型客户端"
         ]
       }
     },
@@ -26,13 +26,12 @@
       "description": "Stable Doctor help describing read-only diagnosis and explicit endpoint probing",
       "used_by": "internal/cli/cli_help_contract.go:doctorLongHelp",
       "protocol_tokens": [
-        "aoci doctor",
-        "--net"
+        "aoci doctor"
       ],
       "locale_anchors": {
         "zh-CN": [
-          "数据主权",
-          "不经第三方"
+          "只读检查",
+          "从不联网"
         ]
       }
     },
@@ -44,12 +43,9 @@
       "used_by": "internal/cli/cli_help_contract.go:indexLongHelp",
       "protocol_tokens": [
         "inventory:",
-        "header draft:",
-        "build:",
-        "update:",
-        "entries:",
+        "header show:",
         "score:",
-        "agent:"
+        "agent guide:"
       ]
     },
     {

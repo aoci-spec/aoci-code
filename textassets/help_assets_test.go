@@ -82,23 +82,22 @@ func TestCLIHelpAssetsKeepStableContracts(
 				"aoci.txt",
 				".aoci/",
 				"零依赖离线工具",
-				"AI 端点",
+				"不内置模型客户端",
 			},
 		},
 		{
 			id: ContractHelpDoctorLong,
 			anchors: []string{
-				"--net",
-				"数据主权",
-				"不经第三方",
+				"只读检查",
+				"从不联网",
 			},
 		},
 		{
 			id: ContractHelpIndexLong,
 			anchors: []string{
 				"inventory:",
-				"entries:",
-				"agent:",
+				"header show:",
+				"agent guide:",
 			},
 		},
 		{

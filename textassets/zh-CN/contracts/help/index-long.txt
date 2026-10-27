@@ -1,8 +1,5 @@
-aoci index 是索引bootstrap、生成、维护与质量治理工序组。
-inventory:      纯离线列出磁盘有、索引无的文件及画像。
-header draft:   调用用户配置端点起草头部，只写草稿区。
-build:          批量起草首次条目，只写草稿区。
-update:         检测漂移并按automation.mode治理。
-entries:        Check、Diff与原子Apply。
-score:          九维度索引质量评分。
-agent:          宿主Agent的Plan、Guide与Stage协议。
+aoci index 汇集索引读取命令；索引本身经 MCP 工具 aoci_maintain 与 aoci_update_entry 撰写和维护。
+inventory:      纯离线列出磁盘有、Legacy 索引无的文件及画像。
+header show:    打印索引头部，Volumes 布局则打印 Meta 字典；只读。
+score:          对 Legacy 索引做九维度质量评分。
+agent guide:    返回当前仓库状态下的宿主 Agent 工作流。

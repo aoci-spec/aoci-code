@@ -1,8 +1,5 @@
-aoci index groups the index bootstrap, generation, maintenance, and quality-governance workflows.
-inventory:      list files present on disk but absent from the index, with profiles; fully offline.
-header draft:   call the user-configured endpoint to draft a Header; writes only to the draft area.
-build:          draft initial Entries in batches; writes only to the draft area.
-update:         detect drift and govern it according to automation.mode.
-entries:        Check, Diff, and atomic Apply.
-score:          score index quality across nine dimensions.
-agent:          Plan, Guide, and Stage protocol for a host Agent.
+aoci index groups the index read commands. The index itself is written and maintained through the MCP tools aoci_maintain and aoci_update_entry.
+inventory:      list files present on disk but absent from a Legacy index, with profiles; fully offline.
+header show:    print the index Header, or the Meta dictionary of a Volumes layout; read-only.
+score:          score a Legacy index across nine quality dimensions.
+agent guide:    return the host-Agent workflow for the current repository state.

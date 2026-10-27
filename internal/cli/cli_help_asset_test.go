@@ -50,6 +50,17 @@ func assertCLIHelpGolden(
 		)
 	}
 
+	// AOCI_UPDATE_GOLDEN=1 (make update-goldens) writes the production
+	// rendering back, so a changed help text is never re-blessed by copying it
+	// out of a failed assertion.
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		path := filepath.Join("..", "..", "testdata", "golden", golden)
+		if err := os.WriteFile(path, []byte(command.Long+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+
 	expected := readCLIHelpGolden(
 		t,
 		golden,
