@@ -2318,12 +2318,27 @@ def stop_ui(process):
     except Exception:
         process.kill()
 
+def urlopen_retry(target, timeout, attempts=3):
+    """A page that is up can still miss one connection on a loaded runner (a
+    urlopen timeout crashed group U once on the 2026-10-29 merge run): a timed
+    out or refused connection is retried, an HTTP status is an answer and is
+    raised at once."""
+    for attempt in range(attempts):
+        try:
+            return urllib.request.urlopen(target, timeout=timeout)
+        except urllib.error.HTTPError:
+            raise
+        except (urllib.error.URLError, TimeoutError, OSError):
+            if attempt == attempts - 1:
+                raise
+            time.sleep(1)
+
 def ui_get(base, path):
     address, fragment = urllib.parse.urldefrag(base)
     token = urllib.parse.parse_qs(fragment).get("access_token", [""])[0]
     request = urllib.request.Request(address.rstrip("/") + path,
                                      headers={"Authorization": "Bearer " + token})
-    with urllib.request.urlopen(request, timeout=10) as response:
+    with urlopen_retry(request, 10) as response:
         return response.status, response.read().decode("utf-8")
 
 def group_u():
@@ -2355,7 +2370,7 @@ def group_u():
         # The readiness fragment authorises this client, never an anonymous
         # request from another local process. Keep the normal facts check too.
         try:
-            with urllib.request.urlopen(urllib.parse.urldefrag(base)[0] + "api/repos", timeout=3):
+            with urlopen_retry(urllib.parse.urldefrag(base)[0] + "api/repos", 3):
                 same = False
         except urllib.error.HTTPError as error:
             same = same and error.code == 401

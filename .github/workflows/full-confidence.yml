@@ -55,13 +55,12 @@ concurrency:
 jobs:
   linux-full:
     runs-on: ubuntu-latest
-    # The job limit exists to stop a hang, not to pace the job. This job runs
-    # the full gate, the black-box suites, and the upgrade axis over every
-    # released binary, so it grows with each release: run 179 (8ba516a, 14
-    # releases) took 38 minutes and the first run after v0.1.0-rc15 (15
-    # releases, slower runner) was cancelled at 45 with the performance
-    # fixtures still ahead. A hang still fails, twice as late.
-    timeout-minutes: 90
+    # The full gate alone: tests and race, static analysis, the licence and
+    # connector gates, and the coverage floors. The black-box suites and the
+    # upgrade axis run beside it in linux-blackbox since 2026-10-30; before the
+    # split this one job ran everything in sequence and took 55-59 minutes. The
+    # limit exists to stop a hang, not to pace the job.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -116,12 +115,41 @@ jobs:
           git diff --exit-code -- go.mod go.sum
       - name: full confidence gate
         run: make full
+      # 覆盖率是可见性而非门禁: 让安全核心包的薄弱处暴露在构建摘要里。
+      - name: coverage snapshot
+        run: |
+          go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >/dev/null
+          {
+            echo '### Coverage by package (safety core first)'
+            echo '```'
+            go tool cover -func="$RUNNER_TEMP/coverage.out" \
+              | grep -E 'cognitiontxn|runmanifest|managedstate|cognitionbaseline|codebatch|total:' | tail -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # 覆盖率地板是门禁: 安全核心包的语句覆盖率跌破 scripts/coverage-floors.txt
+      # 即失败。复用上一步的 -short profile, 不再跑第二遍套件。
+      - name: coverage floors
+        run: bash scripts/check-coverage-floors.sh --profile "$RUNNER_TEMP/coverage.out"
+  linux-blackbox:
+    runs-on: ubuntu-latest
+    # The suites that drive a built binary: lifecycle and scale, the upgrade
+    # axis over the released binaries, and the Legacy migration drill. The axis
+    # runs the last three releases on push and every release on schedule and
+    # dispatch, so this job grows by about a minute per release.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: build the binary under test
+        run: make build
       # 生命周期与规模套件走真实二进制、跨进程、真实单批上限(200): 多批滚动、
       # 关系闭包收敛、以及"不可拆成分超限"必须精确报错而不是无限重排。
       # database 套件自带 mysql:8.4 容器, 由套件自己起停。
       - name: black-box lifecycle and scale suites
         run: |
-          make build
           python3 scripts/blackbox/mcp_lifecycle.py
           git diff --exit-code
       # 升级轴: 另外三套套件的夹具全部由被测二进制自己铸造, 所以"版本之间变了的
@@ -148,6 +176,18 @@ jobs:
         run: |
           make legacy-migration
           git diff --exit-code
+  linux-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # The nightly-only legs: the long-running refresh black box and the fuzz
+    # smoke. A push never waits for them.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
       # 长程认知刷新黑盒(R67-A): Go runner 起真二进制的 stdio MCP, 在两个一次性仓库
       # 上跑阈值实验与压缩恢复实验。只在夜间与手动触发时跑; 推送触发不跑。
       - name: long-running cognition refresh black box
@@ -155,21 +195,22 @@ jobs:
         run: |
           make longrun-refresh
           git diff --exit-code
-      # 覆盖率是可见性而非门禁: 让安全核心包的薄弱处暴露在构建摘要里。
-      - name: coverage snapshot
-        run: |
-          go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >/dev/null
-          {
-            echo '### Coverage by package (safety core first)'
-            echo '```'
-            go tool cover -func="$RUNNER_TEMP/coverage.out" \
-              | grep -E 'cognitiontxn|runmanifest|managedstate|cognitionbaseline|codebatch|total:' | tail -20
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-      # 覆盖率地板是门禁: 安全核心包的语句覆盖率跌破 scripts/coverage-floors.txt
-      # 即失败。复用上一步的 -short profile, 不再跑第二遍套件。
-      - name: coverage floors
-        run: bash scripts/check-coverage-floors.sh --profile "$RUNNER_TEMP/coverage.out"
+      # Fuzz smoke: every native fuzz target for 30 seconds, nightly and on
+      # dispatch only, so a push run never waits for it. A crash fails the job
+      # and the minimized input is reported for the regression commit.
+      - name: fuzz smoke
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: make fuzz-smoke FUZZTIME=30s
+
+  linux-bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
       # 七个一方基准以 -benchtime=3x -count=3 跑, 每个结果取中位数, 与
       # scripts/bench-baseline.json 比较; 慢过 30% 只打 ::warning:: 注解, 不红
       # (共享 runner 噪声大)。唯一例外是 1000 对象的迁移夹具: 一次迭代约一分钟,
@@ -186,13 +227,6 @@ jobs:
           name: bench-results
           path: build/bench-results.json
           if-no-files-found: ignore
-      # Fuzz smoke: every native fuzz target for 30 seconds, nightly and on
-      # dispatch only, so a push run never waits for it. A crash fails the job
-      # and the minimized input is reported for the regression commit.
-      - name: fuzz smoke
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        run: make fuzz-smoke FUZZTIME=30s
-
   native-lifecycle:
     timeout-minutes: 45
     strategy:
@@ -270,10 +304,15 @@ jobs:
           password="aoci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           echo "::add-mask::${password}"
           echo "AOCI_TEST_POSTGRES_ADMIN_PASSWORD=${password}" >> "$GITHUB_ENV"
-          echo 'AOCI_TEST_POSTGRES_ADMIN_ADDR=127.0.0.1:5432' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_POSTGRES_ADMIN_USER=postgres' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_POSTGRES_ADMIN_DATABASE=postgres' >> "$GITHUB_ENV"
-          docker run -d --name "aoci-pg-${GITHUB_RUN_ID}" -p 5432:5432 -e POSTGRES_PASSWORD="${password}" postgres:18 >/dev/null
+          # A fixed host port collided with something already listening on the
+          # runner once (run 40863357032, exit 1 right after the pull); Docker
+          # picks a free loopback port and the test reads it back.
+          docker run -d --name "aoci-pg-${GITHUB_RUN_ID}" -p 127.0.0.1::5432 -e POSTGRES_PASSWORD="${password}" postgres:18 >/dev/null
+          port="$(docker port "aoci-pg-${GITHUB_RUN_ID}" 5432/tcp | head -n1 | sed 's/.*://')"
+          test -n "$port"
+          echo "AOCI_TEST_POSTGRES_ADMIN_ADDR=127.0.0.1:${port}" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
           docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null
       - name: PostgreSQL read-only Evidence integration
@@ -320,7 +359,7 @@ jobs:
       # The black-box database suite starts its own container from the same
       # image (already pulled for the service above) on a free port, so the
       # harness's in-memory 5.7 fixture rewrite is proved on every leg, not
-      # only the 8.4 default that linux-full runs.
+      # only the 8.4 default that linux-blackbox runs.
       - name: black-box database lifecycle (${{ matrix.mysql-image }})
         run: |
           make build

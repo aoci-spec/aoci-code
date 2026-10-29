@@ -7,6 +7,15 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- Black-box and CI: the conformance suite reports the four receipt-bound
+  attestation checks as SKIP, counted but not failing, when the host
+  repository is not governance-aligned, instead of four false reds on every
+  dirty tree; the scenarios page probe retries a timed-out connection once;
+  the PostgreSQL integration job binds a free loopback port instead of 5432;
+  `fast-ci` runs on pushes to `v*-line` branches; `full-confidence` splits
+  the 55-minute `linux-full` job into `linux-full` (the gate and coverage),
+  `linux-blackbox` (suites, upgrade axis, migration drill), `linux-nightly`
+  (longrun, fuzz) and `linux-bench`.
 - `logs` and `run` are no longer built-in runtime exclusions (#158, the
   second finding). The built-in rule keeps only names that never denote
   source (#100), and both do: `internal/logs` is a package, `cmd/run` a

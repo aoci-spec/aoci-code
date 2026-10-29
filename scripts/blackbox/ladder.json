@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (fast gates inside make verify, logs/run change)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt (fast gates inside make verify, CI/suite batch)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (0.2.0 line logs/run change: full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-logs.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt (first full pass on a dirty tree: conformance 54/0/4 SKIP, scenarios 80, lifecycle 93+2, axis-self 80)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/conformance-logs.txt (aligned tree after governance; 4 attestation reds inside make verify are the dirty-tree false red)"
+    "evidence": ".aoci/dev-tools/conformance-ci.txt (aligned run after governance, 58/58)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (80 PASS, 0 FAIL)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt (80 PASS, 0 FAIL; page probe retry in)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (PASS 93, CHAR 2; bring-up lane carries the new root list)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt (PASS 93, CHAR 2)"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (self-axis 80/80, 0.2.0 line candidate)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt (self-axis 80/80, 0.2.0 line candidate)"
    }
   },
   {
@@ -300,7 +300,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt"
    }
   },
   {
@@ -333,7 +333,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-logs.txt (299 files clean)"
+    "evidence": ".aoci/dev-tools/make-verify-ci.txt"
    }
   }
  ]

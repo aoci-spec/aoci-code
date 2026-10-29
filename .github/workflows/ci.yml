@@ -2,7 +2,7 @@ name: fast-ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'v*-line']
   pull_request:
   workflow_dispatch:
 
