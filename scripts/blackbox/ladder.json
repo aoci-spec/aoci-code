@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/conformance-l1b.txt"
+    "evidence": ".aoci/dev-tools/conformance-l2.txt"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -193,7 +193,7 @@
    "id": "perf-track",
    "cadence": "release",
    "command": "python3 scripts/blackbox/perf_calls.py RuoYi excalidraw umami hoppscotch deepseek-harness --binary=build/aoci-<label> --label=<label>",
-   "proves": "Per-call latency of scan, cold and warm Maintain, Overview check, verify, check, Guide and status against file count on five real trees (700 to 13,850 files); compare each call against the previous release record before claiming a performance change",
+   "proves": "Per-call latency of scan, cold, warm and steady Maintain, Overview check, verify, check, Guide and status against file count on five real trees (700 to 13,850 files); compare each call against the previous release record before claiming a performance change",
    "preconditions": [
     "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand): RuoYi, excalidraw, umami, hoppscotch, deepseek-harness"
    ],
@@ -201,7 +201,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/perf-calls-l1.txt"
+    "evidence": ".aoci/dev-tools/perf-calls-l2.txt"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-l1b.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l2.txt"
    }
   }
  ]

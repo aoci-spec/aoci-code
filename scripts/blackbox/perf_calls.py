@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Per-call latency track: how long each governance call takes on a real tree,
 as a function of its file count, before any Entry exists. It clones each named
-repository, initializes it, and times the calls a user waits on: scan, a cold
-Maintain and a warm one in the same server process (the gap is what a
-per-call reload costs), an Overview check, then verify, check, the Guide and
+repository, initializes it, and times the calls a user waits on: scan, then
+three Maintains in one server process (cold, warm, steady: the first creates
+.aoci/drafts, which git lists as a new ignored path, so only the third sees
+the inventory the second one built; the cold-to-steady gap is what the
+in-process memos save), an Overview check, then verify, check, the Guide and
 status. Nothing is authored; the rounds of a first build are timed per tool by
 realrepo.py (call_seconds). One JSON line per call, a report per repository.
 It is a run-by-name contract (scripts/blackbox/ladder.json), not a CI gate:
@@ -87,7 +89,7 @@ for name_or_path in names:
     rec("scan", seconds, len(proc.stdout), f"fingerprints={fingerprints} exit={proc.returncode}")
     report["fingerprints"] = fingerprints
     with U.Session(BIN, work) as s:
-        for call in ("maintain.cold", "maintain.warm"):
+        for call in ("maintain.cold", "maintain.warm", "maintain.steady"):
             seconds, text = timed(call, lambda: s.call("aoci_maintain"))
             try:
                 m = json.loads(text)

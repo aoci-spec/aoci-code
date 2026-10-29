@@ -179,6 +179,13 @@ func Load(root string) (*Baseline, bool, error) {
 		)
 	}
 
+	// The same bytes decode to the same document: a process that has decoded
+	// this Baseline before gets a fresh copy without decoding the file map
+	// again, which is most of what a large repository's Load costs.
+	if memoized, ok := lookupBaselineMemo(baselinePath(root), data); ok {
+		return memoized, true, nil
+	}
+
 	var baselineValue Baseline
 
 	if err := json.Unmarshal(data, &baselineValue); err != nil {
@@ -197,6 +204,7 @@ func Load(root string) (*Baseline, bool, error) {
 	if err := validateManagedScope(&baselineValue); err != nil {
 		return nil, true, fmt.Errorf("managed scope Baseline is invalid: %w", err)
 	}
+	storeBaselineMemo(baselinePath(root), data, &baselineValue)
 
 	return &baselineValue, true, nil
 }

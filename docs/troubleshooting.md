@@ -347,6 +347,20 @@ Set `AOCI_FINGERPRINT_CACHE=off` to hash every file on every call, for a
 diagnosis or on a filesystem whose mtimes cannot be trusted. The status page
 and `scan --dry-run` read the cache and never write it.
 
+Within one server process the second call is cheaper than the first: the
+Managed Scope evaluation is remembered by a digest of everything it was
+computed from (the policy, the walk options, the curation exclusions, the
+root layout, and every path the walk listed), and the decoded Baseline and
+fingerprint cache are remembered by the digest of their bytes. Nothing is
+keyed on time, so a changed input is always a miss. On the same 13,850-file
+tree a Maintain goes from 1.09 s on the first call of a process to 0.50 s
+once the process has seen the tree, and an Overview check takes 0.27 s. Set
+`AOCI_PROCESS_MEMO=off` to make every call evaluate and decode afresh. One cause outside AOCI: the ignored-path listing runs
+`git status`, and AOCI never lets git write its index, so a repository whose
+index is stale pays git's full refresh on every call (about 0.45 s on that
+tree). If every call is slow and a `git status` you run by hand makes the
+next one fast, that was it; git wrote the refreshed index for you.
+
 When the inventory's git query fails, the error reads
 `safe_inventory_git_query_failed`, and `init`, `scan`, `scope`, and
 `source manifest` print git's own stderr, verbatim, on the next line. `verify`,

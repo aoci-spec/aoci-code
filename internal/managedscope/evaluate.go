@@ -63,9 +63,19 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 			optedIn[clean] = true
 		}
 	}
+	layout := cognition.RootLayout(repositoryRoot)
+	memoKey := ""
+	if !processMemoDisabled() {
+		if key, keyErr := evaluationMemoKey(normalized, walkOptions, layout, curatedPaths, inventory); keyErr == nil {
+			memoKey = key
+			if memoized, ok := lookupEvaluationMemo(repositoryRoot, memoKey); ok {
+				return memoized, nil
+			}
+		}
+	}
 	result := &Evaluation{Version: machinecontract.ManagedScopeEvaluationV2, PolicyIdentity: identity,
 		SafeInventory: inventory.Summary, Index: []PathEvaluation{}, Observe: []PathEvaluation{}, Exclude: []PathEvaluation{}}
-	formalPinned := cognition.RootLayout(repositoryRoot) == cognition.LayoutVolumesV1
+	formalPinned := layout == cognition.LayoutVolumesV1
 	for _, rel := range inventory.ManagedCandidates {
 		evaluation := evaluateTrackedPath(normalized, rel, tracked[rel], ignored[rel], curated[rel], formalPinned)
 		if optedIn[rel] {
@@ -88,6 +98,9 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	sortEvaluations(result.Exclude)
 	result.IndexCount, result.ObserveCount, result.ExcludeCount = len(result.Index), len(result.Observe), len(result.Exclude)
 	result.RequiredHumanReview = inventory.Summary.RequiredHumanReview
+	if memoKey != "" {
+		storeEvaluationMemo(repositoryRoot, memoKey, result)
+	}
 	return result, nil
 }
 

@@ -24,6 +24,16 @@ changes a persisted preimage names the binary every machine then needs.
   git-ignored and outside every identity, answers an unchanged file by size
   and mtime under git's racily-clean rule; `AOCI_FINGERPRINT_CACHE=off`
   disables it, and the status page and `scan --dry-run` never write it.
+- Within one server process, a governance call over an unchanged tree no
+  longer evaluates the Managed Scope policy or decodes the Baseline and the
+  fingerprint cache again: the evaluation is remembered by a digest of every
+  input (policy, walk options, curation exclusions, root layout, the walked
+  paths), the two documents by the digest of their bytes, so a stale answer
+  is impossible and the memo is bounded by the roots a process serves.
+  13,850 files: a Maintain 1.09 s on a process's first call, 0.50 s once the
+  process has seen the tree; an Overview check 0.27 s. `AOCI_PROCESS_MEMO=off` switches it
+  off; `perf_calls.py` now times a third, steady Maintain, since the first
+  one creates `.aoci/drafts` and the second therefore sees a new path.
 - Black-box: `scripts/blackbox/perf_calls.py` times every governance call a
   user waits on (scan, cold and warm Maintain, Overview check, verify, check,
   Guide, status) against a tree's file count, and `realrepo.py` reports the

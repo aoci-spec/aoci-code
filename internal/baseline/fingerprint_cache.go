@@ -91,11 +91,19 @@ func OpenFingerprintCache(repositoryRoot string) *FingerprintCache {
 	if err != nil {
 		return cache
 	}
+	// Opened twice per governance call (the snapshot and the curation
+	// profiles) and once per call after that: the decoded entries are
+	// remembered by the bytes' digest, and every open still gets its own map.
+	if entries, ok := lookupFingerprintCacheMemo(cache.path, data); ok {
+		cache.entries = entries
+		return cache
+	}
 	var stored fingerprintCacheDocument
 	if json.Unmarshal(data, &stored) != nil || stored.Version != fingerprintCacheVersion || stored.Entries == nil {
 		return cache
 	}
 	cache.entries = stored.Entries
+	storeFingerprintCacheMemo(cache.path, data, stored.Entries)
 	return cache
 }
 
