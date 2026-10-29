@@ -225,7 +225,7 @@ func newScopeExplainCmd() *cobra.Command {
 						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + afs.SafetyConfigured}
 				} else {
 					curated := containsScopePath(cfg.CurationExclude, rel)
-					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), rel, false, curated)
+					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, false, curated)
 					item.GitStatus = "future_or_absent"
 				}
 			}
@@ -382,8 +382,13 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 					if cmd.Flags().Changed("enabled") {
 						rule.Enabled = flags.enabled
 					}
-					if err := rejectFormalAssetRule(*rule); err != nil {
-						return err
+					// A rule that already names a formal asset may be switched off
+					// here; only an enabled result is refused, so the way out of
+					// the rc22 state is never blocked by the check that prevents it.
+					if rule.Enabled {
+						if err := rejectFormalAssetRule(*rule); err != nil {
+							return err
+						}
 					}
 					if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
 						return err

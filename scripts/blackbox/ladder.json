@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (fast gates inside make verify)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (fast gates inside make verify, audit-fix tree)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-rc23.txt 53/53)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (audit-fix tree: full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-rc23b.txt)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/conformance-rc23.txt (53/53 after governance; the 3 attestation reds inside make verify were the dirty-tree false red)"
+    "evidence": ".aoci/dev-tools/conformance-rc23b.txt (run on the aligned audit-fix tree after governance; the 3 attestation reds inside make verify are the dirty-tree false red)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (75 PASS, 0 FAIL)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (75 PASS, 0 FAIL)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (PASS 87, CHAR 3)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (PASS 87, CHAR 3)"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (self-axis 80/80 as v0.1.0-rc23)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (self-axis 80/80 as v0.1.0-rc23, audit-fix binary)"
    }
   },
   {
@@ -186,7 +186,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/realrepo-rc23.txt (RuoYi first build 40 rounds verify_aligned; excalidraw rc=0 verify_aligned_after)"
+    "evidence": ".aoci/dev-tools/realrepo-rc23b.txt (audit-fix binary: RuoYi first build 29 rounds verify_aligned; excalidraw rc=0 verify_aligned_after)"
    }
   },
   {
@@ -283,7 +283,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt"
    }
   },
   {
@@ -316,7 +316,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23.txt (443 files clean)"
+    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (444 files clean)"
    }
   }
  ]

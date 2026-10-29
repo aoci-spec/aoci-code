@@ -111,8 +111,10 @@ declared Volumes are evaluated as index-role objects whatever rules match
 them, their Baseline records are formal guards rather than Observe evidence
 for status, governance, and the Plan alike, a Volume's record carries the
 index role however it was recorded, and an exact file rule naming one is
-refused as managed_scope_rule_targets_formal_asset. A git-hidden formal asset
-keeps the exclude role, so scan still refuses to omit it.
+refused as managed_scope_rule_targets_formal_asset, while disabling such a
+rule is allowed. A git-hidden formal asset keeps the exclude role, so scan
+still refuses to omit it. The pin is a Volumes v1 fact decided by the Root
+marker at the repository root: a Legacy index file stays rule-governed.
 
 Auto permits governed Entry create, update, and retirement; every Scope role
 transition; reviewed Curation and semantic-transfer candidates; observe

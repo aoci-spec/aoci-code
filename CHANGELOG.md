@@ -21,9 +21,20 @@ or scope identity changes.
   git-hidden one still stops `scan`), the three readers strip them through one
   projection, a Volume's Baseline record carries the index role however it was
   recorded, and `scope rule add` or `update` refuses an exact file rule naming
-  one as `managed_scope_rule_targets_formal_asset`. A repository already in
-  that state is aligned again on upgrade, and its next Scope Change writes
-  the role back. No identity, tool, schema, or format changes.
+  one as `managed_scope_rule_targets_formal_asset` (switching such a rule
+  off is allowed). A repository already in that state is aligned again on
+  upgrade, and its next Scope Change writes the role back. No identity, tool,
+  schema, or format changes.
+- The pre-tag audit of that fix caught two readers it had missed. The pin is
+  decided by the Root marker, so it never reaches a Legacy index file: there
+  `aoci.txt` is an ordinary rule-governed candidate whose Entry Maintain never
+  plans, and pinning it left an rc22-aligned Legacy repository with a custom
+  profile or a `*.txt` rule answering `managed_scope_authoring_candidate_required`
+  for its own index with no command that cleared it. The post-Apply alignment
+  inspector that every `aoci_update_entry` result reads now takes the same
+  projection as status and the Guide, so a Root or Meta record a rule once
+  observed no longer makes each batch report `observed_removed` while
+  governance says aligned.
 
 ## v0.1.0-rc22
 
