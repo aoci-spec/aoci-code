@@ -286,8 +286,9 @@ runs. A built-in name is one that never denotes source: `node_modules`,
 trees, and the runtime and database data directories. A configured name comes
 from `exclude_dirs` and `exclude_root_dirs` in `.aoci/config.json`. For a new
 repository, `init` puts `backup`, `backups`, `build`, `cache`, `coverage`,
-`dist`, `target`, `tmp`, `uploads`, `artifacts`, and `vendor` in
-`exclude_root_dirs`. A tracked
+`dist`, `target`, `tmp`, `uploads`, `artifacts`, `vendor`, `logs`, and `run`
+in `exclude_root_dirs` (`logs` and `run` were built-in runtime names through
+v0.1.0; log, PID and socket files stay excluded by suffix). A tracked
 `src/build/tool.go` or `views/monitor/cache/index.vue` is therefore source;
 `build/output.js` or `cache/data` at the repository root is excluded, and so
 is a git-ignored `packages/web/dist/` at any depth: a name in this list counts

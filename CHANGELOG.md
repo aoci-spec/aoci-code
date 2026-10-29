@@ -7,6 +7,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- `logs` and `run` are no longer built-in runtime exclusions (#158, the
+  second finding). The built-in rule keeps only names that never denote
+  source (#100), and both do: `internal/logs` is a package, `cmd/run` a
+  command, yet through v0.1.0 every path component of either name was hard
+  excluded with no door. Log, PID and socket files stay excluded by suffix,
+  `pids` and the PM2 and database runtime names stay built in. New
+  repositories exclude a root `logs/` or `run/` through `exclude_root_dirs`,
+  which `init` writes; an existing repository keeps its lists and its scope
+  identity, and a tracked module of either name becomes a Missing Entry after
+  the upgrade, authored like any new source or kept out by adding the name
+  to `exclude_dirs` and running `aoci scope activate`. A git-ignored `logs/`
+  stays excluded as before.
 - SQLite's explicit file source can collect read-only catalog Evidence for
   ordinary rowid tables, columns, primary/foreign keys, and basic indexes
   (Refs #83). Inspect, snapshot, verify, Baseline acceptance, and onboarding

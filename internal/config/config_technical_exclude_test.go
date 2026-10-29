@@ -90,7 +90,7 @@ func TestNewProjectArtifactExclusionsLeaveLegacyDefaultsAlone(t *testing.T) {
 	for _, dir := range newProject.ExcludeRootDirs {
 		root[dir] = true
 	}
-	for _, name := range []string{"backup", "backups", "build", "cache", "coverage", "dist", "target", "tmp", "uploads", "artifacts", "vendor"} {
+	for _, name := range []string{"backup", "backups", "build", "cache", "coverage", "dist", "target", "tmp", "uploads", "artifacts", "vendor", "logs", "run"} {
 		if !root[name] {
 			t.Errorf("new project root policy is missing %s", name)
 		}

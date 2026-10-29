@@ -14,8 +14,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (fast gates inside make verify, 0.2.0 line after merging main rc23)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (fast gates inside make verify, logs/run change)"
    }
   },
   {
@@ -32,8 +32,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (0.2.0 line: full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-merge-rc23.txt; scenarios U timeout re-run: scenarios-U-merge-rc23.txt)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (0.2.0 line logs/run change: full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-logs.txt)"
    }
   },
   {
@@ -51,8 +51,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/conformance-merge-rc23.txt (0.2.0 line, aligned tree after governance; 4 attestation reds inside make verify are the dirty-tree false red)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/conformance-logs.txt (aligned tree after governance; 4 attestation reds inside make verify are the dirty-tree false red)"
    }
   },
   {
@@ -71,8 +71,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (79 PASS, group U urlopen timeout re-run alone: scenarios-U-merge-rc23.txt)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (80 PASS, 0 FAIL)"
    }
   },
   {
@@ -88,8 +88,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (PASS 93, CHAR 2)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (PASS 93, CHAR 2; bring-up lane carries the new root list)"
    }
   },
   {
@@ -170,8 +170,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (self-axis 80/80, 0.2.0 line candidate)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (self-axis 80/80, 0.2.0 line candidate)"
    }
   },
   {
@@ -299,8 +299,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt"
    }
   },
   {
@@ -332,8 +332,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (299 files clean)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/make-verify-logs.txt (299 files clean)"
    }
   }
  ]

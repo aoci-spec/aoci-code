@@ -757,3 +757,40 @@ func exclusionSource(report *SafeInventory, path string) string {
 	}
 	return ""
 }
+
+// logs and run are feature and module names as often as runtime directories
+// (internal/logs, cmd/run), so like the #100 names they are governed by the
+// team configuration and never hard excluded; the log, pid and socket files
+// such directories usually hold stay excluded by suffix, and pids stays a
+// runtime name (#158).
+func TestLogsAndRunDirectoriesAreConfiguredNotBuiltIn(t *testing.T) {
+	for _, rel := range []string{"internal/logs/writer.go", "cmd/run/main.go", "logs/README.md", "run/launch.sh"} {
+		if category, source := BuiltInSafetyCategory(rel, SensitiveNameRulesV1); category != "" {
+			t.Fatalf("%s is still a built-in exclusion: %s via %s", rel, category, source)
+		}
+	}
+	for rel, want := range map[string]string{"logs/service.log": "builtin_runtime_file", "run/app.pid": "builtin_runtime_file",
+		"run/app.sock": "builtin_runtime_file", "pids/app.txt": "builtin_runtime_directory"} {
+		if _, source := BuiltInSafetyCategory(rel, SensitiveNameRulesV1); source != want {
+			t.Fatalf("%s: source=%s want %s", rel, source, want)
+		}
+	}
+	root := t.TempDir()
+	mustWrite(t, root, "logs/collector.go", "package logs\n")
+	mustWrite(t, root, "logs/today.log", "line\n")
+	mustWrite(t, root, "src/main.go", "package main\n")
+	report, err := BuildSafeInventory(root, WalkOptions{ExcludeRootDirs: []string{"logs"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsPath(report.ManagedCandidates, "logs/collector.go") || !containsPath(report.ManagedCandidates, "src/main.go") {
+		t.Fatalf("the new-project root list does not keep a root logs/ out: %#v", report.ManagedCandidates)
+	}
+	report, err = BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsPath(report.ManagedCandidates, "logs/collector.go") || containsPath(report.ManagedCandidates, "logs/today.log") {
+		t.Fatalf("without the configured name a logs/ module is source and its log file is not: %#v", report.ManagedCandidates)
+	}
+}

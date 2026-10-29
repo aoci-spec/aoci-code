@@ -464,7 +464,7 @@ def suite_bringup(rep, work):
 
 # ---------------------------------------------------------------- bringup lanes
 EXCLUDE_ROOT_DIRS = ["backup", "backups", "build", "cache", "coverage", "dist", "target", "tmp",
-                     "uploads", "artifacts", "vendor"]
+                     "uploads", "artifacts", "vendor", "logs", "run"]
 NINE_TOOLS = sorted(["aoci_rules", "aoci_overview", "aoci_get_entries", "aoci_search", "aoci_update_entry",
                      "aoci_report", "aoci_remove_entry", "aoci_header", "aoci_maintain"])
 HEX64 = re.compile(r"^[0-9a-f]{64}$")

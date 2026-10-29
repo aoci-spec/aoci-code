@@ -653,7 +653,7 @@ func BuiltInSafetyCategory(rel string, rules string) (category, source string) {
 			return SafetyGenerated, "builtin_vcs"
 		case ".aoci":
 			return SafetyRuntime, "builtin_aoci_runtime"
-		case ".runtime", ".pm2", "pm2", "run", "pids", "logs", "mysql-data", "postgres-data", "postgresql-data", "pgdata", "pg_wal", "pg_xact", "redis-data":
+		case ".runtime", ".pm2", "pm2", "pids", "mysql-data", "postgres-data", "postgresql-data", "pgdata", "pg_wal", "pg_xact", "redis-data":
 			return SafetyRuntime, "builtin_runtime_directory"
 		case ".codegraph":
 			// CodeGraph's per-project state (SQLite graph, lock), rewritten by
@@ -664,7 +664,11 @@ func BuiltInSafetyCategory(rel string, rules string) (category, source string) {
 		// like are feature and module names as often as artifact names (#100:
 		// src/backup, views/monitor/cache, tests/api/coverage), so they are
 		// governed by exclude_dirs, which init writes into the team
-		// configuration and a Scope Change can edit.
+		// configuration and a Scope Change can edit. logs and run left the
+		// runtime set above for the same reason (#158: internal/logs is a
+		// package, cmd/run a command); log, pid and socket files stay
+		// excluded by name below, and new repositories exclude root logs/
+		// and run/ through exclude_root_dirs.
 		case "node_modules", "__pycache__", ".cache", ".next", ".nuxt", ".output", "third-party-dist", "third_party_dist":
 			return SafetyGenerated, "builtin_generated_directory"
 		}
