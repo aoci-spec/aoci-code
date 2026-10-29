@@ -169,8 +169,15 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, err
 	}
 	oldRoles := baselineRolesExcept(oldBaseline, formalVolumeGuards)
+	// Observe review covers business evidence: the formal assets' Baseline
+	// records are guards, and status and governance strip them through the
+	// same projection, so the three can only ever name the same paths.
+	activeBusiness := oldBaseline
+	if layout == cognition.LayoutVolumesV1 {
+		_, activeBusiness = cognition.BusinessScope(nil, oldBaseline)
+	}
 	if policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
-		changes := observedEvidenceChanges(oldBaseline, desiredSnapshot, desiredRoles, vanishedPaths(evaluation),
+		changes := observedEvidenceChanges(activeBusiness, desiredSnapshot, desiredRoles, vanishedPaths(evaluation),
 			activePolicyIdentity(oldBaseline) == policyIdentity, cfg.LineEndingTolerance)
 		if len(changes) != 0 {
 			if candidates.ObserveReview == nil || candidates.ObserveReview.ReviewStatus != ReviewStatusReviewed ||
@@ -727,6 +734,10 @@ func FormalCognitionBaselineGuards(root, indexPath string, active *baseline.Base
 		if equal, _ := baseline.EquivalentFingerprints(stored, current, tolerateLineEndings); !equal {
 			return nil, fmt.Errorf("managed_scope_formal_volume_baseline_drift: %s", asset.Descriptor.Path)
 		}
+		// A Volume's record is a guard, never Observe evidence, so the role it
+		// carries is index however it was recorded; a rule once could record
+		// observe there (#158), and the next Apply writes the role back.
+		stored.Role = machinecontract.ScopeRoleIndex
 		result[asset.Descriptor.Path] = stored
 	}
 	storedRoot, rootManaged := active.Files[indexPath]

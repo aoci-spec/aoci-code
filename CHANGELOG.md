@@ -325,6 +325,21 @@ changes a persisted preimage names the binary every machine then needs.
   to a new file instead of through a shell redirect that could re-encode it,
   and `docs/upgrading.md` walks through the migration, the candidate and
   mapping files included. Existing fields keep their shape.
+- A scope rule that reached a formal Volume no longer deadlocks Managed Scope
+  (#158, Loren-0101). A rule could give `aoci.code.txt` the observe role, and
+  the Baseline then carried the Volume as Observe evidence that status, the
+  Guide, and a Scope Change Plan each read differently: the Guide reported it
+  `observed_removed`, `scope acknowledge` answered
+  `observed_evidence_review_not_pending`, and every `scope preview` answered
+  `observed_evidence_review_required`, with no command that moved the
+  repository. Formal assets are now outside policy: evaluation gives the Root
+  and its declared Volumes the index role whatever rules match them (a
+  git-hidden one still stops `scan`), the three readers strip them through one
+  projection, a Volume's Baseline record carries the index role however it was
+  recorded, and `scope rule add` or `update` refuses an exact file rule naming
+  one as `managed_scope_rule_targets_formal_asset`. A repository already in
+  that state is aligned again on upgrade, and its next Scope Change writes
+  the role back. No identity, tool, schema, or format changes.
 
 ## v0.1.0-rc22
 

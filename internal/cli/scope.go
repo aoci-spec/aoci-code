@@ -324,6 +324,9 @@ func newScopeRuleAddCmd() *cobra.Command {
 			if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
 				return managedScopeExitError(err)
 			}
+			if err := rejectFormalAssetRule(rule); err != nil {
+				return managedScopeExitError(err)
+			}
 			err = config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
 				for _, existing := range policy.Rules {
 					if existing.RuleID == rule.RuleID {
@@ -379,6 +382,9 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 					}
 					if cmd.Flags().Changed("enabled") {
 						rule.Enabled = flags.enabled
+					}
+					if err := rejectFormalAssetRule(*rule); err != nil {
+						return err
 					}
 					if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
 						return err
@@ -929,26 +935,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 			return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
 		}
 		document = code.Document
-		filteredSnapshot := make(map[string]baseline.Fingerprint, len(snapshot))
-		for path, fingerprint := range snapshot {
-			filteredSnapshot[path] = fingerprint
-		}
-		filteredBaseline := *currentBaseline
-		filteredBaseline.Files = make(map[string]baseline.Fingerprint, len(currentBaseline.Files))
-		for path, fingerprint := range currentBaseline.Files {
-			filteredBaseline.Files[path] = fingerprint
-		}
-		formalPaths := map[string]bool{cfg.IndexPath: true}
-		for _, id := range set.DeclaredOrder {
-			if asset := set.Volumes[id]; asset != nil {
-				formalPaths[asset.Descriptor.Path] = true
-			}
-		}
-		for path := range formalPaths {
-			delete(filteredSnapshot, path)
-			delete(filteredBaseline.Files, path)
-		}
-		snapshot, driftBaseline = filteredSnapshot, &filteredBaseline
+		snapshot, driftBaseline = cognition.BusinessScope(snapshot, currentBaseline)
 	}
 	status.Drift = baseline.DetectManagedScope(root, document, driftBaseline, snapshot,
 		afs.WalkOptions{HighRiskOptIn: cfg.SafeInventoryHighRiskOptIn, SensitiveNameRules: cfg.SensitiveNameRules}, cfg.LineEndingTolerance)
@@ -1067,6 +1054,24 @@ func managedScopeCurationExclusions(root string, cfg *config.Config) ([]string, 
 func rejectUnsupportedGlob(pattern, kind string) error {
 	if kind == machinecontract.ScopePatternGlob && strings.ContainsAny(pattern, "{}") {
 		return fmt.Errorf("glob_brace_alternation_not_supported: write one rule per extension, or a directory rule")
+	}
+	return nil
+}
+
+// rejectFormalAssetRule refuses a file rule that names the Root or a Volume.
+// Evaluation never applies a rule to a formal asset, so a broad glob is left
+// alone; an exact rule can only mean a misunderstanding, and the refusal says
+// which asset it would have reached (#158).
+func rejectFormalAssetRule(rule managedscope.Rule) error {
+	if rule.PatternKind != machinecontract.ScopePatternFile {
+		return nil
+	}
+	pattern, err := managedscope.NormalizePattern(rule.Pattern, rule.PatternKind)
+	if err != nil {
+		return nil
+	}
+	if _, formal := cognition.FormalAssetOwner(pattern); formal {
+		return fmt.Errorf("managed_scope_rule_targets_formal_asset: %s", pattern)
 	}
 	return nil
 }
