@@ -99,6 +99,10 @@ packages such as FTS are not imported by the production collector. The full
 module graph may include unlinked driver extensions and tools; the release
 license gate audits the actual six-target binary closure rather than equating
 every downloaded module with distributed code.
+Its pinned go-licenses v1.6.0 cannot identify the translation's MIT-0 text;
+the gate recognizes only v6.3.35304 with its exact reviewed LICENSE SHA-256,
+and refuses a replacement, a different version, or different license bytes.
+Unknown licenses in other modules remain failures.
 
 This table is machine-checked against `go.mod`: a test alongside the driver
 identity contract fails when a row's pinned version differs from the version
