@@ -2,7 +2,12 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.1.0-rc23
+
+The rc22 soak's one finding: a Managed Scope rule could reach a formal
+Volume and leave the repository with no command that moved it. Formal assets
+are now outside policy. No MCP tool name, input schema, formal-asset format,
+or scope identity changes.
 
 - A scope rule that reached a formal Volume no longer deadlocks Managed Scope
   (#158, Loren-0101). A rule could give `aoci.code.txt` the observe role, and
