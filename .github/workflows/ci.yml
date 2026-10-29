@@ -25,7 +25,7 @@ jobs:
           cache: true
       # internal/ui 的页面 JavaScript 回归测试在没有 node 时静默跳过; 显式装 Node 22
       # LTS, 不再依赖 runner 镜像恰好带着一个。
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
       - name: start timer
