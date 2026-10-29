@@ -142,6 +142,30 @@ jobs:
         if: always()
         run: echo "blackbox-protocol_seconds=$(($(date +%s)-AOCI_JOB_START))" >> "$GITHUB_STEP_SUMMARY"
 
+  sqlite-native:
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-15-intel, macos-15]
+    runs-on: ${{ matrix.os }}
+    env:
+      CGO_ENABLED: "0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: SQLite file-backed collector, CLI, and onboarding regressions
+        shell: bash
+        run: |
+          # Fail if a package loses its SQLite cases instead of passing an empty selection.
+          for package in ./internal/dbevidence ./internal/cli ./internal/onboarding; do
+            go test -list SQLite "$package" | grep -E '^Test.*SQLite'
+          done
+          go test -short -count=1 -v -run SQLite ./internal/dbevidence ./internal/cli ./internal/onboarding
+
   windows-compile:
     timeout-minutes: 10
     runs-on: ubuntu-latest
