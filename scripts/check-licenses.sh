@@ -225,6 +225,28 @@ else
   opengauss_connector_license_verified=true
 fi
 
+# v1.6.0 does not recognize this module's MIT-0 text. Bind its classification
+# to the exact reviewed version and original LICENSE bytes; an unknown license
+# elsewhere, a replacement, or a future version still fails closed.
+sqlite_wasm_module="github.com/ncruces/go-sqlite3-wasm/v6"
+sqlite_wasm_version="v6.3.35304"
+sqlite_wasm_license_sha256="13219037ddf63dbbcf174bf59525d602df7a2e30083f63be566715c858fcb19e"
+sqlite_wasm_record="$( \
+  GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOFLAGS="${readonly_go_flags}" \
+  "${go_bin_path}" list -m -f '{{if .Replace}}replaced{{else}}{{.Dir}} {{.Version}}{{end}}' \
+  "${sqlite_wasm_module}" 2>/dev/null || true)"
+sqlite_wasm_dir="${sqlite_wasm_record% *}"
+sqlite_wasm_resolved_version="${sqlite_wasm_record##* }"
+sqlite_wasm_license_verified=false
+if [ "${sqlite_wasm_resolved_version}" = "${sqlite_wasm_version}" ] &&
+  [ -f "${sqlite_wasm_dir}/LICENSE" ] &&
+  [ "$(file_sha256 "${sqlite_wasm_dir}/LICENSE")" = "${sqlite_wasm_license_sha256}" ]; then
+  sqlite_wasm_license_verified=true
+else
+  echo "[check-licenses] pinned SQLite translation MIT-0 license evidence is missing or changed" >&2
+  dependency_findings=$((dependency_findings + 1))
+fi
+
 # The distributable notice must describe exactly the modules reachable from
 # the release binary matrix. A detector result without a matching notice is
 # not sufficient release metadata, and stale extra inventory rows are also
@@ -249,6 +271,12 @@ while IFS=, read -r package_path license_url license_name; do
 
   normalized_license_name="$(printf '%s' "${license_name}" | tr '[:lower:]' '[:upper:]')"
   normalized_license_url="$(printf '%s' "${license_url}" | tr '[:lower:]' '[:upper:]')"
+  if [ "${package_path}" = "${sqlite_wasm_module}" ] &&
+    [ "${normalized_license_name}" = "UNKNOWN" ] &&
+    [ "${sqlite_wasm_license_verified}" = true ]; then
+    normalized_license_name="MIT-0"
+    normalized_license_url="PINNED-SQLITE-TRANSLATION-LICENSE-SHA256-VERIFIED"
+  fi
   if [ "${package_path}" = "${opengauss_connector_module}" ] &&
     [ "${normalized_license_name}" = "MIT" ] &&
     { [ -z "${normalized_license_url}" ] || [ "${normalized_license_url}" = "UNKNOWN" ]; } &&

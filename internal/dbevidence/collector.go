@@ -54,16 +54,26 @@ func (err *SourceError) Error() string {
 type databaseOpener func(driverName, dsn string) (*sql.DB, error)
 
 type Collector struct {
+	root               string
 	getenv             func(string) string
 	open               databaseOpener
 	credentialProvider CredentialProvider
 }
 
 func NewCollector() *Collector {
-	return &Collector{getenv: os.Getenv, open: openDatabase, credentialProvider: NewEnvironmentCredentialProvider(os.Getenv)}
+	return NewCollectorAtRoot(".")
+}
+
+// NewCollectorAtRoot anchors explicitly configured SQLite paths to the repository,
+// independently of the working directory of a CLI or onboarding caller.
+func NewCollectorAtRoot(root string) *Collector {
+	return &Collector{root: root, getenv: os.Getenv, open: openDatabase, credentialProvider: NewEnvironmentCredentialProvider(os.Getenv)}
 }
 
 func openDatabase(driverName, dsn string) (*sql.DB, error) {
+	if driverName == "sqlite3" {
+		return openSQLiteDatabase(dsn)
+	}
 	if driverName != "opengauss" {
 		return sql.Open(driverName, dsn)
 	}
@@ -143,13 +153,23 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	if !EngineCollectable(source.Engine) {
 		return SourceManifest{}, nil, &SourceError{Code: "engine_not_implemented", SourceID: source.SourceID, Op: "collect"}
 	}
-	provider := collector.credentialProvider
-	if provider == nil {
-		provider = NewEnvironmentCredentialProvider(collector.getenv)
-	}
-	dsn, credentialErr := provider.Resolve(ctx, CredentialRequest{SourceID: source.SourceID, Reference: source.CredentialEnv})
-	if credentialErr != nil || strings.TrimSpace(dsn) == "" {
-		return SourceManifest{}, nil, &SourceError{Code: "credential_env_missing", SourceID: source.SourceID, Op: "connect"}
+	var dsn string
+	if source.Engine == EngineSQLite {
+		var err error
+		dsn, err = sqliteDataSource(collector.root, source)
+		if err != nil {
+			return SourceManifest{}, nil, err
+		}
+	} else {
+		provider := collector.credentialProvider
+		if provider == nil {
+			provider = NewEnvironmentCredentialProvider(collector.getenv)
+		}
+		var credentialErr error
+		dsn, credentialErr = provider.Resolve(ctx, CredentialRequest{SourceID: source.SourceID, Reference: source.CredentialEnv})
+		if credentialErr != nil || strings.TrimSpace(dsn) == "" {
+			return SourceManifest{}, nil, &SourceError{Code: "credential_env_missing", SourceID: source.SourceID, Op: "connect"}
+		}
 	}
 	driverName, err := driverNameForEngine(source.Engine)
 	if err != nil {
@@ -178,9 +198,10 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	if err != nil {
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, "begin_read_only", err)
 	}
+	defer tx.Rollback()
 	manifest := SourceManifest{
 		Version: SourceManifestVersion, SourceID: source.SourceID, Engine: source.Engine,
-		Database: source.Database, Namespaces: sortedCopy(source.Namespaces),
+		Database: evidenceDatabase(source), Namespaces: sortedCopy(source.Namespaces),
 		IncludeNamespaces: sortedCopy(source.IncludeNamespaces), ExcludeNamespaces: sortedCopy(source.ExcludeNamespaces),
 		IncludeTables: sortedCopy(source.IncludeTables), ExcludeTables: sortedCopy(source.ExcludeTables),
 		BusinessDataRead: false,
@@ -197,6 +218,9 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 	case EngineOpenGauss:
 		manifest.CaseSemantics = CaseSemantics{IdentifierCase: "preserve_quoted_fold_unquoted_lower"}
 		manifest.ServerVersion, tables, err = collectOpenGauss(txCtx, tx, source, inspectOnly)
+	case EngineSQLite:
+		manifest.CaseSemantics = CaseSemantics{IdentifierCase: "preserve_ascii_case_insensitive"}
+		manifest.ServerVersion, tables, err = collectSQLite(txCtx, tx, source)
 	default:
 		err = fmt.Errorf("unsupported engine")
 	}
@@ -231,6 +255,10 @@ func catalogTransactionOptions(engine Engine) (sql.TxOptions, error) {
 	switch engine {
 	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
 		return sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}, nil
+	case EngineSQLite:
+		// A deferred read transaction pins the catalog snapshot on its first read.
+		// The connection is also opened with mode=ro and query_only enabled.
+		return sql.TxOptions{ReadOnly: true}, nil
 	default:
 		return sql.TxOptions{}, fmt.Errorf("unsupported engine")
 	}
@@ -244,6 +272,8 @@ func driverNameForEngine(engine Engine) (string, error) {
 		return "mysql", nil
 	case EngineOpenGauss:
 		return "opengauss", nil
+	case EngineSQLite:
+		return "sqlite3", nil
 	default:
 		return "", fmt.Errorf("unsupported engine")
 	}
@@ -301,7 +331,7 @@ func newEvidenceTable(source SourceConfig, namespace, table string) (TableEviden
 	}
 	return TableEvidence{
 		Version: EvidenceVersion, ObjectRef: objectRef, Engine: source.Engine,
-		SourceID: source.SourceID, Database: source.Database, Namespace: namespace,
+		SourceID: source.SourceID, Database: evidenceDatabase(source), Namespace: namespace,
 		Name: table, Kind: "base_table", Columns: []Column{}, UniqueConstraints: []KeyConstraint{},
 		ForeignKeys: []ForeignKey{}, Checks: []CheckConstraint{}, Indexes: []Index{},
 	}, nil

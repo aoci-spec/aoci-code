@@ -1,7 +1,7 @@
 Database Evidence v1
 
 Status: R67-D0 candidate with additive openGauss 6.0.5 LTS support. This
-contract covers explicit PostgreSQL, MySQL, and openGauss metadata collection,
+contract covers explicit PostgreSQL, MySQL, openGauss, and SQLite metadata collection,
 canonical table evidence, structural fingerprints, an independent evidence
 Baseline, drift reporting, and model-facing evidence bundles. The Evidence
 subsystem itself does not create a Database Cognition Volume or any FRAS Entry.
@@ -32,21 +32,18 @@ include/exclude namespace and table globs, credential_env, connect and query
 timeouts, and enabled. credential_env is an environment variable name. A DSN,
 password, token, host, IP, or username is invalid as team configuration.
 
-As an additive 0.2.0 preparation step, a sqlite declaration may instead carry
+As an additive 0.2.0 source profile, a sqlite declaration may instead carry
 one explicit path and the main namespace. It does not require database or
 credential_env; those server-only fields are rejected for sqlite, and path is
 rejected for server engines. A relative path is relative to the repository root;
 an absolute path names that exact file. URI filenames and credential-shaped
 values are rejected. Saving or listing this declaration never opens the file
-or scans for database files. SQLite access, inspect, snapshot, and verify still
-fail closed with engine_not_implemented until the read-only collector lands.
-Until then a sqlite source is a declaration only: Database governance, Database
-Cognition Bootstrap, policy-bound auto eligibility, Database Entry removal, and
-onboarding collection require Evidence only from sources whose engine has a
-collector, and governance reports each sqlite source as the informational
-finding database_source_engine_not_implemented, with Database Cognition source
-state engine_not_implemented. Declarations alone are the no-configuration case
-for an absent Database Volume.
+or scans for database files. SQLite source access reports provider=file and
+reference=the configured path without opening it or resolving credentials;
+ready identifies the access route, not file availability. Inspect, snapshot,
+verify, and explicit onboarding collection use the read-only collector. Enabled
+SQLite sources require Evidence in the same governance, Bootstrap, auto
+eligibility, and removal checks as the server engines.
 
 No source means no database connection, evidence file, database warning, or
 database Missing state. Database access occurs only for explicit database
@@ -64,13 +61,42 @@ field.
 
 3. Read-only collection
 
-Every collection uses one connection and one repeatable-read, read-only
+Every server collection uses one connection and one repeatable-read, read-only
 transaction with context cancellation and explicit timeouts. Production query
 text is centralized in the engine-specific query inventories under
 internal/dbevidence. Except for engine version, compatibility mode, and
 case-semantics facts, queries are limited to information_schema and the
 necessary PostgreSQL or openGauss pg_catalog objects. Collectors never query a
 user table, read rows, count rows, sample values, or execute DDL/DML.
+
+SQLite uses one deferred read-only transaction over mode=ro with query_only
+and trusted_schema disabled. An authorizer permits only catalog reads and
+denies business reads, writes, ATTACH, and extension loading. The collector
+reads sqlite_schema and direct catalog PRAGMAs, never shadowable pragma_*
+table functions. It does not create a missing or empty database, change journal
+mode, or use immutable. WAL commits participate in the snapshot; SQLite may
+create or update its -shm coordination file even with read-only database/WAL
+access. Filesystem-wide zero-write operation is not claimed.
+
+The initial SQLite profile covers ordinary rowid tables in main, with declared
+types, affinity, nullability, defaults, INTEGER primary-key AUTOINCREMENT,
+ordered primary and foreign keys, unique constraints, and basic column indexes.
+An untyped SQLite column alone may have empty native_type, with blob affinity.
+Primary and foreign keys use deterministic synthetic names; unique constraints
+use their backing index names. Views and sqlite_* system tables are excluded.
+Selected virtual/FTS tables, generated columns, CHECK, DEFERRABLE, ON CONFLICT,
+STRICT, WITHOUT ROWID, expression/partial indexes, explicit column COLLATE
+clauses, and non-BINARY index collations
+fail closed as unsupported_catalog_feature, with no partial successful Evidence.
+
+No JSON version or field is added. The database field for a SQLite manifest,
+table, Snapshot, or Baseline carries the exact configured path, while object_ref
+remains database://source_id/main/table. Selection checks bind that path rather
+than its host-specific resolution. Existing server artifacts remain readable.
+All hosts using SQLite need the collector-capable version: earlier 0.2.0 builds
+skip declaration-only Evidence requirements; rc22 and older reject the source
+configuration. Older decoders reject an untyped SQLite column's empty native
+type. There is no automatic migration of existing Evidence or Baselines.
 
 System namespaces are always excluded. PostgreSQL excludes information_schema,
 pg_catalog, pg_toast*, and pg_temp_*. MySQL excludes information_schema, mysql,

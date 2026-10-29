@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -121,17 +122,68 @@ func TestDatabaseSourceCLIStoresSQLitePathWithoutCredentials(t *testing.T) {
 		stdout.Reset()
 		stderr.Reset()
 		args := []string{"--repo", root, "--json", "database", "source", command, "--source", "local"}
-		if code := executeCLI(args, &stdout, &stderr); code != ExitConfig || !strings.Contains(stdout.String()+stderr.String(), "database_engine_not_implemented") {
-			t.Fatalf("SQLite %s did not fail closed: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
+		want := ExitInternal
+		if command == "access" {
+			want = ExitOK
+		}
+		if code := executeCLI(args, &stdout, &stderr); code != want {
+			t.Fatalf("SQLite %s: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
 		}
 	}
 	for _, command := range []string{"snapshot", "verify"} {
 		stdout.Reset()
 		stderr.Reset()
 		args := []string{"--repo", root, "--json", "database", command, "--source", "local"}
-		if code := executeCLI(args, &stdout, &stderr); code != ExitConfig || !strings.Contains(stdout.String()+stderr.String(), "database_engine_not_implemented") {
-			t.Fatalf("SQLite %s did not fail closed: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
+		want := ExitInternal
+		if command == "verify" {
+			want = ExitDrift
 		}
+		if code := executeCLI(args, &stdout, &stderr); code != want || !strings.Contains(stdout.String()+stderr.String(), "database_connection_failed") {
+			t.Fatalf("SQLite %s did not report the missing file: code=%d stdout=%s stderr=%s", command, code, stdout.String(), stderr.String())
+		}
+	}
+}
+
+func TestSQLiteCLIInspectSnapshotBaselineAndDrift(t *testing.T) {
+	root := databaseCLIRepo(t)
+	db, err := sql.Open("sqlite3", filepath.Join(root, "explicit.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT); INSERT INTO users(name) VALUES ('business_row_sentinel');`); err != nil {
+		t.Fatal(err)
+	}
+	run := func(want int, args ...string) string {
+		t.Helper()
+		var out, stderr bytes.Buffer
+		if code := executeCLI(append([]string{"--repo", root, "--json", "database"}, args...), &out, &stderr); code != want {
+			t.Fatalf("%v: code=%d want=%d stdout=%s stderr=%s", args, code, want, out.String(), stderr.String())
+		}
+		return out.String()
+	}
+	run(ExitOK, "source", "add", "--source-id", "local", "--engine", "sqlite", "--path", "explicit.db")
+	var access dbevidence.AccessPlan
+	if err := json.Unmarshal([]byte(run(ExitOK, "source", "access", "--source", "local")), &access); err != nil || access.Provider != "file" || access.Reference != "explicit.db" {
+		t.Fatalf("file access: %+v %v", access, err)
+	}
+	var inspection dbevidence.Inspection
+	if err := json.Unmarshal([]byte(run(ExitOK, "source", "inspect", "--source", "local")), &inspection); err != nil || inspection.VisibleTables != 1 {
+		t.Fatalf("inspect: %+v %v", inspection, err)
+	}
+	var snapshot databaseSnapshotResult
+	if err := json.Unmarshal([]byte(run(ExitOK, "snapshot", "--source", "local")), &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	run(ExitDrift, "verify", "--source", "local")
+	run(ExitOK, "baseline", "accept", "--source", "local", "--snapshot-sha", snapshot.SourceSnapshotSHA256)
+	run(ExitOK, "verify", "--source", "local")
+	if _, err := db.Exec(`ALTER TABLE users ADD COLUMN email TEXT`); err != nil {
+		t.Fatal(err)
+	}
+	var drift dbevidence.DriftReport
+	if err := json.Unmarshal([]byte(run(ExitDrift, "verify", "--source", "local")), &drift); err != nil || drift.Summary.Changed != 1 || drift.BusinessDataRead {
+		t.Fatalf("drift: %+v %v", drift, err)
 	}
 }
 

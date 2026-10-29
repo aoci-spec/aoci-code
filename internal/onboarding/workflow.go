@@ -143,7 +143,7 @@ func CollectDatabaseEvidence(ctx context.Context, root string, collector snapsho
 		return nil, fmt.Errorf("onboarding_automation_off_evidence_forbidden")
 	}
 	if collector == nil {
-		collector = dbevidence.NewCollector()
+		collector = dbevidence.NewCollectorAtRoot(root)
 	}
 	cfg, err := config.LoadReadOnly(root)
 	if err != nil {

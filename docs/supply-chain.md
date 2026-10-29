@@ -65,12 +65,13 @@ builders produce identical archives.
 
 ## Database driver dependency audit
 
-Database Evidence support uses three reviewed pure-Go direct dependencies:
+Database Evidence support uses four reviewed pure-Go direct dependencies:
 
 | Module | Pinned version | License | Purpose |
 | --- | --- | --- | --- |
 | `github.com/jackc/pgx/v5` | `v5.11.0` | MIT | PostgreSQL `database/sql` driver |
 | `github.com/go-sql-driver/mysql` | `v1.10.1` | MPL-2.0 | MySQL `database/sql` driver |
+| `github.com/ncruces/go-sqlite3` | `v0.35.6` | MIT | SQLite read-only catalog collector |
 | `gitcode.com/opengauss/openGauss-connector-go-pq` | `v1.0.8` + reviewed AOCI patch | MIT | openGauss `database/sql` driver; the complete patched module is carried under `third_party/` |
 
 The pinned `go-licenses` v1.6.0 gate enumerates every reachable external Go
@@ -81,11 +82,27 @@ union to match `THIRD-PARTY-NOTICES`. Local AOCI packages can be reported as
 `Unknown` because dependency scanners do not classify the main module; those
 rows are not interpreted as third-party dependency licenses.
 
-The current release-binary union contains 23 modules. The authoritative pinned
+The current release-binary union contains 26 modules. The authoritative pinned
 inventory, license-file hashes, retained license texts, and the MCP Go SDK's
 Apache-2.0 transition with residual MIT contributions and CC-BY-4.0
 documentation classification are recorded in `THIRD-PARTY-NOTICES`. All three
-database-driver paths build with `CGO_ENABLED=0`.
+server database-driver paths and the SQLite collector build with `CGO_ENABLED=0`.
+
+The SQLite collector pins `github.com/ncruces/go-sqlite3 v0.35.6` (MIT),
+`github.com/ncruces/julianday v1.0.0` (MIT), and
+`github.com/ncruces/go-sqlite3-wasm/v6 v6.3.35304` (MIT-0 for the translation;
+SQLite's original public-domain status is retained). These are three new
+modules in the release-binary union, with no CGO or system SQLite requirement.
+The selected driver also advances existing `golang.org/x/crypto` to v0.57.0,
+`x/sync` to v0.23.0, and `x/text` to v0.42.0 (all BSD-3-Clause). Extension
+packages such as FTS are not imported by the production collector. The full
+module graph may include unlinked driver extensions and tools; the release
+license gate audits the actual six-target binary closure rather than equating
+every downloaded module with distributed code.
+Its pinned go-licenses v1.6.0 cannot identify the translation's MIT-0 text;
+the gate recognizes only v6.3.35304 with its exact reviewed LICENSE SHA-256,
+and refuses a replacement, a different version, or different license bytes.
+Unknown licenses in other modules remain failures.
 
 This table is machine-checked against `go.mod`: a test alongside the driver
 identity contract fails when a row's pinned version differs from the version

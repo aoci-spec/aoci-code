@@ -48,6 +48,7 @@ EXPECTED_DIRECT_MODULES=(
   "github.com/go-sql-driver/mysql"
   "github.com/jackc/pgx/v5"
   "github.com/modelcontextprotocol/go-sdk"
+  "github.com/ncruces/go-sqlite3"
   "github.com/spf13/cobra"
   "github.com/spf13/pflag"
   "golang.org/x/sys"

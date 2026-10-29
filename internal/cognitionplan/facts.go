@@ -416,7 +416,7 @@ func buildEvidence(root string, cfg *config.Config) ([]EvidenceObject, error) {
 		if !exists {
 			continue
 		}
-		if !sourceMatchesManifest(source, manifest) || manifest.SourceID != snapshot.SourceID {
+		if !dbevidence.SourceConfigMatchesManifest(source, manifest) || manifest.SourceID != snapshot.SourceID {
 			return nil, fmt.Errorf("database_evidence_selection_mismatch: %s", source.SourceID)
 		}
 		for _, table := range snapshot.Tables {
@@ -433,15 +433,6 @@ func buildEvidence(root string, cfg *config.Config) ([]EvidenceObject, error) {
 		return result[i].ObjectRef < result[j].ObjectRef
 	})
 	return result, nil
-}
-
-func sourceMatchesManifest(source dbevidence.SourceConfig, manifest dbevidence.SourceManifest) bool {
-	return source.SourceID == manifest.SourceID && source.Engine == manifest.Engine && source.Database == manifest.Database &&
-		reflect.DeepEqual(source.Namespaces, manifest.Namespaces) &&
-		reflect.DeepEqual(source.IncludeNamespaces, manifest.IncludeNamespaces) &&
-		reflect.DeepEqual(source.ExcludeNamespaces, manifest.ExcludeNamespaces) &&
-		reflect.DeepEqual(source.IncludeTables, manifest.IncludeTables) &&
-		reflect.DeepEqual(source.ExcludeTables, manifest.ExcludeTables)
 }
 
 func inventoryDigest(inventory []InventoryObject, safeInventory afs.SafeInventorySummary) string {

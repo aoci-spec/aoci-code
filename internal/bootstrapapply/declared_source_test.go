@@ -7,10 +7,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 )
 
-// Policy-bound auto requires accepted Evidence from every source it could
-// build a Database Volume from. A declared SQLite source has none to give, so
-// beside accepted Evidence it used to make a Fresh Bootstrap ineligible.
-func TestDeclaredOnlySourceKeepsDatabaseEvidenceAccepted(t *testing.T) {
+// SQLite now has a collector, so policy-bound auto requires its Evidence too.
+func TestSQLiteSourceRequiresAcceptedDatabaseEvidence(t *testing.T) {
 	root := t.TempDir()
 	installBootstrapDatabaseEvidence(t, root)
 	if !currentDatabaseEvidenceAccepted(root) {
@@ -25,7 +23,7 @@ func TestDeclaredOnlySourceKeepsDatabaseEvidenceAccepted(t *testing.T) {
 	if err := config.Save(root, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !currentDatabaseEvidenceAccepted(root) {
-		t.Fatal("a declared-only source made accepted Evidence look missing")
+	if currentDatabaseEvidenceAccepted(root) {
+		t.Fatal("SQLite was ignored without accepted Evidence")
 	}
 }

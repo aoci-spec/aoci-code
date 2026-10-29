@@ -18,12 +18,21 @@ import (
 func SourceConfigMatchesManifest(source SourceConfig, manifest SourceManifest) bool {
 	return source.SourceID == manifest.SourceID &&
 		source.Engine == manifest.Engine &&
-		source.Database == manifest.Database &&
+		evidenceDatabase(source) == manifest.Database &&
 		slices.Equal(source.Namespaces, manifest.Namespaces) &&
 		slices.Equal(source.IncludeNamespaces, manifest.IncludeNamespaces) &&
 		slices.Equal(source.ExcludeNamespaces, manifest.ExcludeNamespaces) &&
 		slices.Equal(source.IncludeTables, manifest.IncludeTables) &&
 		slices.Equal(source.ExcludeTables, manifest.ExcludeTables)
+}
+
+// SQLite binds Evidence to the declared path, never its host-specific absolute
+// resolution. The existing database field carries this selection identity.
+func evidenceDatabase(source SourceConfig) string {
+	if source.Engine == EngineSQLite {
+		return source.Path
+	}
+	return source.Database
 }
 
 const (

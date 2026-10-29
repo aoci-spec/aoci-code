@@ -10,10 +10,8 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// The removal guard demanded saved Evidence from every enabled source, so a
-// declared SQLite source, which can never have any, kept an orphan Database
-// Entry from being removed. The guard now binds the collectable sources only.
-func TestDatabaseOrphanRemovesBesideADeclaredOnlySource(t *testing.T) {
+// SQLite now participates in the Evidence guard like every collectable source.
+func TestDatabaseOrphanRemovalRequiresSQLiteEvidence(t *testing.T) {
 	previousLocale := textassets.ActiveLocale()
 	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
 	root, tablesBySource, _ := buildDatabaseAgentNativeRepo(t)
@@ -42,7 +40,7 @@ func TestDatabaseOrphanRemovesBesideADeclaredOnlySource(t *testing.T) {
 		}
 	}
 	writeAgentSourceEvidence(t, root, agentSourceManifest(dbevidence.EnginePostgreSQL), remaining)
-	if outcome, fail := ApplyRemoveEntry(root, target, "agent", true, false); fail != nil || outcome == nil {
-		t.Fatalf("a declared-only source kept the Database orphan from being removed: outcome=%#v fail=%+v", outcome, fail)
+	if outcome, fail := ApplyRemoveEntry(root, target, "agent", true, false); fail == nil || outcome != nil || fail.Msg != "remove_evidence_guard_unavailable" {
+		t.Fatalf("missing SQLite Evidence bypassed the removal guard: outcome=%#v fail=%+v", outcome, fail)
 	}
 }

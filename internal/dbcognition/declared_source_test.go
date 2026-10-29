@@ -11,11 +11,9 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// A SQLite source is a declaration until its collector lands. It neither feeds
-// nor blocks Database Cognition: beside the source that fed the Volume the
-// assessment stays current, beside accepted Evidence an absent Volume is still
-// routed to Bootstrap, and on its own it is the no-configuration case.
-func TestDeclaredOnlySourceNeitherFeedsNorBlocks(t *testing.T) {
+// An enabled SQLite source now requires Evidence alongside server sources,
+// with or without a Database Volume, including when it is the only source.
+func TestSQLiteSourceParticipatesInCognitionAssessment(t *testing.T) {
 	declared := dbevidence.SourceConfig{SourceID: "local", Engine: dbevidence.EngineSQLite, Path: "data/app.db",
 		Namespaces: []string{"main"}, Enabled: true}
 
@@ -30,9 +28,9 @@ func TestDeclaredOnlySourceNeitherFeedsNorBlocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	beside := Assess(root, append(append([]dbevidence.SourceConfig{}, sources...), declared), set, state)
-	if !beside.CognitionCurrent || beside.BlockingSourceCount != 0 || beside.NextAction != machinecontract.DatabaseCognitionActionNoActionRequired ||
-		declaredSourceState(beside, "local") != machinecontract.DatabaseCognitionEngineNotImplemented {
-		t.Fatalf("a declared-only source blocked the Database Volume it does not feed: %#v", beside)
+	if beside.CognitionCurrent || beside.BlockingSourceCount != 1 || beside.NextAction != machinecontract.DatabaseCognitionActionSnapshotOrRepair ||
+		declaredSourceState(beside, "local") != machinecontract.DatabaseCognitionEvidenceUnavailable {
+		t.Fatalf("missing SQLite Evidence was ignored: %#v", beside)
 	}
 
 	absent, absentSources := databaseFixture(t, []string{"users"}, nil)
@@ -57,14 +55,14 @@ func TestDeclaredOnlySourceNeitherFeedsNorBlocks(t *testing.T) {
 	}
 	absentSet := loadFixtureSet(t, absent)
 	routed := Assess(absent, append(absentSources, declared), absentSet, baseline.NewBaseline(nil))
-	if routed.BlockingSourceCount != 0 || routed.NextAction != machinecontract.DatabaseCognitionActionBootstrapVolume ||
-		declaredSourceState(routed, "local") != machinecontract.DatabaseCognitionEngineNotImplemented {
-		t.Fatalf("a declared-only source kept accepted Evidence from Bootstrap: %#v", routed)
+	if routed.BlockingSourceCount != 1 || routed.NextAction != machinecontract.DatabaseCognitionActionSnapshotOrRepair ||
+		declaredSourceState(routed, "local") != machinecontract.DatabaseCognitionEvidenceUnavailable {
+		t.Fatalf("SQLite was ignored before Bootstrap: %#v", routed)
 	}
 	alone := Assess(absent, []dbevidence.SourceConfig{declared}, absentSet, baseline.NewBaseline(nil))
-	if !alone.CognitionCurrent || alone.NextAction != machinecontract.DatabaseCognitionActionNoConfiguration ||
-		declaredSourceState(alone, "local") != machinecontract.DatabaseCognitionEngineNotImplemented {
-		t.Fatalf("declarations alone were not the no-configuration case: %#v", alone)
+	if alone.CognitionCurrent || alone.BlockingSourceCount != 1 || alone.NextAction != machinecontract.DatabaseCognitionActionSnapshotOrRepair ||
+		declaredSourceState(alone, "local") != machinecontract.DatabaseCognitionEvidenceUnavailable {
+		t.Fatalf("SQLite alone was treated as no configuration: %#v", alone)
 	}
 }
 
