@@ -23,7 +23,7 @@ make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
 Protocol conformance (53 checks, read-only): the host repository is only read;
-the locale twin lane mints its two fixtures in a temp dir and removes them.
+the locale twin lane mints its two fixtures in a temp dir and removes them. When the host repository is not governance-aligned, the checks that need a reliable receipt are reported as SKIP with the reason and still counted in the total, and the run exits 0; a ladder record still needs an aligned run.
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py

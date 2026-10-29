@@ -262,10 +262,15 @@ jobs:
           password="aoci-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           echo "::add-mask::${password}"
           echo "AOCI_TEST_POSTGRES_ADMIN_PASSWORD=${password}" >> "$GITHUB_ENV"
-          echo 'AOCI_TEST_POSTGRES_ADMIN_ADDR=127.0.0.1:5432' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_POSTGRES_ADMIN_USER=postgres' >> "$GITHUB_ENV"
           echo 'AOCI_TEST_POSTGRES_ADMIN_DATABASE=postgres' >> "$GITHUB_ENV"
-          docker run -d --name "aoci-pg-${GITHUB_RUN_ID}" -p 5432:5432 -e POSTGRES_PASSWORD="${password}" postgres:18 >/dev/null
+          # A fixed host port collided with something already listening on the
+          # runner once (run 40863357032, exit 1 right after the pull); Docker
+          # picks a free loopback port and the test reads it back.
+          docker run -d --name "aoci-pg-${GITHUB_RUN_ID}" -p 127.0.0.1::5432 -e POSTGRES_PASSWORD="${password}" postgres:18 >/dev/null
+          port="$(docker port "aoci-pg-${GITHUB_RUN_ID}" 5432/tcp | head -n1 | sed 's/.*://')"
+          test -n "$port"
+          echo "AOCI_TEST_POSTGRES_ADMIN_ADDR=127.0.0.1:${port}" >> "$GITHUB_ENV"
           for attempt in $(seq 1 30); do docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
           docker exec "aoci-pg-${GITHUB_RUN_ID}" pg_isready -U postgres >/dev/null
       - name: PostgreSQL read-only Evidence integration

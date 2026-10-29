@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T11:13:33Z",
+  "updated_at": "2026-10-29T19:07:25Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -29,9 +29,9 @@
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
-      "sha256": "731e35048304823e5534e0ca9ab52c2ee64d52a3eba72d8caee9b6651dba0bdf",
-      "size": 24704,
-      "normalized_sha256": "731e35048304823e5534e0ca9ab52c2ee64d52a3eba72d8caee9b6651dba0bdf"
+      "sha256": "fbf716469e5d0d7fae9f96b91a7c6d2bf33100de330970da6f8be87d9214e40a",
+      "size": 25059,
+      "normalized_sha256": "fbf716469e5d0d7fae9f96b91a7c6d2bf33100de330970da6f8be87d9214e40a"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "850fa21638e301c2cb59bb7abf45d07bf8a7c93f6f548f217261d0cab14cdd44",
-      "size": 211153,
-      "normalized_sha256": "850fa21638e301c2cb59bb7abf45d07bf8a7c93f6f548f217261d0cab14cdd44"
+      "sha256": "500814f6b744650a3279c6081eaee3b787abb371020e17f52592582630b36151",
+      "size": 211175,
+      "normalized_sha256": "500814f6b744650a3279c6081eaee3b787abb371020e17f52592582630b36151"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6639,9 +6639,9 @@
     },
     "scripts/blackbox/README.md": {
       "role": "index",
-      "sha256": "680fbbae796dea889126fbc526d208c0146c039d9fbe4deb5f35c13c39d1fc08",
-      "size": 16669,
-      "normalized_sha256": "680fbbae796dea889126fbc526d208c0146c039d9fbe4deb5f35c13c39d1fc08"
+      "sha256": "27f4c1eac0f74b4327323cf8a20484aab068cef2ddc804fbe7f95312920c7e6d",
+      "size": 16895,
+      "normalized_sha256": "27f4c1eac0f74b4327323cf8a20484aab068cef2ddc804fbe7f95312920c7e6d"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -6677,9 +6677,9 @@
     },
     "scripts/blackbox/mcp_conformance.py": {
       "role": "index",
-      "sha256": "84c0c6ee46bbd35cee987fa01e2bb7edd3d87d7fd8e0cb7cc511d6926f230ba1",
-      "size": 36480,
-      "normalized_sha256": "84c0c6ee46bbd35cee987fa01e2bb7edd3d87d7fd8e0cb7cc511d6926f230ba1"
+      "sha256": "36e42f5da4dfadd4a148cbbca3daa47ee8c354586c237a3581fb8bd5a2ba0a53",
+      "size": 38121,
+      "normalized_sha256": "36e42f5da4dfadd4a148cbbca3daa47ee8c354586c237a3581fb8bd5a2ba0a53"
     },
     "scripts/blackbox/mcp_lifecycle.py": {
       "role": "index",
