@@ -303,6 +303,8 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 	if err != nil {
 		return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("curation_invalid")
 	}
+	profiler := curation.OpenProfiler(root)
+	defer profiler.Close()
 	if cfg.ManagedScope != nil || cfg.CognitionBudget != nil {
 		state, stateErr := managedstate.Load(root, cfg)
 		if stateErr != nil {
@@ -330,7 +332,7 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 		sort.Strings(paths)
 		result := make([]InventoryObject, 0, len(paths))
 		for _, path := range paths {
-			profile, profileErr := curation.ProfilePath(root, path)
+			profile, profileErr := profiler.Path(path)
 			if profileErr != nil {
 				return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("inventory_profile_failed: %s", path)
 			}
@@ -368,7 +370,7 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 		if _, formal := cognition.FormalAssetOwner(path); formal {
 			continue
 		}
-		profile, profileErr := curation.ProfilePath(root, path)
+		profile, profileErr := profiler.Path(path)
 		if profileErr != nil {
 			return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("inventory_profile_failed: %s", path)
 		}

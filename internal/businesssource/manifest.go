@@ -184,11 +184,13 @@ func buildLegacy(root string, cfg *config.Config, inventory *afs.SafeInventory, 
 		decisions[decision.Path] = decision
 	}
 	paths := make([]string, 0, len(inventory.ManagedCandidates))
+	profiler := curation.OpenProfiler(root)
+	defer profiler.Close()
 	for _, path := range inventory.ManagedCandidates {
 		if formal[path] {
 			continue
 		}
-		profile, profileErr := curation.ProfilePath(root, path)
+		profile, profileErr := profiler.Path(path)
 		if profileErr != nil {
 			return nil, fmt.Errorf("business_source_curation_profile_invalid: %s", path)
 		}

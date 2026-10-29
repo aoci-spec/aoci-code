@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T20:08:17Z",
+  "updated_at": "2026-10-29T20:56:28Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "b027c72c1f14dae44ce627c817687a5a4c16e14a547729592b422e2226a064ce",
-      "size": 220840,
-      "normalized_sha256": "b027c72c1f14dae44ce627c817687a5a4c16e14a547729592b422e2226a064ce"
+      "sha256": "ff9bcb2598cf99ab9131a3c89def20427991fa48944b71f4639db606699bccd5",
+      "size": 220908,
+      "normalized_sha256": "ff9bcb2598cf99ab9131a3c89def20427991fa48944b71f4639db606699bccd5"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -709,10 +709,10 @@
     },
     "internal/businesssource/manifest.go": {
       "role": "index",
-      "sha256": "d26f6be6a830df416a9eb13e3691717a4bb22ac317052d261b832baaf5997235",
-      "size": 11193,
-      "normalized_sha256": "d26f6be6a830df416a9eb13e3691717a4bb22ac317052d261b832baaf5997235",
-      "format_sha256": "d26f6be6a830df416a9eb13e3691717a4bb22ac317052d261b832baaf5997235",
+      "sha256": "ff624086b8661abae3a17a418e730a94b1fbbb2ba2ef388f34330379d255f7e8",
+      "size": 11245,
+      "normalized_sha256": "ff624086b8661abae3a17a418e730a94b1fbbb2ba2ef388f34330379d255f7e8",
+      "format_sha256": "ff624086b8661abae3a17a418e730a94b1fbbb2ba2ef388f34330379d255f7e8",
       "format_kind": "gofmt"
     },
     "internal/businesssource/manifest_test.go": {
@@ -2564,10 +2564,10 @@
     },
     "internal/cognitionplan/facts.go": {
       "role": "index",
-      "sha256": "774a6dfacdbc2cb75973592d7158dfe1389322c27a348ad0ed4db37818963c87",
-      "size": 19214,
-      "normalized_sha256": "774a6dfacdbc2cb75973592d7158dfe1389322c27a348ad0ed4db37818963c87",
-      "format_sha256": "774a6dfacdbc2cb75973592d7158dfe1389322c27a348ad0ed4db37818963c87",
+      "sha256": "5ec90cbaa04d4f666d5bffdc28d1872b03fcd63840a5419637532f8cad8bd587",
+      "size": 19253,
+      "normalized_sha256": "5ec90cbaa04d4f666d5bffdc28d1872b03fcd63840a5419637532f8cad8bd587",
+      "format_sha256": "5ec90cbaa04d4f666d5bffdc28d1872b03fcd63840a5419637532f8cad8bd587",
       "format_kind": "gofmt"
     },
     "internal/cognitionplan/identity.go": {
@@ -2884,18 +2884,18 @@
     },
     "internal/curation/profile.go": {
       "role": "index",
-      "sha256": "341d08528d12026798f6b46671d348677bc3f4fa59c4e9047063ad1e39b3d442",
-      "size": 3081,
-      "normalized_sha256": "341d08528d12026798f6b46671d348677bc3f4fa59c4e9047063ad1e39b3d442",
-      "format_sha256": "341d08528d12026798f6b46671d348677bc3f4fa59c4e9047063ad1e39b3d442",
+      "sha256": "7f0d3676ef06602dcccfb6fb87d9bcf72a657caab1fa58d202a07b319f3d5e1b",
+      "size": 4374,
+      "normalized_sha256": "7f0d3676ef06602dcccfb6fb87d9bcf72a657caab1fa58d202a07b319f3d5e1b",
+      "format_sha256": "7f0d3676ef06602dcccfb6fb87d9bcf72a657caab1fa58d202a07b319f3d5e1b",
       "format_kind": "gofmt"
     },
     "internal/curation/profile_cache_test.go": {
       "role": "observe",
-      "sha256": "313f076ce501ca1ad06e5641186b66b982e82891045cc8a0a0f1407ead6a3e2d",
-      "size": 1881,
-      "normalized_sha256": "313f076ce501ca1ad06e5641186b66b982e82891045cc8a0a0f1407ead6a3e2d",
-      "format_sha256": "313f076ce501ca1ad06e5641186b66b982e82891045cc8a0a0f1407ead6a3e2d",
+      "sha256": "e07bafb1179c612b8074d788f401e80394326e3c6b1c67d43fbdda62d1bd5053",
+      "size": 4129,
+      "normalized_sha256": "e07bafb1179c612b8074d788f401e80394326e3c6b1c67d43fbdda62d1bd5053",
+      "format_sha256": "e07bafb1179c612b8074d788f401e80394326e3c6b1c67d43fbdda62d1bd5053",
       "format_kind": "gofmt"
     },
     "internal/curation/profile_thresholds_test.go": {
@@ -6425,9 +6425,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "a050632663d9c0a8ad117bca37bea2284666dbe1aee1c9b3a992083a5a091915",
-      "size": 12136,
-      "normalized_sha256": "a050632663d9c0a8ad117bca37bea2284666dbe1aee1c9b3a992083a5a091915"
+      "sha256": "41a0a981fcf10522302ef3081de3795d6e75300c07f6580e7cfbe1465a5bb364",
+      "size": 12144,
+      "normalized_sha256": "41a0a981fcf10522302ef3081de3795d6e75300c07f6580e7cfbe1465a5bb364"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",
