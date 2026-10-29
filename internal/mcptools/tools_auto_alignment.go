@@ -139,19 +139,12 @@ func inspectCognitionVolumeAlignment(
 			return false, 1, []string{"scope_change_required"}, receipt
 		}
 		// Match the Managed Scope-aware Code drift projection shared by ordinary
-		// Volumes governance. Formal cognition assets are guards/outputs, not
-		// Code source objects, while Observe and Exclude retain their policy roles.
+		// Volumes governance: formal cognition assets leave the snapshot and the
+		// Baseline through the one projection status and the Guide read, so a
+		// Root or Meta record a rule once observed is not observed_removed here
+		// while every other reader calls the repository aligned (#158).
 		projected := *managed
-		projected.Snapshot = make(map[string]baseline.Fingerprint, len(managed.Snapshot))
-		for rel, fingerprint := range managed.Snapshot {
-			projected.Snapshot[rel] = fingerprint
-		}
-		delete(projected.Snapshot, loaded.set.Root.Descriptor.Path)
-		for _, asset := range loaded.set.Volumes {
-			if asset != nil {
-				delete(projected.Snapshot, asset.Descriptor.Path)
-			}
-		}
+		projected.Snapshot, projected.Baseline = cognition.BusinessScope(managed.Snapshot, managed.Baseline)
 		detected, detectErr := managedstate.Detect(root, loaded.cfg, code.Document, &projected)
 		if detectErr != nil {
 			return false, 1, []string{"snapshot: " + detectErr.Error()}, receipt

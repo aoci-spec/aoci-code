@@ -13,9 +13,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-fast-cfgro.txt (branch v0.2.0-line, MCP reads configuration without writing it)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (fast gates inside make verify, 0.2.0 line after merging main rc23)"
    }
   },
   {
@@ -31,9 +31,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (branch v0.2.0-line, MCP reads configuration without writing it)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (0.2.0 line: full -k green, suites, axis-self; conformance re-run on the aligned tree: conformance-merge-rc23.txt; scenarios U timeout re-run: scenarios-U-merge-rc23.txt)"
    }
   },
   {
@@ -50,9 +50,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (53 passed)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/conformance-merge-rc23.txt (0.2.0 line, aligned tree after governance; 4 attestation reds inside make verify are the dirty-tree false red)"
    }
   },
   {
@@ -70,9 +70,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (79 PASS)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (79 PASS, group U urlopen timeout re-run alone: scenarios-U-merge-rc23.txt)"
    }
   },
   {
@@ -87,9 +87,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (93 PASS, 2 CHAR)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (PASS 93, CHAR 2)"
    }
   },
   {
@@ -169,9 +169,9 @@
     "release-rehearsal.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/make-verify-rc22.txt (80/80)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (self-axis 80/80, 0.2.0 line candidate)"
    }
   },
   {
@@ -184,9 +184,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.0-rc22",
-    "date": "2026-10-25",
-    "evidence": ".aoci/dev-tools/realrepo-rc22.txt (RuoYi and excalidraw, label rc22)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/realrepo-merge-rc23.txt (0.2.0 line binary: RuoYi and excalidraw rc=0, verify_aligned)"
    }
   },
   {
@@ -298,9 +298,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt"
    }
   },
   {
@@ -331,9 +331,9 @@
     "ci.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/public-text-cfgro.txt (294 files clean)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-29",
+    "evidence": ".aoci/dev-tools/make-verify-merge-rc23.txt (299 files clean)"
    }
   }
  ]

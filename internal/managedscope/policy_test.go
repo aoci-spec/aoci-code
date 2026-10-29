@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
@@ -114,7 +115,7 @@ func TestLastMatchingUserRuleWinsAndDirectorySlashNormalizes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := EvaluatePath(normalized, "src/main.go", false, false)
+	got := EvaluatePath(normalized, cognition.LayoutVolumesV1, "src/main.go", false, false)
 	if got.Role != machinecontract.ScopeRoleObserve || got.MatchedRule == nil || got.MatchedRule.RuleID != "user-observe-src" {
 		t.Fatalf("last matching user rule did not win: %+v", got)
 	}
@@ -233,11 +234,11 @@ func TestRuleMatchingIsExactOnEveryHost(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mismatched := EvaluatePath(normalized, "src/tests/CASE.go", false, false)
+	mismatched := EvaluatePath(normalized, cognition.LayoutVolumesV1, "src/tests/CASE.go", false, false)
 	if mismatched.Role != machinecontract.ScopeRoleExclude || mismatched.MatchedRule != nil {
 		t.Fatalf("a path differing from the pattern only in case must not match: %+v", mismatched)
 	}
-	exact := EvaluatePath(normalized, "Src/Tests/CASE.go", false, false)
+	exact := EvaluatePath(normalized, cognition.LayoutVolumesV1, "Src/Tests/CASE.go", false, false)
 	if exact.Role != machinecontract.ScopeRoleObserve || exact.MatchedRule == nil {
 		t.Fatalf("the exact path must still match its rule: %+v", exact)
 	}

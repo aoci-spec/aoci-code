@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
@@ -83,7 +84,7 @@ func TestStarterRulesEvaluatePath(t *testing.T) {
 		"src/lib/util.ts":                machinecontract.ScopeRoleIndex,
 		"src/app.go":                     machinecontract.ScopeRoleIndex,
 	} {
-		got := EvaluatePath(policy, path, false, false)
+		got := EvaluatePath(policy, cognition.LayoutVolumesV1, path, false, false)
 		if got.Role != role {
 			t.Fatalf("%s role=%q, want %q: %+v", path, got.Role, role, got)
 		}
@@ -99,7 +100,7 @@ func TestStarterRulesEvaluatePath(t *testing.T) {
 	// builtin sits below profile: the production profile's own fixture rule
 	// keeps winning under a vendored directory instead of being demoted to
 	// observe by a starter rule with a larger Order.
-	fixture := EvaluatePath(policy, "static/ajax/libs/testdata/case.json", false, false)
+	fixture := EvaluatePath(policy, cognition.LayoutVolumesV1, "static/ajax/libs/testdata/case.json", false, false)
 	if fixture.Role != machinecontract.ScopeRoleExclude || fixture.RuleSource != machinecontract.ScopeRuleProfile {
 		t.Fatalf("profile rule must outrank a starter rule: %+v", fixture)
 	}
@@ -163,12 +164,12 @@ func TestUserRuleOverridesStarterRule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := EvaluatePath(normalized, "static/ruoyi/lib/own.js", false, false)
+	got := EvaluatePath(normalized, cognition.LayoutVolumesV1, "static/ruoyi/lib/own.js", false, false)
 	if got.Role != machinecontract.ScopeRoleIndex || got.MatchedRule == nil || got.MatchedRule.RuleID != "team-static-lib" ||
 		got.RuleSource != machinecontract.ScopeRuleUser {
 		t.Fatalf("a user rule at Order 0 must override the starter rule: %+v", got)
 	}
-	if sibling := EvaluatePath(normalized, "static/ruoyi/libs/jquery.js", false, false); sibling.Role != machinecontract.ScopeRoleObserve {
+	if sibling := EvaluatePath(normalized, cognition.LayoutVolumesV1, "static/ruoyi/libs/jquery.js", false, false); sibling.Role != machinecontract.ScopeRoleObserve {
 		t.Fatalf("the other starter rules must stay in force: %+v", sibling)
 	}
 }

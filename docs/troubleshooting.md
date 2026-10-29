@@ -180,10 +180,13 @@ aoci scope activate --json
 aoci verify --json && aoci check --json
 ```
 
-Activation applies with nothing to approve and writes the Volume's Baseline
-role back to `index`. The rule can stay or go; it no longer reaches the
-Volume either way. Nothing here edits the Baseline by hand or uses
-`scan --force`.
+Under `apply_authorization: auto` activation applies with nothing to approve
+and writes the Volume's Baseline role back to `index`; under `review` it
+pauses for the usual `scope approve` and `scope apply`. The rule can stay,
+be switched off with `scope rule update <id> --enabled=false`, or go; it no
+longer reaches the Volume either way. Nothing here edits the Baseline by hand
+or uses `scan --force`. A Legacy index file is not a formal asset of this
+kind: its `aoci.txt` stays governed by the rules exactly as before.
 
 ## A run returns `repair_required`
 

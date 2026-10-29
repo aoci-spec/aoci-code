@@ -134,4 +134,13 @@ func TestFormalVolumeRecordedAsObserveDoesNotDeadlockManagedScope(t *testing.T) 
 	if status, err := buildScopePolicyStatus(root, true); err != nil || status.Stage != "aligned" || status.ObservedPendingReview != 0 {
 		t.Fatalf("status after activation: %+v err=%v", status, err)
 	}
+	// The persisted rule may be switched off, since that is a way out of the
+	// state; only an enabled rule naming a Volume is refused.
+	if output, err := runScopeCLI(t, root, "rule", "update", "volume-observe", "--enabled=false"); err != nil {
+		t.Fatalf("disabling the rule that names a Volume was refused: err=%v output=%s", err, output)
+	}
+	if output, err := runScopeCLI(t, root, "rule", "update", "volume-observe", "--enabled=true"); err == nil ||
+		!strings.Contains(err.Error(), "managed_scope_rule_targets_formal_asset: aoci.code.txt") {
+		t.Fatalf("re-enabling the rule that names a Volume was accepted: err=%v output=%s", err, output)
+	}
 }

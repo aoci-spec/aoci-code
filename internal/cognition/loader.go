@@ -3,6 +3,7 @@ package cognition
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -51,6 +52,27 @@ func DetectLayout(raw []byte) (string, error) {
 		return LayoutVolumesV1, errors.New("the Root marker is recognized but is not the exact Volumes v1 marker")
 	}
 	return LayoutLegacyMonolithic, nil
+}
+
+// RootLayout classifies the repository's Root file by its marker alone and
+// reads only its first bytes: LayoutVolumesV1 when aoci.txt at the root
+// carries a Root marker (exact or damaged), LayoutLegacyMonolithic when the
+// file holds anything else, and "" when there is no readable aoci.txt. It is
+// the one answer Managed Scope evaluation takes for "is this a Volumes
+// repository", so the formal-asset pin never reaches a Legacy index file.
+func RootLayout(repositoryRoot string) string {
+	file, err := os.Open(filepath.Join(repositoryRoot, "aoci.txt"))
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	head := make([]byte, 256)
+	n, readErr := io.ReadFull(file, head)
+	if readErr != nil && !errors.Is(readErr, io.ErrUnexpectedEOF) && !errors.Is(readErr, io.EOF) {
+		return ""
+	}
+	layout, _ := DetectLayout(head[:n])
+	return layout
 }
 
 func loadLegacy(repositoryRoot, indexPath string, raw []byte) (*Set, error) {
