@@ -76,6 +76,16 @@ func InspectAccess(ctx context.Context, source SourceConfig, provider Credential
 	if !EngineCollectable(source.Engine) {
 		return AccessPlan{}, &SourceError{Code: "engine_not_implemented", SourceID: source.SourceID, Op: "access_preflight"}
 	}
+	if source.Engine == EngineSQLite {
+		plan := AccessPlan{Version: AccessPlanVersion, SourceID: source.SourceID, Provider: "file", Reference: source.Path,
+			Status: AccessStatusReady, NextAction: AccessActionInspectSource}
+		if !source.Enabled {
+			plan.Status, plan.NextAction = AccessStatusSourceDisabled, "enable_source"
+		}
+		// This reports the configured file access route, not file availability;
+		// inspect performs the explicit open. Never resolve a credential here.
+		return plan, nil
+	}
 	if provider == nil {
 		provider = NewEnvironmentCredentialProvider(nil)
 	}

@@ -159,11 +159,11 @@ func newDatabaseSourceInspectCmd() *cobra.Command {
 		Use:   "inspect",
 		Short: cliMessage("cli.short.database_source_inspect"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, source, err := configuredDatabaseSource(sourceID)
+			root, source, err := configuredDatabaseSource(sourceID)
 			if err != nil {
 				return err
 			}
-			inspection, err := dbevidence.NewCollector().Inspect(cmd.Context(), source)
+			inspection, err := dbevidence.NewCollectorAtRoot(root).Inspect(cmd.Context(), source)
 			if err != nil {
 				return databaseSourceExitError(err)
 			}

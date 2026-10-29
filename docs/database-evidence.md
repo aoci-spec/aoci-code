@@ -8,7 +8,7 @@ remain future adapters. The public derived-view boundary is in
 [`aoci-system-cognition-runtime-v1.txt`](../spec/public/aoci-system-cognition-runtime-v1.txt).
 
 The Database Evidence Layer provides explicit, read-only evidence for
-PostgreSQL, MySQL, and the constrained openGauss profile described below. It
+PostgreSQL, MySQL, and the constrained openGauss and SQLite profiles described below. It
 answers which base tables, columns, keys, constraints, indexes, and partition
 facts are visible now, which deterministic fingerprints represent them, and
 how those facts differ from an explicitly accepted evidence Baseline.
@@ -37,7 +37,7 @@ For MySQL, `--namespace` must equal `--database-name` in v1. `--namespace`
 defaults to `public` for PostgreSQL and openGauss and to the configured
 database for MySQL.
 
-SQLite source declarations can be prepared separately with a single explicit
+SQLite sources use a single explicit
 file path, without a database name or credential environment variable:
 
 ```bash
@@ -45,15 +45,13 @@ aoci database source add --source-id local --engine sqlite --path data/app.db
 ```
 
 Relative paths are anchored to the repository root; absolute paths name one
-specific file. The declaration defaults to the `main` namespace. This first
-step only saves and lists the declaration: `source access`, `source inspect`,
-`snapshot`, and `verify` return `database_engine_not_implemented` until the
-SQLite read-only collector lands. No file is opened or searched for at this
-stage. Until then a SQLite source neither feeds nor blocks the Database Volume:
-governance, Database Cognition Bootstrap, the policy-bound auto check, Database
-Entry removal, and `onboard next --collect-database` wait for Evidence only from
-sources a collector exists for, and Verify, Check, and Guide name the SQLite
-source in an informational `database_source_engine_not_implemented` finding.
+specific file. The declaration defaults to the `main` namespace. Saving,
+listing, and `source access` do not open it; access reports the `file` provider
+and declared path, not proof that the file is readable. Inspect, snapshot, and
+verify explicitly open that file without credentials or directory discovery.
+Enabled SQLite sources now require Evidence in governance, Database Cognition
+Bootstrap, policy-bound auto eligibility, and Database Entry removal, and
+`onboard next --collect-database` can collect and accept their Evidence.
 
 The include/exclude flags accept Go-style glob patterns over the entire
 identifier and may be repeated. A slash is an identifier character, not a path
@@ -113,6 +111,46 @@ aoci database evidence bundle --source primary \
 Human output is compact. JSON outputs include source identity, visible table
 count or drift counts, Snapshot SHA, stable error code when applicable, and
 `business_data_read: false`.
+
+## SQLite collector
+
+The initial collector uses the pure Go ncruces driver and supports ordinary
+rowid tables in the explicitly configured file's `main` namespace. It records
+declared column types and SQLite affinities (an untyped column has an empty
+`native_type` and `canonical_type=blob`), nullability, defaults, INTEGER
+primary-key AUTOINCREMENT, ordered primary and foreign keys, unique constraints,
+and basic column indexes including descending order. Primary and foreign keys
+use stable synthetic names because SQLite's catalog PRAGMAs do not expose
+their declared constraint names. Unique constraints use the backing index name.
+Views and SQLite-owned tables are excluded.
+
+Selected virtual tables (including FTS), generated columns, CHECK constraints,
+DEFERRABLE clauses, ON CONFLICT clauses, STRICT or WITHOUT ROWID tables,
+expression or partial indexes, explicit column COLLATE clauses, and non-BINARY
+index collations fail closed with
+`database_unsupported_catalog_feature`. They are not silently dropped from a
+successful snapshot. Include/exclude rules can leave an unsupported table out
+of the selection. Triggers and views are outside Table Evidence v1.
+
+The connection uses `mode=ro`, `query_only`, and an authorizer that denies
+business-table reads, writes, ATTACH, and extension loading. Catalog PRAGMAs
+are direct statements, so user objects named `pragma_*` cannot substitute their
+rows. One deferred read transaction pins the catalog snapshot, with the source
+timeouts and cancellation. A missing, empty, or invalid file fails; collection
+does not create a database. It does not change journal mode or use `immutable`.
+WAL commits are included. As with SQLite's ordinary read-only WAL access, its
+`-shm` coordination file may be created or updated; the database and WAL remain
+read-only. This is not a promise of zero filesystem writes.
+
+The Evidence JSON versions and object identity remain unchanged:
+`database://<source_id>/main/<table>`. The existing `database` field in Evidence,
+Snapshot, and Baseline binds the configured path exactly, without replacing a
+relative path with a machine-specific absolute path. Changing it requires new
+Evidence even when both files have identical schemas. Existing server Evidence
+loads unchanged. Use a collector-capable binary on all hosts for SQLite: the
+earlier 0.2.0 declaration-only build skips its Evidence requirements, and rc22
+and older reject the SQLite configuration. An earlier decoder also rejects an
+untyped SQLite column's empty native type. No automatic format migration runs.
 
 ## PostgreSQL collector
 
@@ -282,7 +320,9 @@ The PostgreSQL driver is `github.com/jackc/pgx/v5` (MIT). The MySQL driver is
 reviewed upstream v1.0.8 identity and replaced by the complete patched module
 under `third_party/`. Its canonical patch, origin/sum/license/tree provenance,
 and replay gate are versioned beside that module; AOCI uses only its
-`opengauss` database/sql registration. All three driver paths are pure Go in this build and
+`opengauss` database/sql registration. The SQLite collector uses
+`github.com/ncruces/go-sqlite3` (MIT), with its Go translation module (MIT-0;
+SQLite remains public domain) and julianday (MIT). All four driver paths are pure Go in this build and
 `CGO_ENABLED=0` remains supported. The dependency gate locks the direct modules
 and keeps `internal/dbevidence` outside the AI orchestration closure.
 

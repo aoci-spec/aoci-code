@@ -111,7 +111,7 @@ func canonicalizeTable(table *TableEvidence) error {
 		}
 		column.NativeType = normalizeCatalogText(column.NativeType)
 		column.CanonicalType = strings.ToLower(normalizeCatalogText(column.CanonicalType))
-		if column.NativeType == "" || column.CanonicalType == "" {
+		if (column.NativeType == "" && table.Engine != EngineSQLite) || column.CanonicalType == "" {
 			return fmt.Errorf("column %s has an empty type", column.Name)
 		}
 		if column.DefaultExpression != nil {

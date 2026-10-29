@@ -7,6 +7,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- SQLite's explicit file source can collect read-only catalog Evidence for
+  ordinary rowid tables, columns, primary/foreign keys, and basic indexes
+  (Refs #83). Inspect, snapshot, verify, Baseline acceptance, and onboarding
+  use the existing Evidence lifecycle; enabled SQLite sources now require
+  Evidence instead of remaining declaration-only. Unsupported schema features
+  fail closed. No MCP tool or Evidence JSON version changes. All hosts using
+  SQLite need this collector-capable binary; earlier 0.2.0 builds skip SQLite
+  Evidence requirements, and rc22 and older reject the source declaration.
+  The ncruces driver adds three release-linked modules without CGO. Read-only
+  WAL collection may update SQLite's shared-memory coordination file.
+
 - Built-in sensitive-name rules are a selectable set (#148). `v1` is the rule
   every release through rc22 applied: `.env` and `.env.<name>`, named
   credential files, private keys, `secrets.*`. `v2` adds the shapes

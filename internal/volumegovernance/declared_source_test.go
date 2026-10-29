@@ -8,11 +8,9 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 )
 
-// Beside the source that fed the Database Volume, a declared SQLite source
-// left governance at evidence_required, and the snapshot it asked for answers
-// engine_not_implemented. It is now one informational finding naming the
-// source, and the repository stays aligned.
-func TestDeclaredOnlySourceLeavesGovernanceAligned(t *testing.T) {
+// A collectable SQLite source must participate in governance, rather than
+// remain an informational declaration that silently contributes no Evidence.
+func TestSQLiteSourceRequiresEvidenceForGovernance(t *testing.T) {
 	root, cfg := alignedFixture(t, true, true)
 	cfg.DatabaseSources = append(cfg.DatabaseSources, dbevidence.SourceConfig{SourceID: "local", Engine: dbevidence.EngineSQLite,
 		Path: "data/app.db", Namespaces: []string{"main"}, Enabled: true})
@@ -35,8 +33,7 @@ func TestDeclaredOnlySourceLeavesGovernanceAligned(t *testing.T) {
 	for _, finding := range facts.Findings {
 		named = named || finding.Code == FindingCodeDatabaseEngineNotImplemented && finding.Target == "local"
 	}
-	if facts.Result != ResultAligned || !facts.GovernanceAligned || facts.NextRequiredAction != "none" || !named ||
-		!Informational(FindingCodeDatabaseEngineNotImplemented) {
-		t.Fatalf("a declared-only source changed governance: result=%s next=%s findings=%#v", facts.Result, facts.NextRequiredAction, facts.Findings)
+	if facts.Result != ResultEvidenceRequired || facts.GovernanceAligned || facts.NextRequiredAction != "snapshot_or_repair_evidence" || named {
+		t.Fatalf("SQLite Evidence was not required: result=%s next=%s findings=%#v", facts.Result, facts.NextRequiredAction, facts.Findings)
 	}
 }

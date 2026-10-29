@@ -28,7 +28,7 @@ func newDatabaseSnapshotCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			manifest, snapshot, files, err := dbevidence.NewCollector().Snapshot(cmd.Context(), source)
+			manifest, snapshot, files, err := dbevidence.NewCollectorAtRoot(root).Snapshot(cmd.Context(), source)
 			if err != nil {
 				return databaseSourceExitError(err)
 			}
@@ -92,7 +92,7 @@ func newDatabaseVerifyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			manifest, snapshot, files, err := dbevidence.NewCollector().Snapshot(cmd.Context(), source)
+			manifest, snapshot, files, err := dbevidence.NewCollectorAtRoot(root).Snapshot(cmd.Context(), source)
 			if err != nil {
 				var sourceErr *dbevidence.SourceError
 				if errors.As(err, &sourceErr) {

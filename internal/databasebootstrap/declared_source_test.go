@@ -1,6 +1,7 @@
 package databasebootstrap
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -8,10 +9,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 )
 
-// A declared SQLite source beside the one holding accepted Evidence stopped
-// Bootstrap at database_bootstrap_evidence_not_ready, which no command could
-// clear. Bootstrap now builds the Database Volume from the collectable source.
-func TestBootstrapBuildsFromCollectableSourcesOnly(t *testing.T) {
+// SQLite can feed a Database Volume only after its Evidence has been accepted.
+func TestBootstrapRequiresSQLiteEvidence(t *testing.T) {
 	root := codeOnlyFixture(t)
 	cfg, err := config.LoadBase(root)
 	if err != nil {
@@ -23,13 +22,7 @@ func TestBootstrapBuildsFromCollectableSourcesOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	preview, err := Prepare(root, time.Unix(1_700_000_000, 0))
-	if err != nil {
-		t.Fatalf("a declared-only source stopped Bootstrap: %v", err)
-	}
-	if len(preview.EvidenceSources) != 1 || preview.EvidenceSources[0].SourceID != "primary" {
-		t.Fatalf("Bootstrap bound a source without Evidence: %#v", preview.EvidenceSources)
-	}
-	if result, err := Apply(root, preview); err != nil || result.Status != StatusApplied {
-		t.Fatalf("Bootstrap did not apply beside a declared-only source: %#v %v", result, err)
+	if !errors.Is(err, ErrNotReady) || preview != nil {
+		t.Fatalf("Bootstrap ignored missing SQLite Evidence: %#v %v", preview, err)
 	}
 }

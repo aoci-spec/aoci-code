@@ -29,7 +29,7 @@ const (
 // surface while another skips it.
 func EngineCollectable(engine Engine) bool {
 	switch engine {
-	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss:
+	case EnginePostgreSQL, EngineMySQL, EngineOpenGauss, EngineSQLite:
 		return true
 	}
 	return false
