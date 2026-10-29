@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T08:45:32Z",
+  "updated_at": "2026-10-29T08:55:10Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -23,9 +23,9 @@
     },
     ".github/workflows/ci.yml": {
       "role": "index",
-      "sha256": "0a897efee3f3c8606e59a87201bbd73ab27e8acb0ed5487cec10882f9a15f5a2",
-      "size": 10027,
-      "normalized_sha256": "0a897efee3f3c8606e59a87201bbd73ab27e8acb0ed5487cec10882f9a15f5a2"
+      "sha256": "c2273819894f0dc1689186adb1d7e751ab706ba683c95a4a29306ed70d539e06",
+      "size": 10142,
+      "normalized_sha256": "c2273819894f0dc1689186adb1d7e751ab706ba683c95a4a29306ed70d539e06"
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "57a9f52e3bba5d76b1b95d56dc62a4c2840c4388916cecd2c6ac07c210910f2c",
-      "size": 217451,
-      "normalized_sha256": "57a9f52e3bba5d76b1b95d56dc62a4c2840c4388916cecd2c6ac07c210910f2c"
+      "sha256": "0b68bfdbc0477415e0e7a82e7adc92256cd3fe138f8cee4168acc662ee78636f",
+      "size": 217440,
+      "normalized_sha256": "0b68bfdbc0477415e0e7a82e7adc92256cd3fe138f8cee4168acc662ee78636f"
     },
     "aoci.meta.txt": {
       "role": "index",
