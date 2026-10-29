@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T11:09:28Z",
+  "updated_at": "2026-10-29T11:13:39Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -6377,9 +6377,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "481443577906eb46189a908f15a5b4b4219c9efde700ca308cac53464b4b492a",
+      "sha256": "e0f7fe8135b0fc907f37db829e7c35ba20a5c7ceb1458d9fefdcbfaa08fb5d56",
       "size": 11820,
-      "normalized_sha256": "481443577906eb46189a908f15a5b4b4219c9efde700ca308cac53464b4b492a"
+      "normalized_sha256": "e0f7fe8135b0fc907f37db829e7c35ba20a5c7ceb1458d9fefdcbfaa08fb5d56"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",
