@@ -106,6 +106,14 @@ stores it in the recovery Intent. A Receipt cannot authorize another Envelope;
 policy or formal-preimage drift invalidates it. Resume reuses the immutable
 Intent Receipt and never asks for a new approval. Repeated Apply is idempotent.
 
+Formal cognition assets are outside policy. Under Volumes v1 the Root and its
+declared Volumes are evaluated as index-role objects whatever rules match
+them, their Baseline records are formal guards rather than Observe evidence
+for status, governance, and the Plan alike, a Volume's record carries the
+index role however it was recorded, and an exact file rule naming one is
+refused as managed_scope_rule_targets_formal_asset. A git-hidden formal asset
+keeps the exclude role, so scan still refuses to omit it.
+
 Auto permits governed Entry create, update, and retirement; every Scope role
 transition; reviewed Curation and semantic-transfer candidates; observe
 fingerprint advancement; and proven budget tightening. It requires complete

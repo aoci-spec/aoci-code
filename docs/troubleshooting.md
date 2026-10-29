@@ -138,6 +138,33 @@ path-based deletion fix in commit `6b4f0cc` addresses the original refusal
 (#117). Use an official release containing that fix when available; manually
 deleting lines from a formal Volume can instead create this Baseline drift.
 
+## A Volume shows as `observed_removed`, and nothing can acknowledge it
+
+Through rc22 a Managed Scope rule could match a formal asset. A rule that gave
+`aoci.code.txt` the observe role recorded the Volume in the Baseline as Observe
+evidence, and the readers disagreed about that record: Verify, Check, and the
+Guide listed the Volume as `observed_removed` with `observed_pending=1`,
+`scope acknowledge` answered `observed_evidence_review_not_pending`, and every
+`scope preview`, including one that would restore the rule, answered
+`observed_evidence_review_required` (#158).
+
+From v0.1.0-rc23 formal assets are outside policy: a rule never changes the
+role of the Root or a declared Volume, status, governance, and a Scope Change
+Plan strip them through one projection, and `scope rule add` or `update`
+refuses an exact file rule naming one as
+`managed_scope_rule_targets_formal_asset`. A repository already in that state
+reads aligned as soon as the fixed binary runs. Then:
+
+```bash
+aoci scope activate --json
+aoci verify --json && aoci check --json
+```
+
+Activation applies with nothing to approve and writes the Volume's Baseline
+role back to `index`. The rule can stay or go; it no longer reaches the
+Volume either way. Nothing here edits the Baseline by hand or uses
+`scan --force`.
+
 ## A run returns `repair_required`
 
 Repair only the candidates explicitly identified by the current response, preserve their source and candidate/batch bindings, and resubmit the complete current machine-issued batch. Do not drop unrelated candidates or construct a replacement state manually. If `remaining` is nonzero after a successful Apply, call Maintain again; do not reduce Scope or slice the returned batch to fit transport.

@@ -576,14 +576,11 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 		facts.Findings = append(facts.Findings, Finding{Code: "scope_change_required", Domain: cognition.ScopeCode})
 		return
 	}
+	// Formal assets leave both the snapshot and the Baseline here, through the
+	// projection Scope status and the Scope Change Plan use, so a Volume's own
+	// Baseline record can never read as removed Observe evidence (#158).
 	copyState := *managed
-	copyState.Snapshot = cloneSnapshot(managed.Snapshot)
-	delete(copyState.Snapshot, set.Root.Descriptor.Path)
-	for _, formal := range set.Volumes {
-		if formal != nil {
-			delete(copyState.Snapshot, formal.Descriptor.Path)
-		}
-	}
+	copyState.Snapshot, copyState.Baseline = cognition.BusinessScope(managed.Snapshot, managed.Baseline)
 	detected, err := managedstate.Detect(root, cfg, asset.Document, &copyState)
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "code_drift_unavailable", Domain: cognition.ScopeCode})
@@ -925,14 +922,6 @@ func baselineMatches(
 		return false, false
 	}
 	return baseline.EquivalentFingerprints(stored, current, cfg.LineEndingTolerance)
-}
-
-func cloneSnapshot(input map[string]baseline.Fingerprint) map[string]baseline.Fingerprint {
-	result := make(map[string]baseline.Fingerprint, len(input))
-	for path, fingerprint := range input {
-		result[path] = fingerprint
-	}
-	return result
 }
 
 func sortedUnique(values []string) []string {

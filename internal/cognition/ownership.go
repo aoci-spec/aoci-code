@@ -3,6 +3,8 @@ package cognition
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 )
 
 const (
@@ -78,4 +80,38 @@ func OwnershipConflicts(set *Set) []OwnershipConflict {
 		}
 	}
 	return conflicts
+}
+
+// BusinessScope returns the snapshot and the Baseline without the Volumes v1
+// formal assets, which are the one answer to "is this path Managed Scope
+// evidence" that Scope status, governance, and a Scope Change Plan share.
+// Three private answers once disagreed on which side to strip: status removed
+// the Root and Volumes from the snapshot and the Baseline, governance from the
+// snapshot alone, and the Plan kept the Baseline whole, so a Volume whose
+// Baseline record carried the observe role read as observed_removed to the
+// Guide, as nothing pending to acknowledge, and as unreviewed to preview, and
+// no command could move the repository (#158). Formal assets are guarded by
+// their own lifecycle transactions and never Observe evidence. Either input
+// may be nil; the results are copies and the inputs are not changed.
+func BusinessScope(snapshot map[string]baseline.Fingerprint, active *baseline.Baseline) (map[string]baseline.Fingerprint, *baseline.Baseline) {
+	var files map[string]baseline.Fingerprint
+	if snapshot != nil {
+		files = make(map[string]baseline.Fingerprint, len(snapshot))
+		for path, fingerprint := range snapshot {
+			if _, formal := FormalAssetOwner(path); !formal {
+				files[path] = fingerprint
+			}
+		}
+	}
+	if active == nil {
+		return files, nil
+	}
+	business := *active
+	business.Files = make(map[string]baseline.Fingerprint, len(active.Files))
+	for path, fingerprint := range active.Files {
+		if _, formal := FormalAssetOwner(path); !formal {
+			business.Files[path] = fingerprint
+		}
+	}
+	return files, &business
 }
