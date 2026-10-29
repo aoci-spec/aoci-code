@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T19:04:00Z",
+  "updated_at": "2026-10-29T19:24:11Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "698f3a3daea47ce8ab671d0313206bb4d126dc88fee9deda921318eac8e572ff",
-      "size": 154760,
-      "normalized_sha256": "698f3a3daea47ce8ab671d0313206bb4d126dc88fee9deda921318eac8e572ff"
+      "sha256": "e9674c506f635008a7f17e1a72f9904f7b4fc1809ab90a012dba39b0944a3ae7",
+      "size": 155266,
+      "normalized_sha256": "e9674c506f635008a7f17e1a72f9904f7b4fc1809ab90a012dba39b0944a3ae7"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "c4e170bc31e2fcb08944639427cfd133e93f94b6c784f85a45e6c235a3f55d9c",
-      "size": 217738,
-      "normalized_sha256": "c4e170bc31e2fcb08944639427cfd133e93f94b6c784f85a45e6c235a3f55d9c"
+      "sha256": "9262bc01a02972dd00d63eeb127c14bd1e994c15f4c2ff98add7f22888434eb9",
+      "size": 218255,
+      "normalized_sha256": "9262bc01a02972dd00d63eeb127c14bd1e994c15f4c2ff98add7f22888434eb9"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6365,9 +6365,9 @@
     },
     "scripts/blackbox/README.md": {
       "role": "index",
-      "sha256": "fc9fa90b17b9ce321838af08dad921e3a329a3876a1d372b193f59c6d0543f68",
-      "size": 19088,
-      "normalized_sha256": "fc9fa90b17b9ce321838af08dad921e3a329a3876a1d372b193f59c6d0543f68"
+      "sha256": "b5211603ab36eecbd629128a9f0f85cd79742bb9550ad79eb6b6b8fced7c1914",
+      "size": 19669,
+      "normalized_sha256": "b5211603ab36eecbd629128a9f0f85cd79742bb9550ad79eb6b6b8fced7c1914"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -6377,9 +6377,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "28e955d938e3a9a096d66f8f1354da80107e630690108cf81baaef14c2f12025",
-      "size": 11539,
-      "normalized_sha256": "28e955d938e3a9a096d66f8f1354da80107e630690108cf81baaef14c2f12025"
+      "sha256": "8fa718ef33a210d36bf315986eb5140608982153e708c3d74fcb231aa655d063",
+      "size": 12987,
+      "normalized_sha256": "8fa718ef33a210d36bf315986eb5140608982153e708c3d74fcb231aa655d063"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",
@@ -6433,11 +6433,17 @@
       "size": 61969,
       "normalized_sha256": "df1f201c02093b2fa53fb75579de1950d2844f18a77d2bdcdee5c05a7d90194e"
     },
+    "scripts/blackbox/perf_calls.py": {
+      "role": "index",
+      "sha256": "0ee363ffb0e1a4b4cbf3e861a092a135aefb7dee336f41196b78f92828c33816",
+      "size": 5927,
+      "normalized_sha256": "0ee363ffb0e1a4b4cbf3e861a092a135aefb7dee336f41196b78f92828c33816"
+    },
     "scripts/blackbox/realrepo.py": {
       "role": "index",
-      "sha256": "a422745bfe96ebbe40199972dafe0927595e20ab93f68a35545f64253bf22a17",
-      "size": 14823,
-      "normalized_sha256": "a422745bfe96ebbe40199972dafe0927595e20ab93f68a35545f64253bf22a17"
+      "sha256": "a1e175cae8ef84625111e8dbc03704bd0196b263ed5b553f996acd9a7b88bf87",
+      "size": 16667,
+      "normalized_sha256": "a1e175cae8ef84625111e8dbc03704bd0196b263ed5b553f996acd9a7b88bf87"
     },
     "scripts/blackbox/stdio_capture.py": {
       "role": "index",

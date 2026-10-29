@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt (fast gates inside make verify, CI/suite batch)"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt (first full pass on a dirty tree: conformance 54/0/4 SKIP, scenarios 80, lifecycle 93+2, axis-self 80)"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt (80 PASS, 0 FAIL; page probe retry in)"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt (PASS 93, CHAR 2)"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt (self-axis 80/80, 0.2.0 line candidate)"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -185,8 +185,23 @@
    "runs_in": [],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/realrepo-merge-rc23.txt (0.2.0 line binary: RuoYi and excalidraw rc=0, verify_aligned)"
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/realrepo-ci.txt (wave restored under the neutral root: RuoYi 29 rounds, wave 60/5 rounds; excalidraw 39 rounds, wave 60/4; call_seconds Maintain 0.23/1.15 s, update_entry 0.62/2.95 s)"
+   }
+  },
+  {
+   "id": "perf-track",
+   "cadence": "release",
+   "command": "python3 scripts/blackbox/perf_calls.py RuoYi excalidraw umami hoppscotch deepseek-harness --binary=build/aoci-<label> --label=<label>",
+   "proves": "Per-call latency of scan, cold and warm Maintain, Overview check, verify, check, Guide and status against file count on five real trees (700 to 13,850 files); compare each call against the previous release record before claiming a performance change",
+   "preconditions": [
+    "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand): RuoYi, excalidraw, umami, hoppscotch, deepseek-harness"
+   ],
+   "runs_in": [],
+   "last_verified": {
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-30",
+    "evidence": ".aoci/dev-tools/perf-calls-ci.txt (0.2.0 line: per-call seconds linear in files, ~0.27 ms/file, warm Maintain = cold; deepseek-harness 13,850 files: scan 2.0, Maintain 3.8, verify 3.6, guide 3.8)"
    }
   },
   {
@@ -300,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   },
   {
@@ -333,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-ci.txt"
+    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
    }
   }
  ]

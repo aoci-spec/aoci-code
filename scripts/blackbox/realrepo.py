@@ -137,10 +137,27 @@ def template_entry(rel, data):
         return f"{base}[CG8{scale}]: F:Provides {base}, a mid-sized unit of the {name} repository | R:- | A:- | S:{LONG_S}"
     return f"{base}[CG5{scale}]: F:Provides {base} for the {name} repository | R:- | A:- | S:-"
 
+def timed_cli(*args):
+    """Seconds one CLI command takes against the work tree; the exit code rides along."""
+    t = time.time()
+    proc = U.run(BIN, work, *args)
+    return {"seconds": round(time.time() - t, 2), "exit": proc.returncode}
+
 def author_rounds(session, phase, max_rounds=400):
     rounds, written, stopped, sizes, included, existing = 0, 0, None, [], [], 0
+    # Per-tool wall time: how much of a round AOCI itself spends, apart from
+    # the model's authoring time this harness does not have. The split between
+    # Maintain and update_entry is what the performance work reads.
+    calls = {}
+    def timed(tool, args=None):
+        t = time.time()
+        text = session.call(tool, args)
+        spent = time.time() - t
+        c = calls.setdefault(tool, [0, 0.0, 0.0])
+        c[0] += 1; c[1] += spent; c[2] = max(c[2], spent)
+        return text
     while rounds < max_rounds:
-        text = session.call("aoci_maintain")
+        text = timed("aoci_maintain")
         m = json.loads(text)
         rounds += 1
         sizes.append(len(text.encode("utf-8")))
@@ -163,7 +180,7 @@ def author_rounds(session, phase, max_rounds=400):
                 data = fh.read()
             entries.append({"path": rel, "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
                             "new_entry": template_entry(rel, data)})
-        r = json.loads(session.call("aoci_update_entry", {"code_batch_id": plan.get("batch_id"), "entries": entries}))
+        r = json.loads(timed("aoci_update_entry", {"code_batch_id": plan.get("batch_id"), "entries": entries}))
         if r.get("status") != "applied":
             stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
             break
@@ -173,13 +190,18 @@ def author_rounds(session, phase, max_rounds=400):
     return {"rounds": rounds, "entries_written": written, "stopped": stopped,
             "maintain_bytes_max": max(sizes) if sizes else 0, "maintain_bytes_avg": (sum(sizes) // len(sizes)) if sizes else 0,
             "included_min": min(i for i in included if i) if included else 0, "included_max": max(i for i in included if i) if included else 0,
-            "existing_entries_seen": existing, "over_budget_rounds": sum(1 for s in sizes if s > BUDGET)}
+            "existing_entries_seen": existing, "over_budget_rounds": sum(1 for s in sizes if s > BUDGET),
+            "call_seconds": {tool: {"count": c[0], "total": round(c[1], 2), "max": round(c[2], 2), "avg": round(c[1] / c[0], 3)}
+                             for tool, c in sorted(calls.items())}}
 
 # phase 1: first build
 t1 = time.time()
 with U.Session(BIN, work) as s:
     report["first_build"] = author_rounds(s, "build")
 report["first_build"]["seconds"] = round(time.time() - t1, 1)
+# The terminal proof every closure pays after the last Apply, timed per command.
+report["first_build"]["proof_seconds"] = {"verify": timed_cli("verify", "--json"), "check": timed_cli("check", "--json"),
+                                          "guide": timed_cli("index", "agent", "guide", "--agent", "claude", "--json")}
 v = U.verify_facts(BIN, work); report["first_build"]["verify_aligned"] = bool(v and v.get("aligned")); report["first_build"]["code_objects"] = v and v.get("code_object_count")
 print("first_build:", json.dumps(report["first_build"]), flush=True)
 
@@ -194,12 +216,24 @@ with open(os.path.join(work, "aoci.code.txt"), encoding="utf-8") as fh:
         elif "[" in line and "]: F:" in line:
             authored.append((section, line.split("[", 1)[0]))
 root_norm = work.replace("\\", "/")
+NEUTRAL_ROOT = "/<repository>"
 wave_paths = []
 for section, base in authored:
-    rel_dir = section[len(root_norm):].strip("/") if section.startswith(root_norm) else section.strip("/")
+    # A section root is a historical coordinate: an index written since the
+    # neutral root records /<repository>, an older one the authoring machine's
+    # path. The wave silently touched nothing on the first neutral-root
+    # binaries because only the machine path was stripped.
+    if section.startswith(root_norm):
+        rel_dir = section[len(root_norm):].strip("/")
+    elif section.startswith(NEUTRAL_ROOT):
+        rel_dir = section[len(NEUTRAL_ROOT):].strip("/")
+    else:
+        rel_dir = section.strip("/")
     rel = f"{rel_dir}/{base}" if rel_dir else base
     if os.path.isfile(os.path.join(work, rel)) and not rel.startswith("."):
         wave_paths.append(rel)
+if authored and not wave_paths:
+    sys.exit(f"no authored Entry maps onto a file under {work}: section roots {sorted({s for s, _ in authored})[:3]}")
 wave_paths = sorted(set(wave_paths))[:WAVE]
 for rel in wave_paths:
     with open(os.path.join(work, rel), "a", encoding="utf-8") as fh:

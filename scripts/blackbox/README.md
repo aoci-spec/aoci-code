@@ -251,6 +251,15 @@ how an agent finds the list at all.
 
 ## Real-repository track
 
+`perf_calls.py` is the per-call latency track behind the performance work:
+it clones each named repository, initializes it, and times scan, a cold and a
+warm Maintain in one server process, an Overview check, verify, check, the
+Guide and status, one JSON line per call with the tree's file count. Nothing
+is authored; the rounds of a first build are timed per tool by `realrepo.py`
+(`call_seconds`, `proof_seconds`). The ladder's `perf-track` contract runs it
+over five local clones from 700 to 13,850 files, and a performance claim is
+read against the previous release's record.
+
 `realrepo.py` clones a real third-party repository locally, initializes it,
 authors template Entries through Maintain and `aoci_update_entry` until
 aligned, touches a wave of files and re-aligns, runs one cognition

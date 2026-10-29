@@ -7,6 +7,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- Black-box: `scripts/blackbox/perf_calls.py` times every governance call a
+  user waits on (scan, cold and warm Maintain, Overview check, verify, check,
+  Guide, status) against a tree's file count, and `realrepo.py` reports the
+  wall time of each tool inside its authoring rounds and of the terminal
+  proof; the `perf-track` ladder contract runs the former over five local
+  clones from 700 to 13,850 files, so a performance change is read against
+  the previous release's numbers rather than claimed.
 - Black-box and CI: the conformance suite reports the four receipt-bound
   attestation checks as SKIP, counted but not failing, when the host
   repository is not governance-aligned, instead of four false reds on every
