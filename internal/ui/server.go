@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"net"
 	"net/http"
 	"os"
@@ -84,6 +85,10 @@ type server struct {
 // Serve binds a loopback listener, calls ready with the URL, and serves until
 // ctx is cancelled. It returns nil after a clean shutdown.
 func Serve(ctx context.Context, options Options, ready func(url string, repositories int)) error {
+	// The page is documented to change no byte of a repository it reads, and
+	// its state handler assesses governance, which hashes sources through the
+	// fingerprint cache; reads stay, saves are off for the page's process.
+	baseline.SetFingerprintCacheWrites(false)
 	host := options.Host
 	if host == "" {
 		host = "127.0.0.1"

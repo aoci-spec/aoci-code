@@ -47,6 +47,11 @@ func init() {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
+			if dryRun {
+				// A dry run is documented to write nothing: the fingerprint
+				// cache may answer, never save.
+				baseline.SetFingerprintCacheWrites(false)
+			}
 			if !dryRun {
 				volumeLayout, layoutErr := activeVolumeLayout(root, cfg.IndexPath)
 				if layoutErr != nil {

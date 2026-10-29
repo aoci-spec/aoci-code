@@ -27,12 +27,17 @@ func SnapshotReusing(repositoryRoot string, evaluation *Evaluation, prior map[st
 	}
 	result := make(map[string]baseline.Fingerprint, len(evaluation.Index)+len(evaluation.Observe))
 	approved := len(options) > 0 && options[0].HighRiskContentApproved
+	// The stat cache answers an unchanged file without reading it; this walk
+	// covers every index and observe path, so entries for paths that left the
+	// policy are pruned when it is saved.
+	cache := baseline.OpenFingerprintCache(repositoryRoot)
+	defer cache.Save(true)
 	for _, group := range [][]PathEvaluation{evaluation.Index, evaluation.Observe} {
 		for _, item := range group {
 			if item.SafetyStatus == "high_risk_exact_opt_in" && !approved {
 				return nil, fmt.Errorf("managed_scope_high_risk_read_approval_required: %s", item.Path)
 			}
-			fingerprint, err := baseline.HashFileReusing(filepath.Join(repositoryRoot, filepath.FromSlash(item.Path)), prior[item.Path])
+			fingerprint, err := cache.HashFile(filepath.Join(repositoryRoot, filepath.FromSlash(item.Path)), item.Path, prior[item.Path])
 			if err != nil {
 				return nil, fmt.Errorf("managed_scope_source_unreadable: %s", item.Path)
 			}

@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/conformance-ci.txt (aligned run after governance, 58/58)"
+    "evidence": ".aoci/dev-tools/conformance-l1.txt"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -201,7 +201,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/perf-calls-ci.txt (0.2.0 line: per-call seconds linear in files, ~0.27 ms/file, warm Maintain = cold; deepseek-harness 13,850 files: scan 2.0, Maintain 3.8, verify 3.6, guide 3.8)"
+    "evidence": ".aoci/dev-tools/perf-calls-l1.txt"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-perf.txt (L0 batch; conformance 54/0/4 SKIP on the dirty tree, aligned record conformance-perf.txt)"
+    "evidence": ".aoci/dev-tools/make-verify-l1.txt"
    }
   }
  ]

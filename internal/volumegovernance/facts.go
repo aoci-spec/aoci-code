@@ -501,11 +501,18 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	assessFormalAsset(root, cfg, state, set.Root.Descriptor.Path, "root", facts)
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
 
+	// One managed state per assessment: assessCode loads it for the Code
+	// verdict and the business-source manifest below is built from the same
+	// state instead of loading, evaluating, and hashing the tree a second time.
+	var managed *managedstate.State
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		assessCode(root, cfg, set, state, facts, snapshot)
+		assessCode(root, cfg, set, state, facts, &managed)
+		if snapshot != nil {
+			*snapshot = managed
+		}
 	}
 	if asset := enabledAsset(set, cognition.ScopeDatabase); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeDatabase)
@@ -540,7 +547,14 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	// naming it a second time as a business-source failure sent operators to look
 	// in a subsystem that was working. The derived report is dropped, and every
 	// other cause now carries the exact machine token instead of being erased.
-	switch manifest, manifestErr := businesssource.Build(root, ""); {
+	var manifest *businesssource.Manifest
+	var manifestErr error
+	if managed != nil {
+		manifest, manifestErr = businesssource.BuildFromState(root, cfg, managed, "")
+	} else {
+		manifest, manifestErr = businesssource.Build(root, "")
+	}
+	switch {
 	case manifestErr == nil:
 		facts.BusinessSourceSHA256 = manifest.AggregateSHA256
 	case errors.Is(manifestErr, businesssource.ErrScopeChangeRequired):

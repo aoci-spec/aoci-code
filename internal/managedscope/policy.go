@@ -149,7 +149,7 @@ func NormalizePattern(value, kind string) (string, error) {
 		return "", fmt.Errorf("path_escape")
 	}
 	if kind == machinecontract.ScopePatternGlob {
-		if _, err := globRegexp(clean); err != nil {
+		if _, err := globProgramFor(clean); err != nil {
 			return "", err
 		}
 	}
@@ -184,47 +184,55 @@ func Match(rule Rule, rel string) bool {
 	}
 }
 
+// globMatch answers whether rel matches pattern under the glob dialect
+// buildGlobRegexp defines. It no longer runs the regexp engine: on a tree of
+// 13,850 files the starter rules cost 260,000 matches per evaluation and the
+// backtracker spent half of every governance call in them. The program below
+// is a token NFA with the same dialect, judged against buildGlobRegexp by a
+// differential test and a fuzz target, so the regexp stays the definition.
 func globMatch(pattern, rel string) (bool, error) {
-	compiled, err := globRegexp(pattern)
+	program, err := globProgramFor(pattern)
 	if err != nil {
 		return false, err
 	}
-	return compiled.MatchString(rel), nil
+	return program.match(rel), nil
 }
 
 type globCacheEntry struct {
-	compiled *regexp.Regexp
-	err      error
+	program *globProgram
+	err     error
 }
 
-// globRegexpCache memoizes glob compilation. THE KEY IS THE EXACT PATTERN BYTES
-// and must never be normalized, case-folded, or combined with a path: making the
-// key anything else is precisely the host-dependence that
+// globProgramCache memoizes glob compilation. THE KEY IS THE EXACT PATTERN
+// BYTES and must never be normalized, case-folded, or combined with a path:
+// making the key anything else is precisely the host-dependence that
 // host_independent_paths_test.go exists to prevent.
 //
-// globRegexp is a pure function of those bytes — no globals, no filesystem, no
-// host probe — and a compiled *regexp.Regexp is safe for concurrent use. Keys
-// arrive only from Rule.Pattern and Rule.Exceptions, and curation exclusions
-// enter as PatternKind file rather than glob, so no repository path ever becomes
-// a key. The cache is therefore bounded by policy size, not by repository size:
-// this repository's config yields 48 distinct patterns against 171745 calls.
+// globProgramFor is a pure function of those bytes — no globals, no
+// filesystem, no host probe — and a compiled program is read-only, so it is
+// safe for concurrent use. Keys arrive only from Rule.Pattern and
+// Rule.Exceptions, and curation exclusions enter as PatternKind file rather
+// than glob, so no repository path ever becomes a key. The cache is therefore
+// bounded by policy size, not by repository size.
 //
 // The error is cached deliberately. globMatch discards it, nothing compares
 // these errors by identity, and Normalize still rejects the pattern on every
 // later call, so a pattern that is invalid once stays invalid.
-var globRegexpCache sync.Map
+var globProgramCache sync.Map
 
-func globRegexp(pattern string) (*regexp.Regexp, error) {
-	if cached, ok := globRegexpCache.Load(pattern); ok {
+func globProgramFor(pattern string) (*globProgram, error) {
+	if cached, ok := globProgramCache.Load(pattern); ok {
 		entry := cached.(globCacheEntry)
-		return entry.compiled, entry.err
+		return entry.program, entry.err
 	}
-	compiled, err := buildGlobRegexp(pattern)
-	actual, _ := globRegexpCache.LoadOrStore(pattern, globCacheEntry{compiled: compiled, err: err})
+	program, err := compileGlobProgram(pattern)
+	actual, _ := globProgramCache.LoadOrStore(pattern, globCacheEntry{program: program, err: err})
 	entry := actual.(globCacheEntry)
-	return entry.compiled, entry.err
+	return entry.program, entry.err
 }
 
+// buildGlobRegexp is the definition of the dialect and the oracle the matcher
+// is judged against; production matching goes through compileGlobProgram.
 func buildGlobRegexp(pattern string) (*regexp.Regexp, error) {
 	var out strings.Builder
 	out.WriteString("^")

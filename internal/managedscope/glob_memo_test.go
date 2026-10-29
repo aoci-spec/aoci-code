@@ -18,24 +18,25 @@ var memoPathCorpus = []string{
 	"internal/index/testdata/x.txt", "third_party/x/y.go", "a/b/c/d.go", "",
 }
 
-// The memo is only allowed to be faster. Its verdicts must be the verdicts a
-// cold compile produces, for every pattern and every path.
-func TestGlobRegexpMemoAgreesWithAColdCompile(t *testing.T) {
+// The memo is only allowed to be faster. Its verdicts must be the verdicts the
+// regexp definition produces, for every pattern and every path, on the first
+// and on every later call.
+func TestGlobProgramMemoAgreesWithTheRegexpDefinition(t *testing.T) {
 	for _, pattern := range memoPatternCorpus {
 		cold, coldErr := buildGlobRegexp(pattern)
-		warm, warmErr := globRegexp(pattern)
-		again, againErr := globRegexp(pattern)
+		warm, warmErr := globProgramFor(pattern)
+		again, againErr := globProgramFor(pattern)
 		if (coldErr == nil) != (warmErr == nil) || (coldErr == nil) != (againErr == nil) {
 			t.Fatalf("%q: error disagreement cold=%v warm=%v again=%v", pattern, coldErr, warmErr, againErr)
 		}
 		if coldErr != nil {
 			continue
 		}
-		if cold.String() != warm.String() || cold.String() != again.String() {
-			t.Fatalf("%q: compiled form disagreement", pattern)
+		if warm != again {
+			t.Fatalf("%q: the memo handed out two programs", pattern)
 		}
 		for _, path := range memoPathCorpus {
-			if cold.MatchString(path) != warm.MatchString(path) {
+			if cold.MatchString(path) != warm.match(path) {
 				t.Fatalf("%q vs %q: verdict disagreement", pattern, path)
 			}
 		}
@@ -45,10 +46,10 @@ func TestGlobRegexpMemoAgreesWithAColdCompile(t *testing.T) {
 // The cache key is the pattern, never a path. If a repository path ever became a
 // key the cache would grow with the repository and the governance identity would
 // start depending on traversal order.
-func TestGlobRegexpMemoIsBoundedByPolicyNotRepository(t *testing.T) {
+func TestGlobProgramMemoIsBoundedByPolicyNotRepository(t *testing.T) {
 	count := func() int {
 		total := 0
-		globRegexpCache.Range(func(any, any) bool { total++; return true })
+		globProgramCache.Range(func(any, any) bool { total++; return true })
 		return total
 	}
 	rule := Rule{Enabled: true, PatternKind: machinecontract.ScopePatternGlob, Pattern: "bounded/**/*.go"}
@@ -66,10 +67,10 @@ func TestGlobRegexpMemoIsBoundedByPolicyNotRepository(t *testing.T) {
 
 // A pattern that is invalid must stay invalid on every later call, and Normalize
 // must keep rejecting a policy that contains it even after it has been cached.
-func TestGlobRegexpMemoKeepsInvalidPatternsInvalid(t *testing.T) {
+func TestGlobProgramMemoKeepsInvalidPatternsInvalid(t *testing.T) {
 	const bad = "internal/[abc]/x.go"
 	for attempt := 0; attempt < 3; attempt++ {
-		if _, err := globRegexp(bad); err == nil {
+		if _, err := globProgramFor(bad); err == nil {
 			t.Fatalf("attempt %d: character class accepted", attempt)
 		}
 	}
@@ -82,7 +83,7 @@ func TestGlobRegexpMemoKeepsInvalidPatternsInvalid(t *testing.T) {
 	}
 }
 
-func TestGlobRegexpMemoIsRaceFree(t *testing.T) {
+func TestGlobProgramMemoIsRaceFree(t *testing.T) {
 	rule := Rule{Enabled: true, PatternKind: machinecontract.ScopePatternGlob, Pattern: "racy/**/*.go"}
 	serial := map[string]bool{}
 	for _, path := range memoPathCorpus {

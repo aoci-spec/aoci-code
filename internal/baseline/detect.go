@@ -66,13 +66,17 @@ func SnapshotWithInventory(root string, options afs.WalkOptions) (map[string]Fin
 		len(files),
 	)
 	warnings := []string{}
+	cache := OpenFingerprintCache(root)
+	defer cache.Save(true)
 
 	for _, relPath := range files {
-		fingerprint, err := HashFile(
+		fingerprint, err := cache.HashFile(
 			filepath.Join(
 				root,
 				filepath.FromSlash(relPath),
 			),
+			relPath,
+			Fingerprint{},
 		)
 		if err != nil {
 			warnings = append(

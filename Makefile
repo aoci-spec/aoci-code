@@ -199,6 +199,7 @@ FUZZ_TARGETS := \
 	./internal/bootstrapapply:FuzzStrictDecode \
 	./internal/fs:FuzzNormalizeRelPath \
 	./internal/fs:FuzzMatchExcludePattern \
+	./internal/managedscope:FuzzGlobMatch \
 	./internal/dbevidence:FuzzParseConfigStrict
 
 fuzz-smoke:

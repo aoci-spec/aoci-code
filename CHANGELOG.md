@@ -7,6 +7,23 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- Every governance call on a large repository is about three times faster
+  (#127 in part; measured by the new `perf-track` contract, 13,850 files: a
+  Maintain 3.8 s to 1.3 s, `verify` 3.6 s to 1.1 s, the Guide 3.8 s to 1.5 s;
+  1,297 files: a Maintain 0.80 s to 0.59 s, `verify` 0.79 s to 0.42 s). Three causes, none of them the file reads
+  everyone assumed: the Managed Scope policy was evaluated over the whole
+  tree twice per call, once for the verdict and once more inside the
+  business-source manifest, which now takes the state the verdict already
+  loaded; glob rules were matched through the regular-expression engine, whose
+  backtracking took half of every call on a starter policy (20 rules times
+  every path), and are now matched by a token program judged against the
+  regexp definition by a differential test over 100,000 pattern-path pairs
+  and a fuzz target; and the curation profile re-read every candidate to
+  classify it, and now takes the binary verdict and the line count from the
+  fingerprint it already had. A stat cache under `.aoci/fingerprints.json`,
+  git-ignored and outside every identity, answers an unchanged file by size
+  and mtime under git's racily-clean rule; `AOCI_FINGERPRINT_CACHE=off`
+  disables it, and the status page and `scan --dry-run` never write it.
 - Black-box: `scripts/blackbox/perf_calls.py` times every governance call a
   user waits on (scan, cold and warm Maintain, Overview check, verify, check,
   Guide, status) against a tree's file count, and `realrepo.py` reports the

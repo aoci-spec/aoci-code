@@ -6,10 +6,8 @@ package curation
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
@@ -25,6 +23,22 @@ const (
 
 // ProfilePath 对仓库相对文件执行确定性画像。
 func ProfilePath(
+	root,
+	rawPath string,
+) (Profile, error) {
+	cache := baseline.OpenFingerprintCache(root)
+	defer cache.Save(false)
+	return profilePath(cache, root, rawPath)
+}
+
+// profilePath is ProfilePath over a cache the caller keeps open across a
+// batch. The digest, the binary verdict, and the line count all come from the
+// bytes the fingerprint already read: a NUL within the first BinarySniffBytes
+// is exactly the file hashFile leaves without a normalized digest, so a file
+// under OversizeBytes is binary if and only if that digest is absent, and no
+// second read of the file is needed for the verdict.
+func profilePath(
+	cache *baseline.FingerprintCache,
 	root,
 	rawPath string,
 ) (Profile, error) {
@@ -49,8 +63,10 @@ func ProfilePath(
 		)
 	}
 
-	fingerprint, err := baseline.HashFile(
+	fingerprint, err := cache.HashFile(
 		absolutePath,
+		rel,
+		baseline.Fingerprint{},
 	)
 	if err != nil {
 		return Profile{}, err
@@ -73,36 +89,14 @@ func ProfilePath(
 		return profile, nil
 	}
 
-	file, err := os.Open(absolutePath)
-	if err != nil {
-		return Profile{}, err
-	}
-
-	sniff, readErr := io.ReadAll(
-		io.LimitReader(
-			file,
-			BinarySniffBytes,
-		),
-	)
-	closeErr := file.Close()
-
-	if readErr != nil {
-		return Profile{}, readErr
-	}
-	if closeErr != nil {
-		return Profile{}, closeErr
-	}
-
-	if strings.ContainsRune(
-		string(sniff),
-		'\x00',
-	) {
+	if fingerprint.NormalizedSHA256 == "" {
 		profile.Reason = ProfileReasonBinary
 		return profile, nil
 	}
 
-	lines, err := afs.CountFileLines(
+	lines, err := cache.FileLines(
 		absolutePath,
+		rel,
 	)
 	if err != nil {
 		return Profile{}, err
@@ -123,9 +117,12 @@ func BuildProfiles(
 		map[string]Profile,
 		len(paths),
 	)
+	cache := baseline.OpenFingerprintCache(root)
+	defer cache.Save(false)
 
 	for _, rawPath := range paths {
-		profile, err := ProfilePath(
+		profile, err := profilePath(
+			cache,
 			root,
 			rawPath,
 		)

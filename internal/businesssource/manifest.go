@@ -86,12 +86,56 @@ func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("business_source_curation_invalid")
 	}
-	formal := map[string]bool{"aoci.txt": true, "aoci.meta.txt": true, "aoci.code.txt": true, "aoci.database.txt": true}
+	formal := formalAssetPaths()
 	if managed {
 		state, stateErr := managedstate.Load(root, cfg)
 		if stateErr != nil {
 			return nil, fmt.Errorf("business_source_managed_scope_invalid: %w", stateErr)
 		}
+		return buildManaged(root, cfg, state, curationSHA, generatedAt)
+	}
+	return buildLegacy(root, cfg, inventory, curationDocument, curationSHA, generatedAt, formal)
+}
+
+// BuildFromState is Build over a managed state the caller already loaded for
+// this call. Governance assessment loads the state once for its own verdict,
+// and building the manifest from it instead of loading again halves the
+// policy evaluations a verify, check, Guide, or Maintain pays; the manifest
+// bytes are identical, since Build itself only ever read that state.
+func BuildFromState(repositoryRoot string, cfg *config.Config, state *managedstate.State, generatedAt string) (*Manifest, error) {
+	root, err := filepath.Abs(repositoryRoot)
+	if err != nil {
+		return nil, fmt.Errorf("business_source_repository_invalid")
+	}
+	if cfg == nil || state == nil {
+		return nil, fmt.Errorf("business_source_managed_scope_unavailable")
+	}
+	// Build decides the branch from the configuration alone; a repository
+	// without a Managed Scope or budget block takes the legacy manifest path
+	// whatever state the caller loaded, exactly as a fresh Build would.
+	if cfg.ManagedScope == nil && cfg.CognitionBudget == nil {
+		return Build(repositoryRoot, generatedAt)
+	}
+	if generatedAt != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, generatedAt)
+		if parseErr != nil || parsed.Location() != time.UTC {
+			return nil, fmt.Errorf("business_source_generated_at_invalid")
+		}
+	}
+	_, _, curationSHA, err := curation.Load(root)
+	if err != nil {
+		return nil, fmt.Errorf("business_source_curation_invalid")
+	}
+	return buildManaged(root, cfg, state, curationSHA, generatedAt)
+}
+
+func formalAssetPaths() map[string]bool {
+	return map[string]bool{"aoci.txt": true, "aoci.meta.txt": true, "aoci.code.txt": true, "aoci.database.txt": true}
+}
+
+func buildManaged(root string, cfg *config.Config, state *managedstate.State, curationSHA, generatedAt string) (*Manifest, error) {
+	formal := formalAssetPaths()
+	{
 		if state.ScopeChangeRequired {
 			return nil, ErrScopeChangeRequired
 		}
@@ -132,6 +176,9 @@ func Build(repositoryRoot, generatedAt string) (*Manifest, error) {
 		manifest.AggregateSHA256 = aggregate(manifest)
 		return manifest, nil
 	}
+}
+
+func buildLegacy(root string, cfg *config.Config, inventory *afs.SafeInventory, curationDocument *curation.Document, curationSHA, generatedAt string, formal map[string]bool) (*Manifest, error) {
 	decisions := make(map[string]curation.Decision, len(curationDocument.Decisions))
 	for _, decision := range curationDocument.Decisions {
 		decisions[decision.Path] = decision

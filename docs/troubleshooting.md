@@ -330,6 +330,23 @@ first `init` and `scan` does not help later `verify` and Maintain calls. Do not
 rename it inside the repository: a renamed directory no longer matches the
 ignore rule and git then walks all of it.
 
+Every governance call (`verify`, `check`, the Guide, `scope status`, and each
+Maintain) evaluates the Managed Scope policy over the whole tree and
+fingerprints every governed file, so its time grows with the file count.
+Since the 0.2.0 line that cost is about a third of what it was: the policy
+is evaluated once per call instead of twice, glob rules are matched without
+the regular-expression engine, and a stat cache under
+`.aoci/fingerprints.json` (a git-ignored runtime asset, never part of the
+Baseline or any identity) answers an unchanged file by size and
+modification time instead of reading it. On a 13,850-file tree a Maintain
+went from 3.8 s to 1.3 s and `verify` from 3.6 s to 1.1 s. The cache
+follows git's rule for a racily clean entry, so a file rewritten within two
+seconds of being hashed is read again; a rewrite that keeps both size and
+mtime (`touch -r` over new content) is not seen, as git does not see it.
+Set `AOCI_FINGERPRINT_CACHE=off` to hash every file on every call, for a
+diagnosis or on a filesystem whose mtimes cannot be trusted. The status page
+and `scan --dry-run` read the cache and never write it.
+
 When the inventory's git query fails, the error reads
 `safe_inventory_git_query_failed`, and `init`, `scan`, `scope`, and
 `source manifest` print git's own stderr, verbatim, on the next line. `verify`,
