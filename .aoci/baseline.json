@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-29T21:16:02Z",
+  "updated_at": "2026-10-30T04:40:41Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "59923d484be4be0c5efbc51b1b65a132e375652f12ee6046bf0f8007a04edf5d",
-      "size": 222635,
-      "normalized_sha256": "59923d484be4be0c5efbc51b1b65a132e375652f12ee6046bf0f8007a04edf5d"
+      "sha256": "e5bbc7e07d1e427e0d654ecc8b9899a8aa3af076e35398dd880fd2f4d39c7bab",
+      "size": 222626,
+      "normalized_sha256": "e5bbc7e07d1e427e0d654ecc8b9899a8aa3af076e35398dd880fd2f4d39c7bab"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -263,9 +263,9 @@
     },
     "docs/troubleshooting.md": {
       "role": "index",
-      "sha256": "ff526a6b14d89a3f49080664d0b3b8922f17a55dd8dad13b7b0edc3d31f0e936",
-      "size": 39273,
-      "normalized_sha256": "ff526a6b14d89a3f49080664d0b3b8922f17a55dd8dad13b7b0edc3d31f0e936"
+      "sha256": "347c87d84bd06d35d446c3584e9daa1a0a0c8e636aa7778a80d3881793f6045d",
+      "size": 39269,
+      "normalized_sha256": "347c87d84bd06d35d446c3584e9daa1a0a0c8e636aa7778a80d3881793f6045d"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -509,10 +509,10 @@
     },
     "internal/baseline/fingerprint_cache.go": {
       "role": "index",
-      "sha256": "d7494e18fcf24e7e2425da52ff0ce83b7e811bf45317cece3938f2a24c023ba7",
-      "size": 8030,
-      "normalized_sha256": "d7494e18fcf24e7e2425da52ff0ce83b7e811bf45317cece3938f2a24c023ba7",
-      "format_sha256": "d7494e18fcf24e7e2425da52ff0ce83b7e811bf45317cece3938f2a24c023ba7",
+      "sha256": "39a93e74af550da508d6aab1598867f504f57fb1284d3d34b61dd3602cc2bb71",
+      "size": 8010,
+      "normalized_sha256": "39a93e74af550da508d6aab1598867f504f57fb1284d3d34b61dd3602cc2bb71",
+      "format_sha256": "39a93e74af550da508d6aab1598867f504f57fb1284d3d34b61dd3602cc2bb71",
       "format_kind": "gofmt"
     },
     "internal/baseline/fingerprint_cache_test.go": {

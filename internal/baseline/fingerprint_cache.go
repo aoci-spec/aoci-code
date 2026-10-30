@@ -18,8 +18,7 @@ const (
 	// a file's modification time must be before the cached digest is trusted.
 	// A write landing within that window of the hash can leave size and mtime
 	// unchanged (FAT and exFAT keep two-second mtimes), so such an entry is
-	// hashed again next time: the rule git's index applies to a racily clean
-	// entry.
+	// hashed again next time rather than trusted on size and mtime alone.
 	fingerprintCacheRacyWindow = 2 * time.Second
 
 	// FingerprintCacheEnv set to "off" (or "0") disables the cache for one
@@ -63,10 +62,10 @@ type fingerprintCacheDocument struct {
 // It is a runtime asset under .aoci, git-ignored by the init boundary, and
 // never an input to Baseline bytes, CAS, or any identity: a hit returns the
 // digest the bytes had, a miss computes it, and a missing, corrupt, or foreign
-// file simply means every path is hashed. The trust rule is git's: same size,
-// same mtime, and an mtime older than the hash by the racy window. A write
-// that keeps both size and mtime (touch -r over new content) is not seen,
-// exactly as git does not see it; FingerprintCacheEnv=off hashes everything.
+// file simply means every path is hashed. A hit requires the same size and
+// mtime, with the mtime older than the hash by the racy window. A write that
+// preserves both size and mtime (touch -r over new content) can be missed,
+// even when Git detects it; FingerprintCacheEnv=off hashes everything.
 type FingerprintCache struct {
 	path     string
 	entries  map[string]fingerprintCacheEntry
