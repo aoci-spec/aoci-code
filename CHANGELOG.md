@@ -24,6 +24,21 @@ changes a persisted preimage names the binary every machine then needs.
   git-ignored and outside every identity, answers an unchanged file by size
   and mtime under git's racily-clean rule; `AOCI_FINGERPRINT_CACHE=off`
   disables it, and the status page and `scan --dry-run` never write it.
+- Code drift of a Volumes repository is computed in one place,
+  `volumegovernance.CodeDrift`, and every reader consumes it: Verify, Check,
+  the Guide, Maintain, Overview, the post-Apply inspector that each
+  `aoci_update_entry` result reads, and `scope status`. Before, `scope status`
+  detected on its own with a trimmed set of walk options and counted held
+  sources (empty, binary, oversize, unreadable, curation-excluded) as
+  authoring targets, so a tree whose only Entry-less index files were images
+  read `authoring_required` there and `aligned` everywhere else. Its `drift`
+  now lists them as `skipped` and `curation_excluded`, its `authoring_targets`
+  counts what Verify counts, and `drift_warnings` carries the detector's
+  warnings. A contract test lists the files allowed to call the detector
+  directly, each with its reason (the Legacy readers, the writer that binds
+  the active business Baseline), so a new private reader fails the suite;
+  two more pin `scope status` and the inspector to the projection on a tree
+  with stale, missing, orphan, and held sources.
 - Within one server process, a governance call over an unchanged tree no
   longer evaluates the Managed Scope policy or decodes the Baseline and the
   fingerprint cache again: the evaluation is remembered by a digest of every

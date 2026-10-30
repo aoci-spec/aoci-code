@@ -138,22 +138,16 @@ func inspectCognitionVolumeAlignment(
 		if managed.ScopeChangeRequired {
 			return false, 1, []string{"scope_change_required"}, receipt
 		}
-		// Match the Managed Scope-aware Code drift projection shared by ordinary
-		// Volumes governance: formal cognition assets leave the snapshot and the
-		// Baseline through the one projection status and the Guide read, so a
-		// Root or Meta record a rule once observed is not observed_removed here
-		// while every other reader calls the repository aligned (#158).
-		projected := *managed
-		projected.Snapshot, projected.Baseline = cognition.BusinessScope(managed.Snapshot, managed.Baseline)
-		detected, detectErr := managedstate.Detect(root, loaded.cfg, code.Document, &projected)
-		if detectErr != nil {
-			return false, 1, []string{"snapshot: " + detectErr.Error()}, receipt
+		// The one Code drift projection every reader shares: formal cognition
+		// assets leave the snapshot and the Baseline, so a Root or Meta record
+		// a rule once observed is not observed_removed here while every other
+		// reader calls the repository aligned (#158), and held sources are the
+		// informational facts Verify reports, never debt, or an optimization
+		// batch beside one image could never finalize (#90).
+		drift, detected, driftErr := volumegovernance.CodeDrift(root, loaded.cfg, code.Document, managed)
+		if driftErr != nil {
+			return false, 1, []string{"snapshot: " + driftErr.Error()}, receipt
 		}
-		// Held sources (empty, binary, oversize, curation-excluded) are the
-		// same informational facts Verify reports; they are never debt here
-		// either, or an optimization batch beside one image could never
-		// finalize (#90).
-		drift := volumegovernance.ClassifyCodeDrift(root, loaded.cfg, detected)
 		for _, rel := range drift.Stale {
 			findings = append(findings, "stale: "+rel)
 		}

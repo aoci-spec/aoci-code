@@ -165,6 +165,48 @@ func ClassifyCodeDrift(root string, cfg *config.Config, detected *baseline.Detec
 	return drift
 }
 
+// CodeDrift is the one Code drift projection of a Volumes repository: the
+// formal cognition assets leave the snapshot and the Baseline
+// (cognition.BusinessScope), the Code Volume's Entries are detected against
+// what remains with the team's walk options and line-ending policy, and
+// held sources (empty, binary, oversize, unreadable, curation-excluded) are
+// split out of Missing as informational. Verify, Check, the Guide, Maintain,
+// Overview, the post-Apply inspector, and scope status all read this one
+// function, so no two of them can disagree about a tree (#158, #90). The
+// raw DetectResult comes back beside the Drift for callers that report its
+// warnings. The state is read, never changed.
+func CodeDrift(root string, cfg *config.Config, document *index.Document, managed *managedstate.State) (Drift, *baseline.DetectResult, error) {
+	drift, detected, _, err := codeDrift(root, cfg, document, managed)
+	return drift, detected, err
+}
+
+func codeDrift(root string, cfg *config.Config, document *index.Document, managed *managedstate.State) (Drift, *baseline.DetectResult, heldSources, error) {
+	if managed == nil {
+		return Drift{}, nil, heldSources{}, fmt.Errorf("managed_state_required")
+	}
+	projected := *managed
+	projected.Snapshot, projected.Baseline = cognition.BusinessScope(managed.Snapshot, managed.Baseline)
+	detected, err := managedstate.Detect(root, cfg, document, &projected)
+	if err != nil {
+		return Drift{}, nil, heldSources{}, err
+	}
+	drift, held := classifyCodeDrift(root, cfg, detected)
+	return drift, detected, held, nil
+}
+
+// DriftOf copies a raw DetectResult into the Drift shape without
+// classifying held sources, for the Legacy readers that never did.
+func DriftOf(detected *baseline.DetectResult) Drift {
+	if detected == nil {
+		return Drift{}
+	}
+	return Drift{Missing: append([]string{}, detected.Missing...), Orphan: append([]string{}, detected.Orphan...),
+		Stale: append([]string{}, detected.Stale...), Unbaselined: append([]string{}, detected.Unbaselined...),
+		LineEndingOnly: detected.LineEndingOnly, ObservedNew: detected.ObservedNew,
+		ObservedChanged: detected.ObservedChanged, ObservedRemoved: detected.ObservedRemoved,
+		Skipped: []string{}, CurationExcluded: []string{}}
+}
+
 func classifyCodeDrift(root string, cfg *config.Config, detected *baseline.DetectResult) (Drift, heldSources) {
 	held := classifyHeldSources(root, cfg, detected.Missing)
 	return Drift{Missing: held.actionable, Orphan: append([]string{}, detected.Orphan...),
@@ -674,23 +716,21 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	// Formal assets leave both the snapshot and the Baseline here, through the
 	// projection Scope status and the Scope Change Plan use, so a Volume's own
 	// Baseline record can never read as removed Observe evidence (#158).
-	copyState := *managed
-	copyState.Snapshot, copyState.Baseline = cognition.BusinessScope(managed.Snapshot, managed.Baseline)
-	detected, err := managedstate.Detect(root, cfg, asset.Document, &copyState)
+	drift, detected, held, err := codeDrift(root, cfg, asset.Document, managed)
 	if err != nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "code_drift_unavailable", Domain: cognition.ScopeCode})
 		return
 	}
-	drift, held := classifyCodeDrift(root, cfg, detected)
+	projectedSnapshot, _ := cognition.BusinessScope(managed.Snapshot, managed.Baseline)
 	orphans := sortedUnique(append(append([]string{}, drift.Orphan...), ownershipOrphans...))
 	drift.Orphan = orphans
 	facts.CodeDrift = drift
 	if managed.Evaluation == nil {
-		facts.CodeSourceCount = len(copyState.Snapshot)
+		facts.CodeSourceCount = len(projectedSnapshot)
 	}
 	if cfg.EffectiveManagedScope().ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
 		facts.ManagedScope.ObservedPendingReview = len(detected.ObservedNew) + len(detected.ObservedChanged) + len(detected.ObservedRemoved)
-		facts.ObservedEvidence = observedEvidence(drift, copyState.Snapshot)
+		facts.ObservedEvidence = observedEvidence(drift, projectedSnapshot)
 		facts.ObservedReviewDigest = ObservedReviewDigest(facts.ObservedEvidence)
 	}
 	for _, item := range []struct {

@@ -19,23 +19,30 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/internal/scopechange"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
 
 type scopePolicyStatus struct {
-	Version               string                      `json:"version"`
-	RepositoryRoot        string                      `json:"repository_root"`
-	Stage                 string                      `json:"stage"`
-	DesiredPolicyIdentity string                      `json:"desired_policy_identity"`
-	ActivePolicyIdentity  string                      `json:"active_policy_identity,omitempty"`
-	PolicyIdentityAligned bool                        `json:"policy_identity_aligned"`
-	DesiredBudgetIdentity string                      `json:"desired_budget_identity"`
-	ActiveBudgetIdentity  string                      `json:"active_budget_identity,omitempty"`
-	BudgetIdentityAligned bool                        `json:"budget_identity_aligned"`
-	Policy                managedscope.Policy         `json:"policy"`
-	Evaluation            *managedscope.Evaluation    `json:"evaluation"`
-	Drift                 *baseline.DetectResult      `json:"drift,omitempty"`
+	Version               string                   `json:"version"`
+	RepositoryRoot        string                   `json:"repository_root"`
+	Stage                 string                   `json:"stage"`
+	DesiredPolicyIdentity string                   `json:"desired_policy_identity"`
+	ActivePolicyIdentity  string                   `json:"active_policy_identity,omitempty"`
+	PolicyIdentityAligned bool                     `json:"policy_identity_aligned"`
+	DesiredBudgetIdentity string                   `json:"desired_budget_identity"`
+	ActiveBudgetIdentity  string                   `json:"active_budget_identity,omitempty"`
+	BudgetIdentityAligned bool                     `json:"budget_identity_aligned"`
+	Policy                managedscope.Policy      `json:"policy"`
+	Evaluation            *managedscope.Evaluation `json:"evaluation"`
+	// Drift is the one Code drift projection Verify, Check, the Guide,
+	// Maintain, and the post-Apply inspector read (volumegovernance.CodeDrift):
+	// under Volumes, held sources are listed as skipped or curation_excluded
+	// and never counted as authoring targets, exactly as verify counts them.
+	Drift                 *volumegovernance.Drift     `json:"drift,omitempty"`
+	DriftWarnings         []string                    `json:"drift_warnings,omitempty"`
 	Budget                *cognitionbudget.Report     `json:"budget,omitempty"`
 	IndexCount            int                         `json:"index_count"`
 	ObserveCount          int                         `json:"observe_count"`
@@ -924,7 +931,6 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 	}
 	document, _ := index.Parse(string(raw))
 	index.ResolveRelPaths(document, root)
-	driftBaseline := currentBaseline
 	if layout, layoutErr := cognition.DetectLayout(raw); layoutErr != nil {
 		return nil, layoutErr
 	} else if layout == cognition.LayoutVolumesV1 {
@@ -939,11 +945,21 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		if code == nil || code.State != cognition.AssetPresent || code.Document == nil {
 			return nil, fmt.Errorf("managed_scope_code_volume_unavailable")
 		}
-		document = code.Document
-		snapshot, driftBaseline = cognition.BusinessScope(snapshot, currentBaseline)
+		// The same projection governance reads, over the same state it would
+		// load: the evaluation, this snapshot, and the active Baseline.
+		drift, detected, driftErr := volumegovernance.CodeDrift(root, cfg, code.Document,
+			&managedstate.State{Evaluation: evaluation, Snapshot: snapshot, Baseline: currentBaseline})
+		if driftErr != nil {
+			return nil, driftErr
+		}
+		status.Drift, status.DriftWarnings = &drift, detected.Warnings
+	} else {
+		// Legacy keeps its raw lists: it never classified held sources and is
+		// read-only on this line.
+		detected := baseline.DetectManagedScope(root, document, currentBaseline, snapshot, cfg.WalkOptions(), cfg.LineEndingTolerance)
+		drift := volumegovernance.DriftOf(detected)
+		status.Drift, status.DriftWarnings = &drift, detected.Warnings
 	}
-	status.Drift = baseline.DetectManagedScope(root, document, driftBaseline, snapshot,
-		afs.WalkOptions{HighRiskOptIn: cfg.SafeInventoryHighRiskOptIn, SensitiveNameRules: cfg.SensitiveNameRules}, cfg.LineEndingTolerance)
 	status.ObservedPendingReview = len(status.Drift.ObservedNew) + len(status.Drift.ObservedChanged) + len(status.Drift.ObservedRemoved)
 	status.AuthoringTargets = len(status.Drift.Missing)
 	if status.ObservedPendingReview > 0 && policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
