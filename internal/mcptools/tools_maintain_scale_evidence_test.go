@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"strings"
@@ -116,8 +117,19 @@ func TestVolumeScaleEvidenceBoundariesAndUnavailableSources(t *testing.T) {
 			with, _ := json.Marshal(candidate)
 			without, _ := json.Marshal(plain)
 			set := &cognition.Set{Meta: cognition.Asset{Raw: []byte("#E Scale: " + test.bands + "\n")}}
-			if len(with)-len(without) > scaleEvidenceWireReserve(set) {
+			reserve := scaleEvidenceWireReserve(set)
+			if len(with)-len(without) > reserve {
 				t.Fatal("scale facts exceed their transport reservation")
+			}
+			// With the line count known the budget reserves the measured
+			// width, never less than the wire adds and never the widest form.
+			target := codebatch.Candidate{Target: codebatch.Target{Path: "sample.txt"}}
+			width := scaleEvidenceWireWidth(target, map[string]int{"sample.txt": test.lines}, thresholds, reserve)
+			if width < len(with)-len(without) || width > len(with)-len(without)+2 {
+				t.Fatalf("measured width %d must cover the %d bytes the wire adds and no more than the braces: %+v", width, len(with)-len(without), candidate)
+			}
+			if scaleEvidenceWireWidth(target, nil, thresholds, reserve) != reserve {
+				t.Fatal("an unknown line count reserves the widest form")
 			}
 		})
 	}

@@ -14,8 +14,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": "make fast (fast-l3a.txt; also inside make-verify-l3.txt)"
    }
   },
   {
@@ -32,8 +32,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/make-verify-l3.txt"
    }
   },
   {
@@ -51,8 +51,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/conformance-p9.txt"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/conformance-l3.txt (aligned record after governance; dirty run conformance-l3-dirty.txt 54/0/4)"
    }
   },
   {
@@ -71,8 +71,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/scenarios-l3.txt 80/80"
    }
   },
   {
@@ -88,8 +88,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/lifecycle-l3.txt 93 PASS 2 CHAR"
    }
   },
   {
@@ -170,8 +170,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": "inside .aoci/dev-tools/make-verify-l3.txt 80/80"
    }
   },
   {
@@ -185,8 +185,8 @@
    "runs_in": [],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/realrepo-ci.txt (wave restored under the neutral root: RuoYi 29 rounds, wave 60/5 rounds; excalidraw 39 rounds, wave 60/4; call_seconds Maintain 0.23/1.15 s, update_entry 0.62/2.95 s)"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-l3.txt 15 rounds, realrepo-excalidraw-l3.txt 19 rounds"
    }
   },
   {
@@ -200,8 +200,8 @@
    "runs_in": [],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/perf-calls-l2.txt"
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/perf-calls-l3.txt (five clones, aged)"
    }
   },
   {
@@ -314,8 +314,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": "inside .aoci/dev-tools/make-verify-l3.txt"
    }
   },
   {
@@ -347,8 +347,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
+    "date": "2026-10-31",
+    "evidence": "bash scripts/check-public-text.sh 303 files clean"
    }
   }
  ]

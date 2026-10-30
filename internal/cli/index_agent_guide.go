@@ -197,7 +197,7 @@ func writeVolumeAgentGuide(cmd *cobra.Command, root string, cfg *config.Config, 
 // CLI writes it and the local status page shows it; one builder, so the two
 // can never disagree about what the next step is.
 func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, agent string) (*volumeAgentGuide, error) {
-	facts, err := volumegovernance.Assess(root, cfg, set)
+	facts, state, err := volumegovernance.AssessWithSnapshot(root, cfg, set)
 	if err != nil {
 		return nil, &ExitError{Code: ExitInvalid, Err: err}
 	}
@@ -225,7 +225,7 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 		// transport budget under the team cap through the same selection, so
 		// the model sees one number for how much a round asks of it.
 		batchLimit := cfg.CodeCognitionBatchLimit()
-		included := mcptools.PlanCodeBatchIncluded(root, cfg, set, work)
+		included := mcptools.PlanCodeBatchIncluded(root, cfg, set, work, mcptools.SnapshotOfState(state))
 		databaseTotal := facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
 		if capacity := batchLimit - included; databaseTotal > 0 && capacity > 0 {
 			objectLimit, _ := cfg.DatabaseCognitionBatchLimits()

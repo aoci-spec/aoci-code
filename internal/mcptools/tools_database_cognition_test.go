@@ -100,11 +100,16 @@ func TestMaintainAllReportsCodeAndDatabaseDebt(t *testing.T) {
 		t.Fatalf("scope=all did not return the shared actionable Volume plan: %#v raw=%s", maintain, raw)
 	}
 	for _, candidate := range maintain.Candidates {
-		if candidate.CandidateID == "" || candidate.BatchID == "" ||
-			(candidate.Domain == cognition.ScopeCode && candidate.SourceSHA256 == "") ||
-			(candidate.Domain == cognition.ScopeDatabase && candidate.EvidenceSHA256 == "") {
+		// A Code candidate carries no batch_id: code_plan.batch_id is the one
+		// identity of the batch. A Database candidate keeps database_plan's.
+		if candidate.CandidateID == "" ||
+			(candidate.Domain == cognition.ScopeCode && (candidate.SourceSHA256 == "" || candidate.BatchID != "")) ||
+			(candidate.Domain == cognition.ScopeDatabase && (candidate.EvidenceSHA256 == "" || candidate.BatchID != maintain.DatabasePlan.BatchID)) {
 			t.Fatalf("scope=all candidate lacks its source or Evidence binding: %#v", candidate)
 		}
+	}
+	if maintain.CodePlan.BatchID == "" {
+		t.Fatalf("scope=all code_plan lacks its batch identity: %#v", maintain.CodePlan)
 	}
 }
 
@@ -124,7 +129,7 @@ func TestVolumeMaintainExplicitCodeUsesSharedGovernance(t *testing.T) {
 		maintain.CodePlan == nil || maintain.DatabasePlan != nil || len(maintain.Candidates) != 1 ||
 		maintain.Candidates[0].Domain != cognition.ScopeCode || maintain.Candidates[0].ObjectRef != "code:main.go" ||
 		maintain.Candidates[0].SourceSHA256 == "" || maintain.Candidates[0].CandidateID == "" ||
-		maintain.Candidates[0].BatchID == "" || strings.Contains(raw, errVolumeReadOnly) {
+		maintain.Candidates[0].BatchID != "" || maintain.CodePlan.BatchID == "" || strings.Contains(raw, errVolumeReadOnly) {
 		t.Fatalf("scope=code did not return the shared actionable Code plan: %#v raw=%s", maintain, raw)
 	}
 }

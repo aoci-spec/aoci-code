@@ -254,7 +254,8 @@
         "intent",
         "cognition_optimization",
         "object_refs",
-        "note"
+        "note",
+        "include_instructions"
       ],
       "locale_anchors": {
         "zh-CN": [

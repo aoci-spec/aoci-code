@@ -10,7 +10,12 @@ status. Nothing is authored; the rounds of a first build are timed per tool by
 realrepo.py (call_seconds). One JSON line per call, a report per repository.
 It is a run-by-name contract (scripts/blackbox/ladder.json), not a CI gate:
 it needs local clones and the largest leg takes a few minutes.
-usage: perf_calls.py <name-or-path>... [--binary=BIN] [--label=L] [--sources=DIR] [--work=DIR]
+The clone's files are dated ten seconds back before the first call, and git's
+index refreshed once: a user's files are not seconds old, and the fingerprint
+cache distrusts a file hashed within two seconds of its mtime (git's
+racily-clean rule), so an unaged clone re-hashes every file on every call;
+--no-age keeps that shape for comparison.
+usage: perf_calls.py <name-or-path>... [--binary=BIN] [--label=L] [--sources=DIR] [--work=DIR] [--no-age]
   <name-or-path>   a directory, or a name under --sources (default
                    $AOCI_REALREPO_SOURCES or ~/aoci-demo-cand)
   --binary=BIN     defaults to $AOCI_BIN, then <repo>/build/aoci
@@ -57,6 +62,21 @@ def clone(name_or_path):
         p = os.path.join(work, junk)
         if os.path.isdir(p): shutil.rmtree(p)
         elif os.path.exists(p): os.remove(p)
+    if "--no-age" not in opts:
+        when = time.time() - 10
+        for folder, dirs, files in os.walk(work):
+            if ".git" in dirs:
+                dirs.remove(".git")
+            for f in files:
+                try:
+                    os.utime(os.path.join(folder, f), (when, when))
+                except OSError:
+                    pass
+        # The new mtimes make git's index stale, and the read-only queries AOCI
+        # runs never refresh it (GIT_OPTIONAL_LOCKS=0), so every call would pay
+        # a full re-hash in git; one ordinary status refreshes it, as a user's
+        # own git commands do.
+        subprocess.run(["git", "-C", work, "status", "--porcelain"], capture_output=True)
     return name, work
 
 

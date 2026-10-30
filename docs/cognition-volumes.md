@@ -202,6 +202,19 @@ not accept prose or mechanically copied import lists. A repeated unchanged Meta
 failure routes to `repair_meta_tag_dictionary`, not generic replan or candidate
 resubmission.
 
+Since 0.2.0 the contract travels once per server process and refresh
+generation: the first candidate-carrying Maintain of a generation carries
+`instructions` and `authoring_meta`, the next ones carry `instructions_ref`
+(the contract's SHA-256, the generation it was delivered in, and
+`recall_input: include_instructions`). If the text is gone from your context,
+call `aoci_maintain` with `include_instructions: true`; after a
+context-compaction reload that completes an Overview the contract comes back by
+itself, because the generation advanced. Those later rounds have the contract's
+bytes for candidates, so they issue more of the same ordered targets than the
+first; the Guide shows the first round's number. A Code candidate no longer
+repeats `batch_id`: the batch is `code_plan.batch_id`, which
+`aoci_update_entry.code_batch_id` names; Database candidates keep theirs.
+
 `ParseTags` and formal object loading retain dotted Tag and bare-R read
 compatibility. New Volume Entries, and updates that actually change the
 corresponding field, require compact Tags and exact canonical R identities.

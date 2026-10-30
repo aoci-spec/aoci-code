@@ -7,6 +7,7 @@
   },
   "aoci_maintain": {
     "approval_request": "只与intent=human_approval同用：kind=scope_change配合暂停的scope activate保存的preview_file，或kind=onboarding指当前onboarding会话已准备好的审批",
+    "include_instructions": "即使本进程已发送过，也在本次应答携带完整创作契约（instructions与authoring_meta）；后续轮次改答instructions_ref",
     "intent": "cognition_optimization：对aligned的Volumes v1 Code Entry做绑定审查；human_approval：在宿主对话框里请人批准approval_request指定的待批变更；observe_review：确认被挡住的Maintain列出的observe证据；普通Maintain省略",
     "object_refs": "限制cognition_optimization候选的code:<仓库相对路径>引用；只能与该intent同用",
     "observe_review": "只与intent=observe_review同用：被挡住的Maintain在observe_review里发布的review_digest，以及复核人",

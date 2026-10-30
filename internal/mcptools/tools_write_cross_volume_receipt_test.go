@@ -42,8 +42,10 @@ func TestCrossVolumeReceiptBatchRecoversFromPartialWrite(t *testing.T) {
 	for _, candidate := range maintain.Candidates {
 		switch candidate.Domain {
 		case cognition.ScopeCode:
+			// A Code candidate carries no batch_id of its own; the batch is
+			// code_plan.batch_id, as aoci_update_entry.code_batch_id names it.
 			items = append(items, AtomicUpdateItem{Path: candidate.Path, SourceSHA256: candidate.SourceSHA256,
-				CandidateID: candidate.CandidateID, BatchID: candidate.BatchID,
+				CandidateID: candidate.CandidateID, BatchID: maintain.CodePlan.BatchID,
 				NewEntry: filepath.Base(candidate.Path) +
 					"[CD5S]: F:run the fixture main entry point | R:- | A:main | S:Keep execution deterministic"})
 		case cognition.ScopeDatabase:

@@ -6,9 +6,11 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -17,12 +19,14 @@ import (
 // maintainBaseOverheadBytes reserves the part of a Maintain response that
 // neither the repository's Meta, the locale's instructions, nor the paths
 // decide: the bounded governance facts without their path samples (about
-// 3 KB), plan and batch identities, the receipt, metrics, and JSON framing.
-// Measured at about 6.5 KB on a 120-file v0.1.0-rc16 fixture. The Meta bytes
-// and the instruction text are measured on the repository (fixedOverheadBytes)
-// and the path-bearing samples on the candidates (sampleBytes), so neither a
+// 2.3 KB since the per-asset records left the wire), plan and batch
+// identities, the receipt, metrics, and JSON framing. Measured at about
+// 5.3 KB on the 60-file transport fixture (the transport test asserts the
+// reservation covers the fixed part it measures). The Meta bytes and the
+// instruction text are measured on the repository (fixedOverheadBytes) and
+// the path-bearing samples on the candidates (sampleBytes), so neither a
 // custom Meta nor a deep tree overflows this constant.
-const maintainBaseOverheadBytes = 7 << 10
+const maintainBaseOverheadBytes = 6 << 10
 
 // maintainInstructionsFallbackBytes stands in for the instruction text when
 // the authoring contract cannot be built for the estimate.
@@ -47,21 +51,28 @@ func maintainTransportBudget(cfg *config.Config) int {
 // below one KiB so a single candidate always ships. The samples are drawn
 // from the head of the ordered plan, so they are measured on the candidates
 // themselves: a Java tree with 90-byte paths carries samples three times the
-// size of a flat fixture's, which a constant cannot know.
-func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
+// size of a flat fixture's, which a constant cannot know. lines carries the
+// line count of every candidate the fingerprint cache knows, so the scale
+// evidence is reserved at the width it will have on the wire; a candidate
+// without one reserves the widest form. contractOnWire says whether this
+// response carries the authoring contract or its reference.
+func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, lines map[string]int, contractOnWire bool) codebatch.Budget {
 	reserve := scaleEvidenceWireReserve(set)
-	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates), Size: func(candidate codebatch.Candidate) int { return codeCandidateWireSize(candidate) + reserve }, Total: maintainTransportBudget(cfg)}
+	thresholds := optimizationEScaleThresholds(set)
+	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates, contractOnWire), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
+		return codeCandidateWireSize(candidate) + scaleEvidenceWireWidth(candidate, lines, thresholds, reserve)
+	}}
 }
 
-func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
+func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) codebatch.Budget {
 	reserve := scaleEvidenceWireReserve(set)
-	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
+	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates, contractOnWire), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
 		return codeCandidateWireSize(candidate) + reserve + optimizationCandidateExtraBytes
 	}}
 }
 
-func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) int {
-	bytes := maintainTransportBudget(cfg) - fixedOverheadBytes(set) - sampleBytes(candidates)
+func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) int {
+	bytes := maintainTransportBudget(cfg) - fixedOverheadBytes(set, contractOnWire) - sampleBytes(candidates)
 	if bytes < 1<<10 {
 		bytes = 1 << 10
 	}
@@ -69,10 +80,14 @@ func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []c
 }
 
 // fixedOverheadBytes is the base reservation plus the two repository-sized
-// parts every candidate-carrying response repeats: the exact Meta bytes as
-// authoring_meta and the locale's authoring instructions.
-func fixedOverheadBytes(set *cognition.Set) int {
+// parts a response carrying the authoring contract repeats: the exact Meta
+// bytes as authoring_meta and the locale's authoring instructions. A response
+// carrying the reference instead reserves the reference.
+func fixedOverheadBytes(set *cognition.Set, contractOnWire bool) int {
 	total := maintainBaseOverheadBytes
+	if !contractOnWire {
+		return total + maintainInstructionsRefBytes()
+	}
 	if set == nil {
 		return total + maintainInstructionsFallbackBytes
 	}
@@ -85,6 +100,18 @@ func fixedOverheadBytes(set *cognition.Set) int {
 		total += len(instruction) + 4
 	}
 	return total
+}
+
+// maintainInstructionsRefBytes is the reference as the wire carries it, with
+// its key, a 64-hex digest, and the widest generation an int can print.
+func maintainInstructionsRefBytes() int {
+	data, err := json.Marshal(struct {
+		Ref maintainInstructionsRef `json:"instructions_ref"`
+	}{maintainInstructionsRef{SHA256: strings.Repeat("0", 64), DeliveredInGeneration: int(^uint(0) >> 1), RecallInput: maintainRecallInput}})
+	if err != nil {
+		return 256
+	}
+	return len(data)
 }
 
 // sampleBytes measures the path-bearing samples the response carries beside
@@ -110,17 +137,42 @@ func sampleBytes(candidates []codebatch.Candidate) int {
 const governanceFindingOverheadBytes = 64
 
 // codeCandidateWireSize measures one candidate as the response carries it: the
-// candidate object with its two 64-hex identities plus its separator; the
-// review and write references travel as bounded samples counted separately.
+// candidate object with its source digest and candidate identity plus its
+// separator; the review and write references travel as bounded samples
+// counted separately, and the scale evidence is added by its own width.
 func codeCandidateWireSize(candidate codebatch.Candidate) int {
 	data, err := json.Marshal(volumeMaintainCandidate{Domain: cognition.ScopeCode, Change: candidate.Change,
 		ObjectRef: candidate.ObjectRef, Path: candidate.Path, ExistingEntry: candidate.ExistingEntry,
-		SourceSHA256: candidate.SourceSHA256, CandidateID: strings.Repeat("0", 64), BatchID: strings.Repeat("0", 64),
+		SourceSHA256: candidate.SourceSHA256, CandidateID: strings.Repeat("0", 64),
 		ModelAuthoringOnly: true})
 	if err != nil {
 		return 512
 	}
 	return len(data) + 1
+}
+
+// scaleEvidenceWireWidth is what file_lines and expected_e add to one
+// candidate on the wire: nothing for a path the E scale never judges, the
+// measured width when the candidate's line count is known (the two fields
+// marshaled as an object, whose braces stand in for the separating comma),
+// and the widest form otherwise. fillVolumeCandidateScale omits both fields
+// when the bytes no longer match the digest, which only narrows the candidate.
+func scaleEvidenceWireWidth(candidate codebatch.Candidate, lines map[string]int, thresholds *index.EScaleThresholds, reserve int) int {
+	if !index.ShouldCheckEScalePath(candidate.Path) {
+		return 0
+	}
+	count, ok := lines[candidate.Path]
+	if !ok {
+		return reserve
+	}
+	data, err := json.Marshal(struct {
+		FileLines int      `json:"file_lines"`
+		ExpectedE []string `json:"expected_e,omitempty"`
+	}{count, index.ExpectedEScaleSymbols(count, thresholds)})
+	if err != nil {
+		return reserve
+	}
+	return len(data)
 }
 
 // transportCodePlan is the plan as the wire carries it: every identity and
@@ -143,19 +195,25 @@ func transportCodePlanPtr(plan *codebatch.Plan) *codebatch.Plan {
 // the next no-argument Maintain will issue under the team cap and transport
 // budget, so the Guide shows the number Maintain will plan with rather than
 // the count cap alone.
-func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, work volumegovernance.CodeAuthoringWork) int {
-	all := codeCandidatesForWork(root, set, work)
+// The Guide is a stateless CLI projection, so it shows the shape of a
+// process's first round, which carries the authoring contract; a later
+// round in the same process carries the reference and may issue more.
+func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint) int {
+	all, lines := codeCandidatesForWork(root, set, work, snapshot)
 	if len(all) == 0 {
 		return 0
 	}
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), codeCandidateBudget(cfg, set, all))
+	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), codeCandidateBudget(cfg, set, all, lines, true))
 	return len(selected)
 }
 
 // EstimateCodeAuthoringRounds reports how many Maintain rounds the current
 // batch rule takes to author the given repository-relative paths as new
-// Entries under the team configuration. scan prints it so an operator knows
-// what a first build costs before the model starts.
+// Entries under the team configuration: the first round carries the
+// authoring contract, every later round in the same process its reference.
+// scan prints it so an operator knows what a first build costs before the
+// model starts; the line counts are not known here, so each candidate
+// reserves the widest scale evidence and the estimate errs toward more rounds.
 func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string) int {
 	if len(paths) == 0 {
 		return 0
@@ -169,7 +227,12 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 	if limit < machinecontract.CodeCognitionBatchEntriesMin {
 		limit = machinecontract.CodeCognitionBatchEntriesDefault
 	}
-	return codebatch.CountBatches(candidates, limit, codeCandidateBudget(cfg, set, candidates))
+	ordered, _ := codebatch.Select(candidates, 0)
+	first := codebatch.PrefixWithinBudget(ordered, limit, codeCandidateBudget(cfg, set, candidates, nil, true))
+	if first >= len(ordered) {
+		return 1
+	}
+	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, nil, false))
 }
 
 // Reserve the maximum integer width and every declared numeric band: custom

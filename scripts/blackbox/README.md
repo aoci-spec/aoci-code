@@ -266,7 +266,12 @@ it clones each named repository, initializes it, and times scan, a cold, a
 warm and a steady Maintain in one server process, an Overview check, verify,
 check, the Guide and status, one JSON line per call with the tree's file count. Nothing
 is authored; the rounds of a first build are timed per tool by `realrepo.py`
-(`call_seconds`, `proof_seconds`). The ladder's `perf-track` contract runs it
+(`call_seconds`, `proof_seconds`). The clone's files are dated ten seconds
+back and git's index refreshed once before the first call, so the calls see a
+tree as a user's is, not one inside the fingerprint cache's two-second racy
+window where every file is hashed again on every call (`--no-age` keeps that
+shape). Each Maintain line also records its bytes and `included`, the
+candidates a round carried. The ladder's `perf-track` contract runs it
 over five local clones from 700 to 13,850 files, and a performance claim is
 read against the previous release's record.
 

@@ -81,6 +81,10 @@
           ],
           "type": "object"
         },
+        "include_instructions": {
+          "description": "即使本进程已发送过，也在本次应答携带完整创作契约（instructions与authoring_meta）；后续轮次改答instructions_ref",
+          "type": "boolean"
+        },
         "intent": {
           "description": "cognition_optimization：对aligned的Volumes v1 Code Entry做绑定审查；human_approval：在宿主对话框里请人批准approval_request指定的待批变更；observe_review：确认被挡住的Maintain列出的observe证据；普通Maintain省略",
           "enum": [

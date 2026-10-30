@@ -282,6 +282,13 @@ initialized with `--agent claude` starts at 40 KiB; Codex truncates a tool
 result near 10,000 tokens and keeps the default. Raise it gradually rather than
 assuming a window:
 
+A round after the first in one server process carries `instructions_ref` in
+place of `instructions` and `authoring_meta`: the contract is the same text
+every round, so the process sends it once per refresh generation and spends
+the bytes on candidates. If your context no longer holds it, call
+`aoci_maintain` with `include_instructions: true`; after a context-compaction
+reload that completes an Overview it comes back by itself.
+
 ```bash
 aoci --repo . config set maintain_transport_budget_bytes 40960
 aoci --repo . config set code_cognition_batch_entries 100

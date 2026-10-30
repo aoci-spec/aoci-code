@@ -179,6 +179,27 @@ func (c *FingerprintCache) FileLines(path, rel string) (int, error) {
 	return lines, nil
 }
 
+// KnownLines returns the line count the cache holds for rel when its entry is
+// current by the rule HashFile trusts, and never reads or counts the file: a
+// caller that only needs the count when it is free asks here, and takes the
+// absence as unknown. Nothing is stored, so the caller need not Save.
+func (c *FingerprintCache) KnownLines(path, rel string) (int, bool) {
+	if c == nil || c.disabled {
+		return 0, false
+	}
+	entry, ok := c.entries[rel]
+	if !ok || entry.Lines == nil {
+		return 0, false
+	}
+	info, err := os.Stat(path)
+	if err != nil || !info.Mode().IsRegular() || entry.Size != info.Size() || entry.MtimeNS != info.ModTime().UnixNano() ||
+		entry.MtimeNS+int64(fingerprintCacheRacyWindow) >= entry.HashedAtNS {
+		return 0, false
+	}
+	c.Hits++
+	return *entry.Lines, true
+}
+
 // Save writes the cache back when anything changed, best effort: a failure
 // costs the next call a hash, nothing else. With pruneUnseen the entries this
 // run never asked for are dropped, which a caller that walked the whole tree

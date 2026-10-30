@@ -23,6 +23,9 @@ type maintainIn struct {
 	ObjectRefs      []string              `json:"object_refs,omitempty"`
 	ApprovalRequest *humanApprovalRequest `json:"approval_request,omitempty"`
 	ObserveReview   *observeReviewRequest `json:"observe_review,omitempty"`
+	// IncludeInstructions asks for the complete authoring contract on this
+	// response even when this process already sent it (maintain_contract.go).
+	IncludeInstructions bool `json:"include_instructions,omitempty"`
 }
 
 const maintainIntentCognitionOptimization = "cognition_optimization"
@@ -72,7 +75,7 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 		if input.Scope != "" && input.Scope != cognition.ScopeCode {
 			return failResult(&Fail{Code: errBadArgs, Msg: "cognition_optimization_scope_must_be_code"})
 		}
-		return handleCognitionOptimizationMaintain(root, mcpServiceVersion, input, loaded)
+		return handleCognitionOptimizationMaintain(root, mcpServiceVersion, input, loaded, refreshSession)
 	}
 	if len(input.ObjectRefs) != 0 {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_object_refs_require_cognition_optimization"})
@@ -80,7 +83,7 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	if fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 		switch input.Scope {
 		case "", cognition.ScopeCode, cognition.ScopeAll:
-			return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, loaded, refreshSession)
+			return handleVolumeMaintain(root, mcpServiceVersion, input.Scope, input.IncludeInstructions, loaded, refreshSession)
 		case cognition.ScopeDatabase:
 			return handleDatabaseMaintain(root, mcpServiceVersion, input.Scope)
 		default:

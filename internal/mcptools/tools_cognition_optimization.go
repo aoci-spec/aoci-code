@@ -61,12 +61,16 @@ func handleCognitionOptimizationMaintain(
 	root, serviceVersion string,
 	input maintainIn,
 	loaded *cognitionRepoCtx,
+	refreshSession *cognitionRefreshSession,
 ) *mcp.CallToolResult {
 	start := time.Now()
 	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_governance_invalid"})
 	}
+	// Decided once, before any batch is cut: a loaded current batch keeps the
+	// cut its issuance made, so only an issuance reads this.
+	contractOnWire := codeContractOnWire(loaded.set, refreshSession, input.IncludeInstructions)
 	if facts.Result != volumegovernance.ResultAligned || !facts.GovernanceAligned {
 		return failResult(&Fail{Code: errCandidateInvalid, Msg: "cognition_optimization_requires_ordinary_alignment"})
 	}
@@ -103,14 +107,14 @@ func handleCognitionOptimizationMaintain(
 				// Ordinary governance is already aligned and recovery-free here. A
 				// stale or missing draft receipt can therefore be safely replaced by
 				// a fresh Code Batch over the exact unchanged checkpoint prefix.
-				plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs)
+				plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs, contractOnWire)
 				if err == nil {
 					checkpoint, err = cognitionoptimization.RebindBatch(root, stored.SHA256, stored.Checkpoint.OptimizationID,
 						stored.Checkpoint.CurrentBatchID, plan.BatchID)
 				}
 			}
 		} else {
-			plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs)
+			plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs, contractOnWire)
 			if err == nil {
 				checkpoint, err = cognitionoptimization.BindBatch(root, stored.SHA256, stored.Checkpoint.OptimizationID, plan.BatchID)
 			}
@@ -119,7 +123,7 @@ func handleCognitionOptimizationMaintain(
 		selection, err = selectOptimizationTargets(root, loaded, input.ObjectRefs)
 		if err == nil && selection.TotalTargets > 0 {
 			var issued []codebatch.Candidate
-			plan, issued, err = buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, selection.Batch)
+			plan, issued, err = buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, selection.Batch, contractOnWire)
 			selection = trimOptimizationSelection(selection, len(issued))
 		}
 		if err == nil && selection.TotalTargets > 0 {
@@ -150,7 +154,7 @@ func handleCognitionOptimizationMaintain(
 		Version: 1, Status: autoStatusApplied, Result: volumegovernance.ResultAligned, Aligned: true,
 		RequestedScope: input.Scope, AffectedDomains: []string{}, Candidates: []volumeMaintainCandidate{},
 		OrphanRemovals: []string{}, Sets: volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta", cognition.ScopeCode}},
-		CodePlan: transportCodePlan(orderedPlan), Governance: facts,
+		CodePlan: transportCodePlan(orderedPlan), Governance: &volumegovernance.TransportFacts{Facts: facts},
 		Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		NextAction: "review_complete_cognition_optimization_batch",
@@ -161,7 +165,7 @@ func handleCognitionOptimizationMaintain(
 		if issued == nil {
 			return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_candidate_identity_missing"})
 		}
-		item := optimizationMaintainCandidate(candidate, *issued, orderedPlan.BatchID, len(input.ObjectRefs) != 0)
+		item := optimizationMaintainCandidate(candidate, *issued, len(input.ObjectRefs) != 0)
 		fillVolumeCandidateScale(root, thresholds, &item)
 		result.Candidates = append(result.Candidates, item)
 	}
@@ -182,15 +186,16 @@ func handleCognitionOptimizationMaintain(
 	if contractErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_authoring_contract_invalid"})
 	}
-	result.AuthoringMeta = contract.AuthoringMeta
-	result.Instructions = contract.Instructions
+	var extra []string
 	if optimizationBatchReviewsSAbsent(result.Candidates) {
 		// The selector surfaced a high-importance Entry without S. The model
 		// gets the same "look where the behaviour is decided" instruction the
 		// authoring contract carries, plus the one fact specific to this
-		// batch: returning the Entry unchanged is a valid outcome.
-		result.Instructions = append(result.Instructions, mcpMessage("volumes.optimization.review"))
+		// batch: returning the Entry unchanged is a valid outcome. It rides in
+		// instructions even when the contract itself travels by reference.
+		extra = []string{mcpMessage("volumes.optimization.review")}
 	}
+	attachAuthoringContract(&result, contract, extra, refreshSession, input.IncludeInstructions)
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
 	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
@@ -214,7 +219,7 @@ func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cogni
 		Version: 1, Status: autoStatusApplied, Result: volumegovernance.ResultAligned, Aligned: true,
 		AffectedDomains: []string{}, Candidates: []volumeMaintainCandidate{}, OrphanRemovals: []string{},
 		Sets:       volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta", cognition.ScopeCode}},
-		Governance: facts, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
+		Governance: &volumegovernance.TransportFacts{Facts: facts}, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics:           autoMetrics{AOCIToolCalls: 1, DeterministicMs: elapsedMilliseconds(start)},
 		SemanticGenerated: false, NetworkAccessed: false, NextAction: "none",
 		Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion, State: "complete"},
@@ -238,7 +243,7 @@ func selectOptimizationTargets(root string, loaded *cognitionRepoCtx, objectRefs
 	})
 }
 
-func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, remaining []string) (codebatch.Plan, cognitionoptimization.Selection, error) {
+func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, remaining []string, contractOnWire bool) (codebatch.Plan, cognitionoptimization.Selection, error) {
 	limit := codeBatchLimit(loaded.cfg)
 	if len(remaining) < limit {
 		limit = len(remaining)
@@ -258,7 +263,7 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}
 	ordered := reorderOptimizationSelection(measured, refs)
-	plan, issued, err := buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, ordered.Batch)
+	plan, issued, err := buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, ordered.Batch, contractOnWire)
 	if err != nil {
 		return plan, ordered, err
 	}
@@ -342,7 +347,7 @@ func optimizationAlignedEntries(root string, thresholds *index.EScaleThresholds,
 // order the plan sorts by, so the review priority the selector chose survives
 // the cut; the plan is then built over exactly the issued prefix, and the
 // caller trims its selection to the returned candidates.
-func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.Set, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
+func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.Set, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate, contractOnWire bool) (codebatch.Plan, []codebatch.Candidate, error) {
 	values := make([]codebatch.Candidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		values = append(values, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
@@ -352,7 +357,7 @@ func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.S
 	if len(values) == 0 {
 		return codebatch.Plan{}, values, fmt.Errorf("optimization batch is empty")
 	}
-	budget := optimizationCandidateBudget(cfg, set, values)
+	budget := optimizationCandidateBudget(cfg, set, values, contractOnWire)
 	issued := values[:codebatch.PrefixWithinBudget(values, codeBatchLimit(cfg), budget)]
 	plan, err := codebatch.BuildPlan(root, facts.CompositeIdentity, facts.ManagedScope.PolicyIdentity,
 		facts.Code.Path, facts.Code.SHA256, issued, len(issued))
@@ -426,7 +431,7 @@ func optimizationBatchReviewsSAbsent(candidates []volumeMaintainCandidate) bool 
 	return false
 }
 
-func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, issued codebatch.Candidate, batchID string, explicit bool) volumeMaintainCandidate {
+func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, issued codebatch.Candidate, explicit bool) volumeMaintainCandidate {
 	reason := "c_importance_and_entry_cost"
 	if measured.EScaleMismatchFact {
 		reason = optimizationReasonEScaleMismatch
@@ -443,7 +448,7 @@ func optimizationMaintainCandidate(measured cognitionoptimization.Candidate, iss
 	return volumeMaintainCandidate{Domain: cognition.ScopeCode, Change: cognition.ImpactChangeUpdate,
 		ObjectRef: measured.ObjectRef, Path: measured.Path, ExistingEntry: measured.ExistingEntry,
 		ExistingEntrySHA256: entrySHA256(measured.ExistingEntry), SourceSHA256: measured.SourceSHA256,
-		CandidateID: issued.CandidateID, BatchID: batchID, ModelAuthoringOnly: true,
+		CandidateID: issued.CandidateID, ModelAuthoringOnly: true,
 		Importance: measured.Importance, SelectionReason: reason,
 		Cost: &cognitionOptimizationCost{FTokens: measured.Cost.FTokens, RTokens: measured.Cost.RTokens,
 			ATokens: measured.Cost.ATokens, STokens: measured.Cost.STokens, TotalTokens: measured.Cost.TotalTokens,

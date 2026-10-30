@@ -25,28 +25,33 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 type volumeMaintainCandidate struct {
-	Domain              string                     `json:"domain"`
-	Change              string                     `json:"change"`
-	ObjectRef           string                     `json:"object_ref"`
-	Path                string                     `json:"path,omitempty"`
-	ExistingEntry       string                     `json:"existing_entry,omitempty"`
-	ExistingEntrySHA256 string                     `json:"existing_entry_sha256,omitempty"`
-	SourceSHA256        string                     `json:"source_sha256,omitempty"`
-	EvidenceVersion     string                     `json:"evidence_version,omitempty"`
-	EvidenceSHA256      string                     `json:"evidence_sha256,omitempty"`
-	CandidateID         string                     `json:"candidate_id,omitempty"`
-	BatchID             string                     `json:"batch_id,omitempty"`
-	FileLines           *int                       `json:"file_lines,omitempty"`
-	ExpectedE           []string                   `json:"expected_e,omitempty"`
-	ModelAuthoringOnly  bool                       `json:"model_authoring_only"`
-	Importance          int                        `json:"importance,omitempty"`
-	Cost                *cognitionOptimizationCost `json:"cost,omitempty"`
-	SelectionReason     string                     `json:"selection_reason,omitempty"`
+	Domain              string `json:"domain"`
+	Change              string `json:"change"`
+	ObjectRef           string `json:"object_ref"`
+	Path                string `json:"path,omitempty"`
+	ExistingEntry       string `json:"existing_entry,omitempty"`
+	ExistingEntrySHA256 string `json:"existing_entry_sha256,omitempty"`
+	SourceSHA256        string `json:"source_sha256,omitempty"`
+	EvidenceVersion     string `json:"evidence_version,omitempty"`
+	EvidenceSHA256      string `json:"evidence_sha256,omitempty"`
+	CandidateID         string `json:"candidate_id,omitempty"`
+	// BatchID is carried by Database candidates (database_plan.batch_id). A
+	// Code candidate carries none since 0.2.0: every candidate of a response
+	// belongs to code_plan.batch_id, and repeating one identity per candidate
+	// cost an eighth of every candidate on the default budget.
+	BatchID            string                     `json:"batch_id,omitempty"`
+	FileLines          *int                       `json:"file_lines,omitempty"`
+	ExpectedE          []string                   `json:"expected_e,omitempty"`
+	ModelAuthoringOnly bool                       `json:"model_authoring_only"`
+	Importance         int                        `json:"importance,omitempty"`
+	Cost               *cognitionOptimizationCost `json:"cost,omitempty"`
+	SelectionReason    string                     `json:"selection_reason,omitempty"`
 }
 
 type volumeMaintainSets struct {
@@ -81,28 +86,32 @@ type volumeAuthoringBatch struct {
 }
 
 type volumeMaintainResult struct {
-	Version           int                          `json:"version"`
-	Status            string                       `json:"status"`
-	Result            string                       `json:"result"`
-	Aligned           bool                         `json:"aligned"`
-	RequestedScope    string                       `json:"requested_scope"`
-	AffectedDomains   []string                     `json:"affected_domains"`
-	Candidates        []volumeMaintainCandidate    `json:"candidates"`
-	OrphanRemovals    []string                     `json:"orphan_remove_candidates"`
-	Sets              volumeMaintainSets           `json:"sets"`
-	DatabasePlan      *dbcognition.Plan            `json:"database_plan,omitempty"`
-	CodePlan          *codebatch.Plan              `json:"code_plan,omitempty"`
-	Batch             volumeAuthoringBatch         `json:"authoring_batch"`
-	Governance        *volumegovernance.Facts      `json:"governance"`
-	Receipt           cognitionReceipt             `json:"cognition_receipt"`
-	Metrics           autoMetrics                  `json:"metrics"`
-	SemanticGenerated bool                         `json:"semantic_generated"`
-	NetworkAccessed   bool                         `json:"network_accessed"`
-	NextAction        string                       `json:"next_action"`
-	Instructions      []string                     `json:"instructions,omitempty"`
-	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
-	NextCommands      []string                     `json:"next_commands,omitempty"`
-	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
+	Version           int                              `json:"version"`
+	Status            string                           `json:"status"`
+	Result            string                           `json:"result"`
+	Aligned           bool                             `json:"aligned"`
+	RequestedScope    string                           `json:"requested_scope"`
+	AffectedDomains   []string                         `json:"affected_domains"`
+	Candidates        []volumeMaintainCandidate        `json:"candidates"`
+	OrphanRemovals    []string                         `json:"orphan_remove_candidates"`
+	Sets              volumeMaintainSets               `json:"sets"`
+	DatabasePlan      *dbcognition.Plan                `json:"database_plan,omitempty"`
+	CodePlan          *codebatch.Plan                  `json:"code_plan,omitempty"`
+	Batch             volumeAuthoringBatch             `json:"authoring_batch"`
+	Governance        *volumegovernance.TransportFacts `json:"governance"`
+	Receipt           cognitionReceipt                 `json:"cognition_receipt"`
+	Metrics           autoMetrics                      `json:"metrics"`
+	SemanticGenerated bool                             `json:"semantic_generated"`
+	NetworkAccessed   bool                             `json:"network_accessed"`
+	NextAction        string                           `json:"next_action"`
+	Instructions      []string                         `json:"instructions,omitempty"`
+	AuthoringMeta     string                           `json:"authoring_meta,omitempty"`
+	// InstructionsRef replaces instructions and authoring_meta once this
+	// process has sent them in the current refresh generation
+	// (maintain_contract.go); include_instructions brings them back.
+	InstructionsRef *maintainInstructionsRef     `json:"instructions_ref,omitempty"`
+	NextCommands    []string                     `json:"next_commands,omitempty"`
+	Optimization    *cognitionOptimizationStatus `json:"optimization,omitempty"`
 	// Stop carries an asset-level fact no candidate can repair, found before a batch
 	// is issued, so that the model is not asked to author Entries the update path
 	// would have to refuse. Absent otherwise.
@@ -115,12 +124,15 @@ type volumeMaintainResult struct {
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
 }
 
-func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	start := time.Now()
 	if requestedScope != "" && requestedScope != cognition.ScopeCode && requestedScope != cognition.ScopeDatabase && requestedScope != cognition.ScopeAll {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 	}
-	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	// The snapshot the verdict was computed from binds the candidates: the
+	// digest a target had when it was judged missing or stale, with no second
+	// read of the tree.
+	facts, state, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
 	}
@@ -132,7 +144,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		RequestedScope: requestedScope, AffectedDomains: append([]string{}, facts.AffectedDomains...),
 		Candidates: []volumeMaintainCandidate{}, OrphanRemovals: []string{},
 		Sets:       volumeMaintainSets{Review: []string{}, Write: []string{}, Guard: []string{"root", "meta"}},
-		Governance: facts, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
+		Governance: &volumegovernance.TransportFacts{Facts: facts}, Receipt: newVolumeCognitionReceipt(root, serviceVersion, loaded.set, mustVolumeScope(loaded.set)),
 		Metrics: autoMetrics{AOCIToolCalls: 1}, SemanticGenerated: false, NetworkAccessed: false,
 		ServiceBinaryReplacedOnDisk: serviceBinaryReplacedOnDisk(),
 		NextAction:                  facts.NextRequiredAction,
@@ -148,7 +160,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 
 	if facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			buildVolumeCodeCandidates(root, loaded, &result, codeWork)
+			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.set, refreshSession, includeInstructions))
 		}
 		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
@@ -218,8 +230,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}
-		result.AuthoringMeta = contract.AuthoringMeta
-		result.Instructions = contract.Instructions
+		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
@@ -276,7 +287,23 @@ func boundMaintainTransport(result *volumeMaintainResult) {
 		result.Sets.ReviewTotal = len(result.Sets.Review)
 		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
 	}
-	result.Governance = volumegovernance.BoundListsForTransport(result.Governance, limit)
+	if result.Governance != nil {
+		result.Governance = volumegovernance.BoundForMaintainTransport(result.Governance.Facts, limit)
+	}
+}
+
+// SnapshotOfState is the Code source snapshot a governance verdict was
+// computed from, or nil when the state has none; the Guide hands it to
+// PlanCodeBatchIncluded so its projection binds the digests Maintain will.
+func SnapshotOfState(state *managedstate.State) map[string]baseline.Fingerprint {
+	return snapshotOfState(state)
+}
+
+func snapshotOfState(state *managedstate.State) map[string]baseline.Fingerprint {
+	if state == nil {
+		return nil
+	}
+	return state.Snapshot
 }
 
 func candidateDomains(candidates []volumeMaintainCandidate) []string {
@@ -301,19 +328,20 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // candidates: a target the Code Volume already describes is an update, any
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
-func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork) {
-	all := codeCandidatesForWork(root, loaded.set, work)
+func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool) {
+	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	if len(all) == 0 {
 		return
 	}
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), codeCandidateBudget(loaded.cfg, loaded.set, all))
+	budget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
+	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
 	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
 		result.Stop = fail.GlobalStop
 		return
 	}
 	plan, err := codebatch.BuildPlanWithBudget(root, result.Governance.CompositeIdentity,
 		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), codeCandidateBudget(loaded.cfg, loaded.set, all))
+		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), budget)
 	if err != nil {
 		return
 	}
@@ -324,7 +352,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		item := volumeMaintainCandidate{Domain: cognition.ScopeCode,
 			Change: candidate.Change, ObjectRef: candidate.ObjectRef, Path: candidate.Path,
 			ExistingEntry: candidate.ExistingEntry, SourceSHA256: candidate.SourceSHA256,
-			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true}
+			CandidateID: candidate.CandidateID, ModelAuthoringOnly: true}
 		fillVolumeCandidateScale(root, thresholds, &item)
 		result.Candidates = append(result.Candidates, item)
 	}
@@ -333,13 +361,33 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 // codeCandidatesForWork turns the shared authoring work into the candidate list
 // a batch is cut from: a target the Code Volume already describes is an update
 // carrying its existing Entry, any other is a create. Maintain plans from it and
-// the Guide projects the same batch from it (PlanCodeBatchIncluded).
-func codeCandidatesForWork(root string, set *cognition.Set, work volumegovernance.CodeAuthoringWork) []codebatch.Candidate {
+// the Guide projects the same batch from it (PlanCodeBatchIncluded). A
+// target's digest is the one in the snapshot the verdict was computed from,
+// so no target is read again (on a first build every target is a candidate
+// every round; a path the snapshot lacks is hashed). Its line count is taken
+// from the fingerprint cache only when the cache holds it for the file as it
+// stands, never by reading: the count feeds the transport budget (the width
+// of file_lines and expected_e), while the wire values are counted from the
+// bytes the digest binds (fillVolumeCandidateScale). Nothing is stored, so
+// the cache is not saved.
+func codeCandidatesForWork(root string, set *cognition.Set, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint) ([]codebatch.Candidate, map[string]int) {
 	all := []codebatch.Candidate{}
+	lines := map[string]int{}
+	cache := baseline.OpenFingerprintCache(root)
 	for _, path := range work.Targets {
-		fingerprint, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(path)))
-		if hashErr != nil {
-			continue
+		absolute := filepath.Join(root, filepath.FromSlash(path))
+		fingerprint, known := snapshot[path]
+		if !known || fingerprint.SHA256 == "" {
+			hashed, hashErr := baseline.HashFile(absolute)
+			if hashErr != nil {
+				continue
+			}
+			fingerprint = hashed
+		}
+		if index.ShouldCheckEScalePath(path) {
+			if count, ok := cache.KnownLines(absolute, path); ok {
+				lines[path] = count
+			}
 		}
 		if object := cognitionObjectByRef(set.Volumes[cognition.ScopeCode], "code:"+path); object != nil {
 			all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
@@ -350,7 +398,7 @@ func codeCandidatesForWork(root string, set *cognition.Set, work volumegovernanc
 		all = append(all, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
 			ObjectRef: "code:" + path, Path: path, SourceSHA256: fingerprint.SHA256}})
 	}
-	return all
+	return all, lines
 }
 
 // firstUnspellableCandidate asks, for every directory a create candidate of this
@@ -432,9 +480,19 @@ func volumeBatchIdentities(result volumeMaintainResult) (string, string) {
 	logical := sha256.Sum256([]byte(fmt.Sprintf("volumes-authoring-plan/v1\x00%s\x00%s\x00%d\x00%s\x00%s",
 		result.Batch.CompositeIdentity, result.Batch.ScopePolicyIdentity, result.Batch.TotalTargets,
 		codePlanID, databasePlanID)))
+	// The envelope identity hashes each candidate under its domain's batch id,
+	// the value the Code candidate used to carry on the wire, so the identity
+	// is the one it has been since the envelope was introduced.
+	batchIDs := map[string]string{}
+	if result.CodePlan != nil {
+		batchIDs[cognition.ScopeCode] = result.CodePlan.BatchID
+	}
+	if result.DatabasePlan != nil {
+		batchIDs[cognition.ScopeDatabase] = result.DatabasePlan.BatchID
+	}
 	parts := make([]string, 0, len(result.Candidates))
 	for _, candidate := range result.Candidates {
-		parts = append(parts, strings.Join([]string{candidate.Domain, candidate.ObjectRef, candidate.BatchID,
+		parts = append(parts, strings.Join([]string{candidate.Domain, candidate.ObjectRef, batchIDs[candidate.Domain],
 			candidate.CandidateID, candidate.SourceSHA256, candidate.EvidenceSHA256}, "\x00"))
 	}
 	batch := sha256.Sum256([]byte(fmt.Sprintf("volumes-authoring-batch/v1\x00%x\x00%s\x00%d",

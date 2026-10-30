@@ -51,6 +51,10 @@ type cognitionRefreshSession struct {
 	capacity          *hostCapacityVerdict
 	chains            map[string]string
 	chainOrder        []string
+	// authoringContracts remembers, by contract digest, the refresh
+	// generation in which this process last sent the complete authoring
+	// contract on a Maintain response (maintain_contract.go).
+	authoringContracts map[string]int
 }
 
 // overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存

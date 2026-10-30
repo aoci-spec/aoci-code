@@ -7,6 +7,29 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- A Maintain round issues more candidates on the same transport budget
+  (L3; #127 in part). Measured on real trees under the default 24 KiB budget,
+  candidates a round before and after: RuoYi 22 to 28 on a process's first
+  round and 41 after it, excalidraw 24 to 34 and 47, a 13,850-file tree 20 to
+  26 and 39; a first build of RuoYi (512 targets) takes 15 rounds where it
+  took 29, excalidraw (798 targets) 19 where it took 34, no round over the
+  budget. Four changes to the response and none to what a batch
+  binds: a Code candidate no longer repeats `batch_id` (the batch is
+  `code_plan.batch_id`, which `aoci_update_entry.code_batch_id` already
+  names; Database candidates keep theirs, and a reader of
+  `candidates[].batch_id` for Code reads `code_plan.batch_id`); the authoring
+  contract (`instructions`, `authoring_meta`) travels once per server process
+  and refresh generation and later rounds carry `instructions_ref`, with the
+  additive `aoci_maintain` input `include_instructions: true` bringing it
+  back and a completed context-compaction reload bringing it back by itself;
+  the governance block leaves the four per-asset records off the wire, which
+  `cognition_receipt` and `code_plan` already carry; and the budget reserves
+  `file_lines` and `expected_e` at the width they will have, taken from the
+  fingerprint cache, instead of the widest form. A candidate now binds the
+  digest the governance verdict's own snapshot holds instead of reading every
+  target again each round. The Guide and the `scan` estimate project the
+  first round's shape, so a later round in the same process may issue more
+  than the Guide showed.
 - Every governance call on a large repository is about three times faster
   (#127 in part; measured by the new `perf-track` contract, 13,850 files: a
   Maintain 3.8 s to 1.3 s, `verify` 3.6 s to 1.1 s, the Guide 3.8 s to 1.5 s;

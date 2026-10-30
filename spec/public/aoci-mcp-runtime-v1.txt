@@ -103,3 +103,10 @@ evidence a blocked Maintain listed, through the Scope transaction
 digest the current list no longer has writes nothing. It answers on a Volumes
 layout only; a Legacy layout answers `legacy_read_only_migrate_required`. The
 intent adds no tool.
+
+`aoci_maintain` also accepts the additive boolean `include_instructions`. A
+candidate-carrying response carries the authoring contract (`instructions`,
+`authoring_meta`) on the first such response of a refresh generation in one
+server process and `instructions_ref` afterwards; `include_instructions: true`
+makes that response carry the contract again. The Cognition Volumes contract
+defines the rule and the reference's fields.
