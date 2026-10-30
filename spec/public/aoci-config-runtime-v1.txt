@@ -35,6 +35,13 @@ retains the old rules identity. The local layer cannot change it, `config
 set` refuses any other value, and changing it after the first scan requires
 a governed Scope Change.
 
+`code_cognition_parallel_batches` is a team-owned integer reserved by the
+Cognition Volumes contract for parallel current batches (implemented from
+0.2.0-rc2): absent or 1 keeps one current batch per Maintain, the wire
+ceiling is 4, the local layer cannot change it, and it enters no policy,
+scope, or authorization identity. A binary that predates the implementation
+treats the key as unknown, exactly as it treats any key it does not define.
+
 `human_approval_channel` is a team-owned choice of how a protected change may
 reach its person: `tty_or_host_dialog` (absent, the default) admits the
 terminal phrase and the MCP host's dialog, and `tty_only` admits the terminal

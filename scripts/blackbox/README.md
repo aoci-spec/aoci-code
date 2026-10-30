@@ -227,6 +227,16 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
 - Conformance and scenarios also serve as an executable compatibility check
   for alternative implementations: point `AOCI_BIN` at any binary that claims
   the public contracts in `spec/public/` and run them unchanged.
+- Planned with 0.2.0-rc2 (parallel current batches, the L4 section of the
+  Volumes contract): a scenarios group that drives two `Session`s against one
+  fixture and checks that N=2 issues disjoint siblings under one plan
+  preimage, that a sibling delivered by `batch_id` carries its issued targets
+  and nothing else, that A-then-B and B-then-A end in aligned with the same
+  Entry set, that a foreign edit between siblings replans the outstanding
+  ones and keeps the applied one formal, that two Applies at once serialize,
+  and that one target's source drift invalidates one sibling only; plus a
+  conformance check that the default configuration's Maintain output is
+  unchanged and that a server without the capability refuses the fields.
 
 ## Run-by-name ladder
 

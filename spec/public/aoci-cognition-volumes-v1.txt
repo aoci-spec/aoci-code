@@ -5,7 +5,9 @@ existing update path additionally supports model-authored multi-object Code,
 Database, and mixed Code+Database batches backed by current source or accepted
 saved Database Evidence and the existing governance transaction. It does not
 define migration, ordinary Root/Meta writes, Volume creation/deletion, or a
-parallel multi-Volume transaction system.
+parallel multi-Volume transaction system. Parallel current batches of one
+logical plan are specified in their own section below and implemented from
+0.2.0-rc2.
 
 1. Layout selection
 
@@ -555,6 +557,101 @@ affected Volume or Volumes and alignment state. A Legacy layout enters none of
 this write path: since 0.2.0 it is read-only and answers
 legacy_read_only_migrate_required until Migration. No second Maintain, Guide,
 Apply, Baseline, Ledger, or Recovery system is introduced.
+
+## Parallel current batches (L4)
+
+Status: specified for 0.2.0; implemented from 0.2.0-rc2. A server that does
+not list the `parallel_batches` capability in its capability manifest issues
+exactly one current batch per Maintain as the section above describes, and a
+Host must not send the request fields below to it. Nothing in this section
+changes a persisted identity, a Baseline receipt, or the bytes a repository
+with the default configuration produces.
+
+Motivation. A first build of a large repository is hundreds of current
+batches, and each is strictly sequential: Apply, then no-argument Maintain,
+then the next batch. The machine side of a round is now a fraction of a
+second; the model's authoring of one batch is the round. With N Hosts (or N
+agents of one Host) authoring N batches of one logical plan at once, the wall
+clock of a first build divides by N while every existing authority is kept:
+each batch is still machine-issued, still one atomic Apply, still bound to
+source digests, candidate ids, and the governed-batch lock.
+
+Configuration. `code_cognition_parallel_batches` is a team-owned integer, the
+number of current batches one logical plan may have outstanding at once.
+Absent or 1 is today's behaviour, byte for byte. The wire ceiling is 4. It is
+a shared authoring contract like `code_cognition_batch_entries`, so the local
+layer cannot change it, and it enters no policy, scope, or authorization
+identity, so changing it is not a Scope Change.
+
+Issuance. No-argument Maintain under N > 1 cuts up to N sibling batches from
+the logical plan in the deterministic order sequential Maintains would have
+used, every sibling against the same plan preimage: the Code Volume digest,
+the Composite identity, and the Scope identity at issuance. Sibling target
+sets are disjoint by construction; each sibling has its own `batch_id` and
+every sibling records the one `logical_plan`. The response delivers the first
+sibling as today's complete current batch, within the transport budget, and
+lists the others under `code_plan.siblings` as issued, not delivered: each
+with `batch_id`, its target paths, `included`, and `state` (`issued`,
+`delivered`, `applied`, `invalidated`). A Host obtains a sibling's complete
+candidates with `aoci_maintain` carrying that `batch_id`; the response is a
+complete current batch sized by the same transport budget, marked
+`sibling_of` the logical plan, and its `next_action` is
+`author_complete_current_machine_batch`. A Host never slices Maintain output;
+a sibling is the machine's cut, delivered whole.
+
+Apply. `aoci_update_entry` with the `code_batch_id` of any issued sibling is
+accepted in any order. The preimage rule is relaxed exactly this far: the Code
+Volume's current digest must be the plan preimage or a postimage an applied
+sibling of the same logical plan recorded. The server proves that before it
+projects anything: it replays the applied siblings' receipts, in receipt
+order, onto the plan preimage bytes and requires the result to equal the
+current Volume byte for byte. The machine retains the plan preimage bytes
+under `.aoci` as a runtime asset for the plan's lifetime; they enter no
+identity and are dropped when the plan completes or is invalidated. A current Volume the replay cannot reproduce
+was changed by something other than a sibling, and the batch fails closed
+with `code_candidate_volume_preimage_stale` and the replan hint, as today.
+Candidates then revalidate as today (path, `source_sha256`, `candidate_id`,
+canonical object identity); an object's position is resolved by identity in
+the current Volume, never by a byte offset or an ordinal captured at
+issuance, since an earlier sibling may have inserted before it. The Envelope
+and the postimage are computed at Apply against the current Volume, not at
+issuance, and the receipt records the logical plan, the batch id, the sibling
+set applied before it, and exact pre and post digests. The Baseline advances
+per Apply as it does for a sequential batch. The final Volume bytes may
+depend on the order siblings applied in: the editor appends a new Entry after
+the last Entry of its section and a new section at the end, so two orders
+can leave the same Entry set in different line orders. Both are formal; this
+is why the preimage rule replays receipts instead of comparing a predicted
+digest, and why a sibling's postimage is never computed at issuance.
+
+Invalidation. A change to the Code Volume that is not a sibling's Apply
+(a manual edit, `aoci_remove_entry`, optimization, migration), or any change
+of the Scope or Composite identity, invalidates every outstanding sibling;
+their delivery answers `state=invalidated` and no-argument Maintain plans
+afresh. Source drift of one target invalidates only the sibling that holds it,
+exactly as it invalidates today's outstanding batch; the others stay issued.
+Applied siblings are formal and are neither regenerated nor replayed, as
+earlier successful batches are today.
+
+Concurrency. Two Applies arriving together serialize on the existing
+governed-batch lock; the second sees the first's postimage as its preimage
+and proceeds under the rule above. No second lock, transaction, Ledger, or
+Recovery path exists; a failure mid-Apply recovers as a single batch does.
+
+Completion. `remaining` counts targets outside every issued sibling; the
+Apply after which `remaining` is zero and no sibling is outstanding
+prescribes Verify, Aggregate Check, and Guide as its terminal proof, and
+Guide reports aligned only then. Hosts may run siblings sequentially with one
+agent, which is just today's flow with the batches issued ahead of time.
+
+Conformance the implementation must ship: default configuration output is
+byte-identical to this version's; N=2 issues disjoint targets under one plan
+preimage; sibling delivery by `batch_id` returns the issued targets and
+nothing else; applying A then B and B then A both reach aligned with the
+same Entry set; an edit to the Volume between siblings replans the
+outstanding ones and keeps the applied one formal; two Applies at once
+serialize and both succeed; source drift of one target invalidates one
+sibling only; a server without the capability refuses the request fields.
 
 ## R73 derived System Cognition
 

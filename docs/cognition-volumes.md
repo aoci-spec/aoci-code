@@ -294,6 +294,14 @@ and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
 
+Parallel current batches are specified in the Volumes contract (section
+"Parallel current batches (L4)") and arrive with 0.2.0-rc2: under the team key
+`code_cognition_parallel_batches` one logical plan may have up to four sibling
+batches outstanding, each delivered whole by its `batch_id`, applied in any
+order under a replay-proven preimage rule, and invalidated together by any
+change that is not a sibling's Apply. Absent or 1 is today's flow, byte for
+byte.
+
 Code candidates in ordinary Maintain and `cognition_optimization` include
 `file_lines` when the counted source bytes match `source_sha256`. They include
 `expected_e` when the Code section of Meta assigns those lines to numeric bands;

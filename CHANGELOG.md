@@ -24,6 +24,15 @@ changes a persisted preimage names the binary every machine then needs.
   git-ignored and outside every identity, answers an unchanged file by size
   and mtime under git's racily-clean rule; `AOCI_FINGERPRINT_CACHE=off`
   disables it, and the status page and `scan --dry-run` never write it.
+- Spec: parallel current batches (L4) are specified in the Cognition Volumes
+  contract for implementation in 0.2.0-rc2: a team key
+  `code_cognition_parallel_batches` (absent or 1 is today's flow, ceiling 4),
+  sibling batches cut from one logical plan against one plan preimage and
+  delivered whole by `batch_id`, an Apply preimage rule relaxed exactly to
+  "the plan preimage or an applied sibling's postimage" and proven by
+  replaying the applied receipts onto the preimage bytes, invalidation of
+  every outstanding sibling by any non-sibling change, and the conformance
+  checks the implementation must ship. No behaviour changes in this version.
 - Code drift of a Volumes repository is computed in one place,
   `volumegovernance.CodeDrift`, and every reader consumes it: Verify, Check,
   the Guide, Maintain, Overview, the post-Apply inspector that each

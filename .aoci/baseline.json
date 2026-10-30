@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-30T05:50:38Z",
+  "updated_at": "2026-10-30T07:37:57Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "9cae904d113518ba85bf6d6a6722c0941049e74ce4af611ee85b73433c913177",
-      "size": 158420,
-      "normalized_sha256": "9cae904d113518ba85bf6d6a6722c0941049e74ce4af611ee85b73433c913177"
+      "sha256": "6b856d8561828f30a2f52cee11256adcce83169e15fbc6234c5f8456480e5578",
+      "size": 159075,
+      "normalized_sha256": "6b856d8561828f30a2f52cee11256adcce83169e15fbc6234c5f8456480e5578"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "97d2f5b0bc23537db13bb5a8f795ca5f7977d4db3b87029aa344a6372a1a9037",
-      "size": 222663,
-      "normalized_sha256": "97d2f5b0bc23537db13bb5a8f795ca5f7977d4db3b87029aa344a6372a1a9037"
+      "sha256": "8446d1a00e60e06f0e29f3595c8471395087b6a9b9853ca50283093e0bcdfd22",
+      "size": 222668,
+      "normalized_sha256": "8446d1a00e60e06f0e29f3595c8471395087b6a9b9853ca50283093e0bcdfd22"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -185,9 +185,9 @@
     },
     "docs/cognition-volumes.md": {
       "role": "index",
-      "sha256": "00faa6907f7ee41db59bf1099469af88ae7b1a2f2e899057da7c814957dea581",
-      "size": 24591,
-      "normalized_sha256": "00faa6907f7ee41db59bf1099469af88ae7b1a2f2e899057da7c814957dea581"
+      "sha256": "21232a1a2e8ecb75c5992adcc2c0fb619fb1300b9a7c93858c64128ec965c742",
+      "size": 25055,
+      "normalized_sha256": "21232a1a2e8ecb75c5992adcc2c0fb619fb1300b9a7c93858c64128ec965c742"
     },
     "docs/contract-authority.md": {
       "role": "index",
@@ -6469,9 +6469,9 @@
     },
     "scripts/blackbox/README.md": {
       "role": "index",
-      "sha256": "174069885222a0c542e788912aaf107aef7fa653698919e0a6d5c2107b3fa540",
-      "size": 19679,
-      "normalized_sha256": "174069885222a0c542e788912aaf107aef7fa653698919e0a6d5c2107b3fa540"
+      "sha256": "cfedba27dd3472cb8bb5056781d1a89bcf1a36ac9560777bb8baa8f5f4ca7d56",
+      "size": 20425,
+      "normalized_sha256": "cfedba27dd3472cb8bb5056781d1a89bcf1a36ac9560777bb8baa8f5f4ca7d56"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -6481,9 +6481,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "aab8c9aa94c7c87eb807b5a990d087113c7d6293a29af5fccb498e499116aff9",
+      "sha256": "da1b445474ebb0ad31e011b7138ed1fd2e8c0c8fd6b7aa5cd856b2b62b853210",
       "size": 12144,
-      "normalized_sha256": "aab8c9aa94c7c87eb807b5a990d087113c7d6293a29af5fccb498e499116aff9"
+      "normalized_sha256": "da1b445474ebb0ad31e011b7138ed1fd2e8c0c8fd6b7aa5cd856b2b62b853210"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",
@@ -6703,15 +6703,15 @@
     },
     "spec/public/aoci-cognition-volumes-v1.txt": {
       "role": "index",
-      "sha256": "599b32461e8bc41b7d6b33150015154eb9f7da7011b35e147a8286bfd47d0750",
-      "size": 35596,
-      "normalized_sha256": "599b32461e8bc41b7d6b33150015154eb9f7da7011b35e147a8286bfd47d0750"
+      "sha256": "0148fce5fbbec468bdf131c756c1f1f58c496ffffe858c52d5bd7b53e2641737",
+      "size": 41908,
+      "normalized_sha256": "0148fce5fbbec468bdf131c756c1f1f58c496ffffe858c52d5bd7b53e2641737"
     },
     "spec/public/aoci-config-runtime-v1.txt": {
       "role": "index",
-      "sha256": "ee99c7e39a5fb3be233952686408e014c2c89576b1185d38b917fbfd6786712b",
-      "size": 3448,
-      "normalized_sha256": "ee99c7e39a5fb3be233952686408e014c2c89576b1185d38b917fbfd6786712b"
+      "sha256": "95d4cb1dc791eb5cdbbcc8fe38907c1f673c0e09fffd15f1fc66a0dfcbca1f07",
+      "size": 3893,
+      "normalized_sha256": "95d4cb1dc791eb5cdbbcc8fe38907c1f673c0e09fffd15f1fc66a0dfcbca1f07"
     },
     "spec/public/aoci-database-cognition-authoring-v1.txt": {
       "role": "index",

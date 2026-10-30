@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/conformance-p8.txt"
+    "evidence": ".aoci/dev-tools/conformance-p9.txt"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-30",
-    "evidence": ".aoci/dev-tools/make-verify-p8.txt"
+    "evidence": ".aoci/dev-tools/make-verify-p9.txt"
    }
   }
  ]
