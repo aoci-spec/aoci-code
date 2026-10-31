@@ -214,7 +214,12 @@ func TestSafeInventoryNonGitRootIncludesNestedRepositories(t *testing.T) {
 	}
 }
 
-func TestSafeInventoryNonGitRootReadsNoChildGitignore(t *testing.T) {
+// Locks (#54): under a non-Git container root each child Git repository is
+// listed through its own Git, so its .gitignore holds, its tracked paths are
+// known, a gitlink inside it stays a boundary, and the files outside any child
+// keep the name-only traversal; the child's .git keeps its VCS exclusion line
+// and the container itself still reads as a non-Git root.
+func TestSafeInventoryNonGitRootHonoursChildGitignore(t *testing.T) {
 	root := t.TempDir()
 	serviceRoot := filepath.Join(root, "svc-a")
 	if err := os.MkdirAll(serviceRoot, 0o755); err != nil {
@@ -224,29 +229,134 @@ func TestSafeInventoryNonGitRootReadsNoChildGitignore(t *testing.T) {
 	// The probe name is one no built-in rule touches: a name such as build/
 	// is pruned by the safety boundary and would look like an honored ignore.
 	mustWrite(t, root, "svc-a/.gitignore", "local-notes.txt\n")
-	mustWrite(t, root, "svc-a/local-notes.txt", "ignored by the child repository only\n")
+	mustWrite(t, root, "svc-a/local-notes.txt", "ignored by the child repository\n")
 	mustWrite(t, root, "svc-a/main.go", "package main\n")
+	mustWrite(t, root, "svc-a/untracked.go", "package main\n")
+	gitCommand(t, serviceRoot, "add", "main.go", ".gitignore")
+	gitCommand(t, serviceRoot, "-c", "user.email=t@test.invalid", "-c", "user.name=t", "commit", "-q", "-m", "init")
+	mustWrite(t, root, "tools/shared.sh", "#!/bin/sh\n")
+	mustWrite(t, root, "README.md", "container\n")
 
 	report, err := BuildSafeInventory(root, WalkOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"svc-a/main.go", "svc-a/local-notes.txt"} {
+	if report.Summary.GitRepository || report.Summary.ChildRepositories != 1 || strings.Join(report.ChildRepositoryRoots, ",") != "svc-a" {
+		t.Fatalf("the container stays non-Git and names its child repository: %+v %v", report.Summary, report.ChildRepositoryRoots)
+	}
+	for _, path := range []string{"svc-a/main.go", "svc-a/untracked.go", "svc-a/.gitignore", "tools/shared.sh", "README.md"} {
 		if !containsPath(report.ManagedCandidates, path) {
-			t.Fatalf("docs/managed-scope-and-budget.md says a child .gitignore has no authority under a non-Git root, but %s is missing: %#v", path, report.ManagedCandidates)
+			t.Fatalf("%s is missing from the container inventory: %#v", path, report.ManagedCandidates)
 		}
 	}
+	if containsPath(report.ManagedCandidates, "svc-a/local-notes.txt") || exclusionCategory(report, "svc-a/local-notes.txt") != SafetyIgnored {
+		t.Fatalf("the child .gitignore was not honoured: %#v", report.Exclusions)
+	}
+	if !containsPath(report.TrackedPaths, "svc-a/main.go") || containsPath(report.TrackedPaths, "svc-a/untracked.go") || report.Summary.GitTracked != 2 {
+		t.Fatalf("the child's tracked set was not read: tracked=%v summary=%+v", report.TrackedPaths, report.Summary)
+	}
+	if exclusionCategory(report, "svc-a/.git") != SafetyGenerated {
+		t.Fatalf("the child .git lost its VCS exclusion line: %#v", report.Exclusions)
+	}
 
-	// The remedy that document names has to work where the ignore file does not.
-	report, err = BuildSafeInventory(root, WalkOptions{ExcludeFiles: []string{"local-notes.txt"}})
+	// A project exclusion still applies on top of the child's listing.
+	report, err = BuildSafeInventory(root, WalkOptions{ExcludeFiles: []string{"untracked.go"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if containsPath(report.ManagedCandidates, "svc-a/local-notes.txt") || exclusionCategory(report, "svc-a/local-notes.txt") != SafetyConfigured {
+	if containsPath(report.ManagedCandidates, "svc-a/untracked.go") || exclusionCategory(report, "svc-a/untracked.go") != SafetyConfigured {
 		t.Fatalf("exclude_files did not keep the path out: %#v", report.Exclusions)
 	}
 	if !containsPath(report.ManagedCandidates, "svc-a/main.go") {
 		t.Fatalf("exclude_files removed an unrelated source: %#v", report.ManagedCandidates)
+	}
+}
+
+// Locks: the container walk keeps the name-only boundary for what lies outside
+// a child: a symlinked directory and a directory a built-in rule names are
+// pruned without being entered, and a child whose .git is unusable fails the
+// inventory closed instead of degrading to a walk of its tree.
+func TestSafeInventoryContainerWalkBoundariesAndBrokenChild(t *testing.T) {
+	root := t.TempDir()
+	mustWrite(t, root, "tools/shared.sh", "#!/bin/sh\n")
+	mustWrite(t, root, "elsewhere/target.go", "package elsewhere\n")
+	if err := os.Symlink(filepath.Join(root, "elsewhere"), filepath.Join(root, "linked-dir")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	mustWrite(t, root, ".git/HEAD", "ref: refs/heads/main\n")
+	if err := os.Remove(filepath.Join(root, ".git", "HEAD")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exclusionCategory(report, "linked-dir") != SafetyUnsafe || containsPath(report.ManagedCandidates, "linked-dir/target.go") {
+		t.Fatalf("a symlinked directory must be pruned, not entered: %#v", report.Exclusions)
+	}
+	if !containsPath(report.ManagedCandidates, "elsewhere/target.go") || !containsPath(report.ManagedCandidates, "tools/shared.sh") {
+		t.Fatalf("plain container files are candidates: %#v", report.ManagedCandidates)
+	}
+
+	broken := filepath.Join(root, "svc-broken")
+	mustWrite(t, root, "svc-broken/.git", "gitdir: /nonexistent/aoci-container-probe\n")
+	mustWrite(t, root, "svc-broken/main.go", "package main\n")
+	if _, err := BuildSafeInventory(root, WalkOptions{}); err == nil {
+		t.Fatal("a child whose .git cannot be read must fail the inventory closed")
+	} else if !strings.Contains(err.Error(), "safe_inventory_git") {
+		t.Fatalf("unexpected failure: %v", err)
+	}
+	if err := os.RemoveAll(broken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := BuildSafeInventory(root, WalkOptions{}); err != nil {
+		t.Fatalf("removing the broken child restores the inventory: %v", err)
+	}
+}
+
+// Locks: a child repository that is a Git worktree or carries a submodule is
+// read by its own Git, so the submodule's gitlink names a boundary and the
+// worktree's .git file is a repository, not a candidate.
+func TestSafeInventoryContainerChildSubmoduleStaysABoundary(t *testing.T) {
+	root := t.TempDir()
+	library := filepath.Join(root, "lib")
+	if err := os.MkdirAll(library, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitCommand(t, library, "init", "-q")
+	mustWrite(t, root, "lib/lib.go", "package lib\n")
+	gitCommand(t, library, "add", "lib.go")
+	gitCommand(t, library, "-c", "user.email=t@test.invalid", "-c", "user.name=t", "commit", "-q", "-m", "lib")
+	service := filepath.Join(root, "svc")
+	if err := os.MkdirAll(service, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitCommand(t, service, "init", "-q")
+	mustWrite(t, root, "svc/main.go", "package main\n")
+	gitCommand(t, service, "add", "main.go")
+	gitCommand(t, service, "-c", "protocol.file.allow=always", "-c", "user.email=t@test.invalid", "-c", "user.name=t", "submodule", "add", "-q", library, "vendor-lib")
+	gitCommand(t, service, "-c", "user.email=t@test.invalid", "-c", "user.name=t", "commit", "-q", "-m", "svc")
+
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Summary.ChildRepositories != 2 || strings.Join(report.ChildRepositoryRoots, ",") != "lib,svc" {
+		t.Fatalf("both child repositories are read through Git: %v", report.ChildRepositoryRoots)
+	}
+	if exclusionCategory(report, "svc/vendor-lib") != SafetyUnsafe {
+		t.Fatalf("the submodule gitlink is a boundary: %#v", report.Exclusions)
+	}
+	for _, path := range report.ManagedCandidates {
+		if strings.HasPrefix(path, "svc/vendor-lib/") {
+			t.Fatalf("a submodule's files entered through the container walk: %s", path)
+		}
+	}
+	if !containsPath(report.ManagedCandidates, "lib/lib.go") || !containsPath(report.ManagedCandidates, "svc/main.go") {
+		t.Fatalf("child sources are missing: %#v", report.ManagedCandidates)
 	}
 }
 

@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "L5 implementation: Tier-0 gates inside make-verify-l5.txt"
+    "evidence": "#54 container inventory: Tier-0 gates inside make-verify-l54.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/make-verify-l5.txt (L5 implementation: full gates green, conformance 58/0/4 dirty of 62, scenarios 92/92, lifecycle 93 PASS 2 CHAR, axis-self 80/80)"
+    "evidence": ".aoci/dev-tools/make-verify-l54.txt (#54 container inventory: full gates green, conformance 58/0/4 dirty of 62, scenarios 93/93, lifecycle 93 PASS 2 CHAR, axis-self 80/80)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/conformance-l5.txt (aligned record after governance 62/62; dirty run inside make-verify-l5.txt 58/0/4)"
+    "evidence": ".aoci/dev-tools/conformance-l54.txt (aligned record after governance 62/62; dirty run inside make-verify-l54.txt 58/0/4)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l5.txt 92/92 (group M added)"
+    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 93/93 (group G added)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l5.txt 93 PASS 2 CHAR"
+    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 93 PASS 2 CHAR"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l5.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 80/80"
    }
   },
   {
@@ -249,7 +249,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/coverage-floors-l5.txt (13 packages at or above their floors; mcptools 82.9%)"
+    "evidence": ".aoci/dev-tools/coverage-floors-l54.txt (13 packages at or above their floors; fs 83.8% after the dead traversal left)"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l5.txt"
+    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "L5 implementation: safety gate inside make-verify-l5.txt"
+    "evidence": "#54 container inventory: safety gate inside make-verify-l54.txt"
    }
   },
   {
@@ -382,7 +382,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/index-quality-l5.txt (0 broken after the L5 implementation)"
+    "evidence": ".aoci/dev-tools/index-quality-l54.txt (0 broken after the container inventory)"
    }
   }
  ]

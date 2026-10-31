@@ -134,19 +134,25 @@ applied it.
 ## Container directories and progressive onboarding
 
 AOCI can use a directory that is not itself a Git repository as its repository
-root. Safe Inventory traverses that directory, so files below multiple child Git
-repositories enter one repository-relative namespace. Each child `.git`
-directory remains excluded by the hard safety boundary. This is a practical
-bridge for a directory such as `/work` that contains `svc-a/` and `svc-b/`, but
-it is not a workspace identity model: the resulting Baseline does not retain
-the child repository boundaries.
+root. Safe Inventory walks that directory, and each child Git repository below
+it (a directory holding a `.git` entry, such as `svc-a/` and `svc-b/` under
+`/work`) is read through its own Git: its tracked and non-ignored untracked
+files enter one container-relative namespace, its `.gitignore` holds, and a
+submodule inside it stays a boundary. Each child `.git` remains excluded by the
+hard safety boundary. `aoci scope status --json` counts them as
+`child_repositories` in the Safe Inventory summary. This is a practical
+bridge, not a workspace identity
+model: the resulting Baseline does not retain the child repository boundaries,
+and a container indexed before 0.2.0-rc2 drops the child-ignored files from its
+inventory at the next `scan`.
 
-Three limits matter:
+Two limits matter:
 
-- Child-repository `.gitignore` files do not control this non-Git traversal.
-  Use project `exclude_dirs` / `exclude_files` settings or Managed Scope rules
-  for paths that must stay out. `aoci config set exclude_dirs` replaces the
-  whole list, so keep the defaults in the value you set.
+- Paths outside any child repository (a `tools/` directory, a top-level
+  README) have no `.gitignore`; use project `exclude_dirs` / `exclude_files`
+  settings or Managed Scope rules for those that must stay out. `aoci config
+  set exclude_dirs` replaces the whole list, so keep the defaults in the value
+  you set.
 - `init` keeps the host configuration it writes (`.mcp.json`,
   `.codex/config.toml`, or `opencode.json`) out of Managed Scope through a Git
   ignore rule, and a non-Git root has none. Left alone, that machine-bound file

@@ -974,7 +974,7 @@ and CLI only:
 
 - **Protocol conformance** — 62 read-only checks of the MCP wire surface,
   with the locale-dependent sentences repeated under `zh-CN`;
-- **Fault-injection scenarios** — 92 scenarios covering cursor tampering,
+- **Fault-injection scenarios** — 93 scenarios covering cursor tampering,
   crash recovery, racing writers, and the pre-write hook on disposable
   fixture repositories;
 - **Lifecycle over frozen real projects** — three committed fixture projects:

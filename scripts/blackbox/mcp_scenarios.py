@@ -2358,6 +2358,45 @@ def group_o_s_absent_priority():
         s.close()
 
 
+
+# ---------------------------------------------------------------- group G
+def group_g_container():
+    """A non-Git container root reads each child Git repository through its own
+    Git (#54): the child's .gitignore holds, its tracked files are known, and
+    the container stays a non-Git root with the child count in its summary."""
+    g = "G"
+    d = os.path.join(WORK, "fx-container")
+    shutil.rmtree(d, ignore_errors=True)
+    for svc, files in (("svc-a", {"main.go": "package main\n", "local-notes.txt": "ignored by the child\n", ".gitignore": "local-notes.txt\n"}),
+                       ("svc-b", {"pkg/b.go": "package pkg\n"})):
+        for rel, body in files.items():
+            path = os.path.join(d, svc, rel)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(body)
+        sh(os.path.join(d, svc), "git", "init", "-q")
+        sh(os.path.join(d, svc), "git", "config", "user.email", "fixture@test.invalid")
+        sh(os.path.join(d, svc), "git", "config", "user.name", "fixture")
+        sh(os.path.join(d, svc), "git", "add", "-A")
+        sh(os.path.join(d, svc), "git", "commit", "-q", "-m", "fixture")
+    os.makedirs(os.path.join(d, "tools"), exist_ok=True)
+    with open(os.path.join(d, "tools", "shared.sh"), "w") as f:
+        f.write("#!/bin/sh\n")
+    rc_init, _, out_init, err_init = cli(d, "init", "--locale", "en-US", "--agent=", "--hooks=false", expect_ok=False)
+    rc_scan, scan, out_scan, err_scan = cli(d, "scan", expect_ok=False)
+    rc_status, status, _, _ = cli(d, "scope", "status", expect_ok=False)
+    rc_ignored, ignored, _, _ = cli(d, "scope", "explain", "svc-a/local-notes.txt", expect_ok=False)
+    rc_tracked, tracked, _, _ = cli(d, "scope", "explain", "svc-a/main.go", expect_ok=False)
+    rc_tool, tool, _, _ = cli(d, "scope", "explain", "tools/shared.sh", expect_ok=False)
+    summary = json.dumps(status).replace(" ", "").replace("\n", "")
+    ok = (rc_init == 0 and rc_scan == 0 and rc_status == 0
+          and '"git_repository":false' in summary and '"child_repositories":2' in summary)
+    ok = ok and rc_ignored == 0 and ignored.get("role") == "exclude" and ignored.get("git_status") == "ignored"
+    ok = ok and rc_tracked == 0 and tracked.get("role") == "index" and tracked.get("git_status") == "tracked"
+    ok = ok and rc_tool == 0 and tool.get("role") == "index"
+    record(g, "G1.container-reads-child-repositories-through-git", "PASS" if ok else "FAIL",
+           f"init={rc_init} scan={rc_scan} ignored={ignored.get('role')}/{ignored.get('git_status')} tracked={tracked.get('role')}/{tracked.get('git_status')} tool={tool.get('role')} child={'child_repositories' in summary}"[:200])
+
 # ---------------------------------------------------------------- group P
 def group_p_special_names():
     """Directory and file names the section grammar could not spell (#58, #60).
@@ -2991,7 +3030,7 @@ GROUP_RUNS = [
     ("F", group_f_host_dialog), ("F", group_f_observe_review), ("F", group_f_sessionless_dialog),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
-    ("H", group_h), ("L", group_l_parallel), ("M", group_m_delta),
+    ("H", group_h), ("L", group_l_parallel), ("M", group_m_delta), ("G", group_g_container),
 ]
 HOST_WINDOW_GROUP = "W"
 

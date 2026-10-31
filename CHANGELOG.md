@@ -14,6 +14,16 @@ changes a persisted preimage names the binary every machine then needs.
   locale text assets like every other help string. `docs/getting-started.md`
   is rewritten as the first week in three steps: install and initialize,
   connect the Agent and build the index, keep it aligned.
+- A non-Git container root reads each child Git repository through its own
+  Git (#54): a directory below the root that holds a `.git` entry is no longer
+  walked; its tracked, non-ignored untracked, and ignored paths come from
+  `git ls-files` under the same hardened command and boundary checks as a root
+  repository, so the child's `.gitignore` holds and a submodule inside it
+  stays a boundary. Paths outside any child keep the name-only traversal, the
+  container stays a non-Git root, and the Safe Inventory gains the additive
+  `child_repositories` and `child_repository_roots` facts. A container indexed
+  before this version sees its child-ignored files leave the inventory at the
+  next `scan`.
 - Incremental Overview delivery (L5) is implemented. `aoci_overview` takes
   `delta_since`, the `scope_identity` of the delivery the Host holds: after a
   passing Attestation and a probe pass over the current identity, the server

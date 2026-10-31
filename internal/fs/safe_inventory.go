@@ -105,6 +105,10 @@ type SafeInventorySummary struct {
 	// SensitiveNameRules is the rule set the identity above was computed with.
 	SensitiveNameRules         string `json:"sensitive_name_rules"`
 	InclusionExclusionIdentity string `json:"inclusion_exclusion_identity"`
+	// ChildRepositories counts the Git repositories found below a non-Git
+	// container root; each one's tracked, untracked, and ignored paths come
+	// from its own Git, so its .gitignore holds (#54). Zero under a Git root.
+	ChildRepositories int `json:"child_repositories,omitempty"`
 }
 
 type SafeInventory struct {
@@ -113,6 +117,9 @@ type SafeInventory struct {
 	TrackedPaths      []string                 `json:"tracked_paths,omitempty"`
 	IgnoredPaths      []string                 `json:"ignored_paths,omitempty"`
 	Exclusions        []SafeInventoryExclusion `json:"exclusions"`
+	// ChildRepositoryRoots lists, container-relative, the child Git roots a
+	// non-Git container inventory read through their own Git.
+	ChildRepositoryRoots []string `json:"child_repository_roots,omitempty"`
 }
 
 // BuildSafeInventory discovers path facts without opening excluded content.
@@ -147,24 +154,30 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		return nil, err
 	}
 	var pruned []SafeInventoryExclusion
+	var childRoots []string
 	if !gitRepository {
-		tracked = nil
-		untracked, pruned, err = traversePathNames(absRoot, opt)
+		// A non-Git container: the directories below it that are Git
+		// repositories are read through their own Git, so each child's
+		// .gitignore holds and its tracked set is known; everything outside
+		// a child keeps the secure name-only traversal (#54).
+		var container containerInventory
+		container, err = traverseContainer(absRoot, opt, collapsible)
 		if err != nil {
 			return nil, err
 		}
-		ignored, ignoredDirs = nil, nil
+		tracked, untracked, ignored, ignoredDirs = container.tracked, container.untracked, container.ignored, container.ignoredDirs
+		gitlinks, pruned, childRoots = container.gitlinks, container.pruned, container.childRoots
 	}
 
 	report := &SafeInventory{Summary: SafeInventorySummary{
 		Version: SafeInventoryVersion, GitRepository: gitRepository,
 		GitTracked: len(tracked), NonignoredUntracked: len(untracked), Ignored: len(ignored) + len(ignoredDirs),
-	}, ManagedCandidates: []string{}, TrackedPaths: []string{}, IgnoredPaths: []string{}, Exclusions: []SafeInventoryExclusion{}}
-	if !gitRepository {
-		for _, exclusion := range pruned {
-			report.addExclusion(exclusion.PathSummary, exclusion.Category, exclusion.RuleSource, false)
-		}
-	} else {
+		ChildRepositories: len(childRoots),
+	}, ManagedCandidates: []string{}, TrackedPaths: []string{}, IgnoredPaths: []string{}, Exclusions: []SafeInventoryExclusion{}, ChildRepositoryRoots: childRoots}
+	for _, exclusion := range pruned {
+		report.addExclusion(exclusion.PathSummary, exclusion.Category, exclusion.RuleSource, false)
+	}
+	{
 		// A collapsed ignored directory is one audit line. Only a directory
 		// whose every file was already a hard exclusion is collapsed (see
 		// gitIgnoredPaths), so the line carries that same category and
@@ -561,9 +574,25 @@ func splitNULPaths(data []byte) []string {
 	return result
 }
 
-func traversePathNames(root string, opt WalkOptions) ([]string, []SafeInventoryExclusion, error) {
-	result := []string{}
-	pruned := []SafeInventoryExclusion{}
+// containerInventory is what a non-Git container root yields: the walk's
+// files outside any child repository as untracked, and each child Git
+// repository's own listing, container-relative.
+type containerInventory struct {
+	tracked, untracked, ignored, ignoredDirs []string
+	gitlinks                                 map[string]bool
+	pruned                                   []SafeInventoryExclusion
+	childRoots                               []string
+}
+
+// traverseContainer walks a non-Git root by name, never opening a file; a
+// directory below it that holds a .git entry is a child repository: its
+// tree is not walked, its own Git lists it (through the hardened command,
+// with the same boundary checks as a root repository), and every listed path
+// is prefixed with the child's container-relative path. The child's .git
+// keeps the VCS exclusion line the walk would have written.
+func traverseContainer(root string, opt WalkOptions, collapsible func(dir string) bool) (containerInventory, error) {
+	result := containerInventory{tracked: []string{}, untracked: []string{}, ignored: []string{}, ignoredDirs: []string{}, gitlinks: map[string]bool{}, childRoots: []string{}}
+	var childErr error
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if entry != nil && entry.IsDir() {
@@ -581,15 +610,11 @@ func traversePathNames(root string, opt WalkOptions) ([]string, []SafeInventoryE
 		rel = filepath.ToSlash(rel)
 		rules := opt.SensitiveNameRules
 		if entry.IsDir() {
-			// The v2 sensitive-name rule reads file names: a Go package named
-			// token or a secrets/ directory of templates is walked, and each
-			// file beneath it is classified on its own. A directory keeps the
-			// v1 classification under either set.
 			rules = SensitiveNameRulesV1
 		}
 		category, source := BuiltInSafetyCategory(rel, rules)
 		if unsafePlatformObject(path) {
-			pruned = append(pruned, SafeInventoryExclusion{PathSummary: rel, Category: SafetyUnsafe, RuleSource: "filesystem_boundary"})
+			result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: rel, Category: SafetyUnsafe, RuleSource: "filesystem_boundary"})
 			if entry.IsDir() {
 				return filepath.SkipDir
 			}
@@ -597,21 +622,63 @@ func traversePathNames(root string, opt WalkOptions) ([]string, []SafeInventoryE
 		}
 		if entry.IsDir() {
 			if category != "" {
-				pruned = append(pruned, SafeInventoryExclusion{PathSummary: rel, Category: category, RuleSource: source})
+				result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: rel, Category: category, RuleSource: source})
 				return filepath.SkipDir
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
-				pruned = append(pruned, SafeInventoryExclusion{PathSummary: rel, Category: SafetyUnsafe, RuleSource: "filesystem_boundary"})
+				result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: rel, Category: SafetyUnsafe, RuleSource: "filesystem_boundary"})
+				return filepath.SkipDir
+			}
+			if _, statErr := os.Lstat(filepath.Join(path, ".git")); statErr == nil {
+				if childErr = result.addChildRepository(root, rel, path, opt, collapsible); childErr != nil {
+					return filepath.SkipAll
+				}
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		result = append(result, rel)
+		result.untracked = append(result.untracked, rel)
 		return nil
 	})
-	sort.Strings(result)
-	sort.Slice(pruned, func(i, j int) bool { return pruned[i].PathSummary < pruned[j].PathSummary })
-	return result, pruned, err
+	if childErr != nil {
+		return containerInventory{}, childErr
+	}
+	for _, list := range []*[]string{&result.tracked, &result.untracked, &result.ignored, &result.ignoredDirs, &result.childRoots} {
+		sort.Strings(*list)
+	}
+	sort.Slice(result.pruned, func(i, j int) bool { return result.pruned[i].PathSummary < result.pruned[j].PathSummary })
+	return result, err
+}
+
+func (result *containerInventory) addChildRepository(root, rel, path string, opt WalkOptions, collapsible func(dir string) bool) error {
+	prefixed := func(child string) string { return rel + "/" + child }
+	childCollapsible := func(dir string) bool { return collapsible(prefixed(dir)) }
+	tracked, untracked, ignored, ignoredDirs, gitlinks, isRepository, err := gitInventory(path, childCollapsible)
+	if err != nil {
+		return err
+	}
+	if !isRepository {
+		return fmt.Errorf("safe_inventory_git_boundary_unavailable")
+	}
+	result.childRoots = append(result.childRoots, rel)
+	gitCategory, gitSource := BuiltInSafetyCategory(prefixed(".git"), SensitiveNameRulesV1)
+	result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: prefixed(".git"), Category: gitCategory, RuleSource: gitSource})
+	for _, child := range tracked {
+		result.tracked = append(result.tracked, prefixed(child))
+	}
+	for _, child := range untracked {
+		result.untracked = append(result.untracked, prefixed(child))
+	}
+	for _, child := range ignored {
+		result.ignored = append(result.ignored, prefixed(child))
+	}
+	for _, child := range ignoredDirs {
+		result.ignoredDirs = append(result.ignoredDirs, prefixed(child))
+	}
+	for child := range gitlinks {
+		result.gitlinks[prefixed(child)] = true
+	}
+	return nil
 }
 
 // Sensitive-name rule sets. V1 is the rc22 built-in; V2 adds the credential

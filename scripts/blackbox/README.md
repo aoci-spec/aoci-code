@@ -30,7 +30,7 @@ the locale twin lane mints its two fixtures in a temp dir and removes them. When
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (92 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (93 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:
@@ -249,6 +249,13 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   that a new session has no base. The pending-compaction, share, and
   combination rules are locked by the package tests; conformance checks that
   `delta_since` with `check_only` or a cursor is refused before any read.
+- Group G (container directories, #54, since 0.2.0-rc2) builds a non-Git
+  container holding two child Git repositories and a plain tools directory,
+  runs `init` and `scan`, and checks through `scope status` and `scope
+  explain` that the container stays a non-Git root counting two child
+  repositories, that a file the child's `.gitignore` names is excluded as
+  `git_ignored`, that a tracked child source is `index`/`tracked`, and that a
+  file outside any child still enters by traversal.
 
 ## Run-by-name ladder
 

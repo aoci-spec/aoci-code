@@ -5,11 +5,11 @@
   },
   {
     "version": "cognition-migration-apply-envelope/v2",
-    "sha256": "dd11745e393b9d913d19721cc9857b7c14a7ca2cc5cb67504de963d47c44933a"
+    "sha256": "158e791595f4b43d584d5ab5afe703ba51bcb448a8d32c142c901393cc7c46cf"
   },
   {
     "version": "cognition-migration-apply-request/v2",
-    "sha256": "b58a25d843d128a185330730287b5d612b8101f165c01a1ffb706c5beb16753d"
+    "sha256": "75747b7536b6a1622e3c3d39add6794c519a89b3bc3fcf6272d9e43aa33e26b0"
   },
   {
     "version": "cognition-migration-apply-result/v2",
@@ -29,7 +29,7 @@
   },
   {
     "version": "cognition-migration-recovery/v2",
-    "sha256": "beda88b854f4ef2c5e78f261d45a5e61abe72c1744f70534faa8a65d181280b0"
+    "sha256": "938a37c7543bbb4650434fcf74b8c26d12e0f64fe79dd4436ebb3d3baf8ba862"
   },
   {
     "version": "cognition-migration-reversal-approval/v2",
@@ -41,7 +41,7 @@
   },
   {
     "version": "cognition-migration-reversal-recovery/v2",
-    "sha256": "4fc7b8085cb00bca1b133cc314015de526bfb0c74d625f51ae21697baef38866"
+    "sha256": "2e2022d15a50a983050db16982381f612f506a47394304eab0ba4bd9161aff3b"
   },
   {
     "version": "cognition-migration-transaction-status/v2",

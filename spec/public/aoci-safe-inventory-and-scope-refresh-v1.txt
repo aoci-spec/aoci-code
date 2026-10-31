@@ -24,9 +24,15 @@ Safe Inventory v2
 `safe-inventory/v2` combines Git facts, project configuration, Curation, and a
 built-in hard safety boundary. A Git repository contributes tracked paths,
 non-ignored untracked paths, and ignored path names using Git's own ignore
-semantics. A non-Git repository retains a secure name-only traversal. New
-non-ignored source files remain eligible; governance is not limited to tracked
-files.
+semantics. A non-Git root retains a secure name-only traversal for the paths
+outside any Git repository below it; a directory below it that holds a `.git`
+entry is a child repository, read through its own Git under the same boundary
+checks, so its tracked, non-ignored untracked, and ignored paths enter the
+inventory container-relative and its `.gitignore` holds. The container stays a
+non-Git root: `child_repositories` and `child_repository_roots` are additive
+facts, the Baseline keys stay container-relative, and a gitlink inside a child
+names a boundary as it does under a Git root. New non-ignored source files
+remain eligible; governance is not limited to tracked files.
 
 Managed Scope may ask Safe Inventory to retain otherwise-safe Git-ignored
 names as policy candidates. Their bodies remain unread until a winning index
