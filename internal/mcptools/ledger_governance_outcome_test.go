@@ -103,7 +103,7 @@ func TestLedgerNamesWhatBlockedMaintain(t *testing.T) {
 	}
 	event := events[len(events)-1]
 	if event.Result != ledger.ResultError || event.GovernanceResult != volumegovernance.ResultBlocked ||
-		event.Blocker != "observed_pending" || event.NextAction != machinecontract.MaintainActionAcknowledgeObserved ||
+		event.Blocker != "observed_pending" || event.NextAction != machinecontract.ActionReviewObservedEvidence ||
 		!flagIs(event.FormalWritesStarted, false) {
 		t.Fatalf("an observe review wait is not recognizable: %#v", event)
 	}

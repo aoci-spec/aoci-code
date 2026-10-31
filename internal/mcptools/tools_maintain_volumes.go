@@ -86,10 +86,28 @@ type volumeAuthoringBatch struct {
 }
 
 type volumeMaintainResult struct {
-	Version           int                              `json:"version"`
-	Status            string                           `json:"status"`
-	Result            string                           `json:"result"`
-	Aligned           bool                             `json:"aligned"`
+	Version    int    `json:"version"`
+	Status     string `json:"status"`
+	Result     string `json:"result"`
+	Aligned    bool   `json:"aligned"`
+	NextAction string `json:"next_action"`
+	// The continuation facts (action, instructions, commands, stop, batch,
+	// review listing) are serialized before the candidate and governance lists
+	// so that a Host reading the head of a large response acts on them (#162).
+	Instructions []string `json:"instructions,omitempty"`
+	// InstructionsRef replaces instructions and authoring_meta once this
+	// process has sent them in the current refresh generation
+	// (maintain_contract.go); include_instructions brings them back.
+	InstructionsRef *maintainInstructionsRef `json:"instructions_ref,omitempty"`
+	NextCommands    []string                 `json:"next_commands,omitempty"`
+	// Stop carries an asset-level fact no candidate can repair, found before a batch
+	// is issued, so that the model is not asked to author Entries the update path
+	// would have to refuse. Absent otherwise.
+	Stop  *GlobalStopFacts     `json:"stop,omitempty"`
+	Batch volumeAuthoringBatch `json:"authoring_batch"`
+	// ObserveReview lists the Observe evidence a review_required policy is
+	// waiting on, with the digest the observe_review intent confirms (#151).
+	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
 	RequestedScope    string                           `json:"requested_scope"`
 	AffectedDomains   []string                         `json:"affected_domains"`
 	Candidates        []volumeMaintainCandidate        `json:"candidates"`
@@ -97,28 +115,13 @@ type volumeMaintainResult struct {
 	Sets              volumeMaintainSets               `json:"sets"`
 	DatabasePlan      *dbcognition.Plan                `json:"database_plan,omitempty"`
 	CodePlan          *codebatch.Plan                  `json:"code_plan,omitempty"`
-	Batch             volumeAuthoringBatch             `json:"authoring_batch"`
 	Governance        *volumegovernance.TransportFacts `json:"governance"`
 	Receipt           cognitionReceipt                 `json:"cognition_receipt"`
 	Metrics           autoMetrics                      `json:"metrics"`
 	SemanticGenerated bool                             `json:"semantic_generated"`
 	NetworkAccessed   bool                             `json:"network_accessed"`
-	NextAction        string                           `json:"next_action"`
-	Instructions      []string                         `json:"instructions,omitempty"`
 	AuthoringMeta     string                           `json:"authoring_meta,omitempty"`
-	// InstructionsRef replaces instructions and authoring_meta once this
-	// process has sent them in the current refresh generation
-	// (maintain_contract.go); include_instructions brings them back.
-	InstructionsRef *maintainInstructionsRef     `json:"instructions_ref,omitempty"`
-	NextCommands    []string                     `json:"next_commands,omitempty"`
-	Optimization    *cognitionOptimizationStatus `json:"optimization,omitempty"`
-	// Stop carries an asset-level fact no candidate can repair, found before a batch
-	// is issued, so that the model is not asked to author Entries the update path
-	// would have to refuse. Absent otherwise.
-	Stop *GlobalStopFacts `json:"stop,omitempty"`
-	// ObserveReview lists the Observe evidence a review_required policy is
-	// waiting on, with the digest the observe_review intent confirms (#151).
-	ObserveReview *observeReviewListing `json:"observe_review,omitempty"`
+	Optimization      *cognitionOptimizationStatus     `json:"optimization,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -225,6 +228,20 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	default:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
 	}
+	// A withheld or completed batch must never ask the host to author candidates
+	// that were not issued: the batch action is the top-level action, including
+	// an empty blocked batch and an aligned one (#162).
+	result.Batch.NextAction = result.NextAction
+	if result.Result == volumegovernance.ResultBlocked {
+		var instructionErr error
+		result.Instructions, instructionErr = textassets.BlockedContinuationInstructions(textassets.ActiveLocale())
+		if result.NextAction == machinecontract.ActionReviewObservedEvidence {
+			result.Instructions, instructionErr = textassets.ObservedReviewInstructions(textassets.ActiveLocale())
+		}
+		if instructionErr != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
+		}
+	}
 	if len(result.Candidates) > 0 {
 		// Whichever arm was taken, a response that names candidates carries the
 		// contract to author them. Until v0.1.0-rc14 held sources were dressed as
@@ -237,7 +254,13 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}
+		// The continuation instructions of a blocked result that still lists
+		// candidates (orphans beside authoring work) stay ahead of the contract.
+		lead := append([]string{}, result.Instructions...)
 		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
+		if len(lead) > 0 {
+			result.Instructions = append(lead, result.Instructions...)
+		}
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
@@ -595,6 +618,13 @@ func blockingFinding(facts *volumegovernance.Facts, orphans []string) (string, s
 	if len(orphans) > 0 {
 		return "orphan", machinecontract.MaintainActionExplicitOrphanRemove
 	}
+	// Observe review is the blocker only when the facts chose it: finalize
+	// names it solely when no harder blocking finding exists, so a pending
+	// review beside a budget or scope stop never offers the acknowledge
+	// shortcut (#162).
+	if facts != nil && facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence {
+		return "observed_pending", machinecontract.ActionReviewObservedEvidence
+	}
 	codes := map[string]bool{}
 	if facts != nil {
 		for _, finding := range facts.Findings {
@@ -605,7 +635,6 @@ func blockingFinding(facts *volumegovernance.Facts, orphans []string) (string, s
 		{"recovery_pending", machinecontract.MaintainActionClosePendingRecovery},
 		{"baseline_missing", machinecontract.MaintainActionScanToEstablishBaseline},
 		{"scope_change_required", machinecontract.MaintainActionActivateScopeChange},
-		{"observed_pending", machinecontract.MaintainActionAcknowledgeObserved},
 		{"cognition_budget_exceeded", machinecontract.MaintainActionResolveCognitionBudget},
 	} {
 		if codes[step.code] {

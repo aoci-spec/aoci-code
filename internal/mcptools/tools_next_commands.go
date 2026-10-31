@@ -87,8 +87,11 @@ func blockedNextCommands(facts *volumegovernance.Facts) []string {
 		case "baseline_missing":
 			add(machinecontract.RemediationCommandScan)
 		case "observed_pending":
-			add(machinecontract.RemediationCommandScopeStatus,
-				machinecontract.RemediationCommandScopeAcknowledge)
+			add(machinecontract.RemediationCommandScopeStatus)
+			if facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence {
+				add(machinecontract.RemediationCommandScopeAcknowledge,
+					machinecontract.RemediationCommandAgentGuide)
+			}
 		case "scope_change_required":
 			add(machinecontract.RemediationCommandScopeStatus,
 				machinecontract.RemediationCommandScopeActivate)

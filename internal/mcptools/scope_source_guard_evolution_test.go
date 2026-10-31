@@ -142,6 +142,19 @@ func TestMixedCognitionEvolutionContinuesAfterObserveAcknowledge(t *testing.T) {
 		blocked.Governance.ManagedScope.ObservedPendingReview != 1 || blocked.Governance.DatabaseCognition.Summary.Stale != 1 {
 		t.Fatalf("first Maintain did not stop precisely for Observe review: %#v", blocked)
 	}
+	if blocked.NextAction != machinecontract.ActionReviewObservedEvidence || blocked.Batch.NextAction != blocked.NextAction {
+		t.Fatalf("withheld batch must request the same review action: %+v", blocked.Batch)
+	}
+	wire, err := json.Marshal(blocked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"next_action", "instructions", "next_commands", "authoring_batch"} {
+		position := strings.Index(string(wire), `"`+key+`"`)
+		if position < 0 || position > strings.Index(string(wire), `"candidates"`) || position > 8192 {
+			t.Fatalf("%s was buried behind candidates in Maintain", key)
+		}
+	}
 	candidates := scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
 		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{},
 		ObserveReview: &scopechange.ObserveReview{Paths: []string{observePath},
@@ -192,6 +205,9 @@ func TestMixedCognitionEvolutionContinuesAfterObserveAcknowledge(t *testing.T) {
 	}
 	if !final.Aligned || final.Result != volumegovernance.ResultAligned || final.Governance.DatabaseCognition.Summary.Current != 12 {
 		t.Fatalf("mixed evolution did not return to aligned: %#v", final)
+	}
+	if final.NextAction != "none" || final.Batch.NextAction != final.NextAction {
+		t.Fatalf("an aligned empty batch must not request authoring: %+v", final.Batch)
 	}
 	codeAfter := cognitionEntryLines(t, root, cognition.ScopeCode)
 	databaseAfter := cognitionEntryLines(t, root, cognition.ScopeDatabase)

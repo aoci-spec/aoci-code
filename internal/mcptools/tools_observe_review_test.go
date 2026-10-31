@@ -41,7 +41,7 @@ func blockedObserveListing(t *testing.T, root string) *observeReviewListing {
 	if err := json.Unmarshal([]byte(resText(t, handleMaintainInput(root, "test", maintainIn{}, nil))), &maintain); err != nil {
 		t.Fatal(err)
 	}
-	if maintain.Status != autoStatusStopped || maintain.NextAction != machinecontract.MaintainActionAcknowledgeObserved ||
+	if maintain.Status != autoStatusStopped || maintain.NextAction != machinecontract.ActionReviewObservedEvidence ||
 		maintain.ObserveReview == nil {
 		t.Fatalf("a pending observe review is not listed: %#v", maintain)
 	}
@@ -82,7 +82,7 @@ func TestObserveReviewListsTheEvidenceAndConfirmsIt(t *testing.T) {
 	if err := json.Unmarshal([]byte(resText(t, handleMaintainInput(root, "test", maintainIn{}, nil))), &after); err != nil {
 		t.Fatal(err)
 	}
-	if after.ObserveReview != nil || after.NextAction == machinecontract.MaintainActionAcknowledgeObserved {
+	if after.ObserveReview != nil || after.NextAction == machinecontract.ActionReviewObservedEvidence {
 		t.Fatalf("the reviewed evidence still blocks Maintain: %#v", after)
 	}
 	if again, _, _ := confirmObserveReview(t, root, listing.ReviewDigest, "codex-agent"); again.Status != machinecontract.ObserveReviewStatusNotPending {

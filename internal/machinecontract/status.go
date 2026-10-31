@@ -27,6 +27,10 @@ const (
 	MaintainActionResolveBlocker          = "resolve_blocker"
 )
 
+// ActionReviewObservedEvidence continues evidence review while authoring writes
+// remain blocked. It grants no approval or permission to advance fingerprints.
+const ActionReviewObservedEvidence = "review_observed_evidence"
+
 // Database Cognition values are the shared machine vocabulary for local
 // Evidence-to-FRAS authoring. They describe cognition state only; Database
 // Evidence Baseline drift remains a separate contract.

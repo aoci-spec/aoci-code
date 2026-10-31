@@ -81,15 +81,15 @@ type volumeAgentGuide struct {
 	Stage             string                     `json:"stage"`
 	Complete          bool                       `json:"complete"`
 	NextAction        string                     `json:"next_action"`
+	Instructions      []string                   `json:"instructions,omitempty"`
+	Commands          agentGuideCommands         `json:"commands"`
+	Stop              *volumeGuideStopFacts      `json:"stop,omitempty"`
+	Batch             *volumeGuideBatch          `json:"authoring_batch,omitempty"`
 	ExecutableTargets int                        `json:"executable_targets"`
 	AffectedDomains   []string                   `json:"affected_domains"`
 	Findings          []volumegovernance.Finding `json:"findings"`
 	Governance        *volumegovernance.Facts    `json:"governance,omitempty"`
-	Instructions      []string                   `json:"instructions,omitempty"`
-	Commands          agentGuideCommands         `json:"commands"`
 	AuthoringMeta     string                     `json:"authoring_meta,omitempty"`
-	Stop              *volumeGuideStopFacts      `json:"stop,omitempty"`
-	Batch             *volumeGuideBatch          `json:"authoring_batch,omitempty"`
 }
 
 type volumeGuideBatch struct {
@@ -214,6 +214,14 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_runtime_identity"))
 	}
 	if facts.Result == volumegovernance.ResultBlocked {
+		instructions, instructionErr := textassets.BlockedContinuationInstructions(textassets.ActiveLocale())
+		if facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence {
+			instructions, instructionErr = textassets.ObservedReviewInstructions(textassets.ActiveLocale())
+		}
+		if instructionErr != nil {
+			return nil, &ExitError{Code: ExitInternal, Err: instructionErr}
+		}
+		guide.Instructions = append(instructions, guide.Instructions...)
 		applyVolumeBlockedRemediation(&guide, facts)
 	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
@@ -328,20 +336,15 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 	// state to scope acknowledge; without this the Volumes Guide reported a bare
 	// observed_pending finding and no command, which is the same dead end as
 	// baseline_missing was before issue #8.
-	if observedPending {
-		instructions := []string{
-			cliMessage("guide.observed_review_instruction_evidence"),
-			cliMessage("guide.observed_review_instruction_ack"),
-		}
+	if observedPending && facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence {
 		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Commands.ScopeAcknowledge = "aoci " + machinecontract.RemediationCommandScopeAcknowledge
 		guide.Stop = &volumeGuideStopFacts{
 			AffectedAsset: ".aoci/baseline.json", Field: "observe", RuleCode: "observed_pending",
 			Expected: "observe_fingerprints_reviewed_and_acknowledged", Actual: "observe=pending_review",
 			Cause:          cliMessage("guide.observed_review_required"),
-			SafeNextAction: strings.Join(instructions, " "),
+			SafeNextAction: strings.Join(guide.Instructions, " "),
 		}
-		guide.Instructions = append(guide.Instructions, instructions...)
 	}
 	// A repository over its Whole-Index budget was handed a bare finding and, at
 	// most, `aoci scope status`. The only instruction it received said to compress

@@ -355,13 +355,31 @@ surface. The array is advisory: it changes no state,
 next_action remains the machine decision, and a Host that ignores it loses
 nothing the CLI Guide does not already say.
 
+When observed_pending is the only blocking finding, Guide and Maintain keep blocked (and Maintain keeps stopped)
+but set next_action to review_observed_evidence. The Agent continues by reading
+scope status, reviewing every reported ObservedNew/ObservedChanged/ObservedRemoved
+path and its affected evidence, and only then acknowledging the exact set under
+the existing authorization policy. Approval, drift, CAS, Recovery, and other
+safety boundaries still apply. After success the Agent requests a fresh Guide,
+follows its authoring batches, and completes Verify, Check, and Guide. Acknowledgement
+alone neither creates Entries nor completes indexing.
+
+Other blocking findings take precedence over this review action, including
+unknown findings; no observe acknowledgement shortcut is issued over them.
+Guide and Maintain serialize next_action, instructions, commands/next_commands,
+and stop facts before large findings, governance, or candidate lists. Ordinary Maintain's
+authoring_batch.next_action always equals its top-level next_action, including
+withheld and aligned empty batches. These presentation and continuation rules
+change no write permission, approval mechanism, or governance result.
+
 A blocked Maintain names its blocker in next_action. When
 orphan_remove_candidates is non-empty the value is
 explicit_orphan_remove_or_resolve_blocker; otherwise it is the first of
 close_pending_recovery, scan_to_establish_baseline, activate_scope_change,
-acknowledge_observed_evidence, and resolve_cognition_budget whose finding is
-present, and resolve_blocker when none is. A Host acting on the token alone
-never removes orphans that the result did not list.
+and resolve_cognition_budget whose finding is present, and resolve_blocker
+when none is. Observe-only blocking uses review_observed_evidence as defined
+above, superseding the earlier acknowledge_observed_evidence spelling. A Host
+acting on the token alone never removes orphans that the result did not list.
 
 A Maintain blocked by observed_pending also carries observe_review: the
 pending Observe evidence as path, change (new, changed, or removed), and the

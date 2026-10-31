@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "PR #161 landing: make fast green (make-fast-pr161.txt)"
+    "evidence": "PR #163 landing: Tier-0 gates inside make-verify-pr163.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/make-verify-l4.txt (item 9 L4: full gates green, conformance 56/0/4 dirty of 60, scenarios 86/86, lifecycle 93/2, axis-self 80/80)"
+    "evidence": ".aoci/dev-tools/make-verify-pr163.txt (PR #161+#163: full gates green, conformance 56/0/4 dirty of 60, lifecycle 93 PASS 2 CHAR, axis-self 80/80; scenarios 85/86 with F15 still on the old token, suite updated and re-run 86/86 in scenarios-pr163.txt)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/conformance-l4.txt (aligned record after governance 60/60; dirty run inside make-verify-l4.txt 56/0/4)"
+    "evidence": ".aoci/dev-tools/conformance-pr163.txt (aligned record after governance 60/60; dirty run inside make-verify-pr163.txt 56/0/4)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "PR #161 landing: group E 10/10 on build/aoci-pr (scenarios-E-pr161.txt); full 86/86 inside make-verify-l4.txt"
+    "evidence": ".aoci/dev-tools/scenarios-pr163.txt 86/86 on build/aoci-pr163 after F15 moved to review_observed_evidence"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 93 PASS 2 CHAR"
+    "evidence": "inside .aoci/dev-tools/make-verify-pr163.txt 93 PASS 2 CHAR"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-pr163.txt 80/80"
    }
   },
   {
@@ -249,7 +249,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/coverage-floors-l4.txt (13 packages at or above their floors; codebatch 78.7% after parallel_test.go)"
+    "evidence": ".aoci/dev-tools/coverage-floors-pr163.txt (13 packages at or above their floors; mcptools 82.8%)"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt"
+    "evidence": "inside .aoci/dev-tools/make-verify-pr163.txt (reordered Guide read by the updated smoke)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 15 (help groups + getting-started): scan clean over 305 files"
+    "evidence": "PR #163 landing: safety gate inside make-verify-pr163.txt"
    }
   },
   {
@@ -382,7 +382,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/index-quality-l4.txt (481 Entries, 10 floors, 0 broken)"
+    "evidence": ".aoci/dev-tools/index-quality-pr163.txt (0 broken after PR #163 landing)"
    }
   }
  ]
