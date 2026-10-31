@@ -244,9 +244,9 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
 name because no gate runs it for them: the release-time axis run with the
 published binary, the real-repository track, the Docker-only database suite,
 the nightly-only gates, and the model track. Each entry records its command,
-cadence (`change`, `closure`, `release`, `nightly`, `manual`), preconditions,
-and the last verification on record. `make verify` ends by printing the
-overdue entries, and `make ladder` prints them on demand:
+cadence (`change`, `closure`, `release`, `nightly`, `quarterly`, `manual`),
+preconditions, and the last verification on record. `make verify` ends by
+printing the overdue entries, and `make ladder` prints them on demand:
 
 ```bash
 python3 scripts/blackbox/ladder.py --check            # what is overdue or never recorded
@@ -258,6 +258,15 @@ The registry is kept by hand, so a stale record means nobody wrote the run
 down; that is the fact worth seeing. A new suite or harness is registered here
 in the same change that adds it, and the AOCI index Entry of the registry is
 how an agent finds the list at all.
+
+The `quarterly` cadence is for a review no gate runs: `dependency-review`
+runs `scripts/dependency-review.sh`, a read-only report that compares the
+go directive, every direct Go module, the openGauss connector pin, and every
+GitHub Action pin against what upstream publishes, and lists the open
+dependabot proposals. It is overdue after 92 days. The report decides
+nothing: a bump is a supply-chain decision a person takes with its own gate
+(`make licenses`, `make opengauss-connector`, the workflow pins), and the
+review's output file is the evidence the record names.
 
 ## Real-repository track
 

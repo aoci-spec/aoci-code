@@ -7,6 +7,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- A quarterly dependency review joins the run-by-name ladder
+  (`dependency-review`, the new `quarterly` cadence, overdue after 92 days).
+  `scripts/dependency-review.sh` is a read-only report: the go directive
+  against go.dev, every direct Go module against the module proxy, the
+  openGauss connector pin against the tags upstream publishes, every GitHub
+  Action pin against its newest release and the commit its comment claims,
+  and the open dependabot proposals. It upgrades nothing; a bump stays a
+  decision taken with its gate.
 - A Maintain round issues more candidates on the same transport budget
   (L3; #127 in part). Measured on real trees under the default 24 KiB budget,
   candidates a round before and after: RuoYi 22 to 28 on a process's first

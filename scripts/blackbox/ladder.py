@@ -17,10 +17,11 @@ a suite that is not in it is a suite nobody is asked to run.
 
 Cadences: change (every change, CI-owned), closure (every task closure through
 make verify), release (once per release, before or right after the tag),
-nightly (CI schedule), manual (on demand, with the precondition listed).
+nightly (CI schedule), quarterly (a review no gate runs, such as the
+dependency review), manual (on demand, with the precondition listed).
 A release-cadence contract is overdue when its last verified version is not
 the newest released heading in CHANGELOG.md (an Unreleased section above it
-is skipped); a closure or nightly contract when
+is skipped); a closure, nightly, or quarterly contract when
 its record is older than the age limit; manual contracts are listed, never
 overdue. The registry is maintained by hand through --mark, so a stale record
 means "nobody wrote it down", which is the fact worth seeing."""
@@ -29,7 +30,7 @@ import argparse, datetime, json, os, re, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 PATH = os.path.join(HERE, "ladder.json")
-AGE_DAYS = {"closure": 21, "nightly": 7, "change": 21}
+AGE_DAYS = {"closure": 21, "nightly": 7, "change": 21, "quarterly": 92}
 
 
 def top_release():

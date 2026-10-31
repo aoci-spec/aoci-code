@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "PR #160 landing: make fast green on the branch tree (make-fast-pr160.txt)"
+    "evidence": "item 18 (dependency review): make fast green (make-fast-dep.txt)"
    }
   },
   {
@@ -348,7 +348,23 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "PR #160 landing: scan clean over 303 files"
+    "evidence": "item 18 (dependency review): scan clean over 303 files"
+   }
+  },
+  {
+   "id": "dependency-review",
+   "cadence": "quarterly",
+   "command": "bash scripts/dependency-review.sh > .aoci/dev-tools/dependency-review-<date>.txt",
+   "proves": "What the repository pins is compared against what upstream publishes once a quarter: the go directive, every direct Go module, the openGauss connector tag and commit, every GitHub Action pin with its claimed version, and the open dependabot proposals; the report is read-only and an upgrade stays a supply-chain decision a person takes with its gate (make licenses, make opengauss-connector, the workflow pins)",
+   "preconditions": [
+    "network to go.dev, the Go module proxy, gitcode.com and github.com",
+    "gh authenticated for the dependabot listing (skipped without it)"
+   ],
+   "runs_in": [],
+   "last_verified": {
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/dependency-review-2026-10-31.txt (first record: 3 module updates, 4 Action updates, connector current, Go 1.26.10 current patch, dependabot x4 open)"
    }
   }
  ]
