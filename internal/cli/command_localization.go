@@ -22,6 +22,72 @@ var localizedFlagNames = []string{
 	"port", "host", "open", "also", "discover", "detach", "stop",
 }
 
+// Command groups: a parent that declares groups lists each group's members
+// under the group's localized title and every other child under "Additional
+// Commands". A newcomer reading `aoci --help` meets the five everyday
+// commands first; `aoci scope --help` sorts its seventeen subcommands into
+// what sets policy, what inspects it, and what runs a transaction. The titles
+// are text assets like every other help string and are re-rendered with the
+// locale; the membership is this table, so the help cannot name a command
+// the tree does not have (cobra refuses an unregistered group, and
+// groupCommands refuses an unregistered member).
+type commandGroup struct {
+	id      string
+	members []string
+}
+
+const (
+	commandGroupEveryday         = "everyday"
+	commandGroupScopePolicy      = "scope_policy"
+	commandGroupScopeInspect     = "scope_inspect"
+	commandGroupScopeTransaction = "scope_transaction"
+)
+
+var commandGroupTitles = map[string]string{
+	commandGroupEveryday:         "cli.help.group_everyday",
+	commandGroupScopePolicy:      "cli.help.group_scope_policy",
+	commandGroupScopeInspect:     "cli.help.group_scope_inspect",
+	commandGroupScopeTransaction: "cli.help.group_scope_transaction",
+}
+
+var rootCommandGroups = []commandGroup{
+	{id: commandGroupEveryday, members: []string{"init", "scan", "mcp", "verify", "check"}},
+}
+
+var scopeCommandGroups = []commandGroup{
+	{id: commandGroupScopePolicy, members: []string{"rule", "budget", "safety", "observe-policy", "approval-mode"}},
+	{id: commandGroupScopeInspect, members: []string{"explain", "show", "status", "preview"}},
+	{id: commandGroupScopeTransaction, members: []string{"plan", "apply", "activate", "resume", "rollback", "authorize", "approve", "acknowledge"}},
+}
+
+// commandGroupTitle renders a group title the way the usage template renders
+// the ungrouped section titles: the localized text followed by a colon.
+func commandGroupTitle(groupID string) string {
+	return cliMessage(commandGroupTitles[groupID]) + ":"
+}
+
+// groupCommands registers the groups on parent and assigns each member by
+// its command name. A member that is not a child is a programming error
+// that every help test would otherwise read as "ungrouped", so it panics.
+func groupCommands(parent *cobra.Command, groups []commandGroup) {
+	for _, group := range groups {
+		parent.AddGroup(&cobra.Group{ID: group.id, Title: commandGroupTitle(group.id)})
+		for _, name := range group.members {
+			var member *cobra.Command
+			for _, child := range parent.Commands() {
+				if child.Name() == name {
+					member = child
+					break
+				}
+			}
+			if member == nil {
+				panic(fmt.Sprintf("command group %s names %q, which is not a subcommand of %s", group.id, name, parent.CommandPath()))
+			}
+			member.GroupID = group.id
+		}
+	}
+}
+
 var commandShortMessages = map[string]string{
 	"aoci help":                                  "cli.short.help",
 	"aoci completion":                            "cli.short.completion",
@@ -202,6 +268,11 @@ func refreshCommandLocalization(root *cobra.Command) {
 		}
 		if render, exists := commandLongMessages[path]; exists {
 			command.Long = render()
+		}
+		for _, group := range command.Groups() {
+			if _, exists := commandGroupTitles[group.ID]; exists {
+				group.Title = commandGroupTitle(group.ID)
+			}
 		}
 		// Cobra assembles LocalNonPersistentFlags from scratch on every call,
 		// so both sets are taken once per command rather than once per name;

@@ -63,6 +63,7 @@ func newScopeCmd() *cobra.Command {
 	command.AddCommand(newScopeShowCmd(), newScopeExplainCmd(), newScopeRuleCmd(), newScopeSafetyCmd(), newScopePlanCmd(), newScopePreviewCmd(),
 		newScopeBudgetCmd(), newScopeObservePolicyCmd(), newScopeApprovalModeCmd(), newScopeApproveCmd(), newScopeAuthorizeCmd(), newScopeApplyCmd(), newScopeStatusCmd(),
 		newScopeResumeCmd(), newScopeRollbackCmd(), newScopeAcknowledgeCmd(), newScopeActivateCmd())
+	groupCommands(command, scopeCommandGroups)
 	return command
 }
 

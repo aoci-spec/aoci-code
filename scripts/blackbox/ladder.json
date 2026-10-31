@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 14 (L5 spec): make fast green (make-fast-l5.txt)"
+    "evidence": "item 15 (help groups + getting-started): make fast green (make-fast-l15.txt)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 14 (L5 spec): scan clean over 305 files"
+    "evidence": "item 15 (help groups + getting-started): scan clean over 305 files"
    }
   },
   {

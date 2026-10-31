@@ -7,6 +7,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- `aoci --help` lists the five everyday commands first (`init`, `scan`,
+  `mcp`, `verify`, `check`) under Everyday Commands and the rest under
+  Additional Commands, and `aoci scope --help` sorts its seventeen
+  subcommands into Policy, Inspect, and Transactions; the group titles are
+  locale text assets like every other help string. `docs/getting-started.md`
+  is rewritten as the first week in three steps: install and initialize,
+  connect the Agent and build the index, keep it aligned.
 - Spec: incremental Overview delivery (L5) is specified in the delivery
   contract for a 0.2.x release: an ordinary `aoci_overview` carrying
   `delta_since=<scope_identity>`, after a passing Attestation and a probe
