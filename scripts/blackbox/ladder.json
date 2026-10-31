@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 15 fix (literal group title keys): make fast green (make-fast-l15b.txt); internal/cli whole package short run green"
+    "evidence": "PR #161 landing: make fast green (make-fast-pr161.txt)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 86/86 (group L added)"
+    "evidence": "PR #161 landing: group E 10/10 on build/aoci-pr (scenarios-E-pr161.txt); full 86/86 inside make-verify-l4.txt"
    }
   },
   {

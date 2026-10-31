@@ -706,6 +706,14 @@ def group_e():
     NF = 260
     BUDGET = 24 * 1024
     fx = make_fixture("fx-large", NF)
+    # Known line counts tighten L3's byte reservation once their fingerprints
+    # are outside the racy window. Keep the Guide/first-Maintain comparison
+    # from straddling that window without sleeping or disabling the cache.
+    when = time.time() - 10
+    for directory, dirs, files in os.walk(fx):
+        dirs[:] = [d for d in dirs if d not in (".git", ".aoci")]
+        for name in files:
+            os.utime(os.path.join(directory, name), (when, when))
     s = Session(fx)
     m, t, err = maintain(s)
     plan = m.get("code_plan") or {}
