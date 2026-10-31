@@ -349,6 +349,141 @@ and the delivery-verified partial form is the corresponding
 All values come from the current Receipt and Attestation and are never hard
 coded.
 
+Incremental delivery (L5)
+-------------------------
+
+Status: specified in 0.2.0-rc2 for implementation in a 0.2.x release. A
+server that does not list the `overview_delta` capability in its capability
+manifest delivers only the complete modes above and rejects the request
+field below as an unknown argument, which the input schema already does.
+Nothing in this section changes a persisted identity, a formal asset, a
+Baseline receipt, the Attestation protocol, or the bytes a repository with
+the default configuration produces.
+
+Motivation. A long task reads the Whole-Index once and then changes it: the
+model authors Entries, Apply advances the Volume, and the next phase wants
+the system view again. Today that view is the complete scope again, at the
+full transport cost, although the model still holds the previous delivery
+and only the Entries it just wrote, and whatever third parties wrote,
+differ. The cognition probe (aoci-cognition-refresh-v1.txt section 11)
+already proves that retained cognition makes a re-delivery unnecessary;
+incremental delivery is what that proof buys: the objects that changed since
+the last attested body, and nothing else, attested over exactly that body.
+
+Request. `aoci_overview` accepts one optional, additive input,
+`delta_since`: the `scope_identity` of the delivery the Host holds as its
+current cognition. It applies to the Volumes v1 `all` scope only. With
+`check_only`, `probe`, `probe_answers`, a `cursor`, or a `scope` other than
+`all`, and on a Legacy layout, it is a bad-argument error. Continuation and
+proof calls of a delta chain carry the cursor and the proof halves exactly
+as a complete chain does and do not repeat `delta_since`.
+
+Base. The server keeps, in the MCP Host session, the base an incremental
+delivery is computed from: the scope identity, composite identity, Root and
+Meta digests, refresh generation, and the canonical object sequence as pairs
+of object identity and canonical-line SHA-256 of the most recent `all`
+delivery whose Attestation passed under aligned governance. It keeps no
+body. The base moves only on a passing Attestation under aligned governance,
+complete or incremental, is dropped by a partial or failed incremental
+Attestation, and is never persisted: a process restart, a foreign Host
+session, or a Legacy layout has no base.
+
+Eligibility. An incremental delivery is served only when every condition
+below holds; otherwise the call answers the complete scope, `delivery_mode`
+`full` or `chunked_full`, with the named `fallback_reason`, and the Host
+proceeds as for an ordinary complete request:
+
+* `delta_since` equals the retained base's scope identity
+  (`delta_base_unknown` otherwise);
+* the base receipt is reliable (`delta_base_unreliable`);
+* no `context_compaction` declaration is pending
+  (`delta_compaction_pending`): a known compaction takes the complete reload
+  of aoci-cognition-refresh-v1.txt section 4, and the capacity stop of its
+  section 12 is unchanged;
+* a cognition probe over the current index identity and generation passed
+  in this session before this request (`delta_probe_required`): the probe is
+  the machine proof that the Host still holds the base, and an incremental
+  body is meaningful only on top of held cognition;
+* the changed and added objects together are at most 50 percent of the
+  current objects (`delta_exceeds_share`): past that share the complete body
+  costs little more and proves more. When implemented, the compiled constant
+  in internal/machinecontract/numeric.go is the sole authority for the
+  share; this document records the candidate value.
+
+Delivery. The delta is the comparison of the current canonical object
+sequence with the base's: an object whose canonical-line digest differs is
+changed, an identity absent from the base is added, an identity absent from
+the current sequence is removed. The response answers `delivery_mode=delta`,
+or `chunked_delta` under the same Chunk formation, Receipt, cursor, and
+`chunk_tokens` rules as `chunked_full`, and its body is framed by the same
+start and end markers. The body holds the Root and Meta bytes only when
+their digest differs from the base's, and then, Volume by Volume in the
+current formal order, the Volume header, the minimal enclosing section
+headers needed to place each delivered object, and every changed or added
+Entry exactly once, never split. Unchanged Entries, unchanged sections, and
+removed objects are absent from the body. Metadata reports
+`base_scope_identity`, `base_refresh_generation`, `delta_object_count`, the
+current ordinals of the changed and of the added objects, the identities of
+the removed objects, and the current complete `scope_object_count`; the
+receipt is the ordinary receipt v2 of the current scope. A delta with no
+changed, added, or removed object and unchanged Root and Meta answers
+`delta` with an empty body, `completed=true`, no Challenge, and no proof to
+submit; it re-anchors the base at the current scope identity and advances
+nothing.
+
+Proof. The Host confirms the delta body exactly as a complete body: the same
+`overview-delivery-receipt/v1` over the delta body's bytes and SHA-256. The
+Challenge is drawn from the delivered objects only, ten distributed ordinals
+when at least ten were delivered and every ordinal otherwise, by the same
+stable-key selection, reported at their current ordinals. The Attestation
+echoes the current complete identity facts, the current Index SHA-256,
+Entry-sequence SHA-256, and Entry count, never the base's;
+`reported_entry_count`, `coverage_percent`, and `truncation_detected`
+describe the delta body. The pass share and the identity-miss rule are
+unchanged. A passing incremental Attestation under aligned governance
+records a reliable receipt, where `model_full_cognition_reliable=true` rests
+on the reliable base, the probe pass, and this Attestation together, moves
+the base to the current sequence, and consumes pending refresh reasons as a
+complete attempt does. A partial or failed incremental Attestation records
+an uncertain receipt, returns
+`delivery_guidance=full_system_claim_disabled_source_bound_task_continuation_allowed`,
+drops the base so that the next request is complete, and permits no semantic
+retry and no repair from local or historical information, exactly as for a
+complete chain.
+
+Governance. A delta under Dirty or Stale governance is delivered, marked
+`cognition_currency=dirty_or_stale` and `governance_aligned=false`, and
+issues no reliable receipt; the base does not move, so the delta the Host
+asks for after alignment is computed from the last reliable sequence and
+covers everything since. Pending Recovery and an incoherent snapshot fail
+closed without a body, as for a complete request.
+
+Boundaries. Incremental delivery establishes no initial cognition and
+answers no context-compaction reload: both remain the complete chain, and
+the Host rules of this contract and of the repository's agent instructions
+are unchanged. It changes no identity, formal asset, Baseline, Ledger schema,
+or receipt version; receipt and Metadata gain optional fields only. The MCP
+surface remains nine tools. The capability manifest lists `overview_delta`
+and adds `delta` and `chunked_delta` to `overview_delivery_modes`. Ledger
+records a delta delivery as `overview_delta_delivered` with
+`delivery_chain_id`, the base scope identity, and the changed, added, and
+removed counts; a fallback is the ordinary delivery event carrying its
+`fallback_reason`.
+
+Conformance the implementation must ship: a request without `delta_since`
+is byte-identical to this version's; after a passing complete Attestation,
+one Apply of K Entries, and a probe pass, the delta body holds exactly the K
+changed or added Entries and the Metadata names the removed identities, with
+the counts the ordinary receipt reports; a passing delta Attestation yields
+a reliable receipt, and a second delta after further writes is computed from
+the new base; without a probe pass, with a pending `context_compaction`,
+past the share, after a process restart, and against an identity that is
+not the base, the request answers the complete scope with the named
+`fallback_reason`; a partial delta Attestation records an uncertain receipt
+and the next request is complete; Dirty governance delivers the delta
+unreliable and keeps the base; an empty delta re-anchors without a proof;
+and a server without the capability rejects `delta_since`.
+
 Compatibility and safety
 ------------------------
 
