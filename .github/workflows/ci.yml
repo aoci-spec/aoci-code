@@ -62,6 +62,8 @@ jobs:
         run: |
           bash scripts/check-deps.sh
           bash scripts/check-public-text.sh
+          CGO_ENABLED=0 go build -o build/aoci-quality ./cmd/aoci
+          bash scripts/check-index-quality.sh build/aoci-quality
           go test -short -count=1 ./textassets ./internal/machinecontract ./internal/capability ./internal/cognitionbudget ./internal/managedscope
           go test -short -count=1 ./internal/mcptools
       - name: timing

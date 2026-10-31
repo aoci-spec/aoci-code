@@ -80,7 +80,9 @@ frozen-fixture lifecycle harness with an optional real-agent model track). They
 exercise the built binary strictly over its public MCP and CLI surfaces and are
 a good regression gate for forks and platform ports; see
 `scripts/blackbox/README.md` for commands, requirements, and result
-interpretation.
+interpretation. `scripts/check-index-quality.sh` holds the repository's own
+index to the floors in `scripts/index-quality-floors.txt`; CI runs it on every
+push, and a closure runs it after governance.
 
 ## Security reports
 

@@ -28,6 +28,7 @@ alone before, with every fast gate green.
 | Public text in `README*`, `docs/`, or `spec/` | `bash scripts/check-public-text.sh` |
 | Cutting a release | `make axis-self` on the candidate build before the tag; `python3 scripts/blackbox/realrepo.py` on RuoYi and excalidraw; the released binary over the previous and this version of the upgrade axis after the tag |
 | Adding or changing a suite or harness that no gate runs by itself | register or update it in `scripts/blackbox/ladder.json`; `make ladder` lists what is overdue |
+| Any governance round, after the final `aoci_update_entry` | `bash scripts/check-index-quality.sh build/aoci-<label>` — the index CI sees committed must hold the floors in `scripts/index-quality-floors.txt` |
 
 The three black-box suites drive a built binary from outside the process and
 have their own preconditions; `scripts/blackbox/README.md` documents them.

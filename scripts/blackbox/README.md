@@ -268,6 +268,15 @@ nothing: a bump is a supply-chain decision a person takes with its own gate
 (`make licenses`, `make opengauss-connector`, the workflow pins), and the
 review's output file is the evidence the record names.
 
+`index-quality` is the one `change`-cadence contract with a floor of its own:
+`scripts/check-index-quality.sh` takes `aoci --json index score` on this
+repository and holds it to `scripts/index-quality-floors.txt` (no violation
+in any dimension, a bounded share of C7+ Entries without an S, a healthy
+Whole-Index budget). Coverage and freshness are governance state, so the
+check reads zero only on an aligned tree: CI runs it on the committed tree,
+and a closure runs it after governance. A floor moves toward stricter;
+loosening one says why in the commit message.
+
 ## Real-repository track
 
 `perf_calls.py` is the per-call latency track behind the performance work:

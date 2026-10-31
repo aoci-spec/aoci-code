@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 11 (index score on Volumes): make fast green (make-fast-score2.txt), full internal/cli suite green (cli-tests-score.txt)"
+    "evidence": "item 12 (index quality floors): make fast green (make-fast-quality.txt)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 11 (index score on Volumes): scan clean over 303 files"
+    "evidence": "item 12 (index quality floors): scan clean over 303 files"
    }
   },
   {
@@ -365,6 +365,24 @@
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
     "evidence": ".aoci/dev-tools/dependency-review-2026-10-31.txt (first record: 3 module updates, 4 Action updates, connector current, Go 1.26.10 current patch, dependabot x4 open)"
+   }
+  },
+  {
+   "id": "index-quality",
+   "cadence": "change",
+   "command": "bash scripts/check-index-quality.sh build/aoci-<label>",
+   "proves": "This repository's own index holds the floors in scripts/index-quality-floors.txt: no violation in format, coverage, freshness, squota, dict, agent_ready, escale, or tagparse, at most the recorded share of C7+ Entries without an S, and a healthy Whole-Index budget; taken on the aligned tree after governance, which is the tree CI sees committed",
+   "preconditions": [
+    "a built binary",
+    "an aligned tree (run after governance; coverage and freshness are zero only then)"
+   ],
+   "runs_in": [
+    "ci.yml"
+   ],
+   "last_verified": {
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/index-quality-2026-10-31.txt (first record: 483 Entries, 10 floors, 0 broken; tamper clone with one E letter flipped breaks escale)"
    }
   }
  ]

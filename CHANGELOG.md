@@ -7,6 +7,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- The repository's own index has quality floors. `scripts/check-index-quality.sh`
+  takes `aoci --json index score` and holds it to
+  `scripts/index-quality-floors.txt`: no violation in any of the nine
+  dimensions, at most 8 percent of C7+ Entries without an S, a healthy
+  Whole-Index budget. CI runs it on every push (`contracts-and-safety`), a
+  closure runs it after governance, and the ladder records it as
+  `index-quality`. A floor only tightens without a reason in the commit
+  message.
 - `index score` reads a Cognition Volumes repository. Its nine dimensions
   keep their names and JSON shape; on Volumes they are projected from the
   governance facts `verify` and `check` report, so coverage and freshness

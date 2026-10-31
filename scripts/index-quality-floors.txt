@@ -1,0 +1,21 @@
+# Index quality floors for this repository's own Cognition Volumes index,
+# checked by scripts/check-index-quality.sh over `aoci --json index score` on
+# the committed tree (CI: contracts-and-safety; ladder: index-quality).
+#
+# Format: <key>=<value>. A dimension name of `aoci index score` sets the most
+# violations it may report; high_importance_s_absent_percent the most C7+
+# Entries without an S, in percent; budget_status the Whole-Index budget
+# status the score must report.
+#
+# A floor moves toward stricter as the index improves. Loosening one must say
+# why in the commit message, because it means the index got worse.
+format=0
+coverage=0
+freshness=0
+squota=0
+dict=0
+agent_ready=0
+escale=0
+tagparse=0
+high_importance_s_absent_percent=8
+budget_status=healthy
