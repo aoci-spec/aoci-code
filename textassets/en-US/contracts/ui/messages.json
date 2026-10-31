@@ -1102,5 +1102,13 @@
   "ui.error.detach_failed": "could not start the panel in the background: %s",
   "ui.error.registry": "cannot locate the panel registry (user cache directory): %s",
   "ui.error.legacy_page": "an unauthenticated legacy panel is still running; run aoci ui --stop for this repository before starting a new panel",
-  "overview.attestation.schema_expected": "Attestation schema rejected before semantic scoring. Every challenge_answers item requires exactly ordinal, object_identity, tag, core_f with additionalProperties=false. Use object_identity; object and object_ref are invalid."
+  "overview.attestation.schema_expected": "Attestation schema rejected before semantic scoring. Every challenge_answers item requires exactly ordinal, object_identity, tag, core_f with additionalProperties=false. Use object_identity; object and object_ref are invalid.",
+  "config.locale_entries_prospective": "Existing Entries keep the language they were written in; Entries created or updated from now on are authored in %s.",
+  "guide.recovery_pending.locale": "%s: run aoci config set locale <target> with the receipt's target; it resumes at the receipt's postimage, and a different target is refused until it completes",
+  "locale.baseline_root_stale": "the Baseline record of %s no longer matches the file; align the repository first (aoci verify, then the Agent Guide), then switch Locale",
+  "locale.switch_failed": "the Locale switch stopped before completion: %v (nothing outside the receipt under .aoci/transactions was changed by this step; run the same command again to resume)",
+  "locale.switch_pending_gate": "a Locale switch is still pending (%s): run aoci config set locale <target> with the same target to complete it; every other command waits until then",
+  "locale.switch_target_conflict": "a Locale switch to %s is still pending; run aoci config set locale %s to complete it before choosing another Locale",
+  "locale.volumes_use_config_set": "this repository already has a Volumes v1 index written in %s; change its Locale with aoci config set locale %s",
+  "volumes.authoring.locale": "Write the natural-language F/R/A/S prose of every candidate you create or update in %s, the project Locale. Existing Entries keep the language they were written in: their prose is not drift and is never rewritten for language alone."
 }

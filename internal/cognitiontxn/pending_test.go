@@ -19,7 +19,7 @@ func TestPendingRecognisesEveryReceiptKindAndForeignFiles(t *testing.T) {
 		}
 	}
 	for _, rel := range []string{"database-bootstrap-1.json", "bootstrap-2.json", "migration-3.json", "reversal-4.json",
-		"scope-5.json", "remove-6.json", "entries-7.json", "header-8.json", "note.json", "history/entries-9.json", "readme.txt"} {
+		"scope-5.json", "locale-10.json", "remove-6.json", "entries-7.json", "header-8.json", "note.json", "history/entries-9.json", "readme.txt"} {
 		if err := os.WriteFile(filepath.Join(directory, filepath.FromSlash(rel)), []byte("{}\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -36,7 +36,7 @@ func TestPendingRecognisesEveryReceiptKindAndForeignFiles(t *testing.T) {
 		"database-bootstrap-1.json": "database-bootstrap/1", "bootstrap-2.json": "bootstrap/2",
 		"migration-3.json": "migration/3", "reversal-4.json": "reversal/4", "scope-5.json": "scope/5",
 		"remove-6.json": "remove/6", "entries-7.json": "entries/7", "header-8.json": "header/8",
-		"note.json": OperationUnknown + "/note",
+		"locale-10.json": "locale/10", "note.json": OperationUnknown + "/note",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("pending=%v want=%v", got, want)
@@ -53,5 +53,18 @@ func TestPendingRecognisesEveryReceiptKindAndForeignFiles(t *testing.T) {
 	}
 	if _, ok := ParseReceiptName("remove-6.json.bak"); ok {
 		t.Fatal("a non-json name is not a receipt")
+	}
+	for _, receipt := range pending {
+		layout := receipt.LayoutTransaction()
+		switch receipt.Operation {
+		case "database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale":
+			if !layout {
+				t.Fatalf("%s rewrites the layout and must gate every MCP load", receipt.Filename)
+			}
+		default:
+			if layout {
+				t.Fatalf("%s is not a layout transaction", receipt.Filename)
+			}
+		}
 	}
 }

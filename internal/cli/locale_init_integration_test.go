@@ -17,7 +17,9 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -380,7 +382,11 @@ func TestChineseLocaleSuppressesUnlocalizedMigrationDiagnostics(t *testing.T) {
 	}
 }
 
-func TestLocaleCommandDoesNotRewriteVolumeMetaWithoutLifecycle(t *testing.T) {
+// `config set locale` on a Volumes repository is one transaction over the
+// Root's #Locale line, the team configuration, and the Baseline record of the
+// Root. Meta and Code keep their exact bytes: the switch creates no authoring
+// debt, and the managed AGENTS block is re-rendered in the new Locale.
+func TestLocaleCommandRewritesOnlyTheRootMarkerOfAVolumesRepository(t *testing.T) {
 	previousLocale := textassets.ActiveLocale()
 	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
 	root := t.TempDir()
@@ -403,16 +409,45 @@ func TestLocaleCommandDoesNotRewriteVolumeMetaWithoutLifecycle(t *testing.T) {
 		&stdoutBuffer,
 		&stderrBuffer,
 	)
-	if code != ExitConfig || !strings.Contains(stderrBuffer.String(), "Volumes v1") {
-		t.Fatalf("Volume Locale change did not fail closed: code=%d stderr=%s", code, stderrBuffer.String())
+	if code != ExitOK {
+		t.Fatalf("Volumes Locale switch failed: code=%d stdout=%s stderr=%s", code, stdoutBuffer.String(), stderrBuffer.String())
 	}
-	for rel, expected := range before {
+	for _, rel := range []string{"aoci.meta.txt", "aoci.code.txt"} {
 		actual, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(actual, expected) {
-			t.Fatalf("rejected Volume Locale change modified %s", rel)
+		if !bytes.Equal(actual, before[rel]) {
+			t.Fatalf("the Locale switch rewrote %s, which carries no Locale", rel)
 		}
+	}
+	rootAfter, err := os.ReadFile(filepath.Join(root, "aoci.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantRoot, err := index.ReplaceLocaleMarker(before["aoci.txt"], textassets.LegacyLocale)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rootAfter, wantRoot) {
+		t.Fatalf("Root changed beyond its #Locale line:\n%s", rootAfter)
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Locale != textassets.LegacyLocale || cfg.LocaleMigration != nil {
+		t.Fatalf("configuration after the switch: locale=%q migration=%+v", cfg.Locale, cfg.LocaleMigration)
+	}
+	agents, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hanTextPattern.Match(agents) {
+		t.Fatal("the managed AGENTS block was not re-rendered in zh-CN")
+	}
+	pending, err := cognitiontxn.Pending(root)
+	if err != nil || len(pending) != 0 {
+		t.Fatalf("the switch left a receipt pending: %v %v", pending, err)
 	}
 }

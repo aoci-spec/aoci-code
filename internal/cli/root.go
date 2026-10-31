@@ -190,7 +190,7 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
+func enforceCognitionRecoveryGate(command *cobra.Command, args []string) error {
 	root, err := resolveRepoRoot()
 	if err != nil {
 		// Repository-specific commands retain their existing localized root
@@ -208,13 +208,35 @@ func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
 	// Every pending receipt must allow the command: with a layout receipt
 	// beside an MCP write receipt, the narrower gate wins.
 	allowed := true
+	localePending := false
 	for _, transaction := range pending {
+		if transaction.Operation == localeSwitchOperation {
+			// A half-published Locale switch can show Root, configuration, and
+			// Baseline from different sides of its Intent. Only its own
+			// idempotent entry point may run; the immutable Intent rejects a
+			// different target there.
+			localePending = true
+			if !recoveryGateAllows(transaction.Operation, path) && !(path == "aoci config set" && len(args) == 2 && args[0] == "locale") {
+				allowed = false
+			}
+			continue
+		}
 		if !recoveryGateAllows(transaction.Operation, path) {
 			allowed = false
 		}
 	}
 	if allowed {
 		return nil
+	}
+	if localePending {
+		names := make([]string, 0, len(pending))
+		for _, transaction := range pending {
+			names = append(names, transaction.Filename)
+		}
+		return &ExitError{
+			Code: ExitInvalid, MachineCode: "cognition_recovery_pending",
+			Msg: cliMessage("locale.switch_pending_gate", strings.Join(names, ",")),
+		}
 	}
 	mcpReceiptsOnly := true
 	for _, transaction := range pending {

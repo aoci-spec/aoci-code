@@ -113,6 +113,15 @@ func Assemble(input Input) (Output, error) {
 		return Output{}, err
 	}
 	output.Instructions = append(output.Instructions, transportInstruction)
+	// The project Locale is prospective: it binds every candidate this contract
+	// produces and leaves the Entries already in the Volumes as they were
+	// written. Said here, in the contract itself, so a model never reads an
+	// older Entry in the other official language as drift to rewrite.
+	localeInstruction, err := textassets.Message(input.Locale, "volumes.authoring.locale", input.Locale)
+	if err != nil {
+		return Output{}, err
+	}
+	output.Instructions = append(output.Instructions, localeInstruction)
 	for _, domain := range orderedDomains(input.Domains) {
 		dictionary := input.Meta.Dictionaries[domain]
 		if dictionary == nil || !dictionary.HasObjectContract() {

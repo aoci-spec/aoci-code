@@ -43,7 +43,7 @@ type PendingTransaction struct {
 // the Overview guard stopped on any receipt file: a stale remove receipt
 // blocked full cognition delivery with Verify, Guide, and Maintain reporting
 // the repository aligned and nothing pointing at the file (#74).
-var receiptKinds = []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "remove", "entries", "header"}
+var receiptKinds = []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale", "remove", "entries", "header"}
 
 // OperationUnknown marks a .json file under .aoci/transactions/ that no AOCI
 // receipt kind wrote. It is still pending: a foreign file in the transaction
@@ -53,12 +53,13 @@ const OperationUnknown = "unknown"
 
 // LayoutTransaction reports whether the receipt belongs to a transaction that
 // rewrites the cognition layout itself (bootstrap, migration, reversal, scope,
-// database bootstrap). While one is pending no MCP tool can load the layout;
-// an MCP write receipt (remove, entries, header) is instead closed by the tool
-// that wrote it, which must be able to load the repository to do so.
+// database bootstrap, and the Locale switch, which rewrites the Root). While
+// one is pending no MCP tool can load the layout; an MCP write receipt
+// (remove, entries, header) is instead closed by the tool that wrote it, which
+// must be able to load the repository to do so.
 func (t PendingTransaction) LayoutTransaction() bool {
 	switch t.Operation {
-	case "database-bootstrap", "bootstrap", "migration", "reversal", "scope":
+	case "database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale":
 		return true
 	}
 	return false

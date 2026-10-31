@@ -66,7 +66,13 @@ cross-domain architecture, repository-wide boundaries, high-value negative
 space, layout declarations, dependencies, format version, and Locale. It must
 not contain ordinary code/database Entries, tag dictionaries, dynamic hashes,
 counts, alignment state, receipts, sessions, timestamps, Git identity,
-credentials, DSNs, or environment data.
+credentials, DSNs, or environment data. Its `#Locale` line is the project
+Locale and must agree with the configured `locale`: `config set locale`
+replaces that one line through the CLI transaction the CLI runtime contract
+describes, without touching any other Volume, and a disagreement is the
+governance finding `root_locale_mismatch`, repaired by that same command.
+Locale is prospective: existing objects keep the language they were authored
+in, and only objects created or updated afterwards use the new Locale.
 
 aoci.meta.txt begins with #AOCI-META-VOLUME: 1. It is the only Volume authority
 for Repository Cognition Object v2, canonical FRAS, S admission, density

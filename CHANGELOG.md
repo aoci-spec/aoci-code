@@ -7,6 +7,22 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- `aoci config set locale` works on a Volumes v1 repository. It used to be
+  refused once the index existed, so a repository created in one Locale
+  could not move to the other without being rebuilt. The switch is one
+  resumable transaction over the Root's `#Locale` line, the team
+  configuration, and the Baseline record of the Root; the Meta, Code, and
+  Database Volumes are guards and keep their bytes, so no Entry is rewritten.
+  Locale is prospective: existing Entries keep their language, Entries
+  created or updated afterwards use the new one, and the Maintain contract
+  says so. A crash leaves `locale-<id>.json` under `.aoci/transactions`,
+  which the same command resumes while every other command waits; a Root
+  whose `#Locale` disagrees with the configured `locale` is the governance
+  finding `root_locale_mismatch`, repaired by the same command; an absent
+  team file takes the Root's explicit marker as the project Locale.
+  `init --locale` on an existing Volumes repository points to this command.
+  Ported from dignfei's Locale-switch transaction in #28 (tracked in #34)
+  onto the Volumes layout.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

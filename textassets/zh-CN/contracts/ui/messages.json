@@ -1102,5 +1102,13 @@
   "ui.error.detach_failed": "无法在后台启动面板：%s",
   "ui.error.registry": "无法定位面板登记目录（用户缓存目录）：%s",
   "ui.error.legacy_page": "旧版未认证面板仍在运行；请先对本仓库运行 aoci ui --stop，再启动新面板",
-  "overview.attestation.schema_expected": "Attestation Schema 在语义评分前拒绝了请求。challenge_answers 的每项必须且只能包含 ordinal、object_identity、tag、core_f，additionalProperties=false。请使用 object_identity；object 和 object_ref 无效。"
+  "overview.attestation.schema_expected": "Attestation Schema 在语义评分前拒绝了请求。challenge_answers 的每项必须且只能包含 ordinal、object_identity、tag、core_f，additionalProperties=false。请使用 object_identity；object 和 object_ref 无效。",
+  "config.locale_entries_prospective": "已有 Entry 保留其写成时的语言；从现在起新建或更新的 Entry 以 %s 创作。",
+  "guide.recovery_pending.locale": "%s：以回执中的目标重新运行 aoci config set locale <target>；它从回执的后像处续接，完成前拒绝其他目标",
+  "locale.baseline_root_stale": "Baseline 对 %s 的记录已与文件不一致；先对齐仓库（aoci verify，然后 Agent Guide），再切换 Locale",
+  "locale.switch_failed": "Locale 切换在完成前停止：%v（本步骤没有改动 .aoci/transactions 回执之外的任何内容；再次运行同一命令即可续接）",
+  "locale.switch_pending_gate": "有一次 Locale 切换尚未完成（%s）：用同一目标重新运行 aoci config set locale <target> 完成它；在此之前其他命令都要等待",
+  "locale.switch_target_conflict": "切换到 %s 的 Locale 事务尚未完成；先运行 aoci config set locale %s 完成它，再选择其他 Locale",
+  "locale.volumes_use_config_set": "此仓库已有以 %s 写成的 Volumes v1 索引；请用 aoci config set locale %s 更改其 Locale",
+  "volumes.authoring.locale": "每个新建或更新的候选，其 F/R/A/S 自然语言一律使用项目 Locale %s。已有 Entry 保留其写成时的语言：那些文字不是漂移，也绝不会仅因语言而被重写。"
 }

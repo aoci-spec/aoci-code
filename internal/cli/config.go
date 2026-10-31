@@ -98,6 +98,7 @@ func init() {
 			}
 
 			key, value := args[0], args[1]
+			var localeOutcome localeSwitchOutcome
 			parseBool := func(raw string) (bool, error) {
 				switch strings.ToLower(raw) {
 				case "true":
@@ -142,9 +143,20 @@ func init() {
 						Msg:  cliMessage("config.unsupported_locale", value),
 					}
 				}
-				if err := prepareLocaleChange(root, cfg, value); err != nil {
-					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				// On a Volumes v1 repository this is one transaction over the
+				// Root's #Locale line, this file, and the Baseline record of the
+				// Root; it has saved the team file itself when it returns. The
+				// configuration-only cases (no index, a Legacy index) save inside
+				// it too, so the common Save below is skipped for this key.
+				committed, outcome, switchErr := applyLocaleSwitch(root, value)
+				if switchErr != nil {
+					if strings.HasPrefix(switchErr.Error(), "locale_switch_") {
+						return &ExitError{Code: ExitConfig, Msg: cliMessage("locale.switch_failed", switchErr)}
+					}
+					return &ExitError{Code: ExitConfig, Msg: switchErr.Error()}
 				}
+				cfg = committed
+				localeOutcome = outcome
 			case "hook_strict":
 				parsed, parseErr := parseBool(value)
 				if parseErr != nil {
@@ -256,8 +268,10 @@ func init() {
 				}
 			}
 
-			if err := config.Save(root, cfg); err != nil {
-				return errors.New(cliMessage("config.write_error", err))
+			if key != "locale" {
+				if err := config.Save(root, cfg); err != nil {
+					return errors.New(cliMessage("config.write_error", err))
+				}
 			}
 			if key == "locale" {
 				if err := ensureManagedAgentsLocale(root, value); err != nil {
@@ -310,6 +324,9 @@ func init() {
 			if !flagQuiet {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("config.saved", key))
 				if key == "locale" {
+					if localeOutcome == localeSwitchApplied {
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage("config.locale_entries_prospective", value))
+					}
 					if cfg.LocaleMigration != nil {
 						_, _ = fmt.Fprintln(cmd.OutOrStdout(), cliMessage(
 							"config.locale_migration_pending",

@@ -542,6 +542,7 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	// repository differently and only one of them named a file.
 	assessFormalAsset(root, cfg, state, set.Root.Descriptor.Path, "root", facts)
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
+	assessRootLocale(cfg, set, facts)
 
 	// One managed state per assessment: assessCode loads it for the Code
 	// verdict and the business-source manifest below is built from the same
@@ -641,6 +642,30 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	}
 	finalize(facts)
 	return facts, nil
+}
+
+// assessRootLocale reports a Root whose #Locale line disagrees with the
+// configured project Locale. The authoring contract, the Guide, and every
+// Host read the configured Locale while readers of the formal bytes see the
+// Root's, so the two must name one language. The switch transaction keeps
+// them together; a hand edit of either file is what produces this finding,
+// and the one safe repair is the same transaction, run with the configured
+// Locale (Root follows configuration) or the Root's (configuration follows
+// Root).
+func assessRootLocale(cfg *config.Config, set *cognition.Set, facts *Facts) {
+	if len(set.Root.Raw) == 0 || strings.TrimSpace(cfg.Locale) == "" {
+		return
+	}
+	rootLocale, explicit, err := index.DetectLocale(string(set.Root.Raw))
+	if err != nil || !explicit || rootLocale == cfg.Locale {
+		return
+	}
+	facts.Findings = append(facts.Findings, Finding{
+		Code:             "root_locale_mismatch",
+		Target:           set.Root.Descriptor.Path,
+		Cause:            "config_locale_differs_from_root_locale",
+		SafeRepairAction: "aoci config set locale " + cfg.Locale + " (Root follows configuration) or aoci config set locale " + rootLocale + " (configuration follows Root): one transaction over Root, configuration, and Baseline",
+	})
 }
 
 func enabledAsset(set *cognition.Set, id string) *cognition.Asset {

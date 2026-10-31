@@ -53,6 +53,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	"github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -588,9 +589,17 @@ func applyTeamJSONFile(repoRoot string, cfg *Config, materializeLegacyLocale boo
 			// team config is also a legacy project. Materialize zh-CN without
 			// touching the index; a truly new repository has neither file and
 			// keeps the en-US default.
+			// A Volumes Root carries an explicit #Locale marker, and that marker
+			// is the project Locale when the team file is gone; only a markerless
+			// historical index resolves to zh-CN (index.DetectLocale keeps both
+			// rules). Reading Entry prose to guess a language is never done.
 			legacyIndex := filepath.Join(repoRoot, filepath.FromSlash(cfg.IndexPath))
-			if _, indexErr := os.Stat(legacyIndex); indexErr == nil {
-				cfg.Locale = textassets.LegacyLocale
+			if indexData, indexErr := os.ReadFile(legacyIndex); indexErr == nil {
+				locale, _, detectErr := index.DetectLocale(string(indexData))
+				if detectErr != nil {
+					return fmt.Errorf("detect project locale from %s: %w", legacyIndex, detectErr)
+				}
+				cfg.Locale = locale
 				cfg.Version = 2
 				if materializeLegacyLocale {
 					if saveErr := saveToPath(configPath, repoRoot, cfg); saveErr != nil {
@@ -861,6 +870,21 @@ func applyJSONFileIfExists(
 	return nil
 }
 
+// MarshalBase validates and normalizes cfg exactly as Save does and returns
+// the bytes Save would write. A transaction that publishes the team file
+// together with other formal assets under CAS binds its postimage to these
+// bytes, so the file it publishes is byte-identical to what Save produces.
+func MarshalBase(cfg *Config) ([]byte, error) {
+	if err := normalizeForSave(cfg); err != nil {
+		return nil, err
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("configuration serialization failed: %w", err)
+	}
+	return append(data, '\n'), nil
+}
+
 // Save writes the team-layer config.json.
 //
 // The given cfg must come from LoadBase or a fresh construction, never from the merged state of Load.
@@ -868,6 +892,21 @@ func Save(
 	repoRoot string,
 	cfg *Config,
 ) error {
+	if err := normalizeForSave(cfg); err != nil {
+		return err
+	}
+
+	return saveToPath(
+		FilePath(repoRoot),
+		repoRoot,
+		cfg,
+	)
+}
+
+// normalizeForSave is the validation and normalization every team-file write
+// applies before serialization; Save and MarshalBase share it so a CAS
+// transaction cannot publish a configuration Save would have refused.
+func normalizeForSave(cfg *Config) error {
 	if err := normalizeAutomationConfig(cfg); err != nil {
 		return err
 	}
@@ -902,12 +941,7 @@ func Save(
 		return err
 	}
 	cfg.Version = 2
-
-	return saveToPath(
-		FilePath(repoRoot),
-		repoRoot,
-		cfg,
-	)
+	return nil
 }
 
 // SaveLocal writes only the personal override surface.

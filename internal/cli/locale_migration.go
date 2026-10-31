@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/hooks"
 	"github.com/aoci-spec/aoci-code/internal/index"
@@ -31,10 +32,6 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 			cfg.LocaleMigration.ToLocale,
 		))
 	}
-	if err := requireLegacyWriteLayout(root, cfg, true); err != nil {
-		return err
-	}
-
 	indexPath := filepath.Join(root, filepath.FromSlash(cfg.IndexPath))
 	data, err := os.ReadFile(indexPath)
 	if err != nil {
@@ -48,6 +45,12 @@ func prepareLocaleChange(root string, cfg *config.Config, target string) error {
 	fromLocale, _, err := index.DetectLocale(string(data))
 	if err != nil {
 		return errors.New(cliMessage("locale.detect_index_error", err))
+	}
+	if layout, layoutErr := cognition.DetectLayout(data); layoutErr == nil && layout == cognition.LayoutVolumesV1 {
+		// A Volumes Root changes Locale only through the switch transaction
+		// behind `config set locale`, which decides for itself whether the
+		// target is already in force; init is not that path.
+		return errors.New(cliMessage("locale.volumes_use_config_set", fromLocale, target))
 	}
 	if fromLocale == target {
 		cfg.Locale = target

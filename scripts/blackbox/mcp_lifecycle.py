@@ -460,6 +460,7 @@ def suite_bringup(rep, work):
     suite_bringup_remove_entry(rep, work)
     suite_bringup_machine_documents(rep, work)
     suite_bringup_locale_twins(rep, work)
+    suite_bringup_locale_switch(rep, work)
 
 
 # ---------------------------------------------------------------- bringup lanes
@@ -913,6 +914,68 @@ def suite_bringup_locale_twins(rep, work):
     ok = en["aligned"] and zh["aligned"] and en["rounds"] == zh["rounds"]
     rep.rec(g, "repo-a.zh-CN.aligned-in-the-same-rounds-as-en-US", "PASS" if ok else "FAIL",
             f"en aligned={en['aligned']} rounds={en['rounds']} | zh aligned={zh['aligned']} rounds={zh['rounds']} {zh['detail'][:60]}")
+
+
+def read_bytes(fx, rel):
+    with open(os.path.join(fx, rel), "rb") as handle:
+        return handle.read()
+
+
+def pending_receipts(fx):
+    directory = os.path.join(fx, ".aoci", "transactions")
+    if not os.path.isdir(directory):
+        return []
+    return sorted(name for name in os.listdir(directory) if name.endswith(".json"))
+
+
+def suite_bringup_locale_switch(rep, work):
+    """repo-a aligned under en-US, then `config set locale zh-CN`.
+
+    The switch is one transaction over the Root's #Locale line, the team
+    configuration, and the Baseline record of the Root: Meta and Code keep
+    their exact bytes, no receipt stays pending, the only new authoring work
+    is the AGENTS.md whose managed block was re-rendered, operator output is
+    in the new Locale, and switching back restores the Root byte for byte.
+    """
+    g = "bringup"
+    fx = deploy("a", work, "locale-switch")
+    init_and_scan(fx, locale="en-US")
+    ok_all, rounds, detail = author_all(fx)
+    al0, _ = aligned(fx)
+    formal = ("aoci.txt", "aoci.meta.txt", "aoci.code.txt")
+    before = {rel: read_bytes(fx, rel) for rel in formal}
+    rc, body, out, errs = cli(fx, "config", "set", "locale", "zh-CN", expect_ok=False)
+    after = {rel: read_bytes(fx, rel) for rel in formal}
+    root_marker = b"#Locale: zh-CN" in after["aoci.txt"]
+    root_rest_same = after["aoci.txt"].replace(b"#Locale: zh-CN", b"#Locale: en-US", 1) == before["aoci.txt"]
+    volumes_same = all(after[rel] == before[rel] for rel in ("aoci.meta.txt", "aoci.code.txt"))
+    baseline = json.load(open(os.path.join(fx, ".aoci", "baseline.json"), encoding="utf-8"))
+    root_bound = (baseline.get("files") or {}).get("aoci.txt", {}).get("sha256") == hashlib.sha256(after["aoci.txt"]).hexdigest()
+    rc_get, got, _, _ = cli(fx, "config", "get", "locale", expect_ok=False)
+    ok = (ok_all and al0 and rc == 0 and body.get("ok") is True and body.get("restart_mcp_required") is True
+          and "locale_migration" not in body and root_marker and root_rest_same and volumes_same and root_bound
+          and not pending_receipts(fx) and got == "zh-CN")
+    rep.rec(g, "repo-a.locale-switch.root-marker-config-baseline-in-one-transaction", "PASS" if ok else "FAIL",
+            f"aligned_before={ok_all and al0} rc={rc} body={json.dumps(body)[:120]} marker={root_marker} rest_same={root_rest_same} "
+            f"volumes_same={volumes_same} root_bound={root_bound} pending={pending_receipts(fx)} get={got!r} {(out + errs)[:120]}")
+    rc, v, _, _ = cli(fx, "verify", expect_ok=False)
+    findings = (v.get("governance") or {}).get("findings") or []
+    only_agents = all(f.get("target") == "AGENTS.md" for f in findings)
+    ok2, rounds2, detail2 = author_all(fx)
+    al2, _ = aligned(fx)
+    ok = only_agents and ok2 and al2 and rounds2 <= 1
+    rep.rec(g, "repo-a.locale-switch.only-the-agents-block-entry-is-new-work", "PASS" if ok else "FAIL",
+            f"findings={[(f.get('code'), f.get('target')) for f in findings][:4]} authored_ok={ok2} rounds={rounds2} aligned={al2} {detail2[:60]}")
+    rc_h, text = human(fx, "scope", "status")
+    rep.rec(g, "repo-a.locale-switch.operator-output-in-zh-CN", "PASS" if rc_h == 0 and has_cjk(text) else "FAIL",
+            text[:120] if not (rc_h == 0 and has_cjk(text)) else "")
+    rc, body, out, errs = cli(fx, "config", "set", "locale", "en-US", expect_ok=False)
+    back = read_bytes(fx, "aoci.txt")
+    ok3, rounds3, detail3 = author_all(fx)
+    al3, _ = aligned(fx)
+    ok = rc == 0 and back == before["aoci.txt"] and ok3 and al3 and not pending_receipts(fx)
+    rep.rec(g, "repo-a.locale-switch.round-trip-restores-root-bytes-and-aligns", "PASS" if ok else "FAIL",
+            f"rc={rc} root_restored={back == before['aoci.txt']} authored_ok={ok3} rounds={rounds3} aligned={al3} {(out + errs)[:120]}")
 
 
 def suite_cognition_visibility(rep, work):

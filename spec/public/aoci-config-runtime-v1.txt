@@ -10,7 +10,12 @@ Runtime loading applies safe defaults, then the team file, then eligible local
 overrides. Team-owned governance fields cannot be changed by the local layer.
 
 The configured `index_path` selects the cognition root. `locale` selects one
-official Locale for generated assets and process output. Inventory exclusions,
+official Locale for generated assets, process output, and every Entry created
+or updated from then on; changing it on a Volumes v1 repository is the
+transaction the CLI runtime contract describes, which rewrites only the
+Root's `#Locale` line and leaves every existing Entry's language as written.
+When the team file is absent, an explicit Root `#Locale` marker is the
+project Locale and a markerless historical index remains `zh-CN`. Inventory exclusions,
 curation exclusions, line-ending policy, cognition refresh threshold, Overview
 delivery framing, managed scope, cognition budget, automation, Database Source
 declarations, authoring batch sizes and the Maintain transport budget

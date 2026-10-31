@@ -14,8 +14,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "item 17 batch 7 (remaining packages' comments): make fast green (make-fast-c17-rest.txt)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-fast-034.txt (#34 locale switch: make fast green)"
    }
   },
   {
@@ -32,8 +32,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/make-verify-l54.txt (#54 container inventory: full gates green, conformance 58/0/4 dirty of 62, scenarios 93/93, lifecycle 93 PASS 2 CHAR, axis-self 80/80)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-verify-034.txt (#34 locale switch: all deterministic gates green, conformance 58/0/4 dirty of 62, scenarios 93/93, lifecycle 97 PASS 2 CHAR, axis-self 80/80)"
    }
   },
   {
@@ -51,8 +51,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/conformance-l54.txt (aligned record after governance 62/62; dirty run inside make-verify-l54.txt 58/0/4)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/conformance-034.txt (after governance, 62/62)"
    }
   },
   {
@@ -71,8 +71,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 93/93 (group G added)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-verify-034.txt (93/93)"
    }
   },
   {
@@ -88,8 +88,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 93 PASS 2 CHAR"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-verify-034.txt (97 PASS 2 CHAR, new locale-switch lane 4/4)"
    }
   },
   {
@@ -170,8 +170,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt 80/80"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-verify-034.txt (80/80)"
    }
   },
   {
@@ -248,8 +248,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/coverage-floors-l54.txt (13 packages at or above their floors; fs 83.8% after the dead traversal left)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/coverage-floors-034.txt (13 packages at or above floors, cli 69.0%)"
    }
   },
   {
@@ -314,8 +314,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l54.txt"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-verify-034.txt"
    }
   },
   {
@@ -347,8 +347,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": "#54 container inventory: safety gate inside make-verify-l54.txt"
+    "date": "2026-11-01",
+    "evidence": "307 files clean (#34 locale switch docs and specs)"
    }
   },
   {
@@ -381,8 +381,8 @@
    ],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/index-quality-l54.txt (0 broken after the container inventory)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/index-quality-034.txt (after governance)"
    }
   }
  ]

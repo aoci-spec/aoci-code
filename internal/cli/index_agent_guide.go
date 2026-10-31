@@ -441,6 +441,8 @@ func recoveryPendingAction(operation, file string) string {
 		return cliMessage("guide.recovery_pending.reversal", file)
 	case "scope":
 		return cliMessage("guide.recovery_pending.scope", file)
+	case localeSwitchOperation:
+		return cliMessage("guide.recovery_pending.locale", file)
 	}
 	return cliMessage("guide.recovery_pending.unknown", file)
 }

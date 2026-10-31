@@ -213,3 +213,26 @@ func instructionIndex(instructions []string, wanted string) int {
 	}
 	return -1
 }
+
+// The project Locale is prospective: the contract says so in its own words,
+// in the Locale it is built for, so a model never reads an older Entry in the
+// other official language as drift to rewrite.
+func TestContractNamesTheProjectLocaleForNewCandidatesOnly(t *testing.T) {
+	for _, locale := range []string{textassets.DefaultLocale, textassets.LegacyLocale} {
+		template, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
+		if err != nil {
+			t.Fatal(err)
+		}
+		output, err := Build([]byte(template), []string{cognition.ScopeCode}, locale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want, err := textassets.Message(locale, "volumes.authoring.locale", locale)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if instructionIndex(output.Instructions, want) < 0 || !strings.Contains(want, locale) {
+			t.Fatalf("%s contract does not carry the prospective Locale instruction: %#v", locale, output.Instructions)
+		}
+	}
+}

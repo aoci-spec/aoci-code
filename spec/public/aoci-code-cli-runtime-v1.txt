@@ -155,9 +155,27 @@ never prose), and `set` emits one result object:
     pending: `header_pending` (boolean), `entry_paths` and `curation_paths`
     (counts), the same numbers human output prints
 
+On a Volumes v1 layout, `set locale` to a different Locale is one resumable
+transaction, published under the index lock in this order: the Root
+`aoci.txt` with only its `#Locale` line replaced, the team
+`.aoci/config.json`, and, when the Baseline records the Root,
+`.aoci/baseline.json` with that record moved to the new Root bytes. Each
+publish is against the exact preimage the receipt names; the Meta, Code, and
+Database Volumes are guards that must be unchanged before every publish and
+are never written. The receipt is `locale-<id>.json` under
+`.aoci/transactions`: while it is pending every other command exits 2 with
+`cognition_recovery_pending`, the Agent Guide names it, running the same
+command with the same target resumes it, and another target exits 3. A
+Baseline record of the Root that no longer matches the file exits 3 before
+any write. When the Ledger is enabled the terminal event
+`locale_switch_apply` is written once. `locale_migration` is absent for this
+layout; the same Locale exits 0 and writes nothing. The managed AGENTS block
+is re-rendered in the new Locale after the transaction completes.
+
 On a Legacy single-file index, `set locale` to a Locale other than the one
 the index was written in exits 3 before any write: that index is read-only
-until it migrates to Volumes v1.
+until it migrates to Volumes v1. `init --locale` on a repository whose
+Volumes index exists exits 3 and names `config set locale` as the command.
 
 The accepted keys are the ones the unknown-key message lists. An unknown key
 or an invalid value exits 3 with the ordinary version-1 error envelope before
