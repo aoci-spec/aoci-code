@@ -14,7 +14,7 @@ const (
 	errorInvalidParameter = syscall.Errno(87)
 )
 
-// processIdentity以Windows进程创建FILETIME绑定PID，能识别PID复用。
+// processIdentity binds the PID to the Windows process creation FILETIME, which detects PID reuse.
 func processIdentity(pid int) (string, bool, bool) {
 	handle, err := syscall.OpenProcess(syscall.PROCESS_QUERY_INFORMATION, false, uint32(pid))
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 	"syscall"
 )
 
-// processIdentity使用/proc stat的进程启动tick绑定PID，能识别PID复用。
+// processIdentity binds the PID to the process start tick from /proc stat, which detects PID reuse.
 func processIdentity(pid int) (string, bool, bool) {
 	err := syscall.Kill(pid, 0)
 	switch {
@@ -31,12 +31,12 @@ func processIdentity(pid int) (string, bool, bool) {
 		return "", true, false
 	}
 	fields := strings.Fields(string(data[closing+1:]))
-	// 右括号后的首字段是stat字段3；进程启动tick为字段22，即下标19。
+	// The first field after the closing parenthesis is stat field 3; the start tick is field 22, index 19.
 	if len(fields) <= 19 {
 		return "", true, false
 	}
-	// stat字段3是进程状态；zombie/dead进程仍可能让kill(pid,0)成功，
-	// 但已经不可能继续持有或恢复AOCI临界区，必须允许回收其陈旧锁。
+	// stat field 3 is the process state; a zombie or dead process may still let kill(pid,0) succeed,
+	// but it can no longer hold or recover an AOCI critical section, so its stale lock must be reclaimable.
 	if fields[0] == "Z" || fields[0] == "X" || fields[0] == "x" {
 		return fields[19], false, true
 	}

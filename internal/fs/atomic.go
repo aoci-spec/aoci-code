@@ -1,19 +1,19 @@
-// 原子写工具 —— 全仓一切落盘的唯一通道
-// 索引条目: atomic.go[FAT9AT]
+// Atomic write utilities: the one channel through which the whole program writes to disk
+// Index entry: atomic.go[FAT9AT]
 //
-// 流程: 目标同目录写临时文件 → fsync → close → rename 覆盖。
-// 设计说明: rename 的原子性要求源与目标同文件系统,目标同目录是唯一硬保证 ——
-// hooks 安装器要写 ~/.claude 等仓外文件,固定 tmp 目录在跨文件系统场景会 EXDEV 失败。
-// 临时文件名带 .aoci-tmp- 前缀便于识别清理。
+// Flow: write a temporary file in the target's directory, fsync, close, rename over the target.
+// Design note: rename is atomic only when source and target share a filesystem, and the target's own directory
+// is the only hard guarantee: the hooks installer writes files outside the repository such as ~/.claude, where a fixed tmp directory would fail with EXDEV across filesystems.
+// The temporary name carries the .aoci-tmp- prefix so it can be recognized and cleaned up.
 //
-// Windows 语义: Go 的 os.Rename 在 Windows 使用 MOVEFILE_REPLACE_EXISTING,
-// 正常即可覆盖已存在目标;覆盖失败时的兜底把目标改名为同目录备份后重试,
-// 重试失败自动还原 —— 旧字节任何一步都不被销毁(采纳 PR #7),绝不作为默认路径。
+// Windows semantics: Go's os.Rename uses MOVEFILE_REPLACE_EXISTING on Windows and normally overwrites an
+// existing target; when the overwrite fails, the fallback renames the target to a same-directory backup and
+// retries, restoring the backup if the retry fails, so the old bytes are destroyed at no step (PR #7); it is never the default path.
 //
-// 失败语义: 任一步失败即清理临时文件并保留原文件原样 —— 防 agent 回写中途
-// 进程被杀留半截事实源。
-// 持久性取舍(记录): 不对父目录做 fsync —— 极端掉电场景 rename 可能回退到旧文件,
-// 但两个状态均完整(一致性无损),换取写路径简洁,属标准取舍。
+// Failure semantics: any failing step cleans up the temporary file and leaves the original as it was, so a
+// process killed mid-write leaves no half-written fact source.
+// Durability trade-off (recorded): the parent directory is not fsynced; in an extreme power loss the rename may
+// revert to the old file, but both states are complete (consistency is intact), which buys a simple write path, a standard trade-off.
 package fs
 
 import (
@@ -29,13 +29,13 @@ import (
 	"time"
 )
 
-// ErrAtomicCASConflict表示目标在计划后、最终替换前已经改变。
+// ErrAtomicCASConflict means the target changed after planning and before the final replacement.
 var ErrAtomicCASConflict = errors.New("原子写入preimage CAS冲突")
 
-// ErrAtomicCASRecovery表示上次CAS在外部并发修改中断后留下了需要人工裁决的保全副本。
+// ErrAtomicCASRecovery means the last CAS was interrupted by an external concurrent change and left a preserved copy that needs a human decision.
 var ErrAtomicCASRecovery = errors.New("原子写入CAS恢复需要裁决")
 
-// ErrAtomicCASUnavailable表示当前平台或文件系统不提供原子路径交换能力。
+// ErrAtomicCASUnavailable means the platform or filesystem offers no atomic path exchange.
 var ErrAtomicCASUnavailable = errors.New("原子写入CAS不可用")
 
 // ErrAtomicCreateConflict means an absent-target transaction lost its CAS
@@ -57,8 +57,8 @@ var beforeAtomicCreatePublish = func(string) {}
 var publishAtomicCreatePlatform = publishAtomicCreate
 var beforeAtomicMovePublish = func(string, string) {}
 
-// AtomicWrite 原子写入 data 到 targetPath(绝对或相对均可,目录须已存在)。
-// 权限: 新文件 0644;目标已存在时沿用其现有权限。
+// AtomicWrite writes data atomically to targetPath (absolute or relative; the directory must exist).
+// Permissions: a new file is 0644; an existing target keeps its current permissions.
 func AtomicWrite(targetPath string, data []byte) error {
 	return atomicWrite(targetPath, data)
 }
@@ -227,9 +227,9 @@ func validateAtomicCreateTarget(absTarget string) error {
 	return nil
 }
 
-// AtomicWriteCAS先持有跨进程目标锁，再用原子路径交换捕获替换瞬间的真实preimage。
-// 捕获摘要不等于expectedSHA256时原子换回并返回ErrAtomicCASConflict；恢复意图
-// 使进程在交换前后退出也能由下一调用确定性收敛，无法证明的外部版本一律保全。
+// AtomicWriteCAS holds the cross-process target lock first, then captures the real preimage at the instant of
+// replacement through an atomic path exchange. When the captured digest differs from expectedSHA256 it swaps back
+// atomically and returns ErrAtomicCASConflict; the recovery intent lets a process that exits before or after the swap converge deterministically on the next call, and an external version that cannot be proven is always preserved.
 func AtomicWriteCAS(targetPath string, data []byte, expectedSHA256 string) error {
 	if strings.TrimSpace(expectedSHA256) == "" {
 		return fmt.Errorf("%w: expected_sha256为空", ErrAtomicCASConflict)
@@ -320,13 +320,13 @@ func atomicFileSHA256(path string) (string, error) {
 }
 
 func exchangeAtomicPathsRecoverable(first, second string) error {
-	// 不具备原子交换时不存在既能捕获替换瞬间preimage、又不覆盖非协作方
-	// 写入的rename序列。这里宁可明确不可用，也绝不把持久意图误当成并发原子性。
+	// Without an atomic exchange there is no rename sequence that both captures the preimage at the instant of
+	// replacement and never overwrites a non-cooperating writer. Better an explicit "unavailable" than mistaking a persisted intent for concurrent atomicity.
 	return exchangeAtomicPathsPlatform(first, second)
 }
 
-// recoverAtomicCAS收敛进程在原子交换前后退出留下的确定性状态。无法证明归属的
-// 双外部版本绝不自动删除，交给调用方按真实冲突停止。
+// recoverAtomicCAS converges the deterministic state a process left by exiting before or after the atomic
+// exchange. Two external versions whose ownership cannot be proven are never deleted automatically; the caller stops on the real conflict.
 func recoverAtomicCAS(targetPath, swapPath, intentPath string) error {
 	intentData, err := os.ReadFile(intentPath)
 	if os.IsNotExist(err) {
@@ -348,7 +348,7 @@ func recoverAtomicCAS(targetPath, swapPath, intentPath string) error {
 	targetSHA, targetErr := atomicFileSHA256(targetPath)
 	swapSHA, swapErr := atomicFileSHA256(swapPath)
 	if os.IsNotExist(swapErr) {
-		// 交换成功后的最后清理只可能先删swap再删intent；canonical目标仍完整。
+		// The final cleanup after a successful swap can only delete swap before intent; the canonical target is still complete.
 		if targetErr == nil {
 			return removeAtomicCASIntent(intentPath)
 		}
@@ -359,14 +359,14 @@ func recoverAtomicCAS(targetPath, swapPath, intentPath string) error {
 	}
 	switch {
 	case swapSHA == intent.NewSHA256:
-		// 交换尚未发生，或冲突回滚已经完成。
+		// The swap has not happened, or the conflict rollback is already complete.
 		return cleanupAtomicCAS(swapPath, intentPath)
 	case swapSHA == intent.ExpectedSHA256:
-		// 交换捕获了预期preimage，正式写入已经完成；target之后即使被外部更新，
-		// 也属于写入后的新事实，不得用旧版本覆盖。
+		// The swap captured the expected preimage and the formal write is complete; an external update of target
+		// after that is a new fact written afterwards and must not be overwritten with the old version.
 		return cleanupAtomicCAS(swapPath, intentPath)
 	case targetSHA == intent.NewSHA256:
-		// 交换捕获的是计划外版本且进程在回滚前退出。
+		// The swap captured an unplanned version and the process exited before the rollback.
 		return rollbackAtomicCAS(targetPath, swapPath, intentPath, intent.NewSHA256)
 	default:
 		return fmt.Errorf("%w: target与swap均含计划外版本，保留现场", ErrAtomicCASRecovery)
@@ -385,8 +385,8 @@ func rollbackAtomicCAS(targetPath, swapPath, intentPath, newSHA string) error {
 		return cleanupAtomicCAS(swapPath, intentPath)
 	}
 
-	// 回滚期间又有外部版本进入canonical：再次交换恢复该最新外部版本，并把
-	// 最初捕获版本持久隔离，绝不静默覆盖任一外部写入。
+	// Another external version entered canonical during the rollback: swap again to restore that newest external
+	// version and quarantine the first captured version persistently, never silently overwriting any external write.
 	if err := exchangeAtomicPathsRecoverable(targetPath, swapPath); err != nil {
 		return fmt.Errorf("%w: 恢复并发外部版本失败: %v", ErrAtomicCASRecovery, err)
 	}
@@ -428,7 +428,7 @@ func atomicWrite(targetPath string, data []byte) error {
 func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileMode) error {
 	dir := filepath.Dir(targetPath)
 
-	// 目标已存在时记录其权限,rename 后沿用
+	// Remember an existing target's permissions so the rename keeps them
 	perm := os.FileMode(0644)
 	if requestedPerm != nil {
 		perm = requestedPerm.Perm()
@@ -436,13 +436,13 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		perm = st.Mode().Perm()
 	}
 
-	// 目标同目录建临时文件(同文件系统保证 rename 原子)
+	// Create the temporary file in the target's directory (one filesystem keeps the rename atomic)
 	tmp, err := os.CreateTemp(dir, ".aoci-tmp-*")
 	if err != nil {
 		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
 	tmpName := tmp.Name()
-	// 任何失败路径都清理临时文件
+	// Every failure path cleans up the temporary file
 	cleanup := func() {
 		tmp.Close()
 		os.Remove(tmpName)
@@ -452,7 +452,7 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		cleanup()
 		return fmt.Errorf("写入临时文件失败: %w", err)
 	}
-	// fsync 保证数据落盘后再 rename(掉电场景下 rename 可见即内容完整)
+	// fsync puts the data on disk before the rename (after a power loss, a visible rename means complete content)
 	if err := tmp.Sync(); err != nil {
 		cleanup()
 		return fmt.Errorf("fsync 失败: %w", err)
@@ -465,18 +465,18 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		os.Remove(tmpName)
 		return fmt.Errorf("设置权限失败: %w", err)
 	}
-	// rename 优先(POSIX 与 Windows 正常路径均原子覆盖)
+	// rename first (the normal path on POSIX and Windows overwrites atomically)
 	return publishAtomicRename(tmpName, targetPath, runtime.GOOS, os.Rename, os.Remove)
 }
 
-// publishAtomicRename 收尾发布:正常 rename;仅 Windows 在 rename 失败后允许
-// 一次非原子兜底。
+// publishAtomicRename finishes the publication: a normal rename, and only on Windows one non-atomic
+// fallback after the rename fails.
 //
-// 数据保全铁律(采纳 PR #7 的备份语义,替换此前的"删目标再重试"): 旧字节从头到尾
-// 不被销毁 —— 先把目标改名为同目录备份,重试 rename;重试失败就把备份还原回去,
-// 目标完好如初;只有连还原都失败的极端情况才把新旧两份都保留,并在错误里回报
-// 两个路径让操作者手工处置。相比删除,改名让崩溃在任何一步发生都留有旧字节。
-// rename/remove 作为参数注入,使非 Windows 平台也能测到 Windows 分支。
+// Data-preservation rule (PR #7's backup semantics replacing the earlier "delete the target and retry"): the old
+// bytes are never destroyed: the target is renamed to a same-directory backup first, the rename is retried, and a
+// failed retry restores the backup so the target is intact; only when even the restore fails are both the old and
+// the new file kept, with both paths reported in the error for the operator to handle by hand. Unlike deletion,
+// renaming leaves the old bytes whatever step a crash hits. rename/remove are injected so the Windows branch is testable off Windows.
 func publishAtomicRename(tmpName, targetPath, goos string,
 	rename func(string, string) error, remove func(string) error) error {
 	err := rename(tmpName, targetPath)

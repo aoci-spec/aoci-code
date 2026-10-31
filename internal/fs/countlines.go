@@ -1,10 +1,10 @@
-// 文件行数统计(E 档位闸的行数事实源)
-// 索引条目待补: countlines.go
+// File line counting (the line-count fact source of the E-scale gate)
+// Index entry pending: countlines.go
 //
-// 行数语义与 inventory 画像一致: 末行无换行也计 1 行;空文件 0 行。
-// 流式统计不整读进内存(任意大文件安全);刻意不做二进制嗅探 —— 调用方
-// (E 档位闸)对二进制条目至多产生一条无害警告,为其新增嗅探不值一份副本
-// (嗅探逻辑在 indexgen 与 workflow 已有两份,合并归 P2 卫生账,不添第三份)。
+// Line semantics match the inventory profile: a last line without a newline still counts as one; an empty file has 0 lines.
+// The count streams instead of reading the file into memory (safe for any size); deliberately no binary sniffing: the caller
+// (the E-scale gate) produces at most one harmless warning for a binary entry, not worth a new copy of sniffing
+// (sniffing already exists twice, in indexgen and workflow; merging them belongs to the P2 hygiene ledger, no third copy here).
 package fs
 
 import (
@@ -13,8 +13,8 @@ import (
 	"os"
 )
 
-// CountFileLines 流式统计文件行数。
-// 语义: 空文件返回 0;以换行结尾时行数=换行数;末行无换行时再+1。
+// CountFileLines counts a file's lines as a stream.
+// Semantics: an empty file returns 0; with a trailing newline the count is the number of newlines; a last line without one adds 1.
 func CountFileLines(path string) (int, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -29,7 +29,7 @@ func CountFileLines(path string) (int, error) {
 func CountLines(reader io.Reader) (int, error) {
 	buf := make([]byte, 32*1024)
 	count := 0
-	lastByte := byte('\n') // 哨兵: 空文件不触发末行+1
+	lastByte := byte('\n') // sentinel: an empty file does not trigger the last-line +1
 	empty := true
 	for {
 		n, rerr := reader.Read(buf)

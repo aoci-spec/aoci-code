@@ -1,5 +1,5 @@
-// CountFileLines 行数语义测试: 空文件/带尾换行/无尾换行/单行无换行/缺失文件。
-// 索引条目待补: countlines_test.go
+// Line-count semantics tests for CountFileLines: empty file, trailing newline, no trailing newline, single line without newline, missing file.
+// Index entry pending: countlines_test.go
 package fs
 
 import (

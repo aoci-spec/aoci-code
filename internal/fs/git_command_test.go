@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// 仓库自带 .git/config 的 core.fsmonitor 会让 git 在遍历工作树时执行任意程序。
-// 加固后的调用必须完成同样的枚举,且不触发该程序。
+// A repository's own .git/config can set core.fsmonitor, which makes git run an arbitrary program while traversing the work tree.
+// The hardened call must complete the same enumeration without running that program.
 func TestUntrustedRepositoryGitCommandBlocksRepositoryControlledExecution(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("测试脚本使用 POSIX shebang")
@@ -41,7 +41,7 @@ func TestUntrustedRepositoryGitCommandBlocksRepositoryControlledExecution(t *tes
 		}
 	}
 
-	// 先证明探针本身有效: 未加固的等价调用会执行仓库指定的程序。
+	// First prove the probe itself works: the unhardened equivalent runs the repository's program.
 	unhardened := exec.Command("git", "-C", root, "-c", "core.quotepath=false",
 		"ls-files", "-z", "--cached")
 	unhardened.Env = append(os.Environ(), "GIT_OPTIONAL_LOCKS=0")

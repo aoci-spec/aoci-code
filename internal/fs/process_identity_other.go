@@ -2,7 +2,7 @@
 
 package fs
 
-// processIdentity在未知平台无法可靠探测时返回未知，禁止自动抢占。
+// processIdentity returns unknown on a platform it cannot probe reliably, which forbids automatic takeover.
 func processIdentity(int) (string, bool, bool) {
 	return "", false, false
 }

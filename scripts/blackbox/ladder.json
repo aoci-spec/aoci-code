@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "#54 container inventory: Tier-0 gates inside make-verify-l54.txt"
+    "evidence": "item 17 batch 1 (internal/fs comments): make fast green (make-fast-c17fs.txt)"
    }
   },
   {

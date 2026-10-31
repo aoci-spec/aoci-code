@@ -1,11 +1,11 @@
-// 相对路径安全校验 —— agent 输入的第一道防线
-// 索引条目: safe_path.go[FS.Paths.9.S]
+// Relative-path safety validation: the first line of defence for agent input
+// Index entry: safe_path.go[FS.Paths.9.S]
 //
-// 威胁模型: MCP 的 path 参数来自 agent,而 agent 的输入可能被仓库内容
-// (README/代码注释里的注入指令)污染 —— ../ 逃逸或绝对路径可使回写落到仓库外。
-// 平台 agent_tools.go 的 validatePathInWorkDir 伤疤在此移植。
+// Threat model: the MCP path argument comes from the agent, and the agent's input may be tainted by
+// repository content (instructions injected through a README or a code comment); a ../ escape or an
+// absolute path could land a write outside the repository. The scar of validatePathInWorkDir in the platform's agent_tools.go is transplanted here.
 //
-// 纪律: 索引查询/回写/hook 的全部 path 入口先过 NormalizeRelPath,无例外。
+// Discipline: every path entry point of index queries, writes, and hooks passes through NormalizeRelPath first, without exception.
 package fs
 
 import (
@@ -14,9 +14,9 @@ import (
 	"strings"
 )
 
-// NormalizeRelPath 归一化并校验仓库相对路径。
-// 规则: 反斜杠统一转正斜杠 → path.Clean → 拒绝空/绝对路径/盘符/.. 逃逸/清理后为空。
-// 返回干净的正斜杠相对路径;目录路径的尾斜杠予以保留。
+// NormalizeRelPath normalizes and validates a repository-relative path.
+// Rules: backslashes become forward slashes, then path.Clean, then reject empty, absolute, drive-letter, and .. escaping paths, and a path empty after cleaning.
+// Returns the clean forward-slash relative path; a directory path keeps its trailing slash.
 // The refusals are sentinel errors whose text is a machine token, never a
 // sentence in one language: the hook, the MCP tools, and the CLI render the
 // reason through the UI catalog by RelPathMessageKey, so an en-US host no
@@ -57,8 +57,8 @@ func NormalizeRelPath(raw string) (string, error) {
 	}
 	p := strings.ReplaceAll(strings.TrimSpace(raw), "\\", "/")
 
-	// 拒绝绝对路径(UNC/POSIX 根/Windows 盘符); UNC 先判, 否则 "//" 永远落进
-	// 绝对路径分支而 UNC 的理由从不可达。
+	// Reject absolute paths (UNC, a POSIX root, a Windows drive letter); UNC is judged first, otherwise "//"
+	// always lands in the absolute-path branch and the UNC reason is never reachable.
 	if strings.HasPrefix(p, "//") {
 		return "", ErrRelPathUNC
 	}
@@ -69,14 +69,14 @@ func NormalizeRelPath(raw string) (string, error) {
 		return "", ErrRelPathDrive
 	}
 
-	// 记录尾斜杠(目录条目语义),Clean 会剥掉它
+	// Remember the trailing slash (directory-entry semantics); Clean strips it
 	trailingSlash := strings.HasSuffix(p, "/")
 
 	clean := path.Clean(p)
 	if clean == "." || clean == "" {
 		return "", ErrRelPathNoTarget
 	}
-	// .. 逃逸: Clean 后仍以 .. 开头即越界
+	// A .. escape: still starting with .. after Clean means out of bounds
 	if clean == ".." || strings.HasPrefix(clean, "../") {
 		return "", ErrRelPathEscapes
 	}

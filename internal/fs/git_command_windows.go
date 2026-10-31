@@ -1,13 +1,13 @@
 //go:build windows
 
-// Windows 控制台抑制 —— 与 git_command.go 同包的平台侧实现
+// Windows console suppression: the platform half of git_command.go in the same package
 //
-// 威胁: aoci 常以无控制台形态运行(如 MCP stdio 由宿主拉起)。此时 exec 拉起
-// 控制台子进程(git.exe)时,Windows 会为子进程新分配一个可见控制台窗口——
-// 刷新期间反复弹窗并抢占用户焦点。
-// 边界: CREATE_NO_WINDOW 只抑制控制台分配,不改变 stdio 句柄继承;宿主提供的
-// 管道与真实终端下的交互输出不受影响。HideWindow(STARTF_USESHOWWINDOW+SW_HIDE)
-// 作为兜底。调用方环境变量属操作者自身信任域,不在此处覆盖。
+// Threat: aoci often runs without a console (an MCP stdio server started by the host). When exec starts
+// a console child process (git.exe) there, Windows allocates a new visible console window for the child,
+// flashing windows and stealing the user's focus throughout a refresh.
+// Boundary: CREATE_NO_WINDOW only suppresses console allocation and does not change stdio handle inheritance;
+// pipes supplied by the host and interactive output on a real terminal are unaffected. HideWindow
+// (STARTF_USESHOWWINDOW+SW_HIDE) is the fallback. The caller's environment variables belong to the operator's trust domain and are not overridden.
 package fs
 
 import (
@@ -15,10 +15,10 @@ import (
 	"syscall"
 )
 
-// createNoWindow 即 Win32 CREATE_NO_WINDOW(0x08000000)。
+// createNoWindow is the Win32 CREATE_NO_WINDOW (0x08000000).
 const createNoWindow = 0x08000000
 
-// hideChildConsole 阻止 Windows 为 git.exe 子进程新建可见控制台窗口。
+// hideChildConsole stops Windows from creating a visible console window for the git.exe child.
 func hideChildConsole(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}

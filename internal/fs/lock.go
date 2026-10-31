@@ -1,31 +1,31 @@
-// 跨进程索引写锁 —— 阶段 D(R36 多 agent 并发防线一): 串行化 commit 临界区
-// 索引条目: lock.go(待补录,随本批入册)
+// Cross-process index write lock: stage D (R36, the first multi-agent concurrency defence) serializing the commit critical section
+// Index entry: lock.go (pending; enrolled with this batch)
 //
-// 定位: 保护"读索引→改→原子写→基线前移"的 commit 段,使多个 aoci 进程
-// (多 agent 经 MCP / 人工 CLI / CI)并发回写时互不覆盖。plan 段保持无锁纯读
-// (每次调用现读索引的第一戒律不变),锁只包 commit,持有时间为亚秒级。
+// Position: protects the "read index, change, atomic write, Baseline advance" commit segment so that several
+// aoci processes (agents over MCP, a manual CLI, CI) writing concurrently do not overwrite each other. The plan
+// segment stays lock-free and purely read (the first commandment, reading the index fresh on every call, stands); the lock wraps only commit and is held for sub-second spans.
 //
-// 方案裁决(为何不用 flock/LockFileEx):
-// POSIX flock 与 Windows LockFileEx 要么引入golang.org/x/sys,要么写双份平台
-// 代码。这里先完整原子写prepared owner，再以os.Link的O_EXCL语义发布canonical
-// 锁文件；身份与锁可见性是同一个文件系统原子动作，两平台均只用标准库。
+// Design decision (why not flock/LockFileEx):
+// POSIX flock and Windows LockFileEx either pull in golang.org/x/sys or mean two platform code paths. Here the
+// prepared owner is written atomically and in full first, then published as the canonical lock file with
+// os.Link's O_EXCL semantics; identity and lock visibility are one filesystem atomic action, standard library only on both platforms.
 //
-// 陈旧锁抢占: 持有者崩溃会留下孤儿锁。普通文件锁只有mtime超过阈值且owner
-// 进程已被操作系统确认退出时，等待者才以hard-link tombstone和inode复核完成
-// 抢占。hard-link不可用时的目录锁缺少可移植的目录Rename CAS，陈旧恢复必须
-// fail-closed，绝不凭先前Stat移动可能已换代的canonical目录。
+// Stale-lock takeover: a crashed holder leaves an orphan lock. For an ordinary file lock, only when the mtime is
+// past the threshold and the operating system confirms the owner process has exited does a waiter complete the
+// takeover with a hard-link tombstone and an inode re-check. The directory lock used where hard links are
+// unavailable has no portable directory rename CAS, so stale recovery must fail closed and never moves a canonical directory an earlier Stat may have seen replaced.
 //
-// token 防误删: canonical锁文件含创建者随机token,Release先读文件核对token,
-// 不匹配(自己已被抢占,锁归他人)即拒绝删除 —— 防止挂起后恢复的旧持有者
-// 删掉新持有者的锁。
+// Token against wrong deletion: the canonical lock file carries its creator's random token; Release reads the
+// file and checks the token first, and a mismatch (this holder was taken over, the lock belongs to someone
+// else) refuses the delete, so a holder resuming after a hang cannot delete the new holder's lock.
 //
-// 并发语义边界(测试教训入档): 本锁建立的是进程级互斥,不建立 Go race
-// detector 可见的 happens-before 边 —— 锁保护下的跨 goroutine 裸内存读写
-// 仍会被 -race 如实标记。进程内共享内存的同步归 sync/atomic,本锁只管
-// 跨进程文件互斥,两层职责不混。
+// Concurrency boundary (a lesson from the tests): this lock establishes process-level mutual exclusion, not a
+// happens-before edge the Go race detector can see; bare cross-goroutine memory access under the lock is
+// still reported by -race, as it should be. In-process shared memory belongs to sync/atomic; this lock
+// handles cross-process file mutual exclusion only, and the two layers do not mix.
 //
-// 默认锁位置: <root>/.aoci/lock。.aoci 目录名是 fs 层已有内置知识(walk.go
-// 无条件排除),此处沿用不构成新依赖;fs 不 import config 的方向纪律不变。
+// Default lock location: <root>/.aoci/lock. The .aoci directory name is knowledge the fs layer already holds
+// (walk.go excludes it unconditionally), so reusing it adds no dependency; the rule that fs does not import config stands.
 package fs
 
 import (
@@ -40,47 +40,47 @@ import (
 	"time"
 )
 
-// ErrLockTimeout 获取锁超时的哨兵错误(调用方可 errors.Is 识别后映射 write_conflict)
+// ErrLockTimeout is the sentinel for a lock wait that timed out (callers recognize it with errors.Is and map it to write_conflict)
 var ErrLockTimeout = errors.New("获取索引写锁超时")
 
 const (
-	// DefaultLockTimeout 等待锁的总超时 —— 超过即放弃并报错,绝不无限等待
+	// DefaultLockTimeout is the total time to wait for the lock; past it the wait gives up with an error, never waiting forever
 	DefaultLockTimeout = 10 * time.Second
 
-	// DefaultLockStale 陈旧判定阈值 —— 锁文件 mtime 距今超过此值视为持有者已崩溃
+	// DefaultLockStale is the staleness threshold: a lock file whose mtime is older than this reads as a crashed holder
 	DefaultLockStale = 60 * time.Second
 
-	// lockBackoffStart 退避等待起点(重试 sleep 从此值倍增)
+	// lockBackoffStart is the first back-off wait (each retry doubles the sleep from here)
 	lockBackoffStart = 25 * time.Millisecond
 
-	// lockBackoffMax 退避等待上限
+	// lockBackoffMax caps the back-off wait
 	lockBackoffMax = 500 * time.Millisecond
 
 	directoryInitializationStale = 5 * time.Second
 )
 
-// lockContent 锁文件 JSON 内容 —— 诊断信息 + token 防误删
+// lockContent is the lock file's JSON: diagnostics plus the token against wrong deletion
 type lockContent struct {
-	// PID 持有者进程号(诊断用,不作判据)
+	// PID is the holder's process id (diagnostic, never a criterion)
 	PID int `json:"pid"`
-	// Token 随机 token,Release 核对身份的唯一判据
+	// Token is the random token, the only criterion Release checks identity by
 	Token string `json:"token"`
-	// CreatedAt 创建时刻 RFC3339(诊断用;陈旧判定用 mtime 不用本字段)
+	// CreatedAt is the creation time in RFC3339 (diagnostic; staleness uses mtime, not this field)
 	CreatedAt string `json:"created_at"`
-	// ProcessIdentity绑定操作系统进程启动身份，防PID复用被误判为原owner存活。
+	// ProcessIdentity binds the operating system's process start identity so PID reuse is not mistaken for the original owner being alive.
 	ProcessIdentity string `json:"process_identity,omitempty"`
 }
 
-// Lock 已持有的锁句柄。用后必须 Release(建议 defer),忘记释放由陈旧抢占兜底。
+// Lock is a held lock handle. Release it after use (defer is recommended); a forgotten release is backed by stale takeover.
 type Lock struct {
-	// path 锁文件绝对路径
+	// path is the lock file's absolute path
 	path string
-	// token 本持有者的随机 token
+	// token is this holder's random token
 	token string
 }
 
-// lockProcessIdentity允许测试确定性模拟已退出、仍存活或PID复用。生产实现由平台
-// 文件提供；无法确认时必须返回known=false，调用方采取不抢占的安全方向。
+// lockProcessIdentity lets tests simulate an exited, a live, or a reused PID deterministically. Production
+// implementations come from the platform files; when it cannot be confirmed, known=false must be returned and the caller takes the no-takeover direction.
 var lockProcessIdentity = processIdentity
 var writePreparedLockOwner = AtomicWrite
 var afterLockOwnerRead = func() {}
@@ -90,15 +90,15 @@ var afterLockOwnerRead = func() {}
 var statOpenedLockOwner = func(file *os.File) (os.FileInfo, error) { return file.Stat() }
 var publishPreparedLockOwner = os.Link
 
-// AcquireIndexLock 获取仓库索引写锁(默认参数)。
-// 成功返回锁句柄;等待超时返回包裹 ErrLockTimeout 的错误;其他 IO 故障原样返回。
+// AcquireIndexLock acquires the repository index write lock with the default parameters.
+// Success returns the lock handle; a timed-out wait returns an error wrapping ErrLockTimeout; other IO failures are returned as they are.
 func AcquireIndexLock(root string) (*Lock, error) {
 	return acquireLockWith(filepath.Join(root, ".aoci", "lock"), DefaultLockTimeout, DefaultLockStale)
 }
 
-// acquireLockWith 带参版本(测试注入短超时/短陈旧阈值;生产入口恒走 AcquireIndexLock)
+// acquireLockWith is the parameterized form (tests inject a short timeout or staleness threshold; production always enters through AcquireIndexLock)
 func acquireLockWith(lockPath string, timeout, stale time.Duration) (*Lock, error) {
-	// 锁文件所在目录须存在(.aoci 可能尚未 init —— MkdirAll 幂等无害)
+	// The lock's directory must exist (.aoci may not be initialized yet; MkdirAll is idempotent and harmless)
 	if err := os.MkdirAll(filepath.Dir(lockPath), 0755); err != nil {
 		return nil, fmt.Errorf("创建锁目录失败: %w", err)
 	}
@@ -108,7 +108,7 @@ func acquireLockWith(lockPath string, timeout, stale time.Duration) (*Lock, erro
 	backoff := lockBackoffStart
 
 	for {
-		// 独占创建: O_EXCL 保证已存在即失败,是跨进程互斥的原子基石
+		// Exclusive creation: O_EXCL fails when the file exists, the atomic cornerstone of cross-process mutual exclusion
 		created, err := tryCreateLock(lockPath, token)
 		if err != nil {
 			return nil, err
@@ -117,7 +117,7 @@ func acquireLockWith(lockPath string, timeout, stale time.Duration) (*Lock, erro
 			return &Lock{path: lockPath, token: token}, nil
 		}
 
-		// 锁已被占用: 检查陈旧
+		// The lock is taken: check for staleness
 		observedOwner, st, stable, observeErr := observeLockOwner(lockPath)
 		if observeErr != nil {
 			return nil, observeErr
@@ -138,17 +138,17 @@ func acquireLockWith(lockPath string, timeout, stale time.Duration) (*Lock, erro
 				}
 			}
 		} else {
-			// 刚被正常释放: 立即重试,不消耗退避
+			// Just released normally: retry at once without spending back-off
 			continue
 		}
 
-		// 超时判定
+		// Timeout judgement
 		if time.Now().After(deadline) {
 			return nil, fmt.Errorf("%w(%s): %s 正被其他进程持有,稍后重试",
 				ErrLockTimeout, timeout, lockPath)
 		}
 
-		// 退避等待(附 0~25ms 随机抖动防多等待者同步唤醒)
+		// Back-off wait (with 0 to 25 ms of random jitter so several waiters do not wake together)
 		jitter := time.Duration(rand.Int63n(int64(25 * time.Millisecond)))
 		time.Sleep(backoff + jitter)
 		backoff *= 2
@@ -158,8 +158,8 @@ func acquireLockWith(lockPath string, timeout, stale time.Duration) (*Lock, erro
 	}
 }
 
-// observeLockOwner从已打开文件描述符读取owner与FileInfo，并在返回前确认
-// canonical名称仍指向同一inode。owner死亡证据与隔离对象因此不可跨代混用。
+// observeLockOwner reads the owner and FileInfo from an open descriptor and confirms before returning that
+// the canonical name still points at the same inode, so owner-death evidence and the quarantine target never mix generations.
 func observeLockOwner(lockPath string) ([]byte, os.FileInfo, bool, error) {
 	canonicalInfo, err := os.Stat(lockPath)
 	if os.IsNotExist(err) {
@@ -204,8 +204,8 @@ func observeLockOwner(lockPath string) ([]byte, os.FileInfo, bool, error) {
 		}
 		return nil, nil, false, fmt.Errorf("读取锁owner内容失败: %w", err)
 	}
-	// Windows不允许删除仍被其他观察者打开的锁文件。身份和正文读完后必须先
-	// 关闭句柄，再进入可能与owner Release并发的名称复核阶段。
+	// Windows does not allow deleting a lock file another observer still holds open. Once the identity and
+	// body are read the handle must be closed before the name re-check that may race with the owner's Release.
 	if closeErr := ownerFile.Close(); closeErr != nil {
 		return nil, nil, false, fmt.Errorf("关闭锁owner句柄失败: %w", closeErr)
 	}
@@ -245,7 +245,7 @@ func staleOwnerIsDead(ownerData []byte) bool {
 		owner.ProcessIdentity != identity
 }
 
-// tryCreateLock先准备完整身份，再以hard-link原子发布canonical锁。
+// tryCreateLock prepares the complete identity first, then publishes the canonical lock atomically with a hard link.
 func tryCreateLock(lockPath, token string) (bool, error) {
 	processIdentityValue, processAliveValue, processKnown := lockProcessIdentity(os.Getpid())
 	if !processKnown || !processAliveValue {
@@ -260,9 +260,9 @@ func tryCreateLock(lockPath, token string) (bool, error) {
 	if merr != nil {
 		return false, fmt.Errorf("序列化锁内容失败: %w", merr)
 	}
-	// 先把完整owner写到不可见的唯一准备文件，再用hard-link的O_EXCL语义
-	// 原子发布为canonical lockPath。进程在任一准备步骤崩溃只会留下不阻塞
-	// 的prepared文件，其他进程绝不会观察到无身份或半身份的正式锁。
+	// Write the complete owner to an invisible unique prepared file first, then publish it atomically as the
+	// canonical lockPath with hard-link O_EXCL semantics. A process crashing in any preparation step leaves only
+	// a non-blocking prepared file; no other process ever observes a formal lock without, or with half of, an identity.
 	prepared := lockPath + ".prepared." + token
 	if werr := writePreparedLockOwner(prepared, data); werr != nil {
 		_ = os.Remove(prepared)
@@ -280,15 +280,15 @@ func tryCreateLock(lockPath, token string) (bool, error) {
 		return false, fmt.Errorf("原子发布锁身份失败: %w", linkErr)
 	}
 	if removeErr != nil && !os.IsNotExist(removeErr) {
-		// canonical hard-link已成功发布；prepared清理失败不影响锁身份完整性。
+		// The canonical hard link is published; a failed prepared-file cleanup does not affect the lock's identity.
 		return true, nil
 	}
 	return true, nil
 }
 
-// publishPreparedDirectoryLock为不支持hard-link的文件系统提供完整owner发布：
-// Mkdir原子占位后把已fsync的prepared owner移动进私有目录。初始化者若在两步
-// 之间退出，只留下可按mtime回收的空目录，不会暴露半份owner。
+// publishPreparedDirectoryLock publishes a complete owner on filesystems without hard links: Mkdir takes the
+// place atomically, then the fsynced prepared owner moves into the private directory. An initializer exiting
+// between the two steps leaves only an empty directory reclaimable by mtime, never a half owner.
 func publishPreparedDirectoryLock(lockPath, prepared string) (bool, error) {
 	if err := os.Mkdir(lockPath, 0o700); err != nil {
 		_ = os.Remove(prepared)
@@ -313,8 +313,8 @@ func lockOwnerPath(lockPath string) string {
 	return lockPath
 }
 
-// quarantineStaleLock为已观察锁建立持久hard-link tombstone，核对inode仍
-// 等于观察对象后才删除canonical入口。第二个等待者无法覆盖同一tombstone。
+// quarantineStaleLock creates a persistent hard-link tombstone for the observed lock and deletes the canonical
+// entry only after re-checking that the inode still equals the observed one. A second waiter cannot overwrite the same tombstone.
 func quarantineStaleLock(
 	lockPath string,
 	observed os.FileInfo,
@@ -328,9 +328,9 @@ func quarantineStaleLock(
 		if !sameGeneration {
 			return false, nil
 		}
-		// POSIX rename和Windows MoveFile都不能表达"仅当目录仍是该inode/token"
-		// 的原子条件。即使此刻复核同代，复核后到Rename前仍可被正常释放并换代；
-		// 因此保留canonical并明确失败，不能用TOCTOU冒充CAS。
+		// Neither POSIX rename nor Windows MoveFile can express the atomic condition "only while the directory is
+		// still this inode/token". Even a same-generation re-check can be followed by a normal release and a new
+		// generation before the Rename, so the canonical entry stays and the failure is explicit: TOCTOU must not pose as CAS.
 		return false, fmt.Errorf(
 			"%w: 陈旧目录锁缺少可移植的原子代次CAS,拒绝抢占: %s",
 			ErrLockTimeout,
@@ -343,9 +343,9 @@ func quarantineStaleLock(
 			return false, nil
 		}
 		if os.IsExist(err) {
-			// 上一恢复者可能在发布tombstone后、删除canonical前退出。只有三者
-			// 仍指向同一已观察inode时，后继恢复者才接力完成删除；canonical已
-			// 被新owner替换时绝不触碰。
+			// The previous recoverer may have exited after publishing the tombstone and before deleting the canonical
+			// entry. Only while all three still point at the same observed inode does the successor finish the
+			// deletion; once a new owner has replaced the canonical entry it is never touched.
 			tombstoneInfo, tombstoneErr := os.Stat(tombstone)
 			currentInfo, currentErr := os.Stat(lockPath)
 			if tombstoneErr != nil || currentErr != nil ||
@@ -379,8 +379,8 @@ func quarantineStaleLock(
 	return true, nil
 }
 
-// sameDirectoryLockGeneration只做无副作用代次复核，不授权目录移动。目录inode
-// 可能被快速复用，所以必须同时绑定owner token；任一证据不稳定都按不同代处理。
+// sameDirectoryLockGeneration re-checks the generation without side effects and authorizes no directory move.
+// A directory inode can be reused quickly, so the owner token is bound as well; any unstable evidence reads as a different generation.
 func sameDirectoryLockGeneration(
 	lockPath string,
 	observed os.FileInfo,
@@ -401,7 +401,7 @@ func sameDirectoryLockGeneration(
 	}
 	var oldContent lockContent
 	if json.Unmarshal(observedOwner, &oldContent) != nil || oldContent.Token == "" {
-		// 初始化中空目录没有可验证owner代次，不能抢占。
+		// An empty directory still initializing has no verifiable owner generation and cannot be taken over.
 		return len(observedOwner) == 0, nil
 	}
 	ownerFile, err := openLockOwnerForObservation(lockOwnerPath(lockPath))
@@ -448,10 +448,10 @@ func staleLockTombstonePath(lockPath string, observed os.FileInfo, observedOwner
 	return lockPath + ".stale." + identity
 }
 
-// Release 释放锁。幂等:锁文件已不存在(被陈旧抢占后清理)返回 nil。
-// 文件存在但 token 不匹配 = 自己已被抢占、锁归新持有者 —— 拒绝删除并返回错误
-// (调用方仅记警告,绝不重试删除)。正常生产抢占只发生在操作系统已经确认
-// owner进程退出后；token核对继续防御目录被人工替换或身份损坏的异常场景。
+// Release releases the lock. Idempotent: a lock file that no longer exists (cleaned up after a stale takeover) returns nil.
+// A file that exists with a mismatched token means this holder was taken over and the lock belongs to a new
+// holder: the delete is refused with an error (the caller only logs a warning and never retries the delete).
+// Normal production takeover happens only after the operating system confirmed the owner exited; the token check still defends against a hand-replaced directory or a damaged identity.
 func (l *Lock) Release() error {
 	data, err := os.ReadFile(lockOwnerPath(l.path))
 	if err != nil {
@@ -464,7 +464,7 @@ func (l *Lock) Release() error {
 	if jerr := json.Unmarshal(data, &c); jerr == nil && c.Token != l.token {
 		return fmt.Errorf("锁已被其他进程抢占持有(token 不匹配),拒绝删除他人锁: %s", l.path)
 	}
-	// token 匹配或内容损坏(损坏视为遗留物照删)均执行删除
+	// A matching token, or damaged content (damage is treated as a leftover and deleted), both delete
 	if info, statErr := os.Stat(l.path); statErr == nil && info.IsDir() {
 		if rerr := os.Remove(lockOwnerPath(l.path)); rerr != nil && !os.IsNotExist(rerr) {
 			return fmt.Errorf("删除目录锁owner失败: %w", rerr)
@@ -476,7 +476,7 @@ func (l *Lock) Release() error {
 	return nil
 }
 
-// newLockToken 生成随机 token(pid + 纳秒 + 随机数,同机同刻双进程也不撞)
+// newLockToken generates a random token (pid + nanoseconds + a random number, so two processes on one machine at one instant do not collide)
 func newLockToken() string {
 	return fmt.Sprintf("%d-%d-%d", os.Getpid(), time.Now().UnixNano(), rand.Int63())
 }

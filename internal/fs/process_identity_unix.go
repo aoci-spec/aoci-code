@@ -10,8 +10,8 @@ import (
 	"syscall"
 )
 
-// 这些Unix没有统一的/proc启动tick；ps lstart仍能为同一PID提供稳定的
-// 启动身份，使陈旧锁在PID复用后可证明不再属于原持有者。
+// These Unixes have no uniform /proc start tick; ps lstart still gives the same PID a stable start
+// identity, so a stale lock is provably no longer its original holder's after PID reuse.
 func processIdentity(pid int) (string, bool, bool) {
 	err := syscall.Kill(pid, 0)
 	switch {

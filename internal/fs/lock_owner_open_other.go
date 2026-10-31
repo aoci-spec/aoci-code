@@ -4,7 +4,7 @@ package fs
 
 import "os"
 
-// openLockOwnerForObservation在POSIX沿用普通只读打开；unlink不受读句柄阻塞。
+// openLockOwnerForObservation uses an ordinary read-only open on POSIX; unlink is not blocked by a read handle.
 func openLockOwnerForObservation(path string) (*os.File, error) {
 	return os.Open(path)
 }

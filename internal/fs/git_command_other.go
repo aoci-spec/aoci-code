@@ -4,5 +4,5 @@ package fs
 
 import "os/exec"
 
-// hideChildConsole 在非 Windows 平台为空操作;可见控制台窗口问题仅 Windows 存在。
+// hideChildConsole is a no-op off Windows; the visible console window problem exists only there.
 func hideChildConsole(*exec.Cmd) {}

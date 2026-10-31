@@ -1,10 +1,10 @@
-// Git 忽略状态探测 —— 判定"某路径是否被 Git 的忽略权威隐藏"的唯一通道
-// 索引条目: git_ignore.go[CG7T]
+// Git ignore-status probe: the one channel that answers "is this path hidden by Git's ignore authority"
+// Index entry: git_ignore.go[CG7T]
 //
-// 为什么需要它: Safe Inventory 的文件清单取自 Git,所以被忽略的文件根本不会
-// 进入 Baseline。当被忽略的是形式认知资产本身时,后果不是少了一个文件,而是
-// 整个 Volume 无法入账、Guide 全线阻塞 —— 而失败现场距离原因(某处一行忽略
-// 规则)已经很远。这里把"是否被忽略、被哪条规则忽略"变成可直接回答的事实。
+// Why it exists: Safe Inventory takes its file listing from Git, so an ignored file never enters the
+// Baseline at all. When the ignored file is a formal cognition asset, the consequence is not one missing
+// file but a Volume that cannot be enrolled and a Guide blocked throughout, far from the cause (one
+// ignore rule somewhere). This turns "ignored, and by which rule" into a fact that can be answered directly.
 package fs
 
 import (
@@ -13,17 +13,17 @@ import (
 	"strings"
 )
 
-// PathIgnoredByGit 回答 rel 是否被 Git 的忽略权威隐藏,并给出命中的规则来源。
+// PathIgnoredByGit answers whether rel is hidden by Git's ignore authority and names the matching rule's source.
 //
-// 一次调用同时覆盖 .gitignore、.git/info/exclude 与 core.excludesFile 三个来源,
-// 这正是必须问 Git 而不能自己解析 .gitignore 的原因。
+// One call covers all three sources, .gitignore, .git/info/exclude, and core.excludesFile, which is
+// exactly why Git must be asked instead of parsing .gitignore here.
 //
-// 语义上的两个要点:
-//   - 已被跟踪的文件永远回 false。git check-ignore 对已跟踪路径不报忽略,这与
-//     AOCI 的需要一致: 被跟踪就一定进得了清单,忽略规则对它无效。
-//   - 不传 --no-index。加上它会把已跟踪文件也判成忽略,把免疫的情况误报成故障。
+// Two semantic points:
+//   - A tracked file always answers false. git check-ignore reports no ignore for a tracked path, which
+//     matches what AOCI needs: a tracked file always enters the listing, and ignore rules do not apply to it.
+//   - --no-index is not passed. With it a tracked file would also read as ignored, turning the immune case into a false fault.
 //
-// 无法取得 Git 事实时回 (false, "")：宁可不报,也不因为环境问题诬告一条规则。
+// When the Git facts cannot be obtained it answers (false, ""): better to report nothing than to accuse a rule because of an environment problem.
 func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	command := UntrustedRepositoryGitCommand(root,
 		"-c", "core.quotepath=false", "check-ignore", "-v", "--", rel)
@@ -31,7 +31,7 @@ func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	command.Stdout = &stdout
 	command.Stderr = nil
 	if err := command.Run(); err != nil {
-		// 退出码 1 是"未被忽略"的正常回答,不是失败。
+		// Exit code 1 is the ordinary "not ignored" answer, not a failure.
 		var exitError *exec.ExitError
 		if !asExitError(err, &exitError) || exitError.ExitCode() != 1 {
 			return false, ""
@@ -42,8 +42,8 @@ func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	if line == "" {
 		return false, ""
 	}
-	// -v 输出形如 "<source>:<line>:<pattern>\t<path>"。规则来源对操作者的价值
-	// 高于模式本身: 它直接指出该去改哪个文件。
+	// -v prints "<source>:<line>:<pattern>\t<path>". The rule's source is worth more to the operator
+	// than the pattern itself: it names the file to change.
 	if tab := strings.IndexByte(line, '\t'); tab > 0 {
 		line = line[:tab]
 	}

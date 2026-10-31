@@ -1,16 +1,16 @@
-// lock.go 的表驱动与并发测试
-// 索引条目: lock_test.go(待补录,随本批入册)
+// Table-driven and concurrency tests for lock.go
+// Index entry: lock_test.go (pending; enrolled with this batch)
 //
-// 覆盖面: 获取/释放往返、争用超时(ErrLockTimeout 可识别)、陈旧锁抢占、
-// token 防误删(Release 拒删他人锁)、释放幂等、进程内并发互斥。
-// 全用例 t.TempDir 造仓不依赖真实文件系统;短超时/短陈旧阈值经内部函数
-// acquireLockWith 注入,生产默认参数不进测试面(10s/60s 会拖慢测试)。
+// Coverage: acquire/release round trip, contention timeout (ErrLockTimeout recognizable), stale-lock takeover,
+// the token against wrong deletion (Release refuses someone else's lock), idempotent release, in-process mutual exclusion.
+// Every case builds its repository in t.TempDir without a real filesystem dependency; short timeouts and staleness
+// thresholds are injected through the internal acquireLockWith, keeping the production defaults (10s/60s would slow the tests) off the test surface.
 //
-// 互斥用例的观测仪器教训(初版数据竞争入档): 文件锁不建立 race detector
-// 可见的 happens-before 边,锁保护下的裸内存读写仍被 -race 如实标记 ——
-// 初版用裸 int 计数器被 -race 击落属仪器错误而非锁缺陷。正确仪器 =
-// atomic.Int32 临界区重叠探测: 进临界区 Add(1) 后读到值 ≠1 即证互斥失效,
-// 原子操作对 detector 合法,重叠断言直接证明互斥语义本身。
+// Instrument lesson of the mutual-exclusion case (the first version's data race, on record): a file lock establishes
+// no happens-before edge the race detector can see, and bare memory access under the lock is still reported by -race,
+// so the first version's bare int counter being shot down by -race was an instrument error, not a lock defect. The right
+// instrument is atomic.Int32 critical-section overlap detection: reading a value other than 1 after Add(1) on entry
+// proves the exclusion failed; atomic operations are legal to the detector, and the overlap assertion proves the exclusion semantics directly.
 package fs
 
 import (
@@ -25,13 +25,13 @@ import (
 	"time"
 )
 
-// lockTestPath 测试仓内锁文件路径(辅助函数带 lock 前缀防同包撞名 —— mkEScaleEntry 教训同族)
+// lockTestPath is the lock file path inside a test repository (helpers carry the lock prefix against same-package name clashes, the mkEScaleEntry lesson)
 func lockTestPath(t *testing.T) string {
 	t.Helper()
 	return filepath.Join(t.TempDir(), ".aoci", "lock")
 }
 
-// TestLockAcquireRelease 基本往返: 获取后锁文件存在,释放后消失
+// TestLockAcquireRelease is the basic round trip: the lock file exists after acquire and is gone after release
 func TestLockAcquireRelease(t *testing.T) {
 	p := lockTestPath(t)
 	l, err := acquireLockWith(p, time.Second, time.Minute)
@@ -41,7 +41,7 @@ func TestLockAcquireRelease(t *testing.T) {
 	if _, serr := os.Stat(p); serr != nil {
 		t.Fatalf("持有期间锁文件应存在: %v", serr)
 	}
-	// 锁文件内容应含本持有者 pid 与非空 token(诊断字段抽查)
+	// The lock file should carry this holder's pid and a non-empty token (a spot check of the diagnostic fields)
 	data, rerr := os.ReadFile(lockOwnerPath(p))
 	if rerr != nil {
 		t.Fatalf("读取锁文件失败: %v", rerr)
@@ -58,7 +58,7 @@ func TestLockAcquireRelease(t *testing.T) {
 	}
 }
 
-// TestLockContention 争用: 已被持有时第二个获取者短超时失败,且错误可经 errors.Is 识别
+// TestLockContention: while held, a second acquirer fails on a short timeout, and the error is recognizable with errors.Is
 func TestLockContention(t *testing.T) {
 	p := lockTestPath(t)
 	l1, err := acquireLockWith(p, time.Second, time.Minute)
@@ -76,13 +76,13 @@ func TestLockContention(t *testing.T) {
 	}
 }
 
-// TestLockStalePreempt 陈旧抢占: mtime 老化超过阈值的孤儿锁被删除后成功获取
+// TestLockStalePreempt: an orphan lock whose mtime aged past the threshold is removed and the acquire succeeds
 func TestLockStalePreempt(t *testing.T) {
 	p := lockTestPath(t)
 	previousIdentity := lockProcessIdentity
 	lockProcessIdentity = func(int) (string, bool, bool) { return "", false, true }
 	t.Cleanup(func() { lockProcessIdentity = previousIdentity })
-	// 手工制造孤儿锁(模拟持有者崩溃): 建目录后把 mtime 拨回过去
+	// Build the orphan lock by hand (simulating a crashed holder): create the directory, then turn its mtime back
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestLockStalePreempt(t *testing.T) {
 		t.Fatalf("陈旧锁应被抢占, 获取失败: %v", err)
 	}
 	defer l.Release()
-	// 抢占后锁文件应是新持有者的 token 而非 dead
+	// After the takeover the lock file carries the new holder's token, not dead
 	data, rerr := os.ReadFile(lockOwnerPath(p))
 	if rerr != nil {
 		t.Fatalf("读取锁文件失败: %v", rerr)
@@ -243,9 +243,9 @@ func TestLateStaleWaiterCannotQuarantineReplacementLock(t *testing.T) {
 	os.RemoveAll(p)
 }
 
-// TestDirectoryLateStaleWaiterCannotQuarantineReplacementLock覆盖hard-link
-// 不可用时的真实目录锁代次竞态：等待者持有旧代观察证据期间，旧owner释放且
-// 新owner取得同名canonical；晚到等待者不得移动或删除新代目录锁。
+// TestDirectoryLateStaleWaiterCannotQuarantineReplacementLock covers the real directory-lock generation race
+// where hard links are unavailable: while a waiter holds observation evidence of the old generation, the old owner
+// releases and a new owner takes the same canonical name; the late waiter must not move or delete the new generation's directory lock.
 func TestDirectoryLateStaleWaiterCannotQuarantineReplacementLock(t *testing.T) {
 	p := lockTestPath(t)
 	previousPublish := publishPreparedLockOwner
@@ -398,14 +398,14 @@ func TestLockOwnerEvidenceCannotCrossReplacementInode(t *testing.T) {
 	}
 }
 
-// TestLockReleaseForeign token 防误删: 锁被抢占(内容换成他人 token)后 Release 拒绝删除
+// TestLockReleaseForeign, the token against wrong deletion: once the lock was taken over (its content replaced by someone else's token) Release refuses the delete
 func TestLockReleaseForeign(t *testing.T) {
 	p := lockTestPath(t)
 	l, err := acquireLockWith(p, time.Second, time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// 模拟被抢占: 覆盖为他人的锁内容
+	// Simulate the takeover: overwrite with someone else's lock content
 	foreign := `{"pid":99999,"token":"someone-else","created_at":""}`
 	if werr := os.WriteFile(lockOwnerPath(p), []byte(foreign), 0o644); werr != nil {
 		t.Fatal(werr)
@@ -413,7 +413,7 @@ func TestLockReleaseForeign(t *testing.T) {
 	if relErr := l.Release(); relErr == nil {
 		t.Fatalf("token 不匹配时 Release 应拒绝删除他人锁")
 	}
-	// 他人锁文件必须原样保留
+	// The other holder's lock file must be left as it was
 	data, rerr := os.ReadFile(lockOwnerPath(p))
 	if rerr != nil {
 		t.Fatalf("读取锁文件失败: %v", rerr)
@@ -424,7 +424,7 @@ func TestLockReleaseForeign(t *testing.T) {
 	os.RemoveAll(p)
 }
 
-// TestLockReleaseIdempotent 释放幂等: 锁文件已消失(被抢占清理)时 Release 返回 nil
+// TestLockReleaseIdempotent: Release returns nil when the lock file is already gone (cleaned up by a takeover)
 func TestLockReleaseIdempotent(t *testing.T) {
 	p := lockTestPath(t)
 	l, err := acquireLockWith(p, time.Second, time.Minute)
@@ -439,22 +439,22 @@ func TestLockReleaseIdempotent(t *testing.T) {
 	}
 }
 
-// TestLockMutualExclusion 进程内并发互斥: atomic 临界区重叠探测(仪器裁决见文件头注释)。
-// O_EXCL 对进程内 goroutine 同样生效,是跨进程互斥语义的合理代理。
+// TestLockMutualExclusion, in-process concurrent mutual exclusion through atomic critical-section overlap detection (the instrument decision is in the file header).
+// O_EXCL applies to in-process goroutines just the same, a fair proxy for the cross-process exclusion semantics.
 func TestLockMutualExclusion(t *testing.T) {
 	p := lockTestPath(t)
 	const workers, rounds = 8, 5
 
-	// inCrit: 同时处于临界区的持有者数,恒应为 1;total: 完成的临界区轮次
+	// inCrit: holders inside the critical section at once, always 1; total: completed critical-section rounds
 	var inCrit atomic.Int32
 	var total atomic.Int32
 	var overlap atomic.Bool
 
-	// 命题是互斥成立且每一轮都完成;等待方在慢机器上的耐心不是命题。获取循环
-	// 退避到 500ms 且不保证公平,八个竞争者下一个 worker 可能连续输掉每次唤醒,
-	// 在负载中的 Windows runner 上超过 10s(full-confidence 2026-09-11:
-	// 40 轮完成 32 轮,无重叠)。超时仍远小于陈旧阈值,Release 若坏了留下的锁
-	// 依旧以超时失败,而不是被判陈旧后隔离窃取。
+	// The proposition is that the exclusion holds and every round completes; the waiters' patience on a slow machine
+	// is not the proposition. The acquire loop backs off to 500ms and promises no fairness, so under eight
+	// contenders one worker may lose every wake-up in a row and exceed 10s on a loaded Windows runner
+	// (full-confidence 2026-09-11: 32 of 40 rounds completed, no overlap). The timeout stays far below the
+	// staleness threshold, so a lock left by a broken Release still fails by timeout rather than being judged stale, quarantined, and stolen.
 	const acquireTimeout, staleHorizon = 2 * time.Minute, 5 * time.Minute
 
 	var wg sync.WaitGroup
@@ -468,11 +468,11 @@ func TestLockMutualExclusion(t *testing.T) {
 					t.Errorf("并发获取锁失败: %v", err)
 					return
 				}
-				// 进临界区: 若已有他人在内,互斥即已失效
+				// Entering the critical section: anyone already inside means the exclusion has failed
 				if cur := inCrit.Add(1); cur != 1 {
 					overlap.Store(true)
 				}
-				time.Sleep(time.Millisecond) // 拉大重叠观测窗口
+				time.Sleep(time.Millisecond) // widen the overlap observation window
 				inCrit.Add(-1)
 				total.Add(1)
 				if relErr := l.Release(); relErr != nil {

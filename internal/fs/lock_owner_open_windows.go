@@ -9,9 +9,9 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// openLockOwnerForObservation允许owner在等待者读取身份期间删除canonical锁。
-// Go默认os.Open的Windows共享语义不能作为本锁协议假设；显式FILE_SHARE_DELETE
-// 避免观察者把自己的短时只读句柄泄漏为Release阻断条件。
+// openLockOwnerForObservation lets the owner delete the canonical lock while a waiter reads its identity.
+// The Windows sharing semantics of Go's default os.Open cannot be assumed by this lock protocol; an explicit
+// FILE_SHARE_DELETE keeps the observer's brief read-only handle from leaking into a condition that blocks Release.
 func openLockOwnerForObservation(path string) (*os.File, error) {
 	name, err := windows.UTF16PtrFromString(path)
 	if err != nil {
@@ -32,8 +32,8 @@ func openLockOwnerForObservation(path string) (*os.File, error) {
 	return os.NewFile(uintptr(handle), path), nil
 }
 
-// lockOwnerObservationTransient识别Windows名称已删除但句柄清理尚未完成的
-// 短暂窗口。这里只令观察证据失效并重试，不把真实Release错误改写为成功。
+// lockOwnerObservationTransient recognizes the short Windows window in which the name is deleted but the handle
+// cleanup has not finished. It only invalidates the observation evidence and retries; a real Release error is never rewritten as success.
 func lockOwnerObservationTransient(err error) bool {
 	return errors.Is(err, windows.ERROR_ACCESS_DENIED) ||
 		errors.Is(err, windows.ERROR_SHARING_VIOLATION) ||

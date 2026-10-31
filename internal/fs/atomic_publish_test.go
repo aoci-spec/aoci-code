@@ -8,10 +8,10 @@ import (
 	"testing"
 )
 
-// Windows 兜底的数据保全铁律(备份语义, 采纳 PR #7): 旧字节从头到尾不被销毁。
-// 覆盖失败 → 目标改名为同目录备份 → 重试; 重试成功则删备份, 重试失败则还原备份。
+// The data-preservation rule of the Windows fallback (backup semantics, PR #7): the old bytes are never destroyed.
+// Overwrite fails, the target is renamed to a same-directory backup, the rename is retried; a successful retry deletes the backup, a failed retry restores it.
 
-// 重试成功: 目标是新内容, 备份被清理。
+// Retry succeeds: the target holds the new content and the backup is cleaned up.
 func TestPublishAtomicRenameBackupThenRetrySucceeds(t *testing.T) {
 	directory := t.TempDir()
 	tmpName := filepath.Join(directory, ".aoci-tmp-new")
@@ -42,8 +42,8 @@ func TestPublishAtomicRenameBackupThenRetrySucceeds(t *testing.T) {
 	}
 }
 
-// 重试失败: 备份自动还原, 目标保持旧内容完好如初。这正是相对"删目标"语义的
-// 核心提升 —— 失败路径不再留下"目标不存在"的降级状态。
+// Retry fails: the backup is restored automatically and the target keeps its old content intact. This is the core
+// improvement over the "delete the target" semantics: the failure path no longer leaves a degraded "target missing" state.
 func TestPublishAtomicRenameRestoresTargetWhenRetryFails(t *testing.T) {
 	directory := t.TempDir()
 	tmpName := filepath.Join(directory, ".aoci-tmp-new")
@@ -58,13 +58,13 @@ func TestPublishAtomicRenameRestoresTargetWhenRetryFails(t *testing.T) {
 	rename := func(oldPath, newPath string) error {
 		renameCalls++
 		switch renameCalls {
-		case 1: // 首次覆盖失败
+		case 1: // the first overwrite fails
 			return errors.New("rename 被文件句柄占用")
-		case 2: // 目标 → 备份
+		case 2: // target to backup
 			return os.Rename(oldPath, newPath)
-		case 3: // 重试仍失败
+		case 3: // the retry fails too
 			return errors.New("rename 仍被占用")
-		default: // 备份还原
+		default: // backup restored
 			return os.Rename(oldPath, newPath)
 		}
 	}
@@ -81,7 +81,7 @@ func TestPublishAtomicRenameRestoresTargetWhenRetryFails(t *testing.T) {
 	}
 }
 
-// 极端情况: 连备份还原都失败 → 新旧两份都保留, 错误回报两个路径供手工处置。
+// The extreme case: even the backup restore fails, so both the old and the new file are kept and the error reports both paths for hand handling.
 func TestPublishAtomicRenameRetainsBothWhenRestoreFails(t *testing.T) {
 	directory := t.TempDir()
 	tmpName := filepath.Join(directory, ".aoci-tmp-new")
@@ -96,7 +96,7 @@ func TestPublishAtomicRenameRetainsBothWhenRestoreFails(t *testing.T) {
 	renameCalls := 0
 	rename := func(oldPath, newPath string) error {
 		renameCalls++
-		if renameCalls == 2 { // 目标 → 备份
+		if renameCalls == 2 { // target to backup
 			return os.Rename(oldPath, newPath)
 		}
 		return errors.New("rename 失败")
@@ -116,7 +116,7 @@ func TestPublishAtomicRenameRetainsBothWhenRestoreFails(t *testing.T) {
 	}
 }
 
-// 目标改名为备份这一步本身失败: 原文件仍在原位, 清理临时文件。
+// The target-to-backup rename itself fails: the original stays in place and the temporary file is cleaned up.
 func TestPublishAtomicRenameCleansTemporaryWhenTargetSurvives(t *testing.T) {
 	directory := t.TempDir()
 	tmpName := filepath.Join(directory, ".aoci-tmp-new")
@@ -138,7 +138,7 @@ func TestPublishAtomicRenameCleansTemporaryWhenTargetSurvives(t *testing.T) {
 	}
 }
 
-// 非 Windows 平台不进入兜底: 一次 rename 失败即清理临时文件并保留原文件。
+// Off Windows the fallback is never entered: one failed rename cleans up the temporary file and keeps the original.
 func TestPublishAtomicRenameSkipsFallbackOffWindows(t *testing.T) {
 	directory := t.TempDir()
 	tmpName := filepath.Join(directory, ".aoci-tmp-new")

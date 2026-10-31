@@ -1,7 +1,7 @@
 //go:build !linux && !darwin && !windows
 
-// 其他平台缺少标准库可用的原子路径交换原语；安全方向是明确不可用，绝不退回
-// 到“先比较再rename”的伪CAS。
+// Other platforms lack an atomic path-exchange primitive usable from the standard library; the safe direction
+// is an explicit "unavailable", never a fall-back to a compare-then-rename pseudo CAS.
 package fs
 
 import "fmt"

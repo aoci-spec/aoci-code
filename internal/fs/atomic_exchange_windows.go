@@ -1,5 +1,5 @@
-// Windows原子路径交换 —— ReplaceFileW保证canonical始终指向完整文件，并把
-// 被替换版本保存为恢复副本；随后把恢复副本归一为公共swap状态机使用的路径。
+// Windows atomic path exchange: ReplaceFileW keeps canonical pointing at a complete file and saves the
+// replaced version as a recovery copy; the recovery copy is then normalized to the path the shared swap state machine uses.
 package fs
 
 import (

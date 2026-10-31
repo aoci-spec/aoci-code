@@ -1,10 +1,10 @@
-// walk.go 的防回归测试
-// 索引条目: walk_test.go(待补录)
+// Regression tests for walk.go
+// Index entry: walk_test.go (pending)
 //
-// 立测背景(2026-07-10 httpx 实弹缺陷): fs 包此前零测试,WalkRepo 的内置排除
-// 边界("到底内置排除哪些目录")必须由机器断言锁定。Safe Inventory v2 将
-// .git/.aoci、秘密、运行目录和生成资产提升为不可静默越过的安全边界；项目
-// 配置仍可增加普通治理排除，但不能移除这些硬边界。
+// Why these tests exist (the 2026-07-10 httpx live defect): the fs package had no tests, and the built-in exclusion
+// boundary of WalkRepo ("which directories are excluded by default") must be locked by machine assertion. Safe
+// Inventory v2 raised .git/.aoci, secrets, runtime directories, and generated assets to safety boundaries that cannot
+// be crossed silently; project configuration may still add ordinary governance exclusions but cannot remove these hard boundaries.
 package fs
 
 import (
@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-// mustWrite 在 t.TempDir 造的仓库内写一个文件(自动建父目录),失败即测试失败。
+// mustWrite writes one file inside a repository built in t.TempDir (creating parent directories); a failure fails the test.
 func mustWrite(t *testing.T, root, rel, content string) {
 	t.Helper()
 	p := filepath.Join(root, filepath.FromSlash(rel))
@@ -25,7 +25,7 @@ func mustWrite(t *testing.T, root, rel, content string) {
 	}
 }
 
-// walkSet 执行 WalkRepo 并把结果转为集合便于断言。
+// walkSet runs WalkRepo and turns the result into a set for assertions.
 func walkSet(t *testing.T, root string, opt WalkOptions) map[string]bool {
 	t.Helper()
 	list, err := WalkRepo(root, opt)
@@ -39,19 +39,19 @@ func walkSet(t *testing.T, root string, opt WalkOptions) map[string]bool {
 	return set
 }
 
-// TestWalkRepoBuiltinExcludes 锁定内置无条件排除的真实边界:
-// .git、.aoci 与生成目录在【零配置】下也必须被安全排除。
+// TestWalkRepoBuiltinExcludes locks the real boundary of the unconditional built-in exclusions:
+// .git, .aoci, and generated directories must be excluded safely even with zero configuration.
 func TestWalkRepoBuiltinExcludes(t *testing.T) {
 	root := t.TempDir()
-	// 正常业务文件
+	// Ordinary business files
 	mustWrite(t, root, "src/main.py", "print('ok')\n")
 	mustWrite(t, root, "pyproject.toml", "[project]\n")
-	// 真实 VCS 内部目录 —— 必须被内置排除(httpx 实弹缺陷靶)
+	// A real VCS internal directory, which the built-in exclusion must catch (the httpx live-defect target)
 	gitCommand(t, root, "init", "-q")
 	mustWrite(t, root, ".git/hooks/pre-commit.sample", "#!/bin/sh\n")
-	// AOCI 状态目录 —— 必须被内置排除(防自吞,既有语义)
+	// The AOCI state directory, which the built-in exclusion must catch (against self-ingestion, existing semantics)
 	mustWrite(t, root, ".aoci/config.json", "{}\n")
-	// node_modules —— Safe Inventory v2 的生成资产硬边界
+	// node_modules, Safe Inventory v2's generated-asset hard boundary
 	mustWrite(t, root, "node_modules/pkg/index.js", "x\n")
 
 	got := walkSet(t, root, WalkOptions{})
@@ -72,9 +72,9 @@ func TestWalkRepoBuiltinExcludes(t *testing.T) {
 	}
 }
 
-// TestWalkRepoConfiguredExcludes 锁定配置注入的排除语义:
-// ExcludeDirs 按基名整棵剪枝;ExcludeFiles 按模式匹配(后缀形态抽查一种,
-// MatchExcludePattern 的四种模式形态由下方专项用例覆盖)。
+// TestWalkRepoConfiguredExcludes locks the exclusion semantics injected by configuration:
+// ExcludeDirs prunes the whole tree by base name; ExcludeFiles matches by pattern (one suffix form is spot-checked here,
+// the four pattern forms of MatchExcludePattern have their own case below).
 func TestWalkRepoConfiguredExcludes(t *testing.T) {
 	root := t.TempDir()
 	mustWrite(t, root, "src/app.go", "package app\n")
@@ -101,8 +101,8 @@ func TestWalkRepoConfiguredExcludes(t *testing.T) {
 	}
 }
 
-// TestMatchExcludePattern 锁定四种模式形态与无 * 精确匹配的判定语义
-// (语义对齐平台 matchExcludePattern,是 R6 三方同步面的一部分)。
+// TestMatchExcludePattern locks the four pattern forms and the exact match without * (the semantics match the
+// platform's matchExcludePattern, part of the R6 three-way sync surface).
 func TestMatchExcludePattern(t *testing.T) {
 	cases := []struct {
 		name string

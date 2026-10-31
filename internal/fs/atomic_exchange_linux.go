@@ -1,4 +1,4 @@
-// Linux原子路径交换 —— CAS必须捕获交换瞬间的真实preimage。
+// Linux atomic path exchange: CAS must capture the real preimage at the instant of the swap.
 //
 // renameat2 with RENAME_EXCHANGE is the primitive, but like RENAME_NOREPLACE
 // next door it is a filesystem capability, not a kernel one: WSL's DrvFs (9p)

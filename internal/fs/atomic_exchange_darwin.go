@@ -1,4 +1,4 @@
-// Darwin原子路径交换 —— renamex_np(RENAME_SWAP)捕获交换瞬间的真实preimage。
+// Darwin atomic path exchange: renamex_np(RENAME_SWAP) captures the real preimage at the instant of the swap.
 package fs
 
 import "golang.org/x/sys/unix"
