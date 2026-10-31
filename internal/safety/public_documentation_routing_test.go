@@ -16,14 +16,14 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 	checks := map[string][]string{
 		"README.md": {
 			"Legacy-only deep status; not the Cognition Volumes maintenance route",
-			"`status --deep` and `index score` are Legacy-only read commands",
+			"`status --deep` is a Legacy-only read command; `index score` reads both",
 			"basic, recommended, or full verification level",
 			"**OpenCode V1**",
 			"init --agent opencode",
 		},
 		"README.zh-CN.md": {
 			"仅用于 Legacy 深度状态，不是 Cognition Volumes 维护路线",
-			"`status --deep` 和 `index score` 仅用于 Legacy 只读诊断",
+			"`status --deep` 仅用于 Legacy 只读诊断；`index score` 两种布局都能读",
 			"基础、推荐或完整校验层级",
 			"**OpenCode V1**",
 			"init --agent opencode",

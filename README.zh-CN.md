@@ -861,10 +861,11 @@ AOCI-CODE 不要求 Neo4j、向量数据库、长期 Daemon 或 AOCI 云服务�
 
 ### 🧭 为什么 Legacy `status --deep` 仍显示漂移？
 
-`status --deep` 和 `index score` 仅用于 Legacy 只读诊断。对于
-Cognition Volumes 仓库，应先运行实时 Guide，让宿主调用普通无参数
-`aoci_maintain`，通过 `aoci_update_entry` 提交完整当前批次，并以 Verify、
-Check、Guide 收口。不要直接修改 Baseline，也不要跳过源码绑定或恢复步骤。
+`status --deep` 仅用于 Legacy 只读诊断；`index score` 两种布局都能读，对
+Cognition Volumes 仓库给出的数字与 `verify` 一致。对于 Cognition Volumes
+仓库，应先运行实时 Guide，让宿主调用普通无参数 `aoci_maintain`，通过
+`aoci_update_entry` 提交完整当前批次，并以 Verify、Check、Guide 收口。不要直接
+修改 Baseline，也不要跳过源码绑定或恢复步骤。
 
 Legacy 布局自 0.2.0 起只读：写作命令已移除，所有写工具都答
 `legacy_read_only_migrate_required`，`status --deep` 显示的漂移只能靠迁移消除。

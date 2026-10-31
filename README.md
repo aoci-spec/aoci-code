@@ -901,11 +901,12 @@ AOCI-CODE does not require Neo4j, a vector database, a long-running daemon, or a
 
 ### Why does Legacy `status --deep` still show drift?
 
-`status --deep` and `index score` are Legacy-only read commands. For a
-Cognition Volumes repository, run the live guide and let the host use ordinary
-no-argument `aoci_maintain`, submit the complete current batch through
-`aoci_update_entry`, and close with Verify, Check, and the guide. Do not modify
-the Baseline directly or skip source-binding and recovery steps.
+`status --deep` is a Legacy-only read command; `index score` reads both
+layouts and, on a Cognition Volumes repository, reports the numbers `verify`
+reports. For a Cognition Volumes repository, run the live guide and let the
+host use ordinary no-argument `aoci_maintain`, submit the complete current
+batch through `aoci_update_entry`, and close with Verify, Check, and the guide.
+Do not modify the Baseline directly or skip source-binding and recovery steps.
 
 The Legacy layout is read-only since 0.2.0. Its authoring commands are gone,
 every write tool answers `legacy_read_only_migrate_required`, and the drift
