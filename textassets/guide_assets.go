@@ -2,6 +2,34 @@ package textassets
 
 import "strings"
 
+// ObservedReviewInstructions is shared by Guide and Maintain. The caller must
+// first establish that no other blocking finding takes precedence over review.
+func ObservedReviewInstructions(locale string) ([]string, error) {
+	return guideMessageLines(locale,
+		"guide.observed_review_instruction_continue",
+		"guide.observed_review_instruction_evidence",
+		"guide.observed_review_instruction_ack",
+		"guide.observed_review_instruction_resume")
+}
+
+// BlockedContinuationInstructions preserves every approval and safety boundary
+// while distinguishing a stopped write attempt from a finished user task.
+func BlockedContinuationInstructions(locale string) ([]string, error) {
+	return guideMessageLines(locale, "guide.blocked_instruction_continue")
+}
+
+func guideMessageLines(locale string, keys ...string) ([]string, error) {
+	lines := make([]string, 0, len(keys))
+	for _, key := range keys {
+		line, err := Message(locale, key)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, line)
+	}
+	return lines, nil
+}
+
 const (
 	ContractGuideBaseInstructions                ID = "contracts/guide/base-instructions"
 	ContractGuideBaselineFirstMessage            ID = "contracts/guide/baseline-first-message"

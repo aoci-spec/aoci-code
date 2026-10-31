@@ -340,8 +340,24 @@ machine decision, and a blocked result names its blocker there:
 `explicit_orphan_remove_or_resolve_blocker` only when
 `orphan_remove_candidates` lists something, otherwise `close_pending_recovery`,
 `scan_to_establish_baseline`, `activate_scope_change`,
-`acknowledge_observed_evidence`, `resolve_cognition_budget`, or
-`resolve_blocker`, in that precedence.
+`resolve_cognition_budget`, or `resolve_blocker`, in that precedence.
+Observe-only blocking uses the review action described below; it supersedes
+the earlier `acknowledge_observed_evidence` spelling.
+
+When pending observations are the only blocker, Guide and Maintain return
+`next_action=review_observed_evidence` while writes remain `blocked`. The Agent
+reads `scope status --json`, reviews every reported observation and its affected
+production, Spec, or Header evidence, and only then acknowledges the exact set
+under the existing authorization policy. After success it requests a fresh
+Guide and follows the returned authoring batches through Verify, Check, and
+Guide. Required approval, drift, CAS, Recovery, or another safety boundary still
+stops the affected action; `blocked` alone does not finish the user task.
+
+The action, ordered instructions, commands, and stop facts appear before large
+diagnostic lists. Ordinary Maintain's batch action matches its top-level action even
+when no candidate was issued or the index is already aligned. Other blocking
+findings, including unknown ones, take precedence over the observe-review
+action and suppress its acknowledgement shortcut.
 
 The current repair path closes an ownership-conflicting Entry,
 which is one of those governed orphans. Ordinary

@@ -81,10 +81,16 @@ type volumeAuthoringBatch struct {
 }
 
 type volumeMaintainResult struct {
-	Version           int                          `json:"version"`
-	Status            string                       `json:"status"`
-	Result            string                       `json:"result"`
-	Aligned           bool                         `json:"aligned"`
+	Version      int      `json:"version"`
+	Status       string   `json:"status"`
+	Result       string   `json:"result"`
+	Aligned      bool     `json:"aligned"`
+	NextAction   string   `json:"next_action"`
+	Instructions []string `json:"instructions,omitempty"`
+	NextCommands []string `json:"next_commands,omitempty"`
+	// Stop must reach the host before potentially large candidate and fact lists.
+	Stop              *GlobalStopFacts             `json:"stop,omitempty"`
+	Batch             volumeAuthoringBatch         `json:"authoring_batch"`
 	RequestedScope    string                       `json:"requested_scope"`
 	AffectedDomains   []string                     `json:"affected_domains"`
 	Candidates        []volumeMaintainCandidate    `json:"candidates"`
@@ -92,21 +98,13 @@ type volumeMaintainResult struct {
 	Sets              volumeMaintainSets           `json:"sets"`
 	DatabasePlan      *dbcognition.Plan            `json:"database_plan,omitempty"`
 	CodePlan          *codebatch.Plan              `json:"code_plan,omitempty"`
-	Batch             volumeAuthoringBatch         `json:"authoring_batch"`
 	Governance        *volumegovernance.Facts      `json:"governance"`
 	Receipt           cognitionReceipt             `json:"cognition_receipt"`
 	Metrics           autoMetrics                  `json:"metrics"`
 	SemanticGenerated bool                         `json:"semantic_generated"`
 	NetworkAccessed   bool                         `json:"network_accessed"`
-	NextAction        string                       `json:"next_action"`
-	Instructions      []string                     `json:"instructions,omitempty"`
 	AuthoringMeta     string                       `json:"authoring_meta,omitempty"`
-	NextCommands      []string                     `json:"next_commands,omitempty"`
 	Optimization      *cognitionOptimizationStatus `json:"optimization,omitempty"`
-	// Stop carries an asset-level fact no candidate can repair, found before a batch
-	// is issued, so that the model is not asked to author Entries the update path
-	// would have to refuse. Absent otherwise.
-	Stop *GlobalStopFacts `json:"stop,omitempty"`
 	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
 	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -202,6 +200,19 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 	default:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
 	}
+	// A withheld or completed batch must never ask the host to author candidates
+	// that were not issued. The top-level action is the current execution step.
+	result.Batch.NextAction = result.NextAction
+	if result.Result == volumegovernance.ResultBlocked {
+		var instructionErr error
+		result.Instructions, instructionErr = textassets.BlockedContinuationInstructions(textassets.ActiveLocale())
+		if result.NextAction == machinecontract.ActionReviewObservedEvidence {
+			result.Instructions, instructionErr = textassets.ObservedReviewInstructions(textassets.ActiveLocale())
+		}
+		if instructionErr != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
+		}
+	}
 	if len(result.Candidates) > 0 {
 		// Whichever arm was taken, a response that names candidates carries the
 		// contract to author them. Until v0.1.0-rc14 held sources were dressed as
@@ -215,7 +226,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, loaded *c
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}
 		result.AuthoringMeta = contract.AuthoringMeta
-		result.Instructions = contract.Instructions
+		result.Instructions = append(result.Instructions, contract.Instructions...)
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
@@ -501,6 +512,9 @@ func blockedNextAction(facts *volumegovernance.Facts, orphans []string) string {
 	if len(orphans) > 0 {
 		return machinecontract.MaintainActionExplicitOrphanRemove
 	}
+	if facts != nil && facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence {
+		return machinecontract.ActionReviewObservedEvidence
+	}
 	codes := map[string]bool{}
 	if facts != nil {
 		for _, finding := range facts.Findings {
@@ -511,7 +525,6 @@ func blockedNextAction(facts *volumegovernance.Facts, orphans []string) string {
 		{"recovery_pending", machinecontract.MaintainActionClosePendingRecovery},
 		{"baseline_missing", machinecontract.MaintainActionScanToEstablishBaseline},
 		{"scope_change_required", machinecontract.MaintainActionActivateScopeChange},
-		{"observed_pending", machinecontract.MaintainActionAcknowledgeObserved},
 		{"cognition_budget_exceeded", machinecontract.MaintainActionResolveCognitionBudget},
 	} {
 		if codes[step.code] {

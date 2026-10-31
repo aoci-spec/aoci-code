@@ -937,6 +937,7 @@ func sortedUnique(values []string) []string {
 
 func finalize(facts *Facts) {
 	blocked, evidence, authoring := false, false, false
+	observedPending := false
 	domains := map[string]bool{}
 	for _, finding := range facts.Findings {
 		if finding.Domain != "" {
@@ -948,6 +949,8 @@ func finalize(facts *Facts) {
 		// hard stop — which is exactly how code_volume_unbaselined wedged
 		// repositories over a difference the tolerance policy calls equivalent.
 		case Informational(finding.Code):
+		case finding.Code == "observed_pending":
+			observedPending = true
 		case strings.HasPrefix(finding.Code, "database_evidence") || strings.Contains(finding.Code, "evidence_unavailable") || strings.Contains(finding.Code, "evidence_invalid"):
 			evidence = true
 		case finding.Code == "code_missing" || finding.Code == "code_stale" || finding.Code == "code_unbaselined" ||
@@ -967,6 +970,8 @@ func finalize(facts *Facts) {
 	switch {
 	case blocked:
 		facts.Result, facts.NextRequiredAction = ResultBlocked, ResultBlocked
+	case observedPending:
+		facts.Result, facts.NextRequiredAction = ResultBlocked, machinecontract.ActionReviewObservedEvidence
 	case evidence:
 		facts.Result = ResultEvidenceRequired
 		facts.NextRequiredAction = facts.DatabaseCognition.NextAction

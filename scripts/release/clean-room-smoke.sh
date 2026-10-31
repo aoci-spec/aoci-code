@@ -122,8 +122,9 @@ case "$post_observe_status" in
 esac
 echo "$post_observe_status"
 guide=$("$binary" --repo "$repository" --json index agent guide --agent codex)
+# Continuation and batch facts precede the potentially large governance details.
 case "$guide" in
-  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"database_volume_state": "absent"'*'"max_entries": 50'*"\"included\": ${EXPECTED_AUTHORING_TARGETS}"*'"remaining": 0'*) ;;
+  *'"stage": "authoring_required"'*'"next_action": "call_no_argument_aoci_maintain_for_current_machine_batch"'*'"max_entries": 50'*"\"included\": ${EXPECTED_AUTHORING_TARGETS}"*'"remaining": 0'*'"database_volume_state": "absent"'*) ;;
   *) echo "Guide did not return the unique current Volume-first authoring action" >&2; exit 1 ;;
 esac
 case "$guide" in

@@ -36,14 +36,20 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 	}
 	blocked := blockedNextCommands(facts)
 	joined := strings.Join(blocked, "\n")
-	if len(blocked) != 3 ||
-		!strings.Contains(joined, machinecontract.RemediationCommandScopeAcknowledge) ||
+	if len(blocked) != 2 ||
+		strings.Contains(joined, machinecontract.RemediationCommandScopeAcknowledge) ||
 		!strings.Contains(joined, machinecontract.RemediationCommandScopeBudgetSet) ||
 		strings.Count(joined, machinecontract.RemediationCommandScopeStatus+"\n")+strings.Count(joined, machinecontract.RemediationCommandScopeStatus) < 1 {
 		t.Fatalf("blocked commands wrong: %v", blocked)
 	}
-	if strings.Count(joined, machinecontract.RemediationCommandScopeAcknowledge) != 1 {
-		t.Fatalf("duplicate findings duplicated a command: %v", blocked)
+	review := blockedNextCommands(&volumegovernance.Facts{
+		NextRequiredAction: machinecontract.ActionReviewObservedEvidence,
+		Findings:           []volumegovernance.Finding{{Code: "observed_pending"}, {Code: "observed_pending"}},
+	})
+	if len(review) != 3 || !strings.HasSuffix(review[0], machinecontract.RemediationCommandScopeStatus) ||
+		!strings.HasSuffix(review[1], machinecontract.RemediationCommandScopeAcknowledge) ||
+		!strings.HasSuffix(review[2], machinecontract.RemediationCommandAgentGuide) {
+		t.Fatalf("observe review must lead through status, reviewed acknowledgement, and a fresh Guide: %v", review)
 	}
 
 	scopeCommands := blockedNextCommands(&volumegovernance.Facts{Findings: []volumegovernance.Finding{
@@ -71,8 +77,8 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 // one case it was right about; a pending Observe review alone must not send a
 // Host hunting for orphans that do not exist (#147).
 func TestBlockedNextActionNamesTheActualBlocker(t *testing.T) {
-	observed := &volumegovernance.Facts{Findings: []volumegovernance.Finding{{Code: "observed_pending"}}}
-	if got := blockedNextAction(observed, nil); got != machinecontract.MaintainActionAcknowledgeObserved {
+	observed := &volumegovernance.Facts{NextRequiredAction: machinecontract.ActionReviewObservedEvidence, Findings: []volumegovernance.Finding{{Code: "observed_pending"}}}
+	if got := blockedNextAction(observed, nil); got != machinecontract.ActionReviewObservedEvidence {
 		t.Fatalf("pending Observe review named %q", got)
 	}
 	if got := blockedNextAction(observed, []string{"code:gone.go"}); got != machinecontract.MaintainActionExplicitOrphanRemove {
@@ -86,6 +92,8 @@ func TestBlockedNextActionNamesTheActualBlocker(t *testing.T) {
 		{[]string{"cognition_budget_exceeded", "baseline_missing"}, machinecontract.MaintainActionScanToEstablishBaseline},
 		{[]string{"observed_pending", "scope_change_required"}, machinecontract.MaintainActionActivateScopeChange},
 		{[]string{"cognition_budget_exceeded"}, machinecontract.MaintainActionResolveCognitionBudget},
+		{[]string{"observed_pending", "cognition_budget_exceeded"}, machinecontract.MaintainActionResolveCognitionBudget},
+		{[]string{"observed_pending", "future_unknown_blocker"}, machinecontract.MaintainActionResolveBlocker},
 		{[]string{"code_skipped"}, machinecontract.MaintainActionResolveBlocker},
 	} {
 		facts := &volumegovernance.Facts{}
