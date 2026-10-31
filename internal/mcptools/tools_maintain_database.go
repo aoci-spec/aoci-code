@@ -26,6 +26,9 @@ type maintainIn struct {
 	// IncludeInstructions asks for the complete authoring contract on this
 	// response even when this process already sent it (maintain_contract.go).
 	IncludeInstructions bool `json:"include_instructions,omitempty"`
+	// BatchID asks for one issued sibling of the current parallel plan as the
+	// complete current batch (L4); only under code_cognition_parallel_batches > 1.
+	BatchID string `json:"batch_id,omitempty"`
 }
 
 const maintainIntentCognitionOptimization = "cognition_optimization"
@@ -79,6 +82,18 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	}
 	if len(input.ObjectRefs) != 0 {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_object_refs_require_cognition_optimization"})
+	}
+	if input.BatchID != "" {
+		if input.Scope != "" {
+			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_takes_no_scope"})
+		}
+		if fail != nil {
+			return failResult(fail)
+		}
+		if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+			return handleLegacyReadOnlyMaintain(root, mcpServiceVersion)
+		}
+		return handleParallelSiblingDelivery(root, mcpServiceVersion, input.BatchID, input.IncludeInstructions, loaded, refreshSession)
 	}
 	if fail == nil && loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 		switch input.Scope {

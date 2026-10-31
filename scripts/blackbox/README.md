@@ -23,14 +23,14 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (58 checks, read-only): the host repository is only read;
+Protocol conformance (60 checks, read-only): the host repository is only read;
 the locale twin lane mints its two fixtures in a temp dir and removes them. When the host repository is not governance-aligned, the four checks that need a reliable receipt are reported as SKIP with the reason and still counted in the total, and the run exits 0; a ladder record still needs an aligned run.
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (80 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (86 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:
@@ -227,16 +227,17 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
 - Conformance and scenarios also serve as an executable compatibility check
   for alternative implementations: point `AOCI_BIN` at any binary that claims
   the public contracts in `spec/public/` and run them unchanged.
-- Planned with 0.2.0-rc2 (parallel current batches, the L4 section of the
-  Volumes contract): a scenarios group that drives two `Session`s against one
-  fixture and checks that N=2 issues disjoint siblings under one plan
-  preimage, that a sibling delivered by `batch_id` carries its issued targets
-  and nothing else, that A-then-B and B-then-A end in aligned with the same
-  Entry set, that a foreign edit between siblings replans the outstanding
-  ones and keeps the applied one formal, that two Applies at once serialize,
-  and that one target's source drift invalidates one sibling only; plus a
-  conformance check that the default configuration's Maintain output is
-  unchanged and that a server without the capability refuses the fields.
+- Group L (parallel current batches, the L4 section of the Volumes contract,
+  since 0.2.0-rc2) drives two `Session`s against one fixture under
+  `code_cognition_parallel_batches=2` and checks that N=2 issues disjoint
+  siblings under one plan preimage, that a sibling delivered by `batch_id`
+  carries its issued targets and nothing else, that A-then-B and B-then-A end
+  in aligned with the same Entry set, that a foreign edit between siblings
+  replans the outstanding ones and keeps the applied one formal, that two
+  Applies at once serialize and both succeed, and that one target's source
+  drift invalidates one sibling only. Conformance checks that the default
+  configuration's Maintain output carries no sibling field and that a server
+  whose configuration keeps one current batch refuses `batch_id`.
 
 ## Run-by-name ladder
 
@@ -295,8 +296,13 @@ read against the previous release's record.
 
 `realrepo.py` clones a real third-party repository locally, initializes it,
 authors template Entries through Maintain and `aoci_update_entry` until
-aligned, touches a wave of files and re-aligns, runs one cognition
-optimization batch, and probes the PreToolUse hook on an indexed file, with
+aligned (`--parallel=N` sets `code_cognition_parallel_batches` on the clone
+and has the one agent author every sibling a round lists, delivered by
+`batch_id`, so the siblings' Applies and the plan's completion are proven on
+a real tree; `rounds` then counts no-argument Maintains and
+`sibling_deliveries` the rest), touches a wave of files and re-aligns, runs
+one cognition optimization batch, and probes the PreToolUse hook on an
+indexed file, with
 every Maintain response measured against the transport budget. Template
 Entries carry no semantics, so the track proves transport, batching, alignment
 and timing on real trees, never cognition quality. It is a release-cadence

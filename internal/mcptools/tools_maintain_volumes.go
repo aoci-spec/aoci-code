@@ -174,6 +174,13 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	}
 	result.Batch.CompleteCandidateSet = len(result.Candidates) > 0
 	result.Batch.ContinuationRequired = result.Batch.Remaining > 0
+	if result.CodePlan != nil && result.CodePlan.LogicalPlan != "" {
+		// Siblings issued ahead hold targets this response does not carry:
+		// remaining counts what no sibling holds, and the plan continues
+		// while any sibling is outstanding.
+		result.Batch.Remaining = result.CodePlan.Remaining
+		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired
+	}
 	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
 	for _, orphan := range facts.CodeDrift.Orphan {
@@ -329,6 +336,13 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
 func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool) {
+	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
+		buildParallelCodeCandidates(root, loaded, result, work, snapshot, contractOnWire, parallel)
+		return
+	}
+	// One current batch per Maintain: a logical plan left by a parallel
+	// configuration that was since lowered is dropped with its records.
+	_ = codebatch.RemoveParallelPlans(root)
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	if len(all) == 0 {
 		return

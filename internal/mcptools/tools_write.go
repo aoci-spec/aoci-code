@@ -42,6 +42,11 @@ type UpdateOutcome struct {
 	BaselineNote string
 	Warnings     []string
 	DryRun       bool
+	// OldLine and NewLine are the exact lines the editor replaced and wrote
+	// (empty OldLine for an insert); a parallel sibling's applied record
+	// replays them.
+	OldLine string
+	NewLine string
 }
 
 func indexTextHash(
@@ -354,6 +359,8 @@ func prepareUpdateEntry(
 			line,
 		),
 		Warnings: warnings,
+		OldLine:  oldLine,
+		NewLine:  line,
 	}, newText, nil
 }
 

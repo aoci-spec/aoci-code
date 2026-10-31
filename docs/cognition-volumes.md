@@ -310,13 +310,21 @@ and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
 
-Parallel current batches are specified in the Volumes contract (section
-"Parallel current batches (L4)") and arrive with 0.2.0-rc2: under the team key
-`code_cognition_parallel_batches` one logical plan may have up to four sibling
-batches outstanding, each delivered whole by its `batch_id`, applied in any
-order under a replay-proven preimage rule, and invalidated together by any
-change that is not a sibling's Apply. Absent or 1 is today's flow, byte for
-byte.
+Parallel current batches (the Volumes contract's section "Parallel current
+batches (L4)") are implemented since 0.2.0-rc2. Under the team key
+`code_cognition_parallel_batches` (absent or 1 keeps one current batch per
+Maintain, byte for byte; the ceiling is 4) one logical plan keeps up to N
+sibling batches outstanding: Maintain delivers the first as the current batch
+and lists the others under `code_plan.siblings` with their state, and
+`aoci_maintain` with a sibling's `batch_id` delivers that sibling whole. The
+siblings apply in any order: a sibling's Apply is accepted when the plan
+preimage plus the applied siblings, replayed through the editor, reproduce
+the current Code Volume byte for byte, and two Applies at once serialize on
+the governed-batch lock. A change that is not a sibling's Apply invalidates
+every outstanding sibling and the next no-argument Maintain plans afresh; one
+target's source drift invalidates only the sibling holding it. `remaining`
+counts the targets no sibling holds, and the plan completes when every
+sibling has applied.
 
 Code candidates in ordinary Maintain and `cognition_optimization` include
 `file_lines` when the counted source bytes match `source_sha256`. They include

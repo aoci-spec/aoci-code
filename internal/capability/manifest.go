@@ -75,7 +75,7 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 		CanonicalRepository: machinecontract.CanonicalRepository, GoModule: machinecontract.GoModulePath,
 		AOCIVersion: version, Commit: commit,
 		MCPProtocol: machinecontract.MCPProtocolCurrent, MCPProtocols: machinecontract.MCPSupportedProtocolVersions(), MCPTools: tools, MCPToolCount: len(tools), MCPToolNameIdentity: machinecontract.MCPToolNameIdentity(),
-		CLILifecycleCapabilities: []string{"bootstrap", "database_cognition_bootstrap", "migration", "migration_reversal", "managed_scope_change", "policy_bound_auto_authorization", "fresh_bootstrap_auto_eligibility_v1", "observe_evidence_review", "cognition_budget", "cognition_onboarding", "fresh_bootstrap_semantic_authoring_v2", "cognition_lineage_v1", "database_to_code_impact_v1", "cognition_evolution_v1", "narrow_system_relation_projection_v1"},
+		CLILifecycleCapabilities: []string{"bootstrap", "database_cognition_bootstrap", "migration", "migration_reversal", "managed_scope_change", "parallel_batches", "policy_bound_auto_authorization", "fresh_bootstrap_auto_eligibility_v1", "observe_evidence_review", "cognition_budget", "cognition_onboarding", "fresh_bootstrap_semantic_authoring_v2", "cognition_lineage_v1", "database_to_code_impact_v1", "cognition_evolution_v1", "narrow_system_relation_projection_v1"},
 		InputSchemaVersions: []string{machinecontract.CapabilityManifestV1, machinecontract.SafeInventoryV2,
 			machinecontract.BusinessSourceManifestV1, machinecontract.CognitionMigrationPlanV2, machinecontract.CognitionMigrationMappingV2,
 			machinecontract.CognitionMigrationApplyEnvelopeV2, machinecontract.CognitionMigrationApprovalV2,

@@ -57,6 +57,14 @@ const (
 	CodeCognitionBatchEntriesMin     = 1
 	CodeCognitionBatchEntriesMax     = EntriesBatchMaxItems
 
+	// CodeCognitionParallelBatches is how many current Code batches one
+	// logical plan may have outstanding at once (L4). Absent or 1 is one
+	// current batch per Maintain; the wire ceiling is 4. Team-owned like the
+	// batch size and outside every identity.
+	CodeCognitionParallelBatchesDefault = 1
+	CodeCognitionParallelBatchesMin     = 1
+	CodeCognitionParallelBatchesMax     = 4
+
 	// MaintainTransportBudgetBytes bounds the bytes of one Maintain response:
 	// the current Code batch is cut where the next candidate would push the
 	// response past it, after the fixed part (authoring_meta, instructions,

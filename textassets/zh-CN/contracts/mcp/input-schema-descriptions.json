@@ -11,7 +11,8 @@
     "intent": "cognition_optimization：对aligned的Volumes v1 Code Entry做绑定审查；human_approval：在宿主对话框里请人批准approval_request指定的待批变更；observe_review：确认被挡住的Maintain列出的observe证据；普通Maintain省略",
     "object_refs": "限制cognition_optimization候选的code:<仓库相对路径>引用；只能与该intent同用",
     "observe_review": "只与intent=observe_review同用：被挡住的Maintain在observe_review里发布的review_digest，以及复核人",
-    "scope": "高级诊断scope；普通路径省略，由共享治理决定"
+    "scope": "高级诊断scope；普通路径省略，由共享治理决定",
+    "batch_id": "交付当前并行计划（code_plan.siblings）里这个 batch_id 的兄弟批作为完整当前批次；仅在 code_cognition_parallel_batches > 1 时"
   },
   "aoci_overview": {
     "check_only": "只返回checkpoint事实，不交付正文",

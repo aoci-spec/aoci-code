@@ -115,6 +115,37 @@ func (c *Config) MaintainTransportBudget() int {
 	return c.MaintainTransportBudgetBytes
 }
 
+// CodeCognitionParallelBatchLimit resolves how many current Code batches one
+// logical plan may have outstanding at once: zero means one.
+func (c *Config) CodeCognitionParallelBatchLimit() int {
+	if c == nil || c.CodeCognitionParallelBatches == 0 {
+		return machinecontract.CodeCognitionParallelBatchesDefault
+	}
+	return c.CodeCognitionParallelBatches
+}
+
+// SetCodeCognitionParallelBatches stores a validated team parallel-batch
+// count; the wire ceiling is CodeCognitionParallelBatchesMax.
+func (c *Config) SetCodeCognitionParallelBatches(batches int) error {
+	if batches < machinecontract.CodeCognitionParallelBatchesMin ||
+		batches > machinecontract.CodeCognitionParallelBatchesMax {
+		return fmt.Errorf("code_cognition_parallel_batches_out_of_range(value=%d,min=%d,max=%d)",
+			batches, machinecontract.CodeCognitionParallelBatchesMin, machinecontract.CodeCognitionParallelBatchesMax)
+	}
+	c.CodeCognitionParallelBatches = batches
+	return nil
+}
+
+func validateCodeCognitionParallelBatches(cfg *Config) error {
+	batches := cfg.CodeCognitionParallelBatchLimit()
+	if batches < machinecontract.CodeCognitionParallelBatchesMin ||
+		batches > machinecontract.CodeCognitionParallelBatchesMax {
+		return fmt.Errorf("code_cognition_parallel_batches_out_of_range(value=%d,min=%d,max=%d)",
+			batches, machinecontract.CodeCognitionParallelBatchesMin, machinecontract.CodeCognitionParallelBatchesMax)
+	}
+	return nil
+}
+
 // SetMaintainTransportBudgetBytes stores a validated team transport budget.
 func (c *Config) SetMaintainTransportBudgetBytes(bytes int) error {
 	if bytes < machinecontract.MaintainTransportBudgetBytesMin ||

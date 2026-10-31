@@ -2634,6 +2634,162 @@ def group_h():
 # and the published-count binding. --group filters this list by letter without
 # reordering it; a filtered run cannot be held to the published count, so that
 # binding is skipped and the run says so.
+
+# ================================================================ GROUP L
+def group_l_parallel():
+    """Parallel current batches (L4): under code_cognition_parallel_batches=2 two
+    Sessions author sibling batches of one logical plan against one fixture.
+    Siblings are disjoint and issued against one preimage, a sibling delivered
+    by batch_id carries its issued targets and nothing else, both apply orders
+    reach aligned with the same Entry set, a foreign edit between siblings
+    replans the outstanding ones and keeps the applied one formal, two Applies
+    at once serialize and both succeed, and one target's source drift
+    invalidates one sibling only."""
+    g = "L"
+    BUDGET = 24 * 1024
+
+    def parallel_fixture(name):
+        fx = make_fixture(name, 120)
+        rc, _, out, errs = cli(fx, "config", "set", "code_cognition_parallel_batches", "2")
+        if rc != 0: raise RuntimeError(f"config set code_cognition_parallel_batches failed: {out[:200]} {errs[:200]}")
+        return fx
+
+    def deliver(s, batch_id):
+        t, err = text_of(s.call("aoci_maintain", {"batch_id": batch_id}))
+        return jload(t), t, err
+
+    def targets(m): return [c["path"] for c in (m.get("candidates") or [])]
+    def siblings(m): return (m.get("code_plan") or {}).get("siblings") or []
+
+    def entry_lines(fx):
+        with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as fh:
+            return sorted(ln for ln in fh.read().splitlines() if ln and not ln.startswith("===") and not ln.startswith("#"))
+
+    # L1 + L2: one plan, two siblings, delivered to two sessions.
+    fx = parallel_fixture("fx-parallel")
+    a, b = Session(fx), Session(fx)
+    m1, t1, err1 = maintain(a)
+    plan = m1.get("code_plan") or {}
+    sibs = siblings(m1)
+    ta = targets(m1)
+    tb = (sibs[0].get("targets") or []) if sibs else []
+    ok = (not err1) and len(plan.get("logical_plan") or "") == 64 and len(sibs) == 1 and sibs[0].get("state") == "issued" \
+        and bool(ta) and bool(tb) and not (set(ta) & set(tb)) \
+        and plan.get("remaining") == (plan.get("total_targets") or 0) - len(ta) - len(tb) and len(t1.encode("utf-8")) <= BUDGET
+    record(g, "L1.n2-issues-disjoint-siblings-under-one-plan", "PASS" if ok else "FAIL",
+           f"logical={str(plan.get('logical_plan'))[:12]} a={len(ta)} b={len(tb)} overlap={len(set(ta) & set(tb))} "
+           f"remaining={plan.get('remaining')} total={plan.get('total_targets')} bytes={len(t1.encode('utf-8'))} siblings={len(sibs)}")
+    m2, t2, err2 = deliver(b, sibs[0].get("batch_id", "0" * 64) if sibs else "0" * 64)
+    p2 = m2.get("code_plan") or {}
+    ok = (not err2) and m2.get("status") == "repair_required" and targets(m2) == tb \
+        and p2.get("sibling_of") == plan.get("logical_plan") and p2.get("batch_id") == (sibs[0].get("batch_id") if sibs else None) \
+        and [x.get("batch_id") for x in siblings(m2)] == [plan.get("batch_id")] and len(t2.encode("utf-8")) <= BUDGET
+    record(g, "L2.sibling-delivered-by-batch-id-carries-its-targets-only", "PASS" if ok else "FAIL",
+           f"status={m2.get('status')} targets={len(targets(m2))}/{len(tb)} sibling_of_ok={p2.get('sibling_of') == plan.get('logical_plan')} "
+           f"others={[str(x.get('batch_id'))[:8] + ':' + str(x.get('state')) for x in siblings(m2)]} bytes={len(t2.encode('utf-8'))}")
+    # L5: the two siblings apply at once from the two sessions; the second
+    # meets the first's postimage under the lock and reprojects.
+    import threading
+    results = {}
+    def apply_in(name, s, m): results[name] = submit_batch(s, m)
+    threads = [threading.Thread(target=apply_in, args=("a", a, m1)), threading.Thread(target=apply_in, args=("b", b, m2))]
+    for th in threads: th.start()
+    for th in threads: th.join()
+    ra, rb = results["a"][0], results["b"][0]
+    rc, v, _, _ = cli(fx, "verify", expect_ok=False)
+    missing = set(((v.get("governance") or {}).get("code_drift") or {}).get("missing") or [])
+    ok = ra.get("status") == "applied" and rb.get("status") == "applied" and ra.get("applied") == len(ta) and rb.get("applied") == len(tb) \
+        and not (missing & set(ta + tb))
+    record(g, "L5.two-applies-at-once-serialize-and-both-succeed", "PASS" if ok else "FAIL",
+           f"a={ra.get('status')}/{ra.get('applied')} b={rb.get('status')}/{rb.get('applied')} still_missing={len(missing & set(ta + tb))} "
+           f"a_err={str((ra.get('findings') or ra.get('error') or ''))[:80]} b_err={str((rb.get('findings') or rb.get('error') or ''))[:80]}")
+    a.close(); b.close()
+
+    # L3: A-then-B and B-then-A over two fresh fixtures end aligned with the same Entry set.
+    def build(fx, reverse):
+        s = Session(fx)
+        for _ in range(40):
+            m, _, err = maintain(s)
+            if err or (m.get("status") == "applied" and m.get("aligned")):
+                break
+            batches = [m]
+            for sib in siblings(m):
+                if sib.get("state") == "applied": continue
+                batches.append(deliver(s, sib.get("batch_id", ""))[0])
+            if reverse: batches.reverse()
+            for batch in batches:
+                r, _, _ = submit_batch(s, batch)
+                if r.get("status") != "applied":
+                    s.close(); return False, f"apply={r.get('status')} {str(r.get('findings') or r.get('error') or '')[:100]}"
+        s.close()
+        aligned, _ = fixture_aligned(fx)
+        return aligned, "aligned" if aligned else "not aligned"
+    fwd = parallel_fixture("fx-parallel-fwd")
+    okf, df = build(fwd, False)
+    rev = parallel_fixture("fx-parallel-rev")
+    okr, dr = build(rev, True)
+    same = entry_lines(fwd) == entry_lines(rev) if (okf and okr) else False
+    ok = okf and okr and same and len(entry_lines(fwd)) >= 120
+    record(g, "L3.a-then-b-and-b-then-a-reach-aligned-with-the-same-entry-set", "PASS" if ok else "FAIL",
+           f"forward={df} reverse={dr} same_entry_set={same} entries={len(entry_lines(fwd))}")
+
+    # L4: a write outside the plan between siblings invalidates the outstanding one; the applied one stays formal.
+    fx4 = parallel_fixture("fx-parallel-foreign")
+    s4 = Session(fx4)
+    m4, _, _ = maintain(s4)
+    p4 = m4.get("code_plan") or {}
+    sib4 = siblings(m4)[0] if siblings(m4) else {}
+    r4, _, _ = submit_batch(s4, m4)
+    applied4 = targets(m4)
+    first = (m4.get("candidates") or [{}])[0]
+    direct_t, direct_err = text_of(s4.call("aoci_update_entry", {"path": first.get("path"), "source_sha256": first.get("source_sha256"),
+        "new_entry": f"{os.path.basename(first.get('path', ''))}[CG5T]: F:Provides fixture constant unit after a foreign edit | R:- | A:- | S:-"}))
+    d4, _, _ = deliver(s4, sib4.get("batch_id", "0" * 64))
+    m4b, _, _ = maintain(s4)
+    p4b = m4b.get("code_plan") or {}
+    s4.close()
+    rc, v4, _, _ = cli(fx4, "verify", expect_ok=False)
+    missing4 = set(((v4.get("governance") or {}).get("code_drift") or {}).get("missing") or [])
+    state4 = (siblings(d4) or [{}])[0].get("state")
+    ok = r4.get("status") == "applied" and (not direct_err) and jload(direct_t).get("status") == "applied" \
+        and d4.get("status") == "stopped" and state4 == "invalidated" and d4.get("next_action") == "call_no_argument_aoci_maintain_for_current_machine_batch" \
+        and p4b.get("logical_plan") not in (None, p4.get("logical_plan")) and not (missing4 & set(applied4)) \
+        and not (set(targets(m4b)) & set(applied4))
+    record(g, "L4.foreign-edit-replans-outstanding-and-keeps-applied-formal", "PASS" if ok else "FAIL",
+           f"first_apply={r4.get('status')} direct={jload(direct_t).get('status')} delivery={d4.get('status')}/{state4} "
+           f"next={str(d4.get('next_action'))[:60]} replanned={p4b.get('logical_plan') != p4.get('logical_plan')} applied_still_missing={len(missing4 & set(applied4))}")
+
+    # L6: one target's source drift invalidates the sibling holding it and nothing else.
+    fx6 = parallel_fixture("fx-parallel-drift")
+    s6 = Session(fx6)
+    m6, _, _ = maintain(s6)
+    p6 = m6.get("code_plan") or {}
+    sib6 = siblings(m6)[0] if siblings(m6) else {}
+    drifted = (sib6.get("targets") or ["pkg/f001.go"])[0]
+    with open(os.path.join(fx6, drifted), "a", encoding="utf-8") as fh:
+        fh.write("\n// drift after issuance\n")
+    d6, _, _ = deliver(s6, sib6.get("batch_id", "0" * 64))
+    still6, _, _ = deliver(s6, p6.get("batch_id", "0" * 64))
+    m6b, _, _ = maintain(s6)
+    p6b = m6b.get("code_plan") or {}
+    listed = siblings(m6b)
+    # The surviving sibling applies, the plan completes, and the next plan
+    # issues the drifted target again under its new digest.
+    r6, _, _ = submit_batch(s6, m6b)
+    m6c, _, _ = maintain(s6)
+    p6c = m6c.get("code_plan") or {}
+    s6.close()
+    issued_next = set(targets(m6c)) | {t for sib in siblings(m6c) for t in (sib.get("targets") or [])}
+    ok = (siblings(d6) or [{}])[0].get("state") == "invalidated" and d6.get("status") == "stopped" \
+        and still6.get("status") == "repair_required" and targets(still6) == targets(m6) \
+        and p6b.get("logical_plan") == p6.get("logical_plan") and p6b.get("batch_id") == p6.get("batch_id") \
+        and len(listed) == 1 and listed[0].get("batch_id") == sib6.get("batch_id") and listed[0].get("state") == "invalidated" \
+        and r6.get("status") == "applied" and p6c.get("logical_plan") not in (None, p6.get("logical_plan")) and drifted in issued_next
+    record(g, "L6.one-targets-source-drift-invalidates-one-sibling-only", "PASS" if ok else "FAIL",
+           f"drifted_delivery={d6.get('status')}/{(siblings(d6) or [{}])[0].get('state')} other={still6.get('status')} "
+           f"same_plan={p6b.get('logical_plan') == p6.get('logical_plan')} listed={[str(x.get('batch_id'))[:8] + ':' + str(x.get('state')) for x in listed]} "
+           f"survivor={r6.get('status')} next_plan_new={p6c.get('logical_plan') != p6.get('logical_plan')} drifted_reissued={drifted in issued_next}")
+
 GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),
     ("N", group_n), ("F", group_f_scope), ("F", group_f_activate), ("F", group_f_ignored_tool_file),
@@ -2641,7 +2797,7 @@ GROUP_RUNS = [
     ("F", group_f_host_dialog), ("F", group_f_observe_review), ("F", group_f_sessionless_dialog),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
-    ("H", group_h),
+    ("H", group_h), ("L", group_l_parallel),
 ]
 HOST_WINDOW_GROUP = "W"
 

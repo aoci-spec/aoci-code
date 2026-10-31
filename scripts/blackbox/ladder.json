@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 13 (retire baseline scope refresh): make fast green (make-fast-l13.txt)"
+    "evidence": "item 9 (L4 parallel batches): make fast green (make-fast-l4.txt)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/make-verify-l13.txt (item 13: full gates green, conformance 54/0/4 dirty, scenarios 80/80, lifecycle 93/2, axis-self 80/80)"
+    "evidence": ".aoci/dev-tools/make-verify-l4.txt (item 9 L4: full gates green, conformance 56/0/4 dirty of 60, scenarios 86/86, lifecycle 93/2, axis-self 80/80)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/conformance-l13.txt (aligned record after governance 58/58; dirty run inside make-verify-l13.txt 54/0/4)"
+    "evidence": ".aoci/dev-tools/conformance-l4.txt (aligned record after governance 60/60; dirty run inside make-verify-l4.txt 56/0/4)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 86/86 (group L added)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 93 PASS 2 CHAR"
+    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 93 PASS 2 CHAR"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt 80/80"
    }
   },
   {
@@ -186,7 +186,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/realrepo-RuoYi-l3.txt 15 rounds, realrepo-excalidraw-l3.txt 19 rounds"
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-l4p2.txt (RuoYi --parallel=2: 13 plans of 2, 512 Entries, max 21,679 bytes, 0 over budget, aligned)"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt"
+    "evidence": "inside .aoci/dev-tools/make-verify-l4.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 13 (retire baseline scope refresh): scan clean over 303 files"
+    "evidence": "item 9 (L4): scan clean over 305 files"
    }
   },
   {
@@ -382,7 +382,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/index-quality-l13.txt (479 Entries, 10 floors, 0 broken)"
+    "evidence": ".aoci/dev-tools/index-quality-l4.txt (481 Entries, 10 floors, 0 broken)"
    }
   }
  ]

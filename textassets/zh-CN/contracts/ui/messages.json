@@ -297,6 +297,7 @@
   "config.bad_human_approval_channel": "human_approval_channel 只能是 tty_or_host_dialog 或 tty_only,收到 %q(默认的 tty_or_host_dialog 允许人在 MCP 宿主弹出的对话框里批准受保护的变更,也可以在终端输入短语批准;tty_only 只接受终端)",
   "config.bad_integer": "需要整数值,收到 %q",
   "config.code_cognition_batch_entries_range": "code_cognition_batch_entries 必须介于 %d 与 %d 之间",
+  "config.code_cognition_parallel_batches_range": "code_cognition_parallel_batches 必须是 %d 到 %d 之间的整数",
   "config.maintain_transport_budget_bytes_range": "maintain_transport_budget_bytes 必须介于 %d 与 %d 之间",
   "config.cognition_refresh_threshold_range": "cognition_refresh_threshold 必须介于 %d 与 %d 之间",
   "config.installed_agents_managed": "installed_agents 由 aoci init 维护,不支持手工 set",

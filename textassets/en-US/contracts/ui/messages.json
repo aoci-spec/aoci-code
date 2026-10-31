@@ -297,6 +297,7 @@
   "config.bad_human_approval_channel": "human_approval_channel must be tty_or_host_dialog or tty_only; received %q (tty_or_host_dialog, the default, lets a person approve a protected change in the dialog the MCP host shows or by typing the phrase in a terminal; tty_only accepts the terminal alone)",
   "config.bad_integer": "Integer value is required; received %q",
   "config.code_cognition_batch_entries_range": "code_cognition_batch_entries must be between %d and %d",
+  "config.code_cognition_parallel_batches_range": "code_cognition_parallel_batches must be an integer between %d and %d",
   "config.maintain_transport_budget_bytes_range": "maintain_transport_budget_bytes must be between %d and %d",
   "config.cognition_refresh_threshold_range": "cognition_refresh_threshold must be between %d and %d",
   "config.installed_agents_managed": "installed_agents is maintained by aoci init and cannot be set manually",

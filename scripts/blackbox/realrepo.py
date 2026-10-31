@@ -13,12 +13,16 @@ needs local clones of the repositories (RuoYi and excalidraw are the two the
 release record compares) and takes a few minutes per repository.
 
 usage: realrepo.py <name-or-path> [<binary>] [--wave=N] [--label=L] [--ignored-tree=N]
-                   [--sources=DIR] [--work=DIR]
+                   [--sources=DIR] [--work=DIR] [--parallel=N]
   <name-or-path>   a directory, or a name under --sources (default
                    $AOCI_REALREPO_SOURCES or ~/aoci-demo-cand)
   <binary>         defaults to $AOCI_BIN, then <repo>/build/aoci
   --work=DIR       where clones and reports go (default $AOCI_REALREPO_WORK,
                    then $TMPDIR/aoci-realrepo); the report is <work>/<name>-<label>.json
+  --parallel=N     set code_cognition_parallel_batches=N on the clone and author
+                   every sibling a round lists (delivered by batch_id) before the
+                   next Maintain: one agent playing N, which proves the siblings
+                   apply and the plan completes; the wall clock of N agents it cannot show
 Options take only the --opt=value form; a space-separated value is read as a positional argument."""
 import hashlib, json, os, shutil, subprocess, sys, tempfile, time
 
@@ -73,6 +77,7 @@ try:
 except Exception as exc:  # noqa: BLE001 - recorded, not fatal
     report["binary_version"] = f"unavailable: {exc}"
 IGNORED_TREE = int(opts.get("--ignored-tree", "3000"))
+PARALLEL = int(opts.get("--parallel", "1"))
 if IGNORED_TREE > 0:
     # #97 stress: a git-ignored node_modules tree with a symlink back into
     # itself. git must account for it as one entry, so scan time and the
@@ -105,6 +110,8 @@ if IGNORED_TREE > 0:
             sys.exit(f"the planted node_modules tree is still not ignored in {work}; a negation rule overrides node_modules/")
 t0 = time.time()
 p = U.run(BIN, work, "init", "--locale", "en-US", check=True)
+if PARALLEL > 1:
+    U.run(BIN, work, "config", "set", "code_cognition_parallel_batches", str(PARALLEL), check=True)
 p = U.run(BIN, work, "scan", "--json", check=True)
 scan = json.loads(p.stdout)
 report["scan"] = {"fingerprints": scan.get("fingerprint_count"), "skipped_sources": scan.get("skipped_sources"),
@@ -144,7 +151,7 @@ def timed_cli(*args):
     return {"seconds": round(time.time() - t, 2), "exit": proc.returncode}
 
 def author_rounds(session, phase, max_rounds=400):
-    rounds, written, stopped, sizes, included, existing = 0, 0, None, [], [], 0
+    rounds, written, stopped, sizes, included, existing, deliveries = 0, 0, None, [], [], 0, 0
     # Per-tool wall time: how much of a round AOCI itself spends, apart from
     # the model's authoring time this harness does not have. The split between
     # Maintain and update_entry is what the performance work reads.
@@ -169,25 +176,39 @@ def author_rounds(session, phase, max_rounds=400):
             stopped = {"round": rounds, "status": status, "result": m.get("result"), "next_action": m.get("next_action"),
                        "findings": [f.get("code") for f in ((m.get("governance") or {}).get("findings") or [])][:8]}
             break
-        cands = m.get("candidates") or []
         plan = m.get("code_plan") or {}
-        included.append(plan.get("included"))
-        existing += sum(1 for c in cands if c.get("existing_entry"))
-        entries = []
-        for c in cands:
-            rel = c["path"]
-            with open(os.path.join(work, rel), "rb") as fh:
-                data = fh.read()
-            entries.append({"path": rel, "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
-                            "new_entry": template_entry(rel, data)})
-        r = json.loads(timed("aoci_update_entry", {"code_batch_id": plan.get("batch_id"), "entries": entries}))
-        if r.get("status") != "applied":
-            stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
+        # Under parallel batches the round also carries the siblings issued
+        # ahead; one agent plays them all, each delivered whole by batch_id.
+        batches = [m]
+        for sibling in plan.get("siblings") or []:
+            if sibling.get("state") == "applied":
+                continue
+            text = timed("aoci_maintain", {"batch_id": sibling.get("batch_id")})
+            sizes.append(len(text.encode("utf-8")))
+            deliveries += 1
+            batches.append(json.loads(text))
+        for batch in batches:
+            cands = batch.get("candidates") or []
+            batch_plan = batch.get("code_plan") or {}
+            included.append(batch_plan.get("included"))
+            existing += sum(1 for c in cands if c.get("existing_entry"))
+            entries = []
+            for c in cands:
+                rel = c["path"]
+                with open(os.path.join(work, rel), "rb") as fh:
+                    data = fh.read()
+                entries.append({"path": rel, "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
+                                "new_entry": template_entry(rel, data)})
+            r = json.loads(timed("aoci_update_entry", {"code_batch_id": batch_plan.get("batch_id"), "entries": entries}))
+            if r.get("status") != "applied":
+                stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
+                break
+            written += r.get("applied", 0)
+        if stopped:
             break
-        written += r.get("applied", 0)
         if rounds % 10 == 0:
             print(f"{phase} round {rounds}: applied {written}, remaining {plan.get('remaining')}, max bytes {max(sizes)}", flush=True)
-    return {"rounds": rounds, "entries_written": written, "stopped": stopped,
+    return {"rounds": rounds, "entries_written": written, "stopped": stopped, "parallel": PARALLEL, "sibling_deliveries": deliveries,
             "maintain_bytes_max": max(sizes) if sizes else 0, "maintain_bytes_avg": (sum(sizes) // len(sizes)) if sizes else 0,
             "included_min": min(i for i in included if i) if included else 0, "included_max": max(i for i in included if i) if included else 0,
             "existing_entries_seen": existing, "over_budget_rounds": sum(1 for s in sizes if s > BUDGET),

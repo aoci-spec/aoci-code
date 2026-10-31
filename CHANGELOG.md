@@ -7,6 +7,23 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- Parallel current batches (L4) are implemented. Under the new team key
+  `code_cognition_parallel_batches` (absent or 1 is the one-batch flow, byte
+  for byte; ceiling 4; `config set` validates it; the capability manifest
+  lists `parallel_batches`) one logical plan keeps up to N sibling batches
+  outstanding: Maintain delivers the first as the current batch and lists the
+  others under `code_plan.siblings`, `aoci_maintain` takes a sibling's
+  `batch_id` and delivers it whole, and `aoci_update_entry` accepts the
+  siblings in any order. A sibling's Apply is accepted when the plan preimage
+  plus the applied siblings, replayed through the editor from the records
+  each Apply leaves under `.aoci/drafts/code-cognition`, reproduce the
+  current Code Volume; a second Apply arriving under the lock reprojects its
+  Entries onto the first's postimage and succeeds. Any other change to the
+  Volume, or to the Root, Meta, Database Volume or Scope identity, invalidates
+  every outstanding sibling, and one target's source drift invalidates only
+  the sibling holding it. `remaining` counts the targets no sibling holds.
+  Scenario group L (six scenarios) and two conformance checks pin the
+  contract's conformance list; the suites now publish 86 and 60.
 - The Legacy `baseline scope` refresh is gone: `aoci baseline scope plan`,
   `preview`, `approve`, `apply`, `status`, and `resume`, the
   `internal/scoperefresh` package, and the six `baseline-scope-*/v1` artifact

@@ -35,8 +35,8 @@ retains the old rules identity. The local layer cannot change it, `config
 set` refuses any other value, and changing it after the first scan requires
 a governed Scope Change.
 
-`code_cognition_parallel_batches` is a team-owned integer reserved by the
-Cognition Volumes contract for parallel current batches (implemented from
+`code_cognition_parallel_batches` is a team-owned integer defined by the
+Cognition Volumes contract for parallel current batches (implemented in
 0.2.0-rc2): absent or 1 keeps one current batch per Maintain, the wire
 ceiling is 4, the local layer cannot change it, and it enters no policy,
 scope, or authorization identity. A binary that predates the implementation

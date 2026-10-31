@@ -141,8 +141,18 @@ func planCognitionVolumeUpdates(
 			}
 			allowPostimage := recovery != nil && recovery.Version == 4 && recovery.CodeBatchID == codeBatchID &&
 				codeRecoveryPostimage(root, recovery)
-			receipt, err := codebatch.ValidateSubmission(root, codeBatchID, facts.CompositeIdentity,
-				facts.ManagedScope.PolicyIdentity, facts.Code.Path, facts.Code.SHA256, submissions, allowPostimage)
+			var receipt codebatch.Receipt
+			var err error
+			if issued, loadErr := codebatch.LoadReceipt(root, codeBatchID); loadErr == nil && issued.LogicalPlan != "" {
+				// A sibling of a parallel plan (L4): accepted when the plan still
+				// holds and the current Code Volume is the plan preimage or a
+				// postimage the applied siblings reproduce by replay.
+				receipt, _, err = codebatch.ValidateParallelSubmission(root, root, codeBatchID,
+					parallelIdentitiesOf(facts, loaded.set), submissions, allowPostimage)
+			} else {
+				receipt, err = codebatch.ValidateSubmission(root, codeBatchID, facts.CompositeIdentity,
+					facts.ManagedScope.PolicyIdentity, facts.Code.Path, facts.Code.SHA256, submissions, allowPostimage)
+			}
 			if err != nil {
 				var submissionErr *codebatch.SubmissionError
 				if errors.As(err, &submissionErr) {
@@ -366,7 +376,9 @@ func planCognitionVolumeUpdates(
 	}
 	if codeReceipt != nil {
 		code := targetByVolume(participants, cognition.ScopeCode)
-		if code == nil || code.Path != codeReceipt.CodeVolumePath || code.PreSHA != codeReceipt.CodeVolumeSHA256 {
+		// A sibling's receipt names the plan preimage; the digest it meets was
+		// proven by replay above, so only a single batch compares digests here.
+		if code == nil || code.Path != codeReceipt.CodeVolumePath || (codeReceipt.LogicalPlan == "" && code.PreSHA != codeReceipt.CodeVolumeSHA256) {
 			return nil, &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
 		}
 	}
@@ -901,6 +913,9 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 	if !exists || baselineState == nil {
 		baselineState = baseline.NewBaseline(nil)
 	}
+	if fail := reprojectParallelSiblingUnderLock(root, plan); fail != nil {
+		return "", false, fail
+	}
 	if fail := validateVolumePlanPrewrite(root, volumePlan); fail != nil {
 		return "", false, fail
 	}
@@ -984,6 +999,9 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 			return mcpMessage("entries.governance_receipt.persist_failed", localeSafeWriteDetail(err.Error())), false, nil
 		}
 	}
+	if note := recordParallelSiblingApplied(root, plan); note != "" {
+		return note, false, nil
+	}
 	ledgerEvent := ledger.Event{Op: "update_entries_batch", PathsCount: len(plan.rels), DurationMs: time.Since(plan.start).Milliseconds(), Source: source,
 		Result: ledger.ResultOK, AppliedCount: len(plan.rels), RecoveryTransactionID: plan.batchKey,
 		FormalWritesStarted: ledgerFlag(true), BatchID: plannedBatchID(plan)}
@@ -1027,7 +1045,18 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 				return &Fail{Code: errWriteConflict, Msg: "code_candidate_cognition_changed"}
 			}
 			facts, factsErr := volumegovernance.Assess(root, cfg, set)
-			if factsErr != nil || facts.CompositeIdentity != volumePlan.codeReceipt.CompositeIdentity ||
+			if factsErr != nil {
+				return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
+			}
+			if volumePlan.codeReceipt.LogicalPlan != "" {
+				// A sibling: the plan must still hold around the Code Volume, whose
+				// current bytes the reprojection above proved by replay.
+				parallel, planErr := codebatch.LoadParallelPlan(root)
+				if planErr != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan ||
+					!parallel.PlanHolds(parallelIdentitiesOf(facts, set)) {
+					return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
+				}
+			} else if facts.CompositeIdentity != volumePlan.codeReceipt.CompositeIdentity ||
 				facts.ManagedScope.PolicyIdentity != volumePlan.codeReceipt.ScopePolicyIdentity ||
 				facts.Code.Path != volumePlan.codeReceipt.CodeVolumePath || facts.Code.SHA256 != volumePlan.codeReceipt.CodeVolumeSHA256 {
 				return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
@@ -1245,4 +1274,137 @@ func candidateBindingFail(msg string, item normalizedAtomicItem, kind, expected,
 		CanonicalObjectIdentity: identity, Domain: domain, Field: field, RuleCode: rule,
 		Expected: field + "=" + expected, Actual: field + "=" + actual, Code: rule, ObjectRef: identity}
 	return &Fail{Code: errBadArgs, Msg: msg, Findings: LocalizeRepairFindings([]cognition.RepairFinding{finding}), Repairable: true}
+}
+
+// reprojectParallelSiblingUnderLock lets a sibling of a parallel plan apply
+// after another sibling landed first (L4). Planned against the Volume it
+// loaded, the batch meets a different Volume under the lock; when the plan
+// preimage plus the applied siblings replay to those bytes, the batch's
+// Entry writes are projected again onto them, and the write goes on with
+// the new pre and post digests. Any other difference is a foreign change
+// and fails closed with the replan hint.
+func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail {
+	volumePlan := plan.volumePlan
+	if volumePlan == nil || volumePlan.codeReceipt == nil || volumePlan.codeReceipt.LogicalPlan == "" || volumePlan.recovery != nil {
+		return nil
+	}
+	code := targetByVolume(volumePlan.targets, cognition.ScopeCode)
+	if code == nil {
+		return nil
+	}
+	current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Path)))
+	if readErr != nil {
+		return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	currentSHA := codebatch.BytesSHA256(current)
+	if currentSHA == code.PreSHA {
+		return nil
+	}
+	parallel, planErr := codebatch.LoadParallelPlan(root)
+	if planErr != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
+		return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	if proven, replayErr := codebatch.ReplayProves(root, root, parallel, currentSHA); replayErr != nil || !proven {
+		return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		return fail
+	}
+	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 || loaded.set.Volumes[cognition.ScopeCode] == nil ||
+		loaded.set.Volumes[cognition.ScopeCode].SHA256 != currentSHA {
+		return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	codeContext := volumeCodeRepoContext(root, loaded)
+	outcomes := map[string]*UpdateOutcome{}
+	nextText := codeContext.text
+	for _, item := range plan.normalizedItems {
+		if item.rel == "" {
+			continue
+		}
+		outcome, text, itemFail := prepareUpdateEntry(root, item.rel, item.newEntry, codeContext)
+		if itemFail != nil {
+			return itemFail
+		}
+		nextText = text
+		codeContext.text = text
+		codeContext.doc, _ = index.Parse(text)
+		index.ResolveRelPaths(codeContext.doc, root)
+		outcomes[item.rel] = outcome
+	}
+	if findings := cognition.ValidateProjectedObjectVolume(loaded.set, cognition.ScopeCode, []byte(nextText)); len(findings) > 0 {
+		return &Fail{Code: errImpactResolutionFailed, Msg: writeMessage("entry.volume.projected_invalid", findings[0].Code), Hint: writeMessage("entry.volume.hint.regenerate_candidate")}
+	}
+	projectedVolumeRaw := map[string][]byte{cognition.ScopeMeta: append([]byte{}, loaded.set.Meta.Raw...), cognition.ScopeCode: []byte(nextText)}
+	if asset := loaded.set.Volumes[cognition.ScopeDatabase]; asset != nil {
+		projectedVolumeRaw[cognition.ScopeDatabase] = append([]byte{}, asset.Raw...)
+	}
+	projectedSet, projectedFindings := cognition.BuildProjectedSet(root, canonicalProjectedRoot(loaded.set.Root.Raw), projectedVolumeRaw)
+	if projectedSet == nil || len(projectedFindings) != 0 {
+		detail := "projected_cognition_set_invalid"
+		if len(projectedFindings) != 0 {
+			detail = projectedFindings[0].Code
+		}
+		return &Fail{Code: errImpactResolutionFailed, Msg: writeMessage("entry.volume.projected_invalid", detail), Hint: writeMessage("entry.volume.hint.regenerate_candidate")}
+	}
+	if budget := volumegovernance.AssessProjectedBudget(loaded.cfg, projectedSet); budget.Mode == machinecontract.BudgetModeEnforce && len(budget.Violations) != 0 {
+		return &Fail{Code: errCandidateInvalid, Msg: writeMessage("entry.write.budget_failed", budgetViolationDetail(budget.Violations[0]), strconv.Itoa(budget.WholeIndexTokens)),
+			Hint: writeMessage("entry.write.hint.budget_reauthor")}
+	}
+	code.CurrentSHA, code.PreSHA, code.PostRaw, code.PostSHA = currentSHA, currentSHA, []byte(nextText), indexTextHash(nextText)
+	for position := range plan.outcomes {
+		if replacement, ok := outcomes[plan.outcomes[position].Rel]; ok {
+			plan.outcomes[position] = replacement
+		}
+	}
+	plan.indexHash = cognitionVolumeTransitionIdentity(volumePlan.targets, false)
+	plan.finalText = cognitionVolumeTransitionIdentity(volumePlan.targets, true)
+	return nil
+}
+
+// recordParallelSiblingApplied leaves the applied record of a sibling: its
+// place in the apply order, the Code Volume digests around it, and the
+// Entry writes as the editor made them, which a later sibling's Apply
+// replays. A plan no longer on record means the sibling applied as a single
+// batch, and nothing is recorded.
+func recordParallelSiblingApplied(root string, plan *atomicBatchPlan) string {
+	volumePlan := plan.volumePlan
+	if volumePlan == nil || volumePlan.codeReceipt == nil || volumePlan.codeReceipt.LogicalPlan == "" {
+		return ""
+	}
+	parallel, err := codebatch.LoadParallelPlan(root)
+	if err != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
+		return ""
+	}
+	code := targetByVolume(volumePlan.targets, cognition.ScopeCode)
+	if code == nil {
+		return ""
+	}
+	applied, loadErr := codebatch.LoadApplied(root, parallel)
+	if loadErr != nil {
+		return "code_parallel_applied_unreadable"
+	}
+	operations := []codebatch.AppliedOperation{}
+	for _, outcome := range plan.outcomes {
+		if outcome == nil || outcome.NewLine == "" {
+			continue
+		}
+		operation := codebatch.AppliedOperation{Path: outcome.Rel, Change: cognition.ImpactChangeCreate, NewEntry: outcome.NewLine}
+		if outcome.OldLine != "" {
+			operation.Change, operation.OldEntry = cognition.ImpactChangeUpdate, outcome.OldLine
+		}
+		operations = append(operations, operation)
+	}
+	receipt := codebatch.AppliedReceipt{Version: codebatch.AppliedReceiptVersion, LogicalPlan: parallel.LogicalPlan,
+		BatchID: volumePlan.codeReceipt.BatchID, Order: len(applied) + 1, PreSHA256: code.PreSHA, PostSHA256: code.PostSHA, Operations: operations}
+	for _, earlier := range applied {
+		if earlier.BatchID == receipt.BatchID {
+			// An idempotent replay of this Apply keeps its original place.
+			receipt.Order = earlier.Order
+		}
+	}
+	if saveErr := codebatch.SaveApplied(root, receipt); saveErr != nil {
+		return "code_parallel_applied_persist_failed"
+	}
+	return ""
 }

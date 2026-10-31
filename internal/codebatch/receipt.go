@@ -27,7 +27,7 @@ func BuildPlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, cod
 	if err := validateCandidates(ordered); err != nil {
 		return Plan{}, err
 	}
-	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+	return savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit, "")
 }
 
 // Select returns every candidate in plan order and the leading ones a plan with
@@ -106,7 +106,7 @@ func BuildPlanWithBudget(root, compositeIdentity, scopePolicyIdentity, codeVolum
 	if err := validateCandidates(ordered); err != nil {
 		return Plan{}, err
 	}
-	plan, err := savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit)
+	plan, err := savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, ordered, selected, limit, "")
 	if err != nil {
 		return Plan{}, err
 	}
@@ -141,8 +141,17 @@ func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, c
 		receipt.CodeVolumePath != codeVolumePath || receipt.CodeVolumeSHA256 != codeVolumeSHA256) {
 		return Receipt{}, fmt.Errorf("code_candidate_plan_stale")
 	}
+	if err := matchSubmission(root, receipt, submissions); err != nil {
+		return Receipt{}, err
+	}
+	return receipt, nil
+}
+
+// matchSubmission is the per-candidate half of a submission check, shared by
+// a single batch and a sibling: every issued target once, each binding exact.
+func matchSubmission(root string, receipt Receipt, submissions []Submission) error {
 	if len(submissions) != len(receipt.Targets) {
-		return Receipt{}, fmt.Errorf("code_candidate_batch_incomplete")
+		return fmt.Errorf("code_candidate_batch_incomplete")
 	}
 	submitted := map[string]Submission{}
 	for index, item := range submissions {
@@ -150,21 +159,21 @@ func ValidateSubmission(root, batchID, compositeIdentity, scopePolicyIdentity, c
 			item.CandidateIndex = index + 1
 		}
 		if item.ObjectRef == "" || item.CandidateID == "" || item.SourceSHA256 == "" || submitted[item.ObjectRef].ObjectRef != "" {
-			return Receipt{}, fmt.Errorf("code_candidate_duplicate_or_invalid")
+			return fmt.Errorf("code_candidate_duplicate_or_invalid")
 		}
 		submitted[item.ObjectRef] = item
 	}
 	issues, matched := submissionIssues(receipt, submissions)
 	if !matched {
-		return Receipt{}, fmt.Errorf("code_candidate_batch_mismatch")
+		return fmt.Errorf("code_candidate_batch_mismatch")
 	}
 	if len(issues) > 0 {
 		if !receiptSourcesCurrent(root, receipt) {
-			return Receipt{}, fmt.Errorf("code_candidate_plan_stale")
+			return fmt.Errorf("code_candidate_plan_stale")
 		}
-		return Receipt{}, &SubmissionError{Code: "code_candidate_binding_mismatch", Issues: issues}
+		return &SubmissionError{Code: "code_candidate_binding_mismatch", Issues: issues}
 	}
-	return receipt, nil
+	return nil
 }
 
 // resolveExactSubmissionReceipt recognizes only a unique current receipt for
@@ -316,7 +325,7 @@ func LoadReceipt(root, batchID string) (Receipt, error) {
 	return receipt, nil
 }
 
-func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, limit int) (Plan, error) {
+func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, limit int, logical string) (Plan, error) {
 	allTargets := targetsWithoutCandidateIDs(all)
 	planID := receiptHash("code-cognition-plan/v1", compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, encodeTargets(allTargets, false))
 	selectedTargets := targetsWithoutCandidateIDs(selected)
@@ -335,7 +344,7 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 	}
 	receipt := Receipt{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
-		AllTargets: allTargets, Targets: selectedTargets}
+		AllTargets: allTargets, Targets: selectedTargets, LogicalPlan: logical}
 	if err := saveReceipt(root, receipt); err != nil {
 		return Plan{}, err
 	}
@@ -344,7 +353,7 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
 		TotalTargets: len(all), MaxEntries: limit, Included: len(selected), Remaining: remaining,
 		CompleteCandidateSetForBatch: true, ContinuationRequired: remaining > 0, Candidates: planCandidates,
-		NextAction: "author_complete_current_machine_batch"}, nil
+		NextAction: "author_complete_current_machine_batch", LogicalPlan: logical}, nil
 }
 
 func saveReceipt(root string, receipt Receipt) error {

@@ -143,7 +143,7 @@ func TestMCPMaintainOptimizationInputSchemaIsAdditive(t *testing.T) {
 			t.Fatal("aoci_maintain additive optimization and approval fields must remain optional")
 		}
 		properties, ok := tool.InputSchema["properties"].(map[string]any)
-		if !ok || len(properties) != 6 {
+		if !ok || len(properties) != 7 {
 			t.Fatalf("aoci_maintain properties changed unexpectedly: %#v", tool.InputSchema)
 		}
 		if include, ok := properties["include_instructions"].(map[string]any); !ok || include["type"] != "boolean" || include["description"] == "" {

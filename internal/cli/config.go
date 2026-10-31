@@ -71,7 +71,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/human_approval_channel",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
 					),
 				}
 			}
@@ -224,6 +224,18 @@ func init() {
 						machinecontract.MaintainTransportBudgetBytesMax,
 					)}
 				}
+			case "code_cognition_parallel_batches":
+				parsed, parseErr := strconv.Atoi(value)
+				if parseErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_integer", value)}
+				}
+				if setErr := cfg.SetCodeCognitionParallelBatches(parsed); setErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: cliMessage(
+						"config.code_cognition_parallel_batches_range",
+						machinecontract.CodeCognitionParallelBatchesMin,
+						machinecontract.CodeCognitionParallelBatchesMax,
+					)}
+				}
 			case "human_approval_channel":
 				if setErr := cfg.SetHumanApprovalChannel(value); setErr != nil {
 					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_human_approval_channel", value)}
@@ -239,7 +251,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/human_approval_channel",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
 					),
 				}
 			}
@@ -386,6 +398,8 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 		return cfg.CodeCognitionBatchLimit(), true
 	case "maintain_transport_budget_bytes":
 		return cfg.MaintainTransportBudget(), true
+	case "code_cognition_parallel_batches":
+		return cfg.CodeCognitionParallelBatchLimit(), true
 	case "human_approval_channel":
 		return cfg.EffectiveHumanApprovalChannel(), true
 	default:

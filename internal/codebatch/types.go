@@ -25,6 +25,9 @@ type Receipt struct {
 	CodeVolumeSHA256    string   `json:"code_volume_sha256"`
 	AllTargets          []Target `json:"all_targets"`
 	Targets             []Target `json:"targets"`
+	// LogicalPlan names the parallel plan this batch is a sibling of; empty
+	// for an ordinary single current batch. It is outside the batch identity.
+	LogicalPlan string `json:"logical_plan,omitempty"`
 	// LegacyObservedRelations 只为让旧收据继续可读而存在。收据加载拒绝未知字段,
 	// 而升级前签发的收据里可能带着这个字段 —— 丢掉它会让升级瞬间把进行中的计划
 	// 卡死。机器不再从 R 推导任何东西,因此这份数据被解码后即丢弃:不参与身份推导,
@@ -58,6 +61,12 @@ type Plan struct {
 	// top-level candidates, so a response never repeats an existing Entry.
 	Candidates []Candidate `json:"candidates,omitempty"`
 	NextAction string      `json:"next_action"`
+	// LogicalPlan, SiblingOf, and Siblings are the parallel current batch
+	// facts (L4): the plan every sibling of one preimage records, the plan a
+	// delivered sibling belongs to, and the other siblings with their state.
+	LogicalPlan string    `json:"logical_plan,omitempty"`
+	SiblingOf   string    `json:"sibling_of,omitempty"`
+	Siblings    []Sibling `json:"siblings,omitempty"`
 }
 
 type Submission struct {

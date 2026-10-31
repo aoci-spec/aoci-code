@@ -2,7 +2,7 @@
 """AOCI MCP stdio conformance harness — drives build/aoci mcp as a real client.
 Protocol-level tests only; zero formal writes expected (verified afterward by git/verify).
 
-MCP stdio 一致性检查（58项）：以真实客户端身份走 initialize→tools 全链路，
+MCP stdio 一致性检查（60项）：以真实客户端身份走 initialize→tools 全链路，
 只读不写，跑完用 git status / aoci verify 复核零写入。最后一段 locale 孪生
 检查在临时目录铸造两个同样的三文件夹具（init --locale en-US / zh-CN），对照
 人类语句随 locale 变化而机器字段、键集、错误码与摘要不变；宿主仓库仍只读。
@@ -362,6 +362,19 @@ try:
 except Exception:
     _mb = None
 ok("maintain.default_batch_cap_50", _mb == 50, f"authoring_batch.max_entries={_mb}")
+# Parallel current batches (L4): the default configuration keeps one current
+# batch per Maintain and its response carries no sibling field, byte for byte
+# what the single-batch contract describes; a batch_id request is refused on a
+# server whose configuration keeps one current batch, with zero writes.
+try:
+    _cp = json.loads(t).get("code_plan") or {}
+except Exception:
+    _cp = {}
+ok("maintain.default_config_carries_no_parallel_fields",
+   not any(k in _cp for k in ("logical_plan", "siblings", "sibling_of")) and '"siblings"' not in t and '"sibling_of"' not in t,
+   f"code_plan keys={sorted(_cp.keys())[:12]}")
+_pt, _perr = text_of(s.call("aoci_maintain", {"batch_id": "0" * 64}))
+ok("maintain.batch_id_refused_without_parallel_batches", _perr and "maintain_batch_id_requires_parallel_batches" in _pt, _pt[:160])
 
 # negative paths (same session)
 bad = s.call("aoci_overview", {"cursor":"deadbeef:8000:1:deadbeef"})

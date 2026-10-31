@@ -238,6 +238,11 @@ type Config struct {
 	// means the machine default. Team-owned for the same reason as the batch
 	// size: the host window is a shared fact of the authoring contract.
 	MaintainTransportBudgetBytes int `json:"maintain_transport_budget_bytes,omitempty"`
+	// CodeCognitionParallelBatches is how many current Code batches one
+	// logical plan may have outstanding at once; zero means one, today's
+	// behaviour. Team-owned: it is part of the shared authoring contract and
+	// enters no policy, scope, or authorization identity.
+	CodeCognitionParallelBatches int `json:"code_cognition_parallel_batches,omitempty"`
 
 	AI AIConfig `json:"ai"`
 }
@@ -384,6 +389,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamDatabaseCognitionBatchEvidenceBytes := cfg.DatabaseCognitionBatchEvidenceBytes
 	teamCodeCognitionBatchEntries := cfg.CodeCognitionBatchEntries
 	teamMaintainTransportBudgetBytes := cfg.MaintainTransportBudgetBytes
+	teamCodeCognitionParallelBatches := cfg.CodeCognitionParallelBatches
 
 	if err := applyJSONFileIfExists(
 		LocalFilePath(repoRoot),
@@ -412,6 +418,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.DatabaseCognitionBatchEvidenceBytes = teamDatabaseCognitionBatchEvidenceBytes
 	cfg.CodeCognitionBatchEntries = teamCodeCognitionBatchEntries
 	cfg.MaintainTransportBudgetBytes = teamMaintainTransportBudgetBytes
+	cfg.CodeCognitionParallelBatches = teamCodeCognitionParallelBatches
 
 	applyFallbacks(cfg)
 
@@ -446,6 +453,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 		return nil, err
 	}
 	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateCodeCognitionParallelBatches(cfg); err != nil {
 		return nil, err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
@@ -500,6 +510,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 		return nil, err
 	}
 	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
+		return nil, err
+	}
+	if err := validateCodeCognitionParallelBatches(cfg); err != nil {
 		return nil, err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
@@ -807,6 +820,9 @@ func loadBaseSnapshot(repoRoot string) (*Config, string, error) {
 	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
 		return nil, "", err
 	}
+	if err := validateCodeCognitionParallelBatches(cfg); err != nil {
+		return nil, "", err
+	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {
 		return nil, "", err
 	}
@@ -877,6 +893,9 @@ func Save(
 		return err
 	}
 	if err := validateMaintainTransportBudgetBytes(cfg); err != nil {
+		return err
+	}
+	if err := validateCodeCognitionParallelBatches(cfg); err != nil {
 		return err
 	}
 	if err := normalizeManagedScopeAndBudget(cfg); err != nil {

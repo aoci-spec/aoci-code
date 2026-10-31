@@ -588,7 +588,7 @@ Apply, Baseline, Ledger, or Recovery system is introduced.
 
 ## Parallel current batches (L4)
 
-Status: specified for 0.2.0; implemented from 0.2.0-rc2. A server that does
+Status: implemented in 0.2.0-rc2 (specified for 0.2.0). A server that does
 not list the `parallel_batches` capability in its capability manifest issues
 exactly one current batch per Maintain as the section above describes, and a
 Host must not send the request fields below to it. Nothing in this section
