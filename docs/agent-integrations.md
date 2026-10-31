@@ -153,7 +153,7 @@ formats manually after reviewing the installed OpenCode version.
 aoci --repo /absolute/path/to/repository init --agent cursor
 ```
 
-The current release candidate prints a reference `.cursor/mcp.json`
+The current release prints a reference `.cursor/mcp.json`
 configuration but does not write it. Verify the syntax against the installed
 Cursor version before adding it manually:
 

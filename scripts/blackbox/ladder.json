@@ -13,9 +13,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (fast gates inside make verify, audit-fix tree)"
+    "version": "v0.1.0",
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/make-fast-010.txt (0.1.0 cut rehearsal tree, build/aoci-010)"
    }
   },
   {
@@ -169,9 +169,9 @@
     "release-rehearsal.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/make-verify-rc23b.txt (self-axis 80/80 as v0.1.0-rc23, audit-fix binary)"
+    "version": "v0.1.0",
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/axis-self-010.txt (self-axis 80/80 as v0.1.0, build/aoci-010)"
    }
   },
   {
@@ -184,9 +184,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-10-29",
-    "evidence": ".aoci/dev-tools/realrepo-rc23b.txt (audit-fix binary: RuoYi first build 29 rounds verify_aligned; excalidraw rc=0 verify_aligned_after)"
+    "version": "v0.1.0",
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-010.txt, realrepo-excalidraw-010.txt (build/aoci-010: RuoYi first build 29 rounds verify_aligned; excalidraw verify_aligned_after)"
    }
   },
   {

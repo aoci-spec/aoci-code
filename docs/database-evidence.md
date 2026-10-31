@@ -1,6 +1,6 @@
 # Database Evidence Layer v1
 
-The current release candidate provides a redacted access preflight and an
+The current release provides a redacted access preflight and an
 environment Credential Provider adapter. `database source add` can derive the environment reference from
 `source_id`, and `database source access` checks readiness without connecting.
 No credential value is saved; Vault, Kubernetes, and cloud secret providers
