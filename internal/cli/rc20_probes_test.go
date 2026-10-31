@@ -98,37 +98,3 @@ func TestCheckAndVerifyReportEScaleMismatchesWithoutFailing(t *testing.T) {
 		t.Fatalf("human check output lacks the E scale line: %s", stdout.String())
 	}
 }
-
-// #102: under Managed Scope the Legacy refresh refuses, and the refusal now
-// names the path that works instead of pointing at the other refusal.
-func TestBaselineScopePlanNamesTheManagedScopePath(t *testing.T) {
-	testkit.PinLocale(t, textassets.DefaultLocale)
-	root := t.TempDir()
-	testkit.Git(t, root, "init", "-q")
-	testkit.WriteFile(t, root, "main.go", "package main\n")
-	testkit.Git(t, root, "add", "main.go")
-	testkit.Git(t, root, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")
-	var stdout, stderr bytes.Buffer
-	if code := executeCLI([]string{"--repo", root, "init", "--locale", "en-US"}, &stdout, &stderr); code != ExitOK {
-		t.Fatalf("init: %s %s", stdout.String(), stderr.String())
-	}
-	if code := executeCLI([]string{"--repo", root, "scan"}, &stdout, &stderr); code != ExitOK {
-		t.Fatalf("scan: %s %s", stdout.String(), stderr.String())
-	}
-	stdout.Reset()
-	stderr.Reset()
-	if code := executeCLI([]string{"--repo", root, "baseline", "scope", "plan"}, &stdout, &stderr); code == ExitOK {
-		t.Fatalf("baseline scope plan must refuse under Managed Scope")
-	}
-	if !strings.Contains(stderr.String(), "baseline_scope_managed_scope_unsupported") || !strings.Contains(stderr.String(), cliMessage("baseline.scope.managed_scope_hint")) {
-		t.Fatalf("refusal lacks the Managed Scope hint: %s", stderr.String())
-	}
-	stdout.Reset()
-	stderr.Reset()
-	if code := executeCLI([]string{"--repo", root, "scan", "--force"}, &stdout, &stderr); code == ExitOK {
-		t.Fatalf("scan --force must refuse over a Managed Scope Baseline")
-	}
-	if !strings.Contains(stderr.String(), "aoci_maintain") || !strings.Contains(stderr.String(), "aoci_remove_entry") {
-		t.Fatalf("scan --force refusal must name Maintain and remove_entry: %s", stderr.String())
-	}
-}

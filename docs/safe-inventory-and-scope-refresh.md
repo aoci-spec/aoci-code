@@ -52,41 +52,21 @@ budgets](managed-scope-and-budget.md) lists the exact shapes.
 
 ## Changing an existing Baseline's scope
 
-Do not use `scan --force` to conceal managed-set changes. Build a versioned
-scope Preview instead:
+Do not use `scan --force` to conceal managed-set changes; it refuses over a
+Managed Scope Baseline. Edit the policy with the `aoci scope` rule commands,
+read what the change would do with `aoci --json scope status`, and activate
+it with `aoci scope activate`. A coverage reduction pauses for a person:
+approve it with `aoci scope approve` and apply it with `aoci scope apply`, as
+[Managed Scope and cognition budgets](managed-scope-and-budget.md) shows, or
+answer the host dialog when the team channel admits one. That transaction
+reuses the existing Baseline, repository lock, CAS, Ledger, and Recovery
+directories; repeating the exact Apply is idempotent, and unknown Baseline
+bytes are a third-party conflict and are preserved.
 
-```text
-aoci --json baseline scope preview \
-  --baseline-timestamp 2026-07-31T00:00:00Z
-```
-
-The Preview separates Added/Removed/Preserved objects from actual byte drift.
-Changed or missing business source blocks Apply. Built-in secret, runtime, and
-generated exclusions can move out of scope safely. The refreshed Managed Set
-uses the final Curation-selected Business Source set plus formal cognition
-assets, so a Curation exclusion is shown as an ordinary removal. An ordinary
-configured or curated reduction requires one exact TTY confirmation:
-
-```text
-aoci baseline scope approve --preview-file preview.json --actor HUMAN_ID --out-file approval.json
-aoci baseline scope apply --preview-file preview.json --approval-file approval.json
-```
-
-`--out-file` is what connects the two lines. Without it the approval is printed
-to stdout and the second command has no `approval.json` to read, so the
-confirmation the human just gave is lost and has to be given again.
-
-If the process stops after its immutable Intent, inspect and resume the same
-transaction:
-
-```text
-aoci --json baseline scope status --transaction TRANSACTION_ID
-aoci --json baseline scope resume --transaction TRANSACTION_ID
-```
-
-Apply reuses the existing Baseline, repository lock, CAS, Ledger, and Recovery
-directories. Repeating the exact Apply is idempotent; unknown Baseline bytes
-are a third-party conflict and are preserved.
+The Legacy `baseline scope` refresh (`plan`, `preview`, `approve`, `apply`,
+`status`, `resume`) is gone since 0.2.0-rc2. It had refused every Managed
+Scope repository since rc20 and named these commands instead; a repository
+created before Managed Scope establishes it with `aoci scope activate`.
 
 The normative contract is
 [`aoci-safe-inventory-and-scope-refresh-v1.txt`](../spec/public/aoci-safe-inventory-and-scope-refresh-v1.txt).

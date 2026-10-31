@@ -37,7 +37,7 @@ func TestScopeFormalVolumeDriftExplainsRecoveryWithoutWrites(t *testing.T) {
 					t.Fatal(err)
 				}
 				before := activationFiles(t, root, "aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/config.json", ".aoci/baseline.json")
-				for _, command := range [][]string{{"scope", "activate"}, {"baseline", "scope", "plan"}} {
+				for _, command := range [][]string{{"scope", "activate"}} {
 					args := []string{"--repo", root}
 					if jsonMode {
 						args = append(args, "--json")
@@ -56,11 +56,7 @@ func TestScopeFormalVolumeDriftExplainsRecoveryWithoutWrites(t *testing.T) {
 						if err := json.Unmarshal(out.Bytes(), &envelope); err != nil {
 							t.Fatalf("invalid error envelope: %v: %s", err, &out)
 						}
-						wantCode := "managed_scope_invalid"
-						if command[0] == "baseline" {
-							wantCode = "baseline_scope_invalid"
-						}
-						if envelope.Code != wantCode {
+						if envelope.Code != "managed_scope_invalid" {
 							t.Fatalf("machine code changed: %+v", envelope)
 						}
 						message = envelope.Message

@@ -93,9 +93,8 @@ The team setting `human_approval_channel` decides whether a dialog answer
 counts: `tty_or_host_dialog` (absent, the default) or `tty_only`. Apply judges
 it when a transaction starts and never on Resume. A repository that admits
 high-risk content (`safe_inventory_high_risk_opt_in`) keeps its Scope Change
-approvals in the terminal, and Migration reversal, Migration rollback, the
-Legacy baseline scope refresh, and the high-risk pre-read approval have no
-dialog route. The host vouches that a person answered. A host automation that
+approvals in the terminal, and Migration reversal, Migration rollback, and
+the high-risk pre-read approval have no dialog route. The host vouches that a person answered. A host automation that
 answers dialogs for the person is the host's responsibility, which is why a
 team can require the terminal; the model itself cannot answer the dialog.
 

@@ -132,8 +132,7 @@ not read a formal cognition asset or its fingerprint differs from the active
 Baseline. This can follow an out-of-band edit to a Volume even when its syntax
 still passes validation. It is different from an indexed business source
 becoming Stale or a desired policy changing. `scope activate` cannot approve
-that edit, `baseline scope` is a Legacy refresh that refuses Managed Scope,
-and `scan --force` is not a recovery override.
+that edit, and `scan --force` is not a recovery override.
 
 Preserve the current formal assets, Baseline, and transaction evidence before
 attempting recovery. Check that the named asset is readable, then inspect
@@ -545,10 +544,9 @@ Under Volumes v1 the Baseline is maintained, not rescanned. Run
 `aoci_maintain`: it issues the new paths as Missing Entries and names the old
 ones as orphans, and stops until each orphan is removed with
 `aoci_remove_entry` (one object per call); the next Maintain then issues the
-rest. `aoci scan --force` refuses over a Managed Scope Baseline by design, and
-`aoci baseline scope plan` and `preview` are the Legacy refresh and refuse with
-`baseline_scope_managed_scope_unsupported`; since rc20 both refusals say so
-instead of pointing at each other (#102). A policy edit is applied with
+rest. `aoci scan --force` refuses over a Managed Scope Baseline by design and
+names the commands that work (#102); the Legacy `baseline scope` refresh it
+used to point at is gone since 0.2.0-rc2. A policy edit is applied with
 `aoci scope activate`. An Entry whose file is still on disk but which a
 pending exclude rule covers is not an orphan until that edit is activated:
 orphan proof follows the active Baseline, and the removal's refusal names the

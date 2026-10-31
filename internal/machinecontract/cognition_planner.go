@@ -13,10 +13,6 @@ const (
 	SemanticAuthoringProvenanceV1  = "semantic-authoring-provenance/v1"
 	SemanticAuthoringRequirementV1 = "semantic-authoring-requirement/v1"
 	CognitionVolumeRegistryV1      = "cognition-volume-registry/v1"
-	BaselineScopePlanV1            = "baseline-scope-plan/v1"
-	BaselineScopePreviewV1         = "baseline-scope-preview/v1"
-	BaselineScopeApprovalV1        = "baseline-scope-approval/v1"
-	BaselineScopeApplyResultV1     = "baseline-scope-apply-result/v1"
 
 	CognitionBootstrapApplyRequestV1      = "cognition-bootstrap-apply-request/v1"
 	CognitionBootstrapApplyEnvelopeV1     = "cognition-bootstrap-apply-envelope/v1"

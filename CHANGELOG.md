@@ -7,6 +7,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- The Legacy `baseline scope` refresh is gone: `aoci baseline scope plan`,
+  `preview`, `approve`, `apply`, `status`, and `resume`, the
+  `internal/scoperefresh` package, and the six `baseline-scope-*/v1` artifact
+  versions, which the capability manifest and the release manifest no longer
+  list (`baseline_scope_refresh` leaves the planner, apply, and lifecycle
+  capabilities; `ordinary_legacy_scope_reduction` leaves the terminal-approval
+  lists). Every repository with a Managed Scope Baseline has answered
+  `baseline_scope_managed_scope_unsupported` since rc20 and `scope activate`
+  establishes Managed Scope for one without it, so no working route is lost.
+  A `scope-<id>.json` intent of the retired family left under
+  `.aoci/transactions` reads as an invalid scope receipt; move it out.
 - The repository's own index has quality floors. `scripts/check-index-quality.sh`
   takes `aoci --json index score` and holds it to
   `scripts/index-quality-floors.txt`: no violation in any of the nine

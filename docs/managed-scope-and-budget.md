@@ -51,8 +51,7 @@ stdout and has to be redirected by hand; forgetting the redirect discards a
 confirmation that cannot be reused. The file is created only if nothing is
 already there, and is written readable by its owner alone, because until the
 change is applied anything that can read it can stand in for the human who
-typed the phrase. `scope safety approve` and `baseline scope approve` take the
-same flag.
+typed the phrase. `scope safety approve` takes the same flag.
 
 ## Approving a change
 

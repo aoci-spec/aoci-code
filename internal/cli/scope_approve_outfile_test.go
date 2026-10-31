@@ -252,7 +252,6 @@ func TestOutFileUsageIsLocalizedOnEveryApproveCommand(t *testing.T) {
 	for _, path := range [][]string{
 		{"scope", "approve"},
 		{"scope", "safety", "approve"},
-		{"baseline", "scope", "approve"},
 	} {
 		command := findCLICommand(root, path...)
 		if command == nil {

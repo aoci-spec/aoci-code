@@ -4,19 +4,18 @@ AOCI Safe Inventory v2 and Baseline Scope Refresh v1
 Status and authority
 --------------------
 
-This specification defines the source-discovery safety boundary and the
-versioned transition used when the managed set of the existing Baseline
-changes. `internal/fs/safe_inventory.go` is the executable path-classification
-authority. `internal/scoperefresh` owns Plan, Preview, Apply, status, and
-Resume. The existing Baseline v1, global cognition lock, AtomicWriteCAS,
+This specification defines the source-discovery safety boundary.
+`internal/fs/safe_inventory.go` is the executable path-classification
+authority. The existing Baseline v1, global cognition lock, AtomicWriteCAS,
 Ledger, and cognition transaction directories remain the only persistence and
 recovery authorities.
 
-Baseline Scope Refresh v1 remains the compatibility lifecycle for legacy
-single-role projects. Managed Scope v2 is the authority for role-bearing
-Baseline changes, observe fingerprints, Entry additions/removals, Retention
-Review, and cognition budgets. It reuses this safety and persistence core; it
-does not create a second Baseline or transaction kernel. See
+Baseline Scope Refresh v1 is retired since 0.2.0-rc2: the `baseline scope`
+commands and `internal/scoperefresh` are gone, and no binary produces or
+advertises its artifact versions. Managed Scope v2 is the one authority for
+role-bearing Baseline changes, observe fingerprints, Entry additions/removals,
+Retention Review, and cognition budgets. It reuses this safety and persistence
+core; it does not create a second Baseline or transaction kernel. See
 `aoci-managed-scope-and-budget-v1.txt`.
 
 Safe Inventory v2
@@ -130,43 +129,22 @@ HEAD, aggregate algorithm, aggregate SHA, and the Inventory summary.
 The aggregate algorithm is `sha256-nul-domain-separated-v1`. It performs no
 network access.
 
-Baseline Scope Refresh v1
--------------------------
+Baseline Scope Refresh v1 (retired)
+-----------------------------------
 
-The machine family is:
-
-* baseline-scope-plan/v1;
-* baseline-scope-preview/v1;
-* baseline-scope-approval/v1;
-* baseline-scope-apply-result/v1;
-* baseline-scope-recovery/v1; and
-* baseline-scope-status/v1.
-
-Plan binds the exact old Baseline SHA, old and new managed-set identities,
-include/exclude rules identity, Curation identity, Source identity, Safe
-Inventory receipt, Added/Removed/Preserved sets, source-byte drift, scope-only
-delta, removal safety reasons, a frozen Baseline timestamp, and the exact
-Baseline postimage SHA.
-
-Scope changes and source changes are independent. A missing formerly managed
-source or changed SHA is `source_drift` and blocks Apply. It is not converted
-to a scope removal and cannot be accepted through this protocol. Built-in
-secret/runtime/generated/unsafe exclusions are safe scope removals. The new
-Managed Set is the final Curation-selected Business Source set plus present
-formal cognition assets; a Curation exclusion is therefore an explicit
-ordinary scope removal rather than only an identity change. Project
-configuration, Curation, and other ordinary reductions are visible, counted
-separately, and require an interactive digest approval. Large ordinary reductions are
-also marked high risk. The same Preview can be approved only once for its
-exact identity.
-
-Apply replays the exact Preview, rejects source, rules, Curation, inventory, or
-Baseline drift before its Intent, acquires the existing global cognition lock,
-persists one immutable recovery Intent, and replaces the existing Baseline by
-AtomicWriteCAS. It then records one deduplicated Ledger event and archives the
-Intent. It never creates another Baseline or lifecycle state machine. Resume
-uses the same Intent and is idempotent. Unknown third-party Baseline bytes fail
-closed and are never overwritten.
+The machine family baseline-scope-plan/v1, baseline-scope-preview/v1,
+baseline-scope-approval/v1, baseline-scope-apply-result/v1,
+baseline-scope-recovery/v1, and baseline-scope-status/v1 was the transition
+for single-role Baselines before Managed Scope. It is retired since 0.2.0-rc2:
+no command produces these artifacts, the capability manifest and the release
+manifest no longer list them, and a `scope-<id>.json` intent of that family
+left under `.aoci/transactions` reads as an invalid scope receipt until it is
+moved out. Managed Scope v2 (`aoci-managed-scope-and-budget-v1.txt`) is the
+transition, and it keeps what this family established: scope changes and
+source changes are independent, a changed or missing source is never
+converted into a scope removal, an ordinary reduction needs a person's
+approval, and Apply replays the exact Preview under the global cognition lock
+with one immutable recovery Intent and AtomicWriteCAS over the Baseline.
 
 Compatibility
 -------------
@@ -177,5 +155,5 @@ repositories share the same safe discovery boundary. Safe Inventory does not
 alter model ownership of Root, Meta, tags, or F/R/A/S.
 
 Managed Baselines add an optional role to each fingerprint; an omitted role is
-legacy index. Existing Baseline Scope Refresh cannot wash or advance a
-role-bearing Managed Scope receipt, even with `scan --force`.
+legacy index. `scan --force` cannot wash or advance a role-bearing Managed
+Scope receipt.

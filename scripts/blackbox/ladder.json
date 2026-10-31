@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 12 (index quality floors): make fast green (make-fast-quality.txt)"
+    "evidence": "item 13 (retire baseline scope refresh): make fast green (make-fast-l13.txt)"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/make-verify-l3.txt"
+    "evidence": ".aoci/dev-tools/make-verify-l13.txt (item 13: full gates green, conformance 54/0/4 dirty, scenarios 80/80, lifecycle 93/2, axis-self 80/80)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/conformance-l3.txt (aligned record after governance; dirty run conformance-l3-dirty.txt 54/0/4)"
+    "evidence": ".aoci/dev-tools/conformance-l13.txt (aligned record after governance 58/58; dirty run inside make-verify-l13.txt 54/0/4)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/scenarios-l3.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 80/80"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/lifecycle-l3.txt 93 PASS 2 CHAR"
+    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 93 PASS 2 CHAR"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l3.txt 80/80"
+    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt 80/80"
    }
   },
   {
@@ -315,7 +315,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "inside .aoci/dev-tools/make-verify-l3.txt"
+    "evidence": "inside .aoci/dev-tools/make-verify-l13.txt"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 12 (index quality floors): scan clean over 303 files"
+    "evidence": "item 13 (retire baseline scope refresh): scan clean over 303 files"
    }
   },
   {
@@ -382,7 +382,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/index-quality-2026-10-31.txt (first record: 483 Entries, 10 floors, 0 broken; tamper clone with one E letter flipped breaks escale)"
+    "evidence": ".aoci/dev-tools/index-quality-l13.txt (479 Entries, 10 floors, 0 broken)"
    }
   }
  ]

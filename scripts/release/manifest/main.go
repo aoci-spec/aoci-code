@@ -24,9 +24,11 @@ const (
 )
 
 type releaseContracts struct {
-	CapabilityManifest       string `json:"capability_manifest"`
-	SafeInventory            string `json:"safe_inventory"`
-	BaselineScopePlan        string `json:"baseline_scope_plan"`
+	CapabilityManifest string `json:"capability_manifest"`
+	SafeInventory      string `json:"safe_inventory"`
+	// BaselineScopePlan is empty since 0.2.0-rc2, when the Legacy refresh was
+	// retired; the field stays so manifests of earlier releases still decode.
+	BaselineScopePlan        string `json:"baseline_scope_plan,omitempty"`
 	ManagedScopePolicy       string `json:"managed_scope_policy,omitempty"`
 	ManagedScopeEvaluation   string `json:"managed_scope_evaluation,omitempty"`
 	ManagedScopeChangePlan   string `json:"managed_scope_change_plan,omitempty"`
@@ -168,8 +170,8 @@ func run(args []string) error {
 func currentReleaseContracts(toolsListSHA string) releaseContracts {
 	return releaseContracts{
 		CapabilityManifest: machinecontract.CapabilityManifestV1, SafeInventory: machinecontract.SafeInventoryV2,
-		BaselineScopePlan: machinecontract.BaselineScopePlanV1, BusinessSourceManifest: machinecontract.BusinessSourceManifestV1,
-		ManagedScopePolicy: machinecontract.ManagedScopePolicyV2, ManagedScopeEvaluation: machinecontract.ManagedScopeEvaluationV2,
+		BusinessSourceManifest: machinecontract.BusinessSourceManifestV1,
+		ManagedScopePolicy:     machinecontract.ManagedScopePolicyV2, ManagedScopeEvaluation: machinecontract.ManagedScopeEvaluationV2,
 		ManagedScopeChangePlan: machinecontract.ManagedScopeChangePlanV2, ManagedScopePreview: machinecontract.ManagedScopeChangePreviewV2,
 		ManagedScopeEnvelope: machinecontract.ManagedScopeChangeEnvelopeV2, ManagedScopeResult: machinecontract.ManagedScopeChangeResultV2,
 		ManagedScopeBaseline: machinecontract.ManagedScopeBaselineV1, ScopeEntryDisposition: machinecontract.ScopeEntryDispositionV1,
@@ -186,8 +188,8 @@ func currentReleaseContracts(toolsListSHA string) releaseContracts {
 func legacyReleaseContracts(toolsListSHA string) releaseContracts {
 	return releaseContracts{
 		CapabilityManifest: machinecontract.CapabilityManifestV1, SafeInventory: machinecontract.SafeInventoryV2,
-		BaselineScopePlan: machinecontract.BaselineScopePlanV1, BusinessSourceManifest: machinecontract.BusinessSourceManifestV1,
-		MigrationPlan: machinecontract.CognitionMigrationPlanV2, MigrationApplyEnvelope: machinecontract.CognitionMigrationApplyEnvelopeV2,
+		BusinessSourceManifest: machinecontract.BusinessSourceManifestV1,
+		MigrationPlan:          machinecontract.CognitionMigrationPlanV2, MigrationApplyEnvelope: machinecontract.CognitionMigrationApplyEnvelopeV2,
 		OverviewDeliveryReceipt: machinecontract.OverviewDeliveryReceiptV1, OnboardingSession: machinecontract.CognitionOnboardingSessionV1,
 		HostInteraction: machinecontract.HostInteractionV1, MCPToolCount: len(machinecontract.MCPToolNames()),
 		MCPToolNamesSHA256: machinecontract.MCPToolNameIdentity(), MCPListToolsSHA256: toolsListSHA,
