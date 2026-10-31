@@ -188,17 +188,20 @@ carries the estimated tokens, framed-body bytes, `chunk_tokens`, and
 scope would deliver or stop. Ledger events of one chain share a
 `delivery_chain_id`. See [`cognition-refresh.md`](cognition-refresh.md).
 
-Incremental delivery is specified in the contract's section "Incremental
-delivery (L5)" for a 0.2.x release; nothing changes until then. After a
+Incremental delivery (the contract's section "Incremental delivery (L5)",
+since 0.2.0-rc2) spares a long task the complete re-read. After a
 passing Attestation, a later ordinary call carrying
 `delta_since=<scope_identity>`, made after a probe pass over the current
 identity, delivers only the objects changed, added, or removed since that
 body, in the same framing and Chunk rules, and is attested over exactly that
 delta; a pass re-anchors the base, a partial or failed Attestation drops it so
 the next request is complete. Without a base in this process, without the
-probe pass, while a compaction reload is pending, or past half the objects,
-the call answers the complete scope with a `fallback_reason`. It never
-establishes initial cognition and never answers a compaction reload.
+probe pass, while a compaction reload is pending, past half the objects, or
+when the delivery cannot be retained for its proof, the call answers the
+complete scope with a `fallback_reason`. It never establishes initial
+cognition and never answers a compaction reload. The capability manifest
+lists `overview_delta`, and `delta` and `chunked_delta` join the delivery
+modes.
 
 With a normal AOCI MCP, use Rules, the automatic Chunk chain, then Attestation.
 Direct segmented reading of `aoci.txt` is only a no-MCP fallback or diagnostic;

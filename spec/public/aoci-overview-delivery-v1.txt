@@ -352,8 +352,8 @@ coded.
 Incremental delivery (L5)
 -------------------------
 
-Status: specified in 0.2.0-rc2 for implementation in a 0.2.x release. A
-server that does not list the `overview_delta` capability in its capability
+Status: implemented in 0.2.0-rc2 (specified in the same version). A server
+that does not list the `overview_delta` capability in its capability
 manifest delivers only the complete modes above and rejects the request
 field below as an unknown argument, which the input schema already does.
 Nothing in this section changes a persisted identity, a formal asset, a
@@ -406,9 +406,15 @@ proceeds as for an ordinary complete request:
   body is meaningful only on top of held cognition;
 * the changed and added objects together are at most 50 percent of the
   current objects (`delta_exceeds_share`): past that share the complete body
-  costs little more and proves more. When implemented, the compiled constant
-  in internal/machinecontract/numeric.go is the sole authority for the
-  share; this document records the candidate value.
+  costs little more and proves more. The compiled constant in
+  internal/machinecontract/numeric.go is the sole authority for the share;
+  this document records the value;
+* the server can retain the delivery for its proof calls
+  (`delta_retention_unavailable` otherwise): a delta is attested against the
+  Challenge drawn from its own body, which only the retained delivery holds,
+  so a repository served the live-governance way (an enabled Database Volume,
+  a pending scope change, source warnings, or a body past the retention
+  budget) answers the complete scope.
 
 Delivery. The delta is the comparison of the current canonical object
 sequence with the base's: an object whose canonical-line digest differs is

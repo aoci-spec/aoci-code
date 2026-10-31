@@ -177,6 +177,15 @@ type overviewRenderContext struct {
 	// supplies it to reuse the exact frame, canonical sequence and chunk plan.
 	Prepared      *preparedOverview
 	LedgerEnabled bool
+	// Delta, DeltaChallenge, and Anchor belong to incremental delivery (L5):
+	// the facts a delta body reports, the Challenge drawn from the delivered
+	// objects, and the current digest sequence a passing proof anchors the
+	// base at. FallbackReason names why a delta_since request answered the
+	// complete scope instead.
+	Delta          *overviewDeltaFacts
+	DeltaChallenge *overviewChallenge
+	Anchor         *overviewDeltaBase
+	FallbackReason string
 }
 
 type preparedOverview struct {
@@ -191,7 +200,11 @@ func prepareOverview(ctx overviewRenderContext, tokens int) (*preparedOverview, 
 	if err != nil {
 		return nil, err
 	}
-	return &preparedOverview{body: body, challenge: buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence), spans: spans}, nil
+	challenge := buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence)
+	if ctx.DeltaChallenge != nil {
+		challenge = *ctx.DeltaChallenge
+	}
+	return &preparedOverview{body: body, challenge: challenge, spans: spans}, nil
 }
 
 type overviewDeliveryFacts struct {
@@ -244,6 +257,9 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		challenge, framed = ctx.Prepared.challenge, ctx.Prepared.body
 	} else {
 		challenge = buildOverviewChallenge(ctx.ScopeIdentity, ctx.Sequence)
+		if ctx.DeltaChallenge != nil {
+			challenge = *ctx.DeltaChallenge
+		}
 		framed = frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
 	}
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
@@ -287,6 +303,9 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 
 	if len(framed.Text)/3 <= chunkTokens && input.Cursor == "" {
 		facts.DeliveryMode = overviewDeliveryFull
+		if ctx.Delta != nil {
+			facts.DeliveryMode = overviewDeliveryDelta
+		}
 		facts.FullTextIncluded = true
 		metadata := renderOverviewMetadata(
 			ctx, challenge, facts, framed, attestation, false, false,
@@ -318,6 +337,9 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		return overviewRendered{}, err
 	}
 	facts.DeliveryMode = overviewDeliveryChunked
+	if ctx.Delta != nil {
+		facts.DeliveryMode = overviewDeliveryChunkedDelta
+	}
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
 	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
@@ -399,6 +421,12 @@ func renderOverviewMetadata(
 	)
 	if includeCognitionLevelMessage {
 		builder.WriteString(renderOverviewCognitionLevelMessage(level))
+	}
+	if ctx.FallbackReason != "" {
+		fmt.Fprintf(&builder, "fallback_reason: %s\n", ctx.FallbackReason)
+	}
+	if ctx.Delta != nil {
+		builder.WriteString(renderOverviewDeltaMetadata(*ctx.Delta))
 	}
 	if ctx.LayoutMode != "legacy-monolithic" {
 		fmt.Fprintf(&builder,
@@ -501,10 +529,14 @@ func renderOverviewChunk(
 		nextOrdinal := spans[chunkIndex+1].FirstOrdinal
 		next = encodeOverviewCursor(ctx.ScopeIdentity, chunkTokens, nextOrdinal, chunkSHA)
 	}
+	mode := overviewDeliveryChunked
+	if ctx.Delta != nil {
+		mode = overviewDeliveryChunkedDelta
+	}
 	metadata := map[string]any{
 		"receipt_version":               overviewChunkReceiptV1,
 		"request_mode":                  overviewRequestFull,
-		"delivery_mode":                 overviewDeliveryChunked,
+		"delivery_mode":                 mode,
 		"index_sha256":                  ctx.ScopeIdentity,
 		"scope":                         ctx.EffectiveScope,
 		"chunk_tokens":                  chunkTokens,
@@ -543,6 +575,12 @@ func renderOverviewChunk(
 		metadata["body_utf8_bytes"] = body.Receipt.BodyUTF8Bytes
 		metadata["body_sha256"] = body.Receipt.BodySHA256
 		metadata["governance_aligned"] = ctx.Assessment.Semantic.GovernanceAligned
+		if ctx.FallbackReason != "" {
+			metadata["fallback_reason"] = ctx.FallbackReason
+		}
+		if ctx.Delta != nil {
+			ctx.Delta.chunkMetadata(metadata)
+		}
 	}
 	if completed {
 		metadata["attestation_contract_version"] = modelCognitionAttestationV1
@@ -688,7 +726,7 @@ func overviewFallbackDisplayValue(value string) string {
 func (facts overviewDeliveryFacts) ledgerEvent(durationMs int64) ledger.Event {
 	fullTextIncluded := facts.FullTextIncluded
 	overviewReads := 0
-	if facts.FullTextIncluded || facts.DeliveryMode == overviewDeliveryChunked {
+	if completeDeliveryMode(facts.DeliveryMode) {
 		overviewReads = 1
 	}
 	event := ledger.Event{

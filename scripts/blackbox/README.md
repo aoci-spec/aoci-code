@@ -23,14 +23,14 @@ Build or obtain a binary first, from the repository root:
 make build          # or: export AOCI_BIN=/path/to/downloaded/aoci
 ```
 
-Protocol conformance (60 checks, read-only): the host repository is only read;
+Protocol conformance (62 checks, read-only): the host repository is only read;
 the locale twin lane mints its two fixtures in a temp dir and removes them. When the host repository is not governance-aligned, the four checks that need a reliable receipt are reported as SKIP with the reason and still counted in the total, and the run exits 0; a ladder record still needs an aligned run.
 
 ```bash
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (86 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (92 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:
@@ -238,19 +238,17 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   drift invalidates one sibling only. Conformance checks that the default
   configuration's Maintain output carries no sibling field and that a server
   whose configuration keeps one current batch refuses `batch_id`.
-- Planned with a 0.2.x release (incremental delivery, the L5 section of the
-  delivery contract): a scenarios group that establishes a passing complete
-  Attestation in one `Session`, applies one batch, passes the probe, and
-  checks that `delta_since` delivers exactly the changed Entries and names
-  the removed identities, that a passing delta Attestation re-anchors so a
-  second delta covers only the newer writes, that no probe pass, a pending
-  `context_compaction`, a restart, a foreign identity, and a delta past the
-  share each answer the complete scope with the named reason, that a partial
-  delta Attestation makes the next request complete, that Dirty governance
-  delivers an unreliable delta and keeps the base, and that an empty delta
-  re-anchors without a proof; plus a conformance check that a request
-  without `delta_since` is unchanged and that a server without the
-  capability rejects the field.
+- Group M (incremental delivery, the L5 section of the delivery contract,
+  since 0.2.0-rc2) establishes a passing complete Attestation in one
+  `Session`, revises one Entry and adds another, passes the probe, and checks
+  that `delta_since` delivers exactly those two Entries at their current
+  ordinals, that a passing delta Attestation re-anchors so a second delta
+  covers only the newer write, that no probe pass answers the complete scope
+  with `delta_probe_required`, that a partial delta Attestation drops the
+  base, that an unchanged base answers an empty delta without a proof, and
+  that a new session has no base. The pending-compaction, share, and
+  combination rules are locked by the package tests; conformance checks that
+  `delta_since` with `check_only` or a cursor is refused before any read.
 
 ## Run-by-name ladder
 

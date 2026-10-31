@@ -200,6 +200,9 @@ func newVolumeDelivery(owner volumeDeliveryOwner, ctx overviewRenderContext, gua
 	for path := range guard.metadata {
 		entry.bytes += 256 + 4*len(path)
 	}
+	if ctx.Anchor != nil {
+		entry.bytes += 192 * len(ctx.Anchor.Objects)
+	}
 	entry.ctx.Session = newCognitionRefreshSession()
 	return entry, nil
 }
@@ -236,7 +239,7 @@ func (entry *volumeDelivery) decode(cursor string) (string, error) {
 }
 
 func rewriteVolumeCursor(delivery *overviewRendered, entry *volumeDelivery) error {
-	if delivery.Facts.DeliveryMode != overviewDeliveryChunked {
+	if !chunkedDeliveryMode(delivery.Facts.DeliveryMode) {
 		return nil
 	}
 	prefix, body, ok := strings.Cut(delivery.Output, "\n"+overviewChunkBodyMarker+"\n")
@@ -278,10 +281,10 @@ func volumeOwner(request *mcp.CallToolRequest) volumeDeliveryOwner {
 }
 
 func deliveryCompleted(delivery overviewRendered, entry *volumeDelivery) bool {
-	if delivery.Facts.DeliveryMode == overviewDeliveryFull {
+	if delivery.Facts.DeliveryMode == overviewDeliveryFull || delivery.Facts.DeliveryMode == overviewDeliveryDelta {
 		return true
 	}
-	if delivery.Facts.DeliveryMode != overviewDeliveryChunked {
+	if !chunkedDeliveryMode(delivery.Facts.DeliveryMode) {
 		return false
 	}
 	return strings.HasSuffix(delivery.Output, entry.ctx.Prepared.body.Receipt.EndMarker+"\n")
@@ -325,6 +328,7 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	refresh.mu.Lock()
 	refresh.noteDeliveryChain(&delivery, ctx.Prepared.body.Receipt.BodySHA256, false, false, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
 	refresh.recordAttestedDelivery(ctx.Receipt, delivery.Attestation, entry.semantic.GovernanceAligned)
+	refresh.settleDeltaBase(ctx, delivery.Attestation)
 	refresh.mu.Unlock()
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, ctx.Prepared.body)

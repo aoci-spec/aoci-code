@@ -56,6 +56,9 @@ type overviewIn struct {
 	Cursor                string                    `json:"cursor,omitempty"`
 	Probe                 bool                      `json:"probe,omitempty"`
 	ProbeAnswers          *overviewProbeAnswers     `json:"probe_answers,omitempty"`
+	// DeltaSince asks for the objects changed since the delivery it names
+	// (its scope_identity) instead of the complete scope (L5).
+	DeltaSince string `json:"delta_since,omitempty"`
 }
 
 type getEntriesIn struct {
@@ -183,6 +186,11 @@ func registerReadTools(
 					if input.Probe && input.ProbeAnswers != nil {
 						return errResult(errBadArgs, "cognition_probe_request_and_answers_conflict", "")
 					}
+					if input.DeltaSince != "" {
+						if reason := deltaSinceInputFault(input); reason != "" {
+							return errResult(errBadArgs, reason, "")
+						}
+					}
 
 					loaded, fail := loadCognitionCtx(root)
 					if fail != nil {
@@ -194,6 +202,9 @@ func registerReadTools(
 					}
 					if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
 						return handleVolumeOverview(root, mcpServiceVersion, input, loaded, refreshSession, start, volumeOwner(request))
+					}
+					if input.DeltaSince != "" {
+						return errResult(errBadArgs, "overview_delta_requires_volumes_v1", "")
 					}
 					repository := loaded.legacyRepo()
 

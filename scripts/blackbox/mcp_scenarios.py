@@ -1684,6 +1684,166 @@ def parse_body_entries(body, fx):
             entries.append((section + m.group(1), m.group(2), m.group(3)))
     return entries
 
+
+# ---------------------------------------------------------------- group M
+def current_entries(fx):
+    """Ordinal-ordered (rel_path, tag, core_f) of the fixture's Code Volume as
+    it stands on disk: the canonical sequence a delta's ordinals point into."""
+    with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as fh:
+        return parse_body_entries(fh.read(), fx)
+
+def attest_delivery(s, fx, t, wrong=False):
+    """Confirm and attest one full-form delivery (complete or delta) from the
+    current on-disk sequence; `wrong` answers every core F incorrectly."""
+    meta, body = overview_meta_and_full_body(t)
+    ordinals = meta.get("challenge_ordinals") or []
+    if isinstance(ordinals, int):
+        ordinals = [ordinals]
+    if isinstance(ordinals, str):
+        ordinals = [int(x) for x in ordinals.split(",") if x.strip()]
+    entries = current_entries(fx)
+    answers = []
+    for o in ordinals:
+        path, tag, core_f = entries[o - 1]
+        answers.append({"ordinal": o, "object_identity": path, "tag": tag,
+                        "core_f": "nothing like the delivered responsibility" if wrong else core_f})
+    att = {"version": "model-cognition-attestation/v1",
+           "index_sha256": meta.get("challenge_index_sha256"),
+           "entry_sequence_sha256": meta.get("challenge_entry_sequence_sha256"),
+           "entry_count": meta.get("challenge_entry_count"),
+           "challenge_digest": meta.get("challenge_digest"),
+           "reported_entry_count": meta.get("entry_count"),
+           "reported_estimated_tokens": meta.get("estimated_tokens"),
+           "coverage_percent": 100, "system_mastery_percent": 85, "confidence_percent": 90,
+           "truncation_detected": False, "unseen_sections": [], "uncertainty_reasons": [],
+           "challenge_answers": answers}
+    confirm = {"version": "overview-delivery-receipt/v1",
+               "body_sha256": meta.get("body_sha256"),
+               "body_bytes": meta.get("body_utf8_bytes"),
+               "end_marker_observed": True}
+    t2, err = text_of(s.call("aoci_overview", {"host_delivery_confirmation": confirm, "model_cognition_attestation": att}))
+    return parse_kv(t2), t2
+
+def truthy(value):
+    """parse_kv reads true/false into booleans; a comparison that accepts both."""
+    return value is True or value == "true"
+
+def pass_probe(s, fx):
+    """Take the two-question probe and answer it from the on-disk sequence."""
+    t, err = text_of(s.call("aoci_overview", {"check_only": True, "probe": True}))
+    probe = jload(t).get("cognition_probe") or {}
+    entries = current_entries(fx)
+    answers = []
+    for o in probe.get("ordinals") or []:
+        path, tag, core_f = entries[o - 1]
+        answers.append({"ordinal": o, "object_identity": path, "tag": tag, "core_f": core_f})
+    t2, err = text_of(s.call("aoci_overview", {"check_only": True,
+        "probe_answers": {"version": "cognition-probe/v1", "digest": probe.get("digest"), "answers": answers}}))
+    return (jload(t2).get("probe_result") or {}).get("result") == "pass"
+
+def add_source_and_align(s, fx, fname):
+    """Create one new fixture source and author its Entry."""
+    with open(os.path.join(fx, "pkg", fname), "w") as f:
+        f.write("package pkg\n\n// added unit\nfunc Added() int { return 99 }\n")
+    m, t, err = maintain(s)
+    a, tw, err = submit_batch(s, m)
+    return a.get("aligned") is True
+
+def group_m_delta():
+    """Incremental delivery (the L5 section of the delivery contract): after a
+    passing complete Attestation and a probe pass, delta_since delivers exactly
+    the changed and added Entries; a passing delta Attestation re-anchors the
+    base; no probe, a restart, a partial delta Attestation, and an unchanged
+    base each answer as the contract says."""
+    g = "M"
+    fx = make_fixture("fx-delta", 8)
+    s = Session(fx)
+    m, t, err = maintain(s)
+    a, tw, err = submit_batch(s, m)
+    t, err = text_of(s.call("aoci_overview"))
+    meta, body = overview_meta_and_full_body(t)
+    base = meta.get("index_sha256")
+    proof, pt = attest_delivery(s, fx, t)
+    attested = a.get("aligned") is True and meta.get("delivery_mode") == "full" and proof.get("model_attestation") == "pass"
+    # -- M1: one Entry revised, one added: the delta is exactly those two
+    changed = land_write(fx, "f001.go", "revised constant provider one") == "applied"
+    added = add_source_and_align(s, fx, "f009.go")
+    probed = pass_probe(s, fx)
+    t, err = text_of(s.call("aoci_overview", {"delta_since": base}))
+    meta, body = overview_meta_and_full_body(t)
+    delivered = parse_body_entries(body, fx) if body else []
+    entries = current_entries(fx)
+    paths = [p for p, _, _ in entries]
+    want_changed = str(paths.index("pkg/f001.go") + 1) if "pkg/f001.go" in paths else "?"
+    want_added = str(paths.index("pkg/f009.go") + 1) if "pkg/f009.go" in paths else "?"
+    shaped = (attested and changed and added and probed and meta.get("delivery_mode") == "delta"
+              and str(meta.get("delta_object_count")) == "2" and len(delivered) == 2
+              and str(meta.get("delta_changed_ordinals")) == want_changed
+              and str(meta.get("delta_added_ordinals")) == want_added
+              and str(meta.get("scope_object_count")) == str(len(entries))
+              and meta.get("delta_base_scope_identity") == base
+              and {p for p, _, _ in delivered} == {"pkg/f001.go", "pkg/f009.go"})
+    record(g, "M1.delta-carries-exactly-the-changed-and-added-entries", "PASS" if shaped else "FAIL",
+           f"attested={attested} changed={changed} added={added} probed={probed} mode={meta.get('delivery_mode')} "
+           f"count={meta.get('delta_object_count')} delivered={[p for p, _, _ in delivered]}"[:200])
+    # -- M2: the delta Attestation passes against the complete identity facts and re-anchors
+    proof, pt = attest_delivery(s, fx, t)
+    after_first = meta.get("index_sha256")
+    second_changed = land_write(fx, "f002.go", "revised constant provider two") == "applied"
+    probed = pass_probe(s, fx)
+    t2, err = text_of(s.call("aoci_overview", {"delta_since": after_first}))
+    meta2, body2 = overview_meta_and_full_body(t2)
+    delivered2 = parse_body_entries(body2, fx) if body2 else []
+    ok2 = (proof.get("model_attestation") == "pass" and truthy(proof.get("model_full_cognition_reliable"))
+           and second_changed and probed and meta2.get("delivery_mode") == "delta"
+           and str(meta2.get("delta_object_count")) == "1" and [p for p, _, _ in delivered2] == ["pkg/f002.go"])
+    record(g, "M2.delta-attestation-passes-and-the-next-delta-covers-only-newer-writes", "PASS" if ok2 else "FAIL",
+           f"attestation={proof.get('model_attestation')} reliable={proof.get('model_full_cognition_reliable')} "
+           f"mode={meta2.get('delivery_mode')} count={meta2.get('delta_object_count')} delivered={[p for p, _, _ in delivered2]}"[:200])
+    proof2, _ = attest_delivery(s, fx, t2)
+    after_second = meta2.get("index_sha256")
+    # -- M3: without a probe pass the request answers the complete scope
+    third_changed = land_write(fx, "f003.go", "revised constant provider three") == "applied"
+    t3, err = text_of(s.call("aoci_overview", {"delta_since": after_second}))
+    meta3, _ = overview_meta_and_full_body(t3)
+    ok3 = (proof2.get("model_attestation") == "pass" and third_changed
+           and meta3.get("delivery_mode") == "full" and meta3.get("fallback_reason") == "delta_probe_required")
+    record(g, "M3.no-probe-pass-answers-the-complete-scope", "PASS" if ok3 else "FAIL",
+           f"mode={meta3.get('delivery_mode')} reason={meta3.get('fallback_reason')}"[:200])
+    # -- M4: a partial delta Attestation drops the base
+    probed = pass_probe(s, fx)
+    t4, err = text_of(s.call("aoci_overview", {"delta_since": after_second}))
+    meta4, _ = overview_meta_and_full_body(t4)
+    wrong, _ = attest_delivery(s, fx, t4, wrong=True)
+    probed2 = pass_probe(s, fx)
+    t5, err = text_of(s.call("aoci_overview", {"delta_since": after_second}))
+    meta5, _ = overview_meta_and_full_body(t5)
+    ok4 = (probed and meta4.get("delivery_mode") == "delta" and wrong.get("model_attestation") in ("partial", "fail")
+           and probed2 and meta5.get("delivery_mode") == "full" and meta5.get("fallback_reason") == "delta_base_unknown")
+    record(g, "M4.partial-delta-attestation-drops-the-base", "PASS" if ok4 else "FAIL",
+           f"delta={meta4.get('delivery_mode')} wrong={wrong.get('model_attestation')} next={meta5.get('delivery_mode')} reason={meta5.get('fallback_reason')}"[:200])
+    proof5, _ = attest_delivery(s, fx, t5)
+    current = meta5.get("index_sha256")
+    # -- M5: an unchanged base answers an empty delta without a proof
+    probed = pass_probe(s, fx)
+    t6, err = text_of(s.call("aoci_overview", {"delta_since": current}))
+    meta6, body6 = overview_meta_and_full_body(t6)
+    ok5 = (proof5.get("model_attestation") == "pass" and probed and meta6.get("delivery_mode") == "delta"
+           and str(meta6.get("delta_object_count")) == "0" and truthy(meta6.get("completed"))
+           and not body6 and "challenge_digest" not in t6 and truthy(meta6.get("model_full_cognition_reliable")))
+    record(g, "M5.unchanged-base-answers-an-empty-delta", "PASS" if ok5 else "FAIL",
+           f"mode={meta6.get('delivery_mode')} count={meta6.get('delta_object_count')} completed={meta6.get('completed')} body={bool(body6)}"[:200])
+    s.close()
+    # -- M6: a new Host session has no base: the request answers the complete scope
+    s2 = Session(fx)
+    probed = pass_probe(s2, fx)
+    t7, err = text_of(s2.call("aoci_overview", {"delta_since": current}))
+    meta7, _ = overview_meta_and_full_body(t7)
+    s2.close()
+    ok6 = probed and meta7.get("delivery_mode") == "full" and meta7.get("fallback_reason") == "delta_base_unknown"
+    record(g, "M6.restart-has-no-base", "PASS" if ok6 else "FAIL",
+           f"mode={meta7.get('delivery_mode')} reason={meta7.get('fallback_reason')}"[:200])
+
 def group_n():
     """next_commands are complete, runnable commands that clear what they name;
     attested cognition under tree drift reads uncertain, never invalid."""
@@ -2831,7 +2991,7 @@ GROUP_RUNS = [
     ("F", group_f_host_dialog), ("F", group_f_observe_review), ("F", group_f_sessionless_dialog),
     ("T", group_t), ("U", group_u), ("U", group_u_detach), ("O", group_o_optimization),
     ("O", group_o_s_absent_priority), ("P", group_p_special_names), ("P", group_p_unspellable_directory),
-    ("H", group_h), ("L", group_l_parallel),
+    ("H", group_h), ("L", group_l_parallel), ("M", group_m_delta),
 ]
 HOST_WINDOW_GROUP = "W"
 

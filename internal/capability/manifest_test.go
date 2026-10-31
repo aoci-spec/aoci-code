@@ -47,6 +47,7 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.InputSchemaVersions, machinecontract.DatabaseCognitionBootstrapPreviewV1) ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "database_cognition_bootstrap") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "parallel_batches") ||
+		!containsCapability(manifest.CLILifecycleCapabilities, "overview_delta") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "fresh_bootstrap_auto_eligibility_v1") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "fresh_bootstrap_semantic_authoring_v2") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "cognition_lineage_v1") ||

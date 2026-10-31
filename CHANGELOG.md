@@ -14,8 +14,23 @@ changes a persisted preimage names the binary every machine then needs.
   locale text assets like every other help string. `docs/getting-started.md`
   is rewritten as the first week in three steps: install and initialize,
   connect the Agent and build the index, keep it aligned.
-- Spec: incremental Overview delivery (L5) is specified in the delivery
-  contract for a 0.2.x release: an ordinary `aoci_overview` carrying
+- Incremental Overview delivery (L5) is implemented. `aoci_overview` takes
+  `delta_since`, the `scope_identity` of the delivery the Host holds: after a
+  passing Attestation and a probe pass over the current identity, the server
+  answers `delivery_mode=delta` (or `chunked_delta`) with only the objects
+  changed or added since that body, at their current ordinals, the removed
+  identities in Metadata, and a Challenge drawn from the delivered objects
+  that still echoes the complete identity facts; a passing delta Attestation
+  re-anchors the base and a partial or failed one drops it; an unchanged base
+  answers an empty delta without a proof. Without a base in the process, an
+  unreliable base, a pending `context_compaction`, no probe pass, a delta
+  past half the objects, or a delivery the server cannot retain, the call
+  answers the complete scope with a named `fallback_reason`. The capability
+  manifest lists `overview_delta`; scenario group M (six scenarios) and two
+  conformance checks pin the contract's list; the suites now publish 92 and
+  62.
+- Spec: incremental Overview delivery (L5) was specified in the delivery
+  contract first: an ordinary `aoci_overview` carrying
   `delta_since=<scope_identity>`, after a passing Attestation and a probe
   pass over the current identity, delivers only the objects changed, added,
   or removed since that body under the same framing and Chunk rules, is

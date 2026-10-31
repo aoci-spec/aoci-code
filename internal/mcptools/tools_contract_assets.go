@@ -18,7 +18,7 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_overview": {
 		"scope", "cognition_state_version", "cognition_receipt", "model_cognition_state", "scope_covered", "check_only",
 		"refresh_reasons", "refresh_event_id", "stable_checkpoint", "host_delivery_confirmation", "model_cognition_attestation",
-		"cursor", "probe", "probe_answers",
+		"cursor", "probe", "probe_answers", "delta_since",
 	},
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
@@ -395,6 +395,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 					}, "ordinal", "object_identity", "tag", "core_f"),
 				},
 			}, "version", "digest", "answers"),
+			"delta_since": map[string]any{"type": "string", "description": descriptions["delta_since"], "pattern": "^[0-9a-f]{64}$"},
 		}), nil
 	}
 

@@ -55,6 +55,13 @@ type cognitionRefreshSession struct {
 	// generation in which this process last sent the complete authoring
 	// contract on a Maintain response (maintain_contract.go).
 	authoringContracts map[string]int
+	// deltaBase and the probe pass belong to incremental delivery (L5): the
+	// base a delta is computed from and the machine proof that the Host still
+	// holds it (overview_delta_v1.go).
+	deltaBase           *overviewDeltaBase
+	probePassed         bool
+	probePassIdentity   string
+	probePassGeneration int
 }
 
 // overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存

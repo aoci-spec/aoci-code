@@ -18,6 +18,7 @@
     "check_only": "Return only checkpoint facts, without the body",
     "cognition_receipt": "A previous response's cognition_receipt, passed back unchanged",
     "cognition_state_version": "cognition-state/v2 adds independent cognition-state fields",
+    "delta_since": "Volumes all only: the scope_identity of the delivery held as current cognition; after a probe pass, delivers only the objects changed since it",
     "cursor": "The exact next_cursor of the preceding Chunk",
     "host_delivery_confirmation": "Host-observed body bytes, SHA-256, and end marker",
     "model_cognition_attestation": "Submit once after the complete chain: echo the Challenge's index_sha256, entry_sequence_sha256, and entry_count and answer as the final Chunk's attestation_prompt says",

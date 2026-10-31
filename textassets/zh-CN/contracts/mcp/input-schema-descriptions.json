@@ -18,6 +18,7 @@
     "check_only": "只返回checkpoint事实，不交付正文",
     "cognition_receipt": "此前响应返回的cognition_receipt，原样回传",
     "cognition_state_version": "cognition-state/v2增加相互独立的认知状态字段",
+    "delta_since": "仅限 Volumes all：当前持有认知的那次交付的 scope_identity；探针通过后只交付此后变化的对象",
     "cursor": "上一块返回的next_cursor，原样使用",
     "host_delivery_confirmation": "宿主观察到的正文字节数、SHA-256与结束标记",
     "model_cognition_attestation": "完整链结束后只提交一次：原样回绑Challenge的index_sha256、entry_sequence_sha256与entry_count，并按最后一块的attestation_prompt作答",

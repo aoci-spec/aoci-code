@@ -178,6 +178,23 @@ const (
 	OverviewCompactionReloadCapacityStop = OverviewDeliveryModeCapacityStop
 )
 
+// Incremental delivery (L5): a Host that holds the last attested body and
+// passed the probe over the current identity asks with delta_since for the
+// objects changed since that body. The delivery modes are the delta
+// counterparts of full and chunked_full; the fallback reasons name why a
+// delta request answered the complete scope instead.
+const (
+	OverviewDeliveryModeDelta        = "delta"
+	OverviewDeliveryModeChunkedDelta = "chunked_delta"
+
+	OverviewFallbackDeltaBaseUnknown          = "delta_base_unknown"
+	OverviewFallbackDeltaBaseUnreliable       = "delta_base_unreliable"
+	OverviewFallbackDeltaCompactionPending    = "delta_compaction_pending"
+	OverviewFallbackDeltaProbeRequired        = "delta_probe_required"
+	OverviewFallbackDeltaExceedsShare         = "delta_exceeds_share"
+	OverviewFallbackDeltaRetentionUnavailable = "delta_retention_unavailable"
+)
+
 // AutoStatuses returns the canonical auto-finalization vocabulary in protocol
 // order. The returned slice is new so callers cannot mutate package state.
 func AutoStatuses() []string {

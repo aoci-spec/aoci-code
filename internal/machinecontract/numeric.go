@@ -45,6 +45,10 @@ const (
 	OverviewChunkTokensDefault = 7000
 	OverviewChunkTokensMin     = 4000
 	OverviewChunkTokensMax     = 24000
+	// OverviewDeltaMaxSharePercent bounds an incremental delivery (L5): past
+	// this share of the current objects the complete body costs little more
+	// and proves more, so the request answers the complete scope.
+	OverviewDeltaMaxSharePercent = 50
 
 	// Code Cognition authoring batches: how many candidates one Maintain asks
 	// the model to author in a single aoci_update_entry call. The ceiling is

@@ -2,7 +2,7 @@
 """AOCI MCP stdio conformance harness — drives build/aoci mcp as a real client.
 Protocol-level tests only; zero formal writes expected (verified afterward by git/verify).
 
-MCP stdio 一致性检查（60项）：以真实客户端身份走 initialize→tools 全链路，
+MCP stdio 一致性检查（62项）：以真实客户端身份走 initialize→tools 全链路，
 只读不写，跑完用 git status / aoci verify 复核零写入。最后一段 locale 孪生
 检查在临时目录铸造两个同样的三文件夹具（init --locale en-US / zh-CN），对照
 人类语句随 locale 变化而机器字段、键集、错误码与摘要不变；宿主仓库仍只读。
@@ -375,6 +375,12 @@ ok("maintain.default_config_carries_no_parallel_fields",
    f"code_plan keys={sorted(_cp.keys())[:12]}")
 _pt, _perr = text_of(s.call("aoci_maintain", {"batch_id": "0" * 64}))
 ok("maintain.batch_id_refused_without_parallel_batches", _perr and "maintain_batch_id_requires_parallel_batches" in _pt, _pt[:160])
+# Incremental delivery (L5): delta_since is an ordinary all-scope request and
+# nothing else; with check_only or a cursor it is refused before any read.
+_dt, _derr = text_of(s.call("aoci_overview", {"delta_since": "0" * 64, "check_only": True}))
+ok("overview.delta_since_refused_with_check_only", _derr and "overview_delta_since_invalid_combination" in _dt, _dt[:160])
+_dt2, _derr2 = text_of(s.call("aoci_overview", {"delta_since": "0" * 64, "cursor": "v2:deadbeef"}))
+ok("overview.delta_since_refused_with_cursor", _derr2 and "overview_delta_since_invalid_combination" in _dt2, _dt2[:160])
 
 # negative paths (same session)
 bad = s.call("aoci_overview", {"cursor":"deadbeef:8000:1:deadbeef"})

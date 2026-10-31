@@ -106,6 +106,9 @@ func handleVolumeOverview(
 				probe = buildCognitionProbe(view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
 			} else {
 				probeResult = gradeCognitionProbe(input.ProbeAnswers, view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
+				if probeResult != nil && probeResult.Result == probeResultPass {
+					refreshSession.noteProbePass(view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
+				}
 			}
 		}
 		var plan *overviewDeliveryPlan
@@ -179,6 +182,63 @@ func handleVolumeOverview(
 		recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, capacity, plan, assessment.RefreshReasons)
 		return textResult(output)
 	}
+	// Incremental delivery (L5): a delta_since request is served from the
+	// session's base when it is eligible, and answers the complete scope with
+	// the named fallback_reason otherwise. Every fresh all-scope delivery
+	// carries the current digest sequence a passing proof anchors the base at.
+	var anchor *overviewDeltaBase
+	if view.EffectiveScope == cognition.ScopeAll {
+		anchor = deltaDigestSequence(loaded.set, view, assessment.Receipt.RefreshGeneration)
+	}
+	var deltaFacts *overviewDeltaFacts
+	var deltaChallenge *overviewChallenge
+	fallbackReason := ""
+	contentBytes := volumeScopeBytes(view)
+	if fresh && input.DeltaSince != "" {
+		fallbackReason = refreshSession.deltaFallbackReason(input.DeltaSince, view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
+		if fallbackReason == "" {
+			base := refreshSession.deltaBase
+			plan := computeOverviewDelta(base, anchor)
+			switch {
+			case plan.exceedsShare(len(anchor.Objects)):
+				fallbackReason = machinecontract.OverviewFallbackDeltaExceedsShare
+			case guard == nil:
+				fallbackReason = machinecontract.OverviewFallbackDeltaRetentionUnavailable
+			case plan.deltaCount() == 0 && len(plan.removed) == 0 && !base.headerChanged(anchor):
+				// Nothing changed since the base: re-anchor it at the current
+				// identity and answer without a body, a Challenge, or a proof.
+				base.ScopeIdentity, base.CompositeIdentity = view.ScopeIdentity, loaded.set.CompositeIdentity
+				receipt := receiptWithRefresh(receiptWithState(current, cognitionStateValid, true), refreshSession.generation, refreshSession.lastReceipt.LastRefreshEventID, nil)
+				if !assessment.Semantic.GovernanceAligned {
+					receipt = receiptWithRefresh(receiptWithState(current, cognitionStateInvalid, false), refreshSession.generation, refreshSession.lastReceipt.LastRefreshEventID, assessment.RefreshReasons)
+				}
+				facts := overviewDeltaFacts{BaseScopeIdentity: input.DeltaSince, BaseGeneration: base.Generation,
+					ChangedOrdinals: []int{}, AddedOrdinals: []int{}, RemovedIdentities: []string{}, ScopeObjectCount: view.ObjectCount}
+				output := renderOverviewDeltaEmpty(overviewRenderContext{
+					Root: root, MCPServiceVersion: mcpServiceVersion, LayoutMode: string(loaded.set.LayoutMode),
+					RequestedScope: view.RequestedScope, EffectiveScope: view.EffectiveScope, AssetState: view.AssetState,
+					ScopeIdentity: view.ScopeIdentity, Assessment: assessment,
+				}, receipt, facts, cognitionStateV2Requested(input))
+				recordOverviewDeltaEvent(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, "", overviewDeliveryDelta, facts)
+				ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{
+					Op: "overview", DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent,
+					DeliveryMode: overviewDeliveryDelta, IndexSHA256: view.ScopeIdentity, AOCIToolCalls: 1,
+					OutputBytes: len(output), EstimatedTokens: len(output) / 3,
+				})
+				return overviewWorkResult(overviewRendered{Output: output}, work)
+			default:
+				content, deltaSequence, facts, deltaErr := buildVolumeDeltaBody(loaded.set, view, base, anchor, plan)
+				if deltaErr != nil {
+					return errResult(errInternal, deltaErr.Error(), "")
+				}
+				challenge := buildDeltaChallenge(view.ScopeIdentity, sequence, deltaSequence)
+				body, sequence = content, deltaSequence
+				contentBytes, estimatedTokens = len(content), len(content)/3
+				framed = frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, len(deltaSequence), content)
+				deltaFacts, deltaChallenge = &facts, &challenge
+			}
+		}
+	}
 	keyDigest := sha256.Sum256([]byte(view.ScopeIdentity + "\x00" + framed.Receipt.BodySHA256))
 	governanceKey := hex.EncodeToString(keyDigest[:])
 	if !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input) {
@@ -193,11 +253,12 @@ func handleVolumeOverview(
 		Root: root, MCPServiceVersion: mcpServiceVersion,
 		LayoutMode: string(loaded.set.LayoutMode), RequestedScope: view.RequestedScope,
 		EffectiveScope: view.EffectiveScope, AssetState: view.AssetState,
-		ScopeIdentity: view.ScopeIdentity, Content: body, ContentBytes: volumeScopeBytes(view),
-		EntryCount: view.ObjectCount, SectionCount: countVolumeSections(view),
-		EstimatedTokens: volumeScopeBytes(view) / 3,
+		ScopeIdentity: view.ScopeIdentity, Content: body, ContentBytes: contentBytes,
+		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
+		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
 		Session: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
+		Delta: deltaFacts, DeltaChallenge: deltaChallenge, Anchor: anchor, FallbackReason: fallbackReason,
 	}
 	var entry *volumeDelivery
 	if guard != nil {
@@ -244,9 +305,13 @@ func handleVolumeOverview(
 			return failResult(snapshotFail)
 		}
 	}
-	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll, assessment.RefreshReasons, estimatedTokens)
+	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil, assessment.RefreshReasons, estimatedTokens)
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
+	refreshSession.settleDeltaBase(renderCtx, delivery.Attestation)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
+	if deltaFacts != nil && fresh {
+		recordOverviewDeltaEvent(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, delivery.Facts.ChainID, delivery.Facts.DeliveryMode, *deltaFacts)
+	}
 	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, framed)
 	recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 	return overviewWorkResult(delivery, work)

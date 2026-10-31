@@ -171,6 +171,11 @@
           "description": "上一块返回的next_cursor，原样使用",
           "type": "string"
         },
+        "delta_since": {
+          "description": "仅限 Volumes all：当前持有认知的那次交付的 scope_identity；探针通过后只交付此后变化的对象",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
         "host_delivery_confirmation": {
           "additionalProperties": false,
           "properties": {

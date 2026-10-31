@@ -68,7 +68,8 @@ func compactToolListing(advertised map[string]any) mcp.Middleware {
 
 func recordOverviewProofEvents(root string, enabled bool, input overviewIn, delivery overviewRendered, body framedOverviewBody) {
 	chain := delivery.Facts.ChainID
-	if delivery.Facts.DeliveryMode == overviewDeliveryFull || (delivery.Facts.DeliveryMode == overviewDeliveryChunked && strings.HasSuffix(delivery.Output, body.Receipt.EndMarker+"\n")) {
+	if delivery.Facts.DeliveryMode == overviewDeliveryFull || delivery.Facts.DeliveryMode == overviewDeliveryDelta ||
+		(chunkedDeliveryMode(delivery.Facts.DeliveryMode) && strings.HasSuffix(delivery.Output, body.Receipt.EndMarker+"\n")) {
 		ledger.Append(root, enabled, ledger.Event{Op: "overview_delivery_completed", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "completed", DeliveryChainID: chain})
 	}
 	if input.HostConfirmation != nil && hostDeliveryStatus(input.HostConfirmation, body) == hostDeliveryConfirmed {

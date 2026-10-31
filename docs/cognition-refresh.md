@@ -330,8 +330,8 @@ compaction event is known. After known compaction, do not issue or answer it;
 answers reconstructed from a compacted handoff or summary are not retained
 cognition.
 
-A probe pass is also what makes an incremental Overview eligible once that is
-implemented (specified for a 0.2.x release): a Host that holds the last
-attested body and passes the probe over the current identity can ask with
-`delta_since` for only the objects changed since that body. See
+A probe pass is also what makes an incremental Overview eligible: a Host
+that holds the last attested body and passes the probe over the current
+identity can ask with `delta_since` for only the objects changed since that
+body. See
 [`overview-delivery.md`](overview-delivery.md).
