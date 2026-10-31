@@ -122,6 +122,13 @@ passing Attestation records a reliable receipt. A partial or failed Attestation
 records an uncertain receipt and disables a full-system claim without
 retriggering the same refresh generation.
 
+An ordinary call carrying delta_since asks for the objects changed since the
+delivery it names instead of the complete scope. It is an explicit cognition
+request like any other ordinary call, never a checkpoint; when it is served,
+when it answers the complete scope with a fallback_reason, and how its
+Attestation moves the receipt are owned by aoci-overview-delivery-v1.txt
+(Incremental delivery (L5)), specified in 0.2.0-rc2 for a 0.2.x release.
+
 When formal cognition is structurally complete but source governance is Dirty
 or Stale, ordinary Overview still returns the complete formal body. It reports
 cognition_currency=dirty_or_stale and governance_aligned=false and issues no
@@ -242,7 +249,12 @@ formal Entry sequence, stable within one (index identity, generation) and
 bound by a digest. probe_answers submits memory-only answers to exactly that
 probe; grading uses the same identity, tag, and core-F criteria as the full
 Attestation and returns probe_result pass, fail, or stale. A pass is machine
-proof that retained cognition makes a re-delivery unnecessary. A fail is the
+proof that retained cognition makes a re-delivery unnecessary, and, once
+incremental delivery is implemented, the eligibility proof for it: a Host
+that holds the base and passed the probe over the current identity may ask
+for the objects changed since that base with delta_since
+(aoci-overview-delivery-v1.txt, Incremental delivery (L5)); without the pass
+the request answers the complete scope. A fail is the
 machine evidence on which the host declares context_compaction through the
 existing refresh_reasons contract; the probe itself never advances the
 generation, never records a reason, and never changes any receipt. A stale

@@ -7,6 +7,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- Spec: incremental Overview delivery (L5) is specified in the delivery
+  contract for a 0.2.x release: an ordinary `aoci_overview` carrying
+  `delta_since=<scope_identity>`, after a passing Attestation and a probe
+  pass over the current identity, delivers only the objects changed, added,
+  or removed since that body under the same framing and Chunk rules, is
+  attested over exactly that delta, re-anchors on a pass and drops the base
+  on a partial or failed Attestation, and answers the complete scope with a
+  named `fallback_reason` without a base in the process, without the probe
+  pass, during a compaction reload, or past half the objects; the
+  conformance checks the implementation must ship are listed. No behaviour
+  changes in this version.
 - Parallel current batches (L4) are implemented. Under the new team key
   `code_cognition_parallel_batches` (absent or 1 is the one-batch flow, byte
   for byte; ceiling 4; `config set` validates it; the capability manifest
