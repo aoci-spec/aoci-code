@@ -1,4 +1,4 @@
-// aoci_rules会话认知、普通开发边界与增量收尾合同测试。
+// Contract tests for aoci_rules session cognition, ordinary development boundaries, and incremental closing.
 package index
 
 import (

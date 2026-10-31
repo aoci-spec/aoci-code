@@ -1,9 +1,9 @@
-// RemoveEntry 原语表驱动测试(v2.8 P1)。
-// 索引条目: editor_remove_test.go(待补录,随本批入册)
+// Table-driven tests for the RemoveEntry primitive (v2.8 P1).
+// Index entry: editor_remove_test.go (to be recorded, entering the index with this batch)
 //
-// 覆盖面: 恰好1处删除且其余行字节保真/0处报错(含重取提示)/2+处报错
-// (重复污染)/CRLF风格与末尾换行双保持/无末尾换行保持/空目标与含换行目标拒。
-// 纯文本级测试不落盘不造仓(同 editor_append_test.go 纪律)。
+// Coverage: exactly 1 hit removed with the other lines byte-identical / 0 hits errors (with the re-fetch hint) / 2+ hits errors
+// (duplicate pollution) / CRLF style and trailing newline both kept / no trailing newline kept / empty target and a target holding a newline refused.
+// Pure text-level tests, no disk write and no repository (the same discipline as editor_append_test.go).
 package index
 
 import (
@@ -11,12 +11,12 @@ import (
 	"testing"
 )
 
-// rmFixture 三条目LF夹具(a/b/c各一行,b为删除靶)
+// rmFixture is a three-entry LF fixture (one line each for a/b/c, b being the removal target)
 const rmFixture = "#头部\n===/repo/===\na.go[XC9T]: F:甲 | R:- | A:- | S:-\nb.go[XC9T]: F:乙 | R:- | A:- | S:-\nc.go[XC9T]: F:丙 | R:- | A:- | S:-\n"
 
 const rmTarget = "b.go[XC9T]: F:乙 | R:- | A:- | S:-"
 
-// TestRemoveEntryExactlyOne 恰好1处删除成功,其余行字节保真且末尾换行保持。
+// TestRemoveEntryExactlyOne: exactly 1 hit removes successfully, the other lines stay byte-identical, and the trailing newline is kept.
 func TestRemoveEntryExactlyOne(t *testing.T) {
 	got, err := RemoveEntry(rmFixture, rmTarget)
 	if err != nil {
@@ -28,7 +28,7 @@ func TestRemoveEntryExactlyOne(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryTrimSpaceMatch 目标带首尾空白仍按TrimSpace匹配删除。
+// TestRemoveEntryTrimSpaceMatch: a target with surrounding whitespace still matches and removes by TrimSpace.
 func TestRemoveEntryTrimSpaceMatch(t *testing.T) {
 	got, err := RemoveEntry(rmFixture, "  "+rmTarget+"  ")
 	if err != nil {
@@ -39,7 +39,7 @@ func TestRemoveEntryTrimSpaceMatch(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryZeroHit 0处命中报错且含重取提示。
+// TestRemoveEntryZeroHit: 0 hits errors with the re-fetch hint.
 func TestRemoveEntryZeroHit(t *testing.T) {
 	_, err := RemoveEntry(rmFixture, "x.go[XC9T]: F:不存在 | R:- | A:- | S:-")
 	if err == nil {
@@ -50,7 +50,7 @@ func TestRemoveEntryZeroHit(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryMultiHit 2+处命中报重复污染拒绝。
+// TestRemoveEntryMultiHit: 2+ hits reports duplicate pollution and refuses.
 func TestRemoveEntryMultiHit(t *testing.T) {
 	dup := rmFixture + rmTarget + "\n"
 	_, err := RemoveEntry(dup, rmTarget)
@@ -62,7 +62,7 @@ func TestRemoveEntryMultiHit(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryCRLFPreserved CRLF文本删除后风格与末尾换行双保持,无裸LF混入。
+// TestRemoveEntryCRLFPreserved: a CRLF text keeps both its style and its trailing newline after removal, with no bare LF mixed in.
 func TestRemoveEntryCRLFPreserved(t *testing.T) {
 	crlf := strings.ReplaceAll(rmFixture, "\n", "\r\n")
 	got, err := RemoveEntry(crlf, rmTarget)
@@ -80,7 +80,7 @@ func TestRemoveEntryCRLFPreserved(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryNoTrailingNL 无末尾换行文本删除后仍无末尾换行。
+// TestRemoveEntryNoTrailingNL: a text without a trailing newline still has none after removal.
 func TestRemoveEntryNoTrailingNL(t *testing.T) {
 	noTrail := strings.TrimRight(rmFixture, "\n")
 	got, err := RemoveEntry(noTrail, rmTarget)
@@ -92,7 +92,7 @@ func TestRemoveEntryNoTrailingNL(t *testing.T) {
 	}
 }
 
-// TestRemoveEntryBadTarget 空目标与含换行目标均拒。
+// TestRemoveEntryBadTarget: an empty target and a target holding a newline are both refused.
 func TestRemoveEntryBadTarget(t *testing.T) {
 	if _, err := RemoveEntry(rmFixture, "   "); err == nil {
 		t.Error("空目标应拒")

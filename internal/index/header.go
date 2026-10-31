@@ -1,33 +1,33 @@
-// 索引头部区原语: 提取 / 结构校验 / 整体替换 / 行级 diff
-// 索引条目: header.go[IHD8S]
+// Index header-area primitives: extract / structural validation / whole replacement / line-level diff
+// Index entry: header.go[IHD8S]
 //
-// 头部区定义(与 parser.go 的 Parse 完全同源): 全文中首个 ===...=== 行
-// (目录段头或分隔符,由 consistencyDirRe / consistencySepRe 判定)之前的
-// 全部行。Parse 把这些行收进 Document.HeaderLines —— 本文件的边界判定
-// 直接复用同一对正则,保证"头部"在解析侧与编辑侧永远指同一段文本。
+// Header-area definition (the same source as Parse in parser.go): every line before the first ===...=== line
+// of the text (a directory section header or a separator, judged by consistencyDirRe / consistencySepRe).
+// Parse collects those lines into Document.HeaderLines; this file's boundary judgement reuses the same pair
+// of regular expressions directly, so "the header" always names the same text on the parsing and the editing side.
 //
-// 本文件为纯文本变换(输入全文,输出新全文),不做任何落盘 ——
-// 落盘由调用方经 internal/fs.AtomicWrite 完成(与 editor.go 同纪律)。
+// This file is pure text transformation (whole text in, new whole text out) and never writes to disk;
+// the caller writes through internal/fs.AtomicWrite (the same discipline as editor.go).
 //
-// 设计约束:
-//   - BOM 口径与 Parse 同源(P-18): ExtractHeader/ReplaceHeader 处理前剥离
-//     文首 UTF-8 BOM —— 首行为 ===...=== 且带 BOM 时边界判定会把段头误归
-//     头部,ReplaceHeader 会借"改头"之名吞掉首个目录段;读侧宽进,
-//     ReplaceHeader 落回不再携带 BOM(spec 约定 UTF-8 无 BOM,写侧顺带治愈,
-//     一次性 diff 且调用方备份在场);
-//   - ReplaceHeader 只动头部区,条目区(首个 === 行起至文末)一字节不动;
-//   - 新头部两条结构硬规(ValidateHeaderText,与 prompt 层对模型的承诺对齐):
-//     其一,禁含 ===...=== 形态行 —— 该形态会前移头部/条目边界,等于借
-//     "改头部"之名改变文档结构;
-//     其二,非空行必须以 # 开头 —— 三分法中头部为说明性内容,该规则同时
-//     自动拦截条目形态行与模型输出的解释性散文(均不以#开头);
-//     两条规则只约束【新头部】,读取含裸头部行的历史索引不受影响(spec
-//     兼容形态"无#头部行不采集"仍成立,旧文件头部原样提取原样保留);
-//   - 换行纪律与 editor.go 一致: 逐文件探测并保留原换行风格(LF/CRLF)
-//     与末尾换行有无,防一次回写造成全文件假 diff;新头部无论以 LF 还是
-//     CRLF 提供,落回时统一按目标文件原风格重组;
-//   - 内容合理性(禁区词/字典质量)不在本层 —— 结构原语保持"笨",
-//     纪律校验归上层(safety 闸门与 apply 命令)。
+// Design constraints:
+//   - The BOM reading matches Parse (P-18): ExtractHeader/ReplaceHeader strip a leading UTF-8 BOM before
+//     processing. With a first line of ===...=== carrying a BOM, the boundary judgement would file the section
+//     header under the header area, and ReplaceHeader would swallow the first directory section in the name of
+//     "changing the header"; reading is lenient, and ReplaceHeader writes back without the BOM (the spec says
+//     UTF-8 without BOM, the write side heals it in passing, a one-time diff with the caller's backup in place);
+//   - ReplaceHeader touches only the header area; the entry area (from the first === line to the end) keeps every byte;
+//   - Two hard structural rules for a new header (ValidateHeaderText, aligned with the prompt layer's promise to the model):
+//     first, no line of the ===...=== shape, since that shape moves the header/entry boundary forward, changing
+//     the document structure in the name of "changing the header";
+//     second, every non-empty line must start with #, since the header is explanatory content in the three-way
+//     split, and this rule also catches entry-shaped lines and explanatory prose from the model (neither starts with #);
+//     both rules bind only the NEW header; reading a historical index with bare header lines is unaffected (the
+//     spec's compatibility form "a header line without # is not collected" still holds, and an old file's header is extracted and kept as it is);
+//   - The newline discipline matches editor.go: the original newline style (LF/CRLF) and the presence of a trailing
+//     newline are detected and kept per file, so one write-back cannot produce a whole-file false diff; a new
+//     header offered in LF or CRLF is reassembled in the target file's original style;
+//   - Content reasonableness (forbidden words, dictionary quality) is not this layer's job; the structural
+//     primitives stay "dumb", and discipline checks belong to the upper layer (the safety gate and the apply command).
 package index
 
 import (
@@ -35,9 +35,9 @@ import (
 	"strings"
 )
 
-// headerBoundary 返回头部/条目区的边界下标(0 起):
-// 首个命中目录段头或分隔符正则的行的下标;全文无 === 行时返回 len(lines)。
-// 该判定与 Parse 的 inHeader 翻转条件逐字符同源(共用两条包内正则)。
+// headerBoundary returns the header/entry boundary index (0-based):
+// the index of the first line matching the directory-header or separator regular expression; len(lines) when the text has no === line.
+// The judgement matches Parse's inHeader flip condition character for character (the two package regular expressions are shared).
 func headerBoundary(lines []string) int {
 	for i, line := range lines {
 		if consistencySepRe.MatchString(line) || consistencyDirRe.MatchString(line) {
@@ -47,25 +47,25 @@ func headerBoundary(lines []string) int {
 	return len(lines)
 }
 
-// ExtractHeader 提取头部区文本。
-// 返回值 header 以 LF 连接(供展示/diff/草稿对照,不承载原文件换行风格);
-// hasSections=false 表示全文没有任何 === 行(如极早期骨架),此时头部即全文。
-// 注意: 提取不做任何校验 —— 历史索引的裸头部行原样提取(读旧写新原则)。
-// 文首 BOM 在处理前剥离(P-18,与 Parse 同口径 —— 否则带 BOM 的首行段头
-// 会被边界判定误归头部)。
+// ExtractHeader extracts the header-area text.
+// The returned header is joined with LF (for display, diff, and draft comparison; it does not carry the original file's newline style);
+// hasSections=false means the text has no === line at all (such as a very early skeleton), and the header is then the whole text.
+// Note: extraction performs no validation; the bare header lines of a historical index are extracted as they are (read old, write new).
+// A leading BOM is stripped before processing (P-18, the same reading as Parse; otherwise a BOM-carrying first-line
+// section header would be filed under the header by the boundary judgement).
 func ExtractHeader(text string) (header string, hasSections bool) {
 	lines, _, _ := splitPreserve(stripBOM(text))
 	b := headerBoundary(lines)
 	return strings.Join(lines[:b], "\n"), b < len(lines)
 }
 
-// ValidateHeaderText 校验候选头部文本的结构合法性,供 ReplaceHeader 与
-// 上层 apply/draft 预检共用。两条硬性结构约束(见包注释):
-//  1. 禁含 ===...=== 形态的行(改变头部/条目区边界);
-//  2. 非空行必须以 # 开头(三分法头部纪律,同时拦截条目行与散文行)。
+// ValidateHeaderText validates the structural legality of a candidate header text, shared by ReplaceHeader and
+// the upper-layer apply/draft prechecks. Two hard structural constraints (see the package comment):
+//  1. no line of the ===...=== shape (it changes the header/entry boundary);
+//  2. every non-empty line must start with # (the three-way-split header discipline, which also catches entry lines and prose lines).
 //
-// 返回首个违规行的行号(1 起)与说明;完全合法返回 (0, "")。
-// 空头部在结构上合法(是否允许清空由调用方裁决),本函数放行。
+// It returns the first offending line's number (1-based) and an explanation; a fully legal header returns (0, "").
+// An empty header is structurally legal (whether clearing is allowed is the caller's decision), and this function lets it pass.
 func ValidateHeaderText(newHeader string) (int, string) {
 	if newHeader == "" {
 		return 0, ""
@@ -83,13 +83,13 @@ func ValidateHeaderText(newHeader string) (int, string) {
 	return 0, ""
 }
 
-// ReplaceHeader 以 newHeader 整体替换 text 的头部区。
-// 条目区(首个 === 行起至文末)一字节不动;原文换行风格与末尾换行有无保留。
-// newHeader 可为 LF 或 CRLF 风格(内部统一折 LF 再按原文风格重组);
-// newHeader 为空串时头部被清空(结构合法,内容合理性由调用方把关)。
-// 文首 BOM 在处理前剥离(P-18): 带 BOM 时边界判定失准会吞掉首个目录段;
-// 剥离后落回的全文不再携带 BOM —— 写侧顺带治愈(spec 约定 UTF-8 无 BOM),
-// 属一次性 diff,调用方管线备份在场。
+// ReplaceHeader replaces the header area of text with newHeader as a whole.
+// The entry area (from the first === line to the end) keeps every byte; the original newline style and trailing newline are kept.
+// newHeader may be in LF or CRLF style (it is folded to LF internally and reassembled in the original style);
+// an empty newHeader clears the header (structurally legal; content reasonableness is the caller's job).
+// A leading BOM is stripped before processing (P-18): with a BOM the boundary judgement misfires and swallows the first directory section;
+// the stripped text is written back without the BOM, a heal in passing on the write side (the spec says UTF-8 without BOM),
+// a one-time diff with the caller's pipeline backup in place.
 func ReplaceHeader(text, newHeader string) (string, error) {
 	if ln, msg := ValidateHeaderText(newHeader); ln > 0 {
 		return "", fmt.Errorf("新头部第 %d 行非法: %s", ln, msg)
@@ -97,7 +97,7 @@ func ReplaceHeader(text, newHeader string) (string, error) {
 	lines, eol, trailingNL := splitPreserve(stripBOM(text))
 	b := headerBoundary(lines)
 
-	// 新头部按 LF 归一拆行;末尾换行剥掉,交 joinPreserve 按原文统一还原
+	// The new header is split on LF; its trailing newline is stripped, and joinPreserve restores the original style uniformly
 	nh := strings.ReplaceAll(newHeader, "\r\n", "\n")
 	nh = strings.TrimSuffix(nh, "\n")
 	var newLines []string

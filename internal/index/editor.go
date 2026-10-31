@@ -1,22 +1,22 @@
-// 整行替换 / 目录段插入 / 换行保留 / diff 预览
-// 索引条目: editor.go(标签见索引)
+// Whole-line replacement / directory-section insertion / newline preservation / diff preview
+// Index entry: editor.go (tags in the index)
 //
-// 本文件为纯文本变换(输入全文,输出新全文),不做任何落盘 ——
-// 落盘由调用方(MCP 工具/CLI 命令)经 internal/fs.AtomicWrite 完成,无例外。
+// This file is pure text transformation (whole text in, new whole text out) and never writes to disk;
+// the caller (an MCP tool or a CLI command) writes through internal/fs.AtomicWrite, without exception.
 //
-// 平台语义孪生(R6):
+// Platform semantic twins (R6):
 //
-//	ReplaceEntry ≡ 平台 replaceLineByTrimMatch —— TrimSpace 相等定位,恰好 1 处才替换;
-//	  0 处 = 旧条目已被人工改,2+ 处 = 重复污染,均返回明确 error 绝不猜。
-//	InsertEntry  ≡ 平台 insertIntoDirSection —— 定位目标目录段,插到段内最后一个条目行之后;
-//	  段内无条目插目录头后;找不到段则追加新目录头+条目。
+//	ReplaceEntry ≡ the platform's replaceLineByTrimMatch: locate by TrimSpace equality, replace only when there is exactly 1 hit;
+//	  0 hits = the old entry was changed by hand, 2+ hits = duplicate pollution, both return an explicit error and never guess.
+//	InsertEntry  ≡ the platform's insertIntoDirSection: locate the target directory section, insert after its last entry line;
+//	  a section without entries inserts after the directory header; no section found appends a new directory header plus the entry.
 //
-// R6 分歧挂账(2026-07-09): 追加分支 CLI 侧已增强为"文末注释区感知"(见
-// appendIndexForNewSection)—— 原"文档绝对末尾追加"会把新段甩到负空间 #说明区
-// 与 #代码索引完毕 闭合标记之后,破坏三分法结构(llm 段/indexgen 段两次被迫
-// Python 绕行的根因)。平台 insertIntoDirSection 与 Spec 待同步此语义。
+// R6 divergence on record (2026-07-09): the append branch on the CLI side was enhanced to be "aware of the
+// trailing comment area" (see appendIndexForNewSection); the old "append at the absolute end of the document"
+// threw the new section behind the negative-space # explanation area and the #代码索引完毕 closing marker, breaking
+// the three-way structure (the root cause of the llm and indexgen sections twice needing a Python detour). The platform's insertIntoDirSection and the Spec still have to adopt this semantics.
 //
-// 换行纪律: 逐文件探测并保留原换行风格(LF/CRLF),防一次回写造成全文件假 diff。
+// Newline discipline: the original newline style (LF/CRLF) is detected and kept per file, so one write-back cannot produce a whole-file false diff.
 package index
 
 import (
@@ -26,7 +26,7 @@ import (
 	"strings"
 )
 
-// DetectLineEnding 探测文本换行风格。含任一 \r\n 即判为 CRLF,否则 LF。
+// DetectLineEnding detects the text's newline style: any \r\n makes it CRLF, otherwise LF.
 func DetectLineEnding(text string) string {
 	if strings.Contains(text, "\r\n") {
 		return "\r\n"
@@ -34,7 +34,7 @@ func DetectLineEnding(text string) string {
 	return "\n"
 }
 
-// splitPreserve 按 LF 拆行(输入先折 CRLF),并记录原文是否以换行结尾
+// splitPreserve splits on LF (folding CRLF first) and records whether the original ended with a newline
 func splitPreserve(text string) (lines []string, eol string, trailingNL bool) {
 	eol = DetectLineEnding(text)
 	normalized := strings.ReplaceAll(text, "\r\n", "\n")
@@ -45,7 +45,7 @@ func splitPreserve(text string) (lines []string, eol string, trailingNL bool) {
 	return strings.Split(normalized, "\n"), eol, trailingNL
 }
 
-// joinPreserve 以原换行风格重组全文,并还原末尾换行有无
+// joinPreserve reassembles the whole text in the original newline style and restores the trailing newline
 func joinPreserve(lines []string, eol string, trailingNL bool) string {
 	out := strings.Join(lines, eol)
 	if trailingNL {
@@ -54,8 +54,8 @@ func joinPreserve(lines []string, eol string, trailingNL bool) string {
 	return out
 }
 
-// ReplaceEntry 整行替换: 在全文中以 TrimSpace 相等定位 oldLine,恰好 1 处才替换。
-// 返回替换后的新全文;0 处或 2+ 处返回 error(错误文案供 agent 直接采取下一步动作)。
+// ReplaceEntry replaces one whole line: oldLine is located in the text by TrimSpace equality and replaced only when there is exactly 1 hit.
+// It returns the new whole text; 0 or 2+ hits return an error (whose wording lets the agent take its next step directly).
 func ReplaceEntry(text, oldLine, newLine string) (string, error) {
 	if strings.Contains(newLine, "\n") || strings.Contains(newLine, "\r") {
 		return "", errors.New("新条目必须为单行")
@@ -65,7 +65,7 @@ func ReplaceEntry(text, oldLine, newLine string) (string, error) {
 	if want == "" {
 		return "", errors.New("旧条目为空: 无法定位替换目标")
 	}
-	// 收集全部匹配位置
+	// Collect every match position
 	var hits []int
 	for i, l := range lines {
 		if strings.TrimSpace(l) == want {
@@ -164,32 +164,32 @@ func headerSpells(absDir string) bool {
 	return ok && normalizeRootPath(readBack) == normalizeRootPath(absDir)
 }
 
-// InsertEntry 目录段插入: 将 newLine 插入 relPath 所属目录段。
-// 定位规则(平台 insertIntoDirSection 同语义 + CLI 侧追加增强,见包注释 R6 挂账):
-//  1. 段内有条目 → 插到最后一个条目行之后;
-//  2. 段内无条目 → 插到段头行之后;
-//  3. 找不到匹配段 → 复用既有目录段一致的历史仓库根，追加新目录头+条目;
-//     既有段无法解析或历史根不一致时fail-closed，禁止写入运行时个人绝对路径;
-//     追加点为文末连续 #注释/空行 区(负空间说明区)【之前】,而非文档绝对末尾。
+// InsertEntry inserts into a directory section: newLine goes into the directory section that owns relPath.
+// Placement rules (the platform's insertIntoDirSection semantics plus the CLI-side append enhancement, see the R6 note in the package comment):
+//  1. the section has entries → after its last entry line;
+//  2. the section has no entries → after the section header line;
+//  3. no matching section → reuse the historical repository root shared by the existing directory sections and append a new directory header plus the entry;
+//     when the existing sections cannot be parsed or their historical roots disagree it fails closed, and the runtime personal absolute path is never written;
+//     the append point is BEFORE the trailing run of # comment / blank lines (the negative-space explanation area), not the absolute end of the document.
 //
-// repoRoot 用于段绝对路径与 relPath 的换算。
+// repoRoot converts between section absolute paths and relPath.
 func InsertEntry(text, relPath, newLine, repoRoot string) (string, error) {
 	if strings.Contains(newLine, "\n") || strings.Contains(newLine, "\r") {
 		return "", errors.New("新条目必须为单行")
 	}
 	lines, eol, trailingNL := splitPreserve(text)
 
-	// 借解析器定位目标段与段内最后条目的行号(解析基于 LF 归一文本,行号与 lines 对齐)
+	// Borrow the parser to locate the target section and the line number of its last entry (parsing is on LF-folded text, so line numbers align with lines)
 	doc, _ := Parse(strings.Join(lines, "\n"))
 	ResolveRelPaths(doc, repoRoot)
 	sec := FindSectionForPath(doc, repoRoot, relPath)
 
 	if sec != nil {
-		insertAfter := sec.StartLine // 默认插段头之后(行号从 1 起)
+		insertAfter := sec.StartLine // default: after the section header (line numbers start at 1)
 		if n := len(sec.Entries); n > 0 {
-			insertAfter = sec.Entries[n-1].LineNo // 段内最后一个条目之后
+			insertAfter = sec.Entries[n-1].LineNo // after the last entry of the section
 		}
-		// 在 insertAfter 行(1 起)之后插入 → 切片下标 insertAfter 处插入
+		// Insert after line insertAfter (1-based) → insert at slice index insertAfter
 		idx := insertAfter
 		if idx > len(lines) {
 			idx = len(lines)
@@ -201,8 +201,8 @@ func InsertEntry(text, relPath, newLine, repoRoot string) (string, error) {
 		return joinPreserve(out, eol, trailingNL), nil
 	}
 
-	// 无匹配段: 复用索引既有历史根追加新目录头，避免迁移仓把当前机器路径
-	// 注入正式索引并令下一次克隆的失配段集合失去公共前缀。
+	// No matching section: append a new directory header under the index's existing historical root, so a migrated
+	// repository does not inject the current machine's path into the formal index and strip the next clone's mismatched sections of their common prefix.
 	headers, planErr := planNewSection(doc, repoRoot, relPath)
 	if planErr != nil {
 		return "", planErr
@@ -325,9 +325,9 @@ func CheckInsertable(text, relPath, repoRoot string) error {
 	return NewInsertProbe(text, repoRoot).Check(relPath)
 }
 
-// appendSectionRoot从当前可解析目录段反推唯一历史仓库根。已有索引的目录段
-// 必须共享同一根；新段只延续该根，不把repoRoot这个运行时位置写入正文。
-// 零目录段的初始化骨架没有历史身份可复用，才使用当前根建立第一段。
+// appendSectionRoot derives the single historical repository root from the parseable directory sections. The
+// directory sections of an existing index must share one root; a new section only continues that root and never
+// writes repoRoot, the runtime location, into the body. Only a zero-section initialization skeleton, with no historical identity to reuse, takes the current root for its first section.
 //
 // An index written while only the legacy reading existed spells one root two
 // ways: in full, by its first section, and truncated, by every section appended
@@ -390,18 +390,18 @@ func appendSectionRoot(doc *Document, repoRoot string) (string, error) {
 // sections directly and misread them.
 const NeutralRepositoryRoot = "/<repository>"
 
-// appendIndexForNewSection 计算"追加新段"的插入下标(0 起,插在该下标之前的位置):
-// 从文末向前跳过连续的空行与 # 注释行,落点即负空间说明区/闭合标记之前。
+// appendIndexForNewSection computes the insertion index for "append a new section" (0-based, inserting before that index):
+// it skips the trailing run of blank lines and # comment lines backwards from the end, landing before the negative-space explanation area / closing marker.
 //
-// 两道防御:
-//  1. 文档零目录段(如 init 骨架,全文皆头部 # 规范区)→ 保持旧行为文末追加:
-//     此时"文末注释区"就是头部本身,插到它之前会把新段顶到规范区之上,结构更糟;
-//  2. 计算落点若越过最后一个段头行(极端如段内全是注释)→ 允许:落点停在段头行
-//     之后(段头行本身非 # 非空,向前扫描自然止步),不会越过;若因任何未预期
-//     形态使落点小于最后段头行号,回退文末追加(宁可旧病不可新伤)。
+// Two defences:
+//  1. A document with zero directory sections (such as an init skeleton, all header # rules) keeps the old behaviour of appending at the end:
+//     the "trailing comment area" is then the header itself, and inserting before it would push the new section above the rules area, a worse structure;
+//  2. Should the computed landing point cross the last section header line (an extreme such as a section holding only comments), it is allowed to stop
+//     after the header line (the header line itself is neither # nor blank, so the backward scan stops there naturally) and never crosses it; if any
+//     unexpected shape puts the landing point below the last header line number, it falls back to appending at the end (better the old ailment than a new wound).
 func appendIndexForNewSection(lines []string, doc *Document) int {
 	if len(doc.Sections) == 0 {
-		return len(lines) // 防御1: 零段文档保持旧行为
+		return len(lines) // defence 1: a zero-section document keeps the old behaviour
 	}
 	idx := len(lines)
 	for idx > 0 {
@@ -412,8 +412,8 @@ func appendIndexForNewSection(lines []string, doc *Document) int {
 		}
 		break
 	}
-	// 防御2: 落点不得越过最后一个段头(StartLine 从 1 起,对应切片下标 StartLine-1;
-	// 落点最小合法值为段头行之后,即下标 StartLine)
+	// Defence 2: the landing point must not cross the last section header (StartLine starts at 1 and maps to slice index StartLine-1;
+	// the smallest legal landing point is after the header line, that is index StartLine)
 	lastHeader := doc.Sections[len(doc.Sections)-1].StartLine
 	if idx < lastHeader {
 		return len(lines)

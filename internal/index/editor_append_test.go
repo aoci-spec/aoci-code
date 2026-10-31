@@ -1,8 +1,8 @@
-// InsertEntry 追加分支的文末注释区感知防回归测试
-// 索引条目: editor_append_test.go(待补录)
+// Regression tests for the trailing-comment-area awareness of the InsertEntry append branch
+// Index entry: editor_append_test.go (to be recorded)
 //
-// 背景(2026-07-09 P0-2): 原追加分支把新段甩到负空间 #说明区与 #代码索引完毕
-// 闭合标记之后,破坏三分法结构。本文件锁定修复后的落点语义。
+// Background (2026-07-09 P0-2): the original append branch threw the new section behind the negative-space # explanation area and the #代码索引完毕
+// closing marker, breaking the three-way structure. This file locks the landing semantics after the fix.
 package index
 
 import (
@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// TestInsertEntry_NewSectionBeforeTrailingComments 核心防回归:
-// 新段必须落在文末 # 注释区(负空间说明+闭合标记)之前。
+// TestInsertEntry_NewSectionBeforeTrailingComments, the core regression guard:
+// a new section must land before the trailing # comment area (the negative-space explanation plus the closing marker).
 func TestInsertEntry_NewSectionBeforeTrailingComments(t *testing.T) {
 	text := strings.Join([]string{
 		"#====测试索引====",
@@ -50,7 +50,7 @@ func TestInsertEntry_NewSectionBeforeTrailingComments(t *testing.T) {
 	if headerIdx > negIdx {
 		t.Errorf("新段头(行%d)落在负空间区(行%d)之后 —— 原 bug 复发", headerIdx, negIdx)
 	}
-	// 闭合标记仍须是最后一个非空行
+	// The closing marker must still be the last non-empty line
 	last := ""
 	for i := len(lines) - 1; i >= 0; i-- {
 		if strings.TrimSpace(lines[i]) != "" {
@@ -61,13 +61,13 @@ func TestInsertEntry_NewSectionBeforeTrailingComments(t *testing.T) {
 	if last != "#代码索引完毕" {
 		t.Errorf("闭合标记不再是末尾,实为 %q", last)
 	}
-	// 新条目须紧随新段头
+	// The new entry must follow the new section header directly
 	if headerIdx+1 >= len(lines) || !strings.HasPrefix(lines[headerIdx+1], "x.go[") {
 		t.Errorf("新条目未紧随新段头")
 	}
 }
 
-// TestInsertEntry_NewSectionAtEndWhenNoTrailingComments 文末无注释区时行为不变:追加到末尾。
+// TestInsertEntry_NewSectionAtEndWhenNoTrailingComments: with no trailing comment area the behaviour is unchanged, appending at the end.
 func TestInsertEntry_NewSectionAtEndWhenNoTrailingComments(t *testing.T) {
 	text := strings.Join([]string{
 		"===配置索引/repo/===",
@@ -79,15 +79,15 @@ func TestInsertEntry_NewSectionAtEndWhenNoTrailingComments(t *testing.T) {
 		t.Fatalf("InsertEntry 失败: %v", err)
 	}
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-	// 末三行应为: 空行 / 新段头 / 新条目
+	// The last three lines should be: blank / new section header / new entry
 	n := len(lines)
 	if n < 3 || !strings.Contains(lines[n-2], "===/repo/newdir/===") || !strings.HasPrefix(lines[n-1], "x.go[") {
 		t.Errorf("无注释区时应文末追加,输出:\n%s", out)
 	}
 }
 
-// TestInsertEntry_AllCommentDocFallback 防御1: 零目录段文档(init 骨架)保持旧行为,
-// 绝不把新段插到头部规范区之前。
+// TestInsertEntry_AllCommentDocFallback, defence 1: a zero-directory-section document (an init skeleton) keeps the old behaviour and
+// never inserts the new section before the header rules area.
 func TestInsertEntry_AllCommentDocFallback(t *testing.T) {
 	text := strings.Join([]string{
 		"#====骨架索引====",
@@ -100,11 +100,11 @@ func TestInsertEntry_AllCommentDocFallback(t *testing.T) {
 		t.Fatalf("InsertEntry 失败: %v", err)
 	}
 	lines := strings.Split(strings.TrimSuffix(out, "\n"), "\n")
-	// 首行必须仍是头部注释(新段不得顶到规范区之上)
+	// The first line must still be a header comment (the new section must not be pushed above the rules area)
 	if !strings.HasPrefix(lines[0], "#====骨架索引") {
 		t.Errorf("零段文档的头部被顶开,首行: %q", lines[0])
 	}
-	// 新段头应在头部之后
+	// The new section header should come after the header
 	found := false
 	for i, l := range lines {
 		if strings.Contains(l, "==="+NeutralRepositoryRoot+"/newdir/===") {
@@ -119,7 +119,7 @@ func TestInsertEntry_AllCommentDocFallback(t *testing.T) {
 	}
 }
 
-// TestInsertEntry_CRLFPreservedOnAppend 追加路径保持 CRLF 换行风格。
+// TestInsertEntry_CRLFPreservedOnAppend: the append path keeps the CRLF newline style.
 func TestInsertEntry_CRLFPreservedOnAppend(t *testing.T) {
 	text := "===配置索引/repo/===\r\na.go[XAA9T]: F:入口 | R:- | A:- | S:测试\r\n#尾注\r\n"
 	out, err := InsertEntry(text, "newdir/x.go", "x.go[XBB7T]: F:新 | R:- | A:- | S:测试", "/repo")

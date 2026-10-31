@@ -1,14 +1,14 @@
-// R字段的单条形式提示。
+// Single-entry form hints for the R field.
 //
-// AOCI条目的R字段是模型创作的语义标注，不是CLI执行路径，也不会直接控制文件
-// 写入。条目之间的关系由模型读完整索引时用注意力机制建立，程序不参与：本检查
-// 器不解析R目标指向谁，不查询文件系统，不判断目标是否存在、是否同一实体、是否
-// 重复，也不建立任何关系图。R指向尚未创作的对象、已经移除的对象、外部系统或
-// 同名多义的东西，都是模型的语义自由。
+// The R field of an AOCI entry is a semantic annotation the model authors; it is not a CLI execution path and never
+// controls file writes directly. The relations between entries are built by the model's attention while it reads the complete
+// index, and no program takes part: this checker does not resolve where an R target points, does not query the filesystem, does not
+// judge whether a target exists, is the same entity, or is duplicated, and builds no relation graph. An R that points at an object not
+// yet authored, an object already removed, an external system, or something ambiguous by name is all the model's semantic freedom.
 //
-// 这里只看这一行本身能不能读：分隔符是否规范、有没有空片段、占位符有没有和真实
-// 目标混用。所有结果都是Warning，永远不阻断Check、人工Apply、MCP回写或Auto
-// Apply。真正的写入目标path仍由fs.NormalizeRelPath执行安全硬闸。
+// It only asks whether this one line can be read: whether the separators are regular, whether there is an empty fragment, whether a
+// placeholder is mixed with real targets. Every result is a Warning and never blocks Check, a human Apply, an MCP write-back, or Auto
+// Apply. The real write target path is still hard-gated for safety by fs.NormalizeRelPath.
 package index
 
 import (
@@ -16,17 +16,17 @@ import (
 	"strings"
 )
 
-// maxRelationTargetsToReport 限制单条能产生的形式提示数量，避免异常候选刷屏。
+// maxRelationTargetsToReport bounds the number of form hints one entry can produce, so an abnormal candidate cannot flood the output.
 const maxRelationTargetsToReport = 64
 
-// ValidateEntryRelations对候选条目的R字段执行单条形式检查。
+// ValidateEntryRelations runs the single-entry form check on a candidate entry's R field.
 //
-// repoRoot保留在签名里以维持既有调用点不变；本函数不再访问文件系统。
-// relPath是当前条目对应的仓库相对路径；line必须是已经StripFences处理后的
-// 完整单行条目。
+// repoRoot stays in the signature to keep the existing call sites unchanged; this function no longer touches the filesystem.
+// relPath is the repository-relative path of the current entry; line must be the complete single-line entry after
+// StripFences.
 //
-// 条目结构、R段缺失或重复仍由ValidateEntryLineWith负责。本函数在条目结构
-// 可解析时检查R值，并且只返回LevelWarning。
+// Entry structure and a missing or repeated R part remain ValidateEntryLineWith's job. This function checks the R value when the
+// entry structure parses, and returns only LevelWarning.
 func ValidateEntryRelations(
 	repoRoot,
 	relPath,
@@ -34,7 +34,7 @@ func ValidateEntryRelations(
 ) []Violation {
 	match := matchEntryLine(line)
 	if match == nil {
-		// 条目结构错误由格式闸负责，避免同一问题重复报告。
+		// An entry structure error belongs to the format gate; do not report the same problem twice.
 		return nil
 	}
 

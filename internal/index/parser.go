@@ -1,35 +1,38 @@
-// 索引文本解析器 —— 平台 parseCodeIndex 的语义孪生
-// 索引条目: parser.go[IPS9RM]
+// Index text parser: the semantic twin of the platform's parseCodeIndex
+// Index entry: parser.go[IPS9RM]
 //
-// 契约(R6): 三正则(目录头/分隔符/条目行)与平台 consistencyDirRe/SepRe/EntryRe
-// 语义对齐;任一侧改动必须三方同步(平台/CLI/Spec)并先加差分测试用例。
-// Windows 扩展(真机教训): 段头路径捕获组允许可选盘符前缀 X:/ ——
-// Windows 仓库根为 C:/repo 形态不以 / 开头,原正则无法匹配致骨架零目录段;
-// 该扩展对 POSIX 路径行为零变化,平台与 Python 参考件同步挂账(R6)。
+// Contract (R6): the three regexes (directory header, separator, entry line) align semantically with the
+// platform's consistencyDirRe/SepRe/EntryRe; a change on either side must be synchronized three ways
+// (platform, CLI, Spec) with a differential test case added first.
+// Windows extension (a real-machine lesson): the section header path capture allows an optional drive prefix X:/.
+// A Windows repository root of the form C:/repo does not start with /, so the original regex could not match
+// it and the skeleton had zero directory sections; the extension changes nothing for POSIX paths and is on the platform and Python reference ledger (R6).
 //
-// 路径可移植性(2026-07-10 httpx 实弹协议级缺陷,同日两轮修法): 段头绝对路径
-// 是创建时快照,仓库迁移后全部段路径失配,旧实现令全体条目 RelPath 为空。
-// 第一轮修法为"全部失配才按最长公共前缀重定位";同日 Codex 真机暴露其自我
-// 瓦解形态 —— 迁移仓库内 agent 插入新段(段头为当前根路径)即构成混合命中,
-// 存量段全体放弃重定位再度失明,而真实混合根几乎唯一成因就是"迁移后插新段"。
-// 现行规则(精化): 逐段解析 —— 每段先试直接前缀命中,命中即用;全部失配的
-// 段落自成集合,最长公共目录前缀只在该集合内计算并重定位;失配段集合无公共
-// 前缀时保守留空,绝不猜。ResolveRelPaths 与 FindSectionForPath 共享
-// resolveSectionRels 单一实现(消隐性孪生,重定位若只改一处必现失配)。
-// 若完整的历史根位于当前根之下(嵌套 worktree 回到主工作区),先按历史根重定位;
-// 否则直接前缀会把整个 worktree 路径误当成每个 Entry 的相对前缀。
+// Path portability (the 2026-07-10 httpx live protocol-level defect, fixed in two rounds the same day): the
+// absolute section-header paths are a snapshot taken at creation, so after a repository move every section path
+// misses and the old implementation left every Entry's RelPath empty. The first fix relocated by longest common
+// prefix only when every section missed; the same day a real Codex run exposed its self-defeating shape: an agent
+// inserting a new section (headed by the current root) inside a moved repository created a mixed hit, every
+// existing section gave up relocation and went blind again, while "a new section after a move" is almost the only
+// real cause of mixed roots. Current rule (refined): resolve section by section; each section first tries a direct
+// prefix hit and uses it when it hits; the sections that all miss form their own set, and the longest common
+// directory prefix is computed and relocated within that set only; when the missing set has no common prefix,
+// leave it empty rather than guess. ResolveRelPaths and FindSectionForPath share the single resolveSectionRels
+// implementation (a hidden twin: relocation changed in one place only would miss). When the complete historical
+// root lies below the current root (a nested worktree returned to the main work tree), relocate by the historical
+// root first; otherwise the direct prefix would take the whole worktree path as every Entry's relative prefix.
 //
-// 解析规则:
-//   - UTF-8 BOM(\ufeff)在解析前剥离(P-18 宽进): Windows 编辑器常给文件加 BOM,
-//     首行若为 ===...=== 会因 BOM 前缀令两正则零匹配 —— 首行段头的索引整段
-//     沦为头部、条目全灭;本仓 spec 约定 UTF-8 无 BOM,读侧对外部仓宽容;
-//   - # 开头为注释行: 跳过提取但原样保留;
-//   - ===...=== 行: 若行内含首个路径 token(可选盘符 + / 开头,遇空白或左括号即止)
-//     则为目录段头,否则为分隔符 —— 分隔符清空当前目录上下文;
-//   - 条目行判据: 首个 [ 之前有非空文件名,且 ] 后紧跟冒号;
-//   - 条目仅在目录段(AbsPath 非空)内收集;
-//   - CRLF 输入统一折为 LF 解析(逐行剥离尾部 \r);原文换行风格由编辑器负责探测保留;
-//   - 解析失败收 Warning 不丢行,行号从 1 起。
+// Parsing rules:
+//   - a UTF-8 BOM (\ufeff) is stripped before parsing (P-18 lenient read): Windows editors often add one, and a
+//     first line of ===...=== would then match neither regex, turning the first section into header and losing
+//     every entry; this repository's spec says UTF-8 without BOM, and the read side is lenient with foreign repositories;
+//   - a line starting with # is a comment: skipped for extraction, kept as it is;
+//   - a ===...=== line is a directory section header when it holds a first path token (optional drive, then /,
+//     ending at whitespace or an opening parenthesis), otherwise a separator, which clears the current directory context;
+//   - an entry line has a non-empty filename before the first [ and a colon right after the ];
+//   - entries are collected only inside a directory section (AbsPath non-empty);
+//   - CRLF input is folded to LF for parsing (a trailing \r is stripped per line); the editor detects and keeps the original line-ending style;
+//   - a parse failure records a Warning and drops no line; line numbers start at 1.
 package index
 
 import (
@@ -39,15 +42,15 @@ import (
 	"strings"
 )
 
-// 三正则 —— 平台 parseCodeIndex 坐标系的语义孪生(R6 三方同步契约)
+// The three regexes: the semantic twin of the platform parseCodeIndex coordinate system (the R6 three-way sync contract)
 var (
-	// consistencyDirRe 目录段头: === + 可选描述 + 绝对路径(可选盘符 X: + /,遇空白/左括号/等号即止) + 任意尾注 + ===
-	// 示例: ===配置索引/opt/aoci-code/===
-	//       ===C:/aoci-test/===(Windows 形态)
+	// consistencyDirRe, the directory section header: === + optional description + absolute path (optional drive X: + /, ending at whitespace, an opening parenthesis, or =) + any trailing note + ===
+	// Examples: ===配置索引/opt/aoci-code/===
+	//           ===C:/aoci-test/=== (the Windows form)
 	consistencyDirRe = regexp.MustCompile(`^===(.*?)((?:[A-Za-z]:)?/[^\s=(（]+)(.*)===\s*$`)
-	// consistencySepRe 分隔符: 3 个及以上等号包裹的任意行(未命中目录头时生效),清空当前目录上下文
+	// consistencySepRe, the separator: any line wrapped in three or more equals signs (applies when no directory header matched), clearing the current directory context
 	consistencySepRe = regexp.MustCompile(`^={3,}.*={3,}\s*$`)
-	// consistencyEntryRe 条目行: 文件名(不含 [ 且不以空白开头) + [标签] + 冒号 + 余下内容
+	// consistencyEntryRe, the entry line: filename (no [, not starting with whitespace) + [tags] + colon + the rest
 	consistencyEntryRe = regexp.MustCompile(`^([^\[\s][^\[]*?)\[([^\]]*)\]:\s?(.*)$`)
 )
 
@@ -151,18 +154,18 @@ func isLegacyTruncationOf(short, full string) bool {
 	return false
 }
 
-// stripBOM 剥离文本首部的 UTF-8 BOM(P-18 单点实现)。
-// 仅剥文首一枚 \ufeff —— 正文中出现的 BOM(拼接产物)属内容问题不在此层处置;
-// 消费点: Parse 入口 / ExtractHeader / ReplaceHeader(读侧宽进,写侧治愈)。
+// stripBOM strips the UTF-8 BOM at the start of the text (the single P-18 implementation).
+// Only a leading \ufeff is stripped; a BOM inside the body (a concatenation artefact) is a content problem outside this layer.
+// Consumers: the Parse entry, ExtractHeader, and ReplaceHeader (lenient on read, healing on write).
 func stripBOM(text string) string {
-	// 剥去文首连续的每一枚: 两个工具各加一枚的拼接产物仍在文首, 只剥一枚会让 RawText
-	// 以第二枚开头, 再解析一次就剥掉它, Parse(RawText) 不再是不动点(FuzzParse 种子
-	// d03d5667d745b3ab)。正文中间的 BOM 仍不在此层处置。
+	// Strip every leading BOM: two tools adding one each leave both at the start, and stripping one would leave
+	// RawText starting with the second, which another parse would strip, so Parse(RawText) would no longer be a
+	// fixed point (FuzzParse seed d03d5667d745b3ab). A BOM inside the body is still outside this layer.
 	return strings.TrimLeft(text, "\ufeff")
 }
 
-// normalizeRootPath 仓库根/段路径归一: 反斜杠转正斜杠 + 去尾斜杠 + Windows 盘符大写
-// (段头写 c:/repo 而 root 传 C:\repo 时仍须互认;仅归一盘符字母,不动其余段大小写)
+// normalizeRootPath normalizes a repository root or section path: backslashes to forward slashes, trailing slash removed, Windows drive letter upper-cased
+// (a header written as c:/repo must still recognize a root passed as C:\repo; only the drive letter is normalized, the rest of the path keeps its case)
 func normalizeRootPath(p string) string {
 	s := strings.TrimRight(strings.ReplaceAll(p, "\\", "/"), "/")
 	if len(s) >= 2 && s[1] == ':' && s[0] >= 'a' && s[0] <= 'z' {
@@ -171,21 +174,21 @@ func normalizeRootPath(p string) string {
 	return s
 }
 
-// Parse 解析索引全文。
-// 返回 Document(全部行无损保留)与非致命 Warning 列表;仅在输入为空时返回空文档零警告。
-// 文首 UTF-8 BOM 在解析前剥离(P-18),RawText 不携带 BOM。
+// Parse parses the complete index text.
+// It returns the Document (every line preserved) and a list of non-fatal Warnings; only empty input returns an empty document with no warning.
+// A leading UTF-8 BOM is stripped before parsing (P-18); RawText carries no BOM.
 func Parse(text string) (*Document, []Warning) {
-	// BOM 剥离(P-18)后 CRLF 统一折为 LF 解析;原文风格保留归编辑器职责
+	// After the BOM strip (P-18), CRLF is folded to LF for parsing; keeping the original style is the editor's job
 	normalized := strings.ReplaceAll(stripBOM(text), "\r\n", "\n")
 
 	doc := &Document{RawText: normalized}
 	var warnings []Warning
 
-	// current 为当前收集区段;进入首个 ===...=== 行之前的内容归 HeaderLines
+	// current is the section being collected; content before the first ===...=== line belongs to HeaderLines
 	var current *Section
 	inHeader := true
 
-	// seen 用于同文档内 rel 级重复条目检测(键: 段绝对路径 + 文件名)
+	// seen detects duplicate entries at rel level within one document (key: section absolute path + filename)
 	seen := map[string]int{}
 	// seenInFirst holds the names of the first directory section when its header has
 	// two readings; acrossReadings the names a later section with the same header
@@ -197,11 +200,11 @@ func Parse(text string) (*Document, []Warning) {
 	for i, line := range lines {
 		lineNo := i + 1
 
-		// 判定 ===...=== 行(目录头或分隔符)
+		// Judge a ===...=== line (directory header or separator)
 		if consistencySepRe.MatchString(line) || consistencyDirRe.MatchString(line) {
 			inHeader = false
 			if name, legacyPath, absPath, ok := matchDirHeader(line); ok {
-				// 目录段头: 开启新目录段
+				// Directory section header: open a new directory section
 				current = &Section{
 					Name:          name,
 					AbsPath:       absPath,
@@ -212,7 +215,7 @@ func Parse(text string) (*Document, []Warning) {
 					StartLine:     lineNo,
 				}
 			} else {
-				// 分隔符: 清空目录上下文,开启无路径区段(内容原样保留)
+				// Separator: clear the directory context and open a pathless section (content kept as it is)
 				current = &Section{
 					Name:       strings.Trim(line, "= \t"),
 					AbsPath:    "",
@@ -226,29 +229,29 @@ func Parse(text string) (*Document, []Warning) {
 			continue
 		}
 
-		// 首个区段之前的行归 HeaderLines
+		// Lines before the first section belong to HeaderLines
 		if inHeader {
 			doc.HeaderLines = append(doc.HeaderLines, line)
 			continue
 		}
-		// 区段内的普通行原样保留
+		// Ordinary lines inside a section are kept as they are
 		if current != nil {
 			current.RawLines = append(current.RawLines, line)
 		}
 
-		// 注释行与空行: 只保留不提取
+		// Comment and blank lines: kept, not extracted
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 
-		// 条目行提取: 仅在目录段内收集
+		// Entry extraction: collected only inside a directory section
 		if current == nil || current.AbsPath == "" {
 			continue
 		}
 		m := matchEntryLine(line)
 		if m == nil {
-			// 形似条目但不匹配(如含 [ 却缺 ]: 结构)时给出警告,便于人工排查
+			// A line shaped like an entry that does not match (a [ without the ]: structure, say) gets a warning for a human to inspect
 			if strings.Contains(line, "[") && strings.Contains(line, "]:") {
 				warnings = append(warnings, newWarning(lineNo, "疑似条目行但未通过条目正则: "+truncateForWarn(line)))
 			}
@@ -267,7 +270,7 @@ func Parse(text string) (*Document, []Warning) {
 		}
 		entry.F, entry.R, entry.Api, entry.S = splitFRAS(rest)
 
-		// 同段同名重复检测(重复污染会使整行替换的"恰好 1 处"约束失效,提前预警)。
+		// Duplicate detection within one section (a duplicate would defeat the "exactly one place" constraint of whole-line replacement, so warn early).
 		// The first directory section is its own key space when its header has two
 		// readings: it may resolve at the truncated root while a later section with the
 		// very same header resolves at the directory the header names (the old writer's
@@ -340,9 +343,9 @@ func ParseEntryLine(line string, lineNo int) (*Entry, bool) {
 	return entry, true
 }
 
-// splitFRAS 拆解条目正文的 F/R/A/S 四要素。
-// 以 " | " 分段,按前缀识别 F:/R:/A:/S:(含 S1:/S2:/S3: 变体合并进 S);
-// 未识别前缀的分段忽略(FullLine 已保留全部原文,拆解字段仅供检索展示)。
+// splitFRAS splits an entry body into its F/R/A/S parts.
+// It splits on " | " and recognizes the F:/R:/A:/S: prefixes (the S1:/S2:/S3: variants merge into S);
+// a segment with an unrecognized prefix is ignored (FullLine keeps the complete original; the split fields serve search and display only).
 func splitFRAS(rest string) (f, r, api, s string) {
 	segs := strings.Split(rest, " | ")
 	var sParts []string
@@ -358,7 +361,7 @@ func splitFRAS(rest string) (f, r, api, s string) {
 		case strings.HasPrefix(seg, "S:"):
 			sParts = append(sParts, strings.TrimSpace(seg[2:]))
 		case regexpSVariant.MatchString(seg):
-			// S1:/S2:/S3: 变体(平台索引真实存在),合并进 S
+			// The S1:/S2:/S3: variants (present in real platform indexes) merge into S
 			idx := strings.Index(seg, ":")
 			sParts = append(sParts, strings.TrimSpace(seg[idx+1:]))
 		}
@@ -367,22 +370,22 @@ func splitFRAS(rest string) (f, r, api, s string) {
 	return
 }
 
-// regexpSVariant 匹配 S 后跟数字的变体前缀,如 "S1:" "S2:"
+// regexpSVariant matches the variant prefix of S followed by a digit, such as "S1:" or "S2:"
 var regexpSVariant = regexp.MustCompile(`^S\d+:`)
 
-// resolveSectionRels 计算全部目录段相对当前仓库根的相对目录(段解析单一实现)。
-// 返回 map[段指针]relDir;不在映射中的段表示无法解析(条目不参与 rel 匹配)。
+// resolveSectionRels computes every directory section's directory relative to the current repository root (the single section-resolution implementation).
+// It returns map[section pointer]relDir; a section absent from the map could not be resolved (its entries take no part in rel matching).
 //
-// 逐段解析(2026-07-10 二轮精化):
-//  1. 完整的历史根若位于当前根之下,先按历史根重定位;
-//  2. 其余每段试直接前缀比对 —— 段路径等于根记 "",在根下记剥前缀,命中即用;
-//  3. 全部失配的段落自成集合: 取该集合内全体段路径的最长公共目录前缀视为
-//     "创建时根",各段剥离该前缀后即迁移不变的相对目录;
-//  4. 失配段集合无公共前缀时保守留空,绝不猜。
+// Section-by-section resolution (the 2026-07-10 second-round refinement):
+//  1. when the complete historical root lies below the current root, relocate by the historical root first;
+//  2. every other section tries a direct prefix comparison: a section path equal to the root records "", one below the root records the path with the prefix stripped, and a hit is used;
+//  3. the sections that all missed form their own set: the longest common directory prefix of their paths is taken
+//     as the "root at creation", and each section stripped of it is its move-invariant relative directory;
+//  4. when the missing set has no common prefix, leave it empty rather than guess.
 //
-// 初版"存在任一命中段即放弃全部重定位"已废止 —— 迁移仓库内 agent 插入新段
-// (段头为当前根路径)即触发混合命中,存量段全体失明;而真实混合根几乎唯一
-// 成因就是"迁移后插新段",逐段规则下新旧两界各自成立。
+// The first version's "any hit section abandons all relocation" is retired: an agent inserting a new section
+// (headed by the current root) inside a moved repository triggered a mixed hit and every existing section went
+// blind, while "a new section after a move" is almost the only real cause of mixed roots; under the per-section rule the old and the new world each stand.
 func resolveSectionRels(doc *Document, repoRoot string) map[*Section]string {
 	readings := resolveSectionReadings(doc, repoRoot)
 	rels := make(map[*Section]string, len(readings))
@@ -449,7 +452,7 @@ func resolveSectionReadings(doc *Document, repoRoot string) map[*Section]section
 	readings := map[*Section]sectionReading{}
 	var missed []*Section
 
-	// 第一遍: 逐段直接前缀比对,失配段收集入子集
+	// First pass: direct prefix comparison per section; the sections that miss are collected into the subset
 	for _, sec := range directories {
 		if rel, ok := relUnder(normalizeRootPath(sec.AbsPath), root); ok {
 			readings[sec] = sectionReading{rel: rel}
@@ -488,8 +491,8 @@ func resolveSectionReadings(doc *Document, repoRoot string) map[*Section]section
 		}
 	}
 
-	// 第二遍: 失配段子集内计算最长公共目录前缀并重定位。先按扩展路径求根; 若该解释下
-	// 没有任何段落在根上, 再对失配子集试"旧写入器"解释, 它成立时优先。
+	// Second pass: compute the longest common directory prefix within the missing subset and relocate. Try the root
+	// under the extended reading first; when no section sits at the root under that reading, try the "old writer" reading over the subset, which wins when it holds.
 	extended, extendedHasRoot := relocateExtended(missed)
 	chosen := extended
 	if !extendedHasRoot {
@@ -614,10 +617,10 @@ func relUnder(p, base string) (string, bool) {
 	return "", false
 }
 
-// commonDirPrefixOf 计算目录段路径(归一后)的最长公共目录前缀。
-// 按 "/" 分段逐层比较 —— 绝不逐字符(防 /opt/httpx 与 /opt/httpx2 错切成 /opt/httpx)。
-// Windows 盘符不同(C: 与 D:)时首段即不等,公共前缀为空。
-// 全部路径完全相同时(单段索引即此形态)公共前缀为路径本身,剥离后为根段。
+// commonDirPrefixOf computes the longest common directory prefix of the (normalized) section paths.
+// It compares level by level on "/", never character by character (so /opt/httpx and /opt/httpx2 are not cut to /opt/httpx).
+// Different Windows drives (C: and D:) differ at the first level, so the common prefix is empty.
+// When every path is identical (a single-section index) the common prefix is the path itself, which strips to the root section.
 //
 // The caller selects which reading of each header is compared: the effective
 // path, or the legacy one when an index written by the old writer is relocated.
@@ -642,25 +645,25 @@ func commonDirPrefixOf(sections []*Section, pathOf func(*Section) string) string
 		}
 	}
 	prefix := strings.Join(parts, "/")
-	// 纯根("/"切分后为["",""]→拼回空串或"/")不构成有意义的创建时根
+	// A bare root ("/" splits to ["", ""] and joins back to "" or "/") is not a meaningful root at creation
 	if prefix == "" || prefix == "/" {
 		return ""
 	}
 	return prefix
 }
 
-// ResolveRelPaths 按仓库根换算全部条目的 RelPath(正斜杠)。
-// 段解析(含迁移仓库的重定位)统一走 resolveSectionRels;无法解析的段其条目
-// RelPath 保持空串(不参与路径匹配)。
+// ResolveRelPaths computes every entry's RelPath (forward slashes) against the repository root.
+// Section resolution (including relocation of a moved repository) goes through resolveSectionRels; the entries of
+// a section that cannot be resolved keep an empty RelPath (and take no part in path matching).
 func ResolveRelPaths(doc *Document, repoRoot string) {
 	rels := resolveSectionRels(doc, repoRoot)
 	for _, sec := range doc.Sections {
 		relDir, ok := rels[sec]
 		if !ok {
-			continue // 段无法解析(失配子集无公共前缀),条目不参与 rel 匹配
+			continue // the section could not be resolved (the missing subset has no common prefix); its entries take no part in rel matching
 		}
 		for _, e := range sec.Entries {
-			// 文件名自身可含目录前缀(如 scripts/check-public-text.sh)或为目录条目(尾斜杠)
+			// The filename itself may carry a directory prefix (scripts/check-public-text.sh, say) or be a directory entry (trailing slash)
 			name := strings.TrimSpace(e.Filename)
 			joined := path.Join(relDir, strings.TrimSuffix(name, "/"))
 			if strings.HasSuffix(name, "/") {
@@ -671,13 +674,13 @@ func ResolveRelPaths(doc *Document, repoRoot string) {
 	}
 }
 
-// FindSectionForPath 定位 relPath 所属目录段 —— 精确目录匹配(平台 insertIntoDirSection 同语义)。
-// 只在段相对目录与 relPath 的父目录完全相等时命中;多段同目录时取文档顺序首个。
-// 精确匹配是刻意收紧: 此前的前缀匹配使根段(secRel 为空)成为通配符,吞并一切新目录插入
-// (冒烟场景4暴露),且形如"internal/ 与 testdata/"的多路径段头会经前缀误配邻近目录。
-// 段解析与 ResolveRelPaths 共享 resolveSectionRels(消隐性孪生): 迁移后的仓库
-// 内插入定位与 rel 解析必然同判,不会出现"verify 认得段而插入定位失配"。
-// 找不到返回 nil,由调用方走"文末追加新段头"分支。
+// FindSectionForPath locates the directory section relPath belongs to: an exact directory match (the semantics of the platform's insertIntoDirSection).
+// It hits only when the section's relative directory equals relPath's parent directory exactly; among several sections of one directory the first in document order wins.
+// The exact match is a deliberate tightening: the earlier prefix match made the root section (empty secRel) a wildcard that
+// swallowed every new-directory insertion (smoke scenario 4), and a multi-path header such as "internal/ and testdata/" mismatched neighbouring directories by prefix.
+// Section resolution shares resolveSectionRels with ResolveRelPaths (a hidden twin): inside a moved repository the
+// insertion lookup and the rel resolution must agree, so "verify recognizes the section but the insertion lookup misses" cannot happen.
+// It returns nil when nothing matches, and the caller takes the "append a new section header at the end" branch.
 func FindSectionForPath(doc *Document, repoRoot, relPath string) *Section {
 	relDir := path.Dir(strings.ReplaceAll(relPath, "\\", "/"))
 	if relDir == "." {
@@ -696,9 +699,9 @@ func FindSectionForPath(doc *Document, repoRoot, relPath string) *Section {
 	return nil
 }
 
-// FindEntry 按仓库相对路径精确查找条目。
-// 须先调用 ResolveRelPaths;只认 rel_path 精确匹配 —— 仅文件名匹配只可用于提示,
-// 绝不用于自动回写(同名文件误改防线)。找不到返回 nil。
+// FindEntry looks up an entry by exact repository-relative path.
+// ResolveRelPaths must run first; only an exact rel_path match counts, and a filename-only match may serve hints
+// but never an automatic write (the defence against editing a same-named file). It returns nil when nothing matches.
 func FindEntry(doc *Document, relPath string) *Entry {
 	want := strings.ReplaceAll(relPath, "\\", "/")
 	for _, sec := range doc.Sections {
@@ -711,7 +714,7 @@ func FindEntry(doc *Document, relPath string) *Entry {
 	return nil
 }
 
-// FindEntriesByFilename 按文件名(末段)查找,仅供提示与消歧展示,禁止用于自动回写
+// FindEntriesByFilename looks up entries by filename (the last segment), for hints and disambiguation display only, never for an automatic write
 func FindEntriesByFilename(doc *Document, filename string) []*Entry {
 	var out []*Entry
 	for _, sec := range doc.Sections {
@@ -733,7 +736,7 @@ func newWarning(lineNo int, msg string) Warning {
 	return Warning{LineNo: lineNo, Msg: strings.ToValidUTF8(msg, "\uFFFD")}
 }
 
-// truncateForWarn 警告文案截断,防超长行刷屏(按 rune 截断防切碎多字节字符)
+// truncateForWarn truncates warning text so an overlong line does not flood the output (truncating by rune so multi-byte characters are not cut)
 func truncateForWarn(line string) string {
 	runes := []rune(line)
 	if len(runes) <= 60 {

@@ -1,5 +1,5 @@
-// 字典提取与校验测试
-// 索引条目: dict_test.go[TVL8TT]
+// Dictionary extraction and validation tests
+// Index entry: dict_test.go[TVL8TT]
 package index
 
 import (
@@ -12,7 +12,7 @@ const dictHeader = "#A层级: X-Script(脚本) M-Model(存储) D-Doc(文档) C-C
 	"#E规模: L大(>300行) M中(100-300行) S小(30-100行) T微(<30行)\n"
 
 func TestExtractTagDictForms(t *testing.T) {
-	// 三种既存形态: 连字符分隔 / 符号中文连写 / 多字母符号
+	// Three existing forms: hyphen-separated / symbol run into Chinese / multi-letter symbol
 	d := ExtractTagDict("#A层级: X-Script I索引核心 N-LLM适配\n#B模块: AI-AI增强 Srv-入口\n")
 	for _, sym := range []string{"X", "I", "N"} {
 		if !d.A[sym] {
@@ -24,18 +24,18 @@ func TestExtractTagDictForms(t *testing.T) {
 			t.Fatalf("B 字典应含 %s: %+v", sym, d.B)
 		}
 	}
-	// E 行缺失回退 LMST
+	// A missing E line falls back to LMST
 	if !d.E["L"] || !d.E["T"] || len(d.E) != 4 {
 		t.Fatalf("E 缺失应回退 LMST: %+v", d.E)
 	}
 }
 
-// TestExtractTagDictVariantForms 字典行形态容错(P-21,httpx-rerun 真机实弹):
-// AI 起草的头部 "#A层级(python,架构角色): I-接口(...)" 在维名与冒号间插夹注,
-// 旧硬前缀匹配零提取 → HasDict false → maintain 判未立约且字典闸静默假绿。
-// 三变体全锁: 维名夹注(实物形态) / #后空格 / 全角冒号。
+// TestExtractTagDictVariantForms, dictionary line form tolerance (P-21, the httpx-rerun live run):
+// the AI-drafted header "#A层级(python,架构角色): I-接口(...)" put a note between the dimension name and the colon,
+// the old hard prefix match extracted nothing → HasDict false → maintain judged no dictionary established and the dictionary gate went silently false green.
+// All three variants locked: a note on the dimension name (the real shape) / a space after # / a full-width colon.
 func TestExtractTagDictVariantForms(t *testing.T) {
-	// 实物形态(取自 httpx-rerun 头部字节取证,夹注内含空格与示例路径)
+	// The real shape (taken from the httpx-rerun header bytes; the note holds spaces and an example path)
 	real := "#A层级(python,架构角色): I-接口(公开API/命令行入口,如 httpx/__init__.py、httpx/_api.py) C-核心(客户端与数据模型主干实现,如 httpx/_client.py) X-测试(tests/**)\n" +
 		"#B模块(业务域): Api-顶层API Cli-客户端 Tra-传输层\n"
 	d := ExtractTagDict(real)
@@ -52,24 +52,24 @@ func TestExtractTagDictVariantForms(t *testing.T) {
 			t.Fatalf("B 字典应含 %s: %+v", sym, d.B)
 		}
 	}
-	// 符号污染防线: 夹注内示例路径词(httpx/...)绝不入字典
+	// Symbol pollution defence: example path words inside the note (httpx/...) never enter the dictionary
 	if d.A["httpx"] {
 		t.Fatalf("夹注内路径词不得污染字典: %+v", d.A)
 	}
 
-	// #后空格变体
+	// The space-after-# variant
 	d2 := ExtractTagDict("# A层级: X-x\n# B模块: Y-y\n")
 	if !d2.A["X"] || !d2.B["Y"] {
 		t.Fatalf("#后空格形态应可提取: A=%+v B=%+v", d2.A, d2.B)
 	}
 
-	// 全角冒号变体
+	// The full-width-colon variant
 	d3 := ExtractTagDict("#A层级：X-x\n#B模块：Y-y\n")
 	if !d3.A["X"] || !d3.B["Y"] {
 		t.Fatalf("全角冒号形态应可提取: A=%+v B=%+v", d3.A, d3.B)
 	}
 
-	// 精确相等防误伤: 维名不等的含冒号说明行不得命中
+	// Exact equality against collateral damage: an explanatory line with a colon whose dimension name differs must not match
 	d4 := ExtractTagDict("#三分法A层级说明: 这不是字典行\n#关于B模块: 也不是\n")
 	if len(d4.A) != 0 || len(d4.B) != 0 {
 		t.Fatalf("非字典说明行不得误提取: A=%+v B=%+v", d4.A, d4.B)
@@ -91,7 +91,7 @@ func TestCheckTagsAgainstDict(t *testing.T) {
 	cases := []struct {
 		name string
 		line string
-		warn string // 空=应合规;非空=违规消息须含此子串
+		warn string // empty = should conform; non-empty = the violation message must hold this substring
 	}{
 		{"合规紧凑", "main.go[XSrv8T]: F:x | R:- | A:- | S:-", ""},
 		{"合规多字母B", "store.go[MStore9S]: F:x | R:- | A:- | S:-", ""},
@@ -100,8 +100,8 @@ func TestCheckTagsAgainstDict(t *testing.T) {
 		{"A不在字典", "x.go[QSrv5T]: F:x | R:- | A:- | S:-", "A层级符号Q不在字典"},
 		{"非标降级不判", "x.go[无效标签]: F:x | R:- | A:- | S:-", ""},
 		{"点分合规", "x.go[X.Srv.9.T]: F:x | R:- | A:- | S:-", ""},
-		// 跨维错位点破(P-14,httpx实弹病根: 10发dict拦截多为符号放错维而非真臆造):
-		// 符号M在A字典(M-Model)与E字典(M中)而不在B字典,用在B位应点名疑似维度错位
+		// Cross-dimension misplacement exposed (P-14, the httpx live-run root cause: most of the 10 dict refusals were symbols in the wrong dimension, not real inventions):
+		// the symbol M exists in the A dictionary (M-Model) and the E dictionary (M中) but not in B; used in the B slot it should be named as a probable misplacement
 		{"跨维错位_A符号用在B位", "x.go[XM5T]: F:x | R:- | A:- | S:-", "疑似维度错位"},
 	}
 	for _, c := range cases {
@@ -126,9 +126,9 @@ func TestCheckTagsAgainstDict(t *testing.T) {
 	}
 }
 
-// TestCrossDimHintAbsentForTrueBogus 真臆造负例(P-14 修法边界):
-// 符号不存在于任何维字典时,文案维持"不在字典"原语义,绝不出现维度错位提示
-// (错位提示只在符号确实存在于另一维时触发,防止对真臆造给出误导性归因)。
+// TestCrossDimHintAbsentForTrueBogus, the true-invention negative case (the boundary of the P-14 fix):
+// when the symbol exists in no dimension's dictionary, the wording keeps its "not in the dictionary" meaning and never shows a misplacement hint
+// (the hint fires only when the symbol really exists in another dimension, so a true invention never gets a misleading attribution).
 func TestCrossDimHintAbsentForTrueBogus(t *testing.T) {
 	d := ExtractTagDict(dictHeader)
 	v := CheckTagsAgainstDict("x.go[XBogus5T]: F:x | R:- | A:- | S:-", d)

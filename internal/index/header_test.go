@@ -1,5 +1,5 @@
-// 头部区原语测试: 提取边界 / 替换保真 / 结构硬拒(两规) / 换行风格保留 / LCS diff
-// 索引条目: header_test.go[THD8TS]
+// Header-area primitive tests: extraction boundary / replacement fidelity / structural hard refusal (two rules) / newline style preservation / LCS diff
+// Index entry: header_test.go[THD8TS]
 package index
 
 import (
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// 常规文档: 头部两行 + 一个目录段
+// An ordinary document: two header lines plus one directory section
 const hdrDocLF = "#头部规范第一行\n#标签字典第二行\n===测试段/opt/x/===\nf.go[XC1T]: F:x | R:- | A:- | S:-\n"
 
 func TestExtractHeaderNormal(t *testing.T) {
@@ -32,7 +32,7 @@ func TestExtractHeaderZeroSection(t *testing.T) {
 }
 
 func TestExtractHeaderSeparatorAlsoBounds(t *testing.T) {
-	// 分隔符(无路径的 ===)同样终结头部区 —— 与 Parse 的 inHeader 翻转同源
+	// A separator (=== without a path) ends the header area too, the same source as Parse's inHeader flip
 	text := "#头部\n===分隔符===\n#分隔符后的行不属于头部\n"
 	h, has := ExtractHeader(text)
 	if !has {
@@ -44,7 +44,7 @@ func TestExtractHeaderSeparatorAlsoBounds(t *testing.T) {
 }
 
 func TestExtractHeaderToleratesBareLegacyLines(t *testing.T) {
-	// 历史索引头部可含裸文本行(spec兼容形态): 提取侧原样容忍,校验只约束新头部
+	// A historical index header may hold bare text lines (the spec compatibility form): extraction tolerates them as they are, and validation binds only a new header
 	text := "裸的历史头部行\n#正常行\n===段/opt/x/===\n"
 	h, _ := ExtractHeader(text)
 	if h != "裸的历史头部行\n#正常行" {
@@ -104,7 +104,7 @@ func TestReplaceHeaderPreservesNoTrailingNewline(t *testing.T) {
 }
 
 func TestReplaceHeaderRejectsSectionLines(t *testing.T) {
-	// 目录段头形态与分隔符形态均须硬拒(规则一)
+	// Both the directory-header shape and the separator shape must be hard-refused (rule one)
 	for _, bad := range []string{
 		"#合法行\n===偷渡目录段/opt/evil/===",
 		"#合法行\n======",
@@ -116,7 +116,7 @@ func TestReplaceHeaderRejectsSectionLines(t *testing.T) {
 }
 
 func TestReplaceHeaderRejectsBareLines(t *testing.T) {
-	// 规则二: 非空行必须#开头 —— 同时拦截散文行与条目形态行
+	// Rule two: a non-empty line must start with #, catching prose lines and entry-shaped lines alike
 	for _, bad := range []string{
 		"#合法行\n这是模型输出的解释性散文",
 		"#合法行\nf.go[XC1T]: F:偷渡条目 | R:- | A:- | S:-",
@@ -159,7 +159,7 @@ func TestValidateHeaderTextLineNumber(t *testing.T) {
 }
 
 func TestValidateHeaderTextBareLineAndBlank(t *testing.T) {
-	// 裸文本行定位到行号且提示#开头;空行完全合法
+	// A bare text line is located by line number with a hint to start with #; a blank line is fully legal
 	ln, msg := ValidateHeaderText("#合法\n裸文本行\n#又合法")
 	if ln != 2 || !strings.Contains(msg, "#开头") {
 		t.Fatalf("裸文本行应定位第2行并提示#规则,得到 ln=%d msg=%q", ln, msg)

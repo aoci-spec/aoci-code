@@ -1,9 +1,9 @@
-// E规模参与路径判据边界测试。
+// Boundary tests for the E-scale path participation criterion.
 package index
 
 import "testing"
 
-// TestShouldCheckEScalePathBoundary锁定AOCI治理资产排除与相似路径不误伤。
+// TestShouldCheckEScalePathBoundary locks the exclusion of AOCI governance assets without harming similar paths.
 func TestShouldCheckEScalePathBoundary(
 	t *testing.T,
 ) {

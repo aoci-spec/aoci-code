@@ -1,51 +1,51 @@
-// E 规模档位校验: 按头部字典的行数阈值核对条目 E 档与文件实际行数(Warning 级)
-// 索引条目: escale.go[IVF7M]
+// E-scale validation: checks an entry's E scale against the file's actual line count by the header dictionary's thresholds (Warning level)
+// Index entry: escale.go[IVF7M]
 //
-// 设立动机(2026-07-11 自举实弹): 同批人审抓获三处 E 档位错配(index.go 306行
-// 标L实为M / index_entries.go 409行标M实为L / init_test.go 约150行标T实为S),
-// httpx 实弹九人审 16 条改稿中亦含 2 处同类 —— E 档随文件自然生长而漂移,
-// 行数可机读、档位界线在头部字典,完全可判定,此前仅靠人审属机器闸空转。
+// Motivation (the 2026-07-11 bootstrap live run): one human review batch caught three E-scale mismatches (index.go
+// at 306 lines tagged L but really M, index_entries.go at 409 lines tagged M but really L, init_test.go at about
+// 150 lines tagged T but really S), and the nine-reviewer httpx run had 2 more among 16 edits. The E scale drifts as
+// files grow naturally; the line count is machine-readable and the boundaries live in the header dictionary, so it is fully decidable, and leaving it to human review was a machine gate idling.
 //
-// 级别取 Warning(与 quota 闸同哲学): 档位漂移的常见成因是文件生长而条目
-// 语义未错 —— 硬拒会阻塞一切与 E 无关的回写;警告放行让写入者看见并顺手
-// 更新,保留人的裁决权。
+// The level is Warning (the same philosophy as the quota gate): scale drift usually comes from file growth with
+// the entry's meaning still right; a hard refusal would block every write unrelated to E, while a warning lets the
+// writer see it and update it in passing, keeping the decision with the human.
 //
-// 阈值字典驱动(与 dict 闸同哲学): 界线不硬编码,从头部 E规模行解析;头部
-// 无数字阈值声明的仓不可判定即跳过,宽进不冤枉(HasThresholds 同 HasDict
-// 语义)。支持三种数字形态: >N / N-M / <N(亦容 >=N / <=N 与全角＞＜＝);
-// 形态之外的符号视为无阈值,不参与判定。
+// Threshold dictionary driven (the same philosophy as the dict gate): the boundaries are not hard-coded but parsed
+// from the header's E-scale line; a repository whose header declares no numeric thresholds is undecidable and skipped,
+// lenient rather than wrong (HasThresholds has the same semantics as HasDict). Three numeric forms are supported:
+// >N / N-M / <N (also >=N / <=N and the full-width ＞＜＝); any other symbol reads as no threshold and takes no part in the judgement.
 //
-// 阈值归属裁决(2026-07-13 操作者裁决,P-22 附带裁决案): E 档位行数界线以
-// 仓库头部声明为准 —— 用户可自定义,spec 中数值仅为默认模板参考,本闸不做
-// spec 数值硬校验;头部声明 >400 或 >300 均为该仓合法界线。
+// Threshold ownership (the 2026-07-13 operator decision, a P-22 side ruling): the E-scale line-count boundaries follow
+// the repository header's declaration; users may customize them, the numbers in the spec are only the default
+// template, and this gate does not check against the spec's numbers; a header declaring >400 or >300 is that repository's legal boundary.
 //
-// 行识别单点(P-22 修法,2026-07-13): 旧实现自带 HasPrefix(s,"E规模:") 硬
-// 前缀匹配 —— 与 dict 闸 P-21 前的旧病同型:AI 起草的变体形态(#后空格/
-// 全角冒号/维名括号夹注如 "E规模(行数):")任一形态识别零命中 → HasThresholds
-// false → 档位闸静默跳过(假绿家族第三例,前两例为 P-15 缺位标签与 P-21
-// 字典行)。修法: 行识别改走 parseDictLine 单点(dict.go,P-21 三形态容错),
-// 本闸绝不再持第二份行识别逻辑(判据单一事实源);内容侧与 dict 闸刻意
-// 不对称 —— dict 收符号须剥夹注防示例路径污染,本闸取数字须保留夹注
-// (阈值可能写在括号内如 "L大(>400行)"),不对称是设计而非遗漏。
-// 数字后缀汉字(如 ">400行")天然容忍(leadingInt 遇非数字即止)。
+// Single line recognition (the P-22 fix, 2026-07-13): the old implementation carried its own HasPrefix(s,"E规模:")
+// matching, the same disease the dict gate had before P-21: any AI-drafted variant (a space after #, a full-width
+// colon, a dimension name with a parenthesized note such as "E规模(行数):") matched nothing, HasThresholds read
+// false, and the scale gate skipped silently (the third false-green case, after the P-15 missing tag and the P-21
+// dictionary line). The fix routes line recognition through the single parseDictLine (dict.go, the P-21 three-form
+// tolerance) and this gate never holds a second copy of line recognition (one fact source for the criterion); the
+// content side is deliberately asymmetric to the dict gate: dict must strip the parenthesized note when it collects
+// symbols so example paths do not pollute it, while this gate must keep the note when it takes numbers (a threshold
+// may be written inside parentheses, such as "L大(>400行)"); the asymmetry is design, not an omission.
+// A Chinese suffix after the number (">400行") is tolerated naturally (leadingInt stops at the first non-digit).
 //
-// 跳过可见(R51/14.6): sawLine 记录 E规模行是否在场 —— "行在场但阈值不可
-// 提取"与"行根本不存在"是两态,供上层(score/maintain)分型展示(P-21 的
-// D97 分型同款),杜绝静默跳过型假绿;上层文案接线随 score.go 下次修改落地。
+// Visible skips (R51/14.6): sawLine records whether the E-scale line was present; "present but the thresholds cannot
+// be extracted" and "the line does not exist" are two states for the upper layers (score/maintain) to show apart
+// (the same typing as P-21's D97), against silent-skip false greens; the upper-layer wording lands with the next score.go change.
 //
-// 边界宽容(刻意设计): 相邻档位共享边界值属常见字典写法(如 M中200-400 与
-// S小100-200 在 200 行重叠)—— 行数命中多个档位时,条目标注其中任一即合规;
-// 只在"标注档位完全不含该行数,且行数确有所属档位"时告警;行数落入字典
-// 空隙(任何档位都不含)同样跳过 —— 字典的完备性归策展者,本闸不越权裁决。
+// Boundary tolerance (deliberate): adjacent scales sharing a boundary value is a common dictionary form (M中200-400 and
+// S小100-200 overlap at 200 lines); when a line count falls into several scales, an entry tagged with any of them
+// conforms; it warns only when the tagged scale does not contain the line count at all and the line count does have
+// a scale; a line count in a dictionary gap (no scale contains it) is skipped too, since the dictionary's completeness belongs to the curator, not to this gate.
 //
-// E 符号切分复用 ParseTags(dict 闸同款纪律): 切分规则只有一份,本闸只判
-// "切出来的 E 符号所标档位含不含该行数";符号合法性归 dict 闸,不重复报。
+// The E symbol split reuses ParseTags (the dict gate's discipline): there is one split rule, and this gate judges only
+// "does the scale of the split-out E symbol contain this line count"; symbol validity belongs to the dict gate and is not reported twice.
 //
-// 反查单点化(R60-F.9-A4,2026-07-18): "行数→所属档位集合"反查原为
-// CheckEScale 内联逻辑,提为导出函数 ExpectedEScaleSymbols —— Guide 层
-// 借此为 Entries 目标预填 expected_e(确定性字段不让模型猜,HTTPX 实弹
-// 中 agent 反复猜 E 的根因是 expected 只在事后 Warning 里出现,时机太晚);
-// CheckEScale 改为调用之,判据仍单点零第二份逻辑。
+// A single reverse lookup (R60-F.9-A4, 2026-07-18): the "line count to its scale set" lookup used to be inline in
+// CheckEScale and is now the exported ExpectedEScaleSymbols, which the Guide layer uses to prefill expected_e for
+// Entries targets (a deterministic field the model should not guess; in the HTTPX live run the agent kept guessing E
+// because expected appeared only in the Warning afterwards, too late); CheckEScale calls it, keeping one criterion with no second copy of the logic.
 package index
 
 import (
@@ -56,21 +56,21 @@ import (
 	"strings"
 )
 
-// escaleRange 单个 E 符号的行数区间(闭区间)
+// escaleRange is one E symbol's line-count interval (closed)
 type escaleRange struct {
 	min int
 	max int
 }
 
-// EScaleThresholds 头部提取的 E 档位阈值表(键=E 符号)
+// EScaleThresholds is the E-scale threshold table extracted from the header (key = E symbol)
 type EScaleThresholds struct {
 	ranges  map[string]escaleRange
-	sawLine bool // E规模行是否在场(含在场但阈值不可提取的形态,R51 跳过可见分型用)
+	sawLine bool // whether the E-scale line was present (including the present-but-unextractable form, for the R51 visible-skip typing)
 }
 
-// HasThresholds 判断阈值表是否可用于校验(至少一个符号带合法数字阈值)。
-// 头部 E规模行无数字声明(如骨架占位 "L大 M中 S小 T微")时返回 false,
-// 调用方应跳过校验(不可判定不误报)。
+// HasThresholds reports whether the table can be used for validation (at least one symbol has a legal numeric threshold).
+// It returns false when the header's E-scale line declares no numbers (a skeleton placeholder such as "L大 M中 S小 T微"),
+// and the caller should skip the check (undecidable is not a false report).
 func (t *EScaleThresholds) HasThresholds() bool {
 	return t != nil && len(t.ranges) > 0
 }
@@ -89,23 +89,23 @@ func (t *EScaleThresholds) Symbols() []string {
 	return symbols
 }
 
-// SawEScaleLine 判断头部是否存在被识别为 E规模 的字典行(无论阈值提取是否成功)。
-// 与 HasThresholds 组合出三态(R51 跳过可见分型):
-// 无行(未声明) / 有行无阈值(在场但机器不可解析,上层应点名而非笼统报未声明) /
-// 有行有阈值(可判定)。
+// SawEScaleLine reports whether the header holds a dictionary line recognized as E-scale (whether or not thresholds were extracted).
+// Combined with HasThresholds it yields three states (R51 visible-skip typing):
+// no line (undeclared) / a line without thresholds (present but machine-unparseable, which the upper layer should name
+// rather than report as undeclared) / a line with thresholds (decidable).
 func (t *EScaleThresholds) SawEScaleLine() bool {
 	return t != nil && t.sawLine
 }
 
-// escaleFullWidthOps 全角比较符归一(AI 起草与中文输入法场景的常见变体)。
-// 全角数字不归一 —— 无实弹样本,过度猜测形态违反宽进不臆造。
+// escaleFullWidthOps normalizes full-width comparison operators (a common variant from AI drafts and Chinese input methods).
+// Full-width digits are not normalized: no live sample exists, and guessing forms would violate lenient-without-inventing.
 var escaleFullWidthOps = strings.NewReplacer("＞", ">", "＜", "<", "＝", "=")
 
-// ExtractEScaleThresholds 从头部文本提取 E 档位阈值。
-// 行识别经 parseDictLine 单点(P-22,与 dict 闸共用同一容错: #后空格/全角
-// 冒号/维名括号夹注);内容按空白分词,每词取开头连续 ASCII 字母作符号,
-// 其余部分解析数字形态。内容侧不剥夹注(与 dict 闸刻意不对称,阈值可能
-// 写在括号内);无符号前缀的词(如独立的 "(>400)")跳过不猜归属。
+// ExtractEScaleThresholds extracts the E-scale thresholds from the header text.
+// Line recognition goes through the single parseDictLine (P-22, sharing the dict gate's tolerance: a space after #, a
+// full-width colon, a dimension name with a parenthesized note); the content is split on whitespace, each word takes
+// its leading ASCII letters as the symbol and parses the numeric form from the rest. The content side does not strip
+// the parenthesized note (deliberately asymmetric to the dict gate, since a threshold may sit inside parentheses); a word without a symbol prefix (a bare "(>400)") is skipped rather than guessed.
 func ExtractEScaleThresholds(headerText string) *EScaleThresholds {
 	t := &EScaleThresholds{ranges: map[string]escaleRange{}}
 	for _, line := range strings.Split(headerText, "\n") {
@@ -127,11 +127,11 @@ func ExtractEScaleThresholds(headerText string) *EScaleThresholds {
 	return t
 }
 
-// parseEScaleSpec 解析单个档位词的数字形态: >N / >=N / N-M / <N / <=N。
-// rest 可含中文描述前缀(如 "大>400")与括号夹注(如 "大(>400行)"),按 ASCII
-// 字节定位比较符与数字 —— UTF-8 多字节序列不含 ASCII 字节,直接字节扫描
-// 安全;全角比较符先归一为半角;数字后缀非数字字符(如 "行")天然截止。
-// 裸数字(无区间语义)与倒序区间不猜,返回 false。
+// parseEScaleSpec parses one scale word's numeric form: >N / >=N / N-M / <N / <=N.
+// rest may carry a Chinese description prefix (such as "大>400") and a parenthesized note (such as "大(>400行)"); the
+// comparison operator and digits are located by ASCII byte, which is safe because UTF-8 multi-byte sequences hold
+// no ASCII byte; full-width operators are normalized to half-width first; a non-digit suffix after the number (such as "行") ends it naturally.
+// A bare number (no interval meaning) and a reversed interval are not guessed and return false.
 func parseEScaleSpec(rest string) (escaleRange, bool) {
 	rest = escaleFullWidthOps.Replace(rest)
 	i := strings.IndexAny(rest, "<>0123456789")
@@ -169,7 +169,7 @@ func parseEScaleSpec(rest string) (escaleRange, bool) {
 			return escaleRange{min: 0, max: n}, true
 		}
 		return escaleRange{min: 0, max: n - 1}, true
-	default: // 数字开头: 仅认 N-M 区间形态
+	default: // starts with a digit: only the N-M interval form counts
 		n1, rest2, ok := leadingIntRest(rest[i:])
 		if !ok {
 			return escaleRange{}, false
@@ -185,13 +185,13 @@ func parseEScaleSpec(rest string) (escaleRange, bool) {
 	}
 }
 
-// leadingInt 取串开头连续数字并转整;无数字返回 false。
+// leadingInt takes the leading digits of the string as an integer; no digits returns false.
 func leadingInt(s string) (int, bool) {
 	n, _, ok := leadingIntRest(s)
 	return n, ok
 }
 
-// leadingIntRest 取串开头连续数字转整并返回剩余部分。
+// leadingIntRest takes the leading digits of the string as an integer and returns the remainder.
 func leadingIntRest(s string) (int, string, bool) {
 	end := 0
 	for end < len(s) && s[end] >= '0' && s[end] <= '9' {
@@ -207,9 +207,9 @@ func leadingIntRest(s string) (int, string, bool) {
 	return n, s[end:], true
 }
 
-// ExpectedEScaleSymbols 返回给定行数按阈值表所属的全部 E 档符号(排序稳定)。
-// 反查逻辑唯一事实源(A4): CheckEScale 与 Guide 预填共用本函数,绝不各持
-// 第二份区间判定。阈值表不可用或行数落入字典空隙时返回空切片(不猜)。
+// ExpectedEScaleSymbols returns every E symbol whose threshold contains the given line count (in a stable order).
+// It is the one fact source of the reverse lookup (A4): CheckEScale and the Guide prefill share it and never keep a
+// second copy of the interval judgement. An unusable table or a line count in a dictionary gap returns an empty slice (no guessing).
 func ExpectedEScaleSymbols(fileLines int, th *EScaleThresholds) []string {
 	if !th.HasThresholds() {
 		return nil
@@ -224,11 +224,11 @@ func ExpectedEScaleSymbols(fileLines int, th *EScaleThresholds) []string {
 	return expected
 }
 
-// CheckEScale 按文件实际行数核对条目 E 档位(Warning 级)。
-// fileLines 由调用方提供(行数事实源为 fs.CountFileLines,语义: 末行无换行
-// 计 1 行);目录条目/不在盘文件的跳过判断也归调用方。
-// 返回 nil = 合规或不可判定: 阈值表不可用 / 无标签结构 / 标签非标 /
-// E 符号无阈值 / 行数落入字典空隙 / 行数在标注档位内(含边界重叠)。
+// CheckEScale checks an entry's E scale against the file's actual line count (Warning level).
+// fileLines comes from the caller (the fact source is fs.CountFileLines, whose semantics count a last line without a
+// newline as one); skipping directory entries and files not on disk is the caller's judgement too.
+// nil means conforming or undecidable: table unusable / no tag structure / non-standard tag / E symbol without a
+// threshold / line count in a dictionary gap / line count inside the tagged scale (boundary overlap included).
 func CheckEScale(line string, fileLines int, th *EScaleThresholds) *Violation {
 	mismatch := CheckEScaleDetail(line, fileLines, th)
 	if mismatch == nil {
@@ -241,15 +241,15 @@ func CheckEScale(line string, fileLines int, th *EScaleThresholds) *Violation {
 	}
 }
 
-// EScaleMismatch 是 CheckEScale 的结构化判定结果, 供需要本地化措辞的调用方
-// 使用; 判定本身仍只有 CheckEScaleDetail 这一处。
+// EScaleMismatch is the structured verdict of CheckEScale for callers that need localized wording;
+// the judgement itself still lives only in CheckEScaleDetail.
 type EScaleMismatch struct {
-	FileLines int      // 文件实际行数
-	Expected  []string // 行数按字典所属的档位符号(已排序)
-	Actual    string   // 条目标注的 E 符号
+	FileLines int      // the file's actual line count
+	Expected  []string // the scale symbols the line count belongs to by the dictionary (sorted)
+	Actual    string   // the E symbol the entry is tagged with
 }
 
-// CheckEScaleDetail 与 CheckEScale 同一判定, 返回结构化结果而非成句文本。
+// CheckEScaleDetail is the same judgement as CheckEScale, returning a structured result instead of a sentence.
 func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScaleMismatch {
 	if !th.HasThresholds() {
 		return nil
@@ -260,7 +260,7 @@ func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScale
 	}
 	tags := ParseTags(line[tagStart:tagEnd])
 	if len(tags) == 0 {
-		return nil // 非标标签降级,不做档位判定(与 quota/dict 同策略)
+		return nil // a non-standard tag is downgraded, no scale judgement (the quota/dict policy)
 	}
 	e := tags["E"]
 	if e == "" {
@@ -268,24 +268,24 @@ func CheckEScaleDetail(line string, fileLines int, th *EScaleThresholds) *EScale
 	}
 	r, ok := th.ranges[e]
 	if !ok {
-		return nil // 该符号无阈值声明,不可判定(符号合法性归 dict 闸)
+		return nil // the symbol declares no threshold, undecidable (symbol validity belongs to the dict gate)
 	}
 	if fileLines >= r.min && fileLines <= r.max {
-		return nil // 标注档位含该行数即合规(边界重叠宽容)
+		return nil // the tagged scale contains the line count: conforming (boundary overlap tolerated)
 	}
-	// 行数实际所属档位经唯一反查函数取得(A4 单点化)
+	// The scales the line count actually belongs to come from the single reverse lookup (the A4 single point)
 	expected := ExpectedEScaleSymbols(fileLines, th)
 	if len(expected) == 0 {
-		return nil // 字典空隙: 行数无所属档位,不越权裁决
+		return nil // a dictionary gap: the line count has no scale, and this gate does not overrule
 	}
 	return &EScaleMismatch{FileLines: fileLines, Expected: expected, Actual: e}
 }
 
-// ScopedDictionaryText 返回 Meta 卷里适用于某一对象档(profile)的字典文本:
-// 第一个 "#[Tag dictionary:" 头之前的公共前言(S 配额等协议行住在这里),加上
-// "#[Tag dictionary: <profile>]" 这一段本身。Meta 每种对象一段、每段各有一行
-// E 规模,整卷抽阈值会让最后一段(database)覆盖 code 的;没有段头的文本(Legacy
-// 索引头)原样返回。
+// ScopedDictionaryText returns the dictionary text of the Meta Volume that applies to one object profile: the common
+// preamble before the first "#[Tag dictionary:" header (the S quota and the other protocol lines live there) plus
+// the "#[Tag dictionary: <profile>]" section itself. Meta has one section per object kind, each with its own E-scale
+// line, and extracting thresholds from the whole volume would let the last section (database) overwrite code's;
+// text without section headers (a Legacy index header) is returned as it is.
 func ScopedDictionaryText(metaText, profile string) string {
 	marker := "#[Tag dictionary: " + profile + "]"
 	var out []string

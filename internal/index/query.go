@@ -1,28 +1,28 @@
-// 检索与运行时纪律文本生成。
+// Search and runtime-discipline text generation.
 //
-// BuildRuntimeRules是宿主Agent行为合同。完整索引工作流必须遵循Guide的
-// automation.mode映射:
-//   - execute            → 严格执行当前阶段Guide；Entries applied后Verify并
-//     重新Guide，repair_required自动修复失败项并重新Stage，stopped才停止;
-//   - prepare_and_review → 完成Stage、Check、Diff,在Apply前停止;
-//   - observe            → 只观察,不生成候选、不Stage、不Apply;
-//   - blocked            → 立即停止等待维护者;
-//   - complete           → 结束循环。
+// BuildRuntimeRules is the host Agent's behaviour contract. The complete index workflow must follow the Guide's
+// automation.mode mapping:
+//   - execute            → follow the current phase's Guide strictly; after Entries are applied, Verify and ask for
+//     a new Guide; repair_required repairs the failed items automatically and re-Stages; only stopped stops;
+//   - prepare_and_review → finish Stage, Check, and Diff, and stop before Apply;
+//   - observe            → observe only: no candidates, no Stage, no Apply;
+//   - blocked            → stop at once and wait for the maintainer;
+//   - complete           → end the loop.
 //
-// R63纯模型语义生成合同:
-// Header、标签、F/R/A/S及Curation语义必须由当前模型阅读真实内容后逐项生成。
-// 工具只能承担事实传递、批次、校验、审计与落盘,不能替代模型理解。
+// R63, the pure model semantic generation contract:
+// Header, tags, F/R/A/S, and Curation semantics must be generated item by item by the current model after reading the real content.
+// The tool may only carry facts, batches, validation, audit, and disk writes; it cannot stand in for the model's understanding.
 //
-// F长度属于柔性语义质量目标,不是机器硬闸。语义完整优先,不得因长度阻断
-// Host-Agent自动Stage、Check或Apply。
+// F length is a soft semantic quality goal, not a machine hard gate. Semantic completeness comes first, and length must never block
+// the Host Agent's automatic Stage, Check, or Apply.
 //
-// 完整认知复用:
-// AOCI的理论前提是任务前完整读取当前索引建立系统全貌,不是按需读取少量Entry。
-// 只要完整索引仍处于有效上下文且版本未变化就应持续复用。
+// Complete cognition reuse:
+// AOCI's theoretical premise is reading the complete current index before a task to build a system-wide view, not reading a few Entries on demand.
+// As long as the complete index is still in a valid context and its version has not changed, it should keep being reused.
 //
-// 收尾统一制:
-// 回写发生在全部业务修改、格式化、Lint、测试及必要质量检查结束后的最终阶段。
-// 维护后再次修改受管文件会使结果失效。
+// Unified closing:
+// Write-back happens in the final phase, after every business change, formatting, lint, test, and necessary quality check has finished.
+// Changing a managed file again after maintenance invalidates the result.
 package index
 
 import (

@@ -1,47 +1,47 @@
-// 标签字典提取与校验: 从索引头部提取 ABCDE 字典,校验条目标签字典合规性
-// 索引条目: dict.go[IVL8M]
+// Tag dictionary extraction and validation: extracts the ABCDE dictionary from the index header and checks entry tags against it
+// Index entry: dict.go[IVL8M]
 //
-// 定位(D40 CLI 侧参考实现): 臆造标签不破坏解析(ParseTags 照样切分)但语义
-// 层作废 —— agent 属性查询不知臆造符号何意。平台两轮审计证明缺此闸是臆造
-// 标签病反复发作的根因;第二次实弹(2026-07-09)在 CLI 侧实锤同一缺口
-// (E 位非法的 DC7Meta 被放进正式索引)。本文件即该闸的参考实现,平台照抄。
+// Position (the D40 CLI-side reference implementation): an invented tag does not break parsing (ParseTags still
+// splits it) but is void at the semantic layer, since an agent's attribute query does not know what an invented
+// symbol means. Two platform audits showed that the absence of this gate was the root cause of the recurring
+// invented-tag disease; the second live run (2026-07-09) confirmed the same gap on the CLI side (a DC7Meta with an illegal E slot entered the formal index). This file is that gate's reference implementation, which the platform copies.
 //
-// 切分同源纪律: 校验用 ParseTags(types.go)做标签切分,绝不自写第二套
-// 启发式 —— 切分规则只有一份,字典校验只判"切出来的符号在不在字典"。
+// Single split source: validation splits tags with ParseTags (types.go) and never writes a second heuristic;
+// there is one split rule, and dictionary validation judges only "is the split-out symbol in the dictionary".
 //
-// 级别 Warning(与配额闸同哲学): 存量臆造标签的仓库不能被堵死回写;
-// AI 批量生成场景(增量无存量包袱)由 CLI 层升为硬拒 —— D40"字典外直接拒"
-// 的原始语义在 entries apply 兑现。
+// Level Warning (the quota gate's philosophy): a repository with existing invented tags must not have its writes
+// blocked; the AI bulk-generation scenario (incremental, with no legacy burden) is raised to a hard refusal at the
+// CLI layer, where D40's original "refuse what is outside the dictionary" semantics are honoured in entries apply.
 //
-// 跨维混淆点破(P-14,2026-07-12 httpx 实弹): AI 起草的字典曾埋 A/B 维语义
-// 重叠坑,冷启动 10 发 dict 拦截的病根是符号放错维(A 维语义写进 B 位)而非
-// 真臆造 —— 旧文案只报"不在字典",agent 会误判为该扩典或换符号。修法:
-// 违规符号恰好存在于另一维字典时,文案点名"是X维符号,疑似维度错位",把
-// 病根从"符号不存在"纠正为"符号放错位";起草端预防归 prompt 资产
-// header-dict-rules.txt 第 5 条(A/B 语义不重叠),两端合围。
+// Cross-dimension confusion exposed (P-14, the 2026-07-12 httpx live run): an AI-drafted dictionary once buried an
+// A/B semantic overlap, and the root cause of ten dict refusals at cold start was a symbol in the wrong dimension
+// (A semantics written into the B slot), not a real invention; the old wording only said "not in the dictionary",
+// and an agent read it as "extend the dictionary or change the symbol". The fix: when the offending symbol exists
+// in another dimension's dictionary, the wording names "an X-dimension symbol, probably misplaced", turning the
+// diagnosis from "symbol missing" into "symbol misplaced"; prevention at the drafting end is rule 5 of the prompt asset header-dict-rules.txt (A/B semantics do not overlap), closing in from both ends.
 //
-// 字典行识别(P-21 修法,2026-07-12 httpx-rerun 真机实弹): 旧实现对剥 # 后的
-// 行做 HasPrefix(t,"A层级:") 硬前缀匹配 —— AI 起草的实物形态
-// "#A层级(python,架构角色): I-接口(...)" 在维名与冒号间插了括号夹注,前缀
-// 匹配失败,A/B 双维零提取 → HasDict false → maintain 判"字典未立约"暂停
-// 派发,且 CheckTagsAgainstDict 对全部条目静默跳过(字典闸假绿,与 P-15 的
-// 静默免检同族,这次轮到字典闸自己)。本仓头部为紧凑形态两路皆过,故本仓
-// 测试全绿真机才炸。修法 parseDictLine 三形态容错: 剥 # 后再 TrimSpace
-// (容忍"# A层级"),行内首个冒号半角/全角均认,冒号前文本剥括号夹注后精确
-// 等于维名才命中 —— 精确相等保住不误伤(头部其余"xxx:"行维名不等即不命中)。
-// 内容侧同样剥夹注后再收符号: 夹注内的示例文件路径词(如 httpx/_api.py)
-// 曾被逐词取首字母误收为符号(httpx 入 A 字典 = 符号污染,字典被动变宽松)。
+// Dictionary line recognition (the P-21 fix, the 2026-07-12 httpx-rerun live run): the old implementation matched
+// the line after stripping # with a hard HasPrefix(t,"A层级:"); the real AI-drafted form
+// "#A层级(python,架构角色): I-接口(...)" put a parenthesized note between the dimension name and the colon, the
+// prefix match failed, the A and B dimensions extracted nothing, HasDict read false, maintain paused dispatch with
+// "dictionary not established", and CheckTagsAgainstDict skipped every entry silently (a dictionary-gate false
+// green, the same family as P-15's silent exemption, this time the dictionary gate itself). This repository's
+// header is in the compact form that both paths accept, so the tests here stayed green while the real machine
+// broke. The fix, parseDictLine with three-form tolerance: TrimSpace after stripping # (tolerating "# A层级"),
+// the first colon in the line counts whether half- or full-width, and the text before the colon must equal the
+// dimension name exactly after its parenthesized note is stripped (exact equality protects the other "xxx:" header
+// lines). The content side strips the note before collecting symbols too: example file path words inside a note (httpx/_api.py) were once collected by first letter as symbols (httpx entered the A dictionary, symbol pollution that loosened the dictionary).
 //
-// 维名白名单含跨闸门共享维(P-22 批次): E规模 由 escale.go 消费(阈值提取),
-// S配额 由 quota.go 消费(配额提取)—— parseDictLine 是全部字典行识别的
-// 单点实现,新增可识别维名只改本函数白名单,消费逻辑归各闸自有文件;
-// 本文件的 ExtractTagDict 消费 A层级/B模块/C重要度/D特征/E规模(S配额 非标签维,
-// 其 switch 无分支自然跳过)。
+// The dimension-name allowlist holds dimensions shared across gates (the P-22 batch): E规模 is consumed by escale.go
+// (threshold extraction) and S配额 by quota.go (quota extraction); parseDictLine is the single implementation of all
+// dictionary line recognition, a new recognizable dimension changes only this function's allowlist, and the consuming
+// logic stays in each gate's own file; this file's ExtractTagDict consumes A层级/B模块/C重要度/D特征/E规模 (S配额 is
+// not a tag dimension and falls through its switch).
 //
-// 字典行形态(宽容提取): 头部 A/B/C/D/E 行(容忍上述变体),
-// 内容按空白分词；字母轴取开头连续 ASCII 字母，C轴取一位数字 —— 兼容 "X-Script(说明)"
-// (连字符分隔)、"I索引核心"(符号中文连写)、"AI-AI增强"(多字母符号)三形态。
-// D 特征是可选轴；字典未声明 D 时，Entry 只能省略 D。
+// Dictionary line form (lenient extraction): the header A/B/C/D/E lines (tolerating the variants above); the content
+// is split on whitespace, a letter axis takes the leading ASCII letters and the C axis one digit, which covers the
+// "X-Script(说明)" (hyphen-separated), "I索引核心" (symbol run into Chinese), and "AI-AI增强" (multi-letter symbol) forms.
+// D trait is an optional axis; when the dictionary declares no D, an Entry may only omit D.
 package index
 
 import (
@@ -53,13 +53,13 @@ import (
 	"unicode"
 )
 
-// TagDict 头部提取的标签字典(键=合法符号)
+// TagDict is the tag dictionary extracted from the header (key = legal symbol)
 type TagDict struct {
-	A map[string]bool // 层级符号
-	B map[string]bool // 模块符号
-	C map[string]bool // 重要度符号
-	D map[string]bool // 可选特征符号
-	E map[string]bool // 规模符号
+	A map[string]bool // layer symbols
+	B map[string]bool // module symbols
+	C map[string]bool // importance symbols
+	D map[string]bool // optional trait symbols
+	E map[string]bool // scale symbols
 
 	declared    map[string]bool
 	nearMisses  []DimensionNearMiss
@@ -89,8 +89,8 @@ type TagViolation struct {
 	Cause    string
 }
 
-// HasDict 判断字典是否可用于校验(A 与 B 至少各有一个符号)。
-// 头部无字典行/提取为空时返回 false,调用方应跳过校验(不可判定不误报)。
+// HasDict reports whether the dictionary can be used for validation (A and B each have at least one symbol).
+// It returns false when the header has no dictionary lines or extraction is empty, and the caller should skip validation (undecidable is not a false report).
 func (d *TagDict) HasDict() bool {
 	return d != nil && len(d.A) > 0 && len(d.B) > 0
 }
@@ -171,10 +171,10 @@ func (d *TagDict) axis(axis string) map[string]bool {
 	}
 }
 
-// stripParens 剥除文本中的括号段(半角()与全角（）,支持嵌套按深度计)。
-// 双重用途(P-21): 维名侧剥夹注令 "A层级(python,架构角色)" 可与 "A层级"
-// 精确比对;内容侧剥夹注防夹注内含空格的示例路径被误收为符号。
-// 不配对的右括号按原样保留深度不减到负(防畸形输入吞掉后续全部文本)。
+// stripParens removes the parenthesized segments of a text (half-width () and full-width （）, nesting counted by depth).
+// Two uses (P-21): on the dimension-name side it lets "A层级(python,架构角色)" compare exactly with "A层级"; on the
+// content side it keeps example paths with spaces inside a note from being collected as symbols.
+// An unmatched closing parenthesis is kept as it is and the depth never goes negative (so malformed input cannot swallow the rest of the text).
 func stripParens(s string) string {
 	var b strings.Builder
 	depth := 0
@@ -195,16 +195,16 @@ func stripParens(s string) string {
 	return b.String()
 }
 
-// parseDictLine 尝试把一行识别为字典行(P-21 单点实现)。
-// 命中返回(维名,冒号后内容,true);容错三形态 —— # 后空格 / 全角冒号 /
-// 维名与冒号间括号夹注;维名剥夹注并 TrimSpace 后须精确等于
-// A层级/B模块/C重要度/D特征/E规模/S配额(精确相等防误伤头部其余含冒号的说明行)。
-// 消费方分工: A/B/C/D/E 归 ExtractTagDict，E阈值另由 escale.go 消费,
-// S配额 归 quota.go 的 ExtractSQuotaThresholds(P-22 批次新增维)。
+// parseDictLine tries to recognize a line as a dictionary line (the single P-21 implementation).
+// A hit returns (dimension name, the content after the colon, true); the three tolerated forms are a space after #,
+// a full-width colon, and a parenthesized note between the dimension name and the colon; the dimension name,
+// stripped of its note and trimmed, must equal A层级/B模块/C重要度/D特征/E规模/S配额 exactly (exact equality protects the other header lines that hold a colon).
+// Consumers: A/B/C/D/E belong to ExtractTagDict, the E thresholds are consumed separately by escale.go, and
+// S配额 belongs to quota.go's ExtractSQuotaThresholds (a dimension added in the P-22 batch).
 func parseDictLine(line string) (dim, content string, ok bool) {
 	t := strings.TrimSpace(line)
 	t = strings.TrimSpace(strings.TrimPrefix(t, "#"))
-	// 行内首个冒号: 半角与全角谁先出现认谁
+	// The first colon in the line: whichever of half- and full-width comes first
 	ih := strings.Index(t, ":")
 	iw := strings.Index(t, "：")
 	idx, clen := -1, 0
@@ -398,9 +398,9 @@ func (d *TagDict) UnrecognizedDimensionNames() []DimensionNearMiss {
 	return append([]DimensionNearMiss{}, d.nearMisses...)
 }
 
-// ExtractTagDict 从头部文本提取字典。
-// 行识别经 parseDictLine(三形态容错,见 P-21 注释);
-// E 行缺失时回退默认 LMST(spec 既定四值)。
+// ExtractTagDict extracts the dictionary from the header text.
+// Line recognition goes through parseDictLine (three-form tolerance, see the P-21 note);
+// a missing E line falls back to the default LMST (the four values the spec fixes).
 func ExtractTagDict(headerText string) *TagDict {
 	d := &TagDict{
 		A:           map[string]bool{},
@@ -425,8 +425,8 @@ func ExtractTagDict(headerText string) *TagDict {
 			continue
 		}
 		exact[dim] = true
-		// 内容侧剥夹注后收符号(P-21: 防夹注内示例路径词污染字典);
-		// S配额 维无分支自然跳过(消费归 quota.go)
+		// The content side strips the parenthesized note before collecting symbols (P-21: example path words inside a note must not pollute the dictionary);
+		// the S配额 dimension has no branch and falls through (its consumption belongs to quota.go)
 		switch dim {
 		case "A层级":
 			d.collectDimension("A", stripParens(content))
@@ -540,7 +540,7 @@ func validDictionarySymbol(axis, symbol string) bool {
 	return true
 }
 
-// leadingASCIILetters 取词开头连续的 ASCII 字母段
+// leadingASCIILetters takes the run of ASCII letters at the start of a word
 func leadingASCIILetters(word string) string {
 	end := 0
 	for end < len(word) {
@@ -562,8 +562,8 @@ func leadingASCIIDigits(word string) string {
 	return word[:end]
 }
 
-// crossDimHint 跨维错位提示(P-14): 违规符号恰好存在于另一维字典时,点名疑似
-// 维度错位;不存在于任何维时返回空(维持"不在字典"原语义)。
+// crossDimHint is the cross-dimension misplacement hint (P-14): when the offending symbol exists in another
+// dimension's dictionary it names the probable misplacement; when it exists in no dimension it returns empty (keeping the "not in the dictionary" meaning).
 func crossDimHint(sym string, dict *TagDict, selfDim string) string {
 	var others []string
 	if selfDim != "A" && dict.A[sym] {
@@ -587,10 +587,10 @@ func crossDimHint(sym string, dict *TagDict, selfDim string) string {
 	return "(该符号是" + strings.Join(others, "/") + "字典的既有符号,疑似维度错位——五维各司其职,请核对标签内符号顺序而非扩典)"
 }
 
-// CheckTagsAgainstDict 校验条目行标签的字典合规性(Warning 级)。
-// 切分经 ParseTags 同源;非标标签(空 map)不判定 —— 结构问题归 ValidateEntryLine。
-// 返回 nil = 合规或不可判定;违规返回含逐维说明的 Warning(符号存在于另一维
-// 字典时点名疑似维度错位,P-14)。
+// CheckTagsAgainstDict checks an entry line's tags against the dictionary (Warning level).
+// The split goes through ParseTags; a non-standard tag (empty map) is not judged, since structure belongs to ValidateEntryLine.
+// nil means conforming or undecidable; a violation returns a Warning with a per-dimension explanation (naming a
+// probable misplacement when the symbol exists in another dimension's dictionary, P-14).
 func CheckTagsAgainstDict(line string, dict *TagDict) *Violation {
 	if !dict.HasDict() {
 		return nil
@@ -601,7 +601,7 @@ func CheckTagsAgainstDict(line string, dict *TagDict) *Violation {
 	}
 	tags := ParseTags(line[tagStart:tagEnd])
 	if len(tags) == 0 {
-		return nil // 非标标签降级,不做字典判定
+		return nil // a non-standard tag is downgraded, no dictionary judgement
 	}
 	violations := ValidateTagAgainstDict(tags, "", dict)
 	var probs []string

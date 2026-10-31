@@ -1,37 +1,37 @@
-// ResolveRelPaths 路径可移植性(重定位)测试
-// 索引条目: relocate_test.go[TPS7TS]
+// ResolveRelPaths path portability (relocation) tests
+// Index entry: relocate_test.go[TPS7TS]
 //
-// 立测背景(2026-07-10 httpx 实弹协议级缺陷): 索引段头写创建时的绝对路径,
-// 仓库迁移后全部段路径失配,全体条目 RelPath 为空 → verify 全量 Missing。
-// 修法为解析侧重定位: 最长公共目录前缀视为"创建时根",剥离后拼当前根。
+// Why these tests exist (the 2026-07-10 httpx live protocol-level defect): section headers wrote the absolute path at creation time,
+// after a repository move every section path mismatched, every entry's RelPath was empty, and verify reported everything Missing.
+// The fix is relocation on the parsing side: the longest common directory prefix is taken as "the root at creation time", stripped, and the current root prepended.
 //
-// 规则精化(同日第二协议级发现,Codex 真机现场): 初版"全部失配才重定位"的
-// 保守规则,在迁移仓库内由 agent 插入新段(段头写当前根路径)后自我瓦解 ——
-// 新段直接命中即构成"混合命中",存量段全体放弃重定位再度失明。真实世界的
-// 混合根几乎唯一成因就是"迁移后插新段"。精化为逐段解析: 每段先试直接命中,
-// 命中即用;全部失配的段落自成集合,公共前缀只在该集合内计算并重定位。
+// Rule refinement (a second protocol-level finding the same day, on a real Codex machine): the first version's conservative rule
+// "relocate only when everything mismatches" collapsed on itself once an agent inserted a new section (whose header wrote the current root path) into a migrated repository:
+// the new section hit directly, forming a "mixed hit", and every existing section gave up relocation and went blind again. In the real world the almost only cause of
+// mixed roots is "a new section inserted after a move". Refined to per-section resolution: each section first tries a direct hit and uses it when it hits;
+// the mismatching sections form their own set, and the common prefix is computed and relocated within that set only.
 //
-// 本文件锁定的行为矩阵:
-//  1. 原路径场景零变化;
-//  2. 单段索引迁移(httpx 形态);
-//  3. 多段索引迁移(公共前缀为创建时根);
-//  4. 失配段无公共前缀 → 保守放弃;
-//  5. 混合根: 命中段直取,失配段子集重定位(初版"混合即全弃"已改判);
-//  6. Windows 盘符根之间的迁移;
-//  7. FindSectionForPath 与 ResolveRelPaths 共享解析(防孪生);
-//  8. Codex 真机现场复现: Linux 前缀存量段 + Windows 当前根新段共存,两界各自成立。
+// The behaviour matrix this file locks:
+//  1. the original-path scenario changes nothing;
+//  2. a single-section index moved (the httpx shape);
+//  3. a multi-section index moved (the common prefix is the root at creation time);
+//  4. mismatching sections with no common prefix → conservative give-up;
+//  5. mixed roots: hit sections are taken directly, the mismatching subset is relocated (the first version's "mixed means give up everything" is overruled);
+//  6. a move between Windows drive-letter roots;
+//  7. FindSectionForPath and ResolveRelPaths share one resolution (against twins);
+//  8. the real Codex scene reproduced: Linux-prefixed existing sections coexist with a Windows current-root new section, and both worlds hold.
 package index
 
 import "testing"
 
-// buildDoc 从文本解析并返回文档(测试辅助)
+// buildDoc parses text and returns the document (test helper)
 func buildDoc(t *testing.T, text string) *Document {
 	t.Helper()
 	doc, _ := Parse(text)
 	return doc
 }
 
-// relOf 取指定段序号/条目序号的 RelPath(测试辅助)
+// relOf takes the RelPath of the given section and entry index (test helper)
 func relOf(t *testing.T, doc *Document, sec, ent int) string {
 	t.Helper()
 	if sec >= len(doc.Sections) || ent >= len(doc.Sections[sec].Entries) {
@@ -40,7 +40,7 @@ func relOf(t *testing.T, doc *Document, sec, ent int) string {
 	return doc.Sections[sec].Entries[ent].RelPath
 }
 
-// TestResolveOriginalPathUnchanged 原路径场景: 直接命中,行为与重定位引入前一致
+// TestResolveOriginalPathUnchanged, the original-path scenario: a direct hit, behaving as before relocation existed
 func TestResolveOriginalPathUnchanged(t *testing.T) {
 	text := "===根段/opt/demo/===\n" +
 		"a.go[XC9T]: F:f | R:- | A:- | S:-\n" +
@@ -56,7 +56,7 @@ func TestResolveOriginalPathUnchanged(t *testing.T) {
 	}
 }
 
-// TestResolveSingleSectionRelocated 单段索引迁移(httpx 实弹形态)
+// TestResolveSingleSectionRelocated, a single-section index moved (the httpx live shape)
 func TestResolveSingleSectionRelocated(t *testing.T) {
 	text := "===/opt/httpx/===\n" +
 		"pyproject.toml[PBLD7S]: F:f | R:- | A:- | S:-\n" +
@@ -71,7 +71,7 @@ func TestResolveSingleSectionRelocated(t *testing.T) {
 	}
 }
 
-// TestResolveMultiSectionRelocated 多段索引迁移(本仓形态)
+// TestResolveMultiSectionRelocated, a multi-section index moved (this repository's shape)
 func TestResolveMultiSectionRelocated(t *testing.T) {
 	text := "===配置索引/opt/aoci-code/===\n" +
 		"go.mod[XMO9T]: F:f | R:- | A:- | S:-\n" +
@@ -118,7 +118,7 @@ func TestResolveNestedWorktreeSectionsFromPrimaryCheckout(t *testing.T) {
 	}
 }
 
-// TestResolveNoCommonPrefixConservative 失配段之间无公共前缀: 保守放弃,RelPath 留空
+// TestResolveNoCommonPrefixConservative, no common prefix among the mismatching sections: conservative give-up, RelPath left empty
 func TestResolveNoCommonPrefixConservative(t *testing.T) {
 	text := "===/opt/projA/===\n" +
 		"a.go[XC9T]: F:f | R:- | A:- | S:-\n" +
@@ -134,9 +134,9 @@ func TestResolveNoCommonPrefixConservative(t *testing.T) {
 	}
 }
 
-// TestResolveMixedHitSubsetRelocation 混合根(规则精化改判):
-// 命中段直取;失配段自成集合并在集合内做公共前缀重定位。
-// 初版行为(混合即全弃)已被 Codex 真机现场证伪 —— 迁移仓插新段后存量段全失明。
+// TestResolveMixedHitSubsetRelocation, mixed roots (the rule refinement's overruling):
+// hit sections are taken directly; the mismatching sections form their own set and relocate by the common prefix within it.
+// The first version's behaviour (mixed means give up everything) was falsified on a real Codex machine: after a new section was inserted into a moved repository, every existing section went blind.
 func TestResolveMixedHitSubsetRelocation(t *testing.T) {
 	text := "===/opt/demo/===\n" +
 		"a.go[XC9T]: F:f | R:- | A:- | S:-\n" +
@@ -157,7 +157,7 @@ func TestResolveMixedHitSubsetRelocation(t *testing.T) {
 	}
 }
 
-// TestResolveWindowsDriveRelocated Windows 盘符根之间迁移
+// TestResolveWindowsDriveRelocated, a move between Windows drive-letter roots
 func TestResolveWindowsDriveRelocated(t *testing.T) {
 	text := "===c:/old-place/repo/===\n" +
 		"main.go[XC9T]: F:f | R:- | A:- | S:-\n" +
@@ -173,7 +173,7 @@ func TestResolveWindowsDriveRelocated(t *testing.T) {
 	}
 }
 
-// TestFindSectionAfterRelocation 迁移后段定位(共享解析防孪生)
+// TestFindSectionAfterRelocation, section lookup after a move (shared resolution against twins)
 func TestFindSectionAfterRelocation(t *testing.T) {
 	text := "===/opt/aoci-code/===\n" +
 		"go.mod[XMO9T]: F:f | R:- | A:- | S:-\n" +
@@ -194,10 +194,10 @@ func TestFindSectionAfterRelocation(t *testing.T) {
 	}
 }
 
-// TestResolveCodexMixedRootScene Codex 真机现场复现(2026-07-10):
-// Linux 前缀存量段(/opt/httpx 系)迁到 Windows 仓库(C:/work/httpx)后,agent
-// 插入当前根路径的新段(C:/work/httpx/examples)。精化规则下: 新段直接命中,
-// 存量段子集按公共前缀 /opt/httpx 重定位 —— 两个世界各自成立,存量索引不失明。
+// TestResolveCodexMixedRootScene reproduces the real Codex scene (2026-07-10):
+// Linux-prefixed existing sections (the /opt/httpx family) moved to a Windows repository (C:/work/httpx), then the agent
+// inserted a new section under the current root path (C:/work/httpx/examples). Under the refined rule the new section hits directly,
+// and the existing subset relocates by the common prefix /opt/httpx; both worlds hold, and the existing index does not go blind.
 func TestResolveCodexMixedRootScene(t *testing.T) {
 	text := "===/opt/httpx/===\n" +
 		"pyproject.toml[PBLD7S]: F:f | R:- | A:- | S:-\n" +

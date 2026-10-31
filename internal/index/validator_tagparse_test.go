@@ -1,4 +1,4 @@
-// 标签不可解析 Warning 分类辅助测试。
+// Tests for the unparseable-tag Warning classification helper.
 package index
 
 import "testing"

@@ -1,14 +1,14 @@
-// 扩展读法测试 (#58, #60): 目录名含空白/=/(, 文件名含 [。
+// Extended-reading tests (#58, #60): directory names holding whitespace, =, or (, and filenames holding [.
 //
-// 立测背景: 三正则的目录路径在首个空白、"="、"(" 或 "（" 处截断, 条目文件名不能含 "["。
-// 后果有两类: (1) 写入器把解析回来的截断路径当作历史根, 之后的段头全部写成截断根;
-// 子目录名含空格时条目被解析成另一个路径, 同时报 orphan 与 missing, 仓库永远无法对齐;
-// (2) Next.js / Nuxt / SvelteKit 的动态路由文件名 ([...id].jsx) 根本写不进去, 而批次是
-// 原子的, 一条写不进去整批永远失败。
+// Why these tests exist: the three regular expressions cut a directory path at the first whitespace, "=", "(", or "（", and an entry filename could not hold "[".
+// Two kinds of consequence: (1) the writer took the truncated path it parsed back as the historical root, and every later section header was written under that truncated root;
+// a subdirectory name holding a space made the entry parse to another path, reporting orphan and missing at once, and the repository could never align;
+// (2) the dynamic-route filenames of Next.js / Nuxt / SvelteKit ([...id].jsx) could not be written at all, and since a batch is
+// atomic, one unwritable line failed the whole batch forever.
 //
-// 本文件锁定: 旧读法仍是第一读法(今天能解析的行读法不变); 机器写出的段头取到最后一个
-// "/"; 人写的带注释或多路径段头不变; 已经带着截断根的索引原地与克隆后都继续解析;
-// 写入端对无法无歧义表示的目录失败关闭。
+// This file locks: the old reading is still the first reading (a line that parses today keeps its reading); a machine-written section header takes up to the last
+// "/"; a hand-written header with a note or several paths is unchanged; an index already carrying a truncated root keeps parsing in place and after cloning;
+// the write side fails closed for a directory that cannot be represented unambiguously.
 package index
 
 import (
@@ -30,15 +30,15 @@ func TestDirHeaderExtendedReadingKeepsLegacyFirst(t *testing.T) {
 		{"===/repo/docs/（全角）/===", "/repo/docs/（全角）/", "/repo/docs/", true},
 		{"===C:/Users/John Doe/repo/src/===", "C:/Users/John Doe/repo/src/", "C:/Users/John", true},
 		{"===Go sources/tmp/x/example project/repo/===", "/tmp/x/example project/repo/", "/tmp/x/example", true},
-		// 今天就能正确解析的形态: 两种读法一致
+		// Shapes that parse correctly today: both readings agree
 		{"===配置索引/opt/aoci-code/===", "/opt/aoci-code/", "/opt/aoci-code/", true},
 		{"===/opt/app/[locale]/===", "/opt/app/[locale]/", "/opt/app/[locale]/", true},
-		// 人写的段头保持旧读法: 尾注不以 "/" 结尾、完整目录后接空白的注释、第二个绝对路径
+		// A hand-written header keeps the old reading: a trailing note not ending in "/", a comment after the complete directory and whitespace, a second absolute path
 		{"===/opt/aoci-code/ (备注)===", "/opt/aoci-code/", "/opt/aoci-code/", true},
 		{"===/opt/x/ see docs/===", "/opt/x/", "/opt/x/", true},
 		{"===/opt/a/ 与 /opt/b/===", "/opt/a/", "/opt/a/", true},
 		{"===/opt/a/ and C:/b/===", "/opt/a/", "/opt/a/", true},
-		// 相对多路径段头今天不是目录段, 以后也不是
+		// A relative multi-path header is not a directory section today and never will be
 		{"===internal/ 与 testdata/===", "", "", false},
 		{"==========", "", "", false},
 	} {
@@ -59,7 +59,7 @@ func TestEntryNamesMayContainBrackets(t *testing.T) {
 		{"[id].vue[CG5T]: F:Renders one item | R:- | A:- | S:-", "[id].vue", "CG5T"},
 		{"a[b].go[CG7S]: F:Holds a bracketed name | R:- | A:- | S:-", "a[b].go", "CG7S"},
 		{"x[1][CG5T]: F:Ends with a bracket pair | R:- | A:- | S:-", "x[1]", "CG5T"},
-		// 旧读法仍然先行
+		// The old reading still comes first
 		{"main.go[CG9L]: F:Runs the program | R:- | A:main | S:-", "main.go", "CG9L"},
 		{"b]r.go[CG5T]: F:Holds a closing bracket | R:- | A:- | S:-", "b]r.go", "CG5T"},
 		{"inner space.go[CG5T]: F:Holds a space | R:- | A:- | S:-", "inner space.go", "CG5T"},
@@ -85,7 +85,7 @@ func TestEntryNamesMayContainBrackets(t *testing.T) {
 	if !mismatch {
 		t.Fatal("the file-name gate must still refuse an Entry written for a different path")
 	}
-	// 不是条目的行仍然不是条目
+	// A line that is not an entry is still not an entry
 	for _, line := range []string{"[CG5T]: F:no name", " lead.go[CG5T]: F:leading space", "see [x] for details"} {
 		if _, ok := ParseEntryLine(line, 1); ok {
 			t.Fatalf("%q must not parse as an Entry", line)
@@ -121,7 +121,7 @@ func TestSpecialDirectoriesResolveAndInsertUnderCleanRoot(t *testing.T) {
 			t.Fatalf("missing natural header %s:\n%s", header, text)
 		}
 	}
-	// 替换与删除沿同一解析
+	// Replacement and removal follow the same parsing
 	replaced, err := ReplaceEntryForPath(text, root, "dir space/a.go", "a.go[CG5T]: F:a | R:- | A:- | S:-", "a.go[CG5T]: F:a revised | R:- | A:- | S:-")
 	if err != nil || !strings.Contains(replaced, "F:a revised") {
 		t.Fatalf("replace under a spaced directory: %v", err)
@@ -132,7 +132,7 @@ func TestSpecialDirectoriesResolveAndInsertUnderCleanRoot(t *testing.T) {
 	}
 }
 
-// rc13 及更早版本在含空格的根下写出的索引: 首段是完整根, 之后的段挂在截断根下。
+// An index written by rc13 or earlier under a root holding a space: the first section is the complete root, the later sections hang under the truncated root.
 const truncatedRootIndex = "#head\n" +
 	"===/tmp/example project/repo/===\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n" +
 	"===/tmp/example/src/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n\n" +
@@ -147,8 +147,8 @@ func TestIndexWrittenWithTruncatedRootHealsInPlace(t *testing.T) {
 			t.Fatalf("%s must resolve in place; got %q %q %q", rel, relOf(t, doc, 0, 0), relOf(t, doc, 1, 0), relOf(t, doc, 2, 0))
 		}
 	}
-	// 新段延续该索引族已经在用的截断根: 克隆到别处的副本没有仓库根可比对, 它靠"恰好一个
-	// 完整根段"认出旧写入器, 再多一个完整根段就会失去重定位(评审实测: CI 检出全体 orphan)。
+	// A new section continues the truncated root this index family already uses: a copy cloned elsewhere has no repository root to compare against; it recognizes the
+	// old writer by "exactly one complete-root section", and one more complete-root section would lose the relocation (a review measured it: CI checked out all orphans).
 	text, err := InsertEntry(truncatedRootIndex, "lib/new dir/c.go", "c.go[CG5T]: F:c | R:- | A:- | S:-", root)
 	if err != nil {
 		t.Fatalf("a root spelled two ways is one root, so a new section must be accepted: %v", err)
@@ -167,10 +167,10 @@ func TestIndexWrittenWithTruncatedRootHealsInPlace(t *testing.T) {
 	}
 }
 
-// 新写入器在含特殊字符的根下从零建立的索引, 与此前每个版本写出的形状完全相同: 根段以完整根
-// 拼写, 之后的段挂在旧读法读回来的那个根下。世上因此只有一种索引形状, 旧读者仍能解析其中
-// 名字普通的段, 而每一段在原地与克隆里解析一致。(四轮评审: "每段都写完整根"的新形状与旧写入器
-// 的字节在根路径以截断字符开头的段上无法区分, 克隆只能猜。)
+// An index the new writer builds from scratch under a root holding special characters has exactly the shape every earlier version wrote: the root section spells the
+// complete root, and the later sections hang under the root the old reading reads back. So there is only one index shape in the world; an old reader can still parse its
+// ordinarily named sections, and every section parses the same in place and in a clone. (Four review rounds: the new shape "every section spells the complete root" is
+// indistinguishable from the old writer's bytes on a section whose root path starts with a truncating character, and a clone could only guess.)
 func TestFreshIndexUnderSpecialRootStaysConsistentAcrossInserts(t *testing.T) {
 	root := "/work/my project (v2)/repo"
 	text := "#head\n"
@@ -204,9 +204,9 @@ func TestFreshIndexUnderSpecialRootStaysConsistentAcrossInserts(t *testing.T) {
 	}
 }
 
-// 标签定位只有一处(EntryTagSpan): 字典、E 规模、S 配额读到的必须是真正的标签, 而不是
-// 文件名里的第一个方括号。评审实测: [id].page.test.ts[XCR7T] 被字典硬闸永久拒绝,
-// [v1].ts[CG9T] 被按 C1 计配额, 401 行的 [big].ts 不报 E 规模。
+// Tag location has one implementation (EntryTagSpan): what the dictionary, E scale, and S quota read must be the real tag, not the
+// first square bracket in the filename. A review measured it: [id].page.test.ts[XCR7T] was permanently refused by the dictionary hard gate,
+// [v1].ts[CG9T] had its quota counted as C1, and a 401-line [big].ts reported no E scale.
 func TestTagConsumersReadTheTagNotTheFileName(t *testing.T) {
 	for _, test := range []struct {
 		line    string
@@ -237,7 +237,7 @@ func TestTagConsumersReadTheTagNotTheFileName(t *testing.T) {
 	}
 }
 
-// resolvedRelPaths 返回索引在给定仓库根下解析出的全部条目路径(排序)。
+// resolvedRelPaths returns every entry path the index resolves to under the given repository root (sorted).
 func resolvedRelPaths(t *testing.T, text, root string) []string {
 	t.Helper()
 	doc := buildDoc(t, text)
@@ -252,11 +252,11 @@ func resolvedRelPaths(t *testing.T, text, root string) []string {
 	return rels
 }
 
-// rc13 及更早版本: 点目录(.circleci/ .claude/ .cursor/ .devcontainer/)排在 .gitattributes
-// 之前时, 以完整根拼写写下的首段并不是根段。旧读法把它读成根段, 旧写入器随后把根文件登记
-// 进了这一段, 再把其余段挂到截断根下。二轮评审实测: 若原地按真实目录读这一段而克隆按旧读法
-// 读它, 同一份字节在两处解析出不同的路径集, 原地修好克隆就坏, 两边永远无法同时对齐 ——
-// 比旧版本(两处错得一样)更糟。锁定: 一旦后续段确认了旧写入器, 这一段在原地也沿用旧读法。
+// rc13 and earlier: when a dot directory (.circleci/ .claude/ .cursor/ .devcontainer/) sorted before .gitattributes,
+// the first section, written with the complete root spelling, was not the root section. The old reading read it as the root section, the old writer then registered the
+// root files into it, and hung the remaining sections under the truncated root. A second review measured: if this section is read in place by its real directory while a clone
+// reads it by the old reading, the same bytes resolve to different path sets in the two places; fixing in place breaks the clone, and the two can never align at once,
+// worse than the old version (wrong the same way in both places). Locked: once the later sections confirm the old writer, this section follows the old reading in place as well.
 const dotDirFirstIndex = "#head\n" +
 	"===/tmp/example project/repo/.circleci/===\n" +
 	"config.yml[CG5T]: F:c | R:- | A:- | S:-\n" +
@@ -277,8 +277,8 @@ func TestOldWriterIndexReadsTheSameInPlaceAndInAClone(t *testing.T) {
 		}
 	}
 
-	// 孤儿流程要求的修复在各处落点一致: 误登记为根文件的 config.yml 被移除, 真正的
-	// .circleci/config.yml 在截断根下得到自己的段。
+	// The repair the orphan flow asks for lands the same everywhere: config.yml, misregistered as a root file, is removed, and the real
+	// .circleci/config.yml gets its own section under the truncated root.
 	text, err := RemoveEntryForPath(dotDirFirstIndex, root, "config.yml", "config.yml[CG5T]: F:c | R:- | A:- | S:-")
 	if err != nil {
 		t.Fatalf("remove the misfiled Entry: %v", err)
@@ -298,8 +298,8 @@ func TestOldWriterIndexReadsTheSameInPlaceAndInAClone(t *testing.T) {
 	}
 }
 
-// 新条目绝不落进旧写入器那一个完整根拼写的段: 它在原地会解析成 lib/x.go, 在克隆里解析成
-// x.go(二轮评审实测)。沿用旧读法后该段是根段, lib/ 得到截断根下自己的段, 两处一致。
+// A new entry never lands in the old writer's single complete-root-spelled section: it would resolve to lib/x.go in place and to
+// x.go in a clone (a second review measured it). Under the old reading that section is the root section, lib/ gets its own section under the truncated root, and both places agree.
 func TestInsertNeverLandsInTheOldWritersFullSpelledSection(t *testing.T) {
 	root := "/tmp/example project/repo"
 	text := "#head\n===/tmp/example project/repo/lib/===\nl.go[CG5T]: F:l | R:- | A:- | S:-\n\n" +
@@ -322,8 +322,8 @@ func TestInsertNeverLandsInTheOldWritersFullSpelledSection(t *testing.T) {
 	}
 }
 
-// 首段完整拼写的非根段在没有任何截断根段佐证时, 就是它字面上的目录: 新写入器在特殊根下
-// 从零建索引时, 第一条恰好落在点目录里, 第二条(根文件)必须得到自己的根段, 而不是被塞进去。
+// A first section spelled complete but not at the root, with no truncated-root section to corroborate it, is the directory it literally names: when the new writer builds an
+// index from scratch under a special root and the first entry happens to land in a dot directory, the second entry (a root file) must get its own root section instead of being stuffed in.
 func TestFreshIndexWhoseFirstSectionIsADotDirectoryKeepsItsOwnRootSection(t *testing.T) {
 	root := "/tmp/example project/repo"
 	text := "#head\n"
@@ -345,11 +345,11 @@ func TestFreshIndexWhoseFirstSectionIsADotDirectoryKeepsItsOwnRootSection(t *tes
 	}
 }
 
-// 三轮评审实测(真 rc13 二进制): 截断字符恰好是某个路径段的首字符时(/w/(x)/repo、
-// C:/w/=e/repo、/w/（旧）/repo), 截断根 /w 与目录对齐, 旧写入器那个完整拼写的首段落在
-// 截断根"之下", 克隆里的旧读法回退不触发, 根文件被解析成 (x)/repo/main.go —— rc13 两处
-// 都对齐, 这是回归。锁定: 首个目录段在旧读法下等于公共前缀、扩展读法下不等, 就是旧写入器
-// 的那一段, 不论它的扩展路径在前缀之外还是之下。
+// A third review measured (a real rc13 binary): when the truncating character is the first character of some path segment (/w/(x)/repo,
+// C:/w/=e/repo, /w/（旧）/repo), the truncated root /w aligns with a directory, the old writer's complete-spelled first section lands "below" the
+// truncated root, the clone's old-reading fallback does not fire, and the root file resolves to (x)/repo/main.go; rc13 aligned in both places, so
+// this was a regression. Locked: the first directory section that equals the common prefix under the old reading and differs under the extended reading is the
+// old writer's section, whether its extended path lies outside or below the prefix.
 func TestOldWriterIndexUnderASlashCutRootRelocates(t *testing.T) {
 	for _, shape := range []struct{ root, truncated string }{
 		{"/w/(x)/repo", "/w"},
@@ -365,7 +365,7 @@ func TestOldWriterIndexUnderASlashCutRootRelocates(t *testing.T) {
 				t.Fatalf("index written at %q, read at %q: %q, want %q", shape.root, at, got, want)
 			}
 		}
-		// 新段延续截断根, 插入后各处仍一致。
+		// A new section continues the truncated root, and every place still agrees after the insertion.
 		grown, err := InsertEntry(text, "lib/c.go", "c.go[CG5T]: F:c | R:- | A:- | S:-", shape.root)
 		if err != nil || !strings.Contains(grown, "==="+shape.truncated+"/lib/===\n") {
 			t.Fatalf("root %q: %v\n%s", shape.root, err, grown)
@@ -379,8 +379,8 @@ func TestOldWriterIndexUnderASlashCutRootRelocates(t *testing.T) {
 	}
 }
 
-// 旧写入器索引里的顶层目录名以截断字符开头(路由分组 (home)/): 它的段在旧读法下同样等于
-// 截断根, 但它不是首段, 必须按自己的扩展路径解析, 原地与克隆一致。
+// A top-level directory name in an old writer's index starts with a truncating character (the route group (home)/): under the old reading its section also equals the
+// truncated root, but it is not the first section, so it must resolve by its own extended path, the same in place and in a clone.
 func TestOldWriterIndexWithATopLevelCutDirectoryReadsTheSameEverywhere(t *testing.T) {
 	root := "/tmp/example project/repo"
 	grown, err := InsertEntry(truncatedRootIndex, "(home)/page.go", "page.go[CG5T]: F:p | R:- | A:- | S:-", root)
@@ -395,8 +395,8 @@ func TestOldWriterIndexWithATopLevelCutDirectoryReadsTheSameEverywhere(t *testin
 	}
 }
 
-// 没有根段、兄弟目录共用一个截断字符前缀(app/ 与 "app (old)/"): 这不是旧写入器, 克隆不得
-// 把两段都压扁到根上(三轮评审 NIT 8)。旧写入器从不在首段旁边再写一个落在截断根上的普通段。
+// No root section, and sibling directories sharing a truncating-character prefix (app/ and "app (old)/"): this is not the old writer, and a clone must not
+// flatten both sections onto the root (third review, NIT 8). The old writer never wrote an ordinary section landing on the truncated root next to its first section.
 func TestSiblingsSharingACutPrefixAreNotAnOldWriterIndex(t *testing.T) {
 	for _, text := range []string{
 		"#head\n===/repo/app/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n\n===/repo/app (old)/===\nb.go[CG5T]: F:b | R:- | A:- | S:-\n",
@@ -411,9 +411,9 @@ func TestSiblingsSharingACutPrefixAreNotAnOldWriterIndex(t *testing.T) {
 	}
 }
 
-// 截断根加目录恰好拼出仓库根本身的那个目录(/w 加 (x)/repo 等于 /w/(x)/repo): 旧写入器判据是
-// 纯文本的, 非首段一律按扩展路径相对截断根解析, 所以这个段头虽与首段同文, 解析到的仍是它自己的
-// 目录, 且原地与克隆一致。
+// The directory where the truncated root plus the directory spells the repository root itself (/w plus (x)/repo equals /w/(x)/repo): the old-writer criterion is
+// pure text, and a non-first section always resolves by its extended path relative to the truncated root, so although this header has the same text as the first section, it resolves to its own
+// directory, the same in place and in a clone.
 func TestADirectoryRepeatingTheRootsTailResolvesTheSameEverywhere(t *testing.T) {
 	root := "/w/(x)/repo"
 	text := "#head\n===/w/(x)/repo/===\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n===/w/src/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n"
@@ -429,9 +429,9 @@ func TestADirectoryRepeatingTheRootsTailResolvesTheSameEverywhere(t *testing.T) 
 	}
 }
 
-// 段头读得回来还不够, 新段还必须解析到它要去的目录。克隆被放在索引所记录的根"之内"时
-// (记录根 /srv, 运行根 /srv/work), 目录 work/x 的段头 /srv/work/x 会被直接前缀比对解析成 x,
-// 条目就登记到了别的路径上。写入端失败关闭。
+// Reading the header back is not enough; the new section must also resolve to the directory it is meant for. When a clone sits "inside" the root the index records
+// (recorded root /srv, running root /srv/work), the header /srv/work/x of directory work/x resolves to x by direct prefix comparison,
+// and the entry is registered under another path. The write side fails closed.
 func TestInsertRefusesASectionThatWouldResolveSomewhereElse(t *testing.T) {
 	text := "#head\n===/srv/===\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n===/srv/lib/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n"
 	out, err := InsertEntry(text, "work/x/f.go", "f.go[CG5T]: F:f | R:- | A:- | S:-", "/srv/work")
@@ -447,10 +447,10 @@ func TestInsertRefusesASectionThatWouldResolveSomewhereElse(t *testing.T) {
 	}
 }
 
-// 仓库根本身写不成读得回来的段头(首段以截断字符开头, 或某段首尾是空白): rc13 靠旧读法
-// "碰巧"能治理这些根, 三轮评审实测新写入器把每一批都拒掉了。锁定: 新索引记录段头读回来的
-// 那个根(段根是坐标不是运行时路径), 首条目落在子目录时先写一个空根段给重定位当锚, 原地
-// 与克隆解析一致; 连读回来的根都没有时才拒绝, 并点名是仓库根。
+// The repository root itself cannot be written as a header that reads back (the first segment starts with a truncating character, or a segment starts or ends with whitespace): rc13
+// "happened" to govern these roots through the old reading, and a third review measured the new writer refusing every batch. Locked: a new index records the root the header
+// reads back to (a section root is a coordinate, not a runtime path), and when the first entry lands in a subdirectory it first writes an empty root section as the relocation anchor, so in-place
+// and clone parsing agree; only when not even a read-back root exists does it refuse, naming the repository root.
 func TestFreshIndexUnderARootNoHeaderCanSpell(t *testing.T) {
 	for _, shape := range []struct{ root, recorded string }{
 		{"/(x)/repo", NeutralRepositoryRoot},
@@ -482,7 +482,7 @@ func TestFreshIndexUnderARootNoHeaderCanSpell(t *testing.T) {
 	}
 }
 
-// 规划端探针只判目录: 文件名再怪也不影响结论。
+// The planning-side probe judges directories only: however odd the filename, it does not change the conclusion.
 func TestCheckInsertableJudgesTheDirectoryOnly(t *testing.T) {
 	text := "#head\n===/repo/===\nmain.go[CG5T]: F:x | R:- | A:- | S:-\n"
 	for rel, refused := range map[string]bool{
@@ -509,13 +509,13 @@ func authoredIndex(t *testing.T, root string, rels ...string) string {
 	return text
 }
 
-// 四轮评审(真二进制实测)的两个阻断, 同一个歧义: 段头字节 ===<P>/(x)…/=== 加 ===<P>/src/===
-// 既可能是"根路径某段以截断字符开头"的旧写入器索引, 也可能是干净根下"顶层目录以截断字符开头且
-// 排在最前"的索引, 纯文本无法区分, 克隆只能按旧写入器读。锁定两件事:
-// 其一, 本写入器永不产出这组字节: 新索引总以根段开头(首条目落在目录里时先写空根段), 于是它
-// 建立的索引在没有任何根文件条目时, 原地与克隆也解析一致。其二, 这组字节只可能出自 rc13 及
-// 更早版本, 那时首段就是被当作根段用的(根文件登记在里面), 原地也按同一条纯文本判据读, 与克隆、
-// 与 rc13 自己一致, 普通修复两处同步收敛。
+// The two blocks of the fourth review (measured on a real binary) are one ambiguity: the header bytes ===<P>/(x)…/=== plus ===<P>/src/===
+// may be an old writer's index whose "root path has a segment starting with a truncating character", or an index under a clean root whose "top-level directory starts with a
+// truncating character and sorts first"; pure text cannot tell them apart, and a clone can only read them as the old writer. Two things locked:
+// first, this writer never produces that set of bytes: a new index always starts with the root section (an empty root section first when the first entry lands in a directory), so an
+// index it builds parses the same in place and in a clone even with no root-file entry. Second, that set of bytes can only come from rc13 or
+// earlier, when the first section was used as the root section (root files were registered in it); in place it is read by the same pure-text criterion, agreeing with the clone and
+// with rc13 itself, and an ordinary repair converges both places together.
 func TestFreshIndexWithoutRootEntriesReadsTheSameEverywhere(t *testing.T) {
 	for _, shape := range []struct {
 		root string
@@ -548,11 +548,11 @@ func TestFreshIndexWithoutRootEntriesReadsTheSameEverywhere(t *testing.T) {
 	}
 }
 
-// 五轮评审(真二进制实测)的阻断: 根路径某段以截断字符开头(/w/(x)/repo), 仓库里又恰好有一个
-// 与该段同名的目录 (x)/ 时, 除首段外的所有段都落在 /w/(x) 之下。当时的判据额外要求"扩展路径的
-// 公共前缀等于截断根", 于是判据不成立: 原地退回运行时根读对了, 克隆只能按公共前缀 /w/(x) 重定位,
-// 把 (x) 段读成根段、把根段读成 repo/ —— 原地对齐, 每个克隆 5 missing + 5 orphan, 两边来回打架。
-// 删除 src 的最后一条也会剪出同样的字节(F1b), 所以光在写入端拦不住。判据不再有那一条。
+// The block of the fifth review (measured on a real binary): when a segment of the root path starts with a truncating character (/w/(x)/repo) and the repository happens to hold a
+// directory of the same name (x)/, every section but the first lands below /w/(x). The criterion then also demanded "the common prefix of the extended paths equals the
+// truncated root", so the criterion failed: in place it fell back to the runtime root and read correctly, while a clone could only relocate by the common prefix /w/(x),
+// reading the (x) section as the root section and the root section as repo/; aligned in place, 5 missing + 5 orphan in every clone, the two sides fighting back and forth.
+// Removing the last entry of src also cuts out the same bytes (F1b), so the write side alone cannot stop it. The criterion no longer has that clause.
 func TestADirectoryNamedLikeTheRootsCutSegmentReadsTheSameEverywhere(t *testing.T) {
 	for _, root := range []string{"/w/(x)/repo", "/home/u/(work)/proj", "C:/Users/(me)/repo", "/w/=x/repo", "/w/（全角）/repo", "/w/(x)/(y)/repo"} {
 		segments := strings.Split(root, "/")
@@ -573,7 +573,7 @@ func TestADirectoryNamedLikeTheRootsCutSegmentReadsTheSameEverywhere(t *testing.
 			}
 		}
 	}
-	// F1b: 根段 + (x)/ + src/, 删掉 src 唯一的条目后剩下同样的字节, 仍须两处一致。
+	// F1b: root section + (x)/ + src/; after the only src entry is removed the same bytes remain, and both places must still agree.
 	root := "/w/(x)/repo"
 	text := authoredIndex(t, root, "AGENTS.md", "(x)/main.go", "src/a.go")
 	pruned, err := RemoveEntryForPath(text, root, "src/a.go", "a.go[CG5T]: F:x | R:- | A:- | S:-")
@@ -587,9 +587,9 @@ func TestADirectoryNamedLikeTheRootsCutSegmentReadsTheSameEverywhere(t *testing.
 	}
 }
 
-// "每一段都带完整根、且没有根段"的索引不是任何已发布写入器的产物(本写入器总以根段开头, 后续段
-// 挂在旧读法读回来的根下)。根路径某段以截断字符开头时, 这组字节与 rc13 在干净根 /w 下写出的字节
-// 逐字相同, 纯文本无法区分; 锁定的是两处读法一致, 而不是某一种含义。
+// An index where "every section carries the complete root and there is no root section" is the product of no released writer (this writer always starts with the root section, and later sections
+// hang under the root the old reading reads back). When a root path segment starts with a truncating character, these bytes are identical, byte for byte, to what rc13 wrote under the clean
+// root /w, and pure text cannot tell them apart; what is locked is that both places read alike, not one particular meaning.
 func TestBytesSharedWithTheOldWriterReadTheSameEverywhere(t *testing.T) {
 	text := "#head\n===/w/(x)/repo/a/===\nf.go[CG5T]: F:f | R:- | A:- | S:-\n\n===/w/(x)/repo/b/===\ng.go[CG5T]: F:g | R:- | A:- | S:-\n"
 	origin := resolvedRelPaths(t, text, "/w/(x)/repo")
@@ -600,13 +600,13 @@ func TestBytesSharedWithTheOldWriterReadTheSameEverywhere(t *testing.T) {
 	}
 }
 
-// 同一个段头字节可以出现两次而指向两个目录: 旧写入器的首段按旧读法落在根上, 为它字面上那个目录
-// 补登记的段按扩展路径落在目录上。两段里同名的文件是两个不同的路径; Parse 曾按"段头路径+文件名"
-// 报重复条目, 而 code_parse_warning 会拒绝此后对这份索引的每一次写入, 仓库永远停在
-// authoring_required(五轮评审实测, rc13 也卡在这里)。首段在两种读法不同时单独记键; 真正解析到
-// 同一路径的两条仍由对象加载处按路径报告, 普通的同头重复段照旧在这里报警。
+// The same header bytes can appear twice and point at two directories: the old writer's first section lands on the root under the old reading, while the section registered
+// for the directory it literally names lands on the directory under the extended reading. Same-named files in the two sections are two different paths; Parse used to report a
+// duplicate entry by "header path + filename", and code_parse_warning would then refuse every later write to this index, leaving the repository stuck in
+// authoring_required forever (a fifth review measured it; rc13 was stuck there too). The first section gets its own key when the two readings differ; two entries that really resolve to
+// the same path are still reported by path where objects are loaded, and an ordinary duplicate section with the same header still warns here.
 func TestTheSameNameUnderTwoReadingsOfOneHeaderIsNotADuplicate(t *testing.T) {
-	// rc13, 干净根, 顶层 (home)/ 排在最前, 根上也有 main.go。
+	// rc13, clean root, top-level (home)/ sorted first, main.go on the root as well.
 	root := "/clean/repo"
 	text := "#head\n===/clean/repo/(home)/===\nmain.go[CG5T]: F:root main | R:- | A:- | S:-\n\n" +
 		"===/clean/repo/src/===\nq.go[CG5T]: F:q | R:- | A:- | S:-\n"
@@ -622,21 +622,21 @@ func TestTheSameNameUnderTwoReadingsOfOneHeaderIsNotADuplicate(t *testing.T) {
 			t.Fatalf("read at %q: %q", at, got)
 		}
 	}
-	// 本写入器自己的索引: /w/(x)/repo 下的目录 (x)/repo 与根段同头。
+	// This writer's own index: directory (x)/repo under /w/(x)/repo shares its header with the root section.
 	own := authoredIndex(t, "/w/(x)/repo", "main.go", "src/a.go", "(x)/repo/other.go", "(x)/repo/main.go")
 	if _, warnings := Parse(own); len(warnings) != 0 {
 		t.Fatalf("this writer's own index must not warn: %+v\n%s", warnings, own)
 	}
-	// 首段两种读法不同、但旧写入器判据不成立时(旁边有落在根上的普通根段), 首段按扩展路径读,
-	// 与后面同头的段就是同一个目录: 同名条目是真重复, 必须报警。单文件(Legacy)布局没有别处会报它
-	// (六轮评审: 单独记键后这一形状在 Legacy 下悄无声息, remove-entry 会删掉其中一条)。
+	// When the first section's two readings differ but the old-writer criterion fails (an ordinary root section landing on the root sits beside it), the first section reads by its extended path,
+	// and the later section with the same header is the same directory: same-named entries are real duplicates and must warn. The single-file (Legacy) layout has nowhere else to report it
+	// (sixth review: after the separate key, this shape fell silent under Legacy, and remove-entry would delete one of the two).
 	sameDirectory := "#head\n===/clean/repo/app (old)/===\na.go[CG5T]: F:first | R:- | A:- | S:-\n\n" +
 		"===/clean/repo/===\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n" +
 		"===/clean/repo/app (old)/===\na.go[CG5T]: F:second | R:- | A:- | S:-\n"
 	if _, warnings := Parse(sameDirectory); len(warnings) != 1 || !strings.Contains(warnings[0].Msg, "重复条目") {
 		t.Fatalf("one directory spelled twice holds a true duplicate: %+v", warnings)
 	}
-	// 普通的同头重复段里的同名条目仍然报警。
+	// Same-named entries in an ordinary duplicate section with the same header still warn.
 	plain := "#head\n===/repo/src/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n\n===/repo/===\nm.go[CG5T]: F:m | R:- | A:- | S:-\n\n" +
 		"===/repo/src/===\na.go[CG5T]: F:again | R:- | A:- | S:-\n"
 	if _, warnings := Parse(plain); len(warnings) != 1 || !strings.Contains(warnings[0].Msg, "重复条目") {
@@ -645,8 +645,8 @@ func TestTheSameNameUnderTwoReadingsOfOneHeaderIsNotADuplicate(t *testing.T) {
 }
 
 func TestOldWriterIndexUnderACleanRootReadsAsTheOldReaderDidEverywhere(t *testing.T) {
-	// rc13 在干净根下、默认 scope: "(" 排在 ".gitattributes" 之前, 首段写成 ===<根>/(home)/===,
-	// 读回来是根, 于是根文件都登记在这一段里, (home)/p.go 自己被解析成 p.go(orphan + missing)。
+	// rc13 under a clean root with the default scope: "(" sorts before ".gitattributes", the first section was written as ===<root>/(home)/===,
+	// which reads back as the root, so the root files were all registered in this section, and (home)/p.go itself resolved to p.go (orphan + missing).
 	root := "/clean/repo"
 	text := "#head\n===/clean/repo/(home)/===\np.go[CG5T]: F:p | R:- | A:- | S:-\n" +
 		".gitattributes[CG5T]: F:g | R:- | A:- | S:-\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n" +
@@ -657,7 +657,7 @@ func TestOldWriterIndexUnderACleanRootReadsAsTheOldReaderDidEverywhere(t *testin
 			t.Fatalf("read at %q: %q, want the old reader's view %q", at, got, want)
 		}
 	}
-	// 普通修复: 移除误解析出来的 p.go, 登记真正的 (home)/p.go; 两处同步收敛。
+	// An ordinary repair: remove the misresolved p.go and register the real (home)/p.go; both places converge together.
 	repaired, err := RemoveEntryForPath(text, root, "p.go", "p.go[CG5T]: F:p | R:- | A:- | S:-")
 	if err != nil {
 		t.Fatal(err)
@@ -673,9 +673,9 @@ func TestOldWriterIndexUnderACleanRootReadsAsTheOldReaderDidEverywhere(t *testin
 	}
 }
 
-// 根段是整份索引坐标的锚: 重定位按各段的公共前缀求根, 只有某个段正好落在根上时这个前缀才是根。
-// 四轮评审实测: 根写不成段头的仓库里, 空根段被下一次删除顺手剪掉, 原地随即把活着的条目报成
-// orphan(a.go、b.go), 只有全部删掉重写才能恢复。只要还有别的目录段, 根段即使空了也不剪。
+// The root section is the anchor of the whole index's coordinates: relocation derives the root from the sections' common prefix, and that prefix is the root only when some section lands exactly on it.
+// A fourth review measured: in a repository whose root cannot be written as a header, the empty root section was trimmed in passing by the next removal, and in place the live entries were
+// at once reported as orphans (a.go, b.go), recoverable only by deleting everything and rewriting. As long as another directory section remains, the root section is never trimmed even when empty.
 func TestTheRootSectionIsNeverPrunedWhileOtherSectionsRemain(t *testing.T) {
 	for _, root := range []string{"/home/u/s /repo", "/clean/repo", "/tmp/example project/repo", "/w/(x)/repo"} {
 		text := authoredIndex(t, root, "src/a.go", "src/b.go", "src/c.go")
@@ -689,12 +689,12 @@ func TestTheRootSectionIsNeverPrunedWhileOtherSectionsRemain(t *testing.T) {
 			}
 		}
 	}
-	// 旧写入器的首段(完整拼写)同样是锚: 根文件删光后不剪, 截断根下的段族仍然解析。
+	// The old writer's first section (complete spelling) is an anchor too: it is not trimmed once the root files are gone, and the section family under the truncated root still resolves.
 	out, err := RemoveEntryForPath(truncatedRootIndex, "/tmp/example project/repo", "main.go", "main.go[CG5T]: F:m | R:- | A:- | S:-")
 	if err != nil || !strings.Contains(out, "===/tmp/example project/repo/===\n") {
 		t.Fatalf("the old writer's first section anchors its family and must stay: %v\n%s", err, out)
 	}
-	// 不是锚的空段照常剪掉; 最后一个目录段空了也照常剪掉。
+	// An empty section that is not an anchor is trimmed as usual; so is the last directory section once it is empty.
 	plain := "#head\n===/repo/===\nmain.go[CG5T]: F:m | R:- | A:- | S:-\n\n===/repo/src/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n"
 	if out, err := RemoveEntryForPath(plain, "/repo", "src/a.go", "a.go[CG5T]: F:a | R:- | A:- | S:-"); err != nil || strings.Contains(out, "/repo/src/") {
 		t.Fatalf("an empty section that anchors nothing is pruned: %v\n%s", err, out)
@@ -706,8 +706,8 @@ func TestTheRootSectionIsNeverPrunedWhileOtherSectionsRemain(t *testing.T) {
 }
 
 func TestIndexWrittenWithTruncatedRootStillRelocates(t *testing.T) {
-	// 同一份索引被克隆到别处: 今天靠"全部截断成同一个根"碰巧成立, 扩展读法下首段变成完整根,
-	// 必须仍然成立。
+	// The same index cloned elsewhere: today it holds by "everything truncates to the same root" by chance; under the extended reading the first section becomes the complete root,
+	// and it must still hold.
 	doc := buildDoc(t, truncatedRootIndex)
 	ResolveRelPaths(doc, "/srv/checkout")
 	for _, rel := range []string{"main.go", "src/a.go", "src/deep dir/b.go"} {
@@ -731,7 +731,7 @@ func TestNewStyleIndexUnderSpecialRootRelocates(t *testing.T) {
 			}
 		}
 	}
-	// 没有根段的新式索引不能被旧读法压扁到同一个目录
+	// A new-style index with no root section must not be flattened onto one directory by the old reading
 	noRoot := "#head\n===/home/a/my repo/src/===\na.go[CG5T]: F:a | R:- | A:- | S:-\n\n===/home/a/my repo/lib/===\nb.go[CG5T]: F:b | R:- | A:- | S:-\n"
 	doc := buildDoc(t, noRoot)
 	ResolveRelPaths(doc, "/srv/checkout")

@@ -1,4 +1,4 @@
-// 校验器表驱动测试: 硬拒/警告分级、F柔性口径与围栏清理。
+// Table-driven validator tests: hard-refusal/warning levels, the soft F reading, and fence cleanup.
 package index
 
 import (
@@ -8,7 +8,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// TestValidateEntryLine覆盖格式硬拒、警告和F长度不阻断合同。
+// TestValidateEntryLine covers the format hard refusals, the warnings, and the contract that F length does not block.
 func TestValidateEntryLine(t *testing.T) {
 	cases := []struct {
 		name, path, line  string
@@ -92,7 +92,7 @@ func TestEvolutionNarrativeMachineTermsAllReachValidator(t *testing.T) {
 	}
 }
 
-// TestValidateEntryLineDupMessage锁定段重复的可操作拒绝理由。
+// TestValidateEntryLineDupMessage locks the actionable refusal reason for a repeated part.
 func TestValidateEntryLineDupMessage(t *testing.T) {
 	violations := ValidateEntryLine(
 		"a/b.go",
@@ -116,7 +116,7 @@ func TestValidateEntryLineDupMessage(t *testing.T) {
 	}
 }
 
-// TestValidateEntryLineTagParseWarnMessage锁定不可解析标签警告。
+// TestValidateEntryLineTagParseWarnMessage locks the unparseable-tag warning.
 func TestValidateEntryLineTagParseWarnMessage(t *testing.T) {
 	violations := ValidateEntryLine(
 		"a/b.go",
@@ -143,7 +143,7 @@ func TestValidateEntryLineTagParseWarnMessage(t *testing.T) {
 	}
 }
 
-// TestStripFences锁定围栏与空白清理。
+// TestStripFences locks fence and whitespace cleanup.
 func TestStripFences(t *testing.T) {
 	input :=
 		"\n```text\nb.go[X.Y.5.T]: F:- | R:- | A:- | S:-\n```\n\n"
@@ -166,7 +166,7 @@ func TestStripFences(t *testing.T) {
 	}
 }
 
-// TestValidateEntryLineQuotaWired锁定S配额Warning接线。
+// TestValidateEntryLineQuotaWired locks the wiring of the S quota Warning.
 func TestValidateEntryLineQuotaWired(t *testing.T) {
 	long :=
 		"f.go[XGI3T]: F:x | R:- | A:- | S:" +

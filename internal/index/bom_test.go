@@ -1,13 +1,13 @@
-// UTF-8 BOM 宽进/治愈测试(P-18)
-// 索引条目: bom_test.go(待补录,随本批入册)
+// UTF-8 BOM lenient-read/heal tests (P-18)
+// Index entry: bom_test.go (to be recorded, entering the index with this batch)
 //
-// 病灶: 首行带 \ufeff 时 ^=== 锚定正则零匹配 —— 首行段头的索引整段沦为
-// 头部、条目全灭;修法为 Parse/ExtractHeader/ReplaceHeader 三入口剥 BOM。
+// The defect: with a \ufeff on the first line the ^=== anchored regular expression matched nothing; an index whose first line is a section header collapsed entirely into
+// the header and lost every entry. The fix strips the BOM at the three entries Parse/ExtractHeader/ReplaceHeader.
 //
-// AbsPath 期望值纪律(首版红灯教训): Parse 存 AbsPath 为正则捕获原文的
-// TrimSpace 形态 —— 段头 ===代码/repo/=== 捕到 "/repo/" 带尾斜杠(路径 token
-// 遇 = 即止,尾斜杠在捕获内);剥尾斜杠归 normalizeRootPath 的解析侧职责,
-// 存储层不做。断言必须对齐存储层真实语义,不凭直觉写归一后形态。
+// AbsPath expectation discipline (the first version's red-light lesson): Parse stores AbsPath as the TrimSpace form of the regular expression's
+// raw capture; the header ===代码/repo/=== captures "/repo/" with its trailing slash (the path token stops
+// at =, and the trailing slash is inside the capture); stripping the trailing slash is the parsing-side job of normalizeRootPath, which
+// the storage layer does not do. Assertions must align with the storage layer's real semantics rather than writing the normalized form by intuition.
 package index
 
 import (
@@ -15,11 +15,11 @@ import (
 	"testing"
 )
 
-// bomMark UTF-8 BOM 字符(测试专用,带 bom 前缀防同包撞名)
+// bomMark is the UTF-8 BOM character (test only, with the bom prefix against same-package collisions)
 const bomMark = "\ufeff"
 
-// TestParseBOMFirstLineSection 首行即目录段头且带 BOM: 段与条目不得丢失
-// (P-18 病灶本体: BOM 未剥离时该索引解析结果为零目录段)
+// TestParseBOMFirstLineSection: the first line is a directory section header and carries a BOM; the section and its entries must not be lost
+// (the P-18 defect itself: with the BOM unstripped this index parsed to zero directory sections)
 func TestParseBOMFirstLineSection(t *testing.T) {
 	text := bomMark + "===代码/repo/===\na.go[X.Y.5.T]: F:功 | R:- | A:- | S:-\n"
 	doc, _ := Parse(text)
@@ -37,7 +37,7 @@ func TestParseBOMFirstLineSection(t *testing.T) {
 	}
 }
 
-// TestParseBOMHeaderLine 首行为#注释且带 BOM: 头部行剥净 BOM 后原样保留
+// TestParseBOMHeaderLine: the first line is a # comment carrying a BOM; the header line is kept as it is once the BOM is stripped
 func TestParseBOMHeaderLine(t *testing.T) {
 	text := bomMark + "#头部说明\n===代码/repo/===\n"
 	doc, _ := Parse(text)
@@ -46,7 +46,7 @@ func TestParseBOMHeaderLine(t *testing.T) {
 	}
 }
 
-// TestParseNoBOMByteIdentical 无 BOM 的 LF 输入零行为变化(幂等防误伤)
+// TestParseNoBOMByteIdentical: LF input without a BOM changes nothing (idempotence against collateral damage)
 func TestParseNoBOMByteIdentical(t *testing.T) {
 	text := "#头部\n===代码/repo/===\na.go[X.Y.5.T]: F:功 | R:- | A:- | S:-\n"
 	doc, _ := Parse(text)
@@ -55,8 +55,8 @@ func TestParseNoBOMByteIdentical(t *testing.T) {
 	}
 }
 
-// TestExtractHeaderBOM ExtractHeader 与 Parse 同口径: 带 BOM 的首行段头
-// 不被误归头部(头部为空且 hasSections=true)
+// TestExtractHeaderBOM: ExtractHeader shares Parse's reading; a BOM-carrying first-line section header
+// is not filed under the header by mistake (the header is empty and hasSections=true)
 func TestExtractHeaderBOM(t *testing.T) {
 	text := bomMark + "===代码/repo/===\na.go[X.Y.5.T]: F:- | R:- | A:- | S:-\n"
 	header, hasSections := ExtractHeader(text)
@@ -65,8 +65,8 @@ func TestExtractHeaderBOM(t *testing.T) {
 	}
 }
 
-// TestReplaceHeaderHealsBOM 写侧治愈: 替换头部后输出不携带 BOM,
-// 且首个目录段未被吞(BOM 在场时旧边界判定会把段头误归头部整体替换掉)
+// TestReplaceHeaderHealsBOM, the write-side heal: after the header is replaced the output carries no BOM,
+// and the first directory section is not swallowed (with a BOM present the old boundary judgement filed the section header under the header and replaced it wholesale)
 func TestReplaceHeaderHealsBOM(t *testing.T) {
 	text := bomMark + "#旧头\n===代码/repo/===\na.go[X.Y.5.T]: F:- | R:- | A:- | S:-\n"
 	out, err := ReplaceHeader(text, "#新头")

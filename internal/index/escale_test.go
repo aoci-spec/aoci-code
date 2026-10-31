@@ -1,11 +1,11 @@
-// E 档位闸测试: 阈值提取形态 + 判定矩阵(错配/边界重叠/空隙/降级)
-//   - P-22 行识别容错与 R51 跳过可见三态。
+// E-band gate tests: threshold extraction forms plus the judgement matrix (mismatch/boundary overlap/gap/downgrade)
+//   - P-22 line-recognition tolerance and the R51 visible-skip three states.
 //
-// 索引条目待补: escale_test.go
+// Index entry pending: escale_test.go
 //
-// 命名纪律: 条目构造辅助函数取 mkEScaleEntry 而非 mkEntry —— 同包
-// quota_test.go 已有 mkEntry(tags,sRunes) 且签名不兼容,同包测试辅助
-// 函数命名须带域前缀防撞名(本文件首版即因此 vet 红)。
+// Naming discipline: the entry construction helper is named mkEScaleEntry rather than mkEntry, since quota_test.go in the same
+// package already has mkEntry(tags,sRunes) with an incompatible signature; same-package test helper
+// names must carry a domain prefix against collisions (this file's first version went red in vet for exactly that).
 package index
 
 import (
@@ -13,15 +13,15 @@ import (
 	"testing"
 )
 
-// escaleHeader 本仓实况形态的 E规模行(>N / N-M / <N 三形态齐)
+// escaleHeader is the E规模 line in this repository's live shape (the >N / N-M / <N forms all present)
 const escaleHeader = "#【系统】x\n#E规模: L大>400 M中200-400 S小100-200 T微<100\n"
 
-// mkEScaleEntry 造合规结构的条目行(标签紧凑形态: A=X,B=CR,C=7,E=末字符)
+// mkEScaleEntry builds an entry line with conforming structure (compact tag form: A=X, B=CR, C=7, E=the last character)
 func mkEScaleEntry(e string) string {
 	return "f.go[XCR7" + e + "]: F:x | R:- | A:- | S:-"
 }
 
-// TestEScaleNoThresholds 骨架占位形态(无数字)不可判定: 一律 nil。
+// TestEScaleNoThresholds: the skeleton placeholder form (no numbers) is undecidable, always nil.
 func TestEScaleNoThresholds(t *testing.T) {
 	th := ExtractEScaleThresholds("#E规模: L大 M中 S小 T微\n")
 	if th.HasThresholds() {
@@ -32,7 +32,7 @@ func TestEScaleNoThresholds(t *testing.T) {
 	}
 }
 
-// TestEScaleMatrix 判定矩阵: 错配告警/命中放行/边界重叠宽容/非标降级。
+// TestEScaleMatrix, the judgement matrix: mismatch warns / hit passes / boundary overlap tolerated / non-standard downgraded.
 func TestEScaleMatrix(t *testing.T) {
 	th := ExtractEScaleThresholds(escaleHeader)
 	if !th.HasThresholds() {
@@ -43,7 +43,7 @@ func TestEScaleMatrix(t *testing.T) {
 		line     string
 		lines    int
 		wantWarn bool
-		wantIn   string // 告警消息应含的期望档位串
+		wantIn   string // the expected band string the warning message must hold
 	}{
 		{"306行标L应为M", mkEScaleEntry("L"), 306, true, "应为M"},
 		{"306行标M合规", mkEScaleEntry("M"), 306, false, ""},
@@ -75,29 +75,29 @@ func TestEScaleMatrix(t *testing.T) {
 	}
 }
 
-// TestEScaleGapAndInclusive 空隙保守 + >=/<= 含界形态。
+// TestEScaleGapAndInclusive: conservative on gaps, plus the >=/<= inclusive forms.
 func TestEScaleGapAndInclusive(t *testing.T) {
 	th := ExtractEScaleThresholds("#E规模: L>=400 T<=100\n")
 	if !th.HasThresholds() {
 		t.Fatal(">=/<= 形态应产出阈值")
 	}
-	// 400 含于 L(>=),100 含于 T(<=)
+	// 400 is inside L (>=), 100 is inside T (<=)
 	if v := CheckEScale(mkEScaleEntry("L"), 400, th); v != nil {
 		t.Fatalf(">=400 应含 400 行: %+v", v)
 	}
 	if v := CheckEScale(mkEScaleEntry("T"), 100, th); v != nil {
 		t.Fatalf("<=100 应含 100 行: %+v", v)
 	}
-	// 250 行落入 101-399 空隙: 任何标注都不告警(不越权裁决字典完备性)
+	// 250 lines fall into the 101-399 gap: no tag warns (no overreach in judging dictionary completeness)
 	if v := CheckEScale(mkEScaleEntry("T"), 250, th); v != nil {
 		t.Fatalf("字典空隙应保守跳过: %+v", v)
 	}
 }
 
-// TestEScaleLineFormsTolerance P-22 行识别容错矩阵: 行识别改走 parseDictLine
-// 单点后,#后空格/全角冒号/维名夹注/全角比较符/括号内阈值五种实弹级变体
-// 形态均须可提取 —— 任一回归即行识别第二份逻辑复活或单点被削弱。
-// 判定语义经 CheckEScale 行为断言(ranges 非导出,黑盒验证)。
+// TestEScaleLineFormsTolerance, the P-22 line-recognition tolerance matrix: after line recognition moved to the single parseDictLine,
+// the five live-grade variants (a space after #, a full-width colon, a note on the dimension name, a full-width comparison operator, a threshold inside
+// parentheses) must all extract; any regression means a second copy of line recognition revived or the single point was weakened.
+// The judgement semantics are asserted through CheckEScale behaviour (ranges is unexported, so black-box verification).
 func TestEScaleLineFormsTolerance(t *testing.T) {
 	forms := []struct {
 		name   string
@@ -117,11 +117,11 @@ func TestEScaleLineFormsTolerance(t *testing.T) {
 		if !th.HasThresholds() {
 			t.Fatalf("%s: 应产出阈值", f.name)
 		}
-		// 500 行标 L 合规(>400 含 500)
+		// 500 lines tagged L conforms (>400 holds 500)
 		if v := CheckEScale(mkEScaleEntry("L"), 500, th); v != nil {
 			t.Fatalf("%s: 500行标L应合规: %+v", f.name, v)
 		}
-		// 50 行标 L 告警且期望档含 T(<100 含 50)
+		// 50 lines tagged L warns and the expected band holds T (<100 holds 50)
 		v := CheckEScale(mkEScaleEntry("L"), 50, th)
 		if v == nil {
 			t.Fatalf("%s: 50行标L应告警", f.name)
@@ -132,11 +132,11 @@ func TestEScaleLineFormsTolerance(t *testing.T) {
 	}
 }
 
-// TestEScaleSawLineTriState R51 跳过可见三态: 无行 / 有行无阈值 / 有行有阈值。
-// "行在场但不可解析"与"行不存在"必须可区分 —— 上层分型文案(D97 同款)的
-// 判据基础,静默合并两态即假绿家族病灶复活。
+// TestEScaleSawLineTriState, the R51 visible-skip three states: no line / a line without thresholds / a line with thresholds.
+// "A line present but unparseable" and "no line" must be distinguishable; that is the basis of the upper layer's typed wording (the D97 kind),
+// and silently merging the two states revives the false-green family of defects.
 func TestEScaleSawLineTriState(t *testing.T) {
-	// 态一: 头部无 E规模 行
+	// State one: no E规模 line in the header
 	th := ExtractEScaleThresholds("#【系统】x\n#A层级: I索引核心\n")
 	if th.SawEScaleLine() {
 		t.Fatal("无 E规模 行不应置 sawLine")
@@ -144,7 +144,7 @@ func TestEScaleSawLineTriState(t *testing.T) {
 	if th.HasThresholds() {
 		t.Fatal("无 E规模 行不应产出阈值")
 	}
-	// 态二: 行在场但无数字阈值(骨架占位)
+	// State two: the line is present but holds no numeric threshold (skeleton placeholder)
 	th = ExtractEScaleThresholds("#E规模: L大 M中 S小 T微\n")
 	if !th.SawEScaleLine() {
 		t.Fatal("骨架占位形态应置 sawLine(行在场)")
@@ -152,12 +152,12 @@ func TestEScaleSawLineTriState(t *testing.T) {
 	if th.HasThresholds() {
 		t.Fatal("骨架占位形态不应产出阈值")
 	}
-	// 态三: 行在场且阈值可提取
+	// State three: the line is present and the thresholds extract
 	th = ExtractEScaleThresholds(escaleHeader)
 	if !th.SawEScaleLine() || !th.HasThresholds() {
 		t.Fatal("本仓形态应同时具备 sawLine 与阈值")
 	}
-	// nil 接收者安全
+	// nil receiver safety
 	var nilTh *EScaleThresholds
 	if nilTh.SawEScaleLine() || nilTh.HasThresholds() {
 		t.Fatal("nil 阈值表两判据均应为 false")

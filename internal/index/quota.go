@@ -1,43 +1,43 @@
-// S 字段 C 配额检查: 按条目 C 重要度核对 S 内容字数上限(Warning 级)
-// 索引条目: quota.go[IVL8S]
+// S field C-quota check: checks the S content length against the limit for the entry's C importance (Warning level)
+// Index entry: quota.go[IVL8S]
 //
-// 配额来源两层(2026-07-13 操作者裁决,与 E 阈值归属裁决同哲学):
-// 仓库头部 "#S配额:" 声明优先(用户自定义),未声明的 C 档回退机器合同默认值;
-// 缺口补默认而非跳过。默认数值由 internal/machinecontract 单点提供。
+// Two-layer quota source (the 2026-07-13 operator decision, the same philosophy as the E-threshold ownership):
+// the repository header's "#S配额:" declaration wins (user-defined), and an undeclared C band falls back to the
+// machine-contract default; gaps are filled with defaults rather than skipped. The default numbers come from the single internal/machinecontract source.
 //
-// 头部声明形态: #S配额: C9-8≤N C7-4≤N C3-1≤N
-// 行识别经 parseDictLine 单点(dict.go,P-21/P-22 同款三形态容错: #后空格/
-// 全角冒号/维名括号夹注),绝不自持第二份行识别逻辑;字段词容忍 C9-C8 双C
-// 写法/单档 C5≤100/全角≤＜＝归一/数字后"字"等汉字后缀天然截止/<N 视 ≤N-1;
-// 同一 C 档重复声明后者覆盖前者(逐C写入);形态之外的词跳过不猜。
+// Header declaration form: #S配额: C9-8≤N C7-4≤N C3-1≤N
+// Line recognition goes through the single parseDictLine (dict.go, the same three-form tolerance as P-21/P-22: a
+// space after #, a full-width colon, a parenthesized note on the dimension name) and never holds a second copy;
+// a field word tolerates the C9-C8 double-C spelling, a single band C5≤100, full-width ≤＜＝ normalized, a Chinese
+// suffix such as "字" ending the number naturally, and <N read as ≤N-1; a C band declared twice takes the later value (written per C); a word outside these forms is skipped rather than guessed.
 //
-// 跳过可见(R51/14.6): SawSQuotaLine 区分三态 —— 无声明行(用默认,正常态) /
-// 行在场但字段全部不可解析(仍用默认兜底,上层可分型提示"声明在场但机器
-// 不可解析",D97 同款) / 行在场且可提取(用声明值)。声明不可解析绝不静默
-// 当作无声明 —— 上层分型文案接线随 score.go 等调用方现读后落地。
+// Visible skips (R51/14.6): SawSQuotaLine tells three states apart: no declaration line (defaults, the normal
+// state) / a line present with no parseable field (defaults still apply, and the upper layer can say "a
+// declaration is present but the machine cannot parse it", the D97 typing) / a line present and extractable (the
+// declared values apply). An unparseable declaration is never silently treated as absent; the upper-layer wording lands as score.go and the other callers are next read.
 //
-// 设立动机: 超配额 S 是索引腐烂的复现机制之一 —— 策展人(人或模型)在
-// "内容都重要"的冲动下超写,无机器闸时只能靠自觉;prompt 层已把配额教给
-// 模型,本函数把同一规则变成机器可执行的检查,承诺与闸门对齐。
+// Motivation: an over-quota S is one of the ways an index rots; a curator (human or model) overwrites under the
+// urge that "everything matters", and without a machine gate only self-discipline holds. The prompt layer already
+// teaches the model the quota; this function makes the same rule a machine-executable check, so the promise and the gate agree.
 //
-// 级别取 Warning 而非 Error: 配额是策展纪律不是结构约束 —— 硬拒会把
-// 既有超配额存量条目的一切回写全部堵死(修别的字段也过不去),警告放行
-// 让人看见债务并保留裁决权,与 ValidateEntryLine 演进叙事警告同策略。
+// Level Warning rather than Error: the quota is curation discipline, not a structural constraint; a hard refusal
+// would block every write to an existing over-quota entry (even a change to another field), while a warning lets
+// the person see the debt and keeps the decision with them, the same policy as the ValidateEntryLine evolution-narrative warning.
 //
-// C 值提取刻意自包含不调 ParseTags: 只依赖字典的锚点铁律"B 与 D 禁用
-// 数字,标签中首个数字即 C"(紧凑与点分两形态同样成立),该铁律比任何
-// 解析实现都稳定;C 为单字符 1-9,取首个数字字符即可。
+// C extraction is deliberately self-contained and does not call ParseTags: it relies only on the dictionary's anchor
+// rule "B and D use no digits, so the first digit in a tag is C" (which holds for the compact and the dotted form
+// alike), a rule more stable than any parsing implementation; C is one character 1-9, so the first digit character suffices.
 //
-// 兼容契约: CheckSQuota(line) 保持原签名原语义(等价于阈值表为 nil 走
-// 默认配额),既有调用方(validator.go 等)行为零变化;头部声明的生效依赖
-// 调用方迁移到 CheckSQuotaWith 并传入 ExtractSQuotaThresholds 结果,
-// 迁移逐调用方现读后进行(R50)。
+// Compatibility contract: CheckSQuota(line) keeps its signature and semantics (equivalent to a nil threshold table
+// taking the default quotas), so existing callers (validator.go and the others) change nothing; the header
+// declaration takes effect only once a caller moves to CheckSQuotaWith and passes the ExtractSQuotaThresholds
+// result, caller by caller as each is next read (R50).
 //
-// internal/cognition 已于 rc6 迁入本文件: objects.go 曾自持第四份配额判定
-// (直接调 machinecontract.DefaultSQuotaForC 且对头部声明视而不见),于是
-// "系统告诉模型的上限"与"写入路径拒绝的上限"可以不同 —— 声明放宽的仓库
-// 被告知 500 却在 200 处硬拒,且没有任何编辑能解除。该路径现经 LimitForC
-// 单点取值,绝不在本文件之外重建第二份 C 档取值逻辑。
+// internal/cognition moved into this file in rc6: objects.go used to hold a fourth copy of the quota judgement
+// (calling machinecontract.DefaultSQuotaForC directly and blind to the header declaration), so "the limit the
+// system told the model" and "the limit the write path refused at" could differ: a repository that had relaxed its
+// declaration was told 500 and refused at 200, and no edit could clear it. That path now takes its value from
+// the single LimitForC, and no second C-band lookup is ever rebuilt outside this file.
 package index
 
 import (
@@ -48,12 +48,12 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// SQuotaThresholds 头部提取的 S 配额表(键=C 重要度 1-9,值=字数上限)
+// SQuotaThresholds is the S quota table extracted from the header (key = C importance 1-9, value = character limit)
 type SQuotaThresholds struct {
 	quotas  map[int]int
-	sawLine bool // S配额行是否在场(含在场但不可解析形态,R51 跳过可见分型用)
-	// unrecognizedName 记录"维名写法本解析器不接受"的原样拼写。它只进诊断,
-	// 绝不参与取值 —— 该行今天怎么解析,加上本字段后仍然怎么解析。
+	sawLine bool // whether the S配额 line was present (including the present-but-unparseable form, for the R51 visible-skip typing)
+	// unrecognizedName records the spelling of a dimension name this parser does not accept, as written. It serves
+	// diagnostics only and never takes part in a value: the line parses today exactly as it did before this field.
 	unrecognizedName string
 }
 
@@ -68,24 +68,24 @@ func (t *SQuotaThresholds) UnrecognizedName() string {
 	return t.unrecognizedName
 }
 
-// HasQuotas 判断配额表是否含至少一个可用声明。
+// HasQuotas reports whether the table holds at least one usable declaration.
 func (t *SQuotaThresholds) HasQuotas() bool {
 	return t != nil && len(t.quotas) > 0
 }
 
-// SawSQuotaLine 判断头部是否存在被识别为 S配额 的字典行(无论字段提取是否成功)。
-// 与 HasQuotas 组合出三态: 无行(默认,正常) / 有行无声明(在场但机器不可
-// 解析,上层应点名而非静默用默认) / 有行有声明(自定义生效)。
+// SawSQuotaLine reports whether the header holds a dictionary line recognized as S配额 (whether or not field extraction succeeded).
+// Combined with HasQuotas it yields three states: no line (defaults, normal) / a line without declarations (present
+// but machine-unparseable, which the upper layer should name rather than silently default) / a line with declarations (the custom values apply).
 func (t *SQuotaThresholds) SawSQuotaLine() bool {
 	return t != nil && t.sawLine
 }
 
-// sQuotaFullWidth 配额字段符号归一: ≤ 统一为 <=,全角＜＝归半角。
-// 全角数字不归一(无实弹样本,不过度猜测形态)。
+// sQuotaFullWidth normalizes the quota field operators: ≤ becomes <=, and full-width ＜＝ become half-width.
+// Full-width digits are not normalized (no live sample, no guessing of forms).
 var sQuotaFullWidth = strings.NewReplacer("≤", "<=", "＜", "<", "＝", "=")
 
-// quotaForC 两层取值: 头部声明含该 C 档即用声明值(custom=true),
-// 否则回退 spec 默认(缺口补默认,操作者裁决语义)。
+// quotaForC is the two-layer lookup: a header declaration for the C band is used (custom=true),
+// otherwise the spec default applies (gaps filled with defaults, the operator-decision semantics).
 func quotaForC(c int, th *SQuotaThresholds) (quota int, custom bool) {
 	if th.HasQuotas() {
 		if q, ok := th.quotas[c]; ok {
@@ -119,9 +119,9 @@ func (t *SQuotaThresholds) LimitForC(c int) (limit int, declared bool) {
 	return quota, custom
 }
 
-// ExtractSQuotaThresholds 从头部文本提取 S 配额声明。
-// 行识别经 parseDictLine 单点(维名 S配额,三形态容错);内容按空白分词逐词
-// 解析,不可解析的词跳过(该行仍置 sawLine 供分型)。
+// ExtractSQuotaThresholds extracts the S quota declaration from the header text.
+// Line recognition goes through the single parseDictLine (dimension S配额, three-form tolerance); the content is split
+// on whitespace and parsed word by word, and an unparseable word is skipped (the line still sets sawLine for the typing).
 func ExtractSQuotaThresholds(headerText string) *SQuotaThresholds {
 	t := &SQuotaThresholds{quotas: map[int]int{}}
 	for _, line := range strings.Split(headerText, "\n") {
@@ -185,9 +185,9 @@ func EffectiveSQuotaContract(headerText string) string {
 	return strings.Join(parts, " ")
 }
 
-// parseSQuotaField 解析单个配额词: C9-8≤N / C9-C8≤N / C5≤N / C3-1≤N字。
-// C 值域 1-9(域外拒);区间两端自动排序(9-8 与 8-9 等价);比较符认 ≤(归一
-// 为<=)/<=/=,裸 < 视 ≤N-1;数字后非数字字符(如"字")天然截止;配额须为正。
+// parseSQuotaField parses one quota word: C9-8≤N / C9-C8≤N / C5≤N / C3-1≤N字.
+// C ranges over 1-9 (outside is refused); the two ends of a range are sorted (9-8 equals 8-9); the operators ≤
+// (normalized to <=), <=, and = are accepted, a bare < reads as ≤N-1; a non-digit after the number (such as "字") ends it naturally; the quota must be positive.
 func parseSQuotaField(word string) (cmin, cmax, quota int, ok bool) {
 	w := sQuotaFullWidth.Replace(word)
 	if !strings.HasPrefix(w, "C") {
@@ -213,7 +213,7 @@ func parseSQuotaField(word string) (cmin, cmax, quota int, ok bool) {
 		rest = rest[len("="):]
 	case strings.HasPrefix(rest, "<"):
 		rest = rest[len("<"):]
-		strict = true // <N 语义为 ≤N-1
+		strict = true // <N means ≤N-1
 	default:
 		return 0, 0, 0, false
 	}
@@ -233,24 +233,24 @@ func parseSQuotaField(word string) (cmin, cmax, quota int, ok bool) {
 	return c1, c2, q, true
 }
 
-// extractCFromTags 从标签串提取 C 重要度: 首个数字字符即 C(字典锚点铁律)。
-// 无数字返回 0(非标标签,与 ParseTags 降级策略一致 —— 不做配额判定)。
+// extractCFromTags extracts the C importance from the tag string: the first digit character is C (the dictionary anchor rule).
+// No digit returns 0 (a non-standard tag, matching ParseTags's downgrade policy: no quota judgement).
 func extractCFromTags(tags string) int {
 	for _, r := range tags {
 		if r >= '1' && r <= '9' {
 			return int(r - '0')
 		}
 		if r == '0' {
-			return 0 // C 取值域 1-9,出现 0 视非标
+			return 0 // C ranges over 1-9; a 0 reads as non-standard
 		}
 	}
 	return 0
 }
 
-// sContentLength 统计条目行中 S 段内容总字数(rune 计):
-// 以 " | " 切段,前缀为 S:/S1:/S2:/S3: 的段计入(与 splitFRAS 的 S 变体
-// 合并语义一致);多个 S 变体段字数累加;前缀本身与占位 "-" 均计入内容
-// (占位仅 1 字对配额无实际影响,不为它做特判保持函数简单)。
+// sContentLength counts the total characters (runes) of the S segments of an entry line:
+// the line is split on " | " and the segments prefixed S:/S1:/S2:/S3: count (matching the S-variant merge of
+// splitFRAS); several S variant segments add up; the prefix itself and the "-" placeholder count as content
+// (the placeholder is one character with no real effect on the quota, and no special case keeps the function simple).
 func sContentLength(line string) int {
 	total := 0
 	for _, seg := range strings.Split(line, " | ") {
@@ -262,7 +262,7 @@ func sContentLength(line string) int {
 	return total
 }
 
-// cutSPrefix 判断段是否为 S 段(S: 或 S 后跟单个数字再冒号),是则返回内容。
+// cutSPrefix reports whether a segment is an S segment (S: or S followed by one digit and a colon) and returns its content.
 func cutSPrefix(seg string) (string, bool) {
 	if strings.HasPrefix(seg, "S:") {
 		return seg[len("S:"):], true
@@ -273,20 +273,20 @@ func cutSPrefix(seg string) (string, bool) {
 	return "", false
 }
 
-// CheckSQuotaWith 对单条条目行按给定配额表做 S 字段配额检查。
-// th 为 nil 或无声明时全档走 spec 默认;声明命中该 C 档时用声明值并在
-// 文案注明来源(写入者可区分默认纪律与仓库自定裁决)。
-// 返回 nil 表示无违规或不可判定(无标签结构/标签无 C —— 结构问题归
-// ValidateEntryLine,本函数不重复报);超配额返回 Warning 级 Violation。
+// CheckSQuotaWith checks one entry line's S field against the given quota table.
+// A nil th, or one without declarations, takes the spec defaults for every band; a declaration for the C band is
+// used and the wording names its source (so the writer can tell default discipline from the repository's own decision).
+// nil means no violation or undecidable (no tag structure / no C in the tag; structure belongs to ValidateEntryLine
+// and is not reported twice); over quota returns a Warning-level Violation.
 func CheckSQuotaWith(line string, th *SQuotaThresholds) *Violation {
-	// 提取 [tags]: 结构 —— 与条目词法同源(EntryTagSpan), 文件名里的 [ 不会被当成标签
+	// Extract the [tags]: structure with the entry lexer (EntryTagSpan), so a [ inside the filename is not taken for a tag
 	_, tagStart, tagEnd, ok := EntryTagSpan(line)
 	if !ok {
 		return nil
 	}
 	c := extractCFromTags(line[tagStart:tagEnd])
 	if c == 0 {
-		return nil // 非标标签降级,不做配额判定
+		return nil // a non-standard tag is downgraded, no quota judgement
 	}
 	quota, custom := quotaForC(c, th)
 	got := sContentLength(line)
@@ -304,8 +304,8 @@ func CheckSQuotaWith(line string, th *SQuotaThresholds) *Violation {
 	}
 }
 
-// CheckSQuota 对单条条目行按 spec 默认配额做检查(兼容入口,语义与
-// CheckSQuotaWith(line, nil) 等价;既有调用方零迁移成本)。
+// CheckSQuota checks one entry line against the spec default quotas (the compatibility entry, equivalent to
+// CheckSQuotaWith(line, nil); existing callers migrate at no cost).
 func CheckSQuota(line string) *Violation {
 	return CheckSQuotaWith(line, nil)
 }

@@ -1,7 +1,7 @@
-// R字段单条形式提示测试。
+// Single-entry form hint tests for the R field.
 //
-// 这些用例的共同前提: 机器不核对R指向谁。曾经这里检查过目标是否存在、是否
-// 符号链接、是否重复、是否自引用 —— 那些都是程序在替模型建立关系, 已经拆除。
+// The shared premise of these cases: the machine does not check who R points at. This place once checked whether the target existed, was a
+// symbolic link, was duplicated, or was a self-reference; all of that was the program building relations on the model's behalf, and it has been torn out.
 package index
 
 import (
@@ -39,8 +39,8 @@ func requireRelationWarningContaining(
 	)
 }
 
-// 只要这一行读得通, 目标写什么都不产生提示: 不存在的文件、尚未创作的对象、
-// 外部系统、同名多义的东西, 全是模型的语义自由。
+// As long as the line reads, whatever the target says produces no hint: a file that does not exist, an object not yet authored,
+// an external system, something ambiguous by name, all of it is the model's semantic freedom.
 func TestValidateEntryRelationsNeverJudgesWhatATargetPointsAt(
 	t *testing.T,
 ) {
@@ -80,7 +80,7 @@ func TestValidateEntryRelationsNeverJudgesWhatATargetPointsAt(
 	}
 }
 
-// 保留的只有"这一行本身读不通"的提示, 而且永远只是Warning。
+// The only hint kept is "this line itself does not read", and it is always just a Warning.
 func TestValidateEntryRelationsWarnsOnSingleLineFormWithoutBlocking(
 	t *testing.T,
 ) {
@@ -115,7 +115,7 @@ func TestValidateEntryRelationsWarnsOnSingleLineFormWithoutBlocking(
 	}
 }
 
-// 单条能产生的提示有上限, 异常候选不会刷屏。
+// One entry can produce only so many hints, so an abnormal candidate does not flood the output.
 func TestValidateEntryRelationsBoundsReportedTargets(
 	t *testing.T,
 ) {

@@ -1,18 +1,18 @@
-// E规模参与路径判据。
+// Path criterion for E-scale participation.
 //
-// E规模描述静态源码或文本实体的实现规模，不描述AOCI治理资产自身的长度。
+// E scale describes the implementation size of a static source or text entity, not the length of AOCI's own governance assets.
 //
-// 两类AOCI治理资产不参与E规模判定:
+// Two kinds of AOCI governance asset never take part in the E-scale judgement:
 //
-//   - 仓库根.aoci目录内的Ledger、Draft、锁、配置和审计资产；
-//   - 仓库根aoci.txt索引本体。
+//   - the Ledger, Draft, lock, configuration, and audit assets inside the repository root's .aoci directory;
+//   - the aoci.txt index body at the repository root.
 //
-// .aoci资产行数反映治理历史长度；aoci.txt行数会随条目数量自然增长。
-// 若索引本体参与E档位检查，会形成“更新索引→索引跨档→再次更新索引”的
-// 自指循环，因此必须由共享路径判据统一排除。
+// The line count of a .aoci asset reflects the length of governance history; the line count of aoci.txt grows naturally with the entry count.
+// If the index body took part in the E-band check, it would form the self-referential loop "update the index → the index crosses a band → update the index again",
+// so the shared path criterion must exclude it in one place.
 //
-// 本文件是路径参与判据的唯一事实源。Score、单条回写、原子批量回写和
-// Entries Check不得各自复制“.aoci/”或“aoci.txt”判断。
+// This file is the single source of truth for path participation. Score, single-entry write-back, atomic batch write-back, and
+// Entries Check must not each copy their own ".aoci/" or "aoci.txt" judgement.
 package index
 
 import (
@@ -20,22 +20,22 @@ import (
 	"strings"
 )
 
-// ShouldCheckEScalePath判断仓库相对路径是否应参与E规模校验。
+// ShouldCheckEScalePath reports whether a repository-relative path should take part in E-scale validation.
 //
-// 输入通常已经过安全相对路径归一；本函数仍同时兼容正反斜杠和若干层“./”，
-// 以保证Linux进程处理Windows形态字符串时同判。
+// The input has usually been normalized as a safe relative path already; this function still accepts both slash directions and several "./" layers,
+// so a Linux process judges a Windows-shaped string the same way.
 //
-// 返回false:
-//   - 空路径或当前目录；
-//   - 仓库根.aoci目录本身及其任意子路径；
-//   - 仓库根aoci.txt索引本体。
+// Returns false for:
+//   - an empty path or the current directory;
+//   - the repository root's .aoci directory itself and any path below it;
+//   - the aoci.txt index body at the repository root.
 //
-// 返回true:
-//   - .aoci2等同名前缀目录；
-//   - nested/.aoci等非根部同名目录；
-//   - nested/aoci.txt等非根部同名文件；
-//   - aoci.txt.backup等相似名称；
-//   - 普通仓库文件。
+// Returns true for:
+//   - same-prefix directories such as .aoci2;
+//   - same-named non-root directories such as nested/.aoci;
+//   - same-named non-root files such as nested/aoci.txt;
+//   - similar names such as aoci.txt.backup;
+//   - ordinary repository files.
 func ShouldCheckEScalePath(
 	rel string,
 ) bool {
@@ -59,10 +59,10 @@ func ShouldCheckEScalePath(
 		)
 }
 
-// normalizeEScalePath把路径归一为仓库相对正斜杠形态。
+// normalizeEScalePath normalizes a path to the repository-relative forward-slash form.
 //
-// filepath.ToSlash只转换当前操作系统定义的Separator；Linux下反斜杠是普通
-// 字符，因此仍须显式替换，保证Windows形态字符串在Linux测试中同判。
+// filepath.ToSlash converts only the Separator the current operating system defines; on Linux a backslash is an ordinary
+// character, so it must still be replaced explicitly for a Windows-shaped string to be judged the same way in Linux tests.
 func normalizeEScalePath(
 	rel string,
 ) string {

@@ -1,4 +1,4 @@
-// 索引迁移后的新目录段写入必须复用既有历史根，不能注入运行时个人路径。
+// A new directory section written after an index migration must reuse the existing historical root and never inject the runtime personal path.
 package index
 
 import (
@@ -28,7 +28,7 @@ func TestInsertEntryReusesHistoricalRootAfterRepositoryRelocation(t *testing.T) 
 		t.Fatalf("新目录段必须复用既有历史根:\n%s", out)
 	}
 
-	// 再迁移到完全不同的新克隆路径，全部旧条目和新增条目仍须可解析。
+	// Migrate again to an entirely different clone path; every old entry and the added entries must still resolve.
 	doc, warnings := Parse(out)
 	if len(warnings) != 0 {
 		t.Fatalf("输出索引不应产生解析告警: %+v", warnings)

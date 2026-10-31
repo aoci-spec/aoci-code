@@ -1,5 +1,5 @@
-// S 字段 C 配额检查表驱动测试(默认配额 + P-22 头部自定义声明 + R51 三态)
-// 索引条目: quota_test.go(待补录)
+// Table-driven tests for the S field C-quota check (default quotas + P-22 header custom declarations + the R51 three states)
+// Index entry: quota_test.go (to be recorded)
 package index
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// mkEntry 构造指定 S 字数(全中文字符,每字 1 rune 3 字节,兼验 rune 计数)的条目行
+// mkEntry builds an entry line with the given S character count (all Chinese characters, one rune of three bytes each, which also verifies rune counting)
 func mkEntry(tags string, sRunes int) string {
 	return "f.go[" + tags + "]: F:x | R:- | A:- | S:" + strings.Repeat("字", sRunes)
 }
@@ -48,7 +48,7 @@ func TestCheckSQuotaBoundaries(t *testing.T) {
 }
 
 func TestCheckSQuotaDotFormTags(t *testing.T) {
-	// 点分形态: 首个数字仍是 C(B/D 禁数字锚点两形态同样成立)
+	// Dotted form: the first digit is still C (the B/D no-digit anchor holds for both forms)
 	if v := CheckSQuota(mkEntry("I.IX.3.T", machinecontract.SQuotaLowRunes+1)); v == nil {
 		t.Fatal("点分标签 C3 超配额应告警")
 	}
@@ -58,7 +58,7 @@ func TestCheckSQuotaDotFormTags(t *testing.T) {
 }
 
 func TestCheckSQuotaSVariantsSummed(t *testing.T) {
-	// S1+S2 变体字数累加: 各 30 字合计 60 超 C3 配额 50
+	// S1+S2 variant counts add up: 30 characters each, 60 in total, over the C3 quota of 50
 	line := "f.go[XGI3T]: F:x | R:- | A:- | S1:" + strings.Repeat("甲", 30) + " | S2:" + strings.Repeat("乙", 30)
 	if v := CheckSQuota(line); v == nil {
 		t.Fatal("S 变体合计超配额应告警")
@@ -66,7 +66,7 @@ func TestCheckSQuotaSVariantsSummed(t *testing.T) {
 }
 
 func TestCheckSQuotaUnjudgeable(t *testing.T) {
-	// 无标签结构/标签无数字(非标降级)/占位 S 均不告警
+	// No tag structure / a tag without digits (non-standard downgrade) / a placeholder S never warn
 	for _, line := range []string{
 		"没有标签结构的行",
 		"f.go[ABCT]: F:x | R:- | A:- | S:" + strings.Repeat("字", 999),
@@ -79,16 +79,16 @@ func TestCheckSQuotaUnjudgeable(t *testing.T) {
 }
 
 func TestCheckSQuotaFRANotCounted(t *testing.T) {
-	// F/R/A 超长不计入 S 配额
+	// Over-long F/R/A do not count toward the S quota
 	line := "f.go[XGI3T]: F:" + strings.Repeat("功", 300) + " | R:- | A:- | S:短"
 	if v := CheckSQuota(line); v != nil {
 		t.Fatalf("F 段字数不应计入 S 配额: %v", v.Msg)
 	}
 }
 
-// TestSQuotaExtractForms P-22 声明形态矩阵: 标准形态与五种实弹级变体
-// (全角≤/单档/双C区间/字后缀/维名夹注)均须可提取且判定语义正确。
-// quotas 非导出,经 CheckSQuotaWith 行为黑盒断言。
+// TestSQuotaExtractForms, the P-22 declaration form matrix: the standard form and five live-grade variants
+// (full-width ≤ / a single band / a double-C range / a suffix after the number / a note on the dimension name) must all extract with correct judgement semantics.
+// quotas is unexported, so the assertions are black-box through CheckSQuotaWith behaviour.
 func TestSQuotaExtractForms(t *testing.T) {
 	forms := []struct {
 		name   string
@@ -109,7 +109,7 @@ func TestSQuotaExtractForms(t *testing.T) {
 		if !th.HasQuotas() {
 			t.Fatalf("%s: 应产出配额声明", f.name)
 		}
-		// C9 声明上限 100: 恰 100 放行,101 告警且文案注明声明来源
+		// C9 declared limit 100: exactly 100 passes, 101 warns with wording naming the declaration source
 		if v := CheckSQuotaWith(mkEntry("IC9T", 100), th); v != nil {
 			t.Fatalf("%s: C9 恰声明上限应放行: %v", f.name, v.Msg)
 		}
@@ -120,14 +120,14 @@ func TestSQuotaExtractForms(t *testing.T) {
 		if !strings.Contains(v.Msg, "S配额声明") {
 			t.Fatalf("%s: 自定义配额告警应注明声明来源: %s", f.name, v.Msg)
 		}
-		// C3 声明上限 30: 31 告警(默认为 50,声明收紧生效的判决断言)
+		// C3 declared limit 30: 31 warns (the default is 50; the assertion proves the tightened declaration takes effect)
 		if v := CheckSQuotaWith(mkEntry("XGI3T", 31), th); v == nil {
 			t.Fatalf("%s: C3 超声明上限 30 应告警(默认 50 下不会告警,声明未生效)", f.name)
 		}
 	}
 }
 
-// TestSQuotaStrictLess <N 语义为 ≤N-1: 声明 C3<50 时 49 放行 50 告警。
+// TestSQuotaStrictLess: <N means ≤N-1; with C3<50 declared, 49 passes and 50 warns.
 func TestSQuotaStrictLess(t *testing.T) {
 	th := ExtractSQuotaThresholds("#S配额: C3<50\n")
 	if !th.HasQuotas() {
@@ -141,8 +141,8 @@ func TestSQuotaStrictLess(t *testing.T) {
 	}
 }
 
-// TestSQuotaGapFillDefault 缺口补默认(操作者裁决): 只声明 C9-8 时,
-// 未声明的 C3 档走机器合同默认值且文案不带声明来源。
+// TestSQuotaGapFillDefault, gaps filled with defaults (the operator decision): when only C9-8 is declared,
+// the undeclared C3 band takes the machine-contract default and the wording carries no declaration source.
 func TestSQuotaGapFillDefault(t *testing.T) {
 	th := ExtractSQuotaThresholds("#S配额: C9-8≤100\n")
 	if !th.HasQuotas() {
@@ -166,11 +166,11 @@ func TestSQuotaGapFillDefault(t *testing.T) {
 	}
 }
 
-// TestSQuotaSawLineTriState R51 跳过可见三态: 无行 / 有行无声明 / 有行有声明。
-// "声明在场但机器不可解析"与"根本没声明"必须可区分 —— 上层分型文案
-// (D97 同款)的判据基础,静默合并两态即假绿家族病灶复活。
+// TestSQuotaSawLineTriState, the R51 visible-skip three states: no line / a line without declarations / a line with declarations.
+// "A declaration present but unparseable by the machine" and "no declaration at all" must be distinguishable; that is the basis of the upper layer's typed wording
+// (the D97 kind), and silently merging the two states revives the false-green family of defects.
 func TestSQuotaSawLineTriState(t *testing.T) {
-	// 态一: 头部无 S配额 行
+	// State one: no S配额 line in the header
 	th := ExtractSQuotaThresholds("#【系统】x\n#A层级: I索引核心\n")
 	if th.SawSQuotaLine() {
 		t.Fatal("无 S配额 行不应置 sawLine")
@@ -178,7 +178,7 @@ func TestSQuotaSawLineTriState(t *testing.T) {
 	if th.HasQuotas() {
 		t.Fatal("无 S配额 行不应产出声明")
 	}
-	// 态二: 行在场但字段全部不可解析(自然语言形态)
+	// State two: the line is present but no field parses (natural-language form)
 	th = ExtractSQuotaThresholds("#S配额: 高档六百字 低档五十字\n")
 	if !th.SawSQuotaLine() {
 		t.Fatal("不可解析形态应置 sawLine(行在场)")
@@ -186,21 +186,21 @@ func TestSQuotaSawLineTriState(t *testing.T) {
 	if th.HasQuotas() {
 		t.Fatal("不可解析形态不应产出声明")
 	}
-	// 此态下判定回退默认(兜底不静默失效)。
+	// In this state the judgement falls back to the defaults (the fallback never fails silently).
 	if v := CheckSQuotaWith(
 		mkEntry("IC9T", machinecontract.SQuotaHighRunes+1),
 		th,
 	); v == nil {
 		t.Fatal("声明不可解析时应回退默认配额兜底")
 	}
-	// 态三: 行在场且可提取
+	// State three: the line is present and extracts
 	th = ExtractSQuotaThresholds(
 		"#S配额: " + machinecontract.NumericText().SQuotaDefaultCompact + "\n",
 	)
 	if !th.SawSQuotaLine() || !th.HasQuotas() {
 		t.Fatal("标准形态应同时具备 sawLine 与声明")
 	}
-	// nil 接收者安全 + nil 与默认等价
+	// nil receiver safety, and nil is equivalent to the defaults
 	var nilTh *SQuotaThresholds
 	if nilTh.SawSQuotaLine() || nilTh.HasQuotas() {
 		t.Fatal("nil 配额表两判据均应为 false")
@@ -213,7 +213,7 @@ func TestSQuotaSawLineTriState(t *testing.T) {
 	}
 }
 
-// TestSQuotaOverrideOrder 同档重复声明后者覆盖前者(逐C写入语义)。
+// TestSQuotaOverrideOrder: a band declared twice takes the later value (written per C).
 func TestSQuotaOverrideOrder(t *testing.T) {
 	th := ExtractSQuotaThresholds("#S配额: C9≤100 C9≤300\n")
 	if v := CheckSQuotaWith(mkEntry("IC9T", 300), th); v != nil {

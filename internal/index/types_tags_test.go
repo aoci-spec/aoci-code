@@ -1,9 +1,9 @@
-// 逗号标签裁决差分用例(操作者裁决 2026-07-13: 非标降级)
-// 索引条目待补: types_tags_test.go
+// Differential cases for the comma-tag decision (operator decision 2026-07-13: non-standard downgrade)
+// Index entry pending: types_tags_test.go
 //
-// 独立成文缘由: ParseTags 既有测试散在 parser_test.go,本批次未现读该文件,
-// 按协作纪律(未现读的文件不改)新建本文件承载裁决用例;用例聚焦裁决语义
-// 本身,不与既有形态用例重复。
+// Why a separate file: the existing ParseTags tests are scattered in parser_test.go, which this batch had not read;
+// under the collaboration discipline (never change a file not read) this new file carries the decision cases; they focus on the decision
+// semantics themselves and do not repeat the existing form cases.
 package index
 
 import (
@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-// TestParseTagsCommaNonStandard 逗号形态判非标: httpx-rerun 实弹形态与变体
-// 均须返回空 map —— 任一切出非空 map 即第三态复活(dict 闸报语义垃圾违规
-// 而 P-15 不触发)。
+// TestParseTagsCommaNonStandard: the comma form is judged non-standard; the httpx-rerun live shape and its variants
+// must all return an empty map; any one cut into a non-empty map revives the third state (the dict gate reports a semantically garbage violation
+// while P-15 does not fire).
 func TestParseTagsCommaNonStandard(t *testing.T) {
 	cases := []struct {
 		name string
@@ -31,8 +31,8 @@ func TestParseTagsCommaNonStandard(t *testing.T) {
 	}
 }
 
-// TestParseTagsCommaTriggersP15 判决用例: 逗号标签条目经校验器必产出
-// P-15"标签不可解析"警告(空 map 自动归入既有警告链,双闸跳过可见)。
+// TestParseTagsCommaTriggersP15, the verdict case: a comma-tag entry through the validator must produce the
+// P-15 "unparseable tag" warning (the empty map joins the existing warning chain automatically, making the skip of both gates visible).
 func TestParseTagsCommaTriggersP15(t *testing.T) {
 	line := "f.go[I,CL,C8,EL]: F:x | R:- | A:- | S:-"
 	vs := ValidateEntryLine("f.go", line)
@@ -50,7 +50,7 @@ func TestParseTagsCommaTriggersP15(t *testing.T) {
 	}
 }
 
-// TestParseTagsLegitFormsUnaffected 回归防线: 合法两形态零受影响。
+// TestParseTagsLegitFormsUnaffected, the regression guard: the two legal forms are unaffected.
 func TestParseTagsLegitFormsUnaffected(t *testing.T) {
 	if got := ParseTags("WA9JM"); got["A"] != "W" || got["B"] != "A" || got["C"] != "9" || got["D"] != "J" || got["E"] != "M" {
 		t.Fatalf("紧凑合法形态解析回归: %v", got)

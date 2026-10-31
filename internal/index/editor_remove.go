@@ -1,21 +1,21 @@
-// 条目整行删除原语(v2.8 P1,remove-entry/aoci_remove_entry 共用底座)。
-// 索引条目: editor_remove.go(待补录,随本批入册)
+// Whole-line entry removal primitive (v2.8 P1, the shared base of remove-entry and aoci_remove_entry).
+// Index entry: editor_remove.go (to be recorded, entering the index with this batch)
 //
-// 定位: 与 editor.go 的 ReplaceEntry 同族的纯文本变换 —— TrimSpace 相等且
-// 恰好 1 处才删,0 处/2+ 处均明确报错绝不猜。独立成文件而非并入 editor.go:
-// 沿用 editor_append_test.go 分文件先例,避免整文件覆盖既有 600 行级文件。
+// Position: a pure text transformation of the same family as ReplaceEntry in editor.go: TrimSpace equality and
+// exactly 1 hit to delete, with 0 and 2+ hits both reported explicitly and never guessed. It is its own file rather than part of editor.go,
+// following the editor_append_test.go split-file precedent, to avoid overwriting an existing 600-line file as a whole.
 //
-// 删除语义边界(D75 下半句):
-//   - 本原语只做文本变换,不判定"该不该删"——孤儿限定(MCP侧)、人工全权
-//     (CLI侧)等策展裁决全部归调用方管线;
-//   - 删除目标行后统一清除所有纯空目录段；Header、非目录布局Marker以及含
-//     非注释正式内容的兼容边界保持不动；
-//   - 不落盘,落盘归调用方经 AtomicWrite(与 editor.go 同纪律)。
+// Removal semantics boundary (the second half of D75):
+//   - this primitive only transforms text and never decides "whether to delete"; curation decisions such as the orphan
+//     restriction (MCP side) and full human authority (CLI side) all belong to the caller's pipeline;
+//   - after the target line is removed, every purely empty directory section is cleared; the Header, non-directory
+//     layout Markers, and compatibility boundaries holding non-comment formal content stay untouched;
+//   - no disk write; the caller writes through AtomicWrite (the same discipline as editor.go).
 //
-// 换行纪律: 逐文件探测保留 LF/CRLF 与末尾换行有无,与 editor.go 的
-// splitPreserve/joinPreserve 同语义 —— 本文件自含实现而不引用包内私有函数,
-// 换取文件独立性;两处语义若分叉以 editor.go 为准(混合风格按整文件含 CRLF
-// 即 CRLF 的单一风格假设,与 splitPreserve 一致)。
+// Newline discipline: LF/CRLF and the trailing newline are detected and kept per file, with the same semantics as
+// splitPreserve/joinPreserve in editor.go; this file carries its own implementation rather than calling the package's private
+// functions, buying file independence; should the two diverge, editor.go wins (a mixed style follows the single-style assumption
+// that a file holding any CRLF is CRLF, matching splitPreserve).
 package index
 
 import (
@@ -24,9 +24,9 @@ import (
 	"strings"
 )
 
-// RemoveEntry 从索引全文中删除与 target 整行 TrimSpace 相等的唯一一行。
-// 返回删除后的全文。0 处命中与 2+ 处命中均报错(语义对齐 ReplaceEntry):
-// 0 处提示条目可能已被人工修改建议先重取;2+ 处提示重复污染拒绝操作。
+// RemoveEntry removes the single line whose TrimSpace equals target from the whole index text.
+// It returns the text after removal. 0 hits and 2+ hits both return an error (semantics aligned with ReplaceEntry):
+// 0 hits says the entry may have been changed by hand and suggests re-fetching first; 2+ hits reports duplicate pollution and refuses.
 func RemoveEntry(text string, target string) (string, error) {
 	want := strings.TrimSpace(target)
 	if want == "" {
@@ -36,7 +36,7 @@ func RemoveEntry(text string, target string) (string, error) {
 		return "", errors.New("删除目标须为单行条目(含换行符被拒)")
 	}
 
-	// 换行风格探测: 整文件含 CRLF 即按 CRLF 重组(单一风格假设,同 splitPreserve)
+	// Newline style detection: a file holding any CRLF is reassembled with CRLF (the single-style assumption, as in splitPreserve)
 	eol := "\n"
 	if strings.Contains(text, "\r\n") {
 		eol = "\r\n"
@@ -45,12 +45,12 @@ func RemoveEntry(text string, target string) (string, error) {
 
 	normalized := strings.ReplaceAll(text, "\r\n", "\n")
 	lines := strings.Split(normalized, "\n")
-	// Split 在尾换行后会产生一个空尾元素,剥除以免重组时凭空多一行
+	// Split yields an empty trailing element after a trailing newline; strip it so reassembly does not add a line from nowhere
 	if hasTrailingNL && len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}
 
-	// 计数并定位(恰好 1 处铁律)
+	// Count and locate (the exactly-1-hit rule)
 	hit := -1
 	count := 0
 	for i, ln := range lines {
@@ -66,7 +66,7 @@ func RemoveEntry(text string, target string) (string, error) {
 		return "", fmt.Errorf("目标条目行出现 %d 处(重复污染),拒绝删除;请先人工修复索引中的重复条目", count)
 	}
 
-	// 删除命中行
+	// Remove the hit line
 	out := make([]string, 0, len(lines)-1)
 	out = append(out, lines[:hit]...)
 	out = append(out, lines[hit+1:]...)
