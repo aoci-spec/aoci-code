@@ -1,13 +1,13 @@
-// Claude Code 适配: 项目级 MCP 配置(.mcp.json)与 PreToolUse hook(.claude/settings.json)
-// 索引条目: claude.go[Hook.Hook.8.S]
+// Claude Code adapter: the project-level MCP configuration (.mcp.json) and the PreToolUse hook (.claude/settings.json)
+// Index entry: claude.go[Hook.Hook.8.S]
 //
-// 纪律:
-//   - JSON 合并写入,绝不覆盖用户既有 servers/hooks;写前 BackupThenWrite 备份;
-//   - 幂等判据单一事实源: MCP 侧早退复用判据端 IsClaudeMCPInstalled(status.go),
-//     hook 侧写入端与判据端共用 claudeSettingsHasAociHook(本文件)—— 写入端与
-//     判据端绝不各持一份逻辑副本(status.go 判据失配事故的教训);
-//   - hook 挂 Edit|Write|MultiEdit 的 PreToolUse,shell 脚本零逻辑只 exec aoci;
-//   - 卸载(二期)= 删 aoci 键/aoci hook 项,不碰用户其余配置。
+// Discipline:
+//   - JSON merge writes, never overwriting the user's existing servers/hooks; BackupThenWrite backs up before writing;
+//   - a single source of truth for the idempotence criterion: the MCP side's early return reuses the criterion-side IsClaudeMCPInstalled (status.go),
+//     and the hook side's writer and criterion share claudeSettingsHasAociHook (this file); the writer and the
+//     criterion never each hold a copy of the logic (the lesson of the status.go criterion mismatch incident);
+//   - the hook hangs on the PreToolUse of Edit|Write|MultiEdit, and the shell script holds zero logic and only execs aoci;
+//   - uninstall (phase two) = remove the aoci key / the aoci hook item, leaving the rest of the user's configuration alone.
 package hooks
 
 import (
@@ -20,12 +20,12 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// claudeSettingsHasAociHook 判断已解析的 .claude/settings.json 是否含 aoci 的
-// PreToolUse hook(精确遍历: hooks.PreToolUse 任一项的 hooks[].command 含
-// "claude-pretool.sh")。写入端 InstallClaudeHook 的幂等判断与判据端
-// IsClaudeHookInstalled(status.go)共用本函数 —— 单一事实源,任一侧改动
-// 另一侧自动跟随;精确遍历同时消除旧"含 aoci 子串"简化判据的已知弱点
-// (aoci 以无关形式出现被误报已装)。
+// claudeSettingsHasAociHook reports whether a parsed .claude/settings.json holds aoci's
+// PreToolUse hook (an exact walk: some item of hooks.PreToolUse has a hooks[].command holding
+// "claude-pretool.sh"). The writer InstallClaudeHook's idempotence check and the criterion
+// IsClaudeHookInstalled (status.go) share this function: a single source of truth, so a change on either side
+// follows on the other automatically; the exact walk also removes the known weakness of the old "contains the aoci substring"
+// shortcut (aoci appearing in an unrelated form was misreported as installed).
 func claudeSettingsHasAociHook(settings map[string]any) bool {
 	hooksObj, _ := settings["hooks"].(map[string]any)
 	if hooksObj == nil {
@@ -54,18 +54,18 @@ func claudeSettingsHasAociHook(settings map[string]any) bool {
 	return false
 }
 
-// InstallClaudeMCP 合并写入项目级 .mcp.json 的 mcpServers.aoci
+// InstallClaudeMCP merge-writes mcpServers.aoci into the project-level .mcp.json
 func InstallClaudeMCP(root string) (string, error) {
 	path := filepath.Join(root, ".mcp.json")
 	data := NewTplData(root)
 
-	// 幂等早退: 复用判据端 IsClaudeMCPInstalled(单一事实源)。
-	// 损坏 JSON 时判据按原则返 false,由下方解析路径给出可操作报错,行为不变。
+	// Idempotent early return: reuse the criterion-side IsClaudeMCPInstalled (single source of truth).
+	// On corrupt JSON the criterion returns false by principle, and the parsing path below gives the actionable error; behaviour unchanged.
 	if IsClaudeMCPInstalled(root) {
 		return hookMessage("hook.claude_mcp_current"), nil
 	}
 
-	// 读取既有配置(缺失=空对象)
+	// Read the existing configuration (missing = an empty object)
 	cfg := map[string]any{}
 	if raw, err := os.ReadFile(path); err == nil {
 		if jerr := json.Unmarshal(raw, &cfg); jerr != nil {
@@ -92,12 +92,12 @@ func InstallClaudeMCP(root string) (string, error) {
 	return hookMessage("hook.claude_mcp_written"), nil
 }
 
-// InstallClaudeHook 写入 hook 脚本(.aoci/hooks/claude-pretool.sh)并
-// 合并注册到项目级 .claude/settings.json 的 hooks.PreToolUse
+// InstallClaudeHook writes the hook script (.aoci/hooks/claude-pretool.sh) and
+// merge-registers it into hooks.PreToolUse of the project-level .claude/settings.json
 func InstallClaudeHook(root string) (string, error) {
 	data := NewTplData(root)
 
-	// 1) 落 hook 脚本(渲染产物过 safety 后写入,加执行权限)
+	// 1) Land the hook script (the rendered output passes safety before writing, then gets the execute bit)
 	script, err := renderLocaleTemplate(
 		"claude-pretool.sh.tmpl",
 		textassets.TemplateClaudePretool,
@@ -114,7 +114,7 @@ func InstallClaudeHook(root string) (string, error) {
 		return "", err
 	}
 
-	// 2) 合并注册 .claude/settings.json
+	// 2) Merge-register .claude/settings.json
 	settingsPath := filepath.Join(root, ".claude", "settings.json")
 	settings := map[string]any{}
 	if raw, rerr := os.ReadFile(settingsPath); rerr == nil {
@@ -123,7 +123,7 @@ func InstallClaudeHook(root string) (string, error) {
 		}
 	}
 
-	// 幂等: 判据与 IsClaudeHookInstalled 共用同一实现(单一事实源)
+	// Idempotence: the criterion shares one implementation with IsClaudeHookInstalled (single source of truth)
 	if claudeSettingsHasAociHook(settings) {
 		return hookMessage("hook.claude_hook_current"), nil
 	}

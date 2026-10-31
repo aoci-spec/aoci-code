@@ -1,4 +1,4 @@
-// AGENTS文本资产迁移、兼容桥和真实物化结果的字节级测试。
+// Byte-level tests of the AGENTS text asset migration, the compatibility bridge, and the real materialized result.
 package hooks
 
 import (

@@ -1,4 +1,4 @@
-// PreTool strict模式的换行宽容消费级测试。
+// Consumer-level tests of line-ending tolerance in PreTool strict mode.
 package hooks
 
 import (
@@ -132,8 +132,8 @@ func latestPretoolEvent(
 	return ledger.Event{}
 }
 
-// TestPretoolLineEndingTolerance验证：
-// 默认宽容不阻断；团队严格恢复阻断；真实变化始终阻断。
+// TestPretoolLineEndingTolerance verifies:
+// the default tolerance does not block; team strictness restores blocking; a real change always blocks.
 func TestPretoolLineEndingTolerance(
 	t *testing.T,
 ) {
@@ -145,7 +145,7 @@ func TestPretoolLineEndingTolerance(
 		"a.go",
 	)
 
-	// 仅把LF改成CRLF。
+	// Change only LF to CRLF.
 	if err := os.WriteFile(
 		sourcePath,
 		[]byte("A1\r\n"),
@@ -199,7 +199,7 @@ func TestPretoolLineEndingTolerance(
 		)
 	}
 
-	// 团队显式严格时，同一现场必须恢复STALE阻断。
+	// When the team is explicitly strict, the same scene must restore the STALE block.
 	configValue, err := config.LoadBase(root)
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +243,7 @@ func TestPretoolLineEndingTolerance(
 		)
 	}
 
-	// 恢复宽容，但制造真实内容变化，仍必须阻断。
+	// Restore tolerance but manufacture a real content change: it must still block.
 	configValue.LineEndingTolerance = true
 
 	if err := config.Save(

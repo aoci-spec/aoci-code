@@ -1,4 +1,4 @@
-// AGENTS模板中的仓库认知、模型语义、使用范围和收尾合同测试。
+// Tests of the repository cognition, model semantics, scope of use, and closing contract in the AGENTS template.
 package hooks
 
 import (

@@ -1,5 +1,5 @@
-// Codex 项目级 MCP 配置安装测试
-// 索引条目: codex_test.go[TCX8TS]
+// Codex project-level MCP configuration installation tests
+// Index entry: codex_test.go[TCX8TS]
 package hooks
 
 import (
@@ -274,7 +274,7 @@ func TestCodexCompactCommandsQuoteHostPaths(t *testing.T) {
 	}
 }
 
-// TestInstallCodexMCPCreate 目标不存在: 新建并含本表与二进制路径
+// TestInstallCodexMCPCreate: the target does not exist; it is created holding the table and the binary path
 func TestInstallCodexMCPCreate(t *testing.T) {
 	root := t.TempDir()
 	msg, err := InstallCodexMCP(root)
@@ -294,14 +294,14 @@ func TestInstallCodexMCPCreate(t *testing.T) {
 	}
 }
 
-// TestInstallCodexMCPAppend 既有配置: 追加本表且原内容字节级保真
+// TestInstallCodexMCPAppend: an existing configuration gets the table appended with the original content byte-identical
 func TestInstallCodexMCPAppend(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, ".codex")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	// 既有用户配置: 顶级键 + 另一 MCP server 表(模拟真实混合场景)
+	// An existing user configuration: top-level keys plus another MCP server table (simulating a real mixed scenario)
 	existing := "model = \"o4-mini\"\n\n[mcp_servers.other]\ncommand = \"/usr/bin/other\"\nargs = [\"run\"]\n"
 	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(existing), 0644); err != nil {
 		t.Fatal(err)
@@ -315,7 +315,7 @@ func TestInstallCodexMCPAppend(t *testing.T) {
 	}
 	data, _ := os.ReadFile(filepath.Join(dir, "config.toml"))
 	text := string(data)
-	// 原内容必须作为前缀原样保留(一字节不动)
+	// The original content must be kept as the prefix as it is (not one byte changed)
 	if !strings.HasPrefix(text, existing) {
 		t.Fatal("既有配置未字节级保真")
 	}
@@ -324,7 +324,7 @@ func TestInstallCodexMCPAppend(t *testing.T) {
 	}
 }
 
-// TestInstallCodexMCPIdempotent 已含本表: 跳过且文件零改动
+// TestInstallCodexMCPIdempotent: a file already holding the table is skipped with zero file change
 func TestInstallCodexMCPIdempotent(t *testing.T) {
 	root := t.TempDir()
 	if _, err := InstallCodexMCP(root); err != nil {
@@ -377,14 +377,14 @@ func TestInstallCodexMCPRecognizesQuotedTable(t *testing.T) {
 	}
 }
 
-// TestInstallCodexMCPCommentedMarker 注释行免疫: 被注释的表头不得触发幂等跳过(审查回归)
+// TestInstallCodexMCPCommentedMarker, comment-line immunity: a commented-out table header must not trigger the idempotent skip (review regression)
 func TestInstallCodexMCPCommentedMarker(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, ".codex")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	// 用户注释掉了曾经的 aoci 配置: 应视为"未安装",走追加路径
+	// The user commented out a former aoci configuration: it should count as "not installed" and take the append path
 	existing := "# 旧配置已停用\n#[mcp_servers.aoci]\n#command = \"/old/aoci\"\n"
 	if err := os.WriteFile(filepath.Join(dir, "config.toml"), []byte(existing), 0644); err != nil {
 		t.Fatal(err)
@@ -406,7 +406,7 @@ func TestInstallCodexMCPCommentedMarker(t *testing.T) {
 	}
 }
 
-// TestInstallViaEntry Install 编排层: codex 分支输出含 AGENTS 生效说明与 hook 事实说明
+// TestInstallViaEntry, the Install orchestration layer: the codex branch output holds the AGENTS activation note and the hook fact note
 func TestInstallViaEntry(t *testing.T) {
 	root := t.TempDir()
 	out, err := Install(root, "codex", true)
@@ -427,7 +427,7 @@ func TestInstallViaEntry(t *testing.T) {
 		!strings.Contains(string(codexConfig), codexCompactHookMarker) {
 		t.Fatalf("--hooks 应安装 Codex 压缩提示与 SessionStart hook:\n%s", codexConfig)
 	}
-	// cursor 仍为占位不写文件
+	// cursor is still a placeholder writing no file
 	out2, err := Install(root, "cursor", false)
 	if err != nil {
 		t.Fatal(err)

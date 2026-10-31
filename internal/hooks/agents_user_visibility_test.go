@@ -1,4 +1,4 @@
-// AGENTS不复制通用开发沟通方法的物化合同测试。
+// Materialized contract tests that AGENTS does not copy generic development communication methods.
 package hooks
 
 import (

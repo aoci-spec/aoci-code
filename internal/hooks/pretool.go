@@ -1,18 +1,18 @@
-// PreToolUse运行时判断内核，逻辑与具体Agent无关。
-// 索引条目: pretool.go[Hook.Pretool.9.S]
+// The PreToolUse runtime decision kernel, independent of any particular Agent.
+// Index entry: pretool.go[Hook.Pretool.9.S]
 //
-// 语义:
-//   - 默认模式恒不阻断，只注入当前条目或补录提醒;
-//   - 条目真实Stale时附短警告;
-//   - strict模式下，条目真实Stale才阻断写入;
-//   - 漂移速查消费团队line_ending_tolerance，纯CRLF/LF表示差异
-//     不产生STALE警告，更不得触发strict阻断;
-//   - 路径解析失败、索引缺失或配置异常均放行，hook自身故障不能卡死工作流;
-//   - 注入文本取自当前Locale的UI消息目录(hook.pretool.*)，目录故障同样放行;
-//   - 命中后记录ledger op=hook_trigger。
+// Semantics:
+//   - the default mode never blocks; it only injects the current entry or a reminder to record one;
+//   - a short warning is attached when the entry is really Stale;
+//   - in strict mode, only a really Stale entry blocks the write;
+//   - the drift quick check consumes the team line_ending_tolerance, and a pure CRLF/LF representation difference
+//     produces no STALE warning, let alone a strict block;
+//   - a path resolution failure, a missing index, or a configuration fault all pass through; a fault in the hook itself must not jam the workflow;
+//   - the injected text comes from the current Locale's UI message catalog (hook.pretool.*), and a catalog fault passes through as well;
+//   - a hit records the ledger op=hook_trigger.
 //
-// 本内核只返回文本和阻断决策；退出码映射由internal/cli/hook.go及
-// 各Agent适配层负责。
+// This kernel returns only text and the block decision; exit-code mapping belongs to internal/cli/hook.go and
+// each Agent's adapter layer.
 package hooks
 
 import (
@@ -28,19 +28,19 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// PretoolResult是hook内核输出。
+// PretoolResult is the hook kernel's output.
 type PretoolResult struct {
-	// Text是向Agent注入的条目、警告或说明，可为空。
+	// Text is the entry, warning, or explanation injected into the Agent; it may be empty.
 	Text string
 
-	// Block=true表示建议阻断本次写操作，仅strict+真实Stale时产生。
+	// Block=true recommends blocking this write; it arises only under strict plus a real Stale.
 	Block bool
 }
 
-// HandlePreTool处理一次写前hook。
+// HandlePreTool handles one pre-write hook.
 //
-// tool是Agent侧工具名，例如Edit、Write或MultiEdit；
-// rawPath是Agent即将写入的目标路径。
+// tool is the Agent-side tool name, such as Edit, Write, or MultiEdit;
+// rawPath is the target path the Agent is about to write.
 func HandlePreTool(
 	root string,
 	tool string,
@@ -48,8 +48,8 @@ func HandlePreTool(
 ) PretoolResult {
 	start := time.Now()
 
-	// 路径非法时只说明并放行。
-	// hook不是安全门禁，不能因自身参数解析失败卡死用户工作流。
+	// An illegal path is only explained and passed through.
+	// The hook is not a safety gate and must not jam the user's workflow because its own argument parsing failed.
 	relativePath, err := afs.NormalizeRelPath(
 		rawPath,
 	)
@@ -64,7 +64,7 @@ func HandlePreTool(
 		return PretoolResult{Text: text}
 	}
 
-	// 任意环境加载失败均静默放行。
+	// Any environment load failure passes through silently.
 	configValue, err := config.LoadReadOnly(root)
 	if err != nil {
 		return PretoolResult{}
@@ -101,8 +101,8 @@ func HandlePreTool(
 		}
 		result.Text = text
 	} else {
-		// 判定宽容、写入安全不变：
-		// 本处只决定是否提示或阻断，不参与CAS与Stage源码摘要绑定。
+		// The judgement is tolerant while write safety is unchanged:
+		// this place only decides whether to hint or block, and takes no part in the CAS or the Stage source digest binding.
 		currentStale, unbaselined, _ :=
 			baseline.IsStaleFileWith(
 				root,

@@ -1,20 +1,20 @@
-// agent 环境探测 + 配置与 hook 安装编排
-// 索引条目: installer.go[HIS8JM]
+// Agent environment detection plus configuration and hook installation orchestration
+// Index entry: installer.go[HIS8JM]
 //
-// 纪律:
-//   - 探测只查本地文件/目录存在,不联网;探测失败不阻止手动指定;
-//   - 安装前备份目标文件(file.backup.时间戳.内容摘要,R7 纪律进产品行为);
-//   - 全部模板渲染产物先过 safety.CheckForbiddenClaims 再落盘;
-//   - 幂等: 目标文件内容为准(已含 aoci 配置即跳过),config.InstalledAgents 仅作记录;
-//   - claude 全量(MCP 配置 + 可选 hook);codex 写项目级 MCP 配置,
-//     --hooks 时额外安装 compact_prompt + SessionStart(compact) hook;
-//     opencode 严格合并项目级 V1 opencode.json;
-//     cursor 只输出参考片段(诚实占位)。
+// Discipline:
+//   - detection only checks that local files/directories exist, never the network; a failed detection does not prevent manual selection;
+//   - the target file is backed up before installation (file.backup.timestamp.content digest, the R7 discipline as product behaviour);
+//   - every template rendering passes safety.CheckForbiddenClaims before it is written;
+//   - idempotence: the target file's content decides (a file already holding the aoci configuration is skipped), and config.InstalledAgents is only a record;
+//   - claude gets the full set (MCP configuration + optional hook); codex gets the project-level MCP configuration,
+//     plus compact_prompt + the SessionStart(compact) hook under --hooks;
+//     opencode strictly merges the project-level V1 opencode.json;
+//     cursor only prints a reference fragment (an honest placeholder).
 //
-// 路径形态(Windows 真机教训): TplData 的 BinPath/RepoRoot 统一转正斜杠 ——
-// 反斜杠路径进 TOML/JSON 双引号字符串会被当转义序列(\t=制表符 \a=响铃),
-// Codex 解析 "C:\tools\aoci.exe" 得到损坏命令必然拉不起 server;
-// 正斜杠形态 "C:/tools/aoci.exe" 双格式均无转义歧义,且 Windows API 完全接受。
+// Path form (a Windows real-machine lesson): TplData's BinPath/RepoRoot are uniformly converted to forward slashes;
+// a backslash path inside a TOML/JSON double-quoted string is read as escape sequences (\t = tab, \a = bell),
+// Codex parses "C:\tools\aoci.exe" into a broken command, and the server can never start;
+// the forward-slash form "C:/tools/aoci.exe" has no escape ambiguity in either format, and the Windows API accepts it fully.
 package hooks
 
 import (
@@ -43,18 +43,18 @@ func hookMessage(key string, args ...any) string {
 	return value
 }
 
-// TplData 模板渲染数据(路径字段恒为正斜杠形态)
+// TplData is the template rendering data (path fields are always in forward-slash form)
 type TplData struct {
-	BinPath                    string // aoci 二进制绝对路径(正斜杠)
-	RepoRoot                   string // 仓库根绝对路径(正斜杠)
-	ProjectName                string // 仓库目录名
-	RepoRootSlash              string // 仓库根 + 尾斜杠(索引目录段头用)
+	BinPath                    string // absolute path of the aoci binary (forward slashes)
+	RepoRoot                   string // absolute path of the repository root (forward slashes)
+	ProjectName                string // the repository directory name
+	RepoRootSlash              string // repository root plus trailing slash (for index directory section headers)
 	SQuotaDefaultCompact       string
 	CodexCompactCommand        string // POSIX shell command, arguments safely quoted
 	CodexCompactCommandWindows string // PowerShell 5 command, arguments safely quoted
 }
 
-// toSlash 反斜杠统一转正斜杠(TOML/JSON 转义安全 + 协议内正斜杠约定)
+// toSlash converts backslashes to forward slashes uniformly (TOML/JSON escape safety plus the protocol's forward-slash convention)
 func toSlash(p string) string {
 	return strings.ReplaceAll(p, "\\", "/")
 }
@@ -67,7 +67,7 @@ func quotePowerShellArgument(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
-// NewTplData 构造模板数据(BinPath 取当前进程可执行文件;全路径转正斜杠)
+// NewTplData builds the template data (BinPath is the current process executable; every path is converted to forward slashes)
 func NewTplData(root string) TplData {
 	bin, err := os.Executable()
 	if err != nil {
@@ -92,7 +92,7 @@ func NewTplData(root string) TplData {
 	}
 }
 
-// RenderTemplate 渲染模板并过 safety 闸门(命中禁区词即拒绝落盘)
+// RenderTemplate renders a template and passes it through the safety gate (a forbidden word refuses the write)
 func RenderTemplate(name, tpl string, data TplData) (string, error) {
 	t, err := template.New(name).Parse(tpl)
 	if err != nil {
@@ -117,8 +117,8 @@ func renderLocaleTemplate(name string, id textassets.ID, data TplData) (string, 
 	return RenderTemplate(name, source, data)
 }
 
-// BackupThenWrite 备份(存在时,file.backup.时间戳.内容摘要)后原子写入。
-// 内容摘要确保同秒重试不会用新preimage覆盖唯一的原始备份。
+// BackupThenWrite backs up (when the file exists, as file.backup.timestamp.content digest) and then writes atomically.
+// The content digest makes sure a retry in the same second does not overwrite the only original backup with a newer preimage.
 func BackupThenWrite(path string, data []byte) error {
 	if err := backupCurrent(path); err != nil {
 		return err
@@ -126,7 +126,7 @@ func BackupThenWrite(path string, data []byte) error {
 	return afs.AtomicWrite(path, data)
 }
 
-// BackupThenWriteCAS保留即时备份，并在最终替换紧邻边界验证计划preimage。
+// BackupThenWriteCAS keeps the immediate backup and verifies the planned preimage right at the final replacement boundary.
 func BackupThenWriteCAS(path string, data []byte, expectedSHA256 string) error {
 	if err := backupCurrent(path); err != nil {
 		return err
@@ -151,15 +151,15 @@ func backupCurrent(path string) error {
 	return nil
 }
 
-// agentsBlockMarkers AGENTS.md 标记区块边界
+// agentsBlockMarkers are the boundaries of the AGENTS.md marker block
 const (
 	agentsBegin = "<!-- aoci:begin -->"
 	agentsEnd   = "<!-- aoci:end -->"
 )
 
-// loadAgentsTemplate从textassets读取AGENTS托管区块唯一事实源。
+// loadAgentsTemplate reads the single source of truth of the AGENTS managed block from textassets.
 //
-// 读取失败返回普通错误，由安装命令完整报告；不得静默回退到旧副本或空模板。
+// A read failure returns an ordinary error that the install command reports in full; it must never fall back silently to an old copy or an empty template.
 func loadAgentsTemplate() (string, error) {
 	value, err := textassets.Load(
 		textassets.ActiveLocale(),
@@ -171,9 +171,9 @@ func loadAgentsTemplate() (string, error) {
 	return value, nil
 }
 
-// EnsureAgentsBlock 在仓库根 AGENTS.md 写入/替换 aoci 标记区块。
-// 已有区块整块替换,区块外内容一个字节不动;无区块则文末追加;文件不存在则新建。
-// 返回动作说明。
+// EnsureAgentsBlock writes or replaces the aoci marker block in the repository root AGENTS.md.
+// An existing block is replaced as a whole and the content outside the block keeps every byte; without a block it is appended at the end; a missing file is created.
+// It returns an explanation of the action.
 func EnsureAgentsBlock(root string) (string, error) {
 	agentsTemplate, err := loadAgentsTemplate()
 	if err != nil {
@@ -196,7 +196,7 @@ func EnsureAgentsBlock(root string) (string, error) {
 		if !os.IsNotExist(rerr) {
 			return "", rerr
 		}
-		// 新建
+		// Create
 		if err := BackupThenWrite(path, []byte(block+"\n")); err != nil {
 			return "", err
 		}
@@ -207,7 +207,7 @@ func EnsureAgentsBlock(root string) (string, error) {
 	bi := strings.Index(text, agentsBegin)
 	ei := strings.Index(text, agentsEnd)
 	if bi >= 0 && ei > bi {
-		// 整块替换(区块外原样)
+		// Replace the whole block (the outside is kept as it is)
 		newText := text[:bi] + block + text[ei+len(agentsEnd):]
 		if newText == text {
 			return hookMessage("hook.agents_current"), nil
@@ -217,7 +217,7 @@ func EnsureAgentsBlock(root string) (string, error) {
 		}
 		return hookMessage("hook.agents_updated"), nil
 	}
-	// 文末追加
+	// Append at the end
 	sep := "\n"
 	if !strings.HasSuffix(text, "\n") {
 		sep = "\n\n"
@@ -230,32 +230,32 @@ func EnsureAgentsBlock(root string) (string, error) {
 	return hookMessage("hook.agents_appended"), nil
 }
 
-// Detect 探测本机/本仓已存在的 agent 环境(仅文件存在性,不联网)
+// Detect detects the agent environments already present on this machine/repository (file existence only, no network)
 func Detect(root string) []string {
 	var found []string
 	home, _ := os.UserHomeDir()
-	// claude: 项目 .mcp.json / .claude/ / 用户级 ~/.claude/
+	// claude: project .mcp.json / .claude/ / user-level ~/.claude/
 	if fileExists(filepath.Join(root, ".mcp.json")) ||
 		dirExists(filepath.Join(root, ".claude")) ||
 		(home != "" && dirExists(filepath.Join(home, ".claude"))) {
 		found = append(found, "claude")
 	}
-	// codex: 项目 .codex/ 或用户级 ~/.codex/config.toml
+	// codex: project .codex/ or user-level ~/.codex/config.toml
 	if dirExists(filepath.Join(root, ".codex")) ||
 		(home != "" && fileExists(filepath.Join(home, ".codex", "config.toml"))) {
 		found = append(found, "codex")
 	}
-	// cursor: 项目 .cursor/
+	// cursor: project .cursor/
 	if dirExists(filepath.Join(root, ".cursor")) {
 		found = append(found, "cursor")
 	}
-	// qoder: 项目 .qoder/（rules、settings.local.json）或用户级 ~/.qoder/
+	// qoder: project .qoder/ (rules, settings.local.json) or user-level ~/.qoder/
 	if dirExists(filepath.Join(root, ".qoder")) ||
 		(home != "" && dirExists(filepath.Join(home, ".qoder"))) {
 		found = append(found, "qoder")
 	}
-	// opencode: 项目级根配置或嵌套配置实物；单独的 .opencode 目录可能只含
-	// skills/commands，不足以证明 MCP 配置环境，不能据此误报。
+	// opencode: a project-level root configuration or a nested configuration in the flesh; a lone .opencode directory may hold only
+	// skills/commands, which does not prove an MCP configuration environment and must not be reported as one.
 	if fileExists(filepath.Join(root, "opencode.json")) ||
 		fileExists(filepath.Join(root, "opencode.jsonc")) ||
 		fileExists(filepath.Join(root, ".opencode", "opencode.json")) ||
@@ -265,13 +265,13 @@ func Detect(root string) []string {
 	return found
 }
 
-// Install 安装指定 agent 的接入。
-// claude: 全量(MCP 配置合并写入 + 可选 PreToolUse hook);
-// codex: 写项目级 .codex/config.toml 的 [mcp_servers.aoci],--hooks 时同时安装
-// compact_prompt 与 SessionStart(compact) hook;
-// opencode: 严格创建/合并项目级 OpenCode V1 opencode.json;
-// cursor: 输出参考配置片段(诚实占位,不写文件)。
-// 返回面向用户的多行结果说明。
+// Install installs the integration of the given agent.
+// claude: the full set (MCP configuration merge-written + optional PreToolUse hook);
+// codex: writes [mcp_servers.aoci] into the project-level .codex/config.toml, and under --hooks also installs
+// compact_prompt and the SessionStart(compact) hook;
+// opencode: strictly creates/merges the project-level OpenCode V1 opencode.json;
+// cursor: prints a reference configuration fragment (an honest placeholder, no file written).
+// It returns a multi-line user-facing result explanation.
 func Install(root, agent string, withHooks bool) (string, error) {
 	switch agent {
 	case "claude":
@@ -300,8 +300,8 @@ func Install(root, agent string, withHooks bool) (string, error) {
 		return msg + "\n" + hookMessage("hook.qoder_shares_mcp_json"), nil
 	case "codex":
 		var b strings.Builder
-		// 冲突预检必须在 MCP 写入前完成,保证用户自定义压缩策略
-		// 与 --hooks 冲突时整个 Codex 安装零改动。
+		// The conflict precheck must finish before the MCP write, so a conflict between the user's own compaction policy
+		// and --hooks leaves the whole Codex installation unchanged.
 		if withHooks {
 			if err := ValidateCodexCompactionInstall(root); err != nil {
 				return "", err
@@ -338,7 +338,7 @@ func Install(root, agent string, withHooks bool) (string, error) {
 	}
 }
 
-// fileExists / dirExists 存在性探测
+// fileExists / dirExists are existence probes
 func fileExists(p string) bool {
 	st, err := os.Stat(p)
 	return err == nil && !st.IsDir()

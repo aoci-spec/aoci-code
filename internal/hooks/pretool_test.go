@@ -1,5 +1,5 @@
-// hook 内核与模板测试
-// 索引条目: pretool_test.go[TPT8TS]
+// Hook kernel and template tests
+// Index entry: pretool_test.go[TPT8TS]
 package hooks
 
 import (
@@ -14,7 +14,7 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// buildRepo 造最小 hook 测试仓库
+// buildRepo builds a minimal hook test repository
 func buildRepo(t *testing.T, strict bool) string {
 	t.Helper()
 	root := t.TempDir()
@@ -27,7 +27,7 @@ func buildRepo(t *testing.T, strict bool) string {
 	must(os.WriteFile(filepath.Join(root, "src", "a.go"), []byte("A1"), 0644))
 	idx := "===段 " + filepath.ToSlash(root) + "/src/===\na.go[X.Y.5.T]: F:甲 | R:- | A:- | S:约束\n"
 	must(os.MkdirAll(filepath.Join(root, ".aoci"), 0755))
-	// 测试仓索引沿用 .aoci/index.txt 旧路径(经 config.index_path 兼容,顺带锁定兼容性)
+	// The test repository's index keeps the old .aoci/index.txt path (through the config.index_path compatibility, which this also locks)
 	must(os.WriteFile(filepath.Join(root, ".aoci", "index.txt"), []byte(idx), 0644))
 	cfg := config.DefaultConfig()
 	cfg.IndexPath = ".aoci/index.txt"
@@ -39,45 +39,45 @@ func buildRepo(t *testing.T, strict bool) string {
 	return root
 }
 
-// TestPretoolMatrix 硬用例矩阵: 默认不阻断/strict+STALE 阻断/逃逸不阻断/未收录提示
+// TestPretoolMatrix, the hard case matrix: default does not block / strict+STALE blocks / an escape does not block / unrecorded prompts
 func TestPretoolMatrix(t *testing.T) {
-	// 默认: 有条目注入,不阻断
+	// Default: an entry is injected, no block
 	root := buildRepo(t, false)
 	res := HandlePreTool(root, "Edit", "src/a.go")
 	if res.Block || !strings.Contains(res.Text, "约束") {
 		t.Fatalf("默认模式应注入不阻断: %+v", res)
 	}
-	// 默认 + STALE: 警告但仍不阻断
+	// Default + STALE: a warning but still no block
 	os.WriteFile(filepath.Join(root, "src", "a.go"), []byte("A2"), 0644)
 	res = HandlePreTool(root, "Edit", "src/a.go")
 	if res.Block || !strings.Contains(res.Text, "STALE") {
 		t.Fatalf("默认+STALE 应警告不阻断: %+v", res)
 	}
-	// strict + STALE: 阻断
+	// strict + STALE: block
 	root2 := buildRepo(t, true)
 	os.WriteFile(filepath.Join(root2, "src", "a.go"), []byte("A2"), 0644)
 	res = HandlePreTool(root2, "Edit", "src/a.go")
 	if !res.Block {
 		t.Fatal("strict+STALE 必须阻断")
 	}
-	// strict + 未漂移: 放行
+	// strict + no drift: pass
 	root3 := buildRepo(t, true)
 	res = HandlePreTool(root3, "Edit", "src/a.go")
 	if res.Block {
 		t.Fatal("strict+未漂移不得阻断")
 	}
-	// 逃逸路径: 不阻断只说明
+	// An escaping path: no block, only an explanation
 	res = HandlePreTool(root, "Edit", "../etc/passwd")
 	if res.Block || !strings.Contains(res.Text, "不注入") {
 		t.Fatalf("逃逸应说明且不阻断: %+v", res)
 	}
-	// 未收录: 提示补录
+	// Unrecorded: a prompt to record
 	os.WriteFile(filepath.Join(root, "src", "n.go"), []byte("N"), 0644)
 	res = HandlePreTool(root, "Write", "src/n.go")
 	if res.Block || !strings.Contains(res.Text, "未收录") {
 		t.Fatalf("未收录应提示补录: %+v", res)
 	}
-	// 环境缺失(未 init 的空仓): 静默放行
+	// Missing environment (an empty repository without init): pass silently
 	res = HandlePreTool(t.TempDir(), "Edit", "x.go")
 	if res.Block {
 		t.Fatal("环境缺失必须静默放行(hook 容错纪律)")
@@ -85,7 +85,7 @@ func TestPretoolMatrix(t *testing.T) {
 	_ = afs.WalkOptions{}
 }
 
-// TestTemplatesRenderSafety 全部内嵌模板渲染产物过 safety 闸门
+// TestTemplatesRenderSafety: every embedded template's rendering passes the safety gate
 func TestTemplatesRenderSafety(t *testing.T) {
 	data := TplData{BinPath: "/usr/local/bin/aoci", RepoRoot: "/repo", ProjectName: "repo", RepoRootSlash: "/repo/"}
 	agents := loadAgentsAssetForTest(t)
@@ -118,7 +118,7 @@ func TestTemplatesRenderSafety(t *testing.T) {
 	}
 }
 
-// TestEnsureAgentsBlock 区块外内容一个字节不动 + 幂等
+// TestEnsureAgentsBlock: content outside the block keeps every byte, plus idempotence
 func TestEnsureAgentsBlock(t *testing.T) {
 	root := t.TempDir()
 	user := "# 用户公约\n手写内容不可动。\n"
@@ -130,7 +130,7 @@ func TestEnsureAgentsBlock(t *testing.T) {
 	if !strings.HasPrefix(string(data), user) {
 		t.Fatal("用户既有内容被改动")
 	}
-	// 幂等: 第二次应报最新跳过
+	// Idempotence: the second run should report up to date and skipped
 	msg, _ := EnsureAgentsBlock(root)
 	if !strings.Contains(msg, "跳过") {
 		t.Fatalf("重复执行应跳过: %q", msg)

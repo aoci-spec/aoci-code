@@ -1,21 +1,21 @@
-// 索引条目: status.go[Hook.Status.7.S]
-// 职责: 提供 agent 接入状态的【只读】判据函数(doctor 与 installer 共用一致口径)。
+// Index entry: status.go[Hook.Status.7.S]
+// Responsibility: the READ-ONLY criterion functions for agent integration status (doctor and installer share one reading).
 //
-// 单一事实源(原"暂态重复,消除计划"P1 已兑现,本文件不再持有任何判据逻辑副本):
-//   - AGENTS 区块: 直接使用 installer.go 的 agentsBegin 常量 —— 写入端与判据端
-//     是同一符号,不是两份声称一致的副本。初版曾自持手写常量 <!-- AOCI-BEGIN -->
-//     与写入端实物 <!-- aoci:begin --> 失配,致 doctor 恒误报未装;教训: "同源"
-//     必须编译期同符号,凭注释声称一致不作数;
-//   - Claude MCP: 判据本体在此(解析后含 aoci 键),写入端 InstallClaudeMCP
-//     幂等早退反向复用本函数;
-//   - Claude hook: 委托 claude.go 的 claudeSettingsHasAociHook(与写入端幂等
-//     同一实现,精确遍历 PreToolUse);旧"含 aoci 子串"简化版及其已知弱点
-//     (aoci 以无关形式出现误报已装)随之消除;
-//   - Codex: 委托 codex.go 的 hasCodexTable(与写入端幂等同一实现,逐行判定
-//     注释行免疫,审查事故防线单点承载)。
+// Single source of truth (the former "transient duplication, elimination plan" P1 is delivered; this file holds no copy of criterion logic any more):
+//   - the AGENTS block: uses installer.go's agentsBegin constant directly; the writer and the criterion
+//     are the same symbol, not two copies claiming to agree. The first version held its own hand-written constant <!-- AOCI-BEGIN -->,
+//     mismatching the writer's real <!-- aoci:begin -->, so doctor always misreported not installed; the lesson: "same source"
+//     must be the same symbol at compile time, and a comment claiming agreement does not count;
+//   - Claude MCP: the criterion itself lives here (the parsed file holds the aoci key), and the writer InstallClaudeMCP's
+//     idempotent early return reuses this function in the other direction;
+//   - Claude hook: delegated to claude.go's claudeSettingsHasAociHook (the same implementation as the writer's idempotence,
+//     an exact walk of PreToolUse); the old "contains the aoci substring" shortcut and its known weakness
+//     (aoci appearing in an unrelated form misreported as installed) are gone with it;
+//   - Codex: delegated to codex.go's hasCodexTable (the same implementation as the writer's idempotence, judged line by line,
+//     immune to comment lines, the single carrier of the review-incident defence).
 //
-// 判据取值原则: 任何读取/解析失败一律返回 false(视为未安装)—— 诊断场景宁可
-// 报"未装"促使用户检查,绝不误报"已装"给出虚假安全感。
+// Criterion value principle: any read/parse failure returns false (treated as not installed); in a diagnostic scenario it is better
+// to report "not installed" and prompt the user to check than to misreport "installed" and give false comfort.
 package hooks
 
 import (
@@ -25,19 +25,19 @@ import (
 	"strings"
 )
 
-// IsAgentsBlockPresent 判断根目录 AGENTS.md 是否已含 AOCI 指令区块。
-// 判据: 文件存在且包含起始标记(installer.go 的 agentsBegin,与写入端同一常量)。
+// IsAgentsBlockPresent reports whether the root AGENTS.md already holds the AOCI instruction block.
+// Criterion: the file exists and holds the begin marker (installer.go's agentsBegin, the same constant as the writer).
 func IsAgentsBlockPresent(root string) bool {
 	data, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
 	if err != nil {
-		return false // 文件不存在或读取失败 = 未安装
+		return false // the file is missing or unreadable = not installed
 	}
 	return strings.Contains(string(data), agentsBegin)
 }
 
-// IsClaudeMCPInstalled 判断 .mcp.json 是否已配置 aoci MCP server。
-// 判据: 文件存在、可解析为 JSON、且顶层 mcpServers 对象含 "aoci" 键。
-// 本函数是该判据的唯一实现,InstallClaudeMCP 幂等早退复用本函数。
+// IsClaudeMCPInstalled reports whether .mcp.json already configures the aoci MCP server.
+// Criterion: the file exists, parses as JSON, and its top-level mcpServers object holds the "aoci" key.
+// This function is the single implementation of that criterion; InstallClaudeMCP's idempotent early return reuses it.
 func IsClaudeMCPInstalled(root string) bool {
 	data, err := os.ReadFile(filepath.Join(root, ".mcp.json"))
 	if err != nil {
@@ -47,15 +47,15 @@ func IsClaudeMCPInstalled(root string) bool {
 		MCPServers map[string]json.RawMessage `json:"mcpServers"`
 	}
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return false // JSON 损坏 = 视为未安装(不误报已装)
+		return false // corrupt JSON = treated as not installed (never misreported as installed)
 	}
 	_, ok := doc.MCPServers["aoci"]
 	return ok
 }
 
-// IsClaudeHookInstalled 判断 .claude/settings.json 是否已安装 aoci 的 PreToolUse hook。
-// 判据: 委托 claudeSettingsHasAociHook(claude.go,与写入端幂等同一实现)——
-// 精确遍历 hooks.PreToolUse 数组检查 command 是否引用 claude-pretool.sh。
+// IsClaudeHookInstalled reports whether .claude/settings.json already holds aoci's PreToolUse hook.
+// Criterion: delegated to claudeSettingsHasAociHook (claude.go, the same implementation as the writer's idempotence),
+// an exact walk of the hooks.PreToolUse array checking whether command references claude-pretool.sh.
 func IsClaudeHookInstalled(root string) bool {
 	data, err := os.ReadFile(filepath.Join(root, ".claude", "settings.json"))
 	if err != nil {
@@ -63,14 +63,14 @@ func IsClaudeHookInstalled(root string) bool {
 	}
 	settings := map[string]any{}
 	if err := json.Unmarshal(data, &settings); err != nil {
-		return false // JSON 损坏 = 视为未安装(不误报已装)
+		return false // corrupt JSON = treated as not installed (never misreported as installed)
 	}
 	return claudeSettingsHasAociHook(settings)
 }
 
-// IsCodexMCPInstalled 判断 .codex/config.toml 是否已配置 aoci MCP server。
-// 判据: 委托 hasCodexTable(codex.go,与写入端幂等同一实现)—— 识别完整表头及
-// 等价的引号键写法，注释行免疫(审查事故防线单点承载)。
+// IsCodexMCPInstalled reports whether .codex/config.toml already configures the aoci MCP server.
+// Criterion: delegated to hasCodexTable (codex.go, the same implementation as the writer's idempotence), recognizing the complete table header and
+// the equivalent quoted-key spelling, immune to comment lines (the single carrier of the review-incident defence).
 func IsCodexMCPInstalled(root string) bool {
 	data, err := os.ReadFile(filepath.Join(root, ".codex", "config.toml"))
 	if err != nil {
@@ -79,9 +79,9 @@ func IsCodexMCPInstalled(root string) bool {
 	return hasCodexTable(string(data))
 }
 
-// IsOpenCodeMCPInstalled 判断项目级 opencode.json 是否含与当前绝对
-// executable/repository 绑定完全一致的 OpenCode V1 mcp.aoci 配置。
-// JSONC、V2、冲突或解析失败均返回 false；写入端复用同一 Prepare 判据。
+// IsOpenCodeMCPInstalled reports whether the project-level opencode.json holds an OpenCode V1 mcp.aoci configuration
+// bound exactly to the current absolute executable/repository.
+// JSONC, V2, a conflict, or a parse failure all return false; the writer reuses the same Prepare criterion.
 func IsOpenCodeMCPInstalled(root string) bool {
 	plan, err := prepareOpenCodeMCP(root)
 	return err == nil && plan.Current
