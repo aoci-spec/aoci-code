@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 15 (help groups + getting-started): make fast green (make-fast-l15.txt)"
+    "evidence": "item 15 fix (literal group title keys): make fast green (make-fast-l15b.txt); internal/cli whole package short run green"
    }
   },
   {

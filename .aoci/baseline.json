@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-31T08:14:47Z",
+  "updated_at": "2026-10-31T08:21:41Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -997,10 +997,10 @@
     },
     "internal/cli/command_localization.go": {
       "role": "index",
-      "sha256": "155c26d1b2ca1300ca17b8770ab7424ab0f8fbf01fd323c1b65f829532ea3a52",
-      "size": 19091,
-      "normalized_sha256": "155c26d1b2ca1300ca17b8770ab7424ab0f8fbf01fd323c1b65f829532ea3a52",
-      "format_sha256": "155c26d1b2ca1300ca17b8770ab7424ab0f8fbf01fd323c1b65f829532ea3a52",
+      "sha256": "31c5a1f60f57a4cb392a90971c81a7964642ab300ac2764d593958d5b4a7199c",
+      "size": 19309,
+      "normalized_sha256": "31c5a1f60f57a4cb392a90971c81a7964642ab300ac2764d593958d5b4a7199c",
+      "format_sha256": "31c5a1f60f57a4cb392a90971c81a7964642ab300ac2764d593958d5b4a7199c",
       "format_kind": "gofmt"
     },
     "internal/cli/command_localization_test.go": {
@@ -1868,10 +1868,10 @@
     },
     "internal/cli/locale_init_integration_test.go": {
       "role": "observe",
-      "sha256": "8bfc662a3b19a47a60b3d89a510c1655bfda276efb9e47347ee3b54bc907e5ff",
-      "size": 13597,
-      "normalized_sha256": "8bfc662a3b19a47a60b3d89a510c1655bfda276efb9e47347ee3b54bc907e5ff",
-      "format_sha256": "8bfc662a3b19a47a60b3d89a510c1655bfda276efb9e47347ee3b54bc907e5ff",
+      "sha256": "54d4628b4b3a7e9456cb0c1b03a93631bb1ecbaed623315f940b378b3d516a82",
+      "size": 13667,
+      "normalized_sha256": "54d4628b4b3a7e9456cb0c1b03a93631bb1ecbaed623315f940b378b3d516a82",
+      "format_sha256": "54d4628b4b3a7e9456cb0c1b03a93631bb1ecbaed623315f940b378b3d516a82",
       "format_kind": "gofmt"
     },
     "internal/cli/locale_migration.go": {
@@ -6585,9 +6585,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "f13f5d3ca1e1bb6a76249cf7b50fae07e65620bbab2e1576f8376d6c34bf5ffb",
-      "size": 14360,
-      "normalized_sha256": "f13f5d3ca1e1bb6a76249cf7b50fae07e65620bbab2e1576f8376d6c34bf5ffb"
+      "sha256": "858512e32f4201e098b1193661fbc200626f768a84b7c9ab2c8c0db70db248f3",
+      "size": 14404,
+      "normalized_sha256": "858512e32f4201e098b1193661fbc200626f768a84b7c9ab2c8c0db70db248f3"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",

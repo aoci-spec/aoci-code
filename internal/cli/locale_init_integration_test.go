@@ -40,6 +40,7 @@ func TestRuntimeLocaleMessageConsumersAreDeclared(t *testing.T) {
 		walkProductionGoFiles(t, filepath.Join(root, relative), func(path string, file *ast.File) {
 			if filepath.Base(path) == "command_localization.go" {
 				collectStringMapValues(t, path, file, "commandShortMessages", keys)
+				collectStringMapValues(t, path, file, "commandGroupTitles", keys)
 			}
 			if filepath.Base(path) == "verify_render.go" {
 				collectLiteralCallArguments(t, path, file, "section", keys)

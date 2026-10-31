@@ -61,9 +61,15 @@ var scopeCommandGroups = []commandGroup{
 }
 
 // commandGroupTitle renders a group title the way the usage template renders
-// the ungrouped section titles: the localized text followed by a colon.
+// the ungrouped section titles: the localized text followed by a colon. The
+// key comes from commandGroupTitles, which the locale consumer contract test
+// reads as it reads commandShortMessages, so every title has both locales.
 func commandGroupTitle(groupID string) string {
-	return cliMessage(commandGroupTitles[groupID]) + ":"
+	key, exists := commandGroupTitles[groupID]
+	if !exists {
+		return groupID + ":"
+	}
+	return cliMessage(key) + ":"
 }
 
 // groupCommands registers the groups on parent and assigns each member by
