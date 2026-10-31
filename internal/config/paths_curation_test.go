@@ -1,4 +1,4 @@
-// .aoci/curation.json路径模型测试。
+// Tests of the .aoci/curation.json path model.
 package config
 
 import (

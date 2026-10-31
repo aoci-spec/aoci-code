@@ -1,30 +1,30 @@
-// 团队静态路径排除匹配语义。
+// Team static path exclusion matching semantics.
 //
-// 本文件只处理config.json中的curation_exclude路径选择器，它是维护者预先
-// 声明的团队级负空间策略，不等同于正式文件级语义策展资产：
+// This file handles only the curation_exclude path selectors in config.json, the team-level negative-space policy the
+// maintainer declares in advance, which is not the same as the formal file-level semantic curation asset:
 //
-//   - config.curation_exclude：静态路径本体或目录子树选择器；
-//   - .aoci/curation.json：由internal/curation维护、绑定source_sha256的
-//     文件级include/exclude决策。
+//   - config.curation_exclude: static path body or directory subtree selectors;
+//   - .aoci/curation.json: file-level include/exclude decisions maintained by internal/curation and bound to
+//     source_sha256.
 //
-// 两层共同参与Missing分类时，静态路径策略优先于文件级决策。
+// When both layers take part in Missing classification, the static path policy wins over the file-level decision.
 //
-// 匹配语义最初位于mcptools包内，随着maintain、build、verify和正式Missing
-// 分类共同消费，迁入config包成为唯一事实源，防止跨包复制匹配逻辑。
+// The matching semantics first lived in the mcptools package; as maintain, build, verify, and the formal Missing
+// classification came to share it, it moved into the config package as the single source of truth, so the matching logic is not copied across packages.
 //
-// v1.1语义：
-//   - 每一项都是仓库相对路径选择器，尾斜杠可写可不写；
-//   - 命中路径本体或其目录子树，按目录边界匹配；
-//   - 支持单文件精确命中；
-//   - 反斜杠、重复斜杠与“./”统一归一；
-//   - 绝对路径、仓外逃逸路径与空白项无效；
-//   - 暂不支持通配符，避免与fs.MatchExcludePattern混合为未裁决语义。
+// v1.1 semantics:
+//   - every item is a repository-relative path selector, with or without a trailing slash;
+//   - it matches the path body or its directory subtree, by directory boundary;
+//   - an exact single-file hit is supported;
+//   - backslashes, repeated slashes, and "./" are normalized uniformly;
+//   - absolute paths, paths escaping the repository, and blank items are invalid;
+//   - wildcards are not supported yet, so they do not mix with fs.MatchExcludePattern into undecided semantics.
 //
-// 当前消费边界：
-//   - Missing分类：优先转为CurationExcludedMissing；
-//   - maintain：只过滤Missing派发面，已有条目的Stale仍按条目优先处理；
-//   - build --missing：过滤自动起草队列，显式--paths保留人工覆盖权；
-//   - verify：保留原始Missing事实，同时展示静态路径排除来源。
+// Current consumption boundary:
+//   - Missing classification: converted to CurationExcludedMissing first;
+//   - maintain: filters only the Missing dispatch surface; the Stale of existing entries is still handled entry-first;
+//   - build --missing: filters the automatic drafting queue, and an explicit --paths keeps the human override;
+//   - verify: keeps the raw Missing fact while showing the static path exclusion source.
 package config
 
 import (
@@ -32,15 +32,15 @@ import (
 	"strings"
 )
 
-// normalizeCurationPath 把静态路径选择器或待匹配路径归一为仓库相对路径。
-// 返回空串表示输入无效或不应参与匹配。
+// normalizeCurationPath normalizes a static path selector or a path to be matched into a repository-relative path.
+// An empty return means the input is invalid or should not take part in matching.
 func normalizeCurationPath(raw string) string {
 	s := strings.TrimSpace(strings.ReplaceAll(raw, "\\", "/"))
 	if s == "" {
 		return ""
 	}
 
-	// path.Clean统一重复斜杠、尾斜杠和“./”。
+	// path.Clean unifies repeated slashes, trailing slashes, and "./".
 	clean := path.Clean(s)
 	if clean == "." ||
 		path.IsAbs(clean) ||
@@ -52,10 +52,10 @@ func normalizeCurationPath(raw string) string {
 	return strings.TrimSuffix(clean, "/")
 }
 
-// CurationExcluded 判断rel是否命中config.curation_exclude静态路径策略。
+// CurationExcluded reports whether rel hits the config.curation_exclude static path policy.
 //
-// 该策略表示“不进入自动补录”，不是“文件不存在”的事实改写；verify仍保留
-// 原始Missing。正式文件级include/exclude决策由internal/curation处理。
+// The policy means "does not enter automatic recording", not a rewrite of the fact "the file does not exist"; verify still keeps
+// the raw Missing. The formal file-level include/exclude decision is handled by internal/curation.
 func (c *Config) CurationExcluded(rel string) bool {
 	if c == nil || len(c.CurationExclude) == 0 {
 		return false
@@ -80,8 +80,8 @@ func (c *Config) CurationExcluded(rel string) bool {
 	return false
 }
 
-// CountCurationExcluded 统计路径清单中命中静态路径策略的条数。
-// 需要完整路径证据的调用方应直接遍历CurationExcluded收集。
+// CountCurationExcluded counts the entries of a path list that hit the static path policy.
+// A caller needing complete path evidence should walk CurationExcluded directly and collect.
 func (c *Config) CountCurationExcluded(rels []string) int {
 	count := 0
 

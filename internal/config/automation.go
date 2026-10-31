@@ -1,28 +1,28 @@
-// 自动化治理模式定义、兼容解释与团队策略边界。
+// Automation governance mode definitions, compatibility interpretation, and the team policy boundary.
 //
-// 索引条目: automation.go[GCF7S]
+// Index entry: automation.go[GCF7S]
 //
-// D69 已实现的 `aoci index update` 四模式:
+// The four `aoci index update` modes D69 implemented:
 //
 //	legacy:
-//	  配置字段缺失的旧仓兼容态。保持升级前行为：显式执行 update 时调用
-//	  用户配置的模型端点生成草稿，随后由人运行 check/diff/apply。
+//	  the compatibility state of an old repository whose configuration field is missing. It keeps the pre-upgrade behaviour: an explicit
+//	  update calls the user-configured model endpoint to generate a draft, and a person then runs check/diff/apply.
 //	off:
-//	  团队明确关闭 update 的 AI 编排。命令只做确定性漂移检测和报告，
-//	  不构造 AI client、不校验密钥、不创建草稿、不发送源码。
+//	  the team explicitly turned off the AI orchestration of update. The command only does deterministic drift detection and reporting,
+//	  building no AI client, validating no key, creating no draft, sending no source.
 //	review:
-//	  update 自动起草并调用共用机器预检，始终停在草稿区等待人工
-//	  diff/apply；机器拒绝或无草稿项返回 ExitInvalid。
+//	  update drafts automatically and calls the shared machine precheck, always stopping in the draft area to wait for a human
+//	  diff/apply; a machine refusal or no draft items returns ExitInvalid.
 //	auto:
-//	  update 在 generation 完整、机器预检通过、P-23 摘要一致后，使用
-//	  原子批量回写应用整批；任一失败均保留草稿且不得部分应用。
+//	  once the generation is complete, the machine precheck passes, and the P-23 digest agrees, update applies the whole batch
+//	  through the atomic batch write-back; any failure keeps the draft and never applies partially.
 //
-// 自动工作流绝不静默删除源码文件或无治理依据的 Entry。auto 模式可以在
-// Scope Policy、Retention Review、精确 Envelope、CAS 与可恢复事务全部
-// 通过时，原子退役角色转换所覆盖的正式 Entry；Orphan 仍然只报告。
+// The automatic workflow never silently deletes a source file or an Entry without governance grounds. auto mode may
+// atomically retire the formal Entries covered by a role transition once Scope Policy, Retention Review, the exact Envelope, CAS, and
+// the recoverable transaction have all passed; an Orphan is still only reported.
 //
-// Automation 属团队治理资产，只允许 config.json 声明。config.Load 会在
-// 合并 local 层后恢复团队值，防止个人 config.local.json 静默改写团队策略。
+// Automation is a team governance asset that only config.json may declare. config.Load restores the team value after
+// merging the local layer, so a personal config.local.json cannot silently rewrite the team policy.
 package config
 
 import (
@@ -39,7 +39,7 @@ const (
 	AutomationModeAuto   = "auto"
 )
 
-// AutomationConfig 是 config.json 中的 automation 配置块。
+// AutomationConfig is the automation block of config.json.
 type AutomationConfig struct {
 	Mode string `json:"mode"`
 }
@@ -64,8 +64,8 @@ func (c *Config) ResolveOnboardingAutomation(freshBootstrap bool) AutomationPoli
 	return AutomationPolicy{Mode: AutomationModeLegacy, Source: machinecontract.CognitionAutomationPolicyLegacy}
 }
 
-// ParseAutomationMode 把用户输入归一为规范模式。
-// manual 仅作为 CLI 友好别名，落盘时归一为 legacy，即删除配置块。
+// ParseAutomationMode normalizes user input into the canonical mode.
+// manual is only a CLI-friendly alias and is normalized to legacy on write, that is, the block is removed.
 func ParseAutomationMode(raw string) (string, error) {
 	mode := strings.ToLower(strings.TrimSpace(raw))
 	switch mode {
@@ -85,8 +85,8 @@ func ParseAutomationMode(raw string) (string, error) {
 	}
 }
 
-// EffectiveAutomationMode 返回当前生效模式。
-// Automation=nil 是旧仓兼容态，不得擅自解释成 auto 或 off。
+// EffectiveAutomationMode returns the mode currently in effect.
+// Automation=nil is the old-repository compatibility state and must not be read as auto or off on its own.
 func (c *Config) EffectiveAutomationMode() string {
 	if c == nil || c.Automation == nil {
 		return AutomationModeLegacy
@@ -98,14 +98,14 @@ func (c *Config) EffectiveAutomationMode() string {
 	return mode
 }
 
-// HasDeclaredAutomationMode 判断团队配置是否显式声明了 automation。
-// legacy 以字段缺失表达，因此返回 false。
+// HasDeclaredAutomationMode reports whether the team configuration declares automation explicitly.
+// legacy is expressed by the missing field, so it returns false.
 func (c *Config) HasDeclaredAutomationMode() bool {
 	return c != nil && c.Automation != nil
 }
 
-// SetAutomationMode 写入规范模式。
-// legacy/manual 会把 Automation 设为 nil，从 JSON 中移除字段，恢复旧仓兼容态。
+// SetAutomationMode writes the canonical mode.
+// legacy/manual set Automation to nil, removing the field from the JSON and restoring the old-repository compatibility state.
 func (c *Config) SetAutomationMode(raw string) error {
 	mode, err := ParseAutomationMode(raw)
 	if err != nil {
@@ -119,7 +119,7 @@ func (c *Config) SetAutomationMode(raw string) error {
 	return nil
 }
 
-// normalizeAutomationConfig 在加载后校验并规范化模式。
+// normalizeAutomationConfig validates and normalizes the mode after loading.
 func normalizeAutomationConfig(c *Config) error {
 	if c == nil || c.Automation == nil {
 		return nil
@@ -136,8 +136,8 @@ func normalizeAutomationConfig(c *Config) error {
 	return nil
 }
 
-// cloneAutomationConfig 复制团队 automation 配置。
-// Load 合并 local 前保存团队值，合并后再恢复，防 local 层越权覆盖。
+// cloneAutomationConfig copies the team automation configuration.
+// Load saves the team value before merging local and restores it afterwards, so the local layer cannot override it.
 func cloneAutomationConfig(in *AutomationConfig) *AutomationConfig {
 	if in == nil {
 		return nil

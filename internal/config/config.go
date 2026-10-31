@@ -1,41 +1,41 @@
-// Package config 负责 aoci-code 的配置读写。
-// 索引条目: config.go[GCF9M]
+// Package config owns the configuration reading and writing of aoci-code.
+// Index entry: config.go[GCF9M]
 //
-// 配置分两层:
+// The configuration has two layers:
 //
-//	.aoci/config.json        进 Git,团队共享基础配置与治理策略
-//	.aoci/config.local.json  不进 Git,仅本机 AI 端点等个人覆盖项
+//	.aoci/config.json        committed to Git: the team's shared base configuration and governance policy
+//	.aoci/config.local.json  not committed: personal overrides such as the AI endpoint, this machine only
 //
-// 加载语义:
-// DefaultConfig → config.json 覆盖 → config.local.json 覆盖。
+// Load semantics:
+// DefaultConfig → overridden by config.json → overridden by config.local.json.
 //
-// automation、line_ending_tolerance 与 cognition_refresh_threshold 都属于团队治理资产:
-// local 合并后必须恢复团队值，个人层不能覆盖。
+// automation, line_ending_tolerance, and cognition_refresh_threshold are all team governance assets:
+// after the local merge the team value must be restored, and the personal layer cannot override them.
 //
-// 层泄漏纪律:
-// 写团队层的调用方必须用 LoadBase 取源再 Save;Load 合并态只供读取,
-// 绝不能回写团队层,否则 local 的个人端点会泄漏进 config.json。
+// Layer leak discipline:
+// a caller writing the team layer must take its source from LoadBase and then Save; the merged state of Load is for reading only
+// and must never be written back to the team layer, or local's personal endpoint leaks into config.json.
 //
-// AI 配置铁律:
-// AI 默认关闭且无默认端点;APIKeyEnv 保存环境变量名而非密钥。
-// 密钥不得进入 config、ledger、备份或 Prompt 快照。
+// AI configuration iron rule:
+// AI is off by default with no default endpoint; APIKeyEnv holds an environment variable name, not a key.
+// A key must never enter the config, the ledger, a backup, or a Prompt snapshot.
 //
-// 技术产物排除扩充(R60-F.9-A2,2026-07-18): HTTPX 自然实弹中 .ruff_cache
-// 被判虚假 Missing 并触发多轮清理 —— 确定性工具产物不应进入语义治理。
-// 本次向 defaultExcludeDirs 补 .ruff_cache/.tox/.nox/htmlcov,向
-// defaultExcludeFiles 补 .coverage(它是文件不是目录)。排除分层裁决:
-// 不硬编码进 fs 层(与 node_modules 同类属业务/工具产物,非 .git/.aoci
-// 结构红线;用户可见可改),不新建第三策略层(现有二层已够表达)。
-// 存量仓限制(已知代价): applyFallbacks 只在字段为 nil 时回填默认,
-// 已落盘的显式清单会冻结旧默认 —— 本次扩充只救新仓;存量仓迁移经
-// doctor 信息态提示(A2 下半),零静默修改配置。
+// Technical artifact exclusion extension (R60-F.9-A2, 2026-07-18): in the natural HTTPX live run .ruff_cache
+// was judged a false Missing and triggered several rounds of cleanup; deterministic tool artifacts should not enter semantic governance.
+// This adds .ruff_cache/.tox/.nox/htmlcov to defaultExcludeDirs and
+// .coverage (a file, not a directory) to defaultExcludeFiles. The layering decision for exclusions:
+// not hard-coded into the fs layer (like node_modules it is a business/tool artifact, not a .git/.aoci
+// structural red line; visible and editable by the user), and no third policy layer (the existing two layers express enough).
+// Existing-repository limitation (a known cost): applyFallbacks fills defaults only when the field is nil,
+// so an explicit list already on disk freezes the old defaults; this extension only rescues new repositories, and an existing
+// repository migrates through the doctor informational hint (the second half of A2), with zero silent configuration changes.
 //
-// 换行宽容(R60-F.11):
-// line_ending_tolerance 默认 true，用于治理判定时把纯 CRLF/LF 表示差异
-// 识别为等价；显式 false 恢复严格原始字节判定。该字段只属于团队层，
-// config.local.json 无权覆盖，防止同一仓库在不同成员机器上产生不同治理结论。
-// 本字段是 bool，缺失时依赖 DefaultConfig 预置 true；绝不能加入 applyFallbacks，
-// 否则无法区分“字段缺失”与“团队显式 false”。
+// Line-ending tolerance (R60-F.11):
+// line_ending_tolerance defaults to true, making governance treat a pure CRLF/LF representation difference
+// as equivalent; an explicit false restores the strict raw-byte judgement. The field belongs to the team layer only,
+// and config.local.json may not override it, so one repository cannot reach different governance conclusions on different members' machines.
+// The field is a bool and relies on DefaultConfig presetting true when absent; it must never be added to applyFallbacks,
+// or "field missing" and "team explicitly false" become indistinguishable.
 package config
 
 import (
@@ -112,15 +112,15 @@ func defaultExcludeFiles() []string {
 	}
 }
 
-// DefaultTechnicalExcludeDirs 导出当前默认技术产物目录清单的拷贝。
+// DefaultTechnicalExcludeDirs exports a copy of the current default technical artifact directory list.
 //
-// 供 doctor 对存量仓做缺项提示；唯一事实源仍是 defaultExcludeDirs。
+// It serves doctor's missing-item hint for existing repositories; the single source of truth is still defaultExcludeDirs.
 func DefaultTechnicalExcludeDirs() []string {
 	return defaultExcludeDirs()
 }
 
-// AIConfig 是 AI 增强层配置。
-// BaseURL 完全由用户声明;CLI 不设置默认云端。
+// AIConfig is the AI enhancement layer configuration.
+// BaseURL is entirely declared by the user; the CLI sets no default cloud endpoint.
 type AIConfig struct {
 	Enabled bool `json:"enabled"`
 
@@ -128,7 +128,7 @@ type AIConfig struct {
 	BaseURL  string `json:"base_url"`
 	Model    string `json:"model"`
 
-	// APIKeyEnv 是环境变量名，不是密钥。
+	// APIKeyEnv is an environment variable name, not a key.
 	APIKeyEnv string `json:"api_key_env"`
 
 	TimeoutSeconds int `json:"timeout_seconds"`
@@ -148,7 +148,7 @@ type OverviewDeliveryConfig struct {
 	ChunkTokens int `json:"chunk_tokens"`
 }
 
-// Config 是 aoci-code 完整配置。
+// Config is the complete aoci-code configuration.
 type Config struct {
 	Version int `json:"version"`
 
@@ -167,7 +167,7 @@ type Config struct {
 	ExcludeRootDirs []string `json:"exclude_root_dirs,omitempty"`
 	ExcludeFiles    []string `json:"exclude_files"`
 
-	// 历史保留字段，当前不自动映射为文件模式。
+	// A historical field kept for compatibility; it is not mapped to a file pattern automatically today.
 	ExcludeExts []string `json:"exclude_exts"`
 
 	// SafeInventoryHighRiskOptIn is an exact-path, team-owned exception list.
@@ -182,19 +182,19 @@ type Config struct {
 	// host's dialog counts as a person's answer is a team decision.
 	HumanApprovalChannel string `json:"human_approval_channel,omitempty"`
 
-	// CurationExclude 是“工具看得见但维护者裁决不收录”的团队负空间。
-	// 唯一匹配事实源为 Config.CurationExcluded。
+	// CurationExclude is the team negative space "the tool can see it but the maintainer decided not to record it".
+	// The single matching source of truth is Config.CurationExcluded.
 	CurationExclude []string `json:"curation_exclude"`
 
 	HookStrict    bool `json:"hook_strict"`
 	LedgerEnabled bool `json:"ledger_enabled"`
 
-	// LineEndingTolerance 是团队级换行等价治理策略。
+	// LineEndingTolerance is the team-level line-ending equivalence governance policy.
 	//
-	// true：治理判定允许纯 CRLF/LF 表示差异；
-	// false：严格按原始字节SHA判断。
+	// true: governance judgement allows a pure CRLF/LF representation difference;
+	// false: strict judgement by the raw byte SHA.
 	//
-	// 内容绑定、CAS和Stage source_sha256不读取本字段。
+	// Content binding, CAS, and the Stage source_sha256 do not read this field.
 	LineEndingTolerance bool `json:"line_ending_tolerance"`
 
 	// CognitionRefreshThreshold is the team-wide number of deduplicated
@@ -215,9 +215,9 @@ type Config struct {
 
 	InstalledAgents []string `json:"installed_agents"`
 
-	// Automation 是团队级治理模式。
-	// nil 表示旧仓 legacy 兼容态;omitempty 保证旧仓经无关配置写回时不会
-	// 被静默写入新模式。
+	// Automation is the team-level governance mode.
+	// nil means the legacy compatibility state of an old repository; omitempty makes sure an old repository is not
+	// silently written into a new mode when an unrelated configuration change is written back.
 	Automation *AutomationConfig `json:"automation,omitempty"`
 
 	// DatabaseSources contains only non-secret team declarations. CredentialEnv
@@ -267,13 +267,13 @@ type LocaleMigration struct {
 	AgentsManagedBlockTotal   int      `json:"agents_managed_block_total"`
 }
 
-// DefaultConfig 返回安全默认值。
+// DefaultConfig returns the safe defaults.
 //
-// Automation=nil 是刻意设计: 普通加载无法判断仓库是否为新仓，因此默认必须
-// 保持 legacy; init 会显式写入 auto，而 Onboarding 只在其 Plan 已证明 Fresh
-// Bootstrap 时把缺失配置解析为当次 Session 的 auto 策略。
+// Automation=nil is deliberate: an ordinary load cannot tell whether the repository is new, so the default must
+// stay legacy; init writes auto explicitly, and Onboarding resolves a missing configuration into the auto policy of the
+// current Session only once its Plan has proven a Fresh Bootstrap.
 //
-// LineEndingTolerance=true 是缺省治理语义；JSON显式false会覆盖该默认值。
+// LineEndingTolerance=true is the default governance semantics; an explicit false in JSON overrides it.
 func DefaultConfig() *Config {
 	return &Config{
 		Version:                    2,
@@ -316,7 +316,7 @@ func dirPath(repoRoot string) string {
 	)
 }
 
-// FilePath 返回团队配置文件路径。
+// FilePath returns the team configuration file path.
 func FilePath(repoRoot string) string {
 	return filepath.Join(
 		dirPath(repoRoot),
@@ -324,7 +324,7 @@ func FilePath(repoRoot string) string {
 	)
 }
 
-// LocalFilePath 返回个人配置文件路径。
+// LocalFilePath returns the personal configuration file path.
 func LocalFilePath(repoRoot string) string {
 	return filepath.Join(
 		dirPath(repoRoot),
@@ -332,10 +332,10 @@ func LocalFilePath(repoRoot string) string {
 	)
 }
 
-// Load 加载生效配置。
+// Load loads the effective configuration.
 //
-// automation、line_ending_tolerance、cognition_refresh_threshold 与 Database
-// Cognition批次上限始终取团队层值；local 中即使存在同名键也不得覆盖。
+// automation, line_ending_tolerance, cognition_refresh_threshold, and the Database
+// Cognition batch cap always take the team-layer value; a same-named key in local must not override them.
 func Load(repoRoot string) (*Config, error) {
 	return loadEffective(repoRoot, true)
 }
@@ -398,7 +398,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 		return nil, err
 	}
 
-	// 团队治理策略不可被个人层覆盖。
+	// The team governance policy cannot be overridden by the personal layer.
 	cfg.Automation = teamAutomation
 	cfg.LineEndingTolerance =
 		teamLineEndingTolerance
@@ -465,7 +465,7 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	return cfg, nil
 }
 
-// LoadBase 只加载团队层原始态，供改后 Save。
+// LoadBase loads only the raw team layer, for Save after a change.
 func LoadBase(repoRoot string) (*Config, error) {
 	cfg := DefaultConfig()
 
@@ -522,9 +522,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 	return cfg, nil
 }
 
-// applyFallbacks 只处理能够区分“缺失”和“显式空值”的字段。
+// applyFallbacks handles only fields that can tell "missing" from "explicitly empty".
 //
-// 严禁在这里修改 LineEndingTolerance：bool 零值无法区分字段缺失与显式 false。
+// LineEndingTolerance must never be changed here: a bool zero value cannot tell a missing field from an explicit false.
 func applyFallbacks(cfg *Config) {
 	if cfg.IndexPath == "" {
 		cfg.IndexPath = "aoci.txt"
@@ -861,9 +861,9 @@ func applyJSONFileIfExists(
 	return nil
 }
 
-// Save 写入团队层 config.json。
+// Save writes the team-layer config.json.
 //
-// 传入 cfg 必须来自 LoadBase 或全新构造，不得来自 Load 合并态。
+// The given cfg must come from LoadBase or a fresh construction, never from the merged state of Load.
 func Save(
 	repoRoot string,
 	cfg *Config,
@@ -910,9 +910,9 @@ func Save(
 	)
 }
 
-// SaveLocal 只写个人覆盖面。
+// SaveLocal writes only the personal override surface.
 //
-// 团队治理字段即使曾被人工写入local，也会在本次保存时移除。
+// A team governance field, even if once written into local by hand, is removed on this save.
 func SaveLocal(
 	repoRoot string,
 	cfg *Config,
@@ -967,7 +967,7 @@ func SaveLocal(
 	existing["version"] = versionRaw
 	existing["ai"] = aiRaw
 
-	// 团队治理策略不得保留在个人配置中。
+	// The team governance policy must not stay in the personal configuration.
 	delete(
 		existing,
 		"automation",
@@ -1091,8 +1091,8 @@ func saveToPathCAS(targetPath string, cfg *Config, expectedSHA256 string) error 
 	return nil
 }
 
-// WalkOptions 转换扫描排除配置。
-// CurationExclude、Automation和LineEndingTolerance都不进入遍历层。
+// WalkOptions converts the scan exclusion configuration.
+// CurationExclude, Automation, and LineEndingTolerance do not enter the walk layer.
 func (configValue *Config) WalkOptions() fs.WalkOptions {
 	return fs.WalkOptions{
 		ExcludeDirs:        configValue.ExcludeDirs,
@@ -1103,7 +1103,7 @@ func (configValue *Config) WalkOptions() fs.WalkOptions {
 	}
 }
 
-// IsAIEnabled 返回AI开关和端点是否同时生效。
+// IsAIEnabled reports whether the AI switch and the endpoint are both in effect.
 func (configValue *Config) IsAIEnabled() bool {
 	return configValue.AI.Enabled &&
 		configValue.AI.BaseURL != ""

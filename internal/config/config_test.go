@@ -1,22 +1,22 @@
-// config 包测试 —— 字段完整性防线(R21 事故防再犯)
-// 索引条目: config_test.go(待补录)
+// config package tests: the field completeness defence (against a repeat of the R21 incident)
+// Index entry: config_test.go (to be recorded)
 //
-// 背景(2026-07-08 事故): config.go 在 v2.0 重写时丢失第一期四字段
-// (HookStrict/LedgerEnabled/InstalledAgents/ExcludeFiles),致 hooks/mcptools/cli
-// 全仓编译失败且被单包测试掩盖。本文件把"关键字段存在且默认值正确"变成测试断言:
-// 再有人整文件重写 config.go 丢字段,本包测试即红,不必等调用方编译炸。
+// Background (the 2026-07-08 incident): the v2.0 rewrite of config.go lost the four phase-one fields
+// (HookStrict/LedgerEnabled/InstalledAgents/ExcludeFiles), breaking the compilation of hooks/mcptools/cli across the
+// repository while single-package tests hid it. This file turns "the key fields exist with correct defaults" into test assertions:
+// the next whole-file rewrite of config.go that drops a field turns this package's tests red, without waiting for a caller's compilation to blow up.
 //
-// 覆盖: 默认值硬断言 / 双层加载覆盖语义 / 显式空数组受尊重 / 空值兜底 /
+// Coverage: hard default assertions / two-layer load override semantics / an explicit empty array respected / empty-value fallbacks /
 //
-//	损坏 JSON 报错 / Save-Load 往返 / SaveLocal 分流 / IsAIEnabled 语义 /
-//	SaveLocal 合并写三防线(P1-b 事故防再犯,2026-07-09)。
+//	corrupt JSON errors / the Save-Load round trip / the SaveLocal split / IsAIEnabled semantics /
+//	the three SaveLocal merge-write defences (against a repeat of the P1-b incident, 2026-07-09).
 //
-// P1-b 事故背景: 旧版 SaveLocal 经 saveToPath 落盘整个 Config 快照,把当时的
-// exclude_dirs 等团队字段冻结进 local 层,此后 base 层演进被静默遮蔽(实弹:
-// base 层新增 experiments 排除被 local 旧快照顶掉,致 24 项幽灵 Missing)。
-// 修法: SaveLocal 读现有 local 为 RawMessage 图,只替换 version 与 ai 两键。
-// 本文件末三用例是该修法的防线本体 —— 再有人把 SaveLocal 退化回整量快照,
-// 或让它静默覆盖损坏文件,测试即红。
+// The P1-b incident background: the old SaveLocal wrote the whole Config snapshot through saveToPath, freezing the then
+// exclude_dirs and other team fields into the local layer, after which base-layer evolution was silently shadowed (live: a new
+// experiments exclusion in the base layer was overridden by the old local snapshot, yielding 24 ghost Missing).
+// The fix: SaveLocal reads the existing local as a RawMessage map and replaces only the version and ai keys.
+// The last three cases of this file are the body of that defence: the next change that degrades SaveLocal back to a whole snapshot,
+// or lets it silently overwrite a corrupt file, turns the tests red.
 package config
 
 import (
@@ -26,7 +26,7 @@ import (
 	"testing"
 )
 
-// TestDefaultConfig_CriticalFields 关键字段默认值硬断言(字段丢失防线本体)。
+// TestDefaultConfig_CriticalFields is the hard assertion of key field defaults (the body of the lost-field defence).
 func TestDefaultConfig_CriticalFields(t *testing.T) {
 	c := DefaultConfig()
 
@@ -42,7 +42,7 @@ func TestDefaultConfig_CriticalFields(t *testing.T) {
 	if c.InstalledAgents == nil {
 		t.Error("InstalledAgents 必须初始化为空切片而非 nil")
 	}
-	// ExcludeFiles 默认必须含备份模式(平台 1132 误报事故预防)
+	// ExcludeFiles must hold the backup pattern by default (preventing the platform 1132 false-report incident)
 	found := map[string]bool{}
 	for _, p := range c.ExcludeFiles {
 		found[p] = true
@@ -50,7 +50,7 @@ func TestDefaultConfig_CriticalFields(t *testing.T) {
 	if !found["*.backup.*"] || !found["*.bak"] {
 		t.Errorf("ExcludeFiles 默认必须含 *.backup.* 与 *.bak,实得 %v", c.ExcludeFiles)
 	}
-	// AI 块安全默认
+	// The AI block's safe defaults
 	if c.AI.Enabled {
 		t.Error("AI.Enabled 默认必须为 false(纯离线确定性模式)")
 	}
@@ -68,7 +68,7 @@ func TestDefaultConfig_CriticalFields(t *testing.T) {
 	}
 }
 
-// TestLoad_MissingFilesFallsBackToDefault 双层文件均缺失 → 完整默认配置,零错误。
+// TestLoad_MissingFilesFallsBackToDefault: both layer files missing → the complete default configuration with zero errors.
 func TestLoad_MissingFilesFallsBackToDefault(t *testing.T) {
 	root := t.TempDir()
 	c, err := Load(root)
@@ -80,18 +80,18 @@ func TestLoad_MissingFilesFallsBackToDefault(t *testing.T) {
 	}
 }
 
-// TestLoad_TwoLayerOverride 双层加载: local 覆盖 base,未出现字段保持上一层值。
+// TestLoad_TwoLayerOverride, the two-layer load: local overrides base, and a field that does not appear keeps the previous layer's value.
 func TestLoad_TwoLayerOverride(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// base: 改 index_path 与关闭 ledger
+	// base: change index_path and turn the ledger off
 	base := `{"index_path":"custom.txt","ledger_enabled":false,"ai":{"model":"base-model"}}`
 	if err := os.WriteFile(FilePath(root), []byte(base), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// local: 只覆盖 ai.base_url(其余字段不出现)
+	// local: override only ai.base_url (no other field appears)
 	local := `{"ai":{"base_url":"http://10.0.0.5:8000/v1"}}`
 	if err := os.WriteFile(LocalFilePath(root), []byte(local), 0o644); err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestLoad_TwoLayerOverride(t *testing.T) {
 	}
 }
 
-// TestLoad_ExplicitEmptyExcludeFilesRespected 显式空数组=用户要清空排除,不回填默认。
+// TestLoad_ExplicitEmptyExcludeFilesRespected: an explicit empty array = the user wants the exclusions cleared, with no default fill.
 func TestLoad_ExplicitEmptyExcludeFilesRespected(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -133,7 +133,7 @@ func TestLoad_ExplicitEmptyExcludeFilesRespected(t *testing.T) {
 	}
 }
 
-// TestLoad_EmptyValueFallbacks 关键字段被写空 → 兜底回默认。
+// TestLoad_EmptyValueFallbacks: key fields written empty → fall back to the defaults.
 func TestLoad_EmptyValueFallbacks(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -154,7 +154,7 @@ func TestLoad_EmptyValueFallbacks(t *testing.T) {
 	}
 }
 
-// TestLoad_CorruptJSONReturnsActionableError 损坏 JSON → 带路径的可操作错误。
+// TestLoad_CorruptJSONReturnsActionableError: corrupt JSON → an actionable error carrying the path.
 func TestLoad_CorruptJSONReturnsActionableError(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -172,7 +172,7 @@ func TestLoad_CorruptJSONReturnsActionableError(t *testing.T) {
 	}
 }
 
-// TestSaveLoadRoundTrip Save→Load 往返一致(含新恢复字段)。
+// TestSaveLoadRoundTrip: the Save→Load round trip agrees (including the new recovery fields).
 func TestSaveLoadRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	c := DefaultConfig()
@@ -198,14 +198,14 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	if !got.AI.Enabled || got.AI.BaseURL != "http://10.0.0.5:8000/v1" || got.AI.APIKeyEnv != "MY_KEY_ENV" {
 		t.Errorf("AI 块往返不一致: %+v", got.AI)
 	}
-	// 落盘文件绝不含密钥值形态的内容(R19 抽查:文件里只应有环境变量名)
+	// The file on disk must never hold anything shaped like a key value (the R19 spot check: the file should hold only an environment variable name)
 	raw, _ := os.ReadFile(FilePath(root))
 	if !strings.Contains(string(raw), "MY_KEY_ENV") {
 		t.Error("api_key_env 环境变量名应在配置文件中")
 	}
 }
 
-// TestSaveLocal_WritesToLocalFileOnly SaveLocal 只写 local 文件不动 base。
+// TestSaveLocal_WritesToLocalFileOnly: SaveLocal writes only the local file and leaves base alone.
 func TestSaveLocal_WritesToLocalFileOnly(t *testing.T) {
 	root := t.TempDir()
 	c := DefaultConfig()
@@ -221,7 +221,7 @@ func TestSaveLocal_WritesToLocalFileOnly(t *testing.T) {
 	}
 }
 
-// TestIsAIEnabled 开关与端点的合取语义。
+// TestIsAIEnabled: the conjunction semantics of the switch and the endpoint.
 func TestIsAIEnabled(t *testing.T) {
 	c := DefaultConfig()
 	if c.IsAIEnabled() {
@@ -237,18 +237,18 @@ func TestIsAIEnabled(t *testing.T) {
 	}
 }
 
-// —— 以下三用例为 SaveLocal 合并写防线(P1-b 事故防再犯,2026-07-09)——
+// —— The three cases below are the SaveLocal merge-write defence (against a repeat of the P1-b incident, 2026-07-09) ——
 
-// TestSaveLocal_PreservesExistingKeys 既有非 ai 键(用户手工覆盖项)必须原样保留。
-// 事故语境: 用户可能在 local 层手工写 hook_strict、ledger_enabled 等个人覆盖项;
-// SaveLocal(由 ai setup --local 触发)只应更新 version 与 ai,不得摧毁这些手工项。
+// TestSaveLocal_PreservesExistingKeys: existing non-ai keys (the user's manual overrides) must be kept as they are.
+// Incident context: the user may hand-write personal overrides such as hook_strict and ledger_enabled in the local layer;
+// SaveLocal (triggered by ai setup --local) should update only version and ai and must not destroy those manual items.
 func TestSaveLocal_PreservesExistingKeys(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// 预置: 含手工覆盖键的既有 local 文件(hook_strict 是真实可覆盖字段,
-	// my_manual_key 模拟未来扩展/未知键 —— 两类都必须保真)
+	// Preset: an existing local file holding manual override keys (hook_strict is a real overridable field,
+	// my_manual_key simulates a future extension/unknown key; both kinds must be kept intact)
 	pre := `{"version":1,"hook_strict":true,"my_manual_key":"keep-me"}`
 	if err := os.WriteFile(LocalFilePath(root), []byte(pre), 0o644); err != nil {
 		t.Fatal(err)
@@ -275,7 +275,7 @@ func TestSaveLocal_PreservesExistingKeys(t *testing.T) {
 	if !strings.Contains(s, "http://merge-test:8000/v1") {
 		t.Errorf("ai 块应已更新为新值,实得: %s", s)
 	}
-	// 语义验证: 合并后 Load 三层加载,hook_strict 覆盖仍生效
+	// Semantic verification: after the merge, the three-layer Load still applies the hook_strict override
 	got, err := Load(root)
 	if err != nil {
 		t.Fatalf("合并后 Load 失败: %v", err)
@@ -285,10 +285,10 @@ func TestSaveLocal_PreservesExistingKeys(t *testing.T) {
 	}
 }
 
-// TestSaveLocal_DoesNotFreezeTeamFields 团队字段(exclude_dirs 等)绝不落入 local。
-// 事故本体: 旧版整量快照把 exclude_dirs 冻结进 local,base 层后续新增排除项被
-// 静默顶掉(24 项幽灵 Missing)。断言: SaveLocal 落盘面只含 version 与 ai 两键
-// (在无既有 local 的初次写入场景),团队字段一个不落。
+// TestSaveLocal_DoesNotFreezeTeamFields: team fields (exclude_dirs and the like) never land in local.
+// The incident itself: the old whole snapshot froze exclude_dirs into local, and exclusions added later in the base layer were
+// silently overridden (24 ghost Missing). Assertion: the SaveLocal write surface holds only the two keys version and ai
+// (in the first-write scenario without an existing local), and not one team field.
 func TestSaveLocal_DoesNotFreezeTeamFields(t *testing.T) {
 	root := t.TempDir()
 	c := DefaultConfig()
@@ -313,7 +313,7 @@ func TestSaveLocal_DoesNotFreezeTeamFields(t *testing.T) {
 	if !strings.Contains(s, `"ai"`) || !strings.Contains(s, `"version"`) {
 		t.Errorf("local 应含且仅含 version 与 ai 两键,实得: %s", s)
 	}
-	// 语义验证: base 层的 exclude_dirs 演进不被 local 遮蔽
+	// Semantic verification: the base layer's exclude_dirs evolution is not shadowed by local
 	if err := os.WriteFile(FilePath(root), []byte(`{"exclude_dirs":["experiments"]}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -332,8 +332,8 @@ func TestSaveLocal_DoesNotFreezeTeamFields(t *testing.T) {
 	}
 }
 
-// TestSaveLocal_CorruptExistingRefusesOverwrite 既有 local 损坏 → 报错拒绝覆盖。
-// 语义: 静默覆盖损坏文件会丢用户手工覆盖项;与"绝不猜"同族,报可操作错误交人裁决。
+// TestSaveLocal_CorruptExistingRefusesOverwrite: an existing corrupt local → an error refusing to overwrite.
+// Semantics: silently overwriting a corrupt file loses the user's manual overrides; of the "never guess" family, it reports an actionable error and leaves the decision to a person.
 func TestSaveLocal_CorruptExistingRefusesOverwrite(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -353,7 +353,7 @@ func TestSaveLocal_CorruptExistingRefusesOverwrite(t *testing.T) {
 	if !strings.Contains(err.Error(), "config.local.json") {
 		t.Errorf("错误信息应含文件路径便于定位: %v", err)
 	}
-	// 损坏原文必须原样保留(拒绝覆盖的本体证明)
+	// The corrupt original must be kept as it is (the proof that the overwrite was refused)
 	raw, rerr := os.ReadFile(LocalFilePath(root))
 	if rerr != nil {
 		t.Fatal(rerr)
@@ -363,12 +363,12 @@ func TestSaveLocal_CorruptExistingRefusesOverwrite(t *testing.T) {
 	}
 }
 
-// —— 以下两用例为 LoadBase 层泄漏防线(P1-c 事故防再犯,2026-07-10)——
+// —— The two cases below are the LoadBase layer-leak defence (against a repeat of the P1-c incident, 2026-07-10) ——
 
-// TestLoadBase_ExcludesLocalLayer LoadBase 绝不合并 local 层(泄漏修法本体)。
-// 事故语境: setup 不带 --local 时旧版用 Load 合并态改后 Save,把 local 的
-// 个人端点 base_url 整量写入待提交的团队 config.json(git diff 提交前拦截)。
-// 断言: 同一仓库 Load 可见 local 的 base_url,LoadBase 不可见;base 层字段两者一致。
+// TestLoadBase_ExcludesLocalLayer: LoadBase never merges the local layer (the body of the leak fix).
+// Incident context: without --local, the old setup changed the merged state of Load and then Saved, writing local's
+// personal endpoint base_url wholesale into the team config.json about to be committed (caught by git diff before the commit).
+// Assertion: in the same repository Load sees local's base_url and LoadBase does not; the base-layer fields agree in both.
 func TestLoadBase_ExcludesLocalLayer(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -404,14 +404,14 @@ func TestLoadBase_ExcludesLocalLayer(t *testing.T) {
 	if len(baseCfg.ExcludeDirs) != 1 || baseCfg.ExcludeDirs[0] != "experiments" {
 		t.Fatalf("LoadBase 应保留 base 层团队字段,实得 %v", baseCfg.ExcludeDirs)
 	}
-	// 兜底语义与 Load 一致(applyFallbacks 共享单点)
+	// The fallback semantics agree with Load (applyFallbacks is the shared single point)
 	if baseCfg.IndexPath != "aoci.txt" || baseCfg.AI.Provider != "openai-compatible" {
 		t.Fatalf("LoadBase 兜底应与 Load 一致,实得 %+v", baseCfg)
 	}
 }
 
-// TestLoadBase_SaveRoundTripZeroLeak 修法端到端: LoadBase→改→Save 写回团队层,
-// local 个人字段零泄漏,且 local 文件本身一字节不动。
+// TestLoadBase_SaveRoundTripZeroLeak, the fix end to end: LoadBase→change→Save writes back the team layer,
+// with zero leak of local personal fields, and the local file itself not changed by one byte.
 func TestLoadBase_SaveRoundTripZeroLeak(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, DirName), 0o755); err != nil {
@@ -425,7 +425,7 @@ func TestLoadBase_SaveRoundTripZeroLeak(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 模拟 setup 不带 --local 的正确链路: LoadBase → 改团队字段 → Save
+	// Simulate the correct chain of setup without --local: LoadBase → change a team field → Save
 	cfg, err := LoadBase(root)
 	if err != nil {
 		t.Fatalf("LoadBase 失败: %v", err)
@@ -448,7 +448,7 @@ func TestLoadBase_SaveRoundTripZeroLeak(t *testing.T) {
 	if !strings.Contains(s, `"max_concurrency": 3`) {
 		t.Fatalf("团队层应含本次写入的字段,实得: %s", s)
 	}
-	// local 文件一字节不动
+	// The local file is not changed by one byte
 	gotLocal, err := os.ReadFile(LocalFilePath(root))
 	if err != nil {
 		t.Fatal(err)

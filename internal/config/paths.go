@@ -1,10 +1,10 @@
-// 仓库根定位与 .aoci 路径解析
-// 索引条目: paths.go[Cfg.Paths.8.Xp.S]
+// Repository root location and .aoci path resolution
+// Index entry: paths.go[Cfg.Paths.8.Xp.S]
 //
-// 定根顺序: --repo 显式覆盖 > 向上找 .git(git 根才是 canonical)> 向上找 .aoci。
-// 两轮独立向上扫描: 先整轮找 .git,未果再整轮找 .aoci ——
-// 保证"子目录里有 .aoci、上层有 .git"时以 git 根为准,不被就近的 .aoci 截胡。
-// 索引内 rel_path 永远正斜杠;Windows 盘符只存在于本地访问层。
+// Root order: an explicit --repo override > walking up for .git (the git root is canonical) > walking up for .aoci.
+// Two independent upward scans: a whole round for .git first, and only when that fails a whole round for .aoci,
+// so that "a .aoci in a subdirectory with a .git above" resolves to the git root and is not intercepted by the nearer .aoci.
+// rel_path inside the index is always forward-slashed; a Windows drive letter exists only in the local access layer.
 package config
 
 import (
@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 )
 
-// ErrNoRepoRoot 未定位到仓库根(调用方据此映射退出码 3 = 配置错误)
+// ErrNoRepoRoot means no repository root was located (the caller maps it to exit code 3 = configuration error)
 var ErrNoRepoRoot = errors.New("未找到仓库根: 当前目录及各级父目录均无 .git 或 .aoci;可用 --repo 显式指定,或在项目根执行 aoci init")
 
-// FindRepoRoot 定位仓库根。
-// override 非空(--repo)时直接使用(须为存在的目录);否则自 start 起两轮向上扫描。
+// FindRepoRoot locates the repository root.
+// A non-empty override (--repo) is used directly (it must be an existing directory); otherwise two upward scans start from start.
 func FindRepoRoot(start, override string) (string, error) {
 	if override != "" {
 		abs, err := filepath.Abs(override)
@@ -36,12 +36,12 @@ func FindRepoRoot(start, override string) (string, error) {
 		return "", err
 	}
 
-	// 第一轮: 找 .git(canonical)
+	// Round one: look for .git (canonical)
 	if root, ok := ascendFind(abs, ".git"); ok {
 		return root, nil
 	}
 
-	// 第二轮: 找 .aoci(无 git 的裸目录场景)
+	// Round two: look for .aoci (the bare directory scenario without git)
 	if root, ok := ascendFind(abs, ".aoci"); ok {
 		return root, nil
 	}
@@ -49,7 +49,7 @@ func FindRepoRoot(start, override string) (string, error) {
 	return "", ErrNoRepoRoot
 }
 
-// ascendFind 自 dir 逐级向上查找含 marker 子项的目录。
+// ascendFind walks up from dir level by level looking for a directory holding the marker child.
 func ascendFind(dir, marker string) (string, bool) {
 	for {
 		if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
@@ -64,21 +64,21 @@ func ascendFind(dir, marker string) (string, bool) {
 	}
 }
 
-// Paths 仓库内各运行时产物的绝对路径集合。
+// Paths is the set of absolute paths of the runtime artifacts inside a repository.
 type Paths struct {
-	Root             string // 仓库根
+	Root             string // repository root
 	AOCIDir          string // .aoci/
-	IndexPath        string // 索引文件(可被 config.index_path 覆盖)
-	BaselinePath     string // 基线指纹
-	ConfigPath       string // 团队配置
-	CurationPath     string // 文件级语义策展资产
-	ReportsPath      string // report 待办
-	LedgerPath       string // 遥测台账
-	VerifyHistoryDir string // verify 快照目录
+	IndexPath        string // index file (may be overridden by config.index_path)
+	BaselinePath     string // baseline fingerprints
+	ConfigPath       string // team configuration
+	CurationPath     string // file-level semantic curation asset
+	ReportsPath      string // report follow-ups
+	LedgerPath       string // telemetry ledger
+	VerifyHistoryDir string // verify snapshot directory
 }
 
-// AOCIPaths 按仓库根与索引相对路径构造路径集合。
-// indexRel 传空串时用历史默认 .aoci/index.txt。
+// AOCIPaths builds the path set from the repository root and the index relative path.
+// An empty indexRel takes the historical default .aoci/index.txt.
 func AOCIPaths(root, indexRel string) Paths {
 	if indexRel == "" {
 		indexRel = ".aoci/index.txt"

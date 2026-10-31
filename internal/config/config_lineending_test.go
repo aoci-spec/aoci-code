@@ -1,4 +1,4 @@
-// 团队级换行宽容配置测试。
+// Team-level line-ending tolerance configuration tests.
 package config
 
 import (
@@ -31,7 +31,7 @@ func writeLineEndingConfigFile(
 	}
 }
 
-// TestLineEndingToleranceDefaultAndExplicitFalse锁定默认宽容与显式严格语义。
+// TestLineEndingToleranceDefaultAndExplicitFalse locks the default tolerance and the explicit strict semantics.
 func TestLineEndingToleranceDefaultAndExplicitFalse(
 	t *testing.T,
 ) {
@@ -68,7 +68,7 @@ func TestLineEndingToleranceDefaultAndExplicitFalse(
 	}
 }
 
-// TestLineEndingToleranceCannotBeOverriddenLocally锁定个人层无权改变治理结论。
+// TestLineEndingToleranceCannotBeOverriddenLocally locks that the personal layer cannot change the governance conclusion.
 func TestLineEndingToleranceCannotBeOverriddenLocally(
 	t *testing.T,
 ) {
@@ -134,7 +134,7 @@ func TestLineEndingToleranceCannotBeOverriddenLocally(
 	}
 }
 
-// TestSaveLocalRemovesLineEndingTolerance锁定个人配置写回时清除越权键。
+// TestSaveLocalRemovesLineEndingTolerance locks that an overreaching key is cleared when the personal configuration is written back.
 func TestSaveLocalRemovesLineEndingTolerance(
 	t *testing.T,
 ) {

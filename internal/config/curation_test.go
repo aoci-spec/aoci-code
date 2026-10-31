@@ -1,7 +1,7 @@
-// config.curation_exclude静态路径策略测试。
+// Tests of the config.curation_exclude static path policy.
 //
-// 本文件只验证团队配置中的路径本体与目录子树匹配；正式文件级语义决策、
-// source_sha256有效性和curation.json持久化由internal/curation测试覆盖。
+// This file verifies only path-body and directory-subtree matching in the team configuration; the formal file-level semantic decision,
+// source_sha256 validity, and curation.json persistence are covered by the internal/curation tests.
 package config
 
 import "testing"

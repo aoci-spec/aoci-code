@@ -1,10 +1,10 @@
-// A2 技术产物默认排除判决测试。
+// Tests of the A2 technical artifact default exclusion verdict.
 //
-// 判决:
-//  1. 新增四目录与 .coverage 文件在 DefaultConfig 中在场(HTTPX 实弹缺口);
-//  2. 显式清单冻结语义不变: 已落盘的旧短清单不被新默认静默扩充(A2 已知
-//     代价的防回归锁定 —— 若未来有人改 applyFallbacks 做静默合并,本用例红);
-//  3. DefaultTechnicalExcludeDirs 与 DefaultConfig.ExcludeDirs 同源一致。
+// The verdict:
+//  1. the four added directories and the .coverage file are present in DefaultConfig (the HTTPX live-run gap);
+//  2. the explicit-list freeze semantics are unchanged: an old short list already on disk is not silently extended by the new defaults (the
+//     regression lock of A2's known cost; if anyone changes applyFallbacks to merge silently, this case goes red);
+//  3. DefaultTechnicalExcludeDirs and DefaultConfig.ExcludeDirs agree from one source.
 package config
 
 import (
@@ -46,7 +46,7 @@ func TestExplicitExcludeListFreezesDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 模拟旧默认值时代落盘的显式短清单
+	// Simulate an explicit short list written in the days of the old defaults
 	old := []byte(`{"version":1,"exclude_dirs":["node_modules"]}` + "\n")
 	if err := os.WriteFile(
 		FilePath(root), old, 0o644,

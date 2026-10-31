@@ -1,4 +1,4 @@
-// D69 自动化治理配置测试。
+// D69 automation governance configuration tests.
 package config
 
 import (
