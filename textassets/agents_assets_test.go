@@ -1,4 +1,4 @@
-// AGENTS模板资产的标记、机器Token和物理格式测试。
+// Tests of the AGENTS template asset's markers, machine Tokens, and physical format.
 package textassets
 
 import (

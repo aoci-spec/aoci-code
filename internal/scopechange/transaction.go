@@ -647,10 +647,10 @@ func validateSourceGuards(root string, intent *RecoveryIntent) error {
 	return validateSourceGuardsWithCurationBasis(root, intent, false)
 }
 
-// replayPlanTimeCuration=true 表示调用发生在 postimage 已经发布之后。此时被
-// Curation 排除的路径已不在磁盘上的 Baseline 里,按当前 Baseline 重算会得到
-// 另一份排除集合与评估身份,把一笔已经完成的事务判成陈旧、且再也无法归档
-// (审查修正)。发布后必须回放信封里的计划时事实。
+// replayPlanTimeCuration=true means the call happens after the postimage has been published. The paths excluded
+// by Curation are then no longer in the Baseline on disk, and recomputing by the current Baseline would give
+// another exclusion set and evaluation identity, judging a completed transaction stale and never archivable
+// (review correction). After publication the plan-time facts in the envelope must be replayed.
 func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, replayPlanTimeCuration bool) error {
 	cfg, err := config.LoadReadOnly(root)
 	if err != nil {

@@ -1,17 +1,17 @@
-// 数据库驱动版本表的机器闸。
+// The machine gate of the database driver version table.
 //
-// 真实经历: docs/supply-chain.md 的 "Database driver dependency audit" 表把三个驱动
-// 模块的钉死版本写成给人看的四行 Markdown。表里没有任何东西读它, 于是 go.mod 被
-// dependabot 提升之后, 表还停在旧版本上: rc11 切版前的对抗式审查才发现 pgx v5.10.0
-// 与 go-sql-driver/mysql v1.10.0 已经过期(见提交 "docs: correct the driver audit
-// versions and the README boundary claims"), 只能手工改表。supply-chain.md 是随 tag
-// 发布出去、且被 tag 固定链接引用的文档, 所以它对外声明的版本就是发布声明的一部分;
-// 一张没有闸的表迟早再次过期, 而这次它过期的位置恰好是被声明为供应链证据的文档。
+// A real experience: the "Database driver dependency audit" table in docs/supply-chain.md wrote the pinned versions of the three driver
+// modules as four lines of Markdown for people. Nothing in the table read it, so after go.mod was bumped by
+// dependabot the table still sat at the old versions: only the adversarial review before the rc11 cut found that pgx v5.10.0
+// and go-sql-driver/mysql v1.10.0 were outdated (see the commit "docs: correct the driver audit
+// versions and the README boundary claims"), and the table had to be changed by hand. supply-chain.md ships with the tag
+// and is referenced through tag-pinned links, so the versions it declares outward are part of the release declaration;
+// a table without a gate goes stale again sooner or later, and this time it went stale exactly in the document declared as supply-chain evidence.
 //
-// 本测试只比对"表里的版本"与"go.mod 要求的版本", 不判断版本"应该是"什么 —— 那是
-// 依赖升级的决定。openGauss 行多一项: 它的模块身份来自 go.mod 的 require, 而实际
-// 编译进二进制的字节来自 replace 指向的 third_party/ 携带副本, 因此两处都必须仍然
-// 指向那个携带副本, 否则文档描述的"官方身份 + 本地已审补丁"就与实际构建不符。
+// This test only compares "the versions in the table" with "the versions go.mod requires" and does not judge what the version "should be"; that is
+// the dependency upgrade's decision. The openGauss row has one more item: its module identity comes from the go.mod require, while the bytes
+// really compiled into the binary come from the third_party/ carried copy the replace points at, so both places must still
+// point at that carried copy, or the "official identity + locally reviewed patch" the document describes no longer matches the real build.
 package dbevidence
 
 import (
@@ -24,22 +24,22 @@ import (
 	"testing"
 )
 
-// driverAuditSectionHeading 是这四行表格所属的小节标题。
+// driverAuditSectionHeading is the heading of the section the four-row table belongs to.
 const driverAuditSectionHeading = "## Database driver dependency audit"
 
-// carriedOpenGaussModule 是根模块以本地 replace 承载其已审补丁的驱动模块。
+// carriedOpenGaussModule is the driver module whose reviewed patch the root module carries through a local replace.
 const carriedOpenGaussModule = "gitcode.com/opengauss/openGauss-connector-go-pq"
 
-// carriedOpenGaussTree 是被 carriedOpenGaussModule 换入的仓库内路径。
+// carriedOpenGaussTree is the in-repository path carriedOpenGaussModule is swapped for.
 const carriedOpenGaussTree = "third_party/openGauss-connector-go-pq"
 
-// driverAuditTableRow 匹配表行 "| `module` | `version` ... |", 并按需去掉版本两侧
-// 的反引号。openGauss 行的版本是 "`v1.0.8` + reviewed AOCI patch", 因此只锚定行首的
-// "| `" 与模块名之后紧跟的 "`", 表格的列宽与列顺序变化不会让它静默失配。
+// driverAuditTableRow matches a table row "| `module` | `version` ... |" and strips the backticks around the version as needed.
+// The openGauss row's version is "`v1.0.8` + reviewed AOCI patch", so only the leading
+// "| `" and the "`" right after the module name are anchored, and a change of column width or order does not make it mismatch silently.
 var driverAuditTableRow = regexp.MustCompile("^\\|\\s*`([^`]+)`\\s*\\|\\s*`([^`]+)`")
 
-// driverAuditRepoRoot 从本测试文件位置解析仓库根, 与本包其他契约测试一致; 测试路径
-// 不依赖调用者的工作目录。
+// driverAuditRepoRoot resolves the repository root from this test file's location, as the other contract tests of this package do; the test path
+// does not depend on the caller's working directory.
 func driverAuditRepoRoot(t *testing.T) string {
 	t.Helper()
 	_, currentFile, _, ok := runtime.Caller(0)
@@ -58,8 +58,8 @@ func readDriverAuditFile(t *testing.T, root, relative string) string {
 	return string(raw)
 }
 
-// driverAuditSection 返回小节标题到下一个二级标题之间的正文。小节被改名或挪走时返回
-// 空串, 由调用方判定为"闸已经不再覆盖它", 而不是静默通过。
+// driverAuditSection returns the body between the section heading and the next second-level heading. When the section is renamed or moved it returns
+// an empty string, which the caller judges as "the gate no longer covers it" rather than passing silently.
 func driverAuditSection(document string) string {
 	start := strings.Index(document, driverAuditSectionHeading)
 	if start < 0 {
@@ -72,8 +72,8 @@ func driverAuditSection(document string) string {
 	return remainder
 }
 
-// driverAuditTableEntries 返回表内每个模块的文档版本与它在文中出现的行号, 并校验
-// 每个模块只有一行。
+// driverAuditTableEntries returns each module's documented version and the line where it appears in the text, and checks that
+// each module has exactly one row.
 func driverAuditTableEntries(t *testing.T, document string) (map[string]string, map[string]int) {
 	t.Helper()
 	section := driverAuditSection(document)
@@ -102,9 +102,9 @@ func driverAuditTableEntries(t *testing.T, document string) (map[string]string, 
 	return versions, lines
 }
 
-// goModGraph 是机器判据所用的 go.mod 事实: 每个 require 的已解析版本, 以及每个
-// replace 的目标路径。它只读取文件文本, 不调用 go 命令, 因此在任何 Go 版本下与
-// make fast / make full 的其他测试同样可执行。
+// goModGraph is the go.mod fact the machine criterion uses: the resolved version of every require, and the target path of every
+// replace. It reads only the file text and calls no go command, so it runs under any Go version the same as
+// the other tests of make fast / make full.
 type goModGraph struct {
 	required map[string]string
 	replaced map[string]string
@@ -147,9 +147,9 @@ func parseGoModGraph(t *testing.T, text string) goModGraph {
 	return graph
 }
 
-// parseReplaceDirective 解析 "replace <module> [<version>] => <target> [<version>]"。
-// replace 目标里的版本只在换入另一个已发布模块时出现; 这里需要的是目标身份, 因此未
-// 给出目标版本时返回空串而不是报错。
+// parseReplaceDirective parses "replace <module> [<version>] => <target> [<version>]".
+// The version in a replace target appears only when swapping in another published module; what is needed here is the target identity, so
+// it returns an empty string rather than an error when no target version is given.
 func parseReplaceDirective(line string) (string, string, error) {
 	arrow := strings.Index(line, "=>")
 	if arrow < 0 {
@@ -163,10 +163,10 @@ func parseReplaceDirective(line string) (string, string, error) {
 	return left[0], right[0], nil
 }
 
-// TestDocumentedDriverVersionsMatchGoMod 是这条闸本身。失败信息同时点名模块、表中
-// 版本与 go.mod 版本, 使升级者不必自己去查是哪一边落后了。表里点名而 go.mod 完全不
-// require 的模块同样是失败: 删掉一个驱动却把表行留下, 正是这条闸最初要抓的、rc11
-// 切版前手工改表那类过期声明, 静默通过等于闸只覆盖了三个模块中的两个。
+// TestDocumentedDriverVersionsMatchGoMod is the gate itself. The failure message names the module, the version in the table,
+// and the go.mod version at once, so the upgrader need not find out which side is behind. A module named in the table that go.mod does not
+// require at all is a failure too: deleting a driver while leaving its table row is exactly the kind of stale declaration this gate was first meant to catch, the one fixed by hand before the rc11
+// cut, and passing silently would mean the gate covers only two of the three modules.
 func TestDocumentedDriverVersionsMatchGoMod(t *testing.T) {
 	root := driverAuditRepoRoot(t)
 	versions, _ := driverAuditTableEntries(t, readDriverAuditFile(t, root, "docs/supply-chain.md"))
@@ -193,10 +193,10 @@ func TestDocumentedDriverVersionsMatchGoMod(t *testing.T) {
 	}
 }
 
-// TestDocumentedOpenGaussDriverStillResolvesToTheCarriedTree 覆盖 openGauss 行多出的
-// 那一项: go.mod 里 require 的身份是官方模块, 而实际编译的字节来自 replace 指向的
-// third_party/ 携带副本。一旦 replace 被删掉或改指别处, 构建就会回到未打补丁的上游
-// 行为, 而表里 "v1.0.8 + reviewed AOCI patch" 与文档的复审结论会同时变成不实描述。
+// TestDocumentedOpenGaussDriverStillResolvesToTheCarriedTree covers the extra item of the openGauss row:
+// the identity required in go.mod is the official module, while the bytes really compiled come from the third_party/ carried copy the replace
+// points at. Once the replace is deleted or pointed elsewhere, the build falls back to the unpatched upstream
+// behaviour, and "v1.0.8 + reviewed AOCI patch" in the table and the document's review conclusion both become untrue at once.
 func TestDocumentedOpenGaussDriverStillResolvesToTheCarriedTree(t *testing.T) {
 	root := driverAuditRepoRoot(t)
 	versions, _ := driverAuditTableEntries(t, readDriverAuditFile(t, root, "docs/supply-chain.md"))

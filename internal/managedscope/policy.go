@@ -156,9 +156,9 @@ func NormalizePattern(value, kind string) (string, error) {
 	return clean, nil
 }
 
-// Match 用 Git 的路径语义: 精确、区分大小写, 每台主机都一样。
-// 曾经存在的大小写不敏感分支让匹配结果随宿主文件系统而变, 于是同一个仓库的
-// 治理身份取决于谁的机器跑的 scan —— 那不是可容忍的差异, 是缺陷。
+// Match uses Git's path semantics: exact, case-sensitive, the same on every host.
+// The case-insensitive branch that once existed made the match result vary with the host filesystem, so the same repository's
+// governance identity depended on whose machine ran the scan; that is not a tolerable difference but a defect.
 func Match(rule Rule, rel string) bool {
 	rel, err := fs.NormalizeRelPath(rel)
 	if err != nil || !rule.Enabled {

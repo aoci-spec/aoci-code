@@ -346,8 +346,8 @@ func TestResolveImpactStructuralChangesUpgradeFullSet(t *testing.T) {
 	}
 }
 
-// 同名多义的关系不再是缺陷: 机器不猜, 也不阻断。写入照常完成, 只是这条标注
-// 不产生 Review 边 —— 到底指的是哪个 users, 由读全量索引的模型自己判断。
+// An ambiguous same-named relation is no longer a defect: the machine does not guess and does not block. The write completes as usual, only this annotation
+// produces no Review edge; which users it means is for the model reading the complete index to judge.
 func TestResolveImpactAcceptsAmbiguousRelationWithoutGuessing(t *testing.T) {
 	database := primaryDatabaseImpact(databaseImpactLine("users", "-")) +
 		"===Warehouse public tables/database://warehouse/public/===\n" + databaseImpactLine("users", "-") + "\n"
@@ -372,9 +372,9 @@ func TestResolveImpactAcceptsAmbiguousRelationWithoutGuessing(t *testing.T) {
 	}
 }
 
-// 指不到、语法不规整的关系同样不阻断: 单条索引一旦生成, 机器只管它的形式与
-// 预算, 条目之间的关系交给注意力机制。这是"400+ 文件仓库能不能建成索引"的
-// 根因所在 —— 关系一旦成为机器约束, 就会在关系稠密的真仓上把创作彻底卡死。
+// A relation pointing nowhere, or with irregular syntax, does not block either: once a single index entry is generated, the machine minds only its form and
+// budget, and the relations between entries go to the attention mechanism. This is the root cause of "can a 400+ file repository build its index":
+// once relations became a machine constraint, they deadlocked authoring completely on relation-dense real repositories.
 func TestResolveImpactNeverBlocksOnRelationContent(t *testing.T) {
 	for _, test := range []struct {
 		name, relation string
@@ -435,9 +435,9 @@ func TestResolveImpactUsesNumericCandidateFindingOrder(t *testing.T) {
 	}
 }
 
-// 删掉一个被别处引用的对象会留下悬空的 R —— 那不是缺陷, 而是模型下次读全量
-// 索引时自己会看到的事实。机器不阻断, 但要把引用方拉进 Review 面, 让模型有机会
-// 顺手更新它。
+// Deleting an object referenced elsewhere leaves a dangling R; that is not a defect but a fact the model sees itself the next time it reads the complete
+// index. The machine does not block, but it pulls the referrer into the Review surface, so the model has the chance
+// to update it in passing.
 func TestResolveImpactDeleteSurfacesIncomingReferenceWithoutBlocking(t *testing.T) {
 	set, _ := loadImpactFixture(t,
 		[]string{codeImpactLine("user_repository.go", "database://primary/public/users")},

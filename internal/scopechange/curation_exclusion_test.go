@@ -10,10 +10,10 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// 对一个已经进入 Baseline 的路径下 exclude 决策: postimage 发布后该路径已不在
-// 新 Baseline 里,决策的 SHA 绑定随之失配。内部验证若按当前 Baseline 重算排除
-// 集合,就会得到另一个评估身份,把一笔已经完成的事务判成陈旧并永远无法归档
-// (审查修正: 验证必须回放信封里的计划时事实)。
+// An exclude decision on a path already in the Baseline: after the postimage is published the path is no longer in the
+// new Baseline, and the decision's SHA binding mismatches with it. If the internal validation recomputed the exclusion
+// set by the current Baseline, it would get another evaluation identity, judging a completed transaction stale and never archivable
+// (review correction: validation must replay the plan-time facts in the envelope).
 func TestCurationExclusionOfBaselinedPathCompletesAndArchives(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
 	fingerprint, err := baseline.HashFile(filepath.Join(root, "main.go"))

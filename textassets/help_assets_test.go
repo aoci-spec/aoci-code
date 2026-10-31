@@ -1,4 +1,4 @@
-// CLI Long Help资产的尾换行、标量渲染及关键Token测试。
+// Tests of the CLI Long Help assets' trailing newline, scalar rendering, and key Tokens.
 package textassets
 
 import (

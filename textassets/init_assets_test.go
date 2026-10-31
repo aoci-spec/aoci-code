@@ -1,4 +1,4 @@
-// Init合同和最小索引模板的变量、格式及关键机器Token测试。
+// Tests of the Init contracts and the minimal index template's variables, format, and key machine Tokens.
 package textassets
 
 import (

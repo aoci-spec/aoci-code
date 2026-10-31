@@ -1,4 +1,4 @@
-// Ledger v5 Entries Check修复状态专项测试。
+// Dedicated tests of the Ledger v5 Entries Check repair state.
 package ledger
 
 import "testing"

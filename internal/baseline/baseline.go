@@ -1,13 +1,13 @@
-// 指纹模型与基线读写。
-// 索引条目: baseline.go[Base.Fp.9.S]
+// The fingerprint model and Baseline reading and writing.
+// Index entry: baseline.go[Base.Fp.9.S]
 //
-// 纪律:
-//   - 原始SHA-256始终是内容绑定、CAS与平台content_hash互认的权威字节指纹;
-//   - NormalizedSHA256只表达CRLF折叠为LF后的可选文本等价指纹;
-//   - 是否允许换行等价由判定层显式决定，本文件不隐藏宽容策略;
-//   - 旧Baseline缺少NormalizedSHA256时保持严格比较，不做静默迁移;
-//   - Save写前滚动备份旧Baseline，正式写入经AtomicWrite;
-//   - Size只用于展示，不参与等价判定。
+// Discipline:
+//   - the raw SHA-256 is always the authoritative byte fingerprint for content binding, CAS, and mutual recognition with the platform content_hash;
+//   - NormalizedSHA256 expresses only the optional text-equivalence fingerprint after CRLF is folded to LF;
+//   - whether line-ending equivalence is allowed is decided explicitly by the judgement layer; this file hides no tolerance policy;
+//   - an old Baseline lacking NormalizedSHA256 keeps strict comparison, with no silent migration;
+//   - Save rolls a backup of the old Baseline before writing, and the formal write goes through AtomicWrite;
+//   - Size is for display only and takes no part in the equivalence judgement.
 package baseline
 
 import (
@@ -24,34 +24,34 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// Fingerprint 保存单文件的原始字节指纹与可选文本等价指纹。
+// Fingerprint holds one file's raw byte fingerprint and its optional text-equivalence fingerprint.
 type Fingerprint struct {
 	// Role is additive Managed Scope state. An omitted role is legacy index,
 	// preserving every Baseline v1 reader and old-project behavior.
 	Role string `json:"role,omitempty"`
-	// SHA256是原始文件字节的SHA-256，始终存在并保持严格语义。
+	// SHA256 is the SHA-256 of the raw file bytes; always present, always strict.
 	SHA256 string `json:"sha256"`
 
-	// Size是实际读取的字节数，仅用于展示和诊断。
+	// Size is the number of bytes really read, for display and diagnosis only.
 	Size int64 `json:"size,omitempty"`
 
-	// NormalizedSHA256是仅将CRLF折叠为LF后的SHA-256。
+	// NormalizedSHA256 is the SHA-256 after only CRLF is folded to LF.
 	//
-	// 只有满足文本嗅探且文件不超过安全上限时才生成。
-	// 字段缺失可能表示旧Baseline、二进制文件或超限文件；
-	// 判定层遇到任一侧缺失时必须退回原始SHA严格比较。
+	// It is produced only when the text sniff passes and the file is within the safe ceiling.
+	// A missing field may mean an old Baseline, a binary file, or an oversize file;
+	// when either side lacks it the judgement layer must fall back to the strict raw SHA comparison.
 	NormalizedSHA256 string `json:"normalized_sha256,omitempty"`
 
-	// FormatSHA256是受支持格式器生成的规范源码摘要。
-	// 当前仅对可由go/format完整解析的.go文件生成；它只用于证明
-	// gofmt表示变化，不参与CAS、Stage源码绑定或一般语义等价判断。
+	// FormatSHA256 is the canonical source digest produced by a supported formatter.
+	// Today it is produced only for .go files go/format can parse completely; it serves only to prove
+	// a gofmt representation change and takes no part in CAS, the Stage source binding, or general semantic equivalence.
 	FormatSHA256 string `json:"format_sha256,omitempty"`
 
-	// FormatKind声明FormatSHA256使用的确定性格式器。
+	// FormatKind declares the deterministic formatter FormatSHA256 used.
 	FormatKind string `json:"format_kind,omitempty"`
 }
 
-// Baseline是.aoci/baseline.json的全量快照。
+// Baseline is the full snapshot of .aoci/baseline.json.
 type Baseline struct {
 	Version           int                        `json:"version"`
 	CreatedAt         string                     `json:"created_at"`
@@ -67,10 +67,10 @@ type ManagedScopeState struct {
 	ObserveChangePolicy  string                  `json:"observe_change_policy"`
 	BudgetPolicyIdentity string                  `json:"budget_policy_identity,omitempty"`
 	BudgetPolicy         *cognitionbudget.Policy `json:"budget_policy,omitempty"`
-	// ApplyAuthorizationMode 记录产生本收据的那次事务所处的生效授权模式。
-	// 团队配置只表达"期望";只有这里的收据才是"当前生效"的治理姿态,因此模式
-	// 跃迁的方向可以被证明 —— 放松(review→auto 等)必须由真人复核,而不能在
-	// 新模式下自我批准。旧收据没有该字段,方向不可证,按失败关闭处理。
+	// ApplyAuthorizationMode records the authorization mode in effect for the transaction that produced this receipt.
+	// The team configuration only expresses "the expectation"; only the receipt here is the governance posture "currently in effect", so the
+	// direction of a mode transition can be proven: a relaxation (review→auto and the like) must be reviewed by a human and cannot
+	// approve itself under the new mode. An old receipt lacks the field, the direction cannot be proven, and it is handled as fail-closed.
 	ApplyAuthorizationMode string `json:"apply_authorization_mode,omitempty"`
 	HighRiskApprovalDigest string `json:"high_risk_approval_digest,omitempty"`
 }
@@ -92,17 +92,17 @@ type DatabaseCognitionBindings struct {
 	Entries []DatabaseCognitionBinding `json:"entries"`
 }
 
-// baselinePath返回Baseline文件的绝对路径。
+// baselinePath returns the absolute path of the Baseline file.
 func baselinePath(root string) string {
 	return filepath.Join(root, ".aoci", "baseline.json")
 }
 
-// nowISO返回当前UTC ISO8601时间。
+// nowISO returns the current UTC ISO8601 time.
 func nowISO() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
-// NewBaseline以给定指纹集构造全新Baseline。
+// NewBaseline builds a brand-new Baseline from the given fingerprint set.
 func NewBaseline(files map[string]Fingerprint) *Baseline {
 	if files == nil {
 		files = map[string]Fingerprint{}
@@ -161,11 +161,11 @@ func MarshalExact(baselineValue *Baseline) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-// Load读取Baseline。
+// Load reads the Baseline.
 //
-// 返回值为(Baseline, 是否存在, 错误)。
-// 文件缺失返回(nil,false,nil)，不视为错误。
-// 新增NormalizedSHA256使用omitempty，旧Version=1文件可直接兼容读取。
+// It returns (Baseline, whether it exists, error).
+// A missing file returns (nil,false,nil) and is not an error.
+// The added NormalizedSHA256 uses omitempty, so an old Version=1 file reads compatibly as it is.
 func Load(root string) (*Baseline, bool, error) {
 	data, err := os.ReadFile(baselinePath(root))
 	if err != nil {
@@ -209,7 +209,7 @@ func Load(root string) (*Baseline, bool, error) {
 	return &baselineValue, true, nil
 }
 
-// Save在共享索引锁内写入Baseline，供没有外层治理事务的调用方使用。
+// Save writes the Baseline inside the shared index lock, for callers without an outer governance transaction.
 func Save(root string, baselineValue *Baseline) error {
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
@@ -226,9 +226,9 @@ func Save(root string, baselineValue *Baseline) error {
 	return nil
 }
 
-// SaveUnderIndexLock在调用方已经持有共享索引锁时写入Baseline。
-// 写入前滚动备份旧文件，备份和正式文件均经AtomicWrite。调用者必须把
-// Load/修改/Save完整包在同一锁域，避免scan与Entries等合法写入口互相覆盖。
+// SaveUnderIndexLock writes the Baseline when the caller already holds the shared index lock.
+// The old file is rolled into a backup before the write, and both the backup and the formal file go through AtomicWrite. The caller must
+// wrap Load/change/Save completely in one lock domain, so scan and legal write entries such as Entries do not overwrite each other.
 func SaveUnderIndexLock(root string, baselineValue *Baseline) error {
 	if err := normalizeDatabaseCognitionBindings(baselineValue.DatabaseCognition); err != nil {
 		return fmt.Errorf("database cognition Baseline is invalid: %w", err)
@@ -407,9 +407,9 @@ func validateManagedScope(value *Baseline) error {
 	return nil
 }
 
-// UpdateOne前移单个文件的指纹。
+// UpdateOne advances the fingerprint of a single file.
 //
-// 调用方完成正式资产写入后再调用，并负责随后Save。
+// The caller calls it after the formal asset write and is responsible for the following Save.
 func UpdateOne(
 	baselineValue *Baseline,
 	relPath string,

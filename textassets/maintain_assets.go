@@ -1,8 +1,8 @@
 package textassets
 
 const (
-	// ContractMaintainToolDescription是aoci_maintain向宿主模型公开的
-	// MCP工具用途、时机与安全边界说明。
+	// ContractMaintainToolDescription is the explanation of the purpose, timing, and safety boundary of the MCP tool
+	// that aoci_maintain exposes to the host model.
 	ContractMaintainToolDescription ID = "contracts/maintain/tool-description"
 
 	ContractMaintainActionAligned                  ID = "contracts/maintain/actions/aligned"

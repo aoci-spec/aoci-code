@@ -104,9 +104,9 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 	return result, nil
 }
 
-// evaluationIdentity 保留 v2 的原始前像, 其中大小写位固定为 "true"。
-// 这不是装饰: 在大小写敏感文件系统上建立的每一份收据身份因此原样成立, 完全
-// 不迁移; 只有历史上以 "false" 记录的收据需要走一次治理 Scope Change。
+// evaluationIdentity keeps the v2 raw preimage, in which the case bit is fixed to "true".
+// This is not decoration: every receipt identity established on a case-sensitive filesystem therefore holds as it is, with no
+// migration at all; only receipts historically recorded with "false" need one governance Scope Change.
 func evaluationIdentity(policyIdentity, inventoryRulesIdentity string, curated []string) string {
 	hash := sha256.New()
 	for _, value := range append([]string{"managed-scope-applied-identity/v2", policyIdentity, inventoryRulesIdentity, "true"}, curated...) {

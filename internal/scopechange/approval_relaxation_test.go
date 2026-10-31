@@ -14,8 +14,8 @@ func receiptWithMode(mode string) *baseline.Baseline {
 		Version: machinecontract.ManagedScopeBaselineV1, ApplyAuthorizationMode: mode}}
 }
 
-// 治理姿态的放松必须按上一份收据记录的模式判定,否则 review→auto 的跃迁会在
-// 新模式下自我批准。
+// A relaxation of the governance posture must be judged by the mode the previous receipt recorded, or the review→auto transition would
+// approve itself under the new mode.
 func TestApprovalRelaxationDirectionUsesReceiptedMode(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -38,8 +38,8 @@ func TestApprovalRelaxationDirectionUsesReceiptedMode(t *testing.T) {
 	}
 }
 
-// 迁移边界: 早于本字段的收据不追溯阻断(保护从第一份记录了模式的收据开始生效),
-// 但无法识别的模式属篡改或未来格式,方向不可证,失败关闭。
+// Migration boundary: a receipt older than this field is not blocked retroactively (the protection takes effect from the first receipt that recorded the mode),
+// but an unrecognizable mode is tampering or a future format, the direction cannot be proven, and it fails closed.
 func TestApprovalRelaxationMigrationBoundaryAndUnprovableDirection(t *testing.T) {
 	if approvalRelaxed(receiptWithMode(""), machinecontract.ApplyAuthorizationAuto) {
 		t.Fatal("早于本字段的收据不应追溯阻断存量仓库")
@@ -58,7 +58,7 @@ func TestApprovalRelaxationMigrationBoundaryAndUnprovableDirection(t *testing.T)
 	}
 }
 
-// 放松治理姿态必须挡住 policy_bound_auto,交由真人复核。
+// Relaxing the governance posture must block policy_bound_auto and hand over to a human review.
 func TestApprovalPolicyRelaxationBlocksAutoAuthorization(t *testing.T) {
 	root, _, preview := buildAutoPreview(t)
 	cfg, err := config.LoadReadOnly(root)

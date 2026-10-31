@@ -1,50 +1,50 @@
-// Package curation 承载文件级语义策展的确定性事实、文件画像和持久化决策。
+// Package curation carries the deterministic facts, file profiles, and persistent decisions of file-level semantic curation.
 //
-// 设计边界:
-//   - 本包不调用模型、不创建索引条目、不修改Baseline;
-//   - 决策只在source_sha256与当前文件一致时有效;
-//   - 维护者config.curation_exclude优先于文件级决策;
-//   - empty/binary/oversize属于可语义裁决对象;
-//   - unreadable属于当前无法形成可信语义判断的技术跳过。
+// Design boundary:
+//   - this package calls no model, creates no index entry, and changes no Baseline;
+//   - a decision is valid only while its source_sha256 matches the current file;
+//   - the maintainer's config.curation_exclude takes precedence over file-level decisions;
+//   - empty/binary/oversize are objects open to semantic decision;
+//   - unreadable is a technical skip for which no trustworthy semantic judgement can be formed today.
 //
-// Missing三分继续守恒:
+// The Missing three-way split stays conserved:
 //
 //	ActionableMissing
 //	+ CurationExcludedMissing
 //	+ SkippedMissing
 //	= Raw Missing
 //
-// PendingCuration是SkippedMissing的子集，不增加第四个互斥集合:
-//   - 未裁决的empty/binary/oversize既是当前不可自动起草的SkippedMissing，
-//     也是等待宿主Agent语义判断的PendingCuration;
-//   - 有效include决策将其提升为ActionableMissing;
-//   - 有效exclude决策将其转为CurationExcludedMissing。
+// PendingCuration is a subset of SkippedMissing and adds no fourth exclusive set:
+//   - an undecided empty/binary/oversize is both a SkippedMissing that cannot be drafted automatically today
+//     and a PendingCuration waiting for the host Agent's semantic judgement;
+//   - a valid include decision promotes it to ActionableMissing;
+//   - a valid exclude decision turns it into CurationExcludedMissing.
 package curation
 
 const (
-	// Version 是 .aoci/curation.json 的结构版本。
+	// Version is the structure version of .aoci/curation.json.
 	Version = 1
 
-	// DecisionInclude 表示该文件应形成文件级AOCI条目。
+	// DecisionInclude means the file should form a file-level AOCI entry.
 	DecisionInclude = "include"
 
-	// DecisionExclude 表示该文件不应自动形成AOCI条目。
+	// DecisionExclude means the file should not form an AOCI entry automatically.
 	DecisionExclude = "exclude"
 
-	// ProfileReasonEmpty 表示文件物理为空。
+	// ProfileReasonEmpty means the file is physically empty.
 	ProfileReasonEmpty = "empty"
 
-	// ProfileReasonBinary 表示文件头部含NUL，疑似二进制。
+	// ProfileReasonBinary means the file head holds a NUL and is probably binary.
 	ProfileReasonBinary = "binary"
 
-	// ProfileReasonOversize 表示文件超过自动语义读取上限。
+	// ProfileReasonOversize means the file exceeds the automatic semantic reading ceiling.
 	ProfileReasonOversize = "oversize"
 
-	// ProfileReasonUnreadablePrefix 表示文件当前无法可靠读取或画像。
+	// ProfileReasonUnreadablePrefix means the file cannot be read or profiled reliably today.
 	ProfileReasonUnreadablePrefix = "unreadable:"
 )
 
-// Profile 是一个Missing文件的确定性物理画像。
+// Profile is the deterministic physical profile of one Missing file.
 type Profile struct {
 	Path         string `json:"path"`
 	SourceSHA256 string `json:"source_sha256,omitempty"`
@@ -54,10 +54,10 @@ type Profile struct {
 	Reason       string `json:"reason,omitempty"`
 }
 
-// Decision 是一项持久化文件级语义策展裁决。
+// Decision is one persisted file-level semantic curation verdict.
 //
-// Role回答“该文件在系统中的语义角色是什么”；Reason回答“为何收录或排除”。
-// Agent和Model用于审计，不用于推导决策有效性。
+// Role answers "what is this file's semantic role in the system"; Reason answers "why include or exclude".
+// Agent and Model serve audit and are not used to derive the decision's validity.
 type Decision struct {
 	Path         string `json:"path"`
 	Decision     string `json:"decision"`
@@ -70,13 +70,13 @@ type Decision struct {
 	UpdatedAt    string `json:"updated_at"`
 }
 
-// Document 是 .aoci/curation.json 的完整持久化结构。
+// Document is the complete persistent structure of .aoci/curation.json.
 type Document struct {
 	Version   int        `json:"version"`
 	Decisions []Decision `json:"decisions"`
 }
 
-// PendingCandidate 是等待宿主Agent进行include/exclude语义裁决的文件。
+// PendingCandidate is a file waiting for the host Agent's include/exclude semantic verdict.
 type PendingCandidate struct {
 	Path          string `json:"path"`
 	SourceSHA256  string `json:"source_sha256"`
@@ -86,7 +86,7 @@ type PendingCandidate struct {
 	ProfileReason string `json:"profile_reason"`
 }
 
-// ExcludedMissing 是一项已经被治理裁决排除的原始Missing。
+// ExcludedMissing is a raw Missing already excluded by a governance verdict.
 type ExcludedMissing struct {
 	Path       string `json:"path"`
 	Reason     string `json:"reason"`
@@ -95,16 +95,16 @@ type ExcludedMissing struct {
 	Source     string `json:"source"`
 }
 
-// SkippedMissing 是当前不进入自动条目起草队列的原始Missing。
+// SkippedMissing is a raw Missing that does not currently enter the automatic entry drafting queue.
 type SkippedMissing struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
 }
 
-// Classification 是Raw Missing的完整策展解释。
+// Classification is the complete curation interpretation of Raw Missing.
 //
-// Pending是Skipped的子集，Included是Actionable的子集。
-// StaleDecisions只报告源码摘要不再匹配的旧裁决，不改变物理Missing事实。
+// Pending is a subset of Skipped, Included a subset of Actionable.
+// StaleDecisions only reports old verdicts whose source digest no longer matches, without changing the physical Missing fact.
 type Classification struct {
 	Missing          []string           `json:"missing"`
 	Actionable       []string           `json:"actionable_missing"`
@@ -117,7 +117,7 @@ type Classification struct {
 	Profiles map[string]Profile `json:"-"`
 }
 
-// NewDocument 返回切片非nil的空策展资产。
+// NewDocument returns an empty curation asset with non-nil slices.
 func NewDocument() *Document {
 	return &Document{
 		Version:   Version,
@@ -125,7 +125,7 @@ func NewDocument() *Document {
 	}
 }
 
-// ExcludedPaths 返回稳定顺序的排除路径清单。
+// ExcludedPaths returns the excluded path list in stable order.
 func (c Classification) ExcludedPaths() []string {
 	result := make(
 		[]string,

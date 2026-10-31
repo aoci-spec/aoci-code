@@ -1,13 +1,13 @@
-// 已删文件的陈旧 Baseline 记录不是覆盖缩减。
+// A stale Baseline record of a deleted file is not a coverage reduction.
 //
-// 真实经历: internal/codebatch/relations.go 在拆关系校验时就删了, 但它的 index 角色
-// 记录留在 Baseline 里三周。日常 verify/check 不看它, 所以仓库一直报 aligned; 而任何
-// 一次 Scope Change 都会重估全部角色, 于是这条陈账必然被判成覆盖缩减(risk=high),
-// 自动授权拒绝, 一次纯策略变更被迫要真人批准。
+// A real experience: internal/codebatch/relations.go was deleted when the relation validation was split out, but its index-role
+// record stayed in the Baseline for three weeks. Everyday verify/check do not look at it, so the repository kept reporting aligned; while any
+// Scope Change re-evaluates every role, so this stale account was necessarily judged a coverage reduction (risk=high),
+// automatic authorization refused, and a pure policy change was forced to require a human approval.
 //
-// 判据是"当前 Safe Inventory 还看不看得见这个路径": 被排除但仍存在的文件留在评估里,
-// 只有真正消失的文件不在。消失的文件既无 Entry 也无字节可失去, 退役它的记录是记账,
-// 不是缩减。
+// The criterion is "can the current Safe Inventory still see this path": an excluded but existing file stays in the evaluation,
+// and only a file that really vanished is absent. A vanished file has neither an Entry nor bytes to lose; retiring its record is bookkeeping,
+// not a reduction.
 package scopechange
 
 import (
@@ -26,7 +26,7 @@ func TestVanishedSourceIsBookkeepingNotCoverageReduction(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
 	setFixtureAuthorization(t, root, config.AutomationModeAuto, machinecontract.ScopeApprovalModeInherit)
 
-	// 造一条陈账: Baseline 里有 index 角色记录, 但文件已经从工作树消失。
+	// Build one stale account: the Baseline holds an index-role record, but the file has vanished from the working tree.
 	vanished := "internal/gone/removed.go"
 	state, exists, err := baseline.Load(root)
 	if err != nil || !exists {
@@ -57,13 +57,13 @@ func TestVanishedSourceIsBookkeepingNotCoverageReduction(t *testing.T) {
 	if preview.Plan.Risk.CognitionCoverageReduction {
 		t.Fatalf("stale bookkeeping must not raise the coverage-reduction risk: %+v", preview.Plan.Risk)
 	}
-	// 夹具本身会退役一条 Entry, 所以整体 Level 不是 low; 要钉死的是这条陈账没有
-	// 贡献任何覆盖缩减计数与 P1。
+	// The fixture itself retires one Entry, so the overall Level is not low; what is locked is that this stale account contributes
+	// no coverage reduction count and no P1.
 	if preview.Plan.Risk.CoverageReductionCount != 0 || preview.Plan.Risk.P1 != 0 {
 		t.Fatalf("stale bookkeeping must contribute no coverage-reduction count and no P1: %+v", preview.Plan.Risk)
 	}
 
-	// 记账仍然发生 —— 陈账确实被清掉, 只是不再需要真人。
+	// The bookkeeping still happens: the stale account really is cleared, it just no longer needs a human.
 	removed := false
 	for _, item := range preview.Plan.BaselineRemoved {
 		if item.Path == vanished {
@@ -78,12 +78,12 @@ func TestVanishedSourceIsBookkeepingNotCoverageReduction(t *testing.T) {
 	}
 }
 
-// 反面: 文件仍然存在、只是还没写 Entry —— 那是真的在丢覆盖, 必须照旧拦。
+// The opposite: the file still exists and merely has no Entry yet; that is really losing coverage and must be blocked as before.
 func TestExistingUnauthoredSourceStillCountsAsCoverageReduction(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
 	setFixtureAuthorization(t, root, config.AutomationModeAuto, machinecontract.ScopeApprovalModeInherit)
 
-	// 真实存在但没有 Entry 的源文件。
+	// A source file that really exists but has no Entry.
 	present := filepath.Join(root, "unauthored.go")
 	if err := os.WriteFile(present, []byte("package main\n\nfunc Unauthored() {}\n"), 0o644); err != nil {
 		t.Fatal(err)

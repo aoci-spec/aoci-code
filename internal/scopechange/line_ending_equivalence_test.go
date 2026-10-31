@@ -1,18 +1,18 @@
-// Scope Change 必须和日常治理用同一把尺子量源文件是否漂移。
+// A Scope Change must measure source file drift with the same ruler as everyday governance.
 //
-// 真实经历: 一位用户在 Windows/Codex 上把两个二进制评审文件登记为 observe, 随后走正式
-// Scope 流程, 被 managed_scope_index_source_stale 顶住, 且升级到 rc5 也不解决。他据此
-// 判断"rc3 读不到 aoci.code.txt 里已有的条目"。条目其实一条都没丢: 触发这条错误的前提
-// 恰恰是该文件已经是 Baseline 里的 index 角色对象。真正的原因是 internal/scopechange
-// 用裸 SHA 比较, 成为仓库里唯一绕过 baseline.EquivalentFingerprints 的消费者 ——
-// 313a3ab 已经在 internal/volumegovernance 修过同一件事, 却没覆盖到这里。
+// A real experience: a user on Windows/Codex registered two binary review files as observe, then went through the formal
+// Scope flow, was stopped by managed_scope_index_source_stale, and upgrading to rc5 did not help. From that they
+// concluded "rc3 cannot read the entries already in aoci.code.txt". Not one entry was lost: the precondition of that error
+// was exactly that the file was already an index-role object in the Baseline. The real cause was internal/scopechange
+// comparing bare SHAs, the only consumer in the repository bypassing baseline.EquivalentFingerprints;
+// 313a3ab had already fixed the same thing in internal/volumegovernance without reaching here.
 //
-// core.autocrlf 是 Git for Windows 的默认值, 于是同一次改写: 日常 Verify/Check/Guide
-// 走 EquivalentFingerprints, 判定等价、报 aligned、维护循环里没有活可干; Scope Change
-// 走裸 SHA, 硬失败。两边都不给出口, 仓库就卡死在没有任何动作能清除的阻断上。
+// core.autocrlf is the default of Git for Windows, so one rewrite: everyday Verify/Check/Guide
+// go through EquivalentFingerprints, judge equivalent, report aligned, and the maintenance loop has nothing to do; the Scope Change
+// goes through bare SHAs and fails hard. Neither side gives a way out, and the repository is stuck on a block no action can clear.
 //
-// 下面钉死的是: 仅行尾改写不再阻断且被如实报告, 而真实内容改动、以及团队显式关闭宽容
-// 时, 这道 fail-closed 守卫一如既往。
+// Locked below: a line-ending-only rewrite no longer blocks and is reported truthfully, while a real content change, and a team that
+// explicitly turns tolerance off, keep this fail-closed guard exactly as before.
 package scopechange
 
 import (
@@ -37,7 +37,7 @@ func mustMarshalPlan(t *testing.T, plan Plan) []byte {
 	return raw
 }
 
-// rewriteFixtureLineEndings 把 LF 换成 CRLF, 复现 Windows 检出的效果。
+// rewriteFixtureLineEndings swaps LF for CRLF, reproducing the effect of a Windows checkout.
 func rewriteFixtureLineEndings(t *testing.T, root, rel string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(rel))
@@ -84,7 +84,7 @@ func TestLineEndingOnlyIndexSourceNoLongerBlocksScopeChange(t *testing.T) {
 			"equivalent, so it must not block Scope Change: %v", err)
 	}
 
-	// 容忍但不沉默: 后像 Baseline 会记录新字节, 审批人必须看得见这件事。
+	// Tolerated but not silent: the postimage Baseline records the new bytes, and the approver must see that.
 	reported := false
 	for _, item := range preview.Plan.SourceLineEndingOnly {
 		if item.Path == "main.go" {
@@ -110,7 +110,7 @@ func TestLineEndingOnlyIndexSourceStillBlocksWhenToleranceIsOff(t *testing.T) {
 
 func TestGenuineIndexSourceChangeStillBlocksScopeChange(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
-	// 真实内容改动: 发布后像 Baseline 会把新字节的 SHA 盖到描述旧字节的条目上。
+	// A real content change: after publication the postimage Baseline stamps the new bytes' SHA onto the entry describing the old bytes.
 	if err := os.WriteFile(filepath.Join(root, "main.go"),
 		[]byte("package sample\n\nfunc Added() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -124,7 +124,7 @@ func TestGenuineIndexSourceChangeStillBlocksScopeChange(t *testing.T) {
 
 func TestLineEndingOnlyReductionIsNotStaleCoverageDebt(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
-	// main_test.go 正是本夹具要从 index 降为 observe 的那条, 给它一次行尾改写。
+	// main_test.go is exactly the one this fixture demotes from index to observe; give it a line-ending rewrite.
 	rewriteFixtureLineEndings(t, root, "main_test.go")
 
 	preview, err := Build(root, authorizationTestTime, candidates)
@@ -140,9 +140,9 @@ func TestLineEndingOnlyReductionIsNotStaleCoverageDebt(t *testing.T) {
 }
 
 func TestPlanIdentityUnchangedWithoutLineEndingDrift(t *testing.T) {
-	// SourceLineEndingOnly 用 omitempty: 没有漂移的计划序列化与新增字段之前完全一致,
-	// plan_id 不变, 升级不会作废在途审批。带漂移的计划在修复前根本无法构建, 因此不存在
-	// 被作废的对象。
+	// SourceLineEndingOnly uses omitempty: a plan without drift serializes exactly as before the field was added,
+	// plan_id is unchanged, and an upgrade does not void an in-flight approval. A plan with drift could not be built at all before the fix, so
+	// there is nothing to void.
 	root, candidates := buildChangeFixture(t)
 	preview, err := Build(root, authorizationTestTime, candidates)
 	if err != nil {
@@ -164,8 +164,8 @@ func TestPlanIdentityUnchangedWithoutLineEndingDrift(t *testing.T) {
 	}
 }
 
-// 形式 Volume 走的是同一把尺子: Windows 检出重写 aoci.code.txt 时,
-// volumegovernance 判等价而 Scope Change 判漂移, 是 313a3ab 修过的同一个洞。
+// A formal Volume goes by the same ruler: when a Windows checkout rewrites aoci.code.txt,
+// volumegovernance judging equivalent while the Scope Change judges drift is the same hole 313a3ab fixed.
 func TestFormalVolumeLineEndingRewriteIsNotBaselineDrift(t *testing.T) {
 	root := t.TempDir()
 	write := func(rel, content string) {
@@ -209,7 +209,7 @@ func TestFormalVolumeLineEndingRewriteIsNotBaselineDrift(t *testing.T) {
 		t.Fatalf("tolerance off must keep the strict Volume judgement: %v", err)
 	}
 
-	// 真实内容改动仍然是漂移, 与宽容与否无关。
+	// A real content change is still drift, tolerance or not.
 	write("aoci.code.txt", cognition.CodeVolumeMarker+"\n===Go sources"+filepath.ToSlash(root)+"/===\n"+
 		"main.go[CD7T]: F:a genuinely different responsibility | R:- | A:main | S:-\n")
 	if _, err := FormalCognitionBaselineGuards(root, "aoci.txt", active, true); err == nil ||

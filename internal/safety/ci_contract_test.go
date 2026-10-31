@@ -1,12 +1,12 @@
-// CI 契约: 每一处 action 引用都必须钉死到 40 位提交 SHA。
+// The CI contract: every action reference must be pinned to a 40-character commit SHA.
 //
-// 真实经历: release.yml 从一开始就是钉死的 —— 它签名、attest 并发布产物, 风险最
-// 显眼。ci.yml / full-confidence.yml / release-rehearsal.yml 则一直用可移动的
-// 标签, 而这三条流水线同样在检出源码、跑门禁、决定"绿不绿"。可移动标签意味着
-// 上游一次改写就能改变本仓的判定, 而本仓的提交历史看不出任何变化。
+// A real experience: release.yml was pinned from the start; it signs, attests, and publishes artifacts, the most
+// visible risk. ci.yml / full-confidence.yml / release-rehearsal.yml kept using movable
+// tags, while those three pipelines also check out source, run gates, and decide "green or not". A movable tag means
+// one upstream rewrite can change this repository's verdict with nothing visible in this repository's commit history.
 //
-// 这条测试是机器强制: 新增 job 时再引一个标签会在这里失败, 而不是等到某天
-// 上游被劫持。发布链路已经证明钉死可行, 剩下的只是让纪律覆盖全部工作流。
+// This test is machine enforcement: a new job referencing one more tag fails here, rather than waiting for the day
+// upstream is hijacked. The release chain has already proven pinning works; what remained was extending the discipline to every workflow.
 package safety
 
 import (

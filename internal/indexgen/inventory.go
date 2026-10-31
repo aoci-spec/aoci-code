@@ -1,11 +1,11 @@
-// Package indexgen 承载索引生成清单。
+// Package indexgen carries the index generation inventory.
 //
-// Inventory是纯离线、零AI清单:
+// The Inventory is a purely offline, zero-AI list:
 //
-//	磁盘文件集合 - 已索引文件集合 = 待索引候选。
+//	the set of files on disk - the set of indexed files = the candidates to index.
 //
-// 文件大小、行数、扩展名和empty/binary/oversize画像统一来自
-// internal/curation.ProfilePath。indexgen不再维护第二套嗅探算法。
+// File size, line count, extension, and the empty/binary/oversize profile all come uniformly from
+// internal/curation.ProfilePath. indexgen no longer maintains a second sniffing algorithm.
 package indexgen
 
 import (
@@ -21,7 +21,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
 
-// Item 是清单中的一个待索引文件。
+// Item is one file to index in the inventory.
 type Item struct {
 	RelPath          string `json:"rel_path"`
 	SizeBytes        int64  `json:"size_bytes"`
@@ -31,7 +31,7 @@ type Item struct {
 	SkipReason       string `json:"skip_reason,omitempty"`
 }
 
-// Inventory 是一次清单构建的完整结果。
+// Inventory is the complete result of one inventory build.
 type Inventory struct {
 	Items          []Item `json:"items"`
 	DiskTotal      int    `json:"disk_total"`
@@ -41,7 +41,7 @@ type Inventory struct {
 	ExcludeTotal   int    `json:"exclude_total"`
 }
 
-// BuildInventory 构建待索引清单。
+// BuildInventory builds the inventory of files to index.
 func BuildInventory(
 	root string,
 	cfg *config.Config,
@@ -189,7 +189,7 @@ func collectIndexPaths(
 	return indexed, sections
 }
 
-// profileFile 把curation物理画像映射为Inventory条目。
+// profileFile maps a curation physical profile into an Inventory item.
 func profileFile(
 	root,
 	rel string,

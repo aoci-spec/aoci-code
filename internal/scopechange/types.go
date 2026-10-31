@@ -194,11 +194,11 @@ type Preview struct {
 	CurationPostimage *FormalImage                    `json:"curation_postimage,omitempty"`
 	BaselinePostimage FormalImage                     `json:"baseline_postimage"`
 	Baseline          baseline.Baseline               `json:"baseline"`
-	// CurationExclusions 是计划时生效的 Curation 排除集合。发布 postimage 之后
-	// 无法再从磁盘上的 Baseline 复原它 —— 被排除的路径已经不在新 Baseline 里,
-	// 决策的 SHA 绑定随之失配,内部验证会算出另一个评估身份并把已经完成的事务
-	// 判成陈旧。验证必须回放这份计划时事实(审查修正)。旧信封没有该字段,此时
-	// 退回按当前 Baseline 重算,保持兼容。
+	// CurationExclusions is the Curation exclusion set in effect at plan time. After the postimage is published
+	// it can no longer be recovered from the Baseline on disk: the excluded paths are no longer in the new Baseline,
+	// the decision's SHA binding mismatches with it, and the internal validation would compute another evaluation identity and judge the completed transaction
+	// stale. Validation must replay this plan-time fact (review correction). An old envelope lacks the field, in which case
+	// it falls back to recomputing by the current Baseline, keeping compatibility.
 	CurationExclusions []string `json:"curation_exclusions,omitempty"`
 	PhysicalDiffSHA256 string   `json:"physical_diff_sha256"`
 	SemanticDiffSHA256 string   `json:"semantic_diff_sha256"`

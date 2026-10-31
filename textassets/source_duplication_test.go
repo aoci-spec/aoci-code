@@ -141,8 +141,8 @@ func detectSourceDuplicates(
 			}
 		}
 		for group, matches := range groupMatches {
-			// 一句常用短语允许正常出现；同一文件出现三项稳定动作才表明
-			// 整组合同正在重新形成第二事实源。
+			// One common phrase is allowed to appear normally; only three stable actions in one file show
+			// that the whole contract group is forming a second source of truth again.
 			if len(matches) >= 3 {
 				findings = append(findings, fmt.Sprintf(
 					"%s contains %d short assets from group %q",

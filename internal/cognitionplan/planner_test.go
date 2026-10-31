@@ -322,8 +322,8 @@ func TestDamagedLegacyDoesNotProduceApproval(t *testing.T) {
 	}
 }
 
-// 迁移不因为旧索引里的悬空 R 而卡住。历史索引里指不到的关系遍地都是 —— 那是
-// 模型当年写下的语义线索, 迁移的职责是把它原样搬过去, 不是替模型核对。
+// Migration does not get stuck on a dangling R in an old index. Relations pointing nowhere are everywhere in historical indexes; they are
+// the semantic clues the model wrote back then, and migration's job is to carry them over as they are, not to check them on the model's behalf.
 func TestMigrationCarriesDanglingRelationsThroughWithoutRisk(t *testing.T) {
 	root := legacyFixture(t, false)
 	path := filepath.Join(root, "aoci.txt")

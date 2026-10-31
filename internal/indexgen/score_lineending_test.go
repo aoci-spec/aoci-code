@@ -1,4 +1,4 @@
-// Score换行宽容生产路径测试。
+// Production-path tests of Score line-ending tolerance.
 package indexgen
 
 import (

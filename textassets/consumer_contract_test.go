@@ -10,9 +10,9 @@ import (
 	"testing"
 )
 
-// TestManifestConsumersResolveToProductionSymbols验证清单消费方不是说明性字符串：
-// 路径与符号必须真实存在，并且符号必须直接引用对应资源常量。
-// 这样重命名、删除或调用链迁移会在发布测试中失败。
+// TestManifestConsumersResolveToProductionSymbols verifies that manifest consumers are not descriptive strings:
+// the paths and symbols must really exist, and the symbol must reference the matching asset constant directly.
+// So a rename, a deletion, or a call-chain migration fails in the release tests.
 func TestManifestConsumersResolveToProductionSymbols(t *testing.T) {
 	manifest, err := ReadManifest()
 	if err != nil {

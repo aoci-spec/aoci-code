@@ -1,4 +1,4 @@
-// Makefile 格式质量闸的失败关闭测试。
+// Fail-closed tests of the Makefile format quality gate.
 package safety
 
 import (
@@ -10,8 +10,8 @@ import (
 	"testing"
 )
 
-// TestMakeFmtCheckFailsClosed 验证 gofmt 的任何工具故障都不能被误报为通过，
-// 同时锁定正常环境下既有的成功与未格式化输出。
+// TestMakeFmtCheckFailsClosed verifies that any gofmt tool fault cannot be misreported as a pass,
+// while locking the existing success and unformatted output under a normal environment.
 func TestMakeFmtCheckFailsClosed(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fmt-check 使用 POSIX shell，由 Linux CI 覆盖")

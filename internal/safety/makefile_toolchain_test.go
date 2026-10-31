@@ -1,9 +1,9 @@
-// 底座工具链预检的边界测试。
+// Boundary tests of the base toolchain precheck.
 //
-// 预检把"底座 Go 落后于 go.mod"从一句伪装成供应链故障的错误翻译成人话。它的
-// 判定必须是 >= 而不是 ==：更新的底座本来就满足每个 GOTOOLCHAIN=local 钉点,
-// 拦住它会把整批贡献者挡在门外。这些边界此前只在一次会话里用桩工具链手工验过,
-// 没有留下任何自动化证据。
+// The precheck translates "the base Go is behind go.mod" from an error disguised as a supply-chain fault into plain words. Its
+// judgement must be >= rather than ==: a newer base satisfies every GOTOOLCHAIN=local pin by itself,
+// and blocking it would lock out a whole batch of contributors. These boundaries were previously verified by hand with a stub toolchain
+// in a single session, leaving no automated evidence.
 package safety
 
 import (
@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// stubToolchain 写出一个只回答 "go version" 的可执行文件。
+// stubToolchain writes an executable that answers only "go version".
 func stubToolchain(t *testing.T, dir, version string) string {
 	t.Helper()
 	path := filepath.Join(dir, "go")
@@ -46,14 +46,14 @@ func TestToolchainPreflightAdmitsEveryToolchainGoRequires(t *testing.T) {
 		version string
 		admit   bool
 	}{
-		// go.mod 声明的版本本身必须放行，否则没有任何底座能通过。
+		// The version go.mod declares must itself pass, or no base could ever pass.
 		{"exact", required, true},
-		// 更新的底座满足 Go 在每个钉点执行的规则，拦住它是纯粹的误报。
+		// A newer base satisfies the rule Go enforces at every pin; blocking it is a pure false report.
 		{"newer patch", bumpPatch(t, required), true},
 		{"newer minor", bumpMinor(t, required), true},
-		// 落后的底座正是预检要拦的那一个。
+		// An older base is exactly the one the precheck must block.
 		{"older patch", dropPatch(t, required), false},
-		// 裸次版本按 .0 处理，因此低于任何带补丁号的要求。
+		// A bare minor version is read as .0, so it is below any requirement with a patch number.
 		{"bare minor", bareMinor(t, required), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -68,7 +68,7 @@ func TestToolchainPreflightAdmitsEveryToolchainGoRequires(t *testing.T) {
 			if test.admit {
 				return
 			}
-			// 拒绝必须同时点名两个版本，否则操作者还得自己去查是哪一边落后。
+			// The refusal must name both versions, or the operator still has to find out which side is behind.
 			for _, wanted := range []string{test.version, required} {
 				if !strings.Contains(string(output), wanted) {
 					t.Fatalf("拒绝未点名 %s: %s", wanted, output)
@@ -96,7 +96,7 @@ func TestToolchainPreflightRefusesAnUnusableGoBinary(t *testing.T) {
 	}
 	command := exec.Command(makePath, "GO_BIN="+broken, "toolchain-preflight")
 	command.Dir = repoRoot
-	// 一个跑不起来的 GO_BIN 绝不能被读成"版本没问题"，那会让门禁静默失效。
+	// A GO_BIN that cannot run must never be read as "the version is fine", which would silently disable the gate.
 	if output, runErr := command.CombinedOutput(); runErr == nil {
 		t.Fatalf("预检把无法执行的 GO_BIN 当成通过: %s", output)
 	}

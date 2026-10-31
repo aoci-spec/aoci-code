@@ -1,14 +1,14 @@
-// Raw Missing的文件级语义策展分类。
+// The file-level semantic curation classification of Raw Missing.
 //
-// 分类优先级:
+// Classification priority:
 //
 //	config.curation_exclude
-//	> 与当前source_sha256匹配的文件级决策
-//	> 确定性文件画像
-//	> 普通ActionableMissing
+//	> a file-level decision matching the current source_sha256
+//	> the deterministic file profile
+//	> ordinary ActionableMissing
 //
-// PendingCuration是SkippedMissing的子集，保持原有三分守恒。
-// 只有有效include决策才能把empty/binary/oversize提升为Actionable。
+// PendingCuration is a subset of SkippedMissing, keeping the existing three-way conservation.
+// Only a valid include decision can promote empty/binary/oversize to Actionable.
 package curation
 
 import (
@@ -18,7 +18,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 )
 
-// BuildClassification 读取当前策展资产、建立文件画像并完成Missing分类。
+// BuildClassification reads the current curation asset, builds the file profiles, and completes the Missing classification.
 func BuildClassification(
 	root string,
 	cfg *config.Config,
@@ -54,7 +54,7 @@ func BuildClassification(
 		nil
 }
 
-// Classify 是纯内存分类核心。
+// Classify is the pure in-memory classification core.
 func Classify(
 	cfg *config.Config,
 	rawMissing []string,

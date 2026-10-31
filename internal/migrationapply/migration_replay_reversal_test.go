@@ -515,8 +515,8 @@ func TestMigrationEligibilityAndMixedLayoutFailClosed(t *testing.T) {
 	}
 }
 
-// 历史索引里指不到的 R 遍地都是。那不是损坏, 迁移必须照常放行 —— 机器不核对
-// 一条索引的关系指向谁。
+// Rs pointing nowhere are everywhere in historical indexes. That is not corruption, and migration must pass as usual; the machine does not check
+// who an index entry's relation points at.
 func TestMigrationEligibleWhenLegacyRelationsDangle(t *testing.T) {
 	root := migrationFixture(t, false)
 	path := filepath.Join(root, "aoci.txt")

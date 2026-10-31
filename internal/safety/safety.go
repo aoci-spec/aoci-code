@@ -1,16 +1,16 @@
-// 禁区词与过度主张扫描 —— D3 纪律从人的自觉到机器闸门的编译
-// 索引条目: safety.go[Safe.Claims.9.IP.S]
+// Forbidden-word and overclaim scanning: the D3 discipline compiled from human self-restraint into a machine gate
+// Index entry: safety.go[Safe.Claims.9.IP.S]
 //
-// 用途: 扫描一切将公开的文本(README/Spec 正文/模板渲染产物/MCP 工具描述源码),
-// 命中禁区词或过度主张即报告。被 scripts/check-public-text.sh 与 CI 调用。
+// Use: scan every text about to be published (README / Spec body / rendered templates / MCP tool description source)
+// and report any forbidden word or overclaim hit. Called by scripts/check-public-text.sh and CI.
 //
-// 匹配双轨(误伤教训: TRIES 大小写不敏感子串匹配曾把 get_entries/Entries 全部误报):
+// Two matching tracks (a collateral-damage lesson: the case-insensitive substring match of TRIES once misreported every get_entries/Entries):
 //
-//	substringTerms —— 长词短语,大小写不敏感子串匹配;
-//	wordTerms      —— 短专名(TRIES 等),大小写敏感 + \b 词边界正则匹配。
+//	substringTerms: long words and phrases, case-insensitive substring match;
+//	wordTerms:      short proper names (TRIES and the like), case-sensitive plus \b word-boundary regular expression match.
 //
-// 机器词表只在 internal/machinecontract/lexical.go 定义；本包负责执行匹配，
-// Shell只保留兼容入口，Spec只解释治理目的而不复制机器集合。
+// The machine vocabulary is defined only in internal/machinecontract/lexical.go; this package performs the matching,
+// the Shell keeps only a compatibility entry, and the Spec explains the governance purpose without copying the machine set.
 package safety
 
 import (
@@ -21,15 +21,15 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// Hit 一次命中
+// Hit is one match
 type Hit struct {
-	Term string // 命中的词
+	Term string // the matched term
 	Kind string // forbidden / overclaim
-	Line int    // 行号,从 1 起
-	Text string // 命中行(截断)
+	Line int    // line number, starting at 1
+	Text string // the matched line (truncated)
 }
 
-// CheckForbiddenClaims 扫描文本,返回全部命中。
+// CheckForbiddenClaims scans the text and returns every hit.
 func CheckForbiddenClaims(text string) []Hit {
 	hits := []Hit{}
 	terms := machinecontract.PublicTextTerms()
@@ -58,7 +58,7 @@ func CheckForbiddenClaims(text string) []Hit {
 	return hits
 }
 
-// FormatHits 命中结果的人读渲染;空命中返回空串
+// FormatHits is the human-readable rendering of hits; no hits returns an empty string
 func FormatHits(source string, hits []Hit) string {
 	if len(hits) == 0 {
 		return ""
@@ -71,7 +71,7 @@ func FormatHits(source string, hits []Hit) string {
 	return b.String()
 }
 
-// truncate 按 rune 截断防切碎多字节字符
+// truncate truncates by rune so a multi-byte character is not cut apart
 func truncate(s string, n int) string {
 	r := []rune(strings.TrimSpace(s))
 	if len(r) <= n {

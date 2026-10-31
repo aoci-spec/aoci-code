@@ -1,12 +1,12 @@
-// 历史大小写身份的迁移代价必须是可陈述的。
+// The migration cost of the historical case identity must be statable.
 //
-// 应用范围身份过去把宿主文件系统的探测结果算了进去, 于是同一个仓库在 Linux 与
-// Windows 上得到不同的治理身份。身份改为与宿主无关后, 以 "false" 记录的历史收据
-// 需要走一次治理 Scope Change —— 这个用例钉死那次迁移的实际形状: 不动任何角色,
-// 不动任何条目, Whole-Index 字节不变, 且 policy-bound auto 就能授权, 不需要真人。
+// The applied scope identity used to count the host filesystem's probe result, so the same repository got different governance
+// identities on Linux and Windows. Once the identity became host-independent, a historical receipt recorded with "false"
+// needs one governance Scope Change; this case locks the real shape of that migration: no role moves,
+// no entry moves, the Whole-Index bytes are unchanged, and policy-bound auto can authorize it without a human.
 //
-// 这不是乐观估计, 是迁移能否在 GA 之前落地的判据。真实的大小写分岔仍会变成一次
-// 真实的角色变更, 那条路由给独立审批, 不在本用例范围内。
+// This is not an optimistic estimate; it is the criterion of whether the migration can land before GA. A real case divergence still becomes a
+// real role change, routed to independent approval, outside this case's scope.
 package scopechange
 
 import (
@@ -24,8 +24,8 @@ func TestHistoricalCaseIdentityMigratesIdentityOnlyUnderAuto(t *testing.T) {
 	root, _ := buildChangeFixture(t)
 	setFixtureAuthorization(t, root, config.AutomationModeAuto, machinecontract.ScopeApprovalModeAuto)
 
-	// 夹具把期望策略改成 production 以制造角色变更; 这里改回 full, 让唯一的差异
-	// 只剩历史大小写位, 迁移形状才看得清楚。
+	// The fixture changes the expected policy to production to manufacture a role change; here it goes back to full, so the only difference
+	// left is the historical case bit, and the migration shape is visible.
 	full := managedscope.DefaultPolicy(machinecontract.ScopeProfileFull)
 	normalized, err := managedscope.Normalize(full)
 	if err != nil {

@@ -102,8 +102,8 @@ type ManifestAsset struct {
 	Variables      []string            `json:"variables,omitempty"`
 }
 
-// manifestFragment只允许功能域片段声明版本与资产。Locale生命周期只在基础
-// Manifest中声明，避免每个片段形成一份会漂移的重复事实源。
+// manifestFragment lets only a feature-domain fragment declare versions and assets. The Locale lifecycle is declared only in the base
+// Manifest, so no fragment forms a duplicate source of truth that could drift.
 type manifestFragment struct {
 	Version int             `json:"version"`
 	Assets  []ManifestAsset `json:"assets"`
@@ -111,13 +111,13 @@ type manifestFragment struct {
 
 // Embedded directories are included recursively by go:embed.
 //
-// Locale目录使用统一BCP-47语言-地区形态；开发中Locale首次加入少量资源时
-// 会被通配模式自动嵌入，只有移入official_locales后才要求完整资源集合。
+// Locale directories use the uniform BCP-47 language-region form; a Locale under development that first gains a few assets
+// is embedded automatically by the wildcard pattern, and only once it moves into official_locales is the complete asset set required.
 //
 //go:embed manifest.json manifests/*.json [a-z][a-z]-[A-Z][A-Z]
 var embeddedAssets embed.FS
 
-// ReadManifest读取并合并清单元数据，不读取或校验任何资源正文。
+// ReadManifest reads and merges the manifest metadata without reading or validating any asset body.
 //
 // The embedded bytes cannot change while the process runs, so their decoded
 // and validated form is memoized once per process, the way ValidateRuntime
@@ -201,8 +201,8 @@ func cloneStringMap(source map[string][]string) map[string][]string {
 	return cloned
 }
 
-// readManifestFS从指定文件系统读取并合并Manifest，供生产嵌入资源与故障注入
-// 测试共用。结构与正文完整性由调用方按所需失败域分别校验。
+// readManifestFS reads and merges the Manifest from the given filesystem, shared by the production embedded assets and the fault-injection
+// tests. Structural and body integrity are validated separately by the caller per failure domain it needs.
 func readManifestFS(assetFS fs.FS) (Manifest, error) {
 	manifest, err := readBaseManifestFile(assetFS, baseManifestPath)
 	if err != nil {

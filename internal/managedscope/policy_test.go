@@ -223,8 +223,8 @@ func TestHighRiskExactOptInRequiresApprovalBeforeContentRead(t *testing.T) {
 	}
 }
 
-// 同一条规则在每台主机上给出同一个角色。这个用例过去分别断言两种语义各自的
-// 结果, 也就等于承认判定会随宿主漂移; 现在它断言只有一种判定。
+// The same rule gives the same role on every host. This case used to assert each semantics' own result separately,
+// which amounted to admitting the verdict drifts with the host; now it asserts there is only one verdict.
 func TestRuleMatchingIsExactOnEveryHost(t *testing.T) {
 	policy := DefaultPolicy(machinecontract.ScopeProfileCustom)
 	policy.Rules = []Rule{{RuleID: "unicode-path", Action: machinecontract.ScopeRoleObserve,

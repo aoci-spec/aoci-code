@@ -1,4 +1,4 @@
-// Maintain文本资产的机器Token和物理格式保护测试。
+// Machine Token and physical format protection tests of the Maintain text assets.
 package textassets
 
 import (
@@ -6,10 +6,10 @@ import (
 	"testing"
 )
 
-// TestMaintainToolDescriptionKeepsGovernanceFields锁定Description中的治理字段。
+// TestMaintainToolDescriptionKeepsGovernanceFields locks the governance fields in the Description.
 //
-// aoci_maintain是MCP Tool.Name结构字段，不属于可本地化Description正文，
-// 因此不能要求Description重复工具名，也不能为满足测试改变既有用户输出。
+// aoci_maintain is the MCP Tool.Name structural field, not part of the localizable Description body,
+// so the Description cannot be required to repeat the tool name, nor may the existing user output change to satisfy the test.
 func TestMaintainToolDescriptionKeepsGovernanceFields(
 	t *testing.T,
 ) {

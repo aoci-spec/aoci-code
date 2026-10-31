@@ -96,8 +96,8 @@ func ResolveImpact(set *Set, candidates []ImpactCandidate) (AffectedCognitionSet
 	for ref, object := range projected {
 		allObjects[ref] = object
 	}
-	// R 只用来扩大 Review 面, 从不产生诊断: 指不到、指多义、指向尚未创作的对象
-	// 都不是缺陷。条目之间的关系由读全量索引的注意力机制建立, 机器不参与核对。
+	// R serves only to widen the Review surface and never produces a diagnosis: pointing nowhere, pointing ambiguously, or pointing at an object not yet authored
+	// is no defect. The relations between entries are built by the attention of the model reading the complete index, and the machine takes no part in checking.
 	reviewReasons := resolveImpactClosure(graph, direct)
 
 	guardVolumes := map[string]bool{}

@@ -1,4 +1,4 @@
-// 严格JSON重复字段检测测试。
+// Tests of strict JSON duplicate field detection.
 package jsonstrict
 
 import (

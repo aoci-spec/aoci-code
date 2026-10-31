@@ -14,9 +14,9 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// EffectiveApplyAuthorizationMode 解析当前团队配置下的生效授权模式。
-// Scope Change 与首次 Baseline 建立共用同一解析,收据里记录的模式才能与
-// 事务授权时使用的模式严格同源。
+// EffectiveApplyAuthorizationMode resolves the authorization mode in effect under the current team configuration.
+// A Scope Change and the first Baseline establishment share one resolution, so the mode recorded in the receipt is
+// strictly the same source as the mode used when the transaction was authorized.
 func EffectiveApplyAuthorizationMode(cfg *config.Config) (string, error) {
 	if cfg == nil {
 		return "", fmt.Errorf("managed_scope_apply_authorization_policy_invalid")

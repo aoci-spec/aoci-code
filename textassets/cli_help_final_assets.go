@@ -6,12 +6,12 @@
 package textassets
 
 const (
-	// ContractHelpIndexScoreLong描述九维度评分及tagparse语义。
+	// ContractHelpIndexScoreLong describes the nine-dimension score and the tagparse semantics.
 	ContractHelpIndexScoreLong ID = "contracts/help/index-score-long"
 
-	// ContractHelpIndexAgentLong描述Host-Agent确定性协议能力。
+	// ContractHelpIndexAgentLong describes the Host Agent deterministic protocol capabilities.
 	ContractHelpIndexAgentLong ID = "contracts/help/index-agent-long"
 
-	// ContractHelpUpdateEntryLong描述单条Entry写入与校验合同。
+	// ContractHelpUpdateEntryLong describes the single-Entry write and validation contract.
 	ContractHelpUpdateEntryLong ID = "contracts/help/update-entry-long"
 )

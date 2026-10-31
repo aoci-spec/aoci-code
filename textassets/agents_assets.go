@@ -1,10 +1,10 @@
 package textassets
 
 const (
-	// TemplateAgentsMD是安装到仓库根AGENTS.md中AOCI托管区块的模板。
+	// TemplateAgentsMD is the template of the AOCI-managed block installed into the repository root AGENTS.md.
 	//
-	// 模板当前没有动态占位符，但仍由hooks.RenderTemplate执行解析与Safety
-	// 校验，保证它与其他仓库物化模板共享同一落盘安全边界。
+	// The template has no dynamic placeholder today, but it is still parsed and Safety-checked by hooks.RenderTemplate,
+	// so it shares the same write safety boundary as the other repository materialization templates.
 	TemplateAgentsMD ID = "templates/AGENTS.md"
 
 	// TemplateCodexMCPConfig is the project-level Codex MCP configuration.

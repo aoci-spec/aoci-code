@@ -70,8 +70,8 @@ func testLineSHA256(value string) string {
 	return hex.EncodeToString(digest[:])
 }
 
-// 系统投影是投影而不是校验: 指不到受管对象的 R 只是投不出边, 既不是缺陷,
-// 也不让投影"不完整"。R 允许指向尚未创作、已经移除或不受管的东西。
+// The system projection is a projection, not a validation: an R that matches no managed object simply projects no edge; it is neither a defect
+// nor makes the projection "incomplete". R may point at something not yet authored, already removed, or unmanaged.
 func TestSystemProjectionSkipsUnresolvableRelationsWithoutFindings(t *testing.T) {
 	set, _ := loadImpactFixture(t, []string{codeImpactLine("repository.go", "database://primary/public/missing")},
 		primaryDatabaseImpact(databaseImpactLine("orders", "-")))

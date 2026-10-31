@@ -1,7 +1,7 @@
-// 策展Document的严格内存解码。
+// Strict in-memory decoding of the curation Document.
 //
-// Host-Agent Stage草稿与正式curation.json必须复用相同的重复字段、未知字段、
-// 尾随对象和Decision字段校验，避免草稿和正式资产形成两套JSON接受口径。
+// A Host Agent Stage draft and the formal curation.json must reuse the same duplicate-field, unknown-field,
+// trailing-object, and Decision-field validation, so drafts and formal assets do not form two JSON acceptance readings.
 package curation
 
 import (
@@ -13,10 +13,10 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/jsonstrict"
 )
 
-// DecodeDocument 严格解码一份策展Document。
+// DecodeDocument strictly decodes one curation Document.
 //
-// requireAudit=false用于Stage草稿，允许Agent和UpdatedAt暂空；
-// requireAudit=true用于正式持久化资产。
+// requireAudit=false serves a Stage draft and allows Agent and UpdatedAt to be empty for now;
+// requireAudit=true serves the formally persisted asset.
 func DecodeDocument(
 	data []byte,
 	requireAudit bool,

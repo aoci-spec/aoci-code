@@ -188,11 +188,11 @@ func buildLineageRecord(set *Set, state *baseline.Baseline, object Object, volum
 	return record
 }
 
-// appendExplicitRelations 把 R 里能对上受管对象的标注投影成一张可看的图。
+// appendExplicitRelations projects the annotations in R that match managed objects into a viewable graph.
 //
-// 这是投影而不是校验: 对不上的标注既不是缺陷也不产生 Finding, 因为 R 是模型写
-// 给模型的语义线索, 允许指向尚未创作、已经移除或不受管的东西。真正的系统认知
-// 由模型读全量索引后用注意力机制建立, 这张图只是它的一个便利切片。
+// This is a projection, not a validation: an annotation that does not match is neither a defect nor a Finding, since R is a semantic clue the model writes
+// for the model and may point at something not yet authored, already removed, or unmanaged. The real system cognition
+// is built by the model's attention after reading the complete index, and this graph is only a convenient slice of it.
 func appendExplicitRelations(projection *SystemProjection, registry impactRegistry) {
 	nameIndex, namespaceIndex := buildImpactNameIndexes(registry)
 	for _, sourceRef := range sortedObjectRefs(registry) {

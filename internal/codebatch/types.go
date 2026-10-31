@@ -28,10 +28,10 @@ type Receipt struct {
 	// LogicalPlan names the parallel plan this batch is a sibling of; empty
 	// for an ordinary single current batch. It is outside the batch identity.
 	LogicalPlan string `json:"logical_plan,omitempty"`
-	// LegacyObservedRelations 只为让旧收据继续可读而存在。收据加载拒绝未知字段,
-	// 而升级前签发的收据里可能带着这个字段 —— 丢掉它会让升级瞬间把进行中的计划
-	// 卡死。机器不再从 R 推导任何东西,因此这份数据被解码后即丢弃:不参与身份推导,
-	// 不参与装箱,新收据也不再写出。
+	// LegacyObservedRelations exists only so old receipts stay readable. Receipt loading refuses unknown fields,
+	// and a receipt issued before the upgrade may carry this field; dropping it would deadlock a plan in progress the instant of the
+	// upgrade. The machine no longer derives anything from R, so this data is discarded once decoded: it takes part in no identity derivation,
+	// no packing, and new receipts no longer write it.
 	LegacyObservedRelations json.RawMessage `json:"observed_relations,omitempty"`
 }
 

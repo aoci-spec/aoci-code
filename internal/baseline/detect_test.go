@@ -1,4 +1,4 @@
-// 四态差集、快照和严格单文件速查测试。
+// Tests of the four-state difference, the snapshot, and the strict single-file quick check.
 package baseline
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
-// buildRepo使用t.TempDir创建独立测试仓库。
+// buildRepo creates an isolated test repository with t.TempDir.
 func buildRepo(
 	t *testing.T,
 ) (
@@ -50,7 +50,7 @@ func buildRepo(
 	return root, write
 }
 
-// buildSingleEntryDocument构造包含单个文件条目的最小索引。
+// buildSingleEntryDocument builds a minimal index holding a single file entry.
 func buildSingleEntryDocument(
 	t *testing.T,
 	root string,
@@ -97,7 +97,7 @@ func buildSingleEntryDocument(
 	return document
 }
 
-// TestDetectFourStates验证四态、非nil切片与.aoci排除口径。
+// TestDetectFourStates verifies the four states, non-nil slices, and the .aoci exclusion reading.
 func TestDetectFourStates(t *testing.T) {
 	root, write := buildRepo(t)
 
@@ -242,7 +242,7 @@ func TestDetectFourStates(t *testing.T) {
 	}
 }
 
-// TestDetectNilBaseline验证无Baseline时不误报Stale。
+// TestDetectNilBaseline verifies that no Stale is misreported without a Baseline.
 func TestDetectNilBaseline(t *testing.T) {
 	root, write := buildRepo(t)
 
@@ -279,7 +279,7 @@ func TestDetectNilBaseline(t *testing.T) {
 	}
 }
 
-// TestIsStaleFile验证严格单文件速查兼容语义。
+// TestIsStaleFile verifies the compatibility semantics of the strict single-file quick check.
 func TestIsStaleFile(t *testing.T) {
 	root, write := buildRepo(t)
 
@@ -329,7 +329,7 @@ func TestIsStaleFile(t *testing.T) {
 	}
 }
 
-// TestSnapshotSymlinkAndSort验证符号链接排除和排序。
+// TestSnapshotSymlinkAndSort verifies symbolic link exclusion and sorting.
 func TestSnapshotSymlinkAndSort(t *testing.T) {
 	root, write := buildRepo(t)
 

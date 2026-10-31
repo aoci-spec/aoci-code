@@ -7,8 +7,8 @@ func midLevelPartitionTable() *TableEvidence {
 		Partition: &Partition{Partitioned: true, Method: "hash", Expression: "region", ChildObjects: []string{}}}
 }
 
-// 多级分区: 中间层表既是分区又是父表。登记它所属的父分区不得抹掉它自身的
-// 分区父表事实,否则规范证据会丢掉分区方法并且随行序变化。
+// Multi-level partitioning: an intermediate table is both a partition and a parent. Registering the parent partition it belongs to must not erase its own
+// partition-parent fact, or the canonical evidence loses the partition method and changes with row order.
 func TestAttachPartitionParentKeepsMidLevelParentFacts(t *testing.T) {
 	table := midLevelPartitionTable()
 	attachPartitionParent(table, "database://primary/public/events", "FOR VALUES FROM ('2025-01-01') TO ('2026-01-01')")
@@ -20,7 +20,7 @@ func TestAttachPartitionParentKeepsMidLevelParentFacts(t *testing.T) {
 	}
 }
 
-// 两种行序必须产出同一份证据 —— 否则同一套 schema 会哈希出两份规范证据。
+// Both row orders must produce the same evidence, or one schema would hash into two canonical evidences.
 func TestPartitionLinkingIsRowOrderIndependent(t *testing.T) {
 	childFirst := midLevelPartitionTable()
 	appendPartitionChild(childFirst, "database://primary/public/events_2025_a")
@@ -44,7 +44,7 @@ func TestPartitionLinkingIsRowOrderIndependent(t *testing.T) {
 	}
 }
 
-// 叶子分区此前没有分区结构,登记后应保持"非分区父表"。
+// A leaf partition had no partition structure before; after registration it should stay "not a partition parent".
 func TestAttachPartitionParentOnLeafStaysNonPartitioned(t *testing.T) {
 	leaf := &TableEvidence{ObjectRef: "database://primary/public/events_2025_a"}
 	attachPartitionParent(leaf, "database://primary/public/events_2025", "FOR VALUES WITH (modulus 4, remainder 0)")
@@ -56,7 +56,7 @@ func TestAttachPartitionParentOnLeafStaysNonPartitioned(t *testing.T) {
 	}
 }
 
-// 父表尚未被分区父表阶段命中时,登记子表要把它建立成分区父表。
+// When the parent has not yet been hit by the partition-parent phase, registering the child must establish it as a partition parent.
 func TestAppendPartitionChildEstablishesParent(t *testing.T) {
 	parent := &TableEvidence{ObjectRef: "database://primary/public/events"}
 	appendPartitionChild(parent, "database://primary/public/events_2025")

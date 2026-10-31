@@ -7,12 +7,12 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
-// buildImpactGraph 只把 R 当作已经落在文本里的语义标注来读: 能对上一个受管对象
-// 就记一条边用于扩大 Review 面, 对不上就什么也不发生。
+// buildImpactGraph reads R only as a semantic annotation already in the text: when it matches a managed object
+// an edge is recorded to widen the Review surface, and when it does not, nothing happens.
 //
-// R 是模型写给模型看的线索, 条目之间的关系由读全量索引的注意力机制建立, 不由
-// 程序核对。这里既不判定 R 指向是否"存在", 也不判定其是否"唯一", 更不会因此
-// 阻断写入 —— 机器只管单条形式与预算, 跨条目的语义一律交给模型。
+// R is a clue the model writes for the model; the relations between entries are built by the attention of the model reading the complete index, not
+// checked by the program. This place judges neither whether an R target "exists" nor whether it is "unique", and never
+// blocks a write because of it: the machine minds only single-entry form and budget, and cross-entry semantics are the model's entirely.
 func buildImpactGraph(current, projected impactRegistry) impactGraph {
 	graph := impactGraph{out: map[string][]impactEdge{}, in: map[string][]impactEdge{}}
 	edgeSeen := map[string]bool{}
@@ -77,10 +77,10 @@ func resolveImpactClosure(graph impactGraph, direct map[string]map[string]bool) 
 	return review
 }
 
-// resolveImpactRelation 尽力把一个 R 标注对上一个受管对象, 对不上就返回空串。
-// 对不上不是错误: 关系可以指向尚未创作的对象、已经删除的对象、或者根本不在
-// Managed Scope 里的东西 —— 那都是模型的语义自由, 机器不评判。同名多义时同样
-// 不猜: 不产生边, 也不产生任何诊断。
+// resolveImpactRelation does its best to match one R annotation to a managed object and returns an empty string when it cannot.
+// A mismatch is not an error: a relation may point at an object not yet authored, an object already deleted, or something not in the
+// Managed Scope at all; that is all the model's semantic freedom, and the machine does not judge. An ambiguous same-named target is likewise
+// not guessed: no edge, and no diagnosis.
 func resolveImpactRelation(source Object, token string, registry impactRegistry, nameIndex map[string][]string, namespaceIndex map[string]string) string {
 	if strings.HasPrefix(token, "code:") || strings.HasPrefix(token, "database://") {
 		if _, ok := registry[token]; ok {
@@ -114,8 +114,8 @@ func buildImpactNameIndexes(registry impactRegistry) (map[string][]string, map[s
 	return nameIndex, namespaceIndex
 }
 
-// splitImpactRelations 把 R 拆成可读的标注序列。空、"-" 与空片段都只是"没有可
-// 对上的标注", 直接跳过 —— 读取侧一律宽容, 单条形式的严格判定属于创作边界。
+// splitImpactRelations splits R into a readable sequence of annotations. Empty, "-", and an empty fragment are all just "no annotation
+// to match" and are skipped; the reading side is always tolerant, and the strict single-entry form judgement belongs to the authoring boundary.
 func splitImpactRelations(entry *index.Entry) []string {
 	if entry == nil {
 		return nil

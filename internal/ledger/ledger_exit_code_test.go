@@ -1,4 +1,4 @@
-// Ledger业务退出码协议专项测试。
+// Dedicated tests of the Ledger business exit code protocol.
 package ledger
 
 import (
@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-// TestExitCodeRoundTripAndZeroPreserved验证成功码0不会被omitempty删除，
-// 非零业务退出码也能稳定读取。
+// TestExitCodeRoundTripAndZeroPreserved verifies that the success code 0 is not dropped by omitempty
+// and that a non-zero business exit code reads back stably.
 func TestExitCodeRoundTripAndZeroPreserved(
 	t *testing.T,
 ) {
@@ -98,8 +98,8 @@ func TestExitCodeRoundTripAndZeroPreserved(
 	}
 }
 
-// TestHistoricalEventWithoutExitCodeRemainsCompatible验证旧行未记录业务退出码时
-// 保持nil，而不是被错误解释为成功码0。
+// TestHistoricalEventWithoutExitCodeRemainsCompatible verifies that an old line without a business exit code
+// stays nil instead of being misread as the success code 0.
 func TestHistoricalEventWithoutExitCodeRemainsCompatible(
 	t *testing.T,
 ) {

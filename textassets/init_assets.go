@@ -1,30 +1,30 @@
-// Init运行提示和仓库物化模板的稳定文本资产ID。
+// The stable text asset IDs of the Init runtime hints and the repository materialization templates.
 package textassets
 
 const (
-	// ContractInitNextStep是初始化成功后的Baseline与MCP认知入口提示。
+	// ContractInitNextStep is the Baseline and MCP cognition entry hint after a successful initialization.
 	ContractInitNextStep ID = "contracts/init/next-step"
 
-	// ContractInitFullIndexLine是带Guide命令、当前automation.mode和模式解释的
-	// 完整索引后续操作行。
+	// ContractInitFullIndexLine is the complete-index follow-up line carrying the Guide command, the current automation.mode,
+	// and the mode explanation.
 	ContractInitFullIndexLine ID = "contracts/init/full-index-line"
 
-	// ContractInitHeaderDictionaryLine是新建最小骨架后显示的Header生成提示。
+	// ContractInitHeaderDictionaryLine is the Header generation hint shown after a new minimal skeleton.
 	ContractInitHeaderDictionaryLine ID = "contracts/init/header-dictionary-line"
 
-	// ContractInitAutomationAuto解释新仓默认auto模式的宿主执行与自动修复合同。
+	// ContractInitAutomationAuto explains the host execution and automatic repair contract of a new repository's default auto mode.
 	ContractInitAutomationAuto ID = "contracts/init/automation-auto"
 
-	// ContractInitAutomationReview解释显式review模式的人工Apply停点。
+	// ContractInitAutomationReview explains the manual Apply stop of the explicit review mode.
 	ContractInitAutomationReview ID = "contracts/init/automation-review"
 
-	// ContractInitAutomationLegacy解释旧仓字段缺失时的兼容停点。
+	// ContractInitAutomationLegacy explains the compatibility stop when an old repository lacks the field.
 	ContractInitAutomationLegacy ID = "contracts/init/automation-legacy"
 
-	// ContractInitAutomationOff解释只读观察模式的权限边界。
+	// ContractInitAutomationOff explains the permission boundary of the read-only observe mode.
 	ContractInitAutomationOff ID = "contracts/init/automation-off"
 
-	// TemplateMinimalIndex是aoci init物化到仓库根的最小索引骨架。
+	// TemplateMinimalIndex is the minimal index skeleton aoci init materializes at the repository root.
 	TemplateMinimalIndex ID = "templates/minimal-index"
 	// TemplateVolumeRoot is the semantic-free Root created for a new project.
 	TemplateVolumeRoot ID = "templates/volume-root"

@@ -1,15 +1,15 @@
-// 文件指纹计算。
+// File fingerprint computation.
 //
-// 原始SHA-256始终覆盖完整原始字节。
-// 对满足条件的文本文件，同时计算只把CRLF折叠为LF的规范化指纹。
+// The raw SHA-256 always covers the complete raw bytes.
+// For text files meeting the conditions, the normalized fingerprint that only folds CRLF to LF is computed as well.
 //
-// 安全边界:
-//   - 不处理BOM、孤立CR、尾换行或任何其他字节差异;
-//   - 前8000字节出现NUL时按二进制处理，不生成规范化指纹;
-//   - 超过4MiB时只生成原始指纹，退化方向始终是更严格;
-//   - 规范化指纹绝不用于CAS或Stage源码绑定。
-//   - FormatSHA256只对可完整解析的Go源码计算，不以空白剥离等宽松启发式
-//     代替格式器，因此字符串、注释或token变化不会进入format-only路径。
+// Safety boundary:
+//   - no handling of a BOM, a lone CR, a trailing newline, or any other byte difference;
+//   - a NUL within the first 8000 bytes means binary, and no normalized fingerprint is produced;
+//   - above 4 MiB only the raw fingerprint is produced; the degradation is always toward stricter;
+//   - the normalized fingerprint is never used for CAS or the Stage source binding.
+//   - FormatSHA256 is computed only for Go source that parses completely, and no loose heuristic such as whitespace stripping
+//     replaces the formatter, so a string, comment, or token change never enters the format-only path.
 package baseline
 
 import (
@@ -24,19 +24,19 @@ import (
 )
 
 const (
-	// normalizedFingerprintMaxBytes限制规范化计算的最大文件大小。
+	// normalizedFingerprintMaxBytes caps the file size for normalized computation.
 	normalizedFingerprintMaxBytes int64 = 4 << 20
 
-	// normalizedFingerprintBinarySniffBytes与Curation二进制画像窗口保持一致。
+	// normalizedFingerprintBinarySniffBytes stays consistent with the Curation binary profile window.
 	//
-	// baseline包不能反向依赖curation包，因此在此保留同值常量；
-	// 后续修改任一侧时必须同步另一侧并更新测试。
+	// The baseline package cannot depend on the curation package in reverse, so the same-valued constant is kept here;
+	// a later change to either side must update the other and its tests.
 	normalizedFingerprintBinarySniffBytes int64 = 8000
 
 	fingerprintReadBufferBytes = 32 * 1024
 )
 
-// HashFile流式计算文件原始SHA-256、实际字节数和可选规范化指纹。
+// HashFile streams the file's raw SHA-256, real byte count, and optional normalized fingerprint.
 func HashFile(path string) (Fingerprint, error) {
 	return hashFile(path, nil)
 }
@@ -143,8 +143,8 @@ func hashFile(path string, reuse *Fingerprint) (Fingerprint, error) {
 
 			if normalizedEligible {
 				if totalBytes > normalizedFingerprintMaxBytes {
-					// 已经越过上限，丢弃此前的规范化中间态。
-					// 原始哈希继续覆盖完整文件。
+					// Past the ceiling, the normalized intermediate state so far is discarded.
+					// The raw hash keeps covering the complete file.
 					normalizedEligible = false
 					pendingCR = false
 				} else {
@@ -237,8 +237,8 @@ func HashBytes(logicalPath string, data []byte) Fingerprint {
 	return result
 }
 
-// IsFormatOnlyChange只承认同一受支持格式器生成的规范摘要完全相同。
-// 原始摘要必须不同，防止无变化文件被计入快速路径。
+// IsFormatOnlyChange accepts only canonical digests from the same supported formatter that agree exactly.
+// The raw digests must differ, so an unchanged file is not counted into the fast path.
 func IsFormatOnlyChange(before, after Fingerprint) bool {
 	return before.SHA256 != after.SHA256 &&
 		before.FormatKind != "" &&
@@ -247,10 +247,10 @@ func IsFormatOnlyChange(before, after Fingerprint) bool {
 		before.FormatSHA256 == after.FormatSHA256
 }
 
-// foldCRLFInto把chunk中的CRLF折叠为LF并写入dst。
+// foldCRLFInto folds the CRLFs of chunk into LF and writes into dst.
 //
-// pendingCR表示上一块以CR结束；返回值表示当前块仍以待决CR结束。
-// 孤立CR保持原字节，因此不会把真实内容变化误判为换行表示变化。
+// pendingCR means the previous chunk ended with a CR; the return value means the current chunk still ends with a pending CR.
+// A lone CR keeps its raw byte, so a real content change is never mistaken for a line-ending representation change.
 func foldCRLFInto(
 	dst hash.Hash,
 	chunk []byte,

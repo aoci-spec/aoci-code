@@ -1,4 +1,4 @@
-// 正式Curation资产重复JSON字段拒绝测试。
+// Tests of duplicate JSON field refusal in the formal Curation asset.
 package curation
 
 import (

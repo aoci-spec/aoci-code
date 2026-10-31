@@ -1,5 +1,5 @@
-// 禁区扫描正反用例
-// 索引条目: safety_test.go[Test.Claims.8.IP.S]
+// Positive and negative cases of the forbidden-word scan
+// Index entry: safety_test.go[Test.Claims.8.IP.S]
 package safety
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// TestForbiddenAndOverclaim 逐词正用例
+// TestForbiddenAndOverclaim, the positive cases term by term
 func TestForbiddenAndOverclaim(t *testing.T) {
 	for _, term := range machinecontract.PublicTextTerms() {
 		hits := CheckForbiddenClaims("prefix " + term.Text + " suffix")
@@ -25,7 +25,7 @@ func TestForbiddenAndOverclaim(t *testing.T) {
 	}
 }
 
-// TestTriesWordBoundary TRIES 词边界: 专名命中,entries/retries/小写不误伤
+// TestTriesWordBoundary, the TRIES word boundary: the proper name hits, entries/retries/lower case are not harmed
 func TestTriesWordBoundary(t *testing.T) {
 	if hits := CheckForbiddenClaims("K字段 TRIES 扩展"); len(hits) == 0 {
 		t.Fatal("TRIES 专名应命中")
@@ -36,7 +36,7 @@ func TestTriesWordBoundary(t *testing.T) {
 	}
 }
 
-// TestCleanText 合规文案零命中 + FormatHits 空渲染
+// TestCleanText: compliant wording has zero hits, and FormatHits renders empty
 func TestCleanText(t *testing.T) {
 	text := "AOCI 提供文件级意图/约束/负空间,与结构图工具互补不替代。"
 	hits := CheckForbiddenClaims(text)

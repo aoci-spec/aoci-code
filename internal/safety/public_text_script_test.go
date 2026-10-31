@@ -20,10 +20,10 @@ func publicTextScriptPath() string {
 	)
 }
 
-// requirePublicTextBash返回当前环境可执行的Bash路径。
+// requirePublicTextBash returns the Bash path executable in the current environment.
 //
-// 公开文案脚本属于Linux CI和类Unix开发环境中的发布闸门。Windows运行时
-// 不依赖该脚本；当本机没有Bash时跳过脚本执行测试，但仍保留静态扫描边界测试。
+// The public text script is a release gate in Linux CI and Unix-like development environments. The Windows runtime
+// does not depend on the script; when this machine has no Bash, the script execution test is skipped while the static scan boundary test is kept.
 func requirePublicTextBash(
 	t *testing.T,
 ) string {

@@ -35,15 +35,15 @@ func gitStateFixture(t *testing.T, root string, args ...string) {
 	}
 }
 
-// 在大小写敏感平台上建立的 Baseline 收据, 在等价可证明时被相反语义的平台原样
-// 接受: PolicyAligned=true, 且采纳收据身份为当前身份, 让计划与提交跨平台共享
-// 同一标识。伪造的收据身份仍然失败关闭。
-// 历史上以大小写不敏感语义记录的收据必须停在 Scope Change, 而不是被静默采纳。
+// A Baseline receipt established on a case-sensitive platform is accepted as it is by a platform of the opposite semantics when equivalence is provable:
+// PolicyAligned=true, and the receipt identity is adopted as the current identity, so plans and commits share
+// one identifier across platforms. A forged receipt identity still fails closed.
+// A receipt historically recorded under case-insensitive semantics must stop at a Scope Change rather than be adopted silently.
 //
-// 曾经存在的等价桥会在"逐路径可证等价"时把这种收据认成当前身份。它遮住的是一个
-// 缺陷 —— 应用范围身份里带着宿主文件系统的探测结果 —— 而不是解决它: 规则与路径
-// 之间存在真实的大小写分岔时, 两个平台不可能同时对齐。身份现在与宿主无关, 这类
-// 历史收据走一次治理迁移, 期间不写任何正式资产。
+// The equivalence bridge that once existed recognized such a receipt as the current identity when "provably equivalent path by path". It hid a
+// defect, the host filesystem probe result inside the applied scope identity, rather than solving it: with a real case divergence between a rule and a path
+// the two platforms could not both be aligned. The identity is host-independent now, and such
+// historical receipts go through one governance migration that writes no formal asset meanwhile.
 func TestHistoricalCaseInsensitiveReceiptIsHeldAtScopeChange(t *testing.T) {
 	root := t.TempDir()
 	gitStateFixture(t, root, "init", "-q")

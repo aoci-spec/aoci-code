@@ -1,14 +1,14 @@
-// Managed Scope 路径语义必须与宿主无关。
+// Managed Scope path semantics must be host-independent.
 //
-// 真实经历: Build 曾用 filesystemCaseSensitive() 探测当前机器的文件系统, 并把
-// 那个布尔量算进应用范围身份。于是同一个仓库在 Linux 与 Windows 上 scan 会得到
-// 不同的治理身份 —— 一个仓库的治理状态取决于谁的笔记本跑的扫描。8cc35eb 建了
-// 一座等价桥(相反语义下逐路径重评, 全部角色一致才发布替代身份)把这个差异遮住,
-// 但只在"可证等价"时有效: 规则与路径之间存在真实的大小写分岔时, Linux 同事与
-// Windows 同事不可能同时对齐, 其中一方拿到一个没有真实成因的 scope_change_required。
+// A real experience: Build once used filesystemCaseSensitive() to probe the current machine's filesystem and counted
+// that boolean into the applied scope identity. So the same repository scanned on Linux and Windows got
+// different governance identities: a repository's governance state depended on whose laptop ran the scan. 8cc35eb built
+// an equivalence bridge (re-evaluating every path under the opposite semantics and publishing an alternative identity only when every role agreed) to hide the difference,
+// but it worked only when "provably equivalent": with a real case divergence between a rule and a path, the Linux colleague and the
+// Windows colleague could not both be aligned, and one of them got a scope_change_required with no real cause.
 //
-// Git 的路径语义在每台主机上都是精确且区分大小写的, 范围策略现在也是。桥连同
-// 那个探测一起移除。
+// Git's path semantics are exact and case-sensitive on every host, and so is the scope policy now. The bridge was removed together with
+// that probe.
 package managedscope
 
 import (
@@ -21,8 +21,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// 身份保留 v2 原始前像, 大小写位固定为 "true"。这条断言是迁移面的边界:
-// 只要它成立, 在大小写敏感文件系统上建立的每一份收据都原样有效, 一个都不迁移。
+// The identity keeps the v2 raw preimage with the case bit fixed to "true". This assertion is the boundary of the migration surface:
+// as long as it holds, every receipt established on a case-sensitive filesystem stays valid as it is, and not one migrates.
 func TestAppliedIdentityKeepsTheCaseSensitivePreimage(t *testing.T) {
 	root := t.TempDir()
 	gitScopeFixture(t, root, "init", "-q")
@@ -54,8 +54,8 @@ func TestAppliedIdentityKeepsTheCaseSensitivePreimage(t *testing.T) {
 	}
 }
 
-// 匹配按 Git 语义精确进行。规则与路径只差大小写时不得命中 —— 命中与否曾经取决于
-// 宿主文件系统, 那正是身份随机器漂移的来源。
+// Matching is exact by Git semantics. A rule and a path differing only in case must not match; whether they matched once depended on
+// the host filesystem, exactly the source of the identity drifting with the machine.
 func TestRuleMatchingIsExactRegardlessOfHost(t *testing.T) {
 	rule := Rule{RuleID: "case-exact", Action: machinecontract.ScopeRoleExclude,
 		Pattern: "Docs/**", PatternKind: machinecontract.ScopePatternGlob,
@@ -69,7 +69,7 @@ func TestRuleMatchingIsExactRegardlessOfHost(t *testing.T) {
 	}
 }
 
-// 桥已移除: Evaluation 不再携带替代身份或宿主探测结果。
+// The bridge is gone: Evaluation no longer carries an alternative identity or a host probe result.
 func TestEvaluationCarriesNoHostDerivedCaseFacts(t *testing.T) {
 	root := t.TempDir()
 	gitScopeFixture(t, root, "init", "-q")

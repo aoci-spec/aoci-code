@@ -1,35 +1,35 @@
-// Package indexgen —— 本文件是score评分核心。
+// Package indexgen: this file is the score computation core.
 //
-// 定位: 纯离线、纯读、零AI的索引质量九维度评分。全部判定复用既有机器闸
+// Position: the purely offline, pure-read, zero-AI nine-dimension index quality score. Every judgement reuses the existing machine gates
 // (ValidateEntryLineWith/CheckSQuotaWith/CheckTagsAgainstDict/CheckEScale/
-// BuildInventory/DetectWith/BuildMissingClassification)，本文件不建立第二套权威。
+// BuildInventory/DetectWith/BuildMissingClassification); this file establishes no second authority.
 //
-// 事实层与治理层分离:
+// The fact layer and the governance layer are separate:
 //
-//   - DriftSummary完整保留baseline.Detect原始四态、LineEndingOnly和Missing三分;
+//   - DriftSummary keeps baseline.Detect's raw four states, LineEndingOnly, and the Missing three-way split in full;
 //
-//   - coverage只统计ActionableMissing;
+//   - coverage counts only ActionableMissing;
 //
-//   - freshness统计尚未解决的治理路径:
-//     ActionableMissing、PendingCurationMissing、Orphan、Stale、Unbaselined;
+//   - freshness counts the governance paths not yet resolved:
+//     ActionableMissing, PendingCurationMissing, Orphan, Stale, Unbaselined;
 //
-//   - LineEndingOnly是换行表示信息态，不计freshness欠账;
+//   - LineEndingOnly is the line-ending representation informational state and counts as no freshness debt;
 //
-//   - Included是Actionable子集，Pending是Skipped子集;
+//   - Included is a subset of Actionable, Pending a subset of Skipped;
 //
-//   - CurationExcluded与非Pending技术跳过属于已经解释的排除治理结果，
-//     不计coverage或freshness欠账;
+//   - CurationExcluded and non-Pending technical skips are explained exclusion governance results
+//     and count as neither coverage nor freshness debt;
 //
-//   - 三分守恒:
+//   - three-way conservation:
 //
-//     ActionableMissing + CurationExcludedMissing + SkippedMissing = Missing。
+//     ActionableMissing + CurationExcludedMissing + SkippedMissing = Missing.
 //
-// E规模只评价仓库源码与静态文本实体；路径是否参与判定统一由
-// index.ShouldCheckEScalePath裁决，Score不得持有本地路径排除副本。
+// E scale evaluates only the repository's source and static text entities; whether a path takes part is decided uniformly by
+// index.ShouldCheckEScalePath, and Score must hold no local path exclusion copy.
 //
-// 九维固定顺序:
-// format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse。
-// 新维度只允许尾部追加。
+// The fixed order of the nine dimensions:
+// format/coverage/freshness/squota/dict/token/agent_ready/escale/tagparse.
+// A new dimension may only be appended at the end.
 package indexgen
 
 import (
@@ -47,7 +47,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 )
 
-// BuildScore计算九维度评分。
+// BuildScore computes the nine-dimension score.
 func BuildScore(
 	root string,
 	cfg *config.Config,
@@ -61,7 +61,7 @@ func BuildScore(
 	)
 }
 
-// BuildScoreWithLimit计算九维度评分，sampleLimit<=0表示样本不截断。
+// BuildScoreWithLimit computes the nine-dimension score; sampleLimit<=0 means the samples are not truncated.
 func BuildScoreWithLimit(
 	root string,
 	cfg *config.Config,
@@ -131,7 +131,7 @@ func BuildScoreWithLimit(
 
 	score.DiskCount = inventory.DiskTotal
 
-	// BuildInventory已经填充RelPath，重新采集统一样本路径口径。
+	// BuildInventory has already filled RelPath; recollect to unify the sample path reading.
 	entries = collectEntries()
 
 	state, err := managedstate.Load(root, cfg)
@@ -161,7 +161,7 @@ func BuildScoreWithLimit(
 	}
 	score.CognitionBudget = budgetReport
 
-	// 生产评分必须读取正式curation.json，不能回退到旧纯内存分类。
+	// A production score must read the formal curation.json and must not fall back to the old pure in-memory classification.
 	missingClassification, _, err :=
 		BuildMissingClassification(
 			root,
@@ -280,11 +280,11 @@ func BuildScoreWithLimit(
 		coverageDimension,
 	)
 
-	// freshness回答“当前还有多少未解决治理路径”，而不是重新复制原始四态。
+	// freshness answers "how many unresolved governance paths remain now" rather than copying the raw four states again.
 	//
-	// 原始Missing、Orphan、Stale、Unbaselined、LineEndingOnly及Missing三分
-	// 完整保存在score.Drift，并可通过aoci verify查看。
-	// LineEndingOnly不进入本维度。
+	// The raw Missing, Orphan, Stale, Unbaselined, LineEndingOnly, and the Missing three-way split
+	// are kept in full in score.Drift and can be seen through aoci verify.
+	// LineEndingOnly does not enter this dimension.
 	freshnessSamples := newSink(
 		sampleLimit,
 	)

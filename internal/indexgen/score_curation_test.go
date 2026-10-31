@@ -1,4 +1,4 @@
-// score对策展Missing的原始事实层与治理质量层分型测试。
+// Tests of score's typing of curation Missing into the raw fact layer and the governance quality layer.
 package indexgen
 
 import (

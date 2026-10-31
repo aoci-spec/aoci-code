@@ -1,17 +1,17 @@
-// indexgen 包 score 评分层直接测试。
+// Direct tests of the indexgen package score layer.
 //
-// 覆盖面:
-//   - 九维度齐全性与固定顺序(format/coverage/freshness/squota/dict/token/
-//     agent_ready/escale/tagparse,新维度只允许尾部追加);
-//   - 各维 Bad 判定正确性(format硬拒/coverage差集/freshness四态含Orphan/
-//     squota配额/dict字典外符号/escale档位错配/tagparse标签不可解析),
-//     违规样本为 rel 路径口径;
-//   - dict 与 escale 在头部阈值不可用时 Total=0 表不可判定,绝不误报;
-//   - escale 对不在盘条目跳过不计错,.aoci运行时资产专项见
+// Coverage:
+//   - completeness and fixed order of the nine dimensions (format/coverage/freshness/squota/dict/token/
+//     agent_ready/escale/tagparse; a new dimension may only be appended at the end);
+//   - correctness of each dimension's Bad judgement (format hard refusal / coverage difference / freshness four states including Orphan /
+//     squota quota / dict symbol outside the dictionary / escale band mismatch / tagparse unparseable tag),
+//     with violation samples in the rel path reading;
+//   - dict and escale report Total=0 as undecidable when the header thresholds are unavailable, never misreporting;
+//   - escale skips entries not on disk without counting errors, and the .aoci runtime assets have their own test in
 //     score_escale_runtime_test.go;
-//   - tagparse 复用 ValidateEntryLineWith 的 Warning,不与 format/dict/escale串扰;
-//   - D59 铁律机器化: 默认截断与 limit<=0 全量共用同一判定循环;
-//   - 纯读零副作用: 评分前后索引文件字节不变,且不创建Baseline。
+//   - tagparse reuses ValidateEntryLineWith's Warning without crosstalk with format/dict/escale;
+//   - the D59 iron rule mechanized: the default truncation and limit<=0 full output share one judgement loop;
+//   - pure read with zero side effects: the index file bytes are unchanged before and after scoring, and no Baseline is created.
 package indexgen
 
 import (
@@ -26,7 +26,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
-// scoreDimByName 按名取维,消费方绝不依赖下标。
+// scoreDimByName takes a dimension by name; consumers never depend on the index.
 func scoreDimByName(t *testing.T, sc *Score, name string) Dimension {
 	t.Helper()
 	for _, d := range sc.Dimensions {
@@ -38,7 +38,7 @@ func scoreDimByName(t *testing.T, sc *Score, name string) Dimension {
 	return Dimension{}
 }
 
-// scoreContains 判断样本清单是否包含目标字符串。
+// scoreContains reports whether the sample list holds the target string.
 func scoreContains(list []string, want string) bool {
 	for _, value := range list {
 		if value == want {
@@ -48,7 +48,7 @@ func scoreContains(list []string, want string) bool {
 	return false
 }
 
-// scoreTestHeader 返回含完整字典与E规模数字阈值的测试头部。
+// scoreTestHeader returns a test header holding the complete dictionary and numeric E-scale thresholds.
 func scoreTestHeader() string {
 	return "#====测试索引====\n" +
 		"#===索引规范===\n" +
@@ -59,7 +59,7 @@ func scoreTestHeader() string {
 		"#===索引规范完毕===\n"
 }
 
-// buildScoreViolationRepo 构造各评分维度相互隔离的违规夹具。
+// buildScoreViolationRepo builds a violation fixture in which the score dimensions are isolated from each other.
 func buildScoreViolationRepo(
 	t *testing.T,
 ) (string, *config.Config, *index.Document) {
@@ -90,7 +90,7 @@ func buildScoreViolationRepo(
 	})
 }
 
-// TestScoreNineDimensionsFixedOrder 九维齐全且顺序固定。
+// TestScoreNineDimensionsFixedOrder: the nine dimensions are complete and the order is fixed.
 func TestScoreNineDimensionsFixedOrder(t *testing.T) {
 	root, cfg, doc := buildScoreViolationRepo(t)
 	sc, err := BuildScore(root, cfg, doc)
@@ -124,7 +124,7 @@ func TestScoreNineDimensionsFixedOrder(t *testing.T) {
 	}
 }
 
-// TestScoreViolationJudgments 验证各违规只进入所属评分维度。
+// TestScoreViolationJudgments verifies that each violation enters only its own score dimension.
 func TestScoreViolationJudgments(t *testing.T) {
 	root, cfg, doc := buildScoreViolationRepo(t)
 	sc, err := BuildScore(root, cfg, doc)
@@ -196,7 +196,7 @@ func TestScoreViolationJudgments(t *testing.T) {
 	}
 }
 
-// TestScoreNotJudgeableDims 不可判定维度必须Total=0且不误报。
+// TestScoreNotJudgeableDims: an undecidable dimension must have Total=0 and not misreport.
 func TestScoreNotJudgeableDims(t *testing.T) {
 	files := map[string]string{"main.go": "package main\n"}
 	root, cfg, doc := buildTestRepo(t, files, func(root string) string {
@@ -228,7 +228,7 @@ func TestScoreNotJudgeableDims(t *testing.T) {
 	}
 }
 
-// TestScoreLimitFullSameJudgment 默认截断与全量必须共用同一判据。
+// TestScoreLimitFullSameJudgment: the default truncation and the full output must share one criterion.
 func TestScoreLimitFullSameJudgment(t *testing.T) {
 	longS := strings.Repeat("坑", 60)
 	files := map[string]string{}
@@ -279,7 +279,7 @@ func TestScoreLimitFullSameJudgment(t *testing.T) {
 	}
 }
 
-// TestScoreTagParseLimitFullSameJudgment 锁定tagparse样本截断。
+// TestScoreTagParseLimitFullSameJudgment locks the tagparse sample truncation.
 func TestScoreTagParseLimitFullSameJudgment(t *testing.T) {
 	files := map[string]string{}
 	entryLines := ""
@@ -328,7 +328,7 @@ func TestScoreTagParseLimitFullSameJudgment(t *testing.T) {
 	}
 }
 
-// TestScoreReadOnlyNoSideEffects 评分不得修改索引或创建Baseline。
+// TestScoreReadOnlyNoSideEffects: scoring must not change the index or create a Baseline.
 func TestScoreReadOnlyNoSideEffects(t *testing.T) {
 	files := map[string]string{"main.go": "package main\n"}
 	root, cfg, doc := buildTestRepo(t, files, func(root string) string {

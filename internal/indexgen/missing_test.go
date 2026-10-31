@@ -1,4 +1,4 @@
-// Missing 三分唯一事实源测试。
+// Tests of the single source of truth for the Missing three-way split.
 package indexgen
 
 import (

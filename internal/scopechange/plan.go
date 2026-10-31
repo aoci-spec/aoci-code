@@ -1318,8 +1318,8 @@ func buildRisk(plan Plan, cfg *config.Config, old *baseline.Baseline) Risk {
 	return risk
 }
 
-// applyAuthorizationStrength 给生效授权模式排序,用于证明模式跃迁的方向。
-// off 完全禁止 Apply,review 要求真人确认,legacy 只在高风险面确认,auto 不确认。
+// applyAuthorizationStrength orders the effective authorization modes, to prove the direction of a mode transition.
+// off forbids Apply entirely, review requires a human confirmation, legacy confirms only on the high-risk surface, auto confirms nothing.
 func applyAuthorizationStrength(mode string) int {
 	switch mode {
 	case machinecontract.ApplyAuthorizationOff:
@@ -1334,18 +1334,18 @@ func applyAuthorizationStrength(mode string) int {
 	return -1
 }
 
-// approvalRelaxed 判定本次事务是否在放松治理姿态本身。
+// approvalRelaxed judges whether this transaction is relaxing the governance posture itself.
 //
-// 授权是在生效模式下做出的,所以"改模式"这件事必须按上一份收据记录的模式来
-// 判定,否则 review→auto 的跃迁会在新的 auto 模式下自我批准 —— 无人参与即可
-// 解除团队的复核姿态(审查修正)。
+// Authorization is given under the mode in effect, so "changing the mode" must be judged by the mode the previous receipt
+// recorded, or the review→auto transition would approve itself under the new auto mode, lifting the team's review posture
+// with nobody involved (review correction).
 //
-// 迁移边界(明示取舍): 尚未建立受管收据、或收据早于本字段(留空)时,上一次的
-// 姿态不可知,此处不追溯阻断 —— 治理是流程控制而非操作系统级边界,若为不可知
-// 的历史收据一律失败关闭,每个存量仓库升级后的第一笔事务都会突然要求真人批准,
-// 代价真实而收益有限。保护从第一份记录了模式的收据开始严格生效,而当前事务
-// 本身就会写入该字段。反过来,收据里出现无法识别的模式属篡改或未来格式,
-// 方向不可证,失败关闭。
+// Migration boundary (an explicit trade-off): when no managed receipt exists yet, or the receipt predates this field (left empty), the previous
+// posture is unknowable and this place does not block retroactively; governance is flow control, not an operating-system boundary, and failing closed
+// on every unknowable historical receipt would make the first transaction of every existing repository after an upgrade suddenly demand a human approval,
+// a real cost for limited gain. The protection takes strict effect from the first receipt that recorded the mode, and the current transaction
+// itself writes that field. Conversely, an unrecognizable mode in a receipt is tampering or a future format,
+// the direction cannot be proven, and it fails closed.
 func approvalRelaxed(old *baseline.Baseline, effectiveMode string) bool {
 	if old == nil || old.ManagedScope == nil {
 		return false

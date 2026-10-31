@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 17 batch 6 (internal/cli comments): make fast green (make-fast-c17-cli.txt)"
+    "evidence": "item 17 batch 7 (remaining packages' comments): make fast green (make-fast-c17-rest.txt)"
    }
   },
   {

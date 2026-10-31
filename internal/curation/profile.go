@@ -1,7 +1,7 @@
-// Missing文件的确定性物理画像。
+// The deterministic physical profile of Missing files.
 //
-// 本文件是empty/binary/oversize/unreadable判据的新唯一事实源。
-// indexgen和mcptools后续统一消费本包，禁止重新复制嗅探逻辑。
+// This file is the new single source of truth for the empty/binary/oversize/unreadable criteria.
+// indexgen and mcptools consume this package uniformly from now on, and copying the sniffing logic again is forbidden.
 package curation
 
 import (
@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	// BinarySniffBytes 是二进制NUL探测的最大头部读取量。
+	// BinarySniffBytes is the maximum head read for the binary NUL probe.
 	BinarySniffBytes = 8000
 
-	// OversizeBytes 是自动读取全文的上限。
+	// OversizeBytes is the ceiling for reading the whole file automatically.
 	OversizeBytes = 1 << 20
 )
 
-// ProfilePath 对仓库相对文件执行确定性画像。
+// ProfilePath runs the deterministic profile on a repository-relative file.
 //
 // It is pure: the bytes are hashed and nothing under .aoci is read or written.
 // A caller profiling many paths uses a Profiler, which keeps one fingerprint
@@ -141,9 +141,9 @@ func profilePath(
 	return profile, nil
 }
 
-// BuildProfiles 对指定路径集合建立可见、稳定的文件画像。
+// BuildProfiles builds visible, stable file profiles for the given path set.
 //
-// 单文件失败不会让整批事实消失，而是形成unreadable:*画像。
+// A single file's failure does not make the whole batch's facts vanish; it forms an unreadable:* profile instead.
 func BuildProfiles(
 	root string,
 	paths []string,

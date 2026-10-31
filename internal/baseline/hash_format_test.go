@@ -1,4 +1,4 @@
-// gofmt规范指纹与format-only安全边界测试。
+// Tests of the gofmt canonical fingerprint and the format-only safety boundary.
 package baseline
 
 import (

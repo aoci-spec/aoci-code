@@ -1,4 +1,4 @@
-// score协议、样本收集与漂移摘要辅助。
+// The score protocol, sample collection, and drift summary helpers.
 package indexgen
 
 import (
@@ -11,10 +11,10 @@ import (
 	"strings"
 )
 
-// scoreSampleLimit 每维度违规样本默认最大展示条数。
+// scoreSampleLimit is the default maximum number of violation samples shown per dimension.
 const scoreSampleLimit = 5
 
-// Dimension 是一个评分维度的结果。
+// Dimension is the result of one score dimension.
 type Dimension struct {
 	Name    string   `json:"name"`
 	Total   int      `json:"total"`
@@ -23,14 +23,14 @@ type Dimension struct {
 	Note    string   `json:"note"`
 }
 
-// DriftSummary 是score对原始四态、换行信息态、Missing三分与策展子集的稳定暴露面。
+// DriftSummary is score's stable exposure of the raw four states, the line-ending informational state, the Missing three-way split, and the curation subsets.
 //
-// 向后兼容:
-//   - Missing继续保留原始历史字段语义，始终等于RawMissing;
-//   - PendingCuration继续保留历史字段语义，始终等于PendingCurationMissing。
+// Backward compatibility:
+//   - Missing keeps its raw historical field semantics and always equals RawMissing;
+//   - PendingCuration keeps its historical field semantics and always equals PendingCurationMissing.
 //
-// 新机器消费者应优先使用raw_missing和pending_curation_missing，避免把物理事实
-// 误解为尚未解决的治理任务。
+// New machine consumers should prefer raw_missing and pending_curation_missing, so a physical fact
+// is not mistaken for an unresolved governance task.
 type DriftSummary struct {
 	Missing                 int `json:"missing"`
 	RawMissing              int `json:"raw_missing"`
@@ -61,7 +61,7 @@ type ManagedScopeSummary struct {
 	ObservedPendingReview int    `json:"observed_pending_review"`
 }
 
-// Score 是一次完整评分结果。
+// Score is one complete score result.
 type Score struct {
 	Dimensions      []Dimension             `json:"dimensions"`
 	EntryCount      int                     `json:"entry_count"`
@@ -107,8 +107,8 @@ func (sink *sampleSink) add(value string) {
 	)
 }
 
-// buildDriftSummary 保留旧包内测试调用口。
-// 没有仓库根上下文时只能识别config路径政策，不能读取curation.json。
+// buildDriftSummary keeps the old in-package test call surface.
+// Without repository root context it can recognize only the config path policy and cannot read curation.json.
 func buildDriftSummary(
 	cfg *config.Config,
 	detected *baseline.DetectResult,
@@ -129,8 +129,8 @@ func buildDriftSummary(
 	)
 }
 
-// buildDriftSummaryWithClassification 构建原始四态、换行信息态、
-// Missing三分和策展子集。
+// buildDriftSummaryWithClassification builds the raw four states, the line-ending informational state,
+// the Missing three-way split, and the curation subsets.
 func buildDriftSummaryWithClassification(
 	detected *baseline.DetectResult,
 	classification MissingClassification,

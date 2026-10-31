@@ -1,4 +1,4 @@
-// R65-04B最终CLI Long Help资产的字节、换行与机器Token合同测试。
+// Byte, newline, and machine Token contract tests of the R65-04B final CLI Long Help assets.
 package textassets
 
 import (

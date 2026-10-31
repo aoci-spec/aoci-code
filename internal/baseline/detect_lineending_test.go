@@ -1,4 +1,4 @@
-// 换行等价判定与宽容模式测试。
+// Tests of the line-ending equivalence judgement and the tolerance mode.
 package baseline
 
 import (
@@ -7,7 +7,7 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
 
-// TestEquivalentFingerprints验证严格和宽容判定矩阵。
+// TestEquivalentFingerprints verifies the strict and tolerant judgement matrix.
 func TestEquivalentFingerprints(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -112,7 +112,7 @@ func TestEquivalentFingerprints(t *testing.T) {
 	}
 }
 
-// TestDetectWithLineEndingTolerance验证严格壳、宽容判定和真实漂移。
+// TestDetectWithLineEndingTolerance verifies the strict shell, the tolerant judgement, and real drift.
 func TestDetectWithLineEndingTolerance(t *testing.T) {
 	root, write := buildRepo(t)
 
@@ -247,7 +247,7 @@ func TestDetectWithLineEndingTolerance(t *testing.T) {
 	}
 }
 
-// TestIsStaleFileWithLineEndingTolerance验证单文件宽容信息态。
+// TestIsStaleFileWithLineEndingTolerance verifies the single-file tolerance informational state.
 func TestIsStaleFileWithLineEndingTolerance(t *testing.T) {
 	root, write := buildRepo(t)
 

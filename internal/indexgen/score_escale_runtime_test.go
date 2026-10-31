@@ -1,4 +1,4 @@
-// Score对AOCI治理资产的E规模排除集成测试。
+// Integration tests of Score's E-scale exclusion of AOCI governance assets.
 package indexgen
 
 import (
@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-// TestScoreEScaleSkipsAOCIGovernanceAssets锁定Score消费共享路径判据。
+// TestScoreEScaleSkipsAOCIGovernanceAssets locks that Score consumes the shared path criterion.
 //
-// .aoci/ledger.jsonl行数表示治理历史长度，aoci.txt行数表示索引条目规模；
-// 两者都不代表普通源码复杂度。普通静态源码仍必须接受同一E档位机器检查。
+// The line count of .aoci/ledger.jsonl means the length of governance history, and the line count of aoci.txt the size of the index;
+// neither stands for ordinary source complexity. Ordinary static source must still take the same E-band machine check.
 func TestScoreEScaleSkipsAOCIGovernanceAssets(
 	t *testing.T,
 ) {

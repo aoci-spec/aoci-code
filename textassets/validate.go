@@ -79,7 +79,7 @@ func decodeStrictJSON(data []byte, target any) error {
 	return nil
 }
 
-// validateManifestMetadata严格校验清单本身，但不读取任何资源正文。
+// validateManifestMetadata strictly validates the manifest itself without reading any asset body.
 func validateManifestMetadata(manifest Manifest) error {
 	if manifest.Version <= 0 {
 		return fmt.Errorf("text asset manifest version must be positive")
@@ -132,8 +132,8 @@ func validateManifestMetadata(manifest Manifest) error {
 	return nil
 }
 
-// validateManifestFS是完整发布校验：正式Locale必须完整，开发中Locale允许
-// 部分资源，但所有实际存在的资源仍必须通过变量与合同校验。
+// validateManifestFS is the complete release validation: an official Locale must be complete, a Locale under development may hold
+// partial assets, but every asset that really exists must still pass the variable and contract validation.
 func validateManifestFS(assetFS fs.FS, manifest Manifest) error {
 	if err := validateManifestMetadata(manifest); err != nil {
 		return err

@@ -92,8 +92,8 @@ type indexedImpactCandidate struct {
 	index     int
 }
 
-// impactGraph 是一张只读的关系投影, 用于决定哪些对象值得一并复核。它没有诊断
-// 通道: 关系永远不会让一次写入失败。
+// impactGraph is a read-only relation projection used to decide which objects deserve a joint recheck. It has no diagnosis
+// channel: a relation never makes a write fail.
 type impactGraph struct {
 	out                map[string][]impactEdge
 	in                 map[string][]impactEdge

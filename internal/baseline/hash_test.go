@@ -1,4 +1,4 @@
-// 双指纹计算测试。
+// Tests of the dual fingerprint computation.
 package baseline
 
 import (

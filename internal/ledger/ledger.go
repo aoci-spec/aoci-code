@@ -1,42 +1,42 @@
-// 遥测事件JSONL追加 / 最近事件摘要 / 粗略token估算 / 端点脱敏哈希。
+// Telemetry event JSONL appending / recent event summary / rough token estimate / endpoint masking hash.
 //
-// 纪律:
-//   - O_APPEND单行写,每条事件仅执行一次Write,避免单行被本进程拆分;
-//   - 写失败仅stderr警告,绝不阻塞主流程;
-//   - 读取时损坏行跳过并计数,不崩全局;
-//   - EstimateTokens仅粗估供趋势,对外文案不得写成精确计费;
-//   - 时间戳使用UTC RFC3339Nano,避免同一秒事件失去直接排序证据;
-//   - 密钥、源码正文、Prompt正文和对话正文绝不进入Ledger。
+// Discipline:
+//   - O_APPEND single-line writes, one Write per event, so this process never splits a line;
+//   - a write failure only warns on stderr and never blocks the main flow;
+//   - on read, a corrupt line is skipped and counted, never crashing the whole;
+//   - EstimateTokens is a rough estimate for trends only, and outward wording must not present it as exact billing;
+//   - timestamps use UTC RFC3339Nano, so events in the same second do not lose their direct ordering evidence;
+//   - keys, source bodies, Prompt bodies, and conversation bodies never enter the Ledger.
 //
-// Ledger版本:
-//   - v1: 基础操作、路径数、耗时、漂移与来源;
-//   - v2: 模型、端点脱敏、Token、草稿与Warning计量;
-//   - v3: result/fail_code及批量Apply或拒绝计量;
-//   - v4: schema_version、event_id、实验上下文、业务退出码和Overview交付观测字段;
-//   - v5: Entries Check分别记录passed、warned、rejected、skipped并增加
-//     repair_required结果，避免候选拒绝被误记为普通Warning成功。
-//   - v6: Auto路径增加工具往返、认知召回、语义文件、format-only
-//     与防重计量，使低开销目标可由Ledger复算。
-//   - v7: 区分本次真实写入与崩溃/重放时确认已处于目标状态的恢复数量。
+// Ledger versions:
+//   - v1: basic operations, path counts, durations, drift, and source;
+//   - v2: model, endpoint masking, Token, draft, and Warning metering;
+//   - v3: result/fail_code and batch Apply or refusal metering;
+//   - v4: schema_version, event_id, experiment context, business exit code, and Overview delivery observation fields;
+//   - v5: Entries Check records passed, warned, rejected, and skipped separately and adds the
+//     repair_required result, so a candidate refusal is not misrecorded as an ordinary Warning success.
+//   - v6: the Auto path adds tool round trips, cognition recall, semantic files, format-only,
+//     and duplicate-protection metering, so the low-overhead goal can be recomputed from the Ledger.
+//   - v7: distinguishes this call's real writes from the recovery count confirmed already at the target state on crash/replay.
 //   - v8: Entries post-write recovery records old pre/postimages, current
 //     Baseline, recovery transaction, and later governance proof chain.
 //
-// v5实验上下文:
-//   - CLI无法可靠探测Codex Desktop模型、Memory开关和UI会话ID;
-//   - 实验Harness可通过AOCI_EXPERIMENT_ID等环境变量显式声明;
-//   - Append仅在Event对应字段为空时补入环境声明,绝不覆盖调用方事实;
-//   - 环境值会去除首尾空白、折叠换行与连续空白并限制为256个rune;
-//   - 普通用户不设置实验变量时,这些字段保持省略。
+// The v5 experiment context:
+//   - the CLI cannot reliably probe the Codex Desktop model, the Memory switch, or the UI session ID;
+//   - an experiment Harness may declare them explicitly through environment variables such as AOCI_EXPERIMENT_ID;
+//   - Append fills the environment declaration only when the Event's field is empty, never overwriting the caller's facts;
+//   - an environment value has its surrounding whitespace stripped, newlines and runs of whitespace folded, and is capped at 256 runes;
+//   - when an ordinary user sets no experiment variable, these fields stay omitted.
 //
-// result与exit_code:
-//   - result表示操作是否正常完成自身判定或写入事务;
-//   - repair_required表示判定已经正常完成，但候选必须修正后才能继续;
-//   - exit_code表示调用方在同一判定点形成的CLI业务退出码;
-//   - 因此Verify正常发现漂移时可同时为result=ok和exit_code=1;
-//   - exit_code使用指针,区分历史事件无记录与明确的成功码0。
+// result and exit_code:
+//   - result says whether the operation completed its own verdict or write transaction normally;
+//   - repair_required says the verdict completed normally but the candidates must be corrected before continuing;
+//   - exit_code is the CLI business exit code the caller formed at the same verdict point;
+//   - so a Verify that normally finds drift can be result=ok and exit_code=1 at once;
+//   - exit_code is a pointer, telling a historical event without a record from an explicit success code 0.
 //
-// 依赖方向:
-// 本包属确定性核心层,绝不import internal/llm。
+// Dependency direction:
+// this package belongs to the deterministic core layer and never imports internal/llm.
 package ledger
 
 import (
@@ -57,11 +57,11 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// EventSchemaVersion是当前新写入Ledger事件的机器协议版本。
+// EventSchemaVersion is the machine protocol version of newly written Ledger events.
 // 9 adds the governance outcome fields (#150).
 const EventSchemaVersion = 9
 
-// Source枚举:事件发起方。
+// The Source enumeration: the originator of the event.
 const (
 	SourceHuman  = "human"
 	SourceAgent  = "agent"
@@ -70,7 +70,7 @@ const (
 	SourcePolicy = "policy"
 )
 
-// TokenSource枚举:token计量来源。
+// The TokenSource enumeration: the source of token metering.
 const (
 	TokenSourceExact     = "exact"
 	TokenSourceReported  = "reported"
@@ -78,8 +78,8 @@ const (
 	TokenSourceMissing   = "missing"
 )
 
-// Result枚举:操作终态。
-// 旧事件允许Result为空并按成功解释;新事件默认显式写入ok。
+// The Result enumeration: the terminal state of the operation.
+// An old event may leave Result empty and reads as success; a new event writes ok explicitly by default.
 const (
 	ResultOK             = "ok"
 	ResultRepairRequired = machinecontract.AutoStatusRepairRequired
@@ -88,11 +88,11 @@ const (
 	ResultError          = "error"
 )
 
-// Event一条治理、实验或计量事件。
+// Event is one governance, experiment, or metering event.
 //
-// 所有扩展字段均使用omitempty，历史JSONL行无需迁移。
-// ExitCode与FullTextIncluded使用指针,分别区分“历史未记录/明确为0”
-// 以及“不适用/明确为false”。
+// Every extension field uses omitempty, so historical JSONL lines need no migration.
+// ExitCode and FullTextIncluded are pointers, telling "not recorded historically / explicitly 0"
+// and "not applicable / explicitly false" apart.
 type Event struct {
 	SchemaVersion int    `json:"schema_version,omitempty"`
 	EventID       string `json:"event_id,omitempty"`
@@ -132,7 +132,7 @@ type Event struct {
 	RejectedCount  int    `json:"rejected_count,omitempty"`
 	RejectKinds    string `json:"reject_kinds,omitempty"`
 
-	// 实验上下文由调用方显式填写,或由Append从受控环境变量补充。
+	// The experiment context is filled explicitly by the caller, or supplemented by Append from the controlled environment variables.
 	ExperimentID    string `json:"experiment_id,omitempty"`
 	TaskID          string `json:"task_id,omitempty"`
 	ExperimentGroup string `json:"experiment_group,omitempty"`
@@ -143,7 +143,7 @@ type Event struct {
 	RepositoryHead  string `json:"repository_head,omitempty"`
 	BinaryVersion   string `json:"binary_version,omitempty"`
 
-	// Overview或其他认知交付操作可使用的研究观测字段。
+	// Research observation fields usable by Overview or other cognition delivery operations.
 	DeliveryMode     string `json:"delivery_mode,omitempty"`
 	FullTextIncluded *bool  `json:"full_text_included,omitempty"`
 	FallbackReason   string `json:"fallback_reason,omitempty"`
@@ -168,7 +168,7 @@ type Event struct {
 	RefreshEventID     string   `json:"refresh_event_id,omitempty"`
 	HostDeliveryStatus string   `json:"host_delivery_status,omitempty"`
 
-	// Auto路径的低开销与防重事实。
+	// The low-overhead and duplicate-protection facts of the Auto path.
 	AOCIToolCalls     int `json:"aoci_tool_calls,omitempty"`
 	ShellAOCICalls    int `json:"shell_aoci_calls,omitempty"`
 	OverviewReads     int `json:"overview_reads,omitempty"`
@@ -205,8 +205,8 @@ func ledgerPath(root string) string {
 	return filepath.Join(root, ".aoci", "ledger.jsonl")
 }
 
-// Append追加一条事件。
-// enabled=false时静默跳过;任何失败仅stderr警告不阻塞主流程。
+// Append appends one event.
+// With enabled=false it skips silently; any failure only warns on stderr and never blocks the main flow.
 func Append(root string, enabled bool, ev Event) {
 	if !enabled {
 		return
@@ -237,7 +237,7 @@ func Append(root string, enabled bool, ev Event) {
 	}
 	defer file.Close()
 
-	// 单条事件通过一次Write落盘,避免本进程主动把JSONL单行拆成多次写入。
+	// One event lands through one Write, so this process never splits a JSONL line into several writes on its own.
 	if _, err := file.Write(append(line, '\n')); err != nil {
 		writeDiagnostic("ledger.write_failed", err)
 	}
@@ -274,7 +274,7 @@ func writeDiagnostic(key string, err error) {
 	}
 }
 
-// enrichEvent补齐所有新事件都应具备的基础观测字段。
+// enrichEvent fills the basic observation fields every new event should carry.
 func enrichEvent(ev *Event) {
 	if ev.SchemaVersion == 0 {
 		ev.SchemaVersion = EventSchemaVersion
@@ -300,7 +300,7 @@ func enrichEvent(ev *Event) {
 	fillContextField(&ev.BinaryVersion, "AOCI_BINARY_VERSION")
 }
 
-// fillContextField只在调用方没有提供事实时读取实验环境声明。
+// fillContextField reads the experiment environment declaration only when the caller gave no fact.
 func fillContextField(target *string, environmentName string) {
 	if *target != "" {
 		return
@@ -309,7 +309,7 @@ func fillContextField(target *string, environmentName string) {
 	*target = normalizeContextValue(os.Getenv(environmentName))
 }
 
-// normalizeContextValue防止实验标签把换行或超长文本带入JSONL。
+// normalizeContextValue keeps an experiment label from carrying newlines or overlong text into the JSONL.
 func normalizeContextValue(value string) string {
 	value = strings.Join(strings.Fields(value), " ")
 	if value == "" {
@@ -326,8 +326,8 @@ func normalizeContextValue(value string) string {
 	return string(runes)
 }
 
-// newEventID生成不包含仓库内容的随机事件标识。
-// 系统随机源异常时使用时间、PID摘要作为不阻断主流程的后备。
+// newEventID generates a random event identifier holding no repository content.
+// When the system random source fails, a digest of time and PID serves as the fallback that does not block the main flow.
 func newEventID() string {
 	randomBytes := make([]byte, 12)
 	if _, err := rand.Read(randomBytes); err == nil {
@@ -347,8 +347,8 @@ func newEventID() string {
 	return hex.EncodeToString(fallback[:12])
 }
 
-// Recent读取最近n条有效事件(时间正序返回)。
-// 返回(事件列表,损坏行数);文件缺失返回空列表零损坏。
+// Recent reads the latest n valid events (returned in time order).
+// It returns (event list, corrupt line count); a missing file returns an empty list with zero corruption.
 func Recent(root string, n int) ([]Event, int) {
 	file, err := os.Open(ledgerPath(root))
 	if err != nil {
@@ -425,7 +425,7 @@ func readLedgerLine(reader *bufio.Reader, maxBytes int) ([]byte, bool, error) {
 	}
 }
 
-// EstimateTokens粗略token估算，仅供趋势参考。
+// EstimateTokens is a rough token estimate for trend reference only.
 func EstimateTokens(text string) int {
 	return utf8.RuneCountInString(text) * 6 / 10
 }

@@ -1,17 +1,17 @@
-// Ledger包表驱动与协议兼容测试。
+// Table-driven and protocol compatibility tests of the Ledger package.
 //
-// 覆盖面:
-//  1. v4字段完整往返;
-//  2. Append自动补齐schema、event_id、纳秒时间、result和实验环境;
-//  3. 调用方显式实验上下文不得被环境覆盖;
-//  4. 事件ID唯一性;
-//  5. v1旧格式行向后兼容;
-//  6. 损坏行跳过并计数;
-//  7. enabled=false静默跳过;
-//  8. Recent最近n条且保持正序;
-//  9. EstimateTokens粗估系数。
+// Coverage:
+//  1. complete round trip of the v4 fields;
+//  2. Append fills schema, event_id, nanosecond time, result, and the experiment environment automatically;
+//  3. a caller's explicit experiment context must not be overridden by the environment;
+//  4. event ID uniqueness;
+//  5. backward compatibility of old v1 lines;
+//  6. corrupt lines skipped and counted;
+//  7. enabled=false skips silently;
+//  8. Recent takes the latest n in forward order;
+//  9. the EstimateTokens rough coefficient.
 //
-// 全部用例经t.TempDir造仓,不依赖真实用户仓库。
+// Every case builds a repository in t.TempDir, independent of a real user repository.
 package ledger
 
 import (
@@ -22,7 +22,7 @@ import (
 	"time"
 )
 
-// writeRawLedgerLines直接写入原始行,用于构造旧格式或损坏行。
+// writeRawLedgerLines writes raw lines directly, to build old-format or corrupt lines.
 func writeRawLedgerLines(
 	t *testing.T,
 	root string,
@@ -222,7 +222,7 @@ func TestAppendAndRecentV8RoundTrip(t *testing.T) {
 	}
 }
 
-// TestAppendAutoEnrichment验证新事件自动补齐实验级基础证据。
+// TestAppendAutoEnrichment verifies that a new event is filled automatically with the experiment-level basic evidence.
 func TestAppendAutoEnrichment(t *testing.T) {
 	root := t.TempDir()
 
@@ -287,7 +287,7 @@ func TestAppendAutoEnrichment(t *testing.T) {
 	}
 }
 
-// TestAppendPreservesExplicitContext验证环境变量不能覆盖调用方事实。
+// TestAppendPreservesExplicitContext verifies that environment variables cannot override the caller's facts.
 func TestAppendPreservesExplicitContext(t *testing.T) {
 	root := t.TempDir()
 
@@ -323,7 +323,7 @@ func TestAppendPreservesExplicitContext(t *testing.T) {
 	}
 }
 
-// TestExperimentContextWhitespaceNormalization验证环境值不会把换行带入台账。
+// TestExperimentContextWhitespaceNormalization verifies that an environment value does not carry newlines into the ledger.
 func TestExperimentContextWhitespaceNormalization(t *testing.T) {
 	root := t.TempDir()
 
@@ -340,7 +340,7 @@ func TestExperimentContextWhitespaceNormalization(t *testing.T) {
 	}
 }
 
-// TestEventIDsUnique验证连续事件拥有独立事件身份。
+// TestEventIDsUnique verifies that consecutive events have independent event identities.
 func TestEventIDsUnique(t *testing.T) {
 	root := t.TempDir()
 
@@ -364,7 +364,7 @@ func TestEventIDsUnique(t *testing.T) {
 	}
 }
 
-// TestOldV1LineCompatible验证历史事件无需迁移即可读取。
+// TestOldV1LineCompatible verifies that historical events read without migration.
 func TestOldV1LineCompatible(t *testing.T) {
 	root := t.TempDir()
 
@@ -398,7 +398,7 @@ func TestOldV1LineCompatible(t *testing.T) {
 	}
 }
 
-// TestCorruptLineSkipped验证损坏行跳过并计数。
+// TestCorruptLineSkipped verifies that a corrupt line is skipped and counted.
 func TestCorruptLineSkipped(t *testing.T) {
 	root := t.TempDir()
 
@@ -423,7 +423,7 @@ func TestCorruptLineSkipped(t *testing.T) {
 	}
 }
 
-// TestAppendDisabled验证禁用时不创建任何台账文件。
+// TestAppendDisabled verifies that no ledger file is created when disabled.
 func TestAppendDisabled(t *testing.T) {
 	root := t.TempDir()
 
@@ -451,7 +451,7 @@ func TestAppendDisabled(t *testing.T) {
 	}
 }
 
-// TestRecentLimit验证Recent取最近n条且保持写入正序。
+// TestRecentLimit verifies that Recent takes the latest n and keeps the write order.
 func TestRecentLimit(t *testing.T) {
 	root := t.TempDir()
 
@@ -487,7 +487,7 @@ func TestRecentLimit(t *testing.T) {
 	}
 }
 
-// TestEstimateTokens验证rune数量乘0.6取整的稳定口径。
+// TestEstimateTokens verifies the stable reading of the rune count times 0.6, rounded.
 func TestEstimateTokens(t *testing.T) {
 	cases := []struct {
 		text string

@@ -1,17 +1,17 @@
-// 快照采集与四态差集。
+// Snapshot collection and the four-state difference.
 //
-// 原始事实:
+// Raw facts:
 //
-//	Missing     = 磁盘有、索引无;
-//	Orphan      = 索引有、磁盘无;
-//	Stale       = 两边都有，但指纹不等价;
-//	Unbaselined = 两边都有，但Baseline缺该文件。
+//	Missing     = on disk, not in the index;
+//	Orphan      = in the index, not on disk;
+//	Stale       = on both sides, but the fingerprints are not equivalent;
+//	Unbaselined = on both sides, but the Baseline lacks the file.
 //
-// LineEndingOnly是附加信息态：原始字节不同，但双方可选规范化指纹相同。
-// 是否允许该等价关系必须由调用方显式传入；旧Detect和IsStaleFile保持严格语义。
+// LineEndingOnly is an additional informational state: the raw bytes differ, but both optional normalized fingerprints agree.
+// Whether that equivalence is allowed must be passed explicitly by the caller; the old Detect and IsStaleFile keep strict semantics.
 //
-// 排除口径一致性：索引侧条目与磁盘快照使用同一套排除规则。
-// 全部slice初始化为空并排序，保证JSON稳定且不产生null。
+// Exclusion reading consistency: index-side entries and the disk snapshot use one set of exclusion rules.
+// Every slice is initialized empty and sorted, so the JSON is stable and never null.
 package baseline
 
 import (
@@ -24,7 +24,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
-// DetectResult保存原始四态和可选换行等价信息。
+// DetectResult holds the raw four states and the optional line-ending equivalence information.
 type DetectResult struct {
 	Missing         []string `json:"missing"`
 	Orphan          []string `json:"orphan"`
@@ -37,9 +37,9 @@ type DetectResult struct {
 	Warnings        []string `json:"warnings"`
 }
 
-// Snapshot遍历仓库并计算全部文件指纹。
+// Snapshot walks the repository and computes every file fingerprint.
 //
-// 单文件哈希失败不阻断全局，以warning返回。
+// A single file's hash failure does not block the whole and is returned as a warning.
 func Snapshot(
 	root string,
 	options afs.WalkOptions,
@@ -96,15 +96,15 @@ func SnapshotWithInventory(root string, options afs.WalkOptions) (map[string]Fin
 	return snapshot, warnings, inventory, nil
 }
 
-// EquivalentFingerprints是指纹等价判定的唯一入口。
+// EquivalentFingerprints is the single entry of fingerprint equivalence judgement.
 //
-// 返回值:
-//   - equal=true,lineEndingOnly=false：原始字节完全一致;
-//   - equal=true,lineEndingOnly=true：仅在显式宽容时，规范化指纹一致;
-//   - equal=false：存在真实漂移，或任一侧缺少规范化指纹。
+// Return values:
+//   - equal=true, lineEndingOnly=false: the raw bytes agree exactly;
+//   - equal=true, lineEndingOnly=true: only under explicit tolerance, the normalized fingerprints agree;
+//   - equal=false: real drift exists, or either side lacks a normalized fingerprint.
 //
-// 任一侧缺少NormalizedSHA256时退回严格比较，保证旧Baseline、二进制
-// 和超限文件不会被静默放宽。
+// When either side lacks NormalizedSHA256 it falls back to strict comparison, so an old Baseline, a binary file,
+// and an oversize file are never silently relaxed.
 func EquivalentFingerprints(
 	baselineFingerprint Fingerprint,
 	currentFingerprint Fingerprint,
@@ -135,13 +135,13 @@ func EquivalentFingerprints(
 	return false, false
 }
 
-// isExcludedRel判断索引条目路径是否落在与磁盘快照相同的排除口径内。
+// isExcludedRel judges whether an index entry path falls inside the same exclusion reading as the disk snapshot.
 //
-// 配置清单只有一处实现: 目录清单委托 fs.ConfiguredExclusionSource, 与 Safe
-// Inventory 同判 exclude_dirs 与 exclude_root_dirs(rc20 前此处自带一份只认
-// exclude_dirs 的实现, 新仓 backup/ 之下的条目被报成 Orphan 而非跳过)。
-// 目录条目保留尾部斜杠, 其最后一段对清单而言仍是目录; 文件模式照旧按去掉
-// 斜杠的名字匹配。
+// The configured list has one implementation: the directory list is delegated to fs.ConfiguredExclusionSource, judging exclude_dirs
+// and exclude_root_dirs the same way as the Safe Inventory (before rc20 this place carried its own implementation that knew only
+// exclude_dirs, and entries under a new repository's backup/ were reported Orphan instead of skipped).
+// A directory entry keeps its trailing slash, and its last segment is still a directory to the list; file patterns still match
+// the name with the slash stripped.
 func isExcludedRel(
 	relPath string,
 	options afs.WalkOptions,
@@ -183,9 +183,9 @@ func isExcludedRel(
 	)
 }
 
-// Detect保持历史严格语义。
+// Detect keeps the historical strict semantics.
 //
-// 现有调用方在未明确接入配置前继续按原始字节比较。
+// Existing callers keep comparing raw bytes until they explicitly adopt the configuration.
 func Detect(
 	root string,
 	document *index.Document,
@@ -203,7 +203,7 @@ func Detect(
 	)
 }
 
-// DetectWith按显式参数计算四态差集和换行等价信息。
+// DetectWith computes the four-state difference and the line-ending equivalence information by explicit parameters.
 func DetectWith(
 	root string,
 	document *index.Document,
@@ -342,7 +342,7 @@ func DetectWith(
 	return result
 }
 
-// IsStaleFile保持历史严格语义。
+// IsStaleFile keeps the historical strict semantics.
 func IsStaleFile(
 	root string,
 	relPath string,
@@ -361,9 +361,9 @@ func IsStaleFile(
 	return stale, unbaselined
 }
 
-// IsStaleFileWith执行单文件指纹等价速查。
+// IsStaleFileWith runs the single-file fingerprint equivalence quick check.
 //
-// 文件不在磁盘时按未漂移处理，Orphan仍由全量Detect报告。
+// A file not on disk is treated as not drifted; Orphan is still reported by the full Detect.
 func IsStaleFileWith(
 	root string,
 	relPath string,

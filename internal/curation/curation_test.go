@@ -1,4 +1,4 @@
-// 文件级策展资产、画像和Missing分类测试。
+// Tests of the file-level curation asset, profiles, and Missing classification.
 package curation
 
 import (

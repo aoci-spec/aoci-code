@@ -1,14 +1,14 @@
-// 消失的 observe 源必须被报为移除, 哪怕 Git 还跟踪着它。
+// A vanished observe source must be reported as removed, even while Git still tracks it.
 //
-// 真实经历: 删掉一个被跟踪的 observe 测试文件后, scope acknowledge 永远无法成功。
-// scope status 按 snapshot 判定, 如实报 observed_removed; Build 按 roles 判定, 而
-// 一个"已删除但仍被跟踪"的文件仍会被 Safe Inventory 评估为 unsafe_filesystem_object
-// 的 Exclude 项 —— 它留在 roles 里, 于是读起来像"被策略重新分类", 不像"消失"。
-// 两份清单因此永远对不上, acknowledge 以 observed_evidence_review_required 拒绝,
-// 而错误既不说多了什么也不说少了什么。操作者手里没有能清除它的动作。
+// A real experience: after deleting a tracked observe test file, scope acknowledge could never succeed.
+// scope status judges by snapshot and reports observed_removed truthfully; Build judges by roles, and
+// a "deleted but still tracked" file is still evaluated by the Safe Inventory as an unsafe_filesystem_object
+// Exclude item: it stays in roles, so it reads like "reclassified by policy", not like "vanished".
+// The two lists therefore never agree, acknowledge refuses with observed_evidence_review_required,
+// and the error says neither what is extra nor what is missing. The operator has no action that clears it.
 //
-// roles 判据本身是对的: 它把"被策略重新分类"(仍在 roles, 由计划复核)与"消失"
-// (不在 roles)分开。缺的只是让消失路径不再伪装成前者。
+// The roles criterion itself is right: it separates "reclassified by policy" (still in roles, reviewed by the plan) from "vanished"
+// (not in roles). What was missing was only to stop a vanished path from posing as the former.
 package scopechange
 
 import (
@@ -25,8 +25,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
 
-// trackAndVanish 让夹具进入"被 Git 跟踪、Baseline 记为 observe、但工作区已删除"
-// 的状态 —— 这三条同时成立才是那个盲点。
+// trackAndVanish puts the fixture into the state "tracked by Git, recorded as observe in the Baseline, but deleted in the working tree";
+// only when all three hold at once is it that blind spot.
 func trackAndVanish(t *testing.T, root, rel string) {
 	t.Helper()
 	state, exists, err := baseline.Load(root)
@@ -79,7 +79,7 @@ func TestVanishedButTrackedObserveSourceIsReportedRemoved(t *testing.T) {
 	trackAndVanish(t, root, "main_test.go")
 	evaluation, snapshot, roles, active, cfg := vanishedFixtureFacts(t, root)
 
-	// 前提: 它确实还在评估里, 而不是干脆消失 —— 否则本用例测不到那个盲点。
+	// Precondition: it really is still in the evaluation rather than simply gone; otherwise this case cannot reach that blind spot.
 	if _, governed := roles["main_test.go"]; !governed {
 		t.Fatal("fixture precondition: a tracked-but-deleted path must still be evaluated, " +
 			"otherwise the blind spot this pins cannot occur")
@@ -100,8 +100,8 @@ func TestVanishedButTrackedObserveSourceIsReportedRemoved(t *testing.T) {
 	}
 }
 
-// 真正要钉的性质不是这一个症状, 而是两套计算不得分歧: acknowledge 用 status 的
-// 清单提交复核, Build 用自己的清单校验, 只要两者不同就永远匹配不上。
+// The property really being locked is not this one symptom but that the two computations must not diverge: acknowledge submits the review with
+// status's list, Build validates with its own list, and as long as the two differ they can never match.
 func TestBuildAndStatusAgreeOnObserveRemovals(t *testing.T) {
 	root, _ := buildChangeFixture(t)
 	trackAndVanish(t, root, "main_test.go")

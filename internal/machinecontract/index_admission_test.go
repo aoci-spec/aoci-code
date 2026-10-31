@@ -6,18 +6,18 @@ import (
 	"testing"
 )
 
-// 索引膨胀是单向的: 每加一条就永久摊到之后每一次 Whole-Index 交付上, 而收回要走
-// 覆盖缩减的 Scope Change 审批。仓库里有 600 多个 *_test.go, 按实测约 110
-// tokens/条, 全放进来会让 Whole-Index 翻倍并冲破 120k 目标线 —— 换来的却是读者
-// 从被测包就能拿到的东西。
+// Index growth is one-way: every added Entry is spread permanently over every later Whole-Index delivery, and taking it back goes through
+// the coverage-reduction Scope Change approval. The repository has over 600 *_test.go files, at roughly 110
+// tokens per Entry as measured; putting them all in would double the Whole-Index and break through the 120k target line, buying only
+// what a reader can already reach from the package under test.
 //
-// 准入线写在 AGENTS.md「Cognition index admission」里: 只有需要被点名执行、带自己
-// 前置条件的 harness/套件才配拥有条目; 普通包测试留在 observe, 测试锁住的事实记进
-// 被锁对象的 S。这里把那条线钉成机器判定, 并防止它被悄悄删掉。
+// The admission line is written in AGENTS.md under "Cognition index admission": only a harness or suite that must be run by name, with its own
+// preconditions, deserves an Entry; ordinary package tests stay observe, and a fact a test locks is recorded in the locked object's S.
+// This place pins that line as a machine judgement and keeps it from being quietly deleted.
 func TestOrdinaryPackageTestsNeverEnterTheWholeIndex(t *testing.T) {
 	volume := readRepositoryFile(t, "aoci.code.txt")
 
-	// Entry 行形如: name[TAG]: F:... | R:... | A:... | S:...
+	// An Entry line looks like: name[TAG]: F:... | R:... | A:... | S:...
 	entryLine := regexp.MustCompile(`^(\S[^\[]*)\[[A-Za-z0-9]+\]: F:`)
 	offenders := []string{}
 	for _, line := range strings.Split(volume, "\n") {
@@ -41,7 +41,7 @@ func TestOrdinaryPackageTestsNeverEnterTheWholeIndex(t *testing.T) {
 	}
 }
 
-// 准入线本身也要防删: 规则消失了, 上面那条机器判定就失去了它的解释与授权来源。
+// The admission line itself must be protected from deletion: with the rule gone, the machine judgement above loses its explanation and its source of authority.
 func TestCognitionIndexAdmissionRuleIsPublished(t *testing.T) {
 	agents := readRepositoryFile(t, "AGENTS.md")
 	for _, anchor := range []string{
@@ -56,8 +56,8 @@ func TestCognitionIndexAdmissionRuleIsPublished(t *testing.T) {
 	}
 }
 
-// 验证义务同样怕被删: Tier-1 门禁只在 make full 里跑, 这条事实不在任何门禁的输出里,
-// 只能靠文档携带 —— 它正是本仓库真实踩过的坑。
+// The verification obligation is just as easily deleted: Tier-1 gates run only in make full, that fact is in no gate's output,
+// and only the documentation carries it; it is exactly the pit this repository really fell into.
 func TestVerificationObligationsArePublished(t *testing.T) {
 	agents := readRepositoryFile(t, "AGENTS.md")
 	for _, anchor := range []string{

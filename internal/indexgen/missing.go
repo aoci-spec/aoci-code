@@ -1,23 +1,23 @@
-// Package indexgen 的Missing行动分型适配层。
+// The Missing action-typing adapter layer of package indexgen.
 //
-// 原始物理事实仍由baseline.Detect产生:
+// The raw physical fact is still produced by baseline.Detect:
 //
-//	Missing = 磁盘存在、正式索引不存在。
+//	Missing = exists on disk, absent from the formal index.
 //
-// 文件画像、持久化include/exclude决策和PendingCuration统一委托
-// internal/curation。indexgen只负责把核心分类映射为CLI、Score等稳定协议，并为
-// 新文件补充SuggestedSection。
+// File profiles, persistent include/exclude decisions, and PendingCuration are all delegated to
+// internal/curation. indexgen is only responsible for mapping the core classification into the stable protocols of the CLI, Score, and the like, and
+// for adding SuggestedSection to new files.
 //
-// 三分守恒:
+// Three-way conservation:
 //
 //	ActionableMissing
 //	+ CurationExcludedMissing
 //	+ SkippedMissing
-//	= 原始Missing。
+//	= raw Missing.
 //
-// IncludedMissing是ActionableMissing的子集。
-// PendingCurationMissing是SkippedMissing的子集。
-// 两个子集都不得作为第四个互斥集合参与总数相加。
+// IncludedMissing is a subset of ActionableMissing.
+// PendingCurationMissing is a subset of SkippedMissing.
+// Neither subset may take part in the total as a fourth exclusive set.
 package indexgen
 
 import (
@@ -28,13 +28,13 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
-// SkippedMissing 是当前不进入自动条目起草队列的原始Missing。
+// SkippedMissing are the raw Missing that do not currently enter the automatic entry drafting queue.
 type SkippedMissing struct {
 	Path   string `json:"path"`
 	Reason string `json:"reason"`
 }
 
-// MissingClassification 是原始Missing的稳定解释。
+// MissingClassification is the stable interpretation of the raw Missing.
 type MissingClassification struct {
 	Missing                 []string                    `json:"missing"`
 	Actionable              []string                    `json:"actionable_missing"`
@@ -47,10 +47,10 @@ type MissingClassification struct {
 	CurationSHA256          string                      `json:"curation_sha256"`
 }
 
-// ClassifyMissing 保留无仓库上下文的历史纯内存调用面。
+// ClassifyMissing keeps the historical pure in-memory call surface without repository context.
 //
-// 该函数无法读取curation.json，只识别团队路径排除与Inventory跳过画像。
-// 正式生产路径必须优先使用BuildMissingClassification。
+// This function cannot read curation.json and recognizes only team path exclusions and Inventory skip profiles.
+// The formal production path must prefer BuildMissingClassification.
 func ClassifyMissing(
 	cfg *config.Config,
 	rawMissing []string,
@@ -110,9 +110,9 @@ func ClassifyMissing(
 	return result
 }
 
-// BuildMissingClassification 读取curation.json、建立统一文件画像并完成生产分类。
+// BuildMissingClassification reads curation.json, builds the unified file profiles, and completes the production classification.
 //
-// 返回Inventory只覆盖本轮Raw Missing，用于Plan填充Lines、Ext和SuggestedSection。
+// The returned Inventory covers only this round's Raw Missing, for the Plan to fill Lines, Ext, and SuggestedSection.
 func BuildMissingClassification(
 	root string,
 	cfg *config.Config,

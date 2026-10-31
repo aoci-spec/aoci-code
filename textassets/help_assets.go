@@ -6,25 +6,25 @@
 package textassets
 
 const (
-	// ContractHelpRootLong说明AOCI根命令的产品定位和离线/AI双形态。
+	// ContractHelpRootLong explains the AOCI root command's product position and its offline/AI dual form.
 	ContractHelpRootLong ID = "contracts/help/root-long"
 
-	// ContractHelpDoctorLong说明Doctor只读诊断与显式联网边界。
+	// ContractHelpDoctorLong explains Doctor's read-only diagnosis and the explicit network boundary.
 	ContractHelpDoctorLong ID = "contracts/help/doctor-long"
 
-	// ContractHelpIndexLong说明Index命令组的各治理工序。
+	// ContractHelpIndexLong explains the governance processes of the Index command group.
 	ContractHelpIndexLong ID = "contracts/help/index-long"
 
-	// ContractHelpVerifyLong说明Verify原始事实、治理债务与退出码。
+	// ContractHelpVerifyLong explains Verify's raw facts, governance debt, and exit codes.
 	ContractHelpVerifyLong ID = "contracts/help/verify-long"
 
-	// ContractHelpCheckLong说明Check提交阻断与非阻断维度。
+	// ContractHelpCheckLong explains Check's blocking and non-blocking dimensions.
 	ContractHelpCheckLong ID = "contracts/help/check-long"
 
-	// ContractHelpScanLong说明Scan重建Baseline及防洗白语义。
+	// ContractHelpScanLong explains Scan's Baseline rebuild and whitewash prevention semantics.
 	ContractHelpScanLong ID = "contracts/help/scan-long"
 
-	// ContractHelpRemoveEntryLong说明人工删除Entry的治理后果。
+	// ContractHelpRemoveEntryLong explains the governance consequences of the manual Entry removal.
 	ContractHelpRemoveEntryLong ID = "contracts/help/remove-entry-long"
 
 	// ContractHelpReadObservationAudit is the shared read-only and local-audit

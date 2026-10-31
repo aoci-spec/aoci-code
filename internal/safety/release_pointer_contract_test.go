@@ -1,15 +1,15 @@
-// 发布指针契约: 面向用户的版本指针必须彼此一致, 并与 CHANGELOG 最新版本段一致。
+// The release pointer contract: the user-facing version pointers must agree with each other and with the latest CHANGELOG version section.
 //
-// 真实经历: 这些指针没有任何机器闸, 于是连着三次发版都漏改。rc4 发版时漏了两个
-// README 第 9 行的状态徽章, 结果 rc3 的徽章随 rc4 发了出去; rc5 沿用同一份徽章;
-// rc6 打完 tag 才发现 README、install.md、supply-chain.md、NOTICE 标题与
-// release.yml 的 dispatch 默认值全都还停在 rc5, 而徽章仍停在 rc4。
+// A real experience: these pointers had no machine gate, so three releases in a row missed one. The rc4 release missed the two
+// README status badges on line 9, so rc3's badge went out with rc4; rc5 kept the same badge;
+// only after the rc6 tag was it noticed that README, install.md, supply-chain.md, the NOTICE title, and
+// release.yml's dispatch default all still sat at rc5, while the badge still sat at rc4.
 //
-// 这正是本仓自己那条"公开数字必须由产生它的东西自校验"的反例: 数字被写进文档,
-// 却没有任何东西比对它们。本测试不判断"当前版本应该是什么"——那是发版者的决定
-// ——只强制"所有指针说的是同一个版本, 且等于 CHANGELOG 最新的那一段"。
+// That is exactly a counterexample of this repository's own rule "a public number must be self-checked by what produces it": the numbers were written into documents
+// with nothing comparing them. This test does not judge "what the current version should be" (that is the releaser's decision);
+// it only enforces "every pointer names the same version, and it equals the latest CHANGELOG section".
 //
-// NOTICE 的可用日期行是法务历史, 只增不改: 因此只校验最新版本在场, 绝不校验旧行。
+// NOTICE's availability date lines are legal history, append-only: only the latest version's presence is checked, never the old lines.
 package safety
 
 import (

@@ -1,4 +1,4 @@
-// Package jsonstrict 提供标准库encoding/json未直接提供的确定性严格校验。
+// Package jsonstrict provides deterministic strict validation that the standard library encoding/json does not offer directly.
 package jsonstrict
 
 import (
@@ -9,10 +9,10 @@ import (
 	"unicode/utf8"
 )
 
-// DuplicateKeyError 表示同一JSON对象内出现重复字段。
+// DuplicateKeyError means a duplicate field appeared inside one JSON object.
 //
-// Conflicts 只在两个字段名字节不同、却在大小写折叠下相等时携带先出现的那个
-// 拼写的完整路径；逐字节重复时为空，错误文本保持原有格式。
+// Conflicts carries the complete path of the earlier spelling only when the two field names differ in bytes but are equal under case
+// folding; for a byte-identical duplicate it is empty, and the error text keeps its original format.
 type DuplicateKeyError struct {
 	Path      string
 	Conflicts string
@@ -35,13 +35,13 @@ func (e *DuplicateKeyError) Error() string {
 	)
 }
 
-// RejectDuplicateKeys 检查任意层级JSON对象中逐字节相同的重复字段。
+// RejectDuplicateKeys checks any level of a JSON object for byte-identical duplicate fields.
 //
-// 本函数只报告重复字段。JSON本身存在语法错误时返回nil，由调用方既有严格
-// 解码器继续给出语法、类型、未知字段或尾随内容错误，避免形成第二套完整解析器。
+// This function reports only duplicate fields. When the JSON itself has a syntax error it returns nil, and the caller's existing strict
+// decoder goes on to give the syntax, type, unknown-field, or trailing-content error, so no second complete parser forms.
 //
-// 字段名仅大小写不同时不视为重复：解码目标是map时encoding/json按字节区分键，
-// 这样的两个键是合法的不同条目。解码目标是结构体时请使用RejectDuplicateKeysFold。
+// Field names differing only in case are not duplicates: when the decode target is a map, encoding/json tells keys apart by byte,
+// and two such keys are legal distinct entries. When the decode target is a struct, use RejectDuplicateKeysFold.
 func RejectDuplicateKeys(data []byte) error {
 	return rejectDuplicateKeys(
 		data,
@@ -49,18 +49,18 @@ func RejectDuplicateKeys(data []byte) error {
 	)
 }
 
-// RejectDuplicateKeysFold 检查任意层级JSON对象中逐字节相同或仅大小写不同的
-// 重复字段。
+// RejectDuplicateKeysFold checks any level of a JSON object for duplicate fields that are byte-identical or differ only
+// in case.
 //
-// encoding/json 把JSON字段匹配到结构体字段时不区分大小写（即使启用了
-// DisallowUnknownFields），所以 {"path":"a","Path":"b"} 会以后者覆盖前者、
-// 不报任何错误地落进同一个结构体字段。解码目标是结构体的调用方必须用本函数
-// 关闭这个口子。两个字段名在 strings.EqualFold 下相等即视为重复，这正是
-// encoding/json 匹配结构体字段所用的简单Unicode大小写折叠。
+// encoding/json matches JSON fields to struct fields case-insensitively (even with
+// DisallowUnknownFields enabled), so {"path":"a","Path":"b"} lets the latter override the former and
+// lands in one struct field without any error. A caller whose decode target is a struct must close
+// that hole with this function. Two field names equal under strings.EqualFold count as duplicates, which is exactly the
+// simple Unicode case folding encoding/json uses to match struct fields.
 //
-// 扫描器看不到解码目标的形状：结构体内部的map类型字段同样按折叠规则检查。
-// 若某份工件的map字段确实合法地携带仅大小写不同的键，该调用方应继续使用
-// RejectDuplicateKeys。与RejectDuplicateKeys相同，语法错误时返回nil。
+// The scanner cannot see the shape of the decode target: map-typed fields inside a struct are checked by the folding rule too.
+// If some artifact's map field legitimately carries keys differing only in case, that caller should keep using
+// RejectDuplicateKeys. As with RejectDuplicateKeys, a syntax error returns nil.
 func RejectDuplicateKeysFold(data []byte) error {
 	return rejectDuplicateKeys(
 		data,
@@ -106,7 +106,7 @@ func scanJSONValue(
 
 	switch delimiter {
 	case '{':
-		// seen 以比较键（折叠后或原样）索引首次出现的完整字段路径。
+		// seen indexes the complete field path of the first occurrence by the comparison key (folded or as it is).
 		seen := map[string]string{}
 
 		for decoder.More() {
@@ -191,10 +191,10 @@ func joinJSONPath(
 	return parent + "." + key
 }
 
-// foldKey 返回字段名的规范折叠形式：两个字段名折叠后相同，当且仅当
-// strings.EqualFold 判定二者相等。算法与 encoding/json 匹配结构体字段所用的
-// 折叠一致——ASCII小写字母转大写，其余rune取其 unicode.SimpleFold 轨道中的
-// 最小值——因此一次map查找即可替代对已见键的逐个EqualFold比较。
+// foldKey returns the canonical folded form of a field name: two field names fold the same if and only if
+// strings.EqualFold judges them equal. The algorithm matches the folding encoding/json uses to match struct fields:
+// ASCII lower-case letters become upper case, and every other rune takes the smallest value of its unicode.SimpleFold orbit,
+// so one map lookup replaces an EqualFold comparison against every key already seen.
 func foldKey(
 	key string,
 ) string {
@@ -230,7 +230,7 @@ func appendFoldedKey(
 	return out
 }
 
-// foldRune 返回 r 所在 SimpleFold 轨道中最小的rune；无折叠关系的rune返回自身。
+// foldRune returns the smallest rune of the SimpleFold orbit r belongs to; a rune with no folding relation returns itself.
 func foldRune(
 	r rune,
 ) rune {

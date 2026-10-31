@@ -1,11 +1,11 @@
-// .aoci/curation.json的严格读写、规范化、摘要与决策合并。
+// Strict reading and writing, normalization, digest, and decision merging of .aoci/curation.json.
 //
-// 写入纪律:
-//   - 首次写入前创建.aoci目录;
-//   - 旧文件备份为curation.json.bak;
-//   - 正式文件经AtomicWrite落盘;
-//   - 每个路径只保留一项当前决策;
-//   - 输出按Path排序，保证Git差异稳定。
+// Write discipline:
+//   - the .aoci directory is created before the first write;
+//   - the old file is backed up as curation.json.bak;
+//   - the formal file lands through AtomicWrite;
+//   - each path keeps only one current decision;
+//   - the output is sorted by Path, so the Git diff is stable.
 package curation
 
 import (
@@ -24,20 +24,20 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
 
-// FilePath 返回团队策展资产的绝对路径。
+// FilePath returns the absolute path of the team curation asset.
 func FilePath(root string) string {
 	return config.AOCIPaths(root, "").CurationPath
 }
 
-// HashBytes 返回完整SHA-256十六进制摘要。
+// HashBytes returns the complete SHA-256 hexadecimal digest.
 func HashBytes(data []byte) string {
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
 }
 
-// Load 读取并严格校验策展资产。
+// Load reads and strictly validates the curation asset.
 //
-// 文件不存在时返回空Document、exists=false以及空字节摘要。
+// A missing file returns an empty Document, exists=false, and the empty-bytes digest.
 func Load(root string) (*Document, bool, string, error) {
 	targetPath := FilePath(root)
 
@@ -68,7 +68,7 @@ func Load(root string) (*Document, bool, string, error) {
 	return document, true, HashBytes(data), nil
 }
 
-// Save 规范化、备份并原子写入策展资产。
+// Save normalizes, backs up, and atomically writes the curation asset.
 func Save(root string, document *Document) error {
 	normalized, err := NormalizeDocument(document, true)
 	if err != nil {
@@ -102,7 +102,7 @@ func Save(root string, document *Document) error {
 	return nil
 }
 
-// NormalizeDocument 校验版本、决策字段、路径唯一性并按Path排序。
+// NormalizeDocument validates the version, the decision fields, and path uniqueness, and sorts by Path.
 func NormalizeDocument(document *Document, requireAudit bool) (*Document, error) {
 	if document == nil {
 		return nil, fmt.Errorf("策展Document为空")
@@ -146,9 +146,9 @@ func NormalizeDocument(document *Document, requireAudit bool) (*Document, error)
 	}, nil
 }
 
-// NormalizeDecision 规范化并校验一项文件级决策。
+// NormalizeDecision normalizes and validates one file-level decision.
 //
-// requireAudit=false用于Stage候选；Agent、UpdatedAt可由Apply阶段补齐。
+// requireAudit=false serves a Stage candidate; Agent and UpdatedAt may be filled in at the Apply phase.
 func NormalizeDecision(raw Decision, requireAudit bool) (Decision, error) {
 	rel, err := afs.NormalizeRelPath(raw.Path)
 	if err != nil {
@@ -248,7 +248,7 @@ func NormalizeDecision(raw Decision, requireAudit bool) (Decision, error) {
 	}, nil
 }
 
-// Merge 把一批已Stage的决策合并为每路径唯一的当前状态。
+// Merge merges a batch of Staged decisions into the per-path unique current state.
 func Merge(
 	base *Document,
 	incoming []Decision,
@@ -308,7 +308,7 @@ func Merge(
 	return NormalizeDocument(merged, true)
 }
 
-// DecisionByPath 返回指定路径的当前持久化决策。
+// DecisionByPath returns the current persisted decision of the given path.
 func DecisionByPath(document *Document, path string) (Decision, bool) {
 	if document == nil {
 		return Decision{}, false

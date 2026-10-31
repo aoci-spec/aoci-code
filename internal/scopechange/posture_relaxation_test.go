@@ -1,12 +1,12 @@
-// 姿态放松必须有审批人。
+// A posture relaxation must have an approver.
 //
-// autoAuthorizationBlockers 拒绝 approval_policy_relaxation 是对的 —— 放松绝不能自我
-// 批准。但拒绝只是契约的一半: Spec 的模式是"被阻断的事实交给独立复核", 不是死路。
-// 修复前, InteractionRequired 完全由**期望**模式推导, 于是一旦期望 auto 就判定"不需要
-// 复核", 阻断因此没有审批人 —— auto 成了能出不能进的吸收态, 而 review 是单向门。
+// autoAuthorizationBlockers refusing approval_policy_relaxation is right: a relaxation must never approve itself.
+// But the refusal is only half of the contract: the Spec's pattern is "a blocked fact goes to independent review", not a dead end.
+// Before the fix, InteractionRequired was derived entirely from the EXPECTED mode, so once auto was expected it judged "no
+// review needed", and the block had no approver: auto became an absorbing state with an exit and no entrance, and review a one-way door.
 //
-// 这里钉死修好的语义: 收据是 review、期望是 auto 时, 计划必须要求人工确认, 并且走
-// 交互分支; 而普通的 auto 计划(无放松)仍然完全自动、且拒收人工批准。
+// Locked here is the repaired semantics: with a review receipt and an auto expectation, the plan must demand a human confirmation and take
+// the interactive branch; while an ordinary auto plan (no relaxation) stays fully automatic and refuses a human approval.
 package scopechange
 
 import (
@@ -17,12 +17,12 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// relaxingPreview 建一个收据为 review、期望为 auto 的计划 —— 即"想把姿态放松回去"。
+// relaxingPreview builds a plan whose receipt is review and expectation auto, that is, "wanting to relax the posture back".
 func relaxingPreview(t *testing.T) (string, *Preview) {
 	t.Helper()
 	root, candidates := buildChangeFixture(t)
 
-	// 先让 review 成为**已收据**的姿态。
+	// First make review the RECEIPTED posture.
 	setFixtureAuthorization(t, root, config.AutomationModeAuto, machinecontract.ScopeApprovalModeReview)
 	reviewed, err := Build(root, authorizationTestTime, candidates)
 	if err != nil {
@@ -36,7 +36,7 @@ func relaxingPreview(t *testing.T) (string, *Preview) {
 		t.Fatalf("could not receipt the review posture: %v", err)
 	}
 
-	// 再把期望改回 auto: 这就是放松。
+	// Then change the expectation back to auto: that is the relaxation.
 	setFixtureAuthorization(t, root, config.AutomationModeAuto, machinecontract.ScopeApprovalModeAuto)
 	preview, err := Build(root, authorizationTestTime, candidates)
 	if err != nil {
@@ -59,13 +59,13 @@ func TestPostureRelaxationDemandsAHumanReviewer(t *testing.T) {
 		t.Fatal("an interactive plan must carry the phrase that binds the approval to it")
 	}
 
-	// 自动授权仍然必须拒绝 —— 放松不能自我批准。
+	// Automatic authorization must still refuse: a relaxation cannot approve itself.
 	if _, err := NewPolicyBoundApproval(root, preview, authorizationTestTime); err == nil ||
 		!strings.Contains(err.Error(), "approval_policy_relaxation") {
 		t.Fatalf("policy-bound auto must still refuse a relaxation, got %v", err)
 	}
 
-	// 而真人批准现在能落地。
+	// And a human approval can now land.
 	approval, err := NewApproval(preview, "fixture-actor", authorizationTestTime)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestOrdinaryAutoPlanStaysFullyAutomatic(t *testing.T) {
 	if preview.Plan.InteractionRequired {
 		t.Fatal("an ordinary auto plan must never ask a human")
 	}
-	// 并且在 auto 下人工批准仍然不是权威 —— 分支路由没有被放松改坏。
+	// And under auto a human approval is still not the authority: the branch routing was not broken by the relaxation.
 	approval, err := NewApproval(preview, "fixture-actor", authorizationTestTime)
 	if err != nil {
 		t.Fatal(err)

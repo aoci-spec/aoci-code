@@ -1,4 +1,4 @@
-// Score对Missing三分、规范字段兼容、Pending子集及freshness治理口径的测试。
+// Tests of Score's Missing three-way split, canonical field compatibility, the Pending subset, and the freshness governance reading.
 package indexgen
 
 import (

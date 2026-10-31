@@ -67,9 +67,9 @@ func TestCodeCandidateReceiptRejectsPartialAndStaleSubmission(t *testing.T) {
 	}
 }
 
-// 装箱只看确定性顺序与上限, 不看条目语义。宿主在上一批里把 R 指到本批之外
-// 的任何地方都不改变下一批的构成 —— 关系是模型写给模型的标注, 不是机器的排程
-// 约束, 也就永远不可能因为"关系闭不上"而卡住整个索引的建立。
+// Packing looks only at deterministic order and the cap, not at entry semantics. Wherever the host points R in the previous batch, outside this batch
+// or anywhere else, the makeup of the next batch does not change: relations are annotations the model writes for the model, not a machine scheduling
+// constraint, so they can never stall the whole index build because "the relations do not close".
 func TestCodeBatchesAreAPureOrderedPrefixIndependentOfEntrySemantics(t *testing.T) {
 	root := t.TempDir()
 	candidates := codeCandidates(201)
@@ -87,11 +87,11 @@ func TestCodeBatchesAreAPureOrderedPrefixIndependentOfEntrySemantics(t *testing.
 			t.Fatalf("批次不是确定序前缀: [%d]=%s want=%s", index, candidate.ObjectRef, want)
 		}
 	}
-	// 已存在条目的原文照常随批下发, 供宿主做增量创作。
+	// The raw text of existing entries is sent down with the batch as usual, for the host's incremental authoring.
 	if plan.Candidates[0].ExistingEntry == "" {
 		t.Fatal("既有条目原文丢失")
 	}
-	// 关系指向的对象落在下一批: 这完全合法, 本批照常可提交完成。
+	// The object a relation points at lands in the next batch: entirely legal, and this batch can be submitted and completed as usual.
 	submissions := make([]Submission, 0, len(plan.Candidates))
 	for _, candidate := range plan.Candidates {
 		submissions = append(submissions, Submission{ObjectRef: candidate.ObjectRef,
