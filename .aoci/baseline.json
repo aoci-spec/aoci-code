@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-31T06:28:07Z",
+  "updated_at": "2026-10-31T07:10:04Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -2280,6 +2280,14 @@
       "size": 19449,
       "normalized_sha256": "b6fdcf41abbe779cf417e956a843098c99f47742e8203e984b4a9a9c4a311026",
       "format_sha256": "b6fdcf41abbe779cf417e956a843098c99f47742e8203e984b4a9a9c4a311026",
+      "format_kind": "gofmt"
+    },
+    "internal/codebatch/parallel_test.go": {
+      "role": "observe",
+      "sha256": "c6ede5be9d2dbb98bdee43c36b33181f858556c9a610d665b1a3a48014684f44",
+      "size": 22293,
+      "normalized_sha256": "c6ede5be9d2dbb98bdee43c36b33181f858556c9a610d665b1a3a48014684f44",
+      "format_sha256": "c6ede5be9d2dbb98bdee43c36b33181f858556c9a610d665b1a3a48014684f44",
       "format_kind": "gofmt"
     },
     "internal/codebatch/receipt.go": {
@@ -6569,9 +6577,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "62fb907473f9ebecc4c7fc3cb110b8ce85c6f61501fe0dba1b9ae26e9a415469",
-      "size": 14282,
-      "normalized_sha256": "62fb907473f9ebecc4c7fc3cb110b8ce85c6f61501fe0dba1b9ae26e9a415469"
+      "sha256": "76e6f03f5b973bdf0ff81cb839e60b2e9241bd7edefabe8c558a1d19026f596d",
+      "size": 14317,
+      "normalized_sha256": "76e6f03f5b973bdf0ff81cb839e60b2e9241bd7edefabe8c558a1d19026f596d"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",

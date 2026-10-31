@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 9 (L4 parallel batches): make fast green (make-fast-l4.txt)"
+    "evidence": "item 9 (L4) coverage fix: make fast green (make-fast-l4b.txt)"
    }
   },
   {
@@ -247,9 +247,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/coverage-floors-cfgro.txt (13 packages at or above their floors)"
+    "version": "v0.1.0-rc23",
+    "date": "2026-10-31",
+    "evidence": ".aoci/dev-tools/coverage-floors-l4.txt (13 packages at or above their floors; codebatch 78.7% after parallel_test.go)"
    }
   },
   {
