@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// 自检是纯咨询信号: 未记录恒 false, 字节替换/时间戳变化/文件消失都算漂移,
-// 探测失败绝不影响服务。
+// The self-check is a purely advisory signal: without a record it is always false, a byte replacement, a timestamp change, and a vanished file all count as drift,
+// and a probe failure never affects the service.
 func TestServiceBinaryReplacedOnDisk(t *testing.T) {
 	t.Cleanup(resetServiceBinaryIdentityForTest)
 
@@ -26,7 +26,7 @@ func TestServiceBinaryReplacedOnDisk(t *testing.T) {
 		t.Fatal("未变化的二进制不应报告漂移")
 	}
 
-	// 同尺寸不同修改时间 —— make build 原地重建的常见形态。
+	// Same size, different modification time: the common shape of make build rebuilding in place.
 	future := time.Now().Add(2 * time.Second)
 	if err := os.Chtimes(path, future, future); err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestServiceBinaryReplacedOnDisk(t *testing.T) {
 		t.Fatal("磁盘上不再存在这份二进制同样是漂移")
 	}
 
-	// 不可探测的路径: 记录静默关闭, 自检保持 false。
+	// An unprobeable path: the record shuts off silently and the self-check stays false.
 	resetServiceBinaryIdentityForTest()
 	RecordServiceBinaryIdentity(filepath.Join(t.TempDir(), "missing"))
 	if serviceBinaryReplacedOnDisk() {
@@ -62,7 +62,7 @@ func TestServiceBinaryReplacedOnDisk(t *testing.T) {
 	}
 }
 
-// 漂移事实要真正抵达治理面: Volumes maintain 响应携带该字段, 未漂移时不出现。
+// The drift fact must really reach the governance surface: the Volumes maintain response carries the field, absent when there is no drift.
 func TestVolumeMaintainCarriesServiceBinaryDrift(t *testing.T) {
 	t.Cleanup(resetServiceBinaryIdentityForTest)
 	root := buildVolumeRepo(t, true, false)

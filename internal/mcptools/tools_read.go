@@ -1,19 +1,19 @@
-// 四个只读工具: aoci_rules / aoci_overview / aoci_get_entries / aoci_search
-// 索引条目: tools_read.go[MRD9L]
+// The four read-only tools: aoci_rules / aoci_overview / aoci_get_entries / aoci_search
+// Index entry: tools_read.go[MRD9L]
 //
-// 纪律:
+// Discipline:
 //   - ordinary Overview delivers the complete requested scope either inline or
 //     through the deterministic Entry-boundary continuation chain;
 //   - check_only returns checkpoint facts and never vetoes an explicit body request;
 //   - Dirty formal text is delivered without a reliable receipt, while pending
 //     recovery and mixed snapshots fail closed;
 //   - valid cognition can be reused; local uncertainty prefers source and local recall;
-//   - get_entries每条返回前实时计算当前指纹并按团队line_ending_tolerance
-//     与Baseline比较；纯CRLF/LF表示差异静默视为等价，不向Agent注入假STALE;
-//   - 基线缺失用UNBASELINED措辞区分，绝不误报STALE;
-//   - dir模式上限50条，search结果上限30条;
-//   - 全部path入参先过NormalizeRelPath;
-//   - 四工具全落Ledger。
+//   - get_entries computes the current fingerprint live before returning each entry and compares it with the Baseline under the team
+//     line_ending_tolerance; a pure CRLF/LF representation difference is silently treated as equivalent, and no false STALE is injected into the Agent;
+//   - a missing baseline is distinguished by the UNBASELINED wording and never misreported as STALE;
+//   - dir mode is capped at 50 entries and search results at 30;
+//   - every path argument first passes NormalizeRelPath;
+//   - all four tools land in the Ledger.
 //
 // Overview transport never selects, summarizes, compresses, or rewrites FRAS.
 // Chunking is only a transport frame over the same ordered Whole-Index bytes.
@@ -122,8 +122,8 @@ func registerReadTools(
 						)
 					}
 
-					// 磁盘二进制已替换而进程未重启时, 在会话契约末尾附上机器事实,
-					// 让新会话第一时间知道自己连着一个过时的服务进程。
+					// When the binary on disk was replaced and the process not restarted, append the machine fact at the end of the session contract,
+					// so a new session knows at once that it is connected to an outdated service process.
 					if serviceBinaryReplacedOnDisk() {
 						output += "\nservice_binary_replaced_on_disk: true\n"
 					}

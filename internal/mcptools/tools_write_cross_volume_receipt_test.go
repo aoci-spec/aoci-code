@@ -13,20 +13,20 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
-// 收据模式的跨卷批次: 取一份真实的 code+database 机器批次,注入"写完 Code 卷、
-// Database 卷失败"的中断,然后原样重交同一批次。
+// A cross-volume batch in receipt mode: take a real code+database machine batch, inject the interruption "Code volume written,
+// Database volume failed", and resubmit the same batch as it is.
 //
-// 恢复语义要求同批重试能接着写完剩余卷 —— 提交环本就会跳过已到 postimage 的
-// 卷。此前 allowPostimage 要求"全部资产都到 postimage",部分状态永远不满足,
-// 重交会卡在 code_candidate_plan_stale 上(审查修正)。
+// The recovery semantics require a retry of the same batch to go on and finish the remaining volumes; the commit loop already skips volumes
+// at the postimage. allowPostimage used to demand "every asset at the postimage", which a partial state never satisfies,
+// so the resubmission stuck on code_candidate_plan_stale (review correction).
 func TestCrossVolumeReceiptBatchRecoversFromPartialWrite(t *testing.T) {
 	root := databaseCognitionWriteFixture(t, []string{"users"})
-	// 夹具默认的 Code 卷条目带遗留裸关系,跨卷写测试统一改用 R:- 的卷。
+	// The fixture's default Code volume entries carry legacy bare relations; the cross-volume write tests all use the R:- volume instead.
 	writeVolumeTestFile(t, root, "aoci.code.txt",
 		cognition.CodeVolumeMarker+"\n===Go sources"+filepath.ToSlash(root)+"/===\n"+
 			"main.go[CD9S]: F:run the fixture | R:- | A:main | S:Keep execution deterministic\n")
 	rebaselineVolumeFixture(t, root)
-	// 卷基线固定后再制造源码漂移,才会得到一个 Code 更新候选。
+	// Only after the volume baseline is fixed is source drift manufactured, which yields one Code update candidate.
 	writeVolumeTestFile(t, root, "main.go", "package main\n\nfunc main() { println(\"changed\") }\n")
 
 	session := connectMCPClient(t, root)

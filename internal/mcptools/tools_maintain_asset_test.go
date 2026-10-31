@@ -1,4 +1,4 @@
-// Maintain稳定长合同资产迁移的字节级兼容测试。
+// Byte-level compatibility tests of the Maintain stable long-contract asset migration.
 package mcptools
 
 import (

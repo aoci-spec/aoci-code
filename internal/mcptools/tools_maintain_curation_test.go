@@ -1,9 +1,9 @@
-// maintain 包对策展匹配单一事实源的边界测试。
-// 索引条目待补: tools_maintain_curation_test.go
+// Boundary tests of the maintain package against the single source of truth for curation matching.
+// Index entry pending: tools_maintain_curation_test.go
 //
-// 本文件不再测试 mcptools 私有匹配函数 —— 该函数已删除。maintain 统一依赖
-// config.Config.CurationExcluded(v1.1),本测试从消费包侧锁定裸目录、目录边界
-// 与单文件三项关键语义,防后续有人在 mcptools 恢复本地副本。
+// This file no longer tests the private mcptools matching function, which has been deleted. maintain relies uniformly on
+// config.Config.CurationExcluded (v1.1), and this test locks the three key semantics, bare directory, directory boundary,
+// and single file, from the consuming package's side, so nobody restores a local copy in mcptools later.
 package mcptools
 
 import (

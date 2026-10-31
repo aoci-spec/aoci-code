@@ -28,9 +28,9 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
-// codeBatchLimit 是一次 Maintain 请模型创作的 Code 候选数: 团队配置
-// code_cognition_batch_entries, 未配置取机器默认。它决定计划切批与
-// Maintain 响应的候选体量; 单次调用可携带的线上上限仍是 EntriesBatchMaxItems。
+// codeBatchLimit is the number of Code candidates one Maintain asks the model to author: the team configuration
+// code_cognition_batch_entries, or the machine default when unset. It decides how the plan is cut into batches and
+// the candidate volume of a Maintain response; the wire ceiling one call may carry is still EntriesBatchMaxItems.
 func codeBatchLimit(cfg *config.Config) int {
 	return cfg.CodeCognitionBatchLimit()
 }
@@ -335,10 +335,10 @@ func planCognitionVolumeUpdates(
 	}
 	projectedBudget := volumegovernance.AssessProjectedBudget(loaded.cfg, projectedSet)
 	if projectedBudget.Mode == machinecontract.BudgetModeEnforce && len(projectedBudget.Violations) != 0 {
-		// 逐条字段超档是候选可修问题, 必须以结构化 Finding 返回; 全索引超限与
-		// 批外条目的历史违规不是本批任何字段能修的, 保持批级停止。
-		// (审查修正: 此前这里把 WholeIndexTokens 的 int 传给 %s 模板, 严格资产
-		// 渲染失败触发 writeMessage panic, 预算违规被升级成不可定位的内部错误。)
+		// A per-entry field over its band is a candidate-repairable problem and must come back as a structured Finding; a whole-index overrun and
+		// the historical violations of entries outside the batch cannot be fixed by any field of this batch, so the batch-level stop stays.
+		// (Review correction: this place used to pass the int WholeIndexTokens to a %s template, the strict asset
+		// rendering failed and triggered a writeMessage panic, and a budget violation was escalated into an unlocatable internal error.)
 		findings, unmatched := budgetRepairFindings(projectedBudget.Violations, normalized)
 		if len(unmatched) == 0 {
 			return nil, &Fail{Code: errCandidateInvalid,
@@ -502,10 +502,10 @@ func recoveryVolumeTargets(recovery *atomicBatchRecovery) []cognitionVolumeWrite
 	return targets
 }
 
-// budgetRepairFindings 把逐条 token 预算违规映射成候选可修的结构化 Finding。
-// AssessProjectedBudget 的 Violation.Path 是规范对象身份, 与本批候选精确对得上;
-// 命中即产出带 candidate_index 与精确 token 事实的 Finding。whole-index 超限与
-// 未命中本批候选的历史违规归入第二个返回值, 由调用方保持批级停止。
+// budgetRepairFindings maps per-entry token budget violations into candidate-repairable structured Findings.
+// AssessProjectedBudget's Violation.Path is the canonical object identity and matches this batch's candidates exactly;
+// a hit produces a Finding carrying candidate_index and the exact token facts. The whole-index overrun and
+// historical violations that hit no candidate of this batch go into the second return value, and the caller keeps the batch-level stop.
 func budgetRepairFindings(violations []cognitionbudget.Violation, normalized []normalizedAtomicItem) ([]cognition.RepairFinding, []cognitionbudget.Violation) {
 	byRef := make(map[string]normalizedAtomicItem, len(normalized))
 	for _, item := range normalized {
@@ -538,7 +538,7 @@ func budgetRepairFindings(violations []cognitionbudget.Violation, normalized []n
 	return findings, unmatched
 }
 
-// budgetViolationDetail 把一条不可候选修复的违规压成机器事实串(模板只收字符串)。
+// budgetViolationDetail compresses one violation that no candidate can repair into a machine fact string (the template takes strings only).
 func budgetViolationDetail(violation cognitionbudget.Violation) string {
 	detail := violation.Code
 	if violation.Path != "" {
@@ -795,14 +795,14 @@ func targetByPath(targets []cognitionVolumeWriteTarget, path string) *cognitionV
 	return nil
 }
 
-// codeRecoveryPostimage 只判定 Code 卷是否已处于本次恢复收据的 postimage,
-// 与 databaseRecoveryPostimage 对称。
+// codeRecoveryPostimage judges only whether the Code volume already sits at the postimage of this recovery receipt,
+// symmetric with databaseRecoveryPostimage.
 //
-// 跨卷批次先写 Code 后写 Database,若在两次卷写之间中断,只有 Code 到达
-// postimage。此前这里沿用"全部资产都到 postimage"的判据,部分状态永远不满足,
-// 同批重交因而卡在 code_candidate_plan_stale 上,rollback、maintain 与读取同时
-// 被挡,只能手工处理 .aoci/transactions(审查修正)。提交环本就跳过已到
-// postimage 的卷,逐卷判定即可让重交接着写完剩余卷。
+// A cross-volume batch writes Code first and Database second; interrupted between the two volume writes, only Code reaches
+// the postimage. This place used to apply the criterion "every asset at the postimage", which a partial state never satisfies,
+// so a resubmission of the same batch stuck on code_candidate_plan_stale, and rollback, maintain, and reads were blocked at once,
+// leaving only manual handling of .aoci/transactions (review correction). The commit loop already skips volumes at the
+// postimage, so a per-volume judgement lets the resubmission go on and finish the remaining volumes.
 func codeRecoveryPostimage(root string, recovery *atomicBatchRecovery) bool {
 	if recovery == nil || recovery.Version != 4 {
 		return false
@@ -1029,9 +1029,9 @@ func plannedBatchID(plan *atomicBatchPlan) string {
 
 func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPlan) *Fail {
 	if volumePlan.codeReceipt != nil {
-		// 与提交前的 allowPostimage 同一判据: 只问 Code 卷自己是否已到本次恢复的
-		// postimage。跨卷部分写之后 Composite 与 Code 卷 SHA 必然已经改变,用全资产
-		// 判据会把可恢复的重交误判成收据陈旧。
+		// The same criterion as allowPostimage before the commit: ask only whether the Code volume itself has reached this recovery's
+		// postimage. After a cross-volume partial write the Composite and Code volume SHAs have necessarily changed, and an all-asset
+		// criterion would misjudge a recoverable resubmission as a stale receipt.
 		recoveredPostimage := volumePlan.recovery != nil && volumePlan.recovery.Version == 4 &&
 			volumePlan.recovery.CodeBatchID == volumePlan.codeReceipt.BatchID &&
 			codeRecoveryPostimage(root, volumePlan.recovery)

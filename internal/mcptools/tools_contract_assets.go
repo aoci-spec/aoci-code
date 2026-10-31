@@ -448,8 +448,8 @@ func stringArraySchema() map[string]any {
 	}
 }
 
-// mcpContract按真正使用点加载一个标量宿主合同。生产路径必须在任何副作用
-// 之前调用validateMCPContracts；本函数自身仍不panic，也不回退到旧正文。
+// mcpContract loads one scalar host contract at its real point of use. The production path must call
+// validateMCPContracts before any side effect; this function itself still does not panic and does not fall back to the old body.
 func mcpContract(id textassets.ID) string {
 	value, err := textassets.RenderScalar(textassets.ActiveLocale(), id, nil)
 	if err != nil {

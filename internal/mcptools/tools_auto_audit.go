@@ -1,4 +1,4 @@
-// MCP Auto批次的紧凑Diff/P-23审计摘要。
+// The compact Diff/P-23 audit summary of an MCP Auto batch.
 package mcptools
 
 import (

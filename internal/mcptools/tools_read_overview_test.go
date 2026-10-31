@@ -1,4 +1,4 @@
-// Overview交付元数据与Ledger事实专项测试。
+// Dedicated tests of Overview delivery metadata and Ledger facts.
 package mcptools
 
 import (
@@ -375,8 +375,8 @@ func TestOverviewPartialAttestationDisablesFullClaimButConsumesRefreshAttempt(t 
 		t.Fatal(err)
 	}
 	attestedText := resText(t, attested)
-	// 7/10 低于通过比例(且三处都是身份失手, 超过身份上限): partial 而非 fail ——
-	// 诚实的完整覆盖声明不再判得比保守声明更重。
+	// 7/10 is below the pass ratio (and all three are identity misses, over the identity ceiling): partial rather than fail;
+	// an honest full-coverage claim is no longer judged more harshly than a conservative one.
 	for _, want := range []string{
 		"delivery_integrity: confirmed",
 		"challenge_passed: 7/10",
@@ -1153,8 +1153,8 @@ func TestOverviewCheckOnlyReusesOrRefreshes(t *testing.T) {
 	}
 }
 
-// TestOverviewUsesServerRuntimeVersion验证Overview与MCP握手共享RunStdio装配参数，
-// 不允许工具层从仓库状态推测服务版本。
+// TestOverviewUsesServerRuntimeVersion verifies that Overview shares the RunStdio assembly parameters with the MCP handshake,
+// and the tool layer is not allowed to guess the service version from repository state.
 func TestOverviewUsesServerRuntimeVersion(
 	t *testing.T,
 ) {
@@ -1259,7 +1259,7 @@ func TestRulesExposeConfiguredOverviewChunkTokens(t *testing.T) {
 	}
 }
 
-// TestOverviewDeliveryNilDocument验证损坏前置状态不会令计量辅助崩溃。
+// TestOverviewDeliveryNilDocument verifies that a corrupt precondition state does not crash the metering helper.
 func TestOverviewDeliveryNilDocument(
 	t *testing.T,
 ) {

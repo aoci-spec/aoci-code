@@ -1,4 +1,4 @@
-// 受治理的gofmt-only基线快速前移。
+// The governed gofmt-only fast Baseline advance.
 package mcptools
 
 import (

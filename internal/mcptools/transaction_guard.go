@@ -55,9 +55,9 @@ func pendingCognitionDeliveryFail(root string, set *cognition.Set) *Fail {
 	return nil
 }
 
-// pendingHeaderTransactionFail在索引写锁内阻止其他治理写入越过未完成Header。
-// Header恢复收据绑定的是完整索引pre/postimage；允许Entries或删除继续会让
-// 同一Header run永久失去可证明恢复点。
+// pendingHeaderTransactionFail blocks other governance writes from stepping over an unfinished Header inside the index write lock.
+// A Header recovery receipt binds the complete index pre/postimage; letting Entries or a removal continue would make
+// the same Header run lose its provable recovery point forever.
 func pendingHeaderTransactionFail(root string) *Fail {
 	directory := filepath.Join(root, ".aoci", "transactions")
 	entries, err := os.ReadDir(directory)

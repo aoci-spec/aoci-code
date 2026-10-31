@@ -1,4 +1,4 @@
-// MCP原生批量回写、紧凑终态与重复Apply防重测试。
+// Tests of MCP-native batch write-back, the compact terminal state, and duplicate-Apply protection.
 package mcptools
 
 import (

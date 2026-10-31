@@ -122,8 +122,8 @@ type volumeMaintainResult struct {
 	NetworkAccessed   bool                             `json:"network_accessed"`
 	AuthoringMeta     string                           `json:"authoring_meta,omitempty"`
 	Optimization      *cognitionOptimizationStatus     `json:"optimization,omitempty"`
-	// ServiceBinaryReplacedOnDisk 是纯咨询事实: 磁盘上的服务二进制已不同于本进程
-	// 启动时的那份, 宿主应择机重启 MCP 集成。它不阻塞任何流程, 未漂移时不出现。
+	// ServiceBinaryReplacedOnDisk is a purely advisory fact: the service binary on disk now differs from the one this process
+	// started with, and the host should restart the MCP integration when convenient. It blocks no flow and is absent when there is no drift.
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
 }
 

@@ -14,8 +14,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// TestMCPListToolsProtocolSnapshot锁定真实ListTools返回的完整公开协议：工具
-// 名称、数量、说明和Input Schema缺一不可。
+// TestMCPListToolsProtocolSnapshot locks the complete public protocol the real ListTools returns: tool
+// names, count, descriptions, and Input Schemas, none of them optional.
 func TestMCPListToolsProtocolSnapshot(t *testing.T) {
 	actual := canonicalListTools(t)
 	goldenPath := filepath.Join("..", "..", "testdata", "golden", "mcp_list_tools.json")
@@ -40,8 +40,8 @@ func TestCanonicalGoldenBytesNormalizesCheckoutCRLF(t *testing.T) {
 	}
 }
 
-// TestMCPReadToolDescriptionsDiscloseAuditWrites通过真实ListTools结果确认
-// 认知读取工具不会把“不修改正式资产”误写成“零文件写入”。
+// TestMCPReadToolDescriptionsDiscloseAuditWrites confirms through the real ListTools result that
+// the cognition read tools do not misstate "no change to formal assets" as "zero file writes".
 func TestMCPReadToolDescriptionsDiscloseAuditWrites(t *testing.T) {
 	var listed []struct {
 		Name        string `json:"name"`

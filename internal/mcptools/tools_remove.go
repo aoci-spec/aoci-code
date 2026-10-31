@@ -1,37 +1,37 @@
-// 条目删除管线与 aoci_remove_entry 工具(v2.8 P1,D75下半句——人工裁决的执行工具)。
-// 索引条目: tools_remove.go[MWR8AM]
+// Entry removal pipeline and the aoci_remove_entry tool (v2.8 P1, the second half of D75: the execution tool for a human decision).
+// Index entry: tools_remove.go[MWR8AM]
 //
-// 定位: 与 tools_write.go 的 ApplyUpdateEntry 同族的 plan/commit 分段管线,
-// MCP 与 CLI 共用唯一实现(防隐性孪生)。独立成文件不并入 tools_write.go
-// (分文件先例,避免整文件覆盖既有大文件)。
+// Position: a plan/commit staged pipeline of the same family as ApplyUpdateEntry in tools_write.go,
+// the single implementation shared by MCP and CLI (against hidden twins). It is its own file rather than part of tools_write.go
+// (the split-file precedent, avoiding a whole-file overwrite of an existing large file).
 //
-// 分段形态(阶段 D 重构): 原内联 plan/commit 重构为 planRemoveEntry/commitRemove
-// 显式分段,与 update 管线同构 —— 动机: 接入并发防线后两管线临界区形态必须
-// 一致(刻意同构防隐性分叉);且分段后 CAS 冲突路径才可测试(测试可在 plan 与
-// commit 之间篡改索引,内联形态无此观测窗口)。removePlan 非导出,包外无法
-// 伪造计划调用 commit(R18 结构保证,与 planResult 同族)。
+// Staged shape (the phase D refactor): the original inline plan/commit was refactored into the explicit planRemoveEntry/commitRemove
+// stages, isomorphic with the update pipeline. Motivation: once the concurrency defences were wired in, the critical-section shape of the two pipelines
+// had to agree (deliberate isomorphism against hidden divergence); and only the staged form makes the CAS conflict path testable (a test can tamper with the
+// index between plan and commit, a window the inline form never offered). removePlan is unexported, so no package outside can
+// forge a plan and call commit (the R18 structural guarantee, the same family as planResult).
 //
-// 并发防线(阶段 D,与 tools_write.go 同款两防线,详见其包注释):
-// 防线一 = fs.AcquireIndexLock 跨进程写锁只包 commit;
-// 防线二 = index hash CAS,plan 记录所读索引 sha256,commit 取锁后重读比对,
-// 不符即拒 write_conflict。锁超时映射 write_conflict,锁 IO 故障映射 internal,
-// 释锁失败仅 stderr 警告不污染业务结果。
+// Concurrency defences (phase D, the same two defences as tools_write.go, see its package comment):
+// defence one = the cross-process fs.AcquireIndexLock write lock wraps only commit;
+// defence two = the index hash CAS: plan records the sha256 of the index it read, commit re-reads under the lock and compares,
+// and a mismatch refuses with write_conflict. A lock timeout maps to write_conflict, a lock IO fault to internal,
+// and a failed unlock only warns on stderr without polluting the business result.
 //
-// 差异化护栏(orphanOnly,本批核心裁决):
-//   - MCP 侧(agent)调用恒传 orphanOnly=true —— 仅允许删除孤儿条目
-//     (目标文件已不在磁盘),活文件条目一律拒绝并引导 aoci_report。
-//     理由: S字段是组织伤疤,agent误删活文件伤疤的代价远高于留一条孤儿;
-//     agent的真实删除场景恰是清理 index update 报出的 deleted 孤儿。
-//   - CLI 侧(人)传 orphanOnly=false 全权裁决 —— 删除活文件条目合法
-//     (随后该文件按 Missing 态浮出属正确语义:磁盘有索引无待重建条目)。
+// Differentiated guardrail (orphanOnly, the core decision of this batch):
+//   - the MCP side (the agent) always passes orphanOnly=true: only orphan entries may be removed
+//     (the target file is no longer on disk), and an entry for a live file is always refused with a pointer to aoci_report.
+//     Reason: the S field is organizational scar tissue, and an agent deleting a live file's scars by mistake costs far more than one leftover orphan;
+//     the agent's real removal scenario is exactly cleaning up the deleted orphans that index update reports.
+//   - the CLI side (a person) passes orphanOnly=false with full authority: removing a live file's entry is legal
+//     (the file then surfaces as Missing, which is the correct semantics: on disk, in the index no more, an entry waiting to be rebuilt).
 //
-// 基线纪律: 删除成功后索引自身指纹恒前移(D51同族,否则每次删除自造
-// aoci.txt 假 Stale);baseline.Load/Save 第一参是仓库根而非基线文件路径
-// (2026-07-12 修正: 初版误传 BaselinePath,string 对 string 编译放行但 Load
-// 恒找不到基线→前移静默跳过→每次删除自造假 Stale;测试曾绿因夹具无基线
-// 前移分支零覆盖 —— 亲见样板 server.go/index_header.go 均传 root 为裁决依据);
-// 目标文件在基线中的残键刻意不清理 —— Detect 四态以磁盘快照与索引为准,
-// 残键无害,且 baseline 包刻意不提供删键 API(基线只增改不删,语义单纯)。
+// Baseline discipline: after a successful removal the index's own fingerprint always advances (the D51 family; otherwise every removal
+// manufactures a false Stale on aoci.txt); the first argument of baseline.Load/Save is the repository root, not the baseline file path
+// (corrected 2026-07-12: the first version passed BaselinePath by mistake, string for string compiled fine but Load
+// never found the baseline → the advance was skipped silently → every removal manufactured a false Stale; the tests stayed green because the fixture had no baseline,
+// leaving the advance branch at zero coverage; the models server.go/index_header.go, both passing root, were the evidence for the decision);
+// the target file's leftover key in the baseline is deliberately not cleaned up: Detect's four states go by the disk snapshot and the index,
+// the leftover is harmless, and the baseline package deliberately offers no delete-key API (a baseline only adds and changes, keeping its semantics simple).
 package mcptools
 
 import (
@@ -54,13 +54,13 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// RemoveOutcome 删除结果(供 MCP 与 CLI 双端渲染)
+// RemoveOutcome is the removal result (rendered on both the MCP and the CLI side)
 type RemoveOutcome struct {
-	// Rel 归一后的目标相对路径
+	// Rel is the normalized target relative path
 	Rel string
-	// RemovedLine 被删除的条目整行(回显供确认/审计)
+	// RemovedLine is the whole removed entry line (echoed for confirmation and audit)
 	RemovedLine string
-	// DryRun 干跑标记(true=未落盘)
+	// DryRun is the dry-run flag (true = not written to disk)
 	DryRun bool
 	// OwnershipRepair marks the machine-proven ownership-conflict path. It
 	// changes only the success rendering; the write still uses this remove
@@ -77,17 +77,17 @@ type RemoveOutcome struct {
 	StaleReceiptDiscarded bool
 }
 
-// removePlan 删除计划(非导出): plan 产出、commit 消费,包外无法伪造(R18)。
+// removePlan is the removal plan (unexported): plan produces it, commit consumes it, and no package outside can forge it (R18).
 type removePlan struct {
-	// out 面向渲染的结果骨架
+	// out is the rendering-facing result skeleton
 	out *RemoveOutcome
-	// newText 应用删除后的索引全文(落盘材料)
+	// newText is the whole index text after the removal (the material to write)
 	newText string
-	// rc plan 阶段已读取的仓库上下文
+	// rc is the repository context the plan phase read
 	rc *repoCtx
-	// indexHash plan 所读索引全文的 sha256(CAS 凭据,算法与 update 管线同源 indexTextHash)
+	// indexHash is the sha256 of the whole index text the plan read (the CAS credential; the algorithm shares indexTextHash with the update pipeline)
 	indexHash string
-	// alreadyApplied表示索引已处于持久恢复意图绑定的删除postimage，本轮只补Baseline。
+	// alreadyApplied means the index already sits at the removal postimage bound by a persistent recovery intent, and this round only completes the Baseline.
 	alreadyApplied bool
 	// superseded marks a receipt the index or Volume has moved past while its
 	// object is already absent: the commit closes the receipt and writes
@@ -97,7 +97,7 @@ type removePlan struct {
 	// discarded); the commit re-reads it under the lock and acts only if it is
 	// still that receipt and the target still matches neither of its images.
 	staleReceipt *removeRecovery
-	// orphanOnly要求计划与持锁提交两个时点都证明目标路径确实不存在。
+	// orphanOnly demands that both the plan and the locked commit prove the target path really does not exist.
 	orphanOnly bool
 	// volumeMode reuses this established explicit-remove pipeline for one
 	// proven Code or Database Cognition orphan. Root and Meta remain guards.
@@ -136,13 +136,13 @@ type removeRecovery struct {
 	PreservedOwner     string            `json:"preserved_owner,omitempty"`
 }
 
-// removeEntryArgs aoci_remove_entry 的入参(In 结构供 go-sdk 自动推导 schema 并前置校验)
+// removeEntryArgs are the inputs of aoci_remove_entry (an In struct lets go-sdk derive the schema and validate up front)
 type removeEntryArgs struct {
 	Path string `json:"path"`
 }
 
-// registerRemoveTool 注册 aoci_remove_entry(挂载点在 server.go 的 RunStdio)。
-// agent 侧恒 orphanOnly=true(护栏见包注释);handler 经 guard 包裹恢复 panic。
+// registerRemoveTool registers aoci_remove_entry (mounted from RunStdio in server.go).
+// The agent side is always orphanOnly=true (the guardrail in the package comment); the handler is wrapped by guard to recover from panics.
 func registerRemoveTool(
 	srv *mcp.Server,
 	root string,
@@ -165,7 +165,7 @@ func registerRemoveTool(
 	})
 }
 
-// planRemoveEntry 删除管线前半段: 路径归一 → 加载 → 定位 → 护栏 → 文本变换(内存),纯读零副作用。
+// planRemoveEntry is the first half of the removal pipeline: path normalization → load → locate → guardrail → text transformation (in memory), pure reading with zero side effects.
 func planRemoveEntry(root, rawPath string, orphanOnly bool) (*removePlan, *Fail) {
 	trimmed := strings.TrimSpace(rawPath)
 	if strings.HasPrefix(trimmed, "code:") || cognition.IsCanonicalDatabaseRef(trimmed) {
@@ -260,9 +260,9 @@ func loadRemoveRecovery(root, rel string) (*removeRecovery, error) {
 	return &recovery, nil
 }
 
-// ApplyRemoveEntry 删除指定文件的索引条目(plan/commit 薄组合,双端唯一实现)。
-// orphanOnly=true 时目标文件仍在磁盘即拒绝(MCP/agent 护栏);
-// dryRun=true 时走完 plan 即返回不落盘不前移不记账。
+// ApplyRemoveEntry removes the index entry of the given file (a thin plan/commit composition, the single implementation for both sides).
+// With orphanOnly=true a target file still on disk is refused (the MCP/agent guardrail);
+// with dryRun=true it returns after plan without writing, advancing, or recording.
 func ApplyRemoveEntry(root, rawPath, source string, orphanOnly, dryRun bool) (*RemoveOutcome, *Fail) {
 	if fail := validateWriteMessages(requiredRemoveMessages); fail != nil {
 		return nil, fail
@@ -315,8 +315,8 @@ func cleanupCompletedRemoveRecovery(root, rawPath string) *Fail {
 	return nil
 }
 
-// RenderRemoveOutcome 渲染删除结果文案(双端共用)。
-// preview 分支不打"基线已前移"(2026-07-12 CLI冒烟证实的文案缺陷: 干跑未动基线却宣称前移)。
+// RenderRemoveOutcome renders the removal result wording (shared by both sides).
+// The preview branch does not print "baseline advanced" (a wording defect the 2026-07-12 CLI smoke run proved: a dry run claimed an advance it never made).
 func RenderRemoveOutcome(o *RemoveOutcome) string {
 	if o.DryRun && o.Superseded {
 		return writeMessage("remove.preview_superseded", o.Rel, o.RemovedLine)

@@ -1,13 +1,13 @@
-// 微型认知探针: 把"模型自述是否还记得系统"变成机器判定。
+// The micro cognition probe: it turns "does the model claim it still remembers the system" into a machine verdict.
 //
-// 完整宣誓绑定一次完整交付、十道题、消耗代际 —— 很重。探针复用同一套形式目标
-// (ordinal → 身份/Tag/核心F), 但只出两道题、只在 check_only 里走、绝不改变任何
-// 会话状态: 不推进 generation、不登记刷新理由、不产生收据。它是纯测量。
+// A complete attestation binds one complete delivery, ten questions, and consumes a generation: heavy. The probe reuses the same formal targets
+// (ordinal → identity/Tag/core F) but asks only two questions, runs only inside check_only, and never changes any
+// session state: no generation advance, no refresh reason registered, no receipt produced. It is pure measurement.
 //
-// 反过度召回是它的第一目的: 答对即证明"认知还在, 不必重传全量索引"; 答错才是
-// 值得一次召回的机器证据, 此时由宿主按既有契约声明 context_compaction —— 机器
-// 测量, 宿主声明, 词表不变。作答必须凭记忆: 在收到题目与提交答案之间调用
-// Search/Get Entries 查答案会让测量失去意义, 契约与完整宣誓同款禁止。
+// Preventing excessive recall is its first purpose: a correct answer proves "cognition is still there, no need to resend the whole index"; a wrong answer is
+// the machine evidence worth one recall, and the host then declares context_compaction under the existing contract: the machine
+// measures, the host declares, the vocabulary is unchanged. Answers must come from memory: calling
+// Search/Get Entries to look up answers between receiving the questions and submitting the answers defeats the measurement, which the contract forbids exactly as for the complete attestation.
 package mcptools
 
 import (
@@ -56,8 +56,8 @@ type cognitionProbeResult struct {
 	Guidance           string `json:"guidance"`
 }
 
-// buildCognitionProbe 从当前形式序列确定性地出题。同一 (index, generation) 内
-// 题目稳定, 索引或代际一变题目即变, 陈旧答案由 digest 拒绝。
+// buildCognitionProbe draws questions deterministically from the current formal sequence. Within one (index, generation) the
+// questions are stable; as soon as the index or the generation changes the questions change, and a stale answer is refused by the digest.
 func buildCognitionProbe(indexSHA256 string, generation int, targets []overviewChallengeTarget) *cognitionProbe {
 	if len(targets) == 0 {
 		return nil
@@ -101,9 +101,9 @@ func probeDigest(probe *cognitionProbe) string {
 	return hex.EncodeToString(digest[:])
 }
 
-// gradeCognitionProbe 用与完整宣誓完全相同的判据(身份等价拼写/Tag 精确/核心F
-// 去空白精确)给凭记忆的作答打分。索引已前移或题不对版时报 stale 而非 fail:
-// 陈旧不是遗忘的证据。
+// gradeCognitionProbe scores the from-memory answers with exactly the complete attestation's criteria (identity by equivalent spelling / Tag exact / core F
+// exact without whitespace). When the index has advanced or the questions are of another version it reports stale rather than fail:
+// staleness is not evidence of forgetting.
 func gradeCognitionProbe(
 	answers *overviewProbeAnswers,
 	indexSHA256 string,

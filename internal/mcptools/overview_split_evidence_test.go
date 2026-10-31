@@ -1,6 +1,6 @@
-// 交付确认与模型认证是同一 body 的两半证据, 各自密码学绑定, 到达顺序不携带信息。
-// 这里钉死: 分次提交、任意顺序, 都与同一调用合并提交闩住同样的可靠结论; 一次
-// 全新的完整交付重置证据; 明确携带的一半永远以最新为准。
+// The delivery confirmation and the model attestation are the two halves of evidence for one body, each cryptographically bound, and arrival order carries no information.
+// Locked here: submitted separately and in any order, they latch the same reliable conclusion as a merged submission in one call; a
+// brand-new complete delivery resets the evidence; the half explicitly carried always wins as the latest.
 package mcptools
 
 import (
@@ -47,8 +47,8 @@ func requireAll(t *testing.T, text string, wants ...string) {
 	}
 }
 
-// 认证先到、确认后到: 认证单发时 pass 已被评出但可靠性不能闩(交付未确认),
-// 随后仅带确认的一次调用必须把先前的 pass 接上并闩住 level 4。
+// Attestation first, confirmation later: when the attestation arrives alone, pass has been scored but reliability cannot latch (delivery unconfirmed),
+// and a later call carrying only the confirmation must pick up the earlier pass and latch level 4.
 func TestOverviewAttestationThenConfirmationLatchesReliability(t *testing.T) {
 	root := buildSemanticRefreshRepo(t, 12)
 	session := connectMCPClient(t, root)
@@ -68,12 +68,12 @@ func TestOverviewAttestationThenConfirmationLatchesReliability(t *testing.T) {
 		"model_full_cognition_reliable: true", "completed: true",
 		"refresh_status: refresh_not_required")
 
-	// 会话态确实闩住了: 廉价 check_only 不再要求召回。
+	// The session state really latched: a cheap check_only no longer demands a recall.
 	check := overviewCall(t, session, map[string]any{"check_only": true})
 	requireAll(t, check, `"refresh_status":"refresh_not_required"`, `"model_full_cognition_reliable":true`)
 }
 
-// 确认先到、认证后到: 与上一顺序对称。
+// Confirmation first, attestation later: symmetric with the order above.
 func TestOverviewConfirmationThenAttestationLatchesReliability(t *testing.T) {
 	root := buildSemanticRefreshRepo(t, 12)
 	session := connectMCPClient(t, root)
@@ -92,15 +92,15 @@ func TestOverviewConfirmationThenAttestationLatchesReliability(t *testing.T) {
 		"cognition_level: 4", "model_full_cognition_reliable: true", "completed: true")
 }
 
-// 每次交付尝试各自取证: 一次全新的完整交付之后, 旧确认不再为新传输作证,
-// 单发的认证回到 unconfirmed; 补上确认后才闩住。
+// Every delivery attempt collects its own proof: after a brand-new complete delivery, the old confirmation no longer testifies for the new transmission,
+// an attestation sent alone drops back to unconfirmed, and it latches only once the confirmation is supplied.
 func TestOverviewFreshDeliveryResetsRememberedEvidence(t *testing.T) {
 	root := buildSemanticRefreshRepo(t, 12)
 	session := connectMCPClient(t, root)
 	_, confirmation := deliverLegacyOverview(t, session)
 	overviewCall(t, session, map[string]any{"host_delivery_confirmation": confirmation})
 
-	// 新一轮完整交付(无字段、无游标)。
+	// A new round of complete delivery (no fields, no cursor).
 	deliverLegacyOverview(t, session)
 	attestOnly := overviewCall(t, session, map[string]any{
 		"model_cognition_attestation": validLegacyAttestationMap(t, root),
@@ -112,8 +112,8 @@ func TestOverviewFreshDeliveryResetsRememberedEvidence(t *testing.T) {
 	requireAll(t, confirmed, "model_full_cognition_reliable: true")
 }
 
-// 明确携带的一半以最新为准: 已闩住之后, 一份不匹配的确认表示宿主现在说
-// "没收全", 它压过记忆里的旧确认, 本次调用如实报告 incomplete 与 level 1。
+// The half explicitly carried wins as the latest: once latched, a mismatching confirmation means the host now says
+// "not fully received", overriding the old confirmation in memory, and this call reports incomplete and level 1 truthfully.
 func TestOverviewExplicitMismatchedConfirmationOverridesMemory(t *testing.T) {
 	root := buildSemanticRefreshRepo(t, 12)
 	session := connectMCPClient(t, root)
@@ -129,7 +129,7 @@ func TestOverviewExplicitMismatchedConfirmationOverridesMemory(t *testing.T) {
 	requireAll(t, mismatched, "host_delivery_status: host_delivery_incomplete", "cognition_level: 1")
 }
 
-// F 语义匹配的分词对 CJK 用字符二元组, 使同一相似度门槛对中文 Entry 同样成立。
+// The tokenizer of the F semantic match uses character bigrams for CJK, so the same similarity threshold holds for Chinese Entries too.
 func TestOverviewCoreFMatchesAcrossScripts(t *testing.T) {
 	cases := []struct {
 		answer, target string

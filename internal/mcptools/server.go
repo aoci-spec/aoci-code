@@ -1,22 +1,22 @@
-// MCP server 装配 / 工具注册 / 错误分类 / stdio 运行
-// 索引条目: server.go[MSV9OS]
+// MCP server assembly / tool registration / error classification / stdio run
+// Index entry: server.go[MSV9OS]
 //
-// 铁律: stdio 模式下 stdout 只出 JSON-RPC 协议流,一切日志走 stderr ——
-// 任何 println 残留都会毒化协议流导致 client 静默断连(main.go 入口已固定 log→stderr)。
+// Iron rule: in stdio mode stdout carries only the JSON-RPC protocol stream, and every log goes to stderr;
+// any leftover println poisons the protocol stream and the client disconnects silently (the main.go entry already fixes log→stderr).
 //
-// 纪律:
-//   - 九工具名固定(aoci_rules/aoci_overview/aoci_get_entries/aoci_search/
-//     aoci_update_entry/aoci_report/aoci_remove_entry/aoci_header/aoci_maintain),
-//     改名破坏 AGENTS.md 模板与实验可复现性;
-//   - 每次工具调用现读 index/baseline/config；V2 续传只复用经实时守卫确认的不可变交付 —— 索引会被 MCP 外通道
-//     (编辑器手改/git pull)修改,缓存视图违反「过期索引比没有更危险」第一戒律;
-//   - 参数全 string/[]string,返回纯文本;
-//   - handler 内 panic 经 guard 恢复: stderr 记录 + 返回 MCP error 结果,不崩进程;
-//   - 错误响应含下一步建议,不含 Go stack trace。
+// Discipline:
+//   - the nine tool names are fixed (aoci_rules/aoci_overview/aoci_get_entries/aoci_search/
+//     aoci_update_entry/aoci_report/aoci_remove_entry/aoci_header/aoci_maintain);
+//     renaming breaks the AGENTS.md template and experiment reproducibility;
+//   - every tool call reads index/baseline/config fresh; a V2 continuation reuses only an immutable delivery confirmed by the live guard, since the index
+//     is changed through channels outside MCP (hand edits in an editor, git pull), and a cached view breaks the first commandment "a stale index is more dangerous than none";
+//   - parameters are all string/[]string and the return is plain text;
+//   - a panic inside a handler is recovered by guard: recorded on stderr and returned as an MCP error result, never crashing the process;
+//   - an error response holds the next-step suggestion and no Go stack trace.
 //
-// 错误模型(审查重构): Fail{Code,Msg,Hint} 为分类错误的唯一事实源,
-// loadRepoCtx 原生返回 *Fail,MCP 侧经 failResult 渲染为错误文本,CLI 侧自行渲染 ——
-// 单向"结构→文案",禁止任何"解析文案反推结构"的逆向耦合。
+// Error model (the review refactor): Fail{Code,Msg,Hint} is the single source of truth for classified errors;
+// loadRepoCtx natively returns *Fail, the MCP side renders it as error text through failResult, and the CLI side renders it itself,
+// a one-way "structure → wording"; any reverse coupling that "parses wording back into structure" is forbidden.
 package mcptools
 
 import (
@@ -39,7 +39,7 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// 错误分类码(Fail.Code 取值;进错误文案首行便于遥测与排查,亦为 CLI 退出码分流依据)
+// Error classification codes (the values of Fail.Code; they open the first line of the error wording for telemetry and diagnosis, and route the CLI exit code)
 const (
 	errNotInitialized               = "not_initialized"  // 索引不存在: 未 init
 	errIndexInvalid                 = "index_invalid"    // 索引不可解析
@@ -56,9 +56,9 @@ const (
 	errInternal                     = "internal" // 兜底
 )
 
-// Fail 分类错误(分类码 + 可操作说明 + 下一步建议)—— 错误信息的结构化事实源,
-// 供 MCP handler 与 CLI 调用方各自渲染;跨包比对请使用 Code 字符串字面量
-// (取值即上方常量,属稳定契约,出现在对外错误文案首行)。
+// Fail is a classified error (classification code + actionable explanation + next-step suggestion), the structured source of truth for error information,
+// rendered separately by the MCP handler and the CLI caller; cross-package comparisons use the Code string literal
+// (its values are the constants above, a stable contract that appears on the first line of the outward error wording).
 type Fail struct {
 	Code                string
 	Msg                 string
@@ -83,12 +83,12 @@ type GlobalStopFacts struct {
 	SafeNextAction string `json:"safe_next_action"`
 }
 
-// textResult 纯文本成功结果
+// textResult is a plain-text success result
 func textResult(s string) *mcp.CallToolResult {
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: s}}}
 }
 
-// errResult 纯文本错误结果(IsError=true;含分类码与下一步建议)
+// errResult is a plain-text error result (IsError=true; holds the classification code and the next-step suggestion)
 func errResult(code, msg, hint string) *mcp.CallToolResult {
 	text := "[" + code + "] " + msg
 	if hint != "" {
@@ -100,12 +100,12 @@ func errResult(code, msg, hint string) *mcp.CallToolResult {
 	}
 }
 
-// failResult Fail → MCP 错误结果的唯一渲染点
+// failResult is the single rendering point from Fail to an MCP error result
 func failResult(f *Fail) *mcp.CallToolResult {
 	return errResult(f.Code, f.Msg, f.Hint)
 }
 
-// guard 包裹 handler 主体: panic 恢复为 MCP error 结果,stderr 记录,进程不崩
+// guard wraps a handler body: a panic is recovered into an MCP error result, recorded on stderr, and the process does not crash
 func guard(fn func() *mcp.CallToolResult) (res *mcp.CallToolResult) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -120,16 +120,16 @@ func guard(fn func() *mcp.CallToolResult) (res *mcp.CallToolResult) {
 	return fn()
 }
 
-// repoCtx 一次工具调用的仓库上下文(每次调用现读,用后即弃)
+// repoCtx is the repository context of one tool call (read fresh per call, discarded after use)
 type repoCtx struct {
 	cfg   *config.Config
 	paths config.Paths
-	text  string          // 索引原文
-	doc   *index.Document // 已 ResolveRelPaths
+	text  string          // the raw index text
+	doc   *index.Document // ResolveRelPaths already applied
 	bl    *baseline.Baseline
-	// dict 是标签字典与 E 规模阈值所在的文本。Volumes v1 里字典住在 Meta 卷,
-	// 而 Code 卷自己的头只有一行标记, 从 text 里抽头拿不到任何阈值; Legacy 的
-	// 字典与条目同文件, 留空即退回索引头。
+	// dict is the text that holds the tag dictionary and the E-scale thresholds. In Volumes v1 the dictionary lives in the Meta volume,
+	// while the Code volume's own header is a single marker line, and extracting a header from text yields no threshold; Legacy keeps the
+	// dictionary and the entries in one file, and leaving this empty falls back to the index header.
 	dict string
 }
 
@@ -213,7 +213,7 @@ func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
 	return &cognitionRepoCtx{cfg: cfg, paths: paths, set: set, bl: bl}, nil
 }
 
-// loadRepoCtx 现读仓库上下文。失败返回 (nil, *Fail)。
+// loadRepoCtx reads the repository context fresh. Failure returns (nil, *Fail).
 func loadRepoCtx(root string) (*repoCtx, *Fail) {
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
@@ -250,11 +250,11 @@ func localeSafeMCPDetail(detail string) string {
 	return detail
 }
 
-// RunStdio 启动 stdio MCP server(阻塞至 ctx 取消或对端关闭)。
-// root 在启动时定死(来自 aoci mcp 的工作目录或 --repo);version 经 CLI 注入。
+// RunStdio starts the stdio MCP server (blocking until ctx is cancelled or the peer closes).
+// root is fixed at startup (from the working directory of aoci mcp or --repo); version is injected by the CLI.
 func RunStdio(ctx context.Context, root, version string) error {
-	// 记录自身二进制的磁盘身份, 之后治理面用它暴露"磁盘已替换、进程未重启"。
-	// os.Executable 失败时自检静默关闭, 绝不影响服务启动。
+	// Record the on-disk identity of our own binary; the governance surface later uses it to expose "the disk was replaced, the process not restarted".
+	// When os.Executable fails the self-check shuts off silently and never affects server startup.
 	if executable, err := os.Executable(); err == nil {
 		RecordServiceBinaryIdentity(executable)
 	}

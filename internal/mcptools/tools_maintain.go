@@ -1,20 +1,20 @@
-// aoci_maintain高层Auto维护调度。
+// The high-level Auto maintenance scheduling of aoci_maintain.
 //
-// 事实来源:
-//   - 四态来自baseline.DetectWith;
-//   - Missing的Raw/Actionable/Included/Excluded/Skipped/Pending/StaleDecision
-//     全部来自internal/curation.BuildClassification;
-//   - report仅是派发泄压阀，不是文件级exclude决策;
-//   - 已有条目的Stale与Orphan仍遵循条目优先规则，不受Missing策展过滤。
+// Sources of fact:
+//   - the four states come from baseline.DetectWith;
+//   - Missing's Raw/Actionable/Included/Excluded/Skipped/Pending/StaleDecision
+//     all come from internal/curation.BuildClassification;
+//   - report is only a dispatch relief valve, not a file-level exclude decision;
+//   - Stale and Orphan of existing entries still follow the entry-first rule and are not filtered by Missing curation.
 //
-// 换行宽容:
-//   - 漂移判定消费团队line_ending_tolerance;
-//   - 纯CRLF/LF表示差异不进入Stale，不派发更新任务;
-//   - 团队显式严格模式和真实内容变化仍正常派发;
-//   - 本工具不修改原始SHA、Baseline、正式索引或Stage绑定。
+// Line-ending tolerance:
+//   - drift judgement consumes the team line_ending_tolerance;
+//   - a pure CRLF/LF representation difference does not enter Stale and dispatches no update task;
+//   - the team's explicit strict mode and real content changes still dispatch normally;
+//   - this tool does not change the raw SHA, the Baseline, the formal index, or the Stage binding.
 //
-// 本工具只会自动前移已由规范格式器证明的format-only Baseline；真实语义变化
-// 仍只派发给宿主模型，索引候选由aoci_update_entry原子批量治理。
+// This tool only auto-advances a format-only Baseline proven by the canonical formatter; a real semantic change
+// is still dispatched to the host model only, and the index candidates are governed atomically in batch by aoci_update_entry.
 package mcptools
 
 import (

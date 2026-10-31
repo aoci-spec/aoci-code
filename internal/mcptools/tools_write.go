@@ -1,13 +1,13 @@
-// 单条回写的规划、校验、CAS和原子提交核心。
-// 索引条目: tools_write.go[MWR9AL]
+// The planning, validation, CAS, and atomic commit core of single-entry write-back.
+// Index entry: tools_write.go[MWR9AL]
 //
-// 分层：
-//   - prepareUpdateEntry：格式、R Warning、字典、S配额、E档位与索引变换规划；
-//   - planUpdateEntry：读取正式索引并形成CAS计划；
-//   - commitPlan：写锁、CAS、原子写入、Baseline前移与成功Ledger。
+// Layers:
+//   - prepareUpdateEntry: format, R Warning, dictionary, S quota, E band, and index transformation planning;
+//   - planUpdateEntry: reads the formal index and forms the CAS plan;
+//   - commitPlan: write lock, CAS, atomic write, Baseline advance, and the success Ledger.
 //
-// 工具注册和结果渲染位于tools_write_api.go；
-// report待办能力位于tools_report.go。
+// Tool registration and result rendering live in tools_write_api.go;
+// the report follow-up capability lives in tools_report.go.
 package mcptools
 
 import (
@@ -34,7 +34,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// UpdateOutcome是一条目标的规划或应用结果。
+// UpdateOutcome is the planning or application result of one target.
 type UpdateOutcome struct {
 	Action       string
 	Rel          string
@@ -61,11 +61,10 @@ func indexTextHash(
 	)
 }
 
-// appendWriteFailEvent记录失败路径；配置加载失败时静默跳过。
 // appendWriteFailEvent records a refused or failed write. A repairable
 // refusal is the candidate-validation outcome the response calls
 // repair_required, not an execution error, and the event says whether formal
-// writes had begun (#150).
+// writes had begun (#150). When the configuration fails to load it is skipped silently.
 func appendWriteFailEvent(
 	root,
 	op,
@@ -93,10 +92,10 @@ func appendWriteFailEvent(
 	ledger.Append(root, cfg.LedgerEnabled, event)
 }
 
-// prepareUpdateEntry在调用方提供的当前索引上下文上规划一条更新。
+// prepareUpdateEntry plans one update on the current index context the caller supplies.
 //
-// R关系异常全部是Warning，不阻断人工或Auto Apply；检查只查询候选显式列出的
-// 少量路径，不遍历仓库、不读取目标正文、不调用模型。
+// Every R relation anomaly is a Warning and never blocks a manual or Auto Apply; the check only queries the few paths the candidate
+// lists explicitly, without walking the repository, reading the target body, or calling a model.
 func prepareUpdateEntry(
 	root,
 	rel,
@@ -117,8 +116,8 @@ func prepareUpdateEntry(
 	)
 	if rc.cfg.CognitionBudget != nil {
 		if budgetViolations := cognitionbudget.ValidateEntry(line, rc.cfg.EffectiveCognitionBudget()); len(budgetViolations) > 0 {
-			// 逐字段超档是候选可修问题: 附带定位与精确 token 事实的 Finding,
-			// 调用方补上 candidate_index。策略本身不可解析时保持不可修停止。
+			// A per-field overrun is a candidate-repairable problem: a Finding carrying the location and exact token facts,
+			// with the caller filling in candidate_index. When the policy itself cannot be parsed, the stop stays unrepairable.
 			findings := []cognition.RepairFinding{}
 			repairable := true
 			for _, violation := range budgetViolations {
@@ -236,7 +235,7 @@ func prepareUpdateEntry(
 		}
 	}
 
-	// 段内条目使用裸文件名；完整相对路径可做无歧义归一。
+	// In-section entries use the bare filename; a complete relative path normalizes unambiguously.
 	if filenameEnd, _, _, tagFound := index.EntryTagSpan(line); tagFound && filenameEnd > 0 {
 		filename := strings.TrimSpace(
 			line[:filenameEnd],
@@ -416,7 +415,7 @@ func directoryUnspellableFail(root, rel, indexPath string, unspellable *index.Di
 		Repairable: false}
 }
 
-// resultForFailCode把Fail.Code映射为Ledger终态分类。
+// resultForFailCode maps Fail.Code to the Ledger terminal-state classification.
 func resultForFailCode(
 	code string,
 ) string {

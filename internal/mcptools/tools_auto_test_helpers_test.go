@@ -1,4 +1,4 @@
-// Auto紧凑结果测试辅助。
+// Test helpers for the Auto compact result.
 package mcptools
 
 import (

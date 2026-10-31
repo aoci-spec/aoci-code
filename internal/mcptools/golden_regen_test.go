@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-// TestRegenerateListToolsGolden 仅在显式设置 AOCI_UPDATE_GOLDEN=1 时把当前
-// 真实 ListTools 协议写回 Golden。日常运行始终跳过, Golden 变更必须是有意的。
+// TestRegenerateListToolsGolden writes the current real ListTools protocol back to the Golden only when AOCI_UPDATE_GOLDEN=1
+// is set explicitly. Ordinary runs always skip it; a Golden change must be deliberate.
 func TestRegenerateListToolsGolden(t *testing.T) {
 	if os.Getenv("AOCI_UPDATE_GOLDEN") != "1" {
 		t.Skip("set AOCI_UPDATE_GOLDEN=1 to intentionally regenerate the golden snapshot")

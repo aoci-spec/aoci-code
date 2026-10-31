@@ -1,12 +1,12 @@
-// ApplyRemoveEntry 管线与 BuildHeaderText 直测(v2.8 P1/P2)。
-// 索引条目: tools_remove_test.go(待补录,随本批入册)
+// Direct tests of the ApplyRemoveEntry pipeline and BuildHeaderText (v2.8 P1/P2).
+// Index entry: tools_remove_test.go (to be recorded, entering the index with this batch)
 //
-// 自建夹具 buildRemoveRepo(t.TempDir)不依赖 tools_test.go 既有夹具符号
-// (该文件本批未查看,防 R20 凭记忆引用);覆盖:孤儿删除成功+落盘+账目/
-// 活文件 orphanOnly 拒且索引零改动/orphanOnly=false 删活文件成功/
-// 未收录条目拒/dryRun 不落盘/头部工具返回头部且不含条目区/
-// 带基线仓删除后索引自身指纹必前移(初版曾误传 BaselinePath 给 Load 致
-// 前移恒静默跳过而测试全绿 —— 夹具无基线前移分支零覆盖的教训,本用例即防线)。
+// Its own fixture buildRemoveRepo(t.TempDir) does not depend on the existing fixture symbols of tools_test.go
+// (a file this batch had not looked at, against R20 citing from memory); coverage: orphan removal succeeds + written + recorded /
+// a live file is refused under orphanOnly with zero index change / orphanOnly=false removes a live file successfully /
+// an unrecorded entry is refused / dryRun does not write / the header tool returns the header without the entry area /
+// in a repository with a baseline the index's own fingerprint must advance after removal (the first version passed BaselinePath to Load by mistake, so
+// the advance was always skipped silently while the tests stayed green; the lesson of a fixture without a baseline leaving the advance branch at zero coverage, and this case is the guard).
 package mcptools
 
 import (
@@ -125,14 +125,8 @@ func TestVolumeOwnershipRepairRemovesOnlyRootEntryFromCodeVolume(t *testing.T) {
 	}
 }
 
-// 孤儿删除只证明"源文件确实没了", 不看别处的 R 是否还指着它 —— 留下悬空标注
-// 是模型的语义领域。真正必须挡住的是 Guard 漂移: 写之前卷变了就零写停下。
-// 孤儿删除只证明"源文件确实没了", 不看别处的 R 是否还指着它 —— 留下悬空标注
-// 是模型的语义领域。真正必须挡住的是 Guard 漂移: 写之前卷变了就零写停下。
-// 孤儿删除只证明"源文件确实没了", 不看别处的 R 是否还指着它 —— 留下悬空标注
-// 是模型的语义领域。真正必须挡住的是 Guard 漂移: 写之前卷变了就零写停下。
-// 孤儿删除只证明"源文件确实没了", 不看别处的 R 是否还指着它 —— 留下悬空标注
-// 是模型的语义领域。真正必须挡住的是 Guard 漂移: 写之前卷变了就零写停下。
+// Orphan removal only proves "the source file is really gone" and does not look at whether an R elsewhere still points at it; a dangling annotation
+// left behind is the model's semantic domain. What really must be blocked is Guard drift: when the volume changed before the write, stop with zero writes.
 func TestVolumeOrphanRemoveIgnoresIncomingRelationButBlocksGuardDrift(t *testing.T) {
 	root := buildVolumeRepo(t, true, false)
 	writeVolumeTestFile(t, root, "live.go", "package main\n")
@@ -169,14 +163,8 @@ func TestVolumeOrphanRemoveIgnoresIncomingRelationButBlocksGuardDrift(t *testing
 	}
 }
 
-// buildRemoveRepo 造最小仓: 索引含 live.go 与 ghost.go 两条目,
-// 磁盘只有 live.go(ghost.go 为孤儿),基线经 scan 语义外的直接缺省(nil 可容忍)。
-// buildRemoveRepo 造最小仓: 索引含 live.go 与 ghost.go 两条目,
-// 磁盘只有 live.go(ghost.go 为孤儿),基线经 scan 语义外的直接缺省(nil 可容忍)。
-// buildRemoveRepo 造最小仓: 索引含 live.go 与 ghost.go 两条目,
-// 磁盘只有 live.go(ghost.go 为孤儿),基线经 scan 语义外的直接缺省(nil 可容忍)。
-// buildRemoveRepo 造最小仓: 索引含 live.go 与 ghost.go 两条目,
-// 磁盘只有 live.go(ghost.go 为孤儿),基线经 scan 语义外的直接缺省(nil 可容忍)。
+// buildRemoveRepo builds a minimal repository: the index holds the two entries live.go and ghost.go,
+// the disk holds only live.go (ghost.go is an orphan), and the baseline is left absent outside scan semantics (nil is tolerated).
 func buildRemoveRepo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
@@ -206,8 +194,7 @@ func readIndex(t *testing.T, root string) string {
 	return string(b)
 }
 
-// TestRemoveOrphanSuccess 孤儿条目删除成功: 落盘移除该行,其余保真。
-// TestRemoveOrphanSuccess 孤儿条目删除成功: 落盘移除该行,其余保真。
+// TestRemoveOrphanSuccess: an orphan entry is removed successfully; the line is removed on disk and the rest stays intact.
 func TestRemoveRecoveryRejectsMissingPreimage(t *testing.T) {
 	root := buildRemoveRepo(t)
 	current := readIndex(t, root)
@@ -229,8 +216,7 @@ func TestRemoveRecoveryRejectsMissingPreimage(t *testing.T) {
 	}
 }
 
-// TestHeaderShowReturnsHeaderOnly 头部工具返回头部且不含条目区(source入参形态)。
-// TestHeaderShowReturnsHeaderOnly 头部工具返回头部且不含条目区(source入参形态)。
+// TestHeaderShowReturnsHeaderOnly: the header tool returns the header without the entry area (the source-argument form).
 func TestHeaderShowReturnsHeaderOnly(t *testing.T) {
 	root := buildRemoveRepo(t)
 	header, fail := BuildHeaderText(root, "agent")

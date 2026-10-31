@@ -1,10 +1,10 @@
-// Maintain 响应必须装进普通宿主的工具结果窗口, 与仓库规模无关。
+// A Maintain response must fit an ordinary host's tool result window, whatever the repository size.
 //
-// 背景(真实用户反馈): 一个约 1400 文件的新仓库首次 Maintain 返回约 330 KB —— 200 条
-// 候选 + 逐文件的治理 findings + drift 全量清单。宿主(Claude Code)把超限结果落盘到
-// 自己的项目数据目录, 模型只能改写 Python 去解析、合并、再拼一次 200 条的调用, 在
-// 中文 Windows 上接连撞上 GBK/UTF-8 互读、shell 引号与临时路径, 一下午没能建成索引。
-// 这里钉死两条: 批量默认按团队配置(默认 20)切, 治理清单只带样本与总数。
+// Background (real user feedback): the first Maintain of a new repository of about 1400 files returned about 330 KB: 200
+// candidates + per-file governance findings + the complete drift list. The host (Claude Code) spilled the oversized result to
+// its own project data directory, the model could only write Python to parse, merge, and reassemble a 200-entry call, ran into
+// GBK/UTF-8 cross-reading, shell quoting, and temporary paths one after another on Chinese Windows, and could not build the index in an afternoon.
+// Two things locked here: the batch defaults to the team configuration (default 20), and the governance lists carry only samples and totals.
 package mcptools
 
 import (
@@ -20,8 +20,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
-// buildManyFileVolumesRepo 在 Volumes 夹具上再放 count 个未建条目的源文件, 模拟
-// 大仓库首次 Maintain: 每个文件都是 missing, 都会成为 finding 与候选。
+// buildManyFileVolumesRepo puts count more source files without entries on the Volumes fixture, simulating
+// a large repository's first Maintain: every file is missing and becomes a finding and a candidate.
 func buildManyFileVolumesRepo(t *testing.T, count int) string {
 	t.Helper()
 	root := buildSingleCodeWriteRepo(t, false)
@@ -35,7 +35,7 @@ func buildManyFileVolumesRepo(t *testing.T, count int) string {
 			t.Fatal(err)
 		}
 	}
-	// 与夹具一致: 重新拍 Baseline, 让新增文件成为普通的"有源无条目"目标。
+	// As in the fixture: retake the Baseline so the added files become ordinary "source without entry" targets.
 	cfg, err := config.LoadBase(root)
 	if err != nil {
 		t.Fatal(err)
@@ -88,7 +88,7 @@ func TestMaintainPlansTheTeamBatchSizeNotTheWireCeiling(t *testing.T) {
 		t.Fatalf("Maintain 响应 %d 字节超过传输预算 %d", len(raw), machinecontract.MaintainTransportBudgetBytesDefault)
 	}
 
-	// 团队配置改批量: Maintain 立即按新值切批, Guide 与它一致。
+	// The team configuration changes the batch size: Maintain cuts by the new value at once, and the Guide agrees with it.
 	cfg, err := config.LoadBase(root)
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +136,7 @@ func TestMaintainBoundsGovernanceListsForTransport(t *testing.T) {
 	if int(totals["findings"].(float64)) < 60 || int(totals["code_drift.missing"].(float64)) < 60 {
 		t.Fatalf("总数必须是完整计数: %+v", totals)
 	}
-	// 治理判定与候选完全不受投影影响。
+	// The governance verdict and the candidates are entirely unaffected by the projection.
 	if response["status"] != autoStatusRepairRequired || response["result"] != "authoring_required" {
 		t.Fatalf("投影不得改变判定: status=%v result=%v", response["status"], response["result"])
 	}
@@ -145,7 +145,7 @@ func TestMaintainBoundsGovernanceListsForTransport(t *testing.T) {
 	}
 }
 
-// 投影只裁传输, 完整清单仍由 Verify/Check 报告: 直接验证纯函数保留计数与标量。
+// The projection trims only the transport; the complete list is still reported by Verify/Check: verify directly that the pure function keeps counts and scalars.
 func TestBoundListsForTransportKeepsCountsAndScalars(t *testing.T) {
 	facts := &volumegovernance.Facts{GovernanceAligned: false, Result: "authoring_required",
 		CodeSourceCount: 500, CodeEntryCount: 0}

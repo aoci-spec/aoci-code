@@ -1,9 +1,9 @@
-// 预算 enforce 违规的结构化修复契约测试。
+// Contract tests for the structured repair of budget enforce violations.
 //
-// 背景(真实事故): zh-CN 索引里 S 按 UTF-8 字节/3 计的 token 数会先于 rune 配额
-// 撞上重要度档位上限, 而该拒绝路径曾把 int 传给 %s 模板, 严格资产渲染失败触发
-// writeMessage panic —— 候选可修的预算违规被升级成不可定位的内部错误, 宿主被迫
-// 在隔离副本里二分定位。这里钉死: 该路径永远返回带完整定位的 repair_required。
+// Background (a real incident): in a zh-CN index the token count of S, counted as UTF-8 bytes/3, hits the importance band ceiling before the rune
+// quota does, and that refusal path once passed an int to a %s template; the strict asset rendering failed and triggered a
+// writeMessage panic, so a candidate-repairable budget violation was escalated into an unlocatable internal error, and the host was forced
+// to bisect in an isolated copy. Locked here: that path always returns repair_required with complete locations.
 package mcptools
 
 import (
@@ -18,8 +18,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
 
-// activateEnforceBudget 给 Volumes 夹具装上受管范围与 enforce 预算收据 ——
-// 缺省夹具落在 LegacyPolicy(observe), 永远走不到 enforce 拒绝路径。
+// activateEnforceBudget fits the Volumes fixture with a managed scope and an enforce budget receipt;
+// the default fixture lands in LegacyPolicy (observe) and never reaches the enforce refusal path.
 func activateEnforceBudget(t *testing.T, root string) {
 	t.Helper()
 	cfg, err := config.LoadBase(root)
@@ -63,9 +63,9 @@ func activateEnforceBudget(t *testing.T, root string) {
 	}
 }
 
-// S 的硬上限是 Meta 的 rune 配额(#146): 210 个汉字 = 630 字节 = 210 tokens 超出
-// C9 档 200 tokens 的 band, 但在 600 rune 的配额之内 —— 作者化合同告诉模型的就是
-// 这个配额, token band 不得比它更紧, 这条 Entry 必须原样写入。
+// The hard ceiling of S is Meta's rune quota (#146): 210 Chinese characters = 630 bytes = 210 tokens exceed
+// the C9 band of 200 tokens but stay within the 600-rune quota; the authoring contract tells the model exactly
+// that quota, the token band must not be tighter than it, and this Entry must be written as it is.
 func TestCJKSWithinRuneQuotaIsNotABudgetViolation(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	activateEnforceBudget(t, root)
@@ -85,8 +85,8 @@ func TestBudgetEnforceViolationReturnsStructuredRepair(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	activateEnforceBudget(t, root)
 	indexBefore := volumeFileText(t, root, "aoci.code.txt")
-	// C3 档 R 上限 50 tokens(150 字节); 8 个规范身份共 191 字节 = 63 tokens 超档,
-	// 但 8 项、191 runes 都在 FRAS v2 的 R 机器上限之内 —— 只有 token 预算这一层会拒绝。
+	// The C3 band's R ceiling is 50 tokens (150 bytes); 8 canonical identities total 191 bytes = 63 tokens, over the band,
+	// but 8 items and 191 runes are both within the FRAS v2 machine ceiling for R, so only the token budget layer refuses.
 	refs := make([]string, 0, 8)
 	for position := 0; position < 8; position++ {
 		refs = append(refs, fmt.Sprintf("code:src/relation%02d.go", position))
@@ -117,8 +117,8 @@ func TestBudgetEnforceViolationReturnsStructuredRepair(t *testing.T) {
 	}
 }
 
-// 拆分逻辑: 命中本批候选的字段违规可修; whole-index 超限与批外条目的历史违规
-// 永远归入不可修, 由调用方保持批级停止。
+// Split logic: a field violation hitting a candidate of this batch is repairable; a whole-index overrun and the historical violations of
+// entries outside the batch always go to unrepairable, and the caller keeps the batch-level stop.
 func TestBudgetRepairFindingsSplitsCandidateAndBatchLevel(t *testing.T) {
 	normalized := []normalizedAtomicItem{
 		{rel: "src/a.go", originalCandidateIndex: 3},

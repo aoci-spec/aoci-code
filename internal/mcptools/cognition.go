@@ -1,4 +1,4 @@
-// MCP认知收据：宿主保留的小型索引身份，不替代宿主对认知可靠性的判断。
+// The MCP cognition receipt: a small index identity the host keeps, which does not replace the host's judgement of cognition reliability.
 package mcptools
 
 import (
@@ -26,9 +26,9 @@ const (
 	cognitionRecallHostChoiceLocalOrFull     = machinecontract.CognitionRecallHostChoiceLocalOrFull
 )
 
-// cognitionReceipt绑定仓库、索引版本和本次交付范围。
-// 普通治理结果只能给出身份和uncertain初态；只有真实交付完整
-// Overview或宿主明确声明valid后，才能设置ModelFullReliable。
+// cognitionReceipt binds the repository, the index version, and the scope of this delivery.
+// An ordinary governance result can only give the identity and the initial uncertain state; only a real complete
+// Overview delivery, or the host explicitly declaring valid, can set ModelFullReliable.
 type cognitionReceipt struct {
 	Version               int      `json:"version"`
 	RuntimeRepositoryRoot string   `json:"runtime_repository_root"`
@@ -200,7 +200,7 @@ func (session *cognitionRefreshSession) autoRefreshOutcome(
 	}
 	session.mu.Lock()
 	defer session.mu.Unlock()
-	// 写入/维护路径当场证明了新身份的对齐状态, 缓存给廉价读工具行复用。
+	// The write/maintain path proved the alignment state of the new identity on the spot; cache it for the cheap read-tool line to reuse.
 	session.noteAlignedIdentity(receipt.ScopeIdentity, aligned)
 	reasons := session.pendingReasonList()
 	if len(reasons) == 0 {
@@ -230,7 +230,7 @@ type cognitionAssessment struct {
 	LocalRecalls  int              `json:"local_recalls"`
 }
 
-// assessCognition只确定可机器验证的身份失配，认知可靠性仍由宿主模型声明。
+// assessCognition only determines machine-verifiable identity mismatches; cognition reliability is still declared by the host model.
 func assessCognition(
 	current cognitionReceipt,
 	previous *cognitionReceipt,

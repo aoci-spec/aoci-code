@@ -1,4 +1,4 @@
-// MCP工具handler单元测试(不起真实MCP client,直测handler主体)。
+// Unit tests of the MCP tool handlers (no real MCP client; the handler bodies are tested directly).
 package mcptools
 
 import (
@@ -280,14 +280,8 @@ func TestSearchAndOverview(
 	}
 }
 
-// TestOverviewRelocatesHistoricalSectionPaths验证Overview明确区分当前仓库根与
-// 索引正文中的历史绝对路径，同时不改动正式索引字节。
-// TestOverviewRelocatesHistoricalSectionPaths验证Overview明确区分当前仓库根与
-// 索引正文中的历史绝对路径，同时不改动正式索引字节。
-// TestOverviewRelocatesHistoricalSectionPaths验证Overview明确区分当前仓库根与
-// 索引正文中的历史绝对路径，同时不改动正式索引字节。
-// TestOverviewRelocatesHistoricalSectionPaths验证Overview明确区分当前仓库根与
-// 索引正文中的历史绝对路径，同时不改动正式索引字节。
+// TestOverviewRelocatesHistoricalSectionPaths verifies that Overview clearly distinguishes the current repository root from
+// the historical absolute paths in the index body, without changing the formal index bytes.
 func TestOverviewRelocatesHistoricalSectionPaths(
 	t *testing.T,
 ) {

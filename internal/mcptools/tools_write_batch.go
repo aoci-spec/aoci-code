@@ -1,19 +1,19 @@
-// D69-2A 原子批量条目回写。
+// D69-2A atomic batch entry write-back.
 //
-// 索引条目: tools_write_batch.go[MWR9AM]
+// Index entry: tools_write_batch.go[MWR9AM]
 //
-// 与人工 entries apply 的差异:
-//   - 人工管线保留逐条部分成功语义；
-//   - 本管线最初为无人值守 auto 设计,现同时服务人工 Entries Apply 与
-//     Host-Agent 治理链(整批复用): 全部目标先在同一份内存索引上完成规划,
-//     任一目标失败即零写入；全部通过后取一次写锁、做一次 CAS、AtomicWrite 一次。
+// Differences from the manual entries apply:
+//   - the manual pipeline keeps per-entry partial-success semantics;
+//   - this pipeline was first designed for unattended auto and now also serves the manual Entries Apply and
+//     the Host Agent governance chain (whole-batch reuse): every target is first planned on the same in-memory index,
+//     any failing target means zero writes; once all pass, one write lock, one CAS, one AtomicWrite.
 //
-// 原子边界是正式索引文件：要么整批新文本一次落盘，要么正式索引零变化。
-// 基线与 ledger 是写后副产品，失败只形成提示，不回滚已成功的索引原子写入。
+// The atomic boundary is the formal index file: either the whole batch's new text lands in one write, or the formal index changes nothing.
+// The baseline and the ledger are post-write by-products; their failure only forms a hint and never rolls back a successful atomic index write.
 //
-// 失败路径落账(R60-F.9-A1,2026-07-18): 与单条管线同款 —— 规划拒绝与
-// CAS/锁冲突经 appendWriteFailEvent 落账(op=update_entries_batch),
-// 计时提升到 ApplyUpdateEntriesAtomic 顶层;dry-run 纯读不落账。
+// Failure-path recording (R60-F.9-A1, 2026-07-18): the same as the single-entry pipeline: planning refusals and
+// CAS/lock conflicts are recorded through appendWriteFailEvent (op=update_entries_batch),
+// timing is lifted to the top of ApplyUpdateEntriesAtomic; a dry run is pure reading and records nothing.
 package mcptools
 
 import (
@@ -28,13 +28,13 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
 
-// 测试只在明确的落盘边界注入中断或并发变化；生产路径始终指向原子实现。
+// Tests inject interruptions or concurrent changes only at explicit write boundaries; the production path always points at the atomic implementation.
 var (
 	writeAtomicIndex   = afs.AtomicWriteCAS
 	saveAtomicBaseline = baseline.SaveUnderIndexLock
 )
 
-// AtomicUpdateItem 是原子批量回写的一条输入。
+// AtomicUpdateItem is one input of the atomic batch write-back.
 type AtomicUpdateItem struct {
 	Path         string
 	ObjectRef    string
@@ -44,7 +44,7 @@ type AtomicUpdateItem struct {
 	BatchID      string
 }
 
-// AtomicBatchOutcome 是整批成功规划或应用结果。
+// AtomicBatchOutcome is the result of planning or applying a whole batch successfully.
 type AtomicBatchOutcome struct {
 	Items            []*UpdateOutcome
 	Volume           string
@@ -99,8 +99,8 @@ type atomicBatchPlan struct {
 	start               time.Time
 }
 
-// planUpdateEntriesAtomic 在同一初始索引版本上规划整个批次。
-// 每条成功变换后重新解析内存文本，下一条基于前序结果继续规划。
+// planUpdateEntriesAtomic plans the whole batch on the same initial index version.
+// After each successful transformation the in-memory text is re-parsed, and the next item plans on top of the earlier results.
 func planUpdateEntriesAtomic(
 	root string,
 	items []AtomicUpdateItem,
@@ -216,7 +216,7 @@ func planUpdateEntriesAtomic(
 	return planCognitionVolumeUpdates(root, loaded, normalized, start)
 }
 
-// commitAtomicBatch 在一个写锁临界区内执行一次 CAS 和一次 AtomicWrite。
+// commitAtomicBatch performs one CAS and one AtomicWrite inside one write-lock critical section.
 func commitAtomicBatch(
 	root,
 	source string,
@@ -257,8 +257,8 @@ func commitAtomicBatch(
 	return commitCognitionVolumeBatchLocked(root, source, plan, retainRecovery)
 }
 
-// ApplyUpdateEntriesAtomic 是整批回写的唯一入口(auto 无人值守与人工
-// Entries Apply 共用)。
+// ApplyUpdateEntriesAtomic is the single entry for whole-batch write-back (shared by unattended auto and the manual
+// Entries Apply).
 func ApplyUpdateEntriesAtomic(
 	root string,
 	items []AtomicUpdateItem,
@@ -268,8 +268,8 @@ func ApplyUpdateEntriesAtomic(
 	return ApplyUpdateEntriesAtomicBound(root, items, source, dryRun, "")
 }
 
-// ApplyUpdateEntriesAtomicBound把Host-Agent生成期索引摘要带入最终提交边界。
-// 普通MCP批次使用上面的兼容入口；Host-Agent必须传Manifest.IndexSHA256。
+// ApplyUpdateEntriesAtomicBound carries the Host Agent generation-time index digest into the final commit boundary.
+// An ordinary MCP batch uses the compatibility entry above; the Host Agent must pass Manifest.IndexSHA256.
 func ApplyUpdateEntriesAtomicBound(
 	root string,
 	items []AtomicUpdateItem,
@@ -392,7 +392,7 @@ func applyUpdateEntriesAtomicBound(
 	}, nil
 }
 
-// RenderAtomicBatchOutcome 供 auto 与人工 Entries Apply 渲染整批结果。
+// RenderAtomicBatchOutcome renders the whole-batch result for auto and the manual Entries Apply.
 func RenderAtomicBatchOutcome(outcome *AtomicBatchOutcome) string {
 	if outcome == nil {
 		return ""

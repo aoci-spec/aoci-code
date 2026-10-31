@@ -449,8 +449,8 @@ func TestCrossVolumeBaselineFailureRetainsRecoveryEvidence(t *testing.T) {
 	}
 }
 
-// 跨卷指向一个不存在的对象只是模型的语义选择, 写入照常完成, 而且只动它自己
-// 那个卷 —— 关系既不阻断写入, 也不把别的卷卷进来。
+// A cross-volume pointer to an object that does not exist is only the model's semantic choice; the write completes as usual and touches only its own
+// volume: the relation neither blocks the write nor drags the other volume in.
 func TestCrossVolumeDanglingRelationWritesOnlyItsOwnVolume(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	codeBefore := volumeFileText(t, root, "aoci.code.txt")

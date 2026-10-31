@@ -401,8 +401,8 @@ func TestSingleCodeVolumeUpdateUsesCrossVolumeGuardWithoutWritingDatabase(t *tes
 	}
 }
 
-// 只有 Code 卷的仓库里, 模型照样可以在 R 里提到数据库对象 —— 那是它对系统的
-// 理解, 不是对机器的断言。写入照常完成, 关系原样保留。
+// In a repository with only a Code volume the model may still mention database objects in R: that is its understanding of the
+// system, not an assertion to the machine. The write completes as usual and the relation is kept as it is.
 func TestSingleCodeVolumeKeepsDatabaseRelationWhenDatabaseIsAbsent(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	line := "main.go[CD9S]: F:run the updated fixture | R:database://primary/public/users | A:main | S:Keep execution deterministic"
@@ -542,7 +542,7 @@ func TestSingleVolumeEnvelopeAcceptsExistingDatabaseUpdate(t *testing.T) {
 	}
 }
 
-// 同名多义的关系不再失败: 到底指的是哪个 helper.go, 由读全量索引的模型判断。
+// An ambiguous same-named relation no longer fails: which helper.go it means is for the model reading the complete index to judge.
 func TestSingleCodeVolumeAcceptsAmbiguousRelation(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	writeVolumeTestFile(t, root, "dir1/helper.go", "package helper\n")

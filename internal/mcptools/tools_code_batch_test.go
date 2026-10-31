@@ -466,11 +466,11 @@ func TestVolumeCodeSecondBatchRecoveryDoesNotReplayFirstBatch(t *testing.T) {
 	}
 }
 
-// 指向"下一批才会创作"的对象是完全正常的创作行为: 模型是按批看到代码的, 它
-// 当然会写下还没落地的关系。机器既不重排也不阻断, 两批照常滚完, 索引照常建成。
+// Pointing at an object "authored only in the next batch" is entirely normal authoring behaviour: the model sees the code batch by batch, and it
+// naturally writes down relations not yet landed. The machine neither reorders nor blocks, both batches roll through as usual, and the index is built as usual.
 //
-// 这条曾经是反的 —— 那时一次跨批的 R 会触发零写重排, 于是在关系稠密的真仓上
-// 反复重排、永不收敛, 直接把 400+ 文件仓库的索引建立卡死。
+// This case used to be the reverse: back then one cross-batch R triggered a zero-write reorder, and on a real relation-dense repository it
+// reordered again and again without converging, deadlocking the index build of a 400+ file repository outright.
 func TestVolumeCodeRelationToLaterBatchAppliesWithoutReplan(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
 	session := connectMCPClient(t, root)
@@ -497,9 +497,9 @@ func TestVolumeCodeRelationToLaterBatchAppliesWithoutReplan(t *testing.T) {
 	}
 }
 
-// 环形互指是真实代码里的常态(A 调 B, B 回调 A)。整个环远大于单批上限时, 旧机制
-// 会报"最小不可拆成分 203 > 200"并彻底停下 —— 那正是用户真仓的死局。现在关系
-// 不再是排程约束, 同样的形状必须一路滚完。
+// Mutual cycles are the normal state of real code (A calls B, B calls A back). When the whole cycle is far larger than the batch cap, the old mechanism
+// reported "the smallest indivisible component 203 > 200" and stopped completely: exactly the user's dead end on a real repository. Relations are
+// no longer a scheduling constraint, and the same shape must roll all the way through.
 func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 260)
 	session := connectMCPClient(t, root)
@@ -511,7 +511,7 @@ func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.
 		}
 		arguments := codeBatchArguments(wireCodePlan(plan))
 		entries := arguments["entries"].([]map[string]any)
-		// 每条都指向全集里的下一个对象, 首尾相接 —— 一个跨越所有批次的大环。
+		// Every entry points at the next object in the whole set, joined end to end: one big cycle spanning every batch.
 		for _, entry := range entries {
 			path := entry["path"].(string)
 			var index int
@@ -537,11 +537,10 @@ func TestVolumeCodeMutualRelationsAcrossBatchesStillCompleteTheIndex(t *testing.
 	}
 }
 
-// setTeamCodeBatchEntries 把夹具的团队批量设成给定值。大批量夹具专门检验线上上限
-// (EntriesBatchMaxItems)处的多批滚动、恢复与替代计划语义, 而机器默认批量已按宿主
-// 窗口降为 20 —— 这些夹具因此显式把批量拉到上限, 默认值本身由 transport 测试钉住。
-// setTeamCodeBatchEntries raises the team batch cap. The transport budget is
-// the operative bound of a batch, so a fixture that wants the wire ceiling per
+// setTeamCodeBatchEntries sets the fixture's team batch size to the given value. The large-batch fixtures specifically exercise
+// multi-batch rolling, recovery, and alternative-plan semantics at the wire ceiling (EntriesBatchMaxItems), while the machine default
+// batch has been lowered to 20 for the host window, so these fixtures pull the batch up to the ceiling explicitly; the default itself is pinned by the transport test.
+// The transport budget is the operative bound of a batch, so a fixture that wants the wire ceiling per
 // batch raises the budget to its maximum as well; the count alone would still
 // be cut at the default 24 KiB.
 func setTeamCodeBatchEntries(t *testing.T, root string, entries int) {

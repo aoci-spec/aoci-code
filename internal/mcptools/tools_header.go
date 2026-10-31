@@ -1,13 +1,13 @@
-// 头部只读工具(v2.8 P2): 不读全文件即可获取索引头部(规范+标签字典)。
-// 索引条目: tools_header.go(待补录,随本批入册)
+// The read-only header tool (v2.8 P2): fetch the index header (rules + tag dictionary) without reading the whole file.
+// Index entry: tools_header.go (to be recorded, entering the index with this batch)
 //
-// 定位: agent 需要字典时(起草标签/理解分层)此前只能读整个 aoci.txt,
-// 大索引下浪费 token;本工具只返回头部区块(首个===段头之前),与
-// index.ExtractHeader 同一边界定义(解析侧与编辑侧同指一段文本的
-// 第三个消费方,绝不自写第二套边界判定)。
+// Position: when an agent needs the dictionary (drafting tags, understanding the layers) it previously had to read the whole aoci.txt,
+// wasting tokens on a large index; this tool returns only the header block (before the first === section header), with
+// the same boundary definition as index.ExtractHeader (the third consumer of "the parsing side and the editing side name the same text",
+// never writing a second boundary judgement of its own).
 //
-// source 为入参(MCP handler 传 agent,CLI 传 human)—— 初版曾用包级变量
-// 承载缺省来源,并发不安全且账目会错标,双端接入即改为入参。
+// source is an argument (the MCP handler passes agent, the CLI passes human); the first version carried the default source in a
+// package-level variable, which was not concurrency-safe and mislabelled the ledger, so it became an argument as soon as both sides were wired.
 package mcptools
 
 import (
@@ -21,8 +21,8 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// BuildHeaderText 返回索引头部原文(纯读,MCP 与 CLI 双端共用)。
-// 头部为空(零#行)时返回空串由调用方给出提示文案;source 进 ledger 来源分级。
+// BuildHeaderText returns the raw index header (pure read, shared by the MCP and CLI sides).
+// An empty header (zero # lines) returns an empty string and the caller supplies the hint wording; source enters the ledger's source classification.
 func BuildHeaderText(root, source string) (string, *Fail) {
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
@@ -40,8 +40,8 @@ func BuildHeaderText(root, source string) (string, *Fail) {
 	return header, nil
 }
 
-// registerHeaderTool 注册 aoci_header(挂载点在 server.go 的 RunStdio)。
-// 零参数工具: In 取 any 令 go-sdk 生成空对象 schema。
+// registerHeaderTool registers aoci_header (mounted from RunStdio in server.go).
+// A zero-argument tool: In is any, so go-sdk generates an empty object schema.
 func registerHeaderTool(
 	srv *mcp.Server,
 	root string,

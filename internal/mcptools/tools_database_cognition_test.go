@@ -550,12 +550,9 @@ func TestDatabaseCandidateFailuresLeaveWholeBatchUnchanged(t *testing.T) {
 	}
 }
 
-// 数据库条目的 R 指向一个不存在的表照样写得进去: 那是模型对系统的理解, 可能
-// 指着一张即将建的表, 也可能指着一张已经下线的表。机器只管这条索引的形式与
-// 长度预算, 不核对它指向谁。
-// 数据库条目的 R 指向一个不存在的表照样写得进去: 那是模型对系统的理解, 可能
-// 指着一张即将建的表, 也可能指着一张已经下线的表。机器只管这条索引的形式与
-// 长度预算, 不核对它指向谁。
+// A database entry whose R points at a table that does not exist is written all the same: that is the model's understanding of the system; it may
+// point at a table about to be created or at one already retired. The machine only minds this entry's form and
+// length budget, not who it points at.
 func TestDatabaseCandidateWithDanglingRelationApplies(t *testing.T) {
 	root := databaseCognitionWriteFixture(t, []string{"orders", "users"})
 	maintain := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase))

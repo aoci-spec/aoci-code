@@ -1,13 +1,13 @@
-// 服务二进制身份自检。
+// Service binary identity self-check.
 //
-// 替换磁盘字节不会改变正在运行的进程: 升级后旧进程会继续用旧规则服务, 直到宿主
-// 重启它。收据里的 mcp_service_version 能在认知层揭穿这件事, 但工具行为层没有
-// 任何信号 —— 宿主与模型都看不见"磁盘上已经躺着一个不同的二进制"。
+// Replacing the bytes on disk does not change the running process: after an upgrade the old process keeps serving with the old rules until the host
+// restarts it. The mcp_service_version in the receipt can expose that at the cognition layer, but the tool behaviour layer has
+// no signal at all; neither host nor model can see that "a different binary is already lying on disk".
 //
-// 这里在服务启动时记录自身可执行文件的低成本身份(大小 + 修改时间), 之后由治理
-// 面在响应里以 service_binary_replaced_on_disk 的形式暴露漂移事实。它是纯咨询
-// 信号: 不阻塞任何工具、不参与任何身份推导, 只把"该重启了"从人工排查变成机器
-// 事实。探测失败一律静默视为未漂移, 自检永远不能成为服务不可用的原因。
+// This records a cheap identity of our own executable (size + modification time) at service startup, and the governance
+// surface later exposes the drift fact in responses as service_binary_replaced_on_disk. It is a purely advisory
+// signal: it blocks no tool, takes part in no identity derivation, and only turns "time to restart" from manual diagnosis into a machine
+// fact. A probe failure is always silently treated as no drift; the self-check can never be the reason the service is unavailable.
 package mcptools
 
 import (
@@ -27,8 +27,8 @@ var serviceBinaryState struct {
 	recorded *serviceBinaryIdentity
 }
 
-// RecordServiceBinaryIdentity 在服务启动时记录自身二进制的磁盘身份。
-// path 为空或不可探测时不记录, 自检保持关闭。
+// RecordServiceBinaryIdentity records the on-disk identity of our own binary at service startup.
+// An empty or unprobeable path records nothing and the self-check stays off.
 func RecordServiceBinaryIdentity(path string) {
 	if path == "" {
 		return
@@ -42,9 +42,9 @@ func RecordServiceBinaryIdentity(path string) {
 	serviceBinaryState.recorded = &serviceBinaryIdentity{path: path, size: info.Size(), modTime: info.ModTime()}
 }
 
-// serviceBinaryReplacedOnDisk 报告磁盘上的服务二进制是否已不同于启动时记录的
-// 身份。未记录时恒为 false; 文件消失同样视为已替换 —— 磁盘上已经没有正在运行
-// 的这份字节了。
+// serviceBinaryReplacedOnDisk reports whether the service binary on disk now differs from the identity recorded at
+// startup. Without a record it is always false; a vanished file also counts as replaced, since the bytes now running are
+// no longer on disk.
 func serviceBinaryReplacedOnDisk() bool {
 	serviceBinaryState.Lock()
 	recorded := serviceBinaryState.recorded
@@ -59,7 +59,7 @@ func serviceBinaryReplacedOnDisk() bool {
 	return info.Size() != recorded.size || !info.ModTime().Equal(recorded.modTime)
 }
 
-// resetServiceBinaryIdentityForTest 清空记录, 仅供测试恢复全局状态。
+// resetServiceBinaryIdentityForTest clears the record, only for tests restoring global state.
 func resetServiceBinaryIdentityForTest() {
 	serviceBinaryState.Lock()
 	defer serviceBinaryState.Unlock()

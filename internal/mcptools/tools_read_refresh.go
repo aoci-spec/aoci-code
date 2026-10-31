@@ -32,17 +32,17 @@ type cognitionRefreshSession struct {
 	// governanceSnapshots binds a delivered Whole-Index body to the live,
 	// commit-independent governance facts observed for that delivery.
 	governanceSnapshots map[string]string
-	// alignedIdentity 缓存"本会话最近一次昂贵治理评估证明对齐"的 scope 身份。
-	// 模型自己的写入会让收据身份前移, 但写入路径当场证明了新身份对齐; 廉价的
-	// 读工具据此仍能诚实报告 refresh_not_required, 而不是把自己的写当成陌生
-	// 漂移。它只是缓存, 不参与任何身份推导或刷新判据。
+	// alignedIdentity caches the scope identity that "this session's latest expensive governance evaluation proved aligned".
+	// The model's own write advances the receipt identity, but the write path proved the new identity aligned on the spot; the cheap
+	// read tools can therefore still report refresh_not_required honestly instead of treating their own write as foreign
+	// drift. It is only a cache and takes part in no identity derivation or refresh criterion.
 	alignedIdentity string
-	// deliveryEvidence 按交付 body 记住本会话已到达的两半证据: 宿主交付确认与
-	// 模型认证。两半各自密码学绑定同一 body(确认绑 body sha 与字节数, 认证绑
-	// index sha、序列 sha、数量与 challenge digest), 到达先后不携带任何信息,
-	// 所以允许分次、任意顺序提交: 任一半到达时若另一半已在场即闩住, 与同一
-	// 调用合并提交完全等价。一次全新的完整交付(不带任一字段、无游标)重置该
-	// body 的证据, 使每次交付尝试仍各自取证。
+	// deliveryEvidence remembers, per delivered body, the two halves of evidence that have arrived in this session: the host delivery confirmation and
+	// the model attestation. Each half is cryptographically bound to the same body (the confirmation to the body sha and byte count, the attestation to
+	// the index sha, sequence sha, count, and challenge digest), and arrival order carries no information,
+	// so they may be submitted separately and in any order: when one half arrives and the other is already present it latches, exactly equivalent to
+	// submitting both in one call. A brand-new complete delivery (carrying neither field, no cursor) resets that
+	// body's evidence, so every delivery attempt still collects its own proof.
 	deliveryEvidence map[string]*overviewDeliveryEvidence
 	// compactionAttempt, capacity, chains, and chainOrder belong to the
 	// Host-capacity loop breaker and the delivery chain IDs the Ledger
@@ -64,9 +64,9 @@ type cognitionRefreshSession struct {
 	probePassGeneration int
 }
 
-// overviewDeliveryEvidence 是一个 body 在本会话内已到达的证据半边。认证保存
-// 原始模型报告而非评分结果: 评分依赖交付完整性, 另一半到达时按当时的完整性
-// 重新评分, 而不是复用一份在"未确认"前提下算出的旧结论。
+// overviewDeliveryEvidence is the half of evidence that has arrived in this session for one body. The attestation keeps
+// the raw model report rather than a score: scoring depends on delivery completeness, and when the other half arrives it is re-scored
+// by the completeness of that moment, instead of reusing an old conclusion computed under the "unconfirmed" premise.
 type overviewDeliveryEvidence struct {
 	confirmed   bool
 	attestation *overviewModelAttestation
@@ -402,7 +402,7 @@ func receiptReliable(receipt cognitionReceipt) bool {
 	return receipt.ModelFullReliable
 }
 
-// noteAlignedIdentity 在已持有 session.mu 的路径上记录或撤销对齐缓存。
+// noteAlignedIdentity records or withdraws the aligned cache on paths that already hold session.mu.
 func (session *cognitionRefreshSession) noteAlignedIdentity(identity string, aligned bool) {
 	if aligned {
 		session.alignedIdentity = identity
@@ -413,7 +413,7 @@ func (session *cognitionRefreshSession) noteAlignedIdentity(identity string, ali
 	}
 }
 
-// RecordAlignedIdentity 供未持锁的治理路径(maintain/写入)调用。
+// RecordAlignedIdentity is for governance paths (maintain/write) that do not hold the lock.
 func (session *cognitionRefreshSession) RecordAlignedIdentity(identity string, aligned bool) {
 	if session == nil || identity == "" {
 		return
@@ -423,14 +423,14 @@ func (session *cognitionRefreshSession) RecordAlignedIdentity(identity string, a
 	session.noteAlignedIdentity(identity, aligned)
 }
 
-// cognitionStatusLine 用纯会话级事实(零文件系统扫描)渲染一行认知状态, 贴在
-// search/get_entries/header 响应尾部。
+// cognitionStatusLine renders one line of cognition status from pure session-level facts (zero filesystem scanning), appended to the
+// tail of search/get_entries/header responses.
 //
-// 设计约束: 这一行绝不能诱发过度召回。收据身份漂移本身不是刷新理由(规则 §2),
-// 所以身份越过会话所知时, 这一行不伪造 refresh_status 判定, 只用独立的
-// checkpoint=recommended 建议一次廉价的 check_only —— 形成 行→checkpoint→召回
-// 的三级阶梯, 每级挡住下一级的滥用。常态输出是 refresh_not_required, 它是
-// "不需要召回"的许可证。
+// Design constraint: this line must never provoke an excessive recall. Receipt identity drift is not by itself a refresh reason (rule §2),
+// so when the identity has moved past what the session knows, this line does not fabricate a refresh_status verdict; it only uses the independent
+// checkpoint=recommended to suggest one cheap check_only, forming the three-step ladder line → checkpoint → recall,
+// each step blocking the abuse of the next. The normal output is refresh_not_required, which is
+// the licence that "no recall is needed".
 func (session *cognitionRefreshSession) cognitionStatusLine(current cognitionReceipt) string {
 	if session == nil {
 		return ""
@@ -460,14 +460,14 @@ func (session *cognitionRefreshSession) cognitionStatusLine(current cognitionRec
 		return fmt.Sprintf("cognition: refresh_status=%s generation=%d\n",
 			machinecontract.RefreshStatusNotRequired, generation)
 	default:
-		// 身份越过了会话所知: 不伪造判定, 只建议一次廉价 checkpoint。
+		// The identity has moved past what the session knows: fabricate no verdict, only suggest one cheap checkpoint.
 		return fmt.Sprintf("cognition: checkpoint=recommended generation=%d%s\n",
 			generation, checkpointHint)
 	}
 }
 
-// sessionCognitionSuffix 为 Volumes v1 读工具响应生成会话认知行后缀。
-// Legacy 布局或缺会话时返回空串, 读工具原样输出。
+// sessionCognitionSuffix produces the session cognition line suffix for Volumes v1 read tool responses.
+// The Legacy layout, or a missing session, returns an empty string and the read tool outputs as it is.
 func sessionCognitionSuffix(root, serviceVersion string, set *cognition.Set, session *cognitionRefreshSession) string {
 	if session == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
 		return ""
@@ -532,7 +532,7 @@ func (session *cognitionRefreshSession) evaluate(
 		session.pendingReasons[machinecontract.RefreshReasonSemanticThreshold] = true
 	}
 
-	// 昂贵评估已经算出对齐事实, 缓存给廉价的读工具行复用(调用方持锁)。
+	// The expensive evaluation has already computed the alignment fact; cache it for the cheap read-tool line to reuse (the caller holds the lock).
 	session.noteAlignedIdentity(current.ScopeIdentity, facts.GovernanceAligned && facts.Count == 0)
 
 	reasons := session.pendingReasonList()
@@ -687,13 +687,13 @@ func (session *cognitionRefreshSession) pendingEventReceiptID() string {
 	}
 }
 
-// mergeDeliveryEvidence 把本次调用携带的证据半边并入会话记忆, 并返回对该
-// body 生效的宿主交付状态与模型报告: 本次没带的那一半, 若此前已针对同一 body
-// 到达, 就从记忆补上。只有经 hostDeliveryStatus 对当前 framed body 校验为
-// confirmed 的确认才会被记住; 报告则原样保存, 由调用方对当前 Challenge 重新
-// 评分, 身份不符的旧报告会在那里被 envelope 校验拒绝。
+// mergeDeliveryEvidence merges the half of evidence this call carries into the session memory and returns the host delivery status and
+// model report in effect for that body: the half this call did not carry is filled from memory if it arrived earlier for the same
+// body. Only a confirmation that hostDeliveryStatus validated as confirmed against the current framed body
+// is remembered; a report is kept as it is, and the caller re-scores it against the current Challenge, where an old report
+// with a mismatching identity is refused by the envelope validation.
 //
-// 与本文件其他交付路径方法一样, 调用方(Overview 处理器)已持有 session.mu。
+// As with the other delivery-path methods in this file, the caller (the Overview handler) already holds session.mu.
 func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 	bodySHA256 string,
 	hostStatus string,
@@ -710,8 +710,8 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 		evidence = &overviewDeliveryEvidence{}
 		session.deliveryEvidence[bodySHA256] = evidence
 	}
-	// 本次调用明确携带的一半永远以最新为准(一份不匹配的确认表示宿主现在
-	// 说"没收全", 它压过更早的确认); 记忆只填补本次没带的那一半。
+	// The half this call explicitly carries always wins as the latest (a mismatching confirmation means the host now
+	// says "not fully received", overriding an earlier confirmation); memory only fills the half this call did not carry.
 	switch hostStatus {
 	case hostDeliveryConfirmed:
 		evidence.confirmed = true
@@ -730,8 +730,8 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 	return hostStatus, report
 }
 
-// resetDeliveryEvidence 在一次全新的完整交付开始时丢弃该 body 的旧证据:
-// 每次交付尝试各自取证, 旧确认不为新一轮传输作证。
+// resetDeliveryEvidence discards the old evidence of that body when a brand-new complete delivery starts:
+// every delivery attempt collects its own proof, and an old confirmation does not testify for a new transmission.
 func (session *cognitionRefreshSession) resetDeliveryEvidence(bodySHA256 string) {
 	if session == nil {
 		return

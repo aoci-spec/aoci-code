@@ -1,5 +1,5 @@
-// Entries原子批次恢复收据 —— 绑定候选集合、Generation preimage与确定性postimage，
-// 防止Host-Agent把“当前索引碰巧已含候选”误判为本run的中断恢复。
+// The Entries atomic batch recovery receipt: it binds the candidate set, the Generation preimage, and the deterministic postimage,
+// so the Host Agent cannot mistake "the current index happens to hold the candidates already" for an interrupted recovery of this run.
 package mcptools
 
 import (
@@ -268,8 +268,8 @@ func normalizeAtomicRecoveryItems(items []AtomicUpdateItem) ([]normalizedAtomicI
 	return normalized, nil
 }
 
-// UpdateEntriesAtomicRecoveryPending核对当前批次是否仍有完整、可验证的恢复收据。
-// 不存在表示正常完成态；存在但损坏必须显式报错，不能被零写重试吞掉。
+// UpdateEntriesAtomicRecoveryPending checks whether the current batch still has a complete, verifiable recovery receipt.
+// Absence means the normal completed state; presence with corruption must be reported explicitly and never swallowed by a zero-write retry.
 func UpdateEntriesAtomicRecoveryPending(root string, items []AtomicUpdateItem) (bool, error) {
 	normalized, err := normalizeAtomicRecoveryItems(items)
 	if err != nil {
@@ -285,8 +285,8 @@ func UpdateEntriesAtomicRecoveryPending(root string, items []AtomicUpdateItem) (
 	return true, nil
 }
 
-// CompleteUpdateEntriesAtomicRecovery在Application审计成功后清理Host-Agent收据。
-// 审计前中断必须保留收据，下一次同run才能证明no-op确属本批postimage。
+// CompleteUpdateEntriesAtomicRecovery clears the Host Agent receipt after the Application audit succeeds.
+// An interruption before the audit must keep the receipt, so the next run of the same identity can prove the no-op really is this batch's postimage.
 func CompleteUpdateEntriesAtomicRecovery(root string, items []AtomicUpdateItem) error {
 	normalized, err := normalizeAtomicRecoveryItems(items)
 	if err != nil {

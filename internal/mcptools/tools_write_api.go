@@ -1,4 +1,4 @@
-// 单条回写的公共调用面、MCP注册与结果渲染。
+// The public call surface, MCP registration, and result rendering of single-entry write-back.
 package mcptools
 
 import (

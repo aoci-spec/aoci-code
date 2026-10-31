@@ -137,8 +137,8 @@ func planVolumeRemoveEntry(root, objectRef string, _ bool) (*removePlan, *Fail) 
 		guardSet = append(guardSet, cognition.OwnerRoot, cognition.OwnerMeta)
 		guardSet = append(guardSet, loaded.set.DeclaredOrder...)
 	} else {
-		// 别处的 R 仍然指着这个对象不是拒绝理由: 删除会留下悬空的语义标注, 那
-		// 由模型下次读全量索引时自行处置。Impact 只负责算出该锁哪些卷。
+		// An R elsewhere still pointing at this object is no reason to refuse: the removal leaves a dangling semantic annotation, which
+		// the model handles itself the next time it reads the complete index. Impact is only responsible for computing which volumes to lock.
 		impact, impactErr := cognition.ResolveImpact(loaded.set, []cognition.ImpactCandidate{{
 			Change: cognition.ImpactChangeDelete, ObjectRef: objectRef, OriginalCandidateIndex: 1,
 		}})

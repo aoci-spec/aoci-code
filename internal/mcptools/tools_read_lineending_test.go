@@ -1,4 +1,4 @@
-// get_entries换行宽容消费级测试。
+// Consumer-level tests of get_entries line-ending tolerance.
 package mcptools
 
 import (
@@ -12,7 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 )
 
-// TestGetEntriesLineEndingTolerance验证默认宽容、团队严格与真实变化。
+// TestGetEntriesLineEndingTolerance verifies the default tolerance, team strictness, and a real change.
 func TestGetEntriesLineEndingTolerance(
 	t *testing.T,
 ) {
@@ -29,7 +29,7 @@ func TestGetEntriesLineEndingTolerance(
 		"a.go",
 	)
 
-	// 先以LF内容重新建立带NormalizedSHA256的Baseline。
+	// First re-establish a Baseline with NormalizedSHA256 from LF content.
 	if err := os.WriteFile(
 		sourcePath,
 		[]byte("A1\n"),
@@ -60,7 +60,7 @@ func TestGetEntriesLineEndingTolerance(
 		t.Fatal(err)
 	}
 
-	// 只把LF改成CRLF。
+	// Change only LF to CRLF.
 	if err := os.WriteFile(
 		sourcePath,
 		[]byte("A1\r\n"),
@@ -127,7 +127,7 @@ func TestGetEntriesLineEndingTolerance(
 		t.Fatal("未找到get_entries Ledger事件")
 	}
 
-	// 团队显式严格后，同一现场必须恢复STALE。
+	// After the team is explicitly strict, the same scene must return to STALE.
 	cfg.LineEndingTolerance = false
 
 	if err := config.Save(
@@ -161,7 +161,7 @@ func TestGetEntriesLineEndingTolerance(
 		)
 	}
 
-	// 恢复宽容，但制造真实内容变化，仍必须STALE。
+	// Restore tolerance but manufacture a real content change: it must still be STALE.
 	cfg.LineEndingTolerance = true
 
 	if err := config.Save(

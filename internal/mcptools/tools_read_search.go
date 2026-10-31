@@ -1,4 +1,4 @@
-// AOCI索引局部检索与路径名辅助。
+// Local search of the AOCI index and path-name helpers.
 package mcptools
 
 import (

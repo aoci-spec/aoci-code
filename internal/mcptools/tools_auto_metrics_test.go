@@ -1,4 +1,4 @@
-// Auto无变化、小变化与重试路径的正式计量报告。
+// Formal metering reports for the Auto no-change, small-change, and retry paths.
 package mcptools
 
 import (

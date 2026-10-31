@@ -1,4 +1,4 @@
-// D69-2A 原子批量回写测试。
+// D69-2A atomic batch write-back tests.
 package mcptools
 
 import (

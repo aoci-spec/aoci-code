@@ -665,7 +665,7 @@ func buildDatabaseAgentNativeRepo(t *testing.T) (string, map[string][]dbevidence
 		{SourceID: "pgtemp", Engine: dbevidence.EnginePostgreSQL, Database: "postgres", Namespaces: []string{"aoci_d0"}, CredentialEnv: "AOCI_D1_TEST_PG_DSN", ConnectTimeoutSeconds: 10, QueryTimeoutSeconds: 30, Enabled: true},
 		{SourceID: "mysqltemp", Engine: dbevidence.EngineMySQL, Database: "aoci_test", Namespaces: []string{"aoci_test"}, CredentialEnv: "AOCI_D1_TEST_MYSQL_DSN", ConnectTimeoutSeconds: 10, QueryTimeoutSeconds: 30, Enabled: true},
 	}
-	// 混合 100 对象批检验的是上限处的原子写入, 不是默认批量。
+	// The mixed 100-object batch tests atomic writing at the ceiling, not the default batch size.
 	if err := cfg.SetMaintainTransportBudgetBytes(machinecontract.MaintainTransportBudgetBytesMax); err != nil {
 		t.Fatal(err)
 	}

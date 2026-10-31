@@ -1,4 +1,4 @@
-// Auto路径的紧凑机器结果与性能事实。
+// Compact machine results and performance facts of the Auto path.
 package mcptools
 
 import (
@@ -189,9 +189,9 @@ func mustJSONText(value string) string {
 	return string(data)
 }
 
-// autoApplyNextAction从同一结构化终态生成模型可见说明。
-// 条目已在位（重复提交或原样重提）的请求处理成功不等于发生正式写入，必须显式说明Applied=0，
-// 禁止宿主从Attempted或首次应用数量推断本次写入数。
+// autoApplyNextAction generates the model-visible explanation from the same structured terminal state.
+// A successful request whose entries were already in place (a duplicate submission or an unchanged resubmission) is not a formal write, and Applied=0 must be stated explicitly;
+// the host must not infer this call's write count from Attempted or the first-application count.
 func autoApplyNextAction(
 	volumes bool,
 	aligned bool,

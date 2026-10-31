@@ -360,8 +360,8 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryIncomplete, want: modelAttestationPartial, assim: cognitionAssimilationUncertain,
 		},
 		{
-			// 认证测的是消化而非逐字复述: 十题里一处身份失手仍在通过比例内, 且
-			// 身份失手数未超上限。
+			// The attestation tests digestion, not verbatim recital: one identity miss in ten questions is still within the pass ratio, and
+			// the identity miss count does not exceed its ceiling.
 			name: "one identity slip inside the pass ratio",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[5].ObjectIdentity = "internal/pkg/not-seen.go"
@@ -369,8 +369,8 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
 		},
 		{
-			// 身份是唯一没有"复述误差"的离散事实: 两处身份失手即便还在 8/10 之
-			// 内, 也说明序列位置认知有洞, 不得通过。
+			// Identity is the only discrete fact with no "recital error": two identity misses, even within 8/10,
+			// show a hole in the sequence-position cognition and must not pass.
 			name: "two identity misses exceed the identity cap",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[2].ObjectIdentity = "internal/pkg/not-seen-a.go"
@@ -379,8 +379,8 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
-			// 倒挂修正: 诚实声称看全但三题失手, 是 partial 而不是 fail —— 同一组
-			// 答案配上保守的覆盖率声明也只会是 partial, 完整声明不能判得更重。
+			// The inversion fix: honestly claiming full coverage but missing three questions is partial, not fail; the same set of
+			// answers with a conservative coverage claim would also be partial, and a complete claim must not be judged more harshly.
 			name: "complete claim with three misses is partial not fail",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[1].Tag = "WRONG"
@@ -390,7 +390,7 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
-			// F 按语义等价判: 释义与截去尾句都算召回, 掉换成别的职责不算。
+			// F is judged by semantic equivalence: a paraphrase and a dropped last sentence both count as recall, swapping in another responsibility does not.
 			name: "paraphrased and truncated core F still match",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[0].CoreF = "Owns the " + strings.TrimPrefix(report.ChallengeAnswers[0].CoreF, "owns ")
@@ -399,8 +399,8 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPass, assim: cognitionAssimilationComplete,
 		},
 		{
-			// 语义等价不是放水: 只差一个编号的兄弟 F 相似度落在门槛之下, 三处
-			// 这样的错答把通过率拉到 7/10。
+			// Semantic equivalence is not leniency: a sibling F differing by only one number falls below the similarity threshold, and three
+			// such wrong answers pull the pass rate down to 7/10.
 			name: "three sibling core F texts are not recall",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[1].CoreF = "owns responsibility 999"
@@ -427,7 +427,7 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
-			// 顺序是可修正的格式问题, 不是认知缺失: partial, 修正格式后重提。
+			// Order is a correctable format problem, not missing cognition: partial, resubmit after fixing the format.
 			name: "challenge answers reordered",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[3], report.ChallengeAnswers[4] = report.ChallengeAnswers[4], report.ChallengeAnswers[3]
@@ -435,7 +435,7 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 			hostStatus: hostDeliveryConfirmed, want: modelAttestationPartial, assim: cognitionAssimilationPartial,
 		},
 		{
-			// Tag 保持精确匹配, 但一处 Tag 失手只计入通过比例。
+			// Tag keeps exact matching, but one Tag miss only counts toward the pass ratio.
 			name: "object exists but one tag is wrong",
 			mutate: func(report *overviewModelAttestation) {
 				report.ChallengeAnswers[4].Tag = "WRONG"

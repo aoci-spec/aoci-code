@@ -9,7 +9,7 @@ import (
 )
 
 // (from internal/mcptools/tools_maintain_test.go)
-// maintainResultText提取MCP纯文本结果。
+// maintainResultText extracts the MCP plain-text result.
 func maintainResultText(
 	t *testing.T,
 	result *mcp.CallToolResult,

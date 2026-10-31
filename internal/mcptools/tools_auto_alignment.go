@@ -1,4 +1,4 @@
-// MCP原子Apply后的轻量治理终态复查。
+// The lightweight governance terminal-state recheck after an MCP atomic Apply.
 package mcptools
 
 import (
