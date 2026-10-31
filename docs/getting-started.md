@@ -62,9 +62,10 @@ candidate in the complete current machine-issued batch through
 `aoci_update_entry`, and finishes with Verify, Check, and Guide. Repeat Maintain
 only when a successful batch reports remaining work.
 
-`status --deep` and `index score` are Legacy-only read commands. They are not
-the Fresh/Volumes onboarding or maintenance path; a Legacy repository is
-read-only since 0.2.0 and migrates with `aoci cognition onboard start --json`.
+`status --deep` is a Legacy-only read command, and `index score` reads both
+layouts as a quality readout. Neither is the Fresh/Volumes onboarding or
+maintenance path; a Legacy repository is read-only since 0.2.0 and migrates
+with `aoci cognition onboard start --json`.
 
 ## Choose an execution mode
 

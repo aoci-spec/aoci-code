@@ -7,6 +7,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- `index score` reads a Cognition Volumes repository. Its nine dimensions
+  keep their names and JSON shape; on Volumes they are projected from the
+  governance facts `verify` and `check` report, so coverage and freshness
+  count the Code drift (a held source is reported, never counted), token is
+  the Whole-Index budget, escale is the E scale audit, and Code and Database
+  objects are judged under their own Meta dictionaries. The JSON adds
+  `layout`, `volumes`, and `budget`; a Legacy score is byte for byte what it
+  was. `status --deep` stays Legacy-only.
 - A quarterly dependency review joins the run-by-name ladder
   (`dependency-review`, the new `quarterly` cadence, overdue after 92 days).
   `scripts/dependency-review.sh` is a read-only report: the go directive

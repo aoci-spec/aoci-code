@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 18 (dependency review): make fast green (make-fast-dep.txt)"
+    "evidence": "item 11 (index score on Volumes): make fast green (make-fast-score2.txt), full internal/cli suite green (cli-tests-score.txt)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "item 18 (dependency review): scan clean over 303 files"
+    "evidence": "item 11 (index score on Volumes): scan clean over 303 files"
    }
   },
   {

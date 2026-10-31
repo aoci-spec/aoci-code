@@ -40,11 +40,14 @@ machine-issued batch and submits it through `aoci_update_entry`; a successful
 non-final batch returns to Maintain, and the final batch closes with Verify,
 Aggregate Check, and Guide.
 
-`status --deep` and `index score` remain Legacy-only read commands. They must
-not be used as fallback maintenance commands for a Volumes repository. Existing
-Legacy repositories keep those reads and the migration route and are otherwise
-read-only since 0.2.0; this compatibility does not make Legacy the Fresh
-default.
+`status --deep` remains a Legacy-only read command. `index score` reads both
+layouts: on a Volumes repository its nine dimensions are projected from the
+governance facts Verify and Check report (coverage and freshness from the Code
+drift, token from the Whole-Index budget, escale from the E scale audit), and
+its JSON adds `layout`, `volumes`, and `budget`. Neither is a maintenance
+command for a Volumes repository. Existing Legacy repositories keep those reads
+and the migration route and are otherwise read-only since 0.2.0; this
+compatibility does not make Legacy the Fresh default.
 
 The four responsibilities are deliberately singular:
 

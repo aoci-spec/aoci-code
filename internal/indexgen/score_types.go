@@ -71,7 +71,17 @@ type Score struct {
 	Drift           DriftSummary            `json:"drift"`
 	ManagedScope    ManagedScopeSummary     `json:"managed_scope"`
 	CognitionBudget *cognitionbudget.Report `json:"cognition_budget,omitempty"`
+	// Layout, Volumes, and Budget are set by the Volumes score only, so a
+	// Legacy score keeps its exact bytes: the layout name, every formal asset
+	// with its digest, and the Whole-Index budget the facts measured.
+	Layout  string               `json:"layout,omitempty"`
+	Volumes []VolumeAssetSummary `json:"volumes,omitempty"`
+	Budget  *VolumeScoreBudget   `json:"budget,omitempty"`
 }
+
+// ScoreSampleLimit is the per-dimension sample limit of an ordinary score;
+// --dim passes 0 for the complete list.
+const ScoreSampleLimit = scoreSampleLimit
 
 type sampleSink struct {
 	limit int

@@ -89,6 +89,14 @@ their contracts. The Managed Scope transaction is the one path that still
 edits a Legacy index document: a disposition retires an Entry, and a stale
 Index source still needs its source-bound Entry candidate there.
 
+`index score` reads both layouts. On a Volumes v1 repository its nine
+dimensions are projected from the shared governance facts: coverage and
+freshness count the Code drift Verify reports (a held source is reported,
+never counted), token is the Whole-Index budget, escale is the E scale audit,
+and Code and Database objects are judged under their own Meta dictionaries.
+Its JSON keeps the Legacy shape and adds `layout`, `volumes`, and `budget`;
+a Legacy score is unchanged.
+
 Onboarding results name their continuation. Under `--json`, `cognition
 onboard start`, `status`, `resume`, `next`, `preview`, `apply`, and a
 policy-bound `prepare` add `next_commands`: the commands that continue the

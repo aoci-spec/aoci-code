@@ -31,7 +31,7 @@ func TestPublicDocumentationRoutesVolumesAndReleaseVerification(t *testing.T) {
 		filepath.Join("docs", "getting-started.md"): {
 			"Fresh initialization uses Code-only Cognition Volumes",
 			"calls ordinary no-argument `aoci_maintain`",
-			"`status --deep` and `index score` are Legacy-only read commands",
+			"`status --deep` is a Legacy-only read command, and `index score` reads both",
 		},
 		filepath.Join("docs", "cognition-volumes.md"): {
 			"Fresh initialization now creates a semantic-",

@@ -412,10 +412,11 @@ batch, submit that batch through `aoci_update_entry`, and finish with Verify,
 Check, and Guide. Do not infer recovery solely from old logs or documentation;
 the Guide is bound to current repository evidence.
 
-`status --deep` and `index score` read Legacy repositories only. A
-`volume_read_only` response from one of those commands means the command is
-not the Volumes route; it does not by itself prove that the CLI and running MCP
-Server have different versions. The converse answer,
+`status --deep` reads Legacy repositories only; `index score` reads both
+layouts, and on a Volumes repository its numbers are the ones `verify`
+reports. A `volume_read_only` response from `status --deep` means the command
+is not the Volumes route; it does not by itself prove that the CLI and running
+MCP Server have different versions. The converse answer,
 `legacy_read_only_migrate_required` from a write tool, means the repository is
 still the Legacy layout: migrate with `aoci cognition onboard start --json`
 and its `next_commands`; `docs/upgrading.md` walks through every step.

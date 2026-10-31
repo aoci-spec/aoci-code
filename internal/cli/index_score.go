@@ -1,10 +1,13 @@
-// 索引条目: index_score.go[CIX7O]
-// 职责: `aoci index score` 子命令 —— 九维度索引质量评分的用户入口。
-// 独立成文件的原因: index.go 曾超 600 行软限,新命令不再往里加;
-// 本文件仅含构造函数,由 index.go 的 init() 一行接线挂载。
+// `aoci index score`: the user entry to the nine-dimension index quality
+// score. A Legacy index is scored by indexgen.BuildScore over its document;
+// a Cognition Volumes repository by indexgen.BuildVolumeScore over the loaded
+// set and the governance facts Verify and Check report, so the two layouts
+// print the same dimensions and the Volumes numbers equal verify's. The
+// rendering is shared. index.go wires the command in its init().
 //
-// tagparse 是第九维: 只让 ValidateEntryLineWith 已发现的“标签不可解析”Warning
-// 在 score 中可见,不改变 Warning 级别,也不自动成为 check 的提交阻断项。
+// tagparse is the ninth dimension: it only exposes the unparseable-tag
+// Warning ValidateEntryLineWith already found, without changing the Warning
+// level or making it a check blocker.
 package cli
 
 import (
@@ -14,9 +17,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/indexgen"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
 
@@ -63,20 +68,31 @@ func newIndexScoreCmd() *cobra.Command {
 				}
 			}
 
-			doc, _, err := loadIndexForCLI(cmd, repoRoot, cfg)
+			set, err := loadCognitionSetForCLI(repoRoot, cfg)
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Err: err}
 			}
+			if len(set.Warnings) > 0 {
+				fmt.Fprintln(cmd.ErrOrStderr(), cliMessage("inventory.parse_warnings", len(set.Warnings)))
+			}
 
 			start := time.Now()
-			var score *indexgen.Score
-			if dimName == "" {
-				score, err = indexgen.BuildScore(repoRoot, cfg, doc)
-			} else {
-				score, err = indexgen.BuildScoreWithLimit(repoRoot, cfg, doc, 0)
+			sampleLimit := indexgen.ScoreSampleLimit
+			if dimName != "" {
+				sampleLimit = 0
 			}
-			if err != nil {
-				return &ExitError{Code: ExitInternal, Err: err}
+			var score *indexgen.Score
+			if set.LayoutMode == cognition.LayoutVolumesV1 {
+				facts, factsErr := volumegovernance.Assess(repoRoot, cfg, set)
+				if factsErr != nil {
+					return &ExitError{Code: ExitInvalid, Err: factsErr}
+				}
+				score = indexgen.BuildVolumeScore(set, facts.ScoreInput(cfg, volumegovernance.AssessEScale(repoRoot, set)), sampleLimit)
+			} else {
+				score, err = indexgen.BuildScoreWithLimit(repoRoot, cfg, set.Root.Document, sampleLimit)
+				if err != nil {
+					return &ExitError{Code: ExitInternal, Err: err}
+				}
 			}
 
 			ledger.Append(repoRoot, cfg.LedgerEnabled, ledger.Event{

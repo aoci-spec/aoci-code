@@ -45,13 +45,9 @@ func loadIndexForCLI(
 		cfg.IndexPath,
 	)
 
-	set, err := cognition.Load(repoRoot, cfg.IndexPath)
+	set, err := loadCognitionSetForCLI(repoRoot, cfg)
 	if err != nil {
-		var pathErr *os.PathError
-		if errors.As(err, &pathErr) {
-			return nil, "", errors.New(cliMessage("inventory.index_read_error", err))
-		}
-		return nil, "", fmt.Errorf("%s", cliMessage("mcp.error.cognition_invalid", localeSafeCLIDetail(err.Error())))
+		return nil, "", err
 	}
 	if set.LayoutMode == cognition.LayoutVolumesV1 {
 		return nil, "", fmt.Errorf("%s", cliMessage("mcp.error.volume_read_only"))
@@ -60,6 +56,21 @@ func loadIndexForCLI(
 		fmt.Fprintln(cmd.ErrOrStderr(), cliMessage("inventory.parse_warnings", len(set.Warnings)))
 	}
 	return set.Root.Document, indexPath, nil
+}
+
+// loadCognitionSetForCLI loads the repository's cognition for a read command
+// with the CLI's error wording; which layouts the command reads is the
+// caller's decision.
+func loadCognitionSetForCLI(repoRoot string, cfg *config.Config) (*cognition.Set, error) {
+	set, err := cognition.Load(repoRoot, cfg.IndexPath)
+	if err != nil {
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) {
+			return nil, errors.New(cliMessage("inventory.index_read_error", err))
+		}
+		return nil, fmt.Errorf("%s", cliMessage("mcp.error.cognition_invalid", localeSafeCLIDetail(err.Error())))
+	}
+	return set, nil
 }
 
 func newIndexInventoryCmd() *cobra.Command {

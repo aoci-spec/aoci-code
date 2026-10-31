@@ -16,10 +16,11 @@ func requireLegacyWriteLayout(root string, cfg *config.Config, allowMissing bool
 	return requireLegacyLayout(root, cfg, allowMissing)
 }
 
-// requireLegacyLayout is the same precondition for read-only paths the public
-// documents already declare Legacy-only -- status --deep and index score. They
-// used to run against a Volumes repository and report something undefined
-// instead of naming the layout, so the document and the binary disagreed.
+// requireLegacyLayout is the same precondition for the read-only path the
+// public documents declare Legacy-only, status --deep. It used to run against
+// a Volumes repository and report something undefined instead of naming the
+// layout, so the document and the binary disagreed. index score reads both
+// layouts since 0.2.0-rc2 and judges the layout itself.
 func requireLegacyLayout(root string, cfg *config.Config, allowMissing bool) error {
 	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(cfg.IndexPath)))
 	if err != nil {
