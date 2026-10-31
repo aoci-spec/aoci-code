@@ -1,4 +1,4 @@
-// R65-04B最终CLI Long Help接线与重复事实源清除测试。
+// Tests of the R65-04B final CLI Long Help wiring and the removal of duplicate sources of truth.
 package cli
 
 import (

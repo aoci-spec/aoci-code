@@ -1,19 +1,19 @@
-// aoci verify —— 只读四态事实、换行等价信息、文件级策展解释和治理终态校验。
+// aoci verify: the read-only four states, line-ending equivalence information, file-level curation explanation, and the governance terminal-state check.
 //
-// 纪律:
-//   - 绝不刷新Baseline或修改正式索引;
-//   - Result.Missing永远保留baseline.Detect原始物理事实;
-//   - RawMissing是Result.Missing的规范顶层别名，便于机器消费者直接区分原始事实;
-//   - Missing互斥分为Actionable/CurationExcluded/Skipped三组;
-//   - Included是Actionable子集，Pending是Skipped子集;
-//   - 原始事实与治理债务分层:
-//     原始Missing即使已经exclude，仍保留在Result.Missing和RawMissing中;
-//     退出码只由尚未解决的Actionable、Pending、Orphan、Stale和Unbaselined决定;
-//   - CurationExcluded与非Pending技术跳过属于已解释负空间，不导致exit 1;
-//   - LineEndingOnly表示原始字节不同但CRLF/LF规范化指纹相同，
-//     仅在团队line_ending_tolerance=true时出现，不计Stale与治理债务;
-//   - 每次运行落verify_history快照，失败只警告;
-//   - Ledger的exit_code与最终未解决治理债务判据同源。
+// Discipline:
+//   - never refreshes the Baseline or changes the formal index;
+//   - Result.Missing always keeps the raw physical fact of baseline.Detect;
+//   - RawMissing is the canonical top-level alias of Result.Missing, so machine consumers can tell the raw fact apart directly;
+//   - Missing splits exclusively into the three groups Actionable/CurationExcluded/Skipped;
+//   - Included is a subset of Actionable, Pending a subset of Skipped;
+//   - raw facts and governance debt are layered:
+//     a raw Missing, even when already excluded, stays in Result.Missing and RawMissing;
+//     the exit code is decided only by the unresolved Actionable, Pending, Orphan, Stale, and Unbaselined;
+//   - CurationExcluded and non-Pending technical skips are explained negative space and do not cause exit 1;
+//   - LineEndingOnly means the raw bytes differ but the CRLF/LF-normalized fingerprints agree;
+//     it appears only when the team line_ending_tolerance=true, and counts as neither Stale nor governance debt;
+//   - every run lands a verify_history snapshot, and a failure there only warns;
+//   - the Ledger's exit_code and the final unresolved governance debt criterion share one source.
 package cli
 
 import (
@@ -37,12 +37,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// verifyReport是verify的人读、JSON与历史快照统一模型。
+// verifyReport is verify's unified model for the human-readable report, the JSON, and the history snapshot.
 //
-// Result保留baseline.Detect原始事实和LineEndingOnly信息态；
-// RawMissing是Result.Missing的规范顶层机器字段，二者必须始终完全一致；
-// 其余字段表达治理解释。
-// 消费方不得用len(Result.Missing)或len(RawMissing)单独判断仓库是否已经治理完成。
+// Result keeps the raw facts of baseline.Detect and the LineEndingOnly informational state;
+// RawMissing is the canonical top-level machine field for Result.Missing, and the two must always agree exactly;
+// the remaining fields express the governance explanation.
+// A consumer must not judge whether the repository's governance is complete by len(Result.Missing) or len(RawMissing) alone.
 type verifyReport struct {
 	Root                    string                       `json:"root"`
 	IndexEntries            int                          `json:"index_entries"`
@@ -416,9 +416,9 @@ func volumeObjectCount(set *cognition.Set) int {
 	return count
 }
 
-// verifyRawDriftCount返回baseline.Detect原始四态数量。
+// verifyRawDriftCount returns the count of baseline.Detect's raw four states.
 //
-// LineEndingOnly是信息态，不属于原始四态，也不计入该数字。
+// LineEndingOnly is informational, not one of the raw four states, and does not count toward this number.
 func verifyRawDriftCount(
 	report *verifyReport,
 ) int {
@@ -427,13 +427,13 @@ func verifyRawDriftCount(
 		return 0
 	}
 
-	// 无条目且不在 Baseline 的文件同时出现在 Missing 与 Unbaselined,按路径去重。
+	// A file without an entry and outside the Baseline appears in both Missing and Unbaselined; deduplicate by path.
 	return len(uniquePaths(report.Result.Missing, report.Result.Stale, report.Result.Unbaselined)) +
 		len(report.Result.Orphan)
 }
 
-// uniquePaths 返回各表并集里的路径数(去重);Missing 与 Unbaselined 对 scan 后新增
-// 的文件重叠,逐表相加会把它算两次。
+// uniquePaths returns the number of paths in the union of the tables (deduplicated); Missing and Unbaselined overlap on files added
+// after scan, and adding table by table would count them twice.
 func uniquePaths(lists ...[]string) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -448,15 +448,15 @@ func uniquePaths(lists ...[]string) []string {
 	return out
 }
 
-// verifyUnresolvedDriftCount返回尚未解决的治理债务数量。
+// verifyUnresolvedDriftCount returns the count of unresolved governance debt.
 //
-// Missing只统计Actionable与Pending：
-//   - Included已经属于Actionable，不得重复相加；
-//   - CurationExcluded是已经完成的负空间裁决；
-//   - 非Pending技术跳过是已解释状态，不自动构成治理任务。
+// Missing counts only Actionable and Pending:
+//   - Included already belongs to Actionable and must not be added again;
+//   - CurationExcluded is a completed negative-space decision;
+//   - a non-Pending technical skip is an explained state and does not form a governance task by itself.
 //
-// Orphan、Stale与Unbaselined仍是未解决事实。
-// LineEndingOnly仅为表示层差异，不构成治理债务。
+// Orphan, Stale, and Unbaselined remain unresolved facts.
+// LineEndingOnly is only a representation difference and forms no governance debt.
 func verifyUnresolvedDriftCount(
 	report *verifyReport,
 ) int {
@@ -468,8 +468,8 @@ func verifyUnresolvedDriftCount(
 		len(report.PendingCurationMissing)
 
 	if report.Result != nil {
-		// Unbaselined 里已被 Missing 覆盖的路径(scan 后新增的文件)不再计一次:
-		// 它要么已在 Actionable/Pending 里,要么是已裁决的负空间。
+		// A path in Unbaselined already covered by Missing (a file added after scan) is not counted again:
+		// it is either already in Actionable/Pending, or decided negative space.
 		missing := map[string]bool{}
 		for _, rel := range report.Result.Missing {
 			missing[rel] = true
@@ -497,8 +497,8 @@ func verifyUnresolvedDriftCount(
 	return total
 }
 
-// collectCurationExcludedMissing保留旧包内调用与顺序契约。
-// 新生产路径统一使用BuildMissingClassification；本函数仅供兼容测试。
+// collectCurationExcludedMissing keeps the old in-package call and ordering contract.
+// New production paths all use BuildMissingClassification; this function serves compatibility tests only.
 func collectCurationExcludedMissing(
 	cfg *config.Config,
 	missing []string,

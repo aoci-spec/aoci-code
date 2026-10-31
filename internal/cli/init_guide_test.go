@@ -1,4 +1,4 @@
-// init完整索引Guide发现与automation.mode提示测试。
+// Tests of init's complete-index Guide discovery and automation.mode hint.
 package cli
 
 import (

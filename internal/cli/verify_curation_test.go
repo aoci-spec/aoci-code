@@ -1,4 +1,4 @@
-// verify策展型Missing的事实层与治理终态测试。
+// Tests of the fact layer and governance terminal state of verify's curation-type Missing.
 package cli
 
 import (
@@ -13,10 +13,10 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 )
 
-// buildVerifyCurationRepo 构造已经由团队策略排除docs/x.md的仓库。
+// buildVerifyCurationRepo builds a repository where docs/x.md is already excluded by the team policy.
 //
-// withActionable=true时额外加入src/main.go普通Missing，用于验证：
-// 原始Missing完整保留，但只有尚未解决的普通Missing触发ExitDrift。
+// withActionable=true also adds the ordinary Missing src/main.go, to verify that
+// the raw Missing is fully kept while only the unresolved ordinary Missing triggers ExitDrift.
 func buildVerifyCurationRepo(
 	t *testing.T,
 	withActionable bool,

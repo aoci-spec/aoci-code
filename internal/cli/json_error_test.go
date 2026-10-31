@@ -1,4 +1,4 @@
-// 根层JSON失败信封、领域机器码透传、已有业务JSON防重复和MCP旁路测试。
+// Tests of the root-layer JSON failure envelope, domain machine-code pass-through, no duplication of existing business JSON, and the MCP bypass.
 package cli
 
 import (
@@ -66,10 +66,10 @@ func TestFinishBufferedExecutionWritesJSONErrorEnvelope(
 	}
 }
 
-// TestFinishBufferedExecutionPreservesMachineErrorCode锁定领域码与退出码分层。
+// TestFinishBufferedExecutionPreservesMachineErrorCode locks the layering of the domain code and the exit code.
 //
-// write_conflict仍使用ExitConfig=3作为进程退出码，但JSON机器分类必须保留
-// 精确领域码，不能仅依据数字3降级成config。
+// write_conflict still uses ExitConfig=3 as the process exit code, but the JSON machine classification must keep
+// the exact domain code and must not degrade to config merely from the number 3.
 func TestFinishBufferedExecutionPreservesMachineErrorCode(
 	t *testing.T,
 ) {

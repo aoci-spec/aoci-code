@@ -1,7 +1,7 @@
-// `aoci index`命令组挂载、Inventory和共用索引读取原语。
+// The `aoci index` command group mounting, Inventory, and the shared index reading primitives.
 //
-// Build实现位于index_build.go。
-// AI客户端与超时辅助位于index_ai_helpers.go。
+// The Build implementation lives in index_build.go.
+// The AI client and timeout helpers live in index_ai_helpers.go.
 package cli
 
 import (

@@ -1,4 +1,4 @@
-// D69 init 新仓/旧仓自动化模式兼容测试。
+// D69 init new-repository/old-repository automation mode compatibility tests.
 package cli
 
 import (
@@ -72,7 +72,7 @@ func TestFreshVolumeInitDoesNotEnterLegacyOnboarding(t *testing.T) {
 func TestInitExistingLegacyConfigPreserved(t *testing.T) {
 	root := t.TempDir()
 
-	// 模拟升级前旧仓: config.json 已存在但无 automation 字段。
+	// Simulate an old repository from before the upgrade: config.json exists but has no automation field.
 	if err := config.Save(root, legacyTestConfig()); err != nil {
 		t.Fatal(err)
 	}

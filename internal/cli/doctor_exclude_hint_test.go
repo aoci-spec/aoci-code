@@ -1,10 +1,10 @@
-// A2 存量仓排除缺项提示判决测试(missingTechnicalExcludeDirs 纯函数级)。
+// Verdict tests of the A2 existing-repository exclusion missing-item hint (at the pure-function level of missingTechnicalExcludeDirs).
 //
-// 判决:
-//  1. 显式短清单 → 缺项列表含新默认技术产物项;
-//  2. exclude_dirs 键未声明 → 零缺项(Load 回填默认,直接对比会误报的防线);
-//  3. 显式清单已含全部默认项 → 零缺项;
-//  4. config.json 不存在 → 零缺项(不重复报告)。
+// The verdict:
+//  1. an explicit short list → the missing list holds the new default technical artifact items;
+//  2. the exclude_dirs key not declared → zero missing (Load fills the defaults; the defence against the misreport a direct comparison would give);
+//  3. an explicit list already holding every default item → zero missing;
+//  4. config.json missing → zero missing (no duplicate report).
 package cli
 
 import (
@@ -30,7 +30,7 @@ func writeDoctorHintConfig(t *testing.T, root, content string) {
 }
 
 func TestMissingTechnicalExcludeDirs(t *testing.T) {
-	// 判决1: 显式短清单 → 报缺项
+	// Verdict 1: an explicit short list → missing items reported
 	root := t.TempDir()
 	writeDoctorHintConfig(t, root,
 		`{"version":1,"exclude_dirs":["node_modules"]}`+"\n")
@@ -45,14 +45,14 @@ func TestMissingTechnicalExcludeDirs(t *testing.T) {
 		}
 	}
 
-	// 判决2: 键未声明 → 零缺项(误报防线)
+	// Verdict 2: the key not declared → zero missing (the misreport defence)
 	root2 := t.TempDir()
 	writeDoctorHintConfig(t, root2, `{"version":1}`+"\n")
 	if got := missingTechnicalExcludeDirs(root2); len(got) != 0 {
 		t.Fatalf("键未声明时不得报缺项(Load 已回填默认): %v", got)
 	}
 
-	// 判决3: 显式清单已含全部默认项 → 零缺项
+	// Verdict 3: the explicit list already holds every default item → zero missing
 	root3 := t.TempDir()
 	cfg := legacyTestConfig()
 	if err := os.MkdirAll(
@@ -77,7 +77,7 @@ func TestMissingTechnicalExcludeDirs(t *testing.T) {
 		t.Fatalf("new-project root exclusions must satisfy the doctor hint: %v", got)
 	}
 
-	// 判决4: config.json 不存在 → 零缺项
+	// Verdict 4: config.json missing → zero missing
 	root4 := t.TempDir()
 	if got := missingTechnicalExcludeDirs(root4); len(got) != 0 {
 		t.Fatalf("无配置文件不得报缺项: %v", got)

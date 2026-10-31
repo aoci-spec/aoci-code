@@ -1,12 +1,12 @@
-// aoci status —— 对齐状态一行速览。
+// aoci status: a one-line glance at the alignment state.
 //
-// 纪律:
-//   - 默认模式保持毫秒级纯读，不计算全仓文件指纹;
-//   - --deep才采集当前快照并计算四态差集;
-//   - --deep必须与Verify、Score和Check共同消费团队line_ending_tolerance;
-//   - LineEndingOnly只作为信息计数展示，不计Stale;
-//   - Baseline缺失时提示先建立Baseline;
-//   - 本命令不修改正式索引或Baseline。
+// Discipline:
+//   - the default mode stays a millisecond-level pure read and computes no whole-repository file fingerprints;
+//   - only --deep collects the current snapshot and computes the four-state differences;
+//   - --deep must consume the team line_ending_tolerance together with Verify, Score, and Check;
+//   - LineEndingOnly is shown only as an informational count and does not count as Stale;
+//   - a missing Baseline prompts to establish the Baseline first;
+//   - this command does not change the formal index or the Baseline.
 package cli
 
 import (
@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// statusReport是status --json的稳定输出模型。
+// statusReport is the stable output model of status --json.
 type statusReport struct {
 	Root              string            `json:"root"`
 	IndexEntries      int               `json:"index_entries"`
@@ -41,11 +41,11 @@ type statusReport struct {
 	CompositeIdentity string            `json:"composite_identity,omitempty"`
 	VolumeStates      map[string]string `json:"volume_states,omitempty"`
 
-	// Deep只在--deep模式下在场。
+	// Deep is present only in --deep mode.
 	Deep *deepCounts `json:"deep,omitempty"`
 }
 
-// deepCounts是--deep现算的四态与换行信息态计数。
+// deepCounts are the four-state and line-ending informational counts --deep computes live.
 type deepCounts struct {
 	Missing               int                     `json:"missing"`
 	Orphan                int                     `json:"orphan"`
@@ -101,7 +101,7 @@ func init() {
 				RecentOps: []string{},
 			}
 
-			// 索引条目数。索引缺失时保持0，由输出提示init。
+			// The index entry count. With the index missing it stays 0, and the output prompts init.
 			if set, readErr := cognition.Load(root, cfg.IndexPath); readErr == nil {
 				report.IndexEntries = set.Root.ObjectCount
 				if set.LayoutMode == cognition.LayoutVolumesV1 {
@@ -124,7 +124,7 @@ func init() {
 				}
 			}
 
-			// Baseline概况。默认模式只读取元数据，不重新哈希仓库。
+			// The Baseline overview. The default mode reads only metadata and does not re-hash the repository.
 			baselineValue, exists, loadErr := baseline.Load(root)
 			if loadErr != nil {
 				return &ExitError{
@@ -142,7 +142,7 @@ func init() {
 					baselineValue.UpdatedAt
 			}
 
-			// 最近一次Verify快照。紧凑时间戳文件名字典序即时间序。
+			// The latest Verify snapshot. The compact timestamp filenames sort lexically in time order.
 			if entries, readErr := os.ReadDir(
 				paths.VerifyHistoryDir,
 			); readErr == nil &&
@@ -326,11 +326,11 @@ func init() {
 	registerCommand(command)
 }
 
-// buildStatusDeepCounts计算status --deep使用的统一漂移计数。
+// buildStatusDeepCounts computes the unified drift counts status --deep uses.
 //
-// 它与Verify和Score共用baseline.DetectWith及团队换行策略。
-// 命令入口先拒绝无法读取或损坏的Baseline；
-// 本辅助函数不重建或修改任何资产。
+// It shares baseline.DetectWith and the team line-ending policy with Verify and Score.
+// The command entry refuses an unreadable or corrupt Baseline first;
+// this helper rebuilds or changes no asset.
 func buildStatusDeepCounts(
 	root string,
 	indexPath string,
@@ -388,7 +388,7 @@ func buildStatusDeepCounts(
 	}, nil
 }
 
-// countJSONLLines统计JSONL文件中的非空行；文件缺失返回0。
+// countJSONLLines counts the non-empty lines of a JSONL file; a missing file returns 0.
 func countJSONLLines(path string) int {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -408,7 +408,7 @@ func countJSONLLines(path string) int {
 	return count
 }
 
-// splitLines按LF拆行并剥离行尾CR。
+// splitLines splits on LF and strips the trailing CR of each line.
 func splitLines(text string) []string {
 	lines := []string{}
 	start := 0

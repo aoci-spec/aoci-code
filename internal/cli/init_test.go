@@ -1,26 +1,26 @@
-// aoci init 基线前移测试: 三条设计裁决的回归防线(v2.6 悬账 P1-3,D51 同族)
-// + P-04 防呆三防线(裸目录--here/agent白名单/hooks支持边界明示)。
-// 索引条目待补: init_test.go
+// aoci init baseline advance tests: the regression defences of three design decisions (the v2.6 pending P1-3, the D51 family)
+// plus the three P-04 foolproofing defences (bare directory --here / the agent allowlist / the explicit hooks support boundary).
+// Index entry pending: init_test.go
 //
-// 锁定行为:
+// Locked behaviour:
 //
-//	一、前移: 基线已存在时,init 本轮新写入的文件(如 .codex/config.toml)
-//	    其指纹进入基线,不自造 Unbaselined 漂移;
-//	二、无基线不动: 全新仓 init 后基线文件不存在 —— 全量承认是 aoci scan
-//	    的职权,init 绝不越权建基线;
-//	三、防洗白: 外部修改过的文件在 init 幂等跳过时(写前写后指纹一致)
-//	    绝不前移 —— 外部漂移必须存活到 verify,init 只承认自己的写入;
-//	四、裸目录硬拒(P-04): 定位失败且无 --here 时 ExitConfig 且零写入 ——
-//	    clone 失败后误把父目录初始化成仓的事故防线;--here 显式放行;
-//	五、agent 白名单(P-04): 拼错的 --agent 值 ExitConfig 且零写入;
-//	六、hooks 支持边界(P-04): codex+--hooks 必须真实安装压缩生命周期接入。
+//	one, advance: with an existing baseline, the files init writes this round (such as .codex/config.toml)
+//	    get their fingerprints into the baseline, without manufacturing Unbaselined drift;
+//	two, no baseline, no move: after init in a brand-new repository the baseline file does not exist; acknowledging everything is
+//	    the authority of aoci scan, and init never oversteps to create a baseline;
+//	three, no whitewash: an externally changed file that init skips as idempotent (fingerprints equal before and after the write)
+//	    never advances; external drift must survive to verify, and init acknowledges only its own writes;
+//	four, bare directory hard refusal (P-04): location fails and no --here means ExitConfig with zero writes,
+//	    the defence against the incident of initializing the parent directory as a repository after a failed clone; --here passes explicitly;
+//	five, the agent allowlist (P-04): a misspelled --agent value means ExitConfig with zero writes;
+//	six, the hooks support boundary (P-04): codex plus --hooks must really install the compaction lifecycle integration.
 //
-// 测试工程纪律: 每次 init 都经 runCLI/runCLIBare 走一次完整的进程级调用
-// (根 flag 与命令 flag 全部复位、locale 跟随仓库配置),用例之间不共享任何
-// 包级状态;--here 在 runInit 路径(--repo 定根,定位恒成功)无效果,仅裸目录
-// 辅助 runInitBare 才真正被测。
-// stdout 断言(用例六): RunE 的用户输出走 fmt.Println(os.Stdout)而非 cobra
-// out writer,须经 runCLIPrinted 截获进程 stdout —— cmd.SetOut 看不见它。
+// Test engineering discipline: every init goes through runCLI/runCLIBare as one complete process-level invocation
+// (root flags and command flags all reset, locale following the repository configuration), and no package-level state is shared
+// between cases; --here has no effect on the runInit path (--repo fixes the root, and location always succeeds), and only the bare-directory
+// helper runInitBare really tests it.
+// stdout assertions (case six): RunE's user output goes through fmt.Println(os.Stdout) rather than the cobra
+// out writer, and must be captured from the process stdout through runCLIPrinted; cmd.SetOut cannot see it.
 package cli
 
 import (
@@ -36,15 +36,15 @@ import (
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
 
-// runInit 执行一次安静的 `aoci init`,返回两路输出与按退出码构造的错误。
-// 每次调用都从默认 flag 出发,显式传入的 --agent/--hooks 只是在陈述被测用例。
+// runInit runs one quiet `aoci init` and returns both outputs and an error built from the exit code.
+// Every call starts from the default flags; the --agent/--hooks passed explicitly only state the case under test.
 func runInit(t *testing.T, root string, args ...string) (string, error) {
 	t.Helper()
 	stdout, stderr, code := runCLI(t, root, append([]string{"--quiet", "init"}, args...)...)
 	return stdout + stderr, exitError(stderr, code)
 }
 
-// runInitBare 在裸目录(不传 --repo + Chdir)执行 init,走真实定位链(P-04 被测面)。
+// runInitBare runs init in a bare directory (no --repo, with Chdir), through the real location chain (the P-04 surface under test).
 func runInitBare(t *testing.T, dir string, args ...string) (string, error) {
 	t.Helper()
 	t.Chdir(dir)
@@ -52,8 +52,8 @@ func runInitBare(t *testing.T, dir string, args ...string) (string, error) {
 	return stdout + stderr, exitError(stderr, code)
 }
 
-// seedBaseline 以给定相对路径集的当前磁盘指纹建立基线(测试内的 scan 等价件,
-// 不走 scan 命令 —— 隔离被测面,基线内容完全受控)。返回各文件落入基线的指纹。
+// seedBaseline establishes a baseline from the current on-disk fingerprints of the given relative path set (the test's equivalent of scan,
+// not through the scan command, isolating the surface under test with fully controlled baseline content). It returns each file's fingerprint in the baseline.
 func seedBaseline(t *testing.T, root string, rels []string) map[string]string {
 	t.Helper()
 	files := map[string]baseline.Fingerprint{}
@@ -72,7 +72,7 @@ func seedBaseline(t *testing.T, root string, rels []string) map[string]string {
 	return hashes
 }
 
-// TestInitNoBaselineNoAdvance 无基线不动: 全新仓 init 后基线文件不存在。
+// TestInitNoBaselineNoAdvance, no baseline, no move: after init in a brand-new repository the baseline file does not exist.
 func TestInitNoBaselineNoAdvance(t *testing.T) {
 	root := t.TempDir()
 	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
@@ -166,8 +166,8 @@ func TestFreshVolumeInitAllowsFirstManagedScan(t *testing.T) {
 	}
 }
 
-// TestInitAgentInstallAdvancesBaseline 前移: 基线存在时接入 codex,
-// .codex/config.toml 进入基线且指纹与磁盘一致;未触及的 AGENTS.md 保持原值。
+// TestInitAgentInstallAdvancesBaseline, advance: with an existing baseline, integrating codex puts
+// .codex/config.toml into the baseline with its fingerprint matching the disk; the untouched AGENTS.md keeps its original value.
 func TestInitAgentInstallAdvancesBaseline(t *testing.T) {
 	root := t.TempDir()
 	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
@@ -194,15 +194,15 @@ func TestInitAgentInstallAdvancesBaseline(t *testing.T) {
 	if got.SHA256 != disk.SHA256 {
 		t.Fatalf("基线指纹应与磁盘一致: 基线=%s 磁盘=%s", got.SHA256, disk.SHA256)
 	}
-	// 幂等跳过的 AGENTS.md 不被触碰: 基线值保持夹具原值
+	// The AGENTS.md skipped as idempotent is not touched: the baseline value keeps the fixture's original
 	if bl.Files["AGENTS.md"].SHA256 != seeded["AGENTS.md"] {
 		t.Fatalf("未触及文件的基线值不得变动")
 	}
 }
 
-// TestInitNoWhitewashExternalDrift 防洗白: 外部修改 AGENTS.md(区块外追加)后
-// 重跑 init —— 区块已最新致幂等跳过(写前写后指纹一致),基线必须保持旧值,
-// 外部漂移(基线值 ≠ 磁盘现值)存活到 verify。
+// TestInitNoWhitewashExternalDrift, no whitewash: after AGENTS.md is changed externally (an append outside the block),
+// init runs again; the block is already up to date so it is skipped as idempotent (fingerprints equal before and after the write), the baseline must keep the old value,
+// and the external drift (baseline value ≠ current disk value) survives to verify.
 func TestInitNoWhitewashExternalDrift(t *testing.T) {
 	root := t.TempDir()
 	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
@@ -210,8 +210,8 @@ func TestInitNoWhitewashExternalDrift(t *testing.T) {
 	}
 	seeded := seedBaseline(t, root, []string{"aoci.txt", "AGENTS.md"})
 
-	// 外部修改: 区块外文末追加一行(EnsureAgentsBlock 只替换区块,
-	// 区块已最新时 newText==text 走跳过分支,不产生写入)
+	// The external change: one line appended at the end outside the block (EnsureAgentsBlock replaces only the block,
+	// and with the block up to date newText==text takes the skip branch and produces no write)
 	agentsPath := filepath.Join(root, "AGENTS.md")
 	old, err := os.ReadFile(agentsPath)
 	if err != nil {
@@ -255,7 +255,7 @@ func TestInitDoesNotBaselineConcurrentChangeAfterOwnWrite(t *testing.T) {
 	}
 	t.Cleanup(func() { beforeInitBaselineAdvance = oldHook })
 
-	// 先使托管区块需要更新，从而产生本轮真实postimage；hook随后制造竞态。
+	// First make the managed block need an update, producing a real postimage this round; the hook then manufactures the race.
 	agentsPath := filepath.Join(root, "AGENTS.md")
 	data, err := os.ReadFile(agentsPath)
 	if err != nil {
@@ -276,12 +276,12 @@ func TestInitDoesNotBaselineConcurrentChangeAfterOwnWrite(t *testing.T) {
 	}
 }
 
-// TestInitBareDirRequiresHere 裸目录硬拒(P-04 防呆二): 定位失败且无 --here 时
-// ExitConfig 且零写入(clone 失败后误在父目录 init 的事故防线);--here 显式放行。
+// TestInitBareDirRequiresHere, the bare directory hard refusal (P-04 foolproofing two): location fails and no --here means
+// ExitConfig with zero writes (the defence against the incident of init in the parent directory after a failed clone); --here passes explicitly.
 func TestInitBareDirRequiresHere(t *testing.T) {
 	dir := t.TempDir()
 
-	// 无 --here: 硬拒且零写入
+	// Without --here: hard refusal with zero writes
 	_, err := runInitBare(t, dir, "--agent=", "--hooks=false", "--here=false")
 	if err == nil {
 		t.Fatal("裸目录无 --here 应硬拒")
@@ -300,7 +300,7 @@ func TestInitBareDirRequiresHere(t *testing.T) {
 		t.Fatalf("硬拒时不得产生任何写入(aoci.txt 不应存在)")
 	}
 
-	// 显式 --here: 放行,骨架就地生成
+	// With an explicit --here: pass, the skeleton is generated in place
 	if _, err := runInitBare(t, dir, "--agent=", "--hooks=false", "--here"); err != nil {
 		t.Fatalf("--here 应放行就地创建: %v", err)
 	}
@@ -309,8 +309,8 @@ func TestInitBareDirRequiresHere(t *testing.T) {
 	}
 }
 
-// TestInitInvalidAgentRejected agent 白名单(P-04 防呆一): 拼错值 ExitConfig
-// 且零写入(校验置于一切写入之前,不留半初始化状态)。
+// TestInitInvalidAgentRejected, the agent allowlist (P-04 foolproofing one): a misspelled value means ExitConfig
+// with zero writes (validation sits before every write, leaving no half-initialized state).
 func TestInitInvalidAgentRejected(t *testing.T) {
 	root := t.TempDir()
 	// The refusal is asserted in zh-CN wording, so the invocation selects it.
@@ -330,8 +330,8 @@ func TestInitInvalidAgentRejected(t *testing.T) {
 	}
 }
 
-// TestInitNewRepositoryOutputOrder保持迁移前的完整生产输出顺序。资源预检必须
-// 发生在首次写入前，但不能因此把automation提示移到Git边界提示之前。
+// TestInitNewRepositoryOutputOrder keeps the complete production output order from before the migration. The asset precheck must
+// happen before the first write, but must not move the automation hint ahead of the Git boundary hint because of that.
 func TestInitNewRepositoryOutputOrder(t *testing.T) {
 	root := t.TempDir()
 
@@ -348,9 +348,9 @@ func TestInitNewRepositoryOutputOrder(t *testing.T) {
 	}
 }
 
-// TestInitCodexHooksNotice hooks 支持边界(P-04 防呆三): codex+--hooks 必须
-// 真实写入压缩提示与压缩后重载 hook,不得再静默吞参。
-// 输出走 fmt.Println(os.Stdout),须经 runCLIPrinted 截获进程 stdout。
+// TestInitCodexHooksNotice, the hooks support boundary (P-04 foolproofing three): codex plus --hooks must
+// really write the compaction prompt and the post-compaction reload hook, never silently swallowing the flag again.
+// The output goes through fmt.Println(os.Stdout) and must be captured from the process stdout through runCLIPrinted.
 func TestInitCodexHooksNotice(t *testing.T) {
 	root := t.TempDir()
 

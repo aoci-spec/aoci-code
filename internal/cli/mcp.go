@@ -1,9 +1,9 @@
-// aoci mcp —— 进入 MCP stdio server 模式
-// 索引条目: mcp.go[CLI.Serve.9.Stdio.T]
+// aoci mcp: enter the MCP stdio server mode
+// Index entry: mcp.go[CLI.Serve.9.Stdio.T]
 //
-// 纪律: 本命令不得向 stdout 打印横幅/版本 —— stdout 已是 JSON-RPC 协议流;
+// Discipline: this command must not print a banner or version to stdout, which is already the JSON-RPC protocol stream;
 //
-//	SIGINT/SIGTERM 优雅退出;启动不自动 scan(防慢启动)。
+//	SIGINT/SIGTERM exit gracefully; startup does not scan automatically (against a slow start).
 package cli
 
 import (
@@ -25,12 +25,12 @@ func init() {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
-			// 信号优雅退出: SIGINT/SIGTERM 取消 ctx,server.Run 随之返回
+			// Graceful exit on signal: SIGINT/SIGTERM cancel ctx, and server.Run returns with it
 			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 			defer stop()
 
 			if err := mcptools.RunStdio(ctx, root, version); err != nil && ctx.Err() == nil {
-				return err // 非信号退出的错误按内部错误处理
+				return err // an error from a non-signal exit is handled as an internal error
 			}
 			return nil
 		},

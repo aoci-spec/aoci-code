@@ -1,4 +1,4 @@
-// aoci check命令测试: 退出码、issues组装、策展排除措辞与草稿悬置。
+// aoci check command tests: exit codes, issues assembly, curation exclusion wording, and draft suspension.
 package cli
 
 import (
@@ -24,7 +24,7 @@ func runCheck(
 	return stdout + stderr, exitError(stderr, code)
 }
 
-// TestCheckCleanRepo验证全净仓返回可提交。
+// TestCheckCleanRepo verifies that a fully clean repository returns committable.
 func TestCheckCleanRepo(t *testing.T) {
 	root := buildUpdateRepo(t)
 
@@ -60,7 +60,7 @@ func TestCheckCleanRepo(t *testing.T) {
 	assertCheckLedger(t, root, 0)
 }
 
-// TestCheckDriftRepo验证Stale与ActionableMissing按行动分型。
+// TestCheckDriftRepo verifies that Stale and ActionableMissing are typed by action.
 func TestCheckDriftRepo(t *testing.T) {
 	root := buildUpdateRepo(t)
 
@@ -133,7 +133,7 @@ func TestCheckDriftRepo(t *testing.T) {
 	assertCheckLedger(t, root, 1)
 }
 
-// TestCheckCurationExcludedUsesGovernanceWording锁定已完成排除决策的术语。
+// TestCheckCurationExcludedUsesGovernanceWording locks the terminology of a completed exclusion decision.
 func TestCheckCurationExcludedUsesGovernanceWording(
 	t *testing.T,
 ) {
@@ -240,7 +240,7 @@ func TestCheckCurationExcludedUsesGovernanceWording(
 	assertCheckLedger(t, root, 0)
 }
 
-// assertCheckLedger断言最近check事件的WarningsCount。
+// assertCheckLedger asserts the WarningsCount of the latest check event.
 func assertCheckLedger(
 	t *testing.T,
 	root string,

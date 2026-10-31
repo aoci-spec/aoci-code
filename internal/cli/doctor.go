@@ -1,21 +1,21 @@
-// 索引条目: doctor.go[CDR8M]
-// 职责: aoci doctor —— 环境与接入的【只读】诊断命令。四组检查各项 ✓/✗/– 三态,末尾汇总。
+// Index entry: doctor.go[CDR8M]
+// Responsibility: aoci doctor, the READ-ONLY diagnosis of the environment and the integrations. Four groups of checks, each item in the three states ✓/✗/–, with a summary at the end.
 //
-// 设计原则:
-//   - 默认零外发: 仅 --net 显式开启才做端点连通探测(与 R19 数据主权口径一致);
-//   - 轻量: 不做全仓 hash(漂移详情指向 aoci verify,与 status "毫秒级纯读"同纪律);
-//   - 判据单一事实源: 组二接入判据一律调 hooks.IsXxxInstalled,与 installer 同源不重复;
-//   - 密钥安全: 沿用 configToLLMOptions 唯一读密钥,状态只报有无绝不打印值(R19);
-//   - 退出码: 全过 0 / 有失败项 1 / 仓库根都找不到 3(对齐 verify 风格)。
+// Design principles:
+//   - zero outbound traffic by default: endpoint connectivity is probed only when --net is given explicitly (the same reading as the R19 data sovereignty rule);
+//   - lightweight: no whole-repository hashing (drift details point at aoci verify, the same discipline as status's "millisecond pure read");
+//   - a single source of truth for criteria: group two's integration criteria always call hooks.IsXxxInstalled, shared with the installer and never duplicated;
+//   - key safety: configToLLMOptions stays the single key reader, and the status reports only presence, never the value (R19);
+//   - exit code: all passed 0 / failing items 1 / not even the repository root found 3 (aligned with the verify style).
 //
-// 技术产物排除缺项提示(R60-F.9-A2 下半,2026-07-18):
-// DefaultConfig 排除清单扩充只救新仓 —— 已落盘的显式 exclude_dirs 会冻结
-// 旧默认(applyFallbacks 仅 nil 回填,显式清单必须保留是既有纪律)。存量仓
-// 迁移走 doctor 信息态提示: 团队 config.json 显式声明了 exclude_dirs 且
-// 缺少当前默认技术产物项时,列出缺项供维护者裁决是否补入;零静默修改配置
-// (与"不静默修正"纪律同构)。判定必须读团队层原始 JSON 判断键是否显式
-// 在场 —— Load 合并态在字段缺失时已被回填默认,直接对比会对"跟随默认"
-// 的仓库误报缺项。
+// Technical artifact exclusion missing-item hint (the second half of R60-F.9-A2, 2026-07-18):
+// the DefaultConfig exclusion extension only rescues new repositories; an explicit exclude_dirs already on disk freezes
+// the old defaults (applyFallbacks fills only nil, and keeping an explicit list is existing discipline). An existing repository
+// migrates through the doctor informational hint: when the team config.json declares exclude_dirs explicitly and
+// lacks current default technical artifact items, the missing items are listed for the maintainer to decide whether to add; zero silent configuration changes
+// (isomorphic with the "no silent correction" discipline). The judgement must read the raw team-layer JSON to see whether the key is explicitly
+// present; the merged state of Load has already filled the defaults when the field is missing, and a direct comparison would misreport
+// a repository that "follows the defaults".
 package cli
 
 import (
@@ -36,17 +36,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// checkState 是单项检查的三态结果。
+// checkState is the three-state result of one check item.
 type checkState int
 
 const (
-	statePass checkState = iota // 通过
-	stateFail                   // 失败(计入退出码非零)
-	stateNA                     // 不适用(不影响退出码)
-	stateInfo                   // 纯信息(不影响退出码,如数据主权提示行)
+	statePass checkState = iota // passed
+	stateFail                   // failed (counts toward a non-zero exit code)
+	stateNA                     // not applicable (does not affect the exit code)
+	stateInfo                   // pure information (does not affect the exit code, such as the data sovereignty hint line)
 )
 
-// stateMark 返回三态的显示前缀。
+// stateMark returns the display prefix of a state.
 func stateMark(s checkState) string {
 	switch s {
 	case statePass:
@@ -60,13 +60,13 @@ func stateMark(s checkState) string {
 	}
 }
 
-// doctorReport 累积检查结果并统计失败数,用于末尾汇总与退出码。
+// doctorReport accumulates check results and counts failures, for the final summary and the exit code.
 type doctorReport struct {
 	out      io.Writer
 	failures int
 }
 
-// line 输出一行检查结果;stateFail 时累加失败计数。
+// line writes one check result line; stateFail increments the failure count.
 func (r *doctorReport) line(s checkState, label, detail string) {
 	if detail != "" {
 		fmt.Fprintf(r.out, "%s %s: %s\n", stateMark(s), label, detail)
@@ -78,21 +78,21 @@ func (r *doctorReport) line(s checkState, label, detail string) {
 	}
 }
 
-// group 输出一个分组标题。
+// group writes a group title.
 func (r *doctorReport) group(title string) {
 	fmt.Fprintf(r.out, "\n== %s ==\n", title)
 }
 
-// missingTechnicalExcludeDirs 判断团队 config.json 显式声明的 exclude_dirs
-// 是否缺少当前默认技术产物项(A2 存量仓迁移提示的唯一判定函数)。
+// missingTechnicalExcludeDirs judges whether the exclude_dirs declared explicitly in the team config.json
+// lacks current default technical artifact items (the single judgement function of the A2 existing-repository migration hint).
 //
-// 返回缺项列表;以下情况一律返回空(不提示):
-//   - config.json 不存在或不可解析(其余检查已各自报告,不重复);
-//   - exclude_dirs 键未显式声明(Load 会回填当前默认,无缺项可言);
-//   - 显式清单已覆盖全部当前默认项。
+// It returns the list of missing items; the following cases all return empty (no hint):
+//   - config.json is missing or unparseable (the other checks already report that, no duplication);
+//   - the exclude_dirs key is not declared explicitly (Load fills the current defaults, so there is nothing missing);
+//   - the explicit list already covers every current default item.
 //
-// 判定读团队层原始 JSON 而非 Load 合并态 —— 合并态无法区分"显式短清单"
-// 与"缺失被回填",直接对比会对后者误报。
+// The judgement reads the raw team-layer JSON rather than the merged state of Load; the merged state cannot tell "an explicit short list"
+// from "missing and filled", and a direct comparison would misreport the latter.
 func missingTechnicalExcludeDirs(root string) []string {
 	data, err := os.ReadFile(config.FilePath(root))
 	if err != nil {
@@ -107,7 +107,7 @@ func missingTechnicalExcludeDirs(root string) []string {
 		return nil
 	}
 	if raw.ExcludeDirs == nil {
-		return nil // 键未显式声明,跟随当前默认,无缺项
+		return nil // the key is not declared explicitly, follows the current defaults, nothing missing
 	}
 
 	declared := map[string]bool{}
@@ -127,7 +127,7 @@ func missingTechnicalExcludeDirs(root string) []string {
 	return missing
 }
 
-// newDoctorCmd 构造 `aoci doctor` 命令。
+// newDoctorCmd builds the `aoci doctor` command.
 func newDoctorCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
@@ -138,36 +138,36 @@ func newDoctorCmd() *cobra.Command {
 			rep := &doctorReport{out: cmd.OutOrStdout()}
 			fmt.Fprintln(rep.out, cliMessage("doctor.title"))
 
-			// —— 组一: 仓库与核心资产 ——
+			// —— Group one: the repository and the core assets ——
 			rep.group(cliMessage("doctor.group.repository"))
 
 			root, err := resolveRepoRoot()
 			if err != nil {
 				rep.line(stateFail, cliMessage("doctor.label.repo_root"), cliMessage("doctor.repo_missing"))
 				fmt.Fprintf(rep.out, "\n%s\n", cliMessage("doctor.aborted"))
-				// 仓库根都找不到 → 退出码 3
+				// Not even the repository root found → exit code 3
 				return &doctorExitError{code: 3}
 			}
 			rep.line(statePass, cliMessage("doctor.label.repo_root"), root)
 
-			// 配置加载
+			// Configuration load
 			cfg, cfgErr := config.Load(root)
 			if cfgErr != nil {
 				rep.line(stateFail, cliMessage("doctor.label.config"), cliMessage("doctor.config_failed", cfgErr))
-				// 配置坏了后续 AI 检查无从谈起,但仓库/索引检查仍继续,故用默认配置兜底
+				// With a broken configuration the later AI checks are moot, but the repository/index checks go on, so the defaults stand in
 				cfg = config.DefaultConfig()
 			} else {
 				rep.line(statePass, cliMessage("doctor.label.config"), cliMessage("doctor.config_ok", cfg.IndexPath))
 			}
 
-			// 技术产物排除缺项(A2 存量仓迁移提示;信息态,零静默修改)
+			// Technical artifact exclusion missing items (the A2 existing-repository migration hint; informational, zero silent changes)
 			if missing := missingTechnicalExcludeDirs(root); len(missing) > 0 {
 				rep.line(stateInfo, cliMessage("doctor.label.exclude_gaps"),
 					cliMessage("doctor.exclude_gaps", strings.Join(missing, ", ")))
 			}
 
-			// 敏感文件名规则集(#148): 旧仓缺省 v1。列出 v2 会移出索引的已索引路径,
-			// 信息态,零静默修改;选入是维护者发起的一次治理 Scope Change。
+			// The sensitive filename rule set (#148): an old repository defaults to v1. List the indexed paths v2 would move out of the index,
+			// informational, zero silent changes; opting in is one governance Scope Change the maintainer starts.
 			if cfgErr == nil && afs.NormalizeSensitiveNameRules(cfg.SensitiveNameRules) != afs.SensitiveNameRulesV2 {
 				if candidates := sensitiveNameUpgradeCandidates(root); len(candidates) > 0 {
 					rep.line(stateInfo, cliMessage("doctor.label.sensitive_name_rules"),
@@ -176,7 +176,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 			}
 
-			// aoci.txt 解析
+			// aoci.txt parsing
 			indexPath := cfg.IndexPath
 			if indexPath == "" {
 				indexPath = "aoci.txt"
@@ -205,7 +205,7 @@ func newDoctorCmd() *cobra.Command {
 				}
 			}
 
-			// baseline 存在性(第二返回值 bool = 是否找到)
+			// baseline existence (the second return value bool = whether it was found)
 			_, blExists, blErr := baseline.Load(root)
 			switch {
 			case blErr != nil:
@@ -216,10 +216,10 @@ func newDoctorCmd() *cobra.Command {
 				rep.line(statePass, cliMessage("doctor.label.baseline"), cliMessage("doctor.baseline_exists"))
 			}
 
-			// 漂移: 不现算,指路 verify(保持轻量)
+			// Drift: not computed here, pointing at verify (staying lightweight)
 			rep.line(stateInfo, cliMessage("doctor.label.drift"), cliMessage("doctor.drift_deferred"))
 
-			// —— 组二: Agent 接入 ——
+			// —— Group two: Agent integrations ——
 			rep.group(cliMessage("doctor.group.agents"))
 
 			detected := hooks.Detect(root)
@@ -229,7 +229,7 @@ func newDoctorCmd() *cobra.Command {
 				rep.line(stateInfo, cliMessage("doctor.label.detected_agents"), fmt.Sprintf("%v", detected))
 			}
 
-			// 判据一律调 hooks.IsXxxInstalled(与 installer 单一事实源)
+			// The criteria always call hooks.IsXxxInstalled (the single source of truth shared with the installer)
 			markInstalled(rep, cliMessage("doctor.label.agents_block"), hooks.IsAgentsBlockPresent(root))
 			markInstalled(rep, cliMessage("doctor.label.claude_mcp"), hooks.IsClaudeMCPInstalled(root))
 			markInstalled(rep, cliMessage("doctor.label.claude_hook"), hooks.IsClaudeHookInstalled(root))
@@ -237,7 +237,7 @@ func newDoctorCmd() *cobra.Command {
 			markInstalled(rep, cliMessage("doctor.label.opencode_mcp"), hooks.IsOpenCodeMCPInstalled(root))
 			markInstalled(rep, cliMessage("doctor.label.qoder_mcp"), hooks.IsClaudeMCPInstalled(root))
 
-			// —— 组四: 平台特性 ——
+			// —— Group four: platform features ——
 			rep.group(cliMessage("doctor.group.platform"))
 			if runtime.GOOS == "windows" {
 				rep.line(stateInfo, cliMessage("doctor.label.platform"), cliMessage("doctor.platform_windows"))
@@ -245,7 +245,7 @@ func newDoctorCmd() *cobra.Command {
 				rep.line(stateInfo, cliMessage("doctor.label.platform"), runtime.GOOS)
 			}
 
-			// —— 汇总与退出码 ——
+			// —— Summary and exit code ——
 			fmt.Fprintln(rep.out, "")
 			if rep.failures == 0 {
 				fmt.Fprintln(rep.out, cliMessage("doctor.complete"))
@@ -259,8 +259,8 @@ func newDoctorCmd() *cobra.Command {
 	return cmd
 }
 
-// markInstalled 按判据布尔输出"已配置/未配置"("未配置"用信息态而非失败态 ——
-// 未接入某 agent 是正常选择,不应计为诊断失败)。
+// markInstalled prints "configured/not configured" by the criterion boolean ("not configured" is informational rather than a failure:
+// not integrating some agent is a normal choice and should not count as a diagnostic failure).
 func markInstalled(rep *doctorReport, label string, installed bool) {
 	if installed {
 		rep.line(statePass, label, cliMessage("doctor.installed"))
@@ -269,14 +269,14 @@ func markInstalled(rep *doctorReport, label string, installed bool) {
 	}
 }
 
-// doctorExitError 承载 doctor 的退出码,交由 root.go 的 Execute 映射为进程退出码。
+// doctorExitError carries doctor's exit code, mapped to the process exit code by Execute in root.go.
 type doctorExitError struct{ code int }
 
 func (e *doctorExitError) Error() string {
 	return cliMessage("doctor.exit_error", e.code)
 }
 
-// ExitCode 供退出码映射读取。
+// ExitCode is read by the exit code mapping.
 func (e *doctorExitError) ExitCode() int { return e.code }
 
 // sensitiveNameUpgradeCandidates lists, sorted, the Baseline index-role paths

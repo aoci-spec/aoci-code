@@ -1,11 +1,11 @@
-// CLI 输入必须有界。
+// CLI input must be bounded.
 //
-// 真实经历: hook.go 与 update_entry.go 都在 io.ReadAll(os.Stdin) 上无界读取,
-// 而同一个仓库的 index_agent_stage_protocol.go 与 index_agent_curation_protocol.go
-// 早就是 LimitReader(max+1) 的。两条 CLI 通道漏掉了同一条纪律。
+// A real experience: hook.go and update_entry.go both read without bound on io.ReadAll(os.Stdin),
+// while index_agent_stage_protocol.go and index_agent_curation_protocol.go in the same repository
+// were LimitReader(max+1) long ago. The two CLI channels missed the same discipline.
 //
-// 边界本身是判据: 恰好 max 必须通过, max+1 必须判超限 —— 少读一字节这两者
-// 就分不开。hook 超限放行, update-entry 超限报错: 同一个读法, 两种上层裁决。
+// The boundary itself is the criterion: exactly max must pass and max+1 must be judged oversize; one byte less
+// and the two cannot be told apart. The hook passes on oversize, update-entry errors: one reading, two upper-layer verdicts.
 package cli
 
 import (

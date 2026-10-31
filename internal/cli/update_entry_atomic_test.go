@@ -1,4 +1,4 @@
-// 公开单条CLI必须复用受源码绑定的原子批次与Baseline完整性终态。
+// The public single-entry CLI must reuse the source-bound atomic batch and the Baseline integrity terminal state.
 package cli
 
 import (

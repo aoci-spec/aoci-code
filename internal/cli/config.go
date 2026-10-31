@@ -1,9 +1,9 @@
-// aoci config —— 团队配置读写命令。
-// 索引条目: config.go[CLI.Config.5.T]
+// aoci config: the team configuration read/write command.
+// Index entry: config.go[CLI.Config.5.T]
 //
-// set 写回 config.json,必须以 config.LoadBase 取源,防 local 个人端点泄漏。
-// automation_mode 是 automation.mode 的 CLI 扁平键:
-// legacy/manual 清除字段恢复旧仓兼容态;off/review/auto 显式写团队策略。
+// set writes back config.json and must take its source from config.LoadBase, so a local personal endpoint cannot leak.
+// automation_mode is the flat CLI key of automation.mode:
+// legacy/manual clear the field and restore the old-repository compatibility state; off/review/auto write the team policy explicitly.
 package cli
 
 import (

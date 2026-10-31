@@ -57,9 +57,9 @@ func agentPlanWriteFile(
 }
 
 // (from internal/cli/index_entries_apply_atomic_test.go)
-// buildManualAtomicEntriesRepo构造不启用Host-Agent Plan防线的Endpoint草稿仓。
+// buildManualAtomicEntriesRepo builds an Endpoint draft repository without the Host Agent Plan defence.
 //
-// 该夹具专门隔离人工Apply原子语义；Generation Plan漂移另由R60-D测试覆盖。
+// This fixture isolates the manual Apply atomic semantics specifically; Generation Plan drift is covered separately by the R60-D tests.
 func buildManualAtomicEntriesRepo(
 	t *testing.T,
 ) (string, string) {
@@ -137,7 +137,7 @@ func buildManualAtomicEntriesRepo(
 }
 
 // (from internal/cli/index_update_test.go)
-// buildUpdateRepo 造最小全对齐仓库。
+// buildUpdateRepo builds a minimal fully aligned repository.
 func buildUpdateRepo(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()

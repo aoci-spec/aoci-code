@@ -1,4 +1,4 @@
-// Windows PowerShell 5普通CLI JSON的ASCII安全输出测试。
+// Tests of the ASCII-safe JSON output of the ordinary CLI for Windows PowerShell 5.
 package cli
 
 import (

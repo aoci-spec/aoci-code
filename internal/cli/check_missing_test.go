@@ -1,4 +1,4 @@
-// check对PendingCurationMissing与ActionableMissing的提交裁决测试。
+// Tests of check's commit verdict on PendingCurationMissing and ActionableMissing.
 package cli
 
 import (

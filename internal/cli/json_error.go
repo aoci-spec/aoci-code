@@ -1,7 +1,7 @@
-// 普通CLI的统一JSON失败信封。
+// The unified JSON failure envelope of the ordinary CLI.
 //
-// 成功业务对象保持既有顶层协议，不强制套ok/data外壳。
-// 本信封只用于--json请求在失败前尚未输出业务JSON的场景。
+// Successful business objects keep their existing top-level protocol and are not forced into an ok/data shell.
+// This envelope serves only a --json request that fails before any business JSON was written.
 package cli
 
 import (
@@ -13,7 +13,7 @@ import (
 
 const cliJSONErrorVersion = 1
 
-// cliJSONErrorEnvelope是普通CLI稳定失败协议。
+// cliJSONErrorEnvelope is the stable failure protocol of the ordinary CLI.
 type cliJSONErrorEnvelope struct {
 	Version   int    `json:"version"`
 	OK        bool   `json:"ok"`
@@ -23,7 +23,7 @@ type cliJSONErrorEnvelope struct {
 	Details   any    `json:"details,omitempty"`
 }
 
-// writeCLIJSONError输出唯一JSON错误对象。
+// writeCLIJSONError writes the single JSON error object.
 func writeCLIJSONError(
 	writer io.Writer,
 	err error,
@@ -37,7 +37,7 @@ func writeCLIJSONError(
 	)
 }
 
-// writeCLIJSONErrorForPlatform按显式平台输出错误信封，供Windows行为测试。
+// writeCLIJSONErrorForPlatform writes the error envelope for an explicit platform, for Windows behaviour tests.
 func writeCLIJSONErrorForPlatform(
 	writer io.Writer,
 	err error,
@@ -81,14 +81,14 @@ func writeCLIJSONErrorForPlatform(
 	)
 }
 
-// classifyCLIErrorCode把错误映射为稳定机器分类。
+// classifyCLIErrorCode maps an error to the stable machine classification.
 //
-// 调用方已经掌握write_conflict等精确领域失败时，通过ExitError.MachineCode
-// 显式透传；它优先于通用退出码映射，但不改变进程退出码。没有领域码时继续
-// 使用既有drift/invalid/config/internal分类。
+// When the caller already knows an exact domain failure such as write_conflict, it passes it through explicitly via
+// ExitError.MachineCode; that takes precedence over the generic exit-code mapping but does not change the process exit code. Without a domain code
+// the existing drift/invalid/config/internal classification applies.
 //
-// exit 1既可能表示治理漂移，也可能来自尚未迁移的Doctor等命令，因此只有
-// 明确的ExitError业务漂移才分类为drift，其他exit 1归为command_failed。
+// exit 1 may mean governance drift or come from a not yet migrated command such as Doctor, so only
+// an explicit ExitError business drift is classified as drift, and any other exit 1 is command_failed.
 func classifyCLIErrorCode(
 	err error,
 	exitCode int,

@@ -8,8 +8,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
 
-// 首次范围阻塞必须点名触发它的路径,并给出可执行的下一步 —— 单独一行机器码
-// 无法定位,而这个阻塞在 init 之前没有别的命令能复现。
+// The first scope block must name the paths that triggered it and give an actionable next step; a lone machine-code line
+// cannot be located, and no other command can reproduce this block before init.
 func TestInitialScopeBlockedDetailNamesTrackedSafetyExclusions(t *testing.T) {
 	// The counter that selects this arm is AutoBlockerCount: the paths worth
 	// naming are the ones whose content an explicit opt-in will read, not every
@@ -34,7 +34,7 @@ func TestInitialScopeBlockedDetailNamesTrackedSafetyExclusions(t *testing.T) {
 	}
 }
 
-// 点名数量有上限,超出部分以计数收尾,避免把整棵目录树刷到终端。
+// The number of named paths is capped, and the rest ends with a count, so a whole directory tree is not flushed to the terminal.
 func TestInitialScopeBlockedDetailCapsNamedPaths(t *testing.T) {
 	excluded := make([]managedscope.PathEvaluation, 0, 9)
 	for _, path := range []string{"a.log", "b.log", "c.log", "d.log", "e.log", "f.log", "g.log", "h.log", "i.log"} {
@@ -51,7 +51,7 @@ func TestInitialScopeBlockedDetailCapsNamedPaths(t *testing.T) {
 	}
 }
 
-// 另外两类触发各自给出自己的出路,不能都退化成同一句话。
+// The other two kinds of trigger each give their own way out, and must not all degrade into the same sentence.
 func TestInitialScopeBlockedDetailSeparatesOtherCauses(t *testing.T) {
 	highRisk := initialScopeBlockedDetail(&managedscope.Evaluation{}, "production", 3)
 	if !strings.Contains(highRisk, "3") || strings.Contains(highRisk, "index role") {

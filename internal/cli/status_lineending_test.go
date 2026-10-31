@@ -1,4 +1,4 @@
-// status --deep换行宽容生产路径测试。
+// Production-path tests of status --deep line-ending tolerance.
 package cli
 
 import (
@@ -9,7 +9,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 )
 
-// TestStatusDeepLineEndingToleranceAndStrictMode验证默认宽容和团队严格模式。
+// TestStatusDeepLineEndingToleranceAndStrictMode verifies the default tolerance and the team strict mode.
 func TestStatusDeepLineEndingToleranceAndStrictMode(
 	t *testing.T,
 ) {
@@ -90,7 +90,7 @@ func TestStatusDeepLineEndingToleranceAndStrictMode(
 	}
 }
 
-// TestStatusDeepLineEndingToleranceDoesNotHideRealChange验证真实变化仍为Stale。
+// TestStatusDeepLineEndingToleranceDoesNotHideRealChange verifies that a real change is still Stale.
 func TestStatusDeepLineEndingToleranceDoesNotHideRealChange(
 	t *testing.T,
 ) {

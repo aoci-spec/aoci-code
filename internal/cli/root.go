@@ -1,25 +1,25 @@
-// Package cli是aoci-code的命令行入口与命令树装配。
-// 索引条目: root.go[CRT9M]
+// Package cli is the command-line entry and command-tree assembly of aoci-code.
+// Index entry: root.go[CRT9M]
 //
-// 命令注册采用【两代共存】模式:
+// Command registration runs in a "two generations coexist" mode:
 //
-//	第一代: 各命令文件在init中调用registerCommand自注册;
-//	第二代: ai.go与doctor.go由newRootCmd显式挂载。
+//	first generation: each command file registers itself through registerCommand in init;
+//	second generation: ai.go and doctor.go are mounted explicitly by newRootCmd.
 //
-// 退出码契约:
-//   - 0: 成功;
-//   - 1: 漂移或普通检查失败;
-//   - 2: 输入、索引或治理状态无效;
-//   - 3: 未初始化、配置或参数错误;
-//   - 10: 内部错误。
+// Exit code contract:
+//   - 0: success;
+//   - 1: drift or an ordinary check failure;
+//   - 2: invalid input, index, or governance state;
+//   - 3: not initialized, or a configuration or argument error;
+//   - 10: internal error.
 //
-// 输出纪律:
-//   - MCP子命令stdout是JSON-RPC协议流，必须直接透传，绝不缓冲或包裹;
-//   - 普通CLI在--json下，失败且尚未输出业务JSON时，由根层输出唯一错误信封;
-//   - Verify/Check等已经输出完整业务JSON再返回非零码时，不追加第二个JSON对象;
-//   - Windows普通CLI的合法--json结果在最终写出时转为ASCII安全JSON，避免
-//     PowerShell 5使用本地代码页捕获UTF-8中文时破坏JSON;
-//   - 人读错误继续写stderr。
+// Output discipline:
+//   - the MCP subcommand's stdout is the JSON-RPC protocol stream and must pass through directly, never buffered or wrapped;
+//   - under --json, when an ordinary CLI command fails before any business JSON was written, the root layer writes the single error envelope;
+//   - when Verify/Check and the like have already written complete business JSON before returning non-zero, no second JSON object is appended;
+//   - on Windows, a legal --json result of an ordinary CLI command is converted to ASCII-safe JSON at the final write, so that
+//     PowerShell 5 capturing UTF-8 Chinese through the local code page cannot break the JSON;
+//   - human-readable errors keep going to stderr.
 package cli
 
 import (
@@ -39,15 +39,15 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// 版本信息由构建经 -ldflags 注入 internal/buildinfo；这里只是别名，
-// 让命令树与可嵌入引擎报告同一身份。
+// The version information is injected into internal/buildinfo by the build through -ldflags; this is only an alias,
+// so the command tree and the embeddable engine report one identity.
 var (
 	version   = buildinfo.Version
 	commit    = buildinfo.Commit
 	buildDate = buildinfo.BuildDate
 )
 
-// 退出码契约常量。
+// Exit code contract constants.
 const (
 	ExitOK       = 0
 	ExitDrift    = 1
@@ -56,20 +56,20 @@ const (
 	ExitInternal = 10
 )
 
-// 全局持久参数。
+// Global persistent flags.
 var (
 	flagRepo  string
 	flagJSON  bool
 	flagQuiet bool
 )
 
-// ExitError携带业务退出码。
+// ExitError carries the business exit code.
 //
-// MachineCode是可选的领域级机器分类，例如write_conflict。它不改变进程
-// 退出码，只允许已经掌握底层失败类别的调用方把精确错误语义透传给JSON消费者。
-// 未设置MachineCode时继续按Code执行既有drift/invalid/config/internal映射。
+// MachineCode is the optional domain-level machine classification, such as write_conflict. It does not change the process
+// exit code; it only lets a caller that already knows the underlying failure category pass the exact error semantics through to JSON consumers.
+// Without MachineCode the existing drift/invalid/config/internal mapping by Code still applies.
 //
-// Msg与Err都为空表示命令已经输出完整业务报告，根层只返回退出码，不能重复输出。
+// Msg and Err both empty means the command already wrote its complete business report; the root layer only returns the exit code and must not write again.
 type ExitError struct {
 	Code        int
 	MachineCode string
@@ -78,7 +78,7 @@ type ExitError struct {
 	Details     any
 }
 
-// Error实现error接口。
+// Error implements the error interface.
 func (e *ExitError) Error() string {
 	if e.Msg != "" {
 		return e.Msg
@@ -98,20 +98,20 @@ func (e *ExitError) Error() string {
 // as a Safe Inventory git query error; the exit mapping itself is unchanged.
 func (e *ExitError) Unwrap() error { return e.Err }
 
-// ExitCode实现exitCoder接口。
+// ExitCode implements the exitCoder interface.
 func (e *ExitError) ExitCode() int {
 	return e.Code
 }
 
-// exitCoder由携带退出码的错误实现。
+// exitCoder is implemented by errors that carry an exit code.
 type exitCoder interface {
 	ExitCode() int
 }
 
-// subCommands是第一代自注册命令槽。
+// subCommands is the first-generation self-registration slot.
 var subCommands []*cobra.Command
 
-// registerCommand供各命令文件init自注册。
+// registerCommand lets each command file register itself in init.
 func registerCommand(
 	command *cobra.Command,
 ) {
@@ -121,7 +121,7 @@ func registerCommand(
 	)
 }
 
-// resolveRepoRoot定位仓库根。
+// resolveRepoRoot locates the repository root.
 func resolveRepoRoot() (string, error) {
 	return config.FindRepoRoot(
 		".",
@@ -129,7 +129,7 @@ func resolveRepoRoot() (string, error) {
 	)
 }
 
-// newRootCmd装配根命令。
+// newRootCmd assembles the root command.
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "aoci",
@@ -250,7 +250,7 @@ func enforceCognitionRecoveryGate(command *cobra.Command, _ []string) error {
 	}
 }
 
-// Execute是二进制进程入口。
+// Execute is the binary's process entry.
 func Execute() {
 	code := executeCLI(
 		os.Args[1:],
@@ -263,10 +263,10 @@ func Execute() {
 	}
 }
 
-// executeCLI执行一次完整CLI调用并返回进程退出码。
+// executeCLI runs one complete CLI invocation and returns the process exit code.
 //
-// 普通命令使用内存缓冲，以便判断失败前是否已经输出完整业务JSON。
-// MCP必须直接透传，避免破坏长连接和JSON-RPC帧时序。
+// Ordinary commands use an in-memory buffer so that, before a failure, it can be judged whether complete business JSON was already written.
+// MCP must pass through directly, so the long connection and JSON-RPC frame timing are not broken.
 func executeCLI(
 	args []string,
 	stdout,
@@ -516,14 +516,14 @@ func resetCommandState(command *cobra.Command) {
 	}
 }
 
-// resetRootFlags保证测试中的多次执行与真实独立进程语义一致。
+// resetRootFlags makes repeated executions in tests match the semantics of real independent processes.
 func resetRootFlags() {
 	flagRepo = ""
 	flagJSON = false
 	flagQuiet = false
 }
 
-// requestedJSON在Cobra完成解析前识别显式JSON请求。
+// requestedJSON recognizes an explicit JSON request before Cobra finishes parsing.
 func requestedJSON(
 	args []string,
 ) bool {
@@ -538,10 +538,10 @@ func requestedJSON(
 	return false
 }
 
-// isMCPInvocation仅在顶层命令token为mcp时启用JSON-RPC直接透传。
+// isMCPInvocation enables JSON-RPC direct pass-through only when the top-level command token is mcp.
 //
-// 普通参数值也可能合法地等于mcp，例如`--agent mcp`。因此不能扫描全部参数
-// 寻找任意mcp字符串，必须先排除根层持久参数，再读取唯一的顶层命令token。
+// An ordinary argument value may legally equal mcp too, such as `--agent mcp`. So the arguments must not be scanned for
+// any mcp string; the root persistent flags are excluded first, and then the single top-level command token is read.
 func isMCPInvocation(
 	args []string,
 ) bool {
@@ -553,11 +553,11 @@ func isMCPInvocation(
 		command == "mcp"
 }
 
-// rootCommandToken在执行Cobra解析前提取顶层命令token。
+// rootCommandToken extracts the top-level command token before Cobra parses.
 //
-// 这里只识别可合法出现在顶层命令之前的根层持久参数。遇到未知flag时返回
-// 未识别，使该调用进入普通缓冲执行并由Cobra返回标准参数错误，而不是误入
-// MCP协议直通路径。
+// It recognizes only the root persistent flags that may legally appear before the top-level command. On an unknown flag it returns
+// unrecognized, so the invocation enters ordinary buffered execution and Cobra returns the standard argument error, instead of
+// straying into the MCP protocol pass-through path.
 func rootCommandToken(
 	args []string,
 ) (string, bool) {
@@ -611,7 +611,7 @@ func rootCommandToken(
 	return "", false
 }
 
-// finishDirectExecution处理MCP等不能缓冲的执行路径。
+// finishDirectExecution handles execution paths such as MCP that cannot be buffered.
 func finishDirectExecution(
 	err error,
 	stderr io.Writer,
@@ -640,7 +640,7 @@ func finishDirectExecution(
 	return code
 }
 
-// finishBufferedExecution根据stdout是否已有业务报告裁决错误输出形式。
+// finishBufferedExecution decides the error output form by whether stdout already holds a business report.
 func finishBufferedExecution(
 	err error,
 	jsonMode bool,
@@ -680,8 +680,8 @@ func finishBufferedExecution(
 		return code
 	}
 
-	// stdout已有内容时，说明命令已经输出业务报告或当前尚为人读命令。
-	// 为避免生成两个JSON对象，保留原输出并把错误继续写stderr。
+	// Content already on stdout means the command wrote its business report, or it is still a human-readable command.
+	// To avoid producing two JSON objects, the original output is kept and the error keeps going to stderr.
 	if len(bytes.TrimSpace(
 		stdoutData,
 	)) > 0 {
@@ -804,7 +804,7 @@ func localeSafeCLIDetail(detail string) string {
 	return detail
 }
 
-// executionExitCode提取稳定退出码。
+// executionExitCode extracts the stable exit code.
 func executionExitCode(
 	err error,
 ) int {
@@ -820,7 +820,7 @@ func executionExitCode(
 	return ExitDrift
 }
 
-// isSilentReportedError识别已由命令输出完整业务报告的ExitError。
+// isSilentReportedError recognizes an ExitError whose command already wrote the complete business report.
 func isSilentReportedError(
 	err error,
 ) bool {

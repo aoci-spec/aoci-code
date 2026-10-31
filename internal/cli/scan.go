@@ -1,10 +1,10 @@
-// aoci scan —— 全量建立/重建基线
-// 索引条目: scan.go[CLI.Scan.8.S]
+// aoci scan: establish or rebuild the baseline in full
+// Index entry: scan.go[CLI.Scan.8.S]
 //
-// 语义: "承认当前源码为对齐新起点"(平台 RebuildBaseline 同语义)。
-// 纪律: 已有基线时须 --force 确认(防一键洗白未处理漂移);写前 Save 内滚动备份旧基线;
+// Semantics: "acknowledge the current source as the new aligned starting point" (the same semantics as the platform's RebuildBaseline).
+// Discipline: an existing baseline needs --force to confirm (against whitewashing unhandled drift with one key); Save rolls a backup of the old baseline before writing;
 //
-//	--dry-run 只输出统计不落盘;绝不顺手改 index.txt;落 ledger。
+//	--dry-run only prints statistics without writing; index.txt is never changed in passing; the ledger is written.
 package cli
 
 import (
@@ -69,10 +69,10 @@ func init() {
 				defer lock.Release()
 			}
 
-			// 防洗白闸门: 已有基线且非 dry-run 时必须 --force
+			// The whitewash gate: with an existing baseline and no dry-run, --force is required
 			_, exists, lerr := baseline.Load(root)
 			if lerr != nil && exists {
-				// 基线存在但损坏: 允许 --force 重建,否则提示
+				// The baseline exists but is corrupt: --force may rebuild, otherwise hint
 				if !force && !dryRun {
 					return &ExitError{Code: ExitConfig, Msg: lerr.Error()}
 				}
@@ -81,8 +81,8 @@ func init() {
 				return &ExitError{Code: ExitConfig, Msg: cliMessage("scan.baseline_exists")}
 			}
 
-			// 首次Managed Scope初始化建立带角色的Baseline；已有Managed
-			// Baseline只能通过正式Scope Change前移，--force也不得洗白。
+			// The first Managed Scope initialization establishes the Baseline with roles; an existing Managed
+			// Baseline advances only through a formal Scope Change, and --force must not whitewash it either.
 			var snap map[string]baseline.Fingerprint
 			var warns []string
 			var inventorySummary afs.SafeInventorySummary
@@ -110,7 +110,7 @@ func init() {
 				if identityErr != nil {
 					return errors.New(cliMessage("scan.snapshot_error", identityErr))
 				}
-				// 首份收据同样记录生效授权模式,后续 Scope Change 才能证明模式跃迁方向。
+				// The first receipt also records the authorization mode in effect, so a later Scope Change can prove the direction of the mode transition.
 				authorizationMode, modeErr := scopechange.EffectiveApplyAuthorizationMode(cfg)
 				if modeErr != nil {
 					return errors.New(cliMessage("scan.snapshot_error", modeErr))
@@ -169,7 +169,7 @@ func init() {
 				return nil
 			}
 
-			// 落盘(Save 内含旧基线滚动备份)
+			// Write (Save includes the rolling backup of the old baseline)
 			newBaseline := baseline.NewBaseline(snap)
 			newBaseline.ManagedScope = managedReceipt
 			if err := baseline.SaveUnderIndexLock(root, newBaseline); err != nil {

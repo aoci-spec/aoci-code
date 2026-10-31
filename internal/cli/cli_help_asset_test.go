@@ -1,4 +1,4 @@
-// CLI稳定Long Help文本资产迁移的真实命令树字节级测试。
+// Byte-level tests of the stable CLI Long Help text asset migration on the real command tree.
 package cli
 
 import (

@@ -1,4 +1,4 @@
-// check对CurationExcludedMissing的不阻断语义测试。
+// Tests of check's non-blocking semantics for CurationExcludedMissing.
 package cli
 
 import (

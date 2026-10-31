@@ -1,9 +1,9 @@
-// observe_change_policy 默认就是 review_required, 所以改一个 Observe 角色文件(通常是
-// 测试)就会阻塞创作。Legacy Plan 早有 agentPlanStageObservedReview 把这个态接到
-// scope acknowledge, Volumes 却只报一个裸的 observed_pending finding、不给命令 ——
-// 与 issue #8 修复前的 baseline_missing 是同一个死胡同, 而且复现频率高得多。
-// 这里钉死: 有待复核 Observe 证据的 Volumes Guide 必须携带 scope_acknowledge 命令与
-// 结构化 stop; acknowledge 之后同一仓库不再阻塞。
+// observe_change_policy defaults to review_required, so changing one Observe-role file (usually a
+// test) blocks authoring. The Legacy Plan had long had agentPlanStageObservedReview wiring this state to
+// scope acknowledge, while Volumes only reported a bare observed_pending finding without a command:
+// the same dead end as baseline_missing before the issue #8 fix, and reproduced far more often.
+// Locked here: a Volumes Guide with Observe evidence pending review must carry the scope_acknowledge command and a
+// structured stop; after acknowledge the same repository no longer blocks.
 package cli
 
 import (
@@ -36,7 +36,7 @@ func TestVolumeGuideWithPendingObserveCarriesAcknowledgeRemediation(t *testing.T
 		}
 	}
 	write("src/a.go", "package src\n\nfunc A() int { return 1 }\n")
-	// Observe 角色: 生产代码的伴生测试。
+	// The Observe role: the companion test of production code.
 	write("src/a_test.go", "package src\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) { _ = A() }\n")
 	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestVolumeGuideWithPendingObserveCarriesAcknowledgeRemediation(t *testing.T
 		t.Fatalf("scan failed: code=%d stdout=%s stderr=%s", code, scanOut.String(), scanErr.String())
 	}
 
-	// 改动 Observe 文件: 治理进入 observed_pending。
+	// Change the Observe file: governance enters observed_pending.
 	write("src/a_test.go", "package src\n\nimport \"testing\"\n\nfunc TestA(t *testing.T) {\n\tif A() != 1 {\n\t\tt.Fatal(\"drift\")\n\t}\n}\n")
 
 	guide := volumeGuideJSON(t, root)
@@ -94,7 +94,7 @@ func TestVolumeGuideWithPendingObserveCarriesAcknowledgeRemediation(t *testing.T
 		t.Fatal("the Guide must tell the model to review the reported observe evidence before acknowledging")
 	}
 
-	// acknowledge 之后, 同一仓库不再因 Observe 证据阻塞。
+	// After acknowledge the same repository no longer blocks on Observe evidence.
 	var ackOut, ackErr bytes.Buffer
 	if code := executeCLI([]string{
 		"--repo", root, "--quiet", "scope", "acknowledge", "--reviewed-by", "conformance-test",

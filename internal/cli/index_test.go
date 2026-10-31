@@ -1,6 +1,6 @@
-// loadIndexForCLI 的 RelPath 填充防线(entries diff 假新增缺陷防再犯,2026-07-10)。
-// header apply 闸门链路测试随 Legacy 写作面一起退役(0.2.0)。
-// 索引条目: index_test.go(待补录)
+// The RelPath fill defence of loadIndexForCLI (against a repeat of the entries diff false-addition defect, 2026-07-10).
+// The header apply gate chain tests retired with the Legacy authoring surface (0.2.0).
+// Index entry pending: index_test.go
 package cli
 
 import (
@@ -26,7 +26,7 @@ func TestLoadIndexForCLI_ResolvesRelPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("config.Load 失败: %v", err)
 	}
-	cmd := newHeaderShowCmd() // 任取一个 cobra 命令载体,仅为提供 ErrOrStderr
+	cmd := newHeaderShowCmd() // any cobra command serves as the carrier, only to provide ErrOrStderr
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)

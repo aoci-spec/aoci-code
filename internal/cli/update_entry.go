@@ -1,14 +1,14 @@
-// aoci update-entry —— 人用单条回写命令(MCP aoci_update_entry 的 CLI 对等入口)
-// 索引条目: update_entry.go[CUE7T]
+// aoci update-entry: the human single-entry write command (the CLI counterpart of the MCP aoci_update_entry)
+// Index entry: update_entry.go[CUE7T]
 //
-// 与 MCP 共用 mcptools.ApplyUpdateEntry 同一条管线(校验→替换/插入→原子落盘→基线前移),
-// 写路径不依赖 MCP client 即可人测;ledger 记 source=human;--preview 只渲染 diff 不落盘。
-// 退出码按 Fail.Code 分流(审查修正,此前一律 3 与 root.go 契约不符):
+// It shares the mcptools.ApplyUpdateEntry pipeline with MCP (validate → replace/insert → atomic write → baseline advance),
+// so the write path is testable by a person without an MCP client; the ledger records source=human; --preview only renders the diff without writing.
+// The exit code routes by Fail.Code (a review correction; it used to be 3 throughout, against the root.go contract):
 //
-//	index_invalid → 2(索引损坏);internal → 10(内部错);
-//	其余(bad_args/path_unsafe/write_conflict/not_initialized)→ 3(前置条件/参数)。
+//	index_invalid → 2 (the index is corrupt); internal → 10 (internal error);
+//	the rest (bad_args/path_unsafe/write_conflict/not_initialized) → 3 (precondition/argument).
 //
-// 注: Fail.Code 字符串取值为 mcptools 稳定契约(出现在错误文案首行),此处按字面量比对。
+// Note: the Fail.Code string values are the stable mcptools contract (they appear on the first line of the error wording) and are compared by literal here.
 package cli
 
 import (
@@ -51,7 +51,7 @@ func init() {
 	)
 }
 
-// newUpdateEntryCmd构造人用单条Entry回写命令。
+// newUpdateEntryCmd builds the human single-Entry write command.
 func newUpdateEntryCmd() *cobra.Command {
 	var path, entry, sourceSHA256 string
 	var useStdin, preview bool
@@ -71,8 +71,8 @@ func newUpdateEntryCmd() *cobra.Command {
 			if path == "" {
 				return &ExitError{Code: ExitConfig, Msg: cliMessage("cli.update_entry.path_required")}
 			}
-			// 条目来源: --entry 或 --stdin,两种输入模式严格互斥 —— 同时给出时
-			// 静默择一会让操作者以为写进去的是另一份内容。
+			// The entry source: --entry or --stdin, two strictly exclusive input modes; silently picking one when both are given
+			// would let the operator believe the other content was written.
 			if useStdin && cmd.Flags().Changed("entry") {
 				return &ExitError{Code: ExitConfig, Msg: cliMessage("cli.update_entry.stdin_conflict")}
 			}
@@ -172,15 +172,15 @@ func validateCLIUpdateEntryMessages() error {
 	return nil
 }
 
-// exitCodeForFail Fail 分类码 → CLI 退出码契约的映射
+// exitCodeForFail maps a Fail classification code to the CLI exit code contract
 func exitCodeForFail(code string) int {
 	switch code {
 	case "index_invalid":
-		return ExitInvalid // 2: 索引格式损坏
+		return ExitInvalid // 2: the index format is corrupt
 	case "internal":
-		return ExitInternal // 10: 内部错误
+		return ExitInternal // 10: internal error
 	default:
-		return ExitConfig // 3: 参数/路径/冲突/未初始化等前置条件问题
+		return ExitConfig // 3: precondition problems such as arguments, paths, conflicts, or not initialized
 	}
 }
 

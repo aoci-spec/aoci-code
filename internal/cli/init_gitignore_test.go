@@ -1,4 +1,4 @@
-// aoci init生成.aoci/.gitignore的资产边界测试。
+// Asset boundary tests of the .aoci/.gitignore aoci init generates.
 package cli
 
 import (
@@ -20,7 +20,7 @@ func legacyGitignoreAsset(t *testing.T) string {
 	return value
 }
 
-// TestInitCreatesRuntimeGitignore验证首次init生成精确白名单内容。
+// TestInitCreatesRuntimeGitignore verifies that the first init generates the exact allowlist content.
 func TestInitCreatesRuntimeGitignore(
 	t *testing.T,
 ) {
@@ -62,7 +62,7 @@ func TestInitCreatesRuntimeGitignore(
 	}
 }
 
-// TestInitPreservesExistingRuntimeGitignore验证维护者文件绝不覆盖。
+// TestInitPreservesExistingRuntimeGitignore verifies that a maintainer's file is never overwritten.
 func TestInitPreservesExistingRuntimeGitignore(
 	t *testing.T,
 ) {
@@ -135,7 +135,7 @@ func TestInitPreservesExistingRuntimeGitignore(
 	}
 }
 
-// TestInitRuntimeGitignoreGitBehavior使用真实Git锁定默认拒绝和正式资产白名单。
+// TestInitRuntimeGitignoreGitBehavior locks the default deny and the formal asset allowlist with real Git.
 func TestInitRuntimeGitignoreGitBehavior(
 	t *testing.T,
 ) {

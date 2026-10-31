@@ -1,9 +1,9 @@
-// 索引条目: doctor_test.go[CDR.Test.5.T]
-// 职责: 验证 aoci doctor。策略三层 ——
-//  1. 纯逻辑单元测试: doctorReport 的三态标记与失败计数(不依赖任何环境,最稳);
-//  2. 失败路径: 临时空目录(无 .git/.aoci)→ 仓库根定位失败、退出码 3(隔离必需);
-//  3. 健康路径: 本项目真实根(测试从 internal/cli/ 向上可定位到项目根 .git)→
-//     断言结构性事实(分组标题/关键检查项/退出码),不断言随项目演进变化的具体数值。
+// Index entry: doctor_test.go[CDR.Test.5.T]
+// Responsibility: verify aoci doctor. A three-layer strategy:
+//  1. pure logic unit tests: doctorReport's three-state marks and failure count (independent of any environment, the most stable);
+//  2. the failure path: a temporary empty directory (no .git/.aoci) → repository root location fails, exit code 3 (isolation required);
+//  3. the healthy path: this project's real root (the test can locate the project root .git upwards from internal/cli/) →
+//     assert structural facts (group titles / key check items / exit code), not specific values that change as the project evolves.
 package cli
 
 import (
@@ -14,12 +14,12 @@ import (
 	"testing"
 )
 
-// runDoctor 在指定工作目录下执行 doctor 命令,返回输出与错误。
-// workDir 为空则使用当前工作目录(即真实项目路径下的 internal/cli/)。
+// runDoctor runs the doctor command in the given working directory and returns the output and the error.
+// An empty workDir uses the current working directory (that is, internal/cli/ under the real project path).
 func runDoctor(t *testing.T, workDir string, args ...string) (string, error) {
 	t.Helper()
 
-	// 若指定 workDir,临时切换(测试后恢复)——用于失败路径的临时空目录测试
+	// With a workDir given, switch temporarily (restored after the test); used by the failure path's temporary empty directory test
 	if workDir != "" {
 		orig, err := os.Getwd()
 		if err != nil {
@@ -40,7 +40,7 @@ func runDoctor(t *testing.T, workDir string, args ...string) (string, error) {
 	return out.String(), err
 }
 
-// —— 第一层: 纯逻辑单元测试(doctorReport 三态与失败计数)——
+// —— Layer one: pure logic unit tests (doctorReport's three states and failure count) ——
 
 func TestDoctorReport_FailureCounting(t *testing.T) {
 	t.Parallel()
@@ -53,13 +53,13 @@ func TestDoctorReport_FailureCounting(t *testing.T) {
 	rep.line(stateFail, "失败项一", "boom")
 	rep.line(stateFail, "失败项二", "boom")
 
-	// 仅 stateFail 计入 failures
+	// Only stateFail counts toward failures
 	if rep.failures != 2 {
 		t.Errorf("失败计数应为 2,得到 %d", rep.failures)
 	}
 
 	output := buf.String()
-	// 各态标记正确出现
+	// Every state mark appears correctly
 	if !strings.Contains(output, "[✓] 通过项") {
 		t.Error("通过项应带 [✓] 标记")
 	}
@@ -98,21 +98,21 @@ func TestDoctorReport_LineWithoutDetail(t *testing.T) {
 	if !strings.Contains(out, "[✓] 无详情项") {
 		t.Errorf("无详情行格式错误: %q", out)
 	}
-	// 无详情时不应有多余的冒号分隔
+	// Without details there should be no stray colon separator
 	if strings.Contains(out, "无详情项: ") {
 		t.Errorf("无详情行不应带冒号分隔: %q", out)
 	}
 }
 
-// —— 第二层: 失败路径(临时空目录 → 仓库根定位失败,退出码 3)——
+// —— Layer two: the failure path (a temporary empty directory → repository root location fails, exit code 3) ——
 
 func TestDoctor_NoRepoRoot(t *testing.T) {
-	// 临时空目录: 无 .git、无 .aoci —— resolveRepoRoot 应向上找不到而失败
+	// A temporary empty directory: no .git, no .aoci; resolveRepoRoot should fail to find one upwards
 	emptyDir := t.TempDir()
 
 	out, err := runDoctor(t, emptyDir)
 
-	// 应返回携带退出码 3 的错误
+	// It should return an error carrying exit code 3
 	if err == nil {
 		t.Fatal("空目录下 doctor 应返回错误(找不到仓库根)")
 	}
@@ -123,16 +123,16 @@ func TestDoctor_NoRepoRoot(t *testing.T) {
 	if ec.ExitCode() != 3 {
 		t.Errorf("找不到仓库根应退出码 3,得到 %d", ec.ExitCode())
 	}
-	// 输出应含仓库根定位失败提示
+	// The output should hold the repository root location failure hint
 	if !strings.Contains(out, "仓库根") {
 		t.Errorf("输出应提示仓库根定位失败: %q", out)
 	}
 }
 
-// —— 第三层: 健康路径(本项目真实根 → 结构性断言)——
+// —— Layer three: the healthy path (this project's real root → structural assertions) ——
 
-// findProjectRoot 从当前测试工作目录向上找到含 .git 的项目根(与 resolveRepoRoot 同逻辑)。
-// 找不到则跳过健康路径测试(例如在无 .git 的构建环境中)。
+// findProjectRoot walks up from the current test working directory to the project root holding .git (the same logic as resolveRepoRoot).
+// When none is found the healthy-path test is skipped (for example in a build environment without .git).
 func findProjectRoot(t *testing.T) string {
 	t.Helper()
 	dir, err := os.Getwd()
@@ -160,37 +160,37 @@ func TestDoctor_HealthyProject(t *testing.T) {
 		t.Skip("未找到项目根(.git/.aoci),跳过健康路径测试")
 	}
 
-	// 在真实项目根下运行 doctor
+	// Run doctor under the real project root
 	out, err := runDoctor(t, root)
 
-	// 断言结构性事实(不断言具体数值,避免随项目演进脆化):
+	// Assert structural facts (no specific values, so the test does not grow brittle as the project evolves):
 
-	// 1. 三个分组标题都出现(AI 增强层随 Legacy 写作面退役,0.2.0)
+	// 1. all three group titles appear (the AI enhancement layer retired with the Legacy authoring surface, 0.2.0)
 	for _, group := range []string{"仓库与核心资产", "Agent 接入", "平台特性"} {
 		if !strings.Contains(out, group) {
 			t.Errorf("输出应含分组标题 %q", group)
 		}
 	}
 
-	// 2. 关键检查项标签出现
+	// 2. the key check item labels appear
 	for _, label := range []string{"仓库根定位", "配置加载", "基线文件"} {
 		if !strings.Contains(out, label) {
 			t.Errorf("输出应含检查项 %q", label)
 		}
 	}
 
-	// 3. 仓库根定位应成功(本项目有 .git)
+	// 3. repository root location should succeed (this project has .git)
 	if !strings.Contains(out, "[✓] 仓库根定位") {
 		t.Error("真实项目根下,仓库根定位应为 [✓]")
 	}
 
-	// 4. 末尾应有诊断完成汇总
+	// 4. the end should hold the diagnosis completion summary
 	if !strings.Contains(out, "诊断完成") {
 		t.Error("输出末尾应有诊断完成汇总")
 	}
 
-	// 5. 退出码语义: 健康项目应通过(err 为 nil)或仅因个别可选项失败。
-	//    若失败,打印输出便于诊断(不强制断言 nil —— 项目环境可能有真实待处理项)。
+	// 5. exit code semantics: a healthy project should pass (err nil) or fail only on individual optional items.
+	//    On failure, print the output for diagnosis (nil is not asserted strictly, since the project environment may hold real pending items).
 	if err != nil {
 		if ec, ok := err.(exitCoder); ok {
 			t.Logf("doctor 退出码 %d(项目存在待处理项,非测试失败):\n%s", ec.ExitCode(), out)

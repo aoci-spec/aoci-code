@@ -1,20 +1,20 @@
-// Windows普通CLI机器JSON的ASCII安全输出。
+// ASCII-safe output of machine JSON for the ordinary CLI on Windows.
 //
-// 背景:
+// Background:
 //
-// Windows PowerShell 5直接捕获原生程序stdout时，会使用本地控制台代码页解释
-// 字节。AOCI输出UTF-8中文JSON时，多字节字符可能被错误解码，极端情况下还会
-// 破坏后续ASCII双引号，使ConvertFrom-Json无法解析。
+// When Windows PowerShell 5 captures a native program's stdout directly, it interprets the bytes with the local console code page.
+// When AOCI prints UTF-8 Chinese JSON, the multi-byte characters may be decoded wrongly, and in the extreme case
+// the following ASCII double quotes are broken too, so ConvertFrom-Json cannot parse.
 //
-// 裁决:
+// Decision:
 //
-//   - 仅Windows启用；Linux、macOS保持原始UTF-8 JSON；
-//   - 仅普通CLI的合法--json输出启用；人读文本保持原样；
-//   - 非ASCII字符编码为JSON标准\uXXXX转义；
-//   - 补充平面字符使用UTF-16代理对；
-//   - MCP不经过普通CLI缓冲写出路径，继续保持原始UTF-8 JSON-RPC字节流。
+//   - enabled on Windows only; Linux and macOS keep the raw UTF-8 JSON;
+//   - enabled only for the legal --json output of the ordinary CLI; human-readable text stays as it is;
+//   - non-ASCII characters are encoded as the standard JSON \uXXXX escapes;
+//   - supplementary-plane characters use UTF-16 surrogate pairs;
+//   - MCP does not pass through the ordinary CLI's buffered write path and keeps the raw UTF-8 JSON-RPC byte stream.
 //
-// JSON语义不变：任何标准JSON解析器都会把\u转义还原为原Unicode字符串。
+// The JSON semantics are unchanged: any standard JSON parser restores a \u escape to the original Unicode string.
 package cli
 
 import (
@@ -26,9 +26,9 @@ import (
 	"unicode/utf8"
 )
 
-// writeCLIData写出普通CLI的缓冲结果。
+// writeCLIData writes the buffered result of the ordinary CLI.
 //
-// 写错误沿用历史普通输出纪律：根层最终输出不再制造第二个业务错误。
+// A write error follows the historical ordinary output discipline: the root layer's final output manufactures no second business error.
 func writeCLIData(
 	writer io.Writer,
 	data []byte,
@@ -41,7 +41,7 @@ func writeCLIData(
 	)
 }
 
-// writeCLIDataWithError供需要显式感知写失败的JSON错误信封使用。
+// writeCLIDataWithError serves the JSON error envelope that needs to notice a write failure explicitly.
 func writeCLIDataWithError(
 	writer io.Writer,
 	data []byte,
@@ -55,7 +55,7 @@ func writeCLIDataWithError(
 	)
 }
 
-// writeCLIDataForPlatform按显式平台写出数据，使Windows行为可在Linux CI测试。
+// writeCLIDataForPlatform writes data for an explicit platform, so the Windows behaviour can be tested in Linux CI.
 func writeCLIDataForPlatform(
 	writer io.Writer,
 	data []byte,
@@ -84,10 +84,10 @@ func writeCLIDataForPlatform(
 	return err
 }
 
-// escapeJSONNonASCII把合法UTF-8 JSON中的全部非ASCII码点转为JSON Unicode转义。
+// escapeJSONNonASCII turns every non-ASCII code point of legal UTF-8 JSON into a JSON Unicode escape.
 //
-// JSON结构字符本身均为ASCII，因此无需重解析对象；逐码点替换不会改变字段、
-// 数字、布尔值、null、已有反斜杠转义、缩进或结尾换行。
+// The JSON structural characters are all ASCII, so the object need not be re-parsed; the code-point replacement changes no field,
+// number, boolean, null, existing backslash escape, indentation, or trailing newline.
 func escapeJSONNonASCII(
 	data []byte,
 ) []byte {
@@ -100,7 +100,7 @@ func escapeJSONNonASCII(
 
 	var output bytes.Buffer
 
-	// 中文通常由3字节UTF-8变成6字节\uXXXX，预留两倍可减少扩容。
+	// A Chinese character usually turns from 3 UTF-8 bytes into 6 bytes of \uXXXX; reserving twice the size reduces growth.
 	output.Grow(
 		len(data) * 2,
 	)
@@ -112,8 +112,8 @@ func escapeJSONNonASCII(
 
 		if current == utf8.RuneError &&
 			size == 1 {
-			// 调用入口只处理json.Valid数据，正常不会进入本分支。
-			// 保守保留原字节，避免辅助函数在异常输入上静默丢数据。
+			// The call entry handles only json.Valid data, so this branch is normally never entered.
+			// The raw bytes are kept conservatively, so the helper does not silently lose data on abnormal input.
 			output.WriteByte(
 				data[0],
 			)
@@ -151,7 +151,7 @@ func escapeJSONNonASCII(
 	return output.Bytes()
 }
 
-// appendJSONUnicodeEscape追加固定四位小写十六进制JSON转义。
+// appendJSONUnicodeEscape appends a fixed four-digit lower-case hexadecimal JSON escape.
 func appendJSONUnicodeEscape(
 	output *bytes.Buffer,
 	value rune,
@@ -175,7 +175,7 @@ func appendJSONUnicodeEscape(
 	)
 }
 
-// isASCIIBytes判断字节序列是否全部落在ASCII范围。
+// isASCIIBytes reports whether every byte of the sequence falls in the ASCII range.
 func isASCIIBytes(
 	data []byte,
 ) bool {

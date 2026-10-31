@@ -1,4 +1,4 @@
-// MinimalIndex文本资产迁移的字节级兼容和真实物化测试。
+// Byte-level compatibility and real materialization tests of the MinimalIndex text asset migration.
 package cli
 
 import (

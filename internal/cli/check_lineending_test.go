@@ -1,4 +1,4 @@
-// Check继承Score换行宽容口径的端到端测试。
+// End-to-end tests of Check inheriting Score's line-ending tolerance reading.
 package cli
 
 import (

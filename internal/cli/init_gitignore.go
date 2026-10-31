@@ -1,12 +1,12 @@
-// aoci init使用的.aoci仓库内Git资产边界。
+// The in-repository Git asset boundary of .aoci that aoci init uses.
 //
-// 设计原则:
+// Design principles:
 //
-//   - .aoci中的未知资产默认视为本机运行时产物并忽略；
-//   - 只有明确列入白名单的正式认知与治理资产进入Git；
-//   - .gitignore自身必须可跟踪；
-//   - 已有用户文件绝不覆盖；
-//   - 新建文件必须通过fs.AtomicWrite，避免半写。
+//   - an unknown asset in .aoci is treated as a local runtime artifact and ignored by default;
+//   - only formal cognition and governance assets on the explicit allowlist enter Git;
+//   - .gitignore itself must be trackable;
+//   - an existing user file is never overwritten;
+//   - a new file must go through fs.AtomicWrite, so there is no half-written file.
 package cli
 
 import (
@@ -21,16 +21,16 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// aociRuntimeGitignoreContent定义.aoci目录的默认拒绝、正式资产白名单。
+// aociRuntimeGitignoreContent defines the default-deny, formal-asset allowlist of the .aoci directory.
 //
-// aoci.txt位于仓库根，不由本文件管理。
-// reports.jsonl、ledger.jsonl、drafts、verify_history、lock、hooks、tmp、
-// 备份文件及未来未知文件都会被首行*默认忽略。
-// gitattributesContent是AOCI给新仓库的行尾规范化,与本仓库自用的同一行。
+// aoci.txt lives at the repository root and is not managed by this file.
+// reports.jsonl, ledger.jsonl, drafts, verify_history, lock, hooks, tmp,
+// backup files, and unknown future files are all ignored by default through the leading * line.
+// gitattributesContent is the line-ending normalization AOCI gives a new repository, the same line this repository uses itself.
 //
-// AOCI以原始字节为准建立Baseline,而core.autocrlf=true是Git for Windows的
-// 默认值:一次Windows检出会重写全树行尾,连三个形式认知卷一起判成漂移。本仓库
-// 早就用这一行保护自己,却没有把同样的保护交给用户仓库。
+// AOCI builds its Baseline on raw bytes, while core.autocrlf=true is the default of Git for Windows:
+// one Windows checkout rewrites the line endings of the whole tree and judges the three formal cognition volumes as drift with it. This repository
+// has long protected itself with this line without handing the same protection to user repositories.
 const gitattributesContent = "" +
 	"# AOCI baselines exact raw bytes, so a checkout must be byte-identical on\n" +
 	"# every platform: text always checks out LF, overriding any autocrlf rewrite\n" +
@@ -38,11 +38,11 @@ const gitattributesContent = "" +
 	"# Binaries are auto-detected and left untouched.\n" +
 	"* text=auto eol=lf\n"
 
-// ensureGitattributes在仓库根尚无.gitattributes时写入行尾规范化。
+// ensureGitattributes writes the line-ending normalization when the repository root has no .gitattributes yet.
 //
-// 已存在时无条件跳过。维护者文件绝不改写,这条纪律高于本保护:一个已有
-// .gitattributes的仓库有它自己的规则,AOCI无权推断哪一条该让位。缺失的保护
-// 不再是致命的——行尾差异现在是可读的非阻塞发现,不是硬阻塞。
+// An existing file is skipped unconditionally. A maintainer's file is never rewritten, a discipline above this protection: a repository with its own
+// .gitattributes has its own rules, and AOCI has no right to infer which one should give way. A missing protection
+// is no longer fatal: a line-ending difference is now a readable non-blocking finding, not a hard block.
 func ensureGitattributes(root string) (string, error) {
 	targetPath := filepath.Join(root, ".gitattributes")
 	if _, err := os.Lstat(targetPath); err == nil {
@@ -56,9 +56,9 @@ func ensureGitattributes(root string) (string, error) {
 	return cliMessage("init.gitattributes_written"), nil
 }
 
-// ensureAOCIRuntimeGitignore确保.aoci/.gitignore首次初始化时就位。
+// ensureAOCIRuntimeGitignore makes sure .aoci/.gitignore is in place at first initialization.
 //
-// 已存在时无条件跳过，防止覆盖维护者自定义策略。
+// An existing file is skipped unconditionally, so a maintainer's custom policy is not overwritten.
 func ensureAOCIRuntimeGitignore(
 	root string,
 ) (
@@ -101,19 +101,19 @@ func ensureAOCIRuntimeGitignore(
 	return cliMessage("init.gitignore_created"), nil
 }
 
-// hostConfigIgnoreMarker标记init自己管理的根.gitignore区块。维护者写的其他行
-// 永不被读取或改写,再次init只在同一标记下补新路径。
+// hostConfigIgnoreMarker marks the root .gitignore block init manages itself. Other lines the maintainer wrote are
+// never read or rewritten; a second init only adds new paths under the same marker.
 const hostConfigIgnoreMarker = "# AOCI agent host integration (machine-bound; do not commit)"
 
-// ensureHostConfigGitignore把init刚写出的宿主配置加进仓库根.gitignore。
+// ensureHostConfigGitignore adds the host configuration init just wrote to the repository root .gitignore.
 //
-// 为什么必须在首次scan之前发生: 这些文件带本机绝对路径,提交后别人的init只按
-// key存在与否判定,会幂等早退、静默空转。而Managed Scope的角色在首次scan时就
-// 定下,此后--force不能推进,摘除要走覆盖缩减的Scope Change审批 —— 所以错过这
-// 个时机的代价是一次人工批准,不是改一行配置。
+// Why it must happen before the first scan: these files carry local absolute paths; once committed, someone else's init judges only
+// by whether the key exists, returns early as idempotent, and silently spins. And the roles of the Managed Scope are fixed at the first scan,
+// after which --force cannot advance them, and removal goes through the coverage-reduction Scope Change approval; so missing this
+// moment costs one human approval, not one changed line of configuration.
 //
-// 边界: 只追加本次真实存在的路径;已被Git跟踪的路径一律跳过,因为那代表维护者
-// 已经决定提交它,不由init替其改主意;根.gitignore已有等价条目时不重复写。
+// Boundary: only paths that really exist this time are appended; a path already tracked by Git is always skipped, since that means the maintainer
+// has decided to commit it and init does not change their mind; an equivalent entry already in the root .gitignore is not written twice.
 func ensureHostConfigGitignore(
 	root string,
 	candidatePaths []string,
@@ -134,7 +134,7 @@ func ensureHostConfigGitignore(
 
 	tracked, err := trackedRepositoryPaths(root)
 	if err != nil {
-		// Git事实不可得时不猜测: 宁可不写, 也不替维护者改变提交意图。
+		// When the Git facts are unavailable, do not guess: better not to write than to change the maintainer's commit intent for them.
 		return "", nil
 	}
 
@@ -176,7 +176,7 @@ func ensureHostConfigGitignore(
 	return cliMessage("init.host_gitignore_updated", strings.Join(added, ", ")), nil
 }
 
-// trackedRepositoryPaths读取当前被Git跟踪的路径集合。
+// trackedRepositoryPaths reads the set of paths Git currently tracks.
 func trackedRepositoryPaths(root string) (map[string]bool, error) {
 	command := fs.UntrustedRepositoryGitCommand(
 		root, "-c", "core.quotepath=false", "ls-files", "-z", "--cached",
@@ -194,10 +194,10 @@ func trackedRepositoryPaths(root string) (map[string]bool, error) {
 	return tracked, nil
 }
 
-// gitignoreAlreadyCovers判断现有内容是否已经写过这个路径。
+// gitignoreAlreadyCovers judges whether the existing content already wrote this path.
 //
-// 这是保守的逐行相等比较, 不解释gitignore的模式语义: 宁可漏判导致一次重复
-// 条目, 也不误判成已覆盖而让机器绑定配置进入Managed Scope。
+// This is a conservative line-by-line equality comparison that does not interpret gitignore pattern semantics: better to miss and produce one
+// duplicate entry than to misjudge as covered and let a machine-bound configuration enter the Managed Scope.
 func gitignoreAlreadyCovers(content, relativePath string) bool {
 	directoryForm := relativePath + "/"
 	for _, line := range strings.Split(content, "\n") {
@@ -216,7 +216,7 @@ func gitignoreAlreadyCovers(content, relativePath string) bool {
 	return false
 }
 
-// appendGitignoreLine把一个路径追加到init标记区块内。
+// appendGitignoreLine appends one path inside the init marker block.
 func appendGitignoreLine(content, relativePath string) string {
 	if content != "" && !strings.HasSuffix(content, "\n") {
 		content += "\n"

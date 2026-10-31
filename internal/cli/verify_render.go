@@ -1,14 +1,14 @@
-// Verify人读报告渲染。
+// Verify human-readable report rendering.
 //
-// 本文件只把verifyReport转换为稳定文本，不读取仓库、不修改资产，
-// 也不重新定义四态或治理债务判据。
+// This file only converts verifyReport into stable text; it reads no repository, changes no asset,
+// and redefines neither the four states nor the governance debt criterion.
 //
-// Pending工作流提示必须服从Agent Plan真实优先级：
-//   - Actionable或Stale等Entries任务先于Curation；
-//   - Unbaselined等前置任务先于语义生成；
-//   - 只有更高优先级任务清零后，Pending才进入Curation阶段。
+// The Pending workflow hint must follow the real priority of the Agent Plan:
+//   - Entries tasks such as Actionable or Stale come before Curation;
+//   - prerequisite tasks such as Unbaselined come before semantic generation;
+//   - only once the higher-priority tasks are cleared does Pending enter the Curation phase.
 //
-// 因此不得仅因Pending存在就无条件声称Guide下一步一定是Curation。
+// So it must not claim unconditionally that the Guide's next step is Curation merely because Pending exists.
 package cli
 
 import (
@@ -184,10 +184,10 @@ func renderVerifyHuman(
 	return builder.String()
 }
 
-// renderVerifyPendingWorkflowHint根据Plan真实优先级解释Pending下一步。
+// renderVerifyPendingWorkflowHint explains the next step for Pending by the Plan's real priority.
 //
-// Verify不重新构建Plan，也无法单独确认Header完整性，因此提示只陈述能够由
-// 当前报告确定的优先级，并要求以agent guide返回的实际阶段为准。
+// Verify does not rebuild the Plan and cannot confirm Header completeness on its own, so the hint states only the priority
+// the current report can determine and defers to the real phase agent guide returns.
 func renderVerifyPendingWorkflowHint(
 	report *verifyReport,
 ) string {

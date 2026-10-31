@@ -1,11 +1,11 @@
-// `aoci index agent guide --agent <name> --json`把确定性Plan翻译为宿主
-// Agent可以执行的阶段指南、命令集合和请求模板。
+// `aoci index agent guide --agent <name> --json` translates the deterministic Plan into the phase guide, command set,
+// and request templates a host Agent can execute.
 //
-// Guide保持纯读，不读取源码正文、不调用模型、不创建草稿、不修改正式资产。
-// 领域构造完成后，输出前才注入当前可执行文件路径、平台调用纪律和协议上限。
+// The Guide stays a pure read: it reads no source body, calls no model, creates no draft, and changes no formal asset.
+// Only after the domain construction, right before output, are the current executable path, the platform invocation discipline, and the protocol caps injected.
 //
-// JSON输出经writeAgentGuideJSON使用公共Plan视图，增加规范Missing字段别名，
-// 但不会改变嵌套Plan的plan_id。
+// The JSON output goes through writeAgentGuideJSON using the shared Plan view, adding the canonical Missing field aliases
+// without changing the nested Plan's plan_id.
 package cli
 
 import (

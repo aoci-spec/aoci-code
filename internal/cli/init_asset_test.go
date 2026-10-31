@@ -1,4 +1,4 @@
-// Init稳定输出资产迁移的字节级兼容测试。
+// Byte-level compatibility tests of the Init stable output asset migration.
 package cli
 
 import (

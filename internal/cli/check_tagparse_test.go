@@ -1,4 +1,4 @@
-// check 对 tagparse Warning 的放行策略回归测试。
+// Regression tests of check's pass-through policy for the tagparse Warning.
 package cli
 
 import (

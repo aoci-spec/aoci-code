@@ -1,7 +1,7 @@
-// issue #8: 一个已 init、未 scan 的 Volumes v1 骨架(零条目)曾在 Guide 上走进死胡同 ——
-// blocked 态只带裸的 finding code, 没有可执行的补救; Legacy Guide 早有 baseline_first
-// 阶段, Volumes 却没接。这里钉死: 无 Baseline 的 Volumes Guide 必须携带 scan 命令与
-// 结构化 stop; scan 之后同一仓库直接进入 authoring_required。
+// issue #8: an initialized, unscanned Volumes v1 skeleton (zero entries) once walked into a dead end on the Guide:
+// the blocked state carried only a bare finding code with no actionable remedy; the Legacy Guide had long had the baseline_first
+// phase, but Volumes was never wired to it. Locked here: a Volumes Guide without a Baseline must carry the scan command and a
+// structured stop; after scan the same repository goes straight into authoring_required.
 package cli
 
 import (
@@ -42,7 +42,7 @@ func TestVolumeGuideWithoutBaselineCarriesScanRemediationThenAuthors(t *testing.
 		t.Fatal(err)
 	}
 
-	// 未 scan: 骨架存在、零条目、无 Baseline —— issue #8 的精确状态。
+	// Not scanned: the skeleton exists, zero entries, no Baseline; the exact state of issue #8.
 	guide := volumeGuideJSON(t, root)
 	if guide.Stage != "blocked" {
 		t.Fatalf("an unscanned Volumes skeleton must still report blocked, got %q", guide.Stage)
@@ -61,7 +61,7 @@ func TestVolumeGuideWithoutBaselineCarriesScanRemediationThenAuthors(t *testing.
 		t.Fatal("no authoring contract may be issued before a Baseline exists")
 	}
 
-	// scan 之后, 同一仓库不再阻塞, 直接进入 Volumes 的创作路径。
+	// After scan the same repository no longer blocks and goes straight into the Volumes authoring path.
 	var scanOut, scanErr bytes.Buffer
 	if code := executeCLI([]string{"--repo", root, "--quiet", "scan"}, &scanOut, &scanErr); code != ExitOK {
 		t.Fatalf("scan failed: code=%d stdout=%s stderr=%s", code, scanOut.String(), scanErr.String())

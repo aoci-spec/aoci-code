@@ -1,11 +1,11 @@
-// CLI稳定Long Help文本资产消费者。
+// The consumer of the stable CLI Long Help text assets.
 //
-// Cobra命令仍由各业务文件创建；各命令在构造时直接从本文件取得稳定Long
-// Help。此处同时承载本次迁入资源的观察命令Short；其他Short、Flag Usage、
-// 动态报告、错误分支和权限控制仍留在原Go文件。
+// The Cobra commands are still created by each business file; each command takes its stable Long
+// Help from this file at construction. This file also carries the Short of the observation commands moved into the assets in this round; the other
+// Shorts, flag usages, dynamic reports, error branches, and permission control stay in the original Go files.
 //
-// 这种接法保证textassets是Long Help唯一事实源，不在业务Go文件中保留一份
-// 不再生效但仍可能漂移的重复自然语言。
+// This wiring makes textassets the single source of truth for Long Help, leaving no duplicate natural language in the business Go files
+// that no longer takes effect but could still drift.
 package cli
 
 import (
@@ -22,28 +22,28 @@ const (
 	cliHelpAssetErrorAnnotation = "aoci.cli/help-asset-error"
 )
 
-// rootLongHelp返回根命令稳定说明。
+// rootLongHelp returns the stable explanation of the root command.
 func rootLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpRootLong,
 	)
 }
 
-// doctorLongHelp返回Doctor稳定说明。
+// doctorLongHelp returns the stable explanation of Doctor.
 func doctorLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpDoctorLong,
 	)
 }
 
-// indexLongHelp返回Index工序组稳定说明。
+// indexLongHelp returns the stable explanation of the Index process group.
 func indexLongHelp() string {
 	return observationLongHelp(
 		textassets.ContractHelpIndexLong,
 	)
 }
 
-// verifyLongHelp返回Verify四态与治理债务稳定说明。
+// verifyLongHelp returns the stable explanation of Verify's four states and governance debt.
 func verifyLongHelp() string {
 	return observationLongHelp(
 		textassets.ContractHelpVerifyLong,
@@ -57,7 +57,7 @@ func verifyShortHelp() string {
 	)
 }
 
-// checkLongHelp返回Check提交阻断稳定说明。
+// checkLongHelp returns the stable explanation of Check's commit blocking.
 func checkLongHelp() string {
 	return observationLongHelp(
 		textassets.ContractHelpCheckLong,
@@ -71,21 +71,21 @@ func checkShortHelp() string {
 	)
 }
 
-// scanLongHelp返回Scan防洗白稳定说明。
+// scanLongHelp returns the stable explanation of Scan's whitewash prevention.
 func scanLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpScanLong,
 	)
 }
 
-// removeEntryLongHelp返回人工删除Entry稳定说明。
+// removeEntryLongHelp returns the stable explanation of the manual Entry removal.
 func removeEntryLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpRemoveEntryLong,
 	)
 }
 
-// indexScoreLongHelp返回九维度评分稳定说明。
+// indexScoreLongHelp returns the stable explanation of the nine-dimension score.
 func indexScoreLongHelp() string {
 	return observationLongHelp(
 		textassets.ContractHelpIndexScoreLong,
@@ -128,21 +128,21 @@ func observationLongHelp(id textassets.ID) string {
 		readObservationAuditHelp()
 }
 
-// indexAgentLongHelp返回Host-Agent协议能力稳定说明。
+// indexAgentLongHelp returns the stable explanation of the Host Agent protocol capabilities.
 func indexAgentLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpIndexAgentLong,
 	)
 }
 
-// updateEntryLongHelp返回单条Entry写入稳定说明。
+// updateEntryLongHelp returns the stable explanation of the single Entry write.
 func updateEntryLongHelp() string {
 	return cliHelpText(
 		textassets.ContractHelpUpdateEntryLong,
 	)
 }
 
-// cliHelpText渲染无动态变量的稳定Help标量。
+// cliHelpText renders a stable Help scalar without dynamic variables.
 func cliHelpText(
 	id textassets.ID,
 ) string {
@@ -157,8 +157,8 @@ func cliMessage(key string, args ...any) string {
 	return value
 }
 
-// cliHelpTemplate用于Cobra只能接收string的Help元数据。资源损坏时返回包含
-// ID与底层错误的可见诊断，不panic、不回退到硬编码正文，也不阻断无关命令。
+// cliHelpTemplate serves the Help metadata Cobra can only take as a string. A damaged asset returns a visible diagnosis holding
+// the ID and the underlying error; no panic, no fallback to a hard-coded body, and no blocking of unrelated commands.
 func cliHelpTemplate(id textassets.ID, data any) string {
 	value, err := textassets.RenderScalar(
 		textassets.ActiveLocale(),
@@ -172,10 +172,10 @@ func cliHelpTemplate(id textassets.ID, data any) string {
 	return value
 }
 
-// installCLIHelpAssetGuard把Cobra只能接收string的资源错误恢复为真实命令错误。
+// installCLIHelpAssetGuard recovers an asset error Cobra can only take as a string into a real command error.
 //
-// 闸门只检查本次Help实际渲染的命令字段和参数说明，不扫描兄弟命令，避免一个
-// 无关Help资产损坏阻断其他命令。检查发生在Cobra写出任何Help正文之前。
+// The gate checks only the command fields and flag explanations this Help rendering really uses, not sibling commands, so one
+// unrelated damaged Help asset does not block other commands. The check happens before Cobra writes any Help body.
 func installCLIHelpAssetGuard(root *cobra.Command) {
 	if root == nil {
 		return
@@ -200,8 +200,8 @@ func installCLIHelpAssetGuard(root *cobra.Command) {
 	})
 }
 
-// cliHelpExecutionError取得本次Help渲染拦截到的错误。状态绑定单棵命令树，
-// 每次读取即清除，避免跨调用永久缓存。
+// cliHelpExecutionError fetches the error this Help rendering intercepted. The state binds to a single command tree and
+// is cleared on every read, so it is never cached across invocations.
 func cliHelpExecutionError(root *cobra.Command) error {
 	if root == nil || root.Annotations == nil {
 		return nil
@@ -219,7 +219,7 @@ func cliHelpExecutionError(root *cobra.Command) error {
 	}
 }
 
-// commandHelpAssetError返回当前命令Help会消费的首个资源错误。
+// commandHelpAssetError returns the first asset error the current command's Help would consume.
 func commandHelpAssetError(command *cobra.Command) error {
 	if command == nil {
 		return nil
@@ -260,9 +260,9 @@ func isCLIHelpAssetFailure(text string) bool {
 	)
 }
 
-// findCLICommand从给定根命令逐层按Name定位子命令。
+// findCLICommand locates a subcommand from the given root level by level by Name.
 //
-// 该函数用于字节级Help测试和其他只读命令树核对，不修改命令。
+// It serves byte-level Help tests and other read-only command-tree checks, and does not change the commands.
 func findCLICommand(
 	root *cobra.Command,
 	path ...string,

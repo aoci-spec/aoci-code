@@ -1,12 +1,12 @@
-// Init稳定用户输出的文本资产消费者。
+// The consumer of the stable Init user-output text assets.
 //
-// 本文件只负责自然语言表达:
-//   - 首次Baseline与MCP认知入口;
-//   - 完整索引Guide行;
-//   - 新建骨架后的Header提示;
-//   - 四种automation.mode的稳定解释。
+// This file is responsible only for natural-language expression:
+//   - the first Baseline and the MCP cognition entry;
+//   - the complete-index Guide line;
+//   - the Header hint after a new skeleton;
+//   - the stable explanations of the four automation.mode values.
 //
-// 参数校验、模式策略、文件创建、配置保存和Baseline前移仍由Go状态机负责。
+// Argument validation, mode policy, file creation, configuration saving, and the Baseline advance remain the Go state machine's job.
 package cli
 
 import (
@@ -14,14 +14,14 @@ import (
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
-// initFullIndexTemplateData是完整索引提示的严格模板变量。
+// initFullIndexTemplateData holds the strict template variables of the complete-index hint.
 type initFullIndexTemplateData struct {
 	GuideCommand   string
 	AutomationMode string
 	AutomationHint string
 }
 
-// initNextStepMessage返回初始化成功后的固定后续操作说明。
+// initNextStepMessage returns the fixed follow-up explanation after a successful initialization.
 func initNextStepMessage() (string, error) {
 	return textassets.RenderScalar(
 		textassets.ActiveLocale(),
@@ -30,7 +30,7 @@ func initNextStepMessage() (string, error) {
 	)
 }
 
-// initFullIndexMessage绑定当前Agent、automation.mode和对应模式解释。
+// initFullIndexMessage binds the current Agent, automation.mode, and the matching mode explanation.
 func initFullIndexMessage(
 	agent string,
 	mode string,
@@ -53,7 +53,7 @@ func initFullIndexMessage(
 	)
 }
 
-// initHeaderDictionaryMessage返回新建最小骨架后的Header生成提示。
+// initHeaderDictionaryMessage returns the Header generation hint after a new minimal skeleton.
 func initHeaderDictionaryMessage() (string, error) {
 	return textassets.RenderScalar(
 		textassets.ActiveLocale(),
@@ -62,10 +62,10 @@ func initHeaderDictionaryMessage() (string, error) {
 	)
 }
 
-// agentAutomationInitHint返回init完成后的模式说明。
+// agentAutomationInitHint returns the mode explanation after init completes.
 //
-// 模式解析复用config.ParseAutomationMode；文本资产只表达已经决定的模式，
-// 不参与权限计算。
+// Mode parsing reuses config.ParseAutomationMode; the text asset only expresses the mode already decided
+// and takes no part in permission computation.
 func agentAutomationInitHint(
 	rawMode string,
 ) (string, error) {

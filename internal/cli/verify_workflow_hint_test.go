@@ -1,4 +1,4 @@
-// Verify对Pending阶段提示与排除治理措辞的状态机一致性测试。
+// State-machine consistency tests of Verify's Pending phase hint and exclusion governance wording.
 package cli
 
 import (

@@ -1,23 +1,23 @@
-// aoci hook —— hook runtime 隐藏子命令(供各 agent 的 shell 模板调用)
-// 索引条目: hook.go[CHK8S]
+// aoci hook: the hidden hook runtime subcommand (called by each agent's shell template)
+// Index entry: hook.go[CHK8S]
 //
-// 契约: shell 模板零逻辑只 exec 本命令;JSON 解析与判断全在 Go 内可测。
-// pretool 输入双通道:
+// Contract: the shell template holds zero logic and only execs this command; JSON parsing and judgement are all in testable Go.
+// pretool has two input channels:
 //
-//	--path 显式传参(通用/测试通道);
-//	--stdin-json 从 stdin 读 agent 的 hook JSON(Claude Code 通道:
-//	  {"tool_name":"Edit","tool_input":{"file_path":"..."}}),取 tool_name 与 file_path。
+//	--path passes the argument explicitly (the generic/test channel);
+//	--stdin-json reads the agent's hook JSON from stdin (the Claude Code channel:
+//	  {"tool_name":"Edit","tool_input":{"file_path":"..."}}), taking tool_name and file_path.
 //
-// codex-compact 不读取仓库状态，只输出带唯一 refresh_event_id 的模型上下文，
-// 供同步 SessionStart(source=compact) 在压缩后的下一次模型请求前注入。
+// codex-compact reads no repository state; it only prints the model context carrying a unique refresh_event_id,
+// for the synchronous SessionStart(source=compact) to inject before the next model request after compaction.
 //
-// 退出码映射:
+// Exit code mapping:
 //
-//	放行 = 0;
-//	阻断(strict 且条目 STALE)= 通用 4;--agent claude 时映射为 2 且文本走 stderr
-//	(Claude Code 契约: exit 2 = 阻断并将 stderr 回喂模型)。
+//	pass = 0;
+//	block (strict and the entry STALE) = the generic 4; with --agent claude it maps to 2 and the text goes to stderr
+//	(the Claude Code contract: exit 2 = block and feed stderr back to the model).
 //
-// 环境异常一律放行退出 0 —— hook 绝不能因自身故障卡死用户工作流。
+// Any environment fault passes with exit 0; the hook must never jam the user's workflow because of its own fault.
 package cli
 
 import (
@@ -34,7 +34,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ExitHookBlock 通用阻断退出码;ExitHookBlockClaude 为 Claude Code 契约码
+// ExitHookBlock is the generic block exit code; ExitHookBlockClaude is the Claude Code contract code
 const (
 	ExitHookBlock       = 4
 	ExitHookBlockClaude = 2
@@ -42,7 +42,7 @@ const (
 
 var codexCompactRefreshSequence atomic.Uint64
 
-// claudeHookInput Claude Code hook stdin JSON 的最小解析结构
+// claudeHookInput is the minimal parse structure of the Claude Code hook stdin JSON
 type claudeHookInput struct {
 	ToolName  string `json:"tool_name"`
 	ToolInput struct {
@@ -54,7 +54,7 @@ func init() {
 	registerCommand(newHookCmd())
 }
 
-// newHookCmd 返回 hook 命令树。构造与注册分开,测试才能注入 stdin。
+// newHookCmd returns the hook command tree. Construction and registration are separate so tests can inject stdin.
 func newHookCmd() *cobra.Command {
 	var agent, tool, path string
 	var stdinJSON bool
@@ -63,15 +63,15 @@ func newHookCmd() *cobra.Command {
 		Use:   "pretool",
 		Short: cliMessage("cli.short.hook"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// 仓库定位失败直接放行(hook 容错纪律)
+			// A failed repository location passes directly (the hook fault-tolerance discipline)
 			root, err := config.FindRepoRoot(".", flagRepo)
 			if err != nil {
 				return nil
 			}
 
-			// stdin-json 通道: 解析失败放行(容错),成功则覆盖 tool/path
+			// The stdin-json channel: a parse failure passes (fault tolerance), success overrides tool/path
 			if stdinJSON {
-				// 读取失败或超限一律放行 —— hook 绝不能因自身输入通道卡住工作流。
+				// A read failure or an oversize input always passes; the hook must never jam the workflow because of its own input channel.
 				data, oversize, rerr := readLimitedInput(cmd.InOrStdin(), hookInputMaxBytes)
 				if rerr == nil && !oversize && len(data) > 0 {
 					var in claudeHookInput
@@ -86,16 +86,16 @@ func newHookCmd() *cobra.Command {
 				}
 			}
 			if path == "" {
-				return nil // 无路径: 无事可做,放行
+				return nil // no path: nothing to do, pass
 			}
 
-			// Claude 传绝对路径属正常(其 file_path 为绝对);内核只认相对路径,先行换算
+			// Claude passing an absolute path is normal (its file_path is absolute); the kernel accepts only relative paths, so convert first
 			path = toRepoRel(root, path)
 
 			res := hooks.HandlePreTool(root, tool, path)
 			if res.Block {
 				if agent == "claude" {
-					// Claude 契约: exit 2 + stderr 回喂模型
+					// The Claude contract: exit 2 + stderr fed back to the model
 					return &ExitError{Code: ExitHookBlockClaude, Msg: res.Text}
 				}
 				if res.Text != "" {
@@ -117,7 +117,7 @@ func newHookCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "hook",
 		Short:  cliMessage("cli.short.hook_runtime"),
-		Hidden: true, // 人用 help 不展示,属机器通道
+		Hidden: true, // not shown in human help; a machine channel
 	}
 	cmd.AddCommand(pretool, newCodexCompactCmd(cryptorand.Reader))
 	return cmd
@@ -166,13 +166,13 @@ func codexCompactDeveloperContext(refreshEventID string) string {
 	)
 }
 
-// toRepoRel 绝对路径落在仓库根下时换算为相对路径(正斜杠);其余原样返回交内核裁决。
-// Windows 盘符大小写归一(C: 与 c: 视为同盘;NTFS 路径不区分大小写,盘符字母是
-// 最常见的大小写漂移点 —— 审查修正,归一前 c:\repo 与 C:\repo 前缀比对会失配,
-// 导致注入静默失效;仅归一盘符不归一其余路径段,避免误合 POSIX 上真正区分大小写的路径)。
+// toRepoRel converts an absolute path under the repository root into a relative path (forward slashes); anything else is returned as it is for the kernel to judge.
+// The Windows drive letter is normalized in case (C: and c: are one drive; NTFS paths are case-insensitive and the drive letter is
+// the most common case drift point; a review correction: before normalization the prefix comparison of c:\repo and C:\repo mismatched,
+// silently disabling the injection; only the drive letter is normalized, not the remaining segments, so really case-sensitive POSIX paths are not merged by mistake).
 func toRepoRel(root, p string) string {
 	if len(p) == 0 || (p[0] != '/' && !(len(p) >= 2 && p[1] == ':')) {
-		return p // 已是相对路径
+		return p // already a relative path
 	}
 	norm := func(s string) string {
 		out := make([]byte, len(s))
@@ -183,7 +183,7 @@ func toRepoRel(root, p string) string {
 				out[i] = s[i]
 			}
 		}
-		// 盘符归一为大写(仅当形如 X: 开头)
+		// Normalize the drive letter to upper case (only when it starts like X:)
 		if len(out) >= 2 && out[1] == ':' && out[0] >= 'a' && out[0] <= 'z' {
 			out[0] = out[0] - 'a' + 'A'
 		}

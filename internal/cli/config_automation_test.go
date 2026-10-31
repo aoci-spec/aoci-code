@@ -1,4 +1,4 @@
-// D69 config get/set automation_mode 测试。
+// D69 config get/set automation_mode tests.
 package cli
 
 import (

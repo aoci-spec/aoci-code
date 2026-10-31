@@ -1,13 +1,13 @@
-// Host-Agent Guide的运行时命令绑定、Windows调用纪律与Help契约。
+// The runtime command binding, Windows invocation discipline, and Help contract of the Host Agent Guide.
 //
-// 设计边界:
-//   - buildAgentGuide保持与机器位置无关的确定性领域构造器；
-//   - Guide真正输出前才绑定当前aoci二进制绝对路径；
-//   - Windows命令使用PowerShell调用运算符&和双引号；
-//   - Windows普通CLI的--json输出为ASCII安全JSON，PowerShell 5可直接捕获；
-//   - POSIX命令使用单引号保护空格与Shell元字符；
-//   - Stage Help与Guide披露协议代码中的真实大小、批次上限和阶段行为；
-//   - 稳定自然语言通过textassets按语言无关ID加载，Go只注入机器事实。
+// Design boundary:
+//   - buildAgentGuide stays a deterministic domain constructor independent of the machine's location;
+//   - the current aoci binary's absolute path is bound only right before the Guide is really printed;
+//   - Windows commands use the PowerShell call operator & and double quotes;
+//   - the ordinary CLI's --json output on Windows is ASCII-safe JSON that PowerShell 5 can capture directly;
+//   - POSIX commands use single quotes to protect spaces and shell metacharacters;
+//   - the Stage Help and the Guide disclose the real sizes, batch caps, and phase behaviour of the protocol code;
+//   - stable natural language is loaded from textassets by language-independent ID, and Go injects only machine facts.
 package cli
 
 import (
@@ -191,7 +191,7 @@ func agentCommandPrefixFor(
 		"'", nil
 }
 
-// bindAgentCommand把领域层裸aoci命令绑定为当前机器绝对执行命令。
+// bindAgentCommand binds a bare domain-layer aoci command into the absolute execution command of the current machine.
 func bindAgentCommand(
 	command,
 	prefix string,
@@ -220,7 +220,7 @@ func bindAgentCommand(
 	}
 }
 
-// bindAgentGuideCommands绑定Guide中的全部机器命令。
+// bindAgentGuideCommands binds every machine command in the Guide.
 func bindAgentGuideCommands(
 	commands *agentGuideCommands,
 	prefix string,

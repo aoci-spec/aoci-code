@@ -1,4 +1,4 @@
-// Verify、Score与Check消费正式curation.json的端到端测试。
+// End-to-end tests of Verify, Score, and Check consuming the formal curation.json.
 package cli
 
 import (
@@ -136,7 +136,7 @@ func buildCurationConsumerRepo(
 		t.Fatal(err)
 	}
 
-	// 令决策摘要失效，同时把当前物理画像转为普通文本文件。
+	// Invalidate the decision digest while turning the current physical profile into an ordinary text file.
 	writeCurationConsumerFile(
 		t,
 		root,

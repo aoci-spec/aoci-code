@@ -1,7 +1,7 @@
-// init 写出的宿主配置带本机绝对路径, 提交后别人的 init 只按 key 存在与否判定,
-// 会幂等早退、静默空转。更硬的约束是时机: Managed Scope 的角色在首次 scan 时定
-// 下, 此后 scan --force 不能推进, 摘除要走覆盖缩减的 Scope Change 审批 —— 所以
-// 忽略必须由 init 在 scan 之前写好。这里钉死写入规则与那条时机。
+// The host configuration init writes carries local absolute paths; once committed, someone else's init judges only by whether the key exists,
+// returns early as idempotent, and silently spins. The harder constraint is timing: the roles of the Managed Scope are fixed at the first
+// scan, after which scan --force cannot advance them, and removal goes through the coverage-reduction Scope Change approval; so
+// the ignore must be written by init before scan. Locked here: the write rules and that timing.
 package cli
 
 import (
@@ -47,7 +47,7 @@ func TestInitIgnoresTheHostConfigItJustWrote(t *testing.T) {
 		t.Fatalf("the written host config must be ignored:\n%s", ignore)
 	}
 
-	// 时机才是重点: scan 之后它不能是受管对象。
+	// The timing is the point: after scan it must not be a managed object.
 	var out, errOut bytes.Buffer
 	if code := executeCLI([]string{"--repo", root, "--quiet", "scan"}, &out, &errOut); code != ExitOK {
 		t.Fatalf("scan failed: %d %s %s", code, out.String(), errOut.String())
@@ -92,7 +92,7 @@ func TestInitAppendsToAnExistingGitignoreWithoutTouchingIt(t *testing.T) {
 
 func TestInitNeverOverridesAnAlreadyTrackedHostConfig(t *testing.T) {
 	root := initGitRepo(t)
-	// 维护者已经明确决定提交这个文件: init 不替他改主意。
+	// The maintainer has explicitly decided to commit this file: init does not change their mind.
 	if err := os.MkdirAll(filepath.Join(root, ".codex"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestInitHostGitignoreIsIdempotentAndRespectsExistingCoverage(t *testing.T) 
 		t.Fatalf("the host block does not cover the machine-bound backup the installer writes:\n%s", first)
 	}
 
-	// 目录形式的既有覆盖也算数, 不重复写。
+	// An existing cover in directory form counts too, and is not written again.
 	other := initGitRepo(t)
 	if err := os.WriteFile(filepath.Join(other, ".gitignore"), []byte(".codex/\n"), 0o644); err != nil {
 		t.Fatal(err)

@@ -1,4 +1,4 @@
-// Verify换行宽容生产路径测试。
+// Production-path tests of Verify line-ending tolerance.
 package cli
 
 import (
@@ -126,7 +126,7 @@ func runVerifyLineEndingJSON(
 	return report, runErr
 }
 
-// TestVerifyLineEndingToleranceDefaultAndStrict验证默认宽容与团队显式严格。
+// TestVerifyLineEndingToleranceDefaultAndStrict verifies the default tolerance and the team's explicit strictness.
 func TestVerifyLineEndingToleranceDefaultAndStrict(
 	t *testing.T,
 ) {
@@ -212,7 +212,7 @@ func TestVerifyLineEndingToleranceDefaultAndStrict(
 	}
 }
 
-// TestVerifyLineEndingToleranceDoesNotHideRealChange验证真实内容变化仍阻断。
+// TestVerifyLineEndingToleranceDoesNotHideRealChange verifies that a real content change still blocks.
 func TestVerifyLineEndingToleranceDoesNotHideRealChange(
 	t *testing.T,
 ) {

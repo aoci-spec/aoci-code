@@ -1,18 +1,18 @@
-// aoci init —— 初始化 .aoci、运行时Git边界、索引骨架、AGENTS.md与可选Agent接入。
+// aoci init: initializes .aoci, the runtime Git boundary, the index skeleton, AGENTS.md, and the optional Agent integrations.
 //
-// automation兼容规则:
-//   - config.json原先不存在: 新仓首次初始化，显式写automation.mode=auto;
-//   - config.json已存在但缺automation: 旧仓legacy，不在幂等init中静默改变;
-//   - init本身纯确定性，设置auto不代表本次调用模型。
+// automation compatibility rules:
+//   - config.json did not exist: a new repository's first initialization writes automation.mode=auto explicitly;
+//   - config.json exists but lacks automation: an old legacy repository, not changed silently by an idempotent init;
+//   - init itself is purely deterministic; setting auto does not mean this invocation calls a model.
 //
-// .aoci Git边界:
-//   - 首次初始化生成.aoci/.gitignore;
-//   - 未知.aoci资产默认忽略;
-//   - Baseline、团队配置和Curation正式资产白名单放行;
-//   - 已有维护者文件绝不覆盖。
+// The .aoci Git boundary:
+//   - the first initialization generates .aoci/.gitignore;
+//   - unknown .aoci assets are ignored by default;
+//   - the Baseline, the team configuration, and the Curation formal assets are allowlisted;
+//   - an existing maintainer file is never overwritten.
 //
-// 完整索引统一引导到agent guide。init输出必须准确解释当前团队模式:
-// auto连续执行到Apply；review/legacy在Apply前停；off只观察。
+// The complete index is uniformly routed to agent guide. The init output must explain the current team mode accurately:
+// auto runs continuously through Apply; review/legacy stop before Apply; off only observes.
 package cli
 
 import (
@@ -55,7 +55,7 @@ func initAgentCandidatePaths(agent string) []string {
 	}
 }
 
-// advanceInitBaseline把init产生的确定性文件变化与其他Baseline写入口串行化。
+// advanceInitBaseline serializes the deterministic file changes init produces with the other Baseline write entries.
 func advanceInitBaseline(
 	root string,
 	expectedPostimages map[string]baseline.Fingerprint,
@@ -321,7 +321,7 @@ func init() {
 				}
 			}
 
-			// 所有本路径实际需要的嵌入文本均已验证；从这里开始才允许写入。
+			// Every embedded text this path really needs has been validated; only from here on may writes happen.
 			for _, directory := range []string{
 				".aoci",
 				".aoci/verify_history",
@@ -480,9 +480,9 @@ func init() {
 					}
 				}
 
-				// 必须在首次scan之前: 错过这个时机, 机器绑定的宿主配置就以
-				// index角色进了Managed Scope, 而那之后--force不能推进角色,
-				// 摘除要走覆盖缩减的Scope Change审批。
+				// It must happen before the first scan: miss this moment and the machine-bound host configuration enters
+				// the Managed Scope in the index role, after which --force cannot advance the role,
+				// and removal goes through the coverage-reduction Scope Change approval.
 				hostIgnoreCandidates := []string{}
 				for _, agentName := range agents {
 					hostIgnoreCandidates = append(
@@ -643,24 +643,24 @@ func contains(
 	return false
 }
 
-// initialScopeBlockedDetail 把"首次范围需要人来决定"翻译成可执行的诊断。
+// initialScopeBlockedDetail translates "the first scope needs a person to decide" into an actionable diagnosis.
 //
-// 该阻塞此前只回一行机器码,既不说是哪一类原因、也不点名任何路径,而且没有
-// 别的命令能在 init 之前复现它(pre-init 的 scope show 评估的是 legacy 策略),
-// 用户只能靠读源码定位(审查修正)。三类触发条件各有各的出路,这里分别给出。
+// This block used to return a single machine-code line that named neither the kind of cause nor any path, and
+// no other command could reproduce it before init (the pre-init scope show evaluates the legacy policy), so
+// the user could only locate it by reading source (review correction). The three kinds of trigger each have their own way out, given here separately.
 func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile string, highRiskOptIns int) string {
 	if highRiskOptIns > 0 {
 		return cliMessage("init.scope_blocked_high_risk", highRiskOptIns)
 	}
-	// 判据必须与 BuildProposal 的 RequiresHumanApproval 同源: 那里已改为
-	// AutoBlockerCount(显式接纳、内容将被读取的路径), 这里若仍用
-	// RequiredHumanReview(任何被排除的跟踪路径), 就会把"该 profile 索引不到
-	// 任何路径"这类阻断解释成"某个跟踪文件需要决策", 操作者照做删掉文件后
-	// 撞上同一道拒绝——正是本版要消除的那类错误补救。
+	// The criterion must share its source with BuildProposal's RequiresHumanApproval: that place now uses
+	// AutoBlockerCount (explicitly accepted paths whose content will be read); if this place still used
+	// RequiredHumanReview (any excluded tracked path), it would explain a block such as "this profile indexes no
+	// path at all" as "some tracked file needs a decision", and the operator who follows it and deletes the file
+	// runs into the same refusal, exactly the kind of wrong remedy this version removes.
 	if evaluation != nil && evaluation.SafeInventory.AutoBlockerCount > 0 {
 		named := make([]string, 0, initialScopeBlockedPathSample)
 		for _, item := range evaluation.Exclude {
-			// 点名的是内容将被读取的那一类。
+			// Named are those whose content will be read.
 			if item.GitStatus != "tracked" {
 				continue
 			}
@@ -682,5 +682,5 @@ func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile
 	return cliMessage("init.scope_blocked_no_index", scopeProfile, candidates)
 }
 
-// 诊断里最多点名的路径数量 —— 足够定位,又不至于把一整棵目录树刷到终端。
+// The most paths a diagnosis names: enough to locate, without flushing a whole directory tree to the terminal.
 const initialScopeBlockedPathSample = 5

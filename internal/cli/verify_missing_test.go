@@ -1,4 +1,4 @@
-// verify对Missing三分、规范Raw Missing字段与Pending治理阻断的生产路径测试。
+// Production-path tests of verify's Missing three-way split, the canonical Raw Missing field, and the Pending governance block.
 package cli
 
 import (

@@ -1,33 +1,33 @@
-// aoci check —— 提交前聚合入口。
+// aoci check: the aggregate pre-commit entry.
 //
-// check回答“当前治理状态是否允许提交”，不是重新定义物理事实。
+// check answers "does the current governance state allow a commit"; it does not redefine the physical facts.
 //
-// 阻断:
-//   - ActionableMissing，包括有效IncludedMissing;
+// Blocking:
+//   - ActionableMissing, including effective IncludedMissing;
 //   - PendingCurationMissing;
 //   - Stale;
 //   - Unbaselined;
 //   - dict;
 //   - format;
-//   - 未完成的Entries或Curation草稿批次。
+//   - unfinished Entries or Curation draft batches.
 //
-// 展示但不阻断:
-//   - RawMissing本身;
+// Shown but not blocking:
+//   - RawMissing itself;
 //   - CurationExcludedMissing;
-//   - 非Pending的SkippedMissing;
+//   - non-Pending SkippedMissing;
 //   - Orphan;
 //   - LineEndingOnly;
-//   - S配额;
-//   - E档位;
+//   - the S quota;
+//   - the E band;
 //   - tagparse;
-//   - StaleCurationDecisions自身不重复计Issue，对应路径已进入Actionable或Pending。
+//   - StaleCurationDecisions themselves do not count as Issues again, since their paths have entered Actionable or Pending.
 //
-// 人读口径:
-//   - RawMissing只表示磁盘有、正式索引无Entry的原始物理事实;
-//   - ActionableMissing和PendingCurationMissing才表示尚需治理的Missing路径;
-//   - 兼容机器字段missing和pending_curation继续由Score保留，
-//     新消费者优先使用raw_missing和pending_curation_missing;
-//   - Ledger的exit_code与report.OK使用同一判定结果。
+// Human-readable reading:
+//   - RawMissing means only the raw physical fact "on disk, no Entry in the formal index";
+//   - ActionableMissing and PendingCurationMissing are the Missing paths that still need governance;
+//   - the compatibility machine fields missing and pending_curation are still kept by Score,
+//     and new consumers prefer raw_missing and pending_curation_missing;
+//   - the Ledger's exit_code and report.OK use the same verdict.
 package cli
 
 import (

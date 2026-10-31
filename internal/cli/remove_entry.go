@@ -1,12 +1,12 @@
-// aoci remove-entry —— 人用单条删除命令(v2.8 P1,D75下半句的人工执行工具)
-// 索引条目: remove_entry.go(待补录,随本批入册)
+// aoci remove-entry: the human single-entry removal command (v2.8 P1, the human execution tool of the second half of D75)
+// Index entry: remove_entry.go (to be recorded, entering the index with this batch)
 //
-// 与 MCP 的 aoci_remove_entry 共用 mcptools.ApplyRemoveEntry 同一管线
-// (定位→删除→原子落盘→索引自身基线前移→落账),差异仅护栏:
-// CLI 传 orphanOnly=false —— 删除是人工策展全权,活文件条目亦可删
-// (删后该文件按 Missing 态浮出属正确语义);MCP 侧恒 orphanOnly=true
-// 仅允许删孤儿。--preview 干跑只回显将删行不落盘。
-// 退出码经 exitCodeForFail(定义在同包 update_entry.go)按 Fail.Code 分流。
+// It shares the mcptools.ApplyRemoveEntry pipeline with the MCP aoci_remove_entry
+// (locate → remove → atomic write → the index's own baseline advance → ledger); the only difference is the guardrail:
+// the CLI passes orphanOnly=false, since removal is the human curator's full authority and a live file's entry may be removed too
+// (the file then surfaces as Missing, which is the correct semantics); the MCP side is always orphanOnly=true
+// and may only remove orphans. --preview dry-runs, echoing the line to be removed without writing.
+// The exit code routes by Fail.Code through exitCodeForFail (defined in update_entry.go of the same package).
 package cli
 
 import (
