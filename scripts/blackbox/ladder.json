@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "make fast (fast-l3a.txt; also inside make-verify-l3.txt)"
+    "evidence": "PR #160 landing: make fast green on the branch tree (make-fast-pr160.txt)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.1.0-rc23",
     "date": "2026-10-31",
-    "evidence": "bash scripts/check-public-text.sh 303 files clean"
+    "evidence": "PR #160 landing: scan clean over 303 files"
    }
   }
  ]

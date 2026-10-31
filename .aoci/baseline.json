@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-10-30T16:51:01Z",
+  "updated_at": "2026-10-31T02:15:38Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "3a8669ab7fd667bcf19acaf9e896fb06d422a1f1a7aefe28b0e72f22d8e67d11",
-      "size": 224316,
-      "normalized_sha256": "3a8669ab7fd667bcf19acaf9e896fb06d422a1f1a7aefe28b0e72f22d8e67d11"
+      "sha256": "b2904068a5ebf4c7527aa9ad5de5865302743a4e20376fda19de824a661acd5c",
+      "size": 224313,
+      "normalized_sha256": "b2904068a5ebf4c7527aa9ad5de5865302743a4e20376fda19de824a661acd5c"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -263,9 +263,9 @@
     },
     "docs/troubleshooting.md": {
       "role": "index",
-      "sha256": "e7d53fc67783d5b0a07dd46a8cf786def7f06161ec99a5add4c8ed8116969a38",
-      "size": 39705,
-      "normalized_sha256": "e7d53fc67783d5b0a07dd46a8cf786def7f06161ec99a5add4c8ed8116969a38"
+      "sha256": "3ccc0774a88192503d0eaea9e19b292f53b69456e4f031c4b8fcd9068958aac8",
+      "size": 39776,
+      "normalized_sha256": "3ccc0774a88192503d0eaea9e19b292f53b69456e4f031c4b8fcd9068958aac8"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -509,10 +509,10 @@
     },
     "internal/baseline/fingerprint_cache.go": {
       "role": "index",
-      "sha256": "bec010bfd6cc797e8fa953a6d191b9e2880b393cae823f1262da751dfbe9e995",
-      "size": 8819,
-      "normalized_sha256": "bec010bfd6cc797e8fa953a6d191b9e2880b393cae823f1262da751dfbe9e995",
-      "format_sha256": "bec010bfd6cc797e8fa953a6d191b9e2880b393cae823f1262da751dfbe9e995",
+      "sha256": "6f12abe1a838aaa34828a0445a5e1baf60c5bf42bf1f24c4739f749576f85af8",
+      "size": 8891,
+      "normalized_sha256": "6f12abe1a838aaa34828a0445a5e1baf60c5bf42bf1f24c4739f749576f85af8",
+      "format_sha256": "6f12abe1a838aaa34828a0445a5e1baf60c5bf42bf1f24c4739f749576f85af8",
       "format_kind": "gofmt"
     },
     "internal/baseline/fingerprint_cache_known_lines_test.go": {
@@ -6529,9 +6529,9 @@
     },
     "scripts/blackbox/ladder.json": {
       "role": "index",
-      "sha256": "22d8c1e6f40d0eef921e7513fa58890371049b5930f9157cd774789acb6201ac",
-      "size": 12201,
-      "normalized_sha256": "22d8c1e6f40d0eef921e7513fa58890371049b5930f9157cd774789acb6201ac"
+      "sha256": "acebacd33451c177bf42d28934c3c24b414e781b0d2ea51d2fd1320f4b076804",
+      "size": 12211,
+      "normalized_sha256": "acebacd33451c177bf42d28934c3c24b414e781b0d2ea51d2fd1320f4b076804"
     },
     "scripts/blackbox/ladder.py": {
       "role": "index",

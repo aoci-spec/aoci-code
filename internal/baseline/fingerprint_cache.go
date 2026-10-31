@@ -63,10 +63,11 @@ type fingerprintCacheDocument struct {
 // It is a runtime asset under .aoci, git-ignored by the init boundary, and
 // never an input to Baseline bytes, CAS, or any identity: a hit returns the
 // digest the bytes had, a miss computes it, and a missing, corrupt, or foreign
-// file simply means every path is hashed. The trust rule is git's: same size,
-// same mtime, and an mtime older than the hash by the racy window. A write
-// that keeps both size and mtime (touch -r over new content) is not seen,
-// exactly as git does not see it; FingerprintCacheEnv=off hashes everything.
+// file simply means every path is hashed. A hit requires the same size and
+// mtime, with the mtime older than the hash by the racy window. A write that
+// preserves both size and mtime (touch -r over new content) can be missed,
+// even when Git detects it, because its index also records the ctime, which
+// a rewrite cannot preserve; FingerprintCacheEnv=off hashes everything.
 type FingerprintCache struct {
 	path     string
 	entries  map[string]fingerprintCacheEntry
