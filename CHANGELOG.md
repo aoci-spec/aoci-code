@@ -23,6 +23,15 @@ changes a persisted preimage names the binary every machine then needs.
   `init --locale` on an existing Volumes repository points to this command.
   Ported from dignfei's Locale-switch transaction in #28 (tracked in #34)
   onto the Volumes layout.
+- The managed AGENTS block says what to do once cognition is reliable: use
+  it as the repository-level system context by default, read only the
+  source, tests, configuration, and contracts the task directly needs, and
+  widen that evidence only when a specific missing fact could change the
+  answer; AOCI never replaces direct source evidence for the objects being
+  changed. One sentence in both locales, under "Establishing, generating,
+  and restoring cognition"; the rendered `AGENTS.md` and its golden follow.
+  Condensed from dignfei's AOCI-first reading wording in #28 (tracked in
+  #34); the runtime rules are unchanged.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen
