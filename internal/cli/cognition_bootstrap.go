@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -106,10 +104,9 @@ func newCognitionBootstrapApproveCmd() *cobra.Command {
 			if err != nil {
 				return bootstrapExitError(err)
 			}
-			phrase := "APPROVE BOOTSTRAP " + envelope.EnvelopeDigest
 			exact := hostInteractionCommand("cognition", "bootstrap", "approve", "--envelope-file", envelopeFile, "--actor", actor, "--json")
-			if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
-				Prompt:       cliMessage("cognition.bootstrap.approval_prompt", envelope.EnvelopeDigest, strings.Join(envelope.WriteSet, ", "), phrase),
+			if err := requireHumanConfirmation(cmd, humanConfirmation{
+				Prompt:       cliMessage("cognition.bootstrap.approval_prompt", strings.Join(envelope.WriteSet, ", "), envelope.EnvelopeDigest),
 				ExactCommand: exact, Digest: envelope.EnvelopeDigest, SafeSummary: fmt.Sprintf("write_set_count=%d", len(envelope.WriteSet)),
 				ResumeAction: "cognition bootstrap apply", NotApproved: cliMessage("cli.approval.next.bootstrap")}); err != nil {
 				return bootstrapExitError(err)
@@ -131,10 +128,9 @@ func newCognitionBootstrapApproveCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&envelopeFile, "envelope-file", "", cliMessage("cognition.bootstrap.flag.envelope_file"))
-	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("cognition.bootstrap.flag.out_file"))
 	_ = command.MarkFlagRequired("envelope-file")
-	_ = command.MarkFlagRequired("actor")
 	return command
 }
 
@@ -223,15 +219,11 @@ func newCognitionBootstrapRollbackCmd() *cobra.Command {
 			if err != nil {
 				return bootstrapExitError(err)
 			}
-			info, err := os.Stdin.Stat()
-			if err != nil || info.Mode()&os.ModeCharDevice == 0 {
-				return bootstrapExitError(fmt.Errorf("bootstrap_human_tty_required"))
-			}
-			phrase := "ROLLBACK BOOTSTRAP " + transaction
-			fmt.Fprintln(cmd.ErrOrStderr(), cliMessage("cognition.bootstrap.rollback_prompt", phrase))
-			line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
-			if err != nil || strings.TrimSpace(line) != phrase {
-				return bootstrapExitError(fmt.Errorf("bootstrap_human_rollback_not_confirmed"))
+			exact := hostInteractionCommand("cognition", "bootstrap", "rollback", "--transaction", transaction, "--json")
+			if err := requireHumanConfirmation(cmd, humanConfirmation{
+				Prompt: cliMessage("cognition.bootstrap.rollback_prompt", transaction), ExactCommand: exact, Digest: transaction,
+				SafeSummary: "rollback_requested=true", ResumeAction: "cognition bootstrap status"}); err != nil {
+				return bootstrapExitError(err)
 			}
 			result, err := bootstrapapply.Rollback(root, transaction)
 			if err != nil {

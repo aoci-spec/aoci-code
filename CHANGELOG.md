@@ -99,6 +99,22 @@ changes a persisted preimage names the binary every machine then needs.
   that left the Index role, and `scope rule add`, `update`, `remove`,
   `reset`, and `scope explain` without their argument say which argument
   is missing instead of cobra's "accepts 1 arg(s), received 0".
+- A person approves in a terminal by reading what the change does and
+  answering `yes`. Every terminal confirmation (`scope approve`, `scope
+  safety approve`, `cognition bootstrap approve` and `rollback`, `cognition
+  migration approve`, `rollback`, and `reversal approve`) used to demand a
+  phrase such as `APPROVE MIGRATION <64-hex digest>` typed exactly, which
+  proved nothing the digest-bound approval record does not and was
+  incomprehensible to anyone new to a terminal. The prompt now says in plain
+  words what approving writes or restores, `yes` in any case approves,
+  Enter or anything else rejects with "nothing was changed" and the next
+  step, and `--actor` defaults to `human-operator`, so the approve and apply
+  commands a paused `scope activate` or `onboard prepare` prints run as
+  printed with no `<id>` to replace. The human output puts the host dialog
+  first, when the team admits it, and the terminal second. The
+  `aoci-host-interaction/v1` contract keeps its shape; `confirmation_phrase`
+  is now the word `yes`. Non-TTY callers, piped input, and `--yes` are
+  refused as before.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

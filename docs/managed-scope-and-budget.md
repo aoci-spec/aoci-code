@@ -26,7 +26,7 @@ candidates still use explicit `scope preview` and `scope apply`.
 With `automation.mode=auto` and inherited or explicit Auto approval, run
 `aoci scope authorize --preview-file preview.json` to inspect or persist the
 immutable `policy_bound_auto` Receipt, then run `scope apply` with that Receipt.
-`scope apply` can also generate the Receipt internally. No TTY or digest phrase
+`scope apply` can also generate the Receipt internally. No TTY confirmation
 is used. The Receipt binds the exact policy, Envelope, current formal preimages,
 projected index and budget facts, Retention Review, guards, writes, and recovery
 direction. It is stored in the transaction Intent, so Resume does not approve
@@ -50,8 +50,8 @@ that `scope apply --approval-file` can read. Without it the artifact goes to
 stdout and has to be redirected by hand; forgetting the redirect discards a
 confirmation that cannot be reused. The file is created only if nothing is
 already there, and is written readable by its owner alone, because until the
-change is applied anything that can read it can stand in for the human who
-typed the phrase. `scope safety approve` takes the same flag.
+change is applied anything that can read it can stand in for the person who
+answered yes. `scope safety approve` takes the same flag.
 
 ## Approving a change
 
@@ -67,9 +67,10 @@ two places, and both record the same approval:
   nothing else: the agent then runs the `scope apply` command the result
   returns. Reject writes nothing, and the result tells the agent what the
   person can do next.
-- **In a terminal.** The person runs the printed `scope approve` command,
-  replacing `<id>` with their name, and types the phrase it shows. Pressing
-  Enter without typing rejects.
+- **In a terminal.** The person runs the printed `scope approve` command as
+  printed, reads what the change does, and answers `yes`. Pressing Enter
+  without typing rejects. `--actor` defaults to `human-operator` and may name
+  the reviewer.
 
 After a rejection nothing has changed, but the desired policy still differs
 from the active one, so Maintain keeps answering `scope_change_required`. To
@@ -192,8 +193,8 @@ aoci --repo /work scope activate
 With effective approval mode `auto`, an ordinary safe expansion can use
 policy-bound Auto. When the preview requires human approval, activation stops,
 saves the preview under `.aoci/scope-change/`, and prints the approve and apply
-commands to run in order. Replace `<id>` with your reviewer identity; approval
-requires a real TTY. Existing safety refusals remain refusals. After Apply, the next ordinary
+commands to run in order. Approval asks a person for `yes` in a real TTY, or
+in the MCP host's dialog. Existing safety refusals remain refusals. After Apply, the next ordinary
 `aoci_maintain` batch plans the newly admitted files. Until then, excluded
 modules are absent from the formal index and cannot support a complete
 cross-module conclusion.
@@ -401,8 +402,7 @@ aoci scope activate
 Raising a budget is a policy relaxation, so activation stops with exit 2 and
 prints the approve and apply commands. The preview is retained under
 `.aoci/scope-change/`; a person approves it in the MCP host's dialog or with
-`scope approve` and its digest phrase in a real TTY ("Approving a change"
-above). With `--json`, the error details contain `preview_file`,
+`scope approve` in a real TTY ("Approving a change" above). With `--json`, the error details contain `preview_file`,
 `approve_command`, `apply_command`, and, when the dialog route is open,
 `host_dialog_request`. Successful activation returns the existing Scope Change
 result.

@@ -45,7 +45,7 @@ func TestScopeApplyNamesTheOrphansARoleChangeLeaves(t *testing.T) {
 	grantTTY(t)
 	capturePrompt(t)
 	approvalPath := filepath.Join(t.TempDir(), "approval.json")
-	if _, _, err := runScopeSplit(t, root, strings.NewReader(preview.Plan.ConfirmationPhrase+"\n"), true,
+	if _, _, err := runScopeSplit(t, root, strings.NewReader("yes\n"), true,
 		"approve", "--preview-file", stop.Details.PreviewFile, "--actor", "tester", "--out-file", approvalPath); err != nil {
 		t.Fatalf("approve: %v", err)
 	}

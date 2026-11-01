@@ -2042,7 +2042,9 @@ def group_t():
         json.dump({"version": "managed-scope-candidate-set/v1", "entries": [], "dispositions": []}, fh)
     rc, preview, out, errs = cli(d, "scope", "preview", "--candidate-file", candidate_path)
     plan = (preview or {}).get("plan") or {}
-    phrase = plan.get("confirmation_phrase") or ""
+    # The prompt names the plan and asks for yes; both must be on screen before
+    # anything is read.
+    phrase = plan.get("plan_id") or ""
     if rc != 0 or not plan.get("interaction_required") or not phrase:
         record(g, "T1.confirmation-prompt-precedes-the-read", "FAIL",
                f"fixture did not produce a preview demanding a human: rc={rc} {(out + errs)[:130]}")
@@ -2070,9 +2072,10 @@ def group_t():
         if not chunk:
             break
         before += chunk
-        if phrase.encode() in before:
+        if phrase.encode() in before and b"yes" in before:
             break
-    visible = phrase in before.decode("utf-8", errors="replace")
+    screen = before.decode("utf-8", errors="replace")
+    visible = phrase in screen and "yes" in screen
     try:
         os.write(master, b"WRONG PHRASE\n")
     except OSError:

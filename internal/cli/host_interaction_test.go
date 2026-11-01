@@ -19,7 +19,7 @@ func TestRequireHumanPhraseReturnsExecutableInteractionContractWithoutTTY(t *tes
 	os.Stdin = readEnd
 	t.Cleanup(func() { os.Stdin = oldStdin })
 
-	err = requireHumanConfirmation(&cobra.Command{}, humanConfirmation{Phrase: "APPROVE X abc", Prompt: "prompt",
+	err = requireHumanConfirmation(&cobra.Command{}, humanConfirmation{Prompt: "prompt",
 		ExactCommand: "'aoci' 'approve'", Digest: "abc", SafeSummary: "write_set_count=2", ResumeAction: "apply"})
 	var interaction *hostInteractionError
 	if !errors.As(err, &interaction) {
@@ -27,7 +27,7 @@ func TestRequireHumanPhraseReturnsExecutableInteractionContractWithoutTTY(t *tes
 	}
 	state := interaction.State
 	if !state.InteractionRequired || state.InteractionKind != "human_tty_digest_confirmation" ||
-		state.Digest != "abc" || state.ConfirmationPhrase != "APPROVE X abc" || state.ExactCommand == "" ||
+		state.Digest != "abc" || state.ConfirmationPhrase != humanApprovalAnswer || state.ExactCommand == "" ||
 		state.ModelSelfApproval || state.FormalWritesStarted {
 		t.Fatalf("unsafe or incomplete interaction state: %#v", state)
 	}

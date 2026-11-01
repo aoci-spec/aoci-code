@@ -151,12 +151,15 @@ func TestScopeActivateApprovalStopsAndSavedPreviewCanBeApplied(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			preview, err := scopechange.DecodePreview(raw)
-			if err != nil {
+			if _, err := scopechange.DecodePreview(raw); err != nil {
 				t.Fatal(err)
 			}
 			approvalFile := filepath.Join(filepath.Dir(details.PreviewFile), "approval.json")
-			if details.ApproveCommand != hostInteractionCommand("--repo", root, "scope", "approve", "--preview-file", details.PreviewFile, "--actor", "<id>", "--out-file", approvalFile) || details.ApplyCommand != hostInteractionCommand("--repo", root, "scope", "apply", "--preview-file", details.PreviewFile, "--approval-file", approvalFile) {
+			// The commands run as printed: no placeholder a person has to edit.
+			if strings.Contains(details.ApproveCommand, "<id>") || strings.Contains(details.ApplyCommand, "<id>") {
+				t.Fatalf("a printed command still carries a placeholder: %+v", details)
+			}
+			if details.ApproveCommand != hostInteractionCommand("--repo", root, "scope", "approve", "--preview-file", details.PreviewFile, "--out-file", approvalFile) || details.ApplyCommand != hostInteractionCommand("--repo", root, "scope", "apply", "--preview-file", details.PreviewFile, "--approval-file", approvalFile) {
 				t.Fatalf("unbound continuation: %+v", details)
 			}
 			// A second attempt must not overwrite the artifact already under review.
@@ -175,7 +178,7 @@ func TestScopeActivateApprovalStopsAndSavedPreviewCanBeApplied(t *testing.T) {
 				t.Fatalf("pending preview was changed: %v", err)
 			}
 			grantTTY(t)
-			if _, _, err := runScopeSplit(t, root, strings.NewReader(preview.Plan.ConfirmationPhrase+"\n"), true, "approve", "--preview-file", details.PreviewFile, "--actor", "tester", "--out-file", approvalFile); err != nil {
+			if _, _, err := runScopeSplit(t, root, strings.NewReader("yes\n"), true, "approve", "--preview-file", details.PreviewFile, "--actor", "tester", "--out-file", approvalFile); err != nil {
 				t.Fatal(err)
 			}
 			out, _, err := runScopeSplit(t, root, nil, true, "apply", "--preview-file", details.PreviewFile, "--approval-file", approvalFile)

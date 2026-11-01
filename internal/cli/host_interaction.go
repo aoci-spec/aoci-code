@@ -86,12 +86,20 @@ func onboardingDialogRequest(root string) *hostDialogRequest {
 	}}
 }
 
-// humanConfirmation is one protected action a person must confirm: the
-// phrase they type in a terminal, what the prompt tells them, what they are
-// told when they do not approve, and the routes a caller without a terminal
-// is offered instead.
+// humanApprovalAnswer is the one word a person types in a terminal to approve
+// a protected action. The binding to the exact change is the digest the
+// approval record carries, computed from the preview or envelope on disk, so
+// the person never copies a digest: they read what approving does and say yes.
+const humanApprovalAnswer = "yes"
+
+// defaultApprovalActor is the actor an approval records when the person runs
+// the printed command as printed; --actor may still name the reviewer.
+const defaultApprovalActor = "human-operator"
+
+// humanConfirmation is one protected action a person must confirm: what the
+// prompt tells them in plain words, what they are told when they do not
+// approve, and the routes a caller without a terminal is offered instead.
 type humanConfirmation struct {
-	Phrase       string
 	Prompt       string
 	ExactCommand string
 	Digest       string
@@ -114,9 +122,9 @@ func (e *hostInteractionError) Error() string { return "human_tty_digest_confirm
 //
 // The library entry point buffers both cobra writers into memory and flushes
 // them only after Execute returns, so a prompt written through cmd.ErrOrStderr
-// stayed invisible until the command had already finished. The prompt carries
-// the exact phrase the operator has to type, which made the confirmation
-// unreadable at the only moment it mattered: they typed blind or gave up. The
+// stayed invisible until the command had already finished. The prompt says
+// what approving does, which made the confirmation unreadable at the only
+// moment it mattered: they answered blind or gave up. The
 // branch below has already proven stdin is a character device, so the prompt
 // and the read belong on the same unbuffered process-level pair.
 //
@@ -132,17 +140,19 @@ var stdinIsCharDevice = func() bool {
 	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
-// requireHumanConfirmation asks the person in a real terminal and accepts
-// only the exact phrase. Anything else is a rejection, and the person is told
-// both that nothing changed and what to do next: a confirmation whose only
-// way out was a bare error left people who said no with no idea how to
-// proceed.
+// requireHumanConfirmation asks the person in a real terminal, in plain words,
+// and accepts only the answer yes. Anything else is a rejection, and the person
+// is told both that nothing changed and what to do next: a confirmation whose
+// only way out was a bare error left people who said no with no idea how to
+// proceed. The earlier form demanded a 64-character digest phrase typed
+// exactly, which proved nothing the digest-bound approval record does not and
+// was incomprehensible to anyone new to a terminal.
 func requireHumanConfirmation(cmd *cobra.Command, request humanConfirmation) error {
 	if !stdinIsCharDevice() {
 		return &hostInteractionError{State: hostInteractionRequired{
 			Version: hostInteractionVersion, InteractionRequired: true,
 			InteractionKind: "human_tty_digest_confirmation", ExactCommand: request.ExactCommand,
-			Digest: request.Digest, SafeSummary: request.SafeSummary, ConfirmationPhrase: request.Phrase,
+			Digest: request.Digest, SafeSummary: request.SafeSummary, ConfirmationPhrase: humanApprovalAnswer,
 			ResumeAction: request.ResumeAction, TTYRequired: true, ModelSelfApproval: false,
 			FormalWritesStarted: false, HostDialogRequest: request.Dialog,
 		}}
@@ -150,7 +160,7 @@ func requireHumanConfirmation(cmd *cobra.Command, request humanConfirmation) err
 	fmt.Fprintln(humanPromptWriter, request.Prompt)
 	fmt.Fprintln(humanPromptWriter, cliMessage("cli.approval.reject_hint"))
 	line, err := bufio.NewReader(cmd.InOrStdin()).ReadString('\n')
-	if err != nil || strings.TrimSpace(line) != request.Phrase {
+	if err != nil || !strings.EqualFold(strings.TrimSpace(line), humanApprovalAnswer) {
 		next := request.NotApproved
 		if next == "" {
 			next = cliMessage("cli.approval.next.again")

@@ -450,8 +450,7 @@ the preview under `.aoci/scope-change/` and a person has to approve it. In an
 MCP host that shows dialogs, the agent calls `aoci_maintain` with the
 `host_dialog_request` arguments from the error's `details` and the person
 answers in the dialog. Otherwise run the printed approve and apply commands in
-order, replacing `<id>` with your reviewer identity; approve requires a real
-TTY. Review mode and policy relaxations can require this boundary even without
+order, as printed; approve asks a person for `yes` in a real TTY. Review mode and policy relaxations can require this boundary even without
 a coverage reduction. With `--json`, the paths and commands are in the error's
 `details` object. Existing safety refusals still require resolving the
 reported cause.

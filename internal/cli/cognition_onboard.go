@@ -223,16 +223,19 @@ func newOnboardPrepareCmd() *cobra.Command {
 		}
 		interaction := hostInteractionRequired{Version: hostInteractionVersion, InteractionRequired: true,
 			InteractionKind: "human_tty_digest_confirmation", ExactCommand: exact, Digest: digest,
-			SafeSummary: fmt.Sprintf("write_set_count=%d", writeCount), ConfirmationPhrase: "APPROVE " + strings.ToUpper(session.Operation) + " " + digest,
+			SafeSummary: fmt.Sprintf("write_set_count=%d", writeCount), ConfirmationPhrase: humanApprovalAnswer,
 			ResumeAction: hostInteractionCommand("cognition", "onboard", "apply", "--approval-file", "{approval_file}", "--json"),
 			TTYRequired:  true, ModelSelfApproval: false, FormalWritesStarted: false,
 			HostDialogRequest: onboardingDialogRequest(root)}
 		if !flagJSON {
-			// A person reads this one: what is written, the two ways to approve,
-			// and the command that applies it. The JSON form carries the envelope.
+			// A person reads this one: what is written, the dialog first when the
+			// team admits it, the terminal otherwise, and the command that applies
+			// it. The JSON form carries the envelope.
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_header", writeCount, digest))
+			if interaction.HostDialogRequest != nil {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_dialog"))
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_terminal", exact))
-			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_dialog"))
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_resume", interaction.ResumeAction))
 			return nil
 		}
@@ -242,7 +245,7 @@ func newOnboardPrepareCmd() *cobra.Command {
 			Interaction hostInteractionRequired `json:"interaction"`
 		}{session, envelope, interaction})
 	}}
-	command.Flags().StringVar(&actor, "approval-actor", "human-operator", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "approval-actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	return command
 }
 

@@ -188,10 +188,9 @@ func newMigrationApproveCmd() *cobra.Command {
 		if err != nil {
 			return migrationExitError(err)
 		}
-		phrase := "APPROVE MIGRATION " + envelope.EnvelopeDigest
 		exact := hostInteractionCommand("cognition", "migration", "approve", "--envelope-file", envelopeFile, "--actor", actor, "--json")
-		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
-			Prompt:       cliMessage("cognition.migration.approval_prompt", envelope.EnvelopeDigest, strings.Join(envelope.WriteSet, ", "), phrase),
+		if err := requireHumanConfirmation(cmd, humanConfirmation{
+			Prompt:       cliMessage("cognition.migration.approval_prompt", strings.Join(envelope.WriteSet, ", "), envelope.EnvelopeDigest),
 			ExactCommand: exact, Digest: envelope.EnvelopeDigest, SafeSummary: fmt.Sprintf("write_set_count=%d", len(envelope.WriteSet)),
 			ResumeAction: "cognition migration apply", NotApproved: cliMessage("cli.approval.next.migration")}); err != nil {
 			return migrationExitError(err)
@@ -210,10 +209,9 @@ func newMigrationApproveCmd() *cobra.Command {
 		return nil
 	}}
 	command.Flags().StringVar(&envelopeFile, "envelope-file", "", cliMessage("cognition.bootstrap.flag.envelope_file"))
-	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("cognition.migration.flag.out_file"))
 	_ = command.MarkFlagRequired("envelope-file")
-	_ = command.MarkFlagRequired("actor")
 	return command
 }
 
@@ -280,10 +278,9 @@ func newMigrationRollbackCmd() *cobra.Command {
 		if err != nil {
 			return migrationExitError(err)
 		}
-		phrase := "ROLLBACK MIGRATION " + transaction
 		exact := hostInteractionCommand("cognition", "migration", "rollback", "--transaction", transaction, "--json")
-		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
-			Prompt: cliMessage("cognition.migration.rollback_prompt", phrase), ExactCommand: exact, Digest: transaction,
+		if err := requireHumanConfirmation(cmd, humanConfirmation{
+			Prompt: cliMessage("cognition.migration.rollback_prompt", transaction), ExactCommand: exact, Digest: transaction,
 			SafeSummary: "rollback_requested=true", ResumeAction: "cognition migration status"}); err != nil {
 			return migrationExitError(err)
 		}
@@ -341,10 +338,9 @@ func newMigrationReversalApproveCmd() *cobra.Command {
 		if err != nil {
 			return migrationExitError(err)
 		}
-		phrase := "APPROVE MIGRATION REVERSAL " + plan.PlanDigest
 		exact := hostInteractionCommand("cognition", "migration", "reversal", "approve", "--plan-file", planFile, "--actor", actor, "--json")
-		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
-			Prompt: cliMessage("cognition.migration.reversal_approval_prompt", plan.PlanDigest, phrase), ExactCommand: exact,
+		if err := requireHumanConfirmation(cmd, humanConfirmation{
+			Prompt: cliMessage("cognition.migration.reversal_approval_prompt", plan.PlanDigest), ExactCommand: exact,
 			Digest: plan.PlanDigest, SafeSummary: fmt.Sprintf("write_set_count=%d", len(plan.WriteSet)),
 			ResumeAction: "cognition migration reversal apply"}); err != nil {
 			return migrationExitError(err)
@@ -360,9 +356,8 @@ func newMigrationReversalApproveCmd() *cobra.Command {
 		return nil
 	}}
 	command.Flags().StringVar(&planFile, "plan-file", "", cliMessage("cognition.plan.flag.plan_file"))
-	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	_ = command.MarkFlagRequired("plan-file")
-	_ = command.MarkFlagRequired("actor")
 	return command
 }
 

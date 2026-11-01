@@ -40,18 +40,23 @@ Human interaction contract
 `aoci-host-interaction/v1` is returned when a protected action requires a real
 terminal. It includes `interaction_required=true`,
 `interaction_kind=human_tty_digest_confirmation`, an OS-quoted exact command,
-full digest, safe summary, exact phrase, resume action, `tty_required=true`,
+full digest, safe summary, the answer a person gives (`confirmation_phrase`
+is the word `yes`), resume action, `tty_required=true`,
 `model_self_approval=false`, and whether formal writes started. Where the
 action also has a dialog route (below), it carries `host_dialog_request`: the
 exact `aoci_maintain` call that asks the same person in the MCP host's dialog.
 
-The terminal channel continues to require an actual character-device TTY and
-exact phrase. It does not support `--yes`, piped model approval, blanket
-approval, or approval reuse across Envelopes. A PTY-capable Host can execute
-the exact command in an interactive adapter. This contract does not claim that
-Codex Desktop or any other external Host automatically allocates a PTY. The
-prompt says that pressing Enter rejects; anything but the exact phrase is a
-rejection, and the person is told that nothing changed and what to do next.
+The terminal channel continues to require an actual character-device TTY.
+The prompt states in plain words what approving does and asks the person to
+answer `yes`; the approval it records binds the change's digest, computed from
+the preview or envelope on disk, so the person never copies a digest. It does
+not support `--yes`, piped model approval, blanket approval, or approval reuse
+across Envelopes. A PTY-capable Host can execute the exact command in an
+interactive adapter. This contract does not claim that Codex Desktop or any
+other external Host automatically allocates a PTY. The prompt says that
+pressing Enter rejects; anything but `yes` is a rejection, and the person is
+told that nothing changed and what to do next. The printed commands run as
+printed: `--actor` defaults to `human-operator` and may name the reviewer.
 
 Host dialog approval
 --------------------

@@ -622,10 +622,9 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		phrase := "APPROVE HIGH RISK READ " + evaluation.PolicyIdentity
 		exact := hostInteractionCommand("scope", "safety", "approve", "--actor", actor, "--json")
-		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: phrase,
-			Prompt:       cliMessage("scope.safety_approval_prompt", strings.Join(cfg.SafeInventoryHighRiskOptIn, ","), phrase),
+		if err := requireHumanConfirmation(cmd, humanConfirmation{
+			Prompt:       cliMessage("scope.safety_approval_prompt", strings.Join(cfg.SafeInventoryHighRiskOptIn, ",")),
 			ExactCommand: exact, Digest: evaluation.PolicyIdentity,
 			SafeSummary: fmt.Sprintf("exact_paths=%d", len(cfg.SafeInventoryHighRiskOptIn)), ResumeAction: "high risk content read"}); err != nil {
 			return managedScopeExitError(err)
@@ -637,9 +636,8 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 		}
 		return writePlannerArtifact(cmd, approval, outFile)
 	}}
-	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("scope.flag.safety_out_file"))
-	_ = command.MarkFlagRequired("actor")
 	return command
 }
 
@@ -695,8 +693,8 @@ func newScopeApproveCmd() *cobra.Command {
 		if root, rootErr := resolveRepoRoot(); rootErr == nil && scopechange.HostDialogEligible(preview) {
 			dialog = scopeChangeDialogRequest(root, previewFile)
 		}
-		if err := requireHumanConfirmation(cmd, humanConfirmation{Phrase: preview.Plan.ConfirmationPhrase,
-			Prompt:       cliMessage("scope.approval_prompt", effect, preview.Plan.PlanID, preview.Plan.ConfirmationPhrase),
+		if err := requireHumanConfirmation(cmd, humanConfirmation{
+			Prompt:       cliMessage("scope.approval_prompt", effect, preview.Plan.PlanID),
 			ExactCommand: exact, Digest: preview.Plan.PlanID,
 			SafeSummary: fmt.Sprintf("entry_removals=%d", len(preview.Plan.EntryRemoves)), ResumeAction: "managed scope apply",
 			NotApproved: cliMessage("cli.approval.next.scope_change"), Dialog: dialog}); err != nil {
@@ -709,10 +707,9 @@ func newScopeApproveCmd() *cobra.Command {
 		return writePlannerArtifact(cmd, approval, outFile)
 	}}
 	command.Flags().StringVar(&previewFile, "preview-file", "", cliMessage("scope.flag.preview_file"))
-	command.Flags().StringVar(&actor, "actor", "", cliMessage("cognition.bootstrap.flag.actor"))
+	command.Flags().StringVar(&actor, "actor", defaultApprovalActor, cliMessage("cognition.bootstrap.flag.actor"))
 	command.Flags().StringVar(&outFile, "out-file", "", cliMessage("scope.flag.out_file"))
 	_ = command.MarkFlagRequired("preview-file")
-	_ = command.MarkFlagRequired("actor")
 	return command
 }
 

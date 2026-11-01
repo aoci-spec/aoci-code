@@ -95,12 +95,12 @@ func reviewPreviewFile(t *testing.T, root string) (path string, preview *scopech
 
 func TestApprovalWrittenToFileIsApplyUsableAndNeverReachesStdout(t *testing.T) {
 	root := buildScopeCLIRepo(t)
-	previewPath, preview := reviewPreviewFile(t, root)
+	previewPath, _ := reviewPreviewFile(t, root)
 	grantTTY(t)
 	capturePrompt(t)
 	outPath := filepath.Join(t.TempDir(), "approval.json")
 
-	stdout, _, err := runScopeSplit(t, root, strings.NewReader(preview.Plan.ConfirmationPhrase+"\n"), true,
+	stdout, _, err := runScopeSplit(t, root, strings.NewReader("yes\n"), true,
 		"approve", "--preview-file", previewPath, "--actor", "tester", "--out-file", outPath)
 	if err != nil {
 		t.Fatalf("approve with --out-file failed: %v", err)
@@ -143,7 +143,7 @@ func TestApprovalWrittenToFileIsApplyUsableAndNeverReachesStdout(t *testing.T) {
 
 func TestApprovalOutFileNeverOverwritesExistingBytes(t *testing.T) {
 	root := buildScopeCLIRepo(t)
-	previewPath, preview := reviewPreviewFile(t, root)
+	previewPath, _ := reviewPreviewFile(t, root)
 	grantTTY(t)
 	capturePrompt(t)
 	outPath := filepath.Join(t.TempDir(), "occupied.json")
@@ -152,7 +152,7 @@ func TestApprovalOutFileNeverOverwritesExistingBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err := runScopeSplit(t, root, strings.NewReader(preview.Plan.ConfirmationPhrase+"\n"), true,
+	_, _, err := runScopeSplit(t, root, strings.NewReader("yes\n"), true,
 		"approve", "--preview-file", previewPath, "--actor", "tester", "--out-file", outPath)
 	if err == nil {
 		t.Fatal("approve silently accepted an occupied --out-file")
@@ -171,12 +171,12 @@ func TestApprovalArtifactIsOperatorReadableOnly(t *testing.T) {
 		t.Skip("POSIX permission bits are not meaningful on Windows")
 	}
 	root := buildScopeCLIRepo(t)
-	previewPath, preview := reviewPreviewFile(t, root)
+	previewPath, _ := reviewPreviewFile(t, root)
 	grantTTY(t)
 	capturePrompt(t)
 	outPath := filepath.Join(t.TempDir(), "approval.json")
 
-	if _, _, err := runScopeSplit(t, root, strings.NewReader(preview.Plan.ConfirmationPhrase+"\n"), true,
+	if _, _, err := runScopeSplit(t, root, strings.NewReader("yes\n"), true,
 		"approve", "--preview-file", previewPath, "--actor", "tester", "--out-file", outPath); err != nil {
 		t.Fatalf("approve with --out-file failed: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestConfirmationPromptIsVisibleBeforeThePhraseIsRead(t *testing.T) {
 	grantTTY(t)
 	recorder := capturePrompt(t)
 	watcher := &promptWatcher{recorder: recorder,
-		payload: strings.NewReader(preview.Plan.ConfirmationPhrase + "\n")}
+		payload: strings.NewReader("yes\n")}
 	outPath := filepath.Join(t.TempDir(), "approval.json")
 
 	stdout, stderr, err := runScopeSplit(t, root, watcher, true,
@@ -309,13 +309,13 @@ func TestConfirmationPromptIsVisibleBeforeThePhraseIsRead(t *testing.T) {
 		t.Fatalf("approve failed: %v (stdout=%q stderr=%q)", err, stdout, stderr)
 	}
 	if !watcher.read {
-		t.Fatal("the phrase was never read; this test proves nothing")
+		t.Fatal("the answer was never read; this test proves nothing")
 	}
-	// The prompt carries the exact phrase the operator has to type. Routing it
-	// through the buffered cobra writer held it until after the command exited,
-	// so the operator typed blind or gave up. Any regression to that lands here.
-	if !strings.Contains(watcher.visible, preview.Plan.ConfirmationPhrase) {
-		t.Fatalf("the confirmation phrase was not on screen when input was requested: %q", watcher.visible)
+	// The prompt says what the change does and asks for yes. Routing it through
+	// the buffered cobra writer held it until after the command exited, so the
+	// operator answered blind or gave up. Any regression to that lands here.
+	if !strings.Contains(watcher.visible, preview.Plan.PlanID) || !strings.Contains(watcher.visible, "yes") {
+		t.Fatalf("the summary and the yes hint were not on screen when input was requested: %q", watcher.visible)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("the prompt went through the buffered writer after all: %q", stderr.String())

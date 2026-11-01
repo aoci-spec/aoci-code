@@ -280,8 +280,8 @@ Approve or Reject; a host that declares MCP form elicitation can make it as
 written. On the `2026-07-28` revision that dialog arrives as an input request:
 the first call returns the form, and the host calls again with the person's
 answer and the `requestState` it was given. Otherwise a PTY-capable Host can
-use the exact command and
-confirmation phrase. The model never approves: AOCI preserves the TTY guard,
+run the exact command, where the person reads what the change does and
+answers yes. The model never approves: AOCI preserves the TTY guard,
 the dialog is answered by the person, and this is not evidence that Codex
 Desktop or another external Host automatically allocates a PTY.
 

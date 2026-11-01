@@ -131,7 +131,7 @@ func pauseScopeActivation(cmd *cobra.Command, root string, preview *scopechange.
 		PreviewFile:         previewFile,
 		HostDialogRequest:   scopeChangeDialogRequest(root, previewFile),
 		ApproveCommand: hostInteractionCommand("--repo", root, "scope", "approve", "--preview-file", previewFile,
-			"--actor", "<id>", "--out-file", approvalFile),
+			"--out-file", approvalFile),
 		ApplyCommand: hostInteractionCommand("--repo", root, "scope", "apply", "--preview-file", previewFile,
 			"--approval-file", approvalFile),
 	}

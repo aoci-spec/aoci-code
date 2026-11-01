@@ -224,10 +224,11 @@ eligible for it, `details` also carries `host_dialog_request`: `tool` is
 `preview_file`. A host that shows MCP dialogs makes that call and the person
 answers there; the approval it records lands where `apply_command` reads it.
 
-The commands use `scope approve --actor <id> --out-file` followed by
-`scope apply --approval-file`; the operator replaces the quoted <id> placeholder
-with their reviewer identity. Approve retains its real-TTY digest confirmation;
-its prompt says that Enter rejects, and a rejection prints what to do next.
+The commands use `scope approve --out-file` followed by
+`scope apply --approval-file`, runnable as printed; `--actor` defaults to
+`human-operator` and may name the reviewer. Approve retains its real-TTY
+confirmation: the prompt says what the change does and asks for `yes`, Enter
+rejects, and a rejection prints what to do next.
 `cognition migration approve` and `cognition bootstrap approve` take the same
 `--out-file`.
 Saving the preview is a runtime artifact write, not a formal cognition or
