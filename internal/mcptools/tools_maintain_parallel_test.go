@@ -198,6 +198,34 @@ func TestParallelSiblingDeliveryByBatchIDCarriesItsTargetsOnly(t *testing.T) {
 	}
 }
 
+// In a host whose subagents share the session's MCP server (Claude Code),
+// the authoring contract has already gone out once in that process, so a
+// sibling fetched by batch_id alone carries only its reference: a subagent
+// with a fresh context would author without the rules. The hand-out
+// instruction therefore asks for include_instructions, which returns the
+// complete contract with the sibling (2026-11-02).
+func TestParallelSiblingForAFreshSubagentCarriesTheContract(t *testing.T) {
+	root := parallelVolumesRepo(t, 60, 2)
+	session := connectMCPClient(t, root)
+	first := maintainJSON(t, session, map[string]any{})
+	if first["authoring_meta"] == nil {
+		t.Fatal("the first Maintain of the process carries the contract")
+	}
+	joined := fmt.Sprint(first["instructions"])
+	if !strings.Contains(joined, "include_instructions: true") || !strings.Contains(joined, "batch_id") {
+		t.Fatalf("the hand-out line does not ask for the contract: %s", joined)
+	}
+	sibling := siblingsOf(codePlanOf(t, first))[0]
+	bare := maintainJSON(t, session, map[string]any{"batch_id": sibling["batch_id"]})
+	if bare["authoring_meta"] != nil || bare["instructions_ref"] == nil {
+		t.Fatalf("in the same process a bare sibling fetch carries only the reference: meta=%v ref=%v", bare["authoring_meta"] != nil, bare["instructions_ref"])
+	}
+	full := maintainJSON(t, session, map[string]any{"batch_id": sibling["batch_id"], "include_instructions": true})
+	if full["authoring_meta"] == nil || full["instructions"] == nil {
+		t.Fatal("include_instructions returns the complete contract with the sibling")
+	}
+}
+
 // runParallelBuild authors every batch of a parallel first build, applying
 // the siblings of each round in the order chosen, until Maintain is aligned.
 func runParallelBuild(t *testing.T, root string, reverse bool) {

@@ -44,11 +44,14 @@ func newDatabaseSnapshotCmd() *cobra.Command {
 				return writeDatabaseJSON(cmd, result)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.snapshot.summary", result.SourceID, result.VisibleTables, result.SourceSnapshotSHA256))
+			// The acceptance binds this exact snapshot, so the person gets the
+			// command with its digest filled in rather than a digest to copy.
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.snapshot.next_accept",
+				hostInteractionCommand("database", "baseline", "accept", "--source", result.SourceID, "--snapshot-sha", result.SourceSnapshotSHA256)))
 			return nil
 		},
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
-	_ = command.MarkFlagRequired("source")
 	return command
 }
 
@@ -78,7 +81,6 @@ func newDatabaseInventoryCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
-	_ = command.MarkFlagRequired("source")
 	return command
 }
 
@@ -117,7 +119,6 @@ func newDatabaseVerifyCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
-	_ = command.MarkFlagRequired("source")
 	return command
 }
 

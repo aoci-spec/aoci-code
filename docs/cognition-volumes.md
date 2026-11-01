@@ -382,21 +382,21 @@ that still sees a blocker answers `aligned=false` and names the remediation.
 
 When a result hands the next step to the CLI, it names the command. A
 `blocked` or `evidence_required` Maintain returns the remediation a Host can
-run itself:
-`scan` for a missing Baseline, `scope status` and `scope acknowledge` for
-pending observations, both budget levers for an exceeded budget, or a
-database snapshot and its acceptance. The spellings are the ones the CLI
-Guide prints, composed from one machine-owned source, and each is prefixed by
-the running server's own absolute executable path because the MCP binary need
-not be on `PATH`. Placeholders such as `{agent}` and `{tokens}` are the
-Host's to fill. The field is optional and advisory: `next_action` stays the
-machine decision, and a blocked result names its blocker there:
-`explicit_orphan_remove_or_resolve_blocker` only when
-`orphan_remove_candidates` lists a Database orphan, otherwise `close_pending_recovery`,
-`scan_to_establish_baseline`, `activate_scope_change`,
-`resolve_cognition_budget`, or `resolve_blocker`, in that precedence.
-Observe-only blocking uses the review action described below; it supersedes
-the earlier `acknowledge_observed_evidence` spelling.
+run itself: `scan` for a missing Baseline, `scope status` and `scope
+acknowledge` for pending observations, both budget levers for an exceeded
+budget, or a database snapshot and its acceptance. The spellings are the ones
+the CLI Guide prints, composed from one machine-owned source, and each is
+prefixed by the running server's own absolute executable path because the MCP
+binary need not be on `PATH`. Placeholders such as `{agent}`, `{tokens}`,
+`{source}`, and `{snapshot_sha}` (the `source_snapshot_sha256` the snapshot
+returned) are the Host's to fill. The field is optional and advisory:
+`next_action` stays the machine decision, and a blocked result names its
+blocker there: `explicit_orphan_remove_or_resolve_blocker` only when
+`orphan_remove_candidates` lists a Database orphan, otherwise
+`close_pending_recovery`, `scan_to_establish_baseline`,
+`activate_scope_change`, `resolve_cognition_budget`, or `resolve_blocker`, in
+that precedence. Observe-only blocking uses the review action described below;
+it supersedes the earlier `acknowledge_observed_evidence` spelling.
 
 When pending observations are the only blocker, the Guide returns
 `next_action=review_observed_evidence`, and so does a Maintain that has no

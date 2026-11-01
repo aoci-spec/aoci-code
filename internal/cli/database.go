@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
@@ -175,7 +176,6 @@ func newDatabaseSourceInspectCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
-	_ = command.MarkFlagRequired("source")
 	return command
 }
 
@@ -201,7 +201,6 @@ func newDatabaseSourceAccessCmd() *cobra.Command {
 		},
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
-	_ = command.MarkFlagRequired("source")
 	return command
 }
 
@@ -221,6 +220,21 @@ func configuredDatabaseSource(sourceID string) (string, dbevidence.SourceConfig,
 	root, cfg, err := loadDatabaseConfig()
 	if err != nil {
 		return "", dbevidence.SourceConfig{}, err
+	}
+	if strings.TrimSpace(sourceID) == "" {
+		// cobra's required-flag refusal said only that "source" was not set,
+		// in English under every locale; this one names the flag and the
+		// sources the configuration declares.
+		declared := make([]string, 0, len(cfg.DatabaseSources))
+		for _, source := range cfg.DatabaseSources {
+			declared = append(declared, source.SourceID)
+		}
+		if len(declared) == 0 {
+			return "", dbevidence.SourceConfig{}, &ExitError{Code: ExitConfig, MachineCode: "database_source_required",
+				Msg: cliMessage("database.error.source_required_none")}
+		}
+		return "", dbevidence.SourceConfig{}, &ExitError{Code: ExitConfig, MachineCode: "database_source_required",
+			Msg: cliMessage("database.error.source_required", strings.Join(declared, ", "))}
 	}
 	source, exists := dbevidence.FindSource(cfg.DatabaseSources, sourceID)
 	if !exists {

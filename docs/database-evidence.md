@@ -103,7 +103,8 @@ aoci database inventory --source primary --json
 # Explicit network: collect fresh Evidence and report drift. Never accepts it.
 aoci database verify --source primary --json
 
-# Explicit formal action: bind and accept one exact saved Snapshot.
+# Explicit formal action: bind and accept one exact saved Snapshot. The
+# snapshot command prints this line with its digest filled in.
 aoci database baseline accept --source primary \
   --snapshot-sha <source_snapshot_sha256> --json
 

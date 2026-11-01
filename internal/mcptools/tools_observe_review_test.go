@@ -75,8 +75,8 @@ func TestObserveReviewListsTheEvidenceAndConfirmsIt(t *testing.T) {
 	if isError || result.Status != machinecontract.ObserveReviewStatusAcknowledged || !result.FormalWritesStarted ||
 		result.ReviewDigest != listing.ReviewDigest || result.Acknowledged != 1 ||
 		len(result.AcknowledgedPaths) != 1 || result.AcknowledgedPaths[0] != "notes.txt" || result.TransactionID == "" ||
-		result.NextAction != machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch {
-		t.Fatalf("confirmation: %s", text)
+		result.NextAction != "none" || result.TerminalProof == nil || !result.TerminalProof.Aligned || !result.TerminalProof.CheckPassed {
+		t.Fatalf("a test-only change must close with the review's terminal proof: %s", text)
 	}
 	var after volumeMaintainResult
 	if err := json.Unmarshal([]byte(resText(t, handleMaintainInput(root, "test", maintainIn{}, nil))), &after); err != nil {

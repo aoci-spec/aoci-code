@@ -183,7 +183,32 @@ changes a persisted preimage names the binary every machine then needs.
   four would take and the `config set` that turns it on. A Maintain that
   lists siblings carries one instruction line: hand each to its own Agent
   session, which fetches it by `batch_id`, authors, and applies it, and call
-  Maintain again once every sibling is applied.
+  Maintain again once every sibling is applied. Under a host whose
+  subagents share the session's MCP server, a sibling fetched by `batch_id`
+  alone carries only the contract's reference, so the line asks each
+  subagent for `include_instructions: true`, which returns the complete
+  authoring contract with its batch.
+- A change to Observe evidence alone closes in two calls. When the
+  `observe_review` acknowledgement leaves the repository aligned, its result
+  carries the same `terminal_proof` a final Apply does and `next_action`
+  `none`, instead of asking for one more Maintain that would only say
+  aligned.
+- A second `aoci cognition onboard apply` of a completed onboarding answers
+  with the result it recorded. It used to record the approval again, set the
+  session back to `apply_pending`, and then fail on the recorded
+  `apply-result.json` with `onboarding_artifact_conflict`, leaving a completed
+  session that claimed an apply was still pending; a session an older binary
+  left that way is put back to applied.
+- The database acceptance command Maintain returns for `evidence_required`
+  runs as printed once filled: it now reads `database baseline accept
+  --source {source} --snapshot-sha {snapshot_sha} --json`, where it used to
+  lack the required `--snapshot-sha` and was refused. `aoci database
+  snapshot` prints the accept command with its digest filled in, the Guide at
+  `evidence_required` carries the snapshot and accept commands and names the
+  sources that owe Evidence, the status page suggests the snapshot, and the
+  `Next:` line of verify and check names `--source` instead of a positional
+  argument. A database command without `--source` names the declared
+  sources instead of cobra's English `required flag(s) "source" not set`.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

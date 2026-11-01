@@ -3,6 +3,7 @@ package onboarding_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -135,6 +136,19 @@ func TestOnboardingReviewApprovedInHostDialogApplies(t *testing.T) {
 			}
 			if done, err := onboarding.LoadRequired(root); err != nil || done.ApprovalState != "consumed" || done.TransactionState != "applied" {
 				t.Fatalf("session did not record the applied review: %#v %v", done, err)
+			}
+			// A second apply answers with the recorded result and leaves the
+			// session applied; it used to fail on apply-result.json after
+			// setting the session back to apply_pending.
+			again, err := onboarding.Apply(root, wantRel)
+			if err != nil {
+				t.Fatalf("a second apply of a completed onboarding failed: %v", err)
+			}
+			if fmt.Sprintf("%T", again) != fmt.Sprintf("%T", applied) {
+				t.Fatalf("a second apply answered %T, the first %T", again, applied)
+			}
+			if done, err := onboarding.LoadRequired(root); err != nil || done.ApprovalState != "consumed" || done.TransactionState != "applied" {
+				t.Fatalf("a second apply changed the completed session: %#v %v", done, err)
 			}
 		})
 	}

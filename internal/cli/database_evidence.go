@@ -64,7 +64,6 @@ func newDatabaseBaselineAcceptCmd() *cobra.Command {
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
 	command.Flags().StringVar(&snapshotSHA, "snapshot-sha", "", cliMessage("database.flag.snapshot_sha"))
-	_ = command.MarkFlagRequired("source")
 	_ = command.MarkFlagRequired("snapshot-sha")
 	return command
 }
@@ -145,7 +144,6 @@ func newDatabaseEvidenceBundleCmd() *cobra.Command {
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
 	command.Flags().StringVar(&objectRef, "object", "", cliMessage("database.flag.object"))
-	_ = command.MarkFlagRequired("source")
 	_ = command.MarkFlagRequired("object")
 	return command
 }

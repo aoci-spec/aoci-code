@@ -1255,12 +1255,19 @@ def suite_database(rep, work, image, run_id, keep_box=False):
         # 状态码 —— 四步 CLI 链此前只存在于操作者的记忆里。
         cmds = m.get("next_commands") or []
         chain = (len(cmds) == 2 and "database snapshot" in cmds[0]
-                 and "database baseline accept" in cmds[1]
+                 and "database baseline accept" in cmds[1] and "{snapshot_sha}" in cmds[1]
                  and all(c.startswith(("'", '"')) for c in cmds))
         rep.rec(g, "evidence-required-carries-refresh-commands", "PASS" if chain else "FAIL",
                 f"cmds={cmds}"[:160])
-        rc, v, out, errs = cli(fx, "database", "baseline", "accept", "--source", "shop",
-                               "--snapshot-sha", new_sha, expect_ok=False)
+        # The accept command runs as returned once the Host fills its two
+        # placeholders; it used to lack --snapshot-sha and was refused as printed.
+        if chain:
+            filled = cmds[1].replace("{source}", "shop").replace("{snapshot_sha}", new_sha)
+            proc = subprocess.run(filled, shell=True, cwd=fx, capture_output=True, text=True, timeout=120)
+            rc, out, errs = proc.returncode, proc.stdout, proc.stderr
+        else:
+            rc, v, out, errs = cli(fx, "database", "baseline", "accept", "--source", "shop",
+                                   "--snapshot-sha", new_sha, expect_ok=False)
         rep.rec(g, "accept-new-snapshot", "PASS" if rc == 0 else "FAIL", (out + errs)[:120] if rc else "")
         s = Session(fx)
         m, t, _ = maintain(s)

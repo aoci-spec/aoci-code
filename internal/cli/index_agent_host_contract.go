@@ -249,6 +249,8 @@ func bindAgentGuideCommands(
 		&commands.ScopeActivate,
 		&commands.ScopeAcknowledge,
 		&commands.ScopeBudget,
+		&commands.DatabaseSnapshot,
+		&commands.DatabaseBaselineAccept,
 	}
 
 	for _, field := range fields {

@@ -77,6 +77,10 @@ type observeReviewResult struct {
 	Message             string                `json:"message"`
 	NextAction          string                `json:"next_action"`
 	NextCommands        []string              `json:"next_commands,omitempty"`
+	// TerminalProof closes a test-only change: when the acknowledgement
+	// leaves the repository aligned there is nothing for Maintain to issue,
+	// so the review result carries the same proof a final Apply does.
+	TerminalProof *terminalProof `json:"terminal_proof,omitempty"`
 }
 
 // observeReviewFor is the listing a blocked Maintain carries, or nil when no
@@ -220,6 +224,11 @@ func acknowledgeObservedEvidence(root string, loaded *cognitionRepoCtx, facts *v
 	result.TransactionID = applied.TransactionID
 	result.Message = mcpMessage("mcp.observe_review.acknowledged", len(paths))
 	result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
+	if proof, _ := buildTerminalProof(root); proof != nil && proof.Aligned {
+		result.TerminalProof = proof
+		result.Message = mcpMessage("mcp.observe_review.acknowledged_aligned", len(paths))
+		result.NextAction = "none"
+	}
 	return nil
 }
 

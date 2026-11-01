@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
@@ -72,6 +73,11 @@ type agentGuideCommands struct {
 	ScopeActivate    string `json:"scope_activate,omitempty"`
 	ScopeAcknowledge string `json:"scope_acknowledge,omitempty"`
 	ScopeBudget      string `json:"scope_budget,omitempty"`
+	// DatabaseSnapshot and DatabaseBaselineAccept are the two commands an
+	// evidence_required stage needs, the ones Maintain returns in its
+	// next_commands; {source} is each source the instruction names.
+	DatabaseSnapshot       string `json:"database_snapshot,omitempty"`
+	DatabaseBaselineAccept string `json:"database_baseline_accept,omitempty"`
 }
 
 type volumeAgentGuide struct {
@@ -224,6 +230,14 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 		guide.Instructions = append(instructions, guide.Instructions...)
 		applyVolumeBlockedRemediation(&guide, facts)
 	}
+	if facts.Result == volumegovernance.ResultEvidenceRequired {
+		// The stage named what it needs and stopped there; it now names the
+		// commands and the sources that owe Evidence, as Maintain does.
+		guide.Commands.DatabaseSnapshot = "aoci " + machinecontract.RemediationCommandDatabaseSnapshot
+		guide.Commands.DatabaseBaselineAccept = "aoci " + machinecontract.RemediationCommandDatabaseBaselineAccept
+		guide.Instructions = append(guide.Instructions, cliMessage("guide.volumes_instruction_evidence",
+			strings.Join(sourcesOwingEvidence(facts), ", ")))
+	}
 	if facts.Result == volumegovernance.ResultAuthoringRequired && len(facts.AffectedDomains) > 0 {
 		guide.Commands.Check = "aoci check --json"
 		work := volumegovernance.CodeAuthoringWorkFor(set, facts.CodeDrift)
@@ -274,6 +288,28 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 // command — the dead end of issue #8, while the Legacy Guide has carried a
 // baseline_first stage with exactly this remediation all along. The stage stays
 // "blocked"; the stop facts, the scan command, and the instructions are additive.
+// sourcesOwingEvidence lists the declared sources whose Evidence is missing
+// or unusable, the ones a snapshot and its acceptance would clear.
+func sourcesOwingEvidence(facts *volumegovernance.Facts) []string {
+	sources := []string{}
+	for _, source := range facts.DatabaseCognition.Sources {
+		if source.State == machinecontract.DatabaseCognitionEvidenceUnavailable || source.State == machinecontract.DatabaseCognitionEvidenceInvalid {
+			sources = append(sources, source.SourceID)
+		}
+	}
+	for _, finding := range facts.Findings {
+		if strings.HasPrefix(finding.Code, "database_evidence") || strings.Contains(finding.Code, "evidence_unavailable") {
+			if id := strings.TrimPrefix(finding.Target, "source:"); id != "" && !slices.Contains(sources, id) {
+				sources = append(sources, id)
+			}
+		}
+	}
+	if len(sources) == 0 {
+		sources = append(sources, "{source}")
+	}
+	return sources
+}
+
 func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
 	baselineMissing, scopeChange, observedPending, budgetExceeded, recoveryPending := false, false, false, false, false
 	for _, finding := range facts.Findings {

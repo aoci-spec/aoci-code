@@ -362,7 +362,9 @@ ways, and each is prefixed by the running server's own absolute executable
 path, quoted for the host shell, because the MCP binary is whatever path the
 Host configuration names and need not be on PATH. When that path cannot be
 resolved the field is omitted rather than filled with a bare aoci.
-Placeholders such as {agent}, {tokens}, and {source} are the Host's to fill.
+Placeholders such as {agent}, {tokens}, {source}, and {snapshot_sha} (the
+source_snapshot_sha256 the snapshot returned, which the acceptance binds) are
+the Host's to fill.
 Continuation batches, Optimization, and repair_required carry no
 next_commands; a Legacy layout's read-only stop carries the migration commands;
 and orphan removal needs none because a Code orphan goes as a `removals` item
@@ -442,7 +444,10 @@ scope acknowledge runs over exactly the listed paths, after proving that the
 preview fingerprints equal the listed bytes, and answers acknowledged with
 formal_writes_started=true, the confirmed review_digest, acknowledged and
 acknowledged_paths, and next_action
-call_no_argument_aoci_maintain_for_current_machine_batch. An authorization
+call_no_argument_aoci_maintain_for_current_machine_batch; when the
+acknowledgement leaves the repository aligned (a change to Observe evidence
+alone), it answers next_action none with the terminal_proof a final Apply
+carries, so that closing needs no further call. An authorization
 posture that needs a person saves the preview under .aoci/scope-change/ and
 answers human_approval_required with preview_file, the host_dialog_request
 when the team channel admits the dialog, and the terminal approve and apply

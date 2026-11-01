@@ -748,6 +748,15 @@ func Apply(root, approvalRelativeOrAbsolute string) (any, error) {
 	if EffectiveAutomationPolicy(session).Mode == config.AutomationModeOff {
 		return nil, fmt.Errorf("onboarding_automation_off_apply_forbidden")
 	}
+	// A session whose transaction applied answers with the result it recorded.
+	// A second apply used to record the approval again, set the session back to
+	// apply_pending, and only then fail on the recorded apply-result.json
+	// (onboarding_artifact_conflict), so a completed onboarding claimed an apply
+	// was still pending. The recorded result is the evidence that it applied;
+	// a session an older binary left in that state is put back to applied.
+	if session.ResultArtifact != "" && session.TransactionID != "" {
+		return recordedApplyResult(root, session)
+	}
 	approvalData, err := readExternalOrArtifact(root, approvalRelativeOrAbsolute)
 	if err != nil {
 		return nil, err
@@ -830,6 +839,36 @@ func Apply(root, approvalRelativeOrAbsolute string) (any, error) {
 	session.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
 	if err := save(root, session); err != nil {
 		return nil, err
+	}
+	return result, nil
+}
+
+// recordedApplyResult decodes the result a completed Apply recorded, and
+// repairs the two session fields a second apply of an older binary left
+// pending; nothing else is written.
+func recordedApplyResult(root string, session *Session) (any, error) {
+	data, err := readArtifact(root, session.ResultArtifact)
+	if err != nil {
+		return nil, err
+	}
+	var result any
+	if session.Operation == cognitionplan.OperationBootstrap {
+		value := &bootstrapapply.ApplyResult{}
+		err, result = json.Unmarshal(data, value), value
+	} else {
+		value := &migrationapply.ApplyResult{}
+		err, result = json.Unmarshal(data, value), value
+	}
+	if err != nil {
+		return nil, fmt.Errorf("onboarding_apply_result_invalid: %w", err)
+	}
+	if session.TransactionState != "applied" || session.ApprovalState != "consumed" {
+		session.TransactionState, session.ApprovalState = "applied", "consumed"
+		session.Revision++
+		session.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+		if err := save(root, session); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }

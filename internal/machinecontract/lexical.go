@@ -71,17 +71,20 @@ func EvolutionNarrativeTerms() []string {
 // {agent}, {tokens}, and {source} are host-filled placeholders, the same
 // convention the Guide has always used for --reviewed-by {agent}.
 const (
-	RemediationCommandScan                   = "scan"
-	RemediationCommandScopeStatus            = "scope status --json"
-	RemediationCommandScopeActivate          = "scope activate --json"
-	RemediationCommandScopeAcknowledge       = "scope acknowledge --reviewed-by {agent} --json"
-	RemediationCommandScopeBudgetSet         = "scope budget set --max-tokens {tokens}"
-	RemediationCommandVerify                 = "verify --json"
-	RemediationCommandAggregateCheck         = "check --json"
-	RemediationCommandAgentGuide             = "index agent guide --agent {agent} --json"
-	RemediationCommandCognitionOnboardStart  = "cognition onboard start --json"
-	RemediationCommandDatabaseSnapshot       = "database snapshot --source {source} --json"
-	RemediationCommandDatabaseBaselineAccept = "database baseline accept --source {source} --json"
+	RemediationCommandScan                  = "scan"
+	RemediationCommandScopeStatus           = "scope status --json"
+	RemediationCommandScopeActivate         = "scope activate --json"
+	RemediationCommandScopeAcknowledge      = "scope acknowledge --reviewed-by {agent} --json"
+	RemediationCommandScopeBudgetSet        = "scope budget set --max-tokens {tokens}"
+	RemediationCommandVerify                = "verify --json"
+	RemediationCommandAggregateCheck        = "check --json"
+	RemediationCommandAgentGuide            = "index agent guide --agent {agent} --json"
+	RemediationCommandCognitionOnboardStart = "cognition onboard start --json"
+	RemediationCommandDatabaseSnapshot      = "database snapshot --source {source} --json"
+	// The accept command binds the snapshot it accepts; {snapshot_sha} is the
+	// source_snapshot_sha256 the snapshot command printed, which the Host
+	// fills in like {source}. Without it the command was refused as printed.
+	RemediationCommandDatabaseBaselineAccept = "database baseline accept --source {source} --snapshot-sha {snapshot_sha} --json"
 )
 
 // Onboarding continuation suffixes are what each onboarding result's

@@ -124,7 +124,9 @@ joined or left the list, the call answers `status=stale` with the current
 listing and writes nothing, so nothing is acknowledged unread. Otherwise it
 runs the transaction `scope acknowledge` runs, with the same Baseline, Ledger,
 CAS, Recovery, and approval rules, and answers `acknowledged` with the
-confirmed `review_digest`, the count, and the `acknowledged_paths`. A list
+confirmed `review_digest`, the count, and the `acknowledged_paths`; when that
+leaves the repository aligned, as a change to tests alone does, it also
+carries `terminal_proof` and `next_action=none`, and the closing is done. A list
 longer than Maintain shows in full lists only its leading items, with `total`
 and `truncated=true`, and carries no `confirm_request`: the Scope transaction
 acknowledges only the complete set, and nothing may be confirmed unseen, so
