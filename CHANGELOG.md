@@ -167,6 +167,14 @@ changes a persisted preimage names the binary every machine then needs.
   test-only change with nothing to author keep the stop and the
   `intent=observe_review` route, which stays. Scenario N2 now drives the
   batch with the review.
+- The real-repository harness reports the two numbers a user waits on:
+  `first_build.rounds` and `calls_to_closing`, every MCP call from the first
+  Maintain to the Apply whose `terminal_proof` reports aligned, for the first
+  build and for the update wave; it drops orphans through `removals` and
+  confirms a pending Observe review through the batch, and it stops at that
+  Apply instead of calling Maintain once more. On RuoYi (512 Entries) a
+  first build is 15 rounds and 30 calls, a 60-file update wave 3 rounds and
+  6 calls, with no command to run afterwards.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

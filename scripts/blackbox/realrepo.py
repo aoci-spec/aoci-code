@@ -152,6 +152,11 @@ def timed_cli(*args):
 
 def author_rounds(session, phase, max_rounds=400):
     rounds, written, stopped, sizes, included, existing, deliveries = 0, 0, None, [], [], 0, 0
+    # The two numbers the user waits on (2026-11-01): rounds to the first
+    # aligned build, and MCP calls from the first Maintain to the proof that
+    # the closing is done. The final Apply carries that proof (terminal_proof),
+    # so the loop ends there instead of asking Maintain once more.
+    proof, removed = None, 0
     # Per-tool wall time: how much of a round AOCI itself spends, apart from
     # the model's authoring time this harness does not have. The split between
     # Maintain and update_entry is what the performance work reads.
@@ -177,6 +182,25 @@ def author_rounds(session, phase, max_rounds=400):
                        "findings": [f.get("code") for f in ((m.get("governance") or {}).get("findings") or [])][:8]}
             break
         plan = m.get("code_plan") or {}
+        # What rides beside the batch since 2026-11-01: the Observe review the
+        # posture lets the model confirm, and the Code orphans to drop.
+        extra = {}
+        review = m.get("observe_review") or {}
+        if ((review.get("confirm_request") or {}).get("tool") == "aoci_update_entry") and review.get("review_digest"):
+            extra["observe_review"] = {"review_digest": review["review_digest"], "reviewed_by": "realrepo-harness"}
+        orphans = [o for o in (m.get("orphan_remove_candidates") or []) if isinstance(o, str) and o.startswith("code:")]
+        if orphans:
+            extra["removals"] = [{"path": o} for o in orphans]
+        if not (m.get("candidates") or []) and orphans:
+            r = json.loads(timed("aoci_update_entry", dict(extra)))
+            if r.get("status") != "applied":
+                stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
+                break
+            removed += r.get("applied", 0)
+            proof = r.get("terminal_proof")
+            if r.get("aligned") is True and (proof or {}).get("aligned") is True:
+                break
+            continue
         # Under parallel batches the round also carries the siblings issued
         # ahead; one agent plays them all, each delivered whole by batch_id.
         batches = [m]
@@ -199,16 +223,28 @@ def author_rounds(session, phase, max_rounds=400):
                     data = fh.read()
                 entries.append({"path": rel, "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
                                 "new_entry": template_entry(rel, data)})
-            r = json.loads(timed("aoci_update_entry", {"code_batch_id": batch_plan.get("batch_id"), "entries": entries}))
+            request = {"code_batch_id": batch_plan.get("batch_id"), "entries": entries}
+            request.update(extra); extra = {}
+            r = json.loads(timed("aoci_update_entry", request))
             if r.get("status") != "applied":
                 stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
                 break
             written += r.get("applied", 0)
+            proof = r.get("terminal_proof")
         if stopped:
+            break
+        if proof and proof.get("aligned") is True and r.get("aligned") is True:
+            # The closing is proved by the Apply itself: no further call.
             break
         if rounds % 10 == 0:
             print(f"{phase} round {rounds}: applied {written}, remaining {plan.get('remaining')}, max bytes {max(sizes)}", flush=True)
-    return {"rounds": rounds, "entries_written": written, "stopped": stopped, "parallel": PARALLEL, "sibling_deliveries": deliveries,
+    mcp_calls = sum(c[0] for c in calls.values())
+    return {"rounds": rounds, "entries_written": written, "entries_removed": removed, "stopped": stopped, "parallel": PARALLEL, "sibling_deliveries": deliveries,
+            # calls_to_closing: every MCP call from the first Maintain to the
+            # proof the closing is done, with nothing to run afterwards.
+            "mcp_calls": mcp_calls, "calls_to_closing": mcp_calls,
+            "closing_proved_by_apply": bool(proof and proof.get("aligned") is True),
+            "terminal_proof": {k: (proof or {}).get(k) for k in ("governance_result", "aligned", "check_passed", "guide_complete", "guide_next_action")} if proof else None,
             "maintain_bytes_max": max(sizes) if sizes else 0, "maintain_bytes_avg": (sum(sizes) // len(sizes)) if sizes else 0,
             "included_min": min(i for i in included if i) if included else 0, "included_max": max(i for i in included if i) if included else 0,
             "existing_entries_seen": existing, "over_budget_rounds": sum(1 for s in sizes if s > BUDGET),
@@ -220,9 +256,10 @@ t1 = time.time()
 with U.Session(BIN, work) as s:
     report["first_build"] = author_rounds(s, "build")
 report["first_build"]["seconds"] = round(time.time() - t1, 1)
-# The terminal proof every closure pays after the last Apply, timed per command.
-report["first_build"]["proof_seconds"] = {"verify": timed_cli("verify", "--json"), "check": timed_cli("check", "--json"),
-                                          "guide": timed_cli("index", "agent", "guide", "--agent", "claude", "--json")}
+# The CLI readers as a cross-check of the terminal proof the Apply carried;
+# since 2026-11-01 they are no part of the closing a Host pays for.
+report["first_build"]["cli_crosscheck_seconds"] = {"verify": timed_cli("verify", "--json"), "check": timed_cli("check", "--json"),
+                                                   "guide": timed_cli("index", "agent", "guide", "--agent", "claude", "--json")}
 v = U.verify_facts(BIN, work); report["first_build"]["verify_aligned"] = bool(v and v.get("aligned")); report["first_build"]["code_objects"] = v and v.get("code_object_count")
 print("first_build:", json.dumps(report["first_build"]), flush=True)
 

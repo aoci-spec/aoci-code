@@ -178,15 +178,15 @@
    "id": "realrepo",
    "cadence": "release",
    "command": "python3 scripts/blackbox/realrepo.py RuoYi build/aoci-<label> --label=<label>; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>",
-   "proves": "Transport budget, batch rounds, update wave, optimization and hook on two real trees with a planted ignored node_modules; compare rounds and bytes against the previous release record",
+   "proves": "Transport budget, first-build rounds and calls_to_closing (every MCP call from the first Maintain to the Apply whose terminal_proof reports aligned), update wave, optimization and hook on two real trees with a planted ignored node_modules; compare rounds, calls, and bytes against the previous release record",
    "preconditions": [
     "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand)"
    ],
    "runs_in": [],
    "last_verified": {
     "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/realrepo-RuoYi-l4p2.txt (RuoYi --parallel=2: 13 plans of 2, 512 Entries, max 21,679 bytes, 0 over budget, aligned)"
+    "date": "2026-11-01",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-lever.txt (RuoYi, lever build: first build 15 rounds / 30 calls_to_closing, update wave 60 files 3 rounds / 6 calls, closing proved by the Apply's terminal_proof, aligned)"
    }
   },
   {
