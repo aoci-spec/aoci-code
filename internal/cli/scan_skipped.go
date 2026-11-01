@@ -50,19 +50,54 @@ type scanAuthoringEstimate struct {
 }
 
 func estimateScanAuthoring(cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
-	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable)
+	return estimateAuthoringForPaths(cfg, skipped.set, skipped.actionable)
+}
+
+// estimateAuthoringForPaths is the first-build estimate over the given
+// index-role paths, shared by scan and by init, which shows it before the
+// first scan while narrowing the scope is still free.
+func estimateAuthoringForPaths(cfg *config.Config, set *cognition.Set, paths []string) scanAuthoringEstimate {
+	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths)
 	parallel := cfg.CodeCognitionParallelBatchLimit()
-	estimate := scanAuthoringEstimate{Targets: len(skipped.actionable), Rounds: rounds,
+	estimate := scanAuthoringEstimate{Targets: len(paths), Rounds: rounds,
 		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
 		ParallelBatches: parallel, ParallelRounds: rounds}
 	if parallel > 1 {
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, skipped.set, skipped.actionable, parallel)
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, parallel)
 	} else if rounds > 1 {
 		// What four sessions would take, measured with the same cut Maintain
 		// makes, so the hint names a number the first build then meets.
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, skipped.set, skipped.actionable, machinecontract.CodeCognitionParallelBatchesMax)
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, machinecontract.CodeCognitionParallelBatchesMax)
 	}
 	return estimate
+}
+
+// initNarrowHintRounds is the first-build size from which init points at
+// the free moment to start smaller: before the first scan freezes roles,
+// a narrower scope costs nothing, and after it a reduction is a governed
+// Scope Change.
+const initNarrowHintRounds = 20
+
+// initAuthoringEstimateLines are the lines init prints about the first
+// build of a fresh repository: its size, what parallel sessions make of
+// it, and, for a large one, how to start smaller before the first scan.
+func initAuthoringEstimateLines(root string, cfg *config.Config, paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		return nil
+	}
+	estimate := estimateAuthoringForPaths(cfg, set, paths)
+	lines := []string{scanAuthoringEstimateLine(estimate)}
+	if line := scanParallelEstimateLine(estimate); line != "" {
+		lines = append(lines, line)
+	}
+	if estimate.Rounds >= initNarrowHintRounds {
+		lines = append(lines, cliMessage("scan.narrow_hint", root))
+	}
+	return lines
 }
 
 func classifyScanSkippedSources(root string, cfg *config.Config, snap map[string]baseline.Fingerprint) scanSkippedSources {
@@ -161,6 +196,9 @@ func scanParallelEstimateLine(estimate scanAuthoringEstimate) string {
 // scanAuthoringEstimateLine spells the first-build cost; one round is the
 // usual answer for a small repository and reads as "1 rounds" otherwise.
 func scanAuthoringEstimateLine(estimate scanAuthoringEstimate) string {
+	if estimate.Targets == 1 {
+		return cliMessage("scan.authoring_estimate_single", estimate.BatchLimit, estimate.TransportBudgetBytes/1024)
+	}
 	if estimate.Rounds == 1 {
 		return cliMessage("scan.authoring_estimate_one", estimate.Targets, estimate.BatchLimit, estimate.TransportBudgetBytes/1024)
 	}

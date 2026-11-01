@@ -897,6 +897,7 @@
   "scan.authoring_estimate_parallel_one": "code_cognition_parallel_batches=%d：这么多 Agent 会话同时写，每个 1 轮；Maintain 会列出要分发的兄弟批次",
   "scan.authoring_estimate_parallel_hint": "四个 Agent 会话可以同时写：aoci config set code_cognition_parallel_batches 4 后每个约 %d 轮，每次 Maintain 都会列出要分发的兄弟批次",
   "scan.authoring_estimate_parallel_hint_one": "四个 Agent 会话可以同时写：aoci config set code_cognition_parallel_batches 4 后每个 1 轮，Maintain 会列出要分发的兄弟批次",
+  "scan.authoring_estimate_single": "1 个 index 文件需要写条目：按当前批次设置 1 轮 Maintain（最多 %d 条、响应预算 %d KiB）",
   "scan.authoring_estimate_one": "%d 个 index 文件需要写条目：按当前批次设置 1 轮 Maintain（最多 %d 条、响应预算 %d KiB）",
   "scan.narrow_hint": "想少写一些，就在首次 scan 之前排除目录；之后再缩范围属于受治理的 Scope Change。示例：aoci --repo %s scope rule add <name> --action exclude --pattern <dir> --pattern-kind directory --reason \"<why>\"",
   "scan.snapshot_error": "扫描失败: %v",

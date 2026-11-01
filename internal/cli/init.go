@@ -195,6 +195,7 @@ func init() {
 			configExisted := true
 			newRepositoryAutomationMessage := ""
 			var scopeProposal *managedscope.Proposal
+			var initIndexPaths []string
 
 			if _, statErr := os.Stat(
 				config.FilePath(root),
@@ -255,6 +256,9 @@ func init() {
 				}
 				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
 				scopeProposal = &proposal
+				for _, item := range evaluation.Index {
+					initIndexPaths = append(initIndexPaths, item.Path)
+				}
 				if proposal.RequiresHumanApproval {
 					return &ExitError{Code: ExitConfig, MachineCode: "managed_scope_auto_authorization_blocked",
 						Msg: initialScopeBlockedDetail(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))}
@@ -547,6 +551,12 @@ func init() {
 					outputLines,
 					baselineNote,
 				)
+			}
+			// A fresh repository learns what its first build costs while a
+			// narrower scope is still free (2026-11-02): scan prints the same
+			// estimate, but by then the roles are frozen.
+			if scopeProposal != nil {
+				outputLines = append(outputLines, initAuthoringEstimateLines(root, cfg, initIndexPaths)...)
 			}
 
 			if !flagQuiet {

@@ -209,6 +209,14 @@ changes a persisted preimage names the binary every machine then needs.
   `Next:` line of verify and check names `--source` instead of a positional
   argument. A database command without `--source` names the declared
   sources instead of cobra's English `required flag(s) "source" not set`.
+- `aoci init` on a fresh repository says what the first build costs
+  before the first scan, the moment a narrower scope is still free: how
+  many index files need an Entry, about how many Maintain rounds that takes,
+  and what four parallel Agent sessions would make of it; from 20 rounds up
+  it prints the exclusion example `scan --dry-run` prints. After the first
+  scan, excluding a file that has no Entry yet is a coverage reduction a
+  person approves, so the cost is worth reading before roles freeze. A
+  one-file estimate reads "1 index file needs an Entry".
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

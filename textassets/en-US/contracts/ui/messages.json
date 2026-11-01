@@ -897,6 +897,7 @@
   "scan.authoring_estimate_parallel_one": "With code_cognition_parallel_batches=%d, that many Agent sessions author at once: one round each; Maintain lists the sibling batches to hand out",
   "scan.authoring_estimate_parallel_hint": "Four Agent sessions can author at once: aoci config set code_cognition_parallel_batches 4 makes it about %d rounds each, and every Maintain then lists the sibling batches to hand out",
   "scan.authoring_estimate_parallel_hint_one": "Four Agent sessions can author at once: aoci config set code_cognition_parallel_batches 4 makes it one round each, and Maintain then lists the sibling batches to hand out",
+  "scan.authoring_estimate_single": "1 index file needs an Entry: one Maintain round at the current batch settings (up to %d Entries within a %d KiB response budget)",
   "scan.authoring_estimate_one": "%d index files need an Entry: one Maintain round at the current batch settings (up to %d Entries within a %d KiB response budget)",
   "scan.narrow_hint": "To index less, exclude directories before the first scan; a later reduction is a governed Scope Change. Example: aoci --repo %s scope rule add <name> --action exclude --pattern <dir> --pattern-kind directory --reason \"<why>\"",
   "scan.snapshot_error": "scan repository: %v",
