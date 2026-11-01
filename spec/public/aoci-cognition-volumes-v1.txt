@@ -371,14 +371,25 @@ already on the surface. The array is advisory: it changes no state,
 next_action remains the machine decision, and a Host that ignores it loses
 nothing the CLI Guide does not already say.
 
-When observed_pending is the only blocking finding, Guide and Maintain keep blocked (and Maintain keeps stopped)
-but set next_action to review_observed_evidence. The Agent continues by reading
-scope status, reviewing every reported ObservedNew/ObservedChanged/ObservedRemoved
-path and its affected evidence, and only then acknowledging the exact set under
-the existing authorization policy. Approval, drift, CAS, Recovery, and other
-safety boundaries still apply. After success the Agent requests a fresh Guide,
-follows its authoring batches, and the final Apply's terminal_proof closes
-them. Acknowledgement alone neither creates Entries nor completes indexing.
+When observed_pending is the only blocking finding, Guide keeps blocked with
+next_action review_observed_evidence, and so does a Maintain that has no
+batch to issue or whose authorization posture needs a person for the
+acknowledgement: the Agent reads scope status, reviews every reported
+ObservedNew/ObservedChanged/ObservedRemoved path and its affected evidence,
+and only then acknowledges the exact set under the existing authorization
+policy. When the posture lets the model acknowledge and Maintain has a batch
+to issue, the review rides with the batch instead: Maintain answers
+authoring_required with the batch and the observe_review listing, whose
+confirm_request names aoci_update_entry, and the batch confirms the listing
+through its own observe_review {review_digest, reviewed_by}, recorded by the
+same Scope transaction before the Entries are planned and reported beside the
+outcome as observe_review {status, review_digest, acknowledged,
+acknowledged_paths, transaction_id}. A digest the current list no longer has
+is the zero-write repair finding observe_review_stale with the current listing
+in observe_review_current; nothing pending is a no-op. Approval, drift, CAS,
+Recovery, and other safety boundaries still apply, and the final Apply's
+terminal_proof closes the work. Acknowledgement alone neither creates Entries
+nor completes indexing.
 
 Other blocking findings take precedence over this review action, including
 unknown findings; no observe acknowledgement shortcut is issued over them.
@@ -410,11 +421,13 @@ when none is. Observe-only blocking uses review_observed_evidence as defined
 above, superseding the earlier acknowledge_observed_evidence spelling. A Host
 acting on the token alone never removes orphans that the result did not list.
 
-A Maintain blocked by observed_pending also carries observe_review: the
-pending Observe evidence as path, change (new, changed, or removed), and the
-sha256 of the current bytes, which a removed item omits; total;
-review_digest, an opaque digest binding the complete list; and
-confirm_request, the exact aoci_maintain call that confirms it. A list
+A Maintain that lists pending Observe evidence, blocked by it or issuing the
+batch beside it, carries observe_review: the pending evidence as path,
+change (new, changed, or removed), and the sha256 of the current bytes,
+which a removed item omits; total; review_digest, an opaque digest binding
+the complete list; and confirm_request, the exact call that confirms it, an
+aoci_maintain intent when the review stops the batch and the batch's own
+aoci_update_entry observe_review when it rides with it. A list
 longer than the transport list limit shows its leading items with
 truncated=true and carries no confirm_request, and the intent refuses it as
 observe_review_list_exceeds_mcp_listing: the Scope transaction acknowledges

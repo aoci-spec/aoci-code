@@ -54,6 +54,7 @@
     "entries[].source_sha256": "aoci_maintain返回的Code源码绑定，原样保留",
     "new_entry": "兼容单条模式，配合path或object_ref；优先使用entries",
     "removals": "与本批次一并删除的 Code 孤儿条目，按 aoci_maintain 在 orphan_remove_candidates 里列出的写法；没有要创作的条目时可以单独提交",
-    "removals[].path": "孤儿条目的仓库相对路径，带不带 code: 前缀都可以"
+    "removals[].path": "孤儿条目的仓库相对路径，带不带 code: 前缀都可以",
+    "observe_review": "在规划批次之前确认 aoci_maintain 随批次列出的 Observe 证据：它的 review_digest 和复核人；当前清单已没有的 digest 会作为零写入的修复 Finding 返回"
   }
 }

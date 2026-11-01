@@ -175,11 +175,8 @@ func acknowledgeObservedEvidence(root string, loaded *cognitionRepoCtx, facts *v
 	for _, item := range facts.ObservedEvidence {
 		paths = append(paths, item.Path)
 	}
-	candidates := scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
-		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{},
-		ObserveReview: &scopechange.ObserveReview{Paths: paths, ReviewStatus: scopechange.ReviewStatusReviewed,
-			Reviewer: request.ReviewedBy}}
-	preview, err := scopechange.Build(root, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339), candidates)
+	preview, err := scopechange.Build(root, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339),
+		observeReviewCandidates(facts.ObservedEvidence, request.ReviewedBy))
 	if err != nil {
 		return &Fail{Code: errBadArgs, Msg: localeSafeMCPDetail(err.Error())}
 	}
@@ -224,6 +221,128 @@ func acknowledgeObservedEvidence(root string, loaded *cognitionRepoCtx, facts *v
 	result.Message = mcpMessage("mcp.observe_review.acknowledged", len(paths))
 	result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
 	return nil
+}
+
+// observeReviewCandidates is the Scope candidate set that acknowledges the
+// listed evidence: no Entry, no disposition, the complete path list reviewed.
+func observeReviewCandidates(evidence []volumegovernance.ObservedEvidence, reviewer string) scopechange.CandidateSet {
+	paths := make([]string, 0, len(evidence))
+	for _, item := range evidence {
+		paths = append(paths, item.Path)
+	}
+	return scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{},
+		ObserveReview: &scopechange.ObserveReview{Paths: paths, ReviewStatus: scopechange.ReviewStatusReviewed, Reviewer: reviewer}}
+}
+
+// observeReviewRidesWithBatch reports whether the pending Observe review may
+// be confirmed by the model inside its update batch (2026-11-01): the
+// listing fits the transport, no Scope Change is pending, and the
+// authorization posture lets the model acknowledge on its own. A posture
+// that needs a person keeps the review a stop, and the person answers in the
+// dialog or the terminal as before.
+func observeReviewRidesWithBatch(root string, facts *volumegovernance.Facts) bool {
+	if facts == nil || facts.ObservedReviewDigest == "" || facts.ManagedScope.ScopeChangeRequired ||
+		len(facts.ObservedEvidence) > observeReviewListLimit {
+		return false
+	}
+	preview, err := scopechange.Build(root, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339),
+		observeReviewCandidates(facts.ObservedEvidence, "host_model"))
+	return err == nil && !preview.Plan.InteractionRequired
+}
+
+// observeReviewForBatch is the listing a Maintain carries when the review
+// rides with the batch: the same evidence and digest, confirmed through the
+// batch's own observe_review field instead of a second call.
+func observeReviewForBatch(facts *volumegovernance.Facts) *observeReviewListing {
+	listing := observeReviewFor(facts)
+	if listing == nil || listing.Confirm == nil {
+		return listing
+	}
+	listing.Confirm = &toolCallRequest{Tool: "aoci_update_entry", Arguments: map[string]any{
+		"observe_review": map[string]any{"review_digest": facts.ObservedReviewDigest, "reviewed_by": "{agent}"},
+	}}
+	return listing
+}
+
+// batchObserveReview is what an update batch reports about the Observe
+// review it confirmed on the way in.
+type batchObserveReview struct {
+	Status            string   `json:"status"`
+	ReviewDigest      string   `json:"review_digest"`
+	ReviewedBy        string   `json:"reviewed_by,omitempty"`
+	Acknowledged      int      `json:"acknowledged,omitempty"`
+	AcknowledgedPaths []string `json:"acknowledged_paths,omitempty"`
+	TransactionID     string   `json:"transaction_id,omitempty"`
+}
+
+// confirmObserveReviewForBatch runs, before any Entry of the batch is
+// planned, the review the batch carries: the digest is checked against the
+// current listing and the acknowledge transaction runs under the same
+// posture rules as the intent. It answers the outcome to report beside the
+// batch, or the result that ends the call: a stale digest is a zero-write
+// repair finding with the current listing, and a posture that needs a person
+// stops with the approval routes. Nothing pending is a no-op, not a fault.
+func confirmObserveReviewForBatch(root, mcpServiceVersion string, request *observeReviewRequest) (*batchObserveReview, *mcp.CallToolResult) {
+	if fail := validateObserveReviewRequest(maintainIn{ObserveReview: request}); fail != nil {
+		return nil, failResult(fail)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		return nil, failResult(fail)
+	}
+	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+		return nil, failResult(legacyReadOnlyFail())
+	}
+	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if err != nil {
+		return nil, failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
+	}
+	if facts.ManagedScope.ScopeChangeRequired {
+		return nil, failResult(&Fail{Code: errBadArgs, Msg: "observe_review_requires_active_policy",
+			Hint: mcpMessage("mcp.observe_review.hint.activate_first")})
+	}
+	if facts.ObservedReviewDigest == "" {
+		return &batchObserveReview{Status: machinecontract.ObserveReviewStatusNotPending, ReviewDigest: request.ReviewDigest, ReviewedBy: request.ReviewedBy}, nil
+	}
+	stale := func(current *volumegovernance.Facts) *mcp.CallToolResult {
+		finding := LocalizeRepairFindings([]cognition.RepairFinding{{Field: "observe_review.review_digest",
+			RuleCode: "observe_review_stale", Code: "observe_review_stale", Expected: current.ObservedReviewDigest,
+			Actual: request.ReviewDigest, Cause: mcpMessage("mcp.observe_review.stale")}})
+		return textResult(renderAutoResult(autoResult{Version: 1, Status: autoStatusRepairRequired, Attempted: 0, Applied: 0,
+			Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Findings: machineFindings(finding),
+			RetryScope: []string{"observe_review"}, NextAction: machinecontract.ObserveReviewActionReviewCurrent,
+			ObserveReviewCurrent: observeReviewForBatch(current)}))
+	}
+	if facts.ObservedReviewDigest != request.ReviewDigest {
+		return nil, stale(facts)
+	}
+	if len(facts.ObservedEvidence) > observeReviewListLimit {
+		return nil, failResult(&Fail{Code: errBadArgs, Msg: "observe_review_list_exceeds_mcp_listing",
+			Hint: mcpMessage("mcp.observe_review.hint.use_terminal", len(facts.ObservedEvidence), observeReviewListLimit)})
+	}
+	outcome := &observeReviewResult{Version: 1, ReviewedBy: request.ReviewedBy}
+	if fail := acknowledgeObservedEvidence(root, loaded, facts, request, outcome); fail != nil {
+		return nil, failResult(fail)
+	}
+	switch outcome.Status {
+	case machinecontract.ObserveReviewStatusAcknowledged:
+		return &batchObserveReview{Status: outcome.Status, ReviewDigest: outcome.ReviewDigest, ReviewedBy: request.ReviewedBy,
+			Acknowledged: outcome.Acknowledged, AcknowledgedPaths: outcome.AcknowledgedPaths, TransactionID: outcome.TransactionID}, nil
+	case machinecontract.ObserveReviewStatusStale:
+		current, assessErr := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+		if assessErr != nil {
+			current = facts
+		}
+		return nil, stale(current)
+	default:
+		// A person has to approve the acknowledgement: nothing was written, and
+		// the batch waits for the same routes the intent offers.
+		return nil, textResult(renderAutoResult(autoResult{Version: 1, Status: autoStatusStopped,
+			Receipt:    currentWriteCognitionReceipt(root, mcpServiceVersion),
+			Findings:   genericMachineFindings([]string{"observe_review_" + outcome.Status}),
+			NextAction: outcome.NextAction, NextCommands: outcome.NextCommands, HostDialogRequest: outcome.HostDialogRequest}))
+	}
 }
 
 func previewAcknowledgesReviewedBytes(preview *scopechange.Preview, evidence []volumegovernance.ObservedEvidence) bool {

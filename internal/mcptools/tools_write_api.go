@@ -31,6 +31,10 @@ type updateEntryIn struct {
 	// writes, each as the path aoci_maintain listed under
 	// orphan_remove_candidates (with or without its code: prefix).
 	Removals []updateRemovalIn `json:"removals,omitempty"`
+	// ObserveReview confirms, on the way into the batch, the Observe evidence
+	// Maintain listed beside it: the same review_digest and reviewer the
+	// observe_review intent takes, acknowledged before the Entries are planned.
+	ObserveReview *observeReviewRequest `json:"observe_review,omitempty"`
 }
 
 type updateRemovalIn struct {
@@ -377,12 +381,23 @@ func registerWriteTools(
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
-					return handleMCPUpdateBatch(
+					var review *batchObserveReview
+					if in.ObserveReview != nil {
+						var early *mcp.CallToolResult
+						if review, early = confirmObserveReviewForBatch(root, mcpServiceVersion, in.ObserveReview); early != nil {
+							return early
+						}
+					}
+					return handleMCPUpdateBatchReviewed(
 						root,
 						mcpServiceVersion,
 						withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID),
+						review,
 						refreshSession,
 					)
+				}
+				if in.ObserveReview != nil {
+					return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.incomplete_input")})
 				}
 				if (in.Path == "") == (in.ObjectRef == "") || in.NewEntry == "" {
 					return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.incomplete_input")})
@@ -479,6 +494,19 @@ func handleMCPUpdateBatch(
 	if len(refreshSessions) > 0 {
 		refreshSession = refreshSessions[0]
 	}
+	return handleMCPUpdateBatchReviewed(root, mcpServiceVersion, input, nil, refreshSession)
+}
+
+// handleMCPUpdateBatchReviewed is the batch with the Observe review it
+// confirmed on the way in, reported beside every outcome the batch can have,
+// so a model that sees a refusal still knows the review is recorded.
+func handleMCPUpdateBatchReviewed(
+	root,
+	mcpServiceVersion string,
+	input []updateEntryItemIn,
+	review *batchObserveReview,
+	refreshSession *cognitionRefreshSession,
+) *mcp.CallToolResult {
 	if err := validateMCPContracts(
 		textassets.ContractMaintainActionUpdateRepair,
 		textassets.ContractMaintainActionUpdateStopped,
@@ -613,6 +641,7 @@ func handleMCPUpdateBatch(
 			preserveOtherCandidates = true
 		}
 		return textResult(renderAutoResult(autoResult{
+			ObserveReview:           review,
 			Version:                 1,
 			Status:                  status,
 			Aligned:                 false,
@@ -638,6 +667,7 @@ func handleMCPUpdateBatch(
 		}
 		appendAutoFinalizeEvent(root, autoStatusStopped, metrics)
 		return textResult(renderAutoResult(autoResult{
+			ObserveReview:       review,
 			Version:             1,
 			Status:              autoStatusStopped,
 			Aligned:             false,
@@ -675,7 +705,8 @@ func handleMCPUpdateBatch(
 			appendAutoFinalizeEvent(root, autoStatusStopped, metrics)
 			checkpoint := optimizationContext.Checkpoint.Checkpoint
 			return textResult(renderAutoResult(autoResult{
-				Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: optimizationContext.Replaced,
+				ObserveReview: review,
+				Version:       1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: optimizationContext.Replaced,
 				FormalWritesStarted: optimizationFormalWritesStarted, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 				Findings:   machineFindings{genericMachineFinding("cognition_optimization_recovery_cleanup_failed", cleanupErr.Error())},
 				NextAction: "retry_same_cognition_optimization_batch",
@@ -702,7 +733,8 @@ func handleMCPUpdateBatch(
 		appendAutoFinalizeEvent(root, autoStatusStopped, metrics)
 		checkpoint := optimizationContext.Checkpoint.Checkpoint
 		return textResult(renderAutoResult(autoResult{
-			Version: 1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: applied,
+			ObserveReview: review,
+			Version:       1, Status: autoStatusStopped, Aligned: false, Attempted: len(input), Applied: applied,
 			FormalWritesStarted: optimizationFormalWritesStarted, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 			Findings:   machineFindings{genericMachineFinding("cognition_optimization_checkpoint_advance_failed", optimizationErr.Error())},
 			NextAction: "retry_same_cognition_optimization_batch",
@@ -745,6 +777,7 @@ func handleMCPUpdateBatch(
 	audit := buildAutoAudit(input, outcome)
 	appendAutoFinalizeEvent(root, autoStatusApplied, metrics)
 	result := autoResult{
+		ObserveReview:       review,
 		Version:             1,
 		Status:              autoStatusApplied,
 		Aligned:             aligned,

@@ -284,16 +284,19 @@ def entry_line(path, i=None, s_field="-"):
     n = i if i is not None else int(re.sub(r"\D", "", base) or 0)
     return f"{base}[CG5T]: F:Provides fixture constant unit {n} | R:- | A:- | S:{s_field}"
 
-def submit_batch(s, m, mutate=None):
+def submit_batch(s, m, mutate=None, extra=None):
     """Build the complete update_entry request from a maintain result; `mutate`
-    may edit the entries list (for fault injection) before sending."""
+    may edit the entries list (for fault injection) before sending, `extra`
+    adds top-level fields such as observe_review or removals."""
     cands = m.get("candidates") or []
     batch = (m.get("code_plan") or {}).get("batch_id") or (cands[0].get("batch_id") if cands else "")
     entries = [{"path": c["path"], "source_sha256": c["source_sha256"],
                 "candidate_id": c["candidate_id"], "new_entry": entry_line(c["path"])}
                for c in cands]
     if mutate: mutate(entries)
-    t, err = text_of(s.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}, timeout=300))
+    request = {"code_batch_id": batch, "entries": entries}
+    if extra: request.update(extra)
+    t, err = text_of(s.call("aoci_update_entry", request, timeout=300))
     return jload(t), t, err
 
 def land_write(fx, fname, ftext):
@@ -1920,48 +1923,42 @@ def group_n():
     with open(os.path.join(d, "pkg", "added.go"), "w") as f:
         f.write("package pkg\n\nfunc Added() int { return 5 }\n")
     m2, t2, err = maintain(s)
-    s.close()
-    cmds = m2.get("next_commands") or []
-    ack = next((c for c in cmds if "scope acknowledge" in c), "")
-    shaped = (m2.get("result") == "blocked"
-              and m2.get("next_action") == "review_observed_evidence"
+    # Under the auto posture the pending review rides beside the batch (2026-11-01):
+    # the listing names the batch's own observe_review as its confirmation, and
+    # the batch records the review before it writes the Entries.
+    review = m2.get("observe_review") or {}
+    confirm = review.get("confirm_request") or {}
+    shaped = (m2.get("result") == "authoring_required"
+              and m2.get("next_action") == "author_complete_current_machine_batch"
               and m2.get("authoring_batch", {}).get("next_action") == m2.get("next_action")
-              and len(m2.get("instructions", [])) == 4
-              and 0 <= t2.find('"instructions"') < t2.find('"governance"')
-              and 0 <= t2.find('"next_commands"') < t2.find('"governance"')
-              and any("index agent guide" in c for c in cmds)
-              and ack != "" and "{agent}" in ack)
-    record(g, "N2.blocked-carries-acknowledge-command", "PASS" if shaped else "FAIL",
-           f"result={m2.get('result')} cmds={cmds}"[:200])
+              and len(m2.get("candidates") or []) == 1
+              and confirm.get("tool") == "aoci_update_entry"
+              and len(review.get("review_digest") or "") == 64
+              and any(review.get("review_digest") in i for i in (m2.get("instructions") or []))
+              and 0 <= t2.find('"instructions"') < t2.find('"governance"'))
+    record(g, "N2.observe-review-rides-beside-the-batch", "PASS" if shaped else "FAIL",
+           f"result={m2.get('result')} next={m2.get('next_action')} confirm={confirm.get('tool')}"[:200])
     if shaped:
-        # Review the synthetic observe change and its production dependency before
-        # acknowledging. The added source must still need authoring afterwards.
+        a2, ta2, err2 = submit_batch(s, m2, extra={"observe_review": {"review_digest": review["review_digest"], "reviewed_by": "scenario"}})
+        rec = a2.get("observe_review") or {}
+        done = (a2.get("status") == "applied" and a2.get("aligned") is True
+                and rec.get("status") == "acknowledged" and rec.get("acknowledged") == 1
+                and (a2.get("terminal_proof") or {}).get("aligned") is True)
+        record(g, "N2b.batch-records-the-review-and-writes", "PASS" if done else "FAIL", ta2[:160])
+    s.close()
+    if shaped:
+        # After the batch the review is recorded and the Entries written: the
+        # CLI readers agree, with nothing pending and the Guide complete.
         rc_status, status, _, _ = cli(d, "scope", "status", "--json")
-        rc_guide, guide, guide_wire, _ = cli(d, "index", "agent", "guide", "--agent", "codex", "--json")
-        reviewed = (rc_status == 0 and status.get("observed_pending_review") == 1
-                    and rc_guide == 0 and guide.get("next_action") == "review_observed_evidence"
-                    and guide.get("instructions")[:4] == m2.get("instructions")
-                    and 0 <= guide_wire.find('"instructions"') < guide_wire.find('"findings"')
-                    and 0 <= guide_wire.find('"stop"') < guide_wire.find('"findings"'))
-        rc, out = run_returned_command(d, ack)
-        rc_after, after_guide, _, _ = cli(d, "index", "agent", "guide", "--agent", "codex", "--json")
-        s = Session(d)
-        m3, _, _ = maintain(s)
-        authored = False
-        if m3.get("candidates"):
-            applied, _, apply_err = submit_batch(s, m3)
-            authored = not apply_err and applied.get("aligned") is True
-        s.close()
-        proof = all(cli(d, *args)[0] == 0 for args in (
-            ("verify", "--json"), ("check", "--json"),
-            ("index", "agent", "guide", "--agent", "codex", "--json")))
-        cleared = (reviewed and rc == 0 and rc_after == 0
-                   and after_guide.get("stage") == "authoring_required"
-                   and m3.get("result") == "authoring_required" and authored and proof)
-        record(g, "N2b.acknowledge-command-clears-the-block", "PASS" if cleared else "FAIL",
-               f"rc={rc} reviewed={reviewed} after={m3.get('result')} authored={authored} proof={proof}")
+        rc_guide, guide, _, _ = cli(d, "index", "agent", "guide", "--agent", "codex", "--json")
+        rc_check, _, _, _ = cli(d, "check", "--json")
+        agreed = (rc_status == 0 and status.get("observed_pending_review") == 0
+                  and rc_guide == 0 and guide.get("complete") is True and guide.get("next_action") == "none"
+                  and rc_check == 0)
+        record(g, "N2c.readers-agree-after-the-batch", "PASS" if agreed else "FAIL",
+               f"status_rc={rc_status} pending={status.get('observed_pending_review')} guide={guide.get('next_action')} check_rc={rc_check}")
     else:
-        record(g, "N2b.acknowledge-command-clears-the-block", "FAIL", "blocked shape missing")
+        record(g, "N2c.readers-agree-after-the-batch", "FAIL", "batch shape missing")
 
     # -- N3: 已认证的认知在树漂移下保持 uncertain, 不再被降级为 invalid
     s = Session(fx)

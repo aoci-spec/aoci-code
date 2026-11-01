@@ -30,7 +30,7 @@ the locale twin lane mints its two fixtures in a temp dir and removes them. When
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (94 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (95 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:

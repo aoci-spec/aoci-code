@@ -149,6 +149,24 @@ changes a persisted preimage names the binary every machine then needs.
   record replays the removal; `aoci_remove_entry` still removes one orphan on
   its own, and a Database orphan still goes through it. Scenario B5 now
   removes the orphan in the batch and refuses a live Entry.
+- The Observe review rides with the update batch. When Observe evidence
+  (tests, lockfiles, fixtures) moved since the Baseline, Maintain used to
+  stop with `review_observed_evidence` until the Agent called
+  `intent=observe_review` and then Maintain again: two extra calls on the
+  most common iteration, a source change with its test. Under a posture that
+  lets the model acknowledge, and when there is a batch to issue, Maintain
+  now answers `authoring_required` with the batch and the `observe_review`
+  listing, whose `confirm_request` names the batch itself, and
+  `aoci_update_entry` takes an additive `observe_review: {review_digest,
+  reviewed_by}` that records the review through the same Scope transaction
+  before the Entries are written, reported beside the outcome. A digest the
+  current list no longer has is the zero-write `repair_required` finding
+  `observe_review_stale` with the current listing in
+  `observe_review_current`; nothing pending is a no-op. A review posture, a
+  listing too long for the transport, a pending Scope Change, and a
+  test-only change with nothing to author keep the stop and the
+  `intent=observe_review` route, which stays. Scenario N2 now drives the
+  batch with the review.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

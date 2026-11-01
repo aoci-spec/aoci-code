@@ -786,6 +786,7 @@
   "mcp.human_approval.result.record_failed": "对方批准了，但批准记录没能写入（%s），所以什么都没有改变。再问一次，或请对方在终端用 next_commands 批准。",
   "mcp.human_approval.hint.file_conflict": "%s 里已有一份批准记录，但它批准的不是这次变更。先看一下；如果是遗留文件，删掉后再请对方批准。",
   "mcp.human_approval.hint.file_not_admitted": "%s 里是一份在宿主对话框里记录的批准，但这个仓库的团队现在只接受终端审批。删掉它，再请对方在终端批准。",
+  "maintain.observe_review_in_batch_instruction": "observe_review 列出的是字节自 Baseline 以来变过的 Observe 证据（测试、锁文件、夹具）。先读与你要写的条目相关的那些，再在同一次 aoci_update_entry 调用里用 observe_review {review_digest: %s, reviewed_by: 你的名字} 确认：先记录复核，再写入条目。当前清单已没有的 digest 会回答 stale 并附当前清单，不写任何东西。",
   "maintain.orphan_removals_instruction": "orphan_remove_candidates 列出的是文件已不存在或已离开 Index 角色的条目。在同一次 aoci_update_entry 调用里用 removals 删除它们，路径照列表每项一条；没有要创作的条目时单独提交 removals 即可。删除在批次事务里完成，Apply 的 terminal_proof 随后报告 aligned。",
   "mcp.human_approval.hint.preview_path": "请给出暂停的 aoci scope activate 保存在仓库 .aoci 目录下的 preview.json。",
   "mcp.observe_review.acknowledged": "已记录对 %d 个 observe 文件的复核。再调用一次 aoci_maintain 领取剩下的工作。",

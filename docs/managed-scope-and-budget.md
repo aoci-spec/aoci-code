@@ -109,12 +109,16 @@ record the review. From a terminal that is
 `aoci scope acknowledge --reviewed-by <identity>`. Excluded content is never
 opened and produces no drift.
 
-A Host on MCP records the same review without a terminal. A Maintain blocked
-by pending observations carries `observe_review`: each new, changed, or
+A Host on MCP records the same review without a terminal. A Maintain that
+lists pending observations carries `observe_review`: each new, changed, or
 removed Observe path with the SHA-256 of its current bytes, a `review_digest`
 binding the complete list, and `confirm_request`, the exact call that confirms
-it. After reading those files the Host calls `aoci_maintain` with
-`intent=observe_review` and `observe_review: {review_digest, reviewed_by}`.
+it. Under a posture that lets the model acknowledge, and with a batch to
+issue, the review rides with the batch: the Host reads those files and passes
+`observe_review: {review_digest, reviewed_by}` in the same `aoci_update_entry`
+call as the Entries, and the review is recorded before they are written.
+Otherwise the Host calls `aoci_maintain` with `intent=observe_review` and the
+same `observe_review` object.
 AOCI recomputes the list first. If a listed file's bytes moved, or a file
 joined or left the list, the call answers `status=stale` with the current
 listing and writes nothing, so nothing is acknowledged unread. Otherwise it

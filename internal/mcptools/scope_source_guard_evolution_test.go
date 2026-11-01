@@ -138,20 +138,27 @@ func TestMixedCognitionEvolutionContinuesAfterObserveAcknowledge(t *testing.T) {
 	if err := json.Unmarshal([]byte(resText(t, handleMaintainInput(root, "source-guard-test", maintainIn{}, nil))), &blocked); err != nil {
 		t.Fatal(err)
 	}
-	if blocked.Status != autoStatusStopped || blocked.Result != volumegovernance.ResultBlocked || len(blocked.Candidates) != 0 ||
-		blocked.Governance.ManagedScope.ObservedPendingReview != 1 || blocked.Governance.DatabaseCognition.Summary.Stale != 1 {
-		t.Fatalf("first Maintain did not stop precisely for Observe review: %#v", blocked)
+	// Since 2026-11-01 the pending Observe review rides beside the batch under
+	// the auto posture: the batch is issued, the listing names the batch's own
+	// observe_review as its confirmation, and the review stays visible in the
+	// governance facts until it is recorded.
+	if blocked.Status != autoStatusRepairRequired || blocked.Result != volumegovernance.ResultAuthoringRequired || len(blocked.Candidates) == 0 ||
+		blocked.Governance.ManagedScope.ObservedPendingReview != 1 || blocked.Governance.DatabaseCognition.Summary.Stale != 1 ||
+		blocked.ObserveReview == nil || blocked.ObserveReview.Confirm == nil || blocked.ObserveReview.Confirm.Tool != "aoci_update_entry" {
+		t.Fatalf("first Maintain did not issue the batch beside the Observe review: %#v", blocked)
 	}
-	if blocked.NextAction != machinecontract.ActionReviewObservedEvidence || blocked.Batch.NextAction != blocked.NextAction {
-		t.Fatalf("withheld batch must request the same review action: %+v", blocked.Batch)
+	if blocked.NextAction != "author_complete_current_machine_batch" || blocked.Batch.NextAction != blocked.NextAction {
+		t.Fatalf("the batch beside a pending review must ask for authoring: %+v", blocked.Batch)
 	}
 	wire, err := json.Marshal(blocked)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"next_action", "instructions", "next_commands", "authoring_batch"} {
+	for _, key := range []string{"next_action", "instructions", "observe_review", "authoring_batch"} {
+		// The authoring contract now rides in instructions ahead of these, so
+		// the bound is the candidates list, not a byte count.
 		position := strings.Index(string(wire), `"`+key+`"`)
-		if position < 0 || position > strings.Index(string(wire), `"candidates"`) || position > 8192 {
+		if position < 0 || position > strings.Index(string(wire), `"candidates"`) {
 			t.Fatalf("%s was buried behind candidates in Maintain", key)
 		}
 	}

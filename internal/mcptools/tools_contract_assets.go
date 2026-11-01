@@ -23,7 +23,7 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
 	"aoci_update_entry": {
-		"new_entry", "batch_id", "code_batch_id", "entries", "removals",
+		"new_entry", "batch_id", "code_batch_id", "entries", "removals", "observe_review",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id", "removals[].path",
 	},
 	"aoci_maintain":     {"scope", "intent", "object_refs", "approval_request", "observe_review", "include_instructions", "batch_id"},
@@ -234,6 +234,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"code_batch_id": stringProperty("code_batch_id"),
 			"entries":       entries,
 			"removals":      removals,
+			"observe_review": describedObject(descriptions["observe_review"], map[string]any{
+				"review_digest": map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+				"reviewed_by":   map[string]any{"type": "string"},
+			}, "review_digest", "reviewed_by"),
 		}), nil
 
 	case "aoci_maintain":

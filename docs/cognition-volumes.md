@@ -387,14 +387,20 @@ machine decision, and a blocked result names its blocker there:
 Observe-only blocking uses the review action described below; it supersedes
 the earlier `acknowledge_observed_evidence` spelling.
 
-When pending observations are the only blocker, Guide and Maintain return
-`next_action=review_observed_evidence` while writes remain `blocked`. The Agent
-reads `scope status --json`, reviews every reported observation and its affected
+When pending observations are the only blocker, the Guide returns
+`next_action=review_observed_evidence`, and so does a Maintain that has no
+batch to issue or whose posture needs a person: the Agent reads
+`scope status --json`, reviews every reported observation and its affected
 production, Spec, or Header evidence, and only then acknowledges the exact set
-under the existing authorization policy. After success it requests a fresh
-Guide and follows the returned authoring batches through Verify, Check, and
-Guide. Required approval, drift, CAS, Recovery, or another safety boundary still
-stops the affected action; `blocked` alone does not finish the user task.
+under the existing authorization policy. When the posture lets the model
+acknowledge and there is a batch to issue, the review rides with the batch:
+Maintain answers `authoring_required` with the candidates and the
+`observe_review` listing, and the batch confirms it through its own
+`observe_review: {review_digest, reviewed_by}`, recorded before the Entries
+are written and reported beside the outcome. A stale digest is a zero-write
+`repair_required` finding with the current listing. Required approval, drift,
+CAS, Recovery, or another safety boundary still stops the affected action;
+`blocked` alone does not finish the user task.
 
 The action, ordered instructions, commands, and stop facts appear before large
 diagnostic lists. Ordinary Maintain's batch action matches its top-level action even
@@ -402,12 +408,13 @@ when no candidate was issued or the index is already aligned. Other blocking
 findings, including unknown ones, take precedence over the observe-review
 action and suppress its acknowledgement shortcut.
 
-Pending observations also have an MCP route. A Maintain blocked by them
+Pending observations also have an MCP route. A Maintain that lists them
 carries `observe_review`: the new, changed, or removed Observe paths with the
 SHA-256 of their current bytes, the `review_digest` binding the complete list,
-and `confirm_request`, the call that confirms it. `aoci_maintain` with
-`intent=observe_review` and that digest runs the `scope acknowledge`
-transaction over exactly the listed bytes; a digest the current list no
+and `confirm_request`, the call that confirms it: the batch's own
+`observe_review` when the review rides with the batch, otherwise
+`aoci_maintain` with `intent=observe_review`. Either runs the `scope
+acknowledge` transaction over exactly the listed bytes; a digest the current list no
 longer has answers `stale` with the current listing and writes nothing. A
 list too long to show in full carries no confirmation and goes through the
 terminal route. See `managed-scope-and-budget.md`.

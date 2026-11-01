@@ -161,7 +161,11 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		codeWork = volumegovernance.CodeAuthoringWorkFor(loaded.set, facts.CodeDrift)
 	}
 
-	if facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired {
+	// Pending Observe evidence alone is no reason to withhold the batch when
+	// the posture lets the model confirm it: the batch is issued beside the
+	// listing and confirms it on the way in (2026-11-01).
+	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
+	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
 			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.set, refreshSession, includeInstructions))
 		}
@@ -218,6 +222,13 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		result.Status, result.Aligned = autoStatusStopped, false
 		result.NextCommands = evidenceNextCommands()
+	case observeRides && len(result.Candidates) > 0:
+		// Observe evidence waits beside authoring work and the posture lets the
+		// model confirm it: the listing rides with the batch and the batch
+		// confirms it through its own observe_review, one call instead of
+		// three. A person's posture keeps the stop below.
+		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
+		result.ObserveReview = observeReviewForBatch(facts)
 	case facts.Result == volumegovernance.ResultBlocked || len(databaseOrphans(result.OrphanRemovals)) > 0:
 		// A Database orphan still goes through aoci_remove_entry; a Code orphan
 		// is authoring work the batch below clears through removals.
@@ -265,6 +276,9 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		// candidates stay ahead of the contract, and so does the one line that
 		// tells the model to drop the listed orphans in this same batch.
 		lead := append([]string{}, result.Instructions...)
+		if result.ObserveReview != nil && result.Result == volumegovernance.ResultAuthoringRequired {
+			lead = append(lead, mcpMessage("maintain.observe_review_in_batch_instruction", result.ObserveReview.ReviewDigest))
+		}
 		if len(result.OrphanRemovals) > 0 && result.Result == volumegovernance.ResultAuthoringRequired {
 			lead = append(lead, mcpMessage("maintain.orphan_removals_instruction"))
 		}
