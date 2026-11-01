@@ -180,11 +180,15 @@ func run(under, released, root string, fixture legacyFixture) error {
 	}
 	applied, err := h.runJSON(commands[0])
 	commands = nextCommands(applied)
-	if !check("onboard.apply_reaches_volumes_and_names_the_proof", err == nil && applied["formal_assets_complete"] == true &&
-		applied["active_layout"] == machinecontract.CognitionPlannerVolumes && len(commands) == 3, errorText(err)+compact(applied)) {
+	proof, _ := applied["terminal_proof"].(map[string]any)
+	if !check("onboard.apply_reaches_volumes_and_carries_the_proof", err == nil && applied["formal_assets_complete"] == true &&
+		applied["active_layout"] == machinecontract.CognitionPlannerVolumes && len(commands) == 0 &&
+		proof["aligned"] == true && proof["check_passed"] == true && proof["guide_next_action"] == "none", errorText(err)+compact(applied)) {
 		return errors.New("apply did not complete")
 	}
-	checkAligned(h, commands)
+	// The Apply's verdict must say what the three CLI readers say.
+	checkAligned(h, []string{posixQuote(under) + " verify --json", posixQuote(under) + " check --json",
+		posixQuote(under) + " index agent guide --agent claude --json"})
 	checkEntriesPreserved(root, legacy)
 	return nil
 }
@@ -637,7 +641,8 @@ func approveInDialog(under, root string, arguments map[string]any) (map[string]a
 	return result, shown, err
 }
 
-// checkAligned runs the terminal proof Apply named: Verify, Check, Guide.
+// checkAligned runs Verify, Check, and Guide as a cross-check of the
+// terminal proof the Apply carried.
 func checkAligned(h *host, commands []string) {
 	_, verifyCode, verifyErr := h.run(commands[0])
 	_, checkCode, checkErr := h.run(commands[1])

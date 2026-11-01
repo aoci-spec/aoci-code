@@ -10,7 +10,7 @@ import (
 // terminalProofVersion names the additive field the final Apply carries.
 const terminalProofVersion = "terminal-proof/v1"
 
-// terminalProof is what Verify, Aggregate Check, and Guide would print after
+// TerminalProof is what Verify, Aggregate Check, and Guide would print after
 // the final Apply, computed once from the governance fact set all three share
 // (volumegovernance.Assess). Until 2026-11-01 the final Apply prescribed those
 // three commands as its terminal proof, three calls that re-derived what the
@@ -20,7 +20,7 @@ const terminalProofVersion = "terminal-proof/v1"
 // Guide's complete and next_action, and findings are the actionable ones,
 // informational facts left out as the Guide leaves them out. The CLI commands
 // remain for CI and for a person.
-type terminalProof struct {
+type TerminalProof struct {
 	Version           string                     `json:"version"`
 	GovernanceResult  string                     `json:"governance_result"`
 	Aligned           bool                       `json:"aligned"`
@@ -32,14 +32,14 @@ type terminalProof struct {
 	Findings          []volumegovernance.Finding `json:"findings"`
 }
 
-// buildTerminalProof assesses the repository after the final Apply exactly as
+// BuildTerminalProof assesses the repository after the final Apply exactly as
 // verify, check, and Guide do and projects their verdicts. The facts come back
 // with it so a proof that disagrees with the Apply's own inspector can name the
 // blocker's remediation; a repository that cannot be assessed is reported as
 // such, never as aligned.
-func buildTerminalProof(root string) (*terminalProof, *volumegovernance.Facts) {
-	unavailable := func(code string) *terminalProof {
-		return &terminalProof{Version: terminalProofVersion, GovernanceResult: "unavailable",
+func BuildTerminalProof(root string) (*TerminalProof, *volumegovernance.Facts) {
+	unavailable := func(code string) *TerminalProof {
+		return &TerminalProof{Version: terminalProofVersion, GovernanceResult: "unavailable",
 			GuideNextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch,
 			Findings:        []volumegovernance.Finding{{Code: code, Domain: "code"}}}
 	}
@@ -58,7 +58,7 @@ func buildTerminalProof(root string) (*terminalProof, *volumegovernance.Facts) {
 		}
 		findings = append(findings, finding)
 	}
-	return &terminalProof{
+	return &TerminalProof{
 		Version:           terminalProofVersion,
 		GovernanceResult:  facts.Result,
 		Aligned:           facts.GovernanceAligned,

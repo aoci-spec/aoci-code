@@ -225,8 +225,10 @@ performs every step below for a small repository.
    dialog, and its exact command is the terminal route. The model never
    approves.
 7. `aoci cognition onboard apply --approval-file <approval_file> --json`
-   applies the approved migration and names Verify, Check, and the Guide, or
-   the Guide alone while governance still has work.
+   applies the approved migration. When governance is aligned it carries
+   `terminal_proof`, the verdict Verify, Check, and the Guide would print, and
+   no `next_commands`: the migration is done. While governance still has work
+   it names the Guide.
    From there the repository is maintained like any Volumes v1 repository.
 
 Do not regenerate `aoci.txt`, delete `.aoci`, or force a Baseline update merely because the executable changed. If a future version requires persistent-data migration, its release notes must state the schema boundary, automatic and manual steps, rollback constraints, and tests. In the absence of such notes, treat an unexplained migration request as a stop condition.

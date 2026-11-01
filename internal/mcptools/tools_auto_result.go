@@ -131,7 +131,7 @@ type autoResult struct {
 	RetryScope              []string                     `json:"retry_scope"`
 	NextAction              string                       `json:"next_action"`
 	NextCommands            []string                     `json:"next_commands,omitempty"`
-	TerminalProof           *terminalProof               `json:"terminal_proof,omitempty"`
+	TerminalProof           *TerminalProof               `json:"terminal_proof,omitempty"`
 	ObserveReview           *batchObserveReview          `json:"observe_review,omitempty"`
 	ObserveReviewCurrent    *observeReviewListing        `json:"observe_review_current,omitempty"`
 	HostDialogRequest       *toolCallRequest             `json:"host_dialog_request,omitempty"`

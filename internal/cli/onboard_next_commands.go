@@ -42,9 +42,13 @@ func onboardingNextCommands(root string, session *onboarding.Session) []string {
 	case "auto_apply":
 		return bindOnboardingCommands(root, session, machinecontract.OnboardingCommandResume)
 	case "none":
+		// A completed session is aligned by construction (Check passed and
+		// the governance verdict is aligned when Apply finished), so nothing
+		// is left to run; apply carries that verdict as terminal_proof. It
+		// used to name Verify, Check, and Guide, three calls that re-derived
+		// it (2026-11-02).
 		if session.Status == "completed" {
-			return bindOnboardingCommands(root, session, machinecontract.RemediationCommandVerify,
-				machinecontract.RemediationCommandAggregateCheck, machinecontract.RemediationCommandAgentGuide)
+			return nil
 		}
 	}
 	if session.Status == "governance_pending" {

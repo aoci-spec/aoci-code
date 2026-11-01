@@ -209,6 +209,15 @@ changes a persisted preimage names the binary every machine then needs.
   `Next:` line of verify and check names `--source` instead of a positional
   argument. A database command without `--source` names the declared
   sources instead of cobra's English `required flag(s) "source" not set`.
+- An onboarding Apply that leaves the repository aligned carries its
+  terminal proof. `aoci cognition onboard apply` used to name Verify, Check,
+  and the Guide as next commands after every completed Migration or
+  Bootstrap; it now returns `terminal_proof` (the same `terminal-proof/v1`
+  the final update batch carries) and no `next_commands`, and `onboard
+  status` of a completed session names nothing to run. A session that still
+  has governance work names the Guide as before. Every repository that moves
+  from 0.1 to 0.2 passes this step once. The Legacy migration drill checks
+  the proof and cross-checks it against the three CLI readers.
 - `aoci init` on a fresh repository says what the first build costs
   before the first scan, the moment a narrower scope is still free: how
   many index files need an Entry, about how many Maintain rounds that takes,

@@ -812,7 +812,7 @@ func handleMCPUpdateBatchReviewed(
 	// the remediation. Continuation batches and Optimization keep their own
 	// machine next-actions.
 	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
-		proof, facts := buildTerminalProof(root)
+		proof, facts := BuildTerminalProof(root)
 		result.TerminalProof = proof
 		if !proof.Aligned {
 			result.Aligned = false

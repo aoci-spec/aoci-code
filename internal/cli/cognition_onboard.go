@@ -11,6 +11,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/bootstrapapply"
 	"github.com/aoci-spec/aoci-code/internal/cognitionplan"
 	"github.com/aoci-spec/aoci-code/internal/jsonstrict"
+	"github.com/aoci-spec/aoci-code/internal/mcptools"
 	"github.com/aoci-spec/aoci-code/internal/migrationapply"
 	"github.com/aoci-spec/aoci-code/internal/onboarding"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -261,20 +262,28 @@ func newOnboardApplyCmd() *cobra.Command {
 			return onboardingExitError(err)
 		}
 		var commands []string
+		var proof *mcptools.TerminalProof
 		if session, err := onboarding.LoadRequired(root); err == nil {
 			commands = onboardingNextCommands(root, session)
+			if session.Status == "completed" {
+				// The verdict Verify, Check, and Guide would print, so the
+				// Host ends the onboarding here instead of running them.
+				proof, _ = mcptools.BuildTerminalProof(root)
+			}
 		}
 		switch value := result.(type) {
 		case *migrationapply.ApplyResult:
 			return writePlannerJSON(cmd, struct {
 				*migrationapply.ApplyResult
-				NextCommands []string `json:"next_commands,omitempty"`
-			}{value, commands})
+				NextCommands  []string                `json:"next_commands,omitempty"`
+				TerminalProof *mcptools.TerminalProof `json:"terminal_proof,omitempty"`
+			}{value, commands, proof})
 		case *bootstrapapply.ApplyResult:
 			return writePlannerJSON(cmd, struct {
 				*bootstrapapply.ApplyResult
-				NextCommands []string `json:"next_commands,omitempty"`
-			}{value, commands})
+				NextCommands  []string                `json:"next_commands,omitempty"`
+				TerminalProof *mcptools.TerminalProof `json:"terminal_proof,omitempty"`
+			}{value, commands, proof})
 		}
 		return writePlannerJSON(cmd, result)
 	}}
