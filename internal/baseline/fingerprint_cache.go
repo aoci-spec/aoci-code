@@ -36,6 +36,10 @@ var fingerprintCacheWrites = true
 // saved; reads are unaffected either way.
 func SetFingerprintCacheWrites(enabled bool) { fingerprintCacheWrites = enabled }
 
+// FingerprintCacheWritesEnabled reports the current switch, so a command that
+// turns saves off for its own read can restore what it found.
+func FingerprintCacheWritesEnabled() bool { return fingerprintCacheWrites }
+
 type fingerprintCacheEntry struct {
 	Size        int64       `json:"size"`
 	MtimeNS     int64       `json:"mtime_ns"`

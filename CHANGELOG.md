@@ -32,6 +32,24 @@ changes a persisted preimage names the binary every machine then needs.
   and restoring cognition"; the rendered `AGENTS.md` and its golden follow.
   Condensed from dignfei's AOCI-first reading wording in #28 (tracked in
   #34); the runtime rules are unchanged.
+- `verify`, `check`, and `status` on a Volumes repository tell a person
+  what is misaligned and what to do next. `verify` opens with the verdict
+  (`Governance: aligned — 6 Entries cover 6 index-role sources`, or the
+  result and its finding count), then lists Missing, Stale, Orphan,
+  Unbaselined, and review-pending Observe paths one per line, any other
+  actionable finding, and a `Next:` line naming the command or Agent action
+  that clears it; `check` prints the same lists under its verdict; `status`
+  adds one `Governance:` line with the result and the drift counts, computed
+  from the same governance facts through the fingerprint cache without
+  saving it, and `status --json` carries them under `governance`. Until now
+  the Volumes branch of `verify` printed "candidate structure is valid" and
+  three hashes before exiting 1, `check` printed a token and a count, and
+  `status` said nothing about alignment, so the paths behind a finding were
+  reachable only through `--json`. The `init` Scope Proposal line renders its
+  largest directories as text (`./ (index 2, observe 0, exclude 0)`) instead
+  of Go struct syntax, `scan` says "one Maintain round" when it means one,
+  and `docs/getting-started.md` says that `init`'s own files count among the
+  index files `scan` reports and which formal assets to commit.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

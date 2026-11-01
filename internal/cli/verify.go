@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
@@ -370,7 +371,11 @@ func renderVolumeVerify(cmd *cobra.Command, root string, paths config.Paths, cfg
 	if err != nil {
 		return err
 	}
-	human := cliMessage("verify.volume.valid", report.RootSHA256, report.MetaSHA256, report.CompositeIdentity)
+	var humanText strings.Builder
+	writeVolumeGovernanceVerdict(&humanText, facts)
+	humanText.WriteString(cliMessage("verify.volume.valid", report.RootSHA256, report.MetaSHA256, report.CompositeIdentity))
+	writeVolumeGovernanceFindings(&humanText, facts)
+	human := humanText.String()
 	if err := os.MkdirAll(paths.VerifyHistoryDir, 0o755); err == nil {
 		_ = afs.AtomicWrite(filepath.Join(paths.VerifyHistoryDir, time.Now().UTC().Format("20060102T150405Z")+".txt"), []byte(human))
 	}

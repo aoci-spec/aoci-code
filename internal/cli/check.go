@@ -414,6 +414,7 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("check.ok"))
 	} else {
 		fmt.Fprint(cmd.OutOrStdout(), cliMessage("check.volumes_drift", report.NextAction, len(report.Findings)))
+		writeVolumeGovernanceFindings(cmd.OutOrStdout(), facts)
 	}
 	if !flagJSON && facts.Code.Enabled {
 		writeSCoverage(cmd.OutOrStdout(), facts.Budget.SCoverage, facts.Budget.HighImportanceEntries,

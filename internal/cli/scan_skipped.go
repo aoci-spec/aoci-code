@@ -113,9 +113,18 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 	if estimate.Targets == 0 {
 		return
 	}
-	fmt.Println(cliMessage("scan.authoring_estimate", estimate.Targets, estimate.Rounds,
-		estimate.BatchLimit, estimate.TransportBudgetBytes/1024))
+	fmt.Println(scanAuthoringEstimateLine(estimate))
 	if dryRun {
 		fmt.Println(cliMessage("scan.narrow_hint", root))
 	}
+}
+
+// scanAuthoringEstimateLine spells the first-build cost; one round is the
+// usual answer for a small repository and reads as "1 rounds" otherwise.
+func scanAuthoringEstimateLine(estimate scanAuthoringEstimate) string {
+	if estimate.Rounds == 1 {
+		return cliMessage("scan.authoring_estimate_one", estimate.Targets, estimate.BatchLimit, estimate.TransportBudgetBytes/1024)
+	}
+	return cliMessage("scan.authoring_estimate", estimate.Targets, estimate.Rounds,
+		estimate.BatchLimit, estimate.TransportBudgetBytes/1024)
 }

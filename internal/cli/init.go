@@ -362,7 +362,7 @@ func init() {
 				outputLines = append(outputLines, cliMessage("init.scope_proposal", scopeProposal.GitTracked,
 					scopeProposal.NewSourceFiles, scopeProposal.IndexObjects, scopeProposal.ObserveObjects,
 					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
-					scopeProposal.RequiredHumanDecisions, scopeProposal.LargestDirectories))
+					scopeProposal.RequiredHumanDecisions, formatDirectoryImpacts(scopeProposal.LargestDirectories)))
 			}
 
 			expectedPostimages := map[string]baseline.Fingerprint{}
@@ -684,3 +684,18 @@ func initialScopeBlockedDetail(evaluation *managedscope.Evaluation, scopeProfile
 
 // The most paths a diagnosis names: enough to locate, without flushing a whole directory tree to the terminal.
 const initialScopeBlockedPathSample = 5
+
+// formatDirectoryImpacts renders the proposal's largest directories as text a
+// person can read. The %v it replaced printed Go struct syntax, {./ 2 0 0 2},
+// which names neither the fields nor their meaning.
+func formatDirectoryImpacts(impacts []managedscope.DirectoryImpact) string {
+	if len(impacts) == 0 {
+		return "-"
+	}
+	parts := make([]string, 0, len(impacts))
+	for _, impact := range impacts {
+		parts = append(parts, fmt.Sprintf("%s (index %d, observe %d, exclude %d)",
+			impact.Directory, impact.Index, impact.Observe, impact.Exclude))
+	}
+	return strings.Join(parts, "; ")
+}

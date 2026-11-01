@@ -45,7 +45,10 @@ It never invents repository semantics. `scan` is not optional: it establishes
 the governed Baseline that every later step binds to. Without it the Guide
 reports `blocked` with a `baseline_missing` stop, and no authoring path exists
 yet. Fresh initialization uses Code-only Cognition Volumes; Database stays
-absent until you declare a source.
+absent until you declare a source. `scan` counts the files `init` itself
+created (`AGENTS.md`, `.gitattributes`, `.gitignore`) among the index files,
+so its number is higher than the proposal `init` printed; they get Entries
+like any other file.
 
 `aoci --help` lists the five everyday commands first: `init`, `scan`, `mcp`,
 `verify`, and `check`. Everything else sits under Additional Commands and is
@@ -70,6 +73,12 @@ Agent finishes with Verify, Check, and Guide, and later sessions start with
 one `aoci_overview` that delivers the complete index and checks that the model
 assimilated it.
 
+Commit the formal assets with your code: `aoci.txt`, `aoci.meta.txt`,
+`aoci.code.txt`, and the files `.aoci/.gitignore` lets through
+(`baseline.json`, `config.json`, and `curation.json` when it exists). Runtime
+state under `.aoci` stays ignored. The index is reviewed in Git like code, and
+a clone gets the same cognition without rebuilding it.
+
 Without a host model in the loop, scanning, status, validation, querying, and
 CI still run deterministically; only semantic generation needs the Agent.
 
@@ -84,11 +93,12 @@ aoci --repo . verify
 aoci --repo . check
 ```
 
-`verify` reports the governance state and `check` is the pre-commit gate;
-neither changes the formal index or Baseline, though both may append local
-audit evidence when Ledger is enabled. `status` shows a compact alignment
-readout at any time, and `check` run in CI catches an index that drifted from
-the code before it merges. The repository `AGENTS.md` carries the same closing
+`verify` reports the governance state, names the files behind each finding,
+and says what to do next; `check` is the pre-commit gate and lists the same
+files when it fails. Neither changes the formal index or Baseline, though both
+may append local audit evidence when Ledger is enabled. `status` shows a
+compact alignment readout at any time, and `check` run in CI catches an index
+that drifted from the code before it merges. The repository `AGENTS.md` carries the same closing
 rule for the Agent, so a host that reads it closes tasks this way on its own.
 
 `status --deep` is a Legacy-only read command, and `index score` reads both

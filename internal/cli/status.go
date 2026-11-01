@@ -1,8 +1,12 @@
 // aoci status: a one-line glance at the alignment state.
 //
 // Discipline:
-//   - the default mode stays a millisecond-level pure read and computes no whole-repository file fingerprints;
-//   - only --deep collects the current snapshot and computes the four-state differences;
+//   - under a Legacy layout the default mode stays a millisecond-level pure read and computes no
+//     whole-repository file fingerprints; only --deep collects the current snapshot and computes the
+//     four-state differences;
+//   - under Volumes v1 the default mode also reports the governance verdict (the facts Verify, Check,
+//     and Guide share), because an "alignment status" that cannot say whether the index is aligned sent
+//     every new user to --json; it reads through the fingerprint cache and never saves it;
 //   - --deep must consume the team line_ending_tolerance together with Verify, Score, and Check;
 //   - LineEndingOnly is shown only as an informational count and does not count as Stale;
 //   - a missing Baseline prompts to establish the Baseline first;
@@ -24,6 +28,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/spf13/cobra"
 )
 
@@ -40,9 +45,24 @@ type statusReport struct {
 	LayoutMode        string            `json:"layout_mode,omitempty"`
 	CompositeIdentity string            `json:"composite_identity,omitempty"`
 	VolumeStates      map[string]string `json:"volume_states,omitempty"`
+	// Governance is present only under Volumes v1 with a Baseline: the verdict
+	// of the shared governance facts, so status answers "aligned or not".
+	Governance *statusGovernance `json:"governance,omitempty"`
 
 	// Deep is present only in --deep mode.
 	Deep *deepCounts `json:"deep,omitempty"`
+}
+
+// statusGovernance is the compact Volumes verdict status --json carries.
+type statusGovernance struct {
+	Result      string `json:"result"`
+	Aligned     bool   `json:"aligned"`
+	NextAction  string `json:"next_action"`
+	Findings    int    `json:"findings"`
+	Missing     int    `json:"missing"`
+	Stale       int    `json:"stale"`
+	Orphan      int    `json:"orphan"`
+	Unbaselined int    `json:"unbaselined"`
 }
 
 // deepCounts are the four-state and line-ending informational counts --deep computes live.
@@ -102,12 +122,15 @@ func init() {
 			}
 
 			// The index entry count. With the index missing it stays 0, and the output prompts init.
-			if set, readErr := cognition.Load(root, cfg.IndexPath); readErr == nil {
+			set, readErr := cognition.Load(root, cfg.IndexPath)
+			var volumeSet *cognition.Set
+			if readErr == nil {
 				report.IndexEntries = set.Root.ObjectCount
 				if set.LayoutMode == cognition.LayoutVolumesV1 {
 					report.IndexEntries = volumeObjectCount(set)
 					report.LayoutMode = set.LayoutMode
 					report.CompositeIdentity = set.CompositeIdentity
+					volumeSet = set
 					report.VolumeStates = map[string]string{"meta": set.Meta.State}
 					for _, id := range []string{"code", "database"} {
 						state := cognition.AssetAbsent
@@ -140,6 +163,26 @@ func init() {
 				)
 				report.BaselineUpdated =
 					baselineValue.UpdatedAt
+			}
+
+			// The Volumes verdict: the same facts Verify, Check, and Guide
+			// read. A missing Baseline already has its own answer above.
+			var volumeFacts *volumegovernance.Facts
+			if volumeSet != nil && exists {
+				cacheWrites := baseline.FingerprintCacheWritesEnabled()
+				baseline.SetFingerprintCacheWrites(false)
+				facts, assessErr := volumegovernance.Assess(root, cfg, volumeSet)
+				baseline.SetFingerprintCacheWrites(cacheWrites)
+				if assessErr != nil {
+					return &ExitError{Code: ExitInvalid, Err: assessErr}
+				}
+				volumeFacts = facts
+				report.Governance = &statusGovernance{
+					Result: facts.Result, Aligned: facts.GovernanceAligned, NextAction: facts.NextRequiredAction,
+					Findings: volumeActionableFindings(facts), Missing: len(facts.CodeDrift.Missing),
+					Stale: len(facts.CodeDrift.Stale), Orphan: len(facts.CodeDrift.Orphan),
+					Unbaselined: len(facts.CodeDrift.Unbaselined),
+				}
 			}
 
 			// The latest Verify snapshot. The compact timestamp filenames sort lexically in time order.
@@ -268,6 +311,10 @@ func init() {
 			}
 
 			fmt.Fprintln(out)
+
+			if volumeFacts != nil {
+				writeVolumeGovernanceSummary(out, volumeFacts)
+			}
 
 			if report.LastVerify != "" {
 				fmt.Fprintln(
