@@ -235,6 +235,49 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, nil, false))
 }
 
+// EstimateCodeAuthoringRoundsParallel is EstimateCodeAuthoringRounds for n
+// Agent sessions authoring at once (L4): each round is the first batch plus
+// the n-1 siblings cut the way Maintain cuts them, so the answer is the rounds
+// every session takes, not the sequential rounds divided by n. Siblings are
+// cut under the budget that reserves the contract, since a session that
+// fetches one by batch_id carries it, and the listing's bytes come off every
+// cut; parallel rounds therefore cover fewer Entries per session and more in
+// total than the sequential estimate divides into.
+func EstimateCodeAuthoringRoundsParallel(cfg *config.Config, set *cognition.Set, paths []string, n int) int {
+	if n <= 1 {
+		return EstimateCodeAuthoringRounds(cfg, set, paths)
+	}
+	if len(paths) == 0 {
+		return 0
+	}
+	candidates := make([]codebatch.Candidate, 0, len(paths))
+	for _, path := range paths {
+		candidates = append(candidates, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
+			ObjectRef: "code:" + path, Path: path, SourceSHA256: strings.Repeat("0", 64)}})
+	}
+	limit := codeBatchLimit(cfg)
+	if limit < machinecontract.CodeCognitionBatchEntriesMin {
+		limit = machinecontract.CodeCognitionBatchEntriesDefault
+	}
+	ordered, _ := codebatch.Select(candidates, 0)
+	ahead := codeCandidateBudget(cfg, set, candidates, nil, true)
+	rounds := 0
+	for len(ordered) > 0 && rounds < len(paths) {
+		first := codeCandidateBudget(cfg, set, candidates, nil, rounds == 0)
+		cuts := cutParallelSiblings(ordered, limit, n, first, ahead)
+		covered := 0
+		for _, cut := range cuts {
+			covered += len(cut)
+		}
+		if covered == 0 {
+			covered = 1
+		}
+		ordered = ordered[covered:]
+		rounds++
+	}
+	return rounds
+}
+
 // Reserve the maximum integer width and every declared numeric band: custom
 // dictionaries and overlapping boundaries can return more than one symbol.
 // These fields are advisory transport facts, not receipt identity inputs.

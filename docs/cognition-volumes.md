@@ -326,6 +326,17 @@ target's source drift invalidates only the sibling holding it. `remaining`
 counts the targets no sibling holds, and the plan completes when every
 sibling has applied.
 
+Parallel batches are the lever on the first build, the hours a user waits
+longest for. `aoci scan` says what they make of its estimate: under the team
+setting, the rounds each session takes, measured with the cut Maintain makes
+for that many siblings (fewer Entries per session and round, more in total);
+at the default of one session, what four would take and the `config set`
+that turns it on. A Maintain that lists siblings carries one instruction
+line telling the Agent to hand each to its own session (a subagent that
+calls `aoci_maintain {batch_id}`, authors, and applies) and to call Maintain
+again once every sibling is applied; one session may still play them in
+sequence.
+
 Code candidates in ordinary Maintain and `cognition_optimization` include
 `file_lines` when the counted source bytes match `source_sha256`. They include
 `expected_e` when the Code section of Meta assigns those lines to numeric bands;

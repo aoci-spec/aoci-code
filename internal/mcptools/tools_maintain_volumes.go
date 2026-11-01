@@ -282,6 +282,9 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		if len(result.OrphanRemovals) > 0 && result.Result == volumegovernance.ResultAuthoringRequired {
 			lead = append(lead, mcpMessage("maintain.orphan_removals_instruction"))
 		}
+		if others := parallelSiblingsToHandOut(result.CodePlan); others > 0 {
+			lead = append(lead, mcpMessage("maintain.parallel_siblings_instruction", others))
+		}
 		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
 		if len(lead) > 0 {
 			result.Instructions = append(lead, result.Instructions...)
@@ -625,6 +628,22 @@ func fillVolumeCandidateScale(root string, thresholds *index.EScaleThresholds, c
 	}
 	candidate.FileLines = &lines
 	candidate.ExpectedE = index.ExpectedEScaleSymbols(lines, thresholds)
+}
+
+// parallelSiblingsToHandOut counts the sibling batches of the plan this
+// response did not deliver and that are not applied yet: the ones another
+// Agent session can take now.
+func parallelSiblingsToHandOut(plan *codebatch.Plan) int {
+	if plan == nil || plan.LogicalPlan == "" {
+		return 0
+	}
+	others := 0
+	for _, sibling := range plan.Siblings {
+		if sibling.BatchID != plan.BatchID && sibling.State != "applied" {
+			others++
+		}
+	}
+	return others
 }
 
 // databaseOrphans keeps the orphan markers that are not Code paths: those

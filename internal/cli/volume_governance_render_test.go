@@ -168,3 +168,26 @@ func TestScanAuthoringEstimateLineUsesSingularForOneRound(t *testing.T) {
 		t.Fatalf("three rounds rendered %q", many)
 	}
 }
+
+// The parallel line (L4 as the first-build lever, 2026-11-01): at the
+// default of one session it says what four would take and how to turn it
+// on; under a team setting it says the rounds each session takes; a
+// one-round build has nothing to divide.
+func TestScanParallelEstimateLine(t *testing.T) {
+	pinDefaultLocale(t)
+	if line := scanParallelEstimateLine(scanAuthoringEstimate{Targets: 6, Rounds: 1, ParallelBatches: 1, ParallelRounds: 1}); line != "" {
+		t.Fatalf("one round has nothing to divide: %q", line)
+	}
+	hint := scanParallelEstimateLine(scanAuthoringEstimate{Targets: 512, Rounds: 15, ParallelBatches: 1, ParallelRounds: 4})
+	if !strings.Contains(hint, "code_cognition_parallel_batches 4") || !strings.Contains(hint, "about 4 rounds each") {
+		t.Fatalf("the default hint does not name the setting and the rounds: %q", hint)
+	}
+	set := scanParallelEstimateLine(scanAuthoringEstimate{Targets: 512, Rounds: 15, ParallelBatches: 4, ParallelRounds: 4})
+	if !strings.Contains(set, "code_cognition_parallel_batches=4") || !strings.Contains(set, "about 4 rounds each") {
+		t.Fatalf("the team setting line is wrong: %q", set)
+	}
+	one := scanParallelEstimateLine(scanAuthoringEstimate{Targets: 40, Rounds: 2, ParallelBatches: 4, ParallelRounds: 1})
+	if !strings.Contains(one, "one round each") || strings.Contains(one, "1 rounds") {
+		t.Fatalf("one parallel round must read as one: %q", one)
+	}
+}

@@ -175,6 +175,15 @@ changes a persisted preimage names the binary every machine then needs.
   Apply instead of calling Maintain once more. On RuoYi (512 Entries) a
   first build is 15 rounds and 30 calls, a 60-file update wave 3 rounds and
   6 calls, with no command to run afterwards.
+- Parallel batches are offered as the first-build lever. `aoci scan` says
+  what parallel Agent sessions make of its estimate: under the team setting
+  `code_cognition_parallel_batches`, the rounds each session takes, measured
+  with the cut Maintain makes for that many siblings (`parallel_batches` and
+  `parallel_rounds` under `--json`); at the default of one session, what
+  four would take and the `config set` that turns it on. A Maintain that
+  lists siblings carries one instruction line: hand each to its own Agent
+  session, which fetches it by `batch_id`, authors, and applies it, and call
+  Maintain again once every sibling is applied.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

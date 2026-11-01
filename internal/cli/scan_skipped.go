@@ -41,12 +41,28 @@ type scanAuthoringEstimate struct {
 	Rounds               int `json:"rounds"`
 	BatchLimit           int `json:"batch_limit"`
 	TransportBudgetBytes int `json:"transport_budget_bytes"`
+	// ParallelBatches is the team's code_cognition_parallel_batches and
+	// ParallelRounds the rounds each of that many Agent sessions takes when
+	// they author at once (L4): the first build is the hours a user waits
+	// longest for, and this is the lever that divides them.
+	ParallelBatches int `json:"parallel_batches"`
+	ParallelRounds  int `json:"parallel_rounds"`
 }
 
 func estimateScanAuthoring(cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
-	return scanAuthoringEstimate{Targets: len(skipped.actionable),
-		Rounds:     mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable),
-		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget()}
+	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable)
+	parallel := cfg.CodeCognitionParallelBatchLimit()
+	estimate := scanAuthoringEstimate{Targets: len(skipped.actionable), Rounds: rounds,
+		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
+		ParallelBatches: parallel, ParallelRounds: rounds}
+	if parallel > 1 {
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, skipped.set, skipped.actionable, parallel)
+	} else if rounds > 1 {
+		// What four sessions would take, measured with the same cut Maintain
+		// makes, so the hint names a number the first build then meets.
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, skipped.set, skipped.actionable, machinecontract.CodeCognitionParallelBatchesMax)
+	}
+	return estimate
 }
 
 func classifyScanSkippedSources(root string, cfg *config.Config, snap map[string]baseline.Fingerprint) scanSkippedSources {
@@ -114,9 +130,32 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 		return
 	}
 	fmt.Println(scanAuthoringEstimateLine(estimate))
+	if line := scanParallelEstimateLine(estimate); line != "" {
+		fmt.Println(line)
+	}
 	if dryRun {
 		fmt.Println(cliMessage("scan.narrow_hint", root))
 	}
+}
+
+// scanParallelEstimateLine says what parallel sessions make of the estimate:
+// the rounds each session takes under the team's setting, or, at the
+// default of one, what four sessions would take and how to turn that on. A
+// one-round build has nothing to divide.
+func scanParallelEstimateLine(estimate scanAuthoringEstimate) string {
+	if estimate.Rounds < 2 {
+		return ""
+	}
+	if estimate.ParallelBatches > 1 {
+		if estimate.ParallelRounds == 1 {
+			return cliMessage("scan.authoring_estimate_parallel_one", estimate.ParallelBatches)
+		}
+		return cliMessage("scan.authoring_estimate_parallel", estimate.ParallelBatches, estimate.ParallelRounds)
+	}
+	if estimate.ParallelRounds == 1 {
+		return cliMessage("scan.authoring_estimate_parallel_hint_one")
+	}
+	return cliMessage("scan.authoring_estimate_parallel_hint", estimate.ParallelRounds)
 }
 
 // scanAuthoringEstimateLine spells the first-build cost; one round is the
