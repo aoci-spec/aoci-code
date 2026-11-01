@@ -350,9 +350,12 @@ func Replay(repoRoot string, preimage []byte, applied []AppliedReceipt) ([]byte,
 		for _, operation := range receipt.Operations {
 			var next string
 			var err error
-			if operation.Change == "create" {
+			switch operation.Change {
+			case "create":
 				next, err = index.InsertEntry(text, operation.Path, operation.NewEntry, repoRoot)
-			} else {
+			case "delete":
+				next, err = index.RemoveEntryForPath(text, repoRoot, operation.Path, operation.OldEntry)
+			default:
 				next, err = index.ReplaceEntryForPath(text, repoRoot, operation.Path, operation.OldEntry, operation.NewEntry)
 			}
 			if err != nil {

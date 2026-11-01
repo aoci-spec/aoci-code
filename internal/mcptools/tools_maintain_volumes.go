@@ -218,13 +218,20 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		result.Status, result.Aligned = autoStatusStopped, false
 		result.NextCommands = evidenceNextCommands()
-	case facts.Result == volumegovernance.ResultBlocked || len(result.OrphanRemovals) > 0:
+	case facts.Result == volumegovernance.ResultBlocked || len(databaseOrphans(result.OrphanRemovals)) > 0:
+		// A Database orphan still goes through aoci_remove_entry; a Code orphan
+		// is authoring work the batch below clears through removals.
 		result.Status, result.Aligned, result.Result = autoStatusStopped, false, volumegovernance.ResultBlocked
-		result.NextAction = blockedNextAction(facts, result.OrphanRemovals)
+		result.NextAction = blockedNextAction(facts, databaseOrphans(result.OrphanRemovals))
 		result.NextCommands = blockedNextCommands(facts)
 		result.ObserveReview = observeReviewFor(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
+	case len(result.OrphanRemovals) > 0:
+		// Nothing to author, only orphans to drop: one aoci_update_entry call
+		// with removals and no entries closes them.
+		result.Status, result.Aligned, result.Result = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired
+		result.NextAction = machinecontract.MaintainActionRemoveOrphansInBatch
 	default:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
 	}
@@ -255,12 +262,18 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}
 		// The continuation instructions of a blocked result that still lists
-		// candidates (orphans beside authoring work) stay ahead of the contract.
+		// candidates stay ahead of the contract, and so does the one line that
+		// tells the model to drop the listed orphans in this same batch.
 		lead := append([]string{}, result.Instructions...)
+		if len(result.OrphanRemovals) > 0 && result.Result == volumegovernance.ResultAuthoringRequired {
+			lead = append(lead, mcpMessage("maintain.orphan_removals_instruction"))
+		}
 		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
 		if len(lead) > 0 {
 			result.Instructions = append(lead, result.Instructions...)
 		}
+	} else if result.NextAction == machinecontract.MaintainActionRemoveOrphansInBatch {
+		result.Instructions = append(result.Instructions, mcpMessage("maintain.orphan_removals_instruction"))
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
@@ -282,7 +295,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		event.BatchID = result.CodePlan.BatchID
 	}
 	if result.Status == autoStatusStopped {
-		event.Blocker = maintainBlocker(facts, result.OrphanRemovals, result.Stop != nil)
+		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
 	boundMaintainTransport(&result)
@@ -598,6 +611,19 @@ func fillVolumeCandidateScale(root string, thresholds *index.EScaleThresholds, c
 	}
 	candidate.FileLines = &lines
 	candidate.ExpectedE = index.ExpectedEScaleSymbols(lines, thresholds)
+}
+
+// databaseOrphans keeps the orphan markers that are not Code paths: those
+// still need aoci_remove_entry, while Code orphans ride as removals of the
+// update batch and never block.
+func databaseOrphans(orphans []string) []string {
+	result := []string{}
+	for _, orphan := range orphans {
+		if !strings.HasPrefix(orphan, "code:") {
+			result = append(result, orphan)
+		}
+	}
+	return result
 }
 
 // blockedNextAction names the blocker a stopped Maintain wants cleared. The

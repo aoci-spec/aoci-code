@@ -263,6 +263,17 @@ func TestAppliedSiblingsReplayOntoThePreimage(t *testing.T) {
 	if _, err := Replay(root, preimage, broken); errorCode(err) != "code_parallel_replay_failed" {
 		t.Fatalf("an operation the editor refuses fails the replay: %v", err)
 	}
+	// A sibling may drop an orphan in its batch (removals, 2026-11-01); the
+	// replay removes the line by path exactly as the editor did.
+	post3, err := index.RemoveEntryForPath(post2, root, "pkg/a.go", newLine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	removal := AppliedOperation{Path: "pkg/a.go", Change: "delete", OldEntry: newLine}
+	withRemoval := append(append([]AppliedReceipt{}, applied...), appliedReceipt(plan, strings.Repeat("3", 64), 3, []byte(post2), []byte(post3), removal))
+	if replayed, err := Replay(root, preimage, withRemoval); err != nil || string(replayed) != post3 {
+		t.Fatalf("a delete operation replays byte for byte: %v", err)
+	}
 
 	for name, invalid := range map[string]AppliedReceipt{
 		"order":            appliedReceipt(plan, batch3, 0, []byte(post2), []byte("x"), createOperation("pkg/d.go")),

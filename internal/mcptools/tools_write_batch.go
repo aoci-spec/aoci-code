@@ -42,6 +42,10 @@ type AtomicUpdateItem struct {
 	SourceSHA256 string
 	CandidateID  string
 	BatchID      string
+	// Remove asks the batch to drop the Code Entry at Path, which must be an
+	// orphan the shared governance facts report, in the same transaction as
+	// the Entries it writes; NewEntry, SourceSHA256, and CandidateID stay empty.
+	Remove bool
 }
 
 // AtomicBatchOutcome is the result of planning or applying a whole batch successfully.
@@ -79,6 +83,7 @@ type normalizedAtomicItem struct {
 	candidateID            string
 	batchID                string
 	originalCandidateIndex int
+	remove                 bool
 }
 
 type atomicBatchPlan struct {
@@ -172,6 +177,10 @@ func planUpdateEntriesAtomic(
 		} else {
 			seen[identity] = indexPosition + 1
 		}
+		if item.Remove && (rel == "" || item.NewEntry != "" || item.SourceSHA256 != "" || item.CandidateID != "") {
+			return nil, &Fail{Code: errBadArgs, Msg: writeMessage("entry.batch.path_invalid", indexPosition+1, item.Path+objectRef,
+				"a removal names only the repository-relative path of a Code orphan"), Hint: writeMessage("entry.batch.hint.paths_relative")}
+		}
 		normalized = append(normalized, normalizedAtomicItem{
 			rel:                    rel,
 			objectRef:              objectRef,
@@ -180,6 +189,7 @@ func planUpdateEntriesAtomic(
 			candidateID:            strings.ToLower(strings.TrimSpace(item.CandidateID)),
 			batchID:                strings.ToLower(strings.TrimSpace(item.BatchID)),
 			originalCandidateIndex: indexPosition + 1,
+			remove:                 item.Remove,
 		})
 	}
 

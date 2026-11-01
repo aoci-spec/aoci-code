@@ -18,7 +18,11 @@ const ActionCallNoArgumentMaintainForCurrentMachineBatch = "call_no_argument_aoc
 // The orphan spelling is kept for the case it was always right about; the
 // others follow the Guide stop vocabulary, highest precedence first.
 const (
-	MaintainActionExplicitOrphanRemove    = "explicit_orphan_remove_or_resolve_blocker"
+	MaintainActionExplicitOrphanRemove = "explicit_orphan_remove_or_resolve_blocker"
+	// MaintainActionRemoveOrphansInBatch is the next action of a Maintain whose
+	// only work is Code orphans: the Agent submits them as removals of one
+	// aoci_update_entry batch, with no Entry to author.
+	MaintainActionRemoveOrphansInBatch    = "remove_orphans_in_update_batch"
 	MaintainActionClosePendingRecovery    = "close_pending_recovery"
 	MaintainActionScanToEstablishBaseline = "scan_to_establish_baseline"
 	MaintainActionActivateScopeChange     = "activate_scope_change"

@@ -365,8 +365,9 @@ resolved the field is omitted rather than filled with a bare aoci.
 Placeholders such as {agent}, {tokens}, and {source} are the Host's to fill.
 Continuation batches, Optimization, and repair_required carry no
 next_commands; a Legacy layout's read-only stop carries the migration commands;
-and orphan removal needs none because aoci_remove_entry is already on the
-surface. The array is advisory: it changes no state,
+and orphan removal needs none because a Code orphan goes as a `removals` item
+of the update batch and a Database orphan through aoci_remove_entry, both
+already on the surface. The array is advisory: it changes no state,
 next_action remains the machine decision, and a Host that ignores it loses
 nothing the CLI Guide does not already say.
 
@@ -387,8 +388,21 @@ authoring_batch.next_action always equals its top-level next_action, including
 withheld and aligned empty batches. These presentation and continuation rules
 change no write permission, approval mechanism, or governance result.
 
+A Code orphan, an Entry whose file is gone or left the Index role, is
+authoring work, not a stop. Maintain lists it under orphan_remove_candidates
+beside the batch it issues, and the batch drops it through the additive
+`removals` array of aoci_update_entry (each item the repository-relative
+path, with or without its `code:` prefix), in the same transaction as the
+Entries it writes; when nothing is left to author, Maintain answers
+remove_orphans_in_update_batch and one call with removals alone closes them.
+A removal is admitted only for an orphan the shared governance facts report
+now, the proof aoci_remove_entry demands: naming a live Entry is the
+repair_required finding removal_target_not_orphan, an unindexed path
+removal_target_missing, both with zero writes. aoci_remove_entry still
+removes one Code orphan on its own; a Database orphan still goes through it.
+
 A blocked Maintain names its blocker in next_action. When
-orphan_remove_candidates is non-empty the value is
+orphan_remove_candidates holds a Database orphan the value is
 explicit_orphan_remove_or_resolve_blocker; otherwise it is the first of
 close_pending_recovery, scan_to_establish_baseline, activate_scope_change,
 and resolve_cognition_budget whose finding is present, and resolve_blocker
@@ -589,7 +603,8 @@ offline Maintain, and status contract is
 aoci-database-cognition-authoring-v1.txt.
 
 The existing aoci_remove_entry also accepts an explicit Code or Database
-Volume orphan identity. Ordinary orphan removal re-proves orphan state from
+Volume orphan identity, and the update batch's removals use the same proof
+for Code orphans. Ordinary orphan removal re-proves orphan state from
 shared governance facts; R references from other Entries never block it, and
 any dangling annotation they leave behind stays model-owned until the model's
 next Whole-Index read. It guards Root/Meta/Volumes/Evidence and

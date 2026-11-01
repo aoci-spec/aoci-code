@@ -1157,7 +1157,10 @@ func finalize(facts *Facts) {
 			observedPending = true
 		case strings.HasPrefix(finding.Code, "database_evidence") || strings.Contains(finding.Code, "evidence_unavailable") || strings.Contains(finding.Code, "evidence_invalid"):
 			evidence = true
-		case finding.Code == "code_missing" || finding.Code == "code_stale" || finding.Code == "code_unbaselined" ||
+		// A Code orphan is cleared in the same aoci_update_entry batch as the
+		// authoring work (removals), so it is authoring, not a stop; a Database
+		// orphan still goes through aoci_remove_entry and stays blocked below.
+		case finding.Code == "code_missing" || finding.Code == "code_stale" || finding.Code == "code_unbaselined" || finding.Code == "code_orphan" ||
 			strings.HasPrefix(finding.Code, "database_missing") || strings.HasPrefix(finding.Code, "database_stale") || strings.HasPrefix(finding.Code, "database_unbaselined") ||
 			strings.HasPrefix(finding.Code, "database_cognition_missing") || strings.HasPrefix(finding.Code, "database_cognition_stale") || strings.HasPrefix(finding.Code, "database_cognition_unbaselined"):
 			authoring = true

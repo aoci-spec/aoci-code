@@ -113,6 +113,7 @@ func planCognitionVolumeUpdates(
 	}
 	var databaseReceipt *dbcognition.Receipt
 	var codeReceipt *codebatch.Receipt
+	var facts *volumegovernance.Facts
 	if receiptMode {
 		if len(normalized) > machinecontract.EntriesBatchMaxItems {
 			return nil, &Fail{Code: errBadArgs, Msg: "cognition_candidate_batch_too_large"}
@@ -120,7 +121,7 @@ func planCognitionVolumeUpdates(
 		if codeBatchID != "" {
 			submissions := make([]codebatch.Submission, 0, len(normalized))
 			for _, item := range normalized {
-				if item.rel == "" {
+				if item.rel == "" || item.remove {
 					continue
 				}
 				switch {
@@ -135,7 +136,8 @@ func planCognitionVolumeUpdates(
 				submissions = append(submissions, codebatch.Submission{CandidateIndex: item.originalCandidateIndex,
 					ObjectRef: "code:" + item.rel, CandidateID: item.candidateID, SourceSHA256: item.sourceSHA256})
 			}
-			facts, factsErr := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+			var factsErr error
+			facts, factsErr = volumegovernance.Assess(root, loaded.cfg, loaded.set)
 			if factsErr != nil {
 				return nil, &Fail{Code: errInternal, Msg: "code_candidate_governance_unavailable"}
 			}
@@ -188,9 +190,38 @@ func planCognitionVolumeUpdates(
 	} else if len(normalized) > machinecontract.EntriesBatchMaxItems {
 		return nil, &Fail{Code: errBadArgs, Msg: "cognition_candidate_batch_too_large"}
 	}
+	// A removal is admitted only for a Code orphan the shared governance facts
+	// report now: the same proof aoci_remove_entry demands, inside the batch.
+	removalFindings := []cognition.RepairFinding{}
+	for _, item := range ordered {
+		if !item.remove {
+			continue
+		}
+		if facts == nil {
+			var factsErr error
+			facts, factsErr = volumegovernance.Assess(root, loaded.cfg, loaded.set)
+			if factsErr != nil {
+				return nil, &Fail{Code: errInternal, Msg: "code_candidate_governance_unavailable"}
+			}
+		}
+		if finding := removalRepairFinding(loaded.set, facts, item); finding != nil {
+			removalFindings = append(removalFindings, *finding)
+		}
+	}
+	if len(removalFindings) > 0 {
+		return nil, &Fail{Code: errCandidateInvalid, Msg: "removal_target_not_orphan",
+			Hint: writeMessage("entry.batch.hint.replan"), Findings: LocalizeRepairFindings(removalFindings), Repairable: true}
+	}
 	candidates := make([]cognition.ImpactCandidate, 0, len(ordered))
 	volumes := map[string]bool{}
 	for _, item := range ordered {
+		if item.remove {
+			candidates = append(candidates, cognition.ImpactCandidate{Change: cognition.ImpactChangeDelete,
+				ObjectRef: "code:" + item.rel, VolumeID: cognition.ScopeCode, Path: item.rel,
+				OriginalCandidateIndex: item.originalCandidateIndex})
+			volumes[cognition.ScopeCode] = true
+			continue
+		}
 		if !receiptMode && !validRecoverySHA256(item.sourceSHA256) {
 			return nil, &Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.source_binding_required", volumeItemIdentity(item)), Hint: writeMessage("entry.write.mcp.hint.source_binding")}
 		}
@@ -253,6 +284,23 @@ func planCognitionVolumeUpdates(
 	var repairs *Fail
 	for itemIndex, item := range ordered {
 		candidate := candidates[itemIndex]
+		if item.remove {
+			// The orphan's line goes by path, so a byte-identical twin in another
+			// directory section stays, exactly as aoci_remove_entry removes it.
+			object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], candidate.ObjectRef)
+			nextText, removeErr := index.RemoveEntryForPath(codeContext.text, root, item.rel, object.CanonicalLine)
+			if removeErr != nil {
+				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("remove.transform_failed", localeSafeWriteDetail(removeErr.Error()))}
+			}
+			projected["code"] = []byte(nextText)
+			codeContext.text = nextText
+			codeContext.doc, _ = index.Parse(nextText)
+			index.ResolveRelPaths(codeContext.doc, root)
+			outcomes = append(outcomes, &UpdateOutcome{Action: writeMessage("entry.write.action.remove"), Rel: item.rel,
+				Diff: renderEntryWriteDiff(object.CanonicalLine, ""), OldLine: object.CanonicalLine, Removed: true})
+			rels = append(rels, item.rel)
+			continue
+		}
 		if item.rel != "" {
 			fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(item.rel)))
 			if err != nil || fingerprint.SHA256 != item.sourceSHA256 {
@@ -459,6 +507,28 @@ func planCognitionVolumeUpdates(
 			recovery: recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
 		batchKey: batchKey, start: start,
 	}, nil
+}
+
+// removalRepairFinding judges one removal: the path must carry a Code Entry
+// now and be an orphan the facts report. Anything else is the model's to
+// repair by dropping the removal, with zero writes.
+func removalRepairFinding(set *cognition.Set, facts *volumegovernance.Facts, item normalizedAtomicItem) *cognition.RepairFinding {
+	finding := cognition.RepairFinding{CandidateIndex: item.originalCandidateIndex, Path: item.rel,
+		CanonicalObjectIdentity: "code:" + item.rel, Domain: cognition.ScopeCode, Field: "removals[].path",
+		ObjectRef: "code:" + item.rel, Expected: "an orphan listed by aoci_maintain as orphan_remove_candidates"}
+	if cognitionObjectByRef(set.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
+		finding.RuleCode, finding.Code, finding.Actual = "removal_target_missing", "removal_target_missing", "no Entry for this path"
+		finding.Cause = "the Code Volume holds no Entry for " + item.rel + "; drop this removal"
+		return &finding
+	}
+	for _, orphan := range facts.CodeDrift.Orphan {
+		if orphan == item.rel {
+			return nil
+		}
+	}
+	finding.RuleCode, finding.Code, finding.Actual = "removal_target_not_orphan", "removal_target_not_orphan", "the source still exists in the Index role"
+	finding.Cause = item.rel + " is not an orphan; drop this removal, since only an Entry whose file is gone or left the Index role may be removed"
+	return &finding
 }
 
 func codeSubmissionRepairFindings(root string, mismatch *codebatch.SubmissionError) []cognition.RepairFinding {
@@ -1386,7 +1456,14 @@ func recordParallelSiblingApplied(root string, plan *atomicBatchPlan) string {
 	}
 	operations := []codebatch.AppliedOperation{}
 	for _, outcome := range plan.outcomes {
-		if outcome == nil || outcome.NewLine == "" {
+		if outcome == nil {
+			continue
+		}
+		if outcome.Removed {
+			operations = append(operations, codebatch.AppliedOperation{Path: outcome.Rel, Change: cognition.ImpactChangeDelete, OldEntry: outcome.OldLine})
+			continue
+		}
+		if outcome.NewLine == "" {
 			continue
 		}
 		operation := codebatch.AppliedOperation{Path: outcome.Rel, Change: cognition.ImpactChangeCreate, NewEntry: outcome.NewLine}

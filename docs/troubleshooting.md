@@ -541,9 +541,9 @@ nothing about why (#107).
 
 Under Volumes v1 the Baseline is maintained, not rescanned. Run
 `aoci_maintain`: it issues the new paths as Missing Entries and names the old
-ones as orphans, and stops until each orphan is removed with
-`aoci_remove_entry` (one object per call); the next Maintain then issues the
-rest. `aoci scan --force` refuses over a Managed Scope Baseline by design and
+ones under `orphan_remove_candidates`; the batch drops them through
+`removals` in the same `aoci_update_entry` call that writes the new Entries,
+so a rename closes in one round. `aoci scan --force` refuses over a Managed Scope Baseline by design and
 names the commands that work (#102); the Legacy `baseline scope` refresh it
 used to point at is gone since 0.2.0-rc2. A policy edit is applied with
 `aoci scope activate`. An Entry whose file is still on disk but which a

@@ -52,6 +52,8 @@
     "entries[].object_ref": "Database对象的规范身份，代替path",
     "entries[].path": "目标文件的仓库相对路径",
     "entries[].source_sha256": "aoci_maintain返回的Code源码绑定，原样保留",
-    "new_entry": "兼容单条模式，配合path或object_ref；优先使用entries"
+    "new_entry": "兼容单条模式，配合path或object_ref；优先使用entries",
+    "removals": "与本批次一并删除的 Code 孤儿条目，按 aoci_maintain 在 orphan_remove_candidates 里列出的写法；没有要创作的条目时可以单独提交",
+    "removals[].path": "孤儿条目的仓库相对路径，带不带 code: 前缀都可以"
   }
 }

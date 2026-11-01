@@ -133,6 +133,22 @@ changes a persisted preimage names the binary every machine then needs.
   init automation hint, the refresh-ready and observe-review messages, the
   Volumes and refresh specs, and the docs say the same; scenario N1 now pins
   the proof and checks that it agrees with the three CLI commands.
+- Orphan Entries are dropped in the update batch. A Code orphan, an Entry
+  whose file is gone or left the Index role, used to stop Maintain
+  (`explicit_orphan_remove_or_resolve_blocker`) until the Agent removed each
+  one with its own `aoci_remove_entry` call and called Maintain again: a
+  rename of N files cost N+1 extra calls. Maintain now issues the batch with
+  the orphans listed under `orphan_remove_candidates`, and `aoci_update_entry`
+  takes an additive `removals` array (each item the path as listed) that
+  drops them in the same transaction as the Entries it writes; with nothing
+  to author, Maintain answers `remove_orphans_in_update_batch` and one call
+  with removals alone closes them. A removal that is not a reported orphan
+  is the `repair_required` finding `removal_target_not_orphan` (an unindexed
+  path `removal_target_missing`) with zero writes. Verify, Check, and Guide
+  report a Code orphan as `authoring_required`; a parallel sibling's applied
+  record replays the removal; `aoci_remove_entry` still removes one orphan on
+  its own, and a Database orphan still goes through it. Scenario B5 now
+  removes the orphan in the batch and refuses a live Entry.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

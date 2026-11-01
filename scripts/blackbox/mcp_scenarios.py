@@ -518,11 +518,28 @@ def group_b():
     sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "-m", "drop f004")
     m, t, err = maintain(s)
     orphans = m.get("orphan_remove_candidates") or []
-    ok = any("f004" in o for o in orphans)
-    record(g, "B5.orphan-detected", "PASS" if ok else "FAIL", str(orphans)[:120])
+    ok = (any("f004" in o for o in orphans) and m.get("status") == "repair_required"
+          and m.get("next_action") == "remove_orphans_in_update_batch"
+          and m.get("authoring_batch", {}).get("next_action") == m.get("next_action")
+          and any("removals" in i for i in (m.get("instructions") or [])))
+    record(g, "B5.orphan-rides-beside-the-batch", "PASS" if ok else "FAIL",
+           f"status={m.get('status')} next={m.get('next_action')} orphans={orphans}"[:160])
     if ok:
-        t, err = text_of(s.call("aoci_remove_entry", {"path": "code:pkg/f004.go"}))
-        record(g, "B5.orphan-removed", "PASS" if not err and "Removed" in t else "FAIL", t[:150])
+        # The orphan is dropped in the batch's own transaction: one call,
+        # removals alone, and the Apply's terminal proof reports aligned.
+        t, err = text_of(s.call("aoci_update_entry", {"removals": [{"path": orphans[0]}]}))
+        r = jload(t)
+        proof = r.get("terminal_proof") or {}
+        done = (not err and r.get("status") == "applied" and r.get("aligned") is True
+                and r.get("applied") == 1 and proof.get("aligned") is True)
+        record(g, "B5.orphan-removed-in-the-batch", "PASS" if done else "FAIL", t[:150])
+        # A live Entry cannot be removed this way: zero writes, one finding.
+        t2, err2 = text_of(s.call("aoci_update_entry", {"removals": [{"path": "pkg/f001.go"}]}))
+        r2 = jload(t2)
+        f2 = (r2.get("findings") or [{}])[0] if isinstance((r2.get("findings") or [None])[0], dict) else {}
+        refused = (r2.get("status") == "repair_required" and r2.get("applied") == 0
+                   and not r2.get("formal_writes_started") and f2.get("rule_code") == "removal_target_not_orphan")
+        record(g, "B5b.live-entry-removal-refused", "PASS" if refused else "FAIL", t2[:150])
     al, v = fixture_aligned(fx)
     record(g, "B5.final-aligned", "PASS" if al else "FAIL")
     s.close()

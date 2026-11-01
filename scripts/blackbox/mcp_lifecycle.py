@@ -293,9 +293,15 @@ def author_all(fx, max_rounds=30):
             s.close()
             return True, rnd - 1, "aligned"
         if orphans and not cands:
+            # Code orphans go as removals of one update batch; a Database
+            # orphan still takes aoci_remove_entry.
+            removals = [{"path": o} for o in orphans if isinstance(o, str) and o.startswith("code:")]
+            if removals:
+                text_of(s.call("aoci_update_entry", {"removals": removals}))
             for o in orphans:
                 p = o if isinstance(o, str) else (o.get("path") or o.get("object_ref") or "")
-                text_of(s.call("aoci_remove_entry", {"path": p}))
+                if not (isinstance(o, str) and o.startswith("code:")):
+                    text_of(s.call("aoci_remove_entry", {"path": p}))
             s.close()
             continue
         if not cands:

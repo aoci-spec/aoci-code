@@ -100,15 +100,15 @@ func TestFirstMaintainHoldsUnreadableSourcesOutWithoutBlocking(t *testing.T) {
 	}
 }
 
-// A real orphan still blocks, and the block is explicit: the orphan is named
-// as a remove candidate, no candidate is issued for a model to author against
-// a preimage the orphan removal will change, and the held sources stay
-// informational rather than joining the block.
-func TestOrphanStillBlocksExplicitlyWhileHeldSourcesStayInformational(t *testing.T) {
+// A real orphan is named as a remove candidate beside the batch (since
+// 2026-11-01 the batch drops it through removals in its own transaction, so
+// no preimage conflict arises), and the held sources stay informational
+// rather than joining it.
+func TestOrphanRidesBesideTheBatchWhileHeldSourcesStayInformational(t *testing.T) {
 	result := maintainVolumeResult(t, buildHeldSourcesVolumeRepo(t, true))
-	if result.Status != autoStatusStopped || result.NextAction != "explicit_orphan_remove_or_resolve_blocker" ||
-		strings.Join(result.OrphanRemovals, ",") != "code:gone.go" || len(result.Candidates) != 0 {
-		t.Fatalf("orphan must block explicitly: status=%s next=%s orphans=%v candidates=%s",
+	if result.Status != autoStatusRepairRequired || result.NextAction != "author_complete_current_machine_batch" ||
+		strings.Join(result.OrphanRemovals, ",") != "code:gone.go" || heldCandidatePaths(result) != "pkg/util.go" {
+		t.Fatalf("orphan must ride beside the batch: status=%s next=%s orphans=%v candidates=%s",
 			result.Status, result.NextAction, result.OrphanRemovals, heldCandidatePaths(result))
 	}
 	for _, marker := range result.OrphanRemovals {

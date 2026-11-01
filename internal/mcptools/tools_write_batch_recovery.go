@@ -67,7 +67,7 @@ var removeAtomicBatchRecoveryFile = os.Remove
 func atomicBatchKey(items []normalizedAtomicItem) string {
 	volumeItems := false
 	for _, item := range items {
-		if item.objectRef != "" || item.candidateID != "" || item.batchID != "" {
+		if item.objectRef != "" || item.candidateID != "" || item.batchID != "" || item.remove {
 			volumeItems = true
 			break
 		}
@@ -82,7 +82,13 @@ func atomicBatchKey(items []normalizedAtomicItem) string {
 		hash := sha256.New()
 		_, _ = hash.Write([]byte("cognition-volume-batch/v2\x00"))
 		for _, item := range ordered {
-			for _, value := range []string{item.objectRef, item.rel, item.newEntry, strings.ToLower(strings.TrimSpace(item.sourceSHA256)), item.candidateID, item.batchID} {
+			values := []string{item.objectRef, item.rel, item.newEntry, strings.ToLower(strings.TrimSpace(item.sourceSHA256)), item.candidateID, item.batchID}
+			if item.remove {
+				// Only a removal adds a value, so every key issued before
+				// removals existed is unchanged and its receipt still resolves.
+				values = append(values, "remove")
+			}
+			for _, value := range values {
 				_, _ = hash.Write([]byte(fmt.Sprintf("%d:", len(value))))
 				_, _ = hash.Write([]byte(value))
 			}

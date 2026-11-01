@@ -23,8 +23,8 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
 	"aoci_update_entry": {
-		"new_entry", "batch_id", "code_batch_id", "entries",
-		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id",
+		"new_entry", "batch_id", "code_batch_id", "entries", "removals",
+		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id", "removals[].path",
 	},
 	"aoci_maintain":     {"scope", "intent", "object_refs", "approval_request", "observe_review", "include_instructions", "batch_id"},
 	"aoci_report":       {"path", "note"},
@@ -217,6 +217,10 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"type":  "array",
 			"items": item,
 		})
+		removals := nullableProperty(descriptions["removals"], map[string]any{
+			"type":  "array",
+			"items": object(map[string]any{"path": stringProperty("removals[].path")}, "path"),
+		})
 		// The single-Entry compatibility fields share their meaning with the
 		// entries[] item fields, so only new_entry names the mode.
 		plainString := map[string]any{"type": "string"}
@@ -229,6 +233,7 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"batch_id":      stringProperty("batch_id"),
 			"code_batch_id": stringProperty("code_batch_id"),
 			"entries":       entries,
+			"removals":      removals,
 		}), nil
 
 	case "aoci_maintain":

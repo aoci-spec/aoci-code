@@ -47,6 +47,9 @@ type UpdateOutcome struct {
 	// replays them.
 	OldLine string
 	NewLine string
+	// Removed marks an orphan Entry the batch dropped: OldLine is the line that
+	// went and NewLine is empty.
+	Removed bool
 }
 
 func indexTextHash(

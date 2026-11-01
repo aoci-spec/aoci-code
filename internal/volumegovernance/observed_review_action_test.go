@@ -17,7 +17,9 @@ func TestObservedReviewActionDoesNotRelaxOtherBlockers(t *testing.T) {
 			}
 			finalize(facts)
 			want := ResultBlocked
-			if other == "" || other == "code_missing" || other == "code_stale" || other == "code_skipped" {
+			// A Code orphan is authoring work since 2026-11-01 (removals in the
+			// update batch), so like missing and stale it leaves review in charge.
+			if other == "" || other == "code_missing" || other == "code_stale" || other == "code_skipped" || other == "code_orphan" {
 				want = machinecontract.ActionReviewObservedEvidence
 			}
 			if facts.Result != ResultBlocked || facts.GovernanceAligned || facts.NextRequiredAction != want {

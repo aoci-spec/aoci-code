@@ -353,9 +353,13 @@ with roughly 330 KB, which no Host displays inline.
 Database candidates include accepted Evidence identities
 and a complete legal Database example without requiring a preliminary explicit
 scope call. Maintain creates no semantic candidate and performs no formal
-write. Orphans appear only as explicit remove candidates;
-`aoci_remove_entry` re-proves the orphan and relation/guard state before using
-the existing transaction authorities. Database assessment remains offline and
+write. Code orphans appear as `orphan_remove_candidates` beside the batch and
+are dropped through the batch's `removals` in the same transaction (with
+nothing to author, Maintain answers `remove_orphans_in_update_batch` and
+removals alone close them); a removal that is not a reported orphan is a
+`repair_required` finding with zero writes. `aoci_remove_entry` still removes
+one orphan on its own and re-proves the orphan and relation/guard state before
+using the existing transaction authorities; a Database orphan goes through it. Database assessment remains offline and
 requires accepted saved Evidence.
 
 The Apply that brings the last batch to `aligned` carries `terminal_proof`:
@@ -377,7 +381,7 @@ not be on `PATH`. Placeholders such as `{agent}` and `{tokens}` are the
 Host's to fill. The field is optional and advisory: `next_action` stays the
 machine decision, and a blocked result names its blocker there:
 `explicit_orphan_remove_or_resolve_blocker` only when
-`orphan_remove_candidates` lists something, otherwise `close_pending_recovery`,
+`orphan_remove_candidates` lists a Database orphan, otherwise `close_pending_recovery`,
 `scan_to_establish_baseline`, `activate_scope_change`,
 `resolve_cognition_budget`, or `resolve_blocker`, in that precedence.
 Observe-only blocking uses the review action described below; it supersedes

@@ -27,6 +27,14 @@ type updateEntryIn struct {
 	BatchID      string              `json:"batch_id,omitempty"`
 	CodeBatchID  string              `json:"code_batch_id,omitempty"`
 	Entries      []updateEntryItemIn `json:"entries,omitempty"`
+	// Removals are the Code orphans this batch drops beside the Entries it
+	// writes, each as the path aoci_maintain listed under
+	// orphan_remove_candidates (with or without its code: prefix).
+	Removals []updateRemovalIn `json:"removals,omitempty"`
+}
+
+type updateRemovalIn struct {
+	Path string `json:"path"`
 }
 
 var requiredEntryWriteMessages = map[string][]any{
@@ -44,6 +52,7 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.write.warning.escale_mismatch":                {5, "T", "L"},
 	"entry.write.action.replace":                         nil,
 	"entry.write.action.insert":                          nil,
+	"entry.write.action.remove":                          nil,
 	"entry.write.hint.refresh_entry":                     nil,
 	"entry.write.hint.lock_failed":                       nil,
 	"entry.write.hint.disk_permissions":                  nil,
@@ -300,6 +309,18 @@ type updateEntryItemIn struct {
 	SourceSHA256 string `json:"source_sha256,omitempty"`
 	CandidateID  string `json:"candidate_id,omitempty"`
 	BatchID      string `json:"-"`
+	Remove       bool   `json:"-"`
+}
+
+// withRemovals appends the batch's removals to its Entries as items the
+// planner recognizes; the code: prefix Maintain prints is accepted and
+// dropped, so a listed orphan_remove_candidate can be passed as printed.
+func withRemovals(entries []updateEntryItemIn, removals []updateRemovalIn) []updateEntryItemIn {
+	result := append([]updateEntryItemIn{}, entries...)
+	for _, removal := range removals {
+		result = append(result, updateEntryItemIn{Path: strings.TrimPrefix(strings.TrimSpace(removal.Path), "code:"), Remove: true})
+	}
+	return result
 }
 
 func RenderOutcome(
@@ -352,14 +373,14 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
-				if len(in.Entries) > 0 {
+				if len(in.Entries) > 0 || len(in.Removals) > 0 {
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
 					return handleMCPUpdateBatch(
 						root,
 						mcpServiceVersion,
-						withVolumeBatchIDs(in.Entries, in.CodeBatchID, in.BatchID),
+						withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID),
 						refreshSession,
 					)
 				}
@@ -476,6 +497,10 @@ func handleMCPUpdateBatch(
 	for _, item := range input {
 		item.SourceSHA256 = strings.ToLower(strings.TrimSpace(item.SourceSHA256))
 		item.CandidateID = strings.ToLower(strings.TrimSpace(item.CandidateID))
+		if item.Remove {
+			items = append(items, AtomicUpdateItem{Path: item.Path, Remove: true})
+			continue
+		}
 		codeReceipt := item.Path != "" && item.SourceSHA256 != "" && item.CandidateID != "" && item.BatchID != ""
 		databaseReceipt := item.ObjectRef != "" && item.CandidateID != "" && item.BatchID != ""
 		legacyBinding := len(item.SourceSHA256) == 64 && strings.Trim(item.SourceSHA256, "0123456789abcdef") == ""
