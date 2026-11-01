@@ -20,14 +20,6 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		t.Fatalf("prefix must be quoted for the shell: %q", prefix)
 	}
 
-	proof := finalProofNextCommands()
-	if len(proof) != 3 ||
-		!strings.HasSuffix(proof[0], " "+machinecontract.RemediationCommandVerify) ||
-		!strings.HasSuffix(proof[1], " "+machinecontract.RemediationCommandAggregateCheck) ||
-		!strings.HasSuffix(proof[2], " "+machinecontract.RemediationCommandAgentGuide) {
-		t.Fatalf("final proof must name verify, aggregate check, and guide in order: %v", proof)
-	}
-
 	facts := &volumegovernance.Facts{}
 	facts.Findings = []volumegovernance.Finding{
 		{Code: "observed_pending"},

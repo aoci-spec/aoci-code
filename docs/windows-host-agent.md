@@ -309,7 +309,7 @@ status = applied
 - 不重复提交同一批次；
 - 按结果的next_action与next_commands继续；
 - remaining非零时再次调用aoci_maintain取下一批；
-- 最终批次后依次执行Verify、Aggregate Check与Guide。
+- 最终批次的结果自带terminal_proof，任务即收尾；aoci check 仍可用于 CI。
 
 ### 8.2 repair_required
 

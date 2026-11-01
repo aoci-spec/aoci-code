@@ -358,10 +358,16 @@ write. Orphans appear only as explicit remove candidates;
 the existing transaction authorities. Database assessment remains offline and
 requires accepted saved Evidence.
 
-When a result hands the next step to the CLI, it names the command. The Apply
-that brings the last batch to `aligned` returns `next_commands` with the
-terminal-proof spellings — Verify, Check, Guide — and a `blocked` or
-`evidence_required` Maintain returns the remediation a Host can run itself:
+The Apply that brings the last batch to `aligned` carries `terminal_proof`:
+the governance result, `check_passed`, `guide_complete`, `guide_next_action`,
+and the actionable findings, computed once from the facts Verify, Check, and
+Guide share. None of the three needs to run after it; the task's cognition
+closing ends with that result, and `aoci check` stays the CI gate. A proof
+that still sees a blocker answers `aligned=false` and names the remediation.
+
+When a result hands the next step to the CLI, it names the command. A
+`blocked` or `evidence_required` Maintain returns the remediation a Host can
+run itself:
 `scan` for a missing Baseline, `scope status` and `scope acknowledge` for
 pending observations, both budget levers for an exceeded budget, or a
 database snapshot and its acceptance. The spellings are the ones the CLI

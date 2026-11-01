@@ -747,12 +747,20 @@ func handleMCPUpdateBatch(
 			result.NextAction = "none"
 		}
 	}
-	// The final ordinary Volumes Apply prescribes Verify, Aggregate Check, and
-	// Guide in prose; none of those names exists on the MCP surface, so carry
-	// the runnable spellings alongside. Continuation batches and Optimization
-	// keep their own machine next-actions and get no commands.
+	// The final ordinary Volumes Apply carries the verdict Verify, Aggregate
+	// Check, and Guide would compute, so the Agent's closing ends here instead
+	// of in three more calls. The shared facts rule over the Apply's own
+	// inspector: when they still see a blocker, the result says so and names
+	// the remediation. Continuation batches and Optimization keep their own
+	// machine next-actions.
 	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
-		result.NextCommands = finalProofNextCommands()
+		proof, facts := buildTerminalProof(root)
+		result.TerminalProof = proof
+		if !proof.Aligned {
+			result.Aligned = false
+			result.NextAction = mcpContract(textassets.ContractMaintainActionApplyRemaining)
+			result.NextCommands = blockedNextCommands(facts)
+		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
 	return textResult(renderAutoResult(result))

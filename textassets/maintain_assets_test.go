@@ -71,7 +71,7 @@ func TestMaintainFinalApplyActionsRequireBilingualTerminalProof(t *testing.T) {
 	for _, current := range tests {
 		t.Run(current.locale+"/"+string(current.id), func(t *testing.T) {
 			action := MustRender(current.locale, current.id, nil)
-			for _, token := range []string{"remaining=0", "aoci_maintain", "Verify", "Aggregate Check", "Guide", "next_action=none"} {
+			for _, token := range []string{"remaining=0", "aoci_maintain", "terminal_proof", "check_passed", "guide_complete"} {
 				if !strings.Contains(action, token) {
 					t.Fatalf("terminal proof action is missing %q: %q", token, action)
 				}

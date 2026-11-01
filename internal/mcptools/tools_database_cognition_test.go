@@ -59,7 +59,7 @@ func TestDatabaseMaintainPresentEmptyMultiTableApplyAndRetry(t *testing.T) {
 
 func assertVolumeTerminalProofAction(t *testing.T, action string, duplicate bool) {
 	t.Helper()
-	for _, token := range []string{"remaining=0", "aoci_maintain", "Verify", "Aggregate Check", "Guide", "next_action=none"} {
+	for _, token := range []string{"remaining=0", "aoci_maintain", "terminal_proof", "check_passed", "guide_complete"} {
 		if !strings.Contains(action, token) {
 			t.Fatalf("final Volumes Apply action is missing %q: %q", token, action)
 		}

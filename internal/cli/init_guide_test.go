@@ -79,7 +79,7 @@ func TestInitAutomationGuideHint(
 				"每个 aoci_update_entry 批次在内部完成校验、Diff、P-23 与原子 Apply",
 				"任何写入批次applied后都按当前Guide返回的后续命令继续",
 				"remaining非零时继续Maintain",
-				"最终批次remaining=0后依次执行Verify、Aggregate Check和Guide",
+				"最终批次remaining=0时结果自带terminal_proof",
 				"repair_required 时只修失败条目并重提同一完整批次",
 				"不要求用户继续",
 				"只有审批/外部动作边界、不可证明Recovery、第三方冲突或其他真实安全故障才停止用户任务",
@@ -152,7 +152,7 @@ func TestInitOutputPointsToConcreteCodexGuide(
 		"Each aoci_update_entry batch completes validation, Diff, P-23 review, and atomic Apply internally",
 		"After any applied write batch, follow the next commands returned by the current Guide",
 		"continue Maintain while remaining is nonzero",
-		"after the final remaining=0 batch run Verify, aggregate Check, and Guide",
+		"the final remaining=0 batch carries terminal_proof",
 		"On repair_required, fix only the failed Entries",
 		"without asking the user to continue",
 	} {

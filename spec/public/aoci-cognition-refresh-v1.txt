@@ -145,8 +145,8 @@ When aoci_maintain observes the machine threshold, it preserves
 semantic_threshold in the current MCP session before Apply advances the
 Baseline. Maintain and the aligned aoci_update_entry result expose the existing
 refresh_status and refresh_reasons fields additively. An aligned result reports
-refresh_ready_for_overview. The Agent completes Verify, Check, and Guide proof
-and decides whether its next phase needs an explicit Overview.
+refresh_ready_for_overview. That result's terminal_proof is the alignment
+proof; the Agent decides whether its next phase needs an explicit Overview.
 
 6. Required order
 
@@ -156,7 +156,7 @@ When semantic change or another governance blocker exists:
   -> formatting, lint, and tests
   -> aoci_maintain once
   -> resolve repair_required; classify stopped from formal-write/Recovery proof
-  -> Verify, Check, and Guide prove aligned
+  -> the final aoci_update_entry result's terminal_proof proves aligned
   -> optionally request ordinary aoci_overview when the Agent needs the view
   -> record any new reliable receipt
 

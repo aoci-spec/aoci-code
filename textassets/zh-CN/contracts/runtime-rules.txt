@@ -24,7 +24,7 @@ AOCI 为模型提供稳定、可版本化、可增量维护的仓库级认知。
 
 6. 只读任务不需要调用维护工具。正在运行的版本是cognition_receipt.mcp_service_version；二进制是.mcp.json里的command，不一定在PATH上。
 
-7. 受管理对象变化时，到达本次任务最终稳定状态后，只调用一次 aoci_maintain。结果为aligned=true、status=applied且带refresh_ready_for_overview时，不得重复维护或写入；完成Verify、Check与Guide后，再决定下一阶段是否需要完整Overview。format-only不需要新语义。
+7. 受管理对象变化时，到达本次任务最终稳定状态后，只调用一次 aoci_maintain。结果为aligned=true、status=applied且带refresh_ready_for_overview时，不得重复维护或写入；该结果的terminal_proof就是对齐证明，据此决定下一阶段是否需要完整Overview。format-only不需要新语义。
 
 8. 返回真实 candidates 时，使用当前可靠Header的字典，上下文没有时先调用aoci_header；完整阅读每个受影响对象及其证据，原样保留每项source_sha256、candidate_id与批次身份，通过aoci_update_entry的 entries 批量入口一次提交完整批次。max_entries只限制单次请求；remaining非零时再调用Maintain。不得截取批次，也不得因传输上限缩减Managed Scope。
 

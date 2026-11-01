@@ -144,8 +144,8 @@ reports one terminal state in `status`:
 
 - `applied` — the batch completed validation, Diff, P-23 review, atomic
   Apply, and audit. Do not resubmit it; follow the returned `next_action` and
-  `next_commands`, call `aoci_maintain` again while `remaining` is nonzero,
-  and close the final batch with Verify, aggregate Check, and Guide.
+  `next_commands`, call `aoci_maintain` again while `remaining` is nonzero;
+  the final batch's `terminal_proof` closes the task.
 - `repair_required` — repairable candidate content errors with zero formal
   writes. Stable contract: `applied=0`, `remaining=attempted`,
   `formal_writes_started=false`, `preserve_other_candidates=true`,

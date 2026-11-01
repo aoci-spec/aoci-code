@@ -127,15 +127,18 @@ func TestRefreshReadyMessageRequiresAlignmentProofBeforeOverview(t *testing.T) {
 		if err != nil {
 			t.Fatalf("load refresh-ready message for %s: %v", locale, err)
 		}
-		for _, required := range []string{"Verify", "Check", "Guide", "Overview"} {
+		for _, required := range []string{"terminal_proof", "Overview"} {
 			if !strings.Contains(message, required) {
 				t.Errorf("refresh-ready message for %s must require %s: %q", locale, required, message)
 			}
 		}
-		if strings.Index(message, "Verify") > strings.Index(message, "Overview") ||
-			strings.Index(message, "Check") > strings.Index(message, "Overview") ||
-			strings.Index(message, "Guide") > strings.Index(message, "Overview") {
+		if strings.Index(message, "terminal_proof") > strings.Index(message, "Overview") {
 			t.Errorf("refresh-ready message for %s must put alignment proof before Overview: %q", locale, message)
+		}
+		for _, retired := range []string{"Verify", "Check", "Guide"} {
+			if strings.Contains(message, retired) {
+				t.Errorf("refresh-ready message for %s still prescribes %s after the final Apply: %q", locale, retired, message)
+			}
 		}
 	}
 }

@@ -1848,33 +1848,36 @@ def group_n():
     """next_commands are complete, runnable commands that clear what they name;
     attested cognition under tree drift reads uncertain, never invalid."""
     g = "N"
-    # -- N1: 终态证明命令是完整可执行命令, 且逐条真的执行通过
+    # -- N1: 最终 Apply 自带终态证明, 不再要求跑 verify/check/guide; 证明与三条命令的判定一致
     fx = make_fixture("nextcmd", 6)
     s = Session(fx)
     m, t, err = maintain(s)
     a, tw, err = submit_batch(s, m)
     s.close()
+    proof = a.get("terminal_proof") or {}
     cmds = a.get("next_commands") or []
-    shaped = (a.get("aligned") is True and len(cmds) == 3
-              and " verify --json" in cmds[0] and " check --json" in cmds[1]
-              and "index agent guide" in cmds[2]
-              and all(c.startswith(("'", '"')) for c in cmds))
-    record(g, "N1.final-apply-carries-proof-commands", "PASS" if shaped else "FAIL",
-           f"aligned={a.get('aligned')} cmds={cmds[:3]}"[:200])
-    ran = shaped
-    for cmd in cmds if shaped else []:
-        rc, out = run_returned_command(fx, cmd)
-        if rc != 0:
-            ran = False
-            record(g, "N1.returned-command-failed", "FAIL", f"{cmd} rc={rc} {out[:120]}")
-            break
-    if shaped and ran:
-        record(g, "N1b.every-returned-command-runs", "PASS",
-               "verify, aggregate check, and guide all exited 0 as returned")
-    elif shaped:
-        record(g, "N1b.every-returned-command-runs", "FAIL", "see N1.returned-command-failed")
+    shaped = (a.get("aligned") is True and not cmds
+              and proof.get("version") == "terminal-proof/v1"
+              and proof.get("aligned") is True and proof.get("check_passed") is True
+              and proof.get("guide_complete") is True and proof.get("findings") == []
+              and "terminal_proof" in (a.get("next_action") or "")
+              and "Verify" not in (a.get("next_action") or "").split("terminal_proof")[0])
+    record(g, "N1.final-apply-carries-terminal-proof", "PASS" if shaped else "FAIL",
+           f"aligned={a.get('aligned')} proof={json.dumps(proof)[:120]} cmds={cmds}"[:200])
+    # The proof must say what the three commands say.
+    agree = shaped
+    if shaped:
+        rc_v, v, _, _ = cli(fx, "verify", expect_ok=False)
+        rc_c, c, _, _ = cli(fx, "check", expect_ok=False)
+        rc_g, gd, _, _ = cli(fx, "index", "agent", "guide", "--agent", "codex", expect_ok=False)
+        agree = (rc_v == 0 and rc_c == 0 and rc_g == 0
+                 and (c or {}).get("governance_aligned") is True
+                 and (gd or {}).get("complete") is True
+                 and (gd or {}).get("next_action") == proof.get("guide_next_action"))
+        record(g, "N1b.terminal-proof-agrees-with-the-cli", "PASS" if agree else "FAIL",
+               f"verify={rc_v} check={rc_c} guide={rc_g} guide_next={(gd or {}).get('next_action')} proof_next={proof.get('guide_next_action')}"[:200])
     else:
-        record(g, "N1b.every-returned-command-runs", "FAIL", "no commands to run")
+        record(g, "N1b.terminal-proof-agrees-with-the-cli", "FAIL", "no proof to compare")
 
     # -- N2: observed_pending 阻断携带 acknowledge 命令, 执行它即解除阻断
     d = os.path.join(WORK, "nextcmd-observe")

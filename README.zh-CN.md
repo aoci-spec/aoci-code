@@ -338,7 +338,7 @@ flowchart TD
 flowchart TD
     R["已有代码仓库、测试、配置和可选 Schema"] --> B["从 canonical source 构建 AOCI-CODE<br/>提出生成索引要求"]
     B --> E["AI Agent 调查现有系统并首次生成索引"]
-    E --> V["Verify、Check 与 Guide 收敛到 aligned"]
+    E --> V["最终批次的终态证明报告 aligned"]
     V --> T["用户提出普通开发任务"]
     T --> C["AI Agent 修改代码并运行质量检查"]
     C --> U["MCP 引导 AI Agent 维护索引"]
@@ -376,7 +376,7 @@ AOCI-CODE 负责：
 5. 保存 Check、Diff 与审阅内容绑定；
 6. 使用跨进程锁、CAS 和 AtomicWrite 提交完整批次；
 7. 推进 Baseline、追加 Ledger，并在写后故障时保留恢复证据；
-8. 通过 Verify、Check 与 Guide 重新证明当前治理状态；
+8. 读取最终批次结果自带的终态证明；
 9. 从权威资产派生 Lineage、Relations、Impact、Snapshot 与 Evolution 观察，而不创建第二事实源。
 
 机器全绿只表示已编码的结构与治理合同成立，**不表示每一条模型语义都绝对正确**。

@@ -427,9 +427,12 @@ func TestMCPCodeVolumeCrossGuardSuccessStaysSimple(t *testing.T) {
 		"new_entry":     line,
 		"source_sha256": volumeSourceSHA(t, root, "main.go"),
 	})
+	// The guarded Database Volume carries no accepted Evidence, so the
+	// terminal proof answers evidence_required and the Apply is not aligned.
 	for _, want := range []string{
-		`"status":"applied"`, `"aligned":true`, `"applied":1`, `"volume":"code"`,
+		`"status":"applied"`, `"aligned":false`, `"applied":1`, `"volume":"code"`,
 		`"version":2`, `"layout_mode":"volumes-v1"`, `"delivered_volumes":[]`,
+		`"terminal_proof":{"version":"terminal-proof/v1"`, `"code":"database_evidence_required"`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("cross-guard success missing %q:\n%s", want, output)

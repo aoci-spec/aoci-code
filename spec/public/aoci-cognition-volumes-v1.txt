@@ -336,14 +336,23 @@ state alone: calling Maintain again on an unchanged repository issues the
 same targets in the same order, and a batch already applied is never issued
 again.
 
-Results that hand the next step to the CLI carry the commands to run. The
-Apply that brings the last current batch to aligned prescribes Verify,
-Aggregate Check, and Guide as its terminal proof; a blocked Maintain names a
-blocker the Host can clear itself (baseline_missing, observed_pending,
-scope_change_required, cognition_budget_exceeded); an evidence_required
-Maintain needs a fresh snapshot and its acceptance. None of those actions
-exists on the nine-tool surface, so each such result carries an additive
-optional next_commands array holding the runnable spellings. For
+The Apply that brings the last current batch to aligned carries its terminal
+proof in an additive `terminal_proof` object (`terminal-proof/v1`): the
+governance result, `aligned`, `structure_valid`, `check_passed` (Aggregate
+Check's verdict), `guide_complete` and `guide_next_action` (the Guide's), the
+composite identity, and the actionable findings, all computed once from the
+governance fact set Verify, Check, and Guide share. Verify, Check, and Guide
+need not run after it: the task's cognition closing ends with that result.
+The shared facts rule over the Apply's own inspector: an Apply whose facts
+still see a blocker answers `aligned=false` with the blocker's remediation,
+never an aligned proof. The CLI commands remain for CI and for a person.
+
+Results that hand the next step to the CLI carry the commands to run: a
+blocked Maintain names a blocker the Host can clear itself (baseline_missing,
+observed_pending, scope_change_required, cognition_budget_exceeded); an
+evidence_required Maintain needs a fresh snapshot and its acceptance. None
+of those actions exists on the nine-tool surface, so each such result carries
+an additive optional next_commands array holding the runnable spellings. For
 scope_change_required these include scope status and scope activate; activation
 applies safe changes or returns a preview and approval commands without a
 formal write when human approval is required. The spellings
@@ -367,8 +376,8 @@ scope status, reviewing every reported ObservedNew/ObservedChanged/ObservedRemov
 path and its affected evidence, and only then acknowledging the exact set under
 the existing authorization policy. Approval, drift, CAS, Recovery, and other
 safety boundaries still apply. After success the Agent requests a fresh Guide,
-follows its authoring batches, and completes Verify, Check, and Guide. Acknowledgement
-alone neither creates Entries nor completes indexing.
+follows its authoring batches, and the final Apply's terminal_proof closes
+them. Acknowledgement alone neither creates Entries nor completes indexing.
 
 Other blocking findings take precedence over this review action, including
 unknown findings; no observe acknowledgement shortcut is issued over them.
@@ -691,9 +700,8 @@ and proceeds under the rule above. No second lock, transaction, Ledger, or
 Recovery path exists; a failure mid-Apply recovers as a single batch does.
 
 Completion. `remaining` counts targets outside every issued sibling; the
-Apply after which `remaining` is zero and no sibling is outstanding
-prescribes Verify, Aggregate Check, and Guide as its terminal proof, and
-Guide reports aligned only then. Hosts may run siblings sequentially with one
+Apply after which `remaining` is zero and no sibling is outstanding carries
+`terminal_proof`, and Guide reports aligned only then. Hosts may run siblings sequentially with one
 agent, which is just today's flow with the batches issued ahead of time.
 
 Conformance the implementation must ship: default configuration output is

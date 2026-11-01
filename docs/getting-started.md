@@ -68,8 +68,8 @@ calls ordinary no-argument `aoci_maintain`, submits every candidate in the
 complete current machine-issued batch through `aoci_update_entry`, and
 repeats Maintain while a successful batch reports remaining work. A first build of a large
 repository is a series of such batches; each one is machine-issued, bound to
-source digests, and applied atomically. When Maintain reports aligned, the
-Agent finishes with Verify, Check, and Guide, and later sessions start with
+source digests, and applied atomically. When the final batch reports aligned, its
+`terminal_proof` closes the build, and later sessions start with
 one `aoci_overview` that delivers the complete index and checks that the model
 assimilated it.
 

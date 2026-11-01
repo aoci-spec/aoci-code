@@ -24,7 +24,7 @@ Authority boundary: this contract sets session principles only. The current Guid
 
 6. Read-only tasks need no maintenance call. The running version is cognition_receipt.mcp_service_version; the binary is the .mcp.json command, not necessarily on PATH.
 
-7. When managed objects change, call aoci_maintain once after they reach the task's final stable state. After aligned=true and status=applied with refresh_ready_for_overview, do not maintain or write again; finish Verify, Check, and Guide, then judge whether the next phase needs a complete Overview. format-only drift needs no new semantics.
+7. When managed objects change, call aoci_maintain once after they reach the task's final stable state. After aligned=true and status=applied with refresh_ready_for_overview, do not maintain or write again; that result's terminal_proof is the alignment proof, so judge whether the next phase needs a complete Overview. format-only drift needs no new semantics.
 
 8. For actual candidates use the current reliable Header's dictionaries, calling aoci_header if none is in context; read every affected object and its evidence; preserve every source_sha256, candidate_id, and batch identity; submit the complete batch once through aoci_update_entry entries. max_entries limits one request; while remaining is nonzero call Maintain again. Never slice a batch or reduce Managed Scope for transport.
 

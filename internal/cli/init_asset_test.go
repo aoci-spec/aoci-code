@@ -42,6 +42,15 @@ func assertInitGolden(
 ) {
 	t.Helper()
 
+	// AOCI_UPDATE_GOLDEN=1 (make update-goldens) writes the production
+	// rendering as the golden, so a changed init asset is re-blessed from the
+	// renderer and never by pasting text out of a failed assertion.
+	if os.Getenv("AOCI_UPDATE_GOLDEN") == "1" {
+		if err := os.WriteFile(filepath.Join("..", "..", "testdata", "golden", name), []byte(actual+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
 	expected := readInitGolden(
 		t,
 		name,

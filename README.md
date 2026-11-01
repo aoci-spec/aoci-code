@@ -352,7 +352,7 @@ flowchart TD
 flowchart TD
     R["Existing repository, tests, configuration, and optional Schema"] --> B["Build AOCI-CODE from canonical source<br/>Request index generation"]
     B --> E["The agent inspects the existing system and writes the first index"]
-    E --> V["Verify, Check, and Guide converge to aligned"]
+    E --> V["The final batch's terminal proof reports aligned"]
     V --> T["The user submits an ordinary development task"]
     T --> C["The agent modifies code and runs quality checks"]
     C --> U["MCP guides the agent through index maintenance"]
@@ -390,7 +390,7 @@ AOCI-CODE is responsible for:
 5. preserving the binding among check, diff, and review content;
 6. committing a complete batch with cross-process locks, CAS, and atomic writes;
 7. advancing the Baseline, appending the ledger, and preserving recovery evidence after a post-write failure;
-8. proving the current governance state again through Verify, Check, and the guide;
+8. reading the governance verdict the final batch carries as its terminal proof;
 9. deriving Lineage, Relations, Impact, Snapshot, and Evolution observations from authoritative assets without creating a second source of truth.
 
 All-green machine results mean only that the encoded structural and governance contracts hold; **they do not mean that every statement the model wrote is correct**.

@@ -51,16 +51,6 @@ func composeNextCommands(prefix string, suffixes ...string) []string {
 	return commands
 }
 
-// finalProofNextCommands names the exact terminal-proof sequence the
-// apply-final-proof action has always prescribed in prose.
-func finalProofNextCommands() []string {
-	return composeNextCommands(nextCommandPrefix(),
-		machinecontract.RemediationCommandVerify,
-		machinecontract.RemediationCommandAggregateCheck,
-		machinecontract.RemediationCommandAgentGuide,
-	)
-}
-
 // blockedNextCommands mirrors the CLI Guide's blocked-remediation mapping for
 // the blocker findings a host can clear itself. Orphan removals need no CLI:
 // aoci_remove_entry is already on the MCP surface the caller is holding.

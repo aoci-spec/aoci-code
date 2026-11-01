@@ -115,6 +115,24 @@ changes a persisted preimage names the binary every machine then needs.
   `aoci-host-interaction/v1` contract keeps its shape; `confirmation_phrase`
   is now the word `yes`. Non-TTY callers, piped input, and `--yes` are
   refused as before.
+- The final `aoci_update_entry` batch carries its own terminal proof. The
+  Apply that brought the last batch to aligned used to prescribe Verify,
+  Aggregate Check, and Guide as three more calls whose only purpose was to
+  re-derive what that Apply had just computed. It now returns
+  `terminal_proof` (`terminal-proof/v1`): the governance result, `aligned`,
+  `structure_valid`, `check_passed` (Aggregate Check's verdict),
+  `guide_complete` and `guide_next_action` (the Guide's), the composite
+  identity, and the actionable findings, computed once from the governance
+  fact set all three commands share. The next_action says the cognition
+  closing is complete; `next_commands` no longer lists the three commands,
+  and `aoci check` stays the CI gate. The shared facts rule over the
+  write-side inspector: an Apply whose repository still holds a blocker,
+  such as a Database Volume without accepted Evidence, answers
+  `aligned=false` with the finding instead of the aligned the inspector
+  alone used to claim. The runtime rules, the Maintain tool description, the
+  init automation hint, the refresh-ready and observe-review messages, the
+  Volumes and refresh specs, and the docs say the same; scenario N1 now pins
+  the proof and checks that it agrees with the three CLI commands.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

@@ -52,12 +52,11 @@
         "auto",
         "Guide",
         "aoci_update_entry",
-        "Check",
         "Diff",
         "P-23",
         "Apply",
         "applied",
-        "Verify",
+        "terminal_proof",
         "repair_required",
         "stopped"
       ]

@@ -479,7 +479,12 @@ func TestMCPCrossVolumeSuccessRemainsSimple(t *testing.T) {
 		map[string]any{"path": items[0].Path, "new_entry": items[0].NewEntry, "source_sha256": items[0].SourceSHA256},
 		map[string]any{"object_ref": items[1].ObjectRef, "new_entry": items[1].NewEntry, "source_sha256": items[1].SourceSHA256},
 	}})
-	for _, want := range []string{`"status":"applied"`, `"aligned":true`, `"applied":2`, `"volumes":["code","database"]`} {
+	// The fixture's Database Volume has Entries but no accepted Evidence, the
+	// state verify, check, and Guide call evidence_required; the terminal proof
+	// says the same, so the Apply reports aligned=false with that finding
+	// instead of the aligned the write-side inspector alone used to claim.
+	for _, want := range []string{`"status":"applied"`, `"aligned":false`, `"applied":2`, `"volumes":["code","database"]`,
+		`"terminal_proof":{"version":"terminal-proof/v1","governance_result":"evidence_required"`, `"code":"database_evidence_required"`} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("cross-Volume result missing %q:\n%s", want, output)
 		}
@@ -532,7 +537,10 @@ func TestDatabaseOnlyVolumeUpdateWorksWhenCodeIsAbsent(t *testing.T) {
 		"new_entry":     line,
 		"source_sha256": volumeSourceSHA(t, root, "aoci.database.txt"),
 	})
-	for _, want := range []string{`"status":"applied"`, `"aligned":true`, `"applied":1`, `"volume":"database"`} {
+	// No accepted Evidence behind the hand-written Database Volume: the
+	// terminal proof reports evidence_required, as verify would.
+	for _, want := range []string{`"status":"applied"`, `"aligned":false`, `"applied":1`, `"volume":"database"`,
+		`"governance_result":"evidence_required"`} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("Database-only result missing %q:\n%s", want, output)
 		}
