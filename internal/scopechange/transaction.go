@@ -98,11 +98,15 @@ func ApprovalEffectSummary(preview *Preview) string {
 	parts := []string{}
 	for _, effect := range ApprovalEffects(preview) {
 		var key string
+		args := effect.Args
 		switch effect.Kind {
 		case "entry_removes":
 			key = "scope.approval_effect.entry_removes"
 		case "coverage":
 			key = "scope.approval_effect.coverage"
+			if len(args) == 1 && args[0] == 1 {
+				key, args = "scope.approval_effect.coverage_one", nil
+			}
 		case "posture":
 			key = "scope.approval_effect.posture"
 		case "budget":
@@ -112,7 +116,7 @@ func ApprovalEffectSummary(preview *Preview) string {
 		default:
 			key = "scope.approval_effect.none"
 		}
-		text, err := textassets.Message(textassets.ActiveLocale(), key, effect.Args...)
+		text, err := textassets.Message(textassets.ActiveLocale(), key, args...)
 		if err != nil {
 			text = "[text_asset_error:" + key + "]"
 		}

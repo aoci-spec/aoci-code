@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -187,7 +188,7 @@ func newScopeShowCmd() *cobra.Command {
 }
 
 func newScopeExplainCmd() *cobra.Command {
-	return &cobra.Command{Use: "explain <path>", Short: cliMessage("cli.short.scope_explain"), Args: cobra.ExactArgs(1),
+	return &cobra.Command{Use: "explain <path>", Short: cliMessage("cli.short.scope_explain"), Args: oneArgument("explain <path>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
@@ -321,7 +322,7 @@ func bindScopeRuleFlags(command *cobra.Command, flags *scopeRuleFlags, update bo
 
 func newScopeRuleAddCmd() *cobra.Command {
 	var flags scopeRuleFlags
-	command := &cobra.Command{Use: "add <rule-id>", Short: cliMessage("cli.short.scope_rule_add"), Args: cobra.ExactArgs(1),
+	command := &cobra.Command{Use: "add <rule-id>", Short: cliMessage("cli.short.scope_rule_add"), Args: oneArgument("rule add <rule-id>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
@@ -355,7 +356,7 @@ func newScopeRuleAddCmd() *cobra.Command {
 
 func newScopeRuleUpdateCmd() *cobra.Command {
 	var flags scopeRuleFlags
-	command := &cobra.Command{Use: "update <rule-id>", Short: cliMessage("cli.short.scope_rule_update"), Args: cobra.ExactArgs(1),
+	command := &cobra.Command{Use: "update <rule-id>", Short: cliMessage("cli.short.scope_rule_update"), Args: oneArgument("rule update <rule-id>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
@@ -416,7 +417,7 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 }
 
 func newScopeRuleRemoveCmd() *cobra.Command {
-	return &cobra.Command{Use: "remove <rule-id>", Short: cliMessage("cli.short.scope_rule_remove"), Args: cobra.ExactArgs(1),
+	return &cobra.Command{Use: "remove <rule-id>", Short: cliMessage("cli.short.scope_rule_remove"), Args: oneArgument("rule remove <rule-id>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
@@ -439,7 +440,7 @@ func newScopeRuleRemoveCmd() *cobra.Command {
 }
 
 func newScopeRuleResetCmd() *cobra.Command {
-	return &cobra.Command{Use: "reset <production|full|custom>", Short: cliMessage("cli.short.scope_rule_reset"), Args: cobra.ExactArgs(1),
+	return &cobra.Command{Use: "reset <production|full|custom>", Short: cliMessage("cli.short.scope_rule_reset"), Args: oneArgument("rule reset <production|full|custom>"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
@@ -782,7 +783,7 @@ func newScopeApplyCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writeScopeChangeResult(cmd, result)
+		return writeScopeChangeResult(cmd, root, result)
 	}}
 	command.Flags().StringVar(&previewFile, "preview-file", "", cliMessage("scope.flag.preview_file"))
 	command.Flags().StringVar(&approvalFile, "approval-file", "", cliMessage("scope.flag.approval_file"))
@@ -802,7 +803,7 @@ func newScopeResumeCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writeScopeChangeResult(cmd, result)
+		return writeScopeChangeResult(cmd, root, result)
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
@@ -820,7 +821,7 @@ func newScopeRollbackCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writeScopeChangeResult(cmd, result)
+		return writeScopeChangeResult(cmd, root, result)
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
@@ -857,20 +858,62 @@ func newScopeAcknowledgeCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
-		return writeScopeChangeResult(cmd, result)
+		return writeScopeChangeResult(cmd, root, result)
 	}}
 	command.Flags().StringVar(&reviewer, "reviewed-by", "", cliMessage("scope.flag.reviewed_by"))
 	_ = command.MarkFlagRequired("reviewed-by")
 	return command
 }
 
-func writeScopeChangeResult(cmd *cobra.Command, result *scopechange.Result) error {
+func writeScopeChangeResult(cmd *cobra.Command, root string, result *scopechange.Result) error {
 	if flagJSON {
 		return writePlannerJSON(cmd, result)
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.apply_summary", result.Status, result.TransactionID,
 		result.IndexSHA256, result.BaselineSHA256))
+	if result.Status == "applied" {
+		writeScopeApplyOrphans(cmd.OutOrStdout(), root)
+	}
 	return nil
+}
+
+// writeScopeApplyOrphans names the Entries a role change just orphaned. A
+// person who approved "1 file losing Index coverage" saw the file leave the
+// Index, not that its Entry stays behind until someone removes it: the
+// 2026-11-01 walk-through applied exactly that change and found verify,
+// check, and Maintain blocked on an orphan nobody had mentioned. The Entry is
+// not retired here because retiring cognition takes a reviewed candidate set;
+// this only says what the next command is.
+func writeScopeApplyOrphans(out io.Writer, root string) {
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		return
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
+		return
+	}
+	facts, err := volumegovernance.Assess(root, cfg, set)
+	if err != nil || len(facts.CodeDrift.Orphan) == 0 {
+		return
+	}
+	if len(facts.CodeDrift.Orphan) == 1 {
+		fmt.Fprintln(out, cliMessage("scope.apply_orphans_one", facts.CodeDrift.Orphan[0], facts.CodeDrift.Orphan[0]))
+		return
+	}
+	fmt.Fprintln(out, cliMessage("scope.apply_orphans", len(facts.CodeDrift.Orphan), strings.Join(facts.CodeDrift.Orphan, ", ")))
+}
+
+// oneArgument is cobra.ExactArgs(1) with an error that names the argument.
+// The stock "accepts 1 arg(s), received 0" told the walk-through user nothing
+// about what scope rule add was missing.
+func oneArgument(use string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) != 1 {
+			return errors.New(cliMessage("cli.one_argument_required", use))
+		}
+		return nil
+	}
 }
 
 func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus, error) {

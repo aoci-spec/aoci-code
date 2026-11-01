@@ -55,7 +55,7 @@ func newScopeActivateCmd() *cobra.Command {
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeChangeResult(cmd, result)
+			return writeScopeChangeResult(cmd, root, result)
 		}}
 }
 

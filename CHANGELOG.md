@@ -86,6 +86,19 @@ changes a persisted preimage names the binary every machine then needs.
   authoring task's `status` are `reviewed` (the template starts them at
   `pending`), not `semantic_reviewed`; a host that followed the guide
   literally stopped at `migration_authoring_task_status_invalid`.
+- A Managed Scope change that takes a file out of the Index now says what
+  it leaves behind. The walk-through of 2026-11-01 approved "1 files losing
+  Index coverage" in the host dialog, `scope apply` said applied, and
+  verify, check, and Maintain then stood blocked on the file's Entry, which
+  the change had turned into an orphan without a word; retiring cognition
+  takes a reviewed candidate set, so the Entry is not removed, but `scope
+  apply` (and `activate`, `resume`, `rollback`) now prints the orphaned
+  Entries and the `aoci remove-entry --path` or `aoci_remove_entry` step
+  that clears them. The approval summary reads "1 file losing Index
+  coverage" for one file, the orphan heading verify prints covers a file
+  that left the Index role, and `scope rule add`, `update`, `remove`,
+  `reset`, and `scope explain` without their argument say which argument
+  is missing instead of cobra's "accepts 1 arg(s), received 0".
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen
