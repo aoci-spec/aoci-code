@@ -16,6 +16,10 @@ type SourceError struct {
 	Code     string
 	SourceID string
 	Op       string
+	// Object names the catalog object the operation stopped on when one is
+	// known (a table that uses an unsupported feature); never a host, user,
+	// or credential.
+	Object string
 }
 
 type catalogQueryFailure struct {
@@ -30,6 +34,7 @@ type catalogStageFailure struct {
 
 type unsupportedCatalogFeature struct {
 	feature string
+	object  string
 }
 
 func (err *catalogQueryFailure) Error() string { return "catalog query " + err.name + " failed" }
@@ -237,7 +242,7 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		}
 		var unsupported *unsupportedCatalogFeature
 		if errors.As(err, &unsupported) {
-			return SourceManifest{}, nil, &SourceError{Code: "unsupported_catalog_feature", SourceID: source.SourceID, Op: op + "_" + unsupported.feature}
+			return SourceManifest{}, nil, &SourceError{Code: "unsupported_catalog_feature", SourceID: source.SourceID, Op: op + "_" + unsupported.feature, Object: unsupported.object}
 		}
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, op, err)
 	}

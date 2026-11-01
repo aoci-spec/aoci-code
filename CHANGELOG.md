@@ -50,6 +50,27 @@ changes a persisted preimage names the binary every machine then needs.
   of Go struct syntax, `scan` says "one Maintain round" when it means one,
   and `docs/getting-started.md` says that `init`'s own files count among the
   index files `scan` reports and which formal assets to commit.
+- A declared, enabled database source counts in governance before its
+  Database Volume exists. The absent-Volume branch of the shared governance
+  facts assessed no sources at all, so a repository could run `database
+  source add`, never snapshot it, and stay aligned: verify, check, Maintain,
+  and Guide all said so while `database cognition status` alone said
+  `snapshot_or_repair_evidence`. Now that source is an `evidence_unavailable`
+  finding, the verdict is `evidence_required` with
+  `snapshot_or_repair_evidence` as the next action (Maintain stops with the
+  snapshot and accept commands), and accepted Evidence with the Volume still
+  absent routes to `bootstrap_database_cognition`, which `baseline accept`
+  runs itself under `automation.mode=auto`. Bootstrap needs only Code
+  governance, so the verdict never blocks the command that clears it; a
+  disabled source and an engine without a collector stay informational.
+  Found on the SQLite walk-through, which also fixed what a person sees on
+  that path: `database source add` for SQLite no longer says schema
+  collection is unavailable (the collector shipped in rc23), the
+  `unsupported_catalog_feature` error names the operation and the table
+  (`operation=catalog_query_sqlite_check, object=t`), `database source
+  --help` names SQLite, and the aligned verdict counts Database Entries
+  (`6 Code Entries cover 6 index-role sources; 2 Database Entries are bound
+  to accepted Evidence`).
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

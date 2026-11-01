@@ -96,11 +96,11 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 		}
 		if kind != "table" {
 			rows.Close()
-			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_virtual_table"}
+			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_virtual_table", object: item.name}
 		}
 		if wr || strict {
 			rows.Close()
-			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_table_options"}
+			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_table_options", object: item.name}
 		}
 		selected = append(selected, item)
 	}
@@ -122,7 +122,7 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 		tokens := sqliteDDLTokens(ddl)
 		for _, unsupported := range []string{"CHECK", "DEFERRABLE", "COLLATE", "CONFLICT"} {
 			if tokens[unsupported] {
-				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + strings.ToLower(unsupported)}
+				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + strings.ToLower(unsupported), object: item.name}
 			}
 		}
 		if err := sqliteColumns(ctx, tx, &table); err != nil {

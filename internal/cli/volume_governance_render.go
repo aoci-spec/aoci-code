@@ -40,6 +40,10 @@ func volumeActionableFindings(facts *volumegovernance.Facts) int {
 // writeVolumeGovernanceVerdict prints the one-line conclusion.
 func writeVolumeGovernanceVerdict(out io.Writer, facts *volumegovernance.Facts) {
 	if facts.GovernanceAligned {
+		if facts.Database.Enabled {
+			fmt.Fprintln(out, cliMessage("governance.volumes_aligned_database", facts.CodeEntryCount, facts.CodeSourceCount, facts.DatabaseEntryCount))
+			return
+		}
 		fmt.Fprintln(out, cliMessage("governance.volumes_aligned", facts.CodeEntryCount, facts.CodeSourceCount))
 		return
 	}
@@ -153,6 +157,8 @@ func volumeGovernanceNextStep(facts *volumegovernance.Facts) string {
 		return cliMessage("governance.next.review_observed_evidence")
 	case facts.Result == volumegovernance.ResultBlocked:
 		return cliMessage("governance.next.blocked")
+	case facts.Result == volumegovernance.ResultEvidenceRequired && facts.NextRequiredAction == machinecontract.DatabaseCognitionActionBootstrapVolume:
+		return cliMessage("governance.next.bootstrap_database_cognition")
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		return cliMessage("governance.next.evidence_required")
 	case facts.Result == volumegovernance.ResultAuthoringRequired:

@@ -127,6 +127,9 @@ func TestVolumeGovernanceNextStepFollowsFinalizePrecedence(t *testing.T) {
 			Findings: []volumegovernance.Finding{{Code: "cognition_budget_exceeded"}}}, "aoci index agent guide --json"},
 		{"evidence", volumegovernance.Facts{Result: volumegovernance.ResultEvidenceRequired,
 			Findings: []volumegovernance.Finding{{Code: "database_evidence_required"}}}, "aoci database snapshot"},
+		{"bootstrap", volumegovernance.Facts{Result: volumegovernance.ResultEvidenceRequired,
+			NextRequiredAction: machinecontract.DatabaseCognitionActionBootstrapVolume,
+			Findings:           []volumegovernance.Finding{{Code: "database_evidence_bootstrap_required"}}}, "aoci database cognition bootstrap"},
 		{"authoring", volumegovernance.Facts{Result: volumegovernance.ResultAuthoringRequired,
 			Findings: []volumegovernance.Finding{{Code: "code_stale"}}}, "aoci_maintain"},
 	} {

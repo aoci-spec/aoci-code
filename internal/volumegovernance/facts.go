@@ -580,8 +580,9 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 			})
 		}
 	} else {
-		facts.DatabaseCognition = dbcognition.Assess(root, nil, set, state)
+		facts.DatabaseCognition = dbcognition.Assess(root, cfg.DatabaseSources, set, state)
 		facts.DatabaseEvidence.State = "not_applicable"
+		assessDeclaredSourcesWithoutVolume(facts, cfg)
 	}
 
 	// A manifest failure used to collapse into one generic blocker no matter what
@@ -941,6 +942,43 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 		if item.State != machinecontract.DatabaseCognitionCurrent {
 			facts.Findings = append(facts.Findings, Finding{Code: "database_" + item.State, Domain: cognition.ScopeDatabase, Target: item.ObjectRef})
 		}
+	}
+}
+
+// assessDeclaredSourcesWithoutVolume makes an enabled, collectable source
+// count before its Database Volume exists. Until 0.2.0 the absent-Volume
+// branch assessed no sources at all, so a repository could declare a source,
+// never snapshot it, and stay aligned: the 2026-11-01 walk-through declared a
+// SQLite file and verify, check, Maintain, and Guide all said aligned while
+// database cognition status alone said snapshot_or_repair_evidence. The
+// contract routes an absent Volume to snapshot_or_repair_evidence without
+// accepted Evidence and to bootstrap_database_cognition with it; finalize
+// takes that next action from the assessment once an evidence finding is
+// present. A disabled source governs nothing here, and a declaration whose
+// engine has no collector stays informational, as in the present-Volume path.
+// Bootstrap itself needs only Code governance, so the verdict never blocks
+// the command that clears it.
+func assessDeclaredSourcesWithoutVolume(facts *Facts, cfg *config.Config) {
+	assessment := facts.DatabaseCognition
+	facts.DatabaseEvidence.Configured = len(cfg.DatabaseSources)
+	if assessment.CognitionCurrent {
+		return
+	}
+	facts.DatabaseEvidence.State = ResultEvidenceRequired
+	for _, source := range assessment.Sources {
+		switch source.State {
+		case machinecontract.DatabaseCognitionCurrent:
+			facts.DatabaseEvidence.Accepted++
+		case machinecontract.DatabaseCognitionSourceDisabled:
+		case machinecontract.DatabaseCognitionEngineNotImplemented:
+			facts.Findings = append(facts.Findings, Finding{Code: FindingCodeDatabaseEngineNotImplemented, Domain: cognition.ScopeDatabase, Target: source.SourceID})
+		default:
+			facts.Findings = append(facts.Findings, Finding{Code: source.State, Domain: cognition.ScopeDatabase, Target: source.SourceID, Cause: source.ErrorCode})
+		}
+	}
+	if assessment.NextAction == machinecontract.DatabaseCognitionActionBootstrapVolume {
+		facts.Findings = append(facts.Findings, Finding{Code: "database_evidence_bootstrap_required", Domain: cognition.ScopeDatabase,
+			SafeRepairAction: "aoci database cognition bootstrap, which baseline accept already runs under automation.mode=auto"})
 	}
 }
 

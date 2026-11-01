@@ -51,7 +51,11 @@ and declared path, not proof that the file is readable. Inspect, snapshot, and
 verify explicitly open that file without credentials or directory discovery.
 Enabled SQLite sources now require Evidence in governance, Database Cognition
 Bootstrap, policy-bound auto eligibility, and Database Entry removal, and
-`onboard next --collect-database` can collect and accept their Evidence.
+`onboard next --collect-database` can collect and accept their Evidence. As
+for every collectable engine, that requirement starts at the declaration:
+until the snapshot is accepted, `verify` reports `evidence_required` and
+Maintain stops with the snapshot and accept commands, even while the
+Database Volume does not exist yet.
 
 The include/exclude flags accept Go-style glob patterns over the entire
 identifier and may be repeated. A slash is an identifier character, not a path

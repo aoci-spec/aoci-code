@@ -242,7 +242,11 @@ func databaseSourceExitError(err error) error {
 		return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code,
 			Msg: cliMessage("database.error.credential_env_missing", sourceErr.SourceID)}
 	}
-	return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code, Msg: cliMessage("database.error.source", sourceErr.SourceID, sourceErr.Code)}
+	if sourceErr.Object != "" {
+		return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code,
+			Msg: cliMessage("database.error.source_object", sourceErr.SourceID, sourceErr.Code, sourceErr.Op, sourceErr.Object)}
+	}
+	return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code, Msg: cliMessage("database.error.source", sourceErr.SourceID, sourceErr.Code, sourceErr.Op)}
 }
 
 func writeDatabaseJSON(cmd *cobra.Command, value any) error {
