@@ -111,6 +111,11 @@ func newOnboardNextCmd() *cobra.Command {
 			return writePlannerJSON(cmd, output)
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.batch_summary", batch.ObjectCount, batch.EvidenceBytes, batch.CompletedCount, batch.PendingCount, batch.SemanticGenerated))
+		if session, err := onboarding.LoadRequired(root); err == nil {
+			for _, command := range onboardingBatchNextCommands(root, session, batch) {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.progress_command", command))
+			}
+		}
 		return nil
 	}}
 	command.Flags().StringVar(&completionFile, "completion-file", "", cliMessage("onboarding.flag.completion_file"))
@@ -185,6 +190,10 @@ func newOnboardPrepareCmd() *cobra.Command {
 			return onboardingExitError(err)
 		}
 		if session.ApprovalState == "policy_bound_auto" {
+			if !flagJSON {
+				fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_auto", strings.Join(onboardingNextCommands(root, session), "; ")))
+				return nil
+			}
 			return writePlannerJSON(cmd, struct {
 				Session       *onboarding.Session `json:"session"`
 				Envelope      any                 `json:"envelope"`
@@ -218,6 +227,15 @@ func newOnboardPrepareCmd() *cobra.Command {
 			ResumeAction: hostInteractionCommand("cognition", "onboard", "apply", "--approval-file", "{approval_file}", "--json"),
 			TTYRequired:  true, ModelSelfApproval: false, FormalWritesStarted: false,
 			HostDialogRequest: onboardingDialogRequest(root)}
+		if !flagJSON {
+			// A person reads this one: what is written, the two ways to approve,
+			// and the command that applies it. The JSON form carries the envelope.
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_header", writeCount, digest))
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_terminal", exact))
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_dialog"))
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.prepare_resume", interaction.ResumeAction))
+			return nil
+		}
 		return writePlannerJSON(cmd, struct {
 			Session     *onboarding.Session     `json:"session"`
 			Envelope    any                     `json:"envelope"`
@@ -310,6 +328,9 @@ func writeOnboardingSession(cmd *cobra.Command, root string, session *onboarding
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.progress_security", session.BusinessRowsRead, session.DDLDMLStatements, session.NetworkAccessed))
 	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.progress_next", session.NextAction))
+	for _, command := range onboardingNextCommands(root, session) {
+		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("onboarding.progress_command", command))
+	}
 	return nil
 }
 

@@ -126,7 +126,8 @@ func TestCheckPrintsSCoverageAndHintsAboveThreshold(t *testing.T) {
 	if !strings.Contains(output, wantLine) {
 		t.Fatalf("check output lacks the coverage line %q:\n%s", wantLine, output)
 	}
-	wantHint := cliMessage("check.hint_s_coverage", percent, machinecontract.HighImportanceMinC, machinecontract.HighImportanceSAbsentHintPercent)
+	// The Legacy fixture gets the variant that points past the migration, since cognition_optimization refuses on this layout.
+	wantHint := cliMessage("check.hint_s_coverage_legacy", percent, machinecontract.HighImportanceMinC, machinecontract.HighImportanceSAbsentHintPercent)
 	if !strings.Contains(output, wantHint) {
 		t.Fatalf("check output lacks the hint %q:\n%s", wantHint, output)
 	}

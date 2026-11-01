@@ -27,6 +27,7 @@ func renderVerifyHuman(
 		&builder,
 		cliMessage("verify.repository", report.Root, report.IndexEntries, report.DiskFiles, report.BaselineExists),
 	)
+	fmt.Fprintln(&builder, cliMessage("legacy.read_only_hint"))
 
 	if report.CurationSHA256 != "" {
 		fmt.Fprintln(
@@ -122,7 +123,7 @@ func renderVerifyHuman(
 			report.CognitionBudget.TargetTokens, report.CognitionBudget.WarningTokens, report.CognitionBudget.MaxTokens,
 			report.CognitionBudget.Mode, report.CognitionBudget.Status, len(report.CognitionBudget.Violations)))
 		writeSCoverage(&builder, report.CognitionBudget.SCoverage, report.CognitionBudget.HighImportanceEntries,
-			report.CognitionBudget.HighImportanceSAbsent, report.CognitionBudget.HighImportanceSAbsentPercent)
+			report.CognitionBudget.HighImportanceSAbsent, report.CognitionBudget.HighImportanceSAbsentPercent, true)
 	}
 
 	if len(report.FormatWarnings) > 0 {

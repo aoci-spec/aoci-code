@@ -314,6 +314,8 @@ func init() {
 
 			if volumeFacts != nil {
 				writeVolumeGovernanceSummary(out, volumeFacts)
+			} else if readErr == nil && set != nil && volumeSet == nil {
+				fmt.Fprintln(out, cliMessage("legacy.read_only_hint"))
 			}
 
 			if report.LastVerify != "" {

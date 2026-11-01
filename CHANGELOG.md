@@ -71,6 +71,21 @@ changes a persisted preimage names the binary every machine then needs.
   --help` names SQLite, and the aligned verdict counts Database Entries
   (`6 Code Entries cover 6 index-role sources; 2 Database Entries are bound
   to accepted Evidence`).
+- The Legacy-to-Volumes migration walk-through, step by step from
+  `docs/upgrading.md`, now reads right for a person. `verify`, `check`, and
+  `status` on a Legacy repository say that the layout is read-only since
+  0.2.0 and name `aoci cognition onboard start --json`; until now they said
+  aligned and ready to commit, and verify's S-coverage note sent the reader
+  to `cognition_optimization`, which refuses on that layout (the Legacy
+  variant of the note now points past the migration). `cognition onboard
+  start` and `next` print the next command under their human output instead
+  of a next-action token alone, and `onboard prepare` prints what will be
+  written, the terminal command with its phrase, the MCP-dialog route, and
+  the apply command instead of the session JSON. The guide itself was wrong
+  about one spelling: a completed mapping record's `review_status` and an
+  authoring task's `status` are `reviewed` (the template starts them at
+  `pending`), not `semantic_reviewed`; a host that followed the guide
+  literally stopped at `migration_authoring_task_status_invalid`.
 - `aoci --help` lists the five everyday commands first (`init`, `scan`,
   `mcp`, `verify`, `check`) under Everyday Commands and the rest under
   Additional Commands, and `aoci scope --help` sorts its seventeen

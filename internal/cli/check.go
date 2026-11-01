@@ -71,13 +71,22 @@ func writeEScale(out io.Writer, facts volumegovernance.EScaleFacts) {
 // pass. Both are operator information: neither enters issues nor moves the
 // exit code, and the Legacy Report and the Volumes budget facts feed it the
 // same four figures.
-func writeSCoverage(out io.Writer, bands []cognitionbudget.SCoverageBand, highEntries, highAbsent, highPercent int) {
+func writeSCoverage(out io.Writer, bands []cognitionbudget.SCoverageBand, highEntries, highAbsent, highPercent int, legacy bool) {
 	fmt.Fprintln(out, cliMessage("check.s_coverage", machinecontract.HighImportanceMinC, highEntries-highAbsent,
 		highEntries, highPercent, cognitionbudget.FormatSCoverageBands(bands)))
-	if cognitionbudget.HighImportanceSAbsentHint(highEntries, highPercent) {
-		fmt.Fprintln(out, cliMessage("check.hint_s_coverage", highPercent, machinecontract.HighImportanceMinC,
-			machinecontract.HighImportanceSAbsentHintPercent))
+	if !cognitionbudget.HighImportanceSAbsentHint(highEntries, highPercent) {
+		return
 	}
+	// A Legacy layout cannot run the optimization the hint names: every write
+	// tool answers legacy_read_only_migrate_required there, so the hint points
+	// past the migration instead of at a command that refuses.
+	if legacy {
+		fmt.Fprintln(out, cliMessage("check.hint_s_coverage_legacy", highPercent, machinecontract.HighImportanceMinC,
+			machinecontract.HighImportanceSAbsentHintPercent))
+		return
+	}
+	fmt.Fprintln(out, cliMessage("check.hint_s_coverage", highPercent, machinecontract.HighImportanceMinC,
+		machinecontract.HighImportanceSAbsentHintPercent))
 }
 
 type checkReport struct {
@@ -288,6 +297,7 @@ func runCheckCommand(
 	}
 
 	fmt.Fprintln(out, cliMessage("check.start", time.Now().UTC().Format(time.RFC3339)))
+	fmt.Fprintln(out, cliMessage("legacy.read_only_hint"))
 
 	if report.OK {
 		fmt.Fprintln(out, cliMessage("check.ok"))
@@ -366,7 +376,7 @@ func runCheckCommand(
 	}
 
 	if budget := score.CognitionBudget; budget != nil {
-		writeSCoverage(out, budget.SCoverage, budget.HighImportanceEntries, budget.HighImportanceSAbsent, budget.HighImportanceSAbsentPercent)
+		writeSCoverage(out, budget.SCoverage, budget.HighImportanceEntries, budget.HighImportanceSAbsent, budget.HighImportanceSAbsentPercent, true)
 	}
 
 	if eScaleDimension.Bad > 0 {
@@ -418,7 +428,7 @@ func runVolumeCheck(cmd *cobra.Command, root string, cfg *config.Config, set *co
 	}
 	if !flagJSON && facts.Code.Enabled {
 		writeSCoverage(cmd.OutOrStdout(), facts.Budget.SCoverage, facts.Budget.HighImportanceEntries,
-			facts.Budget.HighImportanceSAbsent, facts.Budget.HighImportanceSAbsentPercent)
+			facts.Budget.HighImportanceSAbsent, facts.Budget.HighImportanceSAbsentPercent, false)
 	}
 	if !flagJSON && facts.Code.Enabled {
 		writeEScale(cmd.OutOrStdout(), escale)

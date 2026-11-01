@@ -198,14 +198,15 @@ performs every step below for a small repository.
    not exist yet. Its `target_ranges` are the candidate's lines: every Entry
    and each of its fields, and every Root or Meta line written in place of a
    placeholder. Structural records come filled in. Complete every other record with a `semantic_role`, `review_status`
-   `semantic_reviewed`, a `reviewer`, the `target_asset`, `target_object`, and
+   `reviewed` (the template starts every record and task at `pending`), a
+   `reviewer`, the `target_asset`, `target_object`, and
    `target_semantic_range_identity` of one target range, and a `mapping_mode`:
    - `preserved` when that range holds the record's exact bytes, as a
      carried-over Entry and its fields do. Drop the record's `author:` task:
      every task left in `authoring_tasks` must be reviewed.
    - `model_regenerated` otherwise. Its `authoring_task_id` names a task that
      lists the record in `source_identities` and the range in
-     `candidate_range_identities`, with `status` `semantic_reviewed` and a
+     `candidate_range_identities`, with `status` `reviewed` and a
      `reviewer`. A regenerated Entry also names a `mapping_groups` item that
      holds the record, the range, and that task.
 
