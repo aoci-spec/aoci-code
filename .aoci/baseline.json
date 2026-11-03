@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-03T15:07:01Z",
+  "updated_at": "2026-11-03T15:08:35Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "5e1f5bc9ea533e7d00f2bc02059c8518c9e2e4c088fffd08c76653f87795f97e",
-      "size": 235048,
-      "normalized_sha256": "5e1f5bc9ea533e7d00f2bc02059c8518c9e2e4c088fffd08c76653f87795f97e"
+      "sha256": "718ba4285d7cad1a4b9ca47dfbfb2db2a8a07f634ed4f42131ccf993465bbb59",
+      "size": 235120,
+      "normalized_sha256": "718ba4285d7cad1a4b9ca47dfbfb2db2a8a07f634ed4f42131ccf993465bbb59"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -1085,18 +1085,18 @@
     },
     "internal/cli/database_evidence.go": {
       "role": "index",
-      "sha256": "60c974a6a17a397467446f62ff535a0cd4bef44b26c90465ee007773ca098067",
-      "size": 7190,
-      "normalized_sha256": "60c974a6a17a397467446f62ff535a0cd4bef44b26c90465ee007773ca098067",
-      "format_sha256": "60c974a6a17a397467446f62ff535a0cd4bef44b26c90465ee007773ca098067",
+      "sha256": "d7836dd0c587c1e9139aec8b0e3f693f5beae94241960962aa0fb5a43fa1a493",
+      "size": 7466,
+      "normalized_sha256": "d7836dd0c587c1e9139aec8b0e3f693f5beae94241960962aa0fb5a43fa1a493",
+      "format_sha256": "d7836dd0c587c1e9139aec8b0e3f693f5beae94241960962aa0fb5a43fa1a493",
       "format_kind": "gofmt"
     },
     "internal/cli/database_snapshot.go": {
       "role": "index",
-      "sha256": "d2cf67abc6fdfe33352d2dbcc8e67a2aa4077a290f6b42e7608891a2002f1875",
-      "size": 6885,
-      "normalized_sha256": "d2cf67abc6fdfe33352d2dbcc8e67a2aa4077a290f6b42e7608891a2002f1875",
-      "format_sha256": "d2cf67abc6fdfe33352d2dbcc8e67a2aa4077a290f6b42e7608891a2002f1875",
+      "sha256": "2360738b155f1b9fb784ff80d900c4f120ad979a341a864d1e0c897d4d1f558c",
+      "size": 7248,
+      "normalized_sha256": "2360738b155f1b9fb784ff80d900c4f120ad979a341a864d1e0c897d4d1f558c",
+      "format_sha256": "2360738b155f1b9fb784ff80d900c4f120ad979a341a864d1e0c897d4d1f558c",
       "format_kind": "gofmt"
     },
     "internal/cli/database_source_required_test.go": {
@@ -1109,10 +1109,10 @@
     },
     "internal/cli/database_test.go": {
       "role": "observe",
-      "sha256": "817885c1f2bd174268d183df796f3fc5a4a37194d3087d76aabc6d9dd65a7c7f",
-      "size": 28079,
-      "normalized_sha256": "817885c1f2bd174268d183df796f3fc5a4a37194d3087d76aabc6d9dd65a7c7f",
-      "format_sha256": "817885c1f2bd174268d183df796f3fc5a4a37194d3087d76aabc6d9dd65a7c7f",
+      "sha256": "45ac12f902631094014057095a1cfc8e789f683ec556c7fff15e7f25b72b2cea",
+      "size": 30304,
+      "normalized_sha256": "45ac12f902631094014057095a1cfc8e789f683ec556c7fff15e7f25b72b2cea",
+      "format_sha256": "45ac12f902631094014057095a1cfc8e789f683ec556c7fff15e7f25b72b2cea",
       "format_kind": "gofmt"
     },
     "internal/cli/dictionary_hint_locale_test.go": {
@@ -7450,9 +7450,9 @@
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "41bb38217839ae8eb7e66d1539120fa44400e01749c592c0bdf43e79500166ca",
-      "size": 143710,
-      "normalized_sha256": "41bb38217839ae8eb7e66d1539120fa44400e01749c592c0bdf43e79500166ca"
+      "sha256": "1544cb20ceeb133d472fb7a8a7cef389be9e8e5a7cc82a0455b7a03b025a36f9",
+      "size": 143874,
+      "normalized_sha256": "1544cb20ceeb133d472fb7a8a7cef389be9e8e5a7cc82a0455b7a03b025a36f9"
     },
     "textassets/en-US/prompts/database-entry-authoring-rules.txt": {
       "role": "observe",
@@ -8038,9 +8038,9 @@
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "b784a45d90ad7e1587540da493c1d17c47448355fca456b6fc9b86bdd5b6f298",
-      "size": 132936,
-      "normalized_sha256": "b784a45d90ad7e1587540da493c1d17c47448355fca456b6fc9b86bdd5b6f298"
+      "sha256": "ba2ca63e36e73a814d616c73898139fded3e9377509a6aa7c2fb7857f8007665",
+      "size": 133088,
+      "normalized_sha256": "ba2ca63e36e73a814d616c73898139fded3e9377509a6aa7c2fb7857f8007665"
     },
     "textassets/zh-CN/prompts/database-entry-authoring-rules.txt": {
       "role": "observe",

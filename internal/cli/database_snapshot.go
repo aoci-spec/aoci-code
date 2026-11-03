@@ -65,12 +65,15 @@ func newDatabaseInventoryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
+			manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
 			if err != nil {
 				return renderDatabaseSourceFailure(cmd, source, string(dbevidence.DriftEvidenceInvalid), "database_evidence_invalid", ExitInvalid)
 			}
 			if !exists {
 				return &ExitError{Code: ExitConfig, MachineCode: "database_snapshot_missing", Msg: cliMessage("database.error.snapshot_missing", sourceID)}
+			}
+			if !dbevidence.SourceConfigMatchesManifest(source, manifest) {
+				return databaseSnapshotSelectionMismatch(sourceID)
 			}
 			baseline, baselinePresent, err := dbevidence.LoadBaseline(root)
 			if err != nil {
@@ -82,6 +85,13 @@ func newDatabaseInventoryCmd() *cobra.Command {
 	}
 	command.Flags().StringVar(&sourceID, "source", "", cliMessage("database.flag.source"))
 	return command
+}
+
+func databaseSnapshotSelectionMismatch(sourceID string) error {
+	return &ExitError{
+		Code: ExitInvalid, MachineCode: "database_snapshot_selection_mismatch",
+		Msg: cliMessage("database.error.snapshot_selection", sourceID),
+	}
 }
 
 func newDatabaseVerifyCmd() *cobra.Command {
