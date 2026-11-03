@@ -772,6 +772,20 @@ changes a persisted preimage names the binary every machine then needs.
   `x/sys` license text is byte-identical. `setup-node` crosses three major
   versions whose breaking changes concern automatic package-manager caching,
   which a repository without a root `package.json` never triggers.
+- Update the PostgreSQL driver `github.com/jackc/pgx/v5` to 5.12.0 and the
+  SQLite collector's `github.com/ncruces/go-sqlite3` to 0.36.0 (SQLite
+  3.54.1). They move `puddle` to 2.2.3, `go-sqlite3-wasm` to 6.4.35401, and
+  `golang.org/x/crypto`, `x/sync`, and `x/text` to 0.58.0, 0.24.0, and
+  0.43.0; the pinned `download-artifact` moves to 8.0.2. pgx 5.12.0 fixes
+  GHSA-95fj-3fxw-g62g: from 5.9.0, a server could skip the authentication
+  that `require_auth` or `channel_binding=require` demanded, so a PostgreSQL
+  source relying on those without `sslmode=verify-full` could be answered by
+  an impersonating server. AOCI sends only fixed catalog queries, so the
+  exposure was a forged snapshot, not business data. GHSA-j38q-h3ph-jjpq
+  does not reach AOCI, which never sends simple-protocol batches. The release
+  module set is the same 26 modules, every license text is byte-identical,
+  and the license gate binds the SQLite translation's MIT-0 text to
+  6.4.35401.
 
 ## v0.1.0
 

@@ -229,7 +229,7 @@ fi
 # to the exact reviewed version and original LICENSE bytes; an unknown license
 # elsewhere, a replacement, or a future version still fails closed.
 sqlite_wasm_module="github.com/ncruces/go-sqlite3-wasm/v6"
-sqlite_wasm_version="v6.3.35304"
+sqlite_wasm_version="v6.4.35401"
 sqlite_wasm_license_sha256="13219037ddf63dbbcf174bf59525d602df7a2e30083f63be566715c858fcb19e"
 sqlite_wasm_record="$( \
   GOTOOLCHAIN=local GOWORK=off GOPROXY=off GOFLAGS="${readonly_go_flags}" \
