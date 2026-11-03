@@ -7,7 +7,7 @@ Release-asset validation, and publication.
 
 ## Artifact set
 
-A signed release-candidate upload consists of exactly 16 assets:
+A signed release upload consists of exactly 16 assets:
 
 - six platform archives built with CGO disabled, `-trimpath`, an empty Go build
   ID, the full source commit, and a source-derived commit date;
@@ -18,7 +18,7 @@ A signed release-candidate upload consists of exactly 16 assets:
   Scope, Apply-authorization, policy-bound Receipt, and cognition-budget machine
   contracts;
 - `SHA256SUMS.sigstore.json`, the Cosign bundle for the checksum file; and
-- `AOCI-CODE_v0.1.0-rc23.provenance.sigstore.json`, the GitHub build-provenance
+- `AOCI-CODE_v0.1.0.provenance.sigstore.json`, the GitHub build-provenance
   bundle for the 12 distributables, `SHA256SUMS`, and
   `RELEASE-MANIFEST.json`.
 
@@ -58,7 +58,7 @@ host `git` executable for tracked/ignored authority and fails closed without it.
 
 The recipe removes host paths and wall-clock build time, fixes the source commit timestamp, disables CGO, and records exact tool identities. A release must also pin the Go patch version, build from a clean immutable tag, verify modules, and compare binaries from at least two isolated builders before claiming bit-for-bit reproducibility.
 
-The current release-candidate validation establishes repeatable inputs and
+The current release validation establishes repeatable inputs and
 evidence. Its artifact manifest v4 binds the reviewed MCP tools/list protocol
 and current lifecycle contract versions. It does not claim that two independent
 builders produce identical archives.
@@ -161,7 +161,7 @@ private key, PAT, or GPG signing key.
 Tag verification requires this exact certificate identity:
 
 ```text
-https://github.com/aoci-spec/aoci-code/.github/workflows/release.yml@refs/tags/v0.1.0-rc23
+https://github.com/aoci-spec/aoci-code/.github/workflows/release.yml@refs/tags/v0.1.0
 ```
 
 The required OIDC issuer is:
@@ -173,7 +173,7 @@ https://token.actions.githubusercontent.com
 The same workflow uses GitHub Artifact Attestations to generate SLSA build
 provenance for exactly 14 subjects: the six archives, six SBOMs,
 `SHA256SUMS`, and `RELEASE-MANIFEST.json`. The resulting bundle is uploaded as
-`AOCI-CODE_v0.1.0-rc23.provenance.sigstore.json`. Verification constrains the
+`AOCI-CODE_v0.1.0.provenance.sigstore.json`. Verification constrains the
 repository, exact workflow certificate identity, Tag ref, and Tag commit in
 addition to each subject digest.
 

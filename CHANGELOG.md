@@ -753,6 +753,30 @@ changes a persisted preimage names the binary every machine then needs.
   and `docs/upgrading.md` walks through the migration, the candidate and
   mapping files included. Existing fields keep their shape.
 
+## v0.1.0
+
+The first release. It promotes v0.1.0-rc23 unchanged: the product code,
+dependencies, Go toolchain, MCP tool surface, input schemas, formal-asset
+formats, and scope identities are those of `592e90c`, released as rc23 on
+2026-10-29 and soaked since then. The soak found one defect, listed below as
+a known issue. It is not fixed here, so the release stays the build that was
+soaked. The 23 candidate sections below record how it got here.
+
+- The release is no longer a candidate. The GitHub Release is published as the
+  latest release rather than a pre-release; the version pointers in the
+  READMEs, `docs/install.md`, `docs/supply-chain.md`, and NOTICE name `v0.1.0`;
+  and the release workflow's dispatch default moves with them.
+- No behavior change. A repository aligned under rc23 stays aligned, and the
+  upgrade axis orders v0.1.0 after every candidate.
+- Known issue: running `aoci cognition onboard apply` again on an onboarding
+  that already completed writes the session back to `apply_pending`, then
+  answers `onboarding_artifact_conflict`. The formal assets and the Baseline
+  are untouched, and Verify, Check, and the Guide still report aligned; only
+  the transaction and approval states that `cognition onboard status` reads
+  from `.aoci/onboarding/active.json` disagree. Run Apply once. The v0.2.0
+  line returns the recorded result instead and repairs a session left this
+  way.
+
 ## v0.1.0-rc23
 
 The rc22 soak's one finding: a Managed Scope rule could reach a formal

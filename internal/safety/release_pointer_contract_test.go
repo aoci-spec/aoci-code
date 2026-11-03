@@ -63,8 +63,8 @@ func TestEveryReleaseVersionPointerNamesTheCurrentVersion(t *testing.T) {
 		// may legitimately mention other versions elsewhere.
 		contains string
 	}{
-		{file: "README.md", contains: "is the current release candidate"},
-		{file: "README.zh-CN.md", contains: "是当前发布候选版本"},
+		{file: "README.md", contains: "is the current release"},
+		{file: "README.zh-CN.md", contains: "是当前发布"},
 		{file: "NOTICE", contains: "Notice"},
 		{file: ".github/workflows/release.yml", contains: "default:"},
 		// Named in this file's own header as rc6 casualties, and unguarded until
@@ -105,9 +105,12 @@ func TestEveryReleaseVersionPointerNamesTheCurrentVersion(t *testing.T) {
 func TestBothReadmeStatusBadgesNameTheCurrentVersion(t *testing.T) {
 	root := releaseRepoRoot(t)
 	version := currentReleaseVersion(t, root)
-	// shields.io escapes a literal hyphen as "--".
+	// shields.io escapes a literal hyphen as "--", and a single hyphen then
+	// separates the version from the color. The version is compared whole: a
+	// prefix check let a stale "v0.1.0--rc23" badge pass for the final v0.1.0,
+	// since the candidate's badge begins with the release's.
 	want := "status-v" + strings.ReplaceAll(version, "-", "--")
-	badge := regexp.MustCompile(`status-v[0-9A-Za-z.\-]+`)
+	badge := regexp.MustCompile(`status-v(?:[0-9A-Za-z.]|--)+`)
 
 	for _, file := range []string{"README.md", "README.zh-CN.md"} {
 		text := readReleaseFile(t, root, file)
@@ -117,8 +120,8 @@ func TestBothReadmeStatusBadgesNameTheCurrentVersion(t *testing.T) {
 			continue
 		}
 		for _, hit := range hits {
-			if !strings.HasPrefix(hit, want) {
-				t.Errorf("%s status badge reads %q but the current release is v%s (expected prefix %q)",
+			if hit != want {
+				t.Errorf("%s status badge reads %q but the current release is v%s (expected %q)",
 					file, hit, version, want)
 			}
 		}
