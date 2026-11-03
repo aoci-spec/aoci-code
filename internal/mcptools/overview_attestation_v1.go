@@ -83,6 +83,7 @@ type overviewChallengeTarget struct {
 }
 
 type overviewChallenge struct {
+	deletionOnlyDelta   bool
 	Version             string
 	IndexSHA256         string
 	EntrySequenceSHA256 string
@@ -322,8 +323,12 @@ func assessOverviewAttestation(
 	tokensMatch := estimatedTokensMatch(report.ReportedEstimatedTokens, expectedTokens)
 	result.ReportedEntryCountMatch = countMatches
 	result.ReportedTokensMatch = tokensMatch
+	// A retained deletion-only delta delivers no Entry to recall. It still
+	// needs a confirmed delivery and the current identity envelope.
+	deletionProof := challenge.deletionOnlyDelta && result.ChallengeTotal == 0 &&
+		report.ReportedEntryCount == 0 && hostStatus == hostDeliveryConfirmed && governanceAligned
 	challengeMet := ordered &&
-		challengePassRatioMet(result.ChallengePassed, result.ChallengeTotal) &&
+		(deletionProof || challengePassRatioMet(result.ChallengePassed, result.ChallengeTotal)) &&
 		result.ObjectIdentityMissCount <= attestationIdentityMissMax
 	claimsComplete := report.CoveragePercent >= attestationCoverageComplete &&
 		!report.TruncationDetected && countMatches

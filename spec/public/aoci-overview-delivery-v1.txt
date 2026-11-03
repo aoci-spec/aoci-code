@@ -445,8 +445,11 @@ stable-key selection, reported at their current ordinals. The Attestation
 echoes the current complete identity facts, the current Index SHA-256,
 Entry-sequence SHA-256, and Entry count, never the base's;
 `reported_entry_count`, `coverage_percent`, and `truncation_detected`
-describe the delta body. The pass share and the identity-miss rule are
-unchanged. A passing incremental Attestation under aligned governance
+describe the delta body. A deletion-only delta with unchanged Root and Meta
+has zero Challenge ordinals. Its Attestation requires confirmed delivery,
+aligned governance, the current identity envelope, zero reported Entries,
+and an empty answer list. For other deliveries the pass share and the
+identity-miss rule are unchanged. A passing incremental Attestation under aligned governance
 records a reliable receipt, where `model_full_cognition_reliable=true` rests
 on the reliable base, the probe pass, and this Attestation together, moves
 the base to the current sequence, and consumes pending refresh reasons as a

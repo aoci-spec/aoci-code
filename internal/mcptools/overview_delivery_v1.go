@@ -262,6 +262,8 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		}
 		framed = frameOverviewBody(ctx.Root, ctx.EffectiveScope, ctx.ScopeIdentity, ctx.EntryCount, ctx.Content)
 	}
+	challenge.deletionOnlyDelta = ctx.Delta != nil && ctx.Delta.ObjectCount == 0 &&
+		len(ctx.Delta.RemovedIdentities) > 0 && !ctx.Delta.HeaderIncluded
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
 	if input.HostConfirmation == nil && input.ModelAttestation == nil && input.Cursor == "" {

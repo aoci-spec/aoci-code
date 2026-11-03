@@ -266,6 +266,42 @@ func ordinalOf(t *testing.T, sequence []overviewChallengeTarget, identity string
 	return 0
 }
 
+func TestOverviewDeletionOnlyDeltaReanchors(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 10)
+	full := callVolumeTool(t, session, "aoci_overview", map[string]any{})
+	base := overviewMetadataValue(t, full, "index_sha256")
+	if proof := attestDelivered(t, session, root, full, false); overviewMetadataValue(t, proof, "model_attestation") != "pass" {
+		t.Fatal("complete Attestation did not pass")
+	}
+	const path = "pkg/mod000/file004.go"
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(path))); err != nil {
+		t.Fatal(err)
+	}
+	applied := decodeMaintainJSON(t, callVolumeTool(t, session, "aoci_update_entry", map[string]any{
+		"removals": []map[string]any{{"path": "code:" + path}},
+	}))
+	if applied["aligned"] != true {
+		t.Fatalf("orphan removal did not align: %v", applied)
+	}
+	passProbe(t, session, root)
+	delta := callVolumeTool(t, session, "aoci_overview", map[string]any{"delta_since": base})
+	if overviewMetadataValue(t, delta, "delivery_mode") != overviewDeliveryDelta ||
+		overviewMetadataValue(t, delta, "delta_removed_identities") != "[\"code:"+path+"\"]" ||
+		metadataInt(t, delta, "challenge_count") != 0 {
+		t.Fatalf("unexpected deletion delta: %s", delta)
+	}
+	proof := attestDelivered(t, session, root, delta, false)
+	if overviewMetadataValue(t, proof, "model_attestation") != "pass" ||
+		overviewMetadataValue(t, proof, "model_full_cognition_reliable") != "true" {
+		t.Fatalf("deletion Attestation did not pass: %s", proof)
+	}
+	passProbe(t, session, root)
+	next := callVolumeTool(t, session, "aoci_overview", map[string]any{"delta_since": overviewMetadataValue(t, delta, "index_sha256")})
+	if overviewMetadataValue(t, next, "delivery_mode") != overviewDeliveryDelta || strings.Contains(next, "challenge_digest") {
+		t.Fatalf("the new base did not produce an empty delta: %s", next)
+	}
+}
+
 // Locks the L5 contract end to end on one Host session: a delta is served only
 // after a passing complete Attestation and a probe pass over the current
 // identity; it carries exactly the changed and added Entries at their current
