@@ -353,7 +353,7 @@
   "database.error.object_not_found": "已保存Snapshot不包含数据库对象%s。",
   "database.error.snapshot_binding": "数据库source %s的显式Snapshot SHA与已保存Snapshot不匹配。",
   "database.error.snapshot_missing": "数据库source %s尚无已保存Snapshot；请先运行aoci database snapshot。",
-  "database.error.snapshot_selection": "数据库源 %s 的已保存快照与当前选择不匹配，请运行 aoci database snapshot 重新采集。",
+  "database.error.snapshot_selection": "数据库source %s的已保存Snapshot与当前选择不匹配；请运行aoci database snapshot重新采集。",
   "database.error.source": "数据库source %s未能完成只读元数据操作（error_code=%s，operation=%s）；凭证和端点细节已隐藏。",
   "database.error.source_object": "数据库source %s未能完成只读元数据操作（error_code=%s，operation=%s，object=%s）；凭证和端点细节已隐藏。",
   "database.error.source_exists": "数据库source %s已存在；显式更新请使用--replace。",

@@ -752,6 +752,20 @@ changes a persisted preimage names the binary every machine then needs.
   to a new file instead of through a shell redirect that could re-encode it,
   and `docs/upgrading.md` walks through the migration, the candidate and
   mapping files included. Existing fields keep their shape.
+- A deletion-only incremental Overview proves itself (#164, dayebishouji).
+  A delta that only removes Entries, with Root and Meta unchanged, delivers
+  no Entry, so its Challenge has no ordinal; the empty answer list graded as
+  zero correct, failed, dropped the retained base, and sent the next
+  Overview back to a complete delivery. It now passes on an empty answer
+  list with zero reported Entries once delivery is confirmed and governance
+  is aligned, and the next delta starts from the new base.
+- `database inventory`, `database evidence bundle`, and `database baseline
+  accept` refuse a snapshot saved for a replaced source selection (#165,
+  dayebishouji). After `database source add --replace` changed what a
+  source selects, the old snapshot still answered inventory and the bundle,
+  and accept wrote it as the Baseline under the current source ID. The three
+  commands now answer `database_snapshot_selection_mismatch` and ask for a
+  new snapshot; a refused accept writes no Baseline.
 
 ## v0.1.0
 
