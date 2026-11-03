@@ -25,16 +25,19 @@ func newDatabaseBaselineAcceptCmd() *cobra.Command {
 		Use:   "accept",
 		Short: cliMessage("cli.short.database_baseline_accept"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			root, _, err := configuredDatabaseSource(sourceID)
+			root, source, err := configuredDatabaseSource(sourceID)
 			if err != nil {
 				return err
 			}
-			_, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
+			manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
 			if err != nil {
 				return &ExitError{Code: ExitInvalid, MachineCode: "database_evidence_invalid", Msg: cliMessage("database.error.evidence_invalid", sourceID)}
 			}
 			if !exists {
 				return &ExitError{Code: ExitConfig, MachineCode: "database_snapshot_missing", Msg: cliMessage("database.error.snapshot_missing", sourceID)}
+			}
+			if !dbevidence.SourceConfigMatchesManifest(source, manifest) {
+				return databaseSnapshotSelectionMismatch(sourceID)
 			}
 			if err := dbevidence.AcceptSnapshot(root, snapshot, snapshotSHA); err != nil {
 				return &ExitError{Code: ExitInvalid, MachineCode: "database_snapshot_binding_mismatch", Msg: cliMessage("database.error.snapshot_binding", sourceID)}
@@ -109,16 +112,19 @@ func newDatabaseEvidenceBundleCmd() *cobra.Command {
 		Use:   "bundle",
 		Short: cliMessage("cli.short.database_evidence_bundle"),
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			root, _, err := configuredDatabaseSource(sourceID)
+			root, source, err := configuredDatabaseSource(sourceID)
 			if err != nil {
 				return err
 			}
-			_, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
+			manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
 			if err != nil {
 				return &ExitError{Code: ExitInvalid, MachineCode: "database_evidence_invalid", Msg: cliMessage("database.error.evidence_invalid", sourceID)}
 			}
 			if !exists {
 				return &ExitError{Code: ExitConfig, MachineCode: "database_snapshot_missing", Msg: cliMessage("database.error.snapshot_missing", sourceID)}
+			}
+			if !dbevidence.SourceConfigMatchesManifest(source, manifest) {
+				return databaseSnapshotSelectionMismatch(sourceID)
 			}
 			var record *dbevidence.SnapshotTable
 			for index := range snapshot.Tables {

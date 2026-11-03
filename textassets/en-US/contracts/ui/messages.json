@@ -353,6 +353,7 @@
   "database.error.object_not_found": "The saved snapshot does not contain database object %s.",
   "database.error.snapshot_binding": "The explicit snapshot SHA for database source %s does not match the saved snapshot.",
   "database.error.snapshot_missing": "Database source %s has no saved snapshot; run aoci database snapshot first.",
+  "database.error.snapshot_selection": "The saved snapshot for database source %s does not match its current selection; run aoci database snapshot to refresh it.",
   "database.error.source": "Database source %s could not complete the read-only metadata operation (error_code=%s, operation=%s); credentials and endpoint details were suppressed.",
   "database.error.source_object": "Database source %s could not complete the read-only metadata operation (error_code=%s, operation=%s, object=%s); credentials and endpoint details were suppressed.",
   "database.error.source_exists": "Database source %s already exists; use --replace for an explicit update.",

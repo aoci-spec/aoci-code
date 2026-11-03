@@ -187,6 +187,58 @@ func TestSQLiteCLIInspectSnapshotBaselineAndDrift(t *testing.T) {
 	}
 }
 
+func TestDatabaseCLIRejectsSnapshotAfterSourceReplacement(t *testing.T) {
+	root := databaseCLIRepo(t)
+	for _, name := range []string{"old.db", "new.db"} {
+		db, err := sql.Open("sqlite3", filepath.Join(root, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = db.Exec(`CREATE TABLE users (id INTEGER PRIMARY KEY)`)
+		closeErr := db.Close()
+		if err != nil || closeErr != nil {
+			t.Fatalf("create %s: exec=%v close=%v", name, err, closeErr)
+		}
+	}
+
+	run := func(want int, args ...string) string {
+		t.Helper()
+		var out, stderr bytes.Buffer
+		code := executeCLI(append([]string{"--repo", root, "--json", "database"}, args...), &out, &stderr)
+		if code != want {
+			t.Fatalf("%v: code=%d want=%d stdout=%s stderr=%s", args, code, want, out.String(), stderr.String())
+		}
+		if want == ExitInvalid && !strings.Contains(out.String()+stderr.String(), "database_snapshot_selection_mismatch") {
+			t.Fatalf("%v: missing selection mismatch error: stdout=%s stderr=%s", args, out.String(), stderr.String())
+		}
+		return out.String()
+	}
+	snapshotSHA := func() string {
+		t.Helper()
+		var snapshot databaseSnapshotResult
+		err := json.Unmarshal([]byte(run(ExitOK, "snapshot", "--source", "local")), &snapshot)
+		if err != nil || snapshot.SourceSnapshotSHA256 == "" {
+			t.Fatalf("snapshot: %+v %v", snapshot, err)
+		}
+		return snapshot.SourceSnapshotSHA256
+	}
+
+	run(ExitOK, "source", "add", "--source-id", "local", "--engine", "sqlite", "--path", "old.db")
+	oldSHA := snapshotSHA()
+	run(ExitOK, "source", "add", "--source-id", "local", "--engine", "sqlite", "--path", "new.db", "--replace")
+	run(ExitInvalid, "inventory", "--source", "local")
+	run(ExitInvalid, "evidence", "bundle", "--source", "local", "--object", "database://local/main/users")
+	run(ExitInvalid, "baseline", "accept", "--source", "local", "--snapshot-sha", oldSHA)
+	if _, err := os.Stat(dbevidence.BaselinePath(root)); !os.IsNotExist(err) {
+		t.Fatalf("rejected acceptance created a baseline: %v", err)
+	}
+
+	newSHA := snapshotSHA()
+	run(ExitOK, "baseline", "accept", "--source", "local", "--snapshot-sha", newSHA)
+	run(ExitOK, "inventory", "--source", "local")
+	run(ExitOK, "evidence", "bundle", "--source", "local", "--object", "database://local/main/users")
+}
+
 func TestDatabaseSourceCLIStillRequiresServerDatabaseName(t *testing.T) {
 	for _, extra := range [][]string{nil, {"--path", "data/app.db"}} {
 		root := databaseCLIRepo(t)
