@@ -766,6 +766,12 @@ changes a persisted preimage names the binary every machine then needs.
   and accept wrote it as the Baseline under the current source ID. The three
   commands now answer `database_snapshot_selection_mismatch` and ask for a
   new snapshot; a refused accept writes no Baseline.
+- Update `golang.org/x/sys` to 0.49.0 and the pinned `setup-node` 7.1.0,
+  `upload-artifact` 7.0.2, and `goreleaser-action` 7.3.0 Actions (#128,
+  #129, #130, #131). The release module set is the same 26 modules and the
+  `x/sys` license text is byte-identical. `setup-node` crosses three major
+  versions whose breaking changes concern automatic package-manager caching,
+  which a repository without a root `package.json` never triggers.
 
 ## v0.1.0
 

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-03T15:10:28Z",
+  "updated_at": "2026-11-03T20:56:50Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -23,27 +23,27 @@
     },
     ".github/workflows/ci.yml": {
       "role": "index",
-      "sha256": "fc982d50ea4971bcc6ba4cd3525a6ee3316be36f545077bb7cb050b0fee0faaf",
+      "sha256": "76fef02861cba577af2bb551707093cb1812d40364453e14c5e15bcf83195cde",
       "size": 10305,
-      "normalized_sha256": "fc982d50ea4971bcc6ba4cd3525a6ee3316be36f545077bb7cb050b0fee0faaf"
+      "normalized_sha256": "76fef02861cba577af2bb551707093cb1812d40364453e14c5e15bcf83195cde"
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
-      "sha256": "d9b190af922f728c7af66fbd824639a9ea960230fff0a44133a9e86f614858c5",
+      "sha256": "5ebada2806249e9e0de11947990e22fa571163aafa7718fc994846af6dc1af0d",
       "size": 26963,
-      "normalized_sha256": "d9b190af922f728c7af66fbd824639a9ea960230fff0a44133a9e86f614858c5"
+      "normalized_sha256": "5ebada2806249e9e0de11947990e22fa571163aafa7718fc994846af6dc1af0d"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
-      "sha256": "ff65cc4050a4d051e731d04fb331716754bb1848cd073d75fd4d942a85afdb94",
+      "sha256": "0f2f090c7eb34d6bd437a2d9a7947c6a34662cae54c04eac51e52c085ada9471",
       "size": 4646,
-      "normalized_sha256": "ff65cc4050a4d051e731d04fb331716754bb1848cd073d75fd4d942a85afdb94"
+      "normalized_sha256": "0f2f090c7eb34d6bd437a2d9a7947c6a34662cae54c04eac51e52c085ada9471"
     },
     ".github/workflows/release.yml": {
       "role": "index",
-      "sha256": "95d806462aaf29f60938e11597955a20588b606120e1406085f634b4e798be3c",
+      "sha256": "ffe95755713e16d948d2d6e3233b34246649d9cf56ea9e6164667fdbf46f9eee",
       "size": 29552,
-      "normalized_sha256": "95d806462aaf29f60938e11597955a20588b606120e1406085f634b4e798be3c"
+      "normalized_sha256": "ffe95755713e16d948d2d6e3233b34246649d9cf56ea9e6164667fdbf46f9eee"
     },
     ".gitignore": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "1f54a60bd625e2d1cf1e708637d01ab5298adf4089885f92c417b9df5b79367f",
-      "size": 185376,
-      "normalized_sha256": "1f54a60bd625e2d1cf1e708637d01ab5298adf4089885f92c417b9df5b79367f"
+      "sha256": "51bdb0b152d22a1f4ba4ffec595cdb517dd4cf9363059b7f2127589f310a4f71",
+      "size": 185815,
+      "normalized_sha256": "51bdb0b152d22a1f4ba4ffec595cdb517dd4cf9363059b7f2127589f310a4f71"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -125,9 +125,9 @@
     },
     "THIRD-PARTY-NOTICES": {
       "role": "index",
-      "sha256": "8d0f6175b45fc8b70b575a2de60116f7214fa5e85c95607b9f5bc2a9f4f65b70",
+      "sha256": "4fcd8f24a0d99e4d4f1c3c6cd4e1e5c95e97255b2d93ac0a09ddb4d1bc4dabb4",
       "size": 93160,
-      "normalized_sha256": "8d0f6175b45fc8b70b575a2de60116f7214fa5e85c95607b9f5bc2a9f4f65b70"
+      "normalized_sha256": "4fcd8f24a0d99e4d4f1c3c6cd4e1e5c95e97255b2d93ac0a09ddb4d1bc4dabb4"
     },
     "TRADEMARKS": {
       "role": "index",
@@ -379,15 +379,15 @@
     },
     "examples/engine-embed/go.mod": {
       "role": "index",
-      "sha256": "4ca89d5760128fc88c4fda9cca87c228043418c5236a3eb37a743dab54c9e081",
+      "sha256": "3dd428ebedc96bc88b466d81e6a45d3d62f0baaed161404406bcefa2b0169a41",
       "size": 1420,
-      "normalized_sha256": "4ca89d5760128fc88c4fda9cca87c228043418c5236a3eb37a743dab54c9e081"
+      "normalized_sha256": "3dd428ebedc96bc88b466d81e6a45d3d62f0baaed161404406bcefa2b0169a41"
     },
     "examples/engine-embed/go.sum": {
       "role": "index",
-      "sha256": "aa6f9fa1f36dcbd45f091480238c040313c4d3b0f1a5288343e56754e3a37aac",
+      "sha256": "c9982e8794bf095de4ecaf11e922f8b54a6e256ce6829eeb0d970873b4ce3773",
       "size": 13556,
-      "normalized_sha256": "aa6f9fa1f36dcbd45f091480238c040313c4d3b0f1a5288343e56754e3a37aac"
+      "normalized_sha256": "c9982e8794bf095de4ecaf11e922f8b54a6e256ce6829eeb0d970873b4ce3773"
     },
     "examples/engine-embed/main.go": {
       "role": "index",
@@ -433,15 +433,15 @@
     },
     "go.mod": {
       "role": "index",
-      "sha256": "063ae4ea499b13c7deec6d248a3d7a02136c22eda4e6b0d6b71a7f3fb0494ec6",
+      "sha256": "0e684460a374a629cb51bc1c34e2bfd0e0b85027bc51e1ba74ff34f6f046cb14",
       "size": 1379,
-      "normalized_sha256": "063ae4ea499b13c7deec6d248a3d7a02136c22eda4e6b0d6b71a7f3fb0494ec6"
+      "normalized_sha256": "0e684460a374a629cb51bc1c34e2bfd0e0b85027bc51e1ba74ff34f6f046cb14"
     },
     "go.sum": {
       "role": "index",
-      "sha256": "971d8d26862e8a4e105f34f556d81952fe20a87959e57dd12042db541d00ef8d",
+      "sha256": "65f7ce252cb4d11d2163e4c50d7ceafa6eea982045070323ffe6a73df467af49",
       "size": 14435,
-      "normalized_sha256": "971d8d26862e8a4e105f34f556d81952fe20a87959e57dd12042db541d00ef8d"
+      "normalized_sha256": "65f7ce252cb4d11d2163e4c50d7ceafa6eea982045070323ffe6a73df467af49"
     },
     "internal/authoringcontract/contract.go": {
       "role": "index",
