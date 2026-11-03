@@ -152,8 +152,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): linux-full upgrade axis over every released binary green"
+    "date": "2026-11-04",
+    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-full upgrade axis over every released binary through v0.1.0 green"
    }
   },
   {
@@ -199,9 +199,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/perf-calls-l3.txt (five clones, aged)"
+    "version": "v0.1.0",
+    "date": "2026-11-04",
+    "evidence": ".aoci/dev-tools/perf-calls-010.txt (released 0.1.0 binary, five clones, aged; deepseek-harness steady Maintain 2.84 s, as rc23, which predates the 0.2.0-line speedups) and .aoci/dev-tools/perf-calls-deps1104.txt (0.2.0 line at 87f8bcb: steady Maintain 0.29 s against 0.28 s in perf-calls-l3.txt; status 0.06 to 0.56 s from 78ea807's Volumes verdict, scan +0.35 s from the first-build estimate of ee21f14 and a9ed3be)"
    }
   },
   {
@@ -233,8 +233,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): fuzz smoke green; attempt 1 stopped FuzzNormalizeRelPath at the 30s limit with context deadline exceeded and no failing input, two local 30s runs green"
+    "date": "2026-11-04",
+    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-nightly fuzz smoke (30s per target) green"
    }
   },
   {
@@ -263,8 +263,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): linux-full long-running cognition refresh black box green"
+    "date": "2026-11-04",
+    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-nightly long-running cognition refresh black box green"
    }
   },
   {
@@ -297,8 +297,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/bench-compare-mig.txt (42 results, baseline refreshed; migration 1000 at 3x/3, 10000 at 1x)"
+    "date": "2026-11-04",
+    "evidence": ".aoci/dev-tools/bench-compare-1104.txt (42 results on 87f8bcb, quiet machine; three MigrationScale/objects-1 results 30-36% over the 10-26 baseline: same at c421d41 and 87f8bcb, bisected to the fingerprint cache of 5936993, gone under AOCI_FINGERPRINT_CACHE=off; a fresh fixture per iteration is racily clean, so every call rehashes and rewrites the cache, about 16 ms; objects-10000 7% faster; baseline kept)"
    }
   },
   {
@@ -331,8 +331,8 @@
    ],
    "last_verified": {
     "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": "full-confidence 40468456782 on 576d711 (attempt 2): native-lifecycle macos-15, macos-15-intel, windows-latest; windows-scenarios and macos-conformance green"
+    "date": "2026-11-04",
+    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: native-lifecycle macos-15, macos-15-intel, windows-latest; windows-scenarios and macos-conformance green"
    }
   },
   {
