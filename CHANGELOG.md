@@ -2,6 +2,18 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Update the PostgreSQL driver `github.com/jackc/pgx/v5` to 5.12.0, which
+  moves `github.com/jackc/puddle/v2` to 2.2.3. pgx 5.12.0 fixes
+  GHSA-95fj-3fxw-g62g: from 5.9.0, a server could skip the authentication that
+  `require_auth` or `channel_binding=require` demanded, so a PostgreSQL source
+  relying on those without `sslmode=verify-full` could be answered by an
+  impersonating server. AOCI sends only fixed catalog queries, so the exposure
+  was a forged snapshot, not business data. GHSA-j38q-h3ph-jjpq does not reach
+  AOCI, which never sends simple-protocol batches. The release module set is
+  the same 22 modules, and both license texts are byte-identical.
+
 ## v0.1.0
 
 The first release. It promotes v0.1.0-rc23 unchanged: the product code,
