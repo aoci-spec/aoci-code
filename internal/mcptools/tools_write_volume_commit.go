@@ -383,8 +383,9 @@ func planCognitionVolumeUpdates(
 	}
 	projectedBudget := volumegovernance.AssessProjectedBudget(loaded.cfg, projectedSet)
 	if projectedBudget.Mode == machinecontract.BudgetModeEnforce && len(projectedBudget.Violations) != 0 {
-		// A per-entry field over its band is a candidate-repairable problem and must come back as a structured Finding; a whole-index overrun and
-		// the historical violations of entries outside the batch cannot be fixed by any field of this batch, so the batch-level stop stays.
+		// A per-entry field over its band is a candidate-repairable problem and must come back as a structured Finding; the historical
+		// violations of entries outside the batch cannot be fixed by any field of this batch, so the batch-level stop stays.
+		// The Whole-Index size is never a violation, so it never reaches this stop.
 		// (Review correction: this place used to pass the int WholeIndexTokens to a %s template, the strict asset
 		// rendering failed and triggered a writeMessage panic, and a budget violation was escalated into an unlocatable internal error.)
 		findings, unmatched := budgetRepairFindings(projectedBudget.Violations, normalized)
@@ -574,8 +575,8 @@ func recoveryVolumeTargets(recovery *atomicBatchRecovery) []cognitionVolumeWrite
 
 // budgetRepairFindings maps per-entry token budget violations into candidate-repairable structured Findings.
 // AssessProjectedBudget's Violation.Path is the canonical object identity and matches this batch's candidates exactly;
-// a hit produces a Finding carrying candidate_index and the exact token facts. The whole-index overrun and
-// historical violations that hit no candidate of this batch go into the second return value, and the caller keeps the batch-level stop.
+// a hit produces a Finding carrying candidate_index and the exact token facts. Historical violations that hit no
+// candidate of this batch go into the second return value, and the caller keeps the batch-level stop.
 func budgetRepairFindings(violations []cognitionbudget.Violation, normalized []normalizedAtomicItem) ([]cognition.RepairFinding, []cognitionbudget.Violation) {
 	byRef := make(map[string]normalizedAtomicItem, len(normalized))
 	for _, item := range normalized {

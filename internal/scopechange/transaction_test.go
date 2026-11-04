@@ -475,7 +475,7 @@ func TestScopeChangeRollbackRestoresExactPreimages(t *testing.T) {
 	}
 }
 
-func TestScopeChangeDispositionCoverageAndBudgetFailBeforeWrite(t *testing.T) {
+func TestScopeChangeDispositionFailsBeforeWriteAndIndexSizeDoesNotRefuse(t *testing.T) {
 	root, candidates := buildChangeFixture(t)
 	validCandidates := candidates
 	indexBefore, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
@@ -497,11 +497,11 @@ func TestScopeChangeDispositionCoverageAndBudgetFailBeforeWrite(t *testing.T) {
 	if err := config.Save(root, cfg); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Build(root, prepared, validCandidates); err == nil || !strings.Contains(err.Error(), "whole_index_budget_exceeded") {
-		t.Fatalf("projected Whole-Index over max was not rejected: %v", err)
+	if _, err := Build(root, prepared, validCandidates); err != nil {
+		t.Fatalf("a projected Whole-Index over the maximum refused the Scope Change: %v", err)
 	}
 	if after, _ := os.ReadFile(filepath.Join(root, "aoci.txt")); !bytes.Equal(after, indexBefore) {
-		t.Fatal("budget rejection wrote index")
+		t.Fatal("Build wrote index")
 	}
 }
 

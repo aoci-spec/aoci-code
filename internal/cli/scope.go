@@ -1005,8 +1005,6 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 	status.AuthoringTargets = len(status.Drift.Missing)
 	if status.ObservedPendingReview > 0 && policy.ObserveChangePolicy == machinecontract.ObserveChangeReviewRequired {
 		status.Stage = "observed_evidence_review_required"
-	} else if status.Budget != nil && status.Budget.WholeIndexTokens > status.Budget.MaxTokens {
-		status.Stage = "cognition_compression_required"
 	} else if status.Budget != nil && len(status.Budget.Violations) > 0 {
 		status.Stage = "budget_exceeded"
 	} else if status.AuthoringTargets > 0 || len(status.Drift.Stale) > 0 {

@@ -7,6 +7,27 @@ All notable public changes to AOCI-CODE will be documented in this file.
 The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
 changes a persisted preimage names the binary every machine then needs.
 
+- The Whole-Index maximum no longer refuses anything. An index may be read
+  outside an Agent's context window, so its total size only names the budget
+  status (`healthy`, `near_budget`, `warning`, `exceeded`): an Entry Apply, a
+  Scope Change, `check`, the Guide, and `cognition_optimization` no longer
+  stop when the Whole-Index passes `max_tokens`, and `scope status` no longer
+  reports `cognition_compression_required`. In enforce mode the R and S bands
+  still return an over-band Entry to the model, and the Guide and
+  `next_commands` for that stop now name the band
+  (`scope budget set --policy-file {policy_file}`) instead of `--max-tokens`.
+  No configuration or Baseline byte changes, so no repository needs a Scope
+  Change; a 0.1.x binary still enforces the maximum on the same configuration.
+- After a merge, a Volume whose bytes no longer match the Baseline is restored
+  together with `.aoci/baseline.json` from one commit. The repair action of
+  `code_volume_unbaselined` used to say "restore them": restoring the Volume
+  alone matched its own Baseline record while the Baseline still bound the
+  other branch's sources, so an Entry that branch had re-authored went back to
+  its older text and Maintain reported the repository aligned. Restored as a
+  pair, Maintain returns every source the restored Entries do not describe as
+  stale. The suggestion to re-establish cognition through a Scope Change is
+  gone, because a Scope Change cannot rebaseline a formal Volume. v0.1.x prints
+  the old wording; follow this one.
 - `aoci config set locale` works on a Volumes v1 repository. It used to be
   refused once the index existed, so a repository created in one Locale
   could not move to the other without being rebuilt. The switch is one

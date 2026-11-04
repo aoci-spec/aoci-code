@@ -271,10 +271,10 @@ func BuildWithSQuota(repositoryRoot string, raw []byte, policy Policy, quota *in
 	report.LargestEntries = topEntries(entries, func(value EntryCost) int { return value.TotalTokens })
 	report.LargestR = topEntries(entries, func(value EntryCost) int { return value.RTokens })
 	report.LargestS = topEntries(entries, func(value EntryCost) int { return value.STokens })
+	// The Whole-Index target, warning and maximum only name the status: an index
+	// may be read outside an Agent's context window, so its size alone is never a
+	// violation and never refuses a write. The R and S bands remain the gates.
 	report.Status = statusFor(report.WholeIndexTokens, normalized.WholeIndex)
-	if report.WholeIndexTokens > normalized.WholeIndex.MaxTokens {
-		report.Violations = append(report.Violations, Violation{Code: "whole_index_budget_exceeded", Actual: report.WholeIndexTokens, Maximum: normalized.WholeIndex.MaxTokens})
-	}
 	sort.Slice(report.Violations, func(i, j int) bool {
 		left, right := report.Violations[i], report.Violations[j]
 		if left.Path != right.Path {
@@ -311,24 +311,6 @@ func (r *Report) RebindWholeIndexTokens(tokens int, policy Policy) error {
 		r.StructureTokens = 0
 	}
 	r.Status = statusFor(tokens, normalized.WholeIndex)
-	kept := make([]Violation, 0, len(r.Violations)+1)
-	for _, violation := range r.Violations {
-		if violation.Code != "whole_index_budget_exceeded" {
-			kept = append(kept, violation)
-		}
-	}
-	if tokens > normalized.WholeIndex.MaxTokens {
-		kept = append(kept, Violation{Code: "whole_index_budget_exceeded",
-			Actual: tokens, Maximum: normalized.WholeIndex.MaxTokens})
-	}
-	sort.Slice(kept, func(i, j int) bool {
-		left, right := kept[i], kept[j]
-		if left.Path != right.Path {
-			return left.Path < right.Path
-		}
-		return left.Field < right.Field
-	})
-	r.Violations = kept
 	return nil
 }
 

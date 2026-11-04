@@ -877,10 +877,18 @@ func assessFormalAsset(
 // The two causes need opposite fixes and nothing else distinguishes them: a
 // Volume absent from the Baseline was hidden from Git when the Baseline was
 // built, while a Volume present but mismatched has had its bytes rewritten.
+//
+// A mismatched Volume is restored together with .aoci/baseline.json from one
+// commit, never alone. The two are written as a pair and only vouch for each
+// other as a pair: after a merge, restoring the Volume alone matched its own
+// record while the Baseline still bound the other branch's sources, so an Entry
+// that branch had re-authored reverted to older text and Maintain reported it
+// aligned. Restored as a pair, every source that commit's Entries do not
+// describe comes back from Maintain as stale.
 func volumeUnbaselinedRepairAction(root, rel string, state *baseline.Baseline) string {
 	if state != nil {
 		if _, recorded := state.Files[rel]; recorded {
-			return "this Volume's bytes changed after the Baseline was established; restore them, or re-establish cognition through the governed Scope Change flow"
+			return "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Volume and .aoci/baseline.json together from one commit, then run aoci_maintain, which returns every source that commit's Entries do not describe"
 		}
 	}
 	if ignored, _ := afs.PathIgnoredByGit(root, rel); ignored {
@@ -996,40 +1004,18 @@ func appendDatabaseSourceFindings(facts *Facts, sources []dbevidence.SourceConfi
 	}
 }
 
-// budgetExceededCause states which of the two budget gates fired, with the
-// numbers, so an operator does not have to re-derive them from a separate
-// command to know what refused them.
+// budgetExceededCause states how many Entry fields exceed their band, with the
+// Whole-Index numbers beside them, so an operator does not have to re-derive
+// them from a separate command to know what refused them.
 func budgetExceededCause(budget BudgetFacts) string {
-	for _, violation := range budget.Violations {
-		if violation.Code == "whole_index_budget_exceeded" {
-			return fmt.Sprintf("whole_index_tokens=%d;max_tokens=%d", violation.Actual, violation.Maximum)
-		}
-	}
 	return fmt.Sprintf("entry_field_budget_exceeded=%d;whole_index_tokens=%d;max_tokens=%d",
 		len(budget.Violations), budget.WholeIndexTokens, budget.MaxTokens)
 }
 
 // budgetExceededRepairAction hands back both levers in the order a repository
-// should consider them. Raising a budget is a governed change, so the sequence
-// includes the approval it actually requires rather than only the edit command.
+// should consider them. Raising a band is a governed change, so the sequence
+// names the Scope Change it actually requires rather than only the edit command.
 func budgetExceededRepairAction(budget BudgetFacts) string {
-	for _, violation := range budget.Violations {
-		if violation.Code == "whole_index_budget_exceeded" {
-			// The activation sequence is spelled out because following it from
-			// memory does not work: scope preview only emits the artifact the
-			// rest of the flow consumes when it is given a candidate set, and a
-			// configuration-only change still needs one, empty.
-			return "reduce_index_membership: aoci scope explain <path> then aoci scope rule; " +
-				"or raise the project budget: aoci scope budget set --max-tokens <n>; " +
-				"then activate it, keeping every artifact under .aoci/scope-change/ because a file " +
-				"written into the worktree changes the state the plan was minted against: write " +
-				"{\"version\":\"managed-scope-candidate-set/v1\",\"entries\":[],\"dispositions\":[]} to " +
-				".aoci/scope-change/candidates.json, aoci scope preview --candidate-file that file " +
-				"--json > .aoci/scope-change/preview.json, aoci scope approve --preview-file it " +
-				"--actor <id> --out-file .aoci/scope-change/approval.json, then aoci scope apply " +
-				"--preview-file it --approval-file it"
-		}
-	}
 	return "re-author the named Entries within their C band, " +
 		"or raise the band: aoci scope budget set --policy-file <policy.json>, " +
 		"then activate it through the same governed Scope Change sequence"
@@ -1066,10 +1052,8 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 			}
 		}
 	}
+	// The Whole-Index size names the status only; it is never a violation.
 	tokens := bytes / 3
-	if tokens > policy.WholeIndex.MaxTokens {
-		violations = append(violations, cognitionbudget.Violation{Code: "whole_index_budget_exceeded", Actual: tokens, Maximum: policy.WholeIndex.MaxTokens})
-	}
 	status := machinecontract.BudgetStatusHealthy
 	switch {
 	case tokens > policy.WholeIndex.MaxTokens:

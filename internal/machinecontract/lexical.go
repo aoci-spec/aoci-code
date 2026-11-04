@@ -68,14 +68,14 @@ func EvolutionNarrativeTerms() []string {
 // the running server's own absolute executable. Two spellings of one command
 // is how the Volumes Guide once told hosts to run commands the MCP surface
 // spelled differently; a suffix that exists only here cannot fork.
-// {agent}, {tokens}, and {source} are host-filled placeholders, the same
+// {agent}, {policy_file}, and {source} are host-filled placeholders, the same
 // convention the Guide has always used for --reviewed-by {agent}.
 const (
 	RemediationCommandScan                  = "scan"
 	RemediationCommandScopeStatus           = "scope status --json"
 	RemediationCommandScopeActivate         = "scope activate --json"
 	RemediationCommandScopeAcknowledge      = "scope acknowledge --reviewed-by {agent} --json"
-	RemediationCommandScopeBudgetSet        = "scope budget set --max-tokens {tokens}"
+	RemediationCommandScopeBudgetSet        = "scope budget set --policy-file {policy_file}"
 	RemediationCommandVerify                = "verify --json"
 	RemediationCommandAggregateCheck        = "check --json"
 	RemediationCommandAgentGuide            = "index agent guide --agent {agent} --json"

@@ -345,8 +345,7 @@ func autoAuthorizationBlockers(preview *Preview, cfg *config.Config) []string {
 			break
 		}
 	}
-	if len(preview.Plan.WholeIndexAfter.Violations) != 0 ||
-		preview.Plan.WholeIndexAfter.WholeIndexTokens > preview.Plan.WholeIndexAfter.MaxTokens {
+	if len(preview.Plan.WholeIndexAfter.Violations) != 0 {
 		reasons = append(reasons, autoBlockerCognitionBudgetExceeded)
 	}
 	if preview.Plan.RecoveryDirection == "" {

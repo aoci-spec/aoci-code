@@ -422,7 +422,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, err
 	}
 	if len(projection.Violations) > 0 {
-		return nil, fmt.Errorf("whole_index_budget_exceeded: current=%d projected=%d target=%d warning=%d max=%d delta=%d violations=%d suggested=%v",
+		return nil, fmt.Errorf("cognition_budget_exceeded: current=%d projected=%d target=%d warning=%d max=%d delta=%d violations=%d suggested=%v",
 			projection.CurrentTokens, projection.ProjectedWholeIndexTokens, projection.TargetTokens,
 			projection.WarningTokens, projection.MaxTokens, projection.BatchDeltaTokens, len(projection.Violations), projection.SuggestedCompression)
 	}

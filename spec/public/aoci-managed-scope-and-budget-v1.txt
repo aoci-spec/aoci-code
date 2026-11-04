@@ -125,8 +125,8 @@ marker at the repository root: a Legacy index file stays rule-governed.
 Auto permits governed Entry create, update, and retirement; every Scope role
 transition; reviewed Curation and semantic-transfer candidates; observe
 fingerprint advancement; and proven budget tightening. It requires complete
-model-owned Retention disposition and reviewed transfers, P0=P1=0, no R/S or
-projected maximum violation, no pending transaction or third-party bytes,
+model-owned Retention disposition and reviewed transfers, P0=P1=0, no R/S band
+violation, no pending transaction or third-party bytes,
 deterministic replay, exact CAS guards, and available recovery. A large Entry
 count is not independently blocking.
 
@@ -149,8 +149,8 @@ human reviewer may ratify -- a posture or budget relaxation, high-risk content,
 a P0/P1 finding, a cognition coverage reduction, an already-decided explicit
 drop -- also makes the plan report interaction_required, so the refusal has an
 approver. The remaining blockers are not opinions and carry no reviewer: a
-transport_constraint basis, an incomplete retention review, an exceeded
-enforce-mode budget, an absent recovery direction, and any business-source write
+transport_constraint basis, an incomplete retention review, an enforce-mode
+R or S band violation, an absent recovery direction, and any business-source write
 or postimage. For those the operator resolves the condition instead of approving
 past it. The two sets are derived from one blocker enumeration; an unclassified
 reason fails the plan rather than defaulting to either side.
@@ -212,6 +212,12 @@ bands for R and S. Old projects without materialized policy use observe;
 new-project init materializes enforce. Project values are configurable and are
 not global constants.
 
+The Whole-Index target, warning and maximum name the budget status (healthy,
+near_budget, warning, exceeded) and nothing else. An index may be read outside
+an Agent's context window, so its total size is never a violation in either
+mode: it never refuses an Entry Apply, a Scope Change, or an optimization pass.
+The R and S bands are the only budget gates.
+
 The S hard limit in tokens is the greater of the S band maximum and the
 effective S rune quota for that C (the Meta declaration floored by the machine
 default, exactly as the error-level rune gate resolves it). Tokens never exceed
@@ -223,11 +229,10 @@ Reports measure Header, F, R, A, S, structure, total, largest Entries, largest
 R/S, and field violations. Only formal index-role cognition bytes count toward
 Whole-Index. A candidate is never truncated, summarized, retagged, or assigned
 a lower C by the program. In enforce mode an ordinary Entry Apply validates the
-candidate R/S and the final projected Whole-Index before any write. The unified
-Scope transaction applies the same hard field and projected maximum gates even
-during a migration from observe mode. Failure is repair_required with current,
-projected, target, warning, maximum, delta, largest objects, and suggested
-model-owned compression targets.
+candidate R/S before any write. The unified Scope transaction applies the same
+hard field gates even during a migration from observe mode. Failure is
+repair_required with current, projected, target, warning, maximum, delta,
+largest objects, and suggested model-owned compression targets.
 
 Maintain candidates carry the complete R/S band policy, exact limits for an
 existing Entry's C level, current Whole-Index cost, remaining headroom, Scope

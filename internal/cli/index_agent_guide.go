@@ -382,12 +382,10 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			SafeNextAction: strings.Join(guide.Instructions, " "),
 		}
 	}
-	// A repository over its Whole-Index budget was handed a bare finding and, at
-	// most, `aoci scope status`. The only instruction it received said to compress
-	// cognition — which is the wrong remediation for a repository that legitimately
-	// grew, and it was the only one offered. The budget is a project-owned policy
-	// and `aoci scope budget set` has existed all along; naming it in exactly one
-	// documentation line is not handing back a remediation the repository can run.
+	// Only Entry fields over their C band block here: the Whole-Index size is never
+	// a violation. Both levers travel with the stop, because a bare finding and at
+	// most `aoci scope status` is not a remediation the repository can run. The
+	// bands are a project-owned policy and `aoci scope budget set` changes them.
 	if budgetExceeded {
 		instructions := []string{
 			cliMessage("guide.budget_instruction_scope_levers"),
@@ -396,12 +394,10 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Commands.ScopeBudget = "aoci " + machinecontract.RemediationCommandScopeBudgetSet
 		guide.Stop = &volumeGuideStopFacts{
-			AffectedAsset: ".aoci/config.json", Field: "whole_index", RuleCode: "cognition_budget_exceeded",
-			Expected: "whole_index_within_project_budget",
-			Actual: fmt.Sprintf("whole_index_tokens=%d;max_tokens=%d;violations=%d",
-				facts.Budget.WholeIndexTokens, facts.Budget.MaxTokens, len(facts.Budget.Violations)),
-			Cause: cliMessage("guide.budget_blocked_cause",
-				facts.Budget.WholeIndexTokens, facts.Budget.MaxTokens),
+			AffectedAsset: ".aoci/config.json", Field: "entry_fields", RuleCode: "cognition_budget_exceeded",
+			Expected:       "entry_fields_within_c_band",
+			Actual:         fmt.Sprintf("entry_field_budget_exceeded=%d", len(facts.Budget.Violations)),
+			Cause:          cliMessage("guide.budget_blocked_cause", len(facts.Budget.Violations)),
 			SafeNextAction: strings.Join(instructions, " "),
 		}
 		guide.Instructions = append(guide.Instructions, instructions...)

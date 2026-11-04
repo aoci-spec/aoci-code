@@ -22,11 +22,39 @@ func TestValidateEnforceRejectsWithoutRewriting(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if validation.Allowed || len(validation.Violations) < 3 {
-		t.Fatalf("enforce mode allowed over-budget index: %+v", validation)
+	if validation.Allowed || len(validation.Violations) != 2 {
+		t.Fatalf("enforce mode allowed over-budget fields, or counted more than the two fields: %+v", validation)
+	}
+	for _, violation := range validation.Violations {
+		if violation.Code != "entry_field_budget_exceeded" {
+			t.Fatalf("a violation other than a field band was reported: %+v", violation)
+		}
 	}
 	if string(raw) != string(budgetFixture(strings.Repeat("关系", 350))) {
 		t.Fatal("validation changed model-authored bytes")
+	}
+}
+
+// An index may be read outside an Agent's context window, so its total size
+// names the status and nothing else: an index over every Whole-Index threshold,
+// with each field inside its band, is allowed even in enforce mode.
+func TestWholeIndexSizeIsNeverAViolation(t *testing.T) {
+	policy := DefaultPolicy(machinecontract.BudgetModeEnforce)
+	policy.WholeIndex = WholeIndexPolicy{TargetTokens: 1, WarningTokens: 2, MaxTokens: 3}
+	raw := budgetFixture("one relationship")
+	validation, err := Validate("/repo", raw, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !validation.Allowed || len(validation.Violations) != 0 || validation.Report.Status != machinecontract.BudgetStatusExceeded {
+		t.Fatalf("the Whole-Index size refused an index whose fields are inside their bands: %+v", validation)
+	}
+	report := validation.Report
+	if err := report.RebindWholeIndexTokens(1000000, policy); err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Violations) != 0 || report.Status != machinecontract.BudgetStatusExceeded {
+		t.Fatalf("rebinding a larger total turned the size into a violation: %+v", report)
 	}
 }
 
@@ -70,7 +98,7 @@ func TestProjectedReportCarriesCompleteHardGateEvidence(t *testing.T) {
 	if report.Allowed || report.CurrentTokens == 0 || report.ProjectedWholeIndexTokens <= report.MaxTokens ||
 		report.BatchDeltaTokens <= 0 || report.TargetTokens != 15 || report.WarningTokens != 20 || report.MaxTokens != 25 ||
 		len(report.LargestEntries) == 0 || len(report.LargestR) == 0 || len(report.LargestS) == 0 ||
-		len(report.SuggestedCompression) == 0 || len(report.Violations) < 3 {
+		len(report.SuggestedCompression) == 0 || len(report.Violations) != 2 {
 		t.Fatalf("projected hard-gate evidence incomplete: %+v", report)
 	}
 	if string(projected) != string(budgetFixture(strings.Repeat("高熵关系", 180))) {

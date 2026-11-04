@@ -9,24 +9,23 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-// A finding that carries only a code makes the operator guess. The budget is a
-// project-owned policy with two real levers, and compression alone is the wrong
-// answer for an index that grew because the repository did, so both levers and
-// the numbers that produced the refusal travel with the finding.
+// A finding that carries only a code makes the operator guess. A field band is
+// a project-owned policy with two real levers, so both levers and the numbers
+// that produced the refusal travel with the finding.
 func TestBudgetExceededFindingNamesBothLevers(t *testing.T) {
 	budget := BudgetFacts{Mode: machinecontract.BudgetModeEnforce,
 		WholeIndexTokens: 250000, MaxTokens: 240000,
 		Violations: []cognitionbudget.Violation{
-			{Code: "whole_index_budget_exceeded", Actual: 250000, Maximum: 240000}}}
+			{Code: "entry_field_budget_exceeded", Path: "a.go", Field: "R", Actual: 95, Maximum: 90}}}
 
 	cause := budgetExceededCause(budget)
-	for _, want := range []string{"250000", "240000"} {
+	for _, want := range []string{"entry_field_budget_exceeded=1", "250000", "240000"} {
 		if !strings.Contains(cause, want) {
 			t.Fatalf("cause omits %s: %q", want, cause)
 		}
 	}
 	action := budgetExceededRepairAction(budget)
-	for _, want := range []string{"scope budget set", "--max-tokens", "scope rule", "scope apply"} {
+	for _, want := range []string{"re-author", "scope budget set", "Scope Change"} {
 		if !strings.Contains(action, want) {
 			t.Fatalf("repair action omits %q: %s", want, action)
 		}

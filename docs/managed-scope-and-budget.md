@@ -375,24 +375,25 @@ identity changes on upgrade.
 ## Scale boundary
 
 A **new** project's Whole-Index budget defaults to 200000 target / 300000
-warning / 400000 max tokens, and every Entry the model reads back rides that
-budget. These numbers are the default written into `.aoci/config.json` by `aoci
-init`; they are not a system limit. An existing repository's effective budget is
-whatever its own `.aoci/config.json` records, and a repository whose config
-carries no `cognition_budget` block keeps the original 120000 / 180000 / 240000
-permanently, because that policy's identity is stamped in its Baseline and
-moving it would force a Scope Change the repository did not earn.
+warning / 400000 max tokens. These numbers are the default written into
+`.aoci/config.json` by `aoci init`; they are not a system limit. They name the
+budget status that Overview, `verify` and `scope status` report, and nothing
+refuses a write because of the index's total size: an index may be read outside
+an Agent, so how much of it a Host can read at once is the Host's limit. An
+existing repository's effective budget is whatever its own `.aoci/config.json`
+records, and a repository whose config carries no `cognition_budget` block
+keeps the original 120000 / 180000 / 240000 permanently, because that policy's
+identity is stamped in its Baseline and moving it would force a Scope Change
+the repository did not earn.
 
-At the density this repository averages (~122 tokens per Entry), a 400000 ceiling
-corresponds to roughly three thousand managed objects and the original 240000 to
-roughly two thousand. Repositories approaching their ceiling should first spend
-the reduction levers — Scope roles that keep non-cognition files out of Index,
-tighter S under the C-driven quotas, and an explicit `cognition_optimization`
-review pass. Splitting the Code Volume itself into partitions is deliberately
-not supported in v1.
+The R and S bands are the budget gates that remain: in enforce mode an Entry
+whose R or S exceeds its C band comes back to the model to re-author. A
+repository that wants a smaller index can spend the reduction levers — Scope
+roles that keep non-cognition files out of Index, tighter S under the C-driven
+quotas, and an explicit `cognition_optimization` review pass. Splitting the Code
+Volume itself into partitions is deliberately not supported in v1.
 
-When those levers are spent, raising the budget is a supported change, not a
-workaround:
+The thresholds and bands change through the budget command:
 
 ```
 aoci scope budget set --max-tokens <n> --warning-tokens <n> --target-tokens <n>
