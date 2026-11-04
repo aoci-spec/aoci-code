@@ -26,7 +26,7 @@ const (
 type releaseContracts struct {
 	CapabilityManifest string `json:"capability_manifest"`
 	SafeInventory      string `json:"safe_inventory"`
-	// BaselineScopePlan is empty since 0.2.0-rc2, when the Legacy refresh was
+	// BaselineScopePlan is empty since 0.2.0-rc1, when the Legacy refresh was
 	// retired; the field stays so manifests of earlier releases still decode.
 	BaselineScopePlan        string `json:"baseline_scope_plan,omitempty"`
 	ManagedScopePolicy       string `json:"managed_scope_policy,omitempty"`

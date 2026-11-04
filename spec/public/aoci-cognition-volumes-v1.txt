@@ -7,7 +7,7 @@ saved Database Evidence and the existing governance transaction. It does not
 define migration, ordinary Root/Meta writes, Volume creation/deletion, or a
 parallel multi-Volume transaction system. Parallel current batches of one
 logical plan are specified in their own section below and implemented from
-0.2.0-rc2.
+0.2.0-rc1.
 
 1. Layout selection
 
@@ -654,7 +654,7 @@ Apply, Baseline, Ledger, or Recovery system is introduced.
 
 ## Parallel current batches (L4)
 
-Status: implemented in 0.2.0-rc2 (specified for 0.2.0). A server that does
+Status: implemented in 0.2.0-rc1 (specified for 0.2.0). A server that does
 not list the `parallel_batches` capability in its capability manifest issues
 exactly one current batch per Maintain as the section above describes, and a
 Host must not send the request fields below to it. Nothing in this section

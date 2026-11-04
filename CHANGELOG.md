@@ -86,7 +86,7 @@ changes a persisted preimage names the binary every machine then needs.
   disabled source and an engine without a collector stay informational.
   Found on the SQLite walk-through, which also fixed what a person sees on
   that path: `database source add` for SQLite no longer says schema
-  collection is unavailable (the collector shipped in rc23), the
+  collection is unavailable (the collector ships in this release), the
   `unsupported_catalog_feature` error names the operation and the table
   (`operation=catalog_query_sqlite_check, object=t`), `database source
   --help` names SQLite, and the aligned verdict counts Database Entries
@@ -288,8 +288,7 @@ changes a persisted preimage names the binary every machine then needs.
   on a partial or failed Attestation, and answers the complete scope with a
   named `fallback_reason` without a base in the process, without the probe
   pass, during a compaction reload, or past half the objects; the
-  conformance checks the implementation must ship are listed. No behaviour
-  changes in this version.
+  conformance checks the implementation must ship are listed.
 - Parallel current batches (L4) are implemented. Under the new team key
   `code_cognition_parallel_batches` (absent or 1 is the one-batch flow, byte
   for byte; ceiling 4; `config set` validates it; the capability manifest
@@ -383,14 +382,14 @@ changes a persisted preimage names the binary every machine then needs.
   and mtime under git's racily-clean rule; `AOCI_FINGERPRINT_CACHE=off`
   disables it, and the status page and `scan --dry-run` never write it.
 - Spec: parallel current batches (L4) are specified in the Cognition Volumes
-  contract for implementation in 0.2.0-rc2: a team key
+  contract: a team key
   `code_cognition_parallel_batches` (absent or 1 is today's flow, ceiling 4),
   sibling batches cut from one logical plan against one plan preimage and
   delivered whole by `batch_id`, an Apply preimage rule relaxed exactly to
   "the plan preimage or an applied sibling's postimage" and proven by
   replaying the applied receipts onto the preimage bytes, invalidation of
   every outstanding sibling by any non-sibling change, and the conformance
-  checks the implementation must ship. No behaviour changes in this version.
+  checks the implementation must ship.
 - Code drift of a Volumes repository is computed in one place,
   `volumegovernance.CodeDrift`, and every reader consumes it: Verify, Check,
   the Guide, Maintain, Overview, the post-Apply inspector that each
@@ -435,7 +434,7 @@ changes a persisted preimage names the binary every machine then needs.
 - `logs` and `run` are no longer built-in runtime exclusions (#158, the
   second finding). The built-in rule keeps only names that never denote
   source (#100), and both do: `internal/logs` is a package, `cmd/run` a
-  command, yet through v0.1.0 every path component of either name was hard
+  command, yet through v0.1.1 every path component of either name was hard
   excluded with no door. Log, PID and socket files stay excluded by suffix,
   `pids` and the PM2 and database runtime names stay built in. New
   repositories exclude a root `logs/` or `run/` through `exclude_root_dirs`,
@@ -450,13 +449,12 @@ changes a persisted preimage names the binary every machine then needs.
   use the existing Evidence lifecycle; enabled SQLite sources now require
   Evidence instead of remaining declaration-only. Unsupported schema features
   fail closed. No MCP tool or Evidence JSON version changes. All hosts using
-  SQLite need this collector-capable binary; earlier 0.2.0 builds skip SQLite
-  Evidence requirements, and rc22 and older reject the source declaration.
+  SQLite need this release; 0.1.x releases reject the source declaration.
   The ncruces driver adds three release-linked modules without CGO. Read-only
   WAL collection may update SQLite's shared-memory coordination file.
 
 - Built-in sensitive-name rules are a selectable set (#148). `v1` is the rule
-  every release through rc22 applied: `.env` and `.env.<name>`, named
+  every release through v0.1.1 applied: `.env` and `.env.<name>`, named
   credential files, private keys, `secrets.*`. `v2` adds the shapes
   operational repositories use for credentials: a file name with an `env`
   component after the first (`prod.env`, `manager-login.env`,
@@ -706,14 +704,12 @@ changes a persisted preimage names the binary every machine then needs.
   `aoci database source add --engine sqlite --path data/app.db` saves one
   explicit file, relative to the repository root or absolute, in the `main`
   namespace, with no database name and no credential environment variable;
-  URI filenames, `:memory:`, and server-only fields are refused. Nothing opens
-  the file yet: SQLite access, inspect, snapshot, and verify answer
-  `database_engine_not_implemented` until the read-only collector lands. Until
-  then such a source neither feeds nor blocks a Database Volume: governance,
-  Database Cognition Bootstrap, the policy-bound auto check, Database Entry
-  removal, and onboarding collection wait for Evidence only from sources a
-  collector exists for, and Verify, Check, and Guide report the SQLite source
-  as the informational `database_source_engine_not_implemented`. The
+  URI filenames, `:memory:`, and server-only fields are refused; the
+  read-only collector above opens the file. Governance, Database Cognition
+  Bootstrap, the policy-bound auto check, Database Entry removal, and
+  onboarding collection wait for Evidence only from sources a collector
+  exists for, and Verify, Check, and Guide report a source whose engine has
+  no collector as the informational `database_source_engine_not_implemented`. The
   team configuration's `database` and `credential_env` fields become
   `omitempty`: a SQLite declaration writes neither, and a server declaration
   is written exactly as before.
@@ -727,7 +723,7 @@ changes a persisted preimage names the binary every machine then needs.
   wire, `tools/list` adds `ttlMs: 0` and `cacheScope: public`, an unknown
   method answers `-32601` instead of code 0, and one inbound frame is bounded
   at 16 MiB. The release binary gains one module, `golang.org/x/time` v0.15.0
-  (BSD-3-Clause, from the Go project), for 23 in all; `THIRD-PARTY-NOTICES`
+  (BSD-3-Clause, from the Go project); `THIRD-PARTY-NOTICES`
   and the supply-chain guide list it.
 - The MCP server serves the sessionless `2026-07-28` revision (#66). A client
   on it sends its revision, client information, and capabilities in every

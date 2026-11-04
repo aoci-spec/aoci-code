@@ -10,7 +10,7 @@ authority. The existing Baseline v1, global cognition lock, AtomicWriteCAS,
 Ledger, and cognition transaction directories remain the only persistence and
 recovery authorities.
 
-Baseline Scope Refresh v1 is retired since 0.2.0-rc2: the `baseline scope`
+Baseline Scope Refresh v1 is retired since 0.2.0-rc1: the `baseline scope`
 commands and `internal/scoperefresh` are gone, and no binary produces or
 advertises its artifact versions. Managed Scope v2 is the one authority for
 role-bearing Baseline changes, observe fingerprints, Entry additions/removals,
@@ -141,7 +141,7 @@ Baseline Scope Refresh v1 (retired)
 The machine family baseline-scope-plan/v1, baseline-scope-preview/v1,
 baseline-scope-approval/v1, baseline-scope-apply-result/v1,
 baseline-scope-recovery/v1, and baseline-scope-status/v1 was the transition
-for single-role Baselines before Managed Scope. It is retired since 0.2.0-rc2:
+for single-role Baselines before Managed Scope. It is retired since 0.2.0-rc1:
 no command produces these artifacts, the capability manifest and the release
 manifest no longer list them, and a `scope-<id>.json` intent of that family
 left under `.aoci/transactions` reads as an invalid scope receipt until it is

@@ -25,7 +25,7 @@ func TestVolumesCodeDriftHasOneProjection(t *testing.T) {
 		"internal/cli/verify.go":                    "Legacy verify; Volumes renders the projection",
 		"internal/mcptools/tools_read_refresh.go":   "Legacy semantic change facts; Volumes adapts the projection",
 		"internal/mcptools/tools_auto_alignment.go": "the Legacy inspector; the Volumes inspector reads CodeDrift",
-		"internal/indexgen/score.go":                "the Legacy generator, retired with it in 0.2.0-rc2",
+		"internal/indexgen/score.go":                "the Legacy generator, retired with it in 0.2.0-rc1",
 	}
 	patterns := []string{"managedstate.Detect(", "baseline.DetectManagedScope(", "baseline.DetectWith(",
 		"volumegovernance.ClassifyCodeDrift(", "cognition.BusinessScope("}

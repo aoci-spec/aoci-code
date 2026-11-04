@@ -189,7 +189,7 @@ scope would deliver or stop. Ledger events of one chain share a
 `delivery_chain_id`. See [`cognition-refresh.md`](cognition-refresh.md).
 
 Incremental delivery (the contract's section "Incremental delivery (L5)",
-since 0.2.0-rc2) spares a long task the complete re-read. After a
+since 0.2.0-rc1) spares a long task the complete re-read. After a
 passing Attestation, a later ordinary call carrying
 `delta_since=<scope_identity>`, made after a probe pass over the current
 identity, delivers only the objects changed, added, or removed since that

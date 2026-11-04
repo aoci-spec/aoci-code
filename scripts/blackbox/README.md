@@ -228,7 +228,7 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   for alternative implementations: point `AOCI_BIN` at any binary that claims
   the public contracts in `spec/public/` and run them unchanged.
 - Group L (parallel current batches, the L4 section of the Volumes contract,
-  since 0.2.0-rc2) drives two `Session`s against one fixture under
+  since 0.2.0-rc1) drives two `Session`s against one fixture under
   `code_cognition_parallel_batches=2` and checks that N=2 issues disjoint
   siblings under one plan preimage, that a sibling delivered by `batch_id`
   carries its issued targets and nothing else, that A-then-B and B-then-A end
@@ -239,7 +239,7 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   configuration's Maintain output carries no sibling field and that a server
   whose configuration keeps one current batch refuses `batch_id`.
 - Group M (incremental delivery, the L5 section of the delivery contract,
-  since 0.2.0-rc2) establishes a passing complete Attestation in one
+  since 0.2.0-rc1) establishes a passing complete Attestation in one
   `Session`, revises one Entry and adds another, passes the probe, and checks
   that `delta_since` delivers exactly those two Entries at their current
   ordinals, that a passing delta Attestation re-anchors so a second delta
@@ -249,7 +249,7 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   that a new session has no base. The pending-compaction, share, and
   combination rules are locked by the package tests; conformance checks that
   `delta_since` with `check_only` or a cursor is refused before any read.
-- Group G (container directories, #54, since 0.2.0-rc2) builds a non-Git
+- Group G (container directories, #54, since 0.2.0-rc1) builds a non-Git
   container holding two child Git repositories and a plain tools directory,
   runs `init` and `scan`, and checks through `scope status` and `scope
   explain` that the container stays a non-Git root counting two child

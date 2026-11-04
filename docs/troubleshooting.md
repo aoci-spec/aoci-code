@@ -545,7 +545,7 @@ ones under `orphan_remove_candidates`; the batch drops them through
 `removals` in the same `aoci_update_entry` call that writes the new Entries,
 so a rename closes in one round. `aoci scan --force` refuses over a Managed Scope Baseline by design and
 names the commands that work (#102); the Legacy `baseline scope` refresh it
-used to point at is gone since 0.2.0-rc2. A policy edit is applied with
+used to point at is gone since 0.2.0-rc1. A policy edit is applied with
 `aoci scope activate`. An Entry whose file is still on disk but which a
 pending exclude rule covers is not an orphan until that edit is activated:
 orphan proof follows the active Baseline, and the removal's refusal names the

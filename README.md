@@ -58,10 +58,11 @@ Give your agent the following instruction to download AOCI-CODE and wire it up. 
 ```text
 AOCI-CODE project: https://github.com/aoci-spec/aoci-code
 
-Download the latest release package for this operating system and CPU architecture from
-https://github.com/aoci-spec/aoci-code/releases, and follow the installation instructions
-on the Release page to verify it. If no compatible release package exists, or if I
-explicitly request the latest source, build it from the official repository.
+Download the newest release package, pre-releases included, for this operating system and
+CPU architecture from https://github.com/aoci-spec/aoci-code/releases, and follow the
+installation instructions on the Release page to verify it. If no compatible release
+package exists, or if I explicitly request the latest source, build it from the official
+repository.
 
 After extracting the package, place aoci (aoci.exe on Windows) at a stable absolute path.
 Then use that absolute path to do the following for my project:

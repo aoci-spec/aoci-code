@@ -311,7 +311,7 @@ Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
 
 Parallel current batches (the Volumes contract's section "Parallel current
-batches (L4)") are implemented since 0.2.0-rc2. Under the team key
+batches (L4)") are implemented since 0.2.0-rc1. Under the team key
 `code_cognition_parallel_batches` (absent or 1 keeps one current batch per
 Maintain, byte for byte; the ceiling is 4) one logical plan keeps up to N
 sibling batches outstanding: Maintain delivers the first as the current batch

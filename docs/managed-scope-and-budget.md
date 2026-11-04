@@ -150,7 +150,7 @@ hard safety boundary. `aoci scope status --json` counts them as
 `child_repositories` in the Safe Inventory summary. This is a practical
 bridge, not a workspace identity
 model: the resulting Baseline does not retain the child repository boundaries,
-and a container indexed before 0.2.0-rc2 drops the child-ignored files from its
+and a container indexed before 0.2.0-rc1 drops the child-ignored files from its
 inventory at the next `scan`.
 
 Two limits matter:

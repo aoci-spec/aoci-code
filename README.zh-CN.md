@@ -48,7 +48,7 @@ https://github.com/user-attachments/assets/78fcbeeb-013a-4ad3-aeee-c1dc303d2501
 ```text
 AOCI-CODE 项目地址：https://github.com/aoci-spec/aoci-code
 
-请从 https://github.com/aoci-spec/aoci-code/releases 下载适合当前操作系统和 CPU 架构的最新发布包，并按照发布页的安装说明完成校验。如果没有适合当前系统的发布包，或者我明确要求使用最新源码，请从官方仓库构建。
+请从 https://github.com/aoci-spec/aoci-code/releases 下载适合当前操作系统和 CPU 架构的最新发布包（包括预发布版），并按照发布页的安装说明完成校验。如果没有适合当前系统的发布包，或者我明确要求使用最新源码，请从官方仓库构建。
 
 解压后，请把 aoci（Windows 为 aoci.exe）放在稳定的绝对路径中，然后用这个绝对路径为我的项目完成以下任务：
 

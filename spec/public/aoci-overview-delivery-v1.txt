@@ -352,7 +352,7 @@ coded.
 Incremental delivery (L5)
 -------------------------
 
-Status: implemented in 0.2.0-rc2 (specified in the same version). A server
+Status: implemented in 0.2.0-rc1 (specified in the same version). A server
 that does not list the `overview_delta` capability in its capability
 manifest delivers only the complete modes above and rejects the request
 field below as an unknown argument, which the input schema already does.

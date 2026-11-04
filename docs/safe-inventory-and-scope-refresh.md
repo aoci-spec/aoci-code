@@ -64,7 +64,7 @@ directories; repeating the exact Apply is idempotent, and unknown Baseline
 bytes are a third-party conflict and are preserved.
 
 The Legacy `baseline scope` refresh (`plan`, `preview`, `approve`, `apply`,
-`status`, `resume`) is gone since 0.2.0-rc2. It had refused every Managed
+`status`, `resume`) is gone since 0.2.0-rc1. It had refused every Managed
 Scope repository since rc20 and named these commands instead; a repository
 created before Managed Scope establishes it with `aoci scope activate`.
 

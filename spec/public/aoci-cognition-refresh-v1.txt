@@ -127,7 +127,7 @@ delivery it names instead of the complete scope. It is an explicit cognition
 request like any other ordinary call, never a checkpoint; when it is served,
 when it answers the complete scope with a fallback_reason, and how its
 Attestation moves the receipt are owned by aoci-overview-delivery-v1.txt
-(Incremental delivery (L5)), implemented in 0.2.0-rc2.
+(Incremental delivery (L5)), implemented in 0.2.0-rc1.
 
 When formal cognition is structurally complete but source governance is Dirty
 or Stale, ordinary Overview still returns the complete formal body. It reports
