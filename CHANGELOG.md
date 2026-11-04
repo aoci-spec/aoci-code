@@ -787,6 +787,34 @@ changes a persisted preimage names the binary every machine then needs.
   and the license gate binds the SQLite translation's MIT-0 text to
   6.4.35401.
 
+## v0.1.1
+
+A security update of the PostgreSQL driver. Nothing else changes: the Go
+toolchain, the other dependencies, the MCP tool surface, input schemas,
+formal-asset formats, and scope identities are those of v0.1.0, and a
+repository aligned under v0.1.0 stays aligned. Upgrade if a PostgreSQL
+source's connection string uses `require_auth` or `channel_binding=require`
+without `sslmode=verify-full`; MySQL and openGauss sources do not use this
+driver.
+
+- Update the PostgreSQL driver `github.com/jackc/pgx/v5` to 5.12.0, which
+  moves `github.com/jackc/puddle/v2` to 2.2.3. pgx 5.12.0 fixes
+  GHSA-95fj-3fxw-g62g: from 5.9.0, a server could skip the authentication that
+  `require_auth` or `channel_binding=require` demanded, so a PostgreSQL source
+  relying on those without `sslmode=verify-full` could be answered by an
+  impersonating server. AOCI sends only fixed catalog queries, so the exposure
+  was a forged snapshot, not business data. GHSA-j38q-h3ph-jjpq does not reach
+  AOCI, which never sends simple-protocol batches. The release module set is
+  the same 22 modules, and both license texts are byte-identical.
+- Known issue, unchanged from v0.1.0: running `aoci cognition onboard apply`
+  again on an onboarding that already completed writes the session back to
+  `apply_pending`, then answers `onboarding_artifact_conflict`. The formal
+  assets and the Baseline are untouched, and Verify, Check, and the Guide
+  still report aligned; only the transaction and approval states that
+  `cognition onboard status` reads from `.aoci/onboarding/active.json`
+  disagree. Run Apply once. The v0.2.0 line returns the recorded result
+  instead and repairs a session left this way.
+
 ## v0.1.0
 
 The first release. It promotes v0.1.0-rc23 unchanged: the product code,
