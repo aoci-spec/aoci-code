@@ -2,10 +2,26 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc1
 
-The 0.2.0 line. Product changes land here while v0.1.0 soaks; an entry that
-changes a persisted preimage names the binary every machine then needs.
+The first 0.2.0 candidate: the speed work, the one-call closing, and
+host-dialog approval, with the Legacy single-file write path retired. Entries
+are newest first; one that changes a persisted preimage names the binary
+every machine then needs.
+
+Upgrading from 0.1.x:
+
+- A Legacy single-file index, an `aoci.txt` that carries its own Header and
+  Entries, is read-only; `aoci cognition onboard` migrates it.
+- A tracked module named `logs` or `run` becomes a Missing Entry, because
+  neither name is a built-in exclusion any more.
+- The `aoci baseline scope` commands are gone; `aoci scope` covers them.
+- A repository initialized by this release uses `sensitive_name_rules` v2 and
+  may declare a SQLite source. A 0.1.x binary answers such a repository with
+  `scope_change_required` or refuses the declaration, so every machine that
+  maintains it needs this release.
+
+Changes:
 
 - The Whole-Index maximum no longer refuses anything. An index may be read
   outside an Agent's context window, so its total size only names the budget

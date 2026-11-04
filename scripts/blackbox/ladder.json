@@ -13,9 +13,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/make-fast-034.txt (#34 locale switch: make fast green)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-fast-020-text.txt (f9726ab tree) and the make full constituents of make-verify-020rc1.txt"
    }
   },
   {
@@ -31,9 +31,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/make-verify-034.txt (#34 locale switch: all deterministic gates green, conformance 58/0/4 dirty of 62, scenarios 93/93, lifecycle 97 PASS 2 CHAR, axis-self 80/80)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (build/aoci-020rc1: licenses 26, conformance 58 + 4 skipped on the uncommitted tree, scenarios 95, lifecycle 97 + 2 CHAR, axis-self 80)"
    }
   },
   {
@@ -50,9 +50,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/conformance-034.txt (after governance, 62/62)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (58 passed, 4 receipt-bound checks skipped on the uncommitted tree)"
    }
   },
   {
@@ -70,9 +70,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/make-verify-034.txt (93/93)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (95 PASS)"
    }
   },
   {
@@ -87,9 +87,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/make-verify-034.txt (97 PASS 2 CHAR, new locale-switch lane 4/4)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (97 PASS, 2 CHAR)"
    }
   },
   {
@@ -169,9 +169,9 @@
     "release-rehearsal.yml"
    ],
    "last_verified": {
-    "version": "v0.1.1",
-    "date": "2026-11-04",
-    "evidence": ".aoci/dev-tools/make-verify-011.txt (make axis-self BUILD_BIN=build/aoci-011: 80/80 as v0.1.1)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (make axis-self BUILD_BIN=build/aoci-020rc1: 80/80 as v0.2.0-rc1)"
    }
   },
   {
@@ -184,9 +184,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.1",
-    "date": "2026-11-04",
-    "evidence": ".aoci/dev-tools/realrepo-RuoYi-011.txt, realrepo-excalidraw-011.txt (build/aoci-011: RuoYi first build 29 rounds verify_aligned; excalidraw 40 rounds verify_aligned_after; same rounds as v0.1.0)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-020rc1.txt, realrepo-excalidraw-020rc1.txt (build/aoci-020rc1: RuoYi first build 15 rounds, 30 calls, verify_aligned; excalidraw 19 rounds, 38 calls, verify_aligned; update waves 3 rounds, 6 calls)"
    }
   },
   {
@@ -199,9 +199,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.0",
-    "date": "2026-11-04",
-    "evidence": ".aoci/dev-tools/perf-calls-010.txt (released 0.1.0 binary, five clones, aged; deepseek-harness steady Maintain 2.84 s, as rc23, which predates the 0.2.0-line speedups) and .aoci/dev-tools/perf-calls-deps1104.txt (0.2.0 line at 87f8bcb: steady Maintain 0.29 s against 0.28 s in perf-calls-l3.txt; status 0.06 to 0.56 s from 78ea807's Volumes verdict, scan +0.35 s from the first-build estimate of ee21f14 and a9ed3be)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/perf-calls-020rc1.txt (build/aoci-020rc1, five repositories 695 to 13,850 files; 13,850 files: maintain.steady 0.29 s, total 6.2 s, as on 11-04)"
    }
   },
   {
@@ -247,9 +247,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/coverage-floors-034.txt (13 packages at or above floors, cli 69.0%)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/coverage-floors-020rc1.txt (13 packages at or above their floors)"
    }
   },
   {
@@ -346,9 +346,9 @@
     "ci.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": "307 files clean (#34 locale switch docs and specs)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/public-text-020rc1.txt (311 files clean, final rc1 text)"
    }
   },
   {

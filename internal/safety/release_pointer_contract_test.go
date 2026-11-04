@@ -55,7 +55,11 @@ func currentReleaseVersion(t *testing.T, root string) string {
 func TestEveryReleaseVersionPointerNamesTheCurrentVersion(t *testing.T) {
 	root := releaseRepoRoot(t)
 	version := currentReleaseVersion(t, root)
-	previous := regexp.MustCompile(`0\.1\.0-rc[0-9]+|[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?`)
+	// After the first pre-release identifier only numeric ones follow (rc1,
+	// rc.1), because a pointer is often followed by a file name: a pattern that
+	// let letters continue read AOCI-CODE_v0.2.0-rc1.provenance.sigstore.json as
+	// version 0.2.0-rc1.provenance.sigstore.json, a mismatch no cut could pass.
+	previous := regexp.MustCompile(`0\.1\.0-rc[0-9]+|[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z]+(?:\.[0-9]+)*)?`)
 
 	for _, target := range []struct {
 		file string
