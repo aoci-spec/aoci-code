@@ -80,7 +80,7 @@ func defaultExcludeDirs() []string {
 // repositories. Existing exclude_dirs lists stay intact. `cache` is new here:
 // it was a built-in exclusion through rc18 and is not in defaultExcludeDirs,
 // which older repositories were backfilled with and which must not change.
-// `logs` and `run` likewise: built-in runtime names through v0.1.0, never in
+// `logs` and `run` likewise: built-in runtime names through v0.1.1, never in
 // defaultExcludeDirs, so an older repository with a tracked module of that
 // name gains candidates on upgrade (#158) and names it here or authors it.
 func newProjectRootExcludeDirs() []string {

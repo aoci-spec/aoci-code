@@ -187,8 +187,7 @@ func runCheckCommand(
 		issues = append(issues, cliMessage("check.issue_observed_review", score.ManagedScope.ObservedPendingReview))
 	}
 	if score.CognitionBudget != nil && score.CognitionBudget.Mode == "enforce" && len(score.CognitionBudget.Violations) > 0 {
-		issues = append(issues, cliMessage("check.issue_cognition_budget", score.CognitionBudget.WholeIndexTokens,
-			score.CognitionBudget.MaxTokens, len(score.CognitionBudget.Violations)))
+		issues = append(issues, cliMessage("check.issue_cognition_budget", len(score.CognitionBudget.Violations)))
 	}
 	localeCoverage := buildLocaleMigrationCoverage(cfg)
 	if localeCoverage.Active {

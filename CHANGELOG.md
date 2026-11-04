@@ -5,17 +5,21 @@ All notable public changes to AOCI-CODE will be documented in this file.
 ## v0.2.0-rc1
 
 The first 0.2.0 candidate: the speed work, the one-call closing, and
-host-dialog approval, with the Legacy single-file write path retired. Entries
-are newest first; one that changes a persisted preimage names the binary
-every machine then needs.
+host-dialog approval, with the Legacy single-file write path retired. An entry
+that changes a persisted preimage names the binary every machine then needs.
 
 Upgrading from 0.1.x:
 
 - A Legacy single-file index, an `aoci.txt` that carries its own Header and
-  Entries, is read-only; `aoci cognition onboard` migrates it.
+  Entries, is read-only apart from a Managed Scope transaction;
+  `aoci cognition onboard` migrates it.
 - A tracked module named `logs` or `run` becomes a Missing Entry, because
   neither name is a built-in exclusion any more.
-- The `aoci baseline scope` commands are gone; `aoci scope` covers them.
+- The `aoci baseline scope` commands are gone; `aoci scope` covers them. A
+  `baseline scope` transaction 0.1.x left pending is resumed with 0.1.x
+  before the upgrade; this release reads its intent as an invalid scope
+  receipt, which blocks the repository until it is moved out of
+  `.aoci/transactions`.
 - A repository initialized by this release uses `sensitive_name_rules` v2 and
   may declare a SQLite source. A 0.1.x binary answers such a repository with
   `scope_change_required` or refuses the declaration, so every machine that
@@ -28,22 +32,33 @@ Changes:
   status (`healthy`, `near_budget`, `warning`, `exceeded`): an Entry Apply, a
   Scope Change, `check`, the Guide, and `cognition_optimization` no longer
   stop when the Whole-Index passes `max_tokens`, and `scope status` no longer
-  reports `cognition_compression_required`. In enforce mode the R and S bands
-  still return an over-band Entry to the model, and the Guide and
+  reports `cognition_compression_required`. In enforce mode the R and S limits
+  still return an Entry over its limit to the model, and the Guide and
   `next_commands` for that stop now name the band
   (`scope budget set --policy-file {policy_file}`) instead of `--max-tokens`.
   No configuration or Baseline byte changes, so no repository needs a Scope
   Change; a 0.1.x binary still enforces the maximum on the same configuration.
-- After a merge, a Volume whose bytes no longer match the Baseline is restored
-  together with `.aoci/baseline.json` from one commit. The repair action of
-  `code_volume_unbaselined` used to say "restore them": restoring the Volume
-  alone matched its own Baseline record while the Baseline still bound the
-  other branch's sources, so an Entry that branch had re-authored went back to
-  its older text and Maintain reported the repository aligned. Restored as a
-  pair, Maintain returns every source the restored Entries do not describe as
-  stale. The suggestion to re-establish cognition through a Scope Change is
-  gone, because a Scope Change cannot rebaseline a formal Volume. v0.1.x prints
-  the old wording; follow this one.
+- After a merge, a Code or Database Volume whose bytes no longer match the
+  Baseline is restored together with the Root, every other Volume, and
+  `.aoci/baseline.json` from one commit. The repair action of
+  `code_volume_unbaselined` and `database_volume_unbaselined` used to say
+  "restore them": restoring a Code Volume alone matched its own Baseline
+  record while the Baseline still bound the other branch's sources, so an
+  Entry that branch had re-authored went back to its older text and Maintain
+  reported the repository aligned. Restored as one set, Maintain returns every
+  source or table the restored Entries do not describe, after any Scope
+  Change, Locale switch, or Observe review it names first. These two findings
+  and `meta_volume_baseline_drift` no longer suggest re-establishing cognition
+  through a Scope Change, because a Scope Change cannot rebaseline a formal
+  Volume; `root_volume_baseline_drift` names it only for the Root an older
+  Database Bootstrap left, the one Root drift a Scope Change reconciles.
+  v0.1.x prints the old wording for every Volume; follow this one.
+- Every batch of a `cognition_optimization` pass reports the floored S
+  maximum. Since #146 only the batch that starts a pass carried an
+  `s_max_tokens` floored by the Meta's S quota; the current batch delivered
+  again and every later batch fell back to the machine default, under-reporting
+  the limit Apply enforces wherever the Meta declares a looser quota. No
+  identity or batch cut changes.
 - `aoci config set locale` works on a Volumes v1 repository. It used to be
   refused once the index existed, so a repository created in one Locale
   could not move to the other without being rebuilt. The switch is one
@@ -101,13 +116,11 @@ Changes:
   governance, so the verdict never blocks the command that clears it; a
   disabled source and an engine without a collector stay informational.
   Found on the SQLite walk-through, which also fixed what a person sees on
-  that path: `database source add` for SQLite no longer says schema
-  collection is unavailable (the collector ships in this release), the
-  `unsupported_catalog_feature` error names the operation and the table
-  (`operation=catalog_query_sqlite_check, object=t`), `database source
-  --help` names SQLite, and the aligned verdict counts Database Entries
-  (`6 Code Entries cover 6 index-role sources; 2 Database Entries are bound
-  to accepted Evidence`).
+  that path: the `unsupported_catalog_feature` error names the operation and
+  the table (`operation=catalog_query_sqlite_check, object=t`), `database
+  source --help` names SQLite, and the aligned verdict counts Database
+  Entries (`6 Code Entries cover 6 index-role sources; 2 Database Entries
+  are bound to accepted Evidence`).
 - The Legacy-to-Volumes migration walk-through, step by step from
   `docs/upgrading.md`, now reads right for a person. `verify`, `check`, and
   `status` on a Legacy repository say that the layout is read-only since
@@ -246,15 +259,13 @@ Changes:
   `Next:` line of verify and check names `--source` instead of a positional
   argument. A database command without `--source` names the declared
   sources instead of cobra's English `required flag(s) "source" not set`.
-- An onboarding Apply that leaves the repository aligned carries its
-  terminal proof. `aoci cognition onboard apply` used to name Verify, Check,
-  and the Guide as next commands after every completed Migration or
-  Bootstrap; it now returns `terminal_proof` (the same `terminal-proof/v1`
-  the final update batch carries) and no `next_commands`, and `onboard
-  status` of a completed session names nothing to run. A session that still
-  has governance work names the Guide as before. Every repository that moves
-  from 0.1 to 0.2 passes this step once. The Legacy migration drill checks
-  the proof and cross-checks it against the three CLI readers.
+- `aoci cognition onboard apply` carries its terminal proof when it leaves the
+  repository aligned: it returns `terminal_proof` (the same
+  `terminal-proof/v1` the final update batch carries) and no `next_commands`,
+  and `onboard status` of a completed session names nothing to run. A session
+  that still has governance work names the Guide. Every Legacy repository that
+  moves to 0.2 passes this step once. The Legacy migration drill checks the
+  proof and cross-checks it against the three CLI readers.
 - `aoci init` on a fresh repository says what the first build costs
   before the first scan, the moment a narrower scope is still free: how
   many index files need an Entry, about how many Maintain rounds that takes,
@@ -292,9 +303,9 @@ Changes:
   unreliable base, a pending `context_compaction`, no probe pass, a delta
   past half the objects, or a delivery the server cannot retain, the call
   answers the complete scope with a named `fallback_reason`. The capability
-  manifest lists `overview_delta`; scenario group M (six scenarios) and two
-  conformance checks pin the contract's list; the suites now publish 92 and
-  62.
+  manifest lists `overview_delta`; scenario group M (six scenarios) drives it
+  through the binary, and two conformance checks pin that `delta_since` is
+  refused with `check_only` or a cursor.
 - Spec: incremental Overview delivery (L5) was specified in the delivery
   contract first: an ordinary `aoci_overview` carrying
   `delta_since=<scope_identity>`, after a passing Attestation and a probe
@@ -321,7 +332,7 @@ Changes:
   every outstanding sibling, and one target's source drift invalidates only
   the sibling holding it. `remaining` counts the targets no sibling holds.
   Scenario group L (six scenarios) and two conformance checks pin the
-  contract's conformance list; the suites now publish 86 and 60.
+  contract's conformance list.
 - The Legacy `baseline scope` refresh is gone: `aoci baseline scope plan`,
   `preview`, `approve`, `apply`, `status`, and `resume`, the
   `internal/scoperefresh` package, and the six `baseline-scope-*/v1` artifact
@@ -462,12 +473,12 @@ Changes:
 - SQLite's explicit file source can collect read-only catalog Evidence for
   ordinary rowid tables, columns, primary/foreign keys, and basic indexes
   (Refs #83). Inspect, snapshot, verify, Baseline acceptance, and onboarding
-  use the existing Evidence lifecycle; enabled SQLite sources now require
-  Evidence instead of remaining declaration-only. Unsupported schema features
-  fail closed. No MCP tool or Evidence JSON version changes. All hosts using
-  SQLite need this release; 0.1.x releases reject the source declaration.
-  The ncruces driver adds three release-linked modules without CGO. Read-only
-  WAL collection may update SQLite's shared-memory coordination file.
+  use the existing Evidence lifecycle, and an enabled SQLite source requires
+  Evidence. Unsupported schema features fail closed. No MCP tool or Evidence
+  JSON version changes. All hosts using SQLite need this release; 0.1.x
+  releases reject the source declaration. The ncruces driver adds three
+  release-linked modules without CGO. Read-only WAL collection may update
+  SQLite's shared-memory coordination file.
 
 - Built-in sensitive-name rules are a selectable set (#148). `v1` is the rule
   every release through v0.1.1 applied: `.env` and `.env.<name>`, named
@@ -566,8 +577,8 @@ Changes:
   `overview_capacity_stop` events. The runtime rules, the AGENTS block, the
   Codex post-compaction instruction, and the Overview description state the
   stop; no tool, input schema, or receipt format changes.
-- `tools/list` is 45% smaller (en-US 26.0 KB to 14.3 KB, zh-CN 23.7 KB to
-  13.6 KB), a cost every session pays on Hosts that load tool schemas up front.
+- `tools/list` is smaller, a cost every session pays on Hosts that load tool
+  schemas up front.
   Descriptions keep what a tool does, when to call it, its write boundary, and
   every contract phrase the tests lock; the procedure they repeated stays in
   `aoci_rules`, the Guide, and the final Chunk's `attestation_prompt`. The
@@ -617,14 +628,16 @@ Changes:
   now records the neutral root `/<repository>`; every other section continues
   under it. Readers need no change: no checkout can sit under that root, so it
   resolves the way a clone at another path resolves its author's root, and the
-  rc22 reader resolves it and its writer appends under it the same way. A
-  repository whose path the header grammar could not spell back is no longer
-  refused for that reason. An existing index keeps the root it records; the
-  format spec and troubleshooting notes say which indexes carry which root.
+  readers of rc22 through v0.1.1 resolve it and their writers append under it
+  the same way. A repository whose path the header grammar could not spell
+  back is no longer refused for that reason. An existing index keeps the root
+  it records; the format spec and troubleshooting notes say which indexes
+  carry which root.
 - A person can approve a protected change in the agent's window. Approvals
   used to need a terminal: people did not know they had to open one and type
-  a 64-character phrase, and saying no left them with an error and no next
-  step. `aoci_maintain` with `intent=human_approval` and `approval_request`
+  a phrase ending in a 64-character digest, and saying no left them with an
+  error and no next step. `aoci_maintain` with `intent=human_approval` and
+  `approval_request`
   (`kind=scope_change` with the preview a paused `scope activate` saved, or
   `kind=onboarding` for the prepared Bootstrap or Legacy Migration review)
   shows the change through MCP form elicitation, described by AOCI from the
@@ -643,9 +656,9 @@ Changes:
   by default, or `tty_only`) decides whether a dialog answer counts, judged
   when Apply starts a transaction and never on Resume; it enters no scope or
   authorization identity. A repository with `safe_inventory_high_risk_opt_in`
-  keeps Scope Change approvals in the terminal, and Migration reversal and
-  rollback, the Legacy baseline scope refresh, and the high-risk pre-read
-  approval stay terminal-only. The `aoci_maintain` input schema gains the
+  keeps Scope Change approvals in the terminal, and Migration reversal, the
+  Migration and Bootstrap rollbacks, and the high-risk pre-read approval stay
+  terminal-only. The `aoci_maintain` input schema gains the
   `human_approval` intent and the optional `approval_request` object; the
   capability manifest gains `host_dialog`. An approval recorded in a dialog
   needs this release to apply.
@@ -729,18 +742,14 @@ Changes:
   team configuration's `database` and `credential_env` fields become
   `omitempty`: a SQLite declaration writes neither, and a server declaration
   is written exactly as before.
-- The MCP server runs on go-sdk 1.8.0 (#66) and negotiates the same
-  revisions as before: `2025-11-25`, `2025-06-18`, `2025-03-26`, and
-  `2024-11-05`. The SDK's newer `2026-07-28` revision removes the
-  `initialize` handshake and blocks the server-initiated elicitation the
-  host-dialog approval uses, so a client offering it in `initialize` is
-  answered with `2025-11-25` and a sessionless request carrying it is refused
-  with `-32022`; serving it is a later step with its own harness arm. On the
-  wire, `tools/list` adds `ttlMs: 0` and `cacheScope: public`, an unknown
+- The MCP server runs on go-sdk 1.8.0 (#66). The SDK's newer `2026-07-28`
+  revision removes the `initialize` handshake and blocks the server-initiated
+  elicitation the host-dialog approval uses, so a client offering it in
+  `initialize` is answered with `2025-11-25`. On the wire, `tools/list` adds
+  `ttlMs: 0` and `cacheScope: public`, an unknown
   method answers `-32601` instead of code 0, and one inbound frame is bounded
   at 16 MiB. The release binary gains one module, `golang.org/x/time` v0.15.0
-  (BSD-3-Clause, from the Go project); `THIRD-PARTY-NOTICES`
-  and the supply-chain guide list it.
+  (BSD-3-Clause, from the Go project); `THIRD-PARTY-NOTICES` lists it.
 - The MCP server serves the sessionless `2026-07-28` revision (#66). A client
   on it sends its revision, client information, and capabilities in every
   request's `_meta` and may start with `server/discover`; the `initialize`
@@ -754,8 +763,7 @@ Changes:
   is `dismissed`; earlier revisions keep the server's own elicitation request.
   The capability manifest's `mcp_protocol` becomes `2026-07-28` and the new
   `mcp_protocols` lists the five negotiated revisions. The conformance suite
-  gains a sessionless lane (58 checks) and the scenarios a sessionless dialog
-  (80 scenarios).
+  gains a sessionless lane and the scenarios a sessionless dialog.
 - `aoci init` under an existing configuration with no index starts the
   Volume-first layout. It used to write the Legacy minimal skeleton there, for
   example after the aoci files were deleted to start over or under a
@@ -771,20 +779,20 @@ Changes:
   report the result aligned with every Code Entry carried byte for byte. The
   full-confidence line runs it on every trigger, and `mcp_upgrade.py --fetch
   <tag>` caches one checksum-verified release binary for it.
-- A Legacy migration can be followed from its own output. Under `--json`
-  each `cognition onboard` result names its continuation in `next_commands`,
-  bound to the running binary: the batch command, the receipt command, for a
-  Migration the mapping template over the session's own Plan and Snapshot
-  and then Preview, then Prepare, and after Apply Verify, Check, and the
-  Guide. A batch with tasks carries `completion_template`, the receipt that
-  completes it. A Migration's v1 receipt was refused for carrying the
-  `batch_id` that `next` printed; it may now name the batch it completes,
-  and a receipt that does not fit is refused as
+- A Legacy migration can be followed from its own output. Under `--json` each
+  `cognition onboard` result names its continuation in `next_commands`, bound
+  to the running binary: the batch command, the receipt command, for a
+  Migration the mapping template over the session's own Plan and Snapshot and
+  then Preview, then Prepare, and after an Apply that leaves governance work,
+  the Guide. A batch with tasks carries `completion_template`, the receipt
+  that completes it. A Migration's v1 receipt was refused for carrying the
+  `batch_id` that `next` printed; it may now name the batch it completes, and
+  a receipt that does not fit is refused as
   `onboarding_completion_contract_mismatch field=<field>`. `cognition
-  migration mapping template` gains `--out-file`, which writes the template
-  to a new file instead of through a shell redirect that could re-encode it,
-  and `docs/upgrading.md` walks through the migration, the candidate and
-  mapping files included. Existing fields keep their shape.
+  migration mapping template` gains `--out-file`, which writes the template to
+  a new file instead of through a shell redirect that could re-encode it, and
+  `docs/upgrading.md` walks through the migration, the candidate and mapping
+  files included. Existing fields keep their shape.
 - A deletion-only incremental Overview proves itself (#164, dayebishouji).
   A delta that only removes Entries, with Root and Meta unchanged, delivers
   no Entry, so its Challenge has no ordinal; the empty answer list graded as

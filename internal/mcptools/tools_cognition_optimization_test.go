@@ -117,6 +117,52 @@ func TestCognitionOptimizationMaintainSelectsAlignedCandidatesDeterministicallyA
 	}
 }
 
+// One optimization pass reports one S maximum on every batch. The Meta's S
+// quota floors it (#146) when the pass starts, and it must equally when the
+// current batch is delivered again and on every later batch, which used to be
+// measured without the quota and reported the machine default instead.
+func TestCognitionOptimizationEveryBatchFloorsSMaxByMetaQuota(t *testing.T) {
+	root := buildCognitionOptimizationRepo(t, 201)
+	metaPath := filepath.Join(root, "aoci.meta.txt")
+	raw, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const admission = "#S-Admission: non-inferable-and-error-preventing\n"
+	if !strings.Contains(string(raw), admission) {
+		t.Fatalf("fixture Meta lacks %q", admission)
+	}
+	// C5 sits in C7-4: its S band maximum is 80 and the machine default quota
+	// 200, so only the declared 300 can produce 300.
+	looser := strings.Replace(string(raw), admission, admission+"#S quota: C9-8≤600 C7-4≤300 C3-1≤50\n", 1)
+	if err := os.WriteFile(metaPath, []byte(looser), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refreshVolumeBaseline(t, root)
+	session := connectMCPClient(t, root)
+
+	assertSMax := func(label string, payload optimizationMaintainPayload) {
+		t.Helper()
+		if len(payload.Candidates) == 0 {
+			t.Fatalf("%s: no optimization candidates: %#v", label, payload)
+		}
+		for _, candidate := range payload.Candidates {
+			if got := optimizationCostValue(t, candidate, "s_max_tokens"); got != 300 {
+				t.Fatalf("%s: %s s_max_tokens=%d, want the declared C5 quota 300", label, candidate.ObjectRef, got)
+			}
+		}
+	}
+	first := callCognitionOptimizationMaintain(t, session, nil)
+	assertSMax("first batch", first)
+	again := callCognitionOptimizationMaintain(t, session, nil)
+	assertSMax("current batch delivered again", again)
+	update := callCognitionOptimizationUpdate(t, session, optimizationUpdateArguments(again, nil))
+	if update.Status != autoStatusApplied {
+		t.Fatalf("the unchanged review did not apply: %#v", update)
+	}
+	assertSMax("later batch", callCognitionOptimizationMaintain(t, session, nil))
+}
+
 func TestCognitionOptimizationAllNoChangeAdvancesCheckpointAndResumes201(t *testing.T) {
 	root := buildCognitionOptimizationRepo(t, 201)
 	session := connectMCPClient(t, root)

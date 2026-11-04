@@ -126,9 +126,10 @@ Auto permits governed Entry create, update, and retirement; every Scope role
 transition; reviewed Curation and semantic-transfer candidates; observe
 fingerprint advancement; and proven budget tightening. It requires complete
 model-owned Retention disposition and reviewed transfers, P0=P1=0, no R/S band
-violation, no pending transaction or third-party bytes,
-deterministic replay, exact CAS guards, and available recovery. A large Entry
-count is not independently blocking.
+violation in the Entries it projects (a Volumes Scope Change projects none), no
+pending transaction or third-party bytes, deterministic replay, exact CAS
+guards, and available recovery. A large Entry count is not independently
+blocking.
 
 An Index-to-Observe/Exclude transition for a Missing, Stale, or Unbaselined
 authoring target is a cognition_coverage_reduction. It is recorded with path,
@@ -149,9 +150,9 @@ human reviewer may ratify -- a posture or budget relaxation, high-risk content,
 a P0/P1 finding, a cognition coverage reduction, an already-decided explicit
 drop -- also makes the plan report interaction_required, so the refusal has an
 approver. The remaining blockers are not opinions and carry no reviewer: a
-transport_constraint basis, an incomplete retention review, an enforce-mode
-R or S band violation, an absent recovery direction, and any business-source write
-or postimage. For those the operator resolves the condition instead of approving
+transport_constraint basis, an incomplete retention review, an R or S band
+violation, an absent recovery direction, and any business-source write or
+postimage. For those the operator resolves the condition instead of approving
 past it. The two sets are derived from one blocker enumeration; an unclassified
 reason fails the plan rather than defaulting to either side.
 
@@ -216,7 +217,7 @@ The Whole-Index target, warning and maximum name the budget status (healthy,
 near_budget, warning, exceeded) and nothing else. An index may be read outside
 an Agent's context window, so its total size is never a violation in either
 mode: it never refuses an Entry Apply, a Scope Change, or an optimization pass.
-The R and S bands are the only budget gates.
+The R and S limits are the only budget gates.
 
 The S hard limit in tokens is the greater of the S band maximum and the
 effective S rune quota for that C (the Meta declaration floored by the machine
@@ -228,17 +229,22 @@ when a policy raises it above the quota. The R band stands alone.
 Reports measure Header, F, R, A, S, structure, total, largest Entries, largest
 R/S, and field violations. Only formal index-role cognition bytes count toward
 Whole-Index. A candidate is never truncated, summarized, retagged, or assigned
-a lower C by the program. In enforce mode an ordinary Entry Apply validates the
-candidate R/S before any write. The unified Scope transaction applies the same
-hard field gates even during a migration from observe mode. Failure is
-repair_required with current, projected, target, warning, maximum, delta,
-largest objects, and suggested model-owned compression targets.
+a lower C by the program. In enforce mode an ordinary Entry Apply validates
+every Entry of the projected set against its R/S limit before any write (the R
+band maximum, or the S hard limit above): a candidate over that limit comes back
+as a repairable finding, and an Entry outside the batch that is over its limit
+stops the whole batch until it is re-authored or its band is raised. Failure is
+repair_required with findings that name the object, the field, the actual
+tokens, and that limit. A Volumes Scope Change validates the policy, not the
+existing Entries, so a tightened band takes effect at the next Apply and
+governance assessment.
 
-Maintain candidates carry the complete R/S band policy, exact limits for an
-existing Entry's C level, current Whole-Index cost, remaining headroom, Scope
-role, and observe-evidence state. Before model output exists, projected cost is
-the current baseline and projection_pending is true; the submitted candidate
-receives the authoritative projected gate.
+An ordinary Volumes Maintain response and a cognition_optimization response
+carry the complete R/S band policy and the current Whole-Index cost in
+governance.budget, and the Scope role counts and the pending Observe review
+count in governance.managed_scope; a cognition_optimization candidate also
+carries its C importance and the exact R/S limits for that C. The submitted
+candidate receives the authoritative projected gate.
 
 9. Compatibility and delivery
 

@@ -51,9 +51,10 @@ directory section, the first file it met having lived in a directory whose name
 begins with `(`, keeps that release's reading until the ordinary orphan repair
 runs, which now completes.) Under a root whose own path holds one of those
 characters, the root section spells the root in full and every later section
-continues it as the original reading reads it back. Every release has written
-that shape, this one included, so the two spellings of the root are deliberate;
-do not edit the headers to make them match.
+continues it as the original reading reads it back. Every release before 0.2.0
+started an index in that shape and 0.2.0 continues one that has it, so the two
+spellings of the root are deliberate; do not edit the headers to make them
+match.
 
 The reverse direction is not supported for a repository that *uses* such a
 name. Checked with the released v0.1.0-rc13 binary, at the origin and in a copy:
@@ -65,7 +66,7 @@ name. Checked with the released v0.1.0-rc13 binary, at the origin and in a copy:
   report removes and re-authors them under the wrong path;
 - a scope rule that holds `[` invalidates the policy.
 
-Everything else an index created by this release carries, under such a root
+Everything else an index created by v0.1.0-rc14 carries, under such a root
 too, v0.1.0-rc13 reads aligned and can keep writing to. So
 once a repository uses one of those names, move every host and teammate that
 works on it to v0.1.0-rc14 or later together, and do not roll one of them back.

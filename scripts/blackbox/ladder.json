@@ -15,7 +15,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-fast-020-text.txt (f9726ab tree) and the make full constituents of make-verify-020rc1.txt"
+    "evidence": ".aoci/dev-tools/make-fast-020rc1-final.txt (final rc1 tree, after the pre-tag audit fixes) and the make full constituents of .aoci/dev-tools/make-verify-020rc1-final.txt"
    }
   },
   {
@@ -33,7 +33,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (build/aoci-020rc1: licenses 26, conformance 58 + 4 skipped on the uncommitted tree, scenarios 95, lifecycle 97 + 2 CHAR, axis-self 80)"
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (build/aoci-020rc1 on the final rc1 tree: licenses 26, race, vuln 0 reachable, clean-room-smoke, conformance 58 + 4 skipped on the uncommitted tree, scenarios 95, lifecycle 97 PASS + 2 CHAR, axis-self 80/80)"
    }
   },
   {
@@ -52,7 +52,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (58 passed, 4 receipt-bound checks skipped on the uncommitted tree)"
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (58 passed, 4 receipt-bound checks skipped on the uncommitted tree)"
    }
   },
   {
@@ -72,7 +72,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (95 PASS)"
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (95 PASS)"
    }
   },
   {
@@ -89,7 +89,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (97 PASS, 2 CHAR)"
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (97 PASS, 2 CHAR)"
    }
   },
   {
@@ -171,7 +171,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1.txt (make axis-self BUILD_BIN=build/aoci-020rc1: 80/80 as v0.2.0-rc1)"
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (make axis-self BUILD_BIN=build/aoci-020rc1: 80/80 as v0.2.0-rc1)"
    }
   },
   {
@@ -249,7 +249,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/coverage-floors-020rc1.txt (13 packages at or above their floors)"
+    "evidence": ".aoci/dev-tools/coverage-floors-020rc1-audit.txt (13 packages at or above their floors, after the optimization S-quota fix)"
    }
   },
   {
@@ -271,7 +271,7 @@
    "id": "legacy-migration",
    "cadence": "nightly",
    "command": "make legacy-migration BUILD_BIN=build/aoci-<label>",
-   "proves": "A Legacy repository in each Locale, built and aligned by the last Legacy-authoring release, migrates through onboarding and a host-dialog approval to aligned Volumes v1 with every Code Entry byte for byte, running only the commands each result names: the one exit from the read-only Legacy layout",
+   "proves": "A Legacy repository in each Locale, built and aligned by a Legacy-authoring release, migrates through onboarding and a host-dialog approval to aligned Volumes v1 with every Code Entry byte for byte, running only the commands each result names: the one exit from the read-only Legacy layout",
    "preconditions": [
     "network or the upgrade-axis cache for the LEGACY_RELEASE binary (default v0.1.0-rc22)"
    ],
@@ -279,9 +279,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-28",
-    "evidence": ".aoci/dev-tools/legacy-migration-drill-zh.txt (24/24: en-US and zh-CN Legacy indexes, rc22 author, following only next_commands)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/legacy-migration-020rc1.txt (24/24: en-US and zh-CN Legacy indexes, rc22 author, build/aoci-020rc1, following only next_commands)"
    }
   },
   {
@@ -313,9 +313,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/make-verify-034.txt"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (clean-room-smoke inside make full, build/aoci-020rc1)"
    }
   },
   {
@@ -348,7 +348,7 @@
    "last_verified": {
     "version": "v0.2.0-rc1",
     "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/public-text-020rc1.txt (311 files clean, final rc1 text)"
+    "evidence": ".aoci/dev-tools/public-text-020rc1-final.txt (311 files clean, final rc1 text)"
    }
   },
   {

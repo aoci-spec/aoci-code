@@ -501,7 +501,7 @@ directory of that name. A path that
 
 ## A `prod.env` or `api-credentials.yaml` file is in the index
 
-Run `aoci config get sensitive_name_rules`. Through v0.1.0 the built-in
+Run `aoci config get sensitive_name_rules`. Through v0.1.1 the built-in
 sensitive-name rule (`v1`) knew `.env` and `.env.<name>`, named credential
 files, private keys, and `secrets.*`; a `prod.env`, `manager-login.env`, or
 `api-credentials.yaml` was source like any other file (#148). The `v2` set

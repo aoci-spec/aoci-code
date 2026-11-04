@@ -1019,7 +1019,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 // Entries for a repository whose real index is 58166 tokens over 476 objects.
 // That is the number `aoci scope status` shows, and it is the command every
 // blocked budget path hands the operator, so it told them their index was empty
-// at the exact moment they were being refused for its size.
+// at the exact moment they were being refused over it.
 //
 // Legacy repositories keep the single-asset measurement unchanged. Under Volumes
 // v1 the per-field costs and per-Entry violations come from the object Volume,

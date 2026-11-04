@@ -152,9 +152,8 @@ The Evidence JSON versions and object identity remain unchanged:
 Snapshot, and Baseline binds the configured path exactly, without replacing a
 relative path with a machine-specific absolute path. Changing it requires new
 Evidence even when both files have identical schemas. Existing server Evidence
-loads unchanged. Use a collector-capable binary on all hosts for SQLite: the
-earlier 0.2.0 declaration-only build skips its Evidence requirements, and rc22
-and older reject the SQLite configuration. An earlier decoder also rejects an
+loads unchanged. Use 0.2.0-rc1 or later on all hosts for SQLite: 0.1.x
+releases reject the SQLite configuration. An earlier decoder also rejects an
 untyped SQLite column's empty native type. No automatic format migration runs.
 
 ## PostgreSQL collector

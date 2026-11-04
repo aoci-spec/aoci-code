@@ -59,7 +59,7 @@ func check(name string, ok bool, detail string) bool {
 
 func main() {
 	binary := flag.String("binary", "", "the AOCI binary under test")
-	legacyBinary := flag.String("legacy-binary", "", "a released AOCI binary that still authors Legacy indexes (v0.1.0-rc22 or older)")
+	legacyBinary := flag.String("legacy-binary", "", "a released AOCI binary that still authors Legacy indexes (v0.1.0-rc22 through v0.1.1)")
 	keep := flag.Bool("keep", false, "retain the disposable repositories")
 	only := flag.String("locale", "", "migrate only the Legacy index written in this Locale (default: every Locale)")
 	flag.Parse()

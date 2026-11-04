@@ -300,7 +300,7 @@ from `exclude_dirs` and `exclude_root_dirs` in `.aoci/config.json`. For a new
 repository, `init` puts `backup`, `backups`, `build`, `cache`, `coverage`,
 `dist`, `target`, `tmp`, `uploads`, `artifacts`, `vendor`, `logs`, and `run`
 in `exclude_root_dirs` (`logs` and `run` were built-in runtime names through
-v0.1.0; log, PID and socket files stay excluded by suffix). A tracked
+v0.1.1; log, PID and socket files stay excluded by suffix). A tracked
 `src/build/tool.go` or `views/monitor/cache/index.vue` is therefore source;
 `build/output.js` or `cache/data` at the repository root is excluded, and so
 is a git-ignored `packages/web/dist/` at any depth: a name in this list counts
@@ -327,7 +327,7 @@ binary neither honours the field nor preserves it when it saves the team
 configuration.
 
 The built-in sensitive-name rule is likewise a persisted choice, the team key
-`sensitive_name_rules` (#148). `v1` is the rule every release through rc22
+`sensitive_name_rules` (#148). `v1` is the rule every release through v0.1.1
 applied: `.env` and `.env.<name>`, named credential files, private keys, and
 `secrets.*`. `v2` adds the shapes operational repositories use: a file name
 with an `env` component after the first (`prod.env`, `manager-login.env`,
@@ -386,18 +386,27 @@ keeps the original 120000 / 180000 / 240000 permanently, because that policy's
 identity is stamped in its Baseline and moving it would force a Scope Change
 the repository did not earn.
 
-The R and S bands are the budget gates that remain: in enforce mode an Entry
-whose R or S exceeds its C band comes back to the model to re-author. A
+The R and S limits are the budget gates that remain: in enforce mode an Entry
+whose R exceeds its C band, or whose S exceeds its hard limit (the band floored
+by the S quota, below), comes back to the model to re-author. A
 repository that wants a smaller index can spend the reduction levers — Scope
 roles that keep non-cognition files out of Index, tighter S under the C-driven
 quotas, and an explicit `cognition_optimization` review pass. Splitting the Code
 Volume itself into partitions is deliberately not supported in v1.
 
-The thresholds and bands change through the budget command:
+The thresholds change through the budget command. The R and S bands change
+through a complete `cognition-budget-policy/v1` file: save what `aoci scope
+budget show` prints, raise the band's `max_tokens` in it, and pass it back:
 
 ```
 aoci scope budget set --max-tokens <n> --warning-tokens <n> --target-tokens <n>
+aoci scope budget show > .aoci/budget-policy.json
+aoci scope budget set --policy-file .aoci/budget-policy.json
 ```
+
+In Windows PowerShell 5, `>` writes UTF-16, which `--policy-file` refuses;
+write the file as UTF-8 without a BOM, as section 9 of the
+[Windows host-agent guide](windows-host-agent.en.md) shows.
 
 That edits the desired policy. Activate it through the governed Scope Change
 transaction:
@@ -478,10 +487,10 @@ policy is active. Before 0.1.0-rc12 that ordering, combined with the stale
 guard, left a Volumes repository with one changed file and one pending rule
 with no legal move.
 
-### What a raised budget does not buy
+### What the Whole-Index size costs
 
-The budget governs what may be written. It does not govern what a model can
-receive, and those two ceilings are not the same number.
+The Whole-Index thresholds only name the budget status: they neither refuse a
+write nor govern what a model can receive.
 
 A Whole-Index is delivered as a chunk chain, `overview_delivery.chunk_tokens`
 per chunk with a default of 7000, so the index size decides how many round trips
@@ -491,16 +500,13 @@ void the chain, and only the closing attestation detects that it happened. There
 is no partial-repository delivery to fall back on — `aoci_overview` scopes by
 domain (`code`, `database`, `all`), never by subset.
 
-So a repository whose plan estimate runs to several hundred thousand tokens has
-a role problem before it has a budget problem. `aoci scope preview` reports
+So a repository whose estimate runs to several hundred thousand tokens has a
+role question to settle early. The Scope Proposal `aoci init` prints reports
 `estimated_whole_index_tokens` as `1800 + index_count * 110` before any Entry is
 authored; read it early. If most of the tracked tree is entering the index role,
 move test fixtures, generated samples and vendored sources to `observe` or
-`exclude` first. Raise the budget for a repository that is genuinely that large
-in the parts that matter — not to postpone the role decision.
-Judgement still applies in the other direction: a Whole-Index far above the
-ceiling is one a model cannot assimilate in a single delivery, so role reduction
-is the first answer and a raise is the second.
+`exclude` first. A Whole-Index far larger than a Host's context window is one a
+model cannot assimilate in a single delivery, so role reduction is the answer.
 
 ### The S band and the S quota
 

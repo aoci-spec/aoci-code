@@ -393,8 +393,13 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 		}
 		guide.Commands.ScopeStatus = "aoci " + machinecontract.RemediationCommandScopeStatus
 		guide.Commands.ScopeBudget = "aoci " + machinecontract.RemediationCommandScopeBudgetSet
+		// The fields over their band live in a Volume, not in the configuration.
+		affected := facts.Code.Path
+		if len(facts.Budget.Violations) > 0 && strings.HasPrefix(facts.Budget.Violations[0].Path, "database://") {
+			affected = facts.Database.Path
+		}
 		guide.Stop = &volumeGuideStopFacts{
-			AffectedAsset: ".aoci/config.json", Field: "entry_fields", RuleCode: "cognition_budget_exceeded",
+			AffectedAsset: affected, Field: "entry_fields", RuleCode: "cognition_budget_exceeded",
 			Expected:       "entry_fields_within_c_band",
 			Actual:         fmt.Sprintf("entry_field_budget_exceeded=%d", len(facts.Budget.Violations)),
 			Cause:          cliMessage("guide.budget_blocked_cause", len(facts.Budget.Violations)),

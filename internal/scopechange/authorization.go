@@ -267,10 +267,10 @@ var autoBlockerCodes = []string{
 //
 // The rest are not opinions. A transport-constraint basis is never an
 // admissible reduction reason; an incomplete retention review is missing input,
-// not a decision; an exceeded enforce-mode budget, an absent recovery
-// direction, and a business-source write or postimage are safety boundaries. For
-// these the plan correctly carries no reviewer, and the operator resolves the
-// condition instead of approving past it.
+// not a decision; an R or S band violation in the projected Entries, an absent
+// recovery direction, and a business-source write or postimage are safety
+// boundaries. For these the plan correctly carries no reviewer, and the
+// operator resolves the condition instead of approving past it.
 var autoBlockerRatifiableByIndependentReview = map[string]bool{
 	autoBlockerHighRiskContentInclusion:    true,
 	autoBlockerBudgetPolicyRelaxation:      true,

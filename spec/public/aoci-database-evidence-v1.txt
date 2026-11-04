@@ -93,10 +93,9 @@ No JSON version or field is added. The database field for a SQLite manifest,
 table, Snapshot, or Baseline carries the exact configured path, while object_ref
 remains database://source_id/main/table. Selection checks bind that path rather
 than its host-specific resolution. Existing server artifacts remain readable.
-All hosts using SQLite need the collector-capable version: earlier 0.2.0 builds
-skip declaration-only Evidence requirements; rc22 and older reject the source
-configuration. Older decoders reject an untyped SQLite column's empty native
-type. There is no automatic migration of existing Evidence or Baselines.
+All hosts using SQLite need 0.2.0-rc1 or later: 0.1.x releases reject the
+source configuration. Older decoders reject an untyped SQLite column's empty
+native type. There is no automatic migration of existing Evidence or Baselines.
 
 System namespaces are always excluded. PostgreSQL excludes information_schema,
 pg_catalog, pg_toast*, and pg_temp_*. MySQL excludes information_schema, mysql,

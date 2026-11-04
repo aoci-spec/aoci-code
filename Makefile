@@ -234,7 +234,7 @@ clean-room-smoke:
 longrun-refresh: build
 	$(GO_BIN) run ./scripts/blackbox/longrun-refresh --binary "$(abspath $(BUILD_BIN))" --output build/longrun-refresh-report.json
 
-# Legacy migration drill. LEGACY_RELEASE, the last release that authors Legacy
+# Legacy migration drill. LEGACY_RELEASE, a release that authors Legacy
 # indexes, builds and aligns a Legacy repository; BUILD_BIN, for which that
 # layout is read-only, must migrate it through onboarding, approved in the host
 # dialog, to aligned Volumes v1 carrying every Code Entry byte for byte, while

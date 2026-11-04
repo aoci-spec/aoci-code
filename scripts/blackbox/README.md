@@ -13,7 +13,7 @@ the repository clone (binary Release archives do not include `scripts/`).
 | `mcp_lifecycle.py` | Complete lifecycles on three frozen realistic projects: `repo-a` (a TypeScript service) and `repo-b` (a Python + MySQL service) run from `init` through incremental maintenance, database Evidence, drift, re-alignment, the governance walks (curation probes, post-scan exclusion, and a pending policy edit over a changed source), and the bring-up lanes (a git submodule boundary, `exclude_root_dirs` roles with `config set` normalization, `remove-entry --preview` and the real removal of an orphan, the `source manifest` and `capabilities` machine documents, a zh-CN run compared with an en-US run of the same commands: no en-US sentence fragment in the human output, identical `--json` machine fields, and a Locale switch of an aligned repository: Root marker, configuration, and Baseline in one transaction, Meta and Code bytes unchanged, the re-rendered AGENTS block as the only new work, and a byte-exact round trip), while `repo-c` (a 453-file layered service) additionally exercises multi-batch authoring at the real machine batch limit, including a relation cycle that spans every batch. An optional model track drives a real AI agent through the small repositories. | above + Docker for the `database` suite; OpenCode + a model subscription for the model track | minutes; model track depends on the model |
 | `mcp_upgrade.py` | The upgrade axis: a repository built and authored by a *previously released* binary stays governable by the binary under test — no identity moves, no Scope Change is demanded, no formal asset is rewritten. Every release in the CHANGELOG is downloaded, checksum-verified, and probed in ten repository shapes; the tenth turns the axis around, so each release also has to read a repository the binary under test wrote. `--self` runs the same shapes with the binary under test in both roles, before a tag exists. | above + network access on the first run (binaries are cached; `--self` needs none) | minutes |
 | `longrun-refresh/` (Go; `make longrun-refresh`) | The long-running cognition refresh contract against a real stdio MCP server over two disposable Git repositories: the 29-versus-30 semantic threshold, compact `check_only`, Dirty delivery marked unreliable, a simulated Host compaction with a partial Attestation, three-reason merging, one injected `repair_required` correction, and final Verify/Check/Guide alignment. Writes a JSON report; see its own README. | go, git, a built binary | seconds |
-| `legacy-migration/` (Go; `make legacy-migration`) | The one exit from the read-only Legacy layout: a repository the last Legacy-authoring release built and aligned migrates through onboarding and a host-dialog approval to aligned Volumes v1, every Code Entry carried byte for byte, by running only the commands each result names. | go, git, python3, a POSIX shell, a built binary, network once for the release binary (cached) | seconds |
+| `legacy-migration/` (Go; `make legacy-migration`) | The one exit from the read-only Legacy layout: a repository a Legacy-authoring release built and aligned migrates through onboarding and a host-dialog approval to aligned Volumes v1, every Code Entry carried byte for byte, by running only the commands each result names. | go, git, python3, a POSIX shell, a built binary, network once for the release binary (cached) | seconds |
 
 ## Running
 
@@ -93,9 +93,10 @@ layout and composite identity back unchanged, its Maintain must either reach
 `cognition_*` refusal, or an unsupported layout) and never crash, no formal
 byte may move, and the binary under test must afterwards still verify aligned
 and grow. Which answer a release owes is a floor in the suite: a release from
-v0.1.0-rc20 on shares every preimage the binary under test writes and must
-read the fixture aligned, while every earlier release computes its desired
-policy identity without `exclude_root_dirs` and must answer
+the first 0.2.0 candidate (v0.2.0-rc1) on shares every preimage the binary
+under test writes and must read the fixture aligned, while every earlier
+release computes its desired policy identity without `sensitive_name_rules`
+(and, before rc20, without `exclude_root_dirs`) and must answer
 `scope_change_required`, which is what `docs/upgrading.md` promises. A
 candidate that adds a persisted preimage moves that floor, and its release
 notes must say which binary every machine then needs. A run that cannot
@@ -128,7 +129,7 @@ preimages honest.
 
 Legacy migration drill (a disposable repository in a temp dir). Since 0.2.0
 the Legacy layout is read-only and migration is its one exit, so this runner
-proves that exit end to end. The last release that authors Legacy indexes
+proves that exit end to end. A release that authors Legacy indexes
 (`LEGACY_RELEASE`, default v0.1.0-rc22, taken checksum-verified from the
 upgrade axis's cache through `mcp_upgrade.py --fetch`) builds a small Legacy
 repository in each Locale, en-US and zh-CN, the way its users did, since the

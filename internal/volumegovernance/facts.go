@@ -611,11 +611,10 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 
 	facts.Budget = AssessProjectedBudget(cfg, set)
 	if facts.Budget.Mode == machinecontract.BudgetModeEnforce && len(facts.Budget.Violations) > 0 {
-		// The code alone left the operator to guess. A budget is a project-owned
-		// policy, so both levers are named: reduce what the index governs, or
-		// raise the budget through the governed transaction. Neither is implied
-		// by the code, and compression alone is the wrong answer for an index
-		// that grew because the repository did.
+		// The code alone left the operator to guess. Only Entry fields over their
+		// C band reach here, and the bands are a project-owned policy, so both
+		// levers are named: re-author the named Entries, or raise the band
+		// through the governed transaction.
 		facts.Findings = append(facts.Findings, Finding{
 			Code:             "cognition_budget_exceeded",
 			Cause:            budgetExceededCause(facts.Budget),
@@ -864,9 +863,21 @@ func assessFormalAsset(
 			SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
 		})
 	case !matched:
+		// Root and Meta carry no Entry bound to a source, so restoring the one
+		// file is the repair; restoring .aoci/baseline.json with it would drop
+		// the bindings of every Entry written since that commit. A Scope Change
+		// refuses this drift except for the one Root state an older Database
+		// Bootstrap left: its Database descriptor beside a Database Volume that
+		// still matches its record. Restoring that Root would undeclare the
+		// Database Volume, so only the Root names the Scope Change, and only
+		// for that state.
+		action := "this Volume's bytes changed after the Baseline was established; restore them"
+		if kind == "root" {
+			action += ", unless the only change is the Database descriptor an older Database Bootstrap added while the Database Volume still matches its record, which the governed Scope Change flow reconciles instead"
+		}
 		facts.Findings = append(facts.Findings, Finding{
 			Code: kind + "_volume_baseline_drift", Target: rel,
-			SafeRepairAction: volumeUnbaselinedRepairAction(root, rel, state),
+			SafeRepairAction: action,
 		})
 	}
 }
@@ -878,17 +889,23 @@ func assessFormalAsset(
 // Volume absent from the Baseline was hidden from Git when the Baseline was
 // built, while a Volume present but mismatched has had its bytes rewritten.
 //
-// A mismatched Volume is restored together with .aoci/baseline.json from one
-// commit, never alone. The two are written as a pair and only vouch for each
-// other as a pair: after a merge, restoring the Volume alone matched its own
-// record while the Baseline still bound the other branch's sources, so an Entry
-// that branch had re-authored reverted to older text and Maintain reported it
-// aligned. Restored as a pair, every source that commit's Entries do not
-// describe comes back from Maintain as stale.
+// A mismatched object Volume is restored together with the Root, every other
+// Volume, and .aoci/baseline.json from one commit, never alone. The Baseline
+// records every formal asset and the sources their Entries bind, so they only
+// vouch for each other as one set: after a merge, restoring a Code Volume
+// alone matched its own record while the Baseline still bound the other
+// branch's sources, so an Entry that branch had re-authored reverted to older
+// text and Maintain reported it aligned; restoring the Volume and the Baseline
+// alone left another Volume, changed after that commit, mismatched in turn.
+// Restored as one set, every source or table that commit's Entries do not
+// describe comes back from Maintain. The configuration stays as merged: when
+// it moved after that commit, or Observe evidence changed since, Maintain
+// first names the Scope Change, Locale switch, or Observe review the restored
+// Baseline needs.
 func volumeUnbaselinedRepairAction(root, rel string, state *baseline.Baseline) string {
 	if state != nil {
 		if _, recorded := state.Files[rel]; recorded {
-			return "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Volume and .aoci/baseline.json together from one commit, then run aoci_maintain, which returns every source that commit's Entries do not describe"
+			return "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Root, every Volume, and .aoci/baseline.json together from one commit, then run aoci_maintain: after any Scope Change, Locale switch, or Observe review it names first, it returns every source or table that commit's Entries do not describe"
 		}
 	}
 	if ignored, _ := afs.PathIgnoredByGit(root, rel); ignored {
@@ -1017,7 +1034,8 @@ func budgetExceededCause(budget BudgetFacts) string {
 // names the Scope Change it actually requires rather than only the edit command.
 func budgetExceededRepairAction(budget BudgetFacts) string {
 	return "re-author the named Entries within their C band, " +
-		"or raise the band: aoci scope budget set --policy-file <policy.json>, " +
+		"or raise the band: save what aoci scope budget show prints, with that band's max_tokens raised, as .aoci/budget-policy.json, " +
+		"run aoci scope budget set --policy-file .aoci/budget-policy.json, " +
 		"then activate it through the same governed Scope Change sequence"
 }
 

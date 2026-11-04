@@ -258,6 +258,7 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 	}
 	measured, err := cognitionoptimization.Select(entries, loaded.cfg.EffectiveCognitionBudget(), cognitionoptimization.SelectOptions{
 		ObjectRefs: refs, MaxEntries: limit,
+		SQuota: index.ExtractSQuotaThresholds(string(loaded.set.Meta.Raw)),
 	})
 	if err != nil {
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
@@ -298,7 +299,9 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 			SourceSHA256: target.SourceSHA256, ExistingEntry: target.ExistingEntry,
 			EScaleMismatch: optimizationEScaleMismatch(root, thresholds, target.Path, target.ExistingEntry)})
 	}
-	measured, err := cognitionoptimization.Select(entries, loaded.cfg.EffectiveCognitionBudget(), cognitionoptimization.SelectOptions{MaxEntries: len(entries)})
+	measured, err := cognitionoptimization.Select(entries, loaded.cfg.EffectiveCognitionBudget(), cognitionoptimization.SelectOptions{
+		MaxEntries: len(entries), SQuota: index.ExtractSQuotaThresholds(string(loaded.set.Meta.Raw)),
+	})
 	if err != nil {
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}

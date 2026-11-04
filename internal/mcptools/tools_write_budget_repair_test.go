@@ -117,8 +117,8 @@ func TestBudgetEnforceViolationReturnsStructuredRepair(t *testing.T) {
 	}
 }
 
-// Split logic: a field violation hitting a candidate of this batch is repairable; a whole-index overrun and the historical violations of
-// entries outside the batch always go to unrepairable, and the caller keeps the batch-level stop.
+// Split logic: a field violation hitting a candidate of this batch is repairable; the historical violations of entries outside the
+// batch always go to unrepairable, and the caller keeps the batch-level stop.
 func TestBudgetRepairFindingsSplitsCandidateAndBatchLevel(t *testing.T) {
 	normalized := []normalizedAtomicItem{
 		{rel: "src/a.go", originalCandidateIndex: 3},
@@ -128,7 +128,7 @@ func TestBudgetRepairFindingsSplitsCandidateAndBatchLevel(t *testing.T) {
 		{Code: "entry_field_budget_exceeded", Path: "code:src/a.go", Field: "S", Importance: 5, Actual: 82, Maximum: 80},
 		{Code: "entry_field_budget_exceeded", Path: "database://primary/public/users", Field: "R", Importance: 6, Actual: 101, Maximum: 90},
 		{Code: "entry_field_budget_exceeded", Path: "code:not/in/batch.go", Field: "S", Actual: 99, Maximum: 80},
-		{Code: "whole_index_budget_exceeded", Actual: 250000, Maximum: 240000},
+		{Code: "entry_field_budget_exceeded", Path: "code:also/outside.go", Field: "R", Actual: 95, Maximum: 90},
 	}
 	findings, unmatched := budgetRepairFindings(violations, normalized)
 	if len(findings) != 2 || len(unmatched) != 2 {
@@ -141,8 +141,10 @@ func TestBudgetRepairFindingsSplitsCandidateAndBatchLevel(t *testing.T) {
 		findings[1].CanonicalObjectIdentity != "database://primary/public/users" {
 		t.Fatalf("database 候选映射不对: %+v", findings[1])
 	}
-	detail := budgetViolationDetail(unmatched[1])
-	if !strings.Contains(detail, "whole_index_budget_exceeded") || !strings.Contains(detail, "250000") {
-		t.Fatalf("批级违规事实串不完整: %q", detail)
+	// The message names unmatched[0], so that is the fact string a repository sees.
+	for _, want := range []string{"entry_field_budget_exceeded", "code:not/in/batch.go", "S", "99", "80"} {
+		if detail := budgetViolationDetail(unmatched[0]); !strings.Contains(detail, want) {
+			t.Fatalf("批级违规事实串缺少 %q: %q", want, detail)
+		}
 	}
 }
