@@ -61,6 +61,26 @@ repository `init` prints the exclusion command to start smaller.
 `verify`, and `check`. Everything else sits under Additional Commands and is
 explained by `aoci <command> --help`.
 
+## When the repository already has an index
+
+A clone of a repository that carries `aoci.txt`, `aoci.meta.txt`,
+`aoci.code.txt`, and `.aoci/baseline.json` has the index as it is. Every Entry
+is bound to a repository-relative path and a source digest, nothing in the
+formal assets names a machine or a directory, and a checkout at any path reads
+them unchanged. Do not run `scan`: the Baseline is committed, and `scan`
+refuses to replace one that exists. What a clone lacks is the host
+integration, which is machine-bound and ignored by Git, so run `init` once for
+your host:
+
+```bash
+aoci --repo . init --agent codex
+```
+
+On a repository that has an index, `init` leaves the formal assets alone and
+writes only the host configuration for this machine. Reload the MCP server in
+your host, and your first session starts with the complete `aoci_overview`
+described in Step 2, like every session after it.
+
 ## Step 2: connect your Agent and build the index (days two and three)
 
 Open the repository in Codex, Claude Code, Cursor, or another MCP-capable
