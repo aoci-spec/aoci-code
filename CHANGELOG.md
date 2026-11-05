@@ -22,6 +22,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
   that way.
 - `init --agent` on a clone no longer rewrites the committed Baseline for a
   host configuration Git ignores; init records only what scan would.
+- `scope activate --reviewed-by <identity>` records the Observe review the
+  activation would otherwise refuse on, over the paths the planner names, so a
+  merge that changed both the rules and Observe files no longer waits on two
+  commands that each wait for the other.
+- Every governance call resolves the commit it binds from the files git keeps
+  (a loose or packed ref, a detached HEAD, a linked worktree) and asks git only
+  for a shape it does not understand: one process fewer per call.
+- The capability manifest advertises `sqlite_schema_evidence` and lists
+  Migration rollback and Bootstrap rollback among the terminal-only actions the
+  interaction contract already reserved.
 - `scripts/blackbox/ledger_timings.py` takes the index source count from any
   Ledger event that carries one, not only `check`.
 - `docs/getting-started.md` says what a teammate does on a repository that
