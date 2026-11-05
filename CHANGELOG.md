@@ -2,6 +2,27 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Overview continuation checks every governed source through the fingerprint
+  cache that scan and Maintain already trust, one stat per unchanged file
+  instead of one read, and the Safe Inventory it rebuilds takes untracked
+  paths from the status listing it already runs, one git process fewer on
+  every governance call. Both matter most on Windows, where a 12-Chunk session
+  start spent most of its server time rereading sources (#127, #150). A
+  same-size rewrite that also restores the mtime is now unseen by the guard
+  exactly as governance would miss it.
+- The starter Meta names the neutral section root: one comment line says that
+  `/<repository>` stands for the checkout holding the index, so a reader that
+  has only the index file knows where `===/<repository>/docs/===` points.
+- `init --agent` on a clone no longer rewrites the committed Baseline for a
+  host configuration Git ignores; init records only what scan would.
+- `scripts/blackbox/ledger_timings.py` takes the index source count from any
+  Ledger event that carries one, not only `check`.
+- `docs/getting-started.md` says what a teammate does on a repository that
+  already has an index, and `docs/mongodb-collection-evidence-profile.md`
+  records the proposed MongoDB collection profile from #135 (#166).
+
 ## v0.2.0-rc1
 
 The first 0.2.0 candidate: the speed work, the one-call closing, and
