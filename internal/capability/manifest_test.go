@@ -53,6 +53,7 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 		!containsCapability(manifest.CLILifecycleCapabilities, "cognition_lineage_v1") ||
 		!containsCapability(manifest.CLILifecycleCapabilities, "database_to_code_impact_v1") ||
 		!containsCapability(manifest.DatabaseCapabilities, "opengauss_schema_evidence") ||
+		!containsCapability(manifest.DatabaseCapabilities, "sqlite_schema_evidence") ||
 		!containsCapability(manifest.InputSchemaVersions, cognition.CognitionEvolutionV1) ||
 		manifest.TTY.Mechanism != machinecontract.ApprovalMechanismInteractiveDigestConfirmation {
 		t.Fatalf("authorization contracts missing: %#v", manifest)
@@ -60,6 +61,14 @@ func TestManifestIsSingleReadOnlyNineToolAuthority(t *testing.T) {
 	if containsCapability(manifest.TTY.RequiredFor, "bootstrap_apply") ||
 		!containsCapability(manifest.TTY.RequiredFor, "bootstrap_review_apply") {
 		t.Fatalf("bootstrap TTY scope is not policy-qualified: %#v", manifest.TTY.RequiredFor)
+	}
+	// The interaction contract keeps reversal and both rollbacks in the
+	// terminal: they need it, and no dialog route serves them.
+	for _, action := range []string{"migration_reversal", "migration_rollback", "bootstrap_rollback", "high_risk_exact_opt_in"} {
+		if !containsCapability(manifest.TTY.RequiredFor, action) || !containsCapability(manifest.HostDialog.TerminalOnlyFor, action) ||
+			containsCapability(manifest.HostDialog.AvailableFor, action) {
+			t.Fatalf("%s must be terminal-only: %#v", action, manifest.HostDialog)
+		}
 	}
 	// The dialog is a second channel to the same person, never a third kind of
 	// approval: every action it serves is one the terminal serves, and the two
