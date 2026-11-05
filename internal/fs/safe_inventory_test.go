@@ -641,12 +641,62 @@ func TestGitIgnoredPathsFallsBackWhenStatusMatchingIsUnavailable(t *testing.T) {
 		}
 		return []byte("gen/api.go\x00node_modules/x.js\x00"), nil
 	}
-	files, collapsed, err := gitIgnoredPaths(run, func(string) bool { return true })
+	files, collapsed, untracked, listed, err := gitIgnoredPaths(run, func(string) bool { return true })
 	if err != nil || len(collapsed) != 0 || !reflect.DeepEqual(files, []string{"gen/api.go", "node_modules/x.js"}) {
 		t.Fatalf("fallback must return the full listing: files=%v collapsed=%v err=%v calls=%v", files, collapsed, err, calls)
 	}
+	if listed || untracked != nil {
+		t.Fatalf("fallback lists nothing untracked, the caller runs ls-files for them: listed=%v untracked=%v", listed, untracked)
+	}
 	if len(calls) != 2 || calls[1][0] != "ls-files" {
 		t.Fatalf("fallback must run the rc17 ls-files listing: %v", calls)
+	}
+}
+
+// The untracked paths now come from the status listing the inventory already
+// runs. A verdict decides a path's role, so the set must equal what
+// `ls-files --others --exclude-standard` listed until 0.2.0-rc1: nested
+// untracked directories, ignored files beside untracked ones, names with
+// spaces, CJK and glob characters, and a modified tracked file that is a
+// status record but never untracked.
+func TestSafeInventoryUntrackedPathsMatchTheLsFilesListing(t *testing.T) {
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, ".gitignore", "*.log\nbuild/\nnode_modules/\n")
+	mustWrite(t, root, "src/main.go", "package main\n")
+	gitCommand(t, root, "add", ".gitignore", "src/main.go")
+	gitCommand(t, root, "commit", "-qm", "base")
+	mustWrite(t, root, "src/new.go", "package main\n")
+	mustWrite(t, root, "pkg/deep/er/file.txt", "x\n")
+	mustWrite(t, root, "pkg/deep/er/trace.log", "ignored\n")
+	mustWrite(t, root, "docs/with space.md", "x\n")
+	mustWrite(t, root, "docs/中文 名.md", "x\n")
+	mustWrite(t, root, "build/out.js", "generated\n")
+	mustWrite(t, root, "node_modules/x/index.js", "dep\n")
+	mustWrite(t, root, "src/main.go", "package main // modified\n")
+	if runtime.GOOS != "windows" {
+		mustWrite(t, root, "a*b/q?.txt", "x\n")
+	}
+	collapsible := func(dir string) bool {
+		_, _, hard := HardExcludedDirectory(dir, WalkOptions{})
+		return hard
+	}
+	_, untracked, _, _, _, _, err := gitInventory(root, collapsible)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command := exec.Command("git", "-C", root, "-c", "core.quotepath=false", "ls-files", "-z", "--others", "--exclude-standard")
+	data, err := command.Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := splitNULPaths(data)
+	if !reflect.DeepEqual(untracked, want) {
+		t.Fatalf("untracked paths from status differ from ls-files:\n got %v\nwant %v", untracked, want)
+	}
+	if !containsPath(untracked, "docs/中文 名.md") || !containsPath(untracked, "pkg/deep/er/file.txt") ||
+		containsPath(untracked, "pkg/deep/er/trace.log") || containsPath(untracked, "src/main.go") || containsPath(untracked, "build/out.js") {
+		t.Fatalf("unexpected untracked set: %v", untracked)
 	}
 }
 

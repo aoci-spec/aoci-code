@@ -358,13 +358,18 @@ func gitInventory(root string, collapsible func(dir string) bool) (tracked, untr
 		return nil, nil, nil, nil, nil, true, err
 	}
 	tracked, gitlinks = splitNULStageEntries(data)
-	if data, err = run("ls-files", "-z", "--others", "--exclude-standard"); err != nil {
-		return nil, nil, nil, nil, nil, true, err
-	}
-	untracked = splitNULPaths(data)
-	ignored, collapsed, err = gitIgnoredPaths(run, collapsible)
+	var listed bool
+	ignored, collapsed, untracked, listed, err = gitIgnoredPaths(run, collapsible)
 	if err != nil {
 		return nil, nil, nil, nil, nil, true, err
+	}
+	if !listed {
+		// A git without --ignored=matching listed nothing untracked above:
+		// the rc17 listing names them as before.
+		if data, err = run("ls-files", "-z", "--others", "--exclude-standard"); err != nil {
+			return nil, nil, nil, nil, nil, true, err
+		}
+		untracked = splitNULPaths(data)
 	}
 	return tracked, untracked, ignored, collapsed, gitlinks, true, nil
 }
@@ -387,18 +392,44 @@ func gitInventory(root string, collapsible func(dir string) bool) (tracked, untr
 // restricted to it, so its files stay policy candidates exactly as before and
 // no persisted role or identity changes. A git too old for --ignored=matching
 // (before 2.16) falls back to the rc17 listing.
-func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(dir string) bool) (files, collapsed []string, err error) {
+//
+// The same status listing names every untracked file git does not ignore,
+// one "??" record each under --untracked-files=all, which is exactly what
+// `ls-files --others --exclude-standard` listed in a process of its own until
+// 0.2.0-rc1; since then the untracked paths come from here (listed=true) and
+// that process is gone from every governance call, which on Windows paid for
+// each one (#127). The fallback path lists nothing untracked (listed=false)
+// and the caller runs the rc17 listing for them.
+func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(dir string) bool) (files, collapsed, untracked []string, listed bool, err error) {
 	data, statusErr := run("status", "--porcelain=v1", "-z", "--ignored=matching", "--untracked-files=all", "--no-renames", "--ignore-submodules=all")
 	if statusErr != nil {
 		data, err = run("ls-files", "-z", "--others", "--ignored", "--exclude-standard")
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, false, err
 		}
-		return splitNULPaths(data), nil, nil
+		return splitNULPaths(data), nil, nil, false, nil
 	}
 	seen := map[string]bool{}
+	seenUntracked := map[string]bool{}
 	expand := []string{}
+	expandUntracked := []string{}
 	for _, record := range strings.Split(string(data), "\x00") {
+		if strings.HasPrefix(record, "?? ") {
+			value := record[3:]
+			clean, ok := safeRelativePath(value)
+			if !ok {
+				continue
+			}
+			if strings.HasSuffix(value, "/") {
+				// --untracked-files=all never collapses a directory; should a
+				// git do so, its files are listed the rc17 way below.
+				expandUntracked = append(expandUntracked, clean)
+			} else if !seenUntracked[clean] {
+				seenUntracked[clean] = true
+				untracked = append(untracked, clean)
+			}
+			continue
+		}
 		if !strings.HasPrefix(record, "!! ") {
 			continue
 		}
@@ -421,7 +452,7 @@ func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(
 	for _, batch := range literalPathspecBatches(expand) {
 		data, err = run(append([]string{"ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--"}, batch...)...)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, false, err
 		}
 		for _, path := range splitNULPaths(data) {
 			if !seen[path] {
@@ -430,9 +461,22 @@ func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(
 			}
 		}
 	}
+	for _, batch := range literalPathspecBatches(expandUntracked) {
+		data, err = run(append([]string{"ls-files", "-z", "--others", "--exclude-standard", "--"}, batch...)...)
+		if err != nil {
+			return nil, nil, nil, false, err
+		}
+		for _, path := range splitNULPaths(data) {
+			if !seenUntracked[path] {
+				seenUntracked[path] = true
+				untracked = append(untracked, path)
+			}
+		}
+	}
 	sort.Strings(files)
 	sort.Strings(collapsed)
-	return files, collapsed, nil
+	sort.Strings(untracked)
+	return files, collapsed, untracked, true, nil
 }
 
 // literalPathspecBatches turns directories into literal pathspecs (so a
