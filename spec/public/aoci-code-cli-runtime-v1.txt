@@ -204,9 +204,14 @@ Managed Scope activation
 
 `aoci scope activate` activates the current desired scope and budget policy by
 building an empty `managed-scope-candidate-set/v1` through the existing Scope
-Change preview and Apply pipeline. It accepts no positional arguments or
-command-specific flags, edits no rules, and authors no Entries. It preserves
-the existing authorization, validation, lock, CAS, and recovery decisions.
+Change preview and Apply pipeline. It accepts no positional arguments and one
+flag, `--reviewed-by <identity>`, which records the review of the Observe
+evidence the plan would otherwise refuse on, over exactly the paths the planner
+names, as `scope acknowledge` records it, so a merge that changed both the
+rules and Observe files activates in one command; without the flag such a plan
+exits 2 with `observed_evidence_review_required` and names it. It edits no
+rules and authors no Entries. It preserves the existing authorization,
+validation, lock, CAS, and recovery decisions.
 When the desired policy, budget, and authorization posture already equal the
 active Baseline receipt and the Plan moves no object, Entry, or fingerprint,
 activation reports `already_aligned` with exit status 0, starts no formal

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,17 +29,33 @@ type scopeActivationApproval struct {
 }
 
 func newScopeActivateCmd() *cobra.Command {
-	return &cobra.Command{Use: "activate", Short: cliMessage("cli.short.scope_activate"),
+	var reviewer string
+	command := &cobra.Command{Use: "activate", Short: cliMessage("cli.short.scope_activate"),
 		Long: cliMessage("cli.long.scope_activate"), Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			preview, err := scopechange.Build(root, time.Now().UTC().Truncate(time.Second).Format(time.RFC3339),
-				scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
-					Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{}})
+			preparedAt := time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)
+			candidates := scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+				Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{}}
+			preview, err := scopechange.Build(root, preparedAt, candidates)
+			var reviewRequired *scopechange.ObservedEvidenceReviewRequiredError
+			if errors.As(err, &reviewRequired) && reviewer != "" {
+				// After a merge that moved both the rules and Observe files,
+				// activate refused on the unreviewed evidence while acknowledge
+				// waited for the policy: the review rides with the activation,
+				// over exactly the paths the planner named.
+				candidates.ObserveReview = &scopechange.ObserveReview{Paths: reviewRequired.Paths,
+					ReviewStatus: scopechange.ReviewStatusReviewed, Reviewer: reviewer}
+				preview, err = scopechange.Build(root, preparedAt, candidates)
+			}
 			if err != nil {
+				if errors.As(err, &reviewRequired) {
+					return &ExitError{Code: ExitInvalid, MachineCode: "managed_scope_invalid", Err: err,
+						Msg: cliMessage("scope.error", err.Error()) + "\n" + cliMessage("scope.activate_review_hint", len(reviewRequired.Paths))}
+				}
 				return managedScopeExitError(err)
 			}
 			if preview.Plan.InteractionRequired {
@@ -57,6 +74,8 @@ func newScopeActivateCmd() *cobra.Command {
 			}
 			return writeScopeChangeResult(cmd, root, result)
 		}}
+	command.Flags().StringVar(&reviewer, "reviewed-by", "", cliMessage("scope.flag.reviewed_by"))
+	return command
 }
 
 // scopeActivationAligned is the activation result when there is nothing to

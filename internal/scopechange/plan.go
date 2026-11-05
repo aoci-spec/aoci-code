@@ -182,7 +182,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		if len(changes) != 0 {
 			if candidates.ObserveReview == nil || candidates.ObserveReview.ReviewStatus != ReviewStatusReviewed ||
 				candidates.ObserveReview.Reviewer == "" || !equalSortedPaths(candidates.ObserveReview.Paths, changes) {
-				return nil, fmt.Errorf("observed_evidence_review_required")
+				return nil, &ObservedEvidenceReviewRequiredError{Paths: append([]string{}, changes...)}
 			}
 		}
 	}
@@ -867,6 +867,19 @@ func vanishedPaths(evaluation *managedscope.Evaluation) map[string]bool {
 		}
 	}
 	return result
+}
+
+// ObservedEvidenceReviewRequiredError is Build's refusal when the plan moves
+// Observe evidence nobody has reviewed. Its text is the machine token every
+// caller matched before it carried the paths; the paths let a caller that may
+// record the review (scope activate --reviewed-by) resubmit the same plan with
+// the review the planner computed, never one it guessed.
+type ObservedEvidenceReviewRequiredError struct {
+	Paths []string
+}
+
+func (e *ObservedEvidenceReviewRequiredError) Error() string {
+	return "observed_evidence_review_required"
 }
 
 func observedEvidenceChanges(active *baseline.Baseline, desired map[string]baseline.Fingerprint, roles map[string]string, vanished map[string]bool, policyAligned bool, tolerateLineEndings bool) []string {

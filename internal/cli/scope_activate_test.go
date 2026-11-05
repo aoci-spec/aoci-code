@@ -18,7 +18,20 @@ import (
 
 func scopeActivationFixture(t *testing.T) string {
 	t.Helper()
+	return scopeActivationFixtureWith(t, nil)
+}
+
+// scopeActivationFixtureWith adds files to the fixture before its Baseline is
+// established, so a *_test.go lands in the Observe role the production
+// profile gives it.
+func scopeActivationFixtureWith(t *testing.T, extra map[string]string) string {
+	t.Helper()
 	root, cfg := alignedVolumeCLIFixture(t, true, false)
+	for rel, content := range extra {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(rel)), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	cfg.LedgerEnabled = true
 	if err := cfg.SetNewProjectGovernance(machinecontract.ScopeProfileProduction); err != nil {
 		t.Fatal(err)
@@ -282,5 +295,48 @@ func TestScopeActivateReportsAlreadyAlignedWithoutATransaction(t *testing.T) {
 	}
 	if err := json.Unmarshal(outText.Bytes(), &status); err != nil || status["repository_root"] != root {
 		t.Fatalf("scope status must carry repository_root: err=%v out=%s", err, &outText)
+	}
+}
+
+// After a merge that changed both the rules and an Observe file, activate
+// refuses on the unreviewed evidence and names --reviewed-by; with the flag
+// it records the review over the planner's own paths and applies the policy
+// in one transaction, leaving nothing pending.
+func TestScopeActivateRecordsTheObserveReviewItWouldRefuse(t *testing.T) {
+	root := scopeActivationFixtureWith(t, map[string]string{"main_test.go": "package main\n"})
+	if _, err := runScopeCLI(t, root, "rule", "add", "future", "--action", "exclude", "--pattern", "future.txt", "--pattern-kind", "file", "--reason", "future artifact"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main_test.go"), []byte("package main\n// changed by the merge\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before := activationFiles(t, root, ".aoci/config.json", ".aoci/baseline.json", "aoci.txt", "aoci.code.txt")
+	var out, errs bytes.Buffer
+	code := executeCLI([]string{"--repo", root, "scope", "activate"}, &out, &errs)
+	if code != ExitInvalid || !strings.Contains(errs.String(), "observed_evidence_review_required") || !strings.Contains(errs.String(), "--reviewed-by") {
+		t.Fatalf("activate without a reviewer must refuse and name the flag: code=%d\n%s%s", code, out.String(), errs.String())
+	}
+	assertActivationFiles(t, root, before)
+	out.Reset()
+	errs.Reset()
+	code = executeCLI([]string{"--repo", root, "--json", "scope", "activate", "--reviewed-by", "merge-reviewer"}, &out, &errs)
+	var result scopechange.Result
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || code != 0 || result.Status != "applied" {
+		t.Fatalf("activate --reviewed-by must apply: code=%d err=%v\n%s%s", code, err, out.String(), errs.String())
+	}
+	status, err := runScopeCLI(t, root, "status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed struct {
+		Stage                 string `json:"stage"`
+		PolicyIdentityAligned bool   `json:"policy_identity_aligned"`
+		ObservedPendingReview int    `json:"observed_pending_review"`
+	}
+	if err := json.Unmarshal(status, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if !parsed.PolicyIdentityAligned || parsed.ObservedPendingReview != 0 || parsed.Stage == "observed_evidence_review_required" || parsed.Stage == "scope_change_required" {
+		t.Fatalf("one activation must leave the policy active and the review recorded: %+v", parsed)
 	}
 }

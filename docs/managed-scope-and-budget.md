@@ -72,6 +72,12 @@ two places, and both record the same approval:
   without typing rejects. `--actor` defaults to `human-operator` and may name
   the reviewer.
 
+After a merge that changed both the rules and Observe files, `scope activate`
+refuses with `observed_evidence_review_required` while `scope acknowledge`
+waits for the policy to align. Read the paths `scope status --json` lists,
+then run `aoci scope activate --reviewed-by <identity>`: the activation records
+that review over exactly those paths, the record `scope acknowledge` writes.
+
 After a rejection nothing has changed, but the desired policy still differs
 from the active one, so Maintain keeps answering `scope_change_required`. To
 drop the change, undo the rule edit (`aoci scope rule remove <rule-id>`, or
