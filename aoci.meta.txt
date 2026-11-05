@@ -7,6 +7,7 @@
 #Object-Kinds: code=file database=table
 #Canonical-Tag-Authoring: compact A+B+C+[D]+E; dotted form is read compatibility only
 #Code canonical identity example: code:path/to/file.go
+#Section root: /<repository> stands for the root of the checkout holding this index, never a real path; ===/<repository>/=== opens the root directory and ===/<repository>/<dir>/=== opens the repository-relative directory <dir>
 #Code Entry example: file.go[CG7T]: F:Runs the example application | R:- | A:- | S:-
 #[Tag dictionary: code]
 #A Layer: C-Code
