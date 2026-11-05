@@ -3,8 +3,9 @@
 its own .aoci/ledger.jsonl: no clone, no new call, nothing written. Every
 event the binary appends carries duration_ms, so a user's Ledger already
 holds the per-call timings a real host produced; this prints them per
-operation (count, median, p90, max) with the source count the check events
-recorded, as one JSON line, ready to paste into an issue.
+operation (count, median, p90, max) with the largest source count any event
+recorded (check, scan, and index score carry one), as one JSON line, ready
+to paste into an issue.
 
 usage: ledger_timings.py [<repository-root>] [--since=YYYY-MM-DD] [--ops=a,b,c]
   <repository-root>  defaults to the current directory
@@ -46,7 +47,7 @@ with open(path, encoding="utf-8", errors="replace") as fh:
         if since and ts[:10] < since:
             continue
         op = event.get("op")
-        if op == "check" and isinstance(event.get("paths_count"), int):
+        if isinstance(event.get("paths_count"), int):
             files = max(files, event["paths_count"])
         ms = event.get("duration_ms")
         if op not in ops or not isinstance(ms, int):
