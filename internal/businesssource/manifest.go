@@ -260,7 +260,13 @@ func aggregate(manifest *Manifest) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+// gitHead is the commit the manifest binds. The files git keeps answer it
+// without a process for every shape afs.GitHeadFast understands; git itself
+// answers the rest, exactly as before.
 func gitHead(root string) string {
+	if head, ok := afs.GitHeadFast(root); ok {
+		return head
+	}
 	command := afs.UntrustedRepositoryGitCommand(root, "rev-parse", "HEAD")
 	data, err := command.Output()
 	if err != nil {
