@@ -43,9 +43,11 @@ effective configuration and the raw config, Baseline, and Curation bytes, the
 composite CognitionSet identity, Safe Inventory membership and Git status, the
 rules identity and blockers, and the raw SHA-256 and size of every index and
 observe source. Each continuation re-checks that guard, which costs an
-inventory listing and one hash per governed source, instead of repeating the
-policy evaluation and rebuilding the body, so a continuation that took over a
-minute on a large repository takes seconds. The cursor of such a delivery
+inventory listing and, per governed source, one stat against the fingerprint
+cache that scan and Maintain already trust (a changed size or mtime is hashed
+again), instead of repeating the policy evaluation and rebuilding the body, so
+a continuation that took over a minute on a large repository takes seconds,
+and one that reread every source on Windows no longer does. The cursor of such a delivery
 starts with `v2:` and is bound to the MCP Host session: a changed input
 answers `overview_snapshot_changed`, and expiry (15 idle minutes or 60
 minutes in all), eviction, a foreign Host, or a process restart answers

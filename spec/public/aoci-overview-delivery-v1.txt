@@ -109,10 +109,15 @@ input guard confirms the effective configuration and raw base/local config,
 Baseline and Curation bytes, the composite CognitionSet identity and every
 formal asset, Safe Inventory membership and Git tracked/ignored status, safety
 rules identity/blockers, and raw SHA-256 and size of every index/observe source.
-Continuation repeats this guard before and after rendering. It does not trust
-mtime, rerun policy evaluation over every excluded candidate, or reconstruct
+Continuation repeats this guard before and after rendering. It lists the Safe
+Inventory again and checks each source's size and digest through the
+fingerprint cache under the rule scan and Maintain already trust (an entry is
+reused only while size and mtime match and its hash was taken after git's
+racily-clean window), so an unchanged tree costs one stat per source; it never
+reruns policy evaluation over every excluded candidate or reconstructs
 body/sequence/Challenge/spans. Recovery and pending AtomicWrite intents still
-fail closed. Even a same-size change with restored mtime invalidates the chain.
+fail closed. A same-size rewrite that also restores the mtime is unseen here
+exactly as governance would miss it; any other change invalidates the chain.
 Commit-only HEAD changes are not governance drift, as in the existing binding;
 Ledger and other safety-excluded runtime records are not source identities.
 

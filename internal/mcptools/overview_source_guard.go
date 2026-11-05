@@ -22,10 +22,16 @@ import (
 )
 
 // A guard binds the inputs, not merely the previous governance verdict. Every
-// validation enumerates current Safe Inventory and hashes the governed bytes.
-// It never re-evaluates policy against every excluded path, trusts mtime, or
-// opens excluded business content. Index/observe roles are immutable only while
-// config, curation, inventory membership/status and Baseline remain identical.
+// validation enumerates the current Safe Inventory and checks each governed
+// source's size and digest through the fingerprint cache, under the rule scan
+// and Maintain already trust: an unchanged file costs one stat, a changed
+// size or mtime is hashed again, and a same-size rewrite that restores the
+// mtime is unseen here exactly as governance would miss it. Until 0.2.0-rc1
+// every continuation reread every source instead, which on Windows was most
+// of each Chunk (#127). It never re-evaluates policy against every excluded
+// path or opens excluded business content. Index/observe roles are immutable
+// only while config, curation, inventory membership/status and Baseline
+// remain identical.
 type overviewSourceGuard struct {
 	composite      string
 	configIdentity string
@@ -216,14 +222,18 @@ func (guard *overviewSourceGuard) validate(root string, loaded *cognitionRepoCtx
 	if overviewInventoryDigest(candidates, inventory.Summary.RulesIdentity, inventory.Summary.AutoBlockerCount, overviewSafeTopology(inventory)) != guard.inventory {
 		return fmt.Errorf("overview_snapshot_changed")
 	}
+	// Read-only: the cache is consulted, never saved, so a continuation
+	// writes nothing but its Ledger event. The governance assessment that
+	// prepared this delivery already hashed every source through it.
+	cache := baseline.OpenFingerprintCache(root)
 	for path, expected := range guard.sources {
 		full := filepath.Join(root, filepath.FromSlash(path))
 		info, err := os.Lstat(full)
 		if err != nil || !info.Mode().IsRegular() || info.Size() != expected.Size {
 			return fmt.Errorf("overview_snapshot_changed")
 		}
-		actual, err := deliveryFileHash(full, false)
-		if err != nil || actual != expected.SHA256 {
+		actual, err := cache.HashFile(full, path, expected)
+		if err != nil || actual.SHA256 != expected.SHA256 {
 			return fmt.Errorf("overview_snapshot_changed")
 		}
 	}
