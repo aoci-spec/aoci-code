@@ -313,6 +313,13 @@ candidates a round carried. The ladder's `perf-track` contract runs it
 over five local clones from 700 to 13,850 files, and a performance claim is
 read against the previous release's record.
 
+`ledger_timings.py [<repository>]` is the read-only counterpart for a
+repository someone already uses: every governance call appends its
+`duration_ms` to `.aoci/ledger.jsonl`, and the script summarizes those per
+operation (count, median, p90, max) with the index source count as one JSON
+line, so a user on another host or operating system can report what their
+machine measured without cloning anything or running a new call.
+
 `realrepo.py` clones a real third-party repository locally, initializes it,
 authors template Entries through Maintain and `aoci_update_entry` until
 aligned (`--parallel=N` sets `code_cognition_parallel_batches` on the clone

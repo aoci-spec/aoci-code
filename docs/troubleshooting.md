@@ -271,6 +271,14 @@ confirmation on every AOCI tool call; after reviewing the exact project-level
 server, use the Host's project or session trust controls instead of weakening a
 global policy.
 
+Every governance call appends its own `duration_ms` to `.aoci/ledger.jsonl`,
+so the repository already holds the timings its host produced.
+`python3 scripts/blackbox/ledger_timings.py <repository>` (from a source
+checkout; it reads the Ledger and writes nothing) prints them per operation as
+one JSON line: count, median, p90, and maximum in milliseconds, with the index
+source count. Attach that line and `aoci --version` when reporting a slow
+repository; the Ledger carries no source, Entry text, or credentials.
+
 The Code authoring batch is cut by two settings: the cap
 `code_cognition_batch_entries` (default 50) and the response budget
 `maintain_transport_budget_bytes` (default 24 KiB), and the budget is the

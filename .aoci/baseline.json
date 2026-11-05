@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-05T06:16:18Z",
+  "updated_at": "2026-11-05T06:45:36Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "70e45742c8f341e6ee44c93ed7aebdfa370ccfc4dd6e686c067c73b703a5beed",
-      "size": 235137,
-      "normalized_sha256": "70e45742c8f341e6ee44c93ed7aebdfa370ccfc4dd6e686c067c73b703a5beed"
+      "sha256": "3bbbf45a40fcc9dc65d344a2b9cfcbbe17600d2d039299036d2794cf730fd611",
+      "size": 235702,
+      "normalized_sha256": "3bbbf45a40fcc9dc65d344a2b9cfcbbe17600d2d039299036d2794cf730fd611"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -263,9 +263,9 @@
     },
     "docs/troubleshooting.md": {
       "role": "index",
-      "sha256": "cc44a35eef68fe9a783a0eb080c98cb32ba99efebae3838eadfa74987b64081f",
-      "size": 39730,
-      "normalized_sha256": "cc44a35eef68fe9a783a0eb080c98cb32ba99efebae3838eadfa74987b64081f"
+      "sha256": "47995ab82f30fba78902b57cb8529e2844bd9396a0d51a9d3fe7f41eafb07d0b",
+      "size": 40246,
+      "normalized_sha256": "47995ab82f30fba78902b57cb8529e2844bd9396a0d51a9d3fe7f41eafb07d0b"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -6734,9 +6734,9 @@
     },
     "scripts/blackbox/README.md": {
       "role": "index",
-      "sha256": "a56c30e96a25a83240cba20a634c4ade6270ffe6e55c071578fc80419ab84cde",
-      "size": 23904,
-      "normalized_sha256": "a56c30e96a25a83240cba20a634c4ade6270ffe6e55c071578fc80419ab84cde"
+      "sha256": "9d8d82e426fa6db1ff12cd0b837644cb5c813ae307d6a10905553a35285c29ee",
+      "size": 24332,
+      "normalized_sha256": "9d8d82e426fa6db1ff12cd0b837644cb5c813ae307d6a10905553a35285c29ee"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -6755,6 +6755,12 @@
       "sha256": "c36b8fb461d3214d660c75432892e9d3c9257c70321a49fcba228fec157c8a1a",
       "size": 5376,
       "normalized_sha256": "c36b8fb461d3214d660c75432892e9d3c9257c70321a49fcba228fec157c8a1a"
+    },
+    "scripts/blackbox/ledger_timings.py": {
+      "role": "index",
+      "sha256": "2dc6c96fefda4385f600597980d5899f9cb5edd3cae65c0d9720056a091eabdf",
+      "size": 2879,
+      "normalized_sha256": "2dc6c96fefda4385f600597980d5899f9cb5edd3cae65c0d9720056a091eabdf"
     },
     "scripts/blackbox/legacy-migration/main.go": {
       "role": "index",
