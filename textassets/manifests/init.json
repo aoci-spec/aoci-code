@@ -148,6 +148,7 @@
         "#AOCI-META-VOLUME: 1",
         "repository-cognition-object/v2",
         "#Canonical-Tag-Authoring:",
+        "/<repository>",
         "EG7T",
         "#[Tag dictionary: code]",
         "#[Tag dictionary: database]"

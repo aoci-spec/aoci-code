@@ -34,7 +34,9 @@ section of an index records the neutral root `/<repository>` instead of the
 machine path it runs under, so a new index carries no author directory, and
 later sections continue under it like any historical root; no checkout can sit
 under it (`<` and `>` are reserved on Windows), so it always resolves by
-relocation. An index created earlier keeps the root it records. The runtime repository root is resolved for each
+relocation, and the starter Meta names it in one comment line, so the index
+explains the token to a reader that has only its bytes. An index created
+earlier keeps the root it records. The runtime repository root is resolved for each
 invocation; an explicit `--repo` binds it directly and takes precedence over
 repository discovery, as defined by the CLI runtime contract.
 

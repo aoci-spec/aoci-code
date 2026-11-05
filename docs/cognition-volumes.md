@@ -76,6 +76,12 @@ established index reuse its safely resolved historical root rather than
 injecting the current clone path; an ambiguous or inconsistent mapping fails
 closed.
 
+Since 0.2.0 a new index records the neutral root `/<repository>` instead of
+a machine path, and its starter Meta says so in one comment line, so a reader
+that has nothing but the index file still knows that `===/<repository>/docs/===`
+means the `docs` directory of whatever checkout holds it. An index created
+earlier keeps the root it records.
+
 This section-header rule is separate from the Root Manifest's `#Volume path=`
 field. A declared Volume asset path such as `aoci.code.txt` must be normalized
 and repository-relative. The absolute historical coordinate inside that Code
