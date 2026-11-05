@@ -1,0 +1,8 @@
+aoci index relocate 把 Code 卷里每个目录段标题改写成记录在中性根 /<repository> 之下，
+不再是建索引时的机器路径，并在 Meta 里加上解释这个记号的那一行；提交的索引从此不含
+作者目录，只拿到文件的读者也知道 ===/<repository>/docs/=== 指向哪里。
+读者本来就能正确解析旧标题；改写改变的是人和模型读到的内容，不是机器的行为。
+它是一次覆盖 aoci.meta.txt、aoci.code.txt 与 .aoci/baseline.json 的事务，每个文件按
+精确前像发布，Root 与其余各卷作为守卫；中途崩溃会在 .aoci/transactions 留下回执，
+再次运行同一命令即可完成。段根已是中性根时退出 0 且不写任何内容。
+--dry-run 只报告将要改动的内容，不写任何东西。

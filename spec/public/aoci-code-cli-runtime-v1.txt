@@ -177,6 +177,24 @@ the index was written in exits 3 before any write: that index is read-only
 until it migrates to Volumes v1. `init --locale` on a repository whose
 Volumes index exists exits 3 and names `config set locale` as the command.
 
+`index relocate` rewrites, on a Volumes v1 repository, every directory section
+header of the Code Volume to name its directory under the neutral root
+`/<repository>` and inserts the Meta comment line that names that root, as one
+receipted transaction: `aoci.meta.txt` when the line is added, `aoci.code.txt`
+when a header changes, and `.aoci/baseline.json` with the records of the
+rewritten assets moved to their new bytes, each publish against the exact
+preimage the receipt names, the Root and every other Volume unchanged guards.
+The receipt is `relocate-<id>.json` under `.aoci/transactions`: while it is
+pending every other command exits 2 with `cognition_recovery_pending`, the
+Agent Guide names it, and running `index relocate` again resumes it. A
+Baseline record of a rewritten asset that no longer matches the file exits 3
+before any write; roots already neutral exit 0 and write nothing; `--dry-run`
+reports the change and writes nothing. When the Ledger is enabled the terminal
+event `index_relocate` is written once. Readers resolved the old headers by
+relocation already; the command changes what a person or a model reads, not
+what the machine does. On a Legacy single-file index it exits 3 before any
+write.
+
 The accepted keys are the ones the unknown-key message lists. An unknown key
 or an invalid value exits 3 with the ordinary version-1 error envelope before
 any write. Human output of these commands is not changed by this contract.

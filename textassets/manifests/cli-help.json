@@ -45,7 +45,8 @@
         "inventory:",
         "header show:",
         "score:",
-        "agent guide:"
+        "agent guide:",
+        "relocate:"
       ]
     },
     {
@@ -124,6 +125,29 @@
         "orphan",
         "verify",
         "--preview"
+      ]
+    },
+    {
+      "id": "contracts/help/index-relocate-short",
+      "kind": "contract",
+      "path": "contracts/help/index-relocate-short.txt",
+      "description": "Stable Index Relocate summary naming the neutral root and the receipted transaction",
+      "used_by": "internal/cli/cli_help_contract.go:indexRelocateShortHelp",
+      "protocol_tokens": [
+        "/<repository>",
+        "Baseline"
+      ]
+    },
+    {
+      "id": "contracts/help/index-relocate-long",
+      "kind": "contract",
+      "path": "contracts/help/index-relocate-long.txt",
+      "description": "Stable explanation of the section-root relocation transaction and its recovery",
+      "used_by": "internal/cli/cli_help_contract.go:indexRelocateLongHelp",
+      "protocol_tokens": [
+        "/<repository>",
+        ".aoci/transactions",
+        "--dry-run"
       ]
     }
   ]

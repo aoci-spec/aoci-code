@@ -1,0 +1,12 @@
+aoci index relocate rewrites every directory section header of the Code Volume so
+that it records its directory under the neutral root /<repository> instead of the
+machine path the index was created under, and adds the one Meta line that
+explains the token, so a committed index names no author directory and a reader
+with nothing but the file knows where ===/<repository>/docs/=== points.
+Readers resolved the old headers correctly already; the rewrite changes what a
+person or a model reads, not what the machine does.
+It is one transaction over aoci.meta.txt, aoci.code.txt, and .aoci/baseline.json,
+each published against its exact preimage with the Root and every other Volume as
+guards; a crash leaves a receipt under .aoci/transactions that running the same
+command again completes. Roots already neutral exit 0 and write nothing.
+--dry-run reports what would change and writes nothing.

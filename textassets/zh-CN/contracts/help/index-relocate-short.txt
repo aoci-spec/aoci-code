@@ -1,0 +1,1 @@
+把记录的段根改写为 /<repository> 并在 Meta 里说明（一次覆盖 Meta、Code 卷与 Baseline 的带回执事务）

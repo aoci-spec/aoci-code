@@ -31,6 +31,7 @@ func init() {
 	indexCommand.AddCommand(newIndexHeaderCmd())
 	indexCommand.AddCommand(newIndexScoreCmd())
 	indexCommand.AddCommand(newIndexAgentCmd())
+	indexCommand.AddCommand(newIndexRelocateCmd())
 
 	registerCommand(indexCommand)
 }

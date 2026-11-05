@@ -480,6 +480,8 @@ func recoveryPendingAction(operation, file string) string {
 		return cliMessage("guide.recovery_pending.scope", file)
 	case localeSwitchOperation:
 		return cliMessage("guide.recovery_pending.locale", file)
+	case indexRelocateOperation:
+		return cliMessage("guide.recovery_pending.relocate", file)
 	}
 	return cliMessage("guide.recovery_pending.unknown", file)
 }

@@ -45,4 +45,10 @@ const (
 
 	// ContractHelpIndexInventoryLong describes the Inventory observation.
 	ContractHelpIndexInventoryLong ID = "contracts/help/index-inventory-long"
+
+	// ContractHelpIndexRelocateShort is the stable Index Relocate summary.
+	ContractHelpIndexRelocateShort ID = "contracts/help/index-relocate-short"
+
+	// ContractHelpIndexRelocateLong describes the section-root relocation.
+	ContractHelpIndexRelocateLong ID = "contracts/help/index-relocate-long"
 )

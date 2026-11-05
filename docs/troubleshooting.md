@@ -22,9 +22,12 @@ historical structural coordinates, not runtime paths. The public index format
 defines them that way: after a clone or relocation the formal bytes are
 preserved, and every reader derives repository-relative identities from the
 invocation root, never from the recorded prefix. An outdated prefix is
-expected, harmless, and not worth a formal write to rewrite. An index created
-by 0.2.0 or later records the neutral root `/<repository>` instead of any
-machine path.
+harmless to the machine, but a person or a model reading the file sees a
+directory that may no longer exist: `aoci index relocate` rewrites every
+header to the neutral root `/<repository>` and adds the Meta line that names
+it, as one receipted transaction over Meta, Code Volume, and Baseline; commit
+the three files together. An index created by 0.2.0 or later records that
+root from the start.
 
 A repository whose own path holds a space, `=`, `(`, or `（` shows two spellings
 of that prefix: the full one in its root section and a truncated one in every

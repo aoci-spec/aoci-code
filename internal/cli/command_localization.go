@@ -247,6 +247,7 @@ var commandLongMessages = map[string]func() string{
 	"aoci index score":     indexScoreLongHelp,
 	"aoci index inventory": indexInventoryLongHelp,
 	"aoci index agent":     indexAgentLongHelp,
+	"aoci index relocate":  indexRelocateLongHelp,
 	"aoci update-entry":    updateEntryLongHelp,
 }
 
@@ -255,6 +256,7 @@ var commandShortRenderers = map[string]func() string{
 	"aoci check":           checkShortHelp,
 	"aoci index score":     indexScoreShortHelp,
 	"aoci index inventory": indexInventoryShortHelp,
+	"aoci index relocate":  indexRelocateShortHelp,
 }
 
 // refreshCommandLocalization rebinds package-initialized Cobra metadata to the

@@ -1,5 +1,6 @@
-aoci index 汇集索引读取命令；索引本身经 MCP 工具 aoci_maintain 与 aoci_update_entry 撰写和维护。
+aoci index 汇集索引读取命令和唯一的写命令 relocate；索引本身经 MCP 工具 aoci_maintain 与 aoci_update_entry 撰写和维护。
 inventory:      纯离线列出磁盘有、Legacy 索引无的文件及画像。
 header show:    打印索引头部，Volumes 布局则打印 Meta 字典；只读。
 score:          对 Legacy 索引做九维度质量评分。
 agent guide:    返回当前仓库状态下的宿主 Agent 工作流。
+relocate:       把记录的段根改写为 /<repository> 并在 Meta 里说明；一次带回执的事务。

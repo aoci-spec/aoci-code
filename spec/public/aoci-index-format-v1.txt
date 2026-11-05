@@ -36,7 +36,9 @@ later sections continue under it like any historical root; no checkout can sit
 under it (`<` and `>` are reserved on Windows), so it always resolves by
 relocation, and the starter Meta names it in one comment line, so the index
 explains the token to a reader that has only its bytes. An index created
-earlier keeps the root it records. The runtime repository root is resolved for each
+earlier keeps the root it records until the CLI contract's `index relocate`
+rewrites it to the neutral root and adds that Meta line in one receipted
+transaction. The runtime repository root is resolved for each
 invocation; an explicit `--repo` binds it directly and takes precedence over
 repository discovery, as defined by the CLI runtime contract.
 

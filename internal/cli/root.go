@@ -209,7 +209,18 @@ func enforceCognitionRecoveryGate(command *cobra.Command, args []string) error {
 	// beside an MCP write receipt, the narrower gate wins.
 	allowed := true
 	localePending := false
+	relocatePending := false
 	for _, transaction := range pending {
+		if transaction.Operation == indexRelocateOperation {
+			// A half-published relocation shows Meta, Code Volume, and
+			// Baseline from different sides of its Intent; only its own
+			// idempotent entry point may run.
+			relocatePending = true
+			if !recoveryGateAllows(transaction.Operation, path) && path != "aoci index relocate" {
+				allowed = false
+			}
+			continue
+		}
 		if transaction.Operation == localeSwitchOperation {
 			// A half-published Locale switch can show Root, configuration, and
 			// Baseline from different sides of its Intent. Only its own
@@ -236,6 +247,16 @@ func enforceCognitionRecoveryGate(command *cobra.Command, args []string) error {
 		return &ExitError{
 			Code: ExitInvalid, MachineCode: "cognition_recovery_pending",
 			Msg: cliMessage("locale.switch_pending_gate", strings.Join(names, ",")),
+		}
+	}
+	if relocatePending {
+		names := make([]string, 0, len(pending))
+		for _, transaction := range pending {
+			names = append(names, transaction.Filename)
+		}
+		return &ExitError{
+			Code: ExitInvalid, MachineCode: "cognition_recovery_pending",
+			Msg: cliMessage("index.relocate.pending_gate", strings.Join(names, ",")),
 		}
 	}
 	mcpReceiptsOnly := true

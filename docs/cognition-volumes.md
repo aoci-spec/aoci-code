@@ -80,7 +80,10 @@ Since 0.2.0 a new index records the neutral root `/<repository>` instead of
 a machine path, and its starter Meta says so in one comment line, so a reader
 that has nothing but the index file still knows that `===/<repository>/docs/===`
 means the `docs` directory of whatever checkout holds it. An index created
-earlier keeps the root it records.
+earlier keeps the root it records until `aoci index relocate` rewrites its
+headers to the neutral root and adds that Meta line, one receipted transaction
+over Meta, Code Volume, and Baseline that running the command again resumes
+after a crash.
 
 This section-header rule is separate from the Root Manifest's `#Volume path=`
 field. A declared Volume asset path such as `aoci.code.txt` must be normalized

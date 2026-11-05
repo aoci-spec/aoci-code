@@ -99,6 +99,21 @@ func indexScoreShortHelp() string {
 	)
 }
 
+// indexRelocateLongHelp returns the stable explanation of the section-root
+// relocation transaction.
+func indexRelocateLongHelp() string {
+	return cliHelpText(
+		textassets.ContractHelpIndexRelocateLong,
+	)
+}
+
+// indexRelocateShortHelp returns the stable Index Relocate command summary.
+func indexRelocateShortHelp() string {
+	return cliHelpText(
+		textassets.ContractHelpIndexRelocateShort,
+	)
+}
+
 // indexInventoryLongHelp returns the Inventory observation description.
 func indexInventoryLongHelp() string {
 	return observationLongHelp(

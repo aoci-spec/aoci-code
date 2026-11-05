@@ -15,6 +15,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - The starter Meta names the neutral section root: one comment line says that
   `/<repository>` stands for the checkout holding the index, so a reader that
   has only the index file knows where `===/<repository>/docs/===` points.
+- `aoci index relocate` gives an older index the same shape: it rewrites the
+  recorded section roots to `/<repository>` and adds that Meta line, as one
+  receipted transaction over Meta, Code Volume, and Baseline that running the
+  command again resumes after a crash. This repository's own index now reads
+  that way.
 - `init --agent` on a clone no longer rewrites the committed Baseline for a
   host configuration Git ignores; init records only what scan would.
 - `scripts/blackbox/ledger_timings.py` takes the index source count from any
