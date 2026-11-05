@@ -545,6 +545,15 @@ func init() {
 				}
 			}
 
+			// A path Git hides never enters the Baseline at scan, so init does
+			// not record it either: on a clone, init --agent would otherwise
+			// rewrite the committed Baseline for a host configuration that
+			// governs nothing, since the boundary init writes ignores it.
+			for relativePath := range expectedPostimages {
+				if ignored, _ := afs.PathIgnoredByGit(root, relativePath); ignored {
+					delete(expectedPostimages, relativePath)
+				}
+			}
 			beforeInitBaselineAdvance()
 			if baselineNote := advanceInitBaseline(root, expectedPostimages); baselineNote != "" {
 				outputLines = append(

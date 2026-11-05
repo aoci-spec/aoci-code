@@ -200,6 +200,41 @@ func TestInitAgentInstallAdvancesBaseline(t *testing.T) {
 	}
 }
 
+// TestInitAgentInstallSkipsGitIgnoredHostConfig: on a clone, the boundary
+// init writes makes the host configuration invisible to Git, so scan would
+// never record it; init records it neither, and a teammate's init --agent
+// leaves the committed Baseline byte for byte as it was.
+func TestInitAgentInstallSkipsGitIgnoredHostConfig(t *testing.T) {
+	root := initGitRepo(t)
+	// The origin: init --agent wrote the host block into .gitignore and the
+	// host configuration itself, and the Baseline was established after.
+	if _, err := runInit(t, root, "--agent=codex", "--hooks=false"); err != nil {
+		t.Fatalf("首次 init 失败: %v", err)
+	}
+	seedBaseline(t, root, []string{"aoci.txt", "AGENTS.md", ".gitignore"})
+	before, err := os.ReadFile(filepath.Join(root, ".aoci", "baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The clone: the ignored host configuration did not travel.
+	if err := os.RemoveAll(filepath.Join(root, ".codex")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runInit(t, root, "--agent=codex", "--hooks=false"); err != nil {
+		t.Fatalf("init --agent=codex 失败: %v", err)
+	}
+	if ignored, _ := afs.PathIgnoredByGit(root, ".codex/config.toml"); !ignored {
+		t.Fatalf("the host configuration init wrote must be ignored by the boundary it wrote")
+	}
+	after, err := os.ReadFile(filepath.Join(root, ".aoci", "baseline.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Fatalf("a Git-ignored host configuration must not advance the Baseline:\n%s", after)
+	}
+}
+
 // TestInitNoWhitewashExternalDrift, no whitewash: after AGENTS.md is changed externally (an append outside the block),
 // init runs again; the block is already up to date so it is skipped as idempotent (fingerprints equal before and after the write), the baseline must keep the old value,
 // and the external drift (baseline value ≠ current disk value) survives to verify.
