@@ -20,6 +20,12 @@ model-authored after the model reads the evidence. The Evidence Layer does not c
 The executable format authority is `internal/dbevidence`; the public contract
 is [Database Evidence v1](../spec/public/aoci-database-evidence-v1.txt).
 
+A proposed [MongoDB collection profile](mongodb-collection-evidence-profile.md)
+records the catalog-only scope and acceptance requirements agreed in #135 for
+a fourth engine. It is a proposal for later implementation steps, not a public
+runtime contract: the current binary does not accept a `mongodb` source, and
+nothing under `spec/public` changes until an implementation lands with it.
+
 ## Source configuration and credentials
 
 Add a logical source declaration to team configuration:
