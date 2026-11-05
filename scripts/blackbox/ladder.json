@@ -133,9 +133,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.1",
-    "date": "2026-11-04",
-    "evidence": ".aoci/dev-tools/axis-011-release.txt (released 0.1.1 binary over v0.1.0,v0.1.1: 160/160)"
+    "version": "v0.2.0-rc1",
+    "date": "2026-11-05",
+    "evidence": ".aoci/dev-tools/axis-020rc1-release.txt (released 0.2.0-rc1 binary over v0.1.1,v0.2.0-rc1: 160/160)"
    }
   },
   {
