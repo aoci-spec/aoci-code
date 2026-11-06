@@ -4,6 +4,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Every command AOCI hands a Host to run names its repository: `next_commands`
+  from Maintain and Apply, the Guide's commands, onboarding's continuation,
+  and the exact command an `interaction_required` answer prints all carry
+  `--repo <root>` beside the absolute binary. A session that starts above or
+  beside the repository, as a multi-repository Host session does, used to get
+  commands that resolved the wrong tree, or none, when run from its own shell.
 - Overview continuation checks every governed source through the fingerprint
   cache that scan and Maintain already trust, one stat per unchanged file
   instead of one read, and the Safe Inventory it rebuilds takes untracked

@@ -395,8 +395,9 @@ run itself: `scan` for a missing Baseline, `scope status` and `scope
 acknowledge` for pending observations, both budget levers for an exceeded
 budget, or a database snapshot and its acceptance. The spellings are the ones
 the CLI Guide prints, composed from one machine-owned source, and each is
-prefixed by the running server's own absolute executable path because the MCP
-binary need not be on `PATH`. Placeholders such as `{agent}`, `{policy_file}`,
+prefixed by the running server's own absolute executable path and by `--repo`
+naming its repository root, because the MCP binary need not be on `PATH` and
+the session's shell need not stand in the repository. Placeholders such as `{agent}`, `{policy_file}`,
 `{source}`, and `{snapshot_sha}` (the `source_snapshot_sha256` the snapshot
 returned) are the Host's to fill. The field is optional and advisory:
 `next_action` stays the machine decision, and a blocked result names its

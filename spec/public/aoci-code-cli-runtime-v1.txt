@@ -100,8 +100,9 @@ a Legacy score is unchanged.
 Onboarding results name their continuation. Under `--json`, `cognition
 onboard start`, `status`, `resume`, `next`, `preview`, `apply`, and a
 policy-bound `prepare` add `next_commands`: the commands that continue the
-session from its state, built from the machine command suffixes and bound to
-the running binary as the Guide's commands are, with `{completion_file}`,
+session from its state, built from the machine command suffixes and bound,
+as the Guide's commands are, to the running binary and to the repository
+root (`--repo`), so they run from any working directory, with `{completion_file}`,
 `{candidate_file}`, `{mapping_file}`, and `{agent}` left for the Host to fill
 and the session's own Plan and Snapshot paths filled in. The field is
 omitted when there is no next command or the binary cannot be bound, and it

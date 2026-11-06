@@ -235,6 +235,9 @@ two `[mcp_servers.<name>]` tables and OpenCode as two entries under `mcp`.
 Every server exposes the same nine tools, and Hosts tell the copies apart by
 the entry name (Claude Code calls them `mcp__aoci-frontend__aoci_overview` and
 `mcp__aoci-backend__aoci_overview`), so name each entry after its repository.
+Every command a server hands back in `next_commands`, and every command the
+Guide prints, carries that server's own `--repo`, so it runs from wherever
+the session started.
 
 Cognition does not carry from one server to the other. Read `aoci_rules`,
 establish the complete Overview, and attest against each server whose

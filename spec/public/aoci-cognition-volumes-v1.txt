@@ -359,9 +359,12 @@ formal write when human approval is required. The spellings
 compose from one set of machine-owned command suffixes shared with the CLI
 Guide's blocked remediation, so the two surfaces cannot spell one command two
 ways, and each is prefixed by the running server's own absolute executable
-path, quoted for the host shell, because the MCP binary is whatever path the
-Host configuration names and need not be on PATH. When that path cannot be
-resolved the field is omitted rather than filled with a bare aoci.
+path and by --repo naming the repository root that server was started for,
+both quoted for the host shell: the MCP binary is whatever path the Host
+configuration names and need not be on PATH, and the Host's shell need not
+stand in the repository, since a session often starts above or beside it.
+When the path or the root cannot be quoted the field is omitted rather than
+filled with a bare aoci or a command that would resolve another tree.
 Placeholders such as {agent}, {policy_file}, {source}, and {snapshot_sha} (the
 source_snapshot_sha256 the snapshot returned, which the acceptance binds) are
 the Host's to fill.

@@ -155,8 +155,9 @@ writes, and applies only what a person approved. Under `--json` each
 `cognition onboard` result names its continuation in `next_commands`, spelled
 with the running binary (Prepare names it in `interaction`);
 `{completion_file}`, `{candidate_file}`, `{mapping_file}`, and `{agent}` are
-the paths and the name the host chooses. Run the commands from the
-repository root. `scripts/blackbox/legacy-migration` in the source tree
+the paths and the name the host chooses. Each command names the repository
+with `--repo`, so it runs from any working directory.
+`scripts/blackbox/legacy-migration` in the source tree
 performs every step below for a small repository.
 
 1. `aoci cognition onboard start --json` creates the session. Its
