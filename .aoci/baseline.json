@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-06T02:48:14Z",
+  "updated_at": "2026-11-06T03:16:47Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "25616b0cb459fccbe2709cd5e7ccd773bfc94253b4e62e43cb604f436e624097",
-      "size": 235254,
-      "normalized_sha256": "25616b0cb459fccbe2709cd5e7ccd773bfc94253b4e62e43cb604f436e624097"
+      "sha256": "24392f036c61376faa13bbe9583db3dc273904d31f9f28ed625632a2805be42b",
+      "size": 235259,
+      "normalized_sha256": "24392f036c61376faa13bbe9583db3dc273904d31f9f28ed625632a2805be42b"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3226,10 +3226,10 @@
     },
     "internal/dbevidence/collector.go": {
       "role": "index",
-      "sha256": "fe9f2c8bcb25f194a42d18bd08930ef7213fb1b5d247cb979f6e16f5fb720a2b",
-      "size": 13362,
-      "normalized_sha256": "fe9f2c8bcb25f194a42d18bd08930ef7213fb1b5d247cb979f6e16f5fb720a2b",
-      "format_sha256": "fe9f2c8bcb25f194a42d18bd08930ef7213fb1b5d247cb979f6e16f5fb720a2b",
+      "sha256": "7a98d505fc110ad15312e4117f7877a5279a22194f3931006a8f928aaed675c0",
+      "size": 13927,
+      "normalized_sha256": "7a98d505fc110ad15312e4117f7877a5279a22194f3931006a8f928aaed675c0",
+      "format_sha256": "7a98d505fc110ad15312e4117f7877a5279a22194f3931006a8f928aaed675c0",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector_mysql.go": {
@@ -3266,10 +3266,10 @@
     },
     "internal/dbevidence/collector_postgresql.go": {
       "role": "index",
-      "sha256": "ab700e0402500b6a98f7bda7f9d159df57a22abb2efc6521db251985b07b0d07",
-      "size": 12163,
-      "normalized_sha256": "ab700e0402500b6a98f7bda7f9d159df57a22abb2efc6521db251985b07b0d07",
-      "format_sha256": "ab700e0402500b6a98f7bda7f9d159df57a22abb2efc6521db251985b07b0d07",
+      "sha256": "f7606234dd17c1a96eea2b77eaea7740a6d8d1b2f177f27204b2c664b769e52c",
+      "size": 12231,
+      "normalized_sha256": "f7606234dd17c1a96eea2b77eaea7740a6d8d1b2f177f27204b2c664b769e52c",
+      "format_sha256": "f7606234dd17c1a96eea2b77eaea7740a6d8d1b2f177f27204b2c664b769e52c",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector_postgresql_partition_test.go": {
@@ -3322,10 +3322,10 @@
     },
     "internal/dbevidence/database_integration_test.go": {
       "role": "observe",
-      "sha256": "00dcb4ce776495b939024f33e9c5420396d94e8ab1bd7ff5513280fa4de9903f",
-      "size": 70130,
-      "normalized_sha256": "00dcb4ce776495b939024f33e9c5420396d94e8ab1bd7ff5513280fa4de9903f",
-      "format_sha256": "00dcb4ce776495b939024f33e9c5420396d94e8ab1bd7ff5513280fa4de9903f",
+      "sha256": "bb4ccc85f58c368adc94cd8ba4d4693ff913146e6cef1d623485989ac5b7f1a6",
+      "size": 70256,
+      "normalized_sha256": "bb4ccc85f58c368adc94cd8ba4d4693ff913146e6cef1d623485989ac5b7f1a6",
+      "format_sha256": "bb4ccc85f58c368adc94cd8ba4d4693ff913146e6cef1d623485989ac5b7f1a6",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/drift.go": {
