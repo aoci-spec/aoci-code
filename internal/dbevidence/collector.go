@@ -58,6 +58,15 @@ func (err *SourceError) Error() string {
 
 type databaseOpener func(driverName, dsn string) (*sql.DB, error)
 
+// catalogStepHook is nil in production. A test sets it to act between two
+// catalog queries of one collection, while the read-only transaction is open
+// on the collection's one connection. The interruption test terminates that
+// connection's backend from here, so the next catalog query fails on a
+// connection the server has closed; terminating it from outside, after
+// polling pg_stat_activity, raced the end of the collection on a fast machine
+// and then saw a complete, uninterrupted Snapshot.
+var catalogStepHook func(source SourceConfig, step string)
+
 type Collector struct {
 	root               string
 	getenv             func(string) string

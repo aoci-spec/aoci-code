@@ -16,6 +16,9 @@ func collectPostgreSQL(ctx context.Context, tx *sql.Tx, source SourceConfig, ins
 	if err != nil || inspectOnly {
 		return serverVersion, sortedTableValues(tables), err
 	}
+	if catalogStepHook != nil {
+		catalogStepHook(source, "tables")
+	}
 	for _, loader := range []struct {
 		name string
 		load func(context.Context, *sql.Tx, SourceConfig, map[string]*TableEvidence) error

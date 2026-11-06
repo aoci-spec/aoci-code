@@ -1159,43 +1159,34 @@ func assertPostgreSQLCollectorInterruption(t *testing.T, admin *sql.DB, readerDS
 	interrupted := source
 	interrupted.CredentialEnv = "AOCI_TEST_DATABASE_INTERRUPTED_DSN"
 	t.Setenv(interrupted.CredentialEnv, parsed.String())
-	type result struct {
-		snapshot Snapshot
-		files    map[string][]byte
-		err      error
-	}
-	resultChannel := make(chan result, 1)
-	go func() {
-		_, snapshot, files, err := collector.Snapshot(context.Background(), interrupted)
-		resultChannel <- result{snapshot: snapshot, files: files, err: err}
-	}()
-	deadline := time.Now().Add(5 * time.Second)
+	// The hook runs on this goroutine, inside the collection, after the tables
+	// query and before the columns query: the transaction is open and its
+	// backend is in pg_stat_activity, so the termination lands mid-collection
+	// by construction. Polling for the backend from a second goroutine used to
+	// race the end of the collection on a fast machine and then find a
+	// complete Snapshot where an interruption was expected.
 	terminated := false
-	for time.Now().Before(deadline) {
+	catalogStepHook = func(hooked SourceConfig, step string) {
+		if hooked.CredentialEnv != interrupted.CredentialEnv || step != "tables" {
+			return
+		}
 		var processID int
-		err := admin.QueryRowContext(context.Background(), `SELECT pid FROM pg_catalog.pg_stat_activity WHERE application_name = 'aoci_d0_interrupt' AND xact_start IS NOT NULL LIMIT 1`).Scan(&processID)
-		if err == nil {
-			if _, err := admin.ExecContext(context.Background(), `SELECT pg_catalog.pg_terminate_backend($1)`, processID); err != nil {
-				t.Fatal("temporary PostgreSQL connection termination failed")
-			}
-			terminated = true
-			break
+		if err := admin.QueryRowContext(context.Background(), `SELECT pid FROM pg_catalog.pg_stat_activity WHERE application_name = 'aoci_d0_interrupt' AND xact_start IS NOT NULL LIMIT 1`).Scan(&processID); err != nil {
+			t.Fatal("temporary PostgreSQL collector connection was not observed mid-collection")
 		}
-		if !errors.Is(err, sql.ErrNoRows) {
-			t.Fatal("temporary PostgreSQL activity inspection failed")
+		if _, err := admin.ExecContext(context.Background(), `SELECT pg_catalog.pg_terminate_backend($1)`, processID); err != nil {
+			t.Fatal("temporary PostgreSQL connection termination failed")
 		}
-		time.Sleep(time.Millisecond)
+		terminated = true
 	}
+	t.Cleanup(func() { catalogStepHook = nil })
+	_, snapshot, files, err := collector.Snapshot(context.Background(), interrupted)
+	catalogStepHook = nil
 	if !terminated {
-		t.Fatal("temporary PostgreSQL collector connection was not observed")
+		t.Fatal("the PostgreSQL collection never reached the step hook")
 	}
-	select {
-	case got := <-resultChannel:
-		if got.err == nil || len(got.snapshot.Tables) != 0 || len(got.files) != 0 {
-			t.Fatal("interrupted PostgreSQL collection produced Evidence")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("interrupted PostgreSQL collection did not return")
+	if err == nil || len(snapshot.Tables) != 0 || len(files) != 0 {
+		t.Fatal("interrupted PostgreSQL collection produced Evidence")
 	}
 }
 
