@@ -30,7 +30,7 @@ the locale twin lane mints its two fixtures in a temp dir and removes them. When
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (95 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (96 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:
@@ -257,6 +257,9 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   repositories, that a file the child's `.gitignore` names is excluded as
   `git_ignored`, that a tracked child source is `index`/`tracked`, and that a
   file outside any child still enters by traversal.
+  A second fixture defers two directories before scan, activates one later,
+  and checks that the other stays excluded while tests and fixtures retain
+  their production roles.
 
 ## Run-by-name ladder
 

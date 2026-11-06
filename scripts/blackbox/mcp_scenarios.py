@@ -2417,6 +2417,57 @@ def group_g_container():
     record(g, "G1.container-reads-child-repositories-through-git", "PASS" if ok else "FAIL",
            f"init={rc_init} scan={rc_scan} ignored={ignored.get('role')}/{ignored.get('git_status')} tracked={tracked.get('role')}/{tracked.get('git_status')} tool={tool.get('role')} child={'child_repositories' in summary}"[:200])
 
+    group_g_batch_exclusions()
+
+
+def group_g_batch_exclusions():
+    """Batch exclusions defer two modules and activate one with its default roles."""
+    g, name = "G", "G2.defer-two-directories-and-activate-one"
+    d = os.path.join(WORK, "fx-batch-exclusions")
+    shutil.rmtree(d, ignore_errors=True)
+    files = {"svc-a/main.go": "package a\n", "svc-b/main.go": "package b\n",
+             "svc-c/main.go": "package c\n", "svc-b/main_test.go": "package b\n",
+             "svc-b/tests/fixtures/case.txt": "fixture\n"}
+    for rel, contents in files.items():
+        path = os.path.join(d, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(contents)
+
+    def call(*args):
+        rc, result, out, err = cli(d, *args)
+        if rc != 0:
+            raise RuntimeError(f"{args}: rc={rc} | {(out + err)[:200]}")
+        return result
+
+    def roles():
+        return {path: call("scope", "explain", path).get("role") for path in files}
+
+    call("init", "--locale", "en-US", "--agent=", "--hooks=false")
+    batch = call("scope", "rule", "add", "later", "--action", "exclude", "--pattern-kind", "directory",
+                 "--pattern", "svc-b", "--pattern", "svc-c", "--reason", "defer initial indexing")
+    rules = {rule["pattern"]: rule["rule_id"] for rule in batch.get("rules", [])}
+    call("scan")
+    before = roles()
+    session = Session(d)
+    try:
+        plan, _, _ = maintain(session)
+        applied, raw, _ = submit_batch(session, plan)
+        if not applied.get("aligned"):
+            raise RuntimeError(f"initial authoring failed: {raw[:200]}")
+        call("scope", "rule", "remove", rules["svc-b"])
+        activation = call("scope", "activate")
+        after = roles()
+        next_plan, _, _ = maintain(session)
+    finally:
+        session.close()
+    candidates = {entry["path"] for entry in next_plan.get("candidates", [])}
+    ok = (set(rules) == {"svc-b", "svc-c"} and before == {p: "index" if p.startswith("svc-a/") else "exclude" for p in files}
+          and activation.get("status") == "applied" and candidates == {"svc-b/main.go"}
+          and after == {"svc-a/main.go": "index", "svc-b/main.go": "index", "svc-c/main.go": "exclude",
+                        "svc-b/main_test.go": "observe", "svc-b/tests/fixtures/case.txt": "exclude"})
+    record(g, name, "PASS" if ok else "FAIL", f"before={before} after={after} candidates={sorted(candidates)}")
+
 # ---------------------------------------------------------------- group P
 def group_p_special_names():
     """Directory and file names the section grammar could not spell (#58, #60).

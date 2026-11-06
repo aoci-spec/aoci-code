@@ -67,6 +67,11 @@ func init() {
 					return &ExitError{Code: ExitInternal, Err: errors.New(cliMessage("scan.lock_error", lockErr))}
 				}
 				defer lock.Release()
+				// A batch exclusion may have saved while scan was waiting for the lock.
+				cfg, err = config.LoadReadOnly(root)
+				if err != nil {
+					return &ExitError{Code: ExitConfig, Msg: err.Error()}
+				}
 			}
 
 			// The whitewash gate: with an existing baseline and no dry-run, --force is required

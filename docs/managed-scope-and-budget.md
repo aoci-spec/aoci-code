@@ -189,6 +189,16 @@ Order matters because roles freeze at the first `scan`: narrowing afterwards
 reduces coverage, which needs `scope approve` on a TTY even when no Entry has
 been written yet.
 
+To defer several directories in one edit, repeat `--pattern` before the first
+scan. The rules share a reason and each has its own ID in the result.
+
+```text
+aoci --repo /work scope rule add later --action exclude --pattern-kind directory --pattern svc-b --pattern svc-c --reason "defer initial indexing" --json
+```
+
+All directories must be valid before the batch is saved. Use the returned ID
+to remove one exclusion when you are ready to index that directory.
+
 Do not build this policy as `exclude **` followed by `index svc-a`. A user
 `index` rule overrides the production profile and would pull tests and fixtures
 into the Whole-Index instead of preserving their ordinary `observe` or
