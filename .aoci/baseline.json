@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-06T02:35:14Z",
+  "updated_at": "2026-11-06T02:39:31Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -2170,10 +2170,10 @@
     },
     "internal/cli/scope_rule_batch.go": {
       "role": "index",
-      "sha256": "d123f070f94bb849b2f93423955743a91af1c53d7bb54eb646afb0e8bf5e534a",
-      "size": 4441,
-      "normalized_sha256": "d123f070f94bb849b2f93423955743a91af1c53d7bb54eb646afb0e8bf5e534a",
-      "format_sha256": "d123f070f94bb849b2f93423955743a91af1c53d7bb54eb646afb0e8bf5e534a",
+      "sha256": "0139f3c9f72cb6b8ab1413e09efe10fe4dbb49e7f74514a3af8b5133561952c5",
+      "size": 4510,
+      "normalized_sha256": "0139f3c9f72cb6b8ab1413e09efe10fe4dbb49e7f74514a3af8b5133561952c5",
+      "format_sha256": "0139f3c9f72cb6b8ab1413e09efe10fe4dbb49e7f74514a3af8b5133561952c5",
       "format_kind": "gofmt"
     },
     "internal/cli/scope_rule_batch_test.go": {

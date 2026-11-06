@@ -89,11 +89,11 @@ func addInitialScopeRules(cmd *cobra.Command, root string, template managedscope
 			"status": "ready_for_initial_scan", "rules": results, "baseline_advanced": false, "index_changed": false})
 	}
 	for _, result := range results {
-		key := "scope.rule_batch_existing"
 		if result.Added {
-			key = "scope.rule_batch_added"
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_batch_added", result.RuleID, result.Pattern))
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_batch_existing", result.RuleID, result.Pattern))
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), cliMessage(key, result.RuleID, result.Pattern))
 	}
 	return nil
 }
