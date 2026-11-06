@@ -8,16 +8,30 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
-// The commands must be runnable as returned: absolute quoted executable plus a
+// The commands must be runnable as returned: absolute quoted executable, the
+// repository named by --repo so the Host's shell need not stand in it, plus a
 // suffix that is byte-identical to the shared machinecontract spelling, so the
 // MCP surface and the CLI Guide can never drift apart on one command.
 func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
-	prefix := nextCommandPrefix()
+	root := t.TempDir()
+	prefix := nextCommandPrefixFor(root)
 	if prefix == "" {
 		t.Fatal("the test binary has a resolvable executable; prefix must not be empty")
 	}
 	if !strings.HasPrefix(prefix, "'") && !strings.HasPrefix(prefix, `"`) {
 		t.Fatalf("prefix must be quoted for the shell: %q", prefix)
+	}
+	quotedRoot, ok := quoteCommandArgument(root)
+	if !ok || !strings.HasSuffix(prefix, " --repo "+quotedRoot) {
+		t.Fatalf("prefix must name the repository the server serves: %q", prefix)
+	}
+	bound := func(commands []string) {
+		t.Helper()
+		for _, command := range commands {
+			if !strings.HasPrefix(command, prefix+" ") {
+				t.Fatalf("command does not carry the bound prefix %q: %q", prefix, command)
+			}
+		}
 	}
 
 	facts := &volumegovernance.Facts{}
@@ -26,7 +40,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		{Code: "observed_pending"}, // duplicates must not duplicate commands
 		{Code: "cognition_budget_exceeded"},
 	}
-	blocked := blockedNextCommands(facts)
+	blocked := blockedNextCommands(root, facts)
 	joined := strings.Join(blocked, "\n")
 	if len(blocked) != 2 ||
 		strings.Contains(joined, machinecontract.RemediationCommandScopeAcknowledge) ||
@@ -34,7 +48,8 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		strings.Count(joined, machinecontract.RemediationCommandScopeStatus+"\n")+strings.Count(joined, machinecontract.RemediationCommandScopeStatus) < 1 {
 		t.Fatalf("blocked commands wrong: %v", blocked)
 	}
-	review := blockedNextCommands(&volumegovernance.Facts{
+	bound(blocked)
+	review := blockedNextCommands(root, &volumegovernance.Facts{
 		NextRequiredAction: machinecontract.ActionReviewObservedEvidence,
 		Findings:           []volumegovernance.Finding{{Code: "observed_pending"}, {Code: "observed_pending"}},
 	})
@@ -43,8 +58,9 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		!strings.HasSuffix(review[2], machinecontract.RemediationCommandAgentGuide) {
 		t.Fatalf("observe review must lead through status, reviewed acknowledgement, and a fresh Guide: %v", review)
 	}
+	bound(review)
 
-	scopeCommands := blockedNextCommands(&volumegovernance.Facts{Findings: []volumegovernance.Finding{
+	scopeCommands := blockedNextCommands(root, &volumegovernance.Facts{Findings: []volumegovernance.Finding{
 		{Code: "scope_change_required"}, {Code: "scope_change_required"},
 	}})
 	if len(scopeCommands) != 2 ||
@@ -52,16 +68,30 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		!strings.HasSuffix(scopeCommands[1], " "+machinecontract.RemediationCommandScopeActivate) {
 		t.Fatalf("scope blocker must name status then activation once: %v", scopeCommands)
 	}
+	bound(scopeCommands)
 
-	if commands := blockedNextCommands(&volumegovernance.Facts{}); commands != nil {
+	if commands := blockedNextCommands(root, &volumegovernance.Facts{}); commands != nil {
 		t.Fatalf("no clearable blocker must yield no commands, got %v", commands)
 	}
 
-	evidence := evidenceNextCommands()
+	evidence := evidenceNextCommands(root)
 	if len(evidence) != 2 ||
 		!strings.HasSuffix(evidence[0], " "+machinecontract.RemediationCommandDatabaseSnapshot) ||
 		!strings.HasSuffix(evidence[1], " "+machinecontract.RemediationCommandDatabaseBaselineAccept) {
 		t.Fatalf("evidence chain wrong: %v", evidence)
+	}
+	bound(evidence)
+	bound(legacyMigrationNextCommands(root))
+
+	// A root the shell cannot be handed safely yields no command at all: an
+	// absent advisory beats one that would govern the wrong tree.
+	for _, unusable := range []string{"", "/tmp/one\ntwo"} {
+		if commands := blockedNextCommands(unusable, facts); commands != nil {
+			t.Fatalf("root %q must yield no commands, got %v", unusable, commands)
+		}
+		if commands := evidenceNextCommands(unusable); commands != nil {
+			t.Fatalf("root %q must yield no evidence commands, got %v", unusable, commands)
+		}
 	}
 }
 

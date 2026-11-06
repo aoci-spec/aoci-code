@@ -817,7 +817,7 @@ func handleMCPUpdateBatchReviewed(
 		if !proof.Aligned {
 			result.Aligned = false
 			result.NextAction = mcpContract(textassets.ContractMaintainActionApplyRemaining)
-			result.NextCommands = blockedNextCommands(facts)
+			result.NextCommands = blockedNextCommands(root, facts)
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)

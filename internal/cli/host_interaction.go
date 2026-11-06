@@ -181,10 +181,20 @@ func interactionExitError(interaction *hostInteractionError) *ExitError {
 	return &ExitError{Code: ExitInvalid, MachineCode: "interaction_required", Details: interaction.State, Msg: message}
 }
 
+// hostInteractionCommand spells the exact command a person or Host runs next:
+// the running executable, --repo naming this repository unless the caller
+// already named it, and every argument quoted for the shell. The command is
+// printed into an interaction_required answer and copied from there, so it
+// must not assume the shell stands in the repository.
 func hostInteractionCommand(args ...string) string {
 	executable, err := os.Executable()
 	if err != nil {
 		executable = "aoci"
+	}
+	if len(args) < 2 || args[0] != "--repo" {
+		if root, rootErr := resolveRepoRoot(); rootErr == nil {
+			args = append([]string{"--repo", root}, args...)
+		}
 	}
 	parts := make([]string, 0, len(args)+1)
 	if runtime.GOOS == "windows" {

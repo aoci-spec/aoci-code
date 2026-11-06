@@ -21,7 +21,7 @@ import (
 // Volumes repository.
 func TestLegacyOnboardingNamesEveryNextCommand(t *testing.T) {
 	root, _ := buildManualAtomicEntriesRepo(t)
-	command := onboardingTestCommand(t)
+	command := onboardingTestCommand(t, root)
 	var session onboardingSessionView
 	decodeOnboardingTestJSON(t, mustCLI(t, root, "--json", "cognition", "onboard", "start"), &session)
 	if !reflect.DeepEqual(session.NextCommands, []string{command(machinecontract.OnboardingCommandNext)}) {
@@ -67,13 +67,13 @@ type onboardingSessionView struct {
 }
 
 // onboardingTestCommand spells a suffix the way this test binary binds it.
-func onboardingTestCommand(t *testing.T) func(string) string {
+func onboardingTestCommand(t *testing.T, root string) func(string) string {
 	t.Helper()
 	executable, err := currentAgentExecutablePath()
 	if err != nil {
 		t.Fatal(err)
 	}
-	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable)
+	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable, root)
 	if err != nil {
 		t.Fatal(err)
 	}

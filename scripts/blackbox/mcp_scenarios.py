@@ -2018,6 +2018,58 @@ def group_n():
            "attested receipt reads uncertain under deferred refresh" if ok else
            f"attested={attested} refresh_status={assessment.get('refresh_status')} state={state}")
 
+    # -- N4: 递出的命令自带 --repo, 从任何工作目录都能跑. 宿主会话常从仓库上一层
+    # 或旁边启动(多仓库会话就是这样配置的), 此前的命令假设 shell 站在仓库根里,
+    # 从别处照跑要么治理了错误的树, 要么报没有仓库.
+    d = os.path.join(WORK, "nextcmd-outside")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(os.path.join(d, "pkg"))
+    with open(os.path.join(d, "pkg", "f001.go"), "w") as f:
+        f.write("package pkg\n\nfunc F001() int { return 1 }\n")
+    sh(d, "git", "init", "-q")
+    sh(d, "git", "config", "user.email", "fixture@test.invalid")
+    sh(d, "git", "config", "user.name", "fixture")
+    sh(d, "git", "add", "-A")
+    sh(d, "git", "commit", "-q", "-m", "fixture")
+    cli(d, "init", "--locale", "en-US")
+    s = Session(d)
+    m, t, err = maintain(s)
+    s.close()
+    cmds = m.get("next_commands") or []
+    mcp_root = '"' + d + '"' if os.name == "nt" else "'" + d.replace("'", "'\"'\"'") + "'"
+    carries = (m.get("status") == "stopped" and len(cmds) >= 1 and cmds[0].endswith(" scan")
+               and all(f" --repo {mcp_root} " in c for c in cmds))
+    record(g, "N4.blocked-maintain-names-its-repository", "PASS" if carries else "FAIL",
+           f"status={m.get('status')} cmds={cmds}"[:200])
+    outside = os.path.join(WORK, "elsewhere")
+    os.makedirs(outside, exist_ok=True)
+    if carries:
+        proc = subprocess.run(cmds[0], shell=True, cwd=outside, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=120)
+        ran = proc.returncode == 0 and os.path.exists(os.path.join(d, ".aoci", "baseline.json"))
+        record(g, "N4b.returned-command-runs-from-another-directory", "PASS" if ran else "FAIL",
+               f"rc={proc.returncode} {(proc.stdout + proc.stderr)[:160]}"[:200])
+    else:
+        record(g, "N4b.returned-command-runs-from-another-directory", "FAIL", "no command to run")
+    rc_g, guide, _, _ = cli(d, "index", "agent", "guide", "--agent", "codex")
+    gcmd = (guide.get("commands") or {}).get("guide") or ""
+    guide_root = '"' + d.replace("\\", "/") + '"' if os.name == "nt" else mcp_root
+    if rc_g == 0 and f" --repo {guide_root} " in gcmd:
+        if os.name == "nt":
+            proc = subprocess.run(["powershell", "-NoProfile", "-Command", gcmd], cwd=outside, capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace", timeout=120)
+        else:
+            proc = subprocess.run(gcmd, shell=True, cwd=outside, capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", timeout=120)
+        again = {}
+        try: again = json.loads(proc.stdout)
+        except Exception: pass
+        ok = proc.returncode == 0 and again.get("stage") == guide.get("stage") and again.get("stage")
+        record(g, "N4c.guide-command-runs-from-another-directory", "PASS" if ok else "FAIL",
+               f"rc={proc.returncode} stage={again.get('stage')} guide={guide.get('stage')}"[:200])
+    else:
+        record(g, "N4c.guide-command-runs-from-another-directory", "FAIL", f"rc={rc_g} guide={gcmd}"[:200])
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 

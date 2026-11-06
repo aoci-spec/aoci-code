@@ -275,7 +275,7 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 	if facts.GovernanceAligned {
 		guide.ExecutableTargets = 0
 	}
-	if err := finalizeVolumeAgentGuideRuntimeContract(&guide); err != nil {
+	if err := finalizeVolumeAgentGuideRuntimeContract(&guide, root); err != nil {
 		return nil, &ExitError{Code: ExitInternal, Err: err}
 	}
 	return &guide, nil
@@ -492,7 +492,7 @@ func recoveryPendingAction(operation, file string) string {
 // Overview, and search keep reading the layout.
 func writeLegacyReadOnlyGuide(cmd *cobra.Command, root, agent string) error {
 	guide := buildLegacyReadOnlyGuide(root, agent)
-	if err := finalizeVolumeAgentGuideRuntimeContract(guide); err != nil {
+	if err := finalizeVolumeAgentGuideRuntimeContract(guide, root); err != nil {
 		return &ExitError{Code: ExitInternal, Err: err}
 	}
 	if flagJSON {

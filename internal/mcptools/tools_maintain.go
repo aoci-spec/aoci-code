@@ -100,7 +100,7 @@ func handleLegacyReadOnlyMaintain(root, mcpServiceVersion string) *mcp.CallToolR
 			machinecontract.StatusLegacyReadOnlyMigrateRequired,
 			machinecontract.StatusLegacyReadOnlyMigrateRequired+": "+mcpMessage("mcp.error.legacy_read_only"))},
 		NextAction:   machinecontract.MaintainActionMigrateLegacyRepository,
-		NextCommands: legacyMigrationNextCommands(),
+		NextCommands: legacyMigrationNextCommands(root),
 	}))
 }
 

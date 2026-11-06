@@ -16,7 +16,8 @@ import (
 // which command reads a batch, what receipt completes it, or that a Migration
 // needs a mapping template before Preview. next_commands spells each step,
 // from the machinecontract suffixes the Guide and MCP compose from, bound to
-// the running binary the way the Guide's commands are. A binary that cannot be
+// the running binary and the repository (--repo) the way the Guide's commands
+// are, so it runs from any working directory. A binary or root that cannot be
 // bound gets no next_commands: an absent advisory beats a wrong command.
 
 // onboardingNextCommands answers what continues a session from its state.
@@ -79,14 +80,15 @@ func onboardingPreviewCommands(root string, session *onboarding.Session) []strin
 	return bindOnboardingCommands(root, session, machinecontract.OnboardingCommandPreview)
 }
 
-// bindOnboardingCommands prefixes each suffix with the running binary and
-// fills the session's own artifact paths, quoted for the target shell.
+// bindOnboardingCommands prefixes each suffix with the running binary and the
+// repository (--repo), and fills the session's own artifact paths, quoted for
+// the target shell.
 func bindOnboardingCommands(root string, session *onboarding.Session, suffixes ...string) []string {
 	executable, err := currentAgentExecutablePath()
 	if err != nil {
 		return nil
 	}
-	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable)
+	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable, root)
 	if err != nil {
 		return nil
 	}

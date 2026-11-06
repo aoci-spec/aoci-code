@@ -247,7 +247,7 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	if err != nil {
 		t.Fatal(err)
 	}
-	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable)
+	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable, root)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,7 @@
 //
 // Design boundary:
 //   - buildAgentGuide stays a deterministic domain constructor independent of the machine's location;
-//   - the current aoci binary's absolute path is bound only right before the Guide is really printed;
+//   - the current aoci binary's absolute path and the repository root (--repo) are bound only right before the Guide is really printed, so a command runs from any working directory;
 //   - Windows commands use the PowerShell call operator & and double quotes;
 //   - the ordinary CLI's --json output on Windows is ASCII-safe JSON that PowerShell 5 can capture directly;
 //   - POSIX commands use single quotes to protect spaces and shell metacharacters;
@@ -145,15 +145,49 @@ func currentAgentExecutablePath() (string, error) {
 	)
 }
 
-// agentCommandPrefixFor converts a validated absolute executable path into a
-// target-shell command prefix.
+// agentRepositoryRootArgument quotes the repository root a bound command names
+// with --repo, under the executable's own rules: absolute, free of control
+// characters, and quotable for the target shell. The Host's shell need not
+// stand in the repository (a session often starts above or beside it), so a
+// command that does not name its repository resolves the wrong tree or none.
+func agentRepositoryRootArgument(
+	goos,
+	root string,
+) (string, error) {
+	root = normalizeAgentExecutablePath(root)
+	if strings.TrimSpace(root) == "" {
+		return "", fmt.Errorf("%s", cliMessage("host.repository_root.empty"))
+	}
+	if strings.ContainsAny(root, "\x00\r\n") {
+		return "", fmt.Errorf("%s", cliMessage("host.repository_root.control_character"))
+	}
+	if !isAbsoluteAgentExecutablePath(goos, root) {
+		return "", fmt.Errorf("%s", cliMessage("host.repository_root.not_absolute", root))
+	}
+	if goos == "windows" {
+		if strings.ContainsAny(root, "\"`$") {
+			return "", fmt.Errorf("%s", cliMessage("host.repository_root.powershell_unsafe"))
+		}
+		return `"` + root + `"`, nil
+	}
+	return "'" + strings.ReplaceAll(root, "'", `'"'"'`) + "'", nil
+}
+
+// agentCommandPrefixFor converts a validated absolute executable path and the
+// repository root into a target-shell command prefix: the quoted executable
+// followed by --repo and the quoted root.
 //
 // PowerShell interpolation characters are rejected because this contract uses
 // double-quoted invocation paths. POSIX paths are protected with single quotes.
 func agentCommandPrefixFor(
 	goos,
-	executable string,
+	executable,
+	root string,
 ) (string, error) {
+	rootArgument, err := agentRepositoryRootArgument(goos, root)
+	if err != nil {
+		return "", err
+	}
 	executable = normalizeAgentExecutablePath(
 		executable,
 	)
@@ -179,7 +213,7 @@ func agentCommandPrefixFor(
 			return "", fmt.Errorf("%s", cliMessage("host.executable.powershell_unsafe"))
 		}
 
-		return `& "` + executable + `"`, nil
+		return `& "` + executable + `" --repo ` + rootArgument, nil
 	}
 
 	return "'" +
@@ -188,7 +222,7 @@ func agentCommandPrefixFor(
 			"'",
 			`'"'"'`,
 		) +
-		"'", nil
+		"' --repo " + rootArgument, nil
 }
 
 // bindAgentCommand binds a bare domain-layer aoci command into the absolute execution command of the current machine.
@@ -262,10 +296,12 @@ func bindAgentGuideCommands(
 }
 
 // finalizeVolumeAgentGuideRuntimeContract binds every executable CLI command
-// in a Volumes guide to the currently running binary. MCP tool actions remain
-// machine next-actions and are not represented as shell commands here.
+// in a Volumes guide to the currently running binary and to the repository
+// the Guide was computed for. MCP tool actions remain machine next-actions
+// and are not represented as shell commands here.
 func finalizeVolumeAgentGuideRuntimeContract(
 	guide *volumeAgentGuide,
+	root string,
 ) error {
 	if guide == nil {
 		return nil
@@ -283,19 +319,21 @@ func finalizeVolumeAgentGuideRuntimeContract(
 		guide,
 		runtime.GOOS,
 		executable,
+		root,
 	)
 }
 
 func finalizeVolumeAgentGuideRuntimeContractFor(
 	guide *volumeAgentGuide,
 	goos,
-	executable string,
+	executable,
+	root string,
 ) error {
 	if guide == nil {
 		return nil
 	}
 
-	prefix, err := agentCommandPrefixFor(goos, executable)
+	prefix, err := agentCommandPrefixFor(goos, executable, root)
 	if err != nil {
 		return fmt.Errorf("%s", cliMessage(
 			"guide.executable_bind_failed",

@@ -20,8 +20,12 @@ import (
 // compose the identical spelling from one source. The prefix is the running
 // server's own executable, absolute and quoted, because the aoci binary is
 // whatever path the host's MCP configuration names and is not necessarily on
-// PATH. When the executable cannot be resolved the field is omitted: an absent
-// advisory beats a wrong command.
+// PATH, followed by --repo naming the repository this server was started for,
+// because the Host's shell is not necessarily standing in it: a session often
+// starts in a directory above or beside the repository, and a command without
+// --repo run from there resolves the wrong tree or none. When the executable
+// or the root cannot be quoted the field is omitted: an absent advisory beats
+// a wrong command.
 func nextCommandPrefix() string {
 	executable, err := os.Executable()
 	if err != nil || executable == "" ||
@@ -40,6 +44,20 @@ func nextCommandPrefix() string {
 	return "'" + executable + "'"
 }
 
+// nextCommandPrefixFor binds the executable to the repository root the server
+// serves, quoted the way the executable is: `'<exe>' --repo '<root>'`.
+func nextCommandPrefixFor(root string) string {
+	prefix := nextCommandPrefix()
+	if prefix == "" || root == "" {
+		return ""
+	}
+	quoted, ok := quoteCommandArgument(root)
+	if !ok {
+		return ""
+	}
+	return prefix + " --repo " + quoted
+}
+
 func composeNextCommands(prefix string, suffixes ...string) []string {
 	if prefix == "" || len(suffixes) == 0 {
 		return nil
@@ -54,11 +72,11 @@ func composeNextCommands(prefix string, suffixes ...string) []string {
 // blockedNextCommands mirrors the CLI Guide's blocked-remediation mapping for
 // the blocker findings a host can clear itself. Orphan removals need no CLI:
 // aoci_remove_entry is already on the MCP surface the caller is holding.
-func blockedNextCommands(facts *volumegovernance.Facts) []string {
+func blockedNextCommands(root string, facts *volumegovernance.Facts) []string {
 	if facts == nil {
 		return nil
 	}
-	prefix := nextCommandPrefix()
+	prefix := nextCommandPrefixFor(root)
 	if prefix == "" {
 		return nil
 	}
@@ -103,8 +121,8 @@ func blockedNextCommands(facts *volumegovernance.Facts) []string {
 // database domain. The MCP server itself never connects: the snapshot and
 // acceptance run through the CLI with host-provisioned credentials, and the
 // no-argument Maintain that follows is already the tool the caller is holding.
-func evidenceNextCommands() []string {
-	return composeNextCommands(nextCommandPrefix(),
+func evidenceNextCommands(root string) []string {
+	return composeNextCommands(nextCommandPrefixFor(root),
 		machinecontract.RemediationCommandDatabaseSnapshot,
 		machinecontract.RemediationCommandDatabaseBaselineAccept,
 	)
@@ -112,8 +130,8 @@ func evidenceNextCommands() []string {
 
 // legacyMigrationNextCommands names the one path out of a read-only Legacy
 // layout: the Legacy-to-Volumes onboarding, then the Guide that confirms it.
-func legacyMigrationNextCommands() []string {
-	return composeNextCommands(nextCommandPrefix(),
+func legacyMigrationNextCommands(root string) []string {
+	return composeNextCommands(nextCommandPrefixFor(root),
 		machinecontract.RemediationCommandCognitionOnboardStart,
 		machinecontract.RemediationCommandAgentGuide,
 	)

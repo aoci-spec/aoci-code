@@ -24,7 +24,7 @@ func TestLocaleHostErrorsAreBilingual(t *testing.T) {
 		if err := textassets.SetActiveLocale(current.locale); err != nil {
 			t.Fatal(err)
 		}
-		_, hostErr := agentCommandPrefixFor("windows", `C:\aoci\bad$path.exe`)
+		_, hostErr := agentCommandPrefixFor("windows", `C:\aoci\bad$path.exe`, `C:\repo`)
 		if hostErr == nil || !strings.Contains(hostErr.Error(), current.hostAnchor) ||
 			!strings.Contains(hostErr.Error(), "PowerShell") {
 			t.Errorf("%s Host executable error lost semantics: %v", current.locale, hostErr)

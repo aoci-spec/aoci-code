@@ -221,7 +221,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		result.Batch.NextAction = result.NextAction
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		result.Status, result.Aligned = autoStatusStopped, false
-		result.NextCommands = evidenceNextCommands()
+		result.NextCommands = evidenceNextCommands(root)
 	case observeRides && len(result.Candidates) > 0:
 		// Observe evidence waits beside authoring work and the posture lets the
 		// model confirm it: the listing rides with the batch and the batch
@@ -234,7 +234,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		// is authoring work the batch below clears through removals.
 		result.Status, result.Aligned, result.Result = autoStatusStopped, false, volumegovernance.ResultBlocked
 		result.NextAction = blockedNextAction(facts, databaseOrphans(result.OrphanRemovals))
-		result.NextCommands = blockedNextCommands(facts)
+		result.NextCommands = blockedNextCommands(root, facts)
 		result.ObserveReview = observeReviewFor(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction
