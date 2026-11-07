@@ -1136,3 +1136,26 @@ func assertCognitionOptimizationFormalPreimages(t *testing.T, root string, befor
 		}
 	}
 }
+
+// A batch delivered again is the same pass: the reason each candidate was
+// issued with belongs to that pass, not to the request that redelivers it.
+// Asking for the contract by include_instructions cannot repeat object_refs,
+// and the redelivery used to fall back to the selector's default reason while
+// the Host still held the original text (#168).
+func TestCognitionOptimizationRedeliveryKeepsExplicitSelectionReason(t *testing.T) {
+	root := buildCognitionOptimizationRepo(t, 3)
+	session := connectMCPClient(t, root)
+	first := callCognitionOptimizationMaintain(t, session, []string{"code:optimized/0002.go"})
+	if len(first.Candidates) != 1 || first.Candidates[0].ObjectRef != "code:optimized/0002.go" ||
+		first.Candidates[0].SelectionReason != "explicit_object_ref" {
+		t.Fatalf("explicit selection not reported as such: %#v", first.Candidates)
+	}
+	again := callCognitionOptimizationMaintain(t, session, nil)
+	if again.Optimization.OptimizationID != first.Optimization.OptimizationID ||
+		again.Optimization.CurrentBatchID != first.Optimization.CurrentBatchID {
+		t.Fatalf("redelivery changed the pass: first=%#v again=%#v", first.Optimization, again.Optimization)
+	}
+	if len(again.Candidates) != 1 || again.Candidates[0].SelectionReason != "explicit_object_ref" {
+		t.Fatalf("redelivery must keep the opening reason: %#v", again.Candidates)
+	}
+}

@@ -44,6 +44,10 @@ type Checkpoint struct {
 	LastNoChangeCount    int      `json:"last_no_change_count"`
 	LastReplacedCount    int      `json:"last_replaced_count"`
 	Completed            bool     `json:"completed"`
+	// ExplicitObjectRefs records that the pass was opened with object_refs,
+	// so a batch delivered again reports the reason it was issued with
+	// (explicit_object_ref) instead of the selector's default (#168).
+	ExplicitObjectRefs bool `json:"explicit_object_refs,omitempty"`
 }
 
 // StoredCheckpoint carries the exact file digest required by Advance CAS.
@@ -56,6 +60,7 @@ type CreateInput struct {
 	OptimizationID      string
 	CurrentBatchID      string
 	RemainingObjectRefs []string
+	ExplicitObjectRefs  bool
 }
 
 // AdvanceInput completes exactly the checkpoint's current batch. The reviewed
@@ -89,6 +94,7 @@ func Create(root string, input CreateInput) (StoredCheckpoint, error) {
 		Version: CheckpointVersion, OptimizationID: input.OptimizationID,
 		CurrentBatchID:      input.CurrentBatchID,
 		RemainingObjectRefs: append([]string{}, input.RemainingObjectRefs...),
+		ExplicitObjectRefs:  input.ExplicitObjectRefs,
 	}
 	if err := validateCheckpoint(checkpoint); err != nil {
 		return StoredCheckpoint{}, err
@@ -228,7 +234,8 @@ func RestartCompleted(root, expectedSHA256 string, input CreateInput) (StoredChe
 		return StoredCheckpoint{}, fmt.Errorf("%w: active checkpoint cannot be restarted", ErrCheckpointConflict)
 	}
 	replacement := Checkpoint{Version: CheckpointVersion, OptimizationID: input.OptimizationID,
-		CurrentBatchID: input.CurrentBatchID, RemainingObjectRefs: append([]string{}, input.RemainingObjectRefs...)}
+		CurrentBatchID: input.CurrentBatchID, RemainingObjectRefs: append([]string{}, input.RemainingObjectRefs...),
+		ExplicitObjectRefs: input.ExplicitObjectRefs}
 	if err := validateCheckpoint(replacement); err != nil {
 		return StoredCheckpoint{}, err
 	}

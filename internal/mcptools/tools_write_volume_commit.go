@@ -263,6 +263,15 @@ func planCognitionVolumeUpdates(
 		if receiptMode && fail.Code == errImpactResolutionFailed && strings.Contains(fail.Msg, "impact_candidate_") {
 			fail.Code = errCandidateInvalid
 		}
+		if fail.Repairable && len(fail.Findings) > 0 {
+			// The field budget is measured on each candidate below and on the
+			// projection after that, both past this refusal, so a batch sent
+			// back here for a form or length defect learned its budget
+			// overruns only on the next submission (#168). Measure them now,
+			// so one repair_required names everything a candidate must fix.
+			fail.Findings = append(fail.Findings, LocalizeRepairFindings(batchBudgetRepairFindings(loaded, ordered))...)
+			cognition.SortRepairFindings(fail.Findings)
+		}
 		return nil, fail
 	}
 
@@ -607,6 +616,30 @@ func budgetRepairFindings(violations []cognitionbudget.Violation, normalized []n
 		})
 	}
 	return findings, unmatched
+}
+
+// batchBudgetRepairFindings measures every authored candidate of the batch
+// against the effective field budget, so a refusal raised before the
+// projection can still name each candidate's overruns.
+func batchBudgetRepairFindings(loaded *cognitionRepoCtx, ordered []normalizedAtomicItem) []cognition.RepairFinding {
+	policy := loaded.cfg.EffectiveCognitionBudget()
+	quota := index.ExtractSQuotaThresholds(string(loaded.set.Meta.Raw))
+	findings := []cognition.RepairFinding{}
+	for _, item := range ordered {
+		if item.remove {
+			continue
+		}
+		path, identity, domain := item.rel, "code:"+item.rel, cognition.ScopeCode
+		if item.rel == "" {
+			path, identity, domain = item.objectRef, item.objectRef, cognition.ScopeDatabase
+		}
+		itemFindings, _, _ := entryBudgetRepairFindings(path, identity, domain, index.StripFences(item.newEntry), policy, quota)
+		for position := range itemFindings {
+			itemFindings[position].CandidateIndex = item.originalCandidateIndex
+		}
+		findings = append(findings, itemFindings...)
+	}
+	return findings
 }
 
 // budgetViolationDetail compresses one violation that no candidate can repair into a machine fact string (the template takes strings only).

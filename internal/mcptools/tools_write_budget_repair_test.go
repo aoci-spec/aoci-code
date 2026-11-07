@@ -148,3 +148,38 @@ func TestBudgetRepairFindingsSplitsCandidateAndBatchLevel(t *testing.T) {
 		}
 	}
 }
+
+// One repair_required names everything a candidate must fix. The field budget
+// used to be measured only after every candidate parsed, so a batch refused
+// for a length defect learned its budget overruns on the next submission, one
+// model round and one CAS later (#168).
+func TestLengthAndBudgetFindingsArriveInOneRepair(t *testing.T) {
+	root := buildSingleCodeWriteRepo(t, false)
+	activateEnforceBudget(t, root)
+	indexBefore := volumeFileText(t, root, "aoci.code.txt")
+	refs := make([]string, 0, 8)
+	for position := 0; position < 8; position++ {
+		refs = append(refs, fmt.Sprintf("code:src/relation%02d.go", position))
+	}
+	longF := strings.Repeat("runs the fixture and explains it ", 7) // 231 runes, over the FRAS v2 ceiling of 160
+	line := "main.go[CD3S]: F:" + longF + " | R:" + strings.Join(refs, ",") + " | A:main | S:-"
+	result := decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", []updateEntryItemIn{{
+		Path: "main.go", SourceSHA256: sourceSHA256(t, root, "main.go"), NewEntry: line,
+	}}))
+	if result.Status != autoStatusRepairRequired || result.Applied != 0 {
+		t.Fatalf("must be a zero-write repair_required: %#v", result)
+	}
+	rules := map[string]int{}
+	for _, finding := range result.Findings {
+		if finding.CandidateIndex != 1 || finding.CanonicalObjectIdentity != "code:main.go" {
+			t.Fatalf("finding not bound to the candidate: %+v", finding)
+		}
+		rules[finding.RuleCode]++
+	}
+	if rules["fras_f_too_long"] != 1 || rules["entry_field_budget_exceeded"] != 1 || len(result.Findings) != 2 {
+		t.Fatalf("length and budget findings must arrive together: %v\n%#v", rules, result.Findings)
+	}
+	if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+		t.Fatal("the refusal must write nothing")
+	}
+}

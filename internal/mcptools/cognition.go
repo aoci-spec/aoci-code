@@ -121,7 +121,16 @@ func newVolumeCognitionReceipt(
 		ScopeObjectCount: view.ObjectCount, ScopeIdentity: view.ScopeIdentity,
 		CompositeIdentity: set.CompositeIdentity,
 	}
-	return receipt
+	// Every Volumes receipt names the Volumes it stands for, path included:
+	// a Host that must know where the Code Volume lives (to recognise it in
+	// observed evidence, or to read it after alignment) used to find only
+	// identities in a Maintain or Apply answer and had to parse the Root
+	// manifest itself (#168). Overview delivered the same list already; a
+	// scope that is absent stands for no Volume and keeps the empty list.
+	if !view.Available {
+		return receipt
+	}
+	return receiptWithDeliveredVolumes(receipt, view)
 }
 
 func receiptWithDeliveredVolumes(receipt cognitionReceipt, view cognition.ScopeView) cognitionReceipt {

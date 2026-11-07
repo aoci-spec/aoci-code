@@ -8,13 +8,17 @@
 // compactions, so it can see what the Host cannot: a reload that started under
 // a declared context_compaction was interrupted by the next declared
 // context_compaction before any confirmed, attested delivery consumed it.
-// That interruption is the capacity verdict. From then on, for the life of
-// this server session, a fresh reload of a scope at least that large answers
-// the capacity stop instead of another chain: no body, the generation
-// consumed, an uncertain receipt, and source-bound continuation without an
-// unqualified complete-system claim. An explicit Overview requested while no
-// compaction refresh is pending still delivers, and a smaller scope still
-// delivers, so nothing is withheld that the Host can hold.
+// That interruption is the capacity verdict. From then on, a fresh reload of
+// a scope at least that large answers the capacity stop instead of another
+// chain: no body, the generation consumed, an uncertain receipt, and
+// source-bound continuation without an unqualified complete-system claim. An
+// explicit Overview requested while no compaction refresh is pending still
+// delivers, and a smaller scope still delivers, so nothing is withheld that
+// the Host can hold. The verdict lasts until the Host confirms holding a
+// complete delivery at least that large (#168): the interruption may have been
+// the Host's own stop rather than its capacity, and a verdict that outlived
+// the proof against it kept a long-lived Host source-bound for the rest of the
+// server session.
 package mcptools
 
 import (
@@ -192,6 +196,17 @@ func (session *cognitionRefreshSession) capacityFacts(estimatedTokens int) *host
 	return facts
 }
 
+// clearCapacityVerdict forgets the verdict once the Host has confirmed holding
+// a complete delivery at least as large as the scope whose reload was
+// interrupted: the Host has then held every chunk of such a scope, so the
+// verdict no longer describes it. A smaller confirmed scope proves nothing
+// about the whole and leaves it. The caller holds session.mu.
+func (session *cognitionRefreshSession) clearCapacityVerdict(estimatedTokens int) {
+	if session.capacity != nil && estimatedTokens >= session.capacity.FailedEstimatedTokens {
+		session.capacity = nil
+	}
+}
+
 // consumeCapacityStop answers the pending compaction refresh with the stop:
 // the generation advances with an uncertain receipt, exactly like a complete
 // transport whose Attestation fell short, so the Host continues source-bound
@@ -219,6 +234,9 @@ func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRend
 		// attempt open without changing the independent model-proof path.
 		if delivery.Attestation.DeliveryIntegrity == deliveryIntegrityIncomplete && !delivery.Attestation.ReportProvided {
 			return
+		}
+		if fullScope && delivery.Attestation.DeliveryIntegrity == deliveryIntegrityConfirmed {
+			session.clearCapacityVerdict(estimatedTokens)
 		}
 		if attempt := session.compactionAttempt; attempt != nil && attempt.ScopeIdentity == delivery.Facts.IndexSHA256 {
 			session.compactionAttempt = nil

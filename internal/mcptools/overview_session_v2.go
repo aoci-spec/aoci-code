@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"strings"
 	"sync"
 	"time"
@@ -326,7 +327,11 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 		refresh.deliveries.completed(entry)
 	}
 	refresh.mu.Lock()
-	refresh.noteDeliveryChain(&delivery, ctx.Prepared.body.Receipt.BodySHA256, false, false, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
+	// A reused delivery is never fresh, so it opens no attempt; its scope still
+	// matters, because a confirmed complete delivery is the proof that clears
+	// the capacity verdict (#168).
+	fullScope := ctx.EffectiveScope == cognition.ScopeAll && ctx.Delta == nil
+	refresh.noteDeliveryChain(&delivery, ctx.Prepared.body.Receipt.BodySHA256, false, fullScope, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
 	refresh.recordAttestedDelivery(ctx.Receipt, delivery.Attestation, entry.semantic.GovernanceAligned)
 	refresh.settleDeltaBase(ctx, delivery.Attestation)
 	refresh.mu.Unlock()

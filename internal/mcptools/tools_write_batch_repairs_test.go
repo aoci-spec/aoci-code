@@ -60,3 +60,18 @@ func TestBatchValidationReportsEveryRepairableCandidateInOneResponse(t *testing.
 			result.Status, indices, result.RetryScope, output)
 	}
 }
+
+// A Maintain receipt names the Volumes it stands for, paths included, the way
+// an Overview receipt does: a Host that must know where the Code Volume lives
+// had only identities to go on and parsed the Root manifest itself (#168).
+func TestMaintainReceiptNamesItsVolumes(t *testing.T) {
+	root := buildSingleCodeWriteRepo(t, false)
+	plan := maintainVolumeResult(t, root)
+	paths := map[string]string{}
+	for _, volume := range plan.Receipt.DeliveredVolumes {
+		paths[volume.Kind] = volume.Path
+	}
+	if paths["code"] != "aoci.code.txt" || paths["meta"] != "aoci.meta.txt" || paths["root"] != "" {
+		t.Fatalf("Maintain receipt must name its Volumes with paths: %#v", plan.Receipt.DeliveredVolumes)
+	}
+}

@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Six host-side findings from the v0.2.0-rc1 adaptation (#168): a cognition
+  optimization batch delivered again keeps the `explicit_object_ref` reason
+  it was opened with; one `repair_required` now carries each candidate's
+  field token budget overruns beside its form and length findings, as the
+  tool description always said; every Maintain and Apply receipt names its
+  Volumes with their paths in `delivered_volumes`, as Overview did; the Host
+  capacity verdict is cleared by a later confirmed complete delivery of a
+  scope that large, so a reload the Host itself stopped no longer keeps a
+  long-lived server session source-bound; the delivery contract names the
+  two cursor-failure tokens (`overview_snapshot_changed`,
+  `overview_session_unavailable_restart_required`).
 - `aoci scope rule add` accepts repeated `--pattern` flags before the first
   scan, for `--action exclude --pattern-kind directory` only: a project that
   defers several modules adds every exclusion in one validated edit instead of

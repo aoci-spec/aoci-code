@@ -126,7 +126,7 @@ func TestMCPUpdateEntryKeepsSchemaAndReportsCodeVolumeAlignment(t *testing.T) {
 	for _, want := range []string{
 		`"status":"applied"`, `"aligned":true`, `"applied":1`,
 		`"volume":"code"`, `"version":2`, `"layout_mode":"volumes-v1"`,
-		`"delivered_volumes":[]`,
+		`"delivered_volumes":[{`, `"path":"aoci.code.txt"`,
 	} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("Volume update result missing %q:\n%s", want, output)
@@ -431,7 +431,7 @@ func TestMCPCodeVolumeCrossGuardSuccessStaysSimple(t *testing.T) {
 	// terminal proof answers evidence_required and the Apply is not aligned.
 	for _, want := range []string{
 		`"status":"applied"`, `"aligned":false`, `"applied":1`, `"volume":"code"`,
-		`"version":2`, `"layout_mode":"volumes-v1"`, `"delivered_volumes":[]`,
+		`"version":2`, `"layout_mode":"volumes-v1"`, `"delivered_volumes":[{`, `"path":"aoci.code.txt"`,
 		`"terminal_proof":{"version":"terminal-proof/v1"`, `"code":"database_evidence_required"`,
 	} {
 		if !strings.Contains(output, want) {

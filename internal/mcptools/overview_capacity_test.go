@@ -268,3 +268,43 @@ func TestLegacyCompactionReloadLoopStops(t *testing.T) {
 		t.Fatalf("Legacy stop: %v", stop)
 	}
 }
+
+// The verdict describes capacity, and the proof against it is the Host
+// confirming a complete delivery at least that large. A reload the Host
+// stopped for its own reasons (a user interrupt, a cost cap, an unreachable
+// model) is an interruption too, and before #168 the verdict it left outlived
+// every later proof, keeping a long-lived Host source-bound for the rest of
+// the server session.
+func TestConfirmedCompleteDeliveryClearsTheVerdict(t *testing.T) {
+	root := chunkSessionRepo(t)
+	session := newCognitionRefreshSession()
+	sessionOverview(t, root, session, "host", compactionReload("all", "compact-1"))
+	capacityStopFacts(t, resText(t, sessionOverview(t, root, session, "host", compactionReload("all", "compact-2"))))
+	if session.capacity == nil {
+		t.Fatal("the interrupted reload must have left a verdict")
+	}
+	first, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", overviewIn{Scope: "all"}))
+	cursor, _ := first["next_cursor"].(string)
+	for cursor != "" {
+		next, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", overviewIn{Scope: "all", Cursor: cursor}))
+		cursor, _ = next["next_cursor"].(string)
+	}
+	if session.capacity == nil {
+		t.Fatal("an unconfirmed delivery must not clear the verdict")
+	}
+	confirmation := &overviewHostConfirmation{
+		Version: overviewDeliveryReceiptV1, BodySHA256: first["body_sha256"].(string),
+		BodyBytes: int(first["body_utf8_bytes"].(float64)), EndMarkerObserved: true,
+	}
+	proof := resText(t, sessionOverview(t, root, session, "host", overviewIn{Scope: "all", HostConfirmation: confirmation}))
+	if !strings.Contains(proof, "host_delivery_status: host_delivery_confirmed") {
+		t.Fatalf("confirmation not accepted:\n%.600s", proof)
+	}
+	if session.capacity != nil {
+		t.Fatalf("a confirmed complete delivery must clear the verdict: %+v", session.capacity)
+	}
+	reload, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", compactionReload("all", "compact-3")))
+	if int(reload["chunk_index"].(float64)) != 1 {
+		t.Fatalf("after the proof a compaction reload must deliver again: %+v", reload)
+	}
+}

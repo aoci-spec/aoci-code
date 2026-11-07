@@ -305,6 +305,11 @@ outlives Host compactions, so the server records what the Host cannot:
 
 The verdict lives in the server session only. It is never persisted, a server
 restart clears it, and it changes no identity, receipt format, or tool schema.
+A later confirmed delivery (host_delivery_status=host_delivery_confirmed) of
+the complete scope at least as large as the verdict clears it too: the Host has
+then held every chunk of such a scope, so the verdict no longer describes it,
+and an interruption that was the Host's own stop rather than its capacity does
+not keep a long-lived Host source-bound for the rest of the server session.
 An explicit ordinary request made while no compaction refresh is pending still
 delivers the complete scope, a scope below the verdict (code, database, meta,
 project) still delivers, and continuation and proof calls for a chain the Host

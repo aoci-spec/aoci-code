@@ -99,9 +99,13 @@ under a private per-delivery secret. The server retains immutable canonical
 body bytes, Entry sequence, Challenge, and chunk spans; it retains no mutable
 chunk position. Exact replay idempotently returns the same chunk body. A
 foreign Host, changed token, unavailable session, expiry, eviction, or process
-restart fails closed and requires a fresh request at Chunk 1. No delivery state
-is persisted. The chunk receipt remains `overview-chunk-receipt/v1`; only the
-opaque continuation token is versioned.
+restart fails closed and requires a fresh request at Chunk 1: a changed input
+(a governed source, a configuration, a Baseline) answers
+`overview_snapshot_changed`, and expiry, eviction, a foreign Host, an
+unavailable session, or a process restart answers
+`overview_session_unavailable_restart_required`; either token means start
+again at Chunk 1. No delivery state is persisted. The chunk receipt remains
+`overview-chunk-receipt/v1`; only the opaque continuation token is versioned.
 
 The initial eligible request runs the complete governance assessment once and
 captures its actual managed-state fingerprints. Before publishing it, a strict

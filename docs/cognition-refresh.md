@@ -204,8 +204,9 @@ fresh complete delivery of the whole scope started while a declared
 interruption is the capacity verdict, sized at the interrupted reload's
 estimated tokens.
 
-From then on, for the life of that server process, a fresh request for a scope
-at least that large, made while a compaction refresh is pending, answers
+From then on, until the Host confirms a complete delivery of a scope that
+large, a fresh request for a scope at least that large, made while a
+compaction refresh is pending, answers
 `delivery_mode=capacity_stop` with
 `fallback_reason=host_context_capacity_exceeded`. The stop carries no body. It
 consumes the refresh generation with an uncertain receipt and
@@ -220,7 +221,11 @@ compaction refresh is pending still delivers the complete scope, a smaller
 scope (`code`, `database`, `meta`, or `project`) still delivers, and a chain
 the Host already holds a cursor for continues. Scoped reads never count toward
 the verdict. The verdict is never written to disk; a fresh Host session starts
-without it. To restore complete cognition on such a Host, shrink the index
+without it, and a Host that stopped a reload for its own reasons (a user
+interrupt, a cost cap, an unreachable model) clears it the first time it
+confirms a complete delivery of a scope that large, so a long-lived Host is
+not kept source-bound for the rest of the server process. To restore complete
+cognition on a Host that really cannot hold the index, shrink the index
 with Managed Scope (`aoci scope rule add --action observe` for directories the
 model never needs, then `aoci scope activate`) or give the Host a larger
 context.

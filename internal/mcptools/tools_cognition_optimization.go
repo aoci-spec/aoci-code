@@ -133,7 +133,8 @@ func handleCognitionOptimizationMaintain(
 				err = idErr
 			} else {
 				create := cognitionoptimization.CreateInput{OptimizationID: optimizationID,
-					CurrentBatchID: plan.BatchID, RemainingObjectRefs: orderedRefs}
+					CurrentBatchID: plan.BatchID, RemainingObjectRefs: orderedRefs,
+					ExplicitObjectRefs: len(input.ObjectRefs) != 0}
 				if loadErr == nil && stored.Checkpoint.Completed {
 					checkpoint, err = cognitionoptimization.RestartCompleted(root, stored.SHA256, create)
 				} else {
@@ -160,12 +161,17 @@ func handleCognitionOptimizationMaintain(
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
 	thresholds := optimizationEScaleThresholds(loaded.set)
+	// The reason a candidate was issued with is part of the pass, not of this
+	// request: a batch delivered again (the Host asking for the contract by
+	// include_instructions, where object_refs may not be repeated) keeps the
+	// explicit_object_ref the checkpoint recorded at the opening (#168).
+	explicit := len(input.ObjectRefs) != 0 || checkpoint.Checkpoint.ExplicitObjectRefs
 	for _, candidate := range selection.Batch {
 		issued := optimizationPlanCandidate(orderedPlan, candidate.ObjectRef)
 		if issued == nil {
 			return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_candidate_identity_missing"})
 		}
-		item := optimizationMaintainCandidate(candidate, *issued, len(input.ObjectRefs) != 0)
+		item := optimizationMaintainCandidate(candidate, *issued, explicit)
 		fillVolumeCandidateScale(root, thresholds, &item)
 		result.Candidates = append(result.Candidates, item)
 	}

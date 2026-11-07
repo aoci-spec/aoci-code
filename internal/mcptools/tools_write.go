@@ -95,6 +95,51 @@ func appendWriteFailEvent(
 	ledger.Append(root, cfg.LedgerEnabled, event)
 }
 
+// entryBudgetRepairFindings measures one candidate line against the effective
+// per-field token bands, S floored by the Meta quota exactly as the projected
+// budget assessment floors it, and reports each overrun as a Finding the
+// caller completes with candidate_index. Only enforce mode refuses: observe
+// mode reports and never stops a write, so it measures nothing here. The
+// violations come back whole for the message, and repairable says whether
+// every one of them is a field overrun a candidate can fix.
+func entryBudgetRepairFindings(path, identity, domain, line string, policy cognitionbudget.Policy, quota *index.SQuotaThresholds) ([]cognition.RepairFinding, []cognitionbudget.Violation, bool) {
+	if policy.Mode != machinecontract.BudgetModeEnforce {
+		return nil, nil, true
+	}
+	violations := cognitionbudget.ValidateEntryWithSQuota(line, policy, quota)
+	findings := []cognition.RepairFinding{}
+	repairable := true
+	for _, violation := range violations {
+		if violation.Code != "entry_field_budget_exceeded" {
+			repairable = false
+			continue
+		}
+		findings = append(findings, cognition.RepairFinding{
+			Path: path, CanonicalObjectIdentity: identity, ObjectRef: identity,
+			Domain: domain, Field: violation.Field,
+			Code: violation.Code, RuleCode: violation.Code,
+			Expected: fmt.Sprintf("max_tokens=%d", violation.Maximum),
+			Actual:   fmt.Sprintf("actual_tokens=%d", violation.Actual),
+		})
+	}
+	return findings, violations, repairable && len(findings) > 0
+}
+
+// entryBudgetFail is the refusal one candidate's budget overrun produces: a
+// repairable Finding per field with the exact token facts, or an unrepairable
+// stop when the policy itself cannot be parsed.
+func entryBudgetFail(path, identity, domain, line string, policy cognitionbudget.Policy, quota *index.SQuotaThresholds) *Fail {
+	findings, violations, repairable := entryBudgetRepairFindings(path, identity, domain, line, policy, quota)
+	if len(violations) == 0 {
+		return nil
+	}
+	detail, _ := json.Marshal(violations)
+	return &Fail{Code: errCandidateInvalid,
+		Msg:      writeMessage("entry.write.budget_failed", violations[0].Code, string(detail)),
+		Hint:     writeMessage("entry.write.hint.budget_reauthor"),
+		Findings: findings, Repairable: repairable}
+}
+
 // prepareUpdateEntry plans one update on the current index context the caller supplies.
 //
 // Every R relation anomaly is a Warning and never blocks a manual or Auto Apply; the check only queries the few paths the candidate
@@ -117,33 +162,6 @@ func prepareUpdateEntry(
 	line := index.StripFences(
 		rawEntry,
 	)
-	if rc.cfg.CognitionBudget != nil {
-		if budgetViolations := cognitionbudget.ValidateEntry(line, rc.cfg.EffectiveCognitionBudget()); len(budgetViolations) > 0 {
-			// A per-field overrun is a candidate-repairable problem: a Finding carrying the location and exact token facts,
-			// with the caller filling in candidate_index. When the policy itself cannot be parsed, the stop stays unrepairable.
-			findings := []cognition.RepairFinding{}
-			repairable := true
-			for _, violation := range budgetViolations {
-				if violation.Code != "entry_field_budget_exceeded" {
-					repairable = false
-					continue
-				}
-				findings = append(findings, cognition.RepairFinding{
-					Path: rel, CanonicalObjectIdentity: "code:" + rel, ObjectRef: "code:" + rel,
-					Domain: cognition.ScopeCode, Field: violation.Field,
-					Code: violation.Code, RuleCode: violation.Code,
-					Expected: fmt.Sprintf("max_tokens=%d", violation.Maximum),
-					Actual:   fmt.Sprintf("actual_tokens=%d", violation.Actual),
-				})
-			}
-			detail, _ := json.Marshal(budgetViolations)
-			return nil, "", &Fail{Code: errCandidateInvalid,
-				Msg:      writeMessage("entry.write.budget_failed", budgetViolations[0].Code, string(detail)),
-				Hint:     writeMessage("entry.write.hint.budget_reauthor"),
-				Findings: findings, Repairable: repairable && len(findings) > 0}
-		}
-	}
-
 	headerText, _ := index.ExtractHeader(
 		rc.text,
 	)
@@ -152,6 +170,9 @@ func prepareUpdateEntry(
 	sQuota := index.ExtractSQuotaThresholds(
 		dictText,
 	)
+	if fail := entryBudgetFail(rel, "code:"+rel, cognition.ScopeCode, line, rc.cfg.EffectiveCognitionBudget(), sQuota); fail != nil {
+		return nil, "", fail
+	}
 
 	violations := index.ValidateEntryLineWith(
 		rel,
