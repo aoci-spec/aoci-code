@@ -4,6 +4,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `aoci scope rule add` accepts repeated `--pattern` flags before the first
+  scan, for `--action exclude --pattern-kind directory` only: a project that
+  defers several modules adds every exclusion in one validated edit instead of
+  one command per directory. The rule ID argument prefixes a stable per-directory
+  ID, the batch shares the first scan's lock, and an existing Baseline refuses
+  it, so scanned repositories keep the Scope Change workflow. The Locale upgrade
+  that rewrites team configuration now saves through CAS, so it cannot
+  overwrite a concurrent policy edit. (dayebishouji, #167, refs #54)
 - Every command AOCI hands a Host to run names its repository: `next_commands`
   from Maintain and Apply, the Guide's commands, onboarding's continuation,
   and the exact command an `interaction_required` answer prints all carry

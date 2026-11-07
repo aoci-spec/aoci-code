@@ -642,7 +642,10 @@ func applyTeamJSONFile(repoRoot string, cfg *Config, materializeLegacyLocale boo
 		return fmt.Errorf("team automation configuration is invalid %s: %w", configPath, err)
 	}
 	if materializeLegacyLocale {
-		if err := saveToPath(configPath, repoRoot, cfg); err != nil {
+		// Locale resolution can run before the scan lock. Bind this upgrade to
+		// the bytes it read so it cannot overwrite a concurrent policy edit.
+		digest := sha256.Sum256(data)
+		if err := saveToPathCAS(configPath, cfg, hex.EncodeToString(digest[:])); err != nil {
 			return fmt.Errorf("materialize legacy project locale: %w", err)
 		}
 	}

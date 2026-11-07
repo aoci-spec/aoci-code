@@ -143,13 +143,38 @@ func (cfg *Config) SetNewProjectGovernance(profile string) error {
 // the existing config CAS pipeline. The active policy identity remains in the
 // Baseline until a separate Scope Change transaction applies it.
 func MutateManagedScope(repositoryRoot string, mutate func(*managedscope.Policy) error) error {
+	return mutateManagedScope(repositoryRoot, mutate, false)
+}
+
+var ErrManagedScopeInitialBaselineExists = errors.New("managed_scope_initial_baseline_exists")
+
+// MutateInitialManagedScope applies a desired policy edit only before the
+// first Baseline. Hold the scan lock from the absence check through the CAS.
+func MutateInitialManagedScope(repositoryRoot string, mutate func(*managedscope.Policy) error) error {
+	if _, err := os.Lstat(FilePath(repositoryRoot)); err != nil {
+		return err
+	}
+	lock, err := afs.AcquireIndexLock(repositoryRoot)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
+	if _, err := os.Lstat(AOCIPaths(repositoryRoot, "").BaselinePath); err == nil {
+		return ErrManagedScopeInitialBaselineExists
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return mutateManagedScope(repositoryRoot, mutate, true)
+}
+
+func mutateManagedScope(repositoryRoot string, mutate func(*managedscope.Policy) error, requireExistingConfig bool) error {
 	if mutate == nil {
 		return fmt.Errorf("managed_scope_mutation_required")
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		cfg, expectedSHA256, err := loadBaseSnapshot(repositoryRoot)
 		if err != nil {
-			if !errors.Is(err, os.ErrNotExist) {
+			if requireExistingConfig || !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 			cfg, err = LoadBase(repositoryRoot)

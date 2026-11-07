@@ -200,6 +200,29 @@ The accepted keys are the ones the unknown-key message lists. An unknown key
 or an invalid value exits 3 with the ordinary version-1 error envelope before
 any write. Human output of these commands is not changed by this contract.
 
+Managed Scope rule batches before the first scan
+------------------------------------------------
+
+After init and before the first scan, `aoci scope rule add <rule-id>` accepts
+repeated `--pattern` flags with `--action exclude` and `--pattern-kind directory`.
+Each pattern names an existing repository-relative directory. All rules share
+the supplied metadata, including `--reason`. The rule ID argument is the prefix
+for a stable ID derived from each normalized directory. A single pattern uses
+the supplied ID directly.
+
+The command validates the entire batch and saves the desired policy once.
+Repeating an identical rule leaves it in place. A duplicate directory in the
+batch, an invalid path, a conflicting rule ID, or an existing Baseline rejects
+the batch before saving. The first scan and batch save use the same repository
+lock. Ordinary single-rule edits on scanned repositories use Scope Change to
+activate the desired policy.
+
+On success `--json` returns the Managed Scope policy version,
+`status=ready_for_initial_scan`, `baseline_advanced=false`,
+`index_changed=false`, and `rules` in rule-ID order. Each rule includes
+`rule_id`, `pattern`, and `added`. Use `scope rule remove <rule-id>` and
+`scope activate` to bring a deferred directory into scope after scanning.
+
 Managed Scope activation
 ------------------------
 

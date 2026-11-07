@@ -300,13 +300,18 @@ func newScopeRuleListCmd() *cobra.Command {
 
 type scopeRuleFlags struct {
 	action, pattern, kind, reason, decisionBasis, createdBy string
+	patterns                                                []string
 	order                                                   int
 	enabled                                                 bool
 }
 
 func bindScopeRuleFlags(command *cobra.Command, flags *scopeRuleFlags, update bool) {
 	command.Flags().StringVar(&flags.action, "action", "", cliMessage("scope.flag.action"))
-	command.Flags().StringVar(&flags.pattern, "pattern", "", cliMessage("scope.flag.pattern"))
+	if update {
+		command.Flags().StringVar(&flags.pattern, "pattern", "", cliMessage("scope.flag.pattern"))
+	} else {
+		command.Flags().StringArrayVar(&flags.patterns, "pattern", nil, cliMessage("scope.flag.add_pattern"))
+	}
 	command.Flags().StringVar(&flags.kind, "pattern-kind", "glob", cliMessage("scope.flag.pattern_kind"))
 	command.Flags().StringVar(&flags.reason, "reason", "", cliMessage("scope.flag.reason"))
 	command.Flags().StringVar(&flags.decisionBasis, "decision-basis", "", cliMessage("scope.flag.decision_basis"))
@@ -328,8 +333,14 @@ func newScopeRuleAddCmd() *cobra.Command {
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			rule := managedscope.Rule{RuleID: args[0], Action: flags.action, Pattern: flags.pattern, PatternKind: flags.kind,
+			rule := managedscope.Rule{RuleID: args[0], Action: flags.action, PatternKind: flags.kind,
 				Reason: flags.reason, DecisionBasis: flags.decisionBasis, Source: machinecontract.ScopeRuleUser, CreatedBy: flags.createdBy, Order: flags.order, Enabled: flags.enabled}
+			if len(flags.patterns) > 1 {
+				return addInitialScopeRules(cmd, root, rule, flags.patterns)
+			}
+			if len(flags.patterns) == 1 {
+				rule.Pattern = flags.patterns[0]
+			}
 			if err := rejectUnsupportedGlob(rule.Pattern, rule.PatternKind); err != nil {
 				return managedScopeExitError(err)
 			}
