@@ -365,7 +365,7 @@
   "database.flag.credential_env": "保存连接串的环境变量名称",
   "database.flag.database": "数据库名称",
   "database.flag.disabled": "以禁用状态保存source",
-  "database.flag.engine": "数据库引擎：postgresql、mysql、opengauss或sqlite",
+  "database.flag.engine": "数据库引擎：postgresql、mysql、opengauss、sqlite，或 mongodb（仅支持声明）",
   "database.flag.exclude_namespace": "namespace glob排除规则（可重复）",
   "database.flag.exclude_table": "表名glob排除规则（可重复）",
   "database.flag.include_namespace": "namespace glob允许规则（可重复）",

@@ -22,9 +22,8 @@ is [Database Evidence v1](../spec/public/aoci-database-evidence-v1.txt).
 
 A proposed [MongoDB collection profile](mongodb-collection-evidence-profile.md)
 records the catalog-only scope and acceptance requirements agreed in #135 for
-a fourth engine. It is a proposal for later implementation steps, not a public
-runtime contract: the current binary does not accept a `mongodb` source, and
-nothing under `spec/public` changes until an implementation lands with it.
+collections. Source declarations are available as the first implementation
+step, with collection and Evidence integration following that profile.
 
 ## Source configuration and credentials
 
@@ -42,6 +41,20 @@ aoci database source add \
 For MySQL, `--namespace` must equal `--database-name` in v1. `--namespace`
 defaults to `public` for PostgreSQL and openGauss and to the configured
 database for MySQL.
+
+MongoDB currently supports saving and listing a source declaration.
+
+```bash
+aoci database source add --source-id app --engine mongodb --database-name app --credential-env AOCI_DB_APP_URI
+```
+
+Its namespace defaults to the configured database and must equal it.
+Namespace filters select that database, and table filters reserve the included
+collection names. The URI belongs in the named environment variable. Access
+preflight, inspect, snapshot, and verify report `database_engine_not_implemented`
+before resolving it. Code governance can continue with this declaration while
+collection support is pending. Every host sharing the team configuration needs
+a MongoDB-declaration-capable binary, since earlier releases reject the engine.
 
 SQLite sources use a single explicit
 file path, without a database name or credential environment variable:

@@ -32,6 +32,21 @@ include/exclude namespace and table globs, credential_env, connect and query
 timeouts, and enabled. credential_env is an environment variable name. A DSN,
 password, token, host, IP, or username is invalid as team configuration.
 
+The additive mongodb source profile supports declaration only. It uses the
+server declaration fields above, with one database and a single namespace
+equal to that database. Namespace filters select that database, and the
+include/exclude table patterns name future collection selections. Saving and
+listing operate on non-secret configuration. Access preflight, inspect,
+snapshot, and live verify return engine_not_implemented before resolving
+credentials or opening a connection. An enabled declaration requires no
+Evidence or Database Volume in governance or onboarding until a collector is
+implemented. Canonical Table Evidence, Manifest, Snapshot, and evidence Baseline
+validators retain their implemented-engine set and reject mongodb artifacts.
+Collection Evidence format and acceptance remain the proposed profile in
+docs/mongodb-collection-evidence-profile.md. Earlier binaries reject the new
+source engine during configuration validation, so hosts sharing this
+declaration need a declaration-capable binary.
+
 As an additive 0.2.0 source profile, a sqlite declaration may instead carry
 one explicit path and the main namespace. It does not require database or
 credential_env; those server-only fields are rejected for sqlite, and path is

@@ -37,3 +37,29 @@ func TestSQLiteSourceRequiresEvidenceForGovernance(t *testing.T) {
 		t.Fatalf("SQLite Evidence was not required: result=%s next=%s findings=%#v", facts.Result, facts.NextRequiredAction, facts.Findings)
 	}
 }
+
+func TestMongoDBDeclarationKeepsGovernanceAligned(t *testing.T) {
+	for _, withDatabase := range []bool{false, true} {
+		root, cfg := alignedFixture(t, true, withDatabase)
+		cfg.DatabaseSources = append(cfg.DatabaseSources, dbevidence.SourceConfig{SourceID: "app", Engine: dbevidence.EngineMongoDB,
+			Database: "app", CredentialEnv: "AOCI_DB_APP_URI", Enabled: true})
+		if err := config.Save(root, cfg); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := config.Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		set, err := cognition.Load(root, cfg.IndexPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		facts, err := Assess(root, cfg, set)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !facts.GovernanceAligned || facts.DatabaseCognition.BlockingSourceCount != 0 {
+			t.Fatalf("declaration blocked governance (database volume=%t): %+v", withDatabase, facts)
+		}
+	}
+}
