@@ -204,8 +204,24 @@ def platform_asset(version):
 
 
 def _download(url, dest):
-    with urllib.request.urlopen(url, timeout=180) as resp, open(dest, "wb") as out:
-        shutil.copyfileobj(resp, out)
+    # Each attempt replaces the temporary file from the beginning. A failed
+    # transfer must not be appended to the next response's bytes.
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=180) as resp, open(dest, "wb") as out:
+                shutil.copyfileobj(resp, out)
+            return
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+            if isinstance(error, urllib.error.HTTPError):
+                retryable = error.code in (408, 500, 502, 503, 504)
+                error.close()
+            elif isinstance(error, urllib.error.URLError):
+                retryable = isinstance(error.reason, (TimeoutError, ConnectionError))
+            else:
+                retryable = True
+            if not retryable or attempt == 2:
+                raise
+            time.sleep(2 ** attempt)
 
 
 # Fetch one released binary into the cache, checksum-verified against the

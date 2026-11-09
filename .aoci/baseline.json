@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-07T13:41:37Z",
+  "updated_at": "2026-11-09T02:47:23Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -23,9 +23,9 @@
     },
     ".github/workflows/ci.yml": {
       "role": "index",
-      "sha256": "76fef02861cba577af2bb551707093cb1812d40364453e14c5e15bcf83195cde",
-      "size": 10305,
-      "normalized_sha256": "76fef02861cba577af2bb551707093cb1812d40364453e14c5e15bcf83195cde"
+      "sha256": "103f3cf49c933b25f5beec4a3a8fecbfe7b32373b85b2257de2536ec9164f4a7",
+      "size": 10588,
+      "normalized_sha256": "103f3cf49c933b25f5beec4a3a8fecbfe7b32373b85b2257de2536ec9164f4a7"
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "021d0779e8e1c048c8b1646eeedd6f06edaa6ab1bb4da24f25de213c591e30cd",
-      "size": 236259,
-      "normalized_sha256": "021d0779e8e1c048c8b1646eeedd6f06edaa6ab1bb4da24f25de213c591e30cd"
+      "sha256": "34043d0af903f26e3421115814e714e859b0723301bf300a2181304b42168d19",
+      "size": 236200,
+      "normalized_sha256": "34043d0af903f26e3421115814e714e859b0723301bf300a2181304b42168d19"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6812,9 +6812,9 @@
     },
     "scripts/blackbox/README.md": {
       "role": "index",
-      "sha256": "d304cf6c55e56f3839489cc96a18875f19bff2b274e2dd38c508ffa58a408ad4",
-      "size": 24509,
-      "normalized_sha256": "d304cf6c55e56f3839489cc96a18875f19bff2b274e2dd38c508ffa58a408ad4"
+      "sha256": "3303742ba9b83f46bf826f136dba3bf91aa05e93532dd6ca3e49ad5c560bda8e",
+      "size": 24856,
+      "normalized_sha256": "3303742ba9b83f46bf826f136dba3bf91aa05e93532dd6ca3e49ad5c560bda8e"
     },
     "scripts/blackbox/generate_repo_c.py": {
       "role": "index",
@@ -6882,9 +6882,9 @@
     },
     "scripts/blackbox/mcp_upgrade.py": {
       "role": "index",
-      "sha256": "df1f201c02093b2fa53fb75579de1950d2844f18a77d2bdcdee5c05a7d90194e",
-      "size": 61969,
-      "normalized_sha256": "df1f201c02093b2fa53fb75579de1950d2844f18a77d2bdcdee5c05a7d90194e"
+      "sha256": "16b3eba10f805ee3a5a0a959202f71343346a2cbb9eae262bea5c59eacd712d6",
+      "size": 62725,
+      "normalized_sha256": "16b3eba10f805ee3a5a0a959202f71343346a2cbb9eae262bea5c59eacd712d6"
     },
     "scripts/blackbox/perf_calls.py": {
       "role": "index",
@@ -6927,6 +6927,12 @@
       "sha256": "183efbc433117d3b17eeb65827ba209c4be2c86589daf11b9c0c12bb649547bb",
       "size": 5938,
       "normalized_sha256": "183efbc433117d3b17eeb65827ba209c4be2c86589daf11b9c0c12bb649547bb"
+    },
+    "scripts/blackbox/test_upgrade_download.py": {
+      "role": "observe",
+      "sha256": "ad372d483ebd2c66892e626a45de9db3091bcd0f566ffb3f9a86dcffd23882e1",
+      "size": 6890,
+      "normalized_sha256": "ad372d483ebd2c66892e626a45de9db3091bcd0f566ffb3f9a86dcffd23882e1"
     },
     "scripts/check-coverage-floors.sh": {
       "role": "index",
