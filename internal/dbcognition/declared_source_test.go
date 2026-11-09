@@ -74,3 +74,34 @@ func declaredSourceState(assessment Assessment, sourceID string) string {
 	}
 	return ""
 }
+
+func TestMongoDBDeclarationDoesNotBlockExistingCognition(t *testing.T) {
+	root, sources := databaseFixture(t, []string{"users"}, []string{"users"})
+	set := loadFixtureSet(t, root)
+	state := baseline.NewBaseline(nil)
+	users := itemByRef(t, Assess(root, sources, set, state), "database://primary/public/users")
+	if err := baseline.UpdateDatabaseCognitionBinding(state, baseline.DatabaseCognitionBinding{
+		ObjectRef: users.ObjectRef, SourceID: users.SourceID, EvidenceVersion: users.EvidenceVersion,
+		TableEvidenceSHA256: users.TableEvidenceSHA256, EntrySHA256: EntrySHA256(users.CurrentEntry),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if before := Assess(root, sources, set, state); !before.CognitionCurrent {
+		t.Fatalf("existing source is not current: %+v", before)
+	}
+	declared := dbevidence.SourceConfig{SourceID: "app", Engine: dbevidence.EngineMongoDB,
+		Database: "app", CredentialEnv: "AOCI_DB_APP_URI", Enabled: true}
+	if err := dbevidence.NormalizeSource(&declared); err != nil {
+		t.Fatal(err)
+	}
+	after := Assess(root, append(sources, declared), set, state)
+	if !after.CognitionCurrent || after.BlockingSourceCount != 0 ||
+		declaredSourceState(after, "app") != machinecontract.DatabaseCognitionEngineNotImplemented {
+		t.Fatalf("MongoDB declaration blocked existing cognition: %+v", after)
+	}
+	alone := Assess(t.TempDir(), []dbevidence.SourceConfig{declared}, nil, baseline.NewBaseline(nil))
+	if !alone.CognitionCurrent || alone.BlockingSourceCount != 0 ||
+		declaredSourceState(alone, "app") != machinecontract.DatabaseCognitionEngineNotImplemented {
+		t.Fatalf("MongoDB declaration required Evidence or a Database Volume: %+v", alone)
+	}
+}

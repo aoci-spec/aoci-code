@@ -365,7 +365,7 @@
   "database.flag.credential_env": "Environment variable containing the connection string",
   "database.flag.database": "Database name",
   "database.flag.disabled": "Save the source disabled",
-  "database.flag.engine": "Database engine: postgresql, mysql, opengauss, or sqlite",
+  "database.flag.engine": "Database engine: postgresql, mysql, opengauss, sqlite, or mongodb (declaration only)",
   "database.flag.exclude_namespace": "Namespace glob deny rule (repeatable)",
   "database.flag.exclude_table": "Table-name glob deny rule (repeatable)",
   "database.flag.include_namespace": "Namespace glob allow rule (repeatable)",
