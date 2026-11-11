@@ -24,7 +24,8 @@ DEFAULT_OPS = ("scan", "maintain", "update_entries_batch", "overview", "cognitio
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 opts = {a.split("=")[0]: (a.split("=")[1] if "=" in a else "1") for a in sys.argv[1:] if a.startswith("--")}
 if "--help" in opts or "-h" in args:
-    sys.exit(__doc__)
+    print(__doc__)
+    sys.exit(0)
 root = os.path.abspath(args[0] if args else ".")
 path = os.path.join(root, ".aoci", "ledger.jsonl")
 if not os.path.isfile(path):
