@@ -485,11 +485,13 @@ reported cause.
   dialog: the change moved after it was shown, or the server restarted in
   between. Call again and the person sees the current change.
 
-`rejected` and `dismissed` mean the dialog did appear: the person said no or
-closed it. Nothing was written in either case, and `message` says what to do
-next. A host that limits how long one tool call may run can close the dialog
-before the person answers, which also reads `dismissed`; raising the host's
-MCP tool timeout gives the person more time.
+`rejected` means the person chose Reject in the dialog. `dismissed` means no
+decision came back: the person closed it, or the host answered for them
+(declined, timed out, or never showed it). Nothing was written in either
+case, and only `rejected` is the person's answer; after `dismissed`, ask again
+or use the terminal commands in `next_commands`. A host that limits how long
+one tool call may run can close the dialog before the person answers; raising
+the host's MCP tool timeout gives the person more time.
 
 ## A directory named `backup`, `cache`, `build`, or `coverage` is missing from the index
 

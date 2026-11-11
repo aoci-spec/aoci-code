@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -91,5 +92,34 @@ func TestEveryGuideCommandFieldIsBound(t *testing.T) {
 		if got := value.Field(index).String(); got != prefix+" probe --json" {
 			t.Errorf("agentGuideCommands.%s is not in the bound field list: %q", value.Type().Field(index).Name, got)
 		}
+	}
+}
+
+// "N Entries cover M sources" with N below M read as files left uncovered.
+// The aligned verdict names the sources no Entry is owed for, and stays one
+// line when there are none.
+func TestAlignedVerdictExplainsSourcesWithoutEntries(t *testing.T) {
+	previous := textassets.ActiveLocale()
+	if err := textassets.SetActiveLocale(textassets.DefaultLocale); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
+	facts := &volumegovernance.Facts{GovernanceAligned: true, CodeEntryCount: 369, CodeSourceCount: 379}
+	var plain strings.Builder
+	writeVolumeGovernanceVerdict(&plain, facts)
+	if strings.Count(plain.String(), "\n") != 1 {
+		t.Fatalf("no held source must keep the verdict to one line:\n%s", plain.String())
+	}
+	for i := 0; i < 7; i++ {
+		facts.Findings = append(facts.Findings, volumegovernance.Finding{Code: volumegovernance.FindingCodeSkipped})
+	}
+	for i := 0; i < 3; i++ {
+		facts.Findings = append(facts.Findings, volumegovernance.Finding{Code: volumegovernance.FindingCodeCurationExcluded})
+	}
+	var held strings.Builder
+	writeVolumeGovernanceVerdict(&held, facts)
+	if !strings.Contains(held.String(), "10 more index-role sources carry no Entry by rule: 7 the model cannot author") ||
+		!strings.Contains(held.String(), "3 excluded by curation") {
+		t.Fatalf("the verdict does not explain the gap:\n%s", held.String())
 	}
 }

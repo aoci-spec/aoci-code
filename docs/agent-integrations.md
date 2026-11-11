@@ -109,6 +109,28 @@ aoci --repo /absolute/path/to/repository init --agent claude --hooks
 
 The hook is a thin pre-write guard, not an AI Agent runtime and not a replacement governance flow.
 
+### Claude Code on Windows, repository in WSL
+
+When the Host runs on Windows and the repository and the `aoci` binary live
+in WSL, `init --agent claude` run inside WSL writes Linux paths the Windows
+Host cannot start. Start the server through `wsl.exe` instead, in the
+`.mcp.json` the Windows session loads, with both paths as WSL sees them:
+
+```json
+{
+  "mcpServers": {
+    "aoci": {
+      "command": "wsl.exe",
+      "args": ["-d", "Ubuntu", "--", "/home/you/bin/aoci", "--repo", "/home/you/src/repository", "mcp"]
+    }
+  }
+}
+```
+
+Replace `Ubuntu` with the distribution `wsl -l` lists. Run every `aoci` CLI
+command the server hands back inside WSL too: its `next_commands` carry the
+Linux binary path and `--repo`. `init --hooks` does not apply to this layout.
+
 ## OpenCode V1
 
 ```bash

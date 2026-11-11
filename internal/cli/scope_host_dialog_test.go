@@ -168,7 +168,6 @@ func TestScopeActivationApprovedInHostDialogApplies(t *testing.T) {
 func TestScopeActivationRejectedInHostDialogChangesNothing(t *testing.T) {
 	for name, answer := range map[string]*mcp.ElicitResult{
 		"reject-choice": {Action: "accept", Content: map[string]any{"decision": "reject", "note": "  keep the auto posture  "}},
-		"decline":       {Action: "decline"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			root := scopeActivationFixture(t)

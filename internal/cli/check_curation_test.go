@@ -76,7 +76,7 @@ func TestCheckCurationMissingDoesNotBlock(t *testing.T) {
 			out,
 		)
 	}
-	if !strings.Contains(out, "✓ 可提交") {
+	if !strings.Contains(out, "✓ 治理对齐") {
 		t.Fatalf("仅有CurationExcludedMissing时应报可提交:\n%s", out)
 	}
 	if !strings.Contains(out, "RawMissing 1") {

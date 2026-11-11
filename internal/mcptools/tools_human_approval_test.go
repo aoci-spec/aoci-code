@@ -194,7 +194,7 @@ func TestHumanApprovalOutcomesThatWriteNothing(t *testing.T) {
 		note   string
 	}{
 		"reject":    {&mcp.ElicitResult{Action: "accept", Content: map[string]any{"decision": "reject", "note": strings.Repeat("长", 600)}}, machinecontract.HumanApprovalStatusRejected, machinecontract.HumanApprovalActionAskPerson, strings.Repeat("长", humanApprovalNoteMaxRunes)},
-		"decline":   {&mcp.ElicitResult{Action: "decline"}, machinecontract.HumanApprovalStatusRejected, machinecontract.HumanApprovalActionAskPerson, ""},
+		"decline":   {&mcp.ElicitResult{Action: "decline"}, machinecontract.HumanApprovalStatusDismissed, machinecontract.HumanApprovalActionAskAgain, ""},
 		"cancel":    {&mcp.ElicitResult{Action: "cancel"}, machinecontract.HumanApprovalStatusDismissed, machinecontract.HumanApprovalActionAskAgain, ""},
 		"no-dialog": {nil, machinecontract.HumanApprovalStatusHostDialogUnavailable, machinecontract.HumanApprovalActionTerminal, ""},
 	} {

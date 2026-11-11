@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A host dialog that comes back as `decline` is `status=dismissed`, not
+  `rejected`: a Host that cannot show the dialog, or times it out, answers
+  decline without the person seeing it, and that used to be recorded as the
+  person's refusal. Only the form's own Reject choice is a rejection.
+- `aoci check` concludes "governance aligned" instead of "ready to commit":
+  it proves bookkeeping, not what the Entries say. The aligned line of verify,
+  check, and status now adds how many index-role sources carry no Entry by
+  rule and why, where "369 Entries cover 379 sources" read as ten uncovered.
+- Docs: a `.mcp.json` example for Claude Code on Windows with the repository
+  in WSL.
 - Saving a Baseline whose content did not change leaves the file untouched,
   `updated_at` included. The timestamp was re-stamped on every save, so two
   branches holding the same managed set conflicted on that one line when

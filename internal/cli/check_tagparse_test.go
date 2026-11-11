@@ -67,7 +67,7 @@ func TestCheckTagParseWarningDoesNotBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("仅有 tagparse Warning 时 check 应保持 exit=0: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "✓ 可提交") {
+	if !strings.Contains(out, "✓ 治理对齐") {
 		t.Fatalf("仅有 tagparse Warning 时应仍报可提交:\n%s", out)
 	}
 }

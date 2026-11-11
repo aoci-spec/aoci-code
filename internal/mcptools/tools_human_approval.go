@@ -357,9 +357,11 @@ func humanApprovalFormSchema() map[string]any {
 }
 
 // humanApprovalAnswer reads the form and reports whether it decided anything.
-// Decline is a rejection: the person made an explicit choice, and it carries
-// no note. A closed dialog decides nothing, and so does an accepted form
-// without one of the two decisions: the SDK checks a reply to its own
+// Only the form's own reject choice is a rejection. A decline decides nothing,
+// exactly like a closed dialog: a Host that cannot show the dialog, or times
+// it out, answers decline without the person ever seeing it, and recording
+// that as the person's refusal handed the Agent an authorization verdict
+// nobody gave. So does an accepted form without one of the two decisions: the SDK checks a reply to its own
 // elicitation against the form, but nothing checks an answer that comes back
 // as an input response, so the decision is checked here.
 func humanApprovalAnswer(answer *mcp.ElicitResult) (string, string, bool) {
@@ -368,8 +370,6 @@ func humanApprovalAnswer(answer *mcp.ElicitResult) (string, string, bool) {
 	}
 	switch answer.Action {
 	case "accept":
-	case "decline":
-		return machinecontract.HumanApprovalDecisionReject, "", true
 	default:
 		return "", "", false
 	}

@@ -32,7 +32,7 @@ func TestCheckLineEndingToleranceAndStrictMode(
 		)
 	}
 
-	if !strings.Contains(output, "✓ 可提交") {
+	if !strings.Contains(output, "✓ 治理对齐") {
 		t.Fatalf(
 			"默认宽容时应报告可提交: %s",
 			output,

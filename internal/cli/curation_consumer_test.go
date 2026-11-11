@@ -360,7 +360,7 @@ func TestCheckFileCurationDecisionSemantics(
 			decision: curation.DecisionExclude,
 			wantExit: false,
 			wantAnchors: []string{
-				"✓ 可提交",
+				"✓ 治理对齐",
 				"策展排除 1",
 			},
 		},

@@ -86,9 +86,13 @@ longer matches answers `status=stale` without asking anyone. The dialog asks
 for one decision, approve or reject, and an optional note. Approve records an
 approval bound exactly as a terminal approval is (the same envelope, write
 set, and recovery policy) where the apply command reads it, and returns that
-command in `next_commands`; nothing is applied. Reject or decline writes
-nothing and returns `status=rejected` with what to do next and the person's
-note in `human_note`. Dismissing the dialog is `status=dismissed`. A host that
+command in `next_commands`; nothing is applied. Reject, the form's own choice,
+writes nothing and returns `status=rejected` with what to do next and the
+person's note in `human_note`. Only that choice is a rejection. A dialog that
+comes back without a decision (closed, cancelled, or answered `decline` by the
+Host, which is also what a Host returns when it could not show the dialog or
+timed it out) is `status=dismissed`: nothing changed and nobody refused, so an
+Agent must not treat it as the person's answer. A host that
 declares no form elicitation answers `host_dialog_unavailable`. Every outcome
 that leaves the decision to a terminal carries the terminal approve and apply
 commands, and an approval already recorded for the same change answers

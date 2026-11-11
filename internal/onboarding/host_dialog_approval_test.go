@@ -163,7 +163,7 @@ func TestOnboardingReviewRejectedInHostDialogKeepsAbortOpen(t *testing.T) {
 				t.Fatal(err)
 			}
 			approvalPath, _ := onboarding.HumanApprovalPath(root, session)
-			result, text, shown := askOnboardingApproval(t, root, &mcp.ElicitResult{Action: "decline"})
+			result, text, shown := askOnboardingApproval(t, root, &mcp.ElicitResult{Action: "accept", Content: map[string]any{"decision": "reject"}})
 			if len(shown) != 1 || result["status"] != machinecontract.HumanApprovalStatusRejected ||
 				!strings.Contains(result["message"].(string), "onboard abort") || !mentions(result["next_commands"], "onboard", "status") {
 				t.Fatalf("rejection did not say what happens next: %s", text)

@@ -42,9 +42,11 @@ func writeVolumeGovernanceVerdict(out io.Writer, facts *volumegovernance.Facts) 
 	if facts.GovernanceAligned {
 		if facts.Database.Enabled {
 			fmt.Fprintln(out, cliMessage("governance.volumes_aligned_database", facts.CodeEntryCount, facts.CodeSourceCount, facts.DatabaseEntryCount))
+			writeVolumeHeldSources(out, facts)
 			return
 		}
 		fmt.Fprintln(out, cliMessage("governance.volumes_aligned", facts.CodeEntryCount, facts.CodeSourceCount))
+		writeVolumeHeldSources(out, facts)
 		return
 	}
 	fmt.Fprintln(out, cliMessage("governance.volumes_result", facts.Result, volumeActionableFindings(facts)))
@@ -165,4 +167,23 @@ func volumeGovernanceNextStep(facts *volumegovernance.Facts) string {
 		return cliMessage("governance.next.authoring_required")
 	}
 	return cliMessage("governance.next.blocked")
+}
+
+// writeVolumeHeldSources says why the Entry count is below the source count.
+// "369 Entries cover 379 index-role sources" read as ten files left uncovered;
+// they were sources no Entry is owed for, and the line now says how many and
+// why.
+func writeVolumeHeldSources(out io.Writer, facts *volumegovernance.Facts) {
+	skipped, excluded := 0, 0
+	for _, finding := range facts.Findings {
+		switch finding.Code {
+		case volumegovernance.FindingCodeSkipped:
+			skipped++
+		case volumegovernance.FindingCodeCurationExcluded:
+			excluded++
+		}
+	}
+	if skipped+excluded > 0 {
+		fmt.Fprintln(out, cliMessage("governance.volumes_held", skipped+excluded, skipped, excluded))
+	}
 }

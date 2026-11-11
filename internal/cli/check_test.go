@@ -39,7 +39,7 @@ func TestCheckCleanRepo(t *testing.T) {
 
 	if !strings.Contains(
 		output,
-		"✓ 可提交",
+		"✓ 治理对齐",
 	) {
 		t.Fatalf(
 			"应结论先行报可提交: %s",
