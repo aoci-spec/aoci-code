@@ -44,6 +44,12 @@ python3 scripts/blackbox/mcp_scenarios.py --list
 Upgrade axis (80 checks per released version, over ten repository shapes;
 downloads and checksum-verifies each release once into a gitignored cache):
 
+Each file download makes at most three attempts for HTTP 408, 500, 502, 503,
+and 504, timeouts, or connection failures, waiting one then two seconds.
+Exhausted retries fail the gate. Checksum failures also fail the gate before
+the binary enters the cache. Offline retry regressions run in Linux and
+Windows CI through `test_upgrade_download.py`.
+
 ```bash
 python3 scripts/blackbox/mcp_upgrade.py
 python3 scripts/blackbox/mcp_upgrade.py --versions v0.1.0-rc6,v0.1.0-rc7
