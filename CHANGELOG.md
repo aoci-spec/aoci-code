@@ -4,6 +4,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Built with Go 1.26.11, which fixes GO-2026-6859 (an HTTP/1 server crash in
+  `net/http`). In AOCI only the loopback status page serves HTTP.
 - A host dialog that comes back as `decline` is `status=dismissed`, not
   `rejected`: a Host that cannot show the dialog, or times it out, answers
   decline without the person seeing it, and that used to be recorded as the

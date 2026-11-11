@@ -1,6 +1,6 @@
 module example.invalid/aoci-engine-embed
 
-go 1.26.10
+go 1.26.11
 
 require github.com/aoci-spec/aoci-code v0.0.0
 
