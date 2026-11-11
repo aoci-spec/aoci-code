@@ -16,7 +16,8 @@ usage: realrepo.py <name-or-path> [<binary>] [--wave=N] [--label=L] [--ignored-t
                    [--sources=DIR] [--work=DIR] [--parallel=N]
   <name-or-path>   a directory, or a name under --sources (default
                    $AOCI_REALREPO_SOURCES or ~/aoci-demo-cand)
-  <binary>         defaults to $AOCI_BIN, then <repo>/build/aoci
+  <binary>         defaults to $AOCI_BIN, then <repo>/build/aoci.exe on Windows
+                   or <repo>/build/aoci elsewhere
   --work=DIR       where clones and reports go (default $AOCI_REALREPO_WORK,
                    then $TMPDIR/aoci-realrepo); the report is <work>/<name>-<label>.json
   --parallel=N     set code_cognition_parallel_batches=N on the clone and author
@@ -43,7 +44,8 @@ if not args:
     sys.exit(__doc__)
 name_or_path = args[0]
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
-BIN = args[1] if len(args) > 1 else os.environ.get("AOCI_BIN") or os.path.join(REPO_ROOT, "build", "aoci")
+default_bin = os.path.join(REPO_ROOT, "build", "aoci.exe" if os.name == "nt" else "aoci")
+BIN = args[1] if len(args) > 1 else os.environ.get("AOCI_BIN") or default_bin
 if not os.path.isfile(BIN):
     sys.exit(f"binary not found: {BIN}")
 WAVE = int(opts.get("--wave", "60"))
