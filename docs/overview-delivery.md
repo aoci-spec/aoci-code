@@ -99,8 +99,12 @@ Index/configuration changes stop the cognition chain. Attestation failure
 stops complete-cognition acceptance and semantic retry, not honest answers or
 source-bound work. Before Attestation completes,
 Memory, source, Spec, direct `aoci.txt`, historical sessions, and local AOCI
-reads are prohibited as cognition supplements. Host truncation stops delivery;
-the user may set
+reads are prohibited as cognition supplements. Each Chunk is requested in its own
+tool call: several Chunks fetched in one script and printed together are the
+usual cause of a truncated Chunk, and a smaller `chunk_tokens` does not cure
+that. A Chunk the Host truncated is requested once more with the same cursor;
+the server returns the identical bytes and `chunk_sha256` proves it. Only when
+that single Chunk is truncated again does the Agent stop, and the user may set
 a smaller valid `overview_delivery.chunk_tokens` value and restart. AOCI does
 not detect Host capacity or shrink Chunks automatically.
 

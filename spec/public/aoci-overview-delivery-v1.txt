@@ -156,14 +156,22 @@ different facts. Host delivery becomes confirmed only when the Host reports
 the matching Receipt version, aggregate body SHA-256, byte count, and observed
 end marker. Any missing or mismatched field is incomplete.
 
-The Host assembles every Chunk in order, verifies each Chunk Receipt and the
-aggregate body, and observes the final marker before confirming delivery. Host
-truncation, a missing, duplicate, or reordered Chunk, cursor failure, Index
-change, or `chunk_tokens` change stops the cognition chain. Attestation failure
+The Host requests each Chunk in its own tool call, assembles every Chunk in
+order, verifies each Chunk Receipt and the aggregate body, and observes the
+final marker before confirming delivery. A missing, duplicate, or reordered
+Chunk, cursor failure, Index change, or `chunk_tokens` change stops the
+cognition chain; a duplicate here is a Chunk the server answered out of
+sequence, not a Chunk the Host asked for again. Attestation failure
 stops complete-cognition acceptance and semantic retry. Memory, source, this Spec, historical sessions, direct `aoci.txt`
 reads, `aoci_get_entries`, `aoci_search`, scoped reads, or skipped/replayed
-Chunks cannot substitute for a complete chain or repair an Attestation. If Host
-truncation occurs, the Agent stops, reports failure, and asks the user to set
+Chunks cannot substitute for a complete chain or repair an Attestation. A
+Chunk the Host truncated is not such a substitute: the Agent requests the same
+cursor once more, the server returns the identical bytes, and `chunk_sha256`
+proves it. Truncation usually comes from the Host side (several Chunks merged
+into one script output, or an output cap the Agent set), which a smaller
+`chunk_tokens` does not cure and which costs every Host of the team more
+round trips. Only when the single re-requested Chunk is truncated again does
+the Agent stop, report failure, and ask the user to set
 `overview_delivery.chunk_tokens` to a smaller valid value before starting over;
 AOCI never changes it automatically.
 
