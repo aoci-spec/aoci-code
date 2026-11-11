@@ -32,6 +32,11 @@ if not os.path.isfile(path):
 since = opts.get("--since", "")
 ops = tuple(o for o in opts.get("--ops", "").split(",") if o) or DEFAULT_OPS
 
+
+def valid_metric(value):
+    return value is None or (type(value) is int and value >= 0)
+
+
 durations = {}
 files = 0
 first = last = ""
@@ -40,17 +45,27 @@ with open(path, encoding="utf-8", errors="replace") as fh:
     for line in fh:
         try:
             event = json.loads(line)
-        except ValueError:
+        except (ValueError, RecursionError):
             skipped += 1
             continue
-        ts = event.get("ts") or ""
+        if not isinstance(event, dict):
+            skipped += 1
+            continue
+        ts = event.get("ts")
+        op = event.get("op")
+        ms = event.get("duration_ms")
+        source_count = event.get("paths_count")
+        if ((ts is not None and not isinstance(ts, str))
+                or (op is not None and not isinstance(op, str))
+                or not valid_metric(ms) or not valid_metric(source_count)):
+            skipped += 1
+            continue
+        ts = ts or ""
         if since and ts[:10] < since:
             continue
-        op = event.get("op")
-        if isinstance(event.get("paths_count"), int):
-            files = max(files, event["paths_count"])
-        ms = event.get("duration_ms")
-        if op not in ops or not isinstance(ms, int):
+        if source_count is not None:
+            files = max(files, source_count)
+        if op not in ops or ms is None:
             continue
         durations.setdefault(op, []).append(ms)
         first = first or ts

@@ -328,6 +328,9 @@ repository someone already uses: every governance call appends its
 operation (count, median, p90, max) with the index source count as one JSON
 line, so a user on another host or operating system can report what their
 machine measured without cloning anything or running a new call.
+Malformed JSON, non-object rows, and invalid types or negative values in the
+fields used for timing are skipped and counted in `unreadable_lines`.
+Events with omitted optional metrics remain usable for the facts they carry.
 
 `realrepo.py` clones a real third-party repository locally, initializes it,
 authors template Entries through Maintain and `aoci_update_entry` until
