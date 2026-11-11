@@ -11,6 +11,7 @@
 package baseline
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -246,6 +247,21 @@ func SaveUnderIndexLock(root string, baselineValue *Baseline) error {
 	}
 
 	if old, err := os.ReadFile(path); err == nil {
+		// A save that changes nothing leaves the file alone, updated_at
+		// included. The timestamp used to be re-stamped on every save, so two
+		// branches holding the same managed set conflicted on that one line
+		// when merged, and a scan that found nothing dirtied the tree (#173).
+		var previous struct {
+			UpdatedAt string `json:"updated_at"`
+		}
+		if json.Unmarshal(old, &previous) == nil && previous.UpdatedAt != "" {
+			requested := baselineValue.UpdatedAt
+			baselineValue.UpdatedAt = previous.UpdatedAt
+			if same, marshalErr := MarshalExact(baselineValue); marshalErr == nil && bytes.Equal(same, old) {
+				return nil
+			}
+			baselineValue.UpdatedAt = requested
+		}
 		if err := afs.AtomicWrite(
 			path+".bak",
 			old,
