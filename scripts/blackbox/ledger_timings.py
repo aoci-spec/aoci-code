@@ -17,21 +17,46 @@ Entry text, or credentials, so the summary carries none either."""
 import json
 import os
 import sys
+from datetime import date
 
 DEFAULT_OPS = ("scan", "maintain", "update_entries_batch", "overview", "cognition_check",
                "verify", "check", "auto_finalize", "observe_review")
 
-args = [a for a in sys.argv[1:] if not a.startswith("--")]
-opts = {a.split("=")[0]: (a.split("=")[1] if "=" in a else "1") for a in sys.argv[1:] if a.startswith("--")}
-if "--help" in opts or "-h" in args:
+args = sys.argv[1:]
+if "--help" in args or "-h" in args:
     print(__doc__)
     sys.exit(0)
-root = os.path.abspath(args[0] if args else ".")
+
+roots = []
+since = ""
+ops = DEFAULT_OPS
+for arg in args:
+    if not arg.startswith("--"):
+        roots.append(arg)
+        continue
+    option, separator, value = arg.partition("=")
+    if option not in ("--since", "--ops"):
+        sys.exit(f"unknown option: {option}")
+    if not separator or not value:
+        sys.exit(f"{option} requires a value in {option}=VALUE form")
+    if option == "--since":
+        try:
+            canonical_date = date.fromisoformat(value).isoformat()
+        except ValueError:
+            canonical_date = ""
+        if canonical_date != value:
+            sys.exit("--since requires a valid date in YYYY-MM-DD form")
+        since = value
+    else:
+        ops = tuple(op for op in value.split(",") if op)
+        if not ops:
+            sys.exit("--ops requires at least one operation")
+if len(roots) > 1:
+    sys.exit("expected at most one repository root")
+root = os.path.abspath(roots[0] if roots else ".")
 path = os.path.join(root, ".aoci", "ledger.jsonl")
 if not os.path.isfile(path):
     sys.exit(f"no Ledger at {path}")
-since = opts.get("--since", "")
-ops = tuple(o for o in opts.get("--ops", "").split(",") if o) or DEFAULT_OPS
 
 
 def valid_metric(value):

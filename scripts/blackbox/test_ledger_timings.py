@@ -82,6 +82,27 @@ class LedgerTimingsTests(unittest.TestCase):
         self.assertEqual(result["events_to"], "")
         self.assertEqual(result["unreadable_lines"], 3)
 
+    def test_invalid_arguments_fail_before_reading_the_ledger(self):
+        cases = (
+            (["--sicne=2026-11-09"], "unknown option: --sicne"),
+            (["--since"], "--since requires"),
+            (["--since", "2026-11-09"], "--since requires"),
+            (["--ops"], "--ops requires"),
+            (["--ops="], "--ops requires"),
+            (["--ops=,,"], "--ops requires"),
+            (["--since=2026-11-31"], "--since requires a valid date"),
+            (["--since=20261109"], "--since requires a valid date"),
+            (["one", "two"], "expected at most one repository root"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for args, diagnostic in cases:
+                with self.subTest(args=args):
+                    result = subprocess.run([sys.executable, str(SCRIPT), *args], cwd=directory,
+                                            capture_output=True, text=True, encoding="utf-8", timeout=15)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, "")
+                    self.assertIn(diagnostic, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
