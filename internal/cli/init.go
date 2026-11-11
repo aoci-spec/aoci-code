@@ -274,8 +274,8 @@ func init() {
 			// A missing index starts Volume-first wherever the Root can live at
 			// aoci.txt, also under a configuration that predates it: the Legacy
 			// layout is read-only, so a Legacy skeleton would leave nothing to do
-			// but migrate an empty index. Only a custom index_path, which Volumes
-			// cannot use as its Root, still gets the Legacy skeleton.
+			// but migrate an empty index. A custom index_path, which Volumes
+			// cannot use as its Root, is refused below when the index is missing.
 			volumeFirst := !configExisted || filepath.ToSlash(cfg.IndexPath) == "aoci.txt"
 
 			var nextStepMessage string
@@ -305,6 +305,15 @@ func init() {
 			if _, statErr := os.Stat(paths.IndexPath); statErr != nil {
 				if !os.IsNotExist(statErr) {
 					return statErr
+				}
+				if !volumeFirst {
+					// A Volumes Root lives at aoci.txt. A custom index_path
+					// used to get a Legacy skeleton here, a layout that is
+					// read-only since 0.2.0: the user was handed an empty index
+					// whose only next step was to migrate it. Refuse instead
+					// and name the one change that lets init proceed.
+					return &ExitError{Code: ExitConfig, MachineCode: "init_custom_index_path_unsupported",
+						Msg: cliMessage("init.custom_index_path_unsupported", cfg.IndexPath)}
 				}
 				if volumeFirst {
 					volumeAssets, err = renderInitialVolumeAssets(root)

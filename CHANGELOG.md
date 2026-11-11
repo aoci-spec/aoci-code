@@ -4,6 +4,27 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Saving a Baseline whose content did not change leaves the file untouched,
+  `updated_at` included. The timestamp was re-stamped on every save, so two
+  branches holding the same managed set conflicted on that one line when
+  merged and a scan that found nothing dirtied the tree (#173).
+- `aoci init` under a custom `index_path` no longer writes a Legacy skeleton,
+  a layout that has been read-only since 0.2.0 and whose only next step was to
+  migrate an empty index. It refuses, writes nothing, and names the fix
+  (`aoci config set index_path aoci.txt`).
+- Harness: the upgrade axis retries transient release downloads (#169), and
+  `ledger_timings.py` skips malformed Ledger rows and exits 0 on `--help`
+  (#170, #171, dayebishouji). `internal/cognitionbaseline` has package tests
+  and a real coverage floor; a reflection test keeps every Guide command field
+  in the bound list.
+- Overview delivery rules say what a Host must do about a truncated Chunk:
+  request each Chunk in its own tool call, and when the Host truncates one,
+  request the same cursor once more and check `chunk_sha256` before anything
+  else. Lowering `overview_delivery.chunk_tokens` and restarting is left for a
+  single Chunk that is truncated twice. The old rule sent every truncation
+  there, which does not cure Chunks merged into one script output and walked
+  one repository's team setting down to the 4000 floor (50 round trips per
+  read). The attestation prompt now spells the four answer keys.
 - Six host-side findings from the v0.2.0-rc1 adaptation (#168): a cognition
   optimization batch delivered again keeps the `explicit_object_ref` reason
   it was opened with; one `repair_required` now carries each candidate's

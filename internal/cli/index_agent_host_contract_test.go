@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -65,5 +66,30 @@ func TestHostInteractionCommandNamesTheRepository(t *testing.T) {
 	explicit := hostInteractionCommand("--repo", root, "scope", "approve", "--json")
 	if implicit != explicit || strings.Count(implicit, "--repo") != 1 || !strings.Contains(implicit, root) {
 		t.Fatalf("interaction command must name the repository once:\nimplicit %q\nexplicit %q", implicit, explicit)
+	}
+}
+
+// The list of Guide command fields that get bound is kept by hand. A field
+// added to agentGuideCommands without an entry there would ship as a bare
+// `aoci ...` with no binary path and no --repo, and nothing would fail. Fill
+// every string field by reflection and require each one to come back bound.
+func TestEveryGuideCommandFieldIsBound(t *testing.T) {
+	var commands agentGuideCommands
+	value := reflect.ValueOf(&commands).Elem()
+	for index := 0; index < value.NumField(); index++ {
+		if value.Field(index).Kind() != reflect.String {
+			t.Fatalf("agentGuideCommands.%s is not a string; extend this test with its binding rule", value.Type().Field(index).Name)
+		}
+		value.Field(index).SetString("aoci probe --json")
+	}
+	prefix, err := agentCommandPrefixFor("linux", "/opt/aoci/bin/aoci", "/srv/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bindAgentGuideCommands(&commands, prefix)
+	for index := 0; index < value.NumField(); index++ {
+		if got := value.Field(index).String(); got != prefix+" probe --json" {
+			t.Errorf("agentGuideCommands.%s is not in the bound field list: %q", value.Type().Field(index).Name, got)
+		}
 	}
 }

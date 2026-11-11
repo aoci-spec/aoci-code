@@ -654,6 +654,7 @@
   "init.config_ready": "config.json 已就位",
   "init.config_stat_error": "检查 config.json 失败: %v",
   "init.detected_agents": "探测到 agent 环境: %s(可用 aoci init --agent <名称> 接入)",
+  "init.custom_index_path_unsupported": "index_path 为 %s，但新索引按 Cognition Volumes 建立，其 Root 必须是 aoci.txt。请执行 `aoci config set index_path aoci.txt`（或从 .aoci/config.json 删去 index_path），再重新运行 init。本次未写入任何内容。",
   "init.existing_skip": "%s 已存在(跳过,绝不覆盖)",
   "init.gitattributes_error": "写入 .gitattributes 失败：%v",
   "init.gitattributes_written": "已写入 .gitattributes，使任何平台的检出都保持 LF 行尾",

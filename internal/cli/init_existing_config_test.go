@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -46,9 +47,10 @@ func TestInitUnderAnExistingConfigurationStartsVolumeFirst(t *testing.T) {
 	}
 }
 
-// A custom index_path cannot hold a Volumes Root, so that configuration keeps
-// the Legacy skeleton and its migration route.
-func TestInitUnderACustomIndexPathKeepsTheLegacySkeleton(t *testing.T) {
+// A custom index_path cannot hold a Volumes Root. It used to get a Legacy
+// skeleton, a read-only layout whose only next step is a migration of nothing;
+// init now refuses, names the fix, and writes no index of either layout.
+func TestInitUnderACustomIndexPathRefusesInsteadOfALegacySkeleton(t *testing.T) {
 	root := t.TempDir()
 	cfg := legacyTestConfig()
 	cfg.IndexPath = "docs/aoci.txt"
@@ -58,14 +60,14 @@ func TestInitUnderACustomIndexPathKeepsTheLegacySkeleton(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
-		t.Fatalf("init under a custom index_path failed: %v", err)
+	_, err := runInit(t, root, "--agent=", "--hooks=false")
+	if err == nil || !strings.Contains(err.Error(), "docs/aoci.txt") ||
+		!strings.Contains(err.Error(), "config set index_path aoci.txt") {
+		t.Fatalf("init under a custom index_path must refuse and name the fix: %v", err)
 	}
-	set, err := cognition.Load(root, "docs/aoci.txt")
-	if err != nil || set.LayoutMode != cognition.LayoutLegacyMonolithic {
-		t.Fatalf("a custom index_path did not keep the Legacy skeleton: %#v %v", set, err)
-	}
-	if _, err := os.Stat(filepath.Join(root, "aoci.meta.txt")); !os.IsNotExist(err) {
-		t.Fatalf("a custom index_path also received Volumes: %v", err)
+	for _, name := range []string{"docs/aoci.txt", "aoci.txt", "aoci.meta.txt", "aoci.code.txt"} {
+		if _, statErr := os.Stat(filepath.Join(root, filepath.FromSlash(name))); !os.IsNotExist(statErr) {
+			t.Fatalf("the refusal left %s behind: %v", name, statErr)
+		}
 	}
 }

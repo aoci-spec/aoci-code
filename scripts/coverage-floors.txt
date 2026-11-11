@@ -10,13 +10,13 @@
 # one only with the reason in the commit message, because it means a guarded
 # path lost its test.
 #
-# internal/cognitionbaseline has no test files of its own (its two functions
-# run only inside the Bootstrap and Migration Apply paths), so its floor is
-# the measured 0.0 until it gets package tests.
+# internal/cognitionbaseline got package tests on 2026-11-11 (the Code branch
+# of the postimage builder and every mismatch the verifier names); its
+# Database branches still run only inside the Bootstrap and Migration paths.
 
 github.com/aoci-spec/aoci-code/internal/cognitiontxn 87.2
 github.com/aoci-spec/aoci-code/internal/managedstate 50.6
-github.com/aoci-spec/aoci-code/internal/cognitionbaseline 0.0
+github.com/aoci-spec/aoci-code/internal/cognitionbaseline 53.8
 github.com/aoci-spec/aoci-code/internal/codebatch 64.9
 github.com/aoci-spec/aoci-code/internal/fs 81.6
 github.com/aoci-spec/aoci-code/internal/scopechange 78.9

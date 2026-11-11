@@ -654,6 +654,7 @@
   "init.config_ready": "config.json is ready",
   "init.config_stat_error": "inspect config.json: %v",
   "init.detected_agents": "Detected Agent environment: %s (use aoci init --agent <name> to integrate it)",
+  "init.custom_index_path_unsupported": "index_path is %s, but a new index is created as Cognition Volumes, whose Root must be aoci.txt. Run `aoci config set index_path aoci.txt` (or remove index_path from .aoci/config.json), then run init again. Nothing was written.",
   "init.existing_skip": "%s already exists (skipped; never overwritten)",
   "init.gitattributes_error": "write .gitattributes: %v",
   "init.gitattributes_written": "Wrote .gitattributes so every checkout keeps LF line endings",
