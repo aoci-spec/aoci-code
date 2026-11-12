@@ -101,14 +101,15 @@ type removePlan struct {
 	orphanOnly bool
 	// volumeMode reuses this established explicit-remove pipeline for one
 	// proven Code or Database Cognition orphan. Root and Meta remain guards.
-	volumeMode         bool
-	objectRef          string
-	volumeID           string
-	guardSHA256        map[string]string
-	evidenceIdentity   string
-	baselinePreSHA256  string
-	baselinePostSHA256 string
-	baselinePostimage  string
+	volumeMode          bool
+	objectRef           string
+	volumeID            string
+	guardSHA256         map[string]string
+	evidenceIdentity    string
+	baselinePreSHA256   string
+	baselinePostSHA256  string
+	baselinePostimage   string
+	ledgerTransactionID string
 }
 
 var writeRemoveIndex = fs.AtomicWriteCAS
@@ -116,24 +117,25 @@ var removeRecoveryFile = os.Remove
 var lstatRemoveTarget = os.Lstat
 
 type removeRecovery struct {
-	Version            int               `json:"version"`
-	Rel                string            `json:"rel"`
-	RemovedLine        string            `json:"removed_line"`
-	PreIndexSHA256     string            `json:"pre_index_sha256"`
-	PostIndexSHA256    string            `json:"post_index_sha256"`
-	Completed          bool              `json:"completed,omitempty"`
-	VolumeMode         bool              `json:"volume_mode,omitempty"`
-	ObjectRef          string            `json:"object_ref,omitempty"`
-	VolumeID           string            `json:"volume_id,omitempty"`
-	VolumePath         string            `json:"volume_path,omitempty"`
-	VolumePostimage    string            `json:"volume_postimage,omitempty"`
-	GuardSHA256        map[string]string `json:"guard_sha256,omitempty"`
-	EvidenceIdentity   string            `json:"evidence_identity,omitempty"`
-	BaselinePreSHA256  string            `json:"baseline_pre_sha256,omitempty"`
-	BaselinePostSHA256 string            `json:"baseline_post_sha256,omitempty"`
-	BaselinePostimage  string            `json:"baseline_postimage,omitempty"`
-	OwnershipRepair    bool              `json:"ownership_repair,omitempty"`
-	PreservedOwner     string            `json:"preserved_owner,omitempty"`
+	Version             int               `json:"version"`
+	Rel                 string            `json:"rel"`
+	RemovedLine         string            `json:"removed_line"`
+	PreIndexSHA256      string            `json:"pre_index_sha256"`
+	PostIndexSHA256     string            `json:"post_index_sha256"`
+	Completed           bool              `json:"completed,omitempty"`
+	VolumeMode          bool              `json:"volume_mode,omitempty"`
+	ObjectRef           string            `json:"object_ref,omitempty"`
+	VolumeID            string            `json:"volume_id,omitempty"`
+	VolumePath          string            `json:"volume_path,omitempty"`
+	VolumePostimage     string            `json:"volume_postimage,omitempty"`
+	GuardSHA256         map[string]string `json:"guard_sha256,omitempty"`
+	EvidenceIdentity    string            `json:"evidence_identity,omitempty"`
+	BaselinePreSHA256   string            `json:"baseline_pre_sha256,omitempty"`
+	BaselinePostSHA256  string            `json:"baseline_post_sha256,omitempty"`
+	BaselinePostimage   string            `json:"baseline_postimage,omitempty"`
+	OwnershipRepair     bool              `json:"ownership_repair,omitempty"`
+	PreservedOwner      string            `json:"preserved_owner,omitempty"`
+	LedgerTransactionID string            `json:"ledger_transaction_id,omitempty"`
 }
 
 // removeEntryArgs are the inputs of aoci_remove_entry (an In struct lets go-sdk derive the schema and validate up front)
@@ -243,7 +245,7 @@ func loadRemoveRecovery(root, rel string) (*removeRecovery, error) {
 	if err := json.Unmarshal(data, &recovery); err != nil {
 		return nil, err
 	}
-	if recovery.Version != 1 || recovery.Rel != rel || recovery.RemovedLine == "" ||
+	if (recovery.Version != 1 && recovery.Version != 2) || recovery.Rel != rel || recovery.RemovedLine == "" ||
 		!validRecoverySHA256(recovery.PreIndexSHA256) ||
 		!validRecoverySHA256(recovery.PostIndexSHA256) {
 		return nil, errors.New(writeMessage("remove.recovery_invalid"))
@@ -255,6 +257,10 @@ func loadRemoveRecovery(root, rel string) (*removeRecovery, error) {
 		return nil, errors.New(writeMessage("remove.recovery_invalid"))
 	}
 	if recovery.OwnershipRepair && (recovery.PreservedOwner == "" || recovery.PreservedOwner == recovery.VolumeID) {
+		return nil, errors.New(writeMessage("remove.recovery_invalid"))
+	}
+	if (recovery.Version == 2 && (!recovery.VolumeMode || recovery.LedgerTransactionID == "")) ||
+		(recovery.LedgerTransactionID != "" && !validRecoverySHA256(recovery.LedgerTransactionID)) {
 		return nil, errors.New(writeMessage("remove.recovery_invalid"))
 	}
 	return &recovery, nil
@@ -381,8 +387,12 @@ func closeSupersededRemove(root, source string, p *removePlan, objectAbsent func
 		return nil
 	}
 	key := p.receiptKey()
+	transactionID := removeTransactionID(root, key) + "-superseded-" + shortSHA(recovery.PreIndexSHA256)
+	if recovery.LedgerTransactionID != "" {
+		transactionID = recovery.LedgerTransactionID + "-superseded"
+	}
 	event := ledger.Event{Op: "remove_entry", Source: source, Result: ledger.ResultOK, RecoveredCount: 1, DuplicateApplies: 1,
-		RecoveryTransactionID: removeTransactionID(root, key) + "-superseded-" + shortSHA(recovery.PreIndexSHA256),
+		RecoveryTransactionID: transactionID,
 		PreIndexSHA256:        recovery.PreIndexSHA256, PostIndexSHA256: recovery.PostIndexSHA256, FallbackReason: "receipt_superseded"}
 	if p.volumeMode {
 		// Volumes completion is a terminal Ledger event, as its ordinary commit
@@ -465,6 +475,23 @@ func reloadStaleReceipt(root string, p *removePlan) (*removeRecovery, *Fail) {
 
 func removeTransactionID(root, key string) string {
 	return strings.TrimSuffix(strings.TrimPrefix(filepath.Base(removeRecoveryPath(root, key)), "remove-"), ".json")
+}
+
+// The receipt path names the object; the ledger identity must name this removal.
+func volumeRemoveTransactionID(root string, recovery removeRecovery) string {
+	if recovery.LedgerTransactionID != "" {
+		return recovery.LedgerTransactionID
+	}
+	legacyID := removeTransactionID(root, recovery.Rel)
+	events, _ := ledger.Recent(root, 0)
+	for _, event := range events {
+		if event.Op == "remove_entry" && event.RecoveryTransactionID == legacyID &&
+			event.PreIndexSHA256 == recovery.PreIndexSHA256 && event.PostIndexSHA256 == recovery.PostIndexSHA256 {
+			return legacyID
+		}
+	}
+	digest := sha256.Sum256([]byte("volume-remove/v2\x00" + recovery.Rel + "\x00" + recovery.PreIndexSHA256 + "\x00" + recovery.PostIndexSHA256 + "\x00" + recovery.BaselinePreSHA256 + "\x00" + recovery.BaselinePostSHA256))
+	return hex.EncodeToString(digest[:])
 }
 
 func shortSHA(value string) string {
