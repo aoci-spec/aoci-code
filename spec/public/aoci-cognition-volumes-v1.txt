@@ -633,6 +633,13 @@ exact preimages, never deletes source files or database objects, and uses the
 existing CAS, Baseline, Ledger, lock, and Entries recovery path. Maintain never
 invokes it implicitly.
 
+Each new Volume removal records a distinct Ledger transaction identity in its
+version-2 recovery receipt; retries reuse that identity. Version-1 receipts
+remain readable: recovery reuses matching terminal events and separates
+different image histories; conflicting same-image events still fail closed.
+Older binaries reject version-2 receipts; complete recovery with the newer
+binary before downgrading.
+
 An ownership conflict is governed orphan state. Verify, Check, and Guide expose
 the same machine finding with `code`, `cause`, `expected_owner`, `actual_owner`,
 `affected_path`, and `safe_repair_action`. For a Root-owned `aoci.txt` Entry in
