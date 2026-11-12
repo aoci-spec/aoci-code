@@ -54,9 +54,33 @@ func joinPreserve(lines []string, eol string, trailingNL bool) string {
 	return out
 }
 
+// DropSupersededCopies removes the earlier copies of "#"-named Entries that
+// the parser reads as superseded, leaving every other byte and the line
+// endings as they are. Each editor entry point applies it first, so the first
+// write to a Volume that an older release polluted also cleans it.
+func DropSupersededCopies(text string) string {
+	lines, eol, trailingNL := splitPreserve(text)
+	doc, _ := Parse(strings.Join(lines, "\n"))
+	if len(doc.SupersededLines) == 0 {
+		return text
+	}
+	drop := make(map[int]bool, len(doc.SupersededLines))
+	for _, lineNo := range doc.SupersededLines {
+		drop[lineNo-1] = true
+	}
+	kept := make([]string, 0, len(lines))
+	for position, line := range lines {
+		if !drop[position] {
+			kept = append(kept, line)
+		}
+	}
+	return joinPreserve(kept, eol, trailingNL)
+}
+
 // ReplaceEntry replaces one whole line: oldLine is located in the text by TrimSpace equality and replaced only when there is exactly 1 hit.
 // It returns the new whole text; 0 or 2+ hits return an error (whose wording lets the agent take its next step directly).
 func ReplaceEntry(text, oldLine, newLine string) (string, error) {
+	text = DropSupersededCopies(text)
 	if strings.Contains(newLine, "\n") || strings.Contains(newLine, "\r") {
 		return "", errors.New("新条目必须为单行")
 	}
@@ -88,6 +112,7 @@ func ReplaceEntry(text, oldLine, newLine string) (string, error) {
 // content check while allowing two different paths to have byte-identical Entry
 // text in different directory sections.
 func ReplaceEntryForPath(text, repoRoot, relPath, oldLine, newLine string) (string, error) {
+	text = DropSupersededCopies(text)
 	if strings.Contains(newLine, "\n") || strings.Contains(newLine, "\r") {
 		return "", errors.New("新条目必须为单行")
 	}
@@ -174,6 +199,7 @@ func headerSpells(absDir string) bool {
 //
 // repoRoot converts between section absolute paths and relPath.
 func InsertEntry(text, relPath, newLine, repoRoot string) (string, error) {
+	text = DropSupersededCopies(text)
 	if strings.Contains(newLine, "\n") || strings.Contains(newLine, "\r") {
 		return "", errors.New("新条目必须为单行")
 	}
@@ -406,7 +432,7 @@ func appendIndexForNewSection(lines []string, doc *Document) int {
 	idx := len(lines)
 	for idx > 0 {
 		t := strings.TrimSpace(lines[idx-1])
-		if t == "" || strings.HasPrefix(t, "#") {
+		if t == "" || IsSectionCommentLine(lines[idx-1]) {
 			idx--
 			continue
 		}

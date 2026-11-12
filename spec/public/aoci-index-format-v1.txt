@@ -101,6 +101,21 @@ it coming withholds the batch instead of asking for Entries it would have to
 refuse. A file name that begins with whitespace or holds a backslash is outside
 the portable path contract.
 
+A file name may begin with `#`, as in `#hash.txt` or an editor's `#draft#`.
+Inside a directory section a line beginning with `#` is a comment only when it
+does not have the shape of an Entry (a name, a bracketed tag, `: F:`); a line
+with that shape is the Entry of the file it names. Before the first section,
+and in the Root and Meta assets, every `#` line is a header or comment line as
+before. Releases up to 0.2.0-rc1 read every `#` line in a section as a comment
+while still writing such Entries, so each maintenance round appended another
+copy. A reader therefore takes the last copy of a `#`-named Entry in a section
+as the Entry and the earlier ones as comments, and a writer removes those
+earlier copies the next time it edits the Volume. Any other name that repeats
+in a section remains a duplicate and fails the Volume closed. A writer also
+proves, before it writes anything, that every Entry of a batch reads back from
+the Volume it is about to publish, and refuses the batch naming the object
+when one does not.
+
 Section roots are coordinates, not runtime paths, and the root section anchors
 them. A new index begins with its root section: when its first Entry lives in a
 directory, the root section is written, empty, ahead of it, and an empty section

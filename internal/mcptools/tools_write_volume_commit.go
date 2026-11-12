@@ -390,6 +390,22 @@ func planCognitionVolumeUpdates(
 		}
 		return nil, &Fail{Code: errImpactResolutionFailed, Msg: writeMessage("entry.volume.projected_invalid", detail), Hint: writeMessage("entry.volume.hint.regenerate_candidate")}
 	}
+	// Every Entry this batch authors must read back from the Volume it would
+	// publish. The writer and the readers once disagreed about a line
+	// beginning with "#": the write was reported applied, no reader saw the
+	// Entry, and the next Maintain issued the same candidate again, for as
+	// long as the Host kept paying for rounds. Whatever the next disagreement
+	// is, it stops here, before anything is written, naming the object.
+	for _, item := range ordered {
+		if item.remove || item.rel == "" {
+			continue
+		}
+		if cognitionObjectByRef(projectedSet.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
+			return nil, &Fail{Code: errImpactResolutionFailed,
+				Msg:  writeMessage("entry.volume.projected_invalid", "entry_not_readable_after_write: code:"+item.rel),
+				Hint: writeMessage("entry.volume.hint.regenerate_candidate")}
+		}
+	}
 	projectedBudget := volumegovernance.AssessProjectedBudget(loaded.cfg, projectedSet)
 	if projectedBudget.Mode == machinecontract.BudgetModeEnforce && len(projectedBudget.Violations) != 0 {
 		// A per-entry field over its band is a candidate-repairable problem and must come back as a structured Finding; the historical

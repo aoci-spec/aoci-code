@@ -28,6 +28,7 @@ import (
 // It returns the text after removal. 0 hits and 2+ hits both return an error (semantics aligned with ReplaceEntry):
 // 0 hits says the entry may have been changed by hand and suggests re-fetching first; 2+ hits reports duplicate pollution and refuses.
 func RemoveEntry(text string, target string) (string, error) {
+	text = DropSupersededCopies(text)
 	want := strings.TrimSpace(target)
 	if want == "" {
 		return "", errors.New("删除目标为空")
@@ -82,6 +83,7 @@ func RemoveEntry(text string, target string) (string, error) {
 // path and verifies its exact preimage line. It avoids cross-section ambiguity
 // when two directory sections contain identical Entry text.
 func RemoveEntryForPath(text, repoRoot, relPath, oldLine string) (string, error) {
+	text = DropSupersededCopies(text)
 	want := strings.TrimSpace(oldLine)
 	if want == "" || strings.ContainsAny(want, "\r\n") {
 		return "", errors.New("删除目标须为非空单行条目")
@@ -141,7 +143,7 @@ func PruneEmptySections(text string) string {
 		pureEmpty := true
 		for _, line := range section.RawLines[1:] {
 			trimmed := strings.TrimSpace(line)
-			if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
+			if trimmed != "" && !IsSectionCommentLine(line) {
 				pureEmpty = false
 				break
 			}

@@ -30,6 +30,10 @@ type Document struct {
 	Sections []*Section
 	// RawText is the original full text at parse time (folded to LF), for whole-document editor operations
 	RawText string
+	// SupersededLines are the 1-based line numbers of earlier copies of an
+	// Entry whose name begins with "#" and repeats inside one section. Only
+	// the last copy is the Entry; see the parser for why.
+	SupersededLines []int
 }
 
 // Section is one segment delimited by a ===...=== line

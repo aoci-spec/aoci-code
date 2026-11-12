@@ -2538,7 +2538,11 @@ def group_p_special_names():
     name = "P1.special-directory-and-file-names-author-to-alignment"
     d = os.path.join(WORK, "fx special names")
     shutil.rmtree(d, ignore_errors=True)
-    sources = ["src/deep dir/b001.go", "app/(home)/page002.go", "pkg/max=/c003.go", "pages/docs/[...id]004.go"]
+    # The two "#" names: an Entry line beginning with "#" was written but read
+    # back as a comment, so Maintain issued the same candidate every round
+    # and the Volume grew one copy per round (reported by aoci-agent, 2026-11).
+    sources = ["src/deep dir/b001.go", "app/(home)/page002.go", "pkg/max=/c003.go", "pages/docs/[...id]004.go",
+               "#hash005.go", "src/#draft006.go"]
     for rel in sources:
         target = os.path.join(d, *rel.split("/"))
         os.makedirs(os.path.dirname(target), exist_ok=True)

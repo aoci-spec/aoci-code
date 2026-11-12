@@ -86,6 +86,22 @@ func matchEntryLine(line string) []string {
 	return m
 }
 
+// IsSectionCommentLine reports whether a line inside a directory section is a
+// comment: it begins with "#" and does not have the shape of an Entry. A file
+// may be named "#hash.txt" or "#draft#" (the format contract writes names as
+// they are and excludes only a leading blank and a backslash), and its Entry
+// line then begins with "#" too. Every reader used to drop any "#" line, so
+// such an Entry was written and reported applied but never read back: each
+// Maintain round issued the same candidate again and appended one more copy.
+// The writer never applied that rule, which is why the two sides disagreed;
+// this is the one test both now share.
+func IsSectionCommentLine(line string) bool {
+	if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+		return false
+	}
+	return matchEntryLine(strings.TrimRight(line, "\r\n")) == nil
+}
+
 // EntryTagSpan locates the tag of an Entry line for every consumer that needs it
 // without a full parse (dictionary, E-scale, S-quota, file-name normalization,
 // migration byte ranges). It reads the line the way matchEntryLine does, so a
@@ -239,9 +255,11 @@ func Parse(text string) (*Document, []Warning) {
 			current.RawLines = append(current.RawLines, line)
 		}
 
-		// Comment and blank lines: kept, not extracted
+		// Comment and blank lines: kept, not extracted. Inside a section a "#"
+		// line shaped like an Entry is the Entry of a file whose name begins
+		// with "#", not a comment.
 		trimmed := strings.TrimSpace(line)
-		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+		if trimmed == "" || IsSectionCommentLine(line) {
 			continue
 		}
 
@@ -279,6 +297,28 @@ func Parse(text string) (*Document, []Warning) {
 		// every write to that index for good. Whether it is read that way is a function
 		// of the text alone, so it is decided below, once every section is known.
 		key := current.AbsPath + "\x00" + filename
+		// Releases up to 0.2.0-rc1 wrote the Entry of a file named "#..." but
+		// read every "#" line as a comment, so each Maintain round appended
+		// one more copy that no reader counted. Read as plain duplicates, those
+		// copies would fail the whole Volume closed, and deleting them by hand
+		// leaves a Volume edited outside the tool. So for such a name the last
+		// copy in a section is the Entry and the earlier ones stay what every
+		// reader took them for, comments, until the next write drops them.
+		if strings.HasPrefix(filename, "#") {
+			kept := current.Entries[:0]
+			for _, earlier := range current.Entries {
+				if earlier.Filename == filename {
+					doc.SupersededLines = append(doc.SupersededLines, earlier.LineNo)
+					continue
+				}
+				kept = append(kept, earlier)
+			}
+			if len(kept) != len(current.Entries) {
+				current.Entries = kept
+				delete(seen, key)
+				delete(seenInFirst, key)
+			}
+		}
 		twoReadings := current == firstDirectorySection(doc) && current.LegacyAbsPath != current.AbsPath
 		switch {
 		case twoReadings:

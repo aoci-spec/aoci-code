@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A file whose name begins with `#` (`#hash.txt`, an editor's `#draft#`) is
+  indexed like any other. Its Entry line begins with `#`, which every reader
+  took for a comment while the writer accepted it: the write was reported
+  applied, the Entry was never read back, and every Maintain round issued the
+  same candidate again and appended one more copy to the Volume, for as long
+  as the Host kept running rounds. Present since 0.1.x; reported by the
+  aoci-agent project. Inside a directory section a `#` line is now a comment
+  only when it lacks the Entry shape. A Volume already carrying those copies
+  reads as aligned after the upgrade (the last copy is the Entry) and the next
+  write removes the rest. A batch whose Entry would not read back from the
+  Volume it publishes is refused before any write, naming the object.
 - Built with Go 1.26.11, which fixes GO-2026-6859 (an HTTP/1 server crash in
   `net/http`). In AOCI only the loopback status page serves HTTP.
 - A host dialog that comes back as `decline` is `status=dismissed`, not
