@@ -4,6 +4,20 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- An orphan that was removed, recreated, and removed again no longer wedges
+  the repository. `aoci_remove_entry` used the object's own hash as the Ledger
+  transaction identity, so the second removal wrote its Volume and Baseline,
+  then conflicted with the first removal's Ledger event and left a pending
+  receipt that no retry could close, blocking every other governance write
+  (#176, present since 0.1.x; fix by yunshihang, #177). Each removal now
+  records its own identity in a version-2 receipt; version-1 receipts stay
+  readable, and an older binary must not be used to recover a version-2 one.
+  The batch route had the same collision in another place: a batch of
+  `removals` alone is identified by its paths, so the earlier removal's
+  archived receipt answered the later one with a postimage conflict and no
+  write, and Maintain kept listing the orphan. Such a batch now gets its own
+  receipt and Ledger identity whenever one of its paths carries an Entry
+  again. Scenario B6 walks both routes.
 - A file whose name begins with `#` (`#hash.txt`, an editor's `#draft#`) is
   indexed like any other. Its Entry line begins with `#`, which every reader
   took for a comment while the writer accepted it: the write was reported

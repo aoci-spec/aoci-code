@@ -545,6 +545,35 @@ def group_b():
         record(g, "B5b.live-entry-removal-refused", "PASS" if refused else "FAIL", t2[:150])
     al, v = fixture_aligned(fx)
     record(g, "B5.final-aligned", "PASS" if al else "FAIL")
+
+    # B6: the same orphan removed, recreated, and removed again (#176). The
+    # earlier removal's receipt and Ledger event must not answer for the later
+    # one, on the batch route or through aoci_remove_entry.
+    def pending_receipts():
+        d = os.path.join(fx, ".aoci", "transactions")
+        return [n for n in (os.listdir(d) if os.path.isdir(d) else []) if n.endswith(".json")]
+    def drop_f004(message):
+        os.remove(os.path.join(fx, "pkg", "f004.go"))
+        sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "--allow-empty", "-m", message)
+        maintain(s)
+    recreated = add_source_and_align(s, fx, "f004.go")
+    land_write(fx, "f001.go", "Provides fixture constant unit 1 again")
+    drop_f004("drop f004 again")
+    t, err = text_of(s.call("aoci_update_entry", {"removals": [{"path": "pkg/f004.go"}]}))
+    r = jload(t)
+    again = (recreated and not err and r.get("status") == "applied" and r.get("applied") == 1
+             and r.get("aligned") is True and not pending_receipts())
+    record(g, "B6.orphan-removed-again-in-the-batch", "PASS" if again else "FAIL", t[:150])
+    add_source_and_align(s, fx, "f004.go")
+    drop_f004("drop f004 for the tool")
+    t1, err1 = text_of(s.call("aoci_remove_entry", {"path": "pkg/f004.go"}))
+    add_source_and_align(s, fx, "f004.go")
+    land_write(fx, "f002.go", "Provides fixture constant unit 2 again")
+    drop_f004("drop f004 for the tool again")
+    t2, err2 = text_of(s.call("aoci_remove_entry", {"path": "pkg/f004.go"}))
+    al, v = fixture_aligned(fx)
+    tool_again = not err1 and not err2 and not pending_receipts() and al
+    record(g, "B6.orphan-removed-again-by-the-tool", "PASS" if tool_again else "FAIL", (t2 or "")[:150])
     s.close()
     return fx
 

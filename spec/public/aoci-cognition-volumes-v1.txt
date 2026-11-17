@@ -640,6 +640,11 @@ different image histories; conflicting same-image events still fail closed.
 Older binaries reject version-2 receipts; complete recovery with the newer
 binary before downgrading.
 
+A batch that carries only removals is identified by its paths. When an
+earlier removal of the same paths has completed and one of them carries an
+Entry again, the batch is a new removal with its own receipt and Ledger
+identity; with no such Entry the earlier receipt answers it as a replay.
+
 An ownership conflict is governed orphan state. Verify, Check, and Guide expose
 the same machine finding with `code`, `cause`, `expected_owner`, `actual_owner`,
 `affected_path`, and `safe_repair_action`. For a Root-owned `aoci.txt` Entry in

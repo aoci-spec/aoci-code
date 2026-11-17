@@ -106,8 +106,7 @@ func planCognitionVolumeUpdates(
 	sort.Slice(ordered, func(i, j int) bool {
 		return volumeItemIdentity(ordered[i]) < volumeItemIdentity(ordered[j])
 	})
-	batchKey := atomicBatchKey(ordered)
-	recovery, recoveryErr := loadEntriesRecoveryIncludingArchive(root, batchKey)
+	batchKey, recovery, recoveryErr := resolveBatchRecovery(root, loaded.set, ordered)
 	if recoveryErr != nil && !os.IsNotExist(recoveryErr) {
 		return nil, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(recoveryErr.Error()))}
 	}

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
@@ -105,6 +106,52 @@ func atomicBatchKey(items []normalizedAtomicItem) string {
 		_, _ = hash.Write([]byte{0})
 	}
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// resolveBatchRecovery names the transaction a batch belongs to and loads the
+// receipt it already has. An authored item carries a candidate bound to its
+// preimage, so its key is unique to one decision. A batch of removals alone is
+// keyed by its paths, and the same orphan can be removed, recreated, and
+// removed again: the archived receipt of the earlier removal then answered the
+// later one with a postimage conflict and no write, forever (#176). Such a
+// batch walks generations of its key instead: an active receipt at any
+// generation is this batch in flight; otherwise the newest archived one is its
+// completed replay unless a target carries an Entry again, which makes this a
+// new removal with the next generation's key.
+func resolveBatchRecovery(root string, set *cognition.Set, ordered []normalizedAtomicItem) (string, *atomicBatchRecovery, error) {
+	base := atomicBatchKey(ordered)
+	removalOnly, targetPresent := len(ordered) > 0, false
+	for _, item := range ordered {
+		if !item.remove {
+			removalOnly = false
+			break
+		}
+		if set != nil && cognitionObjectByRef(set.Volumes[cognition.ScopeCode], "code:"+item.rel) != nil {
+			targetPresent = true
+		}
+	}
+	if !removalOnly {
+		recovery, err := loadEntriesRecoveryIncludingArchive(root, base)
+		return base, recovery, err
+	}
+	key, newestArchived := base, ""
+	for generation := 1; ; generation++ {
+		recovery, err := loadAtomicBatchRecovery(root, key)
+		if err == nil || !os.IsNotExist(err) {
+			return key, recovery, err
+		}
+		if _, statErr := os.Stat(archivedAtomicBatchRecoveryPath(root, key)); statErr != nil {
+			break
+		}
+		newestArchived = key
+		digest := sha256.Sum256([]byte("cognition-volume-removal-generation/v1\x00" + base + "\x00" + strconv.Itoa(generation)))
+		key = hex.EncodeToString(digest[:])
+	}
+	if newestArchived == "" || targetPresent {
+		return key, nil, os.ErrNotExist
+	}
+	recovery, err := loadEntriesRecoveryIncludingArchive(root, newestArchived)
+	return newestArchived, recovery, err
 }
 
 func atomicBatchRecoveryPath(root, batchKey string) string {
