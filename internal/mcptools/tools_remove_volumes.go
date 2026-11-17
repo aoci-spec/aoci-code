@@ -1,6 +1,8 @@
 package mcptools
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -218,6 +220,7 @@ func volumeRemovePlanFromRecovery(root string, loaded *cognitionRepoCtx, asset *
 		objectRef: recovery.ObjectRef, volumeID: recovery.VolumeID, guardSHA256: recovery.GuardSHA256,
 		evidenceIdentity: recovery.EvidenceIdentity, baselinePreSHA256: recovery.BaselinePreSHA256,
 		baselinePostSHA256: recovery.BaselinePostSHA256, baselinePostimage: recovery.BaselinePostimage,
+		ledgerTransactionID: volumeRemoveTransactionID(root, *recovery),
 	}
 }
 
@@ -448,14 +451,23 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 			return fail
 		}
 	}
+	transactionID := plan.ledgerTransactionID
+	if transactionID == "" {
+		var nonce [32]byte
+		if _, err := rand.Read(nonce[:]); err != nil {
+			return &Fail{Code: errInternal, Msg: "remove_transaction_id_unavailable"}
+		}
+		transactionID = hex.EncodeToString(nonce[:])
+	}
 	recovery := removeRecovery{
-		Version: 1, Rel: plan.objectRef, RemovedLine: plan.out.RemovedLine,
+		Version: 2, Rel: plan.objectRef, RemovedLine: plan.out.RemovedLine,
 		PreIndexSHA256: plan.indexHash, PostIndexSHA256: indexTextHash(plan.newText), VolumeMode: true,
 		ObjectRef: plan.objectRef, VolumeID: plan.volumeID, VolumePath: plan.rc.cfg.IndexPath,
 		VolumePostimage: plan.newText, GuardSHA256: plan.guardSHA256, EvidenceIdentity: plan.evidenceIdentity,
 		BaselinePreSHA256: plan.baselinePreSHA256, BaselinePostSHA256: plan.baselinePostSHA256,
 		BaselinePostimage: plan.baselinePostimage, OwnershipRepair: plan.out.OwnershipRepair,
-		PreservedOwner: plan.out.PreservedOwner,
+		PreservedOwner:      plan.out.PreservedOwner,
+		LedgerTransactionID: transactionID,
 	}
 	if err := saveRemoveRecovery(root, recovery); err != nil {
 		return &Fail{Code: errInternal, Msg: writeMessage("remove.recovery_save_failed", localeSafeWriteDetail(err.Error()))}
@@ -495,7 +507,6 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 			return guardFail
 		}
 	}
-	transactionID := strings.TrimSuffix(strings.TrimPrefix(filepath.Base(removeRecoveryPath(root, plan.objectRef)), "remove-"), ".json")
 	event := ledger.Event{Op: "remove_entry", Source: source, Result: ledger.ResultOK, AppliedCount: 1,
 		RecoveryTransactionID: transactionID, PreIndexSHA256: recovery.PreIndexSHA256,
 		PostIndexSHA256: recovery.PostIndexSHA256, IndexSHA256: recovery.PostIndexSHA256,
