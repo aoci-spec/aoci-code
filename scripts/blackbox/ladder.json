@@ -180,7 +180,8 @@
    "command": "python3 scripts/blackbox/realrepo.py RuoYi build/aoci-<label> --label=<label>; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>",
    "proves": "Transport budget, first-build rounds and calls_to_closing (every MCP call from the first Maintain to the Apply whose terminal_proof reports aligned), update wave, optimization and hook on two real trees with a planted ignored node_modules; compare rounds, calls, and bytes against the previous release record",
    "preconditions": [
-    "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand)"
+    "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand)",
+    "local binary from the positional argument, AOCI_BIN, or the platform build default (build/aoci.exe on Windows, build/aoci elsewhere)"
    ],
    "runs_in": [],
    "last_verified": {
