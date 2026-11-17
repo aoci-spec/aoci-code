@@ -144,6 +144,30 @@ request (when the team channel admits the dialog) and the terminal approve and
 apply commands. A pending Scope Change is refused until `scope activate` has
 applied it.
 
+### Verify a completed Observe review
+
+Use the `transaction_id` from a successful `scope acknowledge --json` result
+to open `.aoci/transactions/history/scope-<transaction_id>.json`.
+
+- To see which paths were reviewed, read
+  `preview.candidate_set.observe_review.paths`. This includes changed Observe
+  files whose role stayed the same. Those files can be absent from the list of
+  role changes.
+- To see which formal files changed, compare `preimage_sha256` and
+  `postimage_sha256` on each image in `preview`, starting with
+  `baseline_postimage`. Matching hashes mean the transaction checked the
+  file as a guard and left its bytes alone. The `applied_count` in the
+  `managed_scope_change_apply` Ledger event counts formal images with
+  different hashes. The Ledger file itself has no preimage or postimage hash.
+- To compare the recorded images with the files on disk, run
+  `aoci scope status --transaction <transaction_id> --json` from the repository
+  root. It reports each formal target's current hash and whether it matches
+  the recorded image. A later transaction can change those hashes. Use
+  `aoci scope status --json` for the current pending review and drift.
+
+Reading the history file and running either status command leaves the
+repository files and the Ledger untouched.
+
 ## Container directories and progressive onboarding
 
 AOCI can use a directory that is not itself a Git repository as its repository
