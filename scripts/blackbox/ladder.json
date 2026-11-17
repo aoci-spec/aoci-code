@@ -13,9 +13,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-fast-020rc1-final.txt (final rc1 tree, after the pre-tag audit fixes) and the make full constituents of .aoci/dev-tools/make-verify-020rc1-final.txt"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (make fast constituents inside make verify on the rc2 cut tree, build/aoci-rc2)"
    }
   },
   {
@@ -31,9 +31,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (build/aoci-020rc1 on the final rc1 tree: licenses 26, race, vuln 0 reachable, clean-room-smoke, conformance 58 + 4 skipped on the uncommitted tree, scenarios 95, lifecycle 97 PASS + 2 CHAR, axis-self 80/80)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (build/aoci-rc2 on the rc2 cut tree: all deterministic gates green)"
    }
   },
   {
@@ -50,9 +50,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (58 passed, 4 receipt-bound checks skipped on the uncommitted tree)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (62 passed, 0 failed, aligned tree)"
    }
   },
   {
@@ -70,9 +70,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (95 PASS)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (101 PASS, B6 repeated removal on both routes)"
    }
   },
   {
@@ -87,9 +87,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (97 PASS, 2 CHAR)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (97 PASS, 2 CHAR)"
    }
   },
   {
@@ -105,9 +105,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-10-27",
-    "evidence": ".aoci/dev-tools/make-verify-cfgro.txt (mysql:8.4 lane inside make verify)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (database suite inside make verify, Docker running)"
    }
   },
   {
@@ -151,9 +151,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-11-04",
-    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-full upgrade axis over every released binary through v0.1.0 green"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/axis-full-020rc2.txt (build/aoci-rc2 over every release: 2080 passed, 0 failed, v0.2.0-rc2 pending publication)"
    }
   },
   {
@@ -169,9 +169,9 @@
     "release-rehearsal.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (make axis-self BUILD_BIN=build/aoci-020rc1: 80/80 as v0.2.0-rc1)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (make axis-self BUILD_BIN=build/aoci-rc2: 80 passed, 0 failed)"
    }
   },
   {
@@ -185,9 +185,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/realrepo-RuoYi-020rc1.txt, realrepo-excalidraw-020rc1.txt (build/aoci-020rc1: RuoYi first build 15 rounds, 30 calls, verify_aligned; excalidraw 19 rounds, 38 calls, verify_aligned; update waves 3 rounds, 6 calls)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-rc2.txt, realrepo-excalidraw-rc2.txt (build/aoci-rc2: RuoYi first build 15 rounds 30 calls to closing, 0 over-budget rounds, both aligned)"
    }
   },
   {
@@ -200,9 +200,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/perf-calls-020rc1.txt (build/aoci-020rc1, five repositories 695 to 13,850 files; 13,850 files: maintain.steady 0.29 s, total 6.2 s, as on 11-04)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/perf-calls-020rc2.txt (build/aoci-rc2, five repositories; response bytes equal rc1; machine load average 66 during the run, so the timings are about twice rc1's and not comparable)"
    }
   },
   {
@@ -233,9 +233,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-11-04",
-    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-nightly fuzz smoke (30s per target) green"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/fuzz-smoke-020rc2.txt (every fuzz target ran 30s without a crash)"
    }
   },
   {
@@ -248,9 +248,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/coverage-floors-020rc1-audit.txt (13 packages at or above their floors, after the optimization S-quota fix)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/coverage-rc2-pre.txt (85f0386, same product code as the cut: 13 packages at or above their floors)"
    }
   },
   {
@@ -263,9 +263,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-11-04",
-    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: linux-nightly long-running cognition refresh black box green"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/longrun-020rc2.txt (overall_passed true, build/aoci-rc2)"
    }
   },
   {
@@ -280,9 +280,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/legacy-migration-020rc1.txt (24/24: en-US and zh-CN Legacy indexes, rc22 author, build/aoci-020rc1, following only next_commands)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/legacy-migration-020rc2.txt (24 passed, 0 failed: en-US and zh-CN, build/aoci-rc2)"
    }
   },
   {
@@ -314,9 +314,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/make-verify-020rc1-final.txt (clean-room-smoke inside make full, build/aoci-020rc1)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/make-verify-020rc2.txt (clean-room-smoke inside make full, build/aoci-rc2)"
    }
   },
   {
@@ -331,9 +331,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-11-04",
-    "evidence": "full-confidence 41709644517 (workflow_dispatch) on c421d41: native-lifecycle macos-15, macos-15-intel, windows-latest; windows-scenarios and macos-conformance green"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": "full-confidence 44121556362 on 85f0386: native-lifecycle macOS and Windows green after rerunning the macos-15 job GitHub cancelled for runner capacity"
    }
   },
   {
@@ -347,9 +347,9 @@
     "ci.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc1",
-    "date": "2026-11-05",
-    "evidence": ".aoci/dev-tools/public-text-020rc1-final.txt (311 files clean, final rc1 text)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": ".aoci/dev-tools/public-text-020rc2.txt (318 files clean, rc2 cut text)"
    }
   },
   {
@@ -381,9 +381,9 @@
     "ci.yml"
    ],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-11-01",
-    "evidence": ".aoci/dev-tools/index-quality-034.txt (after governance)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-18",
+    "evidence": "bash scripts/check-index-quality.sh build/aoci-rc2 after the cut governance: 491 Entries, 10 floors, 0 broken"
    }
   }
  ]

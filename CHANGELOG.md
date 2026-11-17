@@ -2,7 +2,18 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc2
+
+The second 0.2.0 candidate: fixes and host-side findings from two weeks of
+v0.2.0-rc1 in use, with no new subsystem. Three of the fixes close loops that
+cost a Host rounds without end: an Entry for a file named `#...` that was
+written but never read back, a repeated orphan removal that wedged or was
+refused, and handed-back commands that only ran from the repository root.
+A repository governed by v0.2.0-rc1 needs no migration. One recovery receipt
+changed shape: finish an in-flight `aoci_remove_entry` with this binary before
+going back to an older one.
+
+Changes:
 
 - An orphan that was removed, recreated, and removed again no longer wedges
   the repository. `aoci_remove_entry` used the object's own hash as the Ledger
