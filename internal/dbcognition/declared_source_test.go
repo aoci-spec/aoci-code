@@ -99,6 +99,13 @@ func TestMongoDBDeclarationDoesNotBlockExistingCognition(t *testing.T) {
 		declaredSourceState(after, "app") != machinecontract.DatabaseCognitionEngineNotImplemented {
 		t.Fatalf("MongoDB declaration blocked existing cognition: %+v", after)
 	}
+	// A disabled MongoDB declaration owes nothing either: it is not a
+	// collectable source switched off, so it blocks no aligned source.
+	disabled := declared
+	disabled.SourceID, disabled.Enabled = "parked", false
+	if parked := Assess(root, append(sources, disabled), set, state); !parked.CognitionCurrent || parked.BlockingSourceCount != 0 {
+		t.Fatalf("a disabled MongoDB declaration blocked existing cognition: %+v", parked)
+	}
 	alone := Assess(t.TempDir(), []dbevidence.SourceConfig{declared}, nil, baseline.NewBaseline(nil))
 	if !alone.CognitionCurrent || alone.BlockingSourceCount != 0 ||
 		declaredSourceState(alone, "app") != machinecontract.DatabaseCognitionEngineNotImplemented {

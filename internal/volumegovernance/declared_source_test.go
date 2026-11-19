@@ -1,6 +1,9 @@
 package volumegovernance
 
 import (
+	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -60,6 +63,65 @@ func TestMongoDBDeclarationKeepsGovernanceAligned(t *testing.T) {
 		}
 		if !facts.GovernanceAligned || facts.DatabaseCognition.BlockingSourceCount != 0 {
 			t.Fatalf("declaration blocked governance (database volume=%t): %+v", withDatabase, facts)
+		}
+	}
+}
+
+// With only MongoDB declarations and no Database Entry there is no Evidence
+// to accept: a missing Evidence Baseline owes nothing, with or without an
+// (empty) Database Volume.
+func TestMongoDBOnlyRepositoryOwesNoEvidenceBaseline(t *testing.T) {
+	for _, withDatabase := range []bool{false, true} {
+		root, cfg := alignedFixture(t, true, withDatabase)
+		cfg.DatabaseSources = []dbevidence.SourceConfig{{SourceID: "app", Engine: dbevidence.EngineMongoDB,
+			Database: "app", CredentialEnv: "AOCI_DB_APP_URI", Enabled: true}}
+		if err := config.Save(root, cfg); err != nil {
+			t.Fatal(err)
+		}
+		_ = os.Remove(dbevidence.BaselinePath(root))
+		if withDatabase {
+			// An empty Database Volume, recorded in the Baseline as it stands.
+			volume := filepath.Join(root, "aoci.database.txt")
+			if err := os.WriteFile(volume, []byte(cognition.DatabaseMarker+"\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			state, _, err := baseline.Load(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fingerprint, err := baseline.HashFile(volume)
+			if err != nil {
+				t.Fatal(err)
+			}
+			fingerprint.Role = state.Files["aoci.database.txt"].Role
+			state.Files["aoci.database.txt"] = fingerprint
+			state.DatabaseCognition = nil
+			if err := baseline.Save(root, state); err != nil {
+				t.Fatal(err)
+			}
+		}
+		cfg, err := config.Load(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		set, err := cognition.Load(root, cfg.IndexPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if withDatabase && (set.Volumes[cognition.ScopeDatabase] == nil || set.Volumes[cognition.ScopeDatabase].ObjectCount != 0) {
+			t.Fatalf("the fixture must hold an empty Database Volume: %+v", set.Volumes[cognition.ScopeDatabase])
+		}
+		facts, err := Assess(root, cfg, set)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !facts.GovernanceAligned || facts.DatabaseEvidence.State == ResultEvidenceRequired {
+			t.Fatalf("a MongoDB-only repository is not aligned (database volume=%t): state=%s findings=%+v", withDatabase, facts.DatabaseEvidence.State, facts.Findings)
+		}
+		for _, finding := range facts.Findings {
+			if finding.Code == "database_evidence_baseline_required" || finding.Code == "database_evidence_required" {
+				t.Fatalf("a MongoDB-only repository owes an Evidence Baseline (database volume=%t): %+v", withDatabase, facts.Findings)
+			}
 		}
 	}
 }

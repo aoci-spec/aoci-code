@@ -60,3 +60,23 @@ func TestMongoDBSourceCLIDeclarationAndUnimplementedOperations(t *testing.T) {
 		}
 	}
 }
+
+// A source id whose tables already carry Database Entries is not declared
+// (or replaced) with an engine AOCI cannot collect from: those Entries would owe Evidence for ever
+// and stop the whole index. The configuration is left as it was.
+func TestReplacingASourceWithEntriesByMongoDBIsRefused(t *testing.T) {
+	root := cognitionSystemCLIRepo(t)
+	before, err := os.ReadFile(config.FilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runCLI(t, root, "--json", "database", "source", "add", "--source-id", "primary", "--engine", "mongodb",
+		"--database-name", "public", "--credential-env", "AOCI_DB_APP_URI")
+	if code == ExitOK || !strings.Contains(stdout+stderr, "database_source_has_entries") {
+		t.Fatalf("a source with Entries was replaced by MongoDB: exit=%d %s %s", code, stdout, stderr)
+	}
+	after, err := os.ReadFile(config.FilePath(root))
+	if err != nil || string(after) != string(before) {
+		t.Fatalf("the refused replacement changed the configuration: %v", err)
+	}
+}

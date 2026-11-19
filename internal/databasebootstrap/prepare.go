@@ -134,6 +134,18 @@ func prepare(root string, preparedAt time.Time) (*Preview, error) {
 	if err != nil {
 		return nil, fmt.Errorf("database_bootstrap_source_configuration_invalid")
 	}
+	// Without a source AOCI can collect from there is no Evidence to bind and
+	// nothing to bootstrap; asking for an Evidence Baseline would name a step
+	// no command can take.
+	collectable := false
+	for _, source := range sources {
+		if dbevidence.EngineCollectable(source.Engine) {
+			collectable = true
+		}
+	}
+	if len(sources) > 0 && !collectable {
+		return nil, fmt.Errorf("database_bootstrap_not_required")
+	}
 	evidenceBaseline, evidenceExists, err := dbevidence.LoadBaseline(absRoot)
 	if err != nil || !evidenceExists {
 		return nil, fmt.Errorf("%w: database_bootstrap_evidence_baseline_required", ErrNotReady)

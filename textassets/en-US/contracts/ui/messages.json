@@ -360,6 +360,7 @@
   "database.error.source": "Database source %s could not complete the read-only metadata operation (error_code=%s, operation=%s); credentials and endpoint details were suppressed.",
   "database.error.source_object": "Database source %s could not complete the read-only metadata operation (error_code=%s, operation=%s, object=%s); credentials and endpoint details were suppressed.",
   "database.error.source_exists": "Database source %s already exists; use --replace for an explicit update.",
+  "database.error.source_has_entries": "Source %s still has %d Database Entries; an engine AOCI cannot collect from would leave them without Evidence. Remove those Entries first (they become orphans once the source's tables leave its Evidence), then replace the source",
   "database.error.source_not_found": "The requested database source is not configured.",
   "database.error.source_required": "Name the source with --source <id>; declared sources: %s",
   "database.error.source_required_none": "No database source is declared; add one with aoci database source add, then name it with --source <id>",

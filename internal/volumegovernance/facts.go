@@ -1034,6 +1034,23 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 		facts.Findings = append(facts.Findings, Finding{Code: "database_evidence_required", Domain: cognition.ScopeDatabase})
 		return
 	}
+	// Only declarations AOCI cannot collect from, and no Database Entry to
+	// keep current: there is no Evidence to accept, so none is owed.
+	collectable := false
+	for _, source := range cfg.DatabaseSources {
+		if source.Enabled && dbevidence.EngineCollectable(source.Engine) {
+			collectable = true
+		}
+	}
+	if !collectable && assessment.CognitionEntryCount == 0 {
+		facts.DatabaseEvidence.State = "not_applicable"
+		for _, source := range assessment.Sources {
+			if source.State == machinecontract.DatabaseCognitionEngineNotImplemented {
+				facts.Findings = append(facts.Findings, Finding{Code: FindingCodeDatabaseEngineNotImplemented, Domain: cognition.ScopeDatabase, Target: source.SourceID})
+			}
+		}
+		return
+	}
 	evidenceBaseline, baselineExists, baselineErr := dbevidence.LoadBaseline(root)
 	if baselineErr != nil {
 		facts.DatabaseEvidence.State = "invalid"

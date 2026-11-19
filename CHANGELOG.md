@@ -17,8 +17,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   its namespace is the database. Access, inspect, snapshot, and verify answer
   `database_engine_not_implemented` before any credential lookup or
   connection, and an enabled MongoDB declaration owes no Evidence or Database
-  Volume. No driver is added. Earlier binaries refuse the engine, so every
-  machine sharing such a repository needs this release.
+  Volume, nor does a disabled one or a repository with only such
+  declarations. A source id whose tables already carry Database Entries
+  cannot be switched to MongoDB until they are removed. No driver is added.
+  Earlier binaries refuse the engine, so every machine sharing such a
+  repository needs this release.
 - The Attestation Challenge asks about important Entries and changes with the
   index. Each stratum drew by a fixed per-object key, so two deliveries of a
   slightly changed index asked nearly the same ordinals, mostly

@@ -53,7 +53,10 @@ Namespace filters select that database, and table filters reserve the included
 collection names. The URI belongs in the named environment variable. Access
 preflight, inspect, snapshot, and verify report `database_engine_not_implemented`
 before resolving it. Code governance can continue with this declaration while
-collection support is pending. Every host sharing the team configuration needs
+collection support is pending, and with only MongoDB declarations no Evidence
+Baseline is owed. A source id that already has Database Entries cannot be
+switched to MongoDB until those Entries are removed: they would otherwise
+owe Evidence that cannot be collected and stop every Maintain. Every host sharing the team configuration needs
 a MongoDB-declaration-capable binary, since earlier releases reject the engine.
 
 SQLite sources use a single explicit

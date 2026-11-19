@@ -32,6 +32,13 @@ func Assess(root string, sources []dbevidence.SourceConfig, set *cognition.Set, 
 	evidenceBlockingSource := false
 	evidence := map[string]Item{}
 	for _, source := range orderedSources {
+		// A declaration AOCI cannot collect from owes nothing whether it is
+		// enabled or not; an Entry under it still blocks below.
+		if !dbevidence.EngineCollectable(source.Engine) {
+			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionEngineNotImplemented
+			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: machinecontract.DatabaseCognitionEngineNotImplemented})
+			continue
+		}
 		if !source.Enabled {
 			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionSourceDisabled
 			blockingSources++

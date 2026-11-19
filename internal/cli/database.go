@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	"github.com/spf13/cobra"
@@ -63,6 +64,15 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 			}
 			if err := dbevidence.NormalizeSource(&source); err != nil {
 				return &ExitError{Code: ExitConfig, MachineCode: "database_configuration_invalid", Msg: cliMessage("database.error.configuration_invalid")}
+			}
+			// A source AOCI cannot collect from would leave the Entries already
+			// written under its id without Evidence for ever, and the whole
+			// index stopped on them; they are removed first.
+			if !dbevidence.EngineCollectable(source.Engine) {
+				if count := databaseEntriesOfSource(root, cfg.IndexPath, source.SourceID); count > 0 {
+					return &ExitError{Code: ExitConfig, MachineCode: "database_source_has_entries",
+						Msg: cliMessage("database.error.source_has_entries", source.SourceID, count)}
+				}
 			}
 			found := false
 			for index := range cfg.DatabaseSources {
@@ -267,4 +277,25 @@ func writeDatabaseJSON(cmd *cobra.Command, value any) error {
 	encoder := json.NewEncoder(cmd.OutOrStdout())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
+}
+
+// databaseEntriesOfSource counts the Database Entries the index holds under
+// one source; an index that does not load counts none, and the save is then
+// judged by the governance that reads it next.
+func databaseEntriesOfSource(root, indexPath, sourceID string) int {
+	set, err := cognition.Load(root, indexPath)
+	if err != nil || set == nil {
+		return 0
+	}
+	asset := set.Volumes[cognition.ScopeDatabase]
+	if asset == nil {
+		return 0
+	}
+	count := 0
+	for _, object := range asset.Objects {
+		if strings.HasPrefix(object.CanonicalRef, "database://"+sourceID+"/") {
+			count++
+		}
+	}
+	return count
 }
