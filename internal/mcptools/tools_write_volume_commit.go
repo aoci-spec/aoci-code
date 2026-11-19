@@ -1363,6 +1363,22 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 	if !exists || state == nil {
 		state = baseline.NewBaseline(nil)
 	}
+	// A sibling that only rebinds its sources writes no Volume, yet it moves
+	// the Baseline: it too must meet the plan's latest state, or a Volume put
+	// back to an earlier one would be bound to sources it never described.
+	if receipt := plan.volumePlan.codeReceipt; receipt != nil && receipt.LogicalPlan != "" && plan.volumePlan.recovery == nil {
+		parallel, planErr := codebatch.LoadParallelPlan(root)
+		if planErr != nil || parallel == nil || parallel.LogicalPlan != receipt.LogicalPlan {
+			return "", false, &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
+		}
+		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(parallel.CodeVolumePath)))
+		if readErr != nil {
+			return "", false, &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+		}
+		if proven, replayErr := codebatch.ReplayProves(root, root, parallel, codebatch.BytesSHA256(current)); replayErr != nil || !proven {
+			return "", false, &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+		}
+	}
 	complete, note := advanceCognitionVolumeBaseline(root, state, plan)
 	if !complete {
 		return note, false, nil

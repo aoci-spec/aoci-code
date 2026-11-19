@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
@@ -507,6 +508,9 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 			return guardFail
 		}
 	}
+	// A removal changes what work is left: a build one session was marked as
+	// working alone is judged afresh by the next Maintain.
+	codebatch.ClearSoloBuild(root)
 	event := ledger.Event{Op: "remove_entry", Source: source, Result: ledger.ResultOK, AppliedCount: 1,
 		RecoveryTransactionID: transactionID, PreIndexSHA256: recovery.PreIndexSHA256,
 		PostIndexSHA256: recovery.PostIndexSHA256, IndexSHA256: recovery.PostIndexSHA256,

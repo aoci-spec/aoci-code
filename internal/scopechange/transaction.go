@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
@@ -228,6 +229,10 @@ func Apply(repositoryRoot string, preview *Preview, approval *Approval) (*Result
 // ApplyAuthorized selects exactly one authorization mechanism from the bound
 // team policy, then publishes through the shared CAS/recovery transaction.
 func ApplyAuthorized(repositoryRoot string, preview *Preview, approval *Approval, policyBound *PolicyBoundApproval) (*Result, error) {
+	// A Scope Change decides anew what work is left, so a build one session
+	// was marked as working alone is judged afresh by the next Maintain. The
+	// mark is a runtime hint in no identity; dropping it costs nothing.
+	codebatch.ClearSoloBuild(repositoryRoot)
 	root, err := filepath.Abs(repositoryRoot)
 	if err != nil || preview == nil {
 		return nil, fmt.Errorf("managed_scope_apply_input_invalid")

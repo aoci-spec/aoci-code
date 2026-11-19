@@ -380,3 +380,60 @@ func TestSiblingsAppliedAtOnceWithARemovalBothApply(t *testing.T) {
 		}
 	}
 }
+
+// The same proof holds for a sibling that only rebinds its sources: it
+// writes no Volume but moves the Baseline, so over a Volume put back to an
+// earlier plan state it is refused and the Baseline stays as it was.
+func TestARebindingSiblingIsRefusedOverAVolumePutBack(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 150)
+	buildToAligned(t, connectMCPClient(t, root))
+	for index := 0; index < 150; index++ {
+		path := filepath.Join(root, "pkg", fmt.Sprintf("mod%03d", index/10), fmt.Sprintf("file%03d.go", index))
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, []byte("\n// wave\n")...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session := connectMCPClient(t, root)
+	first := maintainVolumeBatch(t, session)
+	if first.CodePlan == nil || len(first.CodePlan.Siblings) < 2 {
+		t.Fatalf("expected at least three siblings: %#v", first.CodePlan)
+	}
+	fetch := func(batchID string) volumeMaintainResult {
+		var delivered volumeMaintainResult
+		if err := json.Unmarshal([]byte(callVolumeTool(t, session, "aoci_maintain", map[string]any{"batch_id": batchID})), &delivered); err != nil {
+			t.Fatal(err)
+		}
+		return delivered
+	}
+	second, third := fetch(first.CodePlan.Siblings[0].BatchID), fetch(first.CodePlan.Siblings[1].BatchID)
+	volumeAtStart := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+	rewrite := func(batch volumeMaintainResult, rebindOnly bool) map[string]any {
+		entries := []map[string]any{}
+		for _, candidate := range batch.Candidates {
+			entry := candidate.ExistingEntry
+			if !rebindOnly {
+				entry = filepath.Base(candidate.Path) + "[CD5S]: F:implement fixture behavior after the wave | R:- | A:- | S:Keep the fixture deterministic"
+			}
+			entries = append(entries, map[string]any{"path": candidate.Path, "new_entry": entry})
+		}
+		return map[string]any{"code_batch_id": batch.CodePlan.BatchID, "entries": entries}
+	}
+	for _, batch := range []volumeMaintainResult{first, second} {
+		if applied := applyVolumeBatch(t, session, rewrite(batch, false)); applied.Status != autoStatusApplied {
+			t.Fatalf("a sibling did not apply: %#v", applied)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), volumeAtStart, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+	refused := applyVolumeBatch(t, connectMCPClient(t, root), rewrite(third, true))
+	if refused.Status == autoStatusApplied {
+		t.Fatalf("a rebinding sibling was accepted over a Volume put back: %#v", refused)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+}
