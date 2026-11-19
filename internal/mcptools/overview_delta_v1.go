@@ -242,7 +242,7 @@ func countObjectsWithEntries(asset *cognition.Asset) int {
 // sequence's: Index SHA-256, Entry-sequence SHA-256, and Entry count.
 func buildDeltaChallenge(scopeIdentity string, full, delta []overviewChallengeTarget) overviewChallenge {
 	entrySequenceSHA256 := overviewEntrySequenceSHA256(full)
-	picks := stratifiedChallengeOrdinals(delta)
+	picks := stratifiedChallengeOrdinals(scopeIdentity, delta)
 	ordinals := make([]int, 0, len(picks))
 	byOrdinal := make(map[int]overviewChallengeTarget, len(picks))
 	for _, pick := range picks {

@@ -4,6 +4,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- The Attestation Challenge asks about important Entries and changes with the
+  index. Each stratum drew by a fixed per-object key, so two deliveries of a
+  slightly changed index asked nearly the same ordinals, mostly
+  low-information files. Each stratum now draws its highest-C Entry, the tie
+  broken by a key salted with the delivered identity; a delivery and its
+  proof still draw the same targets.
 - A new Entry is written in path order inside its section. It was appended
   after the section's last Entry, so a new `_a_test.py` landed after
   `sampling.py`, moving the ordinal a reader cites. A section that was never

@@ -140,10 +140,10 @@ Each Challenge and Attestation explicitly binds the current `index_sha256`, the
 SHA-256 of the current ordered formal Entry/object sequence, and the current
 Entry count. The digest covers all three facts plus the selected current
 ordinals. Selection is recomputed only from the current sequence: one object is
-chosen from every current stratum by a stable object-identity key, then reported
-at its current ordinal. Nearby additions or removals therefore do not
-randomize all unaffected targets, but no prior ordinal, prior Entry set, or old
-Attestation can validate against the new Index.
+chosen from every current stratum, the most important one there (highest C),
+ties broken by a key salted with the delivered scope identity, then reported at
+its current ordinal. A changed index draws afresh, and no prior ordinal, prior
+Entry set, or old Attestation can validate against the new Index.
 
 For a Code object, the Attestation accepts either the exact delivered
 repository-relative path or its one-to-one `code:<path>` canonical identity.
