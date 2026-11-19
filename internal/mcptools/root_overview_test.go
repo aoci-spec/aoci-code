@@ -255,3 +255,24 @@ func TestFinalApplyCarriesTheRootOverviewInvitation(t *testing.T) {
 	}
 	assertRootAligned(t, root)
 }
+
+// The invitation is for a finished index only: none while governance is not
+// aligned, and none for an index that holds no Entry yet.
+func TestRootOverviewInvitationNeedsAFinishedIndex(t *testing.T) {
+	root, _ := deltaVolumesFixture(t, 2)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if err != nil || rootOverviewInvitation(loaded, facts) == nil {
+		t.Fatalf("the aligned fixture must be invited: %v", err)
+	}
+	unaligned := *facts
+	unaligned.GovernanceAligned = false
+	empty := *facts
+	empty.CodeEntryCount = 0
+	if rootOverviewInvitation(loaded, &unaligned) != nil || rootOverviewInvitation(loaded, &empty) != nil || rootOverviewInvitation(loaded, nil) != nil {
+		t.Fatal("no invitation for an index that is not aligned or holds no Entry")
+	}
+}
