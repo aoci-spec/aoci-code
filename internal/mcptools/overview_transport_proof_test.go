@@ -2,10 +2,17 @@ package mcptools
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // transportProofFixture delivers the chunked fixture once to its end and
@@ -192,5 +199,131 @@ func TestUnknownTransportProgressIsNotSent(t *testing.T) {
 	}
 	if len(fixture.session.deliveryProgress) > deliveryProgressMax || len(fixture.session.progressOrder) > deliveryProgressMax {
 		t.Fatalf("the progress memory is unbounded: %d", len(fixture.session.deliveryProgress))
+	}
+}
+
+// The Legacy layout keeps no retained delivery: its proof halves live in the
+// Host session's own memory. A confirmation given before the end must not
+// stay there to latch once the end is sent, and a session that was sent
+// nothing confirms nothing.
+func TestLegacyConfirmationNeedsTheChainSentToItsEnd(t *testing.T) {
+	root := t.TempDir()
+	cfg := legacyTestConfig()
+	cfg.IndexPath = "aoci.txt"
+	cfg.OverviewDelivery.ChunkTokens = machinecontract.OverviewChunkTokensMin
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	var text strings.Builder
+	text.WriteString("#====Legacy transport fixture====\n#Locale: zh-CN\n===" + filepath.ToSlash(root) + "/===\n")
+	for ordinal := 1; ordinal <= 400; ordinal++ {
+		name := fmt.Sprintf("file-%04d.go", ordinal)
+		if err := os.WriteFile(filepath.Join(root, name), []byte("package demo\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		fmt.Fprintf(&text, "%s[XUT5T]: F:preserve legacy object %04d across a reload | R:- | A:- | S:-\n", name, ordinal)
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.txt"), []byte(text.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, _, err := baseline.Snapshot(root, cfg.WalkOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := baseline.Save(root, baseline.NewBaseline(snapshot)); err != nil {
+		t.Fatal(err)
+	}
+	chunk := func(client *mcp.ClientSession, arguments map[string]any) map[string]any {
+		t.Helper()
+		prefix, _, ok := strings.Cut(callVolumeTool(t, client, "aoci_overview", arguments), "\n"+overviewChunkBodyMarker+"\n")
+		if !ok {
+			t.Fatalf("the Legacy fixture must chunk: %.200s", prefix)
+		}
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(prefix), &meta); err != nil {
+			t.Fatal(err)
+		}
+		return meta
+	}
+	client := connectMCPClient(t, root)
+	first := chunk(client, map[string]any{})
+	if int(first["chunk_count"].(float64)) < 3 {
+		t.Fatalf("the Legacy fixture must take at least three Chunks, takes %v", first["chunk_count"])
+	}
+	confirmation := map[string]any{"host_delivery_confirmation": map[string]any{
+		"version": overviewDeliveryReceiptV1, "body_sha256": first["body_sha256"],
+		"body_bytes": first["body_utf8_bytes"], "end_marker_observed": true,
+	}}
+	confirm := func(client *mcp.ClientSession) string {
+		return callVolumeTool(t, client, "aoci_overview", confirmation)
+	}
+	expectTransport(t, "a Legacy confirmation after one Chunk", confirm(client), false)
+	meta := first
+	for !meta["completed"].(bool) {
+		meta = chunk(client, map[string]any{"cursor": meta["next_cursor"]})
+	}
+	expectTransport(t, "a Legacy confirmation at the end", confirm(client), true)
+
+	// A reload restarts the body: one Chunk does not carry the earlier proof.
+	reload := chunk(client, map[string]any{"refresh_reasons": []string{"context_compaction"}, "refresh_event_id": "legacy-reload"})
+	expectTransport(t, "the earlier Legacy proof after one Chunk of the reload", confirm(client), false)
+	for meta = reload; !meta["completed"].(bool); {
+		meta = chunk(client, map[string]any{"cursor": meta["next_cursor"]})
+	}
+	expectTransport(t, "the Legacy reload followed to its end", confirm(client), true)
+
+	// A second MCP session of the same server, and a new server, were sent nothing.
+	expectTransport(t, "a Legacy session that requested nothing", confirm(connectMCPClient(t, root)), false)
+}
+
+// On the live path (no retained delivery) the two halves meet in the Host
+// session's own memory. A Host half given before the end is graded
+// incomplete and must not stay remembered: once the end is sent, the model
+// half alone finds no confirmation waiting for it.
+func TestEarlyConfirmationIsNotRememberedOnTheLivePath(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	loaded, fail := loadCognitionCtx(fixture.root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	view, err := loaded.set.Scope(cognition.ScopeAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, sequence, err := buildVolumeOverviewBody(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := newCognitionRefreshSession()
+	ctx := overviewRenderContext{Root: fixture.root, EffectiveScope: view.EffectiveScope, ScopeIdentity: view.ScopeIdentity,
+		Content: body, EntryCount: view.ObjectCount, Sequence: sequence, EstimatedTokens: volumeScopeBytes(view) / 3,
+		Session: session, Owner: volumeDeliveryOwner{direct: "host"}}
+	ctx.Assessment.Semantic.GovernanceAligned = true
+	render := func(input overviewIn) overviewRendered {
+		t.Helper()
+		rendered, err := renderOverviewDelivery(ctx, input, loaded.cfg.OverviewDelivery.ChunkTokens)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rendered
+	}
+	first := render(overviewIn{})
+	if first.Facts.ChunkCount < 3 || first.Facts.Completed {
+		t.Fatalf("the fixture must take at least three Chunks: %+v", first.Facts)
+	}
+	if early := render(fixture.host); early.Facts.HostDeliveryStatus != hostDeliveryIncomplete || early.Facts.ServerSent {
+		t.Fatalf("a Host half before the end must be incomplete: %+v", early.Facts)
+	}
+	for chunk := first; !chunk.Facts.Completed; {
+		meta, _ := chunkMetadata(t, textResult(chunk.Output))
+		chunk = render(overviewIn{Cursor: meta["next_cursor"].(string)})
+	}
+	if late := render(fixture.model); late.Facts.HostDeliveryStatus == hostDeliveryConfirmed || !late.Facts.ServerSent ||
+		late.Attestation.CognitionAssimilation == cognitionAssimilationComplete {
+		t.Fatalf("the early Host half latched once the end was sent: %+v", late.Facts)
+	}
+	if done := render(fixture.host); done.Facts.HostDeliveryStatus != hostDeliveryConfirmed ||
+		done.Attestation.ModelAttestation != modelAttestationPass || done.Attestation.CognitionAssimilation != cognitionAssimilationComplete {
+		t.Fatalf("both halves given at the end must latch and pass: %+v %+v", done.Facts, done.Attestation)
 	}
 }
