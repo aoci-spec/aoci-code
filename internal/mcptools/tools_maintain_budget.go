@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -13,7 +12,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
-	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 // maintainBaseOverheadBytes reserves the part of a Maintain response that
@@ -76,7 +74,7 @@ func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candida
 }
 
 func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) int {
-	bytes := maintainTransportBudget(cfg) - fixedOverheadBytes(set, contractOnWire) - sampleBytes(candidates)
+	bytes := maintainTransportBudget(cfg) - fixedOverheadBytes(cfg, set, contractOnWire) - sampleBytes(candidates)
 	if bytes < 1<<10 {
 		bytes = 1 << 10
 	}
@@ -87,7 +85,7 @@ func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []c
 // parts a response carrying the authoring contract repeats: the exact Meta
 // bytes as authoring_meta and the locale's authoring instructions. A response
 // carrying the reference instead reserves the reference.
-func fixedOverheadBytes(set *cognition.Set, contractOnWire bool) int {
+func fixedOverheadBytes(cfg *config.Config, set *cognition.Set, contractOnWire bool) int {
 	total := maintainBaseOverheadBytes
 	if !contractOnWire {
 		return total + maintainInstructionsRefBytes()
@@ -96,7 +94,7 @@ func fixedOverheadBytes(set *cognition.Set, contractOnWire bool) int {
 		return total + maintainInstructionsFallbackBytes
 	}
 	total += len(set.Meta.Raw)
-	contract, err := authoringcontract.Build(set.Meta.Raw, []string{cognition.ScopeCode}, textassets.ActiveLocale())
+	contract, err := buildAuthoringContract(cfg, set.Meta.Raw, []string{cognition.ScopeCode})
 	if err != nil {
 		return total + maintainInstructionsFallbackBytes
 	}

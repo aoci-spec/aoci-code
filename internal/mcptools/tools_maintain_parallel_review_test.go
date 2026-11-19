@@ -437,3 +437,206 @@ func TestARebindingSiblingIsRefusedOverAVolumePutBack(t *testing.T) {
 	}
 	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
 }
+
+// A batch that only drops orphans, cut after its Volume write, closes when
+// submitted again: there is nothing left to remove, and the receipt of that
+// write proves the postimage.
+func TestAnInterruptedRemovalOnlyBatchClosesOnResubmission(t *testing.T) {
+	for _, pinned := range []bool{true, false} {
+		root := buildManyFileVolumesRepo(t, 12)
+		if pinned {
+			pinSingleBatch(t, root)
+		}
+		session := connectMCPClient(t, root)
+		buildToAligned(t, session)
+		if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file011.go")); err != nil {
+			t.Fatal(err)
+		}
+		wave := connectMCPClient(t, root)
+		maintain := maintainVolumeBatch(t, wave)
+		if len(maintain.Candidates) != 0 || len(maintain.OrphanRemovals) != 1 {
+			t.Fatalf("pinned=%v: expected one orphan and no batch: %d %v", pinned, len(maintain.Candidates), maintain.OrphanRemovals)
+		}
+		arguments := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+		originalSave := saveAtomicBaseline
+		saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+		cut := applyVolumeBatch(t, wave, arguments)
+		saveAtomicBaseline = originalSave
+		if cut.Status == autoStatusApplied && cut.Aligned {
+			t.Fatalf("pinned=%v: the injected failure did not cut the write: %#v", pinned, cut)
+		}
+		again := applyVolumeBatch(t, wave, arguments)
+		if again.Status != autoStatusApplied || !again.Aligned {
+			t.Fatalf("pinned=%v: the removal-only batch did not close: status=%s findings=%v", pinned, again.Status, again.Findings)
+		}
+		if pending, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "*.json")); len(pending) != 0 {
+			t.Fatalf("pinned=%v: a receipt was left pending: %v", pinned, pending)
+		}
+	}
+}
+
+// The landed-removal path closes only the write its receipt proves: when the
+// Code Volume moved after the cut, the same batch is refused, zero writes.
+func TestALandedRemovalDoesNotCloseOverAMovedVolume(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 12)
+	pinSingleBatch(t, root)
+	buildToAligned(t, connectMCPClient(t, root))
+	if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file011.go")); err != nil {
+		t.Fatal(err)
+	}
+	wave := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, wave)
+	arguments := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	applyVolumeBatch(t, wave, arguments)
+	saveAtomicBaseline = originalSave
+	volume := filepath.Join(root, "aoci.code.txt")
+	data, err := os.ReadFile(volume)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := append(data, []byte("\n")...)
+	if err := os.WriteFile(volume, moved, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refused := applyVolumeBatch(t, wave, arguments)
+	if refused.Status == autoStatusApplied {
+		t.Fatalf("a landed removal closed over a moved Volume: %#v", refused)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", moved)
+}
+
+// A receipt left pending by a cut write keeps its participants: another
+// batch is refused, zero writes, until the cut batch is submitted again.
+func TestAnotherBatchWaitsForAPendingCutWrite(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 12)
+	pinSingleBatch(t, root)
+	buildToAligned(t, connectMCPClient(t, root))
+	for _, name := range []string{"file010.go", "file011.go"} {
+		if err := os.Remove(filepath.Join(root, "pkg", "mod001", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	if len(maintain.OrphanRemovals) != 2 {
+		t.Fatalf("expected two orphans: %v", maintain.OrphanRemovals)
+	}
+	first := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+	second := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[1]}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	applyVolumeBatch(t, session, first)
+	saveAtomicBaseline = originalSave
+	volumeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+	refused := applyVolumeBatch(t, session, second)
+	if refused.Status == autoStatusApplied || refused.FormalWritesStarted {
+		t.Fatalf("another batch wrote over a pending cut write: %#v", refused)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", volumeBefore)
+	if closed := applyVolumeBatch(t, session, first); closed.Status != autoStatusApplied {
+		t.Fatalf("the cut batch did not close: %#v", closed)
+	}
+	if last := applyVolumeBatch(t, session, second); last.Status != autoStatusApplied || !last.Aligned {
+		t.Fatalf("the waiting batch did not apply afterwards: %#v", last)
+	}
+}
+
+// A batch that drops a Code orphan beside Database Entries, cut after its
+// Volume writes, closes when submitted again: the Code write it already made
+// stays a participant of the recovery.
+func TestAnInterruptedCodeRemovalBesideDatabaseEntriesCloses(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	var orphan string
+	for _, object := range loaded.set.Volumes["code"].Objects {
+		orphan = strings.TrimPrefix(object.CanonicalRef, "code:")
+		break
+	}
+	if orphan == "" {
+		t.Skip("the fixture has no Code Entry to orphan")
+	}
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(orphan))); err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPClient(t, root)
+	plan := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", "database")).Plan
+	entries := []map[string]any{}
+	for _, item := range databaseCandidateInput(plan) {
+		entries = append(entries, map[string]any{"object_ref": item.ObjectRef, "candidate_id": item.CandidateID, "new_entry": item.NewEntry})
+	}
+	arguments := map[string]any{"batch_id": plan.BatchID, "entries": entries, "removals": []map[string]any{{"path": orphan}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	cut := applyVolumeBatch(t, session, arguments)
+	saveAtomicBaseline = originalSave
+	if cut.Status == autoStatusApplied && cut.Aligned {
+		t.Fatalf("the injected failure did not cut the write: %#v", cut)
+	}
+	again := applyVolumeBatch(t, session, arguments)
+	if again.Status != autoStatusApplied {
+		t.Fatalf("the mixed batch did not close its cut write: status=%s findings=%v", again.Status, again.Findings)
+	}
+	if pending, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "*.json")); len(pending) != 0 {
+		t.Fatalf("a receipt was left pending: %v", pending)
+	}
+}
+
+// A batch that only rebinds its sources moves the Baseline: it too waits
+// while another batch's cut write is pending.
+func TestARebindWaitsForAPendingCutWrite(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 12)
+	pinSingleBatch(t, root)
+	buildToAligned(t, connectMCPClient(t, root))
+	if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file011.go")); err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	cutBatch := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	applyVolumeBatch(t, session, cutBatch)
+	saveAtomicBaseline = originalSave
+	path := filepath.Join(root, "pkg", "mod000", "file000.go")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, []byte("\n// rebind\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	var existing string
+	for _, object := range loaded.set.Volumes["code"].Objects {
+		if object.CanonicalRef == "code:pkg/mod000/file000.go" {
+			existing = object.Entry.FullLine
+		}
+	}
+	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+	rebind := applyVolumeBatch(t, session, map[string]any{"path": "pkg/mod000/file000.go", "new_entry": existing,
+		"source_sha256": fingerprintOf(t, path)})
+	if rebind.Status == autoStatusApplied {
+		t.Fatalf("a rebind moved the Baseline under a pending cut write: %#v", rebind)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+	if closed := applyVolumeBatch(t, session, cutBatch); closed.Status != autoStatusApplied {
+		t.Fatalf("the cut batch did not close: %#v", closed)
+	}
+}
+
+func fingerprintOf(t *testing.T, path string) string {
+	t.Helper()
+	fingerprint, err := baseline.HashFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fingerprint.SHA256
+}

@@ -97,7 +97,7 @@ func handleVolumeOverview(
 	}
 	var guard *overviewSourceGuard
 	if metadataErr == nil && input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil && !input.CheckOnly {
-		guard = newOverviewSourceGuard(loaded, metadata, state)
+		guard = newOverviewSourceGuard(root, loaded, metadata, state)
 	}
 
 	refreshSession.mu.Lock()

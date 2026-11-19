@@ -7,24 +7,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
-	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 const cognitionOptimizationVersion = "cognition-optimization/v1"
@@ -55,6 +55,9 @@ type cognitionOptimizationStatus struct {
 	Replaced             int    `json:"replaced"`
 	Remaining            int    `json:"remaining"`
 	ContinuationRequired bool   `json:"continuation_required"`
+	// DroppedOpenPass counts the Entries an open pass still had to review
+	// when this request replaced it; none of them was changed.
+	DroppedOpenPass int `json:"dropped_open_pass,omitempty"`
 }
 
 func handleCognitionOptimizationMaintain(
@@ -70,7 +73,7 @@ func handleCognitionOptimizationMaintain(
 	}
 	// Decided once, before any batch is cut: a loaded current batch keeps the
 	// cut its issuance made, so only an issuance reads this.
-	contractOnWire := codeContractOnWire(loaded.set, refreshSession, input.IncludeInstructions)
+	contractOnWire := codeContractOnWire(loaded.cfg, loaded.set, refreshSession, input.IncludeInstructions)
 	if facts.Result != volumegovernance.ResultAligned || !facts.GovernanceAligned {
 		return failResult(&Fail{Code: errCandidateInvalid, Msg: "cognition_optimization_requires_ordinary_alignment"})
 	}
@@ -84,9 +87,10 @@ func handleCognitionOptimizationMaintain(
 	stored, loadErr := cognitionoptimization.Load(root)
 	switch {
 	case loadErr == nil && !stored.Checkpoint.Completed:
-		if len(input.ObjectRefs) != 0 {
-			return failResult(&Fail{Code: errBadArgs, Msg: "cognition_optimization_object_refs_only_allowed_on_initial_request"})
-		}
+		// object_refs while a pass is open name what to review now: the open
+		// pass is dropped, no Entry changes, and the answer says how much of
+		// it was left. Nobody is made to submit "unchanged" for Entries it
+		// never read just to close a pass it no longer wants (scipy, C4).
 	case loadErr == nil && stored.Checkpoint.Completed:
 		// A completed checkpoint is only a local anti-duplication boundary for
 		// the preceding request. A later explicit intent deliberately starts a
@@ -99,7 +103,11 @@ func handleCognitionOptimizationMaintain(
 	var selection cognitionoptimization.Selection
 	var plan codebatch.Plan
 	var checkpoint cognitionoptimization.StoredCheckpoint
-	if loadErr == nil && !stored.Checkpoint.Completed {
+	replacedOpen := 0
+	if loadErr == nil && !stored.Checkpoint.Completed && len(input.ObjectRefs) != 0 {
+		replacedOpen = len(stored.Checkpoint.RemainingObjectRefs)
+	}
+	if loadErr == nil && !stored.Checkpoint.Completed && len(input.ObjectRefs) == 0 {
 		checkpoint = stored
 		if stored.Checkpoint.CurrentBatchID != "" {
 			plan, selection, err = loadOptimizationCurrentBatch(root, loaded, facts, stored.Checkpoint)
@@ -137,6 +145,8 @@ func handleCognitionOptimizationMaintain(
 					ExplicitObjectRefs: len(input.ObjectRefs) != 0}
 				if loadErr == nil && stored.Checkpoint.Completed {
 					checkpoint, err = cognitionoptimization.RestartCompleted(root, stored.SHA256, create)
+				} else if replacedOpen > 0 || (loadErr == nil && !stored.Checkpoint.Completed) {
+					checkpoint, err = replaceOpenOptimizationPass(root, loaded.set.Volumes[cognition.ScopeCode], stored, create)
 				} else {
 					checkpoint, err = cognitionoptimization.Create(root, create)
 				}
@@ -188,7 +198,8 @@ func handleCognitionOptimizationMaintain(
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
 	result.Optimization = optimizationStatus(checkpoint.Checkpoint, len(selection.Batch), "review_required")
-	contract, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, []string{cognition.ScopeCode}, textassets.ActiveLocale())
+	result.Optimization.DroppedOpenPass = replacedOpen
+	contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
 	if contractErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_authoring_contract_invalid"})
 	}
@@ -719,4 +730,37 @@ func advanceCognitionOptimizationUpdate(root string, current *cognitionOptimizat
 		TotalTargets: checkpoint.ReviewedCount + len(checkpoint.RemainingObjectRefs), Included: current.Reviewed,
 		Reviewed: checkpoint.ReviewedCount, NoChange: checkpoint.NoChangeCount, Replaced: checkpoint.ReplacedCount,
 		Remaining: len(checkpoint.RemainingObjectRefs), ContinuationRequired: len(checkpoint.RemainingObjectRefs) > 0}, nil
+}
+
+// replaceOpenOptimizationPass drops an open pass for a new one under the
+// index lock, so no batch of the dropped pass is between its checks and its
+// write while it happens, and retires the dropped pass's issued batch: its
+// receipt is removed, so a later or waiting submission of it writes nothing.
+// A batch the new pass issues again under the same identity is the same
+// batch and stays.
+func replaceOpenOptimizationPass(root string, code *cognition.Asset, stored cognitionoptimization.StoredCheckpoint, create cognitionoptimization.CreateInput) (cognitionoptimization.StoredCheckpoint, error) {
+	lock, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		return cognitionoptimization.StoredCheckpoint{}, err
+	}
+	defer func() { _ = lock.Release() }()
+	// What was judged before the lock is judged again under it: a write cut
+	// while this request waited needs its receipt to close, and a Volume that
+	// moved is not the one the new pass was planned on.
+	if pending, pendingErr := cognitiontxn.Pending(root); pendingErr != nil || len(pending) != 0 {
+		return cognitionoptimization.StoredCheckpoint{}, fmt.Errorf("cognition_optimization_transaction_pending")
+	}
+	if current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path))); readErr != nil || codebatch.BytesSHA256(current) != code.SHA256 {
+		return cognitionoptimization.StoredCheckpoint{}, fmt.Errorf("cognition_optimization_volume_moved")
+	}
+	replaced, err := cognitionoptimization.ReplaceOpen(root, stored.SHA256, create)
+	if err != nil {
+		return cognitionoptimization.StoredCheckpoint{}, err
+	}
+	if retired := stored.Checkpoint.CurrentBatchID; retired != "" && retired != create.CurrentBatchID {
+		if err := codebatch.RetireReceipt(root, retired); err != nil {
+			return cognitionoptimization.StoredCheckpoint{}, err
+		}
+	}
+	return replaced, nil
 }

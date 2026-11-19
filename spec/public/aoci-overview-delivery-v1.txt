@@ -264,9 +264,12 @@ current Entry count, and the selected ordinals. The model must echo those three
 current identity facts in its Attestation. An Attestation created for a prior
 Index, prior sequence, or prior count fails even if some ordinal answers still
 match. Selection uses the current complete sequence only: each current stratum
-chooses a target by a stable object-identity key and reports that target's
-current ordinal. This reduces unrelated target churn after nearby Entry-set
-changes without caching or consulting any historical Entry set.
+chooses its most important target (highest C in the delivered Tag), the tie
+broken by a key over the delivered scope identity and the object identity,
+and reports that target's current ordinal. A changed index therefore draws
+afresh rather than asking the same low-information Entries again, while a
+delivery and its proof, which share the identity, draw the same targets; no
+historical Entry set is cached or consulted.
 
 Object identity comparison preserves one canonical machine identity. Legacy
 Entries and Volumes Code objects may be answered with the exact delivered
@@ -468,9 +471,11 @@ proceeds as for an ordinary complete request:
 * the server can retain the delivery for its proof calls
   (`delta_retention_unavailable` otherwise): a delta is attested against the
   Challenge drawn from its own body, which only the retained delivery holds,
-  so a repository served the live-governance way (an enabled Database Volume,
-  a pending scope change, source warnings, or a body past the retention
-  budget) answers the complete scope.
+  so a repository served the live-governance way (a pending scope change,
+  source warnings, an unreadable Database Evidence tree, or a body past the
+  retention budget) answers the complete scope. An enabled Database Volume
+  is reused under a guard over the Database Baseline and Evidence files; a
+  symbolic link on that path or a file that is not regular ends the reuse.
 
 Delivery. The delta is the comparison of the current canonical object
 sequence with the base's: an object whose canonical-line digest differs is

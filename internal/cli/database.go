@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	"github.com/spf13/cobra"
@@ -63,6 +66,20 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 			}
 			if err := dbevidence.NormalizeSource(&source); err != nil {
 				return &ExitError{Code: ExitConfig, MachineCode: "database_configuration_invalid", Msg: cliMessage("database.error.configuration_invalid")}
+			}
+			// A source AOCI cannot collect from would leave the Entries already
+			// written under its id without Evidence for ever, and the whole
+			// index stopped on them; they are removed first.
+			if !dbevidence.EngineCollectable(source.Engine) {
+				count, known := databaseEntriesOfSource(root, cfg.IndexPath, source.SourceID)
+				if !known {
+					return &ExitError{Code: ExitConfig, MachineCode: "database_source_entries_unverifiable",
+						Msg: cliMessage("database.error.source_entries_unverifiable", source.SourceID)}
+				}
+				if count > 0 {
+					return &ExitError{Code: ExitConfig, MachineCode: "database_source_has_entries",
+						Msg: cliMessage("database.error.source_has_entries", source.SourceID, count)}
+				}
 			}
 			found := false
 			for index := range cfg.DatabaseSources {
@@ -267,4 +284,28 @@ func writeDatabaseJSON(cmd *cobra.Command, value any) error {
 	encoder := json.NewEncoder(cmd.OutOrStdout())
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
+}
+
+// databaseEntriesOfSource counts the Database Entries the index holds under
+// one source. A repository with no index has none; one whose index does not
+// load cannot be counted, and the caller refuses rather than guess zero.
+func databaseEntriesOfSource(root, indexPath, sourceID string) (int, bool) {
+	if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(indexPath))); os.IsNotExist(err) {
+		return 0, true
+	}
+	set, err := cognition.Load(root, indexPath)
+	if err != nil || set == nil {
+		return 0, false
+	}
+	asset := set.Volumes[cognition.ScopeDatabase]
+	if asset == nil {
+		return 0, true
+	}
+	count := 0
+	for _, object := range asset.Objects {
+		if strings.HasPrefix(object.CanonicalRef, "database://"+sourceID+"/") {
+			count++
+		}
+	}
+	return count, true
 }

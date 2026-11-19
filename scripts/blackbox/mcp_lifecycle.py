@@ -282,6 +282,24 @@ def template_entry(path):
     return f"{base}[CG5T]: F:Carries the {words} responsibility of the fixture project | R:- | A:- | S:-"
 
 
+def author_one(fx, avoid=()):
+    """Writes one Entry, for a source outside avoid, through the single-Entry
+    form: a narrowing waits for a person only once the index holds an Entry,
+    since before the first one nothing authored can be lost (2026-11)."""
+    s = Session(fx)
+    try:
+        m, _, _ = maintain(s)
+        for c in m.get("candidates") or []:
+            if c.get("path") in avoid:
+                continue
+            r = jload(text_of(s.call("aoci_update_entry", {"path": c["path"], "source_sha256": c["source_sha256"],
+                                                          "new_entry": template_entry(c["path"])}))[0])
+            return r.get("status") == "applied"
+        return False
+    finally:
+        s.close()
+
+
 def author_all(fx, max_rounds=30):
     """Template-author every Code candidate until aligned. Returns (ok, rounds, detail)."""
     for rnd in range(1, max_rounds + 1):
@@ -665,6 +683,7 @@ def suite_bringup_sensitive_name_rules(rep, work):
     ok = rc != 0 and result.get("ok") is False and "v3" in blob and stored == "v1"
     rep.rec(g, "repo-a.sensitive-name-rules.config-set-refuses-a-third-value", "PASS" if ok else "FAIL",
             f"rc={rc} stored={stored} | {' '.join(blob.split())[:120]}")
+    author_one(old, avoid={"conf/prod.env", "config/api-credentials.yaml"})
     rc, result, _, _ = cli(old, "config", "set", "sensitive_name_rules", "v2", expect_ok=False)
     rc_v, v, _, _ = cli(old, "verify", expect_ok=False)
     scope = (v.get("governance") or {}).get("managed_scope") or {}
@@ -1548,6 +1567,7 @@ def suite_governance(rep, work):
     # 事后排除 = 覆盖缩减, auto 必须被挡 (防 agent 私自收缩认知面)
     fx = deploy("a", work, "gov-blocked")
     init_and_scan(fx, curation_exclude=None)
+    author_one(fx, avoid=set(CURATION_EXCLUDE["a"].split(",")))
     cli(fx, "config", "set", "curation_exclude", CURATION_EXCLUDE["a"])
     cs = os.path.join(work, "gov-cs.json")
     open(cs, "w", encoding="utf-8").write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')

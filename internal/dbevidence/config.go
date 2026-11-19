@@ -70,8 +70,8 @@ func NormalizeSource(source *SourceConfig) error {
 	if !sourceIDPattern.MatchString(source.SourceID) {
 		return fmt.Errorf("source_id must match %s and be a logical non-secret name", sourceIDPattern)
 	}
-	if !supportedEngine(source.Engine) {
-		return fmt.Errorf("engine must be postgresql, mysql, opengauss, or sqlite")
+	if !supportedEngine(source.Engine) && source.Engine != EngineMongoDB {
+		return fmt.Errorf("engine must be postgresql, mysql, opengauss, sqlite, or mongodb")
 	}
 	if source.Engine == EngineSQLite {
 		if source.Database != "" || source.CredentialEnv != "" {
@@ -131,6 +131,9 @@ func NormalizeSource(source *SourceConfig) error {
 				return fmt.Errorf("mysql namespace must equal the configured database in v1")
 			}
 		}
+	}
+	if source.Engine == EngineMongoDB && (len(source.Namespaces) != 1 || source.Namespaces[0] != source.Database) {
+		return fmt.Errorf("mongodb namespace must equal the configured database")
 	}
 	if source.Engine == EngineSQLite && (len(source.Namespaces) != 1 || source.Namespaces[0] != "main") {
 		return fmt.Errorf("sqlite namespace must be main in v1")

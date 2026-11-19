@@ -2806,7 +2806,11 @@ def group_p_special_names():
     root = d.replace("\\", "/")
     headers = (f"==={NEUTRAL_ROOT}/===" in volume and root not in volume
                and all(f"==={NEUTRAL_ROOT}/{sub}/===" in volume for sub in ("src/deep dir", "app/(home)", "pkg/max=", "pages/docs")))
-    resolved = all(f"object_ref=code:{rel}]" in body for rel in sources) and "Not indexed" not in body
+    # An identity holding "]", a quote, a backslash, or a control character is
+    # written as a JSON string so a reader can find where it ends (2026-11).
+    def wire(ref):
+        return json.dumps(ref, ensure_ascii=False) if any(c in ref for c in ']"\\') or any(ord(c) < 32 for c in ref) else ref
+    resolved = all(f"object_ref={wire('code:' + rel)}] " in body for rel in sources) and "Not indexed" not in body
     # A clone or a CI checkout has the same bytes under another absolute root, and
     # every header above records this one. The copy must verify aligned as well.
     moved = os.path.join(WORK, "fx-special-names-checkout")
