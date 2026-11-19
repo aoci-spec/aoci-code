@@ -25,6 +25,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
   delivery. After a server restart a v1 cursor still returns its Chunk, but a
   confirmation needs a fresh request in the new process. Present since the chunked
   delivery was introduced; found by the project's own reviewers.
+- The delta base and the probe pass are each Host session's own. Two MCP
+  sessions of one server shared them, so a session that had received no body
+  could be answered an empty delta marked reliable on the strength of the
+  other session's delivery and probe; it now gets the complete scope with
+  `delta_base_unknown`. A stdio server has one session and is unaffected.
+  Found by the project's own reviewers.
 - The runtime rules and the AGENTS block said that one object, Tag, or F
   mismatch fails the Attestation. The rule has long been the pass share: at
   least 80 percent of the ordinals fully correct with at most one object

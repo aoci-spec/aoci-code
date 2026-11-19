@@ -525,6 +525,11 @@ asks for after alignment is computed from the last reliable sequence and
 covers everything since. Pending Recovery and an incoherent snapshot fail
 closed without a body, as for a complete request.
 
+Host sessions. The base and the probe pass belong to the Host session that
+earned them. Another MCP session of the same server holds no base until its
+own complete delivery is attested, and its `delta_since` request answers the
+complete scope with `delta_base_unknown`.
+
 Boundaries. Incremental delivery establishes no initial cognition and
 answers no context-compaction reload: both remain the complete chain, and
 the Host rules of this contract and of the repository's agent instructions

@@ -120,7 +120,7 @@ func handleVolumeOverview(
 			} else {
 				probeResult = gradeCognitionProbe(input.ProbeAnswers, view.ScopeIdentity, assessment.Receipt.RefreshGeneration, sequence)
 				if probeResult != nil && probeResult.Result == probeResultPass {
-					refreshSession.noteProbePass(view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
+					refreshSession.noteProbePass(owner, view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
 				}
 			}
 		}
@@ -208,9 +208,9 @@ func handleVolumeOverview(
 	fallbackReason := ""
 	contentBytes := volumeScopeBytes(view)
 	if fresh && input.DeltaSince != "" {
-		fallbackReason = refreshSession.deltaFallbackReason(input.DeltaSince, view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
+		fallbackReason = refreshSession.deltaFallbackReason(owner, input.DeltaSince, view.ScopeIdentity, assessment.Receipt.RefreshGeneration)
 		if fallbackReason == "" {
-			base := refreshSession.deltaBase
+			base := refreshSession.deltaBases[owner]
 			plan := computeOverviewDelta(base, anchor)
 			switch {
 			case plan.exceedsShare(len(anchor.Objects)):

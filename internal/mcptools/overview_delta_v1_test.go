@@ -13,6 +13,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
@@ -449,5 +450,64 @@ func TestOverviewDeltaDeliversOnlyWhatChangedSinceTheAttestedBase(t *testing.T) 
 		if !result.IsError || !strings.Contains(resText(t, result), "overview_delta_since_invalid_combination") {
 			t.Fatalf("%s: the combination was served: %s", name, resText(t, result)[:200])
 		}
+	}
+}
+
+// Two Host sessions of one server share its refresh state, but the delta
+// base and the probe pass are each session's own: a session that received no
+// body holds no base, and another session's probe proves nothing about it.
+func TestDeltaBaseAndProbeBelongToOneHostSession(t *testing.T) {
+	root, _ := deltaVolumesFixture(t, 10)
+	session := newCognitionRefreshSession()
+	full := resText(t, sessionOverview(t, root, session, "first", overviewIn{Scope: cognition.ScopeAll}))
+	identity := overviewMetadataValue(t, full, "index_sha256")
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	view, err := loaded.set.Scope(cognition.ScopeAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, sequence, err := buildVolumeOverviewBody(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
+	report := completeAttestation(buildOverviewChallenge(view.ScopeIdentity, sequence), view.ObjectCount, volumeScopeBytes(view)/3)
+	encoded, err := json.Marshal(map[string]any{"scope": cognition.ScopeAll, "model_cognition_attestation": attestationMap(t, report),
+		"host_delivery_confirmation": map[string]any{"version": overviewDeliveryReceiptV1, "body_sha256": framed.Receipt.BodySHA256,
+			"body_bytes": framed.Receipt.BodyUTF8Bytes, "end_marker_observed": true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var proof overviewIn
+	if err := json.Unmarshal(encoded, &proof); err != nil {
+		t.Fatal(err)
+	}
+	if out := resText(t, sessionOverview(t, root, session, "first", proof)); !strings.Contains(out, "model_full_cognition_reliable: true") {
+		t.Fatalf("the first session's proof must anchor its base:\n%s", out)
+	}
+	reason := func(owner string) string {
+		t.Helper()
+		out := resText(t, sessionOverview(t, root, session, owner, overviewIn{Scope: cognition.ScopeAll, DeltaSince: identity}))
+		return overviewMetadataValue(t, out, "fallback_reason")
+	}
+	if got := reason("first"); got != machinecontract.OverviewFallbackDeltaProbeRequired {
+		t.Fatalf("the session that holds the base only lacks a probe pass: %s", got)
+	}
+	if got := reason("second"); got != machinecontract.OverviewFallbackDeltaBaseUnknown {
+		t.Fatalf("a session that received no body holds no base: %s", got)
+	}
+
+	first, second := volumeDeliveryOwner{direct: "first"}, volumeDeliveryOwner{direct: "second"}
+	generation := session.generation
+	session.anchorDeltaBase(second, session.deltaBases[first])
+	session.noteProbePass(first, identity, generation)
+	if got := session.deltaFallbackReason(second, identity, identity, generation); got != machinecontract.OverviewFallbackDeltaProbeRequired {
+		t.Fatalf("another session's probe pass counted: %q", got)
+	}
+	if got := session.deltaFallbackReason(first, identity, identity, generation); got != "" {
+		t.Fatalf("the session's own base and probe pass must serve a delta: %q", got)
 	}
 }

@@ -62,14 +62,24 @@ type cognitionRefreshSession struct {
 	// generation in which this process last sent the complete authoring
 	// contract on a Maintain response (maintain_contract.go).
 	authoringContracts map[string]int
-	// deltaBase and the probe pass belong to incremental delivery (L5): the
+	// deltaBases and probePasses belong to incremental delivery (L5): the
 	// base a delta is computed from and the machine proof that the Host still
-	// holds it (overview_delta_v1.go).
-	deltaBase           *overviewDeltaBase
-	probePassed         bool
-	probePassIdentity   string
-	probePassGeneration int
+	// holds it, each kept per Host session, since a session that received no
+	// body holds no base and passed no probe (overview_delta_v1.go).
+	deltaBases  map[volumeDeliveryOwner]*overviewDeltaBase
+	probePasses map[volumeDeliveryOwner]probePass
 }
+
+// probePass is one Host session's passing probe: the index identity and the
+// refresh generation it was graded under.
+type probePass struct {
+	identity   string
+	generation int
+}
+
+// deltaOwnerMax bounds the per-Host-session delta memory. Past it the memory
+// starts over: a session without a base asks for the complete scope.
+const deltaOwnerMax = 64
 
 // overviewDeliveryEvidence is the half of evidence that has arrived in this session for one body. The attestation keeps
 // the raw model report rather than a score: scoring depends on delivery completeness, and when the other half arrives it is re-scored

@@ -265,18 +265,22 @@ func buildDeltaChallenge(scopeIdentity string, full, delta []overviewChallengeTa
 	}
 }
 
-// noteProbePass remembers a passing probe over one index identity and
-// generation: the machine proof that the Host still holds the base. The
-// caller holds session.mu.
-func (session *cognitionRefreshSession) noteProbePass(identity string, generation int) {
-	session.probePassIdentity, session.probePassGeneration, session.probePassed = identity, generation, true
+// noteProbePass remembers a Host session's passing probe over one index
+// identity and generation: the machine proof that this Host still holds the
+// base. The caller holds session.mu.
+func (session *cognitionRefreshSession) noteProbePass(owner volumeDeliveryOwner, identity string, generation int) {
+	if session.probePasses == nil || (len(session.probePasses) >= deltaOwnerMax && session.probePasses[owner] == (probePass{})) {
+		session.probePasses = map[volumeDeliveryOwner]probePass{}
+	}
+	session.probePasses[owner] = probePass{identity: identity, generation: generation}
 }
 
-// deltaFallbackReason names why a delta_since request answers the complete
-// scope, or returns "" when the delta may be served. The caller holds
-// session.mu.
-func (session *cognitionRefreshSession) deltaFallbackReason(since, identity string, generation int) string {
-	base := session.deltaBase
+// deltaFallbackReason names why a Host session's delta_since request answers
+// the complete scope, or returns "" when the delta may be served. The caller
+// holds session.mu.
+func (session *cognitionRefreshSession) deltaFallbackReason(owner volumeDeliveryOwner, since, identity string, generation int) string {
+	base := session.deltaBases[owner]
+	passed, probed := session.probePasses[owner]
 	switch {
 	case base == nil || base.ScopeIdentity != since:
 		return machinecontract.OverviewFallbackDeltaBaseUnknown
@@ -284,22 +288,25 @@ func (session *cognitionRefreshSession) deltaFallbackReason(since, identity stri
 		return machinecontract.OverviewFallbackDeltaBaseUnreliable
 	case session.compactionPending():
 		return machinecontract.OverviewFallbackDeltaCompactionPending
-	case !session.probePassed || session.probePassIdentity != identity || session.probePassGeneration != generation:
+	case !probed || passed.identity != identity || passed.generation != generation:
 		return machinecontract.OverviewFallbackDeltaProbeRequired
 	}
 	return ""
 }
 
-// anchorDeltaBase moves the base to the current sequence at the session's
-// current generation. The caller holds session.mu.
-func (session *cognitionRefreshSession) anchorDeltaBase(current *overviewDeltaBase) {
+// anchorDeltaBase moves a Host session's base to the current sequence at the
+// session's current generation. The caller holds session.mu.
+func (session *cognitionRefreshSession) anchorDeltaBase(owner volumeDeliveryOwner, current *overviewDeltaBase) {
 	if current == nil {
 		return
 	}
 	anchored := *current
 	anchored.Objects = append([]deltaObjectDigest{}, current.Objects...)
 	anchored.Generation = session.generation
-	session.deltaBase = &anchored
+	if session.deltaBases == nil || (len(session.deltaBases) >= deltaOwnerMax && session.deltaBases[owner] == nil) {
+		session.deltaBases = map[volumeDeliveryOwner]*overviewDeltaBase{}
+	}
+	session.deltaBases[owner] = &anchored
 }
 
 // settleDeltaBase applies one scored proof to the base: a passing Attestation
@@ -314,14 +321,14 @@ func (session *cognitionRefreshSession) settleDeltaBase(ctx overviewRenderContex
 	pass := attestation.ModelAttestation == modelAttestationPass && ctx.Assessment.Semantic.GovernanceAligned
 	if ctx.Delta != nil {
 		if pass {
-			session.anchorDeltaBase(ctx.Anchor)
+			session.anchorDeltaBase(ctx.Owner, ctx.Anchor)
 		} else if attestation.ModelAttestation != modelAttestationPass {
-			session.deltaBase = nil
+			delete(session.deltaBases, ctx.Owner)
 		}
 		return
 	}
 	if pass && ctx.EffectiveScope == cognition.ScopeAll {
-		session.anchorDeltaBase(ctx.Anchor)
+		session.anchorDeltaBase(ctx.Owner, ctx.Anchor)
 	}
 }
 
