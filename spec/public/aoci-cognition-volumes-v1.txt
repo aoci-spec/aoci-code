@@ -431,8 +431,17 @@ A blocked Maintain names its blocker in next_action. When
 orphan_remove_candidates holds a Database orphan the value is
 explicit_orphan_remove_or_resolve_blocker; otherwise it is the first of
 close_pending_recovery, scan_to_establish_baseline, activate_scope_change,
-and resolve_cognition_budget whose finding is present, and resolve_blocker
-when none is. Observe-only blocking uses review_observed_evidence as defined
+resolve_cognition_budget, and restore_formal_assets_from_one_commit whose
+finding is present, and resolve_blocker when none is. The last of those
+names an object Volume the Baseline records with other bytes, which is what
+a merge of two branches that each maintained the index leaves when one
+side's Baseline is taken alone: its `*_volume_unbaselined` finding carries
+`cause=changed_after_baseline`, and next_commands carries one
+`git -C <root> checkout {commit} -- <Root> <Meta> <enabled Volumes>
+.aoci/baseline.json`, where `{commit}` is the Host's to fill with the side
+whose index is kept (HEAD or MERGE_HEAD while the merge is open, a parent of
+the merge commit after it). The next Maintain returns every source that
+commit's Entries do not describe. Observe-only blocking uses review_observed_evidence as defined
 above, superseding the earlier acknowledge_observed_evidence spelling. A Host
 acting on the token alone never removes orphans that the result did not list.
 

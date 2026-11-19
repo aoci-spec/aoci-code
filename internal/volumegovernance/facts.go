@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -574,9 +575,10 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 				SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
 			})
 		case !matched:
+			cause, action := volumeUnbaselined(root, asset.Descriptor.Path, state)
 			facts.Findings = append(facts.Findings, Finding{
 				Code: "database_volume_unbaselined", Domain: cognition.ScopeDatabase, Target: asset.Descriptor.Path,
-				SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, state),
+				Cause: cause, SafeRepairAction: action,
 			})
 		}
 	} else {
@@ -798,9 +800,10 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 			SafeRepairAction: "restore LF line endings in this Volume, or set \"* text=auto eol=lf\" in .gitattributes and check the file out again",
 		})
 	case !matched:
+		cause, action := volumeUnbaselined(root, asset.Descriptor.Path, baselineState)
 		facts.Findings = append(facts.Findings, Finding{
 			Code: "code_volume_unbaselined", Domain: cognition.ScopeCode, Target: asset.Descriptor.Path,
-			SafeRepairAction: volumeUnbaselinedRepairAction(root, asset.Descriptor.Path, baselineState),
+			Cause: cause, SafeRepairAction: action,
 		})
 	}
 }
@@ -903,15 +906,57 @@ func assessFormalAsset(
 // first names the Scope Change, Locale switch, or Observe review the restored
 // Baseline needs.
 func volumeUnbaselinedRepairAction(root, rel string, state *baseline.Baseline) string {
+	_, action := volumeUnbaselined(root, rel, state)
+	return action
+}
+
+// CauseVolumeChangedAfterBaseline is the cause of a *_volume_unbaselined
+// finding whose Volume the Baseline records with other bytes: the one case
+// the restore-from-one-commit repair applies to.
+const CauseVolumeChangedAfterBaseline = "changed_after_baseline"
+
+// volumeUnbaselined answers the cause token and the repair sentence together,
+// so the two can never name different causes.
+func volumeUnbaselined(root, rel string, state *baseline.Baseline) (string, string) {
 	if state != nil {
 		if _, recorded := state.Files[rel]; recorded {
-			return "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Root, every Volume, and .aoci/baseline.json together from one commit, then run aoci_maintain: after any Scope Change, Locale switch, or Observe review it names first, it returns every source or table that commit's Entries do not describe"
+			return CauseVolumeChangedAfterBaseline, "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Root, every Volume, and .aoci/baseline.json together from one commit, then run aoci_maintain: after any Scope Change, Locale switch, or Observe review it names first, it returns every source or table that commit's Entries do not describe"
 		}
 	}
 	if ignored, _ := afs.PathIgnoredByGit(root, rel); ignored {
-		return "this Volume is hidden from Git, so scan never recorded it; remove the ignore rule covering it and run scan again"
+		return "hidden_from_git", "this Volume is hidden from Git, so scan never recorded it; remove the ignore rule covering it and run scan again"
 	}
-	return "this Volume has no Baseline record; run scan on a repository where the Volume is visible to Git"
+	return "no_baseline_record", "this Volume has no Baseline record; run scan on a repository where the Volume is visible to Git"
+}
+
+// RestoreSet lists what the restore-from-one-commit repair restores together
+// when a recorded object Volume no longer matches its Baseline record: the
+// Root, the Meta, every enabled object Volume, and the Baseline. It is empty
+// when no finding calls for that repair.
+func (facts *Facts) RestoreSet() []string {
+	if facts == nil {
+		return nil
+	}
+	needed := false
+	for _, finding := range facts.Findings {
+		if strings.HasSuffix(finding.Code, "_volume_unbaselined") && finding.Cause == CauseVolumeChangedAfterBaseline {
+			needed = true
+		}
+	}
+	if !needed {
+		return nil
+	}
+	paths := []string{}
+	for index, asset := range []AssetState{facts.Root, facts.Meta, facts.Code, facts.Database} {
+		// A domain the Root does not enable has a registered path and no file.
+		if index >= 2 && !asset.Enabled {
+			continue
+		}
+		if asset.Path != "" && !slices.Contains(paths, asset.Path) {
+			paths = append(paths, asset.Path)
+		}
+	}
+	return append(paths, ".aoci/baseline.json")
 }
 
 func assessDatabase(root string, cfg *config.Config, facts *Facts) {

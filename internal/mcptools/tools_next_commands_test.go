@@ -130,3 +130,45 @@ func TestBlockedNextActionNamesTheActualBlocker(t *testing.T) {
 		t.Fatalf("no facts must still answer a non-orphan token, got %q", got)
 	}
 }
+
+// A Volume a merge left unlike its Baseline record is the blocker, whatever
+// authoring findings precede it, and its repair is one git command over the
+// formal assets the Root enables.
+func TestMergedVolumeStopNamesTheRestore(t *testing.T) {
+	root := t.TempDir()
+	facts := &volumegovernance.Facts{}
+	facts.Root.Path, facts.Meta.Path = "aoci.txt", "aoci.meta.txt"
+	facts.Code = volumegovernance.AssetState{Enabled: true, Path: "aoci.code.txt"}
+	facts.Database = volumegovernance.AssetState{Path: "aoci.database.txt"}
+	facts.Findings = []volumegovernance.Finding{
+		{Code: "code_missing", Target: "pkg/a.go"},
+		{Code: "code_volume_unbaselined", Target: "aoci.code.txt", Cause: volumegovernance.CauseVolumeChangedAfterBaseline},
+	}
+	if code, action := blockingFinding(facts, nil); code != "code_volume_unbaselined" || action != machinecontract.MaintainActionRestoreFormalAssets {
+		t.Fatalf("the merged Volume must be the named blocker: %s %s", code, action)
+	}
+	commands := blockedNextCommands(root, facts)
+	if len(commands) != 1 || !strings.HasPrefix(commands[0], "git -C ") ||
+		!strings.Contains(commands[0], " "+machinecontract.RemediationGitRestoreFormalAssets+" ") ||
+		strings.Contains(commands[0], "aoci.database.txt") {
+		t.Fatalf("restore command wrong: %v", commands)
+	}
+	for _, asset := range []string{"aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"} {
+		if !strings.Contains(commands[0], asset) {
+			t.Fatalf("the restore must name %s: %s", asset, commands[0])
+		}
+	}
+	// An enabled Database Volume is restored with the rest.
+	facts.Database.Enabled = true
+	if commands = blockedNextCommands(root, facts); len(commands) != 1 || !strings.Contains(commands[0], "aoci.database.txt") {
+		t.Fatalf("an enabled Database Volume belongs to the set: %v", commands)
+	}
+	// A Volume Git hides needs scan, not a restore: nothing is offered.
+	facts.Findings[1].Cause = "hidden_from_git"
+	if code, action := blockingFinding(facts, nil); action != machinecontract.MaintainActionResolveBlocker || code != "code_missing" {
+		t.Fatalf("a hidden Volume is not the restore stop: %s %s", code, action)
+	}
+	if commands = blockedNextCommands(root, facts); commands != nil {
+		t.Fatalf("no restore for a hidden Volume: %v", commands)
+	}
+}

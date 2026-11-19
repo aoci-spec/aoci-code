@@ -724,6 +724,15 @@ func blockingFinding(facts *volumegovernance.Facts, orphans []string) (string, s
 			return step.code, step.action
 		}
 	}
+	// A Volume a merge left unlike its Baseline record: authoring findings
+	// usually precede it in the list, and none of them is the blocker.
+	if facts != nil && len(facts.RestoreSet()) > 0 {
+		for _, finding := range facts.Findings {
+			if strings.HasSuffix(finding.Code, "_volume_unbaselined") && finding.Cause == volumegovernance.CauseVolumeChangedAfterBaseline {
+				return finding.Code, machinecontract.MaintainActionRestoreFormalAssets
+			}
+		}
+	}
 	if facts != nil && len(facts.Findings) > 0 {
 		return facts.Findings[0].Code, machinecontract.MaintainActionResolveBlocker
 	}

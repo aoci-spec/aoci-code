@@ -25,6 +25,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
   delivery. After a server restart a v1 cursor still returns its Chunk, but a
   confirmation needs a fresh request in the new process. Present since the chunked
   delivery was introduced; found by the project's own reviewers.
+- A merge of two branches that each maintained the index now has a named way
+  out. Taking one side's `.aoci/baseline.json` alone left
+  `code_volume_unbaselined`, and the blocked Maintain answered
+  `resolve_blocker` with no command, naming an authoring finding as the
+  blocker. It now answers `restore_formal_assets_from_one_commit`, the finding
+  carries `cause=changed_after_baseline`, and `next_commands` holds the one
+  `git checkout {commit} -- <Root> <Meta> <Volumes> .aoci/baseline.json` for
+  this repository; after it, Maintain returns what the other side changed.
+  The Guide's stop names the same. No new command; troubleshooting documents
+  the merge. Reported by aoci-agent.
 - The delta base and the probe pass are each Host session's own. Two MCP
   sessions of one server shared them, so a session that had received no body
   could be answered an empty delta marked reliable on the strength of the

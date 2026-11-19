@@ -71,6 +71,12 @@ func EvolutionNarrativeTerms() []string {
 // {agent}, {policy_file}, and {source} are host-filled placeholders, the same
 // convention the Guide has always used for --reviewed-by {agent}.
 const (
+	// RemediationGitRestoreFormalAssets is the one remediation that is a git
+	// command: `git -C <root> checkout {commit} -- <formal assets>`. {commit}
+	// is host-filled with the side whose index is kept: HEAD or MERGE_HEAD
+	// while a merge is open, a parent of the merge commit after it.
+	RemediationGitRestoreFormalAssets = "checkout {commit} --"
+
 	RemediationCommandScan                  = "scan"
 	RemediationCommandScopeStatus           = "scope status --json"
 	RemediationCommandScopeActivate         = "scope activate --json"

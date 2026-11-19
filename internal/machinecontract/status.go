@@ -29,6 +29,10 @@ const (
 	MaintainActionAcknowledgeObserved     = "acknowledge_observed_evidence"
 	MaintainActionResolveCognitionBudget  = "resolve_cognition_budget"
 	MaintainActionResolveBlocker          = "resolve_blocker"
+	// MaintainActionRestoreFormalAssets names the stop a merge leaves: an
+	// object Volume the Baseline records with other bytes. The Root, every
+	// Volume, and the Baseline are restored together from one commit.
+	MaintainActionRestoreFormalAssets = "restore_formal_assets_from_one_commit"
 )
 
 // ActionReviewObservedEvidence continues evidence review while authoring writes

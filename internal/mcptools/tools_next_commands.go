@@ -114,7 +114,32 @@ func blockedNextCommands(root string, facts *volumegovernance.Facts) []string {
 			}
 		}
 	}
-	return composeNextCommands(prefix, suffixes...)
+	return append(restoreFormalAssetsCommand(root, facts), composeNextCommands(prefix, suffixes...)...)
+}
+
+// restoreFormalAssetsCommand spells the repair of a Volume a merge left
+// unbaselined: the Root, every Volume, and the Baseline checked out together
+// from one commit the Host names. The no-argument Maintain that follows is
+// already the tool the caller is holding. An unquotable root or path omits the
+// command, as everywhere here.
+func restoreFormalAssetsCommand(root string, facts *volumegovernance.Facts) []string {
+	paths := facts.RestoreSet()
+	if len(paths) == 0 {
+		return nil
+	}
+	quotedRoot, ok := quoteCommandArgument(root)
+	if !ok || nextCommandPrefix() == "" {
+		return nil
+	}
+	command := "git -C " + quotedRoot + " " + machinecontract.RemediationGitRestoreFormalAssets
+	for _, path := range paths {
+		quoted, ok := quoteCommandArgument(path)
+		if !ok {
+			return nil
+		}
+		command += " " + quoted
+	}
+	return []string{command}
 }
 
 // evidenceNextCommands names the offline-evidence refresh chain for a stopped

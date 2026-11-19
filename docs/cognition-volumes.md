@@ -407,8 +407,10 @@ returned) are the Host's to fill. The field is optional and advisory:
 blocker there: `explicit_orphan_remove_or_resolve_blocker` only when
 `orphan_remove_candidates` lists a Database orphan, otherwise
 `close_pending_recovery`, `scan_to_establish_baseline`,
-`activate_scope_change`, `resolve_cognition_budget`, or `resolve_blocker`, in
-that precedence. Observe-only blocking uses the review action described below;
+`activate_scope_change`, `resolve_cognition_budget`,
+`restore_formal_assets_from_one_commit`, or `resolve_blocker`, in that
+precedence. The restore action is what a merge leaves; see
+[After merging two branches that both maintained the index](troubleshooting.md#after-merging-two-branches-that-both-maintained-the-index). Observe-only blocking uses the review action described below;
 it supersedes the earlier `acknowledge_observed_evidence` spelling.
 
 When pending observations are the only blocker, the Guide returns

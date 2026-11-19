@@ -327,6 +327,21 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 		}
 	}
 	locale := textassets.ActiveLocale()
+	// A Volume a merge left unlike its Baseline record: the stop names the
+	// file, and the finding's own sentence is the way out. Harder stops below
+	// replace it.
+	for _, finding := range facts.Findings {
+		if strings.HasSuffix(finding.Code, "_volume_unbaselined") && finding.Cause == volumegovernance.CauseVolumeChangedAfterBaseline {
+			guide.Stop = &volumeGuideStopFacts{
+				AffectedAsset: finding.Target, Field: "baseline", RuleCode: finding.Code,
+				Expected: "volume_matches_baseline_record", Actual: "volume=" + finding.Cause,
+				Cause:          finding.Cause,
+				SafeNextAction: "git checkout {commit} -- " + strings.Join(facts.RestoreSet(), " ") + "; " + finding.SafeRepairAction,
+			}
+			guide.Instructions = append(guide.Instructions, guide.Stop.SafeNextAction)
+			break
+		}
+	}
 	if baselineMissing {
 		instructions := renderGuideLines(locale, textassets.ContractGuideBaselineFirstInstructions, nil)
 		guide.Commands.Scan = "aoci " + machinecontract.RemediationCommandScan

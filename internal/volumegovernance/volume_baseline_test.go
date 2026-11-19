@@ -111,6 +111,12 @@ func TestUnbaselinedVolumeNamesWhichOfTwoCausesItIs(t *testing.T) {
 	if action := volumeUnbaselinedRepairAction(root, "volume.txt", recorded); !strings.Contains(action, "bytes changed") {
 		t.Fatalf("a recorded-but-moved Volume must be reported as byte drift, got %q", action)
 	}
+	if cause, _ := volumeUnbaselined(root, "volume.txt", recorded); cause != CauseVolumeChangedAfterBaseline {
+		t.Fatalf("a recorded-but-moved Volume carries the restore cause, got %q", cause)
+	}
+	if cause, _ := volumeUnbaselined(root, "volume.txt", baseline.NewBaseline(map[string]baseline.Fingerprint{})); cause == CauseVolumeChangedAfterBaseline {
+		t.Fatal("a Volume the Baseline never recorded is not the restore case")
+	}
 
 	// Cause 2: never recorded, because Git hides it.
 	excludePath := filepath.Join(root, ".git", "info", "exclude")

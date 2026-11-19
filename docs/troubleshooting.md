@@ -160,6 +160,32 @@ path-based deletion fix in commit `6b4f0cc` addresses the original refusal
 (#117). Use an official release containing that fix when available; manually
 deleting lines from a formal Volume can instead create this Baseline drift.
 
+## After merging two branches that both maintained the index
+
+Both branches wrote Entries, so `.aoci/baseline.json` conflicts and often a
+Volume does too. Keep one side's index whole and let Maintain re-issue the
+rest; never resolve the two files by hand or take them from different sides.
+
+While the merge is open, take the Root, the Meta, every Volume, and the
+Baseline from the same side (`HEAD` is the branch you are on, `MERGE_HEAD` the
+one being merged):
+
+```bash
+git checkout MERGE_HEAD -- aoci.txt aoci.meta.txt aoci.code.txt .aoci/baseline.json
+```
+
+Then run `aoci_maintain`. It returns every source the kept side's Entries do
+not describe (what the other branch changed or added), and the batch aligns
+the repository. Add `aoci.database.txt` when the Root enables a Database
+Volume.
+
+If only one of the files was taken, Maintain stops with
+`next_action=restore_formal_assets_from_one_commit`, the
+`code_volume_unbaselined` finding carries `cause=changed_after_baseline`, and
+`next_commands` holds that same `git checkout {commit} -- ...` with the exact
+paths of this repository; fill `{commit}` and run it. After the merge was
+committed, `{commit}` is a parent of the merge commit (`HEAD^1` or `HEAD^2`).
+
 ## A Volume shows as `observed_removed`, and nothing can acknowledge it
 
 Through rc22 a Managed Scope rule could match a formal asset. A rule that gave
