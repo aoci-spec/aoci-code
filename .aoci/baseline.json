@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-19T18:14:34Z",
+  "updated_at": "2026-11-19T18:46:37Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "8b47bf7e4273f362abf67762b724426a8669c6156952961e1eb4076fd2707103",
-      "size": 238974,
-      "normalized_sha256": "8b47bf7e4273f362abf67762b724426a8669c6156952961e1eb4076fd2707103"
+      "sha256": "3b41eee12e344bbbafb0c6907bd70bb81a8899d697d9e515056928dd220c2fbb",
+      "size": 239001,
+      "normalized_sha256": "3b41eee12e344bbbafb0c6907bd70bb81a8899d697d9e515056928dd220c2fbb"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3322,18 +3322,18 @@
     },
     "internal/dbevidence/collector_sqlite.go": {
       "role": "index",
-      "sha256": "bf3e5085c43c69522250d2201063421acf549e14491302c8152e12488c1cc7da",
-      "size": 12782,
-      "normalized_sha256": "bf3e5085c43c69522250d2201063421acf549e14491302c8152e12488c1cc7da",
-      "format_sha256": "bf3e5085c43c69522250d2201063421acf549e14491302c8152e12488c1cc7da",
+      "sha256": "176e1803fbc953d02056bef7116e830aeed052277757b804c71165150bce4755",
+      "size": 12984,
+      "normalized_sha256": "176e1803fbc953d02056bef7116e830aeed052277757b804c71165150bce4755",
+      "format_sha256": "176e1803fbc953d02056bef7116e830aeed052277757b804c71165150bce4755",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector_sqlite_test.go": {
       "role": "observe",
-      "sha256": "e5af73cd309d351b57ca9641bba4d66b294fd5527f89e837f43f48db1e709f71",
-      "size": 12953,
-      "normalized_sha256": "e5af73cd309d351b57ca9641bba4d66b294fd5527f89e837f43f48db1e709f71",
-      "format_sha256": "e5af73cd309d351b57ca9641bba4d66b294fd5527f89e837f43f48db1e709f71",
+      "sha256": "02d10c9964d382c5252fd2f2404a393a770e20ffc8f298b63a588594d22beb91",
+      "size": 14136,
+      "normalized_sha256": "02d10c9964d382c5252fd2f2404a393a770e20ffc8f298b63a588594d22beb91",
+      "format_sha256": "02d10c9964d382c5252fd2f2404a393a770e20ffc8f298b63a588594d22beb91",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/collector_test.go": {
@@ -7210,9 +7210,9 @@
     },
     "spec/public/aoci-database-evidence-v1.txt": {
       "role": "index",
-      "sha256": "c0aba4a0976ddb0d3bb914d554c8900bda1169a5993b5ee6bac4e8d04f11c0ef",
-      "size": 18377,
-      "normalized_sha256": "c0aba4a0976ddb0d3bb914d554c8900bda1169a5993b5ee6bac4e8d04f11c0ef"
+      "sha256": "4a302afc11d8530f56fe0302bda23906107cd86264a094aab87560d116ba111f",
+      "size": 18674,
+      "normalized_sha256": "4a302afc11d8530f56fe0302bda23906107cd86264a094aab87560d116ba111f"
     },
     "spec/public/aoci-database-table-fras-v1.txt": {
       "role": "index",

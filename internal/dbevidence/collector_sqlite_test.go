@@ -157,6 +157,7 @@ func TestSQLiteUnsupportedCatalogFailsClosed(t *testing.T) {
 		"partial":         `CREATE TABLE bad (id INTEGER); CREATE INDEX part ON bad (id) WHERE id > 1;`,
 		"generated":       `CREATE TABLE bad (id INTEGER, derived INTEGER GENERATED ALWAYS AS (id+1));`,
 		"check":           `CREATE TABLE bad (id INTEGER CHECK(id > 0));`,
+		"BOM check":       "CREATE TABLE bad (id INTEGER \uFEFFCHECK(id > 0));",
 		"collation":       `CREATE TABLE bad (id TEXT COLLATE NOCASE);`,
 		"index collation": `CREATE TABLE bad (id TEXT); CREATE INDEX coll ON bad(id COLLATE NOCASE);`,
 		"deferred":        `CREATE TABLE bad (id INTEGER REFERENCES bad(id) DEFERRABLE INITIALLY DEFERRED);`,
@@ -194,6 +195,35 @@ CREATE TABLE excluded (id INT CHECK(id > 0));`)
 		if table.Columns[0].Nullable != nullable {
 			t.Fatalf("%s: nullability=%t", name, table.Columns[0].Nullable)
 		}
+	}
+}
+
+func TestSQLiteUnicodeIdentifiersDoNotSelectDDLFeatures(t *testing.T) {
+	for _, name := range []string{
+		"\u540dCHECK", "\u540dDEFERRABLE", "\u540dCOLLATE", "\u540dCONFLICT", "\u540dAUTOINCREMENT",
+		"confl\u0131ct", "auto\u0131ncrement",
+	} {
+		t.Run(name, func(t *testing.T) {
+			root, source := sqliteFixture(t, "CREATE TABLE "+name+" (id INTEGER PRIMARY KEY, "+name+"_value TEXT);")
+			_, snapshot, files, err := NewCollectorAtRoot(root).Snapshot(context.Background(), source)
+			if err != nil || len(snapshot.Tables) != 1 {
+				t.Fatalf("ordinary Unicode identifier rejected: %v %+v", err, snapshot)
+			}
+			objectRef, err := CanonicalObjectRef(source.SourceID, "main", name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var table TableEvidence
+			if err := decodeStrict(files[objectRef], &table); err != nil {
+				t.Fatal(err)
+			}
+			if table.Name != name || len(table.Columns) != 2 || table.Columns[1].Name != name+"_value" {
+				t.Fatalf("identifier changed in Evidence: %+v", table)
+			}
+			if table.Columns[0].AutoIncrement {
+				t.Fatal("identifier suffix enabled AUTOINCREMENT")
+			}
+		})
 	}
 }
 

@@ -120,9 +120,9 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 			return "", nil, wrapCatalogQuery("definition", err)
 		}
 		tokens := sqliteDDLTokens(ddl)
-		for _, unsupported := range []string{"CHECK", "DEFERRABLE", "COLLATE", "CONFLICT"} {
+		for _, unsupported := range []string{"check", "deferrable", "collate", "conflict"} {
 			if tokens[unsupported] {
-				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + strings.ToLower(unsupported), object: item.name}
+				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + unsupported, object: item.name}
 			}
 		}
 		if err := sqliteColumns(ctx, tx, &table); err != nil {
@@ -142,7 +142,7 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 				column := &table.Columns[i]
 				if !indexed && column.Name == table.PrimaryKey.Columns[0] && strings.EqualFold(column.NativeType, "INTEGER") {
 					column.Nullable = false
-					column.AutoIncrement = tokens["AUTOINCREMENT"]
+					column.AutoIncrement = tokens["autoincrement"]
 				}
 			}
 		}
@@ -365,10 +365,13 @@ func sqliteAffinity(native string) string {
 
 // This is only a conservative feature guard, never a DDL-to-Evidence parser.
 // Ignore literals, quoted names and comments so their text cannot name features.
+// SQLite identifiers may start with non-ASCII bytes; case folding is ASCII-only.
 func sqliteDDLTokens(ddl string) map[string]bool {
 	tokens := map[string]bool{}
 	for i := 0; i < len(ddl); {
 		switch {
+		case strings.HasPrefix(ddl[i:], "\uFEFF"):
+			i += len("\uFEFF") // SQLite treats a token-leading UTF-8 BOM as whitespace.
 		case ddl[i] == '\'' || ddl[i] == '"' || ddl[i] == '`' || ddl[i] == '[':
 			end := ddl[i]
 			if end == '[' {
@@ -394,12 +397,12 @@ func sqliteDDLTokens(ddl string) map[string]bool {
 			} else {
 				i = len(ddl)
 			}
-		case ddl[i] >= 'a' && ddl[i] <= 'z' || ddl[i] >= 'A' && ddl[i] <= 'Z' || ddl[i] == '_':
+		case ddl[i] >= 'a' && ddl[i] <= 'z' || ddl[i] >= 'A' && ddl[i] <= 'Z' || ddl[i] == '_' || ddl[i] >= 128:
 			start := i
 			for i < len(ddl) && (ddl[i] >= 'a' && ddl[i] <= 'z' || ddl[i] >= 'A' && ddl[i] <= 'Z' || ddl[i] >= '0' && ddl[i] <= '9' || ddl[i] == '_' || ddl[i] == '$' || ddl[i] >= 128) {
 				i++
 			}
-			tokens[strings.ToUpper(ddl[start:i])] = true
+			tokens[sqliteFold(ddl[start:i])] = true
 		default:
 			i++
 		}
