@@ -15,7 +15,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -196,7 +195,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
 	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.set, refreshSession, includeInstructions), refreshSession)
+			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
 			if result.volumeMoved {
 				if attempt >= maintainReloadAttempts {
 					return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
@@ -312,7 +311,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		// had nothing to author against. The invariant lives here rather than in
 		// one arm so no future arm can repeat that.
 		affected := candidateDomains(result.Candidates)
-		contract, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, affected, textassets.ActiveLocale())
+		contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, affected)
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}

@@ -2,10 +2,11 @@
 
 Status: a proposal from issue #135, written up by dayebishouji (#166), pending
 implementation and real-engine acceptance. It records the collection profile
-for the implementation steps that would follow and is not a public runtime
-contract: nothing under `spec/public` changes until an implementation lands
-with it, and the current Database Evidence v1 implementation accepts table
-objects only and does not accept a `mongodb` source.
+for the implementation steps that follow. The implemented source declaration
+is documented in Database Evidence v1 under `spec/public`; this collection
+profile remains a proposal pending the collector and real-engine acceptance.
+The current binary accepts `mongodb` declarations and reports
+`engine_not_implemented` for access and collection.
 
 ## 1. Authority and implementation boundary
 
@@ -31,9 +32,9 @@ connect, and team configuration never stores a URI or credential value.
 The access implementation must support mongodb:// and mongodb+srv:// and
 reject options that disable certificate or host-identity validation. Timeout,
 cancellation, credential-redaction, and explicit Baseline acceptance
-requirements apply as they do to existing sources. The declaration step must
-define how existing namespace and table selectors map to database and
-collection selection before accepting those selectors.
+requirements apply as they do to existing sources. The implemented declaration
+binds one namespace equal to the configured database. Namespace filters select
+that database, and table filters represent future collection selection.
 
 The runtime account needs listCollections and listIndexes for the selected
 database. Documentation must provide a custom catalog-only role rather than

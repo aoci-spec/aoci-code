@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -169,7 +170,7 @@ func overviewObjectLineOffset(content string, lineNumber int, expectedLine strin
 
 func buildOverviewChallenge(indexSHA256 string, targets []overviewChallengeTarget) overviewChallenge {
 	entrySequenceSHA256 := overviewEntrySequenceSHA256(targets)
-	ordinals := stratifiedChallengeOrdinals(targets)
+	ordinals := stratifiedChallengeOrdinals(indexSHA256, targets)
 	byOrdinal := make(map[int]overviewChallengeTarget, len(ordinals))
 	for _, ordinal := range ordinals {
 		target := targets[ordinal-1]
@@ -210,10 +211,14 @@ func overviewEntrySequenceSHA256(targets []overviewChallengeTarget) string {
 }
 
 // stratifiedChallengeOrdinals selects one object from every current-sequence
-// stratum. The per-object key keeps unaffected targets stable across nearby
-// Entry additions or removals, while the returned ordinal is always its
-// position in the newly delivered sequence.
-func stratifiedChallengeOrdinals(targets []overviewChallengeTarget) []int {
+// stratum: the most important one there (highest C), the tie broken by a key
+// salted with the delivered identity. A Challenge that drew the same
+// low-information Entries from every delivery of a slightly changed index
+// tested little (scipy first build, A4); the salt changes the draw with the
+// cognition while a delivery and its proof, which share the identity, still
+// draw the same questions. The ordinal is always the position in the newly
+// delivered sequence.
+func stratifiedChallengeOrdinals(salt string, targets []overviewChallengeTarget) []int {
 	entryCount := len(targets)
 	if entryCount <= 0 {
 		return nil
@@ -230,12 +235,13 @@ func stratifiedChallengeOrdinals(targets []overviewChallengeTarget) []int {
 			end = start
 		}
 		selected := start
-		selectedKey := overviewChallengeSelectionKey(targets[start-1])
+		selectedImportance := overviewChallengeImportance(targets[start-1])
+		selectedKey := overviewChallengeSelectionKey(salt, targets[start-1])
 		for ordinal := start + 1; ordinal <= end; ordinal++ {
-			candidateKey := overviewChallengeSelectionKey(targets[ordinal-1])
-			if candidateKey < selectedKey {
-				selected = ordinal
-				selectedKey = candidateKey
+			importance := overviewChallengeImportance(targets[ordinal-1])
+			candidateKey := overviewChallengeSelectionKey(salt, targets[ordinal-1])
+			if importance > selectedImportance || (importance == selectedImportance && candidateKey < selectedKey) {
+				selected, selectedImportance, selectedKey = ordinal, importance, candidateKey
 			}
 		}
 		ordinals = append(ordinals, selected)
@@ -243,9 +249,19 @@ func stratifiedChallengeOrdinals(targets []overviewChallengeTarget) []int {
 	return ordinals
 }
 
-func overviewChallengeSelectionKey(target overviewChallengeTarget) string {
-	digest := sha256.Sum256([]byte(overviewChallengeVersion + "\x00" + target.ObjectIdentity))
+func overviewChallengeSelectionKey(salt string, target overviewChallengeTarget) string {
+	digest := sha256.Sum256([]byte(overviewChallengeVersion + "\x00" + salt + "\x00" + target.ObjectIdentity))
 	return hex.EncodeToString(digest[:])
+}
+
+// overviewChallengeImportance reads C from the delivered tag; a tag that does
+// not parse ranks lowest, so it is drawn only from a stratum of its own kind.
+func overviewChallengeImportance(target overviewChallengeTarget) int {
+	value, err := strconv.Atoi(index.ParseTags(target.Tag)["C"])
+	if err != nil || value < 1 || value > 9 {
+		return 0
+	}
+	return value
 }
 
 func assessOverviewAttestation(

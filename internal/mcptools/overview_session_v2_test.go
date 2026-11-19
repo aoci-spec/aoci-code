@@ -209,7 +209,7 @@ func TestOverviewV2GuardBindsInitialSnapshotAndObserveBytes(t *testing.T) {
 	if fail != nil {
 		t.Fatal(fail)
 	}
-	guard := newOverviewSourceGuard(loaded, metadata, state)
+	guard := newOverviewSourceGuard(root, loaded, metadata, state)
 	if guard == nil || guard.validate(root, loaded) != nil {
 		t.Fatal("aligned snapshot not reusable")
 	}
@@ -369,14 +369,57 @@ func TestOverviewV2CompactionConsumesGenerationAfterPartialProof(t *testing.T) {
 	}
 }
 
-func TestOverviewV2FallbackForDatabaseTimeDependentGovernance(t *testing.T) {
+// A repository with a Database Volume reuses a delivery as any other does:
+// Database governance reads only files, the accepted Database Baseline and
+// the Evidence tree, and the guard binds them, so a changed Evidence file or
+// Database Baseline stops the reuse and nothing else does.
+func TestOverviewV2ReusesDatabaseRepositoriesUnderAnEvidenceGuard(t *testing.T) {
 	root := buildVolumeRepo(t, true, true)
 	result := sessionOverview(t, root, newCognitionRefreshSession(), "host", overviewIn{})
 	if result.IsError {
 		t.Fatal(resText(t, result))
 	}
-	if work := workCounters(t, result); work != (overviewWork{GovernanceEvals: 2, BodyBuilds: 1}) {
-		t.Fatalf("database bypassed live governance: %+v", work)
+	if work := workCounters(t, result); work != (overviewWork{GovernanceEvals: 1, BodyBuilds: 1}) {
+		t.Fatalf("a Database repository still bypasses the reuse guard: %+v", work)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail)
+	}
+	metadata, err := deliveryMetadata(root, loaded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, state, fail := inspectVolumeGovernanceWithSnapshot(root, loaded)
+	if fail != nil {
+		t.Fatal(fail)
+	}
+	guard := newOverviewSourceGuard(root, loaded, metadata, state)
+	if guard == nil || guard.database == "" || guard.validate(root, loaded) != nil {
+		t.Fatal("an aligned Database repository is not reusable")
+	}
+	for _, rel := range []string{".aoci/database/evidence/primary/source.json", ".aoci/database-baseline.json"} {
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		before, readErr := os.ReadFile(path)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(before, []byte("\n")...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if guard.validate(root, loaded) == nil {
+			t.Fatalf("a changed %s did not stop the reuse", rel)
+		}
+		if readErr == nil {
+			if err := os.WriteFile(path, before, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		if guard.validate(root, loaded) != nil {
+			t.Fatalf("restoring %s did not restore the reuse", rel)
+		}
 	}
 }
 
@@ -558,7 +601,7 @@ func TestOverviewV2ManagedExistingUnsafeBoundaries(t *testing.T) {
 			if state.Legacy {
 				t.Fatal("test must cover Managed Scope")
 			}
-			guard := newOverviewSourceGuard(loaded, metadata, state)
+			guard := newOverviewSourceGuard(root, loaded, metadata, state)
 			if guard == nil {
 				t.Fatal("supported snapshot rejected")
 			}

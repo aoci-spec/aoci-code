@@ -32,6 +32,13 @@ func Assess(root string, sources []dbevidence.SourceConfig, set *cognition.Set, 
 	evidenceBlockingSource := false
 	evidence := map[string]Item{}
 	for _, source := range orderedSources {
+		// A declaration AOCI cannot collect from owes nothing whether it is
+		// enabled or not; an Entry under it still blocks below.
+		if !dbevidence.EngineCollectable(source.Engine) {
+			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionEngineNotImplemented
+			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: machinecontract.DatabaseCognitionEngineNotImplemented})
+			continue
+		}
 		if !source.Enabled {
 			sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionSourceDisabled
 			blockingSources++
@@ -183,11 +190,12 @@ func assessAbsentVolume(root string, sources []dbevidence.SourceConfig, result *
 	for _, source := range ordered {
 		state := SourceState{SourceID: source.SourceID}
 		switch {
+		case !dbevidence.EngineCollectable(source.Engine):
+			// Enabled or not, a source AOCI cannot collect from owes nothing.
+			state.State = machinecontract.DatabaseCognitionEngineNotImplemented
 		case !source.Enabled:
 			state.State = machinecontract.DatabaseCognitionSourceDisabled
 			state.ErrorCode = "database_source_disabled"
-		case !dbevidence.EngineCollectable(source.Engine):
-			state.State = machinecontract.DatabaseCognitionEngineNotImplemented
 		case acceptedErr != nil:
 			state.State = machinecontract.DatabaseCognitionEvidenceInvalid
 			state.ErrorCode = "database_evidence_baseline_invalid"

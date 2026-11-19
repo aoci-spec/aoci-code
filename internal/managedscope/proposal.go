@@ -64,6 +64,12 @@ func BuildProposal(evaluation *Evaluation, profile string, highRiskExactCount in
 	byDirectory := map[string]*counts{}
 	add := func(values []PathEvaluation, role string) {
 		for _, value := range values {
+			// What Git ignores is no part of the repository a person is
+			// deciding about: a build or install tree there would crowd the
+			// directories that are (scipy first build, B5).
+			if value.GitStatus == "ignored" {
+				continue
+			}
 			directory := path.Dir(value.Path)
 			if directory == "." {
 				directory = "./"
