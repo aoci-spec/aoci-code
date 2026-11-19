@@ -361,6 +361,7 @@
   "database.error.source_object": "数据库source %s未能完成只读元数据操作（error_code=%s，operation=%s，object=%s）；凭证和端点细节已隐藏。",
   "database.error.source_exists": "数据库source %s已存在；显式更新请使用--replace。",
   "database.error.source_has_entries": "数据源 %s 下仍有 %d 条数据库条目；换成 AOCI 无法采集的引擎会让它们永远没有 Evidence。请先移除这些条目（数据源的表离开 Evidence 后它们会成为孤儿），再替换数据源",
+  "database.error.source_entries_unverifiable": "数据源 %s：索引无法加载，数不出它下面的数据库条目；请先修复索引（aoci verify 会指出问题），再声明 AOCI 无法采集的引擎",
   "database.error.source_not_found": "请求的数据库source尚未配置。",
   "database.error.source_required": "用 --source <id> 指明 source；已声明的 source：%s",
   "database.error.source_required_none": "还没有声明任何数据库 source；先用 aoci database source add 添加，再用 --source <id> 指明",

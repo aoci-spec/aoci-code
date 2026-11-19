@@ -474,7 +474,8 @@ proceeds as for an ordinary complete request:
   so a repository served the live-governance way (a pending scope change,
   source warnings, an unreadable Database Evidence tree, or a body past the
   retention budget) answers the complete scope. An enabled Database Volume
-  is reused under a guard over the Database Baseline and Evidence files.
+  is reused under a guard over the Database Baseline and Evidence files; a
+  symbolic link on that path or a file that is not regular ends the reuse.
 
 Delivery. The delta is the comparison of the current canonical object
 sequence with the base's: an object whose canonical-line digest differs is

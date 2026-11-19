@@ -125,3 +125,34 @@ func TestMongoDBOnlyRepositoryOwesNoEvidenceBaseline(t *testing.T) {
 		}
 	}
 }
+
+// Without a Database Volume a disabled MongoDB declaration owes nothing:
+// it is never reported as a disabled source owing Evidence.
+func TestDisabledMongoDBDeclarationWithoutVolumeKeepsGovernanceAligned(t *testing.T) {
+	root, cfg := alignedFixture(t, true, false)
+	cfg.DatabaseSources = []dbevidence.SourceConfig{{SourceID: "parked", Engine: dbevidence.EngineMongoDB,
+		Database: "app", CredentialEnv: "AOCI_DB_APP_URI", Enabled: false}}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := Assess(root, cfg, set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range facts.Findings {
+		if finding.Code == "source_disabled" || finding.Code == "database_source_disabled" {
+			t.Fatalf("a disabled MongoDB declaration was reported as owing: %+v", facts.Findings)
+		}
+	}
+	if !facts.GovernanceAligned {
+		t.Fatalf("a disabled MongoDB declaration broke alignment: %+v", facts.Findings)
+	}
+}

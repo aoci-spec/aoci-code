@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -69,7 +71,12 @@ func newDatabaseSourceAddCmd() *cobra.Command {
 			// written under its id without Evidence for ever, and the whole
 			// index stopped on them; they are removed first.
 			if !dbevidence.EngineCollectable(source.Engine) {
-				if count := databaseEntriesOfSource(root, cfg.IndexPath, source.SourceID); count > 0 {
+				count, known := databaseEntriesOfSource(root, cfg.IndexPath, source.SourceID)
+				if !known {
+					return &ExitError{Code: ExitConfig, MachineCode: "database_source_entries_unverifiable",
+						Msg: cliMessage("database.error.source_entries_unverifiable", source.SourceID)}
+				}
+				if count > 0 {
 					return &ExitError{Code: ExitConfig, MachineCode: "database_source_has_entries",
 						Msg: cliMessage("database.error.source_has_entries", source.SourceID, count)}
 				}
@@ -280,16 +287,19 @@ func writeDatabaseJSON(cmd *cobra.Command, value any) error {
 }
 
 // databaseEntriesOfSource counts the Database Entries the index holds under
-// one source; an index that does not load counts none, and the save is then
-// judged by the governance that reads it next.
-func databaseEntriesOfSource(root, indexPath, sourceID string) int {
+// one source. A repository with no index has none; one whose index does not
+// load cannot be counted, and the caller refuses rather than guess zero.
+func databaseEntriesOfSource(root, indexPath, sourceID string) (int, bool) {
+	if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(indexPath))); os.IsNotExist(err) {
+		return 0, true
+	}
 	set, err := cognition.Load(root, indexPath)
 	if err != nil || set == nil {
-		return 0
+		return 0, false
 	}
 	asset := set.Volumes[cognition.ScopeDatabase]
 	if asset == nil {
-		return 0
+		return 0, true
 	}
 	count := 0
 	for _, object := range asset.Objects {
@@ -297,5 +307,5 @@ func databaseEntriesOfSource(root, indexPath, sourceID string) int {
 			count++
 		}
 	}
-	return count
+	return count, true
 }

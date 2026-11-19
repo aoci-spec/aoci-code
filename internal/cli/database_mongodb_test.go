@@ -80,3 +80,29 @@ func TestReplacingASourceWithEntriesByMongoDBIsRefused(t *testing.T) {
 		t.Fatalf("the refused replacement changed the configuration: %v", err)
 	}
 }
+
+// An index that does not load cannot be counted: a declaration AOCI cannot
+// collect from is refused rather than assumed to strand no Entry.
+func TestMongoDBDeclarationOverAnUnloadableIndexIsRefused(t *testing.T) {
+	root := cognitionSystemCLIRepo(t)
+	rootPath := filepath.Join(root, "aoci.txt")
+	data, err := os.ReadFile(rootPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(rootPath, []byte(strings.Replace(string(data), "#AOCI-ROOT-MANIFEST: 1", "#AOCI-ROOT-MANIFEST: broken", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(config.FilePath(root))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runCLI(t, root, "--json", "database", "source", "add", "--source-id", "primary", "--engine", "mongodb",
+		"--database-name", "public", "--credential-env", "AOCI_DB_APP_URI")
+	if code == ExitOK || !strings.Contains(stdout+stderr, "database_source_entries_unverifiable") {
+		t.Fatalf("a declaration over an unloadable index was saved: exit=%d %s %s", code, stdout, stderr)
+	}
+	if after, _ := os.ReadFile(config.FilePath(root)); string(after) != string(before) {
+		t.Fatal("the refused declaration changed the configuration")
+	}
+}

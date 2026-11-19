@@ -63,8 +63,17 @@ func overviewDatabaseEvidenceDigest(root string) (string, bool) {
 		fmt.Fprintf(hash, "%s\x00%x\n", rel, digest)
 		return true
 	}
-	if baselinePath := dbevidence.BaselinePath(root); fileExists(baselinePath) {
-		if !writeFile(".aoci/database-baseline.json", baselinePath) {
+	// Governance follows no link on the Evidence path and the guard must read
+	// exactly what it reads: a link, or any file that is not regular, ends
+	// the reuse instead of being skipped or opened (a FIFO would block).
+	for _, rel := range []string{".aoci", ".aoci/database", ".aoci/database/evidence", ".aoci/database-baseline.json"} {
+		if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(rel))); err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return "", false
+		}
+	}
+	baselinePath := dbevidence.BaselinePath(root)
+	if info, err := os.Lstat(baselinePath); err == nil {
+		if !info.Mode().IsRegular() || !writeFile(".aoci/database-baseline.json", baselinePath) {
 			return "", false
 		}
 	}
@@ -80,6 +89,9 @@ func overviewDatabaseEvidenceDigest(root string) (string, bool) {
 			if entry.IsDir() {
 				return nil
 			}
+			if !entry.Type().IsRegular() {
+				return fmt.Errorf("overview_database_evidence_not_regular")
+			}
 			rel, relErr := filepath.Rel(root, path)
 			if relErr != nil || !writeFile(filepath.ToSlash(rel), path) {
 				return fmt.Errorf("overview_database_evidence_unreadable")
@@ -91,11 +103,6 @@ func overviewDatabaseEvidenceDigest(root string) (string, bool) {
 		}
 	}
 	return hex.EncodeToString(hash.Sum(nil)), true
-}
-
-func fileExists(path string) bool {
-	info, err := os.Lstat(path)
-	return err == nil && info.Mode().IsRegular()
 }
 
 func overviewConfigIdentity(cfg *config.Config) string {
