@@ -173,6 +173,10 @@ type overviewRenderContext struct {
 	// Attestation per delivered body so the two may arrive in separate calls
 	// in either order; nil keeps rendering a pure function of the input.
 	Session *cognitionRefreshSession
+	// Transport is the Host session's own refresh state: how far this process
+	// has sent each body. Session may be a retained delivery's private
+	// evidence memory, which a later delivery of the same body does not share.
+	Transport *cognitionRefreshSession
 	// Prepared is immutable. Pure render callers may omit it; a delivery session
 	// supplies it to reuse the exact frame, canonical sequence and chunk plan.
 	Prepared      *preparedOverview
@@ -244,6 +248,15 @@ type overviewRendered struct {
 	Attestation overviewAttestationResult
 }
 
+// transport is the session that remembers what this process sent; a context
+// built without one (the engine's export, a test) falls back to Session.
+func (ctx overviewRenderContext) transport() *cognitionRefreshSession {
+	if ctx.Transport != nil {
+		return ctx.Transport
+	}
+	return ctx.Session
+}
+
 // renderOverviewDelivery chooses the only two body delivery forms: one full
 // response for a small body, or a deterministic Entry-boundary chunk chain.
 // Attestation reuses the same body identity but never retransmits cognition.
@@ -270,6 +283,13 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		// A fresh complete delivery attempt takes its own evidence; the previous
 		// attempt's confirmation does not vouch for this transmission.
 		ctx.Session.resetDeliveryEvidence(framed.Receipt.BodySHA256)
+	}
+	if hostStatus == hostDeliveryConfirmed && !ctx.transport().deliveryServed(framed.Receipt.BodySHA256) {
+		// The body hash is printed on the first Chunk and an unchanged index
+		// has the hash it had before, so a matching confirmation proves a
+		// copy, not a transport. It counts only once this process has sent
+		// the body to its end since the last fresh request for it.
+		hostStatus = hostDeliveryIncomplete
 	}
 	// The two proof halves each bind this exact body, so the half missing from
 	// this call may be the one an earlier call already delivered.
@@ -324,6 +344,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		output := metadata + "\n" + framed.Text + renderOverviewCognitionLevelMessage(level)
 		facts.OutputBytes = len(output)
 		facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, 1, 1, true
+		ctx.transport().noteDeliveryProgress(framed.Receipt.BodySHA256, true, 1, 1)
 		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 	}
 
@@ -345,6 +366,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
 	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
+	ctx.transport().noteDeliveryProgress(framed.Receipt.BodySHA256, input.Cursor == "", position.Index, position.Count)
 	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 }
 

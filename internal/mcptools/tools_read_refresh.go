@@ -44,6 +44,10 @@ type cognitionRefreshSession struct {
 	// submitting both in one call. A brand-new complete delivery (carrying neither field, no cursor) resets that
 	// body's evidence, so every delivery attempt still collects its own proof.
 	deliveryEvidence map[string]*overviewDeliveryEvidence
+	// deliveryProgress remembers, per body, how far this process has sent it
+	// since the last fresh request: a Host confirmation counts only for a
+	// body sent to its end (noteDeliveryProgress, deliveryServed).
+	deliveryProgress map[string]*overviewDeliveryProgress
 	// compactionAttempt, capacity, chains, and chainOrder belong to the
 	// Host-capacity loop breaker and the delivery chain IDs the Ledger
 	// carries (overview_capacity.go).
@@ -728,6 +732,56 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 		report = evidence.attestation
 	}
 	return hostStatus, report
+}
+
+// overviewDeliveryProgress is one body's transport state in this process: the
+// highest Chunk sent in order since the last fresh request, and its count.
+type overviewDeliveryProgress struct {
+	sent, count int
+	fresh       bool
+}
+
+// noteDeliveryProgress records a Chunk this process just sent. A fresh request
+// restarts the body at Chunk 1; a continuation advances only by the next
+// Chunk in order, so replaying a later Chunk of an earlier chain does not
+// finish this one. A continuation of a body this process never started (a v1
+// cursor carried across a server restart) is counted from where it arrives,
+// as that chain was before the restart. The caller holds session.mu.
+func (session *cognitionRefreshSession) noteDeliveryProgress(bodySHA256 string, fresh bool, index, count int) {
+	if session == nil || bodySHA256 == "" {
+		return
+	}
+	if session.deliveryProgress == nil {
+		session.deliveryProgress = map[string]*overviewDeliveryProgress{}
+	}
+	progress := session.deliveryProgress[bodySHA256]
+	switch {
+	case fresh:
+		session.deliveryProgress[bodySHA256] = &overviewDeliveryProgress{sent: index, count: count, fresh: true}
+	case progress == nil:
+		session.deliveryProgress[bodySHA256] = &overviewDeliveryProgress{sent: index, count: count}
+	case index == progress.sent+1:
+		progress.sent, progress.count = index, count
+	}
+	for len(session.deliveryProgress) > 64 {
+		for key := range session.deliveryProgress {
+			if key != bodySHA256 {
+				delete(session.deliveryProgress, key)
+				break
+			}
+		}
+	}
+}
+
+// deliveryServed reports whether this process has sent that body to its end
+// since the last fresh request for it. A nil session has no transport to
+// remember and answers true, as a caller without one always did.
+func (session *cognitionRefreshSession) deliveryServed(bodySHA256 string) bool {
+	if session == nil {
+		return true
+	}
+	progress := session.deliveryProgress[bodySHA256]
+	return progress != nil && progress.count > 0 && progress.sent >= progress.count
 }
 
 // resetDeliveryEvidence discards the old evidence of that body when a brand-new complete delivery starts:

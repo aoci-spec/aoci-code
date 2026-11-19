@@ -257,7 +257,7 @@ func handleVolumeOverview(
 		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
 		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
-		Session: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
+		Session: refreshSession, Transport: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
 		Delta: deltaFacts, DeltaChallenge: deltaChallenge, Anchor: anchor, FallbackReason: fallbackReason,
 	}
 	var entry *volumeDelivery

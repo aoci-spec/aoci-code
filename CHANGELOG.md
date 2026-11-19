@@ -4,6 +4,21 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A compaction reload can no longer be proven without being read. The Host
+  confirmation echoes a SHA-256 that the first Chunk prints, and an unchanged
+  index has the SHA-256 it had before: fetch Chunk 1 of the reload, submit the
+  previous delivery's proof again, and the answer was confirmed, complete, and
+  reliable. On a Legacy layout a session that requested no delivery at all
+  got the same. A confirmation now counts only for a body the serving process
+  has sent to its end since the last fresh request for it, a later Chunk
+  replayed from an earlier chain does not finish the current one, and anything
+  else is `host_delivery_incomplete`; the Host finishes the chain and confirms
+  again. Present since the chunked delivery was introduced; found by the
+  project's own reviewers.
+- The runtime rules and the AGENTS block said that one object, Tag, or F
+  mismatch fails the Attestation. The rule has long been the pass share: at
+  least 80 percent of the ordinals fully correct with at most one object
+  identity miss. Both now say so, in both locales.
 - The model's other self-reported numbers decide nothing either:
   `coverage_percent`, `reported_entry_count`, and `reported_estimated_tokens`.
   Coverage was a self-assessment with a threshold of 95 behind it; the Entry

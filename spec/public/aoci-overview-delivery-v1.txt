@@ -156,6 +156,18 @@ different facts. Host delivery becomes confirmed only when the Host reports
 the matching Receipt version, aggregate body SHA-256, byte count, and observed
 end marker. Any missing or mismatched field is incomplete.
 
+A matching confirmation proves a copy, not a transport: the SHA-256 is printed
+on the first Chunk, and an unchanged Index has the SHA-256 it had before. The
+confirmation therefore counts only for a body the serving process has sent to
+its end since the last fresh request for it. A fresh request restarts that
+body at Chunk 1 and a continuation advances it only by the next Chunk in
+order, so a later Chunk replayed from an earlier chain does not finish the
+current one. A confirmation for a body not yet sent to its end is incomplete;
+the Host finishes the chain by its `next_cursor` and confirms again. The
+progress lives in the serving process: after a server restart a continuation
+is counted from where it arrives, and a proof with no delivery from that
+process is incomplete, on a Legacy layout as on Volumes.
+
 The Host requests each Chunk in its own tool call, assembles every Chunk in
 order, verifies each Chunk Receipt and the aggregate body, and observes the
 final marker before confirming delivery. A missing, duplicate, or reordered
