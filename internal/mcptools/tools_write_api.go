@@ -394,7 +394,9 @@ func registerWriteTools(
 				if in.RootOverview != nil {
 					if len(in.Entries) > 0 || len(in.Removals) > 0 || in.ObserveReview != nil || in.Path != "" || in.ObjectRef != "" ||
 						in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" || in.BatchID != "" || in.CodeBatchID != "" {
-						return failResult(&Fail{Code: errBadArgs, Msg: "root_overview_stands_alone"})
+						// Refused before anything was read: every root_overview
+						// response still states that nothing was recovered or written.
+						return rootOverviewProgressFields(failResult(&Fail{Code: errBadArgs, Msg: "root_overview_stands_alone"}), rootOverviewProgress{})
 					}
 					return handleRootOverviewUpdate(root, mcpServiceVersion, *in.RootOverview, refreshSession)
 				}

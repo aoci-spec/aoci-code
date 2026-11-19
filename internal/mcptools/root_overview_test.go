@@ -495,7 +495,7 @@ func TestNoRootOverviewInvitationWhenTheRootLeftItsBaselineRecord(t *testing.T) 
 // Every root_overview response states what the call did to the transaction,
 // and a call that finished an earlier write and then wrote its own says both.
 func TestRootOverviewResponsesStateTheirProgress(t *testing.T) {
-	root, session := deltaVolumesFixture(t, 3)
+	_, session := deltaVolumesFixture(t, 3)
 	sha := rootInvite(t, session)["root_sha256"].(string)
 	first := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
 	if first["root_overview_recovered"] != false || first["root_overview_formal_writes"] != true || first["formal_writes_started"] != true {
@@ -510,7 +510,7 @@ func TestRootOverviewResponsesStateTheirProgress(t *testing.T) {
 		t.Fatalf("a refusal that wrote nothing says so: %v", refused)
 	}
 
-	root, session = deltaVolumesFixture(t, 3)
+	root, session := deltaVolumesFixture(t, 3)
 	cutRootOverview(t, root, session)
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
@@ -542,5 +542,48 @@ func TestRootOverviewReportsAWriteWhoseCASFailedLate(t *testing.T) {
 	late := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
 	if late["status"] != autoStatusStopped || late["formal_writes_started"] != true || late["root_overview_formal_writes"] != true || !rootReceiptPending(root) {
 		t.Fatalf("a write whose CAS failed after the exchange must be reported: %v", late)
+	}
+}
+
+// A write another writer got ahead of is refused by the CAS before anything
+// is replaced, and the stopped result claims no formal write.
+func TestRootOverviewClaimsNoWriteWhenTheCASRefuses(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	sha := rootInvite(t, session)["root_sha256"].(string)
+	rootPath := filepath.Join(root, "aoci.txt")
+	original := rootOverviewWriteCAS
+	t.Cleanup(func() { rootOverviewWriteCAS = original })
+	rootOverviewWriteCAS = func(path string, data []byte, expected string) error {
+		if path == rootPath {
+			// Another writer's bytes arrive just before the exchange.
+			if err := os.WriteFile(rootPath, []byte("#AOCI-ROOT-MANIFEST: 1\n#someone else\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return original(path, data, expected)
+	}
+	refused := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
+	if refused["status"] != autoStatusStopped || refused["formal_writes_started"] != false || refused["root_overview_formal_writes"] != false || !rootReceiptPending(root) {
+		t.Fatalf("a CAS refused before the exchange wrote nothing: %v", refused)
+	}
+	if after, _ := os.ReadFile(rootPath); !strings.Contains(string(after), "#someone else") {
+		t.Fatal("the other writer's bytes must stay")
+	}
+}
+
+// A request refused before anything is read, and a failure answered as text,
+// still state what the call did.
+func TestRootOverviewTextAnswersStateTheirProgress(t *testing.T) {
+	_, session := deltaVolumesFixture(t, 3)
+	mixed := callVolumeTool(t, session, "aoci_update_entry", map[string]any{"path": "pkg/mod000/file000.go",
+		"root_overview": map[string]any{"project": "p", "global_invariants": "g", "root_sha256": strings.Repeat("0", 64)}})
+	for _, want := range []string{"root_overview_stands_alone", "root_overview_recovered: false", "root_overview_formal_writes: false", "formal_writes_started: false"} {
+		if !strings.Contains(mixed, want) {
+			t.Fatalf("the early refusal must carry %q:\n%s", want, mixed)
+		}
+	}
+	failed := rootOverviewProgressFields(failResult(&Fail{Code: errInternal, Msg: "root_overview_ledger_completion_failed"}), rootOverviewProgress{wrote: true})
+	if text := resText(t, failed); !strings.Contains(text, "root_overview_formal_writes: true") || !strings.Contains(text, "formal_writes_started: true") {
+		t.Fatalf("a text failure after writes must say so:\n%s", text)
 	}
 }

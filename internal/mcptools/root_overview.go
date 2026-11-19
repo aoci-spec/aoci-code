@@ -431,8 +431,10 @@ func completeRootOverviewLocked(root, source string) (progress rootOverviewProgr
 			continue
 		}
 		if err := rootOverviewWriteCAS(item.path, []byte(item.image), item.pre); err != nil {
-			// A CAS that failed after its exchange still changed the file.
-			if current, readErr := os.ReadFile(item.path); readErr != nil || indexTextHash(string(current)) != item.pre {
+			// A CAS that failed after its exchange still changed the file; one
+			// refused before it (another writer's bytes were there) did not.
+			// Only the postimage in place proves this call wrote.
+			if current, readErr := os.ReadFile(item.path); readErr == nil && indexTextHash(string(current)) == item.post {
 				progress.wrote = true
 			}
 			return progress, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_write_failed"}
@@ -546,6 +548,7 @@ func rootOverviewProgressFields(result *mcp.CallToolResult, progress rootOvervie
 		content.Text = text[:len(text)-1] + appended + "}"
 		return result
 	}
-	content.Text = text + "\nroot_overview_recovered: " + flag[progress.finished] + "\nroot_overview_formal_writes: " + flag[progress.wrote]
+	content.Text = text + "\nroot_overview_recovered: " + flag[progress.finished] + "\nroot_overview_formal_writes: " + flag[progress.wrote] +
+		"\nformal_writes_started: " + flag[progress.wrote]
 	return result
 }
