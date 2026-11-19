@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `aoci_get_entries` no longer answers with another file's Entry. A request
+  was normalized before the lookup (trailing space trimmed, backslash read
+  as a separator), so asking for a real file whose name ends in a space or
+  holds a backslash returned the Entry of the file the normalized name
+  denotes, with nothing in the answer to show it. The path as sent is now
+  looked up first, and normalization serves only a path that names no other
+  file. An answer line whose identity holds `]`, a quote, a backslash, or a
+  control character writes it as a JSON string, so a reader can always find
+  where the identity ends; every other line is unchanged. Reported by an
+  embedding host.
 - A first build issues three sibling batches by default. Users reported the
   first build as the slow part, and the parallel batches that shorten it were
   off unless a team found the setting. `code_cognition_parallel_batches` now

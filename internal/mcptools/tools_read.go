@@ -21,8 +21,12 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -642,7 +646,7 @@ func handleVolumeGetEntries(root, mcpServiceVersion string, input getEntriesIn, 
 				if err != nil {
 					return errResult(errPathUnsafe, mcpMessage("mcp.entries.unsafe_path", errPathUnsafe, rawRef, localizeRelPathError(err)), mcpMessage("mcp.entries.volume_missing_input_hint"))
 				}
-				ref = "code:" + normalized
+				ref = codeEntryRef(root, asset, strings.TrimPrefix(rawRef, "code:"), normalized)
 			}
 			found := false
 			for _, object := range asset.Objects {
@@ -661,13 +665,53 @@ func handleVolumeGetEntries(root, mcpServiceVersion string, input getEntriesIn, 
 	count := 0
 	for _, object := range hits {
 		if object.Entry == nil {
-			builder.WriteString(mcpMessage("mcp.entries.object_ref_not_indexed", object.VolumeID, object.CanonicalRef))
+			builder.WriteString(mcpMessage("mcp.entries.object_ref_not_indexed", object.VolumeID, wireObjectRef(object.CanonicalRef)))
 			continue
 		}
-		builder.WriteString("[volume_id=" + object.VolumeID + " object_ref=" + object.CanonicalRef + "] " + object.Entry.FullLine + "\n")
+		builder.WriteString("[volume_id=" + object.VolumeID + " object_ref=" + wireObjectRef(object.CanonicalRef) + "] " + object.Entry.FullLine + "\n")
 		count++
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "get_entries", PathsCount: count, DurationMs: time.Since(start).Milliseconds(), Source: ledger.SourceAgent, AOCIToolCalls: 1, LocalRecalls: count})
 	return textResult(mcpMessage("mcp.entries.summary", count) + builder.String() +
 		sessionCognitionSuffix(root, mcpServiceVersion, loaded.set, refreshSession))
+}
+
+// codeEntryRef resolves a requested Code path to the identity it names. The
+// path exactly as sent comes first: a file name may end in a space or hold a
+// backslash, and such a file is its own object. Normalization (trimming,
+// backslash as separator, dot segments) only serves a request that names no
+// other file: when the path as sent is an existing file that is not the one
+// its normalized form names, the request is that file's, and it answers as
+// not indexed instead of with another file's Entry.
+func codeEntryRef(root string, asset *cognition.Asset, literal, normalized string) string {
+	if literal != normalized {
+		for _, object := range asset.Objects {
+			if object.CanonicalRef == "code:"+literal {
+				return object.CanonicalRef
+			}
+		}
+		literalInfo, literalErr := os.Lstat(filepath.Join(root, literal))
+		normalizedInfo, normalizedErr := os.Lstat(filepath.Join(root, filepath.FromSlash(normalized)))
+		if literalErr == nil && (normalizedErr != nil || !os.SameFile(literalInfo, normalizedInfo)) {
+			return "code:" + literal
+		}
+	}
+	return "code:" + normalized
+}
+
+// wireObjectRef spells an object identity in an answer line. The line is
+// "[volume_id=<v> object_ref=<ref>] <Entry>", read to the first "] ", so an
+// identity holding "]", a quote, a backslash, or a control character would
+// let a reader cut it in the wrong place; such an identity is written as a
+// JSON string, which a reader recognises by the opening quote. Every other
+// identity, which is nearly every one, is written as it always was.
+func wireObjectRef(ref string) string {
+	if !strings.ContainsAny(ref, "]\"\\") && !strings.ContainsFunc(ref, unicode.IsControl) {
+		return ref
+	}
+	quoted, err := json.Marshal(ref)
+	if err != nil {
+		return ref
+	}
+	return string(quoted)
 }
