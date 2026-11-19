@@ -194,6 +194,12 @@ If git answers `pathspec ... did not match`, the commit you named does not
 have one of the listed files (only the other branch enabled a Database
 Volume, for example). Nothing was written; name the other side.
 
+The other way round, the commit you named may enable a Volume the working
+tree's Root did not, so the command did not list it: the checkout succeeds,
+the restored Root declares that Volume, and Maintain answers
+`declared_volume_missing` naming the file. Check it out from the same commit
+(`git checkout MERGE_HEAD -- aoci.database.txt`) and run Maintain again.
+
 When both branches also accepted new Database Evidence,
 `.aoci/database-baseline.json` conflicts too and is not part of the restore.
 Resolve that file to either side's whole file (`git checkout HEAD --

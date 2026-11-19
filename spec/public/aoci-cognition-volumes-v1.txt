@@ -446,7 +446,10 @@ whose index is kept (HEAD or MERGE_HEAD while the merge is open, a parent of
 the merge commit after it). The paths are those the current Root enables: a
 commit that lacks one of them (its Root enables no Database Volume, say)
 makes git refuse the whole checkout and write nothing, and the Host names
-the other side. The next Maintain returns every source that commit's
+the other side. A commit whose Root enables a Volume the current Root does
+not restores a Root that declares a file the command did not list; the next
+Maintain answers `declared_volume_missing` naming it, and the Host checks
+that file out from the same commit. The next Maintain returns every source that commit's
 Entries do not describe. The Guide's stop carries the same command. Observe-only blocking uses review_observed_evidence as defined
 above, superseding the earlier acknowledge_observed_evidence spelling. A Host
 acting on the token alone never removes orphans that the result did not list.
