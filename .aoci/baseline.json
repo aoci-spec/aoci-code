@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-19T11:53:20Z",
+  "updated_at": "2026-11-19T12:03:28Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "5e571c16eee03663ab89be783274cc1cd9ae6890f10e5d9a9020669bb662e2ac",
-      "size": 206081,
-      "normalized_sha256": "5e571c16eee03663ab89be783274cc1cd9ae6890f10e5d9a9020669bb662e2ac"
+      "sha256": "8f9005e8aff4cce0bf43458be82755507b7e2606929ec92c9af9072b02b9afe6",
+      "size": 206188,
+      "normalized_sha256": "8f9005e8aff4cce0bf43458be82755507b7e2606929ec92c9af9072b02b9afe6"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "918b8c6c8ec05e6e1480262202e81a43328d4074af22de95970e36d7c608a291",
-      "size": 237356,
-      "normalized_sha256": "918b8c6c8ec05e6e1480262202e81a43328d4074af22de95970e36d7c608a291"
+      "sha256": "3bfcf4ef78c348240eea54b987c6061da93b08797660440723d5eb5fbce3737b",
+      "size": 237380,
+      "normalized_sha256": "3bfcf4ef78c348240eea54b987c6061da93b08797660440723d5eb5fbce3737b"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -269,9 +269,9 @@
     },
     "docs/troubleshooting.md": {
       "role": "index",
-      "sha256": "dec8b8bfd9892dd51fcf853d7ccd0df1ebe01a75a67b6f2e262dc866c8980b43",
-      "size": 43425,
-      "normalized_sha256": "dec8b8bfd9892dd51fcf853d7ccd0df1ebe01a75a67b6f2e262dc866c8980b43"
+      "sha256": "beacec14367cc5d7fc345b6fbcd8c00ddd9eb1ba22aba435df0ceba8e1248e4c",
+      "size": 43632,
+      "normalized_sha256": "beacec14367cc5d7fc345b6fbcd8c00ddd9eb1ba22aba435df0ceba8e1248e4c"
     },
     "docs/uninstall.md": {
       "role": "index",
@@ -5514,10 +5514,10 @@
     },
     "internal/mcptools/tools_maintain_volumes.go": {
       "role": "index",
-      "sha256": "b6b7eb82efb9bd02b1c72926942ba7aa4a0ff585e5918469d28b9aacd5d57780",
-      "size": 36662,
-      "normalized_sha256": "b6b7eb82efb9bd02b1c72926942ba7aa4a0ff585e5918469d28b9aacd5d57780",
-      "format_sha256": "b6b7eb82efb9bd02b1c72926942ba7aa4a0ff585e5918469d28b9aacd5d57780",
+      "sha256": "30d4cda83f13ab5bde6fd98a7da5af10de17c1dd42de948ab6d3817faff00716",
+      "size": 37105,
+      "normalized_sha256": "30d4cda83f13ab5bde6fd98a7da5af10de17c1dd42de948ab6d3817faff00716",
+      "format_sha256": "30d4cda83f13ab5bde6fd98a7da5af10de17c1dd42de948ab6d3817faff00716",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_next_commands.go": {
@@ -5530,10 +5530,10 @@
     },
     "internal/mcptools/tools_next_commands_test.go": {
       "role": "observe",
-      "sha256": "b5bcc893667272f871fae81ec17adecf5faccafd8326965ae8acd60cb3002df1",
-      "size": 11687,
-      "normalized_sha256": "b5bcc893667272f871fae81ec17adecf5faccafd8326965ae8acd60cb3002df1",
-      "format_sha256": "b5bcc893667272f871fae81ec17adecf5faccafd8326965ae8acd60cb3002df1",
+      "sha256": "7d5f7210c55c1bf709fe90bdd8d2642e726e89a1fe8ffc0c563c7fffac1ed35f",
+      "size": 13769,
+      "normalized_sha256": "7d5f7210c55c1bf709fe90bdd8d2642e726e89a1fe8ffc0c563c7fffac1ed35f",
+      "format_sha256": "7d5f7210c55c1bf709fe90bdd8d2642e726e89a1fe8ffc0c563c7fffac1ed35f",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_observe_review.go": {
@@ -6736,10 +6736,10 @@
     },
     "internal/volumegovernance/facts.go": {
       "role": "index",
-      "sha256": "ce664b96f0a0e72ab2d541fed4a0a00b8eca129fd97831692c7953f5ab7d1f73",
-      "size": 60040,
-      "normalized_sha256": "ce664b96f0a0e72ab2d541fed4a0a00b8eca129fd97831692c7953f5ab7d1f73",
-      "format_sha256": "ce664b96f0a0e72ab2d541fed4a0a00b8eca129fd97831692c7953f5ab7d1f73",
+      "sha256": "1baed7ec164f858894c35a086d463285bc15b6bf344ef0cbed4ecb663427c4bf",
+      "size": 61030,
+      "normalized_sha256": "1baed7ec164f858894c35a086d463285bc15b6bf344ef0cbed4ecb663427c4bf",
+      "format_sha256": "1baed7ec164f858894c35a086d463285bc15b6bf344ef0cbed4ecb663427c4bf",
       "format_kind": "gofmt"
     },
     "internal/volumegovernance/facts_test.go": {
@@ -6932,9 +6932,9 @@
     },
     "scripts/blackbox/mcp_scenarios.py": {
       "role": "index",
-      "sha256": "bc230c1bfa9a430bf7826947238cd8c3e512b08e067cdaf222458c33757f8603",
-      "size": 191079,
-      "normalized_sha256": "bc230c1bfa9a430bf7826947238cd8c3e512b08e067cdaf222458c33757f8603"
+      "sha256": "d60fd8a534ad8b2c23b3b526568801c88f75f9c4fe89008fc13faa7a9bffa5c5",
+      "size": 191605,
+      "normalized_sha256": "d60fd8a534ad8b2c23b3b526568801c88f75f9c4fe89008fc13faa7a9bffa5c5"
     },
     "scripts/blackbox/mcp_upgrade.py": {
       "role": "index",
@@ -7144,9 +7144,9 @@
     },
     "spec/public/aoci-cognition-volumes-v1.txt": {
       "role": "index",
-      "sha256": "e67c1888e09b5a4cac9c3c4dce3490e770f17e1b5d523ea7b6330196240de5b8",
-      "size": 51359,
-      "normalized_sha256": "e67c1888e09b5a4cac9c3c4dce3490e770f17e1b5d523ea7b6330196240de5b8"
+      "sha256": "63c0463adbac3947bc0cdddd98da048213b85fa0b972fe1fcf254acbe7c9cfec",
+      "size": 51516,
+      "normalized_sha256": "63c0463adbac3947bc0cdddd98da048213b85fa0b972fe1fcf254acbe7c9cfec"
     },
     "spec/public/aoci-config-runtime-v1.txt": {
       "role": "index",
