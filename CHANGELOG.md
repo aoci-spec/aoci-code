@@ -18,8 +18,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   delivery the session held for that scope (their v2 cursors ask for a
   restart) with the proof halves remembered for it, so neither an earlier
   confirmation nor an earlier Attestation latches onto a reload or closes its
-  attempt; a capacity stop and an empty delta send nothing and supersede
-  nothing. Two MCP sessions of one server no longer prove each other's
+  attempt; a capacity stop, an empty delta, and a refused request send
+  nothing and change nothing, and a proof or a continuation that was on its
+  way when its delivery was replaced asks for a restart. Two MCP sessions of one server no longer prove each other's
   delivery. After a server restart a v1 cursor still returns its Chunk, but a
   confirmation needs a fresh request in the new process. Present since the chunked
   delivery was introduced; found by the project's own reviewers.

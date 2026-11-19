@@ -319,6 +319,7 @@ func registerReadTools(
 					if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
 						return failResult(snapshotFail)
 					}
+					refreshSession.commitTransport(volumeOwner(request), cognitionScopeRepositoryFull, "", input, delivery.Facts)
 					refreshSession.noteDeliveryChain(&delivery, legacyFramed.Receipt.BodySHA256, fresh, true, assessment.RefreshReasons, estimatedTokens)
 					refreshSession.recordAttestedDelivery(
 						deliveredReceipt, delivery.Attestation, markDelivered,

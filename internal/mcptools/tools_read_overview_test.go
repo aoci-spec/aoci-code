@@ -22,6 +22,16 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
+// renderOverviewSent renders a response and records it as sent, as a handler
+// does once nothing can refuse the response any more.
+func renderOverviewSent(ctx overviewRenderContext, input overviewIn, chunkTokens int) (overviewRendered, error) {
+	rendered, err := renderOverviewDelivery(ctx, input, chunkTokens)
+	if err == nil {
+		ctx.transport().commitTransport(ctx.Owner, ctx.RequestedScope, ctx.DeliveryID, input, rendered.Facts)
+	}
+	return rendered, err
+}
+
 func renderLegacyOverviewForTest(
 	t *testing.T,
 	root, serviceVersion, indexText string,
@@ -31,7 +41,7 @@ func renderLegacyOverviewForTest(
 ) overviewRendered {
 	t.Helper()
 	ctx := legacyRenderContextForTest(t, root, serviceVersion, indexText, document)
-	rendered, err := renderOverviewDelivery(ctx, input, chunkTokens)
+	rendered, err := renderOverviewSent(ctx, input, chunkTokens)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -478,7 +488,7 @@ func TestOverviewChunkCursorDetectsLossAndReassemblesBody(t *testing.T) {
 		t.Fatal("chunked body did not reassemble to the aggregate receipt")
 	}
 	badCursor := identity + ":4000:1:" + strings.Repeat("0", 64)
-	_, err := renderOverviewDelivery(
+	_, err := renderOverviewSent(
 		legacyRenderContextForTest(t, root, "test", source.String(), document),
 		overviewIn{Cursor: badCursor}, 4000,
 	)
@@ -836,7 +846,7 @@ func TestOverviewChunkCursorBindsSnapshotAndConfiguration(t *testing.T) {
 	if err := json.Unmarshal([]byte(parts[0]), &receipt); err != nil || receipt.NextCursor == "" {
 		t.Fatalf("first Chunk cursor missing: err=%v receipt=%+v", err, receipt)
 	}
-	_, err := renderOverviewDelivery(
+	_, err := renderOverviewSent(
 		legacyRenderContextForTest(t, "/repo", "test", content, document),
 		overviewIn{Cursor: receipt.NextCursor}, 12000,
 	)
@@ -847,7 +857,7 @@ func TestOverviewChunkCursorBindsSnapshotAndConfiguration(t *testing.T) {
 	changed := content + "# changed snapshot\n"
 	changedDocument, _ := index.Parse(changed)
 	index.ResolveRelPaths(changedDocument, "/repo")
-	_, err = renderOverviewDelivery(
+	_, err = renderOverviewSent(
 		legacyRenderContextForTest(t, "/repo", "test", changed, changedDocument),
 		overviewIn{Cursor: receipt.NextCursor}, 20000,
 	)
@@ -882,7 +892,7 @@ func TestOverviewChunkOrderChangeFails(t *testing.T) {
 	reorderedCursor := encodeOverviewCursor(
 		ctx.ScopeIdentity, 20_000, spans[2].FirstOrdinal, firstChunkSHA,
 	)
-	_, err = renderOverviewDelivery(ctx, overviewIn{Cursor: reorderedCursor}, 20_000)
+	_, err = renderOverviewSent(ctx, overviewIn{Cursor: reorderedCursor}, 20_000)
 	if err == nil || !strings.Contains(err.Error(), "overview_cursor_chain_mismatch") {
 		t.Fatalf("reordered Chunk chain was accepted: %v", err)
 	}
@@ -892,7 +902,7 @@ func TestOverviewEntryExceedsChunkBudget(t *testing.T) {
 	content := "#AOCI-CLI Complete Index\n===Sources/repo/===\nlarge.go[IM7S]: F:large | R:- | A:- | S:" + strings.Repeat("x", 13000) + "\n"
 	document, _ := index.Parse(content)
 	index.ResolveRelPaths(document, "/repo")
-	_, err := renderOverviewDelivery(
+	_, err := renderOverviewSent(
 		legacyRenderContextForTest(t, "/repo", "test", content, document),
 		overviewIn{}, 4000,
 	)

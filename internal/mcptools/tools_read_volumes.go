@@ -260,14 +260,6 @@ func handleVolumeOverview(
 		Session: refreshSession, Transport: refreshSession, Owner: owner, LedgerEnabled: loaded.cfg.LedgerEnabled,
 		Delta: deltaFacts, DeltaChallenge: deltaChallenge, Anchor: anchor, FallbackReason: fallbackReason,
 	}
-	if fresh {
-		// From here the request is answered with a body, so it is a new
-		// transmission: every delivery this Host session still holds for the
-		// requested scope is superseded with its proof memory, and their
-		// cursors ask for a restart. A capacity stop and an empty delta
-		// return before this point: they send nothing and supersede nothing.
-		refreshSession.deliveries.supersede(owner, view.RequestedScope)
-	}
 	var entry *volumeDelivery
 	if guard != nil {
 		prepared, err := prepareOverview(renderCtx, loaded.cfg.OverviewDelivery.ChunkTokens)
@@ -285,6 +277,9 @@ func handleVolumeOverview(
 	if renderErr != nil {
 		return errResult(errBadArgs, renderErr.Error(), "")
 	}
+	if overviewRenderedHook != nil {
+		overviewRenderedHook()
+	}
 	if snapshotFail := confirmCognitionSnapshot(root, loaded.set); snapshotFail != nil {
 		return failResult(snapshotFail)
 	}
@@ -296,8 +291,7 @@ func handleVolumeOverview(
 		// retained-payload budget allows) is served the original live way: the
 		// v1 cursor stays and continuation re-runs governance as before.
 		if err := refreshSession.deliveries.put(entry); err != nil {
-			guard = nil
-			refreshSession.detachDelivery(owner, view.RequestedScope, entry.id)
+			guard, entry = nil, nil
 		}
 	}
 	if guard != nil {
@@ -314,6 +308,20 @@ func handleVolumeOverview(
 			return failResult(snapshotFail)
 		}
 	}
+	// Nothing can refuse the response any more, so what it carries is sent.
+	// A fresh request answered with a body is a new transmission: every other
+	// delivery this Host session still holds for the requested scope is
+	// superseded with its proof memory, and their cursors ask for a restart.
+	// A capacity stop, an empty delta, and every refusal above return before
+	// this point: they send nothing, supersede nothing, and advance nothing.
+	deliveryID := ""
+	if entry != nil {
+		deliveryID = entry.id
+	}
+	if fresh {
+		refreshSession.deliveries.supersede(owner, view.RequestedScope, entry)
+	}
+	refreshSession.commitTransport(owner, view.RequestedScope, deliveryID, input, delivery.Facts)
 	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil, assessment.RefreshReasons, estimatedTokens)
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	refreshSession.settleDeltaBase(renderCtx, delivery.Attestation)

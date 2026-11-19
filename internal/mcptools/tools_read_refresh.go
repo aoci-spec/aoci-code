@@ -810,28 +810,42 @@ func (session *cognitionRefreshSession) advanceDelivery(owner volumeDeliveryOwne
 	current.sent, current.count = index, count
 }
 
-// detachDelivery turns the current delivery of a scope into a live-path one:
-// the store could not retain it, so its continuations arrive by v1 cursor
-// with no retained delivery to name. The caller holds session.mu.
-func (session *cognitionRefreshSession) detachDelivery(owner volumeDeliveryOwner, scope, delivery string) {
-	if session == nil {
+// commitTransport records a response that carried body bytes, once nothing
+// can refuse it any more: a fresh one becomes the current delivery of its
+// Host session and scope, a continuation advances it. A request that failed
+// after rendering never reaches this point, so it leaves the record, and the
+// proof memory beginDelivery drops, as they were. A proof response carries no
+// body and records nothing. delivery names the retained delivery the response
+// came through, empty on the live path. The caller holds session.mu.
+func (session *cognitionRefreshSession) commitTransport(owner volumeDeliveryOwner, scope, delivery string, input overviewIn, facts overviewDeliveryFacts) {
+	if session == nil || !facts.ChunkKnown {
 		return
 	}
-	if current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]; current != nil && current.delivery == delivery {
-		current.delivery = ""
+	if input.Cursor == "" {
+		session.beginDelivery(owner, scope, facts.BodySHA256, delivery, facts.ChunkIndex, facts.ChunkCount)
+		return
 	}
+	session.advanceDelivery(owner, scope, facts.BodySHA256, delivery, facts.ChunkIndex, facts.ChunkCount)
 }
 
 // deliveryServed reports whether that body is the current delivery of its
-// Host session and scope and this process has sent it to its end. A nil
-// session has no transport to remember and answers true, as a caller without
-// one always did.
-func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner, scope, bodySHA256 string) bool {
+// Host session and scope and this process has sent it to its end. A proof
+// that arrives through a retained delivery names it, and counts only while
+// that delivery is the current one: a delivery replaced while its proof was
+// on the way, even by one of the same bytes, proves nothing about its
+// successor. The live path names none and answers for whatever is current,
+// because its proof memory is the Host session's own, cleared when a
+// delivery begins. A nil session has no transport to remember and answers
+// true, as a caller without one always did.
+func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner, scope, bodySHA256, delivery string) bool {
 	if session == nil {
 		return true
 	}
 	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
-	return current != nil && current.body == bodySHA256 && current.count > 0 && current.sent >= current.count
+	if current == nil || current.body != bodySHA256 || (delivery != "" && current.delivery != delivery) {
+		return false
+	}
+	return current.count > 0 && current.sent >= current.count
 }
 
 // unconfirmDelivery forgets a remembered confirmation for that body: a
@@ -844,15 +858,6 @@ func (session *cognitionRefreshSession) unconfirmDelivery(owner volumeDeliveryOw
 	if evidence := session.deliveryEvidence[deliveryKey{owner: owner, body: bodySHA256}]; evidence != nil {
 		evidence.confirmed = false
 	}
-}
-
-// resetDeliveryEvidence discards the old evidence of that body when a brand-new complete delivery starts:
-// every delivery attempt collects its own proof, and an old confirmation does not testify for a new transmission.
-func (session *cognitionRefreshSession) resetDeliveryEvidence(owner volumeDeliveryOwner, bodySHA256 string) {
-	if session == nil {
-		return
-	}
-	delete(session.deliveryEvidence, deliveryKey{owner: owner, body: bodySHA256})
 }
 
 // recordAttestedDelivery consumes one complete, host-confirmed delivery

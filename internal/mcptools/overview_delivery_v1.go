@@ -181,8 +181,8 @@ type overviewRenderContext struct {
 	// and remembered proof halves are kept per Owner and body.
 	Owner volumeDeliveryOwner
 	// DeliveryID is the retained delivery this context renders, empty on the
-	// live path. A continuation advances the current delivery only when it
-	// arrives through the delivery that is current.
+	// live path. A continuation advances the current delivery, and a proof
+	// counts for it, only when it arrives through the delivery that is current.
 	DeliveryID string
 	// Prepared is immutable. Pure render callers may omit it; a delivery session
 	// supplies it to reuse the exact frame, canonical sequence and chunk plan.
@@ -259,6 +259,11 @@ type overviewRendered struct {
 	Attestation overviewAttestationResult
 }
 
+// overviewRenderedHook is test-only: it fires once a response is rendered and
+// before the checks that can still refuse it, the window in which a foreign
+// write turns a rendered response into a refusal.
+var overviewRenderedHook func()
+
 // transport is the session that remembers what this process sent; a context
 // built without one (the engine's export, a test) falls back to Session.
 func (ctx overviewRenderContext) transport() *cognitionRefreshSession {
@@ -271,6 +276,9 @@ func (ctx overviewRenderContext) transport() *cognitionRefreshSession {
 // renderOverviewDelivery chooses the only two body delivery forms: one full
 // response for a small body, or a deterministic Entry-boundary chunk chain.
 // Attestation reuses the same body identity but never retransmits cognition.
+// Rendering sends nothing: the handler records what it sent with
+// commitTransport once every check that can still refuse the response has
+// passed.
 func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTokens int) (overviewRendered, error) {
 	if len(ctx.Sequence) != ctx.EntryCount {
 		return overviewRendered{}, fmt.Errorf("overview_cognition_sequence_count_mismatch")
@@ -291,18 +299,15 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
 	body := framed.Receipt.BodySHA256
-	if input.HostConfirmation == nil && input.ModelAttestation == nil && input.Cursor == "" {
-		// A fresh complete delivery attempt takes its own evidence; the previous
-		// attempt's confirmation does not vouch for this transmission. A
-		// retained delivery keeps a private memory; the Host session's own,
-		// which serves the live path, is cleared when the delivery becomes
-		// current (beginDelivery).
-		ctx.Session.resetDeliveryEvidence(ctx.Owner, body)
+	if input.HostConfirmation != nil || input.ModelAttestation != nil || input.Cursor != "" {
+		// The two proof halves each bind this exact body, so the half missing
+		// from this call may be the one an earlier call already delivered. A
+		// fresh request reads no memory: it takes its own evidence, and the
+		// memory of the body it replaces is dropped only once its response is
+		// committed (commitTransport), so a refused request forgets nothing.
+		hostStatus, report = ctx.Session.mergeDeliveryEvidence(ctx.Owner, body, hostStatus, report)
 	}
-	// The two proof halves each bind this exact body, so the half missing from
-	// this call may be the one an earlier call already delivered.
-	hostStatus, report = ctx.Session.mergeDeliveryEvidence(ctx.Owner, body, hostStatus, report)
-	served := ctx.transport().deliveryServed(ctx.Owner, ctx.RequestedScope, body)
+	served := ctx.transport().deliveryServed(ctx.Owner, ctx.RequestedScope, body, ctx.DeliveryID)
 	if hostStatus == hostDeliveryConfirmed && !served {
 		// The body hash is printed on the first Chunk and an unchanged index
 		// has the hash it had before, so a matching confirmation proves a
@@ -365,7 +370,6 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		output := metadata + "\n" + framed.Text + renderOverviewCognitionLevelMessage(level)
 		facts.OutputBytes = len(output)
 		facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, 1, 1, true
-		ctx.transport().beginDelivery(ctx.Owner, ctx.RequestedScope, framed.Receipt.BodySHA256, ctx.DeliveryID, 1, 1)
 		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 	}
 
@@ -387,11 +391,6 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
 	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
-	if input.Cursor == "" {
-		ctx.transport().beginDelivery(ctx.Owner, ctx.RequestedScope, framed.Receipt.BodySHA256, ctx.DeliveryID, position.Index, position.Count)
-	} else {
-		ctx.transport().advanceDelivery(ctx.Owner, ctx.RequestedScope, framed.Receipt.BodySHA256, ctx.DeliveryID, position.Index, position.Count)
-	}
 	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 }
 

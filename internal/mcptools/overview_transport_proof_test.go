@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -25,6 +26,8 @@ type transportProofFixture struct {
 	host    overviewIn
 	model   overviewIn
 	body    any
+	// identity is the scope identity the fixture's body was delivered under.
+	identity string
 }
 
 func newTransportProofFixture(t *testing.T) *transportProofFixture {
@@ -61,7 +64,7 @@ func newTransportProofFixture(t *testing.T) *transportProofFixture {
 		}
 		return input
 	}
-	fixture.body = framed.Receipt.BodySHA256
+	fixture.body, fixture.identity = framed.Receipt.BodySHA256, view.ScopeIdentity
 	fixture.host = decode(map[string]any{"host_delivery_confirmation": confirmation})
 	fixture.model = decode(map[string]any{"model_cognition_attestation": attestationMap(t, report)})
 	fixture.both = decode(map[string]any{"host_delivery_confirmation": confirmation, "model_cognition_attestation": attestationMap(t, report)})
@@ -222,36 +225,41 @@ func TestOnlyTheCurrentDeliveryAdvances(t *testing.T) {
 	session.beginDelivery(host, cognition.ScopeAll, body, "old", 1, 2)
 	session.beginDelivery(host, cognition.ScopeAll, body, "new", 1, 2)
 	session.advanceDelivery(host, cognition.ScopeAll, body, "old", 2, 2)
-	if session.deliveryServed(host, cognition.ScopeAll, body) {
+	if session.deliveryServed(host, cognition.ScopeAll, body, "") {
 		t.Fatal("the superseded delivery's last Chunk finished its successor")
 	}
 	session.advanceDelivery(host, cognition.ScopeAll, other, "new", 2, 2)
 	session.advanceDelivery(host, cognition.ScopeCode, body, "new", 2, 2)
 	session.advanceDelivery(volumeDeliveryOwner{direct: "guest"}, cognition.ScopeAll, body, "new", 2, 2)
-	if session.deliveryServed(host, cognition.ScopeAll, body) {
+	if session.deliveryServed(host, cognition.ScopeAll, body, "") {
 		t.Fatal("another body, scope, or Host session finished this delivery")
 	}
 	session.advanceDelivery(host, cognition.ScopeAll, body, "new", 2, 2)
-	if !session.deliveryServed(host, cognition.ScopeAll, body) || session.deliveryServed(host, cognition.ScopeCode, body) ||
-		session.deliveryServed(host, cognition.ScopeAll, other) {
+	// A proof names the retained delivery it arrived through: the replaced
+	// one proves nothing about its successor, though the bytes are the same.
+	if session.deliveryServed(host, cognition.ScopeAll, body, "old") || !session.deliveryServed(host, cognition.ScopeAll, body, "new") {
+		t.Fatal("only the current delivery's own proof may count it as sent")
+	}
+	if !session.deliveryServed(host, cognition.ScopeAll, body, "") || session.deliveryServed(host, cognition.ScopeCode, body, "") ||
+		session.deliveryServed(host, cognition.ScopeAll, other, "") {
 		t.Fatal("the current delivery, sent to its end, must be the one thing served")
 	}
 	// A Chunk out of order advances nothing: the last Chunk of three, asked
 	// for after the first, leaves the delivery at its first.
 	session.beginDelivery(host, cognition.ScopeCode, body, "ordered", 1, 3)
 	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 3, 3)
-	if session.deliveryServed(host, cognition.ScopeCode, body) {
+	if session.deliveryServed(host, cognition.ScopeCode, body, "") {
 		t.Fatal("the last Chunk, asked for out of order, finished the delivery")
 	}
 	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 2, 3)
 	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 3, 3)
-	if !session.deliveryServed(host, cognition.ScopeCode, body) {
+	if !session.deliveryServed(host, cognition.ScopeCode, body, "") {
 		t.Fatal("every Chunk in order must finish the delivery")
 	}
 	// A second body for the same scope replaces the first, proof memory included.
 	session.mergeDeliveryEvidence(host, body, hostDeliveryConfirmed, nil)
 	session.beginDelivery(host, cognition.ScopeAll, other, "", 1, 1)
-	if session.deliveryServed(host, cognition.ScopeAll, body) || !session.deliveryServed(host, cognition.ScopeAll, other) {
+	if session.deliveryServed(host, cognition.ScopeAll, body, "") || !session.deliveryServed(host, cognition.ScopeAll, other, "") {
 		t.Fatal("a new body for the scope must replace the earlier one")
 	}
 	if status, _ := session.mergeDeliveryEvidence(host, body, hostDeliveryUnconfirmed, nil); status == hostDeliveryConfirmed {
@@ -376,7 +384,7 @@ func TestEarlyConfirmationIsNotRememberedOnTheLivePath(t *testing.T) {
 	ctx.Assessment.Semantic.GovernanceAligned = true
 	render := func(input overviewIn) overviewRendered {
 		t.Helper()
-		rendered, err := renderOverviewDelivery(ctx, input, loaded.cfg.OverviewDelivery.ChunkTokens)
+		rendered, err := renderOverviewSent(ctx, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -410,5 +418,196 @@ func TestEarlyConfirmationIsNotRememberedOnTheLivePath(t *testing.T) {
 	if lost := render(fixture.model); lost.Facts.HostDeliveryStatus == hostDeliveryConfirmed || lost.Facts.ServerSent ||
 		lost.Attestation.CognitionAssimilation == cognitionAssimilationComplete {
 		t.Fatalf("a remembered confirmation vouched for a delivery that is not current: %+v", lost.Facts)
+	}
+}
+
+// refuseOnce makes the next rendered response meet a changed Code Volume, as
+// a foreign write between rendering and the snapshot check does, and puts the
+// bytes back when the test asks.
+func refuseOnce(t *testing.T, root string) (restore func()) {
+	t.Helper()
+	path := filepath.Join(root, "aoci.code.txt")
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	overviewRenderedHook = func() {
+		overviewRenderedHook = nil
+		if err := os.WriteFile(path, append(append([]byte(nil), original...), []byte("#foreign\n")...), 0o644); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(func() { overviewRenderedHook = nil })
+	return func() {
+		t.Helper()
+		if err := os.WriteFile(path, original, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, info.ModTime(), info.ModTime()); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// A request that is refused sends nothing, so it changes nothing: a fresh
+// request refused for its Chunk budget leaves the held cursor in use, one
+// refused after rendering leaves the delivered body and its proof current,
+// and a final Chunk refused after rendering is not counted as sent.
+func TestARefusedRequestChangesNoDelivery(t *testing.T) {
+	t.Run("refused before a body is prepared", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		first := fixture.chunk("host", freshAll())
+		meta := filepath.Join(fixture.root, "aoci.meta.txt")
+		original, err := os.ReadFile(meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Stat(meta)
+		if err != nil {
+			t.Fatal(err)
+		}
+		oversize := append(append([]byte(nil), original...), []byte("#"+strings.Repeat("x", 3*machinecontract.OverviewChunkTokensMax+64)+"\n")...)
+		if err := os.WriteFile(meta, oversize, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", freshAll()); !result.IsError ||
+			!strings.Contains(resText(t, result), "overview_chunk_budget_exceeded") {
+			t.Fatalf("the oversize line must refuse the fresh request: %.300s", resText(t, result))
+		}
+		if err := os.WriteFile(meta, original, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(meta, info.ModTime(), info.ModTime()); err != nil {
+			t.Fatal(err)
+		}
+		fixture.rest("host", first)
+		expectTransport(t, "the held chain after a refused fresh request", fixture.prove("host", fixture.both), true)
+	})
+	t.Run("a fresh request refused after rendering", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		expectTransport(t, "the first delivery's Host half", fixture.prove("host", fixture.host), true)
+		restore := refuseOnce(t, fixture.root)
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", freshAll()); !result.IsError {
+			t.Fatalf("the changed snapshot must refuse the fresh request: %.300s", resText(t, result))
+		}
+		restore()
+		out := fixture.prove("host", fixture.model)
+		expectTransport(t, "the delivered body after a refused fresh request", out, true)
+		if !strings.Contains(out, "model_attestation: pass") {
+			t.Fatalf("the remembered Host half must still meet the model half:\n%s", out)
+		}
+	})
+	t.Run("a final Chunk refused after rendering", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		meta := fixture.chunk("host", freshAll())
+		for int(meta["chunk_index"].(float64)) < int(meta["chunk_count"].(float64))-1 {
+			meta = fixture.chunk("host", overviewIn{Cursor: meta["next_cursor"].(string)})
+		}
+		restore := refuseOnce(t, fixture.root)
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", overviewIn{Cursor: meta["next_cursor"].(string)}); !result.IsError ||
+			!strings.Contains(resText(t, result), "overview_snapshot_changed") {
+			t.Fatalf("the changed snapshot must refuse the final Chunk: %.300s", resText(t, result))
+		}
+		restore()
+		expectTransport(t, "a final Chunk that was never sent", fixture.prove("host", fixture.both), false)
+	})
+}
+
+// A request for a delivery that was replaced while it waited finds the
+// delivery gone: its remembered Host half cannot prove a successor of the
+// same bytes, and its late proof cannot close the reload that replaced it.
+func TestAProofOnItsWayCannotSpeakForTheNextDelivery(t *testing.T) {
+	held := func(t *testing.T, fixture *transportProofFixture) *volumeDelivery {
+		t.Helper()
+		entry := fixture.session.deliveries.proof(volumeDeliveryOwner{direct: "host"}, fixture.identity, "")
+		if entry == nil {
+			t.Fatal("the completed delivery must be retained")
+		}
+		return entry
+	}
+	// late submits a proof through a delivery the request had already picked
+	// when it was replaced: it asks for a restart and answers nothing from
+	// the replaced delivery's memory.
+	late := func(t *testing.T, fixture *transportProofFixture, entry *volumeDelivery, input overviewIn) {
+		t.Helper()
+		loaded, fail := loadCognitionCtx(fixture.root)
+		if fail != nil {
+			t.Fatal(fail.Msg)
+		}
+		result := serveVolumeDelivery(fixture.root, input, loaded, fixture.session, entry, time.Now())
+		if result == nil || !result.IsError || !strings.Contains(resText(t, result), "overview_session_unavailable_restart_required") {
+			t.Fatalf("a proof for a replaced delivery must ask for a restart: %v", result)
+		}
+	}
+	t.Run("a remembered Host half and a successor of the same bytes", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		expectTransport(t, "the first delivery's Host half", fixture.prove("host", fixture.host), true)
+		old := held(t, fixture)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		late(t, fixture, old, fixture.model)
+		if out := fixture.prove("host", fixture.model); strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) ||
+			strings.Contains(out, "model_full_cognition_reliable: true") {
+			t.Fatalf("the successor was never confirmed by its Host:\n%s", out)
+		}
+	})
+	t.Run("a late proof and the reload that replaced its delivery", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		expectTransport(t, "the first delivery", fixture.prove("host", fixture.both), true)
+		old := held(t, fixture)
+		fixture.chunk("host", reloadAll("compaction-1"))
+		late(t, fixture, old, fixture.both)
+		stop := capacityStopFacts(t, resText(t, sessionOverview(t, fixture.root, fixture.session, "host", reloadAll("compaction-2"))))
+		if stop["delivery_mode"] != machinecontract.OverviewDeliveryModeCapacityStop {
+			t.Fatalf("the late proof closed the open reload: %v", stop)
+		}
+	})
+}
+
+// A retained delivery keeps its own proof memory. Scored through it, a proof
+// counts only while that delivery is the current one, whatever its memory
+// holds: here the memory has a confirmation and the scope's current delivery
+// is a successor of the same bytes, sent to its end.
+func TestARetainedDeliverysMemoryProvesOnlyItself(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	loaded, fail := loadCognitionCtx(fixture.root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	view, err := loaded.set.Scope(cognition.ScopeAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, sequence, err := buildVolumeOverviewBody(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := volumeDeliveryOwner{direct: "host"}
+	memory, transport := newCognitionRefreshSession(), newCognitionRefreshSession()
+	ctx := overviewRenderContext{Root: fixture.root, RequestedScope: cognition.ScopeAll, EffectiveScope: view.EffectiveScope, ScopeIdentity: view.ScopeIdentity,
+		Content: body, EntryCount: view.ObjectCount, Sequence: sequence, EstimatedTokens: volumeScopeBytes(view) / 3,
+		Session: memory, Transport: transport, Owner: host, DeliveryID: "old"}
+	ctx.Assessment.Semantic.GovernanceAligned = true
+	memory.mergeDeliveryEvidence(host, fixture.body.(string), hostDeliveryConfirmed, nil)
+	transport.beginDelivery(host, cognition.ScopeAll, fixture.body.(string), "new", 3, 3)
+	rendered, err := renderOverviewDelivery(ctx, fixture.model, loaded.cfg.OverviewDelivery.ChunkTokens)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rendered.Facts.HostDeliveryStatus == hostDeliveryConfirmed || rendered.Facts.ServerSent ||
+		rendered.Attestation.CognitionAssimilation == cognitionAssimilationComplete {
+		t.Fatalf("the replaced delivery's memory vouched for its successor: %+v", rendered.Facts)
+	}
+	ctx.DeliveryID = "new"
+	memory.mergeDeliveryEvidence(host, fixture.body.(string), hostDeliveryConfirmed, nil)
+	if rendered, err = renderOverviewDelivery(ctx, fixture.model, loaded.cfg.OverviewDelivery.ChunkTokens); err != nil ||
+		rendered.Facts.HostDeliveryStatus != hostDeliveryConfirmed || !rendered.Facts.ServerSent {
+		t.Fatalf("the current delivery's own memory must count: %v %+v", err, rendered.Facts)
 	}
 }

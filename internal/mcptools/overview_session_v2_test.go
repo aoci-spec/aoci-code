@@ -105,7 +105,7 @@ func TestOverviewV2CanonicalChunksAndWork(t *testing.T) {
 			parts := strings.Split(cursor, ":")
 			legacy = strings.Join(parts[2:6], ":")
 		}
-		original, err := renderOverviewDelivery(ctx, overviewIn{Cursor: legacy}, loaded.cfg.OverviewDelivery.ChunkTokens)
+		original, err := renderOverviewSent(ctx, overviewIn{Cursor: legacy}, loaded.cfg.OverviewDelivery.ChunkTokens)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -155,7 +155,7 @@ func FuzzOverviewCursorChain(f *testing.F) {
 	var chain []string
 	cursor := ""
 	for {
-		rendered, err := renderOverviewDelivery(ctx, overviewIn{Cursor: cursor}, chunkTokens)
+		rendered, err := renderOverviewSent(ctx, overviewIn{Cursor: cursor}, chunkTokens)
 		if err != nil {
 			f.Fatalf("walking the Chunk chain from %q: %v", cursor, err)
 		}
@@ -201,7 +201,7 @@ func FuzzOverviewCursorChain(f *testing.F) {
 	f.Add("")
 
 	f.Fuzz(func(t *testing.T, cursor string) {
-		rendered, err := renderOverviewDelivery(ctx, overviewIn{Cursor: cursor}, chunkTokens)
+		rendered, err := renderOverviewSent(ctx, overviewIn{Cursor: cursor}, chunkTokens)
 		want, valid := issued[cursor]
 		if !valid && err == nil {
 			ordinal, prior, decodeErr := decodeOverviewCursor(cursor, ctx.ScopeIdentity, chunkTokens)
@@ -265,7 +265,7 @@ func FuzzOverviewAttestationInput(f *testing.F) {
 		return data
 	}
 	full := encode(overviewIn{HostConfirmation: confirmation, ModelAttestation: complete})
-	rendered, err := renderOverviewDelivery(ctx, overviewIn{HostConfirmation: confirmation, ModelAttestation: complete}, chunkTokens)
+	rendered, err := renderOverviewSent(ctx, overviewIn{HostConfirmation: confirmation, ModelAttestation: complete}, chunkTokens)
 	if err != nil || rendered.Attestation.CognitionAssimilation != cognitionAssimilationComplete {
 		f.Fatalf("the complete proof seed does not assimilate: err=%v attestation=%+v", err, rendered.Attestation)
 	}
@@ -325,8 +325,8 @@ func FuzzOverviewAttestationInput(f *testing.F) {
 		if json.Unmarshal(data, &input) != nil {
 			return
 		}
-		rendered, err := renderOverviewDelivery(ctx, input, chunkTokens)
-		again, errAgain := renderOverviewDelivery(ctx, input, chunkTokens)
+		rendered, err := renderOverviewSent(ctx, input, chunkTokens)
+		again, errAgain := renderOverviewSent(ctx, input, chunkTokens)
 		if (err == nil) != (errAgain == nil) || (err == nil && !reflect.DeepEqual(rendered, again)) {
 			t.Fatalf("rendering is not deterministic for %s", data)
 		}
