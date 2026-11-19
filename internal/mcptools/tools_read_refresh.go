@@ -739,6 +739,17 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 	return hostStatus, report
 }
 
+// deliveryCurrent reports whether the named retained delivery is the current
+// one of its Host session and scope. A request that names none (the plain
+// live path) answers for whatever is current.
+func (session *cognitionRefreshSession) deliveryCurrent(owner volumeDeliveryOwner, scope, delivery string) bool {
+	if session == nil || delivery == "" {
+		return true
+	}
+	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
+	return current != nil && current.delivery == delivery
+}
+
 // pendingEvidence is what a rendered response would leave in the proof memory
 // of its body: the state of both halves after this call. It is written only
 // once the response is committed (commitEvidence), so a refused proof is

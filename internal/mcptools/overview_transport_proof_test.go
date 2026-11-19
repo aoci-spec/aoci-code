@@ -681,6 +681,12 @@ func TestAProofThatFallsBackKeepsItsDelivery(t *testing.T) {
 	if overviewLiveFallbackHook != nil {
 		t.Fatal("the proof must have fallen back to the live path")
 	}
+	// Nor does it leave its model half for the successor's Host half to meet.
+	out := fixture.prove("host", fixture.host)
+	expectTransport(t, "the successor's own Host half", out, true)
+	if !strings.Contains(out, "model_attestation: "+modelAttestationNotProvided) {
+		t.Fatalf("the replaced proof left its model half to the successor:\n%s", out)
+	}
 
 	// With no replacement on the way, the same fallback proves its delivery.
 	fixture = newTransportProofFixture(t)
@@ -727,5 +733,21 @@ func TestARefusedFreshRequestRebindsNoGovernance(t *testing.T) {
 		if fixture.session.governanceSnapshots[key] == identity {
 			t.Fatal("an answered fresh request must bind the snapshot it was delivered under")
 		}
+	}
+}
+
+// A Host half given after the first Chunk of a retained delivery is scored
+// the live way and must not be remembered there: the retained Chunks that
+// follow keep their own memory and would not clear it, and a model half that
+// later falls back to the live path would find it waiting.
+func TestAnEarlyConfirmationDoesNotWaitOnTheLivePath(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	first := fixture.chunk("host", freshAll())
+	expectTransport(t, "an early Host half on a retained delivery", fixture.prove("host", fixture.host), false)
+	fixture.rest("host", first)
+	fixture.session.deliveries.maxBytes = fixture.session.deliveries.bytes
+	out := fixture.prove("host", fixture.model)
+	if strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) || strings.Contains(out, "cognition_assimilation: complete") {
+		t.Fatalf("the early Host half waited on the live path:\n%s", out)
 	}
 }
