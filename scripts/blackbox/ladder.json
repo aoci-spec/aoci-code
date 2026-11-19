@@ -363,9 +363,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.1.0-rc23",
-    "date": "2026-10-31",
-    "evidence": ".aoci/dev-tools/dependency-review-2026-10-31.txt (first record: 3 module updates, 4 Action updates, connector current, Go 1.26.10 current patch, dependabot x4 open)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-19",
+    "evidence": ".aoci/dev-tools/dependency-review-2026-11-19.txt (four dependabot proposals landed; mysql 1.10.2, pgx 5.13.0 and setup-go 7.1.0 available, not yet proposed)"
    }
   },
   {

@@ -2,6 +2,17 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Dependency updates, none of which changes the release module set (26) or a
+  license text: `golang.org/x/sys` 0.50.0, `github.com/spf13/pflag` 1.1.0,
+  `github.com/ncruces/go-sqlite3` 0.37.0 with its `go-sqlite3-wasm/v6`
+  6.5.35401 translation, and the `sigstore/cosign-installer` Action 4.1.3
+  (Cosign 3.1.4). The SQLite driver now begins `IMMEDIATE` transactions by
+  default; the catalog collector opens a read-only transaction, which stays
+  `DEFERRED`, so collection is unchanged. The license gate's MIT-0
+  recognition moves to the new translation version, same LICENSE bytes.
+
 ## v0.2.0-rc2
 
 The second 0.2.0 candidate: fixes and host-side findings from two weeks of

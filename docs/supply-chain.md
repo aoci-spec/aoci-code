@@ -71,7 +71,7 @@ Database Evidence support uses four reviewed pure-Go direct dependencies:
 | --- | --- | --- | --- |
 | `github.com/jackc/pgx/v5` | `v5.12.0` | MIT | PostgreSQL `database/sql` driver |
 | `github.com/go-sql-driver/mysql` | `v1.10.1` | MPL-2.0 | MySQL `database/sql` driver |
-| `github.com/ncruces/go-sqlite3` | `v0.36.0` | MIT | SQLite read-only catalog collector |
+| `github.com/ncruces/go-sqlite3` | `v0.37.0` | MIT | SQLite read-only catalog collector |
 | `gitcode.com/opengauss/openGauss-connector-go-pq` | `v1.0.8` + reviewed AOCI patch | MIT | openGauss `database/sql` driver; the complete patched module is carried under `third_party/` |
 
 The pinned `go-licenses` v1.6.0 gate enumerates every reachable external Go
@@ -88,9 +88,9 @@ Apache-2.0 transition with residual MIT contributions and CC-BY-4.0
 documentation classification are recorded in `THIRD-PARTY-NOTICES`. All three
 server database-driver paths and the SQLite collector build with `CGO_ENABLED=0`.
 
-The SQLite collector pins `github.com/ncruces/go-sqlite3 v0.36.0` (MIT),
+The SQLite collector pins `github.com/ncruces/go-sqlite3 v0.37.0` (MIT),
 `github.com/ncruces/julianday v1.0.0` (MIT), and
-`github.com/ncruces/go-sqlite3-wasm/v6 v6.4.35401` (MIT-0 for the translation;
+`github.com/ncruces/go-sqlite3-wasm/v6 v6.5.35401` (MIT-0 for the translation;
 SQLite's original public-domain status is retained). These are three new
 modules in the release-binary union, with no CGO or system SQLite requirement.
 The selected driver also advances existing `golang.org/x/crypto` to v0.58.0,
@@ -100,7 +100,7 @@ module graph may include unlinked driver extensions and tools; the release
 license gate audits the actual six-target binary closure rather than equating
 every downloaded module with distributed code.
 Its pinned go-licenses v1.6.0 cannot identify the translation's MIT-0 text;
-the gate recognizes only v6.4.35401 with its exact reviewed LICENSE SHA-256,
+the gate recognizes only v6.5.35401 with its exact reviewed LICENSE SHA-256,
 and refuses a replacement, a different version, or different license bytes.
 Unknown licenses in other modules remain failures.
 
