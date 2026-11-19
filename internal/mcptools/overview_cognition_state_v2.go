@@ -39,8 +39,7 @@ func assessOverviewCognitionStateV2(
 ) overviewCognitionStateV2 {
 	deliveryVerified := attestation.DeliveryIntegrity == deliveryIntegrityConfirmed
 	modelUsable := deliveryVerified && attestation.ReportProvided && attestation.EnvelopeValid &&
-		attestation.ReportedEntryCountMatch && attestation.ReportedTokensMatch &&
-		attestation.CoveragePercent >= attestationCoverageComplete && !attestation.TruncationDetected
+		!attestation.TruncationDetected
 
 	usabilityStatus := machinecontract.CognitionUsabilityNotEstablished
 	if modelUsable {

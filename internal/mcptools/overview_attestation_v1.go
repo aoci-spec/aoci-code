@@ -33,8 +33,6 @@ const (
 	cognitionAssimilationPartial   = "partial"
 	cognitionAssimilationUncertain = "uncertain"
 
-	attestationCoverageComplete = 95.0
-
 	// The Challenge measures assimilation, not verbatim recall. Delivery
 	// integrity is already proven by the host receipt over the exact bytes, so
 	// the answers only need to show that the model holds the sequence: at least
@@ -325,18 +323,22 @@ func assessOverviewAttestation(
 	// A retained deletion-only delta delivers no Entry to recall. It still
 	// needs a confirmed delivery and the current identity envelope.
 	deletionProof := challenge.deletionOnlyDelta && result.ChallengeTotal == 0 &&
-		report.ReportedEntryCount == 0 && hostStatus == hostDeliveryConfirmed && governanceAligned
+		hostStatus == hostDeliveryConfirmed && governanceAligned
 	challengeMet := ordered &&
 		(deletionProof || challengePassRatioMet(result.ChallengePassed, result.ChallengeTotal)) &&
 		result.ObjectIdentityMissCount <= attestationIdentityMissMax
-	claimsComplete := report.CoveragePercent >= attestationCoverageComplete &&
-		!report.TruncationDetected && countMatches
+	// The model's own numbers (coverage, Entry count, token estimate, mastery)
+	// are recorded and shown and decide nothing: each sits in the delivered
+	// metadata or is a self-assessment, so a gate on it graded an honest 90
+	// below a copied 100. A reported truncation is different in kind, an
+	// admission against the reporter, and still withholds the pass.
+	notTruncated := !report.TruncationDetected
 	// fail is reserved for an Attestation that proves nothing: a foreign or
 	// malformed envelope, or not one ordinal recalled. Every other shortfall is
 	// partial — including an honest complete-coverage claim that misses the
 	// pass ratio, which must never grade below the same answers submitted with
 	// a hedged coverage claim.
-	if validEnvelope && challengeMet && countMatches && tokensMatch && claimsComplete {
+	if validEnvelope && challengeMet && notTruncated {
 		result.ModelAttestation = modelAttestationPass
 	} else if !validEnvelope || result.ChallengePassed == 0 {
 		result.ModelAttestation = modelAttestationFail
@@ -386,15 +388,6 @@ func strictAttestationFailureReasons(
 	}
 	if result.CoreFMismatch {
 		reasons = append(reasons, machinecontract.StrictAttestationReasonCoreFMismatch)
-	}
-	if !result.ReportedEntryCountMatch {
-		reasons = append(reasons, machinecontract.StrictAttestationReasonReportedEntryMismatch)
-	}
-	if !result.ReportedTokensMatch {
-		reasons = append(reasons, machinecontract.StrictAttestationReasonReportedTokenMismatch)
-	}
-	if report.CoveragePercent < attestationCoverageComplete {
-		reasons = append(reasons, machinecontract.StrictAttestationReasonCoverageBelowThreshold)
 	}
 	if report.TruncationDetected {
 		reasons = append(reasons, machinecontract.StrictAttestationReasonTruncationDetected)

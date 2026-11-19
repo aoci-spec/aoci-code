@@ -81,7 +81,7 @@ func TestCognitionStateV2ProjectionLevelsOnlyAvailability(t *testing.T) {
 			attestation: overviewAttestationResult{
 				DeliveryIntegrity: deliveryIntegrityConfirmed, ReportProvided: true,
 				EnvelopeValid: true, ReportedEntryCountMatch: true, ReportedTokensMatch: true,
-				CoveragePercent: 94, SystemMasteryPercent: 92,
+				CoveragePercent: 100, SystemMasteryPercent: 92, TruncationDetected: true,
 			},
 			wantLevel:  machinecontract.CognitionStateV2LevelDelivery,
 			wantState:  machinecontract.CognitionStateV2LevelStateDelivery,

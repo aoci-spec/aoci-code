@@ -343,9 +343,9 @@ func TestOverviewV2CompactionConsumesGenerationAfterPartialProof(t *testing.T) {
 	}
 	args := volumeAttestationArguments(t, root, resText(t, result), false)
 	report := args["model_cognition_attestation"].(map[string]any)
-	// A hedged coverage claim is what grades a correct proof partial; the
-	// self-assessed mastery no longer does.
-	report["coverage_percent"] = 80
+	// A reported truncation is what grades a correct proof partial; the
+	// model's own coverage, count, and mastery numbers no longer do.
+	report["truncation_detected"] = true
 	encoded, err := json.Marshal(args)
 	if err != nil {
 		t.Fatal(err)

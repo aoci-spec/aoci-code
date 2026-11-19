@@ -280,10 +280,9 @@ The assessment keeps three independent dimensions:
 * `cognition_assimilation`: complete, partial, or uncertain.
 
 Passing requires the exact current Index SHA-256, Entry-sequence SHA-256, Entry
-count, Challenge version and digest, every answer once and in ordinal order, a
-reported Entry count within one percent (never less than one Entry) of the
-machine count, a reasonable token report, at least 95 percent reported
-coverage, no detected truncation, and the Challenge pass share above.
+count, Challenge version and digest, every answer once and in ordinal order,
+no reported truncation, and the Challenge pass share above. The reported Entry
+count, token estimate, and coverage are recorded and shown and decide nothing.
 Complete assimilation additionally requires continuous 100 percent machine
 Entry coverage, confirmed Host delivery, current aligned formal cognition,
 a passing Challenge, `governance_aligned=true`, and passing Attestation.

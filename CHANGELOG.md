@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- The model's other self-reported numbers decide nothing either:
+  `coverage_percent`, `reported_entry_count`, and `reported_estimated_tokens`.
+  Coverage was a self-assessment with a threshold of 95 behind it; the Entry
+  count and token estimate are printed in the delivered metadata, so matching
+  them proved only that the model copied them. A passing Attestation now needs
+  the current identity envelope, the Challenge, and no reported truncation;
+  usable cognition needs confirmed delivery, that envelope, and no reported
+  truncation. `truncation_detected` keeps its weight, as an admission against
+  the reporter. The three numbers stay required, recorded, and shown, and
+  their failure-reason tokens stay in the vocabulary but are no longer
+  emitted. A report that passed before still passes.
 - `system_mastery_percent` decides nothing. It was a self-assessment with a
   threshold behind it: a model that answered the whole Challenge correctly
   and honestly reported less than 80 was graded `cognition_assimilation:

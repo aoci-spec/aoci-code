@@ -402,7 +402,6 @@ func FuzzOverviewAttestationInput(f *testing.F) {
 		}
 		if attestation.ModelAttestation == modelAttestationPass &&
 			!(attestation.EnvelopeValid && attestation.ChallengeAnswersComplete && attestation.ChallengeAnswersOrdered &&
-				attestation.ReportedEntryCountMatch && attestation.ReportedTokensMatch &&
 				attestation.ObjectIdentityMissCount <= attestationIdentityMissMax && !attestation.TruncationDetected) {
 			t.Fatalf("pass without its preconditions: %+v", attestation)
 		}

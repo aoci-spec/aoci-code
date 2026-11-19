@@ -97,16 +97,15 @@ delivered body and current Attestation report:
 * delivery is verified;
 * the report uses Model Cognition Attestation v1 and is bound to the current
   Index or scope identity, Entry-sequence identity, Entry count, and Challenge
-  digest;
-* the reported Entry count matches the delivered Entry count;
-* the reported estimated Token count is within the existing Attestation
-  tolerance;
-* reported coverage is at least the existing complete-coverage threshold; and
-* truncation is not detected.
+  digest; and
+* the report does not say truncation was detected.
 
-Reported system-framework mastery is recorded and shown beside the result and
-decides nothing: not usability, not strict Attestation, not reliability. A
-person reading the number judges whether it is enough.
+The model's own numbers are recorded and shown beside the result and decide
+nothing: reported coverage, reported Entry count, reported token estimate, and
+reported system-framework mastery. They are neither usability, nor strict
+Attestation, nor reliability; a person reading them judges whether they are
+enough. A reported truncation is different in kind, an admission against the
+reporter, and it withholds usability and the pass.
 
 Ordinal order, Challenge object identity, Tag, and core F exactness do not
 participate in model cognition usability. They remain strict proof facts. A
@@ -137,6 +136,10 @@ Failure reasons are deterministic, ordered, and additive. The vocabulary is:
 * `reported_token_estimate_mismatch`;
 * `coverage_below_threshold`; and
 * `truncation_detected`.
+
+`reported_entry_count_mismatch`, `reported_token_estimate_mismatch`, and
+`coverage_below_threshold` stay in the vocabulary for readers of older results
+and are no longer emitted: the numbers they named decide nothing.
 
 The projection reports only reason tokens. It never returns expected object
 identities, Tags, core F text, or another Challenge answer oracle. An empty

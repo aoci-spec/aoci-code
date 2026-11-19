@@ -475,6 +475,41 @@ func TestModelCognitionAttestationMasteryDecidesNothing(t *testing.T) {
 	}
 }
 
+// The model's own coverage, Entry count, and token estimate sit in the delivered
+// metadata or are self-assessments: they are recorded and decide nothing. A
+// reported truncation still withholds the pass.
+func TestModelCognitionAttestationSelfReportedNumbersDecideNothing(t *testing.T) {
+	challenge := syntheticChallenge(120)
+	for name, mutate := range map[string]func(*overviewModelAttestation){
+		"low coverage": func(report *overviewModelAttestation) { report.CoveragePercent = 40 },
+		"wrong count":  func(report *overviewModelAttestation) { report.ReportedEntryCount = 7 },
+		"wrong tokens": func(report *overviewModelAttestation) { report.ReportedEstimatedTokens = 1 },
+		"all at once": func(report *overviewModelAttestation) {
+			report.CoveragePercent, report.ReportedEntryCount, report.ReportedEstimatedTokens = 0, 0, 0
+		},
+	} {
+		report := completeAttestation(challenge, 120, 30_000)
+		mutate(report)
+		result := assessOverviewAttestation(challenge, 120, 30_000, hostDeliveryConfirmed, true, report)
+		if result.ModelAttestation != modelAttestationPass || result.CognitionAssimilation != cognitionAssimilationComplete ||
+			len(result.StrictFailureReasons) != 0 {
+			t.Fatalf("%s changed the verdict: %+v", name, result)
+		}
+		if state := assessOverviewCognitionStateV2(true, true, true, true, result); !state.ModelCognitionUsable || !state.CurrentSystemCognitionReliable {
+			t.Fatalf("%s made verified cognition unusable: %+v", name, state)
+		}
+	}
+	truncated := completeAttestation(challenge, 120, 30_000)
+	truncated.TruncationDetected = true
+	result := assessOverviewAttestation(challenge, 120, 30_000, hostDeliveryConfirmed, true, truncated)
+	if result.ModelAttestation != modelAttestationPartial || result.CognitionAssimilation == cognitionAssimilationComplete {
+		t.Fatalf("a reported truncation must still withhold the pass: %+v", result)
+	}
+	if state := assessOverviewCognitionStateV2(true, true, true, true, result); state.ModelCognitionUsable {
+		t.Fatalf("a reported truncation must leave cognition unusable: %+v", state)
+	}
+}
+
 func TestHostTruncationOverridesACompleteModelClaim(t *testing.T) {
 	challenge := syntheticChallenge(120)
 	result := assessOverviewAttestation(
