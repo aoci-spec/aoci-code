@@ -45,6 +45,11 @@ const (
 	OverviewChunkTokensDefault = 7000
 	OverviewChunkTokensMin     = 4000
 	OverviewChunkTokensMax     = 24000
+	// The Root overview a model authors is two single lines: what the project
+	// is, and the invariants that hold across it. The second is as long as
+	// the longest S field.
+	RootOverviewProjectMaxChars    = 200
+	RootOverviewInvariantsMaxChars = 600
 	// OverviewDeltaMaxSharePercent bounds an incremental delivery (L5): past
 	// this share of the current objects the complete body costs little more
 	// and proves more, so the request answers the complete scope.

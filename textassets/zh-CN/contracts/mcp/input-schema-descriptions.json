@@ -55,6 +55,7 @@
     "new_entry": "兼容单条模式，配合path或object_ref；优先使用entries",
     "removals": "与本批次一并删除的 Code 孤儿条目，按 aoci_maintain 在 orphan_remove_candidates 里列出的写法；没有要创作的条目时可以单独提交",
     "removals[].path": "孤儿条目的仓库相对路径，带不带 code: 前缀都可以",
-    "observe_review": "在规划批次之前确认 aoci_maintain 随批次列出的 Observe 证据：它的 review_digest 和复核人；当前清单已没有的 digest 会作为零写入的修复 Finding 返回"
+    "observe_review": "在规划批次之前确认 aoci_maintain 随批次列出的 Observe 证据：它的 review_digest 和复核人；当前清单已没有的 digest 会作为零写入的修复 Finding 返回",
+    "root_overview": "撰写已对齐的结果通过 root_overview 邀请的 Root 两行概览：project（系统是什么、做什么）与 global_invariants（贯穿全系统的约束，没有则写 none），各一行，并带上该结果给出的 root_sha256；单独提交，不与条目、删除或复核同批"
   }
 }

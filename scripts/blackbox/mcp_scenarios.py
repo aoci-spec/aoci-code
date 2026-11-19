@@ -2232,6 +2232,39 @@ def group_n():
         record(g, "N5b.restored-set-reissues-the-other-side", "FAIL", "no restore command to run")
     sm.close()
 
+    # N6: the Root overview. The Apply that aligns a fresh index invites it;
+    # the model's two lines are written with the Baseline record of the Root,
+    # the repository stays aligned for the CLI too, the next Overview opens
+    # with them, and the invitation is gone.
+    fx = make_fixture("fx-root", 3)
+    sr = Session(fx)
+    applied = {}
+    for _ in range(4):
+        m, _, _ = maintain(sr)
+        if not (m.get("candidates") or []): break
+        applied, _, _ = submit_batch(sr, m)
+    invite = applied.get("root_overview") or {}
+    t, err = text_of(sr.call("aoci_update_entry", {"root_overview": {
+        "project": "A fixture of independent constant providers",
+        "global_invariants": "Every unit returns its own number and imports nothing",
+        "root_sha256": invite.get("root_sha256", "")}}))
+    w = jload(t)
+    al, _ = fixture_aligned(fx)
+    ov, _ = text_of(sr.call("aoci_overview", {}))
+    m2, _, _ = maintain(sr)
+    with open(os.path.join(fx, "aoci.txt"), encoding="utf-8") as f:
+        root_text = f.read()
+    ok = (applied.get("aligned") is True and invite.get("global_invariants") == "-" and not err
+          and w.get("status") == "applied" and w.get("aligned") is True and (w.get("terminal_proof") or {}).get("aligned") is True
+          and (w.get("root_overview_result") or {}).get("baseline_bound") is True and al
+          and "#Global-Invariants: Every unit returns its own number and imports nothing\n" in root_text
+          and "#Global-Invariants: Every unit returns its own number" in ov
+          and m2.get("aligned") is True and "root_overview" not in m2
+          and not os.path.exists(os.path.join(fx, ".aoci", "transactions", "root-overview.json")))
+    record(g, "N6.root-overview-invited-and-written", "PASS" if ok else "FAIL",
+           f"invite={bool(invite)} status={w.get('status')} aligned={w.get('aligned')} cli={al} next={m2.get('status')} {t[:120]}"[:300])
+    sr.close()
+
 def group_t():
     """A TTY confirmation must be readable before the operator has to answer it.
 

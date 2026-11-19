@@ -106,6 +106,9 @@ type volumeMaintainResult struct {
 	// (maintain_contract.go); include_instructions brings them back.
 	InstructionsRef *maintainInstructionsRef `json:"instructions_ref,omitempty"`
 	NextCommands    []string                 `json:"next_commands,omitempty"`
+	// RootOverview invites the model to author the Root's two overview lines
+	// once the index is aligned and they are still unauthored; advisory.
+	RootOverview *rootOverviewInvite `json:"root_overview,omitempty"`
 	// Stop carries an asset-level fact no candidate can repair, found before a batch
 	// is issued, so that the model is not asked to author Entries the update path
 	// would have to refuse. Absent otherwise.
@@ -258,6 +261,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		result.NextAction = machinecontract.MaintainActionRemoveOrphansInBatch
 	default:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusApplied, true, volumegovernance.ResultAligned, "none"
+		result.RootOverview = rootOverviewInvitation(loaded, facts)
 	}
 	// A withheld or completed batch must never ask the host to author candidates
 	// that were not issued: the batch action is the top-level action, including

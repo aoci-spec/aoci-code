@@ -489,6 +489,8 @@ func recoveryPendingAction(operation, file string) string {
 		return cliMessage("guide.recovery_pending.entries", file)
 	case "header":
 		return cliMessage("guide.recovery_pending.header", file)
+	case cognitiontxn.OperationRootOverview:
+		return cliMessage("guide.recovery_pending.root", file)
 	case "bootstrap":
 		return cliMessage("guide.recovery_pending.bootstrap", file)
 	case "database-bootstrap":

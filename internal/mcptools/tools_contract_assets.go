@@ -23,7 +23,7 @@ var mcpInputSchemaFields = map[string][]string{
 	"aoci_get_entries": {"paths", "dir", "volume_id", "object_refs"},
 	"aoci_search":      {"keyword", "tag_filter", "scope"},
 	"aoci_update_entry": {
-		"new_entry", "batch_id", "code_batch_id", "entries", "removals", "observe_review",
+		"new_entry", "batch_id", "code_batch_id", "entries", "removals", "observe_review", "root_overview",
 		"entries[].path", "entries[].object_ref", "entries[].new_entry", "entries[].source_sha256", "entries[].candidate_id", "removals[].path",
 	},
 	"aoci_maintain":     {"scope", "intent", "object_refs", "approval_request", "observe_review", "include_instructions", "batch_id"},
@@ -238,6 +238,11 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 				"review_digest": map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
 				"reviewed_by":   map[string]any{"type": "string"},
 			}, "review_digest", "reviewed_by"),
+			"root_overview": describedObject(descriptions["root_overview"], map[string]any{
+				"project":           map[string]any{"type": "string", "maxLength": 4 * machinecontract.RootOverviewProjectMaxChars},
+				"global_invariants": map[string]any{"type": "string", "maxLength": 4 * machinecontract.RootOverviewInvariantsMaxChars},
+				"root_sha256":       map[string]any{"type": "string", "pattern": "^[0-9a-f]{64}$"},
+			}, "project", "global_invariants", "root_sha256"),
 		}), nil
 
 	case "aoci_maintain":

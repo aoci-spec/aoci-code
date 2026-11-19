@@ -262,7 +262,7 @@ func enforceCognitionRecoveryGate(command *cobra.Command, args []string) error {
 	mcpReceiptsOnly := true
 	for _, transaction := range pending {
 		switch transaction.Operation {
-		case "remove", "entries", "header", cognitiontxn.OperationUnknown:
+		case "remove", "entries", "header", cognitiontxn.OperationRootOverview, cognitiontxn.OperationUnknown:
 		default:
 			mcpReceiptsOnly = false
 		}
@@ -911,7 +911,7 @@ func recoveryGateAllows(operation, path string) bool {
 	case "scope":
 		return path == "aoci baseline scope status" || path == "aoci baseline scope resume" ||
 			path == "aoci scope status" || path == "aoci scope resume" || path == "aoci scope rollback"
-	case "remove", "entries", "header", cognitiontxn.OperationUnknown:
+	case "remove", "entries", "header", cognitiontxn.OperationRootOverview, cognitiontxn.OperationUnknown:
 		if path == "aoci verify" || path == "aoci check" || path == "aoci status" || path == "aoci scope status" {
 			return true
 		}

@@ -132,6 +132,8 @@ type autoResult struct {
 	NextAction              string                       `json:"next_action"`
 	NextCommands            []string                     `json:"next_commands,omitempty"`
 	TerminalProof           *TerminalProof               `json:"terminal_proof,omitempty"`
+	RootOverview            *rootOverviewInvite          `json:"root_overview,omitempty"`
+	RootOverviewResult      *rootOverviewResult          `json:"root_overview_result,omitempty"`
 	ObserveReview           *batchObserveReview          `json:"observe_review,omitempty"`
 	ObserveReviewCurrent    *observeReviewListing        `json:"observe_review_current,omitempty"`
 	HostDialogRequest       *toolCallRequest             `json:"host_dialog_request,omitempty"`

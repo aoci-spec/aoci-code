@@ -43,7 +43,12 @@ type PendingTransaction struct {
 // the Overview guard stopped on any receipt file: a stale remove receipt
 // blocked full cognition delivery with Verify, Guide, and Maintain reporting
 // the repository aligned and nothing pointing at the file (#74).
-var receiptKinds = []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale", "relocate", "remove", "entries", "header"}
+var receiptKinds = []string{"database-bootstrap", "bootstrap", "migration", "reversal", "scope", "locale", "relocate", "remove", "entries", "header", OperationRootOverview}
+
+// OperationRootOverview is the receipt kind of the Root overview write
+// (aoci_update_entry root_overview): an MCP write receipt, rolled forward by
+// the next aoci_maintain or aoci_update_entry.
+const OperationRootOverview = "root"
 
 // OperationUnknown marks a .json file under .aoci/transactions/ that no AOCI
 // receipt kind wrote. It is still pending: a foreign file in the transaction

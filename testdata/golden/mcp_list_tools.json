@@ -641,6 +641,30 @@
           ],
           "description": "与本批次一并删除的 Code 孤儿条目，按 aoci_maintain 在 orphan_remove_candidates 里列出的写法；没有要创作的条目时可以单独提交"
         },
+        "root_overview": {
+          "additionalProperties": false,
+          "description": "撰写已对齐的结果通过 root_overview 邀请的 Root 两行概览：project（系统是什么、做什么）与 global_invariants（贯穿全系统的约束，没有则写 none），各一行，并带上该结果给出的 root_sha256；单独提交，不与条目、删除或复核同批",
+          "properties": {
+            "global_invariants": {
+              "maxLength": 2400,
+              "type": "string"
+            },
+            "project": {
+              "maxLength": 800,
+              "type": "string"
+            },
+            "root_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "project",
+            "global_invariants",
+            "root_sha256"
+          ],
+          "type": "object"
+        },
         "source_sha256": {
           "type": "string"
         }

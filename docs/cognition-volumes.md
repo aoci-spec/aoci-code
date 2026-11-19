@@ -412,6 +412,16 @@ blocker there: `explicit_orphan_remove_or_resolve_blocker` only when
 [After merging two branches that both maintained the index](troubleshooting.md#after-merging-two-branches-that-both-maintained-the-index). Observe-only blocking uses the review action described below;
 it supersedes the earlier `acknowledge_observed_evidence` spelling.
 
+Once the index is aligned and the Root still carries no overview (its
+`#Global-Invariants:` line is `-`, as init wrote it), the aligned Maintain
+and the final Apply carry `root_overview`: an invitation to author the Root's
+two lines from what the model now knows of the whole system. `project` says
+what the system is and does; `global_invariants` names the few constraints a
+change anywhere must respect, or `none`. The model submits both, with the
+`root_sha256` the invitation gave, as `aoci_update_entry` `root_overview`,
+on its own. Every later Overview then opens with them. The invitation is
+optional and never affects alignment; it stops once the line is authored.
+
 When pending observations are the only blocker, the Guide returns
 `next_action=review_observed_evidence`, and so does a Maintain that has no
 batch to issue or whose posture needs a person: the Agent reads

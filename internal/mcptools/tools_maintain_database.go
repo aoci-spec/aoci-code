@@ -64,6 +64,11 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	if input.ObserveReview != nil {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_observe_review_requires_observe_review_intent"})
 	}
+	// A Root overview write cut short is rolled forward here, so it never
+	// stands in the way as a pending receipt.
+	if recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent); recoveryFail != nil {
+		return failResult(recoveryFail)
+	}
 	loaded, fail := loadCognitionCtx(root)
 	if input.Intent != "" {
 		if input.Intent != maintainIntentCognitionOptimization {

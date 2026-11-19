@@ -25,6 +25,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
   delivery. After a server restart a v1 cursor still returns its Chunk, but a
   confirmation needs a fresh request in the new process. Present since the chunked
   delivery was introduced; found by the project's own reviewers.
+- The Root overview can be authored. An index built by init, scan, and
+  Maintain delivered `#Global-Invariants: -` with every Overview and had no
+  way to write it: only the onboarding planner authored the Root. Once the
+  index is aligned, Maintain and the final Apply now carry `root_overview`,
+  an optional invitation, and `aoci_update_entry` takes
+  `root_overview {project, global_invariants, root_sha256}`: two single lines
+  (200 and 600 characters), written with the Baseline record of the Root as
+  one receipted transaction that the next Maintain rolls forward if it was
+  cut short. Alignment never depends on it; `none` is a valid answer. The
+  tool surface stays nine tools; the input schema gains one optional object.
+  Finish a pending `root-overview.json` receipt before rolling back to an
+  earlier binary, which does not know its kind.
 - A merge of two branches that each maintained the index now has a named way
   out. Taking one side's `.aoci/baseline.json` alone left
   `code_volume_unbaselined`, and the blocked Maintain answered

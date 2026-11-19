@@ -36,6 +36,9 @@ type updateEntryIn struct {
 	// Maintain listed beside it: the same review_digest and reviewer the
 	// observe_review intent takes, acknowledged before the Entries are planned.
 	ObserveReview *observeReviewRequest `json:"observe_review,omitempty"`
+	// RootOverview authors the Root's two overview lines an aligned result
+	// invited. It stands alone: no Entries, removals, or review beside it.
+	RootOverview *rootOverviewIn `json:"root_overview,omitempty"`
 }
 
 type updateRemovalIn struct {
@@ -199,6 +202,7 @@ var requiredRemoveMessages = map[string][]any{
 	"remove.entry_missing":                     {"path"},
 	"remove.transform_failed":                  {"detail"},
 	"remove.hint.ledger_disabled":              nil,
+	"root_overview.invite":                     nil,
 	"remove.orphan_blocked_by_scope_change":    {"path", "command"},
 	"remove.lock_failed":                       {"detail"},
 	"remove.cas_read_failed":                   {"detail"},
@@ -378,6 +382,16 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
+				if recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent); recoveryFail != nil {
+					return failResult(recoveryFail)
+				}
+				if in.RootOverview != nil {
+					if len(in.Entries) > 0 || len(in.Removals) > 0 || in.ObserveReview != nil || in.Path != "" || in.ObjectRef != "" ||
+						in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" || in.BatchID != "" || in.CodeBatchID != "" {
+						return failResult(&Fail{Code: errBadArgs, Msg: "root_overview_stands_alone"})
+					}
+					return handleRootOverviewUpdate(root, mcpServiceVersion, *in.RootOverview, refreshSession)
+				}
 				if len(in.Entries) > 0 || len(in.Removals) > 0 {
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
@@ -827,6 +841,11 @@ func handleMCPUpdateBatchReviewed(
 	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
 		proof, facts := BuildTerminalProof(root)
 		result.TerminalProof = proof
+		if proof.Aligned {
+			if current, loadFail := loadCognitionCtx(root); loadFail == nil {
+				result.RootOverview = rootOverviewInvitation(current, facts)
+			}
+		}
 		if !proof.Aligned {
 			result.Aligned = false
 			result.NextAction = mcpContract(textassets.ContractMaintainActionApplyRemaining)
