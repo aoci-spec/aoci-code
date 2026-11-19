@@ -115,9 +115,10 @@ paths beforehand without changing anything.
 
 From this release an `aoci_update_entry` batch item may leave out
 `source_sha256` and `candidate_id`, and the refreshed `AGENTS.md` block says
-so. An older server still requires both: it refuses such a batch at its input
-schema with zero writes, and the same batch with the values copied from the
-Maintain response applies. A team that mixes binaries either keeps copying or
+so. An older server still requires both on a Code item and the `candidate_id`
+on a Database item: it refuses a batch without them at its input schema with
+zero writes, and the same batch with the values copied from the Maintain
+response applies. A team that mixes binaries either keeps copying or
 upgrades every machine first.
 
 ## The Legacy single-file layout is read-only from 0.2.0

@@ -250,3 +250,67 @@ func TestDatabaseBatchWithoutReceiptNamesTheReceipt(t *testing.T) {
 		t.Fatalf("the refusal does not name the missing receipt and the way on: %s", text)
 	}
 }
+
+// The single-Entry compatibility mode keeps its contract: nothing is
+// completed there, so an empty binding is the refusal it was. A Database
+// batch item never carries a source digest, an empty one included.
+func TestCompatibilityFormsAreNotCompleted(t *testing.T) {
+	root := buildLargeCodeCandidateRepo(t, 1)
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	entry := codeBatchArguments(wireCodePlan(maintain))["entries"].([]map[string]any)[0]
+	for _, field := range []string{"source_sha256", "candidate_id"} {
+		single := map[string]any{"code_batch_id": maintain.CodePlan.BatchID, "path": entry["path"],
+			"new_entry": entry["new_entry"], "source_sha256": entry["source_sha256"], "candidate_id": entry["candidate_id"]}
+		single[field] = ""
+		codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+		text := callVolumeTool(t, session, "aoci_update_entry", single)
+		if strings.Contains(text, `"status":"applied"`) {
+			t.Fatalf("the single-Entry mode completed an empty %s: %s", field, text)
+		}
+		assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
+	}
+	database := databaseCognitionWriteFixture(t, []string{"users"})
+	databaseSession := connectMCPClient(t, database)
+	plan := decodeDatabaseMaintain(t, handleDatabaseMaintain(database, "test-version", cognition.ScopeDatabase)).Plan
+	entries := []map[string]any{}
+	for _, item := range databaseCandidateInput(plan) {
+		entries = append(entries, map[string]any{"object_ref": item.ObjectRef, "candidate_id": item.CandidateID,
+			"source_sha256": "", "new_entry": item.NewEntry})
+	}
+	refused := callVolumeTool(t, databaseSession, "aoci_update_entry", map[string]any{"batch_id": plan.BatchID, "entries": entries})
+	if strings.Contains(refused, `"status":"applied"`) || !strings.Contains(refused, "database_candidate_binding_fields_conflict") {
+		t.Fatalf("a Database item carrying an empty source digest was written: %s", refused)
+	}
+}
+
+// Every batch refused for a missing binding leaves the Observe review
+// unrecorded, whichever way the binding went missing.
+func TestBatchMissingABindingRecordsNoObserveReview(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		alter func(map[string]any)
+	}{
+		{"no batch id", func(arguments map[string]any) { delete(arguments, "code_batch_id") }},
+		{"unusable path", func(arguments map[string]any) { arguments["entries"].([]map[string]any)[0]["path"] = "/" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := pendingObserveRepoWithWork(t, config.AutomationModeAuto)
+			maintain := maintainResultOf(t, root)
+			session := connectMCPClient(t, root)
+			arguments := codeBatchArguments(wireCodePlan(maintain))
+			for _, entry := range arguments["entries"].([]map[string]any) {
+				delete(entry, "source_sha256")
+				delete(entry, "candidate_id")
+			}
+			test.alter(arguments)
+			arguments["observe_review"] = map[string]any{"review_digest": maintain.ObserveReview.ReviewDigest, "reviewed_by": "codex-agent"}
+			baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+			text := callVolumeTool(t, session, "aoci_update_entry", arguments)
+			if strings.Contains(text, `"status":"applied"`) || strings.Contains(text, "acknowledged") {
+				t.Fatalf("a batch missing a binding still recorded its review: %s", text)
+			}
+			assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+		})
+	}
+}

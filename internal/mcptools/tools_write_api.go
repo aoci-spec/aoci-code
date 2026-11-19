@@ -429,10 +429,10 @@ func registerWriteTools(
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
 					items := withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID)
-					if _, bindingFail := fillIssuedBindings(root, items); bindingFail != nil {
-						// Nothing can be completed for this batch, so the Observe
-						// review beside it is not recorded either: the refusal
-						// below is rendered by the batch itself, with zero writes.
+					if completed, bindingFail := fillIssuedBindings(root, items); bindingFail != nil || bindingsIncomplete(completed) {
+						// A batch that still lacks a binding is refused with zero
+						// writes, so the Observe review beside it is not recorded
+						// either: the batch renders its own refusal below.
 						return handleMCPUpdateBatchReviewed(root, mcpServiceVersion, items, nil, refreshSession)
 					}
 					var review *batchObserveReview
@@ -502,6 +502,9 @@ func handleMCPUpdateSingle(
 		SourceSHA256: in.SourceSHA256,
 		CandidateID:  in.CandidateID,
 		BatchID:      map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != ""],
+		// The single-Entry compatibility mode keeps its contract: its
+		// bindings are whatever was sent, never completed.
+		sourceGiven: true, candidateGiven: true,
 	}}, refreshSessions...)
 }
 
@@ -537,6 +540,23 @@ func cognitionOptimizationTransactionComplete(
 		return false, fmt.Errorf("cognition_optimization_transaction_postimage_invalid")
 	}
 	return true, nil
+}
+
+// bindingsIncomplete reports an item that, after completion, still has no
+// binding to be checked by: a Code item without a source digest, a Database
+// item without a candidate id or digest. The input schema refused these
+// before the bindings became optional, ahead of everything else.
+func bindingsIncomplete(items []updateEntryItemIn) bool {
+	for _, item := range items {
+		if item.Remove {
+			continue
+		}
+		source, candidate := strings.TrimSpace(item.SourceSHA256), strings.TrimSpace(item.CandidateID)
+		if (item.ObjectRef == "" && source == "") || (item.ObjectRef != "" && source == "" && candidate == "") {
+			return true
+		}
+	}
+	return false
 }
 
 // fillIssuedBindings completes a batch item that names only its object and
@@ -682,7 +702,7 @@ func handleMCPUpdateBatchReviewed(
 			}
 			break
 		}
-		if databaseReceipt && item.SourceSHA256 != "" {
+		if databaseReceipt && (item.SourceSHA256 != "" || item.sourceGiven) {
 			bindingFail = &Fail{Code: errBadArgs, Msg: "database_candidate_binding_fields_conflict"}
 			break
 		}
