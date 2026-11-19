@@ -102,6 +102,10 @@ func handleVolumeOverview(
 
 	refreshSession.mu.Lock()
 	defer refreshSession.mu.Unlock()
+	if !refreshSession.deliveryCurrent(owner, view.RequestedScope, selected) {
+		// The delivery this request picked was replaced while it fell back.
+		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
+	}
 	assessment := refreshSession.evaluate(input, current, semantic, hostReasons, eventID)
 	if input.CheckOnly {
 		var probe *cognitionProbe

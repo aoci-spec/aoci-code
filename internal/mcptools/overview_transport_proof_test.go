@@ -674,10 +674,16 @@ func TestAProofThatFallsBackKeepsItsDelivery(t *testing.T) {
 	store.maxBytes = store.bytes
 	overviewLiveFallbackHook = func() {
 		overviewLiveFallbackHook = nil
+		// The successor is served the live way, so both proofs meet in the
+		// Host session's own memory.
+		store.maxBytes = 1
 		fixture.rest("host", fixture.chunk("host", freshAll()))
 	}
 	t.Cleanup(func() { overviewLiveFallbackHook = nil })
-	expectTransport(t, "a proof whose delivery was replaced during its fallback", fixture.prove("host", fixture.both), false)
+	if result := sessionOverview(t, fixture.root, fixture.session, "host", fixture.both); !result.IsError ||
+		!strings.Contains(resText(t, result), "overview_session_unavailable_restart_required") {
+		t.Fatalf("a proof whose delivery was replaced during its fallback must ask for a restart: %.300s", resText(t, result))
+	}
 	if overviewLiveFallbackHook != nil {
 		t.Fatal("the proof must have fallen back to the live path")
 	}
@@ -693,6 +699,18 @@ func TestAProofThatFallsBackKeepsItsDelivery(t *testing.T) {
 	fixture.rest("host", fixture.chunk("host", freshAll()))
 	fixture.session.deliveries.maxBytes = fixture.session.deliveries.bytes
 	expectTransport(t, "a proof scored the live way for its own delivery", fixture.prove("host", fixture.both), true)
+
+	// A Host half the retained delivery already accepted goes with the
+	// fallback: the model half that no longer fits still meets it.
+	fixture = newTransportProofFixture(t)
+	fixture.rest("host", fixture.chunk("host", freshAll()))
+	expectTransport(t, "the Host half through the retained delivery", fixture.prove("host", fixture.host), true)
+	fixture.session.deliveries.maxBytes = fixture.session.deliveries.bytes
+	out = fixture.prove("host", fixture.model)
+	expectTransport(t, "the model half after the fallback", out, true)
+	if !strings.Contains(out, "model_attestation: pass") {
+		t.Fatalf("the accepted Host half was lost in the fallback:\n%s", out)
+	}
 }
 
 // A fresh request refused after rendering leaves the governance binding of

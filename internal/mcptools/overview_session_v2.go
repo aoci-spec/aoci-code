@@ -359,6 +359,12 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
 	if !refresh.deliveries.proofFits(entry, input.ModelAttestation) {
+		// The live path takes over, with the halves this delivery already
+		// accepted: they move to the Host session's own memory.
+		for key, evidence := range entry.ctx.Session.deliveryEvidence {
+			kept := *evidence
+			refresh.deliveryEvidence[key] = &kept
+		}
 		refresh.deliveries.remove(entry)
 		return nil
 	}

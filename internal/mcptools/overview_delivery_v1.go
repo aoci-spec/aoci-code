@@ -327,10 +327,8 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	}
 	// What this call leaves in the proof memory is written only when its
 	// response is committed: a refused proof leaves no half behind.
-	// And a proof that arrived through a delivery that is no longer the
-	// current one leaves nothing for its successor.
 	var evidence *pendingEvidence
-	if remembers && ctx.Session != nil && ctx.transport().deliveryCurrent(ctx.Owner, ctx.RequestedScope, ctx.DeliveryID) {
+	if remembers && ctx.Session != nil {
 		evidence = &pendingEvidence{session: ctx.Session, key: deliveryKey{owner: ctx.Owner, body: body},
 			confirmed: hostStatus == hostDeliveryConfirmed, attestation: report}
 	}
