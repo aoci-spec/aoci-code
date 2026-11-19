@@ -1,7 +1,7 @@
 #AOCI-ROOT-MANIFEST: 1
 #Format-Version: cognition-volumes/v1
 #Locale: en-US
-#Project: public-candidate
-#Global-Invariants: -
+#Project: AOCI-CODE: a Go CLI and nine-tool MCP server that keeps a model-authored, versioned repository cognition index (aoci.txt and its Volumes) aligned with source and database evidence
+#Global-Invariants: Index semantics are authored only by the Host model, never generated, prefilled, or judged by AOCI; every formal write is a receipted CAS transaction with the Baseline last, and bytes it cannot prove are never overwritten; MCP stdio stdout carries JSON-RPC only and the MCP surface stays nine tools; machine numbers and tokens live only in internal/machinecontract; persisted identities and defaults are preimages, so changing one is a Scope Change for every repository; only a person approves, never a model; spec/public is the public contract and nothing private enters the tree
 #Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled
 #Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled
