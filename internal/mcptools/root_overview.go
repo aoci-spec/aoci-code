@@ -38,6 +38,9 @@ const (
 	rootProjectPrefix       = "#Project:"
 	rootInvariantsPrefix    = "#Global-Invariants:"
 	rootOverviewUnauthored  = "-"
+	// rootOverviewRootPath is the Root of a Volumes v1 repository, the one
+	// file this transaction rewrites; a receipt cannot name another.
+	rootOverviewRootPath = "aoci.txt"
 )
 
 // rootOverviewIn is the root_overview object of aoci_update_entry.
@@ -83,15 +86,19 @@ func rootOverviewReceiptPath(root string) string {
 }
 
 // rootOverviewFields reads the two authored lines of a Root. A Root without
-// one of them reads as unauthored.
+// one of them reads as unauthored. The first line with a prefix is the field,
+// for the reader and the writer alike; a later line with the same prefix is
+// text nobody authored through this path and stays as it is.
 func rootOverviewFields(raw []byte) (project, invariants string) {
 	project, invariants = rootOverviewUnauthored, rootOverviewUnauthored
-	for _, line := range strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n") {
+	seenProject, seenInvariants := false, false
+	for _, line := range strings.SplitAfter(string(raw), "\n") {
+		line = strings.TrimRight(line, "\r\n")
 		switch {
-		case strings.HasPrefix(line, rootProjectPrefix):
-			project = strings.TrimSpace(strings.TrimPrefix(line, rootProjectPrefix))
-		case strings.HasPrefix(line, rootInvariantsPrefix):
-			invariants = strings.TrimSpace(strings.TrimPrefix(line, rootInvariantsPrefix))
+		case !seenProject && strings.HasPrefix(line, rootProjectPrefix):
+			project, seenProject = strings.TrimSpace(strings.TrimPrefix(line, rootProjectPrefix)), true
+		case !seenInvariants && strings.HasPrefix(line, rootInvariantsPrefix):
+			invariants, seenInvariants = strings.TrimSpace(strings.TrimPrefix(line, rootInvariantsPrefix)), true
 		}
 	}
 	return project, invariants
@@ -101,39 +108,55 @@ func rootOverviewAuthored(value string) bool {
 	return value != "" && value != rootOverviewUnauthored && value != "MODEL_AUTHORING_REQUIRED"
 }
 
-// rewriteRootOverview replaces the two lines, keeping every other byte and
-// the file's line ending. A Root that lacks a line gets it after the line
-// that precedes it in the template (Locale, then Project).
+// rewriteRootOverview replaces the two lines and keeps every other byte: each
+// line keeps its own ending, so a Root of mixed endings stays mixed. A Root
+// that lacks a line gets it after the line that precedes it in the template
+// (Locale, then Project), with the ending of that line.
 func rewriteRootOverview(raw []byte, project, invariants string) []byte {
-	newline := "\n"
-	if strings.Contains(string(raw), "\r\n") {
-		newline = "\r\n"
+	lines := strings.SplitAfter(string(raw), "\n")
+	ending := func(line string) string {
+		switch {
+		case strings.HasSuffix(line, "\r\n"):
+			return "\r\n"
+		case strings.HasSuffix(line, "\n"):
+			return "\n"
+		}
+		return ""
 	}
-	lines := strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n")
 	replace := func(prefix, value, after string) {
 		for index, line := range lines {
 			if strings.HasPrefix(line, prefix) {
-				lines[index] = prefix + " " + value
+				lines[index] = prefix + " " + value + ending(line)
 				return
 			}
 		}
-		at := 0
+		at := -1
 		for index, line := range lines {
 			if strings.HasPrefix(line, after) {
-				at = index + 1
+				at = index
+				break
 			}
 		}
-		if at == 0 {
-			at = 1
+		if at < 0 {
+			at = 0
 		}
-		if at > len(lines) {
-			at = len(lines)
+		separator := ending(lines[at])
+		if separator == "" {
+			// The anchor is the file's unterminated last line: terminate it
+			// with the file's own ending and leave the new line last.
+			separator = "\n"
+			if strings.Contains(string(raw), "\r\n") {
+				separator = "\r\n"
+			}
+			lines[at] += separator
+			lines = append(lines[:at+1], append([]string{prefix + " " + value}, lines[at+1:]...)...)
+			return
 		}
-		lines = append(lines[:at], append([]string{prefix + " " + value}, lines[at:]...)...)
+		lines = append(lines[:at+1], append([]string{prefix + " " + value + separator}, lines[at+1:]...)...)
 	}
 	replace(rootProjectPrefix, project, "#Locale:")
 	replace(rootInvariantsPrefix, invariants, rootProjectPrefix)
-	return []byte(strings.Join(lines, newline))
+	return []byte(strings.Join(lines, ""))
 }
 
 // rootOverviewValueFinding names why one authored value is refused, or "".
@@ -161,6 +184,16 @@ func rootOverviewInvitation(loaded *cognitionRepoCtx, facts *volumegovernance.Fa
 	if rootOverviewAuthored(invariants) {
 		return nil
 	}
+	// The current values are context, not payload: a Root someone filled by
+	// hand with a very long line must not swell every aligned response.
+	shown := func(value string, limit int) string {
+		if utf8.RuneCountInString(value) <= limit {
+			return value
+		}
+		return string([]rune(value)[:limit])
+	}
+	project = shown(project, machinecontract.RootOverviewProjectMaxChars)
+	invariants = shown(invariants, machinecontract.RootOverviewInvariantsMaxChars)
 	return &rootOverviewInvite{
 		RootSHA256: loaded.set.Root.SHA256, Project: project, GlobalInvariants: invariants,
 		ProjectMaxChars:          machinecontract.RootOverviewProjectMaxChars,
@@ -172,26 +205,28 @@ func rootOverviewInvitation(loaded *cognitionRepoCtx, facts *volumegovernance.Fa
 // applyRootOverview writes the two lines. It never plans Entries and takes no
 // part in the Entries batch; a repository that is not aligned is refused, so
 // an overview is always written over cognition the model has finished.
-func applyRootOverview(root, source string, in rootOverviewIn) (*rootOverviewResult, *Fail) {
+// recovered reports that this call first finished an earlier overview write
+// that had been cut short, whatever became of its own request.
+func applyRootOverview(root, source string, in rootOverviewIn) (written *rootOverviewResult, recovered bool, fail *Fail) {
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
-		return nil, &Fail{Code: errWriteConflict, Msg: "root_overview_lock_failed"}
+		return nil, false, &Fail{Code: errWriteConflict, Msg: "root_overview_lock_failed"}
 	}
 	defer lock.Release()
-	if fail := completeRootOverviewLocked(root, source); fail != nil {
-		return nil, fail
+	if recovered, fail = completeRootOverviewLocked(root, source); fail != nil {
+		return nil, recovered, fail
 	}
 	if other, pendingErr := cognitiontxn.OtherPending(root, rootOverviewReceiptName); pendingErr != nil {
-		return nil, &Fail{Code: errInternal, Msg: "root_overview_recovery_read_failed"}
+		return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_recovery_read_failed"}
 	} else if other != "" {
-		return nil, &Fail{Code: errWriteConflict, Msg: "root_overview_other_transaction_pending: " + other}
+		return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_other_transaction_pending: " + other}
 	}
-	loaded, fail := loadCognitionCtx(root)
-	if fail != nil {
-		return nil, fail
+	loaded, loadFail := loadCognitionCtx(root)
+	if loadFail != nil {
+		return nil, recovered, loadFail
 	}
-	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
-		return nil, &Fail{Code: errBadArgs, Msg: machinecontract.StatusLegacyReadOnlyMigrateRequired}
+	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 || loaded.cfg.IndexPath != rootOverviewRootPath {
+		return nil, recovered, &Fail{Code: errBadArgs, Msg: machinecontract.StatusLegacyReadOnlyMigrateRequired}
 	}
 	project, invariants := strings.TrimSpace(in.Project), strings.TrimSpace(in.GlobalInvariants)
 	for _, finding := range []string{
@@ -199,78 +234,92 @@ func applyRootOverview(root, source string, in rootOverviewIn) (*rootOverviewRes
 		rootOverviewValueFinding("global_invariants", in.GlobalInvariants, machinecontract.RootOverviewInvariantsMaxChars),
 	} {
 		if finding != "" {
-			return nil, &Fail{Code: errCandidateInvalid, Msg: finding, Repairable: true}
+			return nil, recovered, &Fail{Code: errCandidateInvalid, Msg: finding, Repairable: true}
 		}
+	}
+	// Aligned comes first, the repeated submission included: an overview is
+	// never answered as applied over an index that is not aligned.
+	facts, assessErr := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if assessErr != nil || facts == nil || !facts.GovernanceAligned {
+		return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_requires_aligned_index"}
 	}
 	rootRaw, rootSHA := loaded.set.Root.Raw, loaded.set.Root.SHA256
 	post := rewriteRootOverview(rootRaw, project, invariants)
 	if string(post) == string(rootRaw) {
 		// The same overview submitted again, or a receipt just rolled forward.
 		return &rootOverviewResult{Status: autoStatusApplied, RootSHA256: rootSHA, AlreadyApplied: true,
-			BaselineBound: loaded.bl != nil && loaded.bl.Files[loaded.cfg.IndexPath].SHA256 == rootSHA}, nil
+			BaselineBound: loaded.bl != nil && loaded.bl.Files[rootOverviewRootPath].SHA256 == rootSHA}, recovered, nil
 	}
 	if in.RootSHA256 != rootSHA {
-		return nil, &Fail{Code: errWriteConflict, Msg: "root_overview_root_changed: current root_sha256=" + rootSHA, Repairable: true}
+		return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_root_changed: current root_sha256=" + rootSHA, Repairable: true}
 	}
-	facts, assessErr := volumegovernance.Assess(root, loaded.cfg, loaded.set)
-	if assessErr != nil || !facts.GovernanceAligned {
-		return nil, &Fail{Code: errWriteConflict, Msg: "root_overview_requires_aligned_index"}
-	}
-	receipt := rootOverviewReceipt{Version: 1, RootPath: loaded.cfg.IndexPath, PreRootSHA256: rootSHA,
+	receipt := rootOverviewReceipt{Version: 1, RootPath: rootOverviewRootPath, PreRootSHA256: rootSHA,
 		PostRootSHA256: indexTextHash(string(post)), RootPostimage: string(post)}
 	// The Baseline joins only when it records the Root; several legal layouts
-	// never bind it, and an absent record is not enrolled here.
-	if loaded.bl != nil {
-		if recorded, exists := loaded.bl.Files[loaded.cfg.IndexPath]; exists {
-			baselineRaw, readErr := os.ReadFile(filepath.Join(root, ".aoci", "baseline.json"))
-			if readErr != nil {
-				return nil, &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_read_failed"}
+	// never bind it, and an absent record is not enrolled here. Its postimage
+	// is built from the very bytes whose digest the CAS will demand: the file
+	// is read, decoded, and read again, and any difference between the two
+	// reads is another writer's version, which is never overwritten.
+	baselinePath := filepath.Join(root, ".aoci", "baseline.json")
+	baselineRaw, readErr := os.ReadFile(baselinePath)
+	if readErr == nil {
+		state, exists, loadErr := baseline.Load(root)
+		again, againErr := os.ReadFile(baselinePath)
+		if loadErr != nil || !exists || state == nil || againErr != nil || string(again) != string(baselineRaw) {
+			return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_changed"}
+		}
+		if recorded, bound := state.Files[rootOverviewRootPath]; bound {
+			if recorded.SHA256 != rootSHA {
+				return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_requires_aligned_index"}
 			}
-			fingerprint := baseline.HashBytes(loaded.cfg.IndexPath, post)
+			fingerprint := baseline.HashBytes(rootOverviewRootPath, post)
 			fingerprint.Role = recorded.Role
-			baseline.UpdateOne(loaded.bl, loaded.cfg.IndexPath, fingerprint)
-			loaded.bl.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
-			baselinePost, marshalErr := baseline.MarshalExact(loaded.bl)
+			baseline.UpdateOne(state, rootOverviewRootPath, fingerprint)
+			state.UpdatedAt = time.Now().UTC().Format(time.RFC3339)
+			baselinePost, marshalErr := baseline.MarshalExact(state)
 			if marshalErr != nil {
-				return nil, &Fail{Code: errInternal, Msg: "root_overview_baseline_postimage_invalid"}
+				return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_baseline_postimage_invalid"}
 			}
 			receipt.BaselinePreSHA256, receipt.BaselinePostSHA256 = indexTextHash(string(baselineRaw)), indexTextHash(string(baselinePost))
 			receipt.BaselinePostimage = string(baselinePost)
 		}
+	} else if !errors.Is(readErr, os.ErrNotExist) {
+		return nil, recovered, &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_read_failed"}
 	}
 	var nonce [16]byte
 	if _, err := rand.Read(nonce[:]); err != nil {
-		return nil, &Fail{Code: errInternal, Msg: "root_overview_transaction_id_unavailable"}
+		return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_transaction_id_unavailable"}
 	}
 	receipt.LedgerTransactionID = hex.EncodeToString(nonce[:])
 	data, err := json.MarshalIndent(receipt, "", "  ")
 	if err != nil {
-		return nil, &Fail{Code: errInternal, Msg: "root_overview_receipt_invalid"}
+		return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_receipt_invalid"}
 	}
 	path := rootOverviewReceiptPath(root)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, &Fail{Code: errInternal, Msg: "root_overview_receipt_save_failed"}
+		return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_receipt_save_failed"}
 	}
 	if err := afs.AtomicWrite(path, append(data, '\n')); err != nil {
-		return nil, &Fail{Code: errInternal, Msg: "root_overview_receipt_save_failed"}
+		return nil, recovered, &Fail{Code: errInternal, Msg: "root_overview_receipt_save_failed"}
 	}
-	if fail := completeRootOverviewLocked(root, source); fail != nil {
+	if _, fail := completeRootOverviewLocked(root, source); fail != nil {
 		fail.FormalWritesStarted = true
-		return nil, fail
+		return nil, recovered, fail
 	}
-	return &rootOverviewResult{Status: autoStatusApplied, RootSHA256: receipt.PostRootSHA256, BaselineBound: receipt.BaselinePostimage != ""}, nil
+	return &rootOverviewResult{Status: autoStatusApplied, RootSHA256: receipt.PostRootSHA256, BaselineBound: receipt.BaselinePostimage != ""}, recovered, nil
 }
 
 // completeRootOverviewRecovery rolls a pending Root overview receipt forward.
 // aoci_maintain and aoci_update_entry call it first, so a write cut short
 // heals on the next call instead of standing in the way as a pending receipt.
-func completeRootOverviewRecovery(root, source string) *Fail {
+// It reports whether it finished one.
+func completeRootOverviewRecovery(root, source string) (bool, *Fail) {
 	if _, err := os.Stat(rootOverviewReceiptPath(root)); errors.Is(err, os.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
-		return &Fail{Code: errWriteConflict, Msg: "root_overview_lock_failed"}
+		return false, &Fail{Code: errWriteConflict, Msg: "root_overview_lock_failed"}
 	}
 	defer lock.Release()
 	return completeRootOverviewLocked(root, source)
@@ -280,72 +329,88 @@ func completeRootOverviewRecovery(root, source string) *Fail {
 // transaction between its two writes.
 var rootOverviewWriteCAS = afs.AtomicWriteCAS
 
-// completeRootOverviewLocked advances the receipt, if one is pending: each
-// file is written when it holds its preimage and accepted when it already
-// holds its postimage. Any other bytes are a third party's and stop it, with
-// the receipt left in place.
-func completeRootOverviewLocked(root, source string) *Fail {
+// completeRootOverviewLocked advances the receipt, if one is pending, and
+// reports whether it finished one. Nothing is written until everything that
+// could refuse has been checked: no other receipt may be pending, an exchange
+// a crash cut inside either file is settled first, and both files must then
+// hold their preimage or their postimage. Any other bytes are a third party's
+// and stop it with both files and the receipt as they were.
+func completeRootOverviewLocked(root, source string) (bool, *Fail) {
 	path := rootOverviewReceiptPath(root)
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		return false, nil
 	}
 	if err != nil {
-		return &Fail{Code: errInternal, Msg: "root_overview_receipt_read_failed"}
+		return false, &Fail{Code: errInternal, Msg: "root_overview_receipt_read_failed"}
 	}
 	var receipt rootOverviewReceipt
+	// The Root of a Volumes v1 repository is aoci.txt at its root and nothing
+	// else; a receipt naming another path is not one this code wrote.
 	if jsonstrict.RejectDuplicateKeysFold(data) != nil || json.Unmarshal(data, &receipt) != nil || receipt.Version != 1 ||
-		receipt.RootPath == "" || !validRecoverySHA256(receipt.PreRootSHA256) ||
+		receipt.RootPath != rootOverviewRootPath || !validRecoverySHA256(receipt.PreRootSHA256) ||
 		indexTextHash(receipt.RootPostimage) != receipt.PostRootSHA256 ||
-		(receipt.BaselinePostimage != "" && indexTextHash(receipt.BaselinePostimage) != receipt.BaselinePostSHA256) {
-		return &Fail{Code: errWriteConflict, Msg: "root_overview_receipt_invalid: " + rootOverviewReceiptName}
+		(receipt.BaselinePostimage != "" && (indexTextHash(receipt.BaselinePostimage) != receipt.BaselinePostSHA256 || !validRecoverySHA256(receipt.BaselinePreSHA256))) {
+		return false, &Fail{Code: errWriteConflict, Msg: "root_overview_receipt_invalid: " + rootOverviewReceiptName}
 	}
-	rootPath := filepath.Join(root, filepath.FromSlash(receipt.RootPath))
-	current, err := os.ReadFile(rootPath)
-	if err != nil {
-		return &Fail{Code: errWriteConflict, Msg: "root_overview_root_read_failed"}
+	if other, pendingErr := cognitiontxn.OtherPending(root, rootOverviewReceiptName); pendingErr != nil {
+		return false, &Fail{Code: errInternal, Msg: "root_overview_recovery_read_failed"}
+	} else if other != "" {
+		return false, &Fail{Code: errWriteConflict, Msg: "root_overview_other_transaction_pending: " + other}
 	}
-	switch indexTextHash(string(current)) {
-	case receipt.PostRootSHA256:
-	case receipt.PreRootSHA256:
-		if err := rootOverviewWriteCAS(rootPath, []byte(receipt.RootPostimage), receipt.PreRootSHA256); err != nil {
-			return &Fail{Code: errWriteConflict, Msg: "root_overview_root_write_failed"}
-		}
-	default:
-		return &Fail{Code: errWriteConflict, Msg: "root_overview_root_third_party_conflict"}
+	rootPath := filepath.Join(root, rootOverviewRootPath)
+	baselinePath := filepath.Join(root, ".aoci", "baseline.json")
+	type participant struct {
+		path, pre, post, image, name string
+		atPreimage                   bool
 	}
+	participants := []*participant{{path: rootPath, pre: receipt.PreRootSHA256, post: receipt.PostRootSHA256, image: receipt.RootPostimage, name: "root"}}
 	if receipt.BaselinePostimage != "" {
-		baselinePath := filepath.Join(root, ".aoci", "baseline.json")
-		baselineRaw, err := os.ReadFile(baselinePath)
-		if err != nil {
-			return &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_read_failed"}
+		participants = append(participants, &participant{path: baselinePath, pre: receipt.BaselinePreSHA256, post: receipt.BaselinePostSHA256, image: receipt.BaselinePostimage, name: "baseline"})
+	}
+	for _, item := range participants {
+		if info, statErr := os.Lstat(item.path); statErr != nil || !info.Mode().IsRegular() {
+			return false, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_read_failed"}
 		}
-		switch indexTextHash(string(baselineRaw)) {
-		case receipt.BaselinePostSHA256:
-		case receipt.BaselinePreSHA256:
-			if err := rootOverviewWriteCAS(baselinePath, []byte(receipt.BaselinePostimage), receipt.BaselinePreSHA256); err != nil {
-				return &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_write_failed"}
-			}
+		if err := afs.RecoverAtomicWriteCAS(item.path); err != nil {
+			return false, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_exchange_unsettled"}
+		}
+		current, readErr := os.ReadFile(item.path)
+		if readErr != nil {
+			return false, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_read_failed"}
+		}
+		switch indexTextHash(string(current)) {
+		case item.post:
+		case item.pre:
+			item.atPreimage = true
 		default:
-			return &Fail{Code: errWriteConflict, Msg: "root_overview_baseline_third_party_conflict"}
+			return false, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_third_party_conflict"}
+		}
+	}
+	for _, item := range participants {
+		if !item.atPreimage {
+			continue
+		}
+		if err := rootOverviewWriteCAS(item.path, []byte(item.image), item.pre); err != nil {
+			return false, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_write_failed"}
 		}
 	}
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil || loaded.set.Root.SHA256 != receipt.PostRootSHA256 {
-		return &Fail{Code: errInternal, Msg: "root_overview_postimage_unconfirmed"}
+		return false, &Fail{Code: errInternal, Msg: "root_overview_postimage_unconfirmed"}
 	}
 	event := ledger.Event{Op: "root_overview_apply", Source: source, Result: ledger.ResultOK, AppliedCount: 1,
 		RecoveryTransactionID: receipt.LedgerTransactionID, PreIndexSHA256: receipt.PreRootSHA256,
 		PostIndexSHA256: receipt.PostRootSHA256, IndexSHA256: receipt.PostRootSHA256, BaselineSHA256: receipt.BaselinePostSHA256}
 	if loaded.cfg.LedgerEnabled {
 		if err := cognitiontxn.EnsureLedger(root, true, event); err != nil {
-			return &Fail{Code: errInternal, Msg: "root_overview_ledger_completion_failed"}
+			return false, &Fail{Code: errInternal, Msg: "root_overview_ledger_completion_failed"}
 		}
 	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return &Fail{Code: errInternal, Msg: "root_overview_receipt_cleanup_failed"}
+		return false, &Fail{Code: errInternal, Msg: "root_overview_receipt_cleanup_failed"}
 	}
-	return nil
+	return true, nil
 }
 
 // handleRootOverviewUpdate answers aoci_update_entry root_overview: the write,
@@ -353,7 +418,7 @@ func completeRootOverviewLocked(root, source string) *Fail {
 // moved and the Baseline record with them.
 func handleRootOverviewUpdate(root, mcpServiceVersion string, in rootOverviewIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	start := time.Now()
-	written, fail := applyRootOverview(root, ledger.SourceAgent, in)
+	written, recovered, fail := applyRootOverview(root, ledger.SourceAgent, in)
 	metrics := autoMetrics{DeterministicMs: elapsedMilliseconds(start), AOCIToolCalls: 1}
 	if fail != nil {
 		status := autoStatusStopped
@@ -361,9 +426,12 @@ func handleRootOverviewUpdate(root, mcpServiceVersion string, in rootOverviewIn,
 			status = autoStatusRepairRequired
 		}
 		appendAutoFinalizeEvent(root, status, metrics)
+		// A request refused after this call finished an earlier overview
+		// write still changed the formal assets, and says so.
 		return textResult(renderAutoResult(autoResult{
-			Version: 1, Status: status, Attempted: 1, FormalWritesStarted: fail.FormalWritesStarted,
-			Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+			Version: 1, Status: status, Attempted: 1, FormalWritesStarted: fail.FormalWritesStarted || recovered,
+			RootOverviewRecovered: recovered,
+			Receipt:               currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 			Findings:   machineFindings{genericMachineFinding(fail.Code, "["+fail.Code+"] "+fail.Msg)},
 			RetryScope: []string{}, NextAction: fail.Msg,
 		}))
@@ -378,7 +446,7 @@ func handleRootOverviewUpdate(root, mcpServiceVersion string, in rootOverviewIn,
 		Version: 1, Status: autoStatusApplied, Aligned: proof.Aligned, Attempted: 1, Applied: applied,
 		FormalWritesStarted: !written.AlreadyApplied, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion),
 		Metrics: metrics, Findings: machineFindings{}, RetryScope: []string{}, NextAction: "none",
-		TerminalProof: proof, RootOverviewResult: written,
+		TerminalProof: proof, RootOverviewResult: written, RootOverviewRecovered: recovered,
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
 	return textResult(renderAutoResult(result))

@@ -382,8 +382,12 @@ func registerWriteTools(
 			in updateEntryIn,
 		) (*mcp.CallToolResult, any, error) {
 			return guard(func() *mcp.CallToolResult {
-				if recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent); recoveryFail != nil {
-					return failResult(recoveryFail)
+				// The overview path finishes a cut write itself and reports it; any
+				// other submission rolls it forward here first.
+				if in.RootOverview == nil {
+					if _, recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent); recoveryFail != nil {
+						return failResult(recoveryFail)
+					}
 				}
 				if in.RootOverview != nil {
 					if len(in.Entries) > 0 || len(in.Removals) > 0 || in.ObserveReview != nil || in.Path != "" || in.ObjectRef != "" ||

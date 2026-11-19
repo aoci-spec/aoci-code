@@ -276,3 +276,119 @@ func TestRootOverviewInvitationNeedsAFinishedIndex(t *testing.T) {
 		t.Fatal("no invitation for an index that is not aligned or holds no Entry")
 	}
 }
+
+// cutRootOverview leaves a receipt with both files still at their preimages:
+// the first write of the transaction fails.
+func cutRootOverview(t *testing.T, root string, session *mcp.ClientSession) (rootBefore, baselineBefore []byte) {
+	t.Helper()
+	sha := rootInvite(t, session)["root_sha256"].(string)
+	rootBefore, _ = os.ReadFile(filepath.Join(root, "aoci.txt"))
+	baselineBefore, _ = os.ReadFile(filepath.Join(root, ".aoci", "baseline.json"))
+	original := rootOverviewWriteCAS
+	rootOverviewWriteCAS = func(string, []byte, string) error { return errors.New("cut") }
+	t.Cleanup(func() { rootOverviewWriteCAS = original })
+	if cut := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha); cut["status"] != autoStatusStopped || !rootReceiptPending(root) {
+		t.Fatalf("the cut write must leave its receipt: %v", cut)
+	}
+	rootOverviewWriteCAS = original
+	return rootBefore, baselineBefore
+}
+
+// The roll-forward writes nothing until everything that could refuse has
+// been checked: another pending receipt, a Baseline the receipt does not
+// know, and a receipt that names another file all leave the Root as it was.
+func TestRootOverviewRecoveryChecksBeforeItWrites(t *testing.T) {
+	unchanged := func(t *testing.T, root string, rootBefore []byte, want string) {
+		t.Helper()
+		_, fail := completeRootOverviewRecovery(root, "test")
+		after, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
+		if fail == nil || !strings.Contains(fail.Msg, want) || string(after) != string(rootBefore) || !rootReceiptPending(root) {
+			t.Fatalf("want %s with the Root untouched and the receipt kept, got %v", want, fail)
+		}
+	}
+	t.Run("another receipt is pending", func(t *testing.T) {
+		root, session := deltaVolumesFixture(t, 3)
+		rootBefore, _ := cutRootOverview(t, root, session)
+		if err := os.WriteFile(filepath.Join(root, ".aoci", "transactions", "entries-foreign.json"), []byte("{}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		unchanged(t, root, rootBefore, "root_overview_other_transaction_pending")
+	})
+	t.Run("the Baseline holds bytes the receipt does not know", func(t *testing.T) {
+		root, session := deltaVolumesFixture(t, 3)
+		rootBefore, baselineBefore := cutRootOverview(t, root, session)
+		if err := os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), append(baselineBefore, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		unchanged(t, root, rootBefore, "root_overview_baseline_third_party_conflict")
+	})
+	t.Run("the receipt names another file", func(t *testing.T) {
+		root, session := deltaVolumesFixture(t, 3)
+		rootBefore, _ := cutRootOverview(t, root, session)
+		receiptPath := rootOverviewReceiptPath(root)
+		raw, _ := os.ReadFile(receiptPath)
+		forged := strings.Replace(string(raw), `"root_path": "aoci.txt"`, `"root_path": "../outside.txt"`, 1)
+		if forged == string(raw) {
+			t.Fatal("the receipt must record its Root path")
+		}
+		if err := os.WriteFile(receiptPath, []byte(forged), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		unchanged(t, root, rootBefore, "root_overview_receipt_invalid")
+	})
+}
+
+// A request that is refused after this call finished an earlier, cut write
+// says that formal assets changed; and the same values submitted over an
+// index that is no longer aligned are refused like any other.
+func TestRootOverviewReportsWhatItFinished(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	cutRootOverview(t, root, session)
+	refused := submitRootOverview(t, session, "-", "fine", strings.Repeat("0", 64))
+	if refused["status"] != autoStatusRepairRequired || refused["formal_writes_started"] != true || refused["root_overview_recovered"] != true || rootReceiptPending(root) {
+		t.Fatalf("a refusal after finishing an earlier write must say so: %v", refused)
+	}
+	assertRootAligned(t, root)
+	if err := os.WriteFile(filepath.Join(root, "pkg", "mod000", "file000.go"), []byte("package mod000\n\nfunc Changed() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if again := submitRootOverview(t, session, "A fixture system", "Units stay independent", strings.Repeat("0", 64)); again["status"] != autoStatusStopped ||
+		!strings.Contains(again["next_action"].(string), "root_overview_requires_aligned_index") {
+		t.Fatalf("the same values over an index that is not aligned must be refused: %v", again)
+	}
+}
+
+func TestRootOverviewKeepsLineEndingsAndReadsTheFirstField(t *testing.T) {
+	mixed := "#AOCI-ROOT-MANIFEST: 1\n#Format-Version: cognition-volumes/v1\r\n#Locale: en-US\n#Project: old\r\n#Global-Invariants: -\n#Project: second\n#Global-Invariants: -\n#Volume: x"
+	got := string(rewriteRootOverview([]byte(mixed), "P", "G"))
+	want := "#AOCI-ROOT-MANIFEST: 1\n#Format-Version: cognition-volumes/v1\r\n#Locale: en-US\n#Project: P\r\n#Global-Invariants: G\n#Project: second\n#Global-Invariants: -\n#Volume: x"
+	if got != want {
+		t.Fatalf("each line keeps its own ending and only the first field is written:\n%q", got)
+	}
+	if project, invariants := rootOverviewFields([]byte(got)); project != "P" || invariants != "G" {
+		t.Fatalf("the reader takes the field the writer wrote: %q %q", project, invariants)
+	}
+	unterminated := "#AOCI-ROOT-MANIFEST: 1\r\n#Locale: en-US"
+	if got := string(rewriteRootOverview([]byte(unterminated), "P", "G")); got != "#AOCI-ROOT-MANIFEST: 1\r\n#Locale: en-US\r\n#Project: P\r\n#Global-Invariants: G" {
+		t.Fatalf("an unterminated anchor is terminated with the file's ending:\n%q", got)
+	}
+}
+
+// The invitation shows the current values as context and never more than
+// the limits: a Root filled by hand with a very long line swells no response.
+func TestRootOverviewInvitationIsBounded(t *testing.T) {
+	root, _ := deltaVolumesFixture(t, 2)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded.set.Root.Raw = []byte("#Project: " + strings.Repeat("长", 50000) + "\n#Global-Invariants: -\n")
+	invite := rootOverviewInvitation(loaded, facts)
+	if invite == nil || len([]rune(invite.Project)) != machinecontract.RootOverviewProjectMaxChars {
+		t.Fatalf("the shown value must be cut at its limit: %d", len([]rune(invite.Project)))
+	}
+}

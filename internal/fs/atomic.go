@@ -305,6 +305,25 @@ func AtomicWriteCAS(targetPath string, data []byte, expectedSHA256 string) error
 	return fmt.Errorf("%w: %s", ErrAtomicCASConflict, absTarget)
 }
 
+// RecoverAtomicWriteCAS finishes or undoes an AtomicWriteCAS of targetPath
+// that a crash cut between its exchange and its cleanup, and removes what it
+// left beside the target. A caller that is about to judge the target's bytes
+// against a preimage and a postimage calls it first, so it never classifies a
+// file in the middle of an exchange. It writes nothing when no exchange is
+// pending.
+func RecoverAtomicWriteCAS(targetPath string) error {
+	absTarget, err := filepath.Abs(targetPath)
+	if err != nil {
+		return err
+	}
+	lock, err := acquireLockWith(atomicCASLockPath(absTarget), DefaultLockTimeout, 0)
+	if err != nil {
+		return fmt.Errorf("获取CAS互斥锁失败: %w", err)
+	}
+	defer lock.Release()
+	return recoverAtomicCAS(absTarget, absTarget+".aoci-cas.swap", absTarget+".aoci-cas.intent")
+}
+
 func atomicCASLockPath(targetPath string) string {
 	digest := sha256.Sum256([]byte(targetPath))
 	return filepath.Join(os.TempDir(), "aoci-cas-locks", hex.EncodeToString(digest[:])+".lock")
