@@ -276,6 +276,37 @@ func TestInitNoWhitewashExternalDrift(t *testing.T) {
 	}
 }
 
+func TestInitAdvancesBaselineForGitUnignoredAgentRules(t *testing.T) {
+	root := initGitRepo(t)
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte("# Maintainer rules\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("*.md\n!AGENTS.md\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seeded := seedBaseline(t, root, []string{"aoci.txt", "AGENTS.md"})
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	state, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	disk, err := baseline.HashFile(filepath.Join(root, "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disk.SHA256 == seeded["AGENTS.md"] {
+		t.Fatal("fixture: init must have installed its managed agent rules")
+	}
+	if got := state.Files["AGENTS.md"].SHA256; got != disk.SHA256 {
+		t.Fatalf("Git's negated rule leaves AGENTS.md visible; init must record its own write: got %s want %s", got, disk.SHA256)
+	}
+}
+
 func TestInitDoesNotBaselineConcurrentChangeAfterOwnWrite(t *testing.T) {
 	root := t.TempDir()
 	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {

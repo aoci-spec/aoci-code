@@ -34,6 +34,12 @@ facts, the Baseline keys stay container-relative, and a gitlink inside a child
 names a boundary as it does under a Git root. New non-ignored source files
 remain eligible; governance is not limited to tracked files.
 
+The shared Git ignore-status probe follows the winning rule's polarity:
+a matching negative rule makes an untracked path visible, even though verbose
+`git check-ignore` reports that rule with a successful exit status. A tracked
+path is never classified as Git-ignored. Rule-source diagnostics retain the
+matching source, line, and pattern for positive rules only.
+
 Managed Scope may ask Safe Inventory to retain otherwise-safe Git-ignored
 names as policy candidates. Their bodies remain unread until a winning index
 or observe role requires a fingerprint. Hard safety exclusions always run
