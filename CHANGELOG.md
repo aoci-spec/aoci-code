@@ -32,6 +32,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
   zero-write sibling and a delete are recorded, and an issuance failure is
   reported as one. The server that was handed a sibling answers the same one
   when asked again, as a single batch always was.
+- A batch that drops an orphan beside its Entries closes after an interrupted
+  write. Cut between the Volume write and the Baseline, the same batch
+  submitted again was refused as `removal_target_missing`, because the Entry
+  it removes was already gone, and its transaction stayed pending with no
+  request that could close it. The removal that landed is now recognised by
+  the receipt of that write. Present since removals ride the batch
+  (0.2.0-rc1), with or without parallel batches.
 - A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
   may carry only its `path` (a Database item its `object_ref`) and its
   `new_entry`; the server completes `source_sha256` and `candidate_id` from the

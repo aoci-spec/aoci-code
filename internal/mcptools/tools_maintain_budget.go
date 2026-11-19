@@ -243,9 +243,18 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 		limit = machinecontract.CodeCognitionBatchEntriesDefault
 	}
 	ordered, _ := codebatch.Select(candidates, 0)
-	first := codebatch.PrefixWithinBudget(ordered, limit, codeCandidateBudget(cfg, set, candidates, lines, true))
+	firstBudget := codeCandidateBudget(cfg, set, candidates, lines, true)
+	first := codebatch.PrefixWithinBudget(ordered, limit, firstBudget)
 	if first >= len(ordered) {
 		return 1
+	}
+	// Work beyond one batch starts as siblings, whose first is a little
+	// smaller than a single batch; one session alone takes that one and
+	// full single batches after it, which is the count this reports.
+	if parallel := cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
+		if cuts := cutParallelSiblings(ordered, limit, parallel, firstBudget, firstBudget); len(cuts) > 0 && len(cuts[0]) > 0 {
+			first = len(cuts[0])
+		}
 	}
 	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, lines, false))
 }

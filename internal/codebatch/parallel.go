@@ -269,22 +269,54 @@ func soloBuildPath(root string) string {
 	return filepath.Join(parallelDirectory(root), "solo-build")
 }
 
+func soloBuildLine(candidate Candidate) string {
+	return candidate.SourceSHA256 + " " + candidate.Path
+}
+
 // MarkSoloBuild records that siblings were issued and nobody fetched them:
-// one session is authoring alone, so until the authoring work is done every
-// Maintain issues the single current batch at full size instead of cutting
-// siblings no one takes. A runtime mark like the plan records, in no
-// identity; ClearSoloBuild drops it when no work is left.
-func MarkSoloBuild(root string) error {
+// one session is authoring alone, so while this same work is outstanding
+// every Maintain issues the single current batch at full size instead of
+// cutting siblings no one takes. The mark names the work, each target with
+// the source digest it had, so it holds for what is left of this build and
+// for nothing else. A runtime mark like the plan records, in no identity.
+func MarkSoloBuild(root string, work []Candidate) error {
 	if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
 		return fmt.Errorf("code_candidate_receipt_directory_unavailable")
 	}
-	return afs.AtomicWrite(soloBuildPath(root), []byte("1\n"))
+	lines := make([]string, 0, len(work))
+	for _, candidate := range work {
+		lines = append(lines, soloBuildLine(candidate))
+	}
+	sort.Strings(lines)
+	return afs.AtomicWrite(soloBuildPath(root), []byte(strings.Join(lines, "\n")+"\n"))
 }
 
-// SoloBuild reports the mark.
-func SoloBuild(root string) bool {
+// SoloBuildCovers reports whether the mark holds for the given work: every
+// target is one the mark named, at the digest it named. Work the mark does
+// not name is a new wave, however the earlier one ended (an aligning Apply,
+// a Scope Change, a removal), and the mark is dropped.
+func SoloBuildCovers(root string, work []Candidate) bool {
 	info, err := os.Lstat(soloBuildPath(root))
-	return err == nil && info.Mode().IsRegular()
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	data, err := os.ReadFile(soloBuildPath(root))
+	if err != nil {
+		return false
+	}
+	named := map[string]bool{}
+	for _, line := range strings.Split(string(data), "\n") {
+		if line != "" {
+			named[line] = true
+		}
+	}
+	for _, candidate := range work {
+		if !named[soloBuildLine(candidate)] {
+			ClearSoloBuild(root)
+			return false
+		}
+	}
+	return len(work) > 0
 }
 
 // ClearSoloBuild removes the mark; an absent one is no error.

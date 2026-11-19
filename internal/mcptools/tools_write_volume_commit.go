@@ -191,6 +191,22 @@ func planCognitionVolumeUpdates(
 	}
 	// A removal is admitted only for a Code orphan the shared governance facts
 	// report now: the same proof aoci_remove_entry demands, inside the batch.
+	// A removal whose batch was cut after its Volume write has already
+	// landed: the receipt of that write proves the postimage, the Entry is
+	// gone as intended, and the same batch submitted again closes it.
+	removalLanded := recovery != nil && recovery.Version == 4 && codeRecoveryPostimage(root, recovery)
+	landedRemovals := []normalizedAtomicItem{}
+	if removalLanded {
+		kept := make([]normalizedAtomicItem, 0, len(ordered))
+		for _, item := range ordered {
+			if item.remove && cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
+				landedRemovals = append(landedRemovals, item)
+				continue
+			}
+			kept = append(kept, item)
+		}
+		ordered = kept
+	}
 	removalFindings := []cognition.RepairFinding{}
 	for _, item := range ordered {
 		if !item.remove {
@@ -288,6 +304,11 @@ func planCognitionVolumeUpdates(
 	var codeContext *repoCtx
 	if volumes[cognition.ScopeCode] {
 		codeContext = volumeCodeRepoContext(root, loaded)
+	}
+	for _, item := range landedRemovals {
+		// Gone already: reported as removed, with nothing left to transform.
+		outcomes = append(outcomes, &UpdateOutcome{Action: writeMessage("entry.write.action.remove"), Rel: item.rel, Removed: true})
+		rels = append(rels, item.rel)
 	}
 	var repairs *Fail
 	for itemIndex, item := range ordered {
@@ -1354,8 +1375,9 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 	// A sibling whose Entries were already in place applied all the same: a
 	// wave that only rebinds its sources, or a write a crash cut before its
 	// record. Without the record the plan holds it outstanding for ever.
-	if !parallelSiblingRecorded(root, plan) {
-		if note := recordParallelSiblingApplied(root, plan); note != "" {
+	if code := targetByVolume(plan.volumePlan.targets, cognition.ScopeCode); (code == nil || code.PreSHA == code.PostSHA) &&
+		plan.volumePlan.recovery == nil && !parallelSiblingRecorded(root, plan) {
+		if note := recordZeroWriteSiblingApplied(root, plan); note != "" {
 			return note, false, nil
 		}
 	}
@@ -1424,15 +1446,20 @@ func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail
 		return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
 	}
 	currentSHA := codebatch.BytesSHA256(current)
-	if currentSHA == code.PreSHA {
-		return nil
-	}
+	// Planning accepted any state the plan has been in; here, under the
+	// lock, the bytes on disk must be the plan's latest state, the preimage
+	// plus every applied sibling, even when they are the bytes this batch
+	// was planned against. A Volume put back to an earlier state of the
+	// plan is a foreign change like any other.
 	parallel, planErr := codebatch.LoadParallelPlan(root)
 	if planErr != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
 		return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
 	}
 	if proven, replayErr := codebatch.ReplayProves(root, root, parallel, currentSHA); replayErr != nil || !proven {
 		return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	if currentSHA == code.PreSHA {
+		return nil
 	}
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
@@ -1447,6 +1474,25 @@ func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail
 	nextText := codeContext.text
 	for _, item := range plan.normalizedItems {
 		if item.rel == "" {
+			continue
+		}
+		if item.remove {
+			// The orphan goes as planning removed it, by path, from the
+			// Volume as it now stands.
+			object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel)
+			if object == nil {
+				return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+			}
+			text, removeErr := index.RemoveEntryForPath(codeContext.text, root, item.rel, object.CanonicalLine)
+			if removeErr != nil {
+				return &Fail{Code: errWriteConflict, Msg: writeMessage("remove.transform_failed", localeSafeWriteDetail(removeErr.Error()))}
+			}
+			nextText = text
+			codeContext.text = text
+			codeContext.doc, _ = index.Parse(text)
+			index.ResolveRelPaths(codeContext.doc, root)
+			outcomes[item.rel] = &UpdateOutcome{Action: writeMessage("entry.write.action.remove"), Rel: item.rel,
+				OldLine: object.CanonicalLine, Removed: true}
 			continue
 		}
 		outcome, text, itemFail := prepareUpdateEntry(root, item.rel, item.newEntry, codeContext)
@@ -1500,6 +1546,41 @@ func parallelSiblingRecorded(root string, plan *atomicBatchPlan) bool {
 	return err == nil && parallel != nil && codebatch.AppliedBatchIDs(root, parallel)[volumePlan.codeReceipt.BatchID]
 }
 
+// recordZeroWriteSiblingApplied records a sibling that changed no Volume
+// byte, with no operation and the digest the Volume has. A write a crash cut
+// before its record is not this case: its operations are not known here, so
+// it leaves no record, the replay then no longer reproduces the Volume, and
+// the plan is replanned from the bytes on disk as after any foreign change.
+func recordZeroWriteSiblingApplied(root string, plan *atomicBatchPlan) string {
+	volumePlan := plan.volumePlan
+	if volumePlan == nil || volumePlan.codeReceipt == nil || volumePlan.codeReceipt.LogicalPlan == "" {
+		return ""
+	}
+	parallel, err := codebatch.LoadParallelPlan(root)
+	if err != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
+		return ""
+	}
+	current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(parallel.CodeVolumePath)))
+	if readErr != nil {
+		return "code_parallel_applied_persist_failed"
+	}
+	currentSHA := codebatch.BytesSHA256(current)
+	if proven, replayErr := codebatch.ReplayProves(root, root, parallel, currentSHA); replayErr != nil || !proven {
+		return ""
+	}
+	applied, loadErr := codebatch.LoadApplied(root, parallel)
+	if loadErr != nil {
+		return "code_parallel_applied_unreadable"
+	}
+	receipt := codebatch.AppliedReceipt{Version: codebatch.AppliedReceiptVersion, LogicalPlan: parallel.LogicalPlan,
+		BatchID: volumePlan.codeReceipt.BatchID, Order: len(applied) + 1, PreSHA256: currentSHA, PostSHA256: currentSHA,
+		Operations: []codebatch.AppliedOperation{}}
+	if saveErr := codebatch.SaveApplied(root, receipt); saveErr != nil {
+		return "code_parallel_applied_persist_failed"
+	}
+	return ""
+}
+
 // recordParallelSiblingApplied leaves the applied record of a sibling: its
 // place in the apply order, the Code Volume digests around it, and the
 // Entry writes as the editor made them, which a later sibling's Apply
@@ -1514,20 +1595,11 @@ func recordParallelSiblingApplied(root string, plan *atomicBatchPlan) string {
 	if err != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
 		return ""
 	}
-	// A sibling that only rebound its sources wrote no Volume: it is recorded
-	// with the digest the Volume has and no operation, so the plan knows it
-	// applied.
-	preSHA, postSHA := "", ""
-	if code := targetByVolume(volumePlan.targets, cognition.ScopeCode); code != nil {
-		preSHA, postSHA = code.PreSHA, code.PostSHA
-	} else {
-		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(parallel.CodeVolumePath)))
-		if readErr != nil {
-			return "code_parallel_applied_persist_failed"
-		}
-		preSHA = codebatch.BytesSHA256(current)
-		postSHA = preSHA
+	code := targetByVolume(volumePlan.targets, cognition.ScopeCode)
+	if code == nil {
+		return ""
 	}
+	preSHA, postSHA := code.PreSHA, code.PostSHA
 	applied, loadErr := codebatch.LoadApplied(root, parallel)
 	if loadErr != nil {
 		return "code_parallel_applied_unreadable"

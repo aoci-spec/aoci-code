@@ -10,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
@@ -140,8 +139,38 @@ func TestTheSoloMarkEndsWithTheAuthoringWork(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 150)
 	session := connectMCPClient(t, root)
 	buildToAligned(t, session)
-	if codebatch.SoloBuild(root) {
+	if _, err := os.Stat(filepath.Join(root, ".aoci", "drafts", "code-cognition", "solo-build")); err == nil {
 		t.Fatal("the solo mark outlived the build")
+	}
+}
+
+// The mark names the work it was made for. Work it does not name is a new
+// wave, however the earlier one ended, and is offered as siblings again.
+func TestTheSoloMarkHoldsOnlyForTheWorkItNamed(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 150)
+	session := connectMCPClient(t, root)
+	first := maintainVolumeBatch(t, session)
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied {
+		t.Fatalf("the first sibling did not apply: %#v", applied)
+	}
+	if solo := maintainVolumeBatch(t, session); solo.CodePlan == nil || solo.CodePlan.LogicalPlan != "" {
+		t.Fatalf("the build was not marked solo: %#v", solo.CodePlan)
+	}
+	// The same work on another server is still this build: single batches.
+	if resumed := maintainVolumeBatch(t, connectMCPClient(t, root)); resumed.CodePlan == nil || resumed.CodePlan.LogicalPlan != "" {
+		t.Fatalf("the rest of a solo build must stay single batches: %#v", resumed.CodePlan)
+	}
+	// One source changes: work the mark never named, so siblings again.
+	changed := filepath.Join(root, "pkg", "mod014", "file149.go")
+	data, err := os.ReadFile(changed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(changed, append(data, []byte("\n// a new wave\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if wave := maintainVolumeBatch(t, connectMCPClient(t, root)); wave.CodePlan == nil || wave.CodePlan.LogicalPlan == "" {
+		t.Fatalf("work the mark never named must be offered as siblings: %#v", wave.CodePlan)
 	}
 }
 

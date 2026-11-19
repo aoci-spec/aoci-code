@@ -764,11 +764,12 @@ with no sibling field, so everyday maintenance keeps its shape and a first
 build is the case the default serves. A Host that runs no subagents needs no
 setting and is recognised by what it does: when a sibling of a plan has
 applied and every other outstanding one was never handed to any session,
-those are released and the build is marked as one session's, and until the
-authoring work is done every no-argument Maintain issues the single current
-batch at full size. The mark is a runtime fact under `.aoci`, in no
-identity, and ends with the aligning Apply, so a later wave beyond one batch
-is offered as siblings again. A sibling any session was handed keeps its
+those are released and the build is marked as one session's, and while that
+same work is outstanding every no-argument Maintain issues the single
+current batch at full size. The mark is a runtime fact under `.aoci`, in no
+identity; it names the work it was made for, each target with its source
+digest, and holds for nothing else, so work it does not name, however the
+earlier work ended, is offered as siblings again. A sibling any session was handed keeps its
 plan; a released one asked for by `batch_id` answers
 `maintain_batch_id_unknown` with zero writes and the replan hint. The wire
 ceiling is 4. It is
@@ -805,7 +806,11 @@ Volume's current digest must be the plan preimage or a postimage an applied
 sibling of the same logical plan recorded. A sibling plans against the Volume
 it loaded while others apply, so planning accepts any state the plan has been
 in (the preimage, or the postimage of a leading run of applied siblings); the
-write is proven against the current bytes under the lock. A sibling whose
+write is proven under the lock, where the bytes on disk must be the plan's
+latest state, the preimage plus every applied sibling, even when they are
+the bytes the batch was planned against: a Volume put back to an earlier
+state of the plan is a foreign change. A removal in a sibling that lands
+second is projected again as a removal. A sibling whose
 Entries all stand as they were rebinds its sources and writes no Volume: it
 is recorded as applied with no operation, and a sibling that drops an orphan
 records the delete with the Entry it removed. The server proves that before it

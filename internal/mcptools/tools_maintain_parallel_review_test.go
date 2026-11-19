@@ -2,6 +2,7 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -223,6 +224,159 @@ func TestDefaultSiblingResponsesStayUnderBudgetWithLongPaths(t *testing.T) {
 		delivered := callVolumeTool(t, connectMCPClient(t, root), "aoci_maintain", map[string]any{"batch_id": sibling["batch_id"], "include_instructions": true})
 		if len(delivered) > machinecontract.MaintainTransportBudgetBytesDefault {
 			t.Fatalf("a sibling delivered with the contract is %d bytes, over the budget %d", len(delivered), machinecontract.MaintainTransportBudgetBytesDefault)
+		}
+	}
+}
+
+// A batch that drops an orphan beside its Entries and is cut after its
+// Volume write must close when the same batch is submitted again: the
+// removal already landed, which is the postimage its receipt proves.
+func TestAnInterruptedBatchWithARemovalClosesOnResubmission(t *testing.T) {
+	for _, pinned := range []bool{true, false} {
+		root := buildManyFileVolumesRepo(t, 12)
+		if pinned {
+			pinSingleBatch(t, root)
+		}
+		session := connectMCPClient(t, root)
+		buildToAligned(t, session)
+		for index := 0; index < 2; index++ {
+			path := filepath.Join(root, "pkg", fmt.Sprintf("mod%03d", index/10), fmt.Sprintf("file%03d.go", index))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, append(data, []byte("\n// changed\n")...), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file011.go")); err != nil {
+			t.Fatal(err)
+		}
+		wave := connectMCPClient(t, root)
+		maintain := maintainVolumeBatch(t, wave)
+		entries := []map[string]any{}
+		for _, candidate := range maintain.Candidates {
+			entries = append(entries, map[string]any{"path": candidate.Path, "new_entry": filepath.Base(candidate.Path) +
+				"[CD5S]: F:implement fixture behavior after the change | R:- | A:- | S:Keep the fixture deterministic"})
+		}
+		if len(entries) == 0 || len(maintain.OrphanRemovals) != 1 {
+			t.Fatalf("pinned=%v: expected work beside one orphan: %d %v", pinned, len(entries), maintain.OrphanRemovals)
+		}
+		arguments := map[string]any{"code_batch_id": maintain.CodePlan.BatchID, "entries": entries,
+			"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+		originalSave := saveAtomicBaseline
+		saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+		cut := applyVolumeBatch(t, wave, arguments)
+		saveAtomicBaseline = originalSave
+		if cut.Status == autoStatusApplied && cut.Aligned {
+			t.Fatalf("pinned=%v: the injected failure did not cut the write: %#v", pinned, cut)
+		}
+		again := applyVolumeBatch(t, wave, arguments)
+		if again.Status != autoStatusApplied {
+			t.Fatalf("pinned=%v: the same batch did not close its interrupted write: status=%s findings=%v", pinned, again.Status, again.Findings)
+		}
+		if pending, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "*.json")); len(pending) != 0 {
+			t.Fatalf("pinned=%v: a receipt was left pending: %v", pinned, pending)
+		}
+	}
+}
+
+// Planning accepts any state a plan has been in, so the write must prove,
+// under the lock, that the Volume is the plan's latest state. A Volume put
+// back to an earlier state of the plan is a foreign change: the sibling
+// still out is refused with zero writes.
+func TestASiblingIsRefusedOverAVolumePutBackToAnEarlierPlanState(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 150)
+	session := connectMCPClient(t, root)
+	first := maintainVolumeBatch(t, session)
+	if first.CodePlan == nil || len(first.CodePlan.Siblings) != 2 {
+		t.Fatalf("expected three siblings: %#v", first.CodePlan)
+	}
+	fetch := func(batchID string) volumeMaintainResult {
+		var delivered volumeMaintainResult
+		if err := json.Unmarshal([]byte(callVolumeTool(t, session, "aoci_maintain", map[string]any{"batch_id": batchID})), &delivered); err != nil {
+			t.Fatal(err)
+		}
+		return delivered
+	}
+	second, third := fetch(first.CodePlan.Siblings[0].BatchID), fetch(first.CodePlan.Siblings[1].BatchID)
+	volumeAtStart := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+	baselineAtStart := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+	for _, batch := range []volumeMaintainResult{first, second} {
+		if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(batch))); applied.Status != autoStatusApplied {
+			t.Fatalf("a sibling did not apply: %#v", applied)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "aoci.code.txt"), volumeAtStart, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), baselineAtStart, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	refused := applyVolumeBatch(t, connectMCPClient(t, root), codeBatchArguments(wireCodePlan(third)))
+	if refused.Status == autoStatusApplied || refused.Applied != 0 || refused.FormalWritesStarted {
+		t.Fatalf("a sibling wrote over a Volume put back to the plan's start: %#v", refused)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", volumeAtStart)
+}
+
+// Two siblings submitted at the same moment, one dropping an orphan: the
+// one that lands second is projected again onto the first's postimage, and
+// its removal must be projected as a removal.
+func TestSiblingsAppliedAtOnceWithARemovalBothApply(t *testing.T) {
+	for run := 0; run < 6; run++ {
+		root := buildManyFileVolumesRepo(t, 20)
+		buildToAligned(t, connectMCPClient(t, root))
+		for index := 0; index < 17; index++ {
+			path := filepath.Join(root, "pkg", fmt.Sprintf("mod%03d", index/10), fmt.Sprintf("file%03d.go", index))
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, append(data, []byte("\n// changed\n")...), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file019.go")); err != nil {
+			t.Fatal(err)
+		}
+		setBatchEntries(t, root, 9)
+		sessions := []*mcp.ClientSession{connectMCPClient(t, root), connectMCPClient(t, root)}
+		first := maintainVolumeBatch(t, sessions[0])
+		if first.CodePlan == nil || len(first.CodePlan.Siblings) != 1 || len(first.OrphanRemovals) != 1 {
+			t.Fatalf("expected two siblings beside one orphan: %#v %v", first.CodePlan, first.OrphanRemovals)
+		}
+		var second volumeMaintainResult
+		if err := json.Unmarshal([]byte(callVolumeTool(t, sessions[1], "aoci_maintain", map[string]any{"batch_id": first.CodePlan.Siblings[0].BatchID})), &second); err != nil {
+			t.Fatal(err)
+		}
+		request := func(batch volumeMaintainResult, removals bool) map[string]any {
+			entries := []map[string]any{}
+			for _, candidate := range batch.Candidates {
+				entries = append(entries, map[string]any{"path": candidate.Path, "new_entry": filepath.Base(candidate.Path) +
+					"[CD5S]: F:implement fixture behavior after the change | R:- | A:- | S:Keep the fixture deterministic"})
+			}
+			arguments := map[string]any{"code_batch_id": batch.CodePlan.BatchID, "entries": entries}
+			if removals {
+				arguments["removals"] = []map[string]any{{"path": first.OrphanRemovals[0]}}
+			}
+			return arguments
+		}
+		requests := []map[string]any{request(first, true), request(second, false)}
+		answers := make([]string, 2)
+		var group sync.WaitGroup
+		for index := range sessions {
+			group.Add(1)
+			go func(index int) {
+				defer group.Done()
+				answers[index] = callVolumeToolQuiet(sessions[index], "aoci_update_entry", requests[index])
+			}(index)
+		}
+		group.Wait()
+		for index, answer := range answers {
+			if !strings.Contains(answer, `"status":"applied"`) {
+				t.Fatalf("run %d: sibling %d submitted at once was not applied: %.400s", run, index, answer)
+			}
 		}
 	}
 }

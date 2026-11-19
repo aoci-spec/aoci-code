@@ -466,13 +466,13 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		outstanding, alone := parallelPlanState(root, parallelIdentitiesOf(result.Governance.Facts, loaded.set))
 		if alone {
 			_ = codebatch.RemoveParallelPlans(root)
-			if err := codebatch.MarkSoloBuild(root); err != nil {
+			if err := codebatch.MarkSoloBuild(root, all); err != nil {
 				result.issueFailure = err.Error()
 				return
 			}
 			outstanding = false
 		}
-		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuild(root)) {
+		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuildCovers(root, all)) {
 			buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel, session)
 			return
 		}
