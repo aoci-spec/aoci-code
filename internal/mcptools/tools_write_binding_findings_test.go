@@ -13,7 +13,9 @@ func TestCodeBatchBindingDefectsNameTheCandidateAndField(t *testing.T) {
 		field  string
 		mutate func(entry map[string]any)
 	}{
-		{"empty candidate_id", "candidate_id", func(entry map[string]any) { entry["candidate_id"] = "" }},
+		// An empty candidate_id is completed from the issued batch since the
+		// bindings became optional; a wrong one still answers its finding.
+		{"wrong candidate_id", "candidate_id", func(entry map[string]any) { entry["candidate_id"] = "not-an-id" }},
 		{"malformed source_sha256", "source_sha256", func(entry map[string]any) { entry["source_sha256"] = "not-a-digest" }},
 	} {
 		t.Run(test.name, func(t *testing.T) {

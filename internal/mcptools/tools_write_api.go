@@ -11,8 +11,10 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -508,6 +510,86 @@ func cognitionOptimizationTransactionComplete(
 	return true, nil
 }
 
+// fillIssuedBindings completes a batch item that names only its object and
+// its Entry: the source digest and candidate id it leaves out are the ones
+// the issued receipt of its batch holds, and the planner then checks them
+// exactly as it checks copied ones. A value the model did send is never
+// replaced, so a wrong copy still answers its binding finding. A Code item
+// whose batch is not on record, or any item its batch never issued, has
+// nothing to be completed from: that is a stale plan, answered before
+// anything is planned.
+func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryItemIn, *Fail) {
+	result := append([]updateEntryItemIn{}, input...)
+	codeTargets := map[string]map[string]codebatch.Target{}
+	databaseTargets := map[string]map[string]string{}
+	stale := func(detail string) *Fail {
+		return &Fail{Code: errWriteConflict, Msg: detail, Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	for index, item := range result {
+		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
+		if item.Remove || batchID == "" {
+			continue
+		}
+		switch {
+		case item.Path != "" && item.ObjectRef == "":
+			if strings.TrimSpace(item.SourceSHA256) != "" && strings.TrimSpace(item.CandidateID) != "" {
+				continue
+			}
+			rel, err := afs.NormalizeRelPath(item.Path)
+			if err != nil {
+				continue
+			}
+			targets, loaded := codeTargets[batchID]
+			if !loaded {
+				receipt, loadErr := codebatch.LoadReceipt(root, batchID)
+				if loadErr != nil {
+					return result, stale(localeSafeWriteDetail(loadErr.Error()))
+				}
+				targets = make(map[string]codebatch.Target, len(receipt.Targets))
+				for _, target := range receipt.Targets {
+					targets[target.Path] = target
+				}
+				codeTargets[batchID] = targets
+			}
+			target, issued := targets[rel]
+			if !issued {
+				return result, stale("code_candidate_batch_mismatch")
+			}
+			if strings.TrimSpace(item.SourceSHA256) == "" {
+				result[index].SourceSHA256 = target.SourceSHA256
+			}
+			if strings.TrimSpace(item.CandidateID) == "" {
+				result[index].CandidateID = target.CandidateID
+			}
+		case item.ObjectRef != "" && item.Path == "":
+			if strings.TrimSpace(item.CandidateID) != "" || strings.TrimSpace(item.SourceSHA256) != "" {
+				continue
+			}
+			targets, loaded := databaseTargets[batchID]
+			if !loaded {
+				receipt, loadErr := dbcognition.LoadReceipt(root, batchID)
+				if loadErr != nil {
+					// Left as sent: a Database batch whose receipt is gone can
+					// still close through its recovery when the ids are copied,
+					// and the planner's refusal asks for exactly that.
+					continue
+				}
+				targets = make(map[string]string, len(receipt.Targets))
+				for _, target := range receipt.Targets {
+					targets[target.ObjectRef] = target.CandidateID
+				}
+				databaseTargets[batchID] = targets
+			}
+			candidateID, issued := targets[strings.TrimSpace(item.ObjectRef)]
+			if !issued {
+				return result, stale("database_candidate_batch_mismatch")
+			}
+			result[index].CandidateID = candidateID
+		}
+	}
+	return result, nil
+}
+
 func handleMCPUpdateBatch(
 	root,
 	mcpServiceVersion string,
@@ -545,8 +627,11 @@ func handleMCPUpdateBatchReviewed(
 	}
 	start := time.Now()
 	items := make([]AtomicUpdateItem, 0, len(input))
-	var bindingFail *Fail
+	input, bindingFail := fillIssuedBindings(root, input)
 	for _, item := range input {
+		if bindingFail != nil {
+			break
+		}
 		item.SourceSHA256 = strings.ToLower(strings.TrimSpace(item.SourceSHA256))
 		item.CandidateID = strings.ToLower(strings.TrimSpace(item.CandidateID))
 		if item.Remove {

@@ -87,7 +87,9 @@ The AI Agent then uses the existing MCP tools:
 2. For every target, read Root/Meta, the complete returned Table Evidence,
    current Entry, and relevant repository evidence. Author one complete Entry.
 3. Submit one `aoci_update_entry` call with the page's top-level `batch_id` and
-   every target's `object_ref`, `candidate_id`, and complete `new_entry`.
+   every target's `object_ref` and complete `new_entry`. `candidate_id` may be
+   left out: the server takes it from the issued batch, and a copied one must
+   match.
 4. If the page succeeds and work remains, call Maintain for the next
    deterministic page. Stop when the assessment is current.
 

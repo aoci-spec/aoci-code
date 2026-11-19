@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
+  may carry only its `path` (a Database item its `object_ref`) and its
+  `new_entry`; the server completes `source_sha256` and `candidate_id` from the
+  issued batch that `code_batch_id` (or `batch_id`) names and checks them as
+  before, so a source that changed after Maintain is still refused with zero
+  writes. Copying them remains accepted and a wrong copy still answers its
+  binding finding. On a first build this removes two 64-character values per
+  candidate from every submission, and the copying mistakes that came with
+  them. The runtime rules, the tool description, and the AGENTS block say so;
+  run `aoci init --agent <host>` to refresh an existing AGENTS block.
 - A compaction reload can no longer be proven without being read. The Host
   confirmation echoes a SHA-256 that the first Chunk prints, and an unchanged
   index has the SHA-256 it had before: fetch Chunk 1 of the reload, submit the

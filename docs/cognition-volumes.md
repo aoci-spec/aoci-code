@@ -226,6 +226,10 @@ bytes for candidates, so they issue more of the same ordered targets than the
 first; the Guide shows the first round's number. A Code candidate no longer
 repeats `batch_id`: the batch is `code_plan.batch_id`, which
 `aoci_update_entry.code_batch_id` names; Database candidates keep theirs.
+A batch item needs only its `path` (a Database item its `object_ref`) and its
+`new_entry`: the server takes `source_sha256` and `candidate_id` from the issued
+batch and checks them as it checks copied ones, so a source that moved after
+Maintain is still refused before any write.
 
 `ParseTags` and formal object loading retain dotted Tag and bare-R read
 compatibility. New Volume Entries, and updates that actually change the

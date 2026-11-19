@@ -155,7 +155,9 @@ atomic writer. It contains:
 The ids are deterministic, typed, length-framed SHA-256 identities. They reduce
 model hash copying; they are not credentials, bearer tokens, or external
 authentication. The normal model submission carries one top-level batch_id and
-each unchanged candidate_id plus its complete Entry. source_sha256 is not used
+each unchanged candidate_id plus its complete Entry; a candidate_id may be
+omitted, in which case AOCI takes it from the issued receipt of that batch_id,
+and a copied one must match. source_sha256 is not used
 to impersonate both the cognition preimage and Evidence identity. Legacy and
 Code source_sha256 contracts remain compatible.
 

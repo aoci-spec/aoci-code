@@ -207,11 +207,11 @@ func localizedMCPSchema(toolName string, descriptions map[string]string) (map[st
 			"source_sha256": stringProperty("entries[].source_sha256"),
 			"candidate_id":  stringProperty("entries[].candidate_id"),
 		}, "new_entry")
+		// An item names its object one way; the bindings beside it are optional
+		// since the server completes them from the issued batch.
 		item["oneOf"] = []any{
-			map[string]any{"required": []string{"path", "source_sha256"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"object_ref"}}, map[string]any{"required": []string{"candidate_id"}}}}},
-			map[string]any{"required": []string{"path", "source_sha256", "candidate_id"}, "not": map[string]any{"required": []string{"object_ref"}}},
-			map[string]any{"required": []string{"object_ref", "source_sha256"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"path"}}, map[string]any{"required": []string{"candidate_id"}}}}},
-			map[string]any{"required": []string{"object_ref", "candidate_id"}, "not": map[string]any{"anyOf": []any{map[string]any{"required": []string{"path"}}, map[string]any{"required": []string{"source_sha256"}}}}},
+			map[string]any{"required": []string{"path"}, "not": map[string]any{"required": []string{"object_ref"}}},
+			map[string]any{"required": []string{"object_ref"}, "not": map[string]any{"required": []string{"path"}}},
 		}
 		entries := nullableProperty(descriptions["entries"], map[string]any{
 			"type":  "array",

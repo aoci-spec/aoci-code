@@ -568,6 +568,26 @@ def group_b():
     r, t, err = submit_batch(s, m)  # correct bindings
     record(g, "B4.correct-resubmit", "PASS" if r.get("status") == "applied" else "FAIL", t[:150])
 
+    # B7: a batch that names only path and new_entry. The server completes
+    # source_sha256 and candidate_id from the issued batch, so a source that
+    # moved after Maintain is still refused with zero writes, and the batch
+    # of the new Maintain applies.
+    def bare(es):
+        for e in es:
+            e.pop("source_sha256", None); e.pop("candidate_id", None)
+    with open(os.path.join(fx, "pkg", "f003.go"), "a") as f:
+        f.write("\nfunc F003c() int { return 2003 }\n")
+    m, t, err = maintain(s)
+    with open(os.path.join(fx, "pkg", "f003.go"), "a") as f:
+        f.write("\nfunc F003d() int { return 3003 }\n")
+    r, t, err = submit_batch(s, m, mutate=bare)
+    moved_refused = r.get("status") != "applied" and r.get("formal_writes_started") in (False, None)
+    m, t2, err = maintain(s)
+    r2, t2, err = submit_batch(s, m, mutate=bare)
+    ok7 = moved_refused and r2.get("status") == "applied" and r2.get("aligned") is True
+    record(g, "B7.bare-batch", "PASS" if ok7 else "FAIL",
+           "moved source refused, bare batch applied" if ok7 else (t[:120] + " | " + t2[:120]))
+
     # B5: orphan removal
     os.remove(os.path.join(fx, "pkg", "f004.go"))
     sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "-m", "drop f004")
