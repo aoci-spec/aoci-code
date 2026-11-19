@@ -403,8 +403,25 @@ func TestAnotherRequestReportsTheRootOverviewItFinished(t *testing.T) {
 	if maintained["aligned"] != true || maintained["root_overview_recovered"] != true || maintained["root_overview_formal_writes"] != true {
 		t.Fatalf("the Maintain that finished the write must say so: %v %v", maintained["root_overview_recovered"], maintained["root_overview_formal_writes"])
 	}
-	if again := decodeToolJSON(t, callVolumeTool(t, session, "aoci_maintain", map[string]any{})); again["root_overview_recovered"] != nil {
+	if maintained["formal_writes_started"] != true {
+		t.Fatal("a Maintain that wrote formal assets says formal_writes_started")
+	}
+	if again := decodeToolJSON(t, callVolumeTool(t, session, "aoci_maintain", map[string]any{})); again["root_overview_recovered"] != nil || again["formal_writes_started"] != nil {
 		t.Fatal("a call that rolled nothing forward reports nothing")
+	}
+	// A linked transactions directory with no receipt in it is none of the
+	// overview's business: Maintain answers as it always did.
+	transactions := filepath.Join(root, ".aoci", "transactions")
+	_ = os.RemoveAll(transactions)
+	elsewhere := filepath.Join(root, ".aoci", "tx-elsewhere")
+	if err := os.MkdirAll(elsewhere, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(elsewhere, transactions); err == nil {
+		if progress, fail := completeRootOverviewRecovery(root, "test"); fail != nil || progress.wrote {
+			t.Fatalf("no receipt, no judgment of the directories: %v", fail)
+		}
+		_ = os.Remove(transactions)
 	}
 
 	root, session = deltaVolumesFixture(t, 3)
@@ -472,5 +489,58 @@ func TestNoRootOverviewInvitationWhenTheRootLeftItsBaselineRecord(t *testing.T) 
 	}
 	if refused := submitRootOverview(t, session, "p", "g", loaded.set.Root.SHA256); !strings.Contains(refused["next_action"].(string), "root_overview_") || refused["formal_writes_started"] != false {
 		t.Fatalf("the write must refuse a Root that left its Baseline record: %v", refused)
+	}
+}
+
+// Every root_overview response states what the call did to the transaction,
+// and a call that finished an earlier write and then wrote its own says both.
+func TestRootOverviewResponsesStateTheirProgress(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	sha := rootInvite(t, session)["root_sha256"].(string)
+	first := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
+	if first["root_overview_recovered"] != false || first["root_overview_formal_writes"] != true || first["formal_writes_started"] != true {
+		t.Fatalf("a plain write reports its own formal write and no recovery: %v", first)
+	}
+	repeat := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
+	if repeat["root_overview_recovered"] != false || repeat["root_overview_formal_writes"] != false || repeat["formal_writes_started"] != false {
+		t.Fatalf("a repeated submission wrote nothing: %v", repeat)
+	}
+	refused := submitRootOverview(t, session, "-", "x", sha)
+	if refused["root_overview_recovered"] != false || refused["root_overview_formal_writes"] != false {
+		t.Fatalf("a refusal that wrote nothing says so: %v", refused)
+	}
+
+	root, session = deltaVolumesFixture(t, 3)
+	cutRootOverview(t, root, session)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	// The cut write holds the Root at its preimage; this call finishes it and
+	// then writes a different overview over the Root it produced.
+	post := string(rewriteRootOverview(loaded.set.Root.Raw, "A fixture system", "Units stay independent"))
+	both := submitRootOverview(t, session, "Another description", "Other invariants", indexTextHash(post))
+	if both["status"] != autoStatusApplied || both["root_overview_recovered"] != true || both["root_overview_formal_writes"] != true || rootReceiptPending(root) {
+		t.Fatalf("a call that finished one write and made another reports both: %v", both)
+	}
+	assertRootAligned(t, root)
+}
+
+// A CAS that fails after its exchange still changed the file, and the
+// stopped result says a formal write happened.
+func TestRootOverviewReportsAWriteWhoseCASFailedLate(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	sha := rootInvite(t, session)["root_sha256"].(string)
+	original := rootOverviewWriteCAS
+	t.Cleanup(func() { rootOverviewWriteCAS = original })
+	rootOverviewWriteCAS = func(path string, data []byte, expected string) error {
+		if err := original(path, data, expected); err != nil {
+			return err
+		}
+		return errors.New("cleanup failed after the exchange")
+	}
+	late := submitRootOverview(t, session, "A fixture system", "Units stay independent", sha)
+	if late["status"] != autoStatusStopped || late["formal_writes_started"] != true || late["root_overview_formal_writes"] != true || !rootReceiptPending(root) {
+		t.Fatalf("a write whose CAS failed after the exchange must be reported: %v", late)
 	}
 }

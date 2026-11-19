@@ -476,8 +476,11 @@ terminal_proof a final Apply does plus root_overview_result. The same values
 submitted again answer already_applied. The write is its own receipted
 transaction, `.aoci/transactions/root-overview.json`, never part of the
 Entries batch: a write cut short is rolled forward by the next aoci_maintain
-or aoci_update_entry, whose result then carries root_overview_recovered and
-root_overview_formal_writes whatever became of its own request. The
+or aoci_update_entry, whose result then carries root_overview_recovered (it
+closed that receipt) and root_overview_formal_writes (it changed a formal
+asset, with formal_writes_started true) whatever became of its own request;
+every root_overview response carries both. A repository with no such receipt
+is never judged by these rules. The
 roll-forward checks before it writes: another pending receipt, a `.aoci` or
 `.aoci/transactions` that is not a real directory, a receipt that names any
 file but the Root, and bytes in the Root or the Baseline that are neither the

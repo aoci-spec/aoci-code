@@ -111,39 +111,36 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 }
 
 type autoResult struct {
-	Version                 int                 `json:"version"`
-	Status                  string              `json:"status"`
-	Aligned                 bool                `json:"aligned"`
-	RefreshStatus           string              `json:"refresh_status,omitempty"`
-	RefreshReasons          []string            `json:"refresh_reasons,omitempty"`
-	Attempted               int                 `json:"attempted"`
-	Applied                 int                 `json:"applied"`
-	Remaining               int                 `json:"remaining"`
-	FormalWritesStarted     bool                `json:"formal_writes_started"`
-	FindingCount            int                 `json:"finding_count"`
-	Receipt                 cognitionReceipt    `json:"cognition_receipt"`
-	Metrics                 autoMetrics         `json:"metrics"`
-	Audit                   *autoAudit          `json:"audit,omitempty"`
-	FormatOnlyApplied       []string            `json:"format_only_applied,omitempty"`
-	Candidates              []autoCandidate     `json:"candidates,omitempty"`
-	Findings                machineFindings     `json:"findings"`
-	PreserveOtherCandidates bool                `json:"preserve_other_candidates"`
-	RetryScope              []string            `json:"retry_scope"`
-	NextAction              string              `json:"next_action"`
-	NextCommands            []string            `json:"next_commands,omitempty"`
-	TerminalProof           *TerminalProof      `json:"terminal_proof,omitempty"`
-	RootOverview            *rootOverviewInvite `json:"root_overview,omitempty"`
-	RootOverviewResult      *rootOverviewResult `json:"root_overview_result,omitempty"`
-	// RootOverviewRecovered says this call first finished a Root overview
-	// write an earlier call had left cut short.
-	RootOverviewRecovered bool                         `json:"root_overview_recovered,omitempty"`
-	ObserveReview         *batchObserveReview          `json:"observe_review,omitempty"`
-	ObserveReviewCurrent  *observeReviewListing        `json:"observe_review_current,omitempty"`
-	HostDialogRequest     *toolCallRequest             `json:"host_dialog_request,omitempty"`
-	ManagedGovernance     *autoManagedGovernance       `json:"managed_governance,omitempty"`
-	CodePlan              *codebatch.Plan              `json:"code_plan,omitempty"`
-	Stop                  *GlobalStopFacts             `json:"stop,omitempty"`
-	Optimization          *cognitionOptimizationStatus `json:"optimization,omitempty"`
+	Version                 int                          `json:"version"`
+	Status                  string                       `json:"status"`
+	Aligned                 bool                         `json:"aligned"`
+	RefreshStatus           string                       `json:"refresh_status,omitempty"`
+	RefreshReasons          []string                     `json:"refresh_reasons,omitempty"`
+	Attempted               int                          `json:"attempted"`
+	Applied                 int                          `json:"applied"`
+	Remaining               int                          `json:"remaining"`
+	FormalWritesStarted     bool                         `json:"formal_writes_started"`
+	FindingCount            int                          `json:"finding_count"`
+	Receipt                 cognitionReceipt             `json:"cognition_receipt"`
+	Metrics                 autoMetrics                  `json:"metrics"`
+	Audit                   *autoAudit                   `json:"audit,omitempty"`
+	FormatOnlyApplied       []string                     `json:"format_only_applied,omitempty"`
+	Candidates              []autoCandidate              `json:"candidates,omitempty"`
+	Findings                machineFindings              `json:"findings"`
+	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
+	RetryScope              []string                     `json:"retry_scope"`
+	NextAction              string                       `json:"next_action"`
+	NextCommands            []string                     `json:"next_commands,omitempty"`
+	TerminalProof           *TerminalProof               `json:"terminal_proof,omitempty"`
+	RootOverview            *rootOverviewInvite          `json:"root_overview,omitempty"`
+	RootOverviewResult      *rootOverviewResult          `json:"root_overview_result,omitempty"`
+	ObserveReview           *batchObserveReview          `json:"observe_review,omitempty"`
+	ObserveReviewCurrent    *observeReviewListing        `json:"observe_review_current,omitempty"`
+	HostDialogRequest       *toolCallRequest             `json:"host_dialog_request,omitempty"`
+	ManagedGovernance       *autoManagedGovernance       `json:"managed_governance,omitempty"`
+	CodePlan                *codebatch.Plan              `json:"code_plan,omitempty"`
+	Stop                    *GlobalStopFacts             `json:"stop,omitempty"`
+	Optimization            *cognitionOptimizationStatus `json:"optimization,omitempty"`
 }
 
 func applyAutoRefreshOutcome(result *autoResult, session *cognitionRefreshSession) {

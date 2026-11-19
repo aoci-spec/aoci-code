@@ -348,11 +348,13 @@ func rootOverviewDirectoriesSafe(root string) *Fail {
 // heals on the next call instead of standing in the way as a pending receipt.
 // It reports whether it finished one.
 func completeRootOverviewRecovery(root, source string) (rootOverviewProgress, *Fail) {
+	// A repository with no Root overview receipt is none of this code's
+	// business: its directories are judged only when there is one to finish.
+	if _, err := os.Stat(rootOverviewReceiptPath(root)); errors.Is(err, os.ErrNotExist) {
+		return rootOverviewProgress{}, nil
+	}
 	if fail := rootOverviewDirectoriesSafe(root); fail != nil {
 		return rootOverviewProgress{}, fail
-	}
-	if _, err := os.Lstat(rootOverviewReceiptPath(root)); errors.Is(err, os.ErrNotExist) {
-		return rootOverviewProgress{}, nil
 	}
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
@@ -429,22 +431,28 @@ func completeRootOverviewLocked(root, source string) (progress rootOverviewProgr
 			continue
 		}
 		if err := rootOverviewWriteCAS(item.path, []byte(item.image), item.pre); err != nil {
+			// A CAS that failed after its exchange still changed the file.
+			if current, readErr := os.ReadFile(item.path); readErr != nil || indexTextHash(string(current)) != item.pre {
+				progress.wrote = true
+			}
 			return progress, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_write_failed"}
 		}
 		progress.wrote = true
 	}
-	// Both files are read once more before the transaction is declared done:
-	// a participant replaced while the other was being written is a conflict,
-	// and the receipt stays.
+	loaded, loadFail := loadCognitionCtx(root)
+	if loadFail != nil || loaded.set.Root.SHA256 != receipt.PostRootSHA256 {
+		return progress, &Fail{Code: errInternal, Msg: "root_overview_postimage_unconfirmed"}
+	}
+	// Both files are read once more, last of all, before the transaction is
+	// declared done: a participant replaced while the other was written, or
+	// while the repository was loaded, is a conflict and the receipt stays.
+	// A writer that honours neither the index lock nor CAS can still act after
+	// this read; what follows it writes only the Ledger and removes the receipt.
 	for _, item := range participants {
 		current, readErr := os.ReadFile(item.path)
 		if readErr != nil || indexTextHash(string(current)) != item.post {
 			return progress, &Fail{Code: errWriteConflict, Msg: "root_overview_" + item.name + "_postimage_unconfirmed"}
 		}
-	}
-	loaded, loadFail := loadCognitionCtx(root)
-	if loadFail != nil || loaded.set.Root.SHA256 != receipt.PostRootSHA256 {
-		return progress, &Fail{Code: errInternal, Msg: "root_overview_postimage_unconfirmed"}
 	}
 	event := ledger.Event{Op: "root_overview_apply", Source: source, Result: ledger.ResultOK, AppliedCount: 1,
 		RecoveryTransactionID: receipt.LedgerTransactionID, PreIndexSHA256: receipt.PreRootSHA256,
@@ -476,13 +484,12 @@ func handleRootOverviewUpdate(root, mcpServiceVersion string, in rootOverviewIn,
 		appendAutoFinalizeEvent(root, status, metrics)
 		// A request refused after this call finished an earlier overview
 		// write still changed the formal assets, and says so.
-		return textResult(renderAutoResult(autoResult{
+		return rootOverviewProgressFields(textResult(renderAutoResult(autoResult{
 			Version: 1, Status: status, Attempted: 1, FormalWritesStarted: fail.FormalWritesStarted || recovered.wrote,
-			RootOverviewRecovered: recovered.finished,
-			Receipt:               currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
+			Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion), Metrics: metrics,
 			Findings:   machineFindings{genericMachineFinding(fail.Code, "["+fail.Code+"] "+fail.Msg)},
 			RetryScope: []string{}, NextAction: fail.Msg,
-		}))
+		})), recovered)
 	}
 	appendAutoFinalizeEvent(root, autoStatusApplied, metrics)
 	proof, _ := BuildTerminalProof(root)
@@ -494,34 +501,51 @@ func handleRootOverviewUpdate(root, mcpServiceVersion string, in rootOverviewIn,
 		Version: 1, Status: autoStatusApplied, Aligned: proof.Aligned, Attempted: 1, Applied: applied,
 		FormalWritesStarted: recovered.wrote, Receipt: currentWriteCognitionReceipt(root, mcpServiceVersion),
 		Metrics: metrics, Findings: machineFindings{}, RetryScope: []string{}, NextAction: "none",
-		TerminalProof: proof, RootOverviewResult: written, RootOverviewRecovered: recovered.finished && written.AlreadyApplied,
+		TerminalProof: proof, RootOverviewResult: written,
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
-	return textResult(renderAutoResult(result))
+	return rootOverviewProgressFields(textResult(renderAutoResult(result)), recovered)
 }
 
 // withRootOverviewProgress marks a result of another request (an Entries
 // batch, a Maintain) whose call first rolled a cut Root overview write
 // forward: the formal assets changed in this call, whatever the request's own
-// outcome, and the result says so. The fields are appended, so the order a
-// result leads with is untouched.
+// outcome, and the result says so. A call that rolled nothing forward is left
+// as it is.
 func withRootOverviewProgress(result *mcp.CallToolResult, progress rootOverviewProgress) *mcp.CallToolResult {
-	if result == nil || (!progress.wrote && !progress.finished) || len(result.Content) != 1 {
+	if !progress.wrote && !progress.finished {
+		return result
+	}
+	return rootOverviewProgressFields(result, progress)
+}
+
+// rootOverviewProgressFields states on a result what this call did to the
+// Root overview transaction: root_overview_recovered (it closed a receipt an
+// earlier call had left) and root_overview_formal_writes (it changed a formal
+// asset), with formal_writes_started true whenever the latter is. The fields
+// are appended, so the order a result leads with is untouched.
+func rootOverviewProgressFields(result *mcp.CallToolResult, progress rootOverviewProgress) *mcp.CallToolResult {
+	if result == nil || len(result.Content) != 1 {
 		return result
 	}
 	content, ok := result.Content[0].(*mcp.TextContent)
 	if !ok {
 		return result
 	}
+	flag := map[bool]string{true: "true", false: "false"}
 	text := strings.TrimRight(content.Text, "\n")
 	if strings.HasPrefix(text, "{") && strings.HasSuffix(text, "}") && json.Valid([]byte(text)) {
+		appended := `,"root_overview_recovered":` + flag[progress.finished] + `,"root_overview_formal_writes":` + flag[progress.wrote]
 		if progress.wrote {
-			text = strings.Replace(text, `"formal_writes_started":false`, `"formal_writes_started":true`, 1)
+			if strings.Contains(text, `"formal_writes_started":`) {
+				text = strings.Replace(text, `"formal_writes_started":false`, `"formal_writes_started":true`, 1)
+			} else {
+				appended += `,"formal_writes_started":true`
+			}
 		}
-		content.Text = text[:len(text)-1] + `,"root_overview_recovered":` + map[bool]string{true: "true", false: "false"}[progress.finished] + `,"root_overview_formal_writes":` + map[bool]string{true: "true", false: "false"}[progress.wrote] + "}"
+		content.Text = text[:len(text)-1] + appended + "}"
 		return result
 	}
-	content.Text = text + "\nroot_overview_recovered: " + map[bool]string{true: "true", false: "false"}[progress.finished] +
-		"\nroot_overview_formal_writes: " + map[bool]string{true: "true", false: "false"}[progress.wrote]
+	content.Text = text + "\nroot_overview_recovered: " + flag[progress.finished] + "\nroot_overview_formal_writes: " + flag[progress.wrote]
 	return result
 }
