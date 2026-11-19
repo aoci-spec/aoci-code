@@ -302,6 +302,13 @@ func TestOverviewDeletionOnlyDeltaReanchors(t *testing.T) {
 	if overviewMetadataValue(t, next, "delivery_mode") != overviewDeliveryDelta || strings.Contains(next, "challenge_digest") {
 		t.Fatalf("the new base did not produce an empty delta: %s", next)
 	}
+	// An empty delta sends no body, so it supersedes nothing: the delivery
+	// just proven is still the current one and its proof still stands.
+	again := attestDelivered(t, session, root, delta, false)
+	if overviewMetadataValue(t, again, "host_delivery_status") != hostDeliveryConfirmed ||
+		overviewMetadataValue(t, again, "model_attestation") != "pass" {
+		t.Fatalf("an empty delta superseded the delivery it re-anchored on: %s", again)
+	}
 }
 
 // Locks the L5 contract end to end on one Host session: a delta is served only

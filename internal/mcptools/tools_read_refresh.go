@@ -44,13 +44,13 @@ type cognitionRefreshSession struct {
 	// submitting both in one call. A brand-new complete delivery (carrying neither field, no cursor) resets that
 	// body's evidence, so every delivery attempt still collects its own proof.
 	deliveryEvidence map[deliveryKey]*overviewDeliveryEvidence
-	// deliveryProgress remembers, per Host session and body, how far this
-	// process has sent that body since the last fresh request: a Host
-	// confirmation counts only for a body sent to its end
-	// (noteDeliveryProgress, deliveryServed). progressOrder is its eviction
-	// order, oldest first.
-	deliveryProgress map[deliveryKey]*overviewDeliveryProgress
-	progressOrder    []deliveryKey
+	// currentDeliveries holds the one current delivery of each Host session
+	// and requested scope: its body, its retained delivery, and how far this
+	// process has sent it. Transport progress, proofs, and retained cursors
+	// all answer to it (beginDelivery, advanceDelivery, deliveryServed).
+	// currentOrder is its eviction order, oldest first.
+	currentDeliveries map[deliveryScope]*currentDelivery
+	currentOrder      []deliveryScope
 	// compactionAttempt, capacity, chains, and chainOrder belong to the
 	// Host-capacity loop breaker and the delivery chain IDs the Ledger
 	// carries (overview_capacity.go).
@@ -747,55 +747,91 @@ type deliveryKey struct {
 	body  string
 }
 
-// overviewDeliveryProgress is one body's transport state for one Host session:
-// the highest Chunk sent in order since the last fresh request, and the count.
-type overviewDeliveryProgress struct {
-	sent, count int
+// deliveryScope names the one place a delivery can be current: a Host session
+// and the scope it asked for.
+type deliveryScope struct {
+	owner volumeDeliveryOwner
+	scope string
 }
 
-// deliveryProgressMax bounds the progress memory. A body evicted from it is
-// unknown, and an unknown body is not sent: the Host starts it again.
-const deliveryProgressMax = 64
+// currentDelivery is what this process is sending, or has sent, to one Host
+// session for one requested scope since that session's last fresh request
+// that was answered with a body: which body, through which retained delivery
+// (empty on the live path), and the highest Chunk sent in order.
+type currentDelivery struct {
+	body, delivery string
+	sent, count    int
+}
 
-// noteDeliveryProgress records a Chunk this process just sent. A fresh request
-// restarts the body at Chunk 1; a continuation advances it only by the next
-// Chunk in order. A continuation of a body this session has no fresh request
-// for (the server restarted, or the record was evicted) records nothing: what
-// this process cannot prove it sent from the start, it does not count. The
+// currentDeliveryMax bounds the memory. A scope evicted from it has no
+// current delivery, and nothing is sent that is not current.
+const currentDeliveryMax = 64
+
+// beginDelivery makes a fresh request's body the current delivery of its Host
+// session and scope, at the Chunk it just sent. Whatever was current there is
+// replaced, and the proof halves remembered for the replaced body go with it:
+// they vouched for a transmission that is no longer the one in progress. The
 // caller holds session.mu.
-func (session *cognitionRefreshSession) noteDeliveryProgress(owner volumeDeliveryOwner, bodySHA256 string, fresh bool, index, count int) {
+func (session *cognitionRefreshSession) beginDelivery(owner volumeDeliveryOwner, scope, bodySHA256, delivery string, index, count int) {
 	if session == nil || bodySHA256 == "" {
 		return
 	}
-	if session.deliveryProgress == nil {
-		session.deliveryProgress = map[deliveryKey]*overviewDeliveryProgress{}
+	if session.currentDeliveries == nil {
+		session.currentDeliveries = map[deliveryScope]*currentDelivery{}
 	}
-	key := deliveryKey{owner: owner, body: bodySHA256}
-	progress := session.deliveryProgress[key]
-	switch {
-	case fresh:
-		if progress == nil {
-			session.progressOrder = append(session.progressOrder, key)
-		}
-		session.deliveryProgress[key] = &overviewDeliveryProgress{sent: index, count: count}
-	case progress != nil && index == progress.sent+1:
-		progress.sent, progress.count = index, count
+	key := deliveryScope{owner: owner, scope: scope}
+	if previous := session.currentDeliveries[key]; previous == nil {
+		session.currentOrder = append(session.currentOrder, key)
+	} else {
+		delete(session.deliveryEvidence, deliveryKey{owner: owner, body: previous.body})
 	}
-	for len(session.progressOrder) > deliveryProgressMax {
-		delete(session.deliveryProgress, session.progressOrder[0])
-		session.progressOrder = session.progressOrder[1:]
+	delete(session.deliveryEvidence, deliveryKey{owner: owner, body: bodySHA256})
+	session.currentDeliveries[key] = &currentDelivery{body: bodySHA256, delivery: delivery, sent: index, count: count}
+	for len(session.currentOrder) > currentDeliveryMax {
+		delete(session.currentDeliveries, session.currentOrder[0])
+		session.currentOrder = session.currentOrder[1:]
 	}
 }
 
-// deliveryServed reports whether this process has sent that body to its end
-// for that Host session since its last fresh request. A nil session has no
-// transport to remember and answers true, as a caller without one always did.
-func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner, bodySHA256 string) bool {
+// advanceDelivery records a continuation Chunk. It counts only for the
+// current delivery of that Host session and scope, the same body through the
+// same retained delivery, and only as the next Chunk in order: a cursor of a
+// superseded delivery, one still in flight when its successor began, a Chunk
+// out of order, and a body this process has no fresh request for all leave
+// the record as it is. The caller holds session.mu.
+func (session *cognitionRefreshSession) advanceDelivery(owner volumeDeliveryOwner, scope, bodySHA256, delivery string, index, count int) {
+	if session == nil {
+		return
+	}
+	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
+	if current == nil || current.body != bodySHA256 || current.delivery != delivery || index != current.sent+1 {
+		return
+	}
+	current.sent, current.count = index, count
+}
+
+// detachDelivery turns the current delivery of a scope into a live-path one:
+// the store could not retain it, so its continuations arrive by v1 cursor
+// with no retained delivery to name. The caller holds session.mu.
+func (session *cognitionRefreshSession) detachDelivery(owner volumeDeliveryOwner, scope, delivery string) {
+	if session == nil {
+		return
+	}
+	if current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]; current != nil && current.delivery == delivery {
+		current.delivery = ""
+	}
+}
+
+// deliveryServed reports whether that body is the current delivery of its
+// Host session and scope and this process has sent it to its end. A nil
+// session has no transport to remember and answers true, as a caller without
+// one always did.
+func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner, scope, bodySHA256 string) bool {
 	if session == nil {
 		return true
 	}
-	progress := session.deliveryProgress[deliveryKey{owner: owner, body: bodySHA256}]
-	return progress != nil && progress.count > 0 && progress.sent >= progress.count
+	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
+	return current != nil && current.body == bodySHA256 && current.count > 0 && current.sent >= current.count
 }
 
 // unconfirmDelivery forgets a remembered confirmation for that body: a

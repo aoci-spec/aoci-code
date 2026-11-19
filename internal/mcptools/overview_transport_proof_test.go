@@ -186,19 +186,82 @@ func TestAnotherHostSessionCannotProveThisOnesDelivery(t *testing.T) {
 	expectTransport(t, "the first session, after the second one started", fixture.prove("first", fixture.both), true)
 }
 
-// A body this process has no fresh request for is not sent, however its
-// record was lost: a continuation alone never completes it.
-func TestUnknownTransportProgressIsNotSent(t *testing.T) {
+// Nothing is sent that is not current: a chain whose record this process
+// lost is not completed by its continuations, the memory is bounded, and the
+// oldest scope is the one that goes.
+func TestOnlyTheCurrentDeliveryCountsAsSent(t *testing.T) {
 	fixture := newTransportProofFixture(t)
+	host := volumeDeliveryOwner{direct: "host"}
+	scope := deliveryScope{owner: host, scope: cognition.ScopeAll}
 	first := fixture.chunk("host", freshAll())
-	delete(fixture.session.deliveryProgress, deliveryKey{owner: volumeDeliveryOwner{direct: "host"}, body: fixture.body.(string)})
+	delete(fixture.session.currentDeliveries, scope)
 	fixture.rest("host", first)
 	expectTransport(t, "a chain whose start this process does not remember", fixture.prove("host", fixture.both), false)
-	for index := 0; index <= deliveryProgressMax; index++ {
-		fixture.session.noteDeliveryProgress(volumeDeliveryOwner{direct: "host"}, strings.Repeat("0", 60)+strings.Repeat("a", 4-len(string(rune('a'+index%4))))+string(rune('a'+index%4)), true, 1, 3)
+
+	fixture.rest("host", fixture.chunk("host", freshAll()))
+	expectTransport(t, "the same body requested afresh and sent to its end", fixture.prove("host", fixture.both), true)
+	for index := 0; index < currentDeliveryMax; index++ {
+		fixture.session.beginDelivery(volumeDeliveryOwner{direct: fmt.Sprintf("other-%d", index)}, cognition.ScopeAll, strings.Repeat("b", 64), "", 1, 3)
 	}
-	if len(fixture.session.deliveryProgress) > deliveryProgressMax || len(fixture.session.progressOrder) > deliveryProgressMax {
-		t.Fatalf("the progress memory is unbounded: %d", len(fixture.session.deliveryProgress))
+	if len(fixture.session.currentDeliveries) != currentDeliveryMax || len(fixture.session.currentOrder) != currentDeliveryMax {
+		t.Fatalf("the memory must hold exactly its bound: %d", len(fixture.session.currentDeliveries))
+	}
+	if fixture.session.currentDeliveries[scope] != nil {
+		t.Fatal("the oldest scope must be the one evicted")
+	}
+	expectTransport(t, "a delivery evicted from the memory", fixture.prove("host", fixture.both), false)
+}
+
+// A delivery that is not the current one of its scope advances nothing: a
+// request of a superseded delivery that was already in flight when its
+// successor began, a Chunk out of order, and another body.
+func TestOnlyTheCurrentDeliveryAdvances(t *testing.T) {
+	session := newCognitionRefreshSession()
+	host := volumeDeliveryOwner{direct: "host"}
+	body, other := strings.Repeat("a", 64), strings.Repeat("c", 64)
+	session.beginDelivery(host, cognition.ScopeAll, body, "old", 1, 2)
+	session.beginDelivery(host, cognition.ScopeAll, body, "new", 1, 2)
+	session.advanceDelivery(host, cognition.ScopeAll, body, "old", 2, 2)
+	if session.deliveryServed(host, cognition.ScopeAll, body) {
+		t.Fatal("the superseded delivery's last Chunk finished its successor")
+	}
+	session.advanceDelivery(host, cognition.ScopeAll, other, "new", 2, 2)
+	session.advanceDelivery(host, cognition.ScopeCode, body, "new", 2, 2)
+	session.advanceDelivery(volumeDeliveryOwner{direct: "guest"}, cognition.ScopeAll, body, "new", 2, 2)
+	if session.deliveryServed(host, cognition.ScopeAll, body) {
+		t.Fatal("another body, scope, or Host session finished this delivery")
+	}
+	session.advanceDelivery(host, cognition.ScopeAll, body, "new", 2, 2)
+	if !session.deliveryServed(host, cognition.ScopeAll, body) || session.deliveryServed(host, cognition.ScopeCode, body) ||
+		session.deliveryServed(host, cognition.ScopeAll, other) {
+		t.Fatal("the current delivery, sent to its end, must be the one thing served")
+	}
+	// A second body for the same scope replaces the first, proof memory included.
+	session.mergeDeliveryEvidence(host, body, hostDeliveryConfirmed, nil)
+	session.beginDelivery(host, cognition.ScopeAll, other, "", 1, 1)
+	if session.deliveryServed(host, cognition.ScopeAll, body) || !session.deliveryServed(host, cognition.ScopeAll, other) {
+		t.Fatal("a new body for the scope must replace the earlier one")
+	}
+	if status, _ := session.mergeDeliveryEvidence(host, body, hostDeliveryUnconfirmed, nil); status == hostDeliveryConfirmed {
+		t.Fatal("the replaced body's confirmation stayed remembered")
+	}
+}
+
+// An earlier delivery's Attestation, submitted after one Chunk of a reload,
+// proves no transport and must not close the reload attempt: the next
+// compaction still finds it open and answers the capacity stop.
+func TestAnEarlierProofDoesNotCloseAnOpenReload(t *testing.T) {
+	for _, half := range []string{"model", "host", "both"} {
+		fixture := newTransportProofFixture(t)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		expectTransport(t, "the first delivery", fixture.prove("host", fixture.both), true)
+		fixture.chunk("host", reloadAll("compaction-1"))
+		expectTransport(t, "the earlier "+half+" half after one Chunk of the reload",
+			fixture.prove("host", map[string]overviewIn{"model": fixture.model, "host": fixture.host, "both": fixture.both}[half]), false)
+		stop := capacityStopFacts(t, resText(t, sessionOverview(t, fixture.root, fixture.session, "host", reloadAll("compaction-2"))))
+		if stop["delivery_mode"] != machinecontract.OverviewDeliveryModeCapacityStop {
+			t.Fatalf("the earlier %s half closed the open reload: %v", half, stop)
+		}
 	}
 }
 
@@ -325,5 +388,15 @@ func TestEarlyConfirmationIsNotRememberedOnTheLivePath(t *testing.T) {
 	if done := render(fixture.host); done.Facts.HostDeliveryStatus != hostDeliveryConfirmed ||
 		done.Attestation.ModelAttestation != modelAttestationPass || done.Attestation.CognitionAssimilation != cognitionAssimilationComplete {
 		t.Fatalf("both halves given at the end must latch and pass: %+v %+v", done.Facts, done.Attestation)
+	}
+	// The confirmation is remembered now. Once the delivery is no longer
+	// current (here: evicted), the remembered half must not confirm what a
+	// later call carries no confirmation for: the check follows the merge.
+	for index := 0; index < currentDeliveryMax; index++ {
+		session.beginDelivery(volumeDeliveryOwner{direct: fmt.Sprintf("other-%d", index)}, ctx.RequestedScope, strings.Repeat("b", 64), "", 1, 3)
+	}
+	if lost := render(fixture.model); lost.Facts.HostDeliveryStatus == hostDeliveryConfirmed || lost.Facts.ServerSent ||
+		lost.Attestation.CognitionAssimilation == cognitionAssimilationComplete {
+		t.Fatalf("a remembered confirmation vouched for a delivery that is not current: %+v", lost.Facts)
 	}
 }

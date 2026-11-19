@@ -230,6 +230,13 @@ func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRend
 	delivery.Facts.ChainID = chainID
 	delivery.Facts.RefreshReasons = append([]string(nil), reasons...)
 	if delivery.Facts.DeliveryMode == overviewDeliveryAttestation {
+		// A proof half for a body this process has not sent to its end
+		// proves no transport, whichever half it is: an earlier delivery's
+		// Attestation submitted after one Chunk of a reload must not close
+		// the reload attempt, or the next compaction finds nothing to stop.
+		if !delivery.Facts.ServerSent {
+			return
+		}
 		// An incomplete confirmation alone proves no transport. Keep the
 		// attempt open without changing the independent model-proof path.
 		if delivery.Attestation.DeliveryIntegrity == deliveryIntegrityIncomplete && !delivery.Attestation.ReportProvided {

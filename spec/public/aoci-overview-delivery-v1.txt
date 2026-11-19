@@ -160,25 +160,32 @@ end marker. Any missing or mismatched field is incomplete.
 
 A matching confirmation proves a copy, not a transport: the SHA-256 is printed
 on the first Chunk, and an unchanged Index has the SHA-256 it had before. The
-confirmation therefore counts only for a body the serving process has sent to
-its end, to that Host session, since that session's last fresh request for it.
-The rules are:
+serving process therefore keeps one current delivery for each Host session and
+requested scope, and transport progress, proofs, and retained cursors all
+answer to it:
 
-* a fresh request that is answered with a body restarts that body at Chunk 1,
-  discards the proof halves remembered for it, and supersedes the deliveries
-  the same Host session still holds for the same scope: their v2 cursors
-  answer `overview_session_unavailable_restart_required`. A capacity stop
-  sends no body and supersedes nothing;
-* a continuation advances the body only by the next Chunk in order;
-* a body the process has no fresh request on record for is not sent. After a
-  server restart a v1 cursor still returns its Chunk, and the Host makes a
-  fresh request before it can confirm;
-* progress and remembered halves are kept per Host session and body, so two
-  MCP sessions of one server never prove each other's delivery;
-* a confirmation for a body not sent to its end is incomplete, whether it
-  came with the call or from memory, and it is not remembered. A proof
-  response prints `server_delivery_complete: false` in that case. The Host
-  finishes the chain by its `next_cursor` and confirms again.
+* a fresh request that is answered with a body makes that body the current
+  delivery of its Host session and scope, at Chunk 1. Whatever was current
+  there is replaced: every delivery that session still held for the scope,
+  whatever Index identity it carried, is superseded with the proof halves
+  remembered for it, and its v2 cursors answer
+  `overview_session_unavailable_restart_required`. A capacity stop and an
+  empty delta send no body and supersede nothing;
+* a continuation advances the current delivery only when it arrives through
+  it (the same body, the same retained delivery) and only as the next Chunk
+  in order. A request of a superseded delivery that was already in flight
+  advances nothing;
+* a body that is not current is not sent. After a server restart a v1 cursor
+  still returns its Chunk, and the Host makes a fresh request before it can
+  confirm;
+* two MCP sessions of one server never prove each other's delivery;
+* a confirmation counts only for the current delivery sent to its end,
+  whether it came with the call or from memory; otherwise it is incomplete
+  and is not remembered, and the proof response prints
+  `server_delivery_complete: false`. The Host finishes the chain by its
+  `next_cursor` and confirms again;
+* a proof half for a body not sent to its end closes no compaction reload
+  attempt, whichever half it is.
 
 On a Legacy layout the same rules hold.
 
