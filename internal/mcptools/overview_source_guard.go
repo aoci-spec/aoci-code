@@ -15,6 +15,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/dbevidence"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
@@ -39,6 +40,62 @@ type overviewSourceGuard struct {
 	inventory      string
 	legacy         bool
 	sources        map[string]baseline.Fingerprint
+	// database is the digest of every file Database governance reads: the
+	// accepted Database Baseline and the Evidence tree. Empty without an
+	// enabled Database Volume.
+	database string
+}
+
+// overviewDatabaseEvidenceDigest digests the files Database governance reads
+// besides the formal assets and configuration the guard binds already: the
+// accepted Database Baseline and every file of the Evidence tree, by path and
+// content. Evidence has no clock, only these bytes, so a delivery whose
+// digest still matches meets the same Database facts. A tree that cannot be
+// read answers false and the delivery is not reused.
+func overviewDatabaseEvidenceDigest(root string) (string, bool) {
+	hash := sha256.New()
+	writeFile := func(rel, full string) bool {
+		data, err := os.ReadFile(full)
+		if err != nil {
+			return false
+		}
+		digest := sha256.Sum256(data)
+		fmt.Fprintf(hash, "%s\x00%x\n", rel, digest)
+		return true
+	}
+	if baselinePath := dbevidence.BaselinePath(root); fileExists(baselinePath) {
+		if !writeFile(".aoci/database-baseline.json", baselinePath) {
+			return "", false
+		}
+	}
+	evidence := filepath.Join(root, ".aoci", "database", "evidence")
+	if info, err := os.Lstat(evidence); err == nil && info.IsDir() {
+		walkErr := filepath.WalkDir(evidence, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				return fmt.Errorf("overview_database_evidence_link")
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			rel, relErr := filepath.Rel(root, path)
+			if relErr != nil || !writeFile(filepath.ToSlash(rel), path) {
+				return fmt.Errorf("overview_database_evidence_unreadable")
+			}
+			return nil
+		})
+		if walkErr != nil {
+			return "", false
+		}
+	}
+	return hex.EncodeToString(hash.Sum(nil)), true
+}
+
+func fileExists(path string) bool {
+	info, err := os.Lstat(path)
+	return err == nil && info.Mode().IsRegular()
 }
 
 func overviewConfigIdentity(cfg *config.Config) string {
@@ -146,16 +203,21 @@ func overviewInventoryPaths(inventory *afs.SafeInventory) map[string]string {
 	return paths
 }
 
-func newOverviewSourceGuard(loaded *cognitionRepoCtx, metadata map[string]string, state *managedstate.State) *overviewSourceGuard {
+func newOverviewSourceGuard(root string, loaded *cognitionRepoCtx, metadata map[string]string, state *managedstate.State) *overviewSourceGuard {
 	if state == nil || state.ScopeChangeRequired || len(state.Warnings) != 0 {
 		return nil
 	}
-	// Database Evidence can expire without byte drift. Until its time/connector
-	// identities have a reusable guard, retain the original live-governance path.
-	if asset := loaded.set.Volumes[cognition.ScopeDatabase]; asset != nil && asset.Descriptor.State != machinecontract.CognitionVolumeDisabled {
-		return nil
-	}
 	guard := &overviewSourceGuard{composite: loaded.set.CompositeIdentity, configIdentity: overviewConfigIdentity(loaded.cfg), metadata: metadata, legacy: state.Legacy, sources: map[string]baseline.Fingerprint{}}
+	// Database governance reads the Database Baseline and the Evidence tree,
+	// which change only by their bytes: the guard binds them, so a repository
+	// with a Database Volume reuses a delivery as any other does.
+	if asset := loaded.set.Volumes[cognition.ScopeDatabase]; asset != nil && asset.Descriptor.State != machinecontract.CognitionVolumeDisabled {
+		digest, ok := overviewDatabaseEvidenceDigest(root)
+		if !ok {
+			return nil
+		}
+		guard.database = digest
+	}
 	candidates := map[string]string{}
 	for path, value := range state.Snapshot {
 		guard.sources[path] = value
@@ -210,6 +272,13 @@ func (guard *overviewSourceGuard) validate(root string, loaded *cognitionRepoCtx
 		return fmt.Errorf("overview_snapshot_changed")
 	}
 	if fail := pendingCognitionDeliveryFail(root, loaded.set); fail != nil {
+		return fmt.Errorf("overview_snapshot_changed")
+	}
+	if guard.database != "" {
+		if digest, ok := overviewDatabaseEvidenceDigest(root); !ok || digest != guard.database {
+			return fmt.Errorf("overview_snapshot_changed")
+		}
+	} else if asset := loaded.set.Volumes[cognition.ScopeDatabase]; asset != nil && asset.Descriptor.State != machinecontract.CognitionVolumeDisabled {
 		return fmt.Errorf("overview_snapshot_changed")
 	}
 	options := loaded.cfg.WalkOptions()

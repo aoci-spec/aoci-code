@@ -59,8 +59,10 @@ minutes in all), eviction, a foreign Host, or a process restart answers
 starts again at Chunk 1; nothing is reconstructed from a `v2:` token. The
 proof halves submitted after the chain reuse the same delivery, so the
 Attestation call no longer repeats the assessment either. A repository with
-an enabled Database Volume, a pending scope change, or source warnings keeps
-the live path, as does a delivery the server cannot retain within its 32
+an enabled Database Volume reuses deliveries too: the guard binds the
+accepted Database Baseline and every Evidence file, the only things Database
+governance reads. A pending scope change or source warnings keep the live
+path, as does a delivery the server cannot retain within its 32
 deliveries and 64 MiB; those chains carry the reconstructable v1 cursor,
 which an unchanged Index and Chunk budget still accept across process
 restarts. Successful Volumes responses carry `_meta.aoci_work` with

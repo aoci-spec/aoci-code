@@ -4,6 +4,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A repository with a Database Volume reuses Overview deliveries. Such a
+  repository took the live path on every chunk and proof call, re-running
+  governance each time, because Database Evidence was thought to change
+  without its bytes changing. Database governance reads only the accepted
+  Database Baseline and the Evidence files, so the reuse guard now binds
+  their digests; a changed file stops the reuse as a changed source does.
+  Incremental (delta) Overviews become available to these repositories too.
 - A MongoDB source can be declared (contributed by @dayebishouji, PR #172,
   the declaration step of #135). `database source add --engine mongodb
   --database-name app --credential-env AOCI_DB_APP_URI` saves the source;

@@ -471,9 +471,10 @@ proceeds as for an ordinary complete request:
 * the server can retain the delivery for its proof calls
   (`delta_retention_unavailable` otherwise): a delta is attested against the
   Challenge drawn from its own body, which only the retained delivery holds,
-  so a repository served the live-governance way (an enabled Database Volume,
-  a pending scope change, source warnings, or a body past the retention
-  budget) answers the complete scope.
+  so a repository served the live-governance way (a pending scope change,
+  source warnings, an unreadable Database Evidence tree, or a body past the
+  retention budget) answers the complete scope. An enabled Database Volume
+  is reused under a guard over the Database Baseline and Evidence files.
 
 Delivery. The delta is the comparison of the current canonical object
 sequence with the base's: an object whose canonical-line digest differs is
