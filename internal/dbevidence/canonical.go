@@ -114,7 +114,9 @@ func canonicalizeTable(table *TableEvidence) error {
 		if (column.NativeType == "" && table.Engine != EngineSQLite) || column.CanonicalType == "" {
 			return fmt.Errorf("column %s has an empty type", column.Name)
 		}
-		if column.DefaultExpression != nil {
+		// MySQL COLUMN_DEFAULT can be an unquoted literal value. Its
+		// whitespace and line endings are data, not SQL formatting.
+		if column.DefaultExpression != nil && table.Engine != EngineMySQL {
 			normalized := normalizeCatalogText(*column.DefaultExpression)
 			column.DefaultExpression = &normalized
 		}
