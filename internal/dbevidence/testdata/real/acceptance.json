@@ -62,7 +62,7 @@
       "object_ref": "database://pgtemp/aoci_d0/accounts",
       "canonical_evidence_ref": "testdata/real/postgresql_accounts.json",
       "table_evidence_sha256": "d4a04d14f0cca18478e33a86c2988f862457ace07c3b6f865e888ddf4f362c04",
-      "source_snapshot_sha256": "b32e828c732c38f40dd4a094c1b08f2c59f4e433822ef4dac1a6e59f18b642ed",
+      "source_snapshot_sha256": "ecf75e05ea97c086b62262f86a8e0fed83e189e40b0789918d1501300181c2ac",
       "table_count": 6,
       "drift": {
         "unchanged": 4,

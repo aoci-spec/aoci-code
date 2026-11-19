@@ -26,6 +26,7 @@ type mockCatalogState struct {
 	openGaussDeployment         string
 	openGaussCompatibility      string
 	openGaussUnsupportedFeature string
+	postgresIndexRows           [][]driver.Value
 }
 
 type mockCatalogDriver struct{}
@@ -67,6 +68,9 @@ func (conn *mockCatalogConn) QueryContext(_ context.Context, query string, _ []d
 		return nil, conn.state.queryErr
 	}
 	columns, values := mockCatalogResult(conn.state.engine, query)
+	if query == postgresIndexesSQL && conn.state.postgresIndexRows != nil {
+		values = conn.state.postgresIndexRows
+	}
 	return &mockCatalogRows{columns: columns, values: values}, nil
 }
 func (mockCatalogTx) Commit() error             { return nil }
@@ -387,7 +391,7 @@ func mockCatalogResult(engine Engine, query string) ([]string, [][]driver.Value)
 	case postgresChecksSQL:
 		return []string{"schema", "table", "name", "expression"}, nil
 	case postgresIndexesSQL:
-		return []string{"schema", "table", "name", "unique", "primary", "method", "position", "column", "expression", "included", "predicate"}, nil
+		return []string{"schema", "table", "name", "unique", "primary", "method", "position", "column", "expression", "included", "predicate", "descending"}, nil
 	case postgresPartitionParentsSQL:
 		return []string{"schema", "table", "method", "expression"}, nil
 	case postgresPartitionChildrenSQL:

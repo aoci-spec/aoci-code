@@ -60,7 +60,8 @@ ORDER BY n.nspname, t.relname, c.conname`
 SELECT n.nspname, t.relname, i.relname, x.indisunique, x.indisprimary,
        am.amname, p.position, a.attname,
        CASE WHEN a.attname IS NULL THEN pg_catalog.pg_get_indexdef(i.oid, p.position, true) END,
-       p.position > x.indnkeyatts, COALESCE(pg_catalog.pg_get_expr(x.indpred, x.indrelid, true), '')
+       p.position > x.indnkeyatts, COALESCE(pg_catalog.pg_get_expr(x.indpred, x.indrelid, true), ''),
+       COALESCE(pg_catalog.pg_index_column_has_property(i.oid, p.position, 'desc'), false)
 FROM pg_catalog.pg_index AS x
 JOIN pg_catalog.pg_class AS t ON t.oid = x.indrelid
 JOIN pg_catalog.pg_namespace AS n ON n.oid = t.relnamespace

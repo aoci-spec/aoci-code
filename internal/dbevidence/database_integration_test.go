@@ -137,6 +137,14 @@ func TestPostgreSQLRealCatalogCollectionAndDrift(t *testing.T) {
 	}
 	assertUnrelatedTableStable(t, first, second, "database://pgtemp/aoci_d0/orders")
 	assertBaselineUnchanged(t, root, baselineBytes)
+	// Keep the production identity preimage reviewable when catalog facts
+	// intentionally change the derived real-engine acceptance Golden.
+	identity, err := snapshotIdentityBytes(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("postgresql_snapshot_identity base64=%s", base64.StdEncoding.EncodeToString(identity))
+	t.Logf("postgresql_index_evidence base64=%s", base64.StdEncoding.EncodeToString(files["database://pgtemp/aoci_d0/orders"]))
 	logRealAcceptance(t, "postgresql", first, baseline, report, "database://pgtemp/aoci_d0/accounts", files)
 	assertNoIntegrationSentinels(t, manifest, second, secondFiles, credentialSentinel)
 }
