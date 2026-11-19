@@ -19,7 +19,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   restart) with the proof halves remembered for it, so neither an earlier
   confirmation nor an earlier Attestation latches onto a reload or closes its
   attempt; a capacity stop, an empty delta, and a refused request send
-  nothing and change nothing, and a proof or a continuation that was on its
+  nothing and change no delivery (a refresh reason a refused request declared
+  stays declared), and a proof or a continuation that was on its
   way when its delivery was replaced asks for a restart. Two MCP sessions of one server no longer prove each other's
   delivery. After a server restart a v1 cursor still returns its Chunk, but a
   confirmation needs a fresh request in the new process. Present since the chunked

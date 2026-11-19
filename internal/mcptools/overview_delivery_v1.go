@@ -180,8 +180,8 @@ type overviewRenderContext struct {
 	// Owner is the Host session the delivery belongs to: transport progress
 	// and remembered proof halves are kept per Owner and body.
 	Owner volumeDeliveryOwner
-	// DeliveryID is the retained delivery this context renders, empty on the
-	// live path. A continuation advances the current delivery, and a proof
+	// DeliveryID is the retained delivery this context renders, or the one a
+	// request picked before it fell back to the live path; empty otherwise. A continuation advances the current delivery, and a proof
 	// counts for it, only when it arrives through the delivery that is current.
 	DeliveryID string
 	// Prepared is immutable. Pure render callers may omit it; a delivery session
@@ -265,6 +265,11 @@ type overviewRendered struct {
 // before the checks that can still refuse it, the window in which a foreign
 // write turns a rendered response into a refusal.
 var overviewRenderedHook func()
+
+// overviewLiveFallbackHook is test-only: it fires when a request that picked
+// a retained delivery falls back to the live path, before it takes the Host
+// session's lock again.
+var overviewLiveFallbackHook func()
 
 // transport is the session that remembers what this process sent; a context
 // built without one (the engine's export, a test) falls back to Session.

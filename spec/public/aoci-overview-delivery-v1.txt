@@ -171,9 +171,12 @@ answer to it:
   remembered for it, and its v2 cursors answer
   `overview_session_unavailable_restart_required`. A capacity stop and an
   empty delta send no body and supersede nothing;
-* a request that is refused sends nothing and changes nothing: a fresh
-  request refused for any reason supersedes no delivery and forgets no proof
-  half, and a Chunk refused after it was rendered is not counted as sent;
+* a request that is refused sends nothing and changes no delivery: a fresh
+  request refused for any reason supersedes no delivery, forgets no proof
+  half, and rebinds no governance snapshot; a Chunk refused after it was
+  rendered is not counted as sent; a refused proof leaves neither half in
+  memory and evicts no other delivery. A refresh reason the refused request
+  declared stays declared: it reports a Host event, not a delivery;
 * a continuation advances the current delivery only when it arrives through
   it (the same body, the same retained delivery) and only as the next Chunk
   in order. A request of a superseded delivery that was already in flight,

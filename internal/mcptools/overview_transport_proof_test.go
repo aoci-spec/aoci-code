@@ -663,3 +663,69 @@ func TestARefusedProofLeavesNoTrace(t *testing.T) {
 		}
 	})
 }
+
+// A proof the store cannot retain is scored the live way, and still only for
+// the delivery the request picked: replaced on the way by a successor of the
+// same bytes, it proves nothing about that successor.
+func TestAProofThatFallsBackKeepsItsDelivery(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	fixture.rest("host", fixture.chunk("host", freshAll()))
+	store := fixture.session.deliveries
+	store.maxBytes = store.bytes
+	overviewLiveFallbackHook = func() {
+		overviewLiveFallbackHook = nil
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+	}
+	t.Cleanup(func() { overviewLiveFallbackHook = nil })
+	expectTransport(t, "a proof whose delivery was replaced during its fallback", fixture.prove("host", fixture.both), false)
+	if overviewLiveFallbackHook != nil {
+		t.Fatal("the proof must have fallen back to the live path")
+	}
+
+	// With no replacement on the way, the same fallback proves its delivery.
+	fixture = newTransportProofFixture(t)
+	fixture.rest("host", fixture.chunk("host", freshAll()))
+	fixture.session.deliveries.maxBytes = fixture.session.deliveries.bytes
+	expectTransport(t, "a proof scored the live way for its own delivery", fixture.prove("host", fixture.both), true)
+}
+
+// A fresh request refused after rendering leaves the governance binding of
+// the delivery it would have replaced, so that delivery's proof is still
+// judged against the snapshot it was delivered under.
+func TestARefusedFreshRequestRebindsNoGovernance(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	fixture.session.deliveries.maxBytes = 1
+	fixture.rest("host", fixture.chunk("host", freshAll()))
+	bound := map[string]string{}
+	for key, identity := range fixture.session.governanceSnapshots {
+		bound[key] = identity
+	}
+	if len(bound) != 1 {
+		t.Fatalf("the delivery must have bound one governance snapshot: %v", bound)
+	}
+	baselinePath := filepath.Join(fixture.root, ".aoci", "baseline.json")
+	original, err := os.ReadFile(baselinePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(baselinePath, append(append([]byte(nil), original...), '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	restore := refuseOnce(t, fixture.root)
+	if result := sessionOverview(t, fixture.root, fixture.session, "host", freshAll()); !result.IsError {
+		t.Fatalf("the changed snapshot must refuse the fresh request: %.300s", resText(t, result))
+	}
+	restore()
+	for key, identity := range bound {
+		if fixture.session.governanceSnapshots[key] != identity {
+			t.Fatal("the refused request rebound the governance snapshot of the delivery it did not replace")
+		}
+	}
+	// The same request, answered, does rebind.
+	fixture.chunk("host", freshAll())
+	for key, identity := range bound {
+		if fixture.session.governanceSnapshots[key] == identity {
+			t.Fatal("an answered fresh request must bind the snapshot it was delivered under")
+		}
+	}
+}

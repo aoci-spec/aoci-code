@@ -32,6 +32,10 @@ func handleVolumeOverview(
 		return failResult(fail)
 	}
 	current := newVolumeCognitionReceipt(root, mcpServiceVersion, loaded.set, view)
+	// selected is the retained delivery this request arrived through when the
+	// store could not keep serving it and the request falls back to the live
+	// path: the live path still answers only for that delivery.
+	selected := ""
 	// V2 is ephemeral and owner-bound. Never reconstruct an unknown V2 token.
 	if strings.HasPrefix(input.Cursor, "v2:") {
 		if input.CheckOnly {
@@ -61,6 +65,7 @@ func handleVolumeOverview(
 		}
 		// The store could not retain the proof this call carries: the entry is
 		// gone and the inner v1 cursor continues on the live path below.
+		selected = entry.id
 	}
 	// Proof halves reuse only a complete delivery owned by this Host session.
 	if !input.CheckOnly && input.Cursor == "" && (input.HostConfirmation != nil || input.ModelAttestation != nil) {
@@ -74,11 +79,15 @@ func handleVolumeOverview(
 					return result
 				}
 				// The store could not retain this proof; score it the live way.
+				selected = entry.id
 			} else {
 				// Live governance still scores an already changed proof as unaligned.
 				refreshSession.deliveries.remove(entry)
 			}
 		}
+	}
+	if selected != "" && overviewLiveFallbackHook != nil {
+		overviewLiveFallbackHook()
 	}
 	metadata, metadataErr := deliveryMetadata(root, loaded)
 	semantic, governanceIdentity, state, semanticFail := inspectVolumeGovernanceWithSnapshot(root, loaded)
@@ -241,7 +250,9 @@ func handleVolumeOverview(
 	}
 	keyDigest := sha256.Sum256([]byte(view.ScopeIdentity + "\x00" + framed.Receipt.BodySHA256))
 	governanceKey := hex.EncodeToString(keyDigest[:])
-	if !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input) {
+	// A fresh request binds its governance snapshot only once its response is
+	// committed; until then the binding of the delivery it would replace stands.
+	if !fresh && !refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input) {
 		assessment.Semantic.GovernanceAligned = false
 		assessment.Semantic.GovernanceBlockerCount++
 	}
@@ -257,7 +268,7 @@ func handleVolumeOverview(
 		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
 		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
-		Session: refreshSession, Transport: refreshSession, Owner: owner, LedgerEnabled: loaded.cfg.LedgerEnabled,
+		Session: refreshSession, Transport: refreshSession, Owner: owner, DeliveryID: selected, LedgerEnabled: loaded.cfg.LedgerEnabled,
 		Delta: deltaFacts, DeltaChallenge: deltaChallenge, Anchor: anchor, FallbackReason: fallbackReason,
 	}
 	var entry *volumeDelivery
@@ -314,12 +325,13 @@ func handleVolumeOverview(
 	// superseded with its proof memory, and their cursors ask for a restart.
 	// A capacity stop, an empty delta, and every refusal above return before
 	// this point: they send nothing, supersede nothing, and advance nothing.
-	deliveryID := ""
+	deliveryID := selected
 	if entry != nil {
 		deliveryID = entry.id
 	}
 	if fresh {
 		refreshSession.deliveries.supersede(owner, view.RequestedScope, entry)
+		refreshSession.bindVolumeGovernanceSnapshot(governanceKey, governanceIdentity, input)
 	}
 	delivery.evidence.commit()
 	refreshSession.commitTransport(owner, view.RequestedScope, deliveryID, input, delivery.Facts)
