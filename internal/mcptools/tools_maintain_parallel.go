@@ -200,6 +200,8 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 			cuts = append(cuts, selected)
 		}
 		listing := siblingListingBytes(cuts)
+		// A sibling delivered by batch_id also names its plan in sibling_of.
+		listing += len(`,"sibling_of":""`) + 64
 		if len(cuts) > 1 {
 			// The response that lists siblings also carries the one line that
 			// says what to do with them.

@@ -577,6 +577,14 @@ func rejectFreshBatchOverPendingWrite(root string, plan *atomicBatchPlan) *Fail 
 	if plan.volumePlan != nil && plan.volumePlan.recovery != nil {
 		return nil
 	}
+	// The receipt a batch planned against must still be on record under the
+	// lock: a review pass replaced while this batch waited retires its batch,
+	// and that batch writes nothing.
+	if plan.volumePlan != nil && plan.volumePlan.codeReceipt != nil {
+		if _, err := codebatch.LoadReceipt(root, plan.volumePlan.codeReceipt.BatchID); err != nil {
+			return &Fail{Code: errWriteConflict, Msg: "code_candidate_receipt_stale", Hint: writeMessage("entry.batch.hint.replan")}
+		}
+	}
 	other, err := cognitiontxn.OtherPending(root, filepath.Base(atomicBatchRecoveryPath(root, plan.batchKey)))
 	if err != nil {
 		return &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(err.Error()))}

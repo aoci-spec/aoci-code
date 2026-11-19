@@ -150,8 +150,8 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
 	}
 	// The Entries the index holds now: a Volumes Root carries none, so the
-	// count is the Code Volume's. Zero means the first build has not written
-	// anything a narrower scope could take away.
+	// count is the Code and Database Volumes'. Zero means nothing has been
+	// authored yet that a narrower scope could take away.
 	authoredEntries := len(entries)
 	if layout == cognition.LayoutVolumesV1 {
 		set, loadErr := cognition.Load(root, cfg.IndexPath)
@@ -159,8 +159,10 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			return nil, fmt.Errorf("managed_scope_cognition_layout_invalid: %w", loadErr)
 		}
 		authoredEntries = 0
-		if code := set.Volumes[cognition.ScopeCode]; code != nil {
-			authoredEntries = code.ObjectCount
+		for _, volumeID := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
+			if asset := set.Volumes[volumeID]; asset != nil {
+				authoredEntries += asset.ObjectCount
+			}
 		}
 	}
 	if layout == cognition.LayoutVolumesV1 {

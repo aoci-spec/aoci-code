@@ -347,7 +347,11 @@ func init() {
 
 			fmt.Fprintln(out, cliMessage("status.pending_reports", report.ReportsPending))
 			if report.OpenOptimizationPass != nil {
-				fmt.Fprintln(out, cliMessage("status.open_optimization_pass", report.OpenOptimizationPass.Remaining, report.OpenOptimizationPass.Reviewed))
+				if report.OpenOptimizationPass.BatchIssued {
+					fmt.Fprintln(out, cliMessage("status.open_optimization_pass_batch", report.OpenOptimizationPass.Remaining, report.OpenOptimizationPass.Reviewed))
+				} else {
+					fmt.Fprintln(out, cliMessage("status.open_optimization_pass", report.OpenOptimizationPass.Remaining, report.OpenOptimizationPass.Reviewed))
+				}
 			}
 
 			for _, operation := range report.RecentOps {

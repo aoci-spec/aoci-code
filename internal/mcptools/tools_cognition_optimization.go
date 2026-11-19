@@ -144,7 +144,7 @@ func handleCognitionOptimizationMaintain(
 				if loadErr == nil && stored.Checkpoint.Completed {
 					checkpoint, err = cognitionoptimization.RestartCompleted(root, stored.SHA256, create)
 				} else if replacedOpen > 0 || (loadErr == nil && !stored.Checkpoint.Completed) {
-					checkpoint, err = cognitionoptimization.ReplaceOpen(root, stored.SHA256, create)
+					checkpoint, err = replaceOpenOptimizationPass(root, stored, create)
 				} else {
 					checkpoint, err = cognitionoptimization.Create(root, create)
 				}
@@ -728,4 +728,28 @@ func advanceCognitionOptimizationUpdate(root string, current *cognitionOptimizat
 		TotalTargets: checkpoint.ReviewedCount + len(checkpoint.RemainingObjectRefs), Included: current.Reviewed,
 		Reviewed: checkpoint.ReviewedCount, NoChange: checkpoint.NoChangeCount, Replaced: checkpoint.ReplacedCount,
 		Remaining: len(checkpoint.RemainingObjectRefs), ContinuationRequired: len(checkpoint.RemainingObjectRefs) > 0}, nil
+}
+
+// replaceOpenOptimizationPass drops an open pass for a new one under the
+// index lock, so no batch of the dropped pass is between its checks and its
+// write while it happens, and retires the dropped pass's issued batch: its
+// receipt is removed, so a later or waiting submission of it writes nothing.
+// A batch the new pass issues again under the same identity is the same
+// batch and stays.
+func replaceOpenOptimizationPass(root string, stored cognitionoptimization.StoredCheckpoint, create cognitionoptimization.CreateInput) (cognitionoptimization.StoredCheckpoint, error) {
+	lock, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		return cognitionoptimization.StoredCheckpoint{}, err
+	}
+	defer func() { _ = lock.Release() }()
+	replaced, err := cognitionoptimization.ReplaceOpen(root, stored.SHA256, create)
+	if err != nil {
+		return cognitionoptimization.StoredCheckpoint{}, err
+	}
+	if retired := stored.Checkpoint.CurrentBatchID; retired != "" && retired != create.CurrentBatchID {
+		if err := codebatch.RetireReceipt(root, retired); err != nil {
+			return cognitionoptimization.StoredCheckpoint{}, err
+		}
+	}
+	return replaced, nil
 }

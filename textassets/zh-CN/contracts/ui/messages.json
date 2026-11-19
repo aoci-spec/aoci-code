@@ -1015,6 +1015,7 @@
   "status.no_verify": "尚未运行过 verify",
   "status.pending_reports": "report 待办: %d",
   "status.open_optimization_pass": "有未完成的认知优化：还剩 %d 条待审，已审 %d 条；它不阻断任何流程，带 object_refs 发起新请求即可替换它，不会改动任何条目",
+  "status.open_optimization_pass_batch": "有未完成的认知优化：还剩 %d 条待审，已审 %d 条，有一个批次已发出、尚未提交；它不阻断任何流程，带 object_refs 发起新请求即可替换它并作废该批次，不会改动任何条目",
   "status.recent_operation": "最近操作:",
   "status.repository": "仓库 %s",
   "status.snapshot_error": "快照失败: %v",

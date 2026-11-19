@@ -645,6 +645,10 @@ func TestCognitionOptimizationObjectRefsReplaceAnOpenPass(t *testing.T) {
 	}
 	checkpointPath := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
 	checkpointBefore := readOptimizationTestFile(t, checkpointPath)
+	// The dropped pass's batch is retired: rewritten Entries write nothing.
+	for index := range entries {
+		entries[index]["new_entry"] = strings.Replace(entries[index]["new_entry"].(string), "F:", "F:Rewritten after the pass was dropped; ", 1)
+	}
 	stale := applyVolumeBatch(t, session, map[string]any{"code_batch_id": plan.BatchID, "entries": entries})
 	if stale.FormalWritesStarted || stale.Applied != 0 {
 		t.Fatalf("a batch of the dropped pass wrote: %#v", stale)

@@ -258,8 +258,8 @@ an all-no-change batch advances with zero formal writes, and an altered replay
 of a completed batch fails before Apply. A request with object_refs while a
 pass is open replaces that pass: the checkpoint is draft progress, so no
 Entry changes, the answer reports dropped_open_pass with the Entries the
-dropped pass had left, and a batch of the dropped pass no longer advances
-anything. An open pass blocks nothing, and `aoci status` reports it as
+dropped pass had left, and the dropped pass's issued batch is retired under
+the index lock, so a submission of it, waiting or later, writes nothing. An open pass blocks nothing, and `aoci status` reports it as
 open_optimization_pass. Ordinary no-argument Maintain behavior is
 unchanged, and no MCP tool is added.
 

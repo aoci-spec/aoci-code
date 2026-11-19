@@ -1015,6 +1015,7 @@
   "status.no_verify": "verify has not run yet",
   "status.pending_reports": "Pending reports: %d",
   "status.open_optimization_pass": "Open cognition optimization pass: %d Entries left to review, %d reviewed; it blocks nothing, and a new request with object_refs replaces it without changing any Entry",
+  "status.open_optimization_pass_batch": "Open cognition optimization pass: %d Entries left to review, %d reviewed, a batch issued and not yet submitted; it blocks nothing, and a new request with object_refs replaces it and retires that batch without changing any Entry",
   "status.recent_operation": "Recent operation:",
   "status.repository": "Repository %s",
   "status.snapshot_error": "capture snapshot: %v",

@@ -25,6 +25,7 @@ All notable public changes to AOCI-CODE will be documented in this file.
   the only way to close an unwanted pass was to submit its Entries as
   unchanged, which vouches for Entries nobody read. Now such a request
   replaces the open pass, changing no Entry, and reports `dropped_open_pass`;
+  the dropped pass's issued batch is retired, so submitting it writes nothing;
   `aoci status` shows an open pass as `open_optimization_pass`.
 - The authoring contract states the R limit the write enforces. Under an
   enforced cognition budget, the default for new repositories, R is also
