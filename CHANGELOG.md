@@ -4,6 +4,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A MongoDB source can be declared (contributed by @dayebishouji, PR #172,
+  the declaration step of #135). `database source add --engine mongodb
+  --database-name app --credential-env AOCI_DB_APP_URI` saves the source;
+  its namespace is the database. Access, inspect, snapshot, and verify answer
+  `database_engine_not_implemented` before any credential lookup or
+  connection, and an enabled MongoDB declaration owes no Evidence or Database
+  Volume. No driver is added. Earlier binaries refuse the engine, so every
+  machine sharing such a repository needs this release.
 - The Attestation Challenge asks about important Entries and changes with the
   index. Each stratum drew by a fixed per-object key, so two deliveries of a
   slightly changed index asked nearly the same ordinals, mostly
