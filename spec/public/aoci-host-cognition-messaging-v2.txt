@@ -49,8 +49,8 @@ reliability.
 
 When `delivery_verified=true` and `model_cognition_usable=false`, the Host says
 that project cognition was delivered but model usability is not established or
-the model reported incomplete coverage, truncation, or insufficient framework
-mastery. It does not use a generic delivery-failure sentence.
+the model reported truncation. It does not use a generic delivery-failure
+sentence.
 
 When `model_cognition_usable=true` and
 `strict_attestation_verified=false`, the Host says that the delivered cognition

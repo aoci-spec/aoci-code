@@ -463,8 +463,9 @@ Entry-sequence SHA-256, and Entry count, never the base's;
 `reported_entry_count`, `coverage_percent`, and `truncation_detected`
 describe the delta body. A deletion-only delta with unchanged Root and Meta
 has zero Challenge ordinals. Its Attestation requires confirmed delivery,
-aligned governance, the current identity envelope, zero reported Entries,
-and an empty answer list. For other deliveries the pass share and the
+aligned governance, the current identity envelope, no reported truncation,
+and an empty answer list; the reported Entry count decides nothing here
+either. For other deliveries the pass share and the
 identity-miss rule are unchanged. A passing incremental Attestation under
 aligned governance records a reliable receipt, where
 `model_full_cognition_reliable=true` rests on the reliable base, the probe

@@ -192,13 +192,15 @@ func attestDelivered(t *testing.T, session *mcp.ClientSession, root, delivered s
 		answers = append(answers, map[string]any{"ordinal": ordinal, "object_identity": target.ObjectIdentity, "tag": target.Tag, "core_f": coreF})
 	}
 	attestation := map[string]any{
-		"version":                   modelCognitionAttestationV1,
-		"index_sha256":              overviewMetadataValue(t, delivered, "challenge_index_sha256"),
-		"entry_sequence_sha256":     overviewMetadataValue(t, delivered, "challenge_entry_sequence_sha256"),
-		"entry_count":               metadataInt(t, delivered, "challenge_entry_count"),
-		"challenge_digest":          overviewMetadataValue(t, delivered, "challenge_digest"),
-		"reported_entry_count":      metadataInt(t, delivered, "entry_count"),
-		"reported_estimated_tokens": metadataInt(t, delivered, "estimated_tokens"),
+		"version":               modelCognitionAttestationV1,
+		"index_sha256":          overviewMetadataValue(t, delivered, "challenge_index_sha256"),
+		"entry_sequence_sha256": overviewMetadataValue(t, delivered, "challenge_entry_sequence_sha256"),
+		"entry_count":           metadataInt(t, delivered, "challenge_entry_count"),
+		"challenge_digest":      overviewMetadataValue(t, delivered, "challenge_digest"),
+		// The model's own count and token estimate decide nothing, for a
+		// deletion-only delta included: report values that match no delivery.
+		"reported_entry_count":      metadataInt(t, delivered, "entry_count") + 700,
+		"reported_estimated_tokens": metadataInt(t, delivered, "estimated_tokens") + 90_000,
 		"coverage_percent":          100, "system_mastery_percent": 90, "confidence_percent": 90,
 		"truncation_detected": false, "unseen_sections": []string{}, "uncertainty_reasons": []string{},
 		"challenge_answers": answers,
