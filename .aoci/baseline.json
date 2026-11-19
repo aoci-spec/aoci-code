@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-19T18:14:34Z",
+  "updated_at": "2026-11-19T18:52:03Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "8b47bf7e4273f362abf67762b724426a8669c6156952961e1eb4076fd2707103",
-      "size": 238974,
-      "normalized_sha256": "8b47bf7e4273f362abf67762b724426a8669c6156952961e1eb4076fd2707103"
+      "sha256": "135aff2fab49a555ab0e6a921e99461be75c1d56a49f582f7e18ec3655860a6c",
+      "size": 239000,
+      "normalized_sha256": "135aff2fab49a555ab0e6a921e99461be75c1d56a49f582f7e18ec3655860a6c"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -743,6 +743,14 @@
       "size": 716,
       "normalized_sha256": "dda0368139e46a1ff0f646324ec7945cebccc0327354f7ba275c64ac3239a173",
       "format_sha256": "dda0368139e46a1ff0f646324ec7945cebccc0327354f7ba275c64ac3239a173",
+      "format_kind": "gofmt"
+    },
+    "internal/businesssource/git_head_fallback_test.go": {
+      "role": "observe",
+      "sha256": "430760fef1bc9f7bb854497e81cae70539c1bbeadddaa76c199ea4610e74af93",
+      "size": 1473,
+      "normalized_sha256": "430760fef1bc9f7bb854497e81cae70539c1bbeadddaa76c199ea4610e74af93",
+      "format_sha256": "430760fef1bc9f7bb854497e81cae70539c1bbeadddaa76c199ea4610e74af93",
       "format_kind": "gofmt"
     },
     "internal/businesssource/manifest.go": {
@@ -3706,10 +3714,18 @@
     },
     "internal/fs/git_head.go": {
       "role": "index",
-      "sha256": "0a2ee5a3521ae7794296a2a15317ca968817a0bb5c193bb3d9c40110ccaaf86c",
-      "size": 3475,
-      "normalized_sha256": "0a2ee5a3521ae7794296a2a15317ca968817a0bb5c193bb3d9c40110ccaaf86c",
-      "format_sha256": "0a2ee5a3521ae7794296a2a15317ca968817a0bb5c193bb3d9c40110ccaaf86c",
+      "sha256": "1d3ad89be96675bd77b4caab5b3088d496b99c23fab24eb027a77709effe2d27",
+      "size": 3837,
+      "normalized_sha256": "1d3ad89be96675bd77b4caab5b3088d496b99c23fab24eb027a77709effe2d27",
+      "format_sha256": "1d3ad89be96675bd77b4caab5b3088d496b99c23fab24eb027a77709effe2d27",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/git_head_fallback_test.go": {
+      "role": "observe",
+      "sha256": "1324d34bf5e68bd8cea32ad15a41ca0c1f5159adcd8a9b6a37df2b13ee40bbed",
+      "size": 2593,
+      "normalized_sha256": "1324d34bf5e68bd8cea32ad15a41ca0c1f5159adcd8a9b6a37df2b13ee40bbed",
+      "format_sha256": "1324d34bf5e68bd8cea32ad15a41ca0c1f5159adcd8a9b6a37df2b13ee40bbed",
       "format_kind": "gofmt"
     },
     "internal/fs/git_head_test.go": {
@@ -7270,9 +7286,9 @@
     },
     "spec/public/aoci-safe-inventory-and-scope-refresh-v1.txt": {
       "role": "index",
-      "sha256": "991ca3d168b814023e7c23e7f1464fd564bddff610d352cffb370954ca0a9116",
-      "size": 9939,
-      "normalized_sha256": "991ca3d168b814023e7c23e7f1464fd564bddff610d352cffb370954ca0a9116"
+      "sha256": "88a0a6aa03859009541a3924a21453881b504b0ef9d48467e4f618dfeeb3c0c4",
+      "size": 10357,
+      "normalized_sha256": "88a0a6aa03859009541a3924a21453881b504b0ef9d48467e4f618dfeeb3c0c4"
     },
     "spec/public/aoci-system-cognition-runtime-v1.txt": {
       "role": "index",
