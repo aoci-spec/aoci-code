@@ -453,6 +453,7 @@
   "entry.batch.hint.paths_relative": "所有path必须是仓库相对路径",
   "entry.batch.hint.refresh_binding": "重新调用aoci_maintain获取当前候选与指纹",
   "entry.batch.database_receipt_missing": "%s：签发的Database批次已不在记录中。若要续完它被中断的写入，请带上aoci_maintain当初签发的每项candidate_id重新提交；否则重新调用aoci_maintain并创作它返回的当前批次",
+  "entry.batch.hint.close_pending": "另一个批次的写入被中断、仍待收尾：先原样重新提交那个批次把它做完，再调用 aoci_maintain",
   "entry.batch.hint.replan": "基于最新索引重新规划完整批次",
   "entry.batch.hint.unique_paths": "同一批次每个路径只能出现一次",
   "entry.batch.index_write_failed": "原子批量索引落盘失败: %s",

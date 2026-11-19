@@ -3,6 +3,7 @@ package mcptools
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -14,7 +15,13 @@ func TestGetEntriesNeverAnswersAnotherFilesEntry(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 3)
 	buildToAligned(t, connectMCPClient(t, root))
 	indexed := filepath.ToSlash(filepath.Join("pkg", "mod000", "file000.go"))
-	for _, literal := range []string{indexed + " ", strings.ReplaceAll(indexed, "/", `\`)} {
+	literals := []string{indexed + " "}
+	if runtime.GOOS != "windows" {
+		// On Windows a backslash is a separator, so this names the indexed
+		// file itself, which the loop below asks for.
+		literals = append(literals, strings.ReplaceAll(indexed, "/", `\`))
+	}
+	for _, literal := range literals {
 		if err := os.WriteFile(filepath.Join(root, literal), []byte("package other\n"), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -52,6 +59,28 @@ func TestAnswerLinesQuoteOnlyAmbiguousIdentities(t *testing.T) {
 	} {
 		if got := wireObjectRef(ref); got != want {
 			t.Fatalf("wireObjectRef(%q) = %s, want %s", ref, got, want)
+		}
+	}
+}
+
+// A path with a ".." segment or one through a symbolic link is no Git path:
+// it is answered as sent and never with the Entry its lexical form names.
+func TestGetEntriesAnswersDotDotAndLinkedPathsAsSent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symbolic links need privileges on Windows")
+	}
+	root := buildManyFileVolumesRepo(t, 3)
+	buildToAligned(t, connectMCPClient(t, root))
+	if err := os.MkdirAll(filepath.Join(root, "nested", "pkg", "mod000"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "nested"), filepath.Join(root, "alias")); err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []string{"alias/../pkg/mod000/file000.go", "alias/pkg/mod000/file000.go "} {
+		answer := callVolumeTool(t, connectMCPClient(t, root), "aoci_get_entries", map[string]any{"paths": []string{request}})
+		if strings.Contains(answer, "object_ref=code:pkg/mod000/file000.go]") || strings.Contains(answer, "] file000.go[") {
+			t.Fatalf("%q was answered with another file's Entry:\n%s", request, answer)
 		}
 	}
 }

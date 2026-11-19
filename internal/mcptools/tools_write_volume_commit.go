@@ -283,6 +283,9 @@ func planCognitionVolumeUpdates(
 	} else {
 		envelope, fail = resolveCognitionChangeEnvelope(loaded.set, candidates)
 	}
+	if fail == nil && len(landedRemovals) > 0 {
+		keepLandedCodeParticipant(envelope)
+	}
 	if fail != nil {
 		if receiptMode && fail.Code == errImpactResolutionFailed && strings.Contains(fail.Msg, "impact_candidate_") {
 			fail.Code = errCandidateInvalid
@@ -562,6 +565,30 @@ func planCognitionVolumeUpdates(
 			recovery: recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
 		batchKey: batchKey, start: start,
 	}, nil
+}
+
+// keepLandedCodeParticipant keeps the Code Volume a write participant when
+// removals that already landed were set aside and the rest of the batch
+// writes another Volume: the receipt of the cut write names Code too, and
+// the recovery binds its pre and post digests.
+func keepLandedCodeParticipant(envelope *cognitionChangeEnvelope) {
+	for _, volumeID := range envelope.WriteSet {
+		if volumeID == cognition.ScopeCode {
+			return
+		}
+	}
+	envelope.WriteSet = append(envelope.WriteSet, cognition.ScopeCode)
+	sort.Strings(envelope.WriteSet)
+	envelope.Volumes = append([]string{}, envelope.WriteSet...)
+	envelope.Volume = strings.Join(envelope.Volumes, ",")
+	guards := make([]string, 0, len(envelope.GuardSet))
+	for _, guardID := range envelope.GuardSet {
+		if guardID != cognition.ScopeCode {
+			guards = append(guards, guardID)
+		}
+	}
+	envelope.GuardSet = guards
+	delete(envelope.guards, cognition.ScopeCode)
 }
 
 // landedRemovalEnvelope is the change envelope of a batch whose removals all
@@ -1076,6 +1103,14 @@ func cognitionVolumeTransitionIdentity(targets []cognitionVolumeWriteTarget, pos
 
 func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan, retainRecovery bool) (string, bool, *Fail) {
 	volumePlan := plan.volumePlan
+	// Under the lock a receipt of another batch is a write that was cut, not
+	// one in flight: writing over its participants would leave it no
+	// postimage to close on. It is finished first, by its own batch.
+	if other, pendingErr := cognitiontxn.OtherPending(root, filepath.Base(atomicBatchRecoveryPath(root, plan.batchKey))); pendingErr != nil {
+		return "", false, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(pendingErr.Error()))}
+	} else if other != "" {
+		return "", false, &Fail{Code: errWriteConflict, Msg: "entries_other_transaction_pending: " + other, Hint: writeMessage("entry.batch.hint.close_pending")}
+	}
 	if guardID := recoveryGuardMismatch(root, volumePlan.recovery); guardID != "" {
 		return "", false, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.guard_stale", guardID), Hint: writeMessage("entry.batch.hint.replan")}
 	}

@@ -680,21 +680,45 @@ func handleVolumeGetEntries(root, mcpServiceVersion string, input getEntriesIn, 
 // path exactly as sent comes first: a file name may end in a space or hold a
 // backslash, and such a file is its own object. Normalization (trimming,
 // backslash as separator, dot segments) only serves a request that names no
-// other file: when the path as sent is an existing file that is not the one
-// its normalized form names, the request is that file's, and it answers as
-// not indexed instead of with another file's Entry.
+// other file. A path with a ".." segment, or one that passes through a
+// symbolic link, is no Git path and is answered as sent, so a request is
+// never answered with another file's Entry and the probe never looks
+// outside the repository.
 func codeEntryRef(root string, asset *cognition.Asset, literal, normalized string) string {
-	if literal != normalized {
-		for _, object := range asset.Objects {
-			if object.CanonicalRef == "code:"+literal {
-				return object.CanonicalRef
-			}
+	if literal == normalized {
+		return "code:" + normalized
+	}
+	for _, object := range asset.Objects {
+		if object.CanonicalRef == "code:"+literal {
+			return object.CanonicalRef
 		}
-		literalInfo, literalErr := os.Lstat(filepath.Join(root, literal))
-		normalizedInfo, normalizedErr := os.Lstat(filepath.Join(root, filepath.FromSlash(normalized)))
-		if literalErr == nil && (normalizedErr != nil || !os.SameFile(literalInfo, normalizedInfo)) {
+	}
+	parts := strings.Split(filepath.FromSlash(literal), string(filepath.Separator))
+	current := root
+	var literalInfo os.FileInfo
+	for position, part := range parts {
+		if part == ".." {
 			return "code:" + literal
 		}
+		if part == "" || part == "." {
+			continue
+		}
+		current += string(filepath.Separator) + part
+		info, err := os.Lstat(current)
+		if err != nil {
+			return "code:" + normalized
+		}
+		if info.Mode()&os.ModeSymlink != 0 && position < len(parts)-1 {
+			return "code:" + literal
+		}
+		literalInfo = info
+	}
+	if literalInfo == nil {
+		return "code:" + normalized
+	}
+	normalizedInfo, err := os.Lstat(filepath.Join(root, filepath.FromSlash(normalized)))
+	if err != nil || !os.SameFile(literalInfo, normalizedInfo) {
+		return "code:" + literal
 	}
 	return "code:" + normalized
 }

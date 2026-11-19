@@ -506,3 +506,82 @@ func TestALandedRemovalDoesNotCloseOverAMovedVolume(t *testing.T) {
 	}
 	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", moved)
 }
+
+// A receipt left pending by a cut write keeps its participants: another
+// batch is refused, zero writes, until the cut batch is submitted again.
+func TestAnotherBatchWaitsForAPendingCutWrite(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 12)
+	pinSingleBatch(t, root)
+	buildToAligned(t, connectMCPClient(t, root))
+	for _, name := range []string{"file010.go", "file011.go"} {
+		if err := os.Remove(filepath.Join(root, "pkg", "mod001", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	if len(maintain.OrphanRemovals) != 2 {
+		t.Fatalf("expected two orphans: %v", maintain.OrphanRemovals)
+	}
+	first := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+	second := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[1]}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	applyVolumeBatch(t, session, first)
+	saveAtomicBaseline = originalSave
+	volumeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+	refused := applyVolumeBatch(t, session, second)
+	if refused.Status == autoStatusApplied || refused.FormalWritesStarted {
+		t.Fatalf("another batch wrote over a pending cut write: %#v", refused)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", volumeBefore)
+	if closed := applyVolumeBatch(t, session, first); closed.Status != autoStatusApplied {
+		t.Fatalf("the cut batch did not close: %#v", closed)
+	}
+	if last := applyVolumeBatch(t, session, second); last.Status != autoStatusApplied || !last.Aligned {
+		t.Fatalf("the waiting batch did not apply afterwards: %#v", last)
+	}
+}
+
+// A batch that drops a Code orphan beside Database Entries, cut after its
+// Volume writes, closes when submitted again: the Code write it already made
+// stays a participant of the recovery.
+func TestAnInterruptedCodeRemovalBesideDatabaseEntriesCloses(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	var orphan string
+	for _, object := range loaded.set.Volumes["code"].Objects {
+		orphan = strings.TrimPrefix(object.CanonicalRef, "code:")
+		break
+	}
+	if orphan == "" {
+		t.Skip("the fixture has no Code Entry to orphan")
+	}
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(orphan))); err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPClient(t, root)
+	plan := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", "database")).Plan
+	entries := []map[string]any{}
+	for _, item := range databaseCandidateInput(plan) {
+		entries = append(entries, map[string]any{"object_ref": item.ObjectRef, "candidate_id": item.CandidateID, "new_entry": item.NewEntry})
+	}
+	arguments := map[string]any{"batch_id": plan.BatchID, "entries": entries, "removals": []map[string]any{{"path": orphan}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	cut := applyVolumeBatch(t, session, arguments)
+	saveAtomicBaseline = originalSave
+	if cut.Status == autoStatusApplied && cut.Aligned {
+		t.Fatalf("the injected failure did not cut the write: %#v", cut)
+	}
+	again := applyVolumeBatch(t, session, arguments)
+	if again.Status != autoStatusApplied {
+		t.Fatalf("the mixed batch did not close its cut write: status=%s findings=%v", again.Status, again.Findings)
+	}
+	if pending, _ := filepath.Glob(filepath.Join(root, ".aoci", "transactions", "*.json")); len(pending) != 0 {
+		t.Fatalf("a receipt was left pending: %v", pending)
+	}
+}

@@ -55,7 +55,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   it removes was already gone, and its transaction stayed pending with no
   request that could close it. The removal that landed is now recognised by
   the receipt of that write, and a batch that carried only removals closes
-  the same way instead of answering `cross_volume_write_not_supported`.
+  the same way instead of answering `cross_volume_write_not_supported`, as
+  does one that dropped a Code orphan beside Database Entries. While such a
+  cut write is pending, another batch is refused with zero writes
+  (`entries_other_transaction_pending`) instead of writing over the Volume
+  the pending one must close on.
   Present since removals ride the batch (0.2.0-rc1), with or without
   parallel batches.
 - A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
