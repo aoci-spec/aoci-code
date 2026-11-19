@@ -567,6 +567,26 @@ func planCognitionVolumeUpdates(
 	}, nil
 }
 
+// rejectFreshBatchOverPendingWrite refuses, under the lock, a batch that
+// resumes no receipt of its own while another batch's receipt is pending:
+// that receipt is a write that was cut, not one in flight, and writing over
+// its participants or moving the Baseline under it would leave it no state
+// to close on. A batch resuming its own receipt goes on as before, so
+// receipts that several cut writes left behind still close one by one.
+func rejectFreshBatchOverPendingWrite(root string, plan *atomicBatchPlan) *Fail {
+	if plan.volumePlan != nil && plan.volumePlan.recovery != nil {
+		return nil
+	}
+	other, err := cognitiontxn.OtherPending(root, filepath.Base(atomicBatchRecoveryPath(root, plan.batchKey)))
+	if err != nil {
+		return &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(err.Error()))}
+	}
+	if other != "" {
+		return &Fail{Code: errWriteConflict, Msg: "entries_other_transaction_pending: " + other, Hint: writeMessage("entry.batch.hint.close_pending")}
+	}
+	return nil
+}
+
 // keepLandedCodeParticipant keeps the Code Volume a write participant when
 // removals that already landed were set aside and the rest of the batch
 // writes another Volume: the receipt of the cut write names Code too, and
@@ -1103,13 +1123,8 @@ func cognitionVolumeTransitionIdentity(targets []cognitionVolumeWriteTarget, pos
 
 func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan, retainRecovery bool) (string, bool, *Fail) {
 	volumePlan := plan.volumePlan
-	// Under the lock a receipt of another batch is a write that was cut, not
-	// one in flight: writing over its participants would leave it no
-	// postimage to close on. It is finished first, by its own batch.
-	if other, pendingErr := cognitiontxn.OtherPending(root, filepath.Base(atomicBatchRecoveryPath(root, plan.batchKey))); pendingErr != nil {
-		return "", false, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.invalid", localeSafeWriteDetail(pendingErr.Error()))}
-	} else if other != "" {
-		return "", false, &Fail{Code: errWriteConflict, Msg: "entries_other_transaction_pending: " + other, Hint: writeMessage("entry.batch.hint.close_pending")}
+	if fail := rejectFreshBatchOverPendingWrite(root, plan); fail != nil {
+		return "", false, fail
 	}
 	if guardID := recoveryGuardMismatch(root, volumePlan.recovery); guardID != "" {
 		return "", false, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.guard_stale", guardID), Hint: writeMessage("entry.batch.hint.replan")}
@@ -1418,6 +1433,9 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 		return "", false, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.batch.reconcile_lock_failed", localeSafeWriteDetail(err.Error()))}
 	}
 	defer lock.Release()
+	if fail := rejectFreshBatchOverPendingWrite(root, plan); fail != nil {
+		return "", false, fail
+	}
 	if guardID := recoveryGuardMismatch(root, plan.volumePlan.recovery); guardID != "" {
 		return "", false, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.guard_stale", guardID)}
 	}

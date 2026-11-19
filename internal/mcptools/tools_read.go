@@ -693,34 +693,56 @@ func codeEntryRef(root string, asset *cognition.Asset, literal, normalized strin
 			return object.CanonicalRef
 		}
 	}
-	parts := strings.Split(filepath.FromSlash(literal), string(filepath.Separator))
-	current := root
-	var literalInfo os.FileInfo
-	for position, part := range parts {
+	for _, part := range strings.Split(filepath.ToSlash(filepath.FromSlash(literal)), "/") {
 		if part == ".." {
 			return "code:" + literal
 		}
+	}
+	literalInfo, literalState := rootedLstat(root, literal)
+	switch literalState {
+	case rootedThroughLink:
+		return "code:" + literal
+	case rootedMissing:
+		return "code:" + normalized
+	}
+	normalizedInfo, normalizedState := rootedLstat(root, normalized)
+	if normalizedState != rootedFound || !os.SameFile(literalInfo, normalizedInfo) {
+		return "code:" + literal
+	}
+	return "code:" + normalized
+}
+
+const (
+	rootedFound = iota
+	rootedMissing
+	rootedThroughLink
+)
+
+// rootedLstat looks a repository-relative path up one segment at a time,
+// never folding a segment and never following a symbolic link on the way,
+// so the probe can neither reach nor report anything outside the root.
+func rootedLstat(root, rel string) (os.FileInfo, int) {
+	parts := strings.Split(filepath.FromSlash(rel), string(filepath.Separator))
+	current := root
+	var info os.FileInfo
+	for position, part := range parts {
 		if part == "" || part == "." {
 			continue
 		}
 		current += string(filepath.Separator) + part
-		info, err := os.Lstat(current)
+		found, err := os.Lstat(current)
 		if err != nil {
-			return "code:" + normalized
+			return nil, rootedMissing
 		}
-		if info.Mode()&os.ModeSymlink != 0 && position < len(parts)-1 {
-			return "code:" + literal
+		if found.Mode()&os.ModeSymlink != 0 && position < len(parts)-1 {
+			return nil, rootedThroughLink
 		}
-		literalInfo = info
+		info = found
 	}
-	if literalInfo == nil {
-		return "code:" + normalized
+	if info == nil {
+		return nil, rootedMissing
 	}
-	normalizedInfo, err := os.Lstat(filepath.Join(root, filepath.FromSlash(normalized)))
-	if err != nil || !os.SameFile(literalInfo, normalizedInfo) {
-		return "code:" + literal
-	}
-	return "code:" + normalized
+	return info, rootedFound
 }
 
 // wireObjectRef spells an object identity in an answer line. The line is

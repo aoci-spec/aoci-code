@@ -585,3 +585,58 @@ func TestAnInterruptedCodeRemovalBesideDatabaseEntriesCloses(t *testing.T) {
 		t.Fatalf("a receipt was left pending: %v", pending)
 	}
 }
+
+// A batch that only rebinds its sources moves the Baseline: it too waits
+// while another batch's cut write is pending.
+func TestARebindWaitsForAPendingCutWrite(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 12)
+	pinSingleBatch(t, root)
+	buildToAligned(t, connectMCPClient(t, root))
+	if err := os.Remove(filepath.Join(root, "pkg", "mod001", "file011.go")); err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	cutBatch := map[string]any{"removals": []map[string]any{{"path": maintain.OrphanRemovals[0]}}}
+	originalSave := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return fmt.Errorf("injected baseline save failure") }
+	applyVolumeBatch(t, session, cutBatch)
+	saveAtomicBaseline = originalSave
+	path := filepath.Join(root, "pkg", "mod000", "file000.go")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, []byte("\n// rebind\n")...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	var existing string
+	for _, object := range loaded.set.Volumes["code"].Objects {
+		if object.CanonicalRef == "code:pkg/mod000/file000.go" {
+			existing = object.Entry.FullLine
+		}
+	}
+	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+	rebind := applyVolumeBatch(t, session, map[string]any{"path": "pkg/mod000/file000.go", "new_entry": existing,
+		"source_sha256": fingerprintOf(t, path)})
+	if rebind.Status == autoStatusApplied {
+		t.Fatalf("a rebind moved the Baseline under a pending cut write: %#v", rebind)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+	if closed := applyVolumeBatch(t, session, cutBatch); closed.Status != autoStatusApplied {
+		t.Fatalf("the cut batch did not close: %#v", closed)
+	}
+}
+
+func fingerprintOf(t *testing.T, path string) string {
+	t.Helper()
+	fingerprint, err := baseline.HashFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fingerprint.SHA256
+}

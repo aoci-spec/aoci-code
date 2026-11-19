@@ -15,11 +15,12 @@ func TestGetEntriesNeverAnswersAnotherFilesEntry(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 3)
 	buildToAligned(t, connectMCPClient(t, root))
 	indexed := filepath.ToSlash(filepath.Join("pkg", "mod000", "file000.go"))
-	literals := []string{indexed + " "}
+	// On Windows a backslash is a separator and a trailing space is dropped,
+	// so both names denote the indexed file itself, which the loop below
+	// asks for; they are distinct files only where POSIX names are.
+	literals := []string{}
 	if runtime.GOOS != "windows" {
-		// On Windows a backslash is a separator, so this names the indexed
-		// file itself, which the loop below asks for.
-		literals = append(literals, strings.ReplaceAll(indexed, "/", `\`))
+		literals = append(literals, indexed+" ", strings.ReplaceAll(indexed, "/", `\`))
 	}
 	for _, literal := range literals {
 		if err := os.WriteFile(filepath.Join(root, literal), []byte("package other\n"), 0o644); err != nil {
@@ -77,7 +78,7 @@ func TestGetEntriesAnswersDotDotAndLinkedPathsAsSent(t *testing.T) {
 	if err := os.Symlink(filepath.Join(root, "nested"), filepath.Join(root, "alias")); err != nil {
 		t.Fatal(err)
 	}
-	for _, request := range []string{"alias/../pkg/mod000/file000.go", "alias/pkg/mod000/file000.go "} {
+	for _, request := range []string{"alias/../pkg/mod000/file000.go", "alias/pkg/mod000/file000.go ", "missing/../pkg/mod000/file000.go"} {
 		answer := callVolumeTool(t, connectMCPClient(t, root), "aoci_get_entries", map[string]any{"paths": []string{request}})
 		if strings.Contains(answer, "object_ref=code:pkg/mod000/file000.go]") || strings.Contains(answer, "] file000.go[") {
 			t.Fatalf("%q was answered with another file's Entry:\n%s", request, answer)
