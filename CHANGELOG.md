@@ -4,6 +4,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- The authoring contract states the R limit the write enforces. Under an
+  enforced cognition budget, the default for new repositories, R is also
+  limited by importance in UTF-8 bytes (C9 542, C8 422, C7-5 272, C4-1 152
+  by default), tighter than the 360-rune FRAS limit the contract stated; a
+  model learnt it only from a refused batch, half the batches of a first
+  build in one report. The contract now carries the bands, so the first
+  batch states every limit the write checks.
 - `aoci_get_entries` no longer answers with another file's Entry. A request
   was normalized before the lookup (trailing space trimmed, backslash read
   as a separator), so asking for a real file whose name ends in a space or

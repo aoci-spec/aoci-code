@@ -15,14 +15,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
-	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 // parallelIdentitiesOf reads the digests a plan is issued against from the
@@ -502,7 +500,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
 		result.Sets.Write = candidateRefs(result.Candidates)
 		result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
-		contract, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, []string{cognition.ScopeCode}, textassets.ActiveLocale())
+		contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}

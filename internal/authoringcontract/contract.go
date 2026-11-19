@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/textassets"
@@ -83,11 +84,66 @@ func ParseMeta(raw []byte, domains []string) (ParsedMeta, error) {
 
 // Build is the shared runtime entry point used by Guide and Maintain.
 func Build(metaRaw []byte, domains []string, locale string) (Output, error) {
+	return BuildWithBudget(metaRaw, domains, locale, nil)
+}
+
+// BuildWithBudget is Build for a repository whose cognition budget the write
+// enforces: the R field is then also limited by importance, in UTF-8 bytes,
+// tighter than the FRAS rune limit for most bands, and a model that is not
+// told learns it only from a refused batch (scipy first build, C3). The S
+// band never binds below the Meta rune quota, so only R is stated.
+func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *cognitionbudget.Policy) (Output, error) {
 	parsed, err := ParseMeta(metaRaw, domains)
 	if err != nil {
 		return Output{}, err
 	}
-	return Assemble(Input{Meta: parsed, Domains: domains, Machine: CurrentMachineFacts(), Locale: locale})
+	output, err := Assemble(Input{Meta: parsed, Domains: domains, Machine: CurrentMachineFacts(), Locale: locale})
+	if err != nil || policy == nil || policy.Mode != machinecontract.BudgetModeEnforce {
+		return output, err
+	}
+	bands := rBudgetBands(*policy)
+	if bands == "" {
+		return output, nil
+	}
+	line, messageErr := textassets.Message(locale, "volumes.authoring.r_budget", bands)
+	if messageErr != nil {
+		return Output{}, messageErr
+	}
+	output.Instructions = append(output.Instructions, line)
+	return output, nil
+}
+
+// rBudgetBands spells the R byte limit of each importance band, highest
+// first, merging neighbours with the same limit: a token is three UTF-8
+// bytes, and a field is over its band past three bytes per token.
+func rBudgetBands(policy cognitionbudget.Policy) string {
+	normalized, err := cognitionbudget.Normalize(policy)
+	if err != nil {
+		return ""
+	}
+	type span struct{ high, low, bytes int }
+	spans := []span{}
+	for importance := 9; importance >= 1; importance-- {
+		band, found := cognitionbudget.LimitFor(normalized.R, importance)
+		if !found {
+			continue
+		}
+		bytes := band.MaxTokens*3 + 2
+		if last := len(spans) - 1; last >= 0 && spans[last].bytes == bytes && spans[last].low == importance+1 {
+			spans[last].low = importance
+			continue
+		}
+		spans = append(spans, span{high: importance, low: importance, bytes: bytes})
+	}
+	parts := make([]string, 0, len(spans))
+	for _, current := range spans {
+		label := fmt.Sprintf("C%d", current.high)
+		if current.low != current.high {
+			label += fmt.Sprintf("-%d", current.low)
+		}
+		parts = append(parts, fmt.Sprintf("%s<=%d", label, current.bytes))
+	}
+	return strings.Join(parts, " ")
 }
 
 // Assemble renders deterministic Code then Database instructions. The output

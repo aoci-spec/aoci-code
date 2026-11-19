@@ -13,7 +13,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -24,7 +23,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
-	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 const cognitionOptimizationVersion = "cognition-optimization/v1"
@@ -70,7 +68,7 @@ func handleCognitionOptimizationMaintain(
 	}
 	// Decided once, before any batch is cut: a loaded current batch keeps the
 	// cut its issuance made, so only an issuance reads this.
-	contractOnWire := codeContractOnWire(loaded.set, refreshSession, input.IncludeInstructions)
+	contractOnWire := codeContractOnWire(loaded.cfg, loaded.set, refreshSession, input.IncludeInstructions)
 	if facts.Result != volumegovernance.ResultAligned || !facts.GovernanceAligned {
 		return failResult(&Fail{Code: errCandidateInvalid, Msg: "cognition_optimization_requires_ordinary_alignment"})
 	}
@@ -188,7 +186,7 @@ func handleCognitionOptimizationMaintain(
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
 	result.Optimization = optimizationStatus(checkpoint.Checkpoint, len(selection.Batch), "review_required")
-	contract, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, []string{cognition.ScopeCode}, textassets.ActiveLocale())
+	contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
 	if contractErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_authoring_contract_invalid"})
 	}
