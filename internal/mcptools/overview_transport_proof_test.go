@@ -409,6 +409,12 @@ func TestEarlyConfirmationIsNotRememberedOnTheLivePath(t *testing.T) {
 		done.Attestation.ModelAttestation != modelAttestationPass || done.Attestation.CognitionAssimilation != cognitionAssimilationComplete {
 		t.Fatalf("both halves given at the end must latch and pass: %+v %+v", done.Facts, done.Attestation)
 	}
+	// A fresh request reads no proof memory: the confirmation remembered for
+	// the body it is about to send again says nothing about this transmission.
+	if again, err := renderOverviewDelivery(ctx, overviewIn{}, loaded.cfg.OverviewDelivery.ChunkTokens); err != nil ||
+		again.Facts.HostDeliveryStatus == hostDeliveryConfirmed || again.Attestation.DeliveryIntegrity == deliveryIntegrityConfirmed {
+		t.Fatalf("a fresh request answered with the earlier confirmation: %v %+v", err, again.Facts)
+	}
 	// The confirmation is remembered now. Once the delivery is no longer
 	// current (here: evicted), the remembered half must not confirm what a
 	// later call carries no confirmation for: the check follows the merge.
