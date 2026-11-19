@@ -834,9 +834,10 @@ and the postimage are computed at Apply against the current Volume, not at
 issuance, and the receipt records the logical plan, the batch id, the sibling
 set applied before it, and exact pre and post digests. The Baseline advances
 per Apply as it does for a sequential batch. The final Volume bytes may
-depend on the order siblings applied in: the editor appends a new Entry after
-the last Entry of its section and a new section at the end, so two orders
-can leave the same Entry set in different line orders. Both are formal; this
+depend on the order siblings applied in: the editor places a new Entry in
+path order inside its section (before the first Entry whose path sorts after
+it, else after the last) but appends a new section at the end, so two orders
+can leave the same Entry set in different section orders. Both are formal; this
 is why the preimage rule replays receipts instead of comparing a predicted
 digest, and why a sibling's postimage is never computed at issuance.
 

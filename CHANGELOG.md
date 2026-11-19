@@ -4,6 +4,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A new Entry is written in path order inside its section. It was appended
+  after the section's last Entry, so a new `_a_test.py` landed after
+  `sampling.py`, moving the ordinal a reader cites. A section that was never
+  in order is left as it is around the insert; new sections still go last.
 - The scope proposal init shows no longer lists directories Git ignores. A
   build or install tree under `.gitignore` crowded the five largest
   directories a person reads to decide the first scope, though nothing in it
