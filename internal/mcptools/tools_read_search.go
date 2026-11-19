@@ -93,7 +93,7 @@ func handleVolumeSearch(root, mcpServiceVersion string, input searchIn, loaded *
 	var builder strings.Builder
 	for _, entry := range shown {
 		object := lookup[entry]
-		builder.WriteString("[volume_id=" + object.VolumeID + " object_ref=" + object.CanonicalRef + "] " + entry.FullLine + "\n")
+		builder.WriteString("[volume_id=" + object.VolumeID + " object_ref=" + wireObjectRef(object.CanonicalRef) + "] " + entry.FullLine + "\n")
 	}
 	if len(matched) > maxSearchResults {
 		builder.WriteString(mcpMessage("mcp.search.truncated", len(matched), maxSearchResults))

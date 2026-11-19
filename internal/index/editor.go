@@ -211,9 +211,20 @@ func InsertEntry(text, relPath, newLine, repoRoot string) (string, error) {
 	sec := FindSectionForPath(doc, repoRoot, relPath)
 
 	if sec != nil {
+		// The new Entry goes in path order: before the first Entry of the
+		// section whose path sorts after it, else after the last one. An
+		// Entry's ordinal is what a reader cites, and one appended at the
+		// end put a new file after every later name (scipy first build, C5).
+		// A section that was never in order stays as it is around the insert.
 		insertAfter := sec.StartLine // default: after the section header (line numbers start at 1)
 		if n := len(sec.Entries); n > 0 {
 			insertAfter = sec.Entries[n-1].LineNo // after the last entry of the section
+			for _, existing := range sec.Entries {
+				if existing.RelPath != "" && existing.RelPath > relPath {
+					insertAfter = existing.LineNo - 1
+					break
+				}
+			}
 		}
 		// Insert after line insertAfter (1-based) → insert at slice index insertAfter
 		idx := insertAfter

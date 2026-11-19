@@ -19,6 +19,7 @@ const (
 	EngineMySQL      Engine = "mysql"
 	EngineOpenGauss  Engine = "opengauss"
 	EngineSQLite     Engine = "sqlite"
+	EngineMongoDB    Engine = "mongodb"
 )
 
 // EngineCollectable reports whether AOCI collects catalog Evidence from a

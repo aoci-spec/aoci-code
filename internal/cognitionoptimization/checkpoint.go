@@ -222,6 +222,27 @@ func Advance(root, expectedSHA256 string, input AdvanceInput) (StoredCheckpoint,
 	return replaceCheckpointCAS(root, expectedSHA256, current)
 }
 
+// ReplaceOpen replaces an unfinished checkpoint with a new pass: a later
+// explicit request names what to review now, and the open pass is dropped.
+// Dropping it changes no Entry: the checkpoint is draft progress only, and a
+// batch of the dropped pass no longer binds, so its Update writes nothing.
+func ReplaceOpen(root, expectedSHA256 string, input CreateInput) (StoredCheckpoint, error) {
+	stored, err := loadForCAS(root, expectedSHA256)
+	if err != nil {
+		return StoredCheckpoint{}, err
+	}
+	if stored.Checkpoint.Completed {
+		return StoredCheckpoint{}, fmt.Errorf("%w: completed checkpoint is restarted, not replaced", ErrCheckpointConflict)
+	}
+	replacement := Checkpoint{Version: CheckpointVersion, OptimizationID: input.OptimizationID,
+		CurrentBatchID: input.CurrentBatchID, RemainingObjectRefs: append([]string{}, input.RemainingObjectRefs...),
+		ExplicitObjectRefs: input.ExplicitObjectRefs}
+	if err := validateCheckpoint(replacement); err != nil {
+		return StoredCheckpoint{}, err
+	}
+	return replaceCheckpointCAS(root, expectedSHA256, replacement)
+}
+
 // RestartCompleted replaces only a strictly valid completed checkpoint. It
 // permits a later explicit optimization request without retaining a separate
 // run Manifest or completion Receipt.

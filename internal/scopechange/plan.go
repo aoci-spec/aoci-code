@@ -149,6 +149,22 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 	if layoutErr != nil {
 		return nil, fmt.Errorf("managed_scope_index_layout_invalid")
 	}
+	// The Entries the index holds now: a Volumes Root carries none, so the
+	// count is the Code and Database Volumes'. Zero means nothing has been
+	// authored yet that a narrower scope could take away.
+	authoredEntries := len(entries)
+	if layout == cognition.LayoutVolumesV1 {
+		set, loadErr := cognition.Load(root, cfg.IndexPath)
+		if loadErr != nil {
+			return nil, fmt.Errorf("managed_scope_cognition_layout_invalid: %w", loadErr)
+		}
+		authoredEntries = 0
+		for _, volumeID := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
+			if asset := set.Volumes[volumeID]; asset != nil {
+				authoredEntries += asset.ObjectCount
+			}
+		}
+	}
 	if layout == cognition.LayoutVolumesV1 {
 		// The candidate channel edits the document at cfg.IndexPath. Under
 		// Volumes v1 that document is the Root manifest, which carries no
@@ -252,7 +268,13 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			// retiring its stale Baseline record is bookkeeping rather than a
 			// coverage reduction. A transport-constraint basis still reports,
 			// because that basis is never an admissible reduction reason.
-			if (state != "current" && state != "absent") || basis == machinecontract.ScopeDecisionTransportConstraint {
+			// Before any Entry is written there is no cognition a narrower
+			// scope could lose: a source still waiting for its first Entry is
+			// what the first build will write, not coverage it already has
+			// (scipy first build, B4). Once the index holds an Entry, an
+			// unauthored source leaving it is a reduction again.
+			firstBuild := authoredEntries == 0 && state == "missing"
+			if (state != "current" && state != "absent" && !firstBuild) || basis == machinecontract.ScopeDecisionTransportConstraint {
 				plan.CoverageReductions = append(plan.CoverageReductions, CoverageReduction{Path: rel, OldRole: oldRole,
 					NewRole: newRole, AuthoringState: state, DecisionBasis: basis, RuleID: ruleID})
 			}

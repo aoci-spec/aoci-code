@@ -138,7 +138,11 @@ raises P1, and cannot receive policy_bound_auto authorization. A path the
 current Safe Inventory no longer sees has neither an Entry nor source bytes left
 to lose, so retiring its stale Baseline record is bookkeeping rather than a
 reduction; excluded paths remain in the evaluation, so only a deleted source
-reports that state. A transport, batch, payload, token, or single-request limit
+reports that state. While the index holds no Entry (no Entry in a Volumes Code or
+Database Volume, or in a Legacy index), a Missing target leaving the Index role is
+no reduction either: nothing has been authored that a narrower scope could
+lose, so narrowing before the first build applies under the posture's
+ordinary rules; once one Entry exists the rule above holds again. A transport, batch, payload, token, or single-request limit
 is never an admissible automatic coverage-reduction basis;
 decision_basis=transport_constraint adds the explicit
 transport_constraint_not_allowed blocker. Independent Scope review may still

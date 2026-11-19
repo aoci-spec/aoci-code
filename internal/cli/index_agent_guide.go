@@ -264,7 +264,8 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 			Included:             included, Remaining: total - included, ContinuationRequired: total > included,
 			NextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch}
 		guide.NextAction = guide.Batch.NextAction
-		contract, contractErr := authoringcontract.Build(set.Meta.Raw, facts.AffectedDomains, textassets.ActiveLocale())
+		budget := cfg.EffectiveCognitionBudget()
+		contract, contractErr := authoringcontract.BuildWithBudget(set.Meta.Raw, facts.AffectedDomains, textassets.ActiveLocale(), &budget)
 		if contractErr != nil {
 			return nil, &ExitError{Code: ExitInvalid, Err: contractErr}
 		}

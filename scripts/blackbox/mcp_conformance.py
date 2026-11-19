@@ -307,7 +307,11 @@ def attestation_for(mfin, m0, seq, ords, wreck_f=(), wreck_ident=(), bare=False,
     answers = []
     for i, o in enumerate(ords):
         ident, tag, coref = seq[o-1]
-        if bare: ident = ident.rsplit("/", 1)[-1]
+        # A bare file name misses every identity outside the root; the
+        # Challenge prefers important Entries, often root files whose bare
+        # name is the path, so the bare form also drops into a directory no
+        # Entry lives in, and every identity misses.
+        if bare: ident = "not-a-directory/" + ident.rsplit("/", 1)[-1]
         if i in wreck_ident: ident = "internal/definitely/not/this.go"
         if i in wreck_f: coref = "totally wrong responsibility"
         answers.append({"ordinal": o, "object_identity": ident, "tag": tag, "core_f": coref})
@@ -371,9 +375,13 @@ try:
     _cp = json.loads(t).get("code_plan") or {}
 except Exception:
     _cp = {}
+# Under the three-sibling default only work beyond one batch is cut into
+# siblings, so the check holds where the work fits one batch; a host
+# repository with more work than that is listed as siblings by design.
+_fits = (_cp.get("included") or 0) >= (_cp.get("total_targets") or 0)
 ok("maintain.default_config_carries_no_parallel_fields",
-   not any(k in _cp for k in ("logical_plan", "siblings", "sibling_of")) and '"siblings"' not in t and '"sibling_of"' not in t,
-   f"code_plan keys={sorted(_cp.keys())[:12]}")
+   (not _fits) or (not any(k in _cp for k in ("logical_plan", "siblings", "sibling_of")) and '"siblings"' not in t and '"sibling_of"' not in t),
+   f"fits_one_batch={_fits} code_plan keys={sorted(_cp.keys())[:12]}")
 _pt, _perr = text_of(s.call("aoci_maintain", {"batch_id": "0" * 64}))
 ok("maintain.batch_id_refused_without_parallel_batches",
    _perr and ("maintain_batch_id_unknown" in _pt or "maintain_batch_id_requires_parallel_batches" in _pt), _pt[:160])

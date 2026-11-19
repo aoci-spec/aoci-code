@@ -8,6 +8,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -98,14 +99,26 @@ func attachAuthoringContract(result *volumeMaintainResult, contract authoringcon
 // may go on the wire while this answered false; the Database part of a batch
 // is bounded by count, not by the byte budget, so that round is at most the
 // contract's size over, as every round was before 0.2.0.
-func codeContractOnWire(set *cognition.Set, session *cognitionRefreshSession, include bool) bool {
+func codeContractOnWire(cfg *config.Config, set *cognition.Set, session *cognitionRefreshSession, include bool) bool {
 	if set == nil || include {
 		return true
 	}
-	contract, err := authoringcontract.Build(set.Meta.Raw, []string{cognition.ScopeCode}, textassets.ActiveLocale())
+	contract, err := buildAuthoringContract(cfg, set.Meta.Raw, []string{cognition.ScopeCode})
 	if err != nil {
 		return true
 	}
 	onWire, _ := session.authoringContractOnWire(authoringContractDigest(contract.AuthoringMeta, contract.Instructions), false)
 	return onWire
+}
+
+// buildAuthoringContract is the one way a Maintain response, its budget, and
+// its reference digest assemble the authoring contract: with the R byte
+// limits of the repository's enforced cognition budget, so every surface
+// states, sizes, and digests the same text.
+func buildAuthoringContract(cfg *config.Config, metaRaw []byte, domains []string) (authoringcontract.Output, error) {
+	if cfg == nil {
+		return authoringcontract.Build(metaRaw, domains, textassets.ActiveLocale())
+	}
+	policy := cfg.EffectiveCognitionBudget()
+	return authoringcontract.BuildWithBudget(metaRaw, domains, textassets.ActiveLocale(), &policy)
 }
