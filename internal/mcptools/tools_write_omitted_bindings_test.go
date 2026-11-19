@@ -314,3 +314,29 @@ func TestBatchMissingABindingRecordsNoObserveReview(t *testing.T) {
 		})
 	}
 }
+
+// The single-Entry Database form (object_ref, batch_id, candidate_id, no
+// source digest) is a legal request and still applies.
+func TestSingleDatabaseEntryWithoutSourceDigestStillApplies(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	session := connectMCPClient(t, root)
+	plan := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase)).Plan
+	item := databaseCandidateInput(plan)[0]
+	text := callVolumeTool(t, session, "aoci_update_entry", map[string]any{"object_ref": item.ObjectRef,
+		"batch_id": plan.BatchID, "candidate_id": item.CandidateID, "new_entry": item.NewEntry})
+	if !strings.Contains(text, `"status":"applied"`) || strings.Contains(text, "database_candidate_binding_fields_conflict") {
+		t.Fatalf("the legal single-Entry Database form was refused: %s", text)
+	}
+}
+
+func TestDatabaseDigestConflictIsKnownBeforeTheObserveReview(t *testing.T) {
+	conflict := []updateEntryItemIn{{ObjectRef: "database://primary/public/users", BatchID: strings.Repeat("a", 64),
+		CandidateID: strings.Repeat("b", 64), NewEntry: "users[DB7S]: F:x | R:- | A:- | S:-", sourceGiven: true}}
+	if !bindingsIncomplete(conflict) {
+		t.Fatal("a Database batch item carrying an empty digest is not refused before the review")
+	}
+	conflict[0].sourceGiven = false
+	if bindingsIncomplete(conflict) {
+		t.Fatal("a legal Database batch item is refused before the review")
+	}
+}

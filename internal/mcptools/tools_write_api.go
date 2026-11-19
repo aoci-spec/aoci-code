@@ -327,6 +327,9 @@ type updateEntryItemIn struct {
 	// while an empty or blank value that was sent stays the refusal it was.
 	sourceGiven    bool
 	candidateGiven bool
+	// noCompletion marks the single-Entry compatibility mode, whose bindings
+	// are whatever was sent.
+	noCompletion bool
 }
 
 func (item *updateEntryItemIn) UnmarshalJSON(data []byte) error {
@@ -504,7 +507,7 @@ func handleMCPUpdateSingle(
 		BatchID:      map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != ""],
 		// The single-Entry compatibility mode keeps its contract: its
 		// bindings are whatever was sent, never completed.
-		sourceGiven: true, candidateGiven: true,
+		noCompletion: true,
 	}}, refreshSessions...)
 }
 
@@ -542,10 +545,11 @@ func cognitionOptimizationTransactionComplete(
 	return true, nil
 }
 
-// bindingsIncomplete reports an item that, after completion, still has no
-// binding to be checked by: a Code item without a source digest, a Database
-// item without a candidate id or digest. The input schema refused these
-// before the bindings became optional, ahead of everything else.
+// bindingsIncomplete reports an item the batch refuses for its bindings alone:
+// after completion a Code item without a source digest, a Database item
+// without a candidate id or digest, or a Database batch item that carries a
+// digest. The input schema refused these before the bindings became
+// optional, ahead of everything else.
 func bindingsIncomplete(items []updateEntryItemIn) bool {
 	for _, item := range items {
 		if item.Remove {
@@ -553,6 +557,11 @@ func bindingsIncomplete(items []updateEntryItemIn) bool {
 		}
 		source, candidate := strings.TrimSpace(item.SourceSHA256), strings.TrimSpace(item.CandidateID)
 		if (item.ObjectRef == "" && source == "") || (item.ObjectRef != "" && source == "" && candidate == "") {
+			return true
+		}
+		// A Database batch item never carries a source digest, an empty one
+		// included: the same conflict the batch answers, known before it.
+		if item.ObjectRef != "" && candidate != "" && strings.TrimSpace(item.BatchID) != "" && (source != "" || item.sourceGiven) {
 			return true
 		}
 	}
@@ -576,7 +585,7 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 	}
 	for index, item := range result {
 		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
-		if item.Remove || batchID == "" {
+		if item.Remove || item.noCompletion || batchID == "" {
 			continue
 		}
 		switch {
