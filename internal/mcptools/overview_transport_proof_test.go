@@ -236,6 +236,18 @@ func TestOnlyTheCurrentDeliveryAdvances(t *testing.T) {
 		session.deliveryServed(host, cognition.ScopeAll, other) {
 		t.Fatal("the current delivery, sent to its end, must be the one thing served")
 	}
+	// A Chunk out of order advances nothing: the last Chunk of three, asked
+	// for after the first, leaves the delivery at its first.
+	session.beginDelivery(host, cognition.ScopeCode, body, "ordered", 1, 3)
+	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 3, 3)
+	if session.deliveryServed(host, cognition.ScopeCode, body) {
+		t.Fatal("the last Chunk, asked for out of order, finished the delivery")
+	}
+	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 2, 3)
+	session.advanceDelivery(host, cognition.ScopeCode, body, "ordered", 3, 3)
+	if !session.deliveryServed(host, cognition.ScopeCode, body) {
+		t.Fatal("every Chunk in order must finish the delivery")
+	}
 	// A second body for the same scope replaces the first, proof memory included.
 	session.mergeDeliveryEvidence(host, body, hostDeliveryConfirmed, nil)
 	session.beginDelivery(host, cognition.ScopeAll, other, "", 1, 1)
