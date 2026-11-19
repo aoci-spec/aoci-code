@@ -961,6 +961,7 @@
   "scope.safety_approval_prompt": "批准后 AOCI 才会读取这些高风险路径的内容：%s。",
   "scope.show_summary": "Managed Scope配置%s | 期望%s | 已生效%s | 对齐%t | index %d | observe %d | exclude %d",
   "scope.status_summary": "Scope阶段%s | 策略已对齐%t | observe待复核%d | 期望策略%s",
+  "scope.git_untracked_warning": "警告：以下源文件路径已被索引或 Baseline 引用，但尚未被 Git 跟踪：%s。共享 AOCI 资产前，请跟踪需要共享的源文件，或检查它们的 Scope 规则。这只是提示；Git 已跟踪不代表已提交。",
   "score.bad_dimension": "未知维度 %q(可用: %s)",
   "score.dimension": "%s %-12s %d/%d 违规",
   "score.dimension_na": "- %-12s 不可判定",

@@ -961,6 +961,7 @@
   "scope.safety_approval_prompt": "Approving lets AOCI read the content of these high-risk paths: %s.",
   "scope.show_summary": "Managed Scope profile %s | desired %s | active %s | aligned %t | index %d | observe %d | exclude %d",
   "scope.status_summary": "Scope stage %s | policy aligned %t | observed pending review %d | desired policy %s",
+  "scope.git_untracked_warning": "Warning: these source paths are referenced by the index or Baseline but are Git-untracked: %s. Track the intended sources or review their Scope rules before sharing AOCI assets. This is advisory; Git-tracked does not mean committed.",
   "score.bad_dimension": "unknown dimension %q (available: %s)",
   "score.dimension": "%s %-12s %d/%d violations",
   "score.dimension_na": "- %-12s not determinable",

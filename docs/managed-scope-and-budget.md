@@ -53,6 +53,16 @@ already there, and is written readable by its owner alone, because until the
 change is applied anything that can read it can stand in for the person who
 answered yes. `scope safety approve` takes the same flag.
 
+Before sharing AOCI assets, `aoci scope status` warns about Git-untracked source
+paths already referenced by the index or Baseline, including Observe paths.
+`--json` adds the sorted `git_untracked_paths` array when it is nonempty.
+Track sources intended for teammates, or review their Scope rules if they should
+stay local. The warning is advisory: it does not change governance, exit codes,
+or eligibility for work before `git add`. Missing files and files outside Git
+repositories are not reported as untracked. Git-tracked files can still be only
+staged, so an empty diagnostic does not prove reproducibility. The query writes
+no repository files or Ledger events.
+
 ## Approving a change
 
 When a change needs a person, activation saves the preview and stops with

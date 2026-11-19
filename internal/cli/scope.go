@@ -53,6 +53,7 @@ type scopePolicyStatus struct {
 	RequiresHumanReview   int                         `json:"requires_human_review"`
 	AppliedManagedScope   *baseline.ManagedScopeState `json:"applied_managed_scope,omitempty"`
 	ObserveChangePolicy   string                      `json:"observe_change_policy"`
+	GitUntrackedPaths     []string                    `json:"git_untracked_paths,omitempty"`
 }
 
 func init() {
@@ -666,15 +667,22 @@ func newScopeStatusCmd() *cobra.Command {
 			}
 			return writePlannerJSON(cmd, status)
 		}
+		cacheWrites := baseline.FingerprintCacheWritesEnabled()
+		baseline.SetFingerprintCacheWrites(false)
+		defer baseline.SetFingerprintCacheWrites(cacheWrites)
 		status, err := buildScopePolicyStatus(root, true)
 		if err != nil {
 			return managedScopeExitError(err)
 		}
+		status.GitUntrackedPaths = scopeGitUntrackedPaths(root, status.Evaluation)
 		if flagJSON {
 			return writePlannerJSON(cmd, status)
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
 			status.ObservedPendingReview, status.DesiredPolicyIdentity))
+		if len(status.GitUntrackedPaths) > 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", strings.Join(status.GitUntrackedPaths, ", ")))
+		}
 		return nil
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
