@@ -393,6 +393,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		result.CodePlan.NextAction = "author_complete_current_machine_batch"
 		result.Status, result.Result, result.NextAction = autoStatusRepairRequired, volumegovernance.ResultAuthoringRequired, "author_complete_current_machine_batch"
 		result.Batch.TotalTargets, result.Batch.Included, result.Batch.Remaining = len(work.Targets), len(receipt.Targets), remaining
+		result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
 		result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
 		result.Sets.Write = candidateRefs(result.Candidates)
 		result.Sets.Review = reviewClosure(loaded.set, result.Candidates)

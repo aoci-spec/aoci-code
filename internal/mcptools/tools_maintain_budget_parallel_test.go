@@ -26,15 +26,15 @@ func TestEstimateCodeAuthoringRoundsParallelFollowsTheSiblingCut(t *testing.T) {
 	for index := 0; index < 240; index++ {
 		paths = append(paths, fmt.Sprintf("src/main/java/com/example/module%02d/Service%03dImpl.java", index%12, index))
 	}
-	sequential := EstimateCodeAuthoringRounds(cfg, set, paths)
-	if EstimateCodeAuthoringRoundsParallel(cfg, set, paths, 1) != sequential {
+	sequential := EstimateCodeAuthoringRounds(cfg, set, paths, nil)
+	if EstimateCodeAuthoringRoundsParallel(cfg, set, paths, nil, 1) != sequential {
 		t.Fatalf("one session is the sequential estimate: %d", sequential)
 	}
-	four := EstimateCodeAuthoringRoundsParallel(cfg, set, paths, 4)
+	four := EstimateCodeAuthoringRoundsParallel(cfg, set, paths, nil, 4)
 	if four < 1 || four > sequential || four < (sequential+3)/4 {
 		t.Fatalf("four sessions take between ceil(%d/4) and %d rounds each, got %d", sequential, sequential, four)
 	}
-	if EstimateCodeAuthoringRoundsParallel(cfg, set, nil, 4) != 0 {
+	if EstimateCodeAuthoringRoundsParallel(cfg, set, nil, nil, 4) != 0 {
 		t.Fatal("nothing to author is zero rounds")
 	}
 }

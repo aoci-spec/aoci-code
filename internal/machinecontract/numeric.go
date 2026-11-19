@@ -69,6 +69,15 @@ const (
 	CodeCognitionParallelBatchesMin     = 1
 	CodeCognitionParallelBatchesMax     = 4
 
+	// CodeCognitionBatchSourceLines bounds the source lines one Code batch
+	// asks a model to read. The transport budget sizes the response, not the
+	// reading: a batch that fits 24 KiB named two ten-thousand-line files. On
+	// five real trees (631 to 13,784 files) the median batch reads 4,000 to
+	// 8,500 lines and the largest 28,000 to 153,000; this bound removes those
+	// and adds 0 to 19 percent of first-build rounds. A machine constant, in
+	// no identity: the plan hashes every target, the batch only cuts it.
+	CodeCognitionBatchSourceLines = 20000
+
 	// MaintainTransportBudgetBytes bounds the bytes of one Maintain response:
 	// the current Code batch is cut where the next candidate would push the
 	// response past it, after the fixed part (authoring_meta, instructions,

@@ -18,7 +18,7 @@ Authority boundary: this contract sets session principles only. The current Guid
 
 3. To establish or complete the index, use the current AOCI Guide and only the commands and safety stops it returns; aoci_maintain is for incremental maintenance of an established index.
 
-4. The model authors cognition: the Header from investigated repository facts, an Entry after reading the current Header, the target source, tests, configuration, and necessary related evidence. Paths, an AST, symbol lists, scans, regular expressions, templates, or rule engines may locate, validate, and write facts, never generate, prefill, assemble, or rewrite tags, F/R/A/S, or Curation decisions.
+4. The model authors cognition: the Header from investigated repository facts, an Entry after reading the current Header, the target source, tests, configuration, and necessary related evidence. A file too large to read whole is read for its structure and the parts that decide its behaviour; an Entry states only what that reading showed. Paths, an AST, symbol lists, scans, regular expressions, templates, or rule engines may locate, validate, and write facts, never generate, prefill, assemble, or rewrite tags, F/R/A/S, or Curation decisions.
 
 5. AOCI-managed write boundaries: when the user limits only business files, closing may update aoci.txt and Baseline; when the user forbids changes to aoci.txt, .aoci, metadata, or any additional file, write nothing and report the remaining inconsistency.
 

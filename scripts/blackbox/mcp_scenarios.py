@@ -446,6 +446,12 @@ def group_b():
     n = len(m.get("candidates") or [])
     if n != NF + INIT_GENERATED_TARGETS:
         record(g, "B1.maintain-missing", "FAIL", f"expected {NF+INIT_GENERATED_TARGETS} candidates, got {n}: {t[:150]}"); s.close(); return None
+    # The batch says how much source it asks the model to read: the sum of
+    # its candidates' file_lines, under the bound it was cut with.
+    batch = m.get("authoring_batch") or {}
+    counted = sum(c.get("file_lines") or 0 for c in (m.get("candidates") or []))
+    if not counted or batch.get("source_lines") != counted or not batch.get("source_lines_budget"):
+        record(g, "B1.maintain-missing", "FAIL", f"source_lines={batch.get('source_lines')} counted={counted} budget={batch.get('source_lines_budget')}"); s.close(); return None
     record(g, "B1.maintain-missing", "PASS", f"{n} create candidates (incl init-generated targets)")
     r, t, err = submit_batch(s, m)
     ok = r.get("status") == "applied" and r.get("applied") == NF + INIT_GENERATED_TARGETS and r.get("remaining") == 0

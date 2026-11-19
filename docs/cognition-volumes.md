@@ -307,7 +307,10 @@ at most 50 exact model authoring targets by default, never more than
 200 exact model authoring targets (the wire ceiling), and cut earlier where the
 response would exceed the transport budget `maintain_transport_budget_bytes`
 (default 24 KiB), so a batch of new Entries carries more candidates than a
-batch of long existing ones. The team cap and the budget move it (`aoci config
+batch of long existing ones. It is also cut where its source would pass
+20,000 lines of reading; a larger file travels alone. `authoring_batch.source_lines`
+says how much the batch asks the model to read, and `scan` and `init` print the
+total for the first build next to the round count. The team cap and the budget move it (`aoci config
 set code_cognition_batch_entries N`, `aoci config set
 maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
 closure (while candidates are present the review and write lists are a

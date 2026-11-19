@@ -4,6 +4,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A batch is sized by what it asks a model to read, not only by what fits the
+  response. One batch used to name two ten-thousand-line files, and on five
+  real trees the largest batch read 28,000 to 153,000 source lines against a
+  median of 4,000 to 8,500. A Code batch is now also cut before its source
+  passes 20,000 lines, and a larger file travels alone; first builds on those
+  trees take 0 to 19 percent more rounds. `authoring_batch` reports
+  `source_lines` and `source_lines_budget`, and `scan` and `init` print the
+  total reading of the first build beside the round count (`source_lines`,
+  `source_lines_per_round` in `--json`). The two wordings of how deeply to
+  read, in the runtime rules and in the batch instructions, are now one
+  sentence. Reported by a host that built scipy's index (A2); the machine
+  reports the volume and does not judge the reading.
 - Dependency updates, none of which changes the release module set (26) or a
   license text: `golang.org/x/sys` 0.50.0, `github.com/spf13/pflag` 1.1.0,
   `github.com/ncruces/go-sqlite3` 0.37.0 with its `go-sqlite3-wasm/v6`

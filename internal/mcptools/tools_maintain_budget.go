@@ -61,6 +61,10 @@ func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []co
 	thresholds := optimizationEScaleThresholds(set)
 	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates, contractOnWire), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
 		return codeCandidateWireSize(candidate) + scaleEvidenceWireWidth(candidate, lines, thresholds, reserve)
+	}, Lines: machinecontract.CodeCognitionBatchSourceLines, LineCount: func(candidate codebatch.Candidate) int {
+		// A count the caller does not hold never cuts: the batch is then
+		// bounded by bytes alone, as it was before the line bound.
+		return lines[candidate.Path]
 	}}
 }
 
@@ -212,9 +216,11 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 // Entries under the team configuration: the first round carries the
 // authoring contract, every later round in the same process its reference.
 // scan prints it so an operator knows what a first build costs before the
-// model starts; the line counts are not known here, so each candidate
-// reserves the widest scale evidence and the estimate errs toward more rounds.
-func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string) int {
+// model starts. lines carries the source line count of the paths the caller
+// counted: they bound each batch's reading as Maintain does and size the
+// scale evidence; a path without one reserves the widest evidence and never
+// cuts by lines.
+func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string, lines map[string]int) int {
 	if len(paths) == 0 {
 		return 0
 	}
@@ -228,11 +234,11 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 		limit = machinecontract.CodeCognitionBatchEntriesDefault
 	}
 	ordered, _ := codebatch.Select(candidates, 0)
-	first := codebatch.PrefixWithinBudget(ordered, limit, codeCandidateBudget(cfg, set, candidates, nil, true))
+	first := codebatch.PrefixWithinBudget(ordered, limit, codeCandidateBudget(cfg, set, candidates, lines, true))
 	if first >= len(ordered) {
 		return 1
 	}
-	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, nil, false))
+	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, lines, false))
 }
 
 // EstimateCodeAuthoringRoundsParallel is EstimateCodeAuthoringRounds for n
@@ -243,9 +249,9 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 // fetches one by batch_id carries it, and the listing's bytes come off every
 // cut; parallel rounds therefore cover fewer Entries per session and more in
 // total than the sequential estimate divides into.
-func EstimateCodeAuthoringRoundsParallel(cfg *config.Config, set *cognition.Set, paths []string, n int) int {
+func EstimateCodeAuthoringRoundsParallel(cfg *config.Config, set *cognition.Set, paths []string, lines map[string]int, n int) int {
 	if n <= 1 {
-		return EstimateCodeAuthoringRounds(cfg, set, paths)
+		return EstimateCodeAuthoringRounds(cfg, set, paths, lines)
 	}
 	if len(paths) == 0 {
 		return 0
@@ -260,10 +266,10 @@ func EstimateCodeAuthoringRoundsParallel(cfg *config.Config, set *cognition.Set,
 		limit = machinecontract.CodeCognitionBatchEntriesDefault
 	}
 	ordered, _ := codebatch.Select(candidates, 0)
-	ahead := codeCandidateBudget(cfg, set, candidates, nil, true)
+	ahead := codeCandidateBudget(cfg, set, candidates, lines, true)
 	rounds := 0
 	for len(ordered) > 0 && rounds < len(paths) {
-		first := codeCandidateBudget(cfg, set, candidates, nil, rounds == 0)
+		first := codeCandidateBudget(cfg, set, candidates, lines, rounds == 0)
 		cuts := cutParallelSiblings(ordered, limit, n, first, ahead)
 		covered := 0
 		for _, cut := range cuts {

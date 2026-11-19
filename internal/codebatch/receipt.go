@@ -44,6 +44,13 @@ type Budget struct {
 	// the candidates may occupy after the fixed part is reserved. Zero Total
 	// reports Bytes.
 	Total int
+	// Lines bounds the source lines one batch asks a model to read, and
+	// LineCount reports a candidate's (zero when unknown, which never cuts).
+	// A response that fits the wire can still name more source than one
+	// reading holds: two ten-thousand-line files in one batch. A file larger
+	// than the bound travels alone.
+	Lines     int
+	LineCount func(Candidate) int
 }
 
 // SelectWithBudget is Select followed by the byte bound: the ordered prefix
@@ -58,24 +65,35 @@ func SelectWithBudget(candidates []Candidate, limit int, budget Budget) (ordered
 
 // PrefixWithinBudget reports how many leading candidates of an already
 // ordered list one batch carries: at most limit (when positive), stopping
-// before the candidate that would exceed Budget.Bytes, and always at least
-// one of a nonempty list. Callers that order by something other than the
+// before the candidate that would exceed Budget.Bytes or Budget.Lines, and
+// always at least one of a nonempty list. Callers that order by something other than the
 // object reference (the optimization review order) cut their own order here.
 func PrefixWithinBudget(ordered []Candidate, limit int, budget Budget) int {
 	count := len(ordered)
 	if limit >= 1 && count > limit {
 		count = limit
 	}
-	if budget.Bytes <= 0 || budget.Size == nil {
+	byBytes := budget.Bytes > 0 && budget.Size != nil
+	byLines := budget.Lines > 0 && budget.LineCount != nil
+	if !byBytes && !byLines {
 		return count
 	}
-	used := 0
+	used, read := 0, 0
 	for index := 0; index < count; index++ {
-		size := budget.Size(ordered[index])
-		if index > 0 && used+size > budget.Bytes {
-			return index
+		if byBytes {
+			size := budget.Size(ordered[index])
+			if index > 0 && used+size > budget.Bytes {
+				return index
+			}
+			used += size
 		}
-		used += size
+		if byLines {
+			lines := budget.LineCount(ordered[index])
+			if index > 0 && read+lines > budget.Lines {
+				return index
+			}
+			read += lines
+		}
 	}
 	return count
 }

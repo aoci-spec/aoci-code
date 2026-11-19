@@ -76,6 +76,12 @@ type volumeAuthoringBatch struct {
 	TotalTargets         int    `json:"total_targets"`
 	MaxEntries           int    `json:"max_entries"`
 	TransportBudgetBytes int    `json:"transport_budget_bytes,omitempty"`
+	// SourceLines is what this batch asks the model to read: the line counts
+	// of its Code candidates, as file_lines reports each. SourceLinesBudget
+	// is the bound the batch was cut under; a single larger file still ships,
+	// alone.
+	SourceLines          int    `json:"source_lines,omitempty"`
+	SourceLinesBudget    int    `json:"source_lines_budget,omitempty"`
 	Included             int    `json:"included"`
 	Remaining            int    `json:"remaining"`
 	CompleteCandidateSet bool   `json:"complete_candidate_set_for_current_batch"`
@@ -175,6 +181,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	}
 	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested, codeWork)
 	result.Batch.Included = len(result.Candidates)
+	result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
 	result.Batch.Remaining = result.Batch.TotalTargets - result.Batch.Included
 	if result.Batch.Remaining < 0 {
 		result.Batch.Remaining = 0
@@ -628,6 +635,23 @@ func fillVolumeCandidateScale(root string, thresholds *index.EScaleThresholds, c
 	}
 	candidate.FileLines = &lines
 	candidate.ExpectedE = index.ExpectedEScaleSymbols(lines, thresholds)
+}
+
+// batchSourceLines sums the line counts the batch's Code candidates carry and
+// names the bound they were cut under; a batch without a counted Code
+// candidate reports neither.
+func batchSourceLines(candidates []volumeMaintainCandidate) (int, int) {
+	total, counted := 0, false
+	for _, candidate := range candidates {
+		if candidate.Domain == cognition.ScopeCode && candidate.FileLines != nil {
+			total += *candidate.FileLines
+			counted = true
+		}
+	}
+	if !counted {
+		return 0, 0
+	}
+	return total, machinecontract.CodeCognitionBatchSourceLines
 }
 
 // parallelSiblingsToHandOut counts the sibling batches of the plan this

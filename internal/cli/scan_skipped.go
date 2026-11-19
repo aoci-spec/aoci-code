@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -47,27 +48,34 @@ type scanAuthoringEstimate struct {
 	// longest for, and this is the lever that divides them.
 	ParallelBatches int `json:"parallel_batches"`
 	ParallelRounds  int `json:"parallel_rounds"`
+	// SourceLines is what the first build asks a model to read in all, and
+	// SourceLinesPerRound the most one round asks for (a larger file travels
+	// alone): the cost a user could not see before the model started.
+	SourceLines         int `json:"source_lines"`
+	SourceLinesPerRound int `json:"source_lines_per_round"`
 }
 
-func estimateScanAuthoring(cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
-	return estimateAuthoringForPaths(cfg, skipped.set, skipped.actionable)
+func estimateScanAuthoring(root string, cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
+	return estimateAuthoringForPaths(root, cfg, skipped.set, skipped.actionable)
 }
 
 // estimateAuthoringForPaths is the first-build estimate over the given
 // index-role paths, shared by scan and by init, which shows it before the
 // first scan while narrowing the scope is still free.
-func estimateAuthoringForPaths(cfg *config.Config, set *cognition.Set, paths []string) scanAuthoringEstimate {
-	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths)
+func estimateAuthoringForPaths(root string, cfg *config.Config, set *cognition.Set, paths []string) scanAuthoringEstimate {
+	lines, total := countSourceLines(root, paths)
+	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths, lines)
 	parallel := cfg.CodeCognitionParallelBatchLimit()
 	estimate := scanAuthoringEstimate{Targets: len(paths), Rounds: rounds,
 		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
-		ParallelBatches: parallel, ParallelRounds: rounds}
+		ParallelBatches: parallel, ParallelRounds: rounds,
+		SourceLines: total, SourceLinesPerRound: machinecontract.CodeCognitionBatchSourceLines}
 	if parallel > 1 {
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, parallel)
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, parallel)
 	} else if rounds > 1 {
 		// What four sessions would take, measured with the same cut Maintain
 		// makes, so the hint names a number the first build then meets.
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, machinecontract.CodeCognitionParallelBatchesMax)
+		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, machinecontract.CodeCognitionParallelBatchesMax)
 	}
 	return estimate
 }
@@ -89,8 +97,11 @@ func initAuthoringEstimateLines(root string, cfg *config.Config, paths []string)
 	if err != nil {
 		return nil
 	}
-	estimate := estimateAuthoringForPaths(cfg, set, paths)
+	estimate := estimateAuthoringForPaths(root, cfg, set, paths)
 	lines := []string{scanAuthoringEstimateLine(estimate)}
+	if line := scanReadingEstimateLine(estimate); line != "" {
+		lines = append(lines, line)
+	}
 	if line := scanParallelEstimateLine(estimate); line != "" {
 		lines = append(lines, line)
 	}
@@ -165,12 +176,41 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 		return
 	}
 	fmt.Println(scanAuthoringEstimateLine(estimate))
+	if line := scanReadingEstimateLine(estimate); line != "" {
+		fmt.Println(line)
+	}
 	if line := scanParallelEstimateLine(estimate); line != "" {
 		fmt.Println(line)
 	}
 	if dryRun {
 		fmt.Println(cliMessage("scan.narrow_hint", root))
 	}
+}
+
+// countSourceLines counts the lines of each path through the fingerprint
+// cache, which holds them for every file scan hashed; a path that cannot be
+// read is left out, so it never cuts a batch and adds nothing to the total.
+func countSourceLines(root string, paths []string) (map[string]int, int) {
+	cache := baseline.OpenFingerprintCache(root)
+	lines, total := make(map[string]int, len(paths)), 0
+	for _, path := range paths {
+		count, err := cache.FileLines(filepath.Join(root, filepath.FromSlash(path)), path)
+		if err != nil {
+			continue
+		}
+		lines[path] = count
+		total += count
+	}
+	return lines, total
+}
+
+// scanReadingEstimateLine says how much source the first build reads; a
+// repository with nothing counted says nothing.
+func scanReadingEstimateLine(estimate scanAuthoringEstimate) string {
+	if estimate.SourceLines == 0 {
+		return ""
+	}
+	return cliMessage("scan.authoring_reading", estimate.SourceLines, estimate.SourceLinesPerRound)
 }
 
 // scanParallelEstimateLine says what parallel sessions make of the estimate:

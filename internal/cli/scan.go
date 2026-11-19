@@ -150,7 +150,7 @@ func init() {
 				return err
 			}
 			skipped := classifyScanSkippedSources(root, cfg, snap)
-			estimate := estimateScanAuthoring(cfg, skipped)
+			estimate := estimateScanAuthoring(root, cfg, skipped)
 			result := struct {
 				Version           string                   `json:"version"`
 				DryRun            bool                     `json:"dry_run"`

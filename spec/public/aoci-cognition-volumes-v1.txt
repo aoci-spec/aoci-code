@@ -278,9 +278,11 @@ response would exceed the team transport budget
 `maintain_transport_budget_bytes` (machine default 24 KiB, inclusive range
 16 KiB through 192 KiB; the batch always carries at least one candidate;
 Database candidates keep their own `database_cognition_batch_evidence_bytes`
-bound) — and reports
+bound) or where its source would pass 20,000 lines of reading (a machine
+constant; a larger file travels alone, and a candidate whose line count is not
+known never cuts) — and reports
 logical_plan, batch_identity, total_targets, max_entries,
-transport_budget_bytes, included, remaining,
+transport_budget_bytes, source_lines, source_lines_budget, included, remaining,
 continuation_required, Composite and Scope identities, exact candidates,
 source or Evidence bindings, and next_action. "Complete candidate set" means
 all candidates in that current machine-issued batch. It never means that one
@@ -297,6 +299,14 @@ A counted empty file reports file_lines=0. Database candidates omit these fields
 The transport budget reserves their bytes before cutting a batch. These fields
 do not enter persisted receipts or identity preimages, generate semantics, change
 selection priority, or replace source revalidation, CAS, and Recovery at Apply.
+
+source_lines is the sum of file_lines over the batch's Code candidates: what the
+batch asks the model to read. source_lines_budget is the bound the batch was cut
+under. Both are additive, omitted when no Code candidate was counted, and outside
+every identity. Reading depth has one wording, in the runtime rules and in the
+batch instructions alike: a file too large to read whole is read for its
+structure and the parts that decide its behaviour, and an Entry states only what
+that reading showed. The machine reports the volume; it never judges the reading.
 
 Each current batch is an independent atomic Apply. A successful Apply advances
 the formal Volume and Baseline to a new preimage. If remaining is nonzero, the
