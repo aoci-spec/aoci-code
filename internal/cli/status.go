@@ -23,6 +23,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
+	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -48,12 +49,22 @@ type statusReport struct {
 	// Governance is present only under Volumes v1 with a Baseline: the verdict
 	// of the shared governance facts, so status answers "aligned or not".
 	Governance *statusGovernance `json:"governance,omitempty"`
+	// OpenOptimizationPass is an unfinished cognition_optimization pass: how
+	// many Entries it has left to review. Draft progress only, it blocks
+	// nothing; a new request with object_refs replaces it, changing no Entry.
+	OpenOptimizationPass *statusOptimizationPass `json:"open_optimization_pass,omitempty"`
 
 	// Deep is present only in --deep mode.
 	Deep *deepCounts `json:"deep,omitempty"`
 }
 
 // statusGovernance is the compact Volumes verdict status --json carries.
+type statusOptimizationPass struct {
+	Remaining   int  `json:"remaining"`
+	Reviewed    int  `json:"reviewed"`
+	BatchIssued bool `json:"batch_issued"`
+}
+
 type statusGovernance struct {
 	Result      string `json:"result"`
 	Aligned     bool   `json:"aligned"`
@@ -182,6 +193,10 @@ func init() {
 					Findings: volumeActionableFindings(facts), Missing: len(facts.CodeDrift.Missing),
 					Stale: len(facts.CodeDrift.Stale), Orphan: len(facts.CodeDrift.Orphan),
 					Unbaselined: len(facts.CodeDrift.Unbaselined),
+				}
+				if stored, loadErr := cognitionoptimization.Load(root); loadErr == nil && !stored.Checkpoint.Completed {
+					report.OpenOptimizationPass = &statusOptimizationPass{Remaining: len(stored.Checkpoint.RemainingObjectRefs),
+						Reviewed: stored.Checkpoint.ReviewedCount, BatchIssued: stored.Checkpoint.CurrentBatchID != ""}
 				}
 			}
 
@@ -331,6 +346,9 @@ func init() {
 			}
 
 			fmt.Fprintln(out, cliMessage("status.pending_reports", report.ReportsPending))
+			if report.OpenOptimizationPass != nil {
+				fmt.Fprintln(out, cliMessage("status.open_optimization_pass", report.OpenOptimizationPass.Remaining, report.OpenOptimizationPass.Reviewed))
+			}
 
 			for _, operation := range report.RecentOps {
 				fmt.Fprintln(

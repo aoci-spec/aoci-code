@@ -4,6 +4,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- An open cognition optimization pass can be replaced and is visible. A
+  request with `object_refs` while a pass was open was refused as
+  `cognition_optimization_object_refs_only_allowed_on_initial_request`, and
+  the only way to close an unwanted pass was to submit its Entries as
+  unchanged, which vouches for Entries nobody read. Now such a request
+  replaces the open pass, changing no Entry, and reports `dropped_open_pass`;
+  `aoci status` shows an open pass as `open_optimization_pass`.
 - The authoring contract states the R limit the write enforces. Under an
   enforced cognition budget, the default for new repositories, R is also
   limited by importance in UTF-8 bytes (C9 542, C8 422, C7-5 272, C4-1 152

@@ -255,8 +255,13 @@ Entry, never a judgement that an S is owed. The program still
 generates no semantics, truncates nothing, and lowers no C value; review
 batches close through the existing Update, Baseline, and Recovery authorities,
 an all-no-change batch advances with zero formal writes, and an altered replay
-of a completed batch fails before Apply. Ordinary no-argument Maintain
-behavior is unchanged, and no MCP tool is added.
+of a completed batch fails before Apply. A request with object_refs while a
+pass is open replaces that pass: the checkpoint is draft progress, so no
+Entry changes, the answer reports dropped_open_pass with the Entries the
+dropped pass had left, and a batch of the dropped pass no longer advances
+anything. An open pass blocks nothing, and `aoci status` reports it as
+open_optimization_pass. Ordinary no-argument Maintain behavior is
+unchanged, and no MCP tool is added.
 
 8. Other reads and writes
 

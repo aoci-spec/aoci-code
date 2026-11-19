@@ -612,12 +612,15 @@ func TestCognitionOptimizationBaselineFailureUsesExistingRecoveryBeforeCheckpoin
 	assertOrdinaryVolumeGovernanceAligned(t, root)
 }
 
-func TestCognitionOptimizationActiveRunRejectsSelectorReplacement(t *testing.T) {
+// object_refs while a pass is open name what to review now: the open pass is
+// dropped with no Entry changed, the answer counts what it had left, and the
+// dropped pass's batch no longer applies. Nobody has to submit "unchanged"
+// for Entries it never read to close a pass it no longer wants (scipy, C4).
+func TestCognitionOptimizationObjectRefsReplaceAnOpenPass(t *testing.T) {
 	root := buildCognitionOptimizationRepo(t, 3)
 	session := connectMCPClient(t, root)
-	_ = callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(3))
-	checkpoint := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
-	before := readOptimizationTestFile(t, checkpoint)
+	first := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(3))
+	indexBefore := volumeFileText(t, root, "aoci.code.txt")
 	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_maintain", Arguments: map[string]any{
 		"intent": maintainIntentCognitionOptimization, "scope": cognition.ScopeCode,
 		"object_refs": []string{"code:optimized/0000.go"},
@@ -625,11 +628,32 @@ func TestCognitionOptimizationActiveRunRejectsSelectorReplacement(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError || !strings.Contains(resText(t, result), "only_allowed_on_initial_request") {
-		t.Fatalf("active optimization accepted a replacement selector:\n%s", resText(t, result))
+	text := resText(t, result)
+	if result.IsError || !strings.Contains(text, `"dropped_open_pass":3`) {
+		t.Fatalf("object_refs did not replace the open pass:\n%s", text)
 	}
-	if after := readOptimizationTestFile(t, checkpoint); !reflect.DeepEqual(after, before) {
-		t.Fatal("rejected selector replacement changed the active checkpoint")
+	if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+		t.Fatal("replacing an open pass changed the Code Volume")
+	}
+	plan := first.CodePlan
+	if plan == nil || plan.BatchID == "" {
+		t.Fatalf("the first pass issued no batch: %#v", first.CodePlan)
+	}
+	entries := []map[string]any{}
+	for _, candidate := range first.Candidates {
+		entries = append(entries, map[string]any{"path": candidate.Path, "new_entry": candidate.ExistingEntry})
+	}
+	checkpointPath := filepath.Join(root, filepath.FromSlash(optimizationCheckpointRelativePath))
+	checkpointBefore := readOptimizationTestFile(t, checkpointPath)
+	stale := applyVolumeBatch(t, session, map[string]any{"code_batch_id": plan.BatchID, "entries": entries})
+	if stale.FormalWritesStarted || stale.Applied != 0 {
+		t.Fatalf("a batch of the dropped pass wrote: %#v", stale)
+	}
+	if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+		t.Fatal("a batch of the dropped pass changed the Code Volume")
+	}
+	if after := readOptimizationTestFile(t, checkpointPath); !reflect.DeepEqual(after, checkpointBefore) {
+		t.Fatal("a batch of the dropped pass advanced the pass that replaced it")
 	}
 }
 

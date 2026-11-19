@@ -53,6 +53,9 @@ type cognitionOptimizationStatus struct {
 	Replaced             int    `json:"replaced"`
 	Remaining            int    `json:"remaining"`
 	ContinuationRequired bool   `json:"continuation_required"`
+	// DroppedOpenPass counts the Entries an open pass still had to review
+	// when this request replaced it; none of them was changed.
+	DroppedOpenPass int `json:"dropped_open_pass,omitempty"`
 }
 
 func handleCognitionOptimizationMaintain(
@@ -82,9 +85,10 @@ func handleCognitionOptimizationMaintain(
 	stored, loadErr := cognitionoptimization.Load(root)
 	switch {
 	case loadErr == nil && !stored.Checkpoint.Completed:
-		if len(input.ObjectRefs) != 0 {
-			return failResult(&Fail{Code: errBadArgs, Msg: "cognition_optimization_object_refs_only_allowed_on_initial_request"})
-		}
+		// object_refs while a pass is open name what to review now: the open
+		// pass is dropped, no Entry changes, and the answer says how much of
+		// it was left. Nobody is made to submit "unchanged" for Entries it
+		// never read just to close a pass it no longer wants (scipy, C4).
 	case loadErr == nil && stored.Checkpoint.Completed:
 		// A completed checkpoint is only a local anti-duplication boundary for
 		// the preceding request. A later explicit intent deliberately starts a
@@ -97,7 +101,11 @@ func handleCognitionOptimizationMaintain(
 	var selection cognitionoptimization.Selection
 	var plan codebatch.Plan
 	var checkpoint cognitionoptimization.StoredCheckpoint
-	if loadErr == nil && !stored.Checkpoint.Completed {
+	replacedOpen := 0
+	if loadErr == nil && !stored.Checkpoint.Completed && len(input.ObjectRefs) != 0 {
+		replacedOpen = len(stored.Checkpoint.RemainingObjectRefs)
+	}
+	if loadErr == nil && !stored.Checkpoint.Completed && len(input.ObjectRefs) == 0 {
 		checkpoint = stored
 		if stored.Checkpoint.CurrentBatchID != "" {
 			plan, selection, err = loadOptimizationCurrentBatch(root, loaded, facts, stored.Checkpoint)
@@ -135,6 +143,8 @@ func handleCognitionOptimizationMaintain(
 					ExplicitObjectRefs: len(input.ObjectRefs) != 0}
 				if loadErr == nil && stored.Checkpoint.Completed {
 					checkpoint, err = cognitionoptimization.RestartCompleted(root, stored.SHA256, create)
+				} else if replacedOpen > 0 || (loadErr == nil && !stored.Checkpoint.Completed) {
+					checkpoint, err = cognitionoptimization.ReplaceOpen(root, stored.SHA256, create)
 				} else {
 					checkpoint, err = cognitionoptimization.Create(root, create)
 				}
@@ -186,6 +196,7 @@ func handleCognitionOptimizationMaintain(
 		NextAction: "review_complete_cognition_optimization_batch",
 	}
 	result.Optimization = optimizationStatus(checkpoint.Checkpoint, len(selection.Batch), "review_required")
+	result.Optimization.DroppedOpenPass = replacedOpen
 	contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
 	if contractErr != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_authoring_contract_invalid"})
