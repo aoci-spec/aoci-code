@@ -110,3 +110,19 @@ candidate-carrying response carries the authoring contract (`instructions`,
 server process and `instructions_ref` afterwards; `include_instructions: true`
 makes that response carry the contract again. The Cognition Volumes contract
 defines the rule and the reference's fields.
+
+Entry answer lines. `aoci_get_entries` and `aoci_search` answer one object
+per line as `[volume_id=<volume> object_ref=<identity>] <Entry>`. A reader
+looks at the character after `object_ref=`: a double quote opens a JSON
+string, which is decoded to its closing quote and followed by `] `; anything
+else is the identity as is, read to the first `] `. An identity holding `]`,
+a double quote, a backslash, or a control character is always written as a
+JSON string, so the second branch never meets one. A requested Code path is
+looked up exactly as sent first, since a file name may end in a space or
+hold a backslash; its normalized form (trimmed, backslash as separator, dot
+segments folded) is used only when the path as sent is not an existing
+file other than the one the normalized form names, so a request is never
+answered with another file's Entry. A path with a `..` segment, or one
+through a symbolic link, is no Git path and is looked up as sent; the
+existence check never leaves the repository. A path with no Entry answers
+`Not indexed` with the identity it was looked up as.

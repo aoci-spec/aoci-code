@@ -531,3 +531,16 @@ func receiptHash(values ...string) string {
 func validSHA256(value string) bool {
 	return len(value) == 64 && strings.Trim(value, "0123456789abcdef") == ""
 }
+
+// RetireReceipt removes an issued batch's receipt so the batch can no longer
+// be submitted: a review pass replaced before its batch applied. Only the
+// receipt goes; an absent one is no error.
+func RetireReceipt(root, batchID string) error {
+	if !validSHA256(batchID) {
+		return fmt.Errorf("code_candidate_batch_id_invalid")
+	}
+	if err := os.Remove(receiptPath(root, batchID)); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("code_candidate_receipt_retire_failed")
+	}
+	return nil
+}

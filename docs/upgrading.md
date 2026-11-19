@@ -121,6 +121,19 @@ zero writes, and the same batch with the values copied from the Maintain
 response applies. A team that mixes binaries either keeps copying or
 upgrades every machine first.
 
+## Parallel siblings in flight across this upgrade are replanned
+
+This release writes a new Entry in path order inside its section; earlier
+binaries appended it at the section's end. A parallel plan whose siblings
+were partly applied by an earlier binary records those writes in the old
+order, so this binary's replay no longer reproduces the Code Volume: the
+siblings still out answer `invalidated` or
+`code_candidate_volume_preimage_stale` with zero writes, and the next
+no-argument `aoci_maintain` issues the remaining work afresh. Nothing is lost;
+the Entries already applied stay. Parallel batches were off by default before
+this release, so only teams that set `code_cognition_parallel_batches` can
+meet this.
+
 ## The Legacy single-file layout is read-only from 0.2.0
 
 A repository whose `aoci.txt` carries its own Header and Entries, with no

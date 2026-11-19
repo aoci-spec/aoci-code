@@ -7,14 +7,12 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
-	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 type maintainIn struct {
@@ -188,7 +186,7 @@ func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp
 		result.Status = autoStatusRepairRequired
 		result.Plan = &plan
 		result.NextAction = plan.NextAction
-		assembled, contractErr := authoringcontract.Build(loaded.set.Meta.Raw, []string{cognition.ScopeDatabase}, textassets.ActiveLocale())
+		assembled, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeDatabase})
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "database_authoring_contract_invalid"})
 		}
