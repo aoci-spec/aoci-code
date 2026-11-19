@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/config"
 )
 
 // A batch names its objects; the digest and candidate id it leaves out are
@@ -162,5 +163,90 @@ func TestDatabaseBatchWithoutCopiedCandidateIDApplies(t *testing.T) {
 	refused := decodeAutoResult(t, handleMCPUpdateBatch(other, "test-version", stray))
 	if refused.Status == autoStatusApplied || refused.Applied != 0 || refused.FormalWritesStarted {
 		t.Fatalf("an object outside the Database batch was written: %#v", refused)
+	}
+}
+
+// Only a field left out is completed. An empty or blank value that was sent
+// is the refusal it always was: nothing is written under it.
+func TestExplicitEmptyBindingIsNotCompleted(t *testing.T) {
+	for _, test := range []struct{ field, value string }{
+		{"source_sha256", ""}, {"candidate_id", ""}, {"source_sha256", "  "}, {"candidate_id", " "},
+	} {
+		t.Run(test.field+"="+strings.ReplaceAll(test.value, " ", "_"), func(t *testing.T) {
+			root := buildLargeCodeCandidateRepo(t, 2)
+			session := connectMCPClient(t, root)
+			maintain := maintainVolumeBatch(t, session)
+			arguments := codeBatchArguments(wireCodePlan(maintain))
+			arguments["entries"].([]map[string]any)[1][test.field] = test.value
+			codeBefore := readCodeBatchFormalAsset(t, root, "aoci.code.txt")
+			rejected := applyVolumeBatch(t, session, arguments)
+			if rejected.Status == autoStatusApplied || rejected.Applied != 0 || rejected.FormalWritesStarted {
+				t.Fatalf("an explicitly empty %s was completed and written: %#v", test.field, rejected)
+			}
+			assertCodeBatchFormalAssetUnchanged(t, root, "aoci.code.txt", codeBefore)
+		})
+	}
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	session := connectMCPClient(t, root)
+	maintain := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase))
+	entries := []map[string]any{}
+	for _, item := range databaseCandidateInput(maintain.Plan) {
+		entries = append(entries, map[string]any{"object_ref": item.ObjectRef, "candidate_id": "", "new_entry": item.NewEntry})
+	}
+	refused := applyVolumeBatch(t, session, map[string]any{"batch_id": maintain.Plan.BatchID, "entries": entries})
+	if refused.Status == autoStatusApplied || refused.Applied != 0 || refused.FormalWritesStarted {
+		t.Fatalf("an explicitly empty Database candidate_id was completed and written: %#v", refused)
+	}
+}
+
+// A batch nothing can be completed for records no Observe review either:
+// the refusal that reports zero formal writes leaves the Baseline as it was.
+func TestUncompletableBatchRecordsNoObserveReview(t *testing.T) {
+	root := pendingObserveRepoWithWork(t, config.AutomationModeAuto)
+	maintain := maintainResultOf(t, root)
+	if maintain.ObserveReview == nil || len(maintain.Candidates) != 1 {
+		t.Fatalf("the fixture issued no review beside a batch: %#v", maintain)
+	}
+	session := connectMCPClient(t, root)
+	arguments := codeBatchArguments(wireCodePlan(maintain))
+	for _, entry := range arguments["entries"].([]map[string]any) {
+		delete(entry, "source_sha256")
+		delete(entry, "candidate_id")
+	}
+	arguments["code_batch_id"] = oneHexTypo(arguments["code_batch_id"].(string))
+	arguments["observe_review"] = map[string]any{"review_digest": maintain.ObserveReview.ReviewDigest, "reviewed_by": "codex-agent"}
+	baselineBefore := readCodeBatchFormalAsset(t, root, filepath.Join(".aoci", "baseline.json"))
+	refused := applyVolumeBatch(t, session, arguments)
+	if refused.Status == autoStatusApplied || refused.FormalWritesStarted || refused.ObserveReview != nil {
+		t.Fatalf("a batch on no record still recorded its review: %#v review=%#v", refused, refused.ObserveReview)
+	}
+	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), baselineBefore)
+	if after := maintainResultOf(t, root); after.ObserveReview == nil {
+		t.Fatal("the review no longer waits although nothing was confirmed")
+	}
+}
+
+// A Database batch whose receipt is gone names the receipt and the two ways
+// on, never a source_sha256 that Database items may not carry.
+func TestDatabaseBatchWithoutReceiptNamesTheReceipt(t *testing.T) {
+	root := databaseCognitionWriteFixture(t, []string{"users"})
+	maintain := decodeDatabaseMaintain(t, handleDatabaseMaintain(root, "test-version", cognition.ScopeDatabase))
+	input := databaseCandidateInput(maintain.Plan)
+	for index := range input {
+		input[index].CandidateID = ""
+	}
+	matches, err := filepath.Glob(filepath.Join(root, ".aoci", "drafts", "*", "*"+maintain.Plan.BatchID+"*"))
+	if err != nil || len(matches) == 0 {
+		t.Fatalf("no Database receipt to remove: %v %v", matches, err)
+	}
+	for _, match := range matches {
+		if err := os.Remove(match); err != nil {
+			t.Fatal(err)
+		}
+	}
+	text := resText(t, handleMCPUpdateBatch(root, "test-version", input))
+	if !strings.Contains(text, "database_candidate_receipt_missing") || !strings.Contains(text, "candidate_id") ||
+		strings.Contains(text, "source_sha256") {
+		t.Fatalf("the refusal does not name the missing receipt and the way on: %s", text)
 	}
 }

@@ -3,6 +3,7 @@ package mcptools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -321,6 +322,27 @@ type updateEntryItemIn struct {
 	CandidateID  string `json:"candidate_id,omitempty"`
 	BatchID      string `json:"-"`
 	Remove       bool   `json:"-"`
+	// sourceGiven and candidateGiven record that the request carried the
+	// field at all: only a field left out is completed from the issued batch,
+	// while an empty or blank value that was sent stays the refusal it was.
+	sourceGiven    bool
+	candidateGiven bool
+}
+
+func (item *updateEntryItemIn) UnmarshalJSON(data []byte) error {
+	type plain updateEntryItemIn
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var present map[string]json.RawMessage
+	if err := json.Unmarshal(data, &present); err != nil {
+		return err
+	}
+	*item = updateEntryItemIn(decoded)
+	_, item.sourceGiven = present["source_sha256"]
+	_, item.candidateGiven = present["candidate_id"]
+	return nil
 }
 
 // withRemovals appends the batch's removals to its Entries as items the
@@ -406,6 +428,13 @@ func registerWriteTools(
 					if in.Path != "" || in.ObjectRef != "" || in.NewEntry != "" || in.SourceSHA256 != "" || in.CandidateID != "" {
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
+					items := withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID)
+					if _, bindingFail := fillIssuedBindings(root, items); bindingFail != nil {
+						// Nothing can be completed for this batch, so the Observe
+						// review beside it is not recorded either: the refusal
+						// below is rendered by the batch itself, with zero writes.
+						return handleMCPUpdateBatchReviewed(root, mcpServiceVersion, items, nil, refreshSession)
+					}
 					var review *batchObserveReview
 					if in.ObserveReview != nil {
 						var early *mcp.CallToolResult
@@ -416,7 +445,7 @@ func registerWriteTools(
 					return handleMCPUpdateBatchReviewed(
 						root,
 						mcpServiceVersion,
-						withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID),
+						items,
 						review,
 						refreshSession,
 					)
@@ -532,7 +561,9 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 		}
 		switch {
 		case item.Path != "" && item.ObjectRef == "":
-			if strings.TrimSpace(item.SourceSHA256) != "" && strings.TrimSpace(item.CandidateID) != "" {
+			needSource := !item.sourceGiven && item.SourceSHA256 == ""
+			needCandidate := !item.candidateGiven && item.CandidateID == ""
+			if !needSource && !needCandidate {
 				continue
 			}
 			rel, err := afs.NormalizeRelPath(item.Path)
@@ -555,24 +586,26 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 			if !issued {
 				return result, stale("code_candidate_batch_mismatch")
 			}
-			if strings.TrimSpace(item.SourceSHA256) == "" {
+			if needSource {
 				result[index].SourceSHA256 = target.SourceSHA256
 			}
-			if strings.TrimSpace(item.CandidateID) == "" {
+			if needCandidate {
 				result[index].CandidateID = target.CandidateID
 			}
 		case item.ObjectRef != "" && item.Path == "":
-			if strings.TrimSpace(item.CandidateID) != "" || strings.TrimSpace(item.SourceSHA256) != "" {
+			if item.candidateGiven || item.sourceGiven || item.CandidateID != "" || item.SourceSHA256 != "" {
 				continue
 			}
 			targets, loaded := databaseTargets[batchID]
 			if !loaded {
 				receipt, loadErr := dbcognition.LoadReceipt(root, batchID)
 				if loadErr != nil {
-					// Left as sent: a Database batch whose receipt is gone can
-					// still close through its recovery when the ids are copied,
-					// and the planner's refusal asks for exactly that.
-					continue
+					// A copied candidate_id can still close an interrupted
+					// write of this batch after its receipt is gone, so the
+					// refusal names the receipt and both ways on.
+					return result, &Fail{Code: errWriteConflict,
+						Msg:  writeMessage("entry.batch.database_receipt_missing", loadErr.Error()),
+						Hint: writeMessage("entry.batch.hint.replan")}
 				}
 				targets = make(map[string]string, len(receipt.Targets))
 				for _, target := range receipt.Targets {

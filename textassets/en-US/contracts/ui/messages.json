@@ -452,6 +452,7 @@
   "entry.batch.hint.lock_timeout": "Another process is writing the index; retry the entire batch later",
   "entry.batch.hint.paths_relative": "Every path must be repository-relative",
   "entry.batch.hint.refresh_binding": "Call aoci_maintain again to obtain the current candidate and source fingerprint",
+  "entry.batch.database_receipt_missing": "%s: the issued Database batch is not on record. To finish an interrupted write of it, resubmit with each candidate_id as aoci_maintain issued it; otherwise call aoci_maintain again and author its current batch",
   "entry.batch.hint.replan": "Replan the complete batch against the current index",
   "entry.batch.hint.unique_paths": "Each path may appear only once in a batch",
   "entry.batch.index_write_failed": "Could not persist the atomic Entry batch: %s",

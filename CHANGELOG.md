@@ -13,7 +13,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
   binding finding. On a first build this removes two 64-character values per
   candidate from every submission, and the copying mistakes that came with
   them. The runtime rules, the tool description, and the AGENTS block say so;
-  run `aoci init --agent <host>` to refresh an existing AGENTS block.
+  run `aoci init --agent <host>` to refresh an existing AGENTS block. Only a
+  field left out is completed, an empty value that was sent is refused as
+  before; a batch nothing can be completed for records no Observe review
+  either. An older server refuses the short form at its input schema.
 - A compaction reload can no longer be proven without being read. The Host
   confirmation echoes a SHA-256 that the first Chunk prints, and an unchanged
   index has the SHA-256 it had before: fetch Chunk 1 of the reload, submit the

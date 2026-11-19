@@ -111,6 +111,15 @@ which previews the paths the new rule takes out of the index and pauses for
 approval because that is a coverage reduction. `aoci doctor` lists those
 paths beforehand without changing anything.
 
+## A batch without copied bindings needs the binary that completes them
+
+From this release an `aoci_update_entry` batch item may leave out
+`source_sha256` and `candidate_id`, and the refreshed `AGENTS.md` block says
+so. An older server still requires both: it refuses such a batch at its input
+schema with zero writes, and the same batch with the values copied from the
+Maintain response applies. A team that mixes binaries either keeps copying or
+upgrades every machine first.
+
 ## The Legacy single-file layout is read-only from 0.2.0
 
 A repository whose `aoci.txt` carries its own Header and Entries, with no
