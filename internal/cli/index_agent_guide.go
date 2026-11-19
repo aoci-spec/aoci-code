@@ -228,7 +228,7 @@ func buildVolumeAgentGuide(root string, cfg *config.Config, set *cognition.Set, 
 			return nil, &ExitError{Code: ExitInternal, Err: instructionErr}
 		}
 		guide.Instructions = append(instructions, guide.Instructions...)
-		applyVolumeBlockedRemediation(&guide, facts)
+		applyVolumeBlockedRemediation(&guide, facts, root)
 	}
 	if facts.Result == volumegovernance.ResultEvidenceRequired {
 		// The stage named what it needs and stopped there; it now names the
@@ -310,7 +310,7 @@ func sourcesOwingEvidence(facts *volumegovernance.Facts) []string {
 	return sources
 }
 
-func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts) {
+func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegovernance.Facts, root string) {
 	baselineMissing, scopeChange, observedPending, budgetExceeded, recoveryPending := false, false, false, false, false
 	for _, finding := range facts.Findings {
 		switch finding.Code {
@@ -327,21 +327,6 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 		}
 	}
 	locale := textassets.ActiveLocale()
-	// A Volume a merge left unlike its Baseline record: the stop names the
-	// file, and the finding's own sentence is the way out. Harder stops below
-	// replace it.
-	for _, finding := range facts.Findings {
-		if strings.HasSuffix(finding.Code, "_volume_unbaselined") && finding.Cause == volumegovernance.CauseVolumeChangedAfterBaseline {
-			guide.Stop = &volumeGuideStopFacts{
-				AffectedAsset: finding.Target, Field: "baseline", RuleCode: finding.Code,
-				Expected: "volume_matches_baseline_record", Actual: "volume=" + finding.Cause,
-				Cause:          finding.Cause,
-				SafeNextAction: "git checkout {commit} -- " + strings.Join(facts.RestoreSet(), " ") + "; " + finding.SafeRepairAction,
-			}
-			guide.Instructions = append(guide.Instructions, guide.Stop.SafeNextAction)
-			break
-		}
-	}
 	if baselineMissing {
 		instructions := renderGuideLines(locale, textassets.ContractGuideBaselineFirstInstructions, nil)
 		guide.Commands.Scan = "aoci " + machinecontract.RemediationCommandScan
@@ -421,6 +406,27 @@ func applyVolumeBlockedRemediation(guide *volumeAgentGuide, facts *volumegoverna
 			SafeNextAction: strings.Join(instructions, " "),
 		}
 		guide.Instructions = append(guide.Instructions, instructions...)
+	}
+	// A Volume a merge left unlike its Baseline record is the stop that comes
+	// first among those left here (a missing Baseline and a pending Recovery
+	// returned above): a Scope Change refuses over the drifted bytes and a
+	// budget read from a mixed index says nothing. The command is bound to
+	// this repository's root, so it reaches it from any directory.
+	for _, finding := range facts.Findings {
+		if !strings.HasSuffix(finding.Code, "_volume_unbaselined") || finding.Cause != volumegovernance.CauseVolumeChangedAfterBaseline {
+			continue
+		}
+		next := finding.SafeRepairAction
+		if command := facts.RestoreCommand(root); command != "" {
+			next = command + "; " + next
+		}
+		guide.Stop = &volumeGuideStopFacts{
+			AffectedAsset: finding.Target, Field: "baseline", RuleCode: finding.Code,
+			Expected: "volume_matches_baseline_record", Actual: "volume=" + finding.Cause,
+			Cause: finding.Cause, SafeNextAction: next,
+		}
+		guide.Instructions = append([]string{next}, guide.Instructions...)
+		break
 	}
 }
 

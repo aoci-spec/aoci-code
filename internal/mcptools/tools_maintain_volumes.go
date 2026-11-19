@@ -717,20 +717,28 @@ func blockingFinding(facts *volumegovernance.Facts, orphans []string) (string, s
 	for _, step := range []struct{ code, action string }{
 		{"recovery_pending", machinecontract.MaintainActionClosePendingRecovery},
 		{"baseline_missing", machinecontract.MaintainActionScanToEstablishBaseline},
-		{"scope_change_required", machinecontract.MaintainActionActivateScopeChange},
-		{"cognition_budget_exceeded", machinecontract.MaintainActionResolveCognitionBudget},
 	} {
 		if codes[step.code] {
 			return step.code, step.action
 		}
 	}
 	// A Volume a merge left unlike its Baseline record: authoring findings
-	// usually precede it in the list, and none of them is the blocker.
+	// usually precede it in the list, and none of them is the blocker. It
+	// comes before a Scope Change and the budget: activation refuses over the
+	// drifted bytes, and a budget read from a mixed index says nothing.
 	if facts != nil && len(facts.RestoreSet()) > 0 {
 		for _, finding := range facts.Findings {
 			if strings.HasSuffix(finding.Code, "_volume_unbaselined") && finding.Cause == volumegovernance.CauseVolumeChangedAfterBaseline {
 				return finding.Code, machinecontract.MaintainActionRestoreFormalAssets
 			}
+		}
+	}
+	for _, step := range []struct{ code, action string }{
+		{"scope_change_required", machinecontract.MaintainActionActivateScopeChange},
+		{"cognition_budget_exceeded", machinecontract.MaintainActionResolveCognitionBudget},
+	} {
+		if codes[step.code] {
+			return step.code, step.action
 		}
 	}
 	if facts != nil && len(facts.Findings) > 0 {

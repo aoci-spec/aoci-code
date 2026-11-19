@@ -15,6 +15,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/textassets"
 )
 
@@ -640,8 +641,20 @@ func handleMCPUpdateBatchReviewed(
 			remaining = fail.CodePlan.TotalTargets
 			preserveOtherCandidates = true
 		}
+		// A batch issued before a merge and submitted after it is refused as
+		// stale before any write. When what stands in its way is the merged
+		// index itself, the refusal names that way out, as Maintain would.
+		var nextCommands []string
+		if status == autoStatusStopped && !fail.FormalWritesStarted && fail.GlobalStop == nil {
+			if _, facts := BuildTerminalProof(root); facts != nil {
+				if _, action := blockingFinding(facts, nil); action == machinecontract.MaintainActionRestoreFormalAssets {
+					nextAction, nextCommands = action, blockedNextCommands(root, facts)
+				}
+			}
+		}
 		return textResult(renderAutoResult(autoResult{
 			ObserveReview:           review,
+			NextCommands:            nextCommands,
 			Version:                 1,
 			Status:                  status,
 			Aligned:                 false,

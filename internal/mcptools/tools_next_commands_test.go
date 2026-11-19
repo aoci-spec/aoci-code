@@ -1,11 +1,15 @@
 package mcptools
 
 import (
+	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // The commands must be runnable as returned: absolute quoted executable, the
@@ -170,5 +174,54 @@ func TestMergedVolumeStopNamesTheRestore(t *testing.T) {
 	}
 	if commands = blockedNextCommands(root, facts); commands != nil {
 		t.Fatalf("no restore for a hidden Volume: %v", commands)
+	}
+}
+
+// The restore is offered only while it is the blocker the result names: a
+// pending Recovery comes first and must not sit beside a command that
+// overwrites the formal assets, while a Scope Change waits for the restore.
+func TestRestoreIsOfferedOnlyAsTheNamedBlocker(t *testing.T) {
+	root := t.TempDir()
+	merged := volumegovernance.Finding{Code: "code_volume_unbaselined", Target: "aoci.code.txt", Cause: volumegovernance.CauseVolumeChangedAfterBaseline}
+	build := func(extra string) *volumegovernance.Facts {
+		facts := &volumegovernance.Facts{}
+		facts.Root.Path, facts.Meta.Path = "aoci.txt", "aoci.meta.txt"
+		facts.Code = volumegovernance.AssetState{Enabled: true, Path: "aoci.code.txt"}
+		facts.Findings = []volumegovernance.Finding{{Code: extra, Cause: "entries"}, merged}
+		return facts
+	}
+	pending := build("recovery_pending")
+	if _, action := blockingFinding(pending, nil); action != machinecontract.MaintainActionClosePendingRecovery {
+		t.Fatalf("a pending Recovery comes first: %s", action)
+	}
+	if commands := strings.Join(blockedNextCommands(root, pending), "\n"); strings.Contains(commands, "git ") {
+		t.Fatalf("no restore beside a pending Recovery: %s", commands)
+	}
+	for _, later := range []string{"scope_change_required", "cognition_budget_exceeded"} {
+		facts := build(later)
+		if _, action := blockingFinding(facts, nil); action != machinecontract.MaintainActionRestoreFormalAssets {
+			t.Fatalf("the restore comes before %s: %s", later, action)
+		}
+		if commands := blockedNextCommands(root, facts); len(commands) == 0 || !strings.HasPrefix(commands[0], "git -C ") {
+			t.Fatalf("the restore command leads before %s: %v", later, commands)
+		}
+	}
+}
+
+// A Volumes v1 repository whose assets do not load is damaged, not Legacy:
+// Maintain answers the load failure and never the migration.
+func TestMaintainOnDamagedVolumesIsNotTheLegacyStop(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	session := connectMCPClient(t, root)
+	if err := os.Remove(filepath.Join(root, "aoci.meta.txt")); err != nil {
+		t.Fatal(err)
+	}
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_maintain", Arguments: map[string]any{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := resText(t, result)
+	if !result.IsError || strings.Contains(text, machinecontract.StatusLegacyReadOnlyMigrateRequired) || strings.Contains(text, "migrate_legacy_repository") {
+		t.Fatalf("a damaged Volumes repository was answered as Legacy:\n%s", text)
 	}
 }

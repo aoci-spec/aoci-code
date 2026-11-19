@@ -2174,6 +2174,13 @@ def group_n():
     sb = Session(fx); add_source_and_align(sb, fx, "f010.go"); sb.close()
     sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "-m", "side b")
     sh(fx, "git", "checkout", "-q", "side-a")
+    # A batch issued before the merge is submitted after it, further down.
+    with open(os.path.join(fx, "pkg", "f003.go"), "a") as f:
+        f.write("\n// changed before the merge\n")
+    sm = Session(fx)
+    issued, _, _ = maintain(sm)
+    sm.close()
+    sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "-m", "side a source")
     merged = subprocess.run(["git", "merge", "side-b"], cwd=fx, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
     sh(fx, "git", "checkout", "--theirs", "--", ".aoci/baseline.json")
     sm = Session(fx)
@@ -2184,8 +2191,24 @@ def group_n():
              and m.get("next_action") == "restore_formal_assets_from_one_commit"
              and all(asset in restore for asset in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"))
              and "aoci.database.txt" not in restore)
+    # The Guide names the same stop, with the command bound to this root, and
+    # a pending Scope Change does not hide it: activation would refuse over
+    # the drifted bytes, so the restore still comes first.
+    _, guide, _, _ = cli(fx, "index", "agent", "guide", "--agent", "codex")
+    stop = guide.get("stop") or {}
+    named = named and stop.get("rule_code") == "code_volume_unbaselined" and (stop.get("safe_next_action") or "").startswith(restore)
+    cli(fx, "config", "set", "sensitive_name_rules", "v1")
+    mp, _, _ = maintain(sm)
+    codes = [f.get("code") for f in ((mp.get("governance") or {}).get("findings") or [])]
+    named = (named and "scope_change_required" in codes and mp.get("next_action") == "restore_formal_assets_from_one_commit"
+             and (mp.get("next_commands") or [""])[0] == restore)
+    cli(fx, "config", "set", "sensitive_name_rules", "v2")
+    stale, ts, _ = submit_batch(sm, issued)
+    named = (named and stale.get("status") == "stopped" and stale.get("formal_writes_started") is False
+             and stale.get("next_action") == "restore_formal_assets_from_one_commit"
+             and (stale.get("next_commands") or [""])[0] == restore)
     record(g, "N5.merge-stop-names-the-restore", "PASS" if named else "FAIL",
-           f"merge_rc={merged.returncode} next={m.get('next_action')} cmds={cmds}"[:240])
+           f"merge_rc={merged.returncode} next={m.get('next_action')} stop={stop.get('rule_code')} scope={mp.get('next_action')} {codes} cmds={cmds}"[:300])
     if named:
         proc = subprocess.run(restore.replace("{commit}", "MERGE_HEAD"), shell=True, cwd=os.path.join(WORK, "elsewhere"),
                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
@@ -2193,7 +2216,7 @@ def group_n():
         reissued = sorted(c["path"] for c in (m2.get("candidates") or []))
         a, tw, _ = submit_batch(sm, m2)
         al, _ = fixture_aligned(fx)
-        ok = proc.returncode == 0 and reissued == ["pkg/f001.go"] and a.get("aligned") is True and al
+        ok = proc.returncode == 0 and reissued == ["pkg/f001.go", "pkg/f003.go"] and a.get("aligned") is True and al
         record(g, "N5b.restored-set-reissues-the-other-side", "PASS" if ok else "FAIL",
                f"rc={proc.returncode} reissued={reissued} aligned={a.get('aligned')} {proc.stderr[:100]}"[:240])
     else:

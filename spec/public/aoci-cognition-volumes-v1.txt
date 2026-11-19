@@ -430,18 +430,24 @@ removes one Code orphan on its own; a Database orphan still goes through it.
 A blocked Maintain names its blocker in next_action. When
 orphan_remove_candidates holds a Database orphan the value is
 explicit_orphan_remove_or_resolve_blocker; otherwise it is the first of
-close_pending_recovery, scan_to_establish_baseline, activate_scope_change,
-resolve_cognition_budget, and restore_formal_assets_from_one_commit whose
-finding is present, and resolve_blocker when none is. The last of those
-names an object Volume the Baseline records with other bytes, which is what
-a merge of two branches that each maintained the index leaves when one
-side's Baseline is taken alone: its `*_volume_unbaselined` finding carries
-`cause=changed_after_baseline`, and next_commands carries one
+close_pending_recovery, scan_to_establish_baseline,
+restore_formal_assets_from_one_commit, activate_scope_change, and
+resolve_cognition_budget whose finding is present, and resolve_blocker when
+none is. restore_formal_assets_from_one_commit names an object Volume the
+Baseline records with other bytes, which is what a merge of two branches
+that each maintained the index leaves when one side's Baseline is taken
+alone: its `*_volume_unbaselined` finding carries
+`cause=changed_after_baseline`, reported beside a pending Scope Change too,
+since activation refuses over the drifted bytes. While it is the named
+blocker, and only then, next_commands leads with one
 `git -C <root> checkout {commit} -- <Root> <Meta> <enabled Volumes>
 .aoci/baseline.json`, where `{commit}` is the Host's to fill with the side
 whose index is kept (HEAD or MERGE_HEAD while the merge is open, a parent of
-the merge commit after it). The next Maintain returns every source that
-commit's Entries do not describe. Observe-only blocking uses review_observed_evidence as defined
+the merge commit after it). The paths are those the current Root enables: a
+commit that lacks one of them (its Root enables no Database Volume, say)
+makes git refuse the whole checkout and write nothing, and the Host names
+the other side. The next Maintain returns every source that commit's
+Entries do not describe. The Guide's stop carries the same command. Observe-only blocking uses review_observed_evidence as defined
 above, superseding the earlier acknowledge_observed_evidence spelling. A Host
 acting on the token alone never removes orphans that the result did not list.
 

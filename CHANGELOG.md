@@ -33,8 +33,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
   carries `cause=changed_after_baseline`, and `next_commands` holds the one
   `git checkout {commit} -- <Root> <Meta> <Volumes> .aoci/baseline.json` for
   this repository; after it, Maintain returns what the other side changed.
-  The Guide's stop names the same. No new command; troubleshooting documents
-  the merge. Reported by aoci-agent.
+  The Guide's stop names the same, and a pending Scope Change no longer hides
+  the drifted Volume. No new command; troubleshooting documents the merge.
+  Reported by aoci-agent.
+- Maintain on a Volumes v1 repository whose assets do not load (a Volume
+  holding merge conflict markers, a missing Meta) answered the Legacy
+  read-only stop and pointed at the migration. It now answers the load
+  failure.
 - The delta base and the probe pass are each Host session's own. Two MCP
   sessions of one server shared them, so a session that had received no body
   could be answered an empty delta marked reliable on the strength of the

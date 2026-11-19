@@ -185,6 +185,23 @@ If only one of the files was taken, Maintain stops with
 `next_commands` holds that same `git checkout {commit} -- ...` with the exact
 paths of this repository; fill `{commit}` and run it. After the merge was
 committed, `{commit}` is a parent of the merge commit (`HEAD^1` or `HEAD^2`).
+The Guide's stop carries the same command. It is offered only while it is
+the stop that comes first: a pending receipt under `.aoci/transactions` is
+closed before anything is restored, and a pending Scope Change waits for the
+restore.
+
+If git answers `pathspec ... did not match`, the commit you named does not
+have one of the listed files (only the other branch enabled a Database
+Volume, for example). Nothing was written; name the other side.
+
+When both branches also accepted new Database Evidence,
+`.aoci/database-baseline.json` conflicts too and is not part of the restore.
+Resolve that file to the side that matches the database as it is now (the
+schema a fresh snapshot would read); while it holds conflict markers the
+evidence commands Maintain returns cannot bind a snapshot.
+
+A Volume left holding conflict markers may not load at all. Maintain then
+answers the load failure naming the asset; the same checkout repairs it.
 
 ## A Volume shows as `observed_removed`, and nothing can acknowledge it
 

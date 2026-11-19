@@ -76,9 +76,18 @@ func blockedNextCommands(root string, facts *volumegovernance.Facts) []string {
 	if facts == nil {
 		return nil
 	}
+	// The restore of a merged index is the one remediation that is a git
+	// command, bound to the root on its own; it is offered only while it is
+	// the blocker the result names, never beside a pending Recovery.
+	var restore []string
+	if _, action := blockingFinding(facts, nil); action == machinecontract.MaintainActionRestoreFormalAssets {
+		if command := facts.RestoreCommand(root); command != "" {
+			restore = []string{command}
+		}
+	}
 	prefix := nextCommandPrefixFor(root)
 	if prefix == "" {
-		return nil
+		return restore
 	}
 	suffixes := make([]string, 0, 4)
 	seen := map[string]bool{}
@@ -114,32 +123,7 @@ func blockedNextCommands(root string, facts *volumegovernance.Facts) []string {
 			}
 		}
 	}
-	return append(restoreFormalAssetsCommand(root, facts), composeNextCommands(prefix, suffixes...)...)
-}
-
-// restoreFormalAssetsCommand spells the repair of a Volume a merge left
-// unbaselined: the Root, every Volume, and the Baseline checked out together
-// from one commit the Host names. The no-argument Maintain that follows is
-// already the tool the caller is holding. An unquotable root or path omits the
-// command, as everywhere here.
-func restoreFormalAssetsCommand(root string, facts *volumegovernance.Facts) []string {
-	paths := facts.RestoreSet()
-	if len(paths) == 0 {
-		return nil
-	}
-	quotedRoot, ok := quoteCommandArgument(root)
-	if !ok || nextCommandPrefix() == "" {
-		return nil
-	}
-	command := "git -C " + quotedRoot + " " + machinecontract.RemediationGitRestoreFormalAssets
-	for _, path := range paths {
-		quoted, ok := quoteCommandArgument(path)
-		if !ok {
-			return nil
-		}
-		command += " " + quoted
-	}
-	return []string{command}
+	return append(restore, composeNextCommands(prefix, suffixes...)...)
 }
 
 // evidenceNextCommands names the offline-evidence refresh chain for a stopped

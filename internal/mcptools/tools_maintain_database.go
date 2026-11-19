@@ -105,6 +105,12 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 			return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 		}
 	}
+	// A Volumes v1 Root whose assets do not load (a Volume holding merge
+	// conflict markers, say) is a damaged Volumes repository, never a Legacy
+	// one: the load failure is the answer, not the migration.
+	if fail != nil && cognition.RootLayout(root) == cognition.LayoutVolumesV1 {
+		return failResult(fail)
+	}
 	// Not a Volumes v1 layout: a Legacy single-file index, or none. Legacy is
 	// read-only since 0.2.0, so Code maintenance answers the migration; the
 	// Database scope still reads its saved Evidence.
