@@ -10,11 +10,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
   previous delivery's proof again, and the answer was confirmed, complete, and
   reliable. On a Legacy layout a session that requested no delivery at all
   got the same. A confirmation now counts only for a body the serving process
-  has sent to its end since the last fresh request for it, a later Chunk
-  replayed from an earlier chain does not finish the current one, and anything
-  else is `host_delivery_incomplete`; the Host finishes the chain and confirms
-  again. Present since the chunked delivery was introduced; found by the
-  project's own reviewers.
+  has sent to its end, to that Host session, since its last fresh request
+  for it; anything else is `host_delivery_incomplete` with
+  `server_delivery_complete: false`, and the Host finishes the chain and
+  confirms again. A fresh request that is answered with a body supersedes the
+  deliveries the same Host session held for that scope (their v2 cursors ask
+  for a restart) and clears the proof halves remembered for it, so neither an
+  earlier confirmation nor an earlier Attestation latches onto a reload. Two
+  MCP sessions of one server no longer prove each other's delivery. After a
+  server restart a v1 cursor still returns its Chunk, but a confirmation
+  needs a fresh request in the new process. Present since the chunked
+  delivery was introduced; found by the project's own reviewers.
 - The runtime rules and the AGENTS block said that one object, Tag, or F
   mismatch fails the Attestation. The rule has long been the pass share: at
   least 80 percent of the ordinals fully correct with at most one object

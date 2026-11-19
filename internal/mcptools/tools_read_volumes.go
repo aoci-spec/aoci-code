@@ -182,6 +182,14 @@ func handleVolumeOverview(
 		recordCapacityEvents(root, loaded.cfg.LedgerEnabled, view.ScopeIdentity, assessment.Interruption, capacity, plan, assessment.RefreshReasons)
 		return textResult(output)
 	}
+	if fresh {
+		// A fresh request that is answered with a body is a new transmission:
+		// the deliveries this Host session still holds for the same scope are
+		// superseded with their proof memory, so no later proof can be
+		// answered by an earlier one and their cursors ask for a restart. A
+		// capacity stop sends nothing and leaves a held chain as it was.
+		refreshSession.deliveries.supersede(owner, view.ScopeIdentity, view.RequestedScope)
+	}
 	// Incremental delivery (L5): a delta_since request is served from the
 	// session's base when it is eligible, and answers the complete scope with
 	// the named fallback_reason otherwise. Every fresh all-scope delivery
@@ -257,7 +265,7 @@ func handleVolumeOverview(
 		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
 		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
-		Session: refreshSession, Transport: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
+		Session: refreshSession, Transport: refreshSession, Owner: owner, LedgerEnabled: loaded.cfg.LedgerEnabled,
 		Delta: deltaFacts, DeltaChallenge: deltaChallenge, Anchor: anchor, FallbackReason: fallbackReason,
 	}
 	var entry *volumeDelivery

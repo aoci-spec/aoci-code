@@ -183,6 +183,19 @@ func (store *volumeDeliveryStore) remove(entry *volumeDelivery) {
 	}
 }
 
+// supersede drops every delivery of one Host session for one scope identity
+// and requested scope: a fresh request for that scope replaces them.
+func (store *volumeDeliveryStore) supersede(owner volumeDeliveryOwner, identity, requestedScope string) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	for id, entry := range store.entries {
+		if entry.owner == owner && entry.ctx.ScopeIdentity == identity && entry.ctx.RequestedScope == requestedScope {
+			delete(store.entries, id)
+			store.bytes -= entry.bytes
+		}
+	}
+}
+
 func newVolumeDelivery(owner volumeDeliveryOwner, ctx overviewRenderContext, guard *overviewSourceGuard, semantic semanticChangeFacts, identity string, tokens int) (*volumeDelivery, error) {
 	nonce := make([]byte, 16)
 	if _, err := rand.Read(nonce); err != nil {

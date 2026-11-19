@@ -177,6 +177,9 @@ type overviewRenderContext struct {
 	// has sent each body. Session may be a retained delivery's private
 	// evidence memory, which a later delivery of the same body does not share.
 	Transport *cognitionRefreshSession
+	// Owner is the Host session the delivery belongs to: transport progress
+	// and remembered proof halves are kept per Owner and body.
+	Owner volumeDeliveryOwner
 	// Prepared is immutable. Pure render callers may omit it; a delivery session
 	// supplies it to reuse the exact frame, canonical sequence and chunk plan.
 	Prepared      *preparedOverview
@@ -212,6 +215,10 @@ func prepareOverview(ctx overviewRenderContext, tokens int) (*preparedOverview, 
 }
 
 type overviewDeliveryFacts struct {
+	// ServerSent says whether this process has sent the body to its end for
+	// this Host session since its last fresh request; a proof response
+	// prints it as server_delivery_complete.
+	ServerSent         bool
 	DeliveryMode       string
 	FullTextIncluded   bool
 	IndexSHA256        string
@@ -279,21 +286,28 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		len(ctx.Delta.RemovedIdentities) > 0 && !ctx.Delta.HeaderIncluded
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
+	body := framed.Receipt.BodySHA256
 	if input.HostConfirmation == nil && input.ModelAttestation == nil && input.Cursor == "" {
 		// A fresh complete delivery attempt takes its own evidence; the previous
-		// attempt's confirmation does not vouch for this transmission.
-		ctx.Session.resetDeliveryEvidence(framed.Receipt.BodySHA256)
-	}
-	if hostStatus == hostDeliveryConfirmed && !ctx.transport().deliveryServed(framed.Receipt.BodySHA256) {
-		// The body hash is printed on the first Chunk and an unchanged index
-		// has the hash it had before, so a matching confirmation proves a
-		// copy, not a transport. It counts only once this process has sent
-		// the body to its end since the last fresh request for it.
-		hostStatus = hostDeliveryIncomplete
+		// attempt's confirmation does not vouch for this transmission. Both
+		// memories are cleared: a retained delivery keeps a private one, and
+		// the Host session's own serves the live path.
+		ctx.Session.resetDeliveryEvidence(ctx.Owner, body)
+		ctx.transport().resetDeliveryEvidence(ctx.Owner, body)
 	}
 	// The two proof halves each bind this exact body, so the half missing from
 	// this call may be the one an earlier call already delivered.
-	hostStatus, report = ctx.Session.mergeDeliveryEvidence(framed.Receipt.BodySHA256, hostStatus, report)
+	hostStatus, report = ctx.Session.mergeDeliveryEvidence(ctx.Owner, body, hostStatus, report)
+	served := ctx.transport().deliveryServed(ctx.Owner, body)
+	if hostStatus == hostDeliveryConfirmed && !served {
+		// The body hash is printed on the first Chunk and an unchanged index
+		// has the hash it had before, so a matching confirmation proves a
+		// copy, not a transport. It counts only once this process has sent
+		// the body to its end for this Host session since its last fresh
+		// request, whether the confirmation came with this call or from memory.
+		hostStatus = hostDeliveryIncomplete
+		ctx.Session.unconfirmDelivery(ctx.Owner, body)
+	}
 	if report != nil {
 		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scoring_started", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: "started"})
 	}
@@ -310,6 +324,9 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		EntryCount: ctx.EntryCount, SemanticFiles: ctx.Assessment.Semantic.Count,
 		BodyUTF8Bytes: framed.Receipt.BodyUTF8Bytes, BodySHA256: framed.Receipt.BodySHA256,
 		HostDeliveryStatus: hostStatus, Attestation: attestation,
+		// A response that carries the body to its end says so itself; only a
+		// proof response speaks for an earlier transmission.
+		ServerSent: served || (input.HostConfirmation == nil && input.ModelAttestation == nil),
 	}
 
 	if input.HostConfirmation != nil || input.ModelAttestation != nil {
@@ -344,7 +361,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		output := metadata + "\n" + framed.Text + renderOverviewCognitionLevelMessage(level)
 		facts.OutputBytes = len(output)
 		facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, 1, 1, true
-		ctx.transport().noteDeliveryProgress(framed.Receipt.BodySHA256, true, 1, 1)
+		ctx.transport().noteDeliveryProgress(ctx.Owner, framed.Receipt.BodySHA256, true, 1, 1)
 		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 	}
 
@@ -366,7 +383,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
 	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
-	ctx.transport().noteDeliveryProgress(framed.Receipt.BodySHA256, input.Cursor == "", position.Index, position.Count)
+	ctx.transport().noteDeliveryProgress(ctx.Owner, framed.Receipt.BodySHA256, input.Cursor == "", position.Index, position.Count)
 	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
 }
 
@@ -424,7 +441,7 @@ func renderOverviewMetadata(
 			"continuation_required: false\nfull_text_included: %t\nruntime_repository_root: %s\n"+
 			"mcp_service_version: %s\nindex_sha256: %s\nentry_count: %d\nsection_count: %d\n"+
 			"estimated_tokens: %d\nindex_bytes: %d\nbody_utf8_bytes: %d\nbody_sha256: %s\n"+
-			"server_delivery_complete: true\ndelivery_receipt_version: %s\nhost_delivery_status: %s\ngovernance_aligned: %t\n"+
+			"server_delivery_complete: %t\ndelivery_receipt_version: %s\nhost_delivery_status: %s\ngovernance_aligned: %t\n"+
 			"cognition_currency: %s\ndelivery_guidance: %s\nrefresh_generation: %d\nrefresh_status: %s\n"+
 			"cognition_state: %s\n"+
 			"attestation_contract_version: %s\nchallenge_index_sha256: %s\n"+
@@ -435,7 +452,7 @@ func renderOverviewMetadata(
 		deliveryMode, completed, facts.FullTextIncluded,
 		overviewMetadataLineValue(ctx.Root), overviewMetadataLineValue(ctx.MCPServiceVersion), ctx.ScopeIdentity,
 		ctx.EntryCount, ctx.SectionCount, ctx.EstimatedTokens, ctx.ContentBytes,
-		framed.Receipt.BodyUTF8Bytes, framed.Receipt.BodySHA256,
+		framed.Receipt.BodyUTF8Bytes, framed.Receipt.BodySHA256, facts.ServerSent,
 		overviewDeliveryReceiptV1, facts.HostDeliveryStatus, ctx.Assessment.Semantic.GovernanceAligned,
 		currency, deliveryGuidance, receipt.RefreshGeneration, refreshStatus, receipt.State,
 		modelCognitionAttestationV1, challenge.IndexSHA256,

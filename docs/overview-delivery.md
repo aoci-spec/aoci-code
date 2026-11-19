@@ -33,7 +33,11 @@ The existing `overview-chunk-receipt/v1` proves Chunk order, Entry ordinals,
 bytes, token estimate, SHA, cursor, and completion. A cursor binds the Index,
 Chunk budget, next Entry ordinal, and prior Chunk SHA. Invalid, skipped,
 reordered, cross-Index, or cross-configuration chains fail closed; an exact
-replay of a genuine cursor idempotently re-serves the identical Chunk.
+replay of a genuine cursor idempotently re-serves the identical Chunk. A Host
+confirmation counts only for a body the server has sent to its end, to that
+Host session, since its last fresh request: a fresh request supersedes the
+earlier deliveries of the same scope, so an earlier proof never vouches for a
+reload that was not read to its end.
 No persistent delivery Session or transaction is created.
 
 A Volumes v1 delivery whose governance is aligned is prepared once and reused
@@ -127,8 +131,9 @@ Overview. Local or historical evidence still cannot repair the Attestation.
 
 The model submits semantic Challenge answers once from the delivered index. It
 may correct one same-response JSON Schema or field-format error without
-changing answers; any object, Tag, or F mismatch is a final fail/uncertain
-result. Challenge Metadata includes only ordinals and binding data, never target
+changing answers; a result short of the pass share (at least 80 percent of
+the ordinals fully correct, at most one object identity miss) is final and
+records an uncertain receipt. Challenge Metadata includes only ordinals and binding data, never target
 identities, Tags, F, or answer summaries.
 
 Each Challenge and Attestation explicitly binds the current `index_sha256`, the

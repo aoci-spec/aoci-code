@@ -311,7 +311,7 @@ func registerReadTools(
 						EntryCount: entryCount, SectionCount: sectionCount,
 						EstimatedTokens: len(repository.text) / 3,
 						Receipt:         deliveredReceipt, Assessment: assessment,
-						Sequence: sequence, Session: refreshSession, LedgerEnabled: loaded.cfg.LedgerEnabled,
+						Sequence: sequence, Session: refreshSession, Owner: volumeOwner(request), LedgerEnabled: loaded.cfg.LedgerEnabled,
 					}, input, loaded.cfg.OverviewDelivery.ChunkTokens)
 					if resourceErr != nil {
 						return errResult(errBadArgs, resourceErr.Error(), "")

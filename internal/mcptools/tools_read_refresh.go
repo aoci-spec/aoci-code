@@ -43,11 +43,14 @@ type cognitionRefreshSession struct {
 	// so they may be submitted separately and in any order: when one half arrives and the other is already present it latches, exactly equivalent to
 	// submitting both in one call. A brand-new complete delivery (carrying neither field, no cursor) resets that
 	// body's evidence, so every delivery attempt still collects its own proof.
-	deliveryEvidence map[string]*overviewDeliveryEvidence
-	// deliveryProgress remembers, per body, how far this process has sent it
-	// since the last fresh request: a Host confirmation counts only for a
-	// body sent to its end (noteDeliveryProgress, deliveryServed).
-	deliveryProgress map[string]*overviewDeliveryProgress
+	deliveryEvidence map[deliveryKey]*overviewDeliveryEvidence
+	// deliveryProgress remembers, per Host session and body, how far this
+	// process has sent that body since the last fresh request: a Host
+	// confirmation counts only for a body sent to its end
+	// (noteDeliveryProgress, deliveryServed). progressOrder is its eviction
+	// order, oldest first.
+	deliveryProgress map[deliveryKey]*overviewDeliveryProgress
+	progressOrder    []deliveryKey
 	// compactionAttempt, capacity, chains, and chainOrder belong to the
 	// Host-capacity loop breaker and the delivery chain IDs the Ledger
 	// carries (overview_capacity.go).
@@ -83,7 +86,7 @@ func newCognitionRefreshSession() *cognitionRefreshSession {
 		pendingEvents:       map[string]bool{},
 		consumedEvents:      map[string]bool{},
 		governanceSnapshots: map[string]string{},
-		deliveryEvidence:    map[string]*overviewDeliveryEvidence{},
+		deliveryEvidence:    map[deliveryKey]*overviewDeliveryEvidence{},
 	}
 }
 
@@ -699,6 +702,7 @@ func (session *cognitionRefreshSession) pendingEventReceiptID() string {
 //
 // As with the other delivery-path methods in this file, the caller (the Overview handler) already holds session.mu.
 func (session *cognitionRefreshSession) mergeDeliveryEvidence(
+	owner volumeDeliveryOwner,
 	bodySHA256 string,
 	hostStatus string,
 	report *overviewModelAttestation,
@@ -707,12 +711,13 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 		return hostStatus, report
 	}
 	if session.deliveryEvidence == nil {
-		session.deliveryEvidence = map[string]*overviewDeliveryEvidence{}
+		session.deliveryEvidence = map[deliveryKey]*overviewDeliveryEvidence{}
 	}
-	evidence := session.deliveryEvidence[bodySHA256]
+	key := deliveryKey{owner: owner, body: bodySHA256}
+	evidence := session.deliveryEvidence[key]
 	if evidence == nil {
 		evidence = &overviewDeliveryEvidence{}
-		session.deliveryEvidence[bodySHA256] = evidence
+		session.deliveryEvidence[key] = evidence
 	}
 	// The half this call explicitly carries always wins as the latest (a mismatching confirmation means the host now
 	// says "not fully received", overriding an earlier confirmation); memory only fills the half this call did not carry.
@@ -734,63 +739,84 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 	return hostStatus, report
 }
 
-// overviewDeliveryProgress is one body's transport state in this process: the
-// highest Chunk sent in order since the last fresh request, and its count.
-type overviewDeliveryProgress struct {
-	sent, count int
-	fresh       bool
+// deliveryKey names one body as one Host session received it. Two MCP sessions
+// of one server share the refresh session, and neither may ride the other's
+// transport or proof.
+type deliveryKey struct {
+	owner volumeDeliveryOwner
+	body  string
 }
 
+// overviewDeliveryProgress is one body's transport state for one Host session:
+// the highest Chunk sent in order since the last fresh request, and the count.
+type overviewDeliveryProgress struct {
+	sent, count int
+}
+
+// deliveryProgressMax bounds the progress memory. A body evicted from it is
+// unknown, and an unknown body is not sent: the Host starts it again.
+const deliveryProgressMax = 64
+
 // noteDeliveryProgress records a Chunk this process just sent. A fresh request
-// restarts the body at Chunk 1; a continuation advances only by the next
-// Chunk in order, so replaying a later Chunk of an earlier chain does not
-// finish this one. A continuation of a body this process never started (a v1
-// cursor carried across a server restart) is counted from where it arrives,
-// as that chain was before the restart. The caller holds session.mu.
-func (session *cognitionRefreshSession) noteDeliveryProgress(bodySHA256 string, fresh bool, index, count int) {
+// restarts the body at Chunk 1; a continuation advances it only by the next
+// Chunk in order. A continuation of a body this session has no fresh request
+// for (the server restarted, or the record was evicted) records nothing: what
+// this process cannot prove it sent from the start, it does not count. The
+// caller holds session.mu.
+func (session *cognitionRefreshSession) noteDeliveryProgress(owner volumeDeliveryOwner, bodySHA256 string, fresh bool, index, count int) {
 	if session == nil || bodySHA256 == "" {
 		return
 	}
 	if session.deliveryProgress == nil {
-		session.deliveryProgress = map[string]*overviewDeliveryProgress{}
+		session.deliveryProgress = map[deliveryKey]*overviewDeliveryProgress{}
 	}
-	progress := session.deliveryProgress[bodySHA256]
+	key := deliveryKey{owner: owner, body: bodySHA256}
+	progress := session.deliveryProgress[key]
 	switch {
 	case fresh:
-		session.deliveryProgress[bodySHA256] = &overviewDeliveryProgress{sent: index, count: count, fresh: true}
-	case progress == nil:
-		session.deliveryProgress[bodySHA256] = &overviewDeliveryProgress{sent: index, count: count}
-	case index == progress.sent+1:
+		if progress == nil {
+			session.progressOrder = append(session.progressOrder, key)
+		}
+		session.deliveryProgress[key] = &overviewDeliveryProgress{sent: index, count: count}
+	case progress != nil && index == progress.sent+1:
 		progress.sent, progress.count = index, count
 	}
-	for len(session.deliveryProgress) > 64 {
-		for key := range session.deliveryProgress {
-			if key != bodySHA256 {
-				delete(session.deliveryProgress, key)
-				break
-			}
-		}
+	for len(session.progressOrder) > deliveryProgressMax {
+		delete(session.deliveryProgress, session.progressOrder[0])
+		session.progressOrder = session.progressOrder[1:]
 	}
 }
 
 // deliveryServed reports whether this process has sent that body to its end
-// since the last fresh request for it. A nil session has no transport to
-// remember and answers true, as a caller without one always did.
-func (session *cognitionRefreshSession) deliveryServed(bodySHA256 string) bool {
+// for that Host session since its last fresh request. A nil session has no
+// transport to remember and answers true, as a caller without one always did.
+func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner, bodySHA256 string) bool {
 	if session == nil {
 		return true
 	}
-	progress := session.deliveryProgress[bodySHA256]
+	progress := session.deliveryProgress[deliveryKey{owner: owner, body: bodySHA256}]
 	return progress != nil && progress.count > 0 && progress.sent >= progress.count
+}
+
+// unconfirmDelivery forgets a remembered confirmation for that body: a
+// confirmation that arrived before the body was sent to its end vouches for
+// nothing and must not latch for a later call.
+func (session *cognitionRefreshSession) unconfirmDelivery(owner volumeDeliveryOwner, bodySHA256 string) {
+	if session == nil {
+		return
+	}
+	if evidence := session.deliveryEvidence[deliveryKey{owner: owner, body: bodySHA256}]; evidence != nil {
+		evidence.confirmed = false
+	}
 }
 
 // resetDeliveryEvidence discards the old evidence of that body when a brand-new complete delivery starts:
 // every delivery attempt collects its own proof, and an old confirmation does not testify for a new transmission.
-func (session *cognitionRefreshSession) resetDeliveryEvidence(bodySHA256 string) {
+func (session *cognitionRefreshSession) resetDeliveryEvidence(owner volumeDeliveryOwner, bodySHA256 string) {
 	if session == nil {
 		return
 	}
-	delete(session.deliveryEvidence, bodySHA256)
+	delete(session.deliveryEvidence, deliveryKey{owner: owner, body: bodySHA256})
 }
 
 // recordAttestedDelivery consumes one complete, host-confirmed delivery

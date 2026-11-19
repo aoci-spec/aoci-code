@@ -8,35 +8,22 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 )
 
-// A Host confirmation echoes a hash the first Chunk prints, and an unchanged
-// index has the hash it had before. After a compaction the reload used to be
-// provable without being read: fetch Chunk 1, submit the previous delivery's
-// proof again, and the answer was confirmed, complete, reliable. The
-// confirmation counts only for a body this process sent to its end since the
-// last fresh request, and a later Chunk replayed from the earlier chain does
-// not finish the new one.
-func TestHostConfirmationNeedsTheCurrentChainSentToItsEnd(t *testing.T) {
-	root := chunkSessionRepo(t)
-	session := newCognitionRefreshSession()
-	deliver := func(input overviewIn, stopAfter int) (first map[string]any, cursors []string) {
-		t.Helper()
-		for sent := 1; ; sent++ {
-			meta, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", input))
-			if first == nil {
-				first = meta
-			}
-			if meta["completed"].(bool) || sent == stopAfter {
-				return first, cursors
-			}
-			cursors = append(cursors, meta["next_cursor"].(string))
-			input = overviewIn{Cursor: meta["next_cursor"].(string)}
-		}
-	}
-	first, cursors := deliver(overviewIn{Scope: cognition.ScopeAll}, 0)
-	if len(cursors) < 2 {
-		t.Fatalf("the fixture must take at least three Chunks, took %d", len(cursors)+1)
-	}
-	loaded, fail := loadCognitionCtx(root)
+// transportProofFixture delivers the chunked fixture once to its end and
+// returns the proof of that body split into its two halves.
+type transportProofFixture struct {
+	t       *testing.T
+	root    string
+	session *cognitionRefreshSession
+	both    overviewIn
+	host    overviewIn
+	model   overviewIn
+	body    any
+}
+
+func newTransportProofFixture(t *testing.T) *transportProofFixture {
+	t.Helper()
+	fixture := &transportProofFixture{t: t, root: chunkSessionRepo(t), session: newCognitionRefreshSession()}
+	loaded, fail := loadCognitionCtx(fixture.root)
 	if fail != nil {
 		t.Fatal(fail.Msg)
 	}
@@ -44,60 +31,166 @@ func TestHostConfirmationNeedsTheCurrentChainSentToItsEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, sequence, err := buildVolumeOverviewBody(view)
+	body, sequence, err := buildVolumeOverviewBody(view)
 	if err != nil {
 		t.Fatal(err)
 	}
+	framed := frameOverviewBody(fixture.root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
 	report := completeAttestation(buildOverviewChallenge(view.ScopeIdentity, sequence), view.ObjectCount, volumeScopeBytes(view)/3)
-	encoded, err := json.Marshal(map[string]any{
-		"scope": cognition.ScopeAll,
-		"host_delivery_confirmation": map[string]any{
-			"version": overviewDeliveryReceiptV1, "body_sha256": first["body_sha256"],
-			"body_bytes": first["body_utf8_bytes"], "end_marker_observed": true,
-		},
-		"model_cognition_attestation": attestationMap(t, report),
-	})
-	if err != nil {
-		t.Fatal(err)
+	confirmation := map[string]any{
+		"version": overviewDeliveryReceiptV1, "body_sha256": framed.Receipt.BodySHA256,
+		"body_bytes": framed.Receipt.BodyUTF8Bytes, "end_marker_observed": true,
 	}
-	var proof overviewIn
-	if err := json.Unmarshal(encoded, &proof); err != nil {
-		t.Fatal(err)
-	}
-	prove := func() string {
+	decode := func(arguments map[string]any) overviewIn {
 		t.Helper()
-		result := sessionOverview(t, root, session, "host", proof)
-		if result.IsError {
-			t.Fatalf("proof refused: %s", resText(t, result))
+		arguments["scope"] = cognition.ScopeAll
+		encoded, err := json.Marshal(arguments)
+		if err != nil {
+			t.Fatal(err)
 		}
-		return resText(t, result)
+		var input overviewIn
+		if err := json.Unmarshal(encoded, &input); err != nil {
+			t.Fatal(err)
+		}
+		return input
 	}
-	if out := prove(); !strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) || !strings.Contains(out, "model_attestation: pass") {
-		t.Fatalf("a delivery sent to its end must confirm:\n%s", out)
+	fixture.body = framed.Receipt.BodySHA256
+	fixture.host = decode(map[string]any{"host_delivery_confirmation": confirmation})
+	fixture.model = decode(map[string]any{"model_cognition_attestation": attestationMap(t, report)})
+	fixture.both = decode(map[string]any{"host_delivery_confirmation": confirmation, "model_cognition_attestation": attestationMap(t, report)})
+	return fixture
+}
+
+// chunk requests one Chunk for an owner and returns its metadata.
+func (fixture *transportProofFixture) chunk(owner string, input overviewIn) map[string]any {
+	fixture.t.Helper()
+	meta, _ := chunkMetadata(fixture.t, sessionOverview(fixture.t, fixture.root, fixture.session, owner, input))
+	if meta["body_sha256"] != nil && meta["body_sha256"] != fixture.body {
+		fixture.t.Fatalf("the fixture's body changed: %v", meta["body_sha256"])
+	}
+	return meta
+}
+
+// rest follows a chain from the given Chunk metadata to its end.
+func (fixture *transportProofFixture) rest(owner string, meta map[string]any) {
+	fixture.t.Helper()
+	for !meta["completed"].(bool) {
+		meta = fixture.chunk(owner, overviewIn{Cursor: meta["next_cursor"].(string)})
+	}
+}
+
+func (fixture *transportProofFixture) prove(owner string, input overviewIn) string {
+	fixture.t.Helper()
+	result := sessionOverview(fixture.t, fixture.root, fixture.session, owner, input)
+	if result.IsError {
+		fixture.t.Fatalf("proof refused: %s", resText(fixture.t, result))
+	}
+	return resText(fixture.t, result)
+}
+
+func expectTransport(t *testing.T, what, out string, confirmed bool) {
+	t.Helper()
+	if confirmed {
+		if !strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) || !strings.Contains(out, "server_delivery_complete: true") {
+			t.Fatalf("%s must confirm:\n%s", what, out)
+		}
+		return
+	}
+	if strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) || strings.Contains(out, "model_full_cognition_reliable: true") ||
+		strings.Contains(out, "cognition_assimilation: complete") || !strings.Contains(out, "server_delivery_complete: false") {
+		t.Fatalf("%s must not confirm:\n%s", what, out)
+	}
+}
+
+func freshAll() overviewIn { return overviewIn{Scope: cognition.ScopeAll} }
+
+func reloadAll(event string) overviewIn {
+	return overviewIn{Scope: cognition.ScopeAll, RefreshReasons: []string{"context_compaction"}, RefreshEventID: event}
+}
+
+// A Host confirmation echoes a hash the first Chunk prints, and an unchanged
+// index has the hash it had before. After a compaction the reload used to be
+// provable without being read. The confirmation counts only for a body this
+// process sent to its end for that Host session since its last fresh request.
+func TestHostConfirmationNeedsTheCurrentChainSentToItsEnd(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	first := fixture.chunk("host", freshAll())
+	if int(first["chunk_count"].(float64)) < 3 {
+		t.Fatalf("the fixture must take at least three Chunks, takes %v", first["chunk_count"])
+	}
+	expectTransport(t, "a proof before the end of the first chain", fixture.prove("host", fixture.both), false)
+	fixture.rest("host", first)
+	out := fixture.prove("host", fixture.both)
+	expectTransport(t, "a delivery sent to its end", out, true)
+	if !strings.Contains(out, "model_attestation: pass") {
+		t.Fatalf("the complete proof must pass:\n%s", out)
 	}
 
-	// The reload: one Chunk, then the same proof again.
-	reload := overviewIn{Scope: cognition.ScopeAll, RefreshReasons: []string{"context_compaction"}, RefreshEventID: "compaction-replay"}
-	again, _ := deliver(reload, 1)
-	if again["body_sha256"] != first["body_sha256"] {
-		t.Fatal("the reload must deliver the same body for this test to mean anything")
+	// The reload sends one Chunk; the earlier proof, whole or in halves, must
+	// not vouch for it, and the earlier chain's cursors are gone with it.
+	reload := fixture.chunk("host", reloadAll("compaction-1"))
+	expectTransport(t, "the whole earlier proof after one Chunk of the reload", fixture.prove("host", fixture.both), false)
+	expectTransport(t, "the model half alone after one Chunk of the reload", fixture.prove("host", fixture.model), false)
+	expectTransport(t, "the Host half alone after one Chunk of the reload", fixture.prove("host", fixture.host), false)
+	if result := sessionOverview(t, fixture.root, fixture.session, "host", overviewIn{Cursor: first["next_cursor"].(string)}); !result.IsError ||
+		!strings.Contains(resText(t, result), "overview_session_unavailable_restart_required") {
+		t.Fatalf("a superseded chain's cursor must ask for a restart: %s", resText(t, result))
 	}
-	if out := prove(); !strings.Contains(out, "host_delivery_status: "+hostDeliveryIncomplete) ||
-		strings.Contains(out, "model_full_cognition_reliable: true") || strings.Contains(out, "cognition_assimilation: complete") {
-		t.Fatalf("the earlier proof vouched for a reload that sent one Chunk:\n%s", out)
-	}
-	// The earlier chain's last cursor still replays its bytes; it must not
-	// finish the new chain, which is at Chunk 1.
-	if result := sessionOverview(t, root, session, "host", overviewIn{Cursor: cursors[len(cursors)-1]}); result.IsError {
-		t.Fatalf("an earlier cursor must stay replayable: %s", resText(t, result))
-	}
-	if out := prove(); !strings.Contains(out, "host_delivery_status: "+hostDeliveryIncomplete) {
-		t.Fatalf("a replayed final Chunk of the earlier chain finished the new one:\n%s", out)
-	}
+	expectTransport(t, "the proof after a superseded cursor was tried", fixture.prove("host", fixture.both), false)
 
-	// Read to its end, the reload proves.
-	deliver(reload, 0)
-	if out := prove(); !strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) || !strings.Contains(out, "model_attestation: pass") {
-		t.Fatalf("a reload sent to its end must confirm:\n%s", out)
+	// The same reload chain, followed to its end by its own cursors, proves.
+	fixture.rest("host", reload)
+	out = fixture.prove("host", fixture.both)
+	expectTransport(t, "the reload followed to its end", out, true)
+	if !strings.Contains(out, "model_attestation: pass") {
+		t.Fatalf("the reload's proof must pass:\n%s", out)
+	}
+}
+
+// Halves that arrive separately latch only for a body sent to its end: a
+// confirmation remembered from before the end counts for nothing later.
+func TestSplitProofHalvesDoNotLatchBeforeTheEnd(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	first := fixture.chunk("host", freshAll())
+	expectTransport(t, "an early Host half", fixture.prove("host", fixture.host), false)
+	fixture.rest("host", first)
+	// The body is at its end now, and no confirmation is remembered for it.
+	if out := fixture.prove("host", fixture.model); strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) ||
+		strings.Contains(out, "model_full_cognition_reliable: true") || !strings.Contains(out, "server_delivery_complete: true") {
+		t.Fatalf("a Host half given before the end latched:\n%s", out)
+	}
+	expectTransport(t, "the Host half given again at the end", fixture.prove("host", fixture.host), true)
+	out := fixture.prove("host", fixture.model)
+	expectTransport(t, "the model half after the Host half at the end", out, true)
+	if !strings.Contains(out, "model_attestation: pass") {
+		t.Fatalf("halves given at the end must latch and pass:\n%s", out)
+	}
+}
+
+// Two Host sessions of one server share its refresh state. Neither rides the
+// other's transport: a session that was sent nothing confirms nothing.
+func TestAnotherHostSessionCannotProveThisOnesDelivery(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	fixture.rest("first", fixture.chunk("first", freshAll()))
+	expectTransport(t, "the session that received the body", fixture.prove("first", fixture.both), true)
+	expectTransport(t, "a session that requested nothing", fixture.prove("second", fixture.both), false)
+	fixture.chunk("second", freshAll())
+	expectTransport(t, "a session that was sent one Chunk", fixture.prove("second", fixture.both), false)
+	expectTransport(t, "the first session, after the second one started", fixture.prove("first", fixture.both), true)
+}
+
+// A body this process has no fresh request for is not sent, however its
+// record was lost: a continuation alone never completes it.
+func TestUnknownTransportProgressIsNotSent(t *testing.T) {
+	fixture := newTransportProofFixture(t)
+	first := fixture.chunk("host", freshAll())
+	delete(fixture.session.deliveryProgress, deliveryKey{owner: volumeDeliveryOwner{direct: "host"}, body: fixture.body.(string)})
+	fixture.rest("host", first)
+	expectTransport(t, "a chain whose start this process does not remember", fixture.prove("host", fixture.both), false)
+	for index := 0; index <= deliveryProgressMax; index++ {
+		fixture.session.noteDeliveryProgress(volumeDeliveryOwner{direct: "host"}, strings.Repeat("0", 60)+strings.Repeat("a", 4-len(string(rune('a'+index%4))))+string(rune('a'+index%4)), true, 1, 3)
+	}
+	if len(fixture.session.deliveryProgress) > deliveryProgressMax || len(fixture.session.progressOrder) > deliveryProgressMax {
+		t.Fatalf("the progress memory is unbounded: %d", len(fixture.session.deliveryProgress))
 	}
 }

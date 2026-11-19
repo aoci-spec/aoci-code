@@ -430,6 +430,52 @@ def group_a():
            "interrupted reload stops; plan and verdict visible; explicit and new-process reloads deliver"
            if not failed else f"failed={failed} stop={stop_text[:160]}")
 
+    # A7: a Host confirmation echoes a hash the first Chunk prints, and an
+    # unchanged index has the hash it had before. It counts only for a body
+    # the server sent to its end since the session's last fresh request: a
+    # reload that fetched one Chunk is not confirmed by the earlier proof, the
+    # superseded chain's cursor asks for a restart, and the reload followed to
+    # its end confirms.
+    def chain(s, args):
+        t, _ = text_of(s.call("aoci_overview", args))
+        meta, _ = meta_and_body(t)
+        return meta
+    def to_end(s, meta):
+        while meta.get("continuation_required"):
+            meta = chain(s, {"cursor": meta["next_cursor"]})
+        return meta
+    s = Session(REAL)
+    first = chain(s, {})
+    confirmation = {"host_delivery_confirmation": {"version": "overview-delivery-receipt/v1",
+        "body_sha256": first.get("body_sha256"), "body_bytes": first.get("body_utf8_bytes"), "end_marker_observed": True}}
+    def confirm(s):
+        return parse_kv(text_of(s.call("aoci_overview", confirmation))[0])
+    early = confirm(s)
+    to_end(s, first)
+    done = confirm(s)
+    reload = chain(s, {"refresh_reasons": COMPACTION, "refresh_event_id": "a7-compact-1"})
+    replayed = confirm(s)
+    old_text, old_err = text_of(s.call("aoci_overview", {"cursor": first.get("next_cursor")}))
+    to_end(s, reload)
+    reread = confirm(s)
+    s.close()
+    s3 = Session(REAL)
+    foreign = confirm(s3)
+    s3.close()
+    def sent(r): return r.get("host_delivery_status") == "host_delivery_confirmed" and r.get("server_delivery_complete") is True
+    def unsent(r): return r.get("host_delivery_status") == "host_delivery_incomplete" and r.get("server_delivery_complete") is False
+    checks = {
+        "before_the_end": unsent(early), "sent_to_its_end": sent(done),
+        "reload_same_body": reload.get("body_sha256") == first.get("body_sha256") and reload.get("chunk_index") == 1,
+        "earlier_proof_after_one_chunk": unsent(replayed),
+        "superseded_cursor_restarts": is_rejection(old_text, old_err) and "overview_session_unavailable_restart_required" in old_text,
+        "reload_read_to_its_end": sent(reread), "new_process_was_sent_nothing": unsent(foreign),
+    }
+    failed = [name for name, ok in checks.items() if not ok]
+    record(g, "A7.confirmation-needs-the-chain-sent", "PASS" if not failed else "FAIL",
+           "a confirmation counts only for a body sent to its end since the last fresh request"
+           if not failed else f"failed={failed} replayed={replayed.get('host_delivery_status')}/{replayed.get('server_delivery_complete')}")
+
 # ================================================================ GROUP B (+A5)
 def group_b():
     """Write lifecycle on a 160-file fixture: establish, stale refresh, repair

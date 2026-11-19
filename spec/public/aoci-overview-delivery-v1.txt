@@ -91,7 +91,9 @@ ordinal, or implicit offset.
 
 The reconstructable v1 cursor binds the Index SHA-256, configured
 `chunk_tokens`, next Entry ordinal, and previous Chunk SHA-256. Its existing
-live-governance path remains compatible across MCP process restarts.
+live-governance path keeps returning Chunks across MCP process restarts; a
+confirmation needs a fresh request in the serving process (see "Full-body
+receipt and Host confirmation").
 
 Eligible Volumes deliveries use an ephemeral v2 cursor. It additionally binds
 an unpredictable delivery id, the originating MCP Host session, and an HMAC
@@ -159,14 +161,26 @@ end marker. Any missing or mismatched field is incomplete.
 A matching confirmation proves a copy, not a transport: the SHA-256 is printed
 on the first Chunk, and an unchanged Index has the SHA-256 it had before. The
 confirmation therefore counts only for a body the serving process has sent to
-its end since the last fresh request for it. A fresh request restarts that
-body at Chunk 1 and a continuation advances it only by the next Chunk in
-order, so a later Chunk replayed from an earlier chain does not finish the
-current one. A confirmation for a body not yet sent to its end is incomplete;
-the Host finishes the chain by its `next_cursor` and confirms again. The
-progress lives in the serving process: after a server restart a continuation
-is counted from where it arrives, and a proof with no delivery from that
-process is incomplete, on a Legacy layout as on Volumes.
+its end, to that Host session, since that session's last fresh request for it.
+The rules are:
+
+* a fresh request that is answered with a body restarts that body at Chunk 1,
+  discards the proof halves remembered for it, and supersedes the deliveries
+  the same Host session still holds for the same scope: their v2 cursors
+  answer `overview_session_unavailable_restart_required`. A capacity stop
+  sends no body and supersedes nothing;
+* a continuation advances the body only by the next Chunk in order;
+* a body the process has no fresh request on record for is not sent. After a
+  server restart a v1 cursor still returns its Chunk, and the Host makes a
+  fresh request before it can confirm;
+* progress and remembered halves are kept per Host session and body, so two
+  MCP sessions of one server never prove each other's delivery;
+* a confirmation for a body not sent to its end is incomplete, whether it
+  came with the call or from memory, and it is not remembered. A proof
+  response prints `server_delivery_complete: false` in that case. The Host
+  finishes the chain by its `next_cursor` and confirms again.
+
+On a Legacy layout the same rules hold.
 
 The Host requests each Chunk in its own tool call, assembles every Chunk in
 order, verifies each Chunk Receipt and the aggregate body, and observes the
