@@ -30,7 +30,7 @@ func TestInitShowsTheFirstBuildCostBeforeTheFirstScan(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("init: %d\n%s", code, output)
 	}
-	for _, want := range []string{"1100 index files need an Entry: about", "Four Agent sessions can author at once", "exclude directories before the first scan"} {
+	for _, want := range []string{"1100 index files need an Entry: about", "up to that many Agent sessions author at once", "exclude directories before the first scan"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("init on a large repository does not say %q:\n%s", want, output)
 		}

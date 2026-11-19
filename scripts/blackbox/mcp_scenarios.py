@@ -827,6 +827,10 @@ def group_e():
     NF = 260
     BUDGET = 24 * 1024
     fx = make_fixture("fx-large", NF)
+    # The transport mechanics below are those of one current batch per
+    # Maintain; the three-sibling default is group L's.
+    rc, _, out, errs = cli(fx, "config", "set", "code_cognition_parallel_batches", "1")
+    if rc != 0: raise RuntimeError(f"config set code_cognition_parallel_batches failed: {out[:200]} {errs[:200]}")
     # Known line counts tighten L3's byte reservation once their fingerprints
     # are outside the racy window. Keep the Guide/first-Maintain comparison
     # from straddling that window without sleeping or disabling the cache.
@@ -3364,6 +3368,39 @@ def group_l_parallel():
            f"drifted_delivery={d6.get('status')}/{(siblings(d6) or [{}])[0].get('state')} other={still6.get('status')} "
            f"same_plan={p6b.get('logical_plan') == p6.get('logical_plan')} listed={[str(x.get('batch_id'))[:8] + ':' + str(x.get('state')) for x in listed]} "
            f"survivor={r6.get('status')} next_plan_new={p6c.get('logical_plan') != p6.get('logical_plan')} drifted_reissued={drifted in issued_next}")
+
+    # L7: the default configuration (no code_cognition_parallel_batches) on a
+    # first build issues three siblings, the Guide shows the batch Maintain
+    # delivers, and one Session alone, with no subagent, authors to aligned
+    # without a stop or a refusal: siblings nobody fetched are released when
+    # the first applies, so every round carries a first batch at full size.
+    fx7 = make_fixture("fx-default-parallel", 260)
+    s7 = Session(fx7)
+    rc7, guide7, _, _ = cli(fx7, "index", "agent", "guide", "--agent", "codex", expect_ok=False)
+    gb7 = (guide7.get("authoring_batch") or guide7.get("batch") or {}) if isinstance(guide7, dict) else {}
+    m7, t7, err7 = maintain(s7)
+    p7 = m7.get("code_plan") or {}
+    first_ok = (not err7) and len(siblings(m7)) == 2 and bool(p7.get("logical_plan")) \
+        and gb7.get("included") == p7.get("included") and len(t7.encode("utf-8")) <= BUDGET
+    rounds7, sizes7, bad7, aligned7 = 0, [], "", False
+    while rounds7 < 60:
+        if m7.get("aligned"):
+            aligned7 = True; break
+        if err7 or m7.get("status") != "repair_required" or not m7.get("candidates"):
+            bad7 = t7[:160]; break
+        r7, rt7, rerr7 = submit_batch(s7, m7)
+        if rerr7 or r7.get("status") != "applied":
+            bad7 = rt7[:160]; break
+        rounds7 += 1; sizes7.append(len(m7.get("candidates")))
+        if r7.get("aligned"):
+            aligned7 = True; break
+        m7, t7, err7 = maintain(s7)
+    s7.close()
+    later_full = len(sizes7) > 2 and max(sizes7[1:-1] or [0]) >= sizes7[0]
+    ok = first_ok and aligned7 and not bad7 and later_full
+    record(g, "L7.default-three-siblings-one-session-builds-to-aligned", "PASS" if ok else "FAIL",
+           f"siblings={len(siblings(m7)) if not first_ok else 2} guide={gb7.get('included')} first={p7.get('included')} "
+           f"rounds={rounds7} sizes={sizes7[:6]} aligned={aligned7} {bad7}")
 
 GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),

@@ -207,7 +207,16 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 	if len(all) == 0 {
 		return 0
 	}
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), codeCandidateBudget(cfg, set, all, lines, true))
+	budget := codeCandidateBudget(cfg, set, all, lines, true)
+	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), budget)
+	// Work beyond one batch is issued as siblings, whose first is cut under
+	// the budget less the sibling listing: the Guide shows that batch.
+	if parallel := cfg.CodeCognitionParallelBatchLimit(); parallel > 1 && len(selected) < len(all) {
+		ordered, _ := codebatch.Select(all, 0)
+		if cuts := cutParallelSiblings(ordered, codeBatchLimit(cfg), parallel, budget, budget); len(cuts) > 0 {
+			return len(cuts[0])
+		}
+	}
 	return len(selected)
 }
 

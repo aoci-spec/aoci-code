@@ -12,7 +12,7 @@
     "object_refs": "code:<path> references that limit cognition_optimization candidates; only with that intent",
     "observe_review": "Only with intent=observe_review: the review_digest a blocked Maintain published in observe_review, and who reviewed the evidence",
     "scope": "Advanced diagnostic scope; omit it on the ordinary path so shared governance chooses",
-    "batch_id": "Deliver the issued sibling batch with this batch_id of the current parallel plan (code_plan.siblings) as the complete current batch; only under code_cognition_parallel_batches > 1"
+    "batch_id": "Deliver the issued sibling batch with this batch_id of the current parallel plan (code_plan.siblings) as the complete current batch; only while a parallel plan is outstanding"
   },
   "aoci_overview": {
     "check_only": "Return only checkpoint facts, without the body",

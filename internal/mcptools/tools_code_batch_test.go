@@ -328,6 +328,7 @@ func assertCodeBatchFormalAssetUnchanged(t *testing.T, root, rel string, before 
 
 func TestVolumeCode201CandidatesApplyAs200PlusOne(t *testing.T) {
 	root := buildLargeCodeCandidateRepo(t, 201)
+	pinSingleBatch(t, root)
 	session := connectMCPClient(t, root)
 	first := maintainVolumeBatch(t, session)
 	if first.CodePlan == nil || first.Batch.TotalTargets != 201 || first.Batch.Included != 200 ||

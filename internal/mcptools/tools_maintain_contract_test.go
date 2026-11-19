@@ -20,6 +20,7 @@ import (
 // (a completed context-compaction reload) sends it again without a flag.
 func TestMaintainSendsTheAuthoringContractOncePerGeneration(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 60)
+	pinSingleBatch(t, root)
 	session := connectMCPClient(t, root)
 	call := func(arguments map[string]any) map[string]any {
 		return decodeMaintainJSON(t, callVolumeTool(t, session, "aoci_maintain", arguments))
@@ -100,6 +101,7 @@ func TestAuthoringContractMemoFollowsTheRefreshGeneration(t *testing.T) {
 // (whose profiler counted the targets) the second cuts with measured widths.
 func TestMaintainReservationCoversTheMeasuredFixedPart(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 60)
+	pinSingleBatch(t, root)
 	ageRepositoryFiles(t, root)
 	session := connectMCPClient(t, root)
 	callVolumeTool(t, session, "aoci_maintain", map[string]any{})
@@ -153,6 +155,7 @@ func TestMaintainReservationCoversTheMeasuredFixedPart(t *testing.T) {
 // of the same targets in the same order and still fits the budget.
 func TestMaintainLaterRoundsCarryMoreCandidates(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
+	pinSingleBatch(t, root)
 	directory := filepath.Join("ruoyi-admin", "src", "main", "java", "com", "example", "web", "controller", "system", "monitor")
 	for i := 0; i < 60; i++ {
 		rel := filepath.Join(directory, fmt.Sprintf("SysOperationLogQueryController%03d.java", i))

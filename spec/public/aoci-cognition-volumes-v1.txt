@@ -757,7 +757,18 @@ source digests, candidate ids, and the governed-batch lock.
 
 Configuration. `code_cognition_parallel_batches` is a team-owned integer, the
 number of current batches one logical plan may have outstanding at once.
-Absent or 1 is today's behaviour, byte for byte. The wire ceiling is 4. It is
+Absent is 3; 1 is the single current batch, byte for byte. Under any value
+siblings are issued only for work one batch cannot hold, or while a plan has
+a sibling outstanding: work that fits one batch is the single current batch
+with no sibling field, so everyday maintenance keeps its shape and a first
+build is the case the default serves. A Host that runs no subagents needs no
+setting: when a sibling of a plan has applied and every other outstanding
+one was never handed to any session, those are released and the next
+no-argument Maintain cuts a new plan from the Volume as it stands, so one
+session alone receives a first batch at full size every round. A sibling any
+session was handed keeps its plan; a released one asked for by `batch_id`
+answers `maintain_batch_id_unknown` with zero writes and the replan hint.
+The wire ceiling is 4. It is
 a shared authoring contract like `code_cognition_batch_entries`, so the local
 layer cannot change it, and it enters no policy, scope, or authorization
 identity, so changing it is not a Scope Change.
@@ -822,8 +833,10 @@ Apply after which `remaining` is zero and no sibling is outstanding carries
 `terminal_proof`, and Guide reports aligned only then. Hosts may run siblings sequentially with one
 agent, which is just today's flow with the batches issued ahead of time.
 
-Conformance the implementation must ship: default configuration output is
-byte-identical to this version's; N=2 issues disjoint targets under one plan
+Conformance the implementation must ship: output for work that fits one
+batch, and under a value of 1, is byte-identical to the single-batch
+contract's; one session alone reaches aligned under the default without a
+stop; N=2 issues disjoint targets under one plan
 preimage; sibling delivery by `batch_id` returns the issued targets and
 nothing else; applying A then B and B then A both reach aligned with the
 same Entry set; an edit to the Volume between siblings replans the

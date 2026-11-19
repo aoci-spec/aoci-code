@@ -412,6 +412,12 @@ func TestParallelFieldsStayOffTheWireUnderTheDefaultConfiguration(t *testing.T) 
 	if strings.Contains(raw, `"siblings"`) || strings.Contains(raw, `"sibling_of"`) {
 		t.Fatal("the default configuration carries no sibling fields anywhere")
 	}
+	// Work that fits one batch issues no plan, so no batch_id is known; a
+	// repository pinned to one batch refuses the field itself.
+	if refused := callVolumeTool(t, session, "aoci_maintain", map[string]any{"batch_id": strings.Repeat("a", 64)}); !strings.Contains(refused, "maintain_batch_id_unknown") {
+		t.Fatalf("a batch_id no plan issued is refused: %s", refused)
+	}
+	pinSingleBatch(t, root)
 	refused := callVolumeTool(t, session, "aoci_maintain", map[string]any{"batch_id": strings.Repeat("a", 64)})
 	if !strings.Contains(refused, "maintain_batch_id_requires_parallel_batches") {
 		t.Fatalf("batch_id without parallel batches is refused: %s", refused)
@@ -424,5 +430,21 @@ func TestParallelFieldsStayOffTheWireUnderTheDefaultConfiguration(t *testing.T) 
 	}
 	if err := cfg.SetCodeCognitionParallelBatches(4); err != nil || cfg.CodeCognitionParallelBatchLimit() != 4 {
 		t.Fatal("the ceiling is 4")
+	}
+}
+
+// pinSingleBatch sets code_cognition_parallel_batches to 1, the one current
+// batch per Maintain the single-batch mechanics tests are written against.
+func pinSingleBatch(t *testing.T, root string) {
+	t.Helper()
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetCodeCognitionParallelBatches(1); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
 	}
 }

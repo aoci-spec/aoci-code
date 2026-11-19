@@ -27,7 +27,7 @@ type maintainIn struct {
 	// response even when this process already sent it (maintain_contract.go).
 	IncludeInstructions bool `json:"include_instructions,omitempty"`
 	// BatchID asks for one issued sibling of the current parallel plan as the
-	// complete current batch (L4); only under code_cognition_parallel_batches > 1.
+	// complete current batch (L4); only while a parallel plan is outstanding.
 	BatchID string `json:"batch_id,omitempty"`
 }
 

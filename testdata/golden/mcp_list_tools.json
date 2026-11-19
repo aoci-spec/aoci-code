@@ -82,7 +82,7 @@
           "type": "object"
         },
         "batch_id": {
-          "description": "交付当前并行计划（code_plan.siblings）里这个 batch_id 的兄弟批作为完整当前批次；仅在 code_cognition_parallel_batches \u003e 1 时",
+          "description": "交付当前并行计划（code_plan.siblings）里这个 batch_id 的兄弟批作为完整当前批次；仅在并行计划进行中时",
           "pattern": "^[0-9a-f]{64}$",
           "type": "string"
         },

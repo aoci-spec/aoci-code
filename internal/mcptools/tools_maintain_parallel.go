@@ -14,7 +14,6 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
-	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -90,6 +89,45 @@ func parallelSiblingStates(root string, plan *codebatch.ParallelPlan) ([]codebat
 	return siblings, receipts
 }
 
+// parallelPlanOutstanding reports a logical plan that still holds with a
+// sibling issued or delivered: the plan a Maintain must keep serving even
+// when what is left would fit one batch, since an Agent may hold a sibling.
+func parallelPlanOutstanding(root string, ids codebatch.ParallelIdentities) bool {
+	plan := currentParallelPlan(root, ids)
+	if plan == nil {
+		return false
+	}
+	siblings, _ := parallelSiblingStates(root, plan)
+	for _, sibling := range siblings {
+		if siblingOutstanding(sibling.State) {
+			return true
+		}
+	}
+	return false
+}
+
+// siblingsNeverFetched reports a plan one session is working alone: a
+// sibling of it has applied while every other outstanding one was never
+// handed to anyone. Those are released and the next plan is cut from the
+// Volume as it stands, so a Host without subagents gets a full first batch
+// every round instead of the smaller batches cut for fresh sessions. A
+// sibling any session was handed keeps the plan; an Agent that asks for a
+// released one by batch_id is sent back to no-argument Maintain.
+func siblingsNeverFetched(siblings []codebatch.Sibling) bool {
+	applied, issued := false, false
+	for _, sibling := range siblings {
+		switch sibling.State {
+		case codebatch.SiblingApplied:
+			applied = true
+		case codebatch.SiblingIssued:
+			issued = true
+		case codebatch.SiblingDelivered:
+			return false
+		}
+	}
+	return applied && issued
+}
+
 func siblingOutstanding(state string) bool {
 	return state == codebatch.SiblingIssued || state == codebatch.SiblingDelivered
 }
@@ -143,6 +181,13 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 			cuts = append(cuts, selected)
 		}
 		listing := siblingListingBytes(cuts)
+		if len(cuts) > 1 {
+			// The response that lists siblings also carries the one line that
+			// says what to do with them.
+			if line, err := json.Marshal(mcpMessage("maintain.parallel_siblings_instruction", len(cuts)-1)); err == nil {
+				listing += len(line) + 1
+			}
+		}
 		if listing <= reserve {
 			break
 		}
@@ -161,8 +206,7 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 // agents calling no-argument Maintain each receive their own; when every
 // outstanding sibling is already delivered, the first of them is delivered
 // again, which is what a single agent sees between its Applies.
-func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool, parallel int) {
-	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
+func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, contractOnWire bool, parallel int) {
 	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
 	plan := currentParallelPlan(root, ids)
 	if len(all) == 0 {
@@ -180,7 +224,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 				outstanding++
 			}
 		}
-		if outstanding == 0 {
+		if outstanding == 0 || siblingsNeverFetched(siblings) {
 			_ = codebatch.RemoveParallelPlans(root)
 			plan = nil
 		}

@@ -362,10 +362,11 @@ try:
 except Exception:
     _mb = None
 ok("maintain.default_batch_cap_50", _mb == 50, f"authoring_batch.max_entries={_mb}")
-# Parallel current batches (L4): the default configuration keeps one current
-# batch per Maintain and its response carries no sibling field, byte for byte
-# what the single-batch contract describes; a batch_id request is refused on a
-# server whose configuration keeps one current batch, with zero writes.
+# Parallel current batches (L4): work that fits one batch is one current
+# batch whatever the setting, and its response carries no sibling field, byte
+# for byte what the single-batch contract describes; a batch_id no plan
+# issued is refused with zero writes (unknown under the three-sibling
+# default, the field itself on a repository pinned to one batch).
 try:
     _cp = json.loads(t).get("code_plan") or {}
 except Exception:
@@ -374,7 +375,8 @@ ok("maintain.default_config_carries_no_parallel_fields",
    not any(k in _cp for k in ("logical_plan", "siblings", "sibling_of")) and '"siblings"' not in t and '"sibling_of"' not in t,
    f"code_plan keys={sorted(_cp.keys())[:12]}")
 _pt, _perr = text_of(s.call("aoci_maintain", {"batch_id": "0" * 64}))
-ok("maintain.batch_id_refused_without_parallel_batches", _perr and "maintain_batch_id_requires_parallel_batches" in _pt, _pt[:160])
+ok("maintain.batch_id_refused_without_parallel_batches",
+   _perr and ("maintain_batch_id_unknown" in _pt or "maintain_batch_id_requires_parallel_batches" in _pt), _pt[:160])
 # Incremental delivery (L5): delta_since is an ordinary all-scope request and
 # nothing else; with check_only or a cursor it is refused before any read.
 _dt, _derr = text_of(s.call("aoci_overview", {"delta_since": "0" * 64, "check_only": True}))

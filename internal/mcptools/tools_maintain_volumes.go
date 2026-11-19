@@ -406,19 +406,25 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
 func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool) {
-	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
-		buildParallelCodeCandidates(root, loaded, result, work, snapshot, contractOnWire, parallel)
-		return
-	}
-	// One current batch per Maintain: a logical plan left by a parallel
-	// configuration that was since lowered is dropped with its records.
-	_ = codebatch.RemoveParallelPlans(root)
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	if len(all) == 0 {
+		_ = codebatch.RemoveParallelPlans(root)
 		return
 	}
 	budget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
 	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
+	// Sibling batches exist for work one batch cannot hold: a plan with a
+	// sibling still out continues, and work beyond one batch starts one.
+	// Everything else is the single current batch, byte for byte, whatever
+	// the parallel setting, so everyday maintenance never changes shape.
+	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 &&
+		(len(selected) < len(all) || parallelPlanOutstanding(root, parallelIdentitiesOf(result.Governance.Facts, loaded.set))) {
+		buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel)
+		return
+	}
+	// One current batch per Maintain: a logical plan with nothing left out,
+	// or left by a parallel setting that was since lowered, is dropped.
+	_ = codebatch.RemoveParallelPlans(root)
 	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
 		result.Stop = fail.GlobalStop
 		return

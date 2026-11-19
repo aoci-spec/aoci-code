@@ -328,8 +328,9 @@ again against the new preimage; Guide cannot report complete while debt remains.
 
 Parallel current batches (the Volumes contract's section "Parallel current
 batches (L4)") are implemented since 0.2.0-rc1. Under the team key
-`code_cognition_parallel_batches` (absent or 1 keeps one current batch per
-Maintain, byte for byte; the ceiling is 4) one logical plan keeps up to N
+`code_cognition_parallel_batches` (absent is 3, 1 keeps one current batch per
+Maintain, the ceiling is 4; work that fits one batch is always that one
+batch, byte for byte) one logical plan keeps up to N
 sibling batches outstanding: Maintain delivers the first as the current batch
 and lists the others under `code_plan.siblings` with their state, and
 `aoci_maintain` with a sibling's `batch_id` delivers that sibling whole. The
@@ -346,12 +347,17 @@ Parallel batches are the lever on the first build, the hours a user waits
 longest for. `aoci scan` says what they make of its estimate: under the team
 setting, the rounds each session takes, measured with the cut Maintain makes
 for that many siblings (fewer Entries per session and round, more in total);
-at the default of one session, what four would take and the `config set`
-that turns it on. A Maintain that lists siblings carries one instruction
-line telling the Agent to hand each to its own session (a subagent that
-calls `aoci_maintain {batch_id}`, authors, and applies) and to call Maintain
-again once every sibling is applied; one session may still play them in
-sequence.
+on a repository pinned to one batch, what four would take and the
+`config set` that turns it on. A Maintain that lists siblings carries one
+instruction line telling the Agent to hand each to its own session (a
+subagent that calls `aoci_maintain {batch_id}`, authors, and applies) and to
+call Maintain again once every sibling is applied. A Host that runs no
+subagents loses nothing and needs no setting: it authors the batch it was
+given and calls Maintain again, and because siblings nobody fetched are
+released when the first applies, every round hands it a first batch at full
+size. Since 2026-11 three siblings are the default for work beyond one
+batch; `aoci config set code_cognition_parallel_batches 1` keeps one batch
+per Maintain.
 
 Code candidates in ordinary Maintain and `cognition_optimization` include
 `file_lines` when the counted source bytes match `source_sha256`. They include

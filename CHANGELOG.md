@@ -4,6 +4,19 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A first build issues three sibling batches by default. Users reported the
+  first build as the slow part, and the parallel batches that shorten it were
+  off unless a team found the setting. `code_cognition_parallel_batches` now
+  defaults to 3 (ceiling 4, `1` keeps one batch per Maintain), and under any
+  value siblings are issued only for work one batch cannot hold: work that
+  fits one batch, which is everyday maintenance, is the single batch it was,
+  byte for byte. A Host that runs no subagents needs no setting and loses no
+  speed: when a sibling has applied and the others were never handed to any
+  session they are released, so one session alone gets a full first batch
+  every round and reaches aligned in the rounds it took before. The response
+  that lists siblings says so, and its instruction line is now counted in
+  the transport budget, which it was not. A repository that set the key keeps
+  its value.
 - A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
   may carry only its `path` (a Database item its `object_ref`) and its
   `new_entry`; the server completes `source_sha256` and `candidate_id` from the

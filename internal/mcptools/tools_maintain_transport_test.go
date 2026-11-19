@@ -66,6 +66,7 @@ func decodeMaintainJSON(t *testing.T, raw string) map[string]any {
 
 func TestMaintainPlansTheTeamBatchSizeNotTheWireCeiling(t *testing.T) {
 	root := buildManyFileVolumesRepo(t, 60)
+	pinSingleBatch(t, root)
 	raw := callMaintain(t, root)
 	response := decodeMaintainJSON(t, raw)
 	plan := response["code_plan"].(map[string]any)
@@ -176,6 +177,7 @@ func TestBoundListsForTransportKeepsCountsAndScalars(t *testing.T) {
 // batch worth authoring.
 func TestMaintainResponseStaysUnderBudgetWithLongPaths(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
+	pinSingleBatch(t, root)
 	directory := filepath.Join("ruoyi-admin", "src", "main", "java", "com", "example", "web", "controller", "system", "monitor")
 	for i := 0; i < 45; i++ {
 		rel := filepath.Join(directory, fmt.Sprintf("SysOperationLogQueryController%03d.java", i))

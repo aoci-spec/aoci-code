@@ -67,10 +67,12 @@ const (
 	CodeCognitionBatchEntriesMax     = EntriesBatchMaxItems
 
 	// CodeCognitionParallelBatches is how many current Code batches one
-	// logical plan may have outstanding at once (L4). Absent or 1 is one
-	// current batch per Maintain; the wire ceiling is 4. Team-owned like the
-	// batch size and outside every identity.
-	CodeCognitionParallelBatchesDefault = 1
+	// logical plan may have outstanding at once (L4), for work one batch
+	// cannot hold: work that fits one batch is always the single current
+	// batch. Absent is 3, the first-build default of 2026-11-19; 1 is one
+	// batch per Maintain; the wire ceiling is 4. Team-owned like the batch
+	// size and outside every identity.
+	CodeCognitionParallelBatchesDefault = 3
 	CodeCognitionParallelBatchesMin     = 1
 	CodeCognitionParallelBatchesMax     = 4
 
