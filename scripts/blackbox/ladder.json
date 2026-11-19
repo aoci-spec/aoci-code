@@ -177,8 +177,8 @@
   {
    "id": "realrepo",
    "cadence": "release",
-   "command": "python3 scripts/blackbox/realrepo.py RuoYi build/aoci-<label> --label=<label>; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>",
-   "proves": "Transport budget, first-build rounds and calls_to_closing (every MCP call from the first Maintain to the Apply whose terminal_proof reports aligned), update wave, optimization and hook on two real trees with a planted ignored node_modules; compare rounds, calls, and bytes against the previous release record",
+   "command": "python3 scripts/blackbox/realrepo.py RuoYi build/aoci-<label> --label=<label>; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>-alone --play=alone --author-delay=0.1; python3 scripts/blackbox/realrepo.py excalidraw build/aoci-<label> --label=<label>-concurrent --play=concurrent --author-delay=0.1",
+   "proves": "Transport budget, first-build rounds and calls_to_closing (every MCP call from the first Maintain to the Apply whose terminal_proof reports aligned), update wave, optimization and hook on two real trees with a planted ignored node_modules; compare rounds, calls, and bytes against the previous release record; the alone and concurrent runs prove the three-sibling default on a real tree: one session with no subagent reaches aligned in the rounds of one batch per Maintain, and three sessions applying at once reach aligned with no refused sibling",
    "preconditions": [
     "local clones under $AOCI_REALREPO_SOURCES (default ~/aoci-demo-cand)",
     "local binary from the positional argument, AOCI_BIN, or the platform build default (build/aoci.exe on Windows, build/aoci elsewhere)"

@@ -353,9 +353,10 @@ instruction line telling the Agent to hand each to its own session (a
 subagent that calls `aoci_maintain {batch_id}`, authors, and applies) and to
 call Maintain again once every sibling is applied. A Host that runs no
 subagents loses nothing and needs no setting: it authors the batch it was
-given and calls Maintain again, and because siblings nobody fetched are
-released when the first applies, every round hands it a first batch at full
-size. Since 2026-11 three siblings are the default for work beyond one
+given and calls Maintain again. Siblings nobody fetched are released when the
+first applies, and from then until the work is done Maintain issues single
+batches at full size. A sibling listing names each batch, its size, and its
+state, never its paths. Since 2026-11 three siblings are the default for work beyond one
 batch; `aoci config set code_cognition_parallel_batches 1` keeps one batch
 per Maintain.
 

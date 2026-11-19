@@ -3239,6 +3239,14 @@ def group_l_parallel():
 
     def targets(m): return [c["path"] for c in (m.get("candidates") or [])]
     def siblings(m): return (m.get("code_plan") or {}).get("siblings") or []
+    def sibling_targets(fx, sib):
+        """A listed sibling's targets, from its receipt: the listing names the
+        batch and its size, the paths stay off the wire."""
+        try:
+            with open(os.path.join(fx, ".aoci", "drafts", "code-cognition", f"candidate-{sib.get('batch_id')}.json"), encoding="utf-8") as fh:
+                return [t["path"] for t in json.load(fh).get("targets") or []]
+        except (OSError, ValueError):
+            return []
 
     def entry_lines(fx):
         with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as fh:
@@ -3251,7 +3259,7 @@ def group_l_parallel():
     plan = m1.get("code_plan") or {}
     sibs = siblings(m1)
     ta = targets(m1)
-    tb = (sibs[0].get("targets") or []) if sibs else []
+    tb = sibling_targets(fx, sibs[0]) if sibs else []
     ok = (not err1) and len(plan.get("logical_plan") or "") == 64 and len(sibs) == 1 and sibs[0].get("state") == "issued" \
         and bool(ta) and bool(tb) and not (set(ta) & set(tb)) \
         and plan.get("remaining") == (plan.get("total_targets") or 0) - len(ta) - len(tb) and len(t1.encode("utf-8")) <= BUDGET
@@ -3344,7 +3352,7 @@ def group_l_parallel():
     m6, _, _ = maintain(s6)
     p6 = m6.get("code_plan") or {}
     sib6 = siblings(m6)[0] if siblings(m6) else {}
-    drifted = (sib6.get("targets") or ["pkg/f001.go"])[0]
+    drifted = (sibling_targets(fx6, sib6) or ["pkg/f001.go"])[0]
     with open(os.path.join(fx6, drifted), "a", encoding="utf-8") as fh:
         fh.write("\n// drift after issuance\n")
     d6, _, _ = deliver(s6, sib6.get("batch_id", "0" * 64))
@@ -3358,7 +3366,7 @@ def group_l_parallel():
     m6c, _, _ = maintain(s6)
     p6c = m6c.get("code_plan") or {}
     s6.close()
-    issued_next = set(targets(m6c)) | {t for sib in siblings(m6c) for t in (sib.get("targets") or [])}
+    issued_next = set(targets(m6c)) | {t for sib in siblings(m6c) for t in sibling_targets(fx6, sib)}
     ok = (siblings(d6) or [{}])[0].get("state") == "invalidated" and d6.get("status") == "stopped" \
         and still6.get("status") == "repair_required" and targets(still6) == targets(m6) \
         and p6b.get("logical_plan") == p6.get("logical_plan") and p6b.get("batch_id") == p6.get("batch_id") \

@@ -1351,6 +1351,14 @@ func reconcileCognitionVolumeBatch(root, source string, plan *atomicBatchPlan, r
 			return "", false, &Fail{Code: errInternal, Msg: mcpMessage("entries.recovery_receipt.governance_persist_failed", localeSafeWriteDetail(err.Error()))}
 		}
 	}
+	// A sibling whose Entries were already in place applied all the same: a
+	// wave that only rebinds its sources, or a write a crash cut before its
+	// record. Without the record the plan holds it outstanding for ever.
+	if !parallelSiblingRecorded(root, plan) {
+		if note := recordParallelSiblingApplied(root, plan); note != "" {
+			return note, false, nil
+		}
+	}
 	// The Entries were already in place, so this call wrote no formal bytes;
 	// batch_id still joins it to the Maintain that issued the batch (#150).
 	ledgerEvent := ledger.Event{Op: "update_entries_batch_recover", PathsCount: len(plan.rels), DurationMs: time.Since(plan.start).Milliseconds(), Source: source,
@@ -1481,6 +1489,17 @@ func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail
 	return nil
 }
 
+// parallelSiblingRecorded reports a sibling whose applied record is already
+// on file: a repeat of an applied batch records nothing again.
+func parallelSiblingRecorded(root string, plan *atomicBatchPlan) bool {
+	volumePlan := plan.volumePlan
+	if volumePlan == nil || volumePlan.codeReceipt == nil || volumePlan.codeReceipt.LogicalPlan == "" {
+		return false
+	}
+	parallel, err := codebatch.LoadParallelPlan(root)
+	return err == nil && parallel != nil && codebatch.AppliedBatchIDs(root, parallel)[volumePlan.codeReceipt.BatchID]
+}
+
 // recordParallelSiblingApplied leaves the applied record of a sibling: its
 // place in the apply order, the Code Volume digests around it, and the
 // Entry writes as the editor made them, which a later sibling's Apply
@@ -1495,9 +1514,19 @@ func recordParallelSiblingApplied(root string, plan *atomicBatchPlan) string {
 	if err != nil || parallel == nil || parallel.LogicalPlan != volumePlan.codeReceipt.LogicalPlan {
 		return ""
 	}
-	code := targetByVolume(volumePlan.targets, cognition.ScopeCode)
-	if code == nil {
-		return ""
+	// A sibling that only rebound its sources wrote no Volume: it is recorded
+	// with the digest the Volume has and no operation, so the plan knows it
+	// applied.
+	preSHA, postSHA := "", ""
+	if code := targetByVolume(volumePlan.targets, cognition.ScopeCode); code != nil {
+		preSHA, postSHA = code.PreSHA, code.PostSHA
+	} else {
+		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(parallel.CodeVolumePath)))
+		if readErr != nil {
+			return "code_parallel_applied_persist_failed"
+		}
+		preSHA = codebatch.BytesSHA256(current)
+		postSHA = preSHA
 	}
 	applied, loadErr := codebatch.LoadApplied(root, parallel)
 	if loadErr != nil {
@@ -1522,7 +1551,7 @@ func recordParallelSiblingApplied(root string, plan *atomicBatchPlan) string {
 		operations = append(operations, operation)
 	}
 	receipt := codebatch.AppliedReceipt{Version: codebatch.AppliedReceiptVersion, LogicalPlan: parallel.LogicalPlan,
-		BatchID: volumePlan.codeReceipt.BatchID, Order: len(applied) + 1, PreSHA256: code.PreSHA, PostSHA256: code.PostSHA, Operations: operations}
+		BatchID: volumePlan.codeReceipt.BatchID, Order: len(applied) + 1, PreSHA256: preSHA, PostSHA256: postSHA, Operations: operations}
 	for _, earlier := range applied {
 		if earlier.BatchID == receipt.BatchID {
 			// An idempotent replay of this Apply keeps its original place.

@@ -2,11 +2,15 @@ package mcptools
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
@@ -60,6 +64,9 @@ func TestOneSessionAloneBuildsUnderTheDefaultInTheSameRounds(t *testing.T) {
 	pinned := buildManyFileVolumesRepo(t, 150)
 	pinSingleBatch(t, pinned)
 	pinnedRounds, pinnedSizes := buildToAligned(t, connectMCPClient(t, pinned))
+	if len(sizes) < 3 || sizes[1] < pinnedSizes[1] {
+		t.Fatalf("after the first plan one session alone must get the batches a pinned repository gets: %v against %v", sizes, pinnedSizes)
+	}
 	if rounds > pinnedRounds+1 {
 		t.Fatalf("one session alone took %d rounds %v under the default, a pinned repository %d %v", rounds, sizes, pinnedRounds, pinnedSizes)
 	}
@@ -110,9 +117,13 @@ func TestAReleasedSiblingSendsItsAgentBackToMaintain(t *testing.T) {
 	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied {
 		t.Fatalf("the first sibling did not apply: %#v", applied)
 	}
+	// Released, and the build is one session's from here: the next batch is
+	// a single one at full size, with no sibling to hand out.
 	next := maintainVolumeBatch(t, session)
-	if next.CodePlan == nil || next.CodePlan.LogicalPlan == first.CodePlan.LogicalPlan {
-		t.Fatalf("siblings nobody fetched were not released: %#v", next.CodePlan)
+	if next.CodePlan == nil || next.CodePlan.LogicalPlan != "" || len(next.CodePlan.Siblings) != 0 ||
+		len(next.Candidates) <= len(first.Candidates) {
+		t.Fatalf("siblings nobody fetched were not released into full single batches: first=%d next=%d plan=%#v",
+			len(first.Candidates), len(next.Candidates), next.CodePlan)
 	}
 	late := callVolumeTool(t, session, "aoci_maintain", map[string]any{"batch_id": releasedID})
 	if !strings.Contains(late, "maintain_batch_id_unknown") {
@@ -120,5 +131,63 @@ func TestAReleasedSiblingSendsItsAgentBackToMaintain(t *testing.T) {
 	}
 	if rounds, _ := buildToAligned(t, session); rounds == 0 {
 		t.Fatal("the build did not continue after the late request")
+	}
+}
+
+// The solo mark ends with the authoring work: a later wave beyond one batch
+// is offered as siblings again.
+func TestTheSoloMarkEndsWithTheAuthoringWork(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 150)
+	session := connectMCPClient(t, root)
+	buildToAligned(t, session)
+	if codebatch.SoloBuild(root) {
+		t.Fatal("the solo mark outlived the build")
+	}
+}
+
+// An update wave whose Entries all stand as they were rebinds its sources
+// and writes no Volume. Each sibling of such a wave must still be recorded
+// as applied, or the plan holds it outstanding and one session is handed the
+// same batch for ever (found on excalidraw, 2026-11-20).
+func TestARebindOnlyWaveBeyondOneBatchConverges(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 150)
+	session := connectMCPClient(t, root)
+	buildToAligned(t, session)
+	for index := 0; index < 150; index++ {
+		path := filepath.Join(root, "pkg", fmt.Sprintf("mod%03d", index/10), fmt.Sprintf("file%03d.go", index))
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, []byte("\n// wave\n")...), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wave := connectMCPClient(t, root)
+	for round := 1; ; round++ {
+		if round > 40 {
+			t.Fatal("a rebind-only wave did not converge")
+		}
+		maintain := maintainVolumeBatch(t, wave)
+		if maintain.Aligned {
+			break
+		}
+		if len(maintain.Candidates) == 0 {
+			t.Fatalf("round %d: no batch and not aligned: %s", round, maintain.Status)
+		}
+		entries := []map[string]any{}
+		for _, candidate := range maintain.Candidates {
+			if candidate.ExistingEntry == "" {
+				t.Fatalf("the wave issued a create: %s", candidate.Path)
+			}
+			entries = append(entries, map[string]any{"path": candidate.Path, "new_entry": candidate.ExistingEntry})
+		}
+		applied := applyVolumeBatch(t, wave, map[string]any{"code_batch_id": maintain.CodePlan.BatchID, "entries": entries})
+		if applied.Status != autoStatusApplied {
+			t.Fatalf("round %d: a rebind batch did not apply: %#v", round, applied)
+		}
+		if applied.Aligned {
+			break
+		}
 	}
 }

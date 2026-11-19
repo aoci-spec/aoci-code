@@ -12,6 +12,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
@@ -66,10 +67,20 @@ func siblingsOf(plan map[string]any) []map[string]any {
 	return siblings
 }
 
-func siblingTargets(sibling map[string]any) []string {
+// siblingTargets reads a listed sibling's targets from its receipt: the
+// listing names the batch and its size, the paths stay off the wire.
+func siblingTargets(t *testing.T, root string, sibling map[string]any) []string {
+	t.Helper()
+	receipt, err := codebatch.LoadReceipt(root, sibling["batch_id"].(string))
+	if err != nil {
+		t.Fatalf("a listed sibling has no receipt: %v", err)
+	}
+	if _, onWire := sibling["targets"]; onWire {
+		t.Fatal("a sibling listing must not carry its target paths")
+	}
 	targets := []string{}
-	for _, value := range sibling["targets"].([]any) {
-		targets = append(targets, value.(string))
+	for _, target := range receipt.Targets {
+		targets = append(targets, target.Path)
 	}
 	return targets
 }
@@ -131,7 +142,7 @@ func TestParallelMaintainIssuesDisjointSiblingsUnderOnePlan(t *testing.T) {
 		t.Fatalf("N=2 issues one delivered batch and one issued sibling: status=%v logical=%q siblings=%v", first["status"], logical, siblings)
 	}
 	delivered := candidatePaths(first)
-	ahead := siblingTargets(siblings[0])
+	ahead := siblingTargets(t, root, siblings[0])
 	if len(delivered) == 0 || len(ahead) == 0 {
 		t.Fatal("both siblings carry targets")
 	}
@@ -155,18 +166,23 @@ func TestParallelMaintainIssuesDisjointSiblingsUnderOnePlan(t *testing.T) {
 	if int(batch["remaining"].(float64)) != total-len(delivered)-len(ahead) {
 		t.Fatalf("authoring_batch.remaining follows the plan: %v", batch["remaining"])
 	}
-	// The same state keeps the same plan: a second no-argument Maintain hands
-	// out the sibling no one has been handed yet, and a third, with every
-	// sibling delivered, the first of them again.
+	// The same state keeps the same plan. The server that was handed a
+	// sibling answers that one again while it is out, as a single batch
+	// always did; another server's no-argument Maintain is handed the
+	// sibling no one holds, and asked again it answers its own.
 	second := maintainJSON(t, session, map[string]any{})
-	secondPlan := codePlanOf(t, second)
-	if secondPlan["logical_plan"] != logical || secondPlan["batch_id"] != siblings[0]["batch_id"] ||
-		siblingsOf(secondPlan)[0]["batch_id"] != plan["batch_id"] || siblingsOf(secondPlan)[0]["state"] != "delivered" {
-		t.Fatalf("the second Maintain delivers the undelivered sibling under the same plan: %v", secondPlan)
+	if secondPlan := codePlanOf(t, second); secondPlan["logical_plan"] != logical || secondPlan["batch_id"] != plan["batch_id"] ||
+		siblingsOf(secondPlan)[0]["state"] != "issued" {
+		t.Fatalf("the same server asking twice is handed the same sibling, the other stays unfetched: %v", secondPlan)
 	}
-	third := maintainJSON(t, session, map[string]any{})
-	if thirdPlan := codePlanOf(t, third); thirdPlan["batch_id"] != plan["batch_id"] || thirdPlan["logical_plan"] != logical {
-		t.Fatalf("with every sibling delivered the first is delivered again: %v", thirdPlan["batch_id"])
+	other := connectMCPClient(t, root)
+	otherPlan := codePlanOf(t, maintainJSON(t, other, map[string]any{}))
+	if otherPlan["logical_plan"] != logical || otherPlan["batch_id"] != siblings[0]["batch_id"] ||
+		siblingsOf(otherPlan)[0]["batch_id"] != plan["batch_id"] || siblingsOf(otherPlan)[0]["state"] != "delivered" {
+		t.Fatalf("another server is handed the undelivered sibling under the same plan: %v", otherPlan)
+	}
+	if again := codePlanOf(t, maintainJSON(t, other, map[string]any{})); again["batch_id"] != siblings[0]["batch_id"] || again["logical_plan"] != logical {
+		t.Fatalf("with every sibling delivered each server keeps its own: %v", again["batch_id"])
 	}
 }
 
@@ -182,7 +198,7 @@ func TestParallelSiblingDeliveryByBatchIDCarriesItsTargetsOnly(t *testing.T) {
 		deliveryPlan["sibling_of"] != plan["logical_plan"] || delivery["next_action"] != "author_complete_current_machine_batch" {
 		t.Fatalf("a sibling delivers as the complete current batch: %v %v", delivery["status"], deliveryPlan)
 	}
-	if got, want := strings.Join(candidatePaths(delivery), ","), strings.Join(siblingTargets(sibling), ","); got != want {
+	if got, want := strings.Join(candidatePaths(delivery), ","), strings.Join(siblingTargets(t, root, sibling), ","); got != want {
 		t.Fatalf("delivery carries the issued targets and nothing else:\n got %s\nwant %s", got, want)
 	}
 	others := siblingsOf(deliveryPlan)
@@ -327,7 +343,7 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 	first := maintainJSON(t, session, map[string]any{})
 	plan := codePlanOf(t, first)
 	sibling := siblingsOf(plan)[0]
-	drifted := siblingTargets(sibling)[0]
+	drifted := siblingTargets(t, root, sibling)[0]
 	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(drifted)), []byte("package drift\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +376,7 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 		issued[path] = true
 	}
 	for _, other := range siblingsOf(nextPlan) {
-		for _, path := range siblingTargets(other) {
+		for _, path := range siblingTargets(t, root, other) {
 			issued[path] = true
 		}
 	}

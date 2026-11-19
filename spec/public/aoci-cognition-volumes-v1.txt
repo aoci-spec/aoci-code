@@ -762,13 +762,16 @@ siblings are issued only for work one batch cannot hold, or while a plan has
 a sibling outstanding: work that fits one batch is the single current batch
 with no sibling field, so everyday maintenance keeps its shape and a first
 build is the case the default serves. A Host that runs no subagents needs no
-setting: when a sibling of a plan has applied and every other outstanding
-one was never handed to any session, those are released and the next
-no-argument Maintain cuts a new plan from the Volume as it stands, so one
-session alone receives a first batch at full size every round. A sibling any
-session was handed keeps its plan; a released one asked for by `batch_id`
-answers `maintain_batch_id_unknown` with zero writes and the replan hint.
-The wire ceiling is 4. It is
+setting and is recognised by what it does: when a sibling of a plan has
+applied and every other outstanding one was never handed to any session,
+those are released and the build is marked as one session's, and until the
+authoring work is done every no-argument Maintain issues the single current
+batch at full size. The mark is a runtime fact under `.aoci`, in no
+identity, and ends with the aligning Apply, so a later wave beyond one batch
+is offered as siblings again. A sibling any session was handed keeps its
+plan; a released one asked for by `batch_id` answers
+`maintain_batch_id_unknown` with zero writes and the replan hint. The wire
+ceiling is 4. It is
 a shared authoring contract like `code_cognition_batch_entries`, so the local
 layer cannot change it, and it enters no policy, scope, or authorization
 identity, so changing it is not a Scope Change.
@@ -781,8 +784,15 @@ sets are disjoint by construction; each sibling has its own `batch_id` and
 every sibling records the one `logical_plan`. The response delivers the first
 sibling as today's complete current batch, within the transport budget, and
 lists the others under `code_plan.siblings` as issued, not delivered: each
-with `batch_id`, its target paths, `included`, and `state` (`issued`,
-`delivered`, `applied`, `invalidated`). A Host obtains a sibling's complete
+with `batch_id`, `included`, and `state` (`issued`, `delivered`, `applied`,
+`invalidated`). A listing carries no target paths since 2026-11: the Agent
+that takes a sibling receives its candidates whole, and listing every path
+cost a quarter of each batch. The server that was handed a sibling by a
+no-argument Maintain answers that same sibling again while it is
+outstanding, as a single batch always was; another server, or a request by
+`batch_id`, takes one no session holds. Plan records are read and written
+under the index lock, and a call that finds the Code Volume moved since it
+loaded starts over instead of judging the plan. A Host obtains a sibling's complete
 candidates with `aoci_maintain` carrying that `batch_id`; the response is a
 complete current batch sized by the same transport budget, marked
 `sibling_of` the logical plan, and its `next_action` is
@@ -792,7 +802,13 @@ a sibling is the machine's cut, delivered whole.
 Apply. `aoci_update_entry` with the `code_batch_id` of any issued sibling is
 accepted in any order. The preimage rule is relaxed exactly this far: the Code
 Volume's current digest must be the plan preimage or a postimage an applied
-sibling of the same logical plan recorded. The server proves that before it
+sibling of the same logical plan recorded. A sibling plans against the Volume
+it loaded while others apply, so planning accepts any state the plan has been
+in (the preimage, or the postimage of a leading run of applied siblings); the
+write is proven against the current bytes under the lock. A sibling whose
+Entries all stand as they were rebinds its sources and writes no Volume: it
+is recorded as applied with no operation, and a sibling that drops an orphan
+records the delete with the Entry it removed. The server proves that before it
 projects anything: it replays the applied siblings' receipts, in receipt
 order, onto the plan preimage bytes and requires the result to equal the
 current Volume byte for byte. The machine retains the plan preimage bytes

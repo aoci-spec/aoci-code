@@ -334,11 +334,16 @@ Events with omitted optional metrics remain usable for the facts they carry.
 
 `realrepo.py` clones a real third-party repository locally, initializes it,
 authors template Entries through Maintain and `aoci_update_entry` until
-aligned (`--parallel=N` sets `code_cognition_parallel_batches` on the clone
-and has the one agent author every sibling a round lists, delivered by
-`batch_id`, so the siblings' Applies and the plan's completion are proven on
-a real tree; `rounds` then counts no-argument Maintains and
-`sibling_deliveries` the rest), touches a wave of files and re-aligns, runs
+aligned (`--parallel=N` sets `code_cognition_parallel_batches` on the clone,
+without it the clone keeps the binary's default; `--play` chooses who authors
+the siblings a round lists: `fetch`, the default, has the one agent deliver
+each by `batch_id` and apply them in turn, `alone` is a Host with no subagent
+that authors the batch it was given and calls Maintain again, and
+`concurrent` gives every sibling its own MCP session applying at the same
+moment, which is what found the three-session defects of 2026-11;
+`--author-delay=S` simulates S seconds of authoring per Entry so the modes
+compare by wall clock, `--bare` submits only path and Entry; `rounds` counts
+no-argument Maintains and `sibling_deliveries` the rest), touches a wave of files and re-aligns, runs
 one cognition optimization batch, and probes the PreToolUse hook on an
 indexed file, with
 every Maintain response measured against the transport budget. Template

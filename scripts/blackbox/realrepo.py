@@ -13,19 +13,31 @@ needs local clones of the repositories (RuoYi and excalidraw are the two the
 release record compares) and takes a few minutes per repository.
 
 usage: realrepo.py <name-or-path> [<binary>] [--wave=N] [--label=L] [--ignored-tree=N]
-                   [--sources=DIR] [--work=DIR] [--parallel=N]
+                   [--sources=DIR] [--work=DIR] [--parallel=N] [--play=MODE]
+                   [--author-delay=SECONDS] [--bare]
   <name-or-path>   a directory, or a name under --sources (default
                    $AOCI_REALREPO_SOURCES or ~/aoci-demo-cand)
   <binary>         defaults to $AOCI_BIN, then <repo>/build/aoci.exe on Windows
                    or <repo>/build/aoci elsewhere
   --work=DIR       where clones and reports go (default $AOCI_REALREPO_WORK,
                    then $TMPDIR/aoci-realrepo); the report is <work>/<name>-<label>.json
-  --parallel=N     set code_cognition_parallel_batches=N on the clone and author
-                   every sibling a round lists (delivered by batch_id) before the
-                   next Maintain: one agent playing N, which proves the siblings
-                   apply and the plan completes; the wall clock of N agents it cannot show
+  --parallel=N     set code_cognition_parallel_batches=N on the clone; without it
+                   the clone keeps the binary's default (3 since 2026-11)
+  --play=MODE      who authors the siblings a round lists:
+                   alone       one session, no subagent: it authors the batch it was
+                               given and calls Maintain again (the fallback a Host
+                               without subagents takes)
+                   fetch       one session delivers every sibling by batch_id and
+                               applies them in turn (the default; proves the plan
+                               completes, not the wall clock of N agents)
+                   concurrent  every sibling is delivered, authored, and applied by
+                               its own MCP session at once, as subagents do
+  --author-delay=S seconds of simulated authoring per Entry before a batch is
+                   submitted, so alone and concurrent can be compared by wall clock
+  --bare           submit only path and new_entry; the server completes
+                   source_sha256 and candidate_id from the issued batch
 Options take only the --opt=value form; a space-separated value is read as a positional argument."""
-import hashlib, json, os, shutil, subprocess, sys, tempfile, time
+import hashlib, json, os, shutil, subprocess, sys, tempfile, threading, time
 
 # The suites print fixture output that may carry Chinese text; on a Windows
 # runner the console codec is cp1252, so print the report as UTF-8 regardless.
@@ -79,7 +91,12 @@ try:
 except Exception as exc:  # noqa: BLE001 - recorded, not fatal
     report["binary_version"] = f"unavailable: {exc}"
 IGNORED_TREE = int(opts.get("--ignored-tree", "3000"))
-PARALLEL = int(opts.get("--parallel", "1"))
+PARALLEL = int(opts["--parallel"]) if "--parallel" in opts else None
+PLAY = opts.get("--play", "fetch")
+if PLAY not in ("alone", "fetch", "concurrent"):
+    sys.exit(f"--play must be alone, fetch, or concurrent, not {PLAY!r}")
+AUTHOR_DELAY = float(opts.get("--author-delay", "0"))
+BARE = "--bare" in opts
 if IGNORED_TREE > 0:
     # #97 stress: a git-ignored node_modules tree with a symlink back into
     # itself. git must account for it as one entry, so scan time and the
@@ -112,7 +129,7 @@ if IGNORED_TREE > 0:
             sys.exit(f"the planted node_modules tree is still not ignored in {work}; a negation rule overrides node_modules/")
 t0 = time.time()
 p = U.run(BIN, work, "init", "--locale", "en-US", check=True)
-if PARALLEL > 1:
+if PARALLEL is not None:
     U.run(BIN, work, "config", "set", "code_cognition_parallel_batches", str(PARALLEL), check=True)
 p = U.run(BIN, work, "scan", "--json", check=True)
 scan = json.loads(p.stdout)
@@ -162,14 +179,38 @@ def author_rounds(session, phase, max_rounds=400):
     # Per-tool wall time: how much of a round AOCI itself spends, apart from
     # the model's authoring time this harness does not have. The split between
     # Maintain and update_entry is what the performance work reads.
-    calls = {}
-    def timed(tool, args=None):
+    calls, calls_lock = {}, threading.Lock()
+    def timed(tool, args=None, on=None):
         t = time.time()
-        text = session.call(tool, args)
+        text = (on or session).call(tool, args)
         spent = time.time() - t
-        c = calls.setdefault(tool, [0, 0.0, 0.0])
-        c[0] += 1; c[1] += spent; c[2] = max(c[2], spent)
+        with calls_lock:
+            c = calls.setdefault(tool, [0, 0.0, 0.0])
+            c[0] += 1; c[1] += spent; c[2] = max(c[2], spent)
         return text
+    def author_and_apply(batch, extra, on=None):
+        """Authors one delivered batch and submits it on the given session."""
+        cands = batch.get("candidates") or []
+        entries = []
+        for c in cands:
+            rel = c["path"]
+            with open(os.path.join(work, rel), "rb") as fh:
+                data = fh.read()
+            item = {"path": rel, "new_entry": template_entry(rel, data)}
+            if not BARE:
+                item.update({"source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"]})
+            entries.append(item)
+        if AUTHOR_DELAY > 0:
+            time.sleep(AUTHOR_DELAY * len(cands))
+        request = {"code_batch_id": (batch.get("code_plan") or {}).get("batch_id"), "entries": entries}
+        request.update(extra)
+        return json.loads(timed("aoci_update_entry", request, on=on))
+    workers = []
+    def worker(index):
+        """The MCP session of subagent number index, opened on first use."""
+        while len(workers) <= index:
+            workers.append(U.Session(BIN, work).__enter__())
+        return workers[index]
     while rounds < max_rounds:
         text = timed("aoci_maintain")
         m = json.loads(text)
@@ -203,36 +244,59 @@ def author_rounds(session, phase, max_rounds=400):
             if r.get("aligned") is True and (proof or {}).get("aligned") is True:
                 break
             continue
-        # Under parallel batches the round also carries the siblings issued
-        # ahead; one agent plays them all, each delivered whole by batch_id.
-        batches = [m]
-        for sibling in plan.get("siblings") or []:
-            if sibling.get("state") == "applied":
-                continue
-            text = timed("aoci_maintain", {"batch_id": sibling.get("batch_id")})
-            sizes.append(len(text.encode("utf-8")))
-            deliveries += 1
-            batches.append(json.loads(text))
-        for batch in batches:
+        # A round under parallel batches also lists the siblings issued ahead.
+        outstanding = [x for x in (plan.get("siblings") or []) if x.get("state") in ("issued", "delivered")]
+        results = []
+        if PLAY == "concurrent" and outstanding:
+            # Every sibling in its own session at once, the first on this one:
+            # what a Host does when it hands siblings to subagents.
+            slots = [None] * (1 + len(outstanding))
+            def play_first(first_extra=dict(extra)):
+                slots[0] = (m, author_and_apply(m, first_extra))
+            def play_sibling(position, batch_id):
+                on = worker(position - 1)
+                text = timed("aoci_maintain", {"batch_id": batch_id, "include_instructions": True}, on=on)
+                with calls_lock:
+                    sizes.append(len(text.encode("utf-8")))
+                delivered = json.loads(text)
+                slots[position] = (delivered, author_and_apply(delivered, {}, on=on))
+            for position in range(len(outstanding)):
+                worker(position)
+            threads = [threading.Thread(target=play_first)] + [
+                threading.Thread(target=play_sibling, args=(position + 1, sibling.get("batch_id")))
+                for position, sibling in enumerate(outstanding)]
+            for thread in threads: thread.start()
+            for thread in threads: thread.join()
+            deliveries += len(outstanding)
+            results = [slot for slot in slots if slot is not None]
+            if len(results) != len(slots):
+                stopped = {"round": rounds, "update_status": "worker_failed", "message": "a concurrent session raised before it answered"}
+        else:
+            batches = [m]
+            if PLAY == "fetch":
+                for sibling in plan.get("siblings") or []:
+                    if sibling.get("state") == "applied":
+                        continue
+                    text = timed("aoci_maintain", {"batch_id": sibling.get("batch_id")})
+                    sizes.append(len(text.encode("utf-8")))
+                    deliveries += 1
+                    batches.append(json.loads(text))
+            for batch in batches:
+                results.append((batch, author_and_apply(batch, extra)))
+                extra = {}
+                if results[-1][1].get("status") != "applied":
+                    break
+        for batch, r in results:
             cands = batch.get("candidates") or []
-            batch_plan = batch.get("code_plan") or {}
-            included.append(batch_plan.get("included"))
+            included.append((batch.get("code_plan") or {}).get("included"))
             existing += sum(1 for c in cands if c.get("existing_entry"))
-            entries = []
-            for c in cands:
-                rel = c["path"]
-                with open(os.path.join(work, rel), "rb") as fh:
-                    data = fh.read()
-                entries.append({"path": rel, "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
-                                "new_entry": template_entry(rel, data)})
-            request = {"code_batch_id": batch_plan.get("batch_id"), "entries": entries}
-            request.update(extra); extra = {}
-            r = json.loads(timed("aoci_update_entry", request))
             if r.get("status") != "applied":
-                stopped = {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
-                break
+                stopped = stopped or {"round": rounds, "update_status": r.get("status"), "findings": (r.get("findings") or [])[:5], "message": str(r)[:300]}
+                continue
             written += r.get("applied", 0)
-            proof = r.get("terminal_proof")
+            if r.get("terminal_proof"):
+                proof = r.get("terminal_proof")
+        r = next((x for _, x in results if x.get("aligned") is True), results[-1][1] if results else {})
         if stopped:
             break
         if proof and proof.get("aligned") is True and r.get("aligned") is True:
@@ -240,8 +304,13 @@ def author_rounds(session, phase, max_rounds=400):
             break
         if rounds % 10 == 0:
             print(f"{phase} round {rounds}: applied {written}, remaining {plan.get('remaining')}, max bytes {max(sizes)}", flush=True)
+    for opened in workers:
+        opened.__exit__(None, None, None)
     mcp_calls = sum(c[0] for c in calls.values())
-    return {"rounds": rounds, "entries_written": written, "entries_removed": removed, "stopped": stopped, "parallel": PARALLEL, "sibling_deliveries": deliveries,
+    return {"rounds": rounds, "entries_written": written, "entries_removed": removed, "stopped": stopped,
+            "parallel": PARALLEL if PARALLEL is not None else "default", "play": PLAY, "sessions": 1 + len(workers),
+            "author_delay_per_entry": AUTHOR_DELAY, "bare_bindings": BARE, "sibling_deliveries": deliveries,
+            "included_per_batch": included[:40],
             # calls_to_closing: every MCP call from the first Maintain to the
             # proof the closing is done, with nothing to run afterwards.
             "mcp_calls": mcp_calls, "calls_to_closing": mcp_calls,

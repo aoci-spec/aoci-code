@@ -418,8 +418,17 @@ func TestValidateParallelSubmissionJudgesTheReplayedVolume(t *testing.T) {
 	if _, _, err := ValidateParallelSubmission(root, root, siblingB.BatchID, advanced, submissionsOf(siblingB), false); err != nil {
 		t.Fatalf("the sibling that lands second meets the first's postimage: %v", err)
 	}
-	if _, _, err := ValidateParallelSubmission(root, root, siblingB.BatchID, ids, submissionsOf(siblingB), false); errorCode(err) != "code_candidate_volume_preimage_stale" {
-		t.Fatalf("the preimage is no longer current once a sibling applied: %v", err)
+	// A sibling that loaded the plan preimage while another applied holds a
+	// state the plan has been in: planning accepts it, and the write is
+	// proven against the current bytes under the lock.
+	if _, _, err := ValidateParallelSubmission(root, root, siblingB.BatchID, ids, submissionsOf(siblingB), false); err != nil {
+		t.Fatalf("a sibling one step behind the applied records is no foreign change: %v", err)
+	}
+	if reached, err := ReplayProvesReached(root, root, &plan, strings.Repeat("9", 64)); err != nil || reached {
+		t.Fatalf("a digest the plan was never in is not reached: %v %v", reached, err)
+	}
+	if current, err := ReplayProves(root, root, &plan, ids.CodeVolumeSHA256); err != nil || current {
+		t.Fatalf("the preimage is no longer the current Volume once a sibling applied: %v %v", current, err)
 	}
 	if _, _, err := ValidateParallelSubmission(root, root, siblingA.BatchID, advanced, submissionsOf(siblingA), false); errorCode(err) != "code_candidate_batch_already_applied" {
 		t.Fatalf("an applied sibling is not applied twice: %v", err)

@@ -22,6 +22,10 @@ import (
 type cognitionRefreshSession struct {
 	mu         sync.Mutex
 	deliveries *volumeDeliveryStore
+	// heldSibling is the sibling batch a no-argument Maintain last handed
+	// this server: asked again before that batch applied, it answers the
+	// same one, as a single batch always did.
+	heldSibling string
 
 	established    bool
 	generation     int
@@ -946,4 +950,24 @@ func (session *cognitionRefreshSession) markDeliveryAttempt(receipt cognitionRec
 	session.lastReceipt = receipt
 	session.pendingReasons = map[string]bool{}
 	session.pendingEvents = map[string]bool{}
+}
+
+// HeldSibling and HoldSibling keep the sibling batch a no-argument Maintain
+// handed this server process; a nil session holds none.
+func (session *cognitionRefreshSession) HeldSibling() string {
+	if session == nil {
+		return ""
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	return session.heldSibling
+}
+
+func (session *cognitionRefreshSession) HoldSibling(batchID string) {
+	if session == nil {
+		return
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	session.heldSibling = batchID
 }

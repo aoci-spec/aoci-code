@@ -35,8 +35,11 @@ const (
 
 // Sibling is one batch of the logical plan as the wire lists it.
 type Sibling struct {
-	BatchID  string   `json:"batch_id"`
-	Targets  []string `json:"targets"`
+	BatchID string `json:"batch_id"`
+	// Targets is read from the sibling's receipt and stays off the wire: a
+	// listing names the batch and its size, and the Agent that takes it gets
+	// the candidates whole. Listing every path cost a quarter of each batch.
+	Targets  []string `json:"-"`
 	Included int      `json:"included"`
 	State    string   `json:"state"`
 }
@@ -261,6 +264,34 @@ func RemoveParallelPlans(root string) error {
 	return nil
 }
 
+// soloBuildPath is the mark that one session is working this build alone.
+func soloBuildPath(root string) string {
+	return filepath.Join(parallelDirectory(root), "solo-build")
+}
+
+// MarkSoloBuild records that siblings were issued and nobody fetched them:
+// one session is authoring alone, so until the authoring work is done every
+// Maintain issues the single current batch at full size instead of cutting
+// siblings no one takes. A runtime mark like the plan records, in no
+// identity; ClearSoloBuild drops it when no work is left.
+func MarkSoloBuild(root string) error {
+	if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
+		return fmt.Errorf("code_candidate_receipt_directory_unavailable")
+	}
+	return afs.AtomicWrite(soloBuildPath(root), []byte("1\n"))
+}
+
+// SoloBuild reports the mark.
+func SoloBuild(root string) bool {
+	info, err := os.Lstat(soloBuildPath(root))
+	return err == nil && info.Mode().IsRegular()
+}
+
+// ClearSoloBuild removes the mark; an absent one is no error.
+func ClearSoloBuild(root string) {
+	_ = os.Remove(soloBuildPath(root))
+}
+
 // SaveApplied records an applied sibling. A record for the batch that is
 // byte-identical is an idempotent replay; any other is a conflict.
 func SaveApplied(root string, receipt AppliedReceipt) error {
@@ -290,14 +321,37 @@ func SaveApplied(root string, receipt AppliedReceipt) error {
 
 func validateApplied(receipt AppliedReceipt) error {
 	if receipt.Version != AppliedReceiptVersion || !validSHA256(receipt.LogicalPlan) || !validSHA256(receipt.BatchID) ||
-		receipt.Order < 1 || !validSHA256(receipt.PreSHA256) || !validSHA256(receipt.PostSHA256) || len(receipt.Operations) == 0 {
+		receipt.Order < 1 || !validSHA256(receipt.PreSHA256) || !validSHA256(receipt.PostSHA256) {
+		return fmt.Errorf("code_parallel_applied_invalid")
+	}
+	// A sibling whose Entries all stood as they were rebinds its sources and
+	// writes nothing: it applied all the same, with no operation and the
+	// Volume digest unchanged. Without its record the plan would hold it
+	// outstanding for ever.
+	if len(receipt.Operations) == 0 && receipt.PreSHA256 != receipt.PostSHA256 {
 		return fmt.Errorf("code_parallel_applied_invalid")
 	}
 	for _, operation := range receipt.Operations {
 		path, err := afs.NormalizeRelPath(operation.Path)
-		if err != nil || path != operation.Path || operation.NewEntry == "" ||
-			(operation.Change != "create" && operation.Change != "update") ||
-			(operation.Change == "update") != (operation.OldEntry != "") {
+		if err != nil || path != operation.Path {
+			return fmt.Errorf("code_parallel_applied_invalid")
+		}
+		// A sibling may drop an orphan beside its Entries: a delete carries
+		// the Entry it removed and no new one, as the replay removes it.
+		switch operation.Change {
+		case "create":
+			if operation.NewEntry == "" || operation.OldEntry != "" {
+				return fmt.Errorf("code_parallel_applied_invalid")
+			}
+		case "update":
+			if operation.NewEntry == "" || operation.OldEntry == "" {
+				return fmt.Errorf("code_parallel_applied_invalid")
+			}
+		case "delete":
+			if operation.NewEntry != "" || operation.OldEntry == "" {
+				return fmt.Errorf("code_parallel_applied_invalid")
+			}
+		default:
 			return fmt.Errorf("code_parallel_applied_invalid")
 		}
 	}
@@ -392,6 +446,37 @@ func ReplayProves(root, repoRoot string, plan *ParallelPlan, currentSHA256 strin
 			return false, replayErr
 		}
 		return BytesSHA256(replayed) == currentSHA256, nil
+	}
+	return false, nil
+}
+
+// ReplayProvesReached reports whether the digest is a state the plan has
+// been in: its preimage, or the postimage of a leading run of the applied
+// siblings, proven by replaying that run. A sibling plans against the Volume
+// it loaded while others apply, so by the time it reads the records the
+// Volume it holds may be one step behind them; that is no foreign change.
+// The write itself is proven against the current bytes under the lock.
+func ReplayProvesReached(root, repoRoot string, plan *ParallelPlan, sha256Hex string) (bool, error) {
+	if plan.PreimageSHA256 == sha256Hex {
+		return true, nil
+	}
+	preimage, err := LoadPreimage(root, plan)
+	if err != nil {
+		return false, err
+	}
+	applied, err := LoadApplied(root, plan)
+	if err != nil {
+		return false, err
+	}
+	for position, receipt := range applied {
+		if receipt.PostSHA256 != sha256Hex {
+			continue
+		}
+		replayed, replayErr := Replay(repoRoot, preimage, applied[:position+1])
+		if replayErr != nil {
+			return false, replayErr
+		}
+		return BytesSHA256(replayed) == sha256Hex, nil
 	}
 	return false, nil
 }
@@ -516,7 +601,7 @@ func ValidateParallelSubmission(root, repoRoot, batchID string, ids ParallelIden
 		if !plan.PlanHolds(ids) {
 			return Receipt{}, nil, fmt.Errorf("code_candidate_plan_stale")
 		}
-		proven, replayErr := ReplayProves(root, repoRoot, plan, ids.CodeVolumeSHA256)
+		proven, replayErr := ReplayProvesReached(root, repoRoot, plan, ids.CodeVolumeSHA256)
 		if replayErr != nil || !proven {
 			return Receipt{}, nil, fmt.Errorf("code_candidate_volume_preimage_stale")
 		}

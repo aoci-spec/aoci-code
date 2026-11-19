@@ -998,6 +998,9 @@ func handleMCPUpdateBatchReviewed(
 		proof, facts := BuildTerminalProof(root)
 		result.TerminalProof = proof
 		if proof.Aligned {
+			// The authoring work is done, so the mark that one session built
+			// it alone is too: the next wave is offered as siblings again.
+			codebatch.ClearSoloBuild(root)
 			if current, loadFail := loadCognitionCtx(root); loadFail == nil {
 				result.RootOverview = rootOverviewInvitation(current, facts)
 			}

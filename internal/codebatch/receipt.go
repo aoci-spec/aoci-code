@@ -391,7 +391,23 @@ func saveReceipt(root string, receipt Receipt) error {
 		if bytes.Equal(existing, data) {
 			return nil
 		}
-		return fmt.Errorf("code_candidate_receipt_conflict")
+		// The same batch issued once as a single batch and once as a sibling
+		// has one batch id, since the logical plan is outside the identity: a
+		// batch a Host took before the parallel setting changed, or before an
+		// upgrade that changed its default. It is the same batch, so the
+		// record takes the mode it is issued under now and the batch the Host
+		// holds still applies. Any other difference is a conflict.
+		var held Receipt
+		if json.Unmarshal(existing, &held) != nil || held.LogicalPlan == receipt.LogicalPlan {
+			return fmt.Errorf("code_candidate_receipt_conflict")
+		}
+		if stored, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(stored, '\n'), existing) {
+			return fmt.Errorf("code_candidate_receipt_conflict")
+		}
+		held.LogicalPlan = receipt.LogicalPlan
+		if same, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(same, '\n'), data) {
+			return fmt.Errorf("code_candidate_receipt_conflict")
+		}
 	} else if !os.IsNotExist(readErr) {
 		return fmt.Errorf("code_candidate_receipt_unreadable")
 	}

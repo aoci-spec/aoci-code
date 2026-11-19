@@ -8,6 +8,8 @@ package mcptools
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/authoringcontract"
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
@@ -32,6 +35,27 @@ func parallelIdentitiesOf(facts *volumegovernance.Facts, set *cognition.Set) cod
 		ids.DatabaseSHA256 = asset.SHA256
 	}
 	return ids
+}
+
+// lockPlanOnLoadedVolume takes the index lock for a Maintain that reads or
+// writes plan records and reports whether the Code Volume on disk is still
+// the one the call loaded. Applies hold the same lock, so under it the
+// records and the Volume agree; a Volume that moved means the call's facts
+// are a step behind and it must start over, never that the plan is broken.
+func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx) (release func(), moved bool, err error) {
+	lock, lockErr := afs.AcquireIndexLock(root)
+	if lockErr != nil {
+		return nil, false, lockErr
+	}
+	code := loaded.set.Volumes[cognition.ScopeCode]
+	if code != nil {
+		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path)))
+		if readErr != nil || codebatch.BytesSHA256(current) != code.SHA256 {
+			_ = lock.Release()
+			return nil, true, nil
+		}
+	}
+	return func() { _ = lock.Release() }, false, nil
 }
 
 // currentParallelPlan returns the logical plan on record when it still holds
@@ -89,30 +113,31 @@ func parallelSiblingStates(root string, plan *codebatch.ParallelPlan) ([]codebat
 	return siblings, receipts
 }
 
-// parallelPlanOutstanding reports a logical plan that still holds with a
-// sibling issued or delivered: the plan a Maintain must keep serving even
-// when what is left would fit one batch, since an Agent may hold a sibling.
-func parallelPlanOutstanding(root string, ids codebatch.ParallelIdentities) bool {
+// parallelPlanState reads the plan on record under the caller's lock:
+// whether a sibling of it is still issued or delivered, which a Maintain
+// must keep serving even when what is left would fit one batch, and whether
+// one session is working it alone (see siblingsNeverFetched).
+func parallelPlanState(root string, ids codebatch.ParallelIdentities) (outstanding, alone bool) {
 	plan := currentParallelPlan(root, ids)
 	if plan == nil {
-		return false
+		return false, false
 	}
 	siblings, _ := parallelSiblingStates(root, plan)
 	for _, sibling := range siblings {
 		if siblingOutstanding(sibling.State) {
-			return true
+			outstanding = true
 		}
 	}
-	return false
+	return outstanding, siblingsNeverFetched(siblings)
 }
 
 // siblingsNeverFetched reports a plan one session is working alone: a
 // sibling of it has applied while every other outstanding one was never
-// handed to anyone. Those are released and the next plan is cut from the
-// Volume as it stands, so a Host without subagents gets a full first batch
-// every round instead of the smaller batches cut for fresh sessions. A
-// sibling any session was handed keeps the plan; an Agent that asks for a
-// released one by batch_id is sent back to no-argument Maintain.
+// handed to anyone. The caller releases those and marks the build solo, so
+// a Host without subagents gets full single batches from then on instead of
+// the smaller batches cut for fresh sessions. A sibling any session was
+// handed keeps the plan; an Agent that asks for a released one by batch_id
+// is sent back to no-argument Maintain.
 func siblingsNeverFetched(siblings []codebatch.Sibling) bool {
 	applied, issued := false, false
 	for _, sibling := range siblings {
@@ -138,11 +163,7 @@ func siblingOutstanding(state string) bool {
 func siblingListingBytes(cuts [][]codebatch.Candidate) int {
 	listing := make([]codebatch.Sibling, 0, len(cuts))
 	for _, cut := range cuts {
-		sibling := codebatch.Sibling{BatchID: strings.Repeat("0", 64), Targets: []string{}, Included: len(cut), State: codebatch.SiblingDelivered}
-		for _, candidate := range cut {
-			sibling.Targets = append(sibling.Targets, candidate.Path)
-		}
-		listing = append(listing, sibling)
+		listing = append(listing, codebatch.Sibling{BatchID: strings.Repeat("0", 64), Included: len(cut), State: codebatch.SiblingInvalidated})
 	}
 	data, err := json.Marshal(listing)
 	if err != nil {
@@ -206,7 +227,7 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 // agents calling no-argument Maintain each receive their own; when every
 // outstanding sibling is already delivered, the first of them is delivered
 // again, which is what a single agent sees between its Applies.
-func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, contractOnWire bool, parallel int) {
+func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, contractOnWire bool, parallel int, session *cognitionRefreshSession) {
 	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
 	plan := currentParallelPlan(root, ids)
 	if len(all) == 0 {
@@ -224,7 +245,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 				outstanding++
 			}
 		}
-		if outstanding == 0 || siblingsNeverFetched(siblings) {
+		if outstanding == 0 {
 			_ = codebatch.RemoveParallelPlans(root)
 			plan = nil
 		}
@@ -244,6 +265,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 			}
 		}
 		if err := codebatch.SaveParallelPlan(root, fresh, loaded.set.Volumes[cognition.ScopeCode].Raw); err != nil {
+			result.issueFailure = "code_parallel_plan_issue_failed"
 			return
 		}
 		receipts = map[string]codebatch.Receipt{}
@@ -257,11 +279,13 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 				ids.CodeVolumePath, fresh.PreimageSHA256, all, cut, limit, budget)
 			if err != nil {
 				_ = codebatch.RemoveParallelPlans(root)
+				result.issueFailure = "code_parallel_plan_issue_failed"
 				return
 			}
 			receipt, loadErr := codebatch.LoadReceipt(root, issued.BatchID)
 			if loadErr != nil {
 				_ = codebatch.RemoveParallelPlans(root)
+				result.issueFailure = "code_parallel_plan_issue_failed"
 				return
 			}
 			fresh.Siblings = append(fresh.Siblings, issued.BatchID)
@@ -273,15 +297,25 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 			siblings = append(siblings, codebatch.Sibling{BatchID: issued.BatchID, Targets: paths, Included: len(paths), State: codebatch.SiblingIssued})
 		}
 		if err := codebatch.UpdateParallelPlan(root, fresh); err != nil {
+			result.issueFailure = "code_parallel_plan_issue_failed"
 			return
 		}
 		plan = &fresh
 	}
+	// The sibling this server was already handed, while it is still out, is
+	// the current batch again: one session asking twice gets one batch, and
+	// the others stay unfetched for the Agents that will ask by batch_id.
 	var current *codebatch.Sibling
+	if held := session.HeldSibling(); held != "" {
+		for index := range siblings {
+			if siblings[index].BatchID == held && siblingOutstanding(siblings[index].State) {
+				current = &siblings[index]
+			}
+		}
+	}
 	for index := range siblings {
-		if siblings[index].State == codebatch.SiblingIssued {
+		if current == nil && siblings[index].State == codebatch.SiblingIssued {
 			current = &siblings[index]
-			break
 		}
 	}
 	if current == nil {
@@ -299,9 +333,11 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		current.State = codebatch.SiblingDelivered
 		plan.Delivered = append(plan.Delivered, current.BatchID)
 		if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
+			result.issueFailure = "code_parallel_plan_issue_failed"
 			return
 		}
 	}
+	session.HoldSibling(current.BatchID)
 	receipt := receipts[current.BatchID]
 	held := 0
 	others := make([]codebatch.Sibling, 0, len(siblings))
@@ -352,10 +388,31 @@ func appendReceiptCandidates(root string, loaded *cognitionRepoCtx, result *volu
 // issued sibling, complete, as the current batch; an applied or invalidated
 // one answers its state and sends the Host back to no-argument Maintain.
 func handleParallelSiblingDelivery(root, serviceVersion, batchID string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
-	start := time.Now()
 	if loaded.cfg.CodeCognitionParallelBatchLimit() <= 1 {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_requires_parallel_batches"})
 	}
+	// A sibling is read, judged, and marked delivered under the index lock on
+	// the Volume this call loaded; when another sibling's Apply landed in
+	// between, the call starts over instead of calling the plan broken.
+	for attempt := 1; ; attempt++ {
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		if lockErr != nil {
+			return failResult(&Fail{Code: errWriteConflict, Msg: "code_batch_lock_unavailable", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+		if !moved {
+			defer release()
+			break
+		}
+		if attempt >= maintainReloadAttempts {
+			return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+		reloaded, fail := loadCognitionCtx(root)
+		if fail != nil {
+			return failResult(fail)
+		}
+		loaded = reloaded
+	}
+	start := time.Now()
 	facts, _, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
 	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
@@ -411,7 +468,11 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 			changed = true
 		}
 		if changed {
-			_ = codebatch.UpdateParallelPlan(root, *plan)
+			// The candidates are returned only once the delivery is on
+			// record: an unrecorded one could be released under its Agent.
+			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+			}
 		}
 		appendReceiptCandidates(root, loaded, &result, receipt)
 		held := 0
@@ -450,7 +511,11 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		// Applied, or invalidated by a foreign change or its own source drift:
 		// the state is the answer, and no-argument Maintain plans afresh.
 		if changed {
-			_ = codebatch.UpdateParallelPlan(root, *plan)
+			// The candidates are returned only once the delivery is on
+			// record: an unrecorded one could be released under its Agent.
+			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+			}
 		}
 		listed := codebatch.Sibling{BatchID: batchID, Targets: []string{}, State: state}
 		if requested != nil {

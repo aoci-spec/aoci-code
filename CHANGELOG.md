@@ -13,10 +13,25 @@ All notable public changes to AOCI-CODE will be documented in this file.
   byte for byte. A Host that runs no subagents needs no setting and loses no
   speed: when a sibling has applied and the others were never handed to any
   session they are released, so one session alone gets a full first batch
-  every round and reaches aligned in the rounds it took before. The response
+  from then on and reaches aligned in the rounds it took before. The response
   that lists siblings says so, and its instruction line is now counted in
-  the transport budget, which it was not. A repository that set the key keeps
-  its value.
+  the transport budget, which it was not. A sibling listing no longer carries
+  target paths (`batch_id`, `included`, `state` only): they took a quarter of
+  every batch. A repository that set the key keeps its value.
+- Parallel batches hold under real concurrency. Running three sessions at
+  once on a real repository, which no suite did, found defects present since
+  0.2.0-rc1 behind the off-by-default setting: a sibling that planned while
+  another applied was refused as `code_candidate_volume_preimage_stale`
+  (two sessions usually got through, three did not); two siblings taken at
+  the same moment could lose one delivery record; a sibling that dropped an
+  orphan left its transaction pending (`code_parallel_applied_persist_failed`);
+  an update wave whose Entries stood unchanged never completed its plan; and
+  a Maintain that failed to issue a batch answered aligned. Plan records are
+  now read and written under the index lock, planning accepts any state the
+  plan has been in while the write is still proven under the lock, a
+  zero-write sibling and a delete are recorded, and an issuance failure is
+  reported as one. The server that was handed a sibling answers the same one
+  when asked again, as a single batch always was.
 - A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
   may carry only its `path` (a Database item its `object_ref`) and its
   `new_entry`; the server completes `source_sha256` and `candidate_id` from the

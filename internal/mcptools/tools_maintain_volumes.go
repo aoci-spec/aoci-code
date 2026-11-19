@@ -112,8 +112,14 @@ type volumeMaintainResult struct {
 	// Stop carries an asset-level fact no candidate can repair, found before a batch
 	// is issued, so that the model is not asked to author Entries the update path
 	// would have to refuse. Absent otherwise.
-	Stop  *GlobalStopFacts     `json:"stop,omitempty"`
-	Batch volumeAuthoringBatch `json:"authoring_batch"`
+	Stop *GlobalStopFacts `json:"stop,omitempty"`
+	// volumeMoved and issueFailure never reach the wire: the Code Volume was
+	// written between this call's load and its turn at the plan, so the call
+	// starts over on the current bytes; or the batch could not be issued,
+	// which is a failure to report and never an empty, aligned-looking answer.
+	volumeMoved  bool
+	issueFailure string
+	Batch        volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
 	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
@@ -136,7 +142,15 @@ type volumeMaintainResult struct {
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
 }
 
+// maintainReloadAttempts bounds how often one Maintain starts over because a
+// sibling's Apply landed between its load and its turn at the plan.
+const maintainReloadAttempts = 4
+
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+	return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, loaded, refreshSession, 1)
+}
+
+func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession, attempt int) *mcp.CallToolResult {
 	start := time.Now()
 	if requestedScope != "" && requestedScope != cognition.ScopeCode && requestedScope != cognition.ScopeDatabase && requestedScope != cognition.ScopeAll {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
@@ -182,7 +196,20 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
 	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.set, refreshSession, includeInstructions))
+			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.set, refreshSession, includeInstructions), refreshSession)
+			if result.volumeMoved {
+				if attempt >= maintainReloadAttempts {
+					return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
+				}
+				reloaded, fail := loadCognitionCtx(root)
+				if fail != nil {
+					return failResult(fail)
+				}
+				return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+			}
+			if result.issueFailure != "" {
+				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
+			}
 		}
 		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
@@ -405,22 +432,50 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // candidates: a target the Code Volume already describes is an update, any
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
-func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool) {
+func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool, session *cognitionRefreshSession) {
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	if len(all) == 0 {
 		_ = codebatch.RemoveParallelPlans(root)
+		codebatch.ClearSoloBuild(root)
 		return
 	}
 	budget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
 	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
+	// The plan records are read and written under the index lock, on the
+	// Volume bytes this call loaded: a sibling's Apply that landed since is
+	// no reason to judge the plan broken, the call starts over instead.
+	release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+	if lockErr != nil {
+		result.issueFailure = "code_batch_lock_unavailable"
+		return
+	}
+	if moved {
+		result.volumeMoved = true
+		return
+	}
+	defer release()
 	// Sibling batches exist for work one batch cannot hold: a plan with a
 	// sibling still out continues, and work beyond one batch starts one.
 	// Everything else is the single current batch, byte for byte, whatever
 	// the parallel setting, so everyday maintenance never changes shape.
-	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 &&
-		(len(selected) < len(all) || parallelPlanOutstanding(root, parallelIdentitiesOf(result.Governance.Facts, loaded.set))) {
-		buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel)
-		return
+	// A Host that runs no subagents is recognised by what it does: a sibling
+	// of the plan applied while the others were never handed to anyone.
+	// Those are released, and until this authoring work is done the build is
+	// one session's, served by full single batches.
+	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
+		outstanding, alone := parallelPlanState(root, parallelIdentitiesOf(result.Governance.Facts, loaded.set))
+		if alone {
+			_ = codebatch.RemoveParallelPlans(root)
+			if err := codebatch.MarkSoloBuild(root); err != nil {
+				result.issueFailure = err.Error()
+				return
+			}
+			outstanding = false
+		}
+		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuild(root)) {
+			buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel, session)
+			return
+		}
 	}
 	// One current batch per Maintain: a logical plan with nothing left out,
 	// or left by a parallel setting that was since lowered, is dropped.
@@ -433,6 +488,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
 		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), budget)
 	if err != nil {
+		result.issueFailure = err.Error()
 		return
 	}
 	result.CodePlan = transportCodePlan(plan)
