@@ -648,7 +648,7 @@ func handleMCPUpdateBatchReviewed(
 		if status == autoStatusStopped && !fail.FormalWritesStarted && fail.GlobalStop == nil {
 			if _, facts := BuildTerminalProof(root); facts != nil {
 				if _, action := blockingFinding(facts, nil); action == machinecontract.MaintainActionRestoreFormalAssets {
-					nextAction, nextCommands = action, blockedNextCommands(root, facts)
+					nextAction, nextCommands = action, blockedNextCommands(root, facts, nil)
 				}
 			}
 		}
@@ -830,7 +830,7 @@ func handleMCPUpdateBatchReviewed(
 		if !proof.Aligned {
 			result.Aligned = false
 			result.NextAction = mcpContract(textassets.ContractMaintainActionApplyRemaining)
-			result.NextCommands = blockedNextCommands(root, facts)
+			result.NextCommands = blockedNextCommands(root, facts, nil)
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)

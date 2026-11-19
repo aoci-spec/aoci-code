@@ -72,15 +72,16 @@ func composeNextCommands(prefix string, suffixes ...string) []string {
 // blockedNextCommands mirrors the CLI Guide's blocked-remediation mapping for
 // the blocker findings a host can clear itself. Orphan removals need no CLI:
 // aoci_remove_entry is already on the MCP surface the caller is holding.
-func blockedNextCommands(root string, facts *volumegovernance.Facts) []string {
+func blockedNextCommands(root string, facts *volumegovernance.Facts, databaseOrphans []string) []string {
 	if facts == nil {
 		return nil
 	}
 	// The restore of a merged index is the one remediation that is a git
 	// command, bound to the root on its own; it is offered only while it is
-	// the blocker the result names, never beside a pending Recovery.
+	// the blocker the result names, never beside a pending Recovery or a
+	// Database orphan the result asks to remove first.
 	var restore []string
-	if _, action := blockingFinding(facts, nil); action == machinecontract.MaintainActionRestoreFormalAssets {
+	if _, action := blockingFinding(facts, databaseOrphans); action == machinecontract.MaintainActionRestoreFormalAssets {
 		if command := facts.RestoreCommand(root); command != "" {
 			restore = []string{command}
 		}

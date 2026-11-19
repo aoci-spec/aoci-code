@@ -196,9 +196,13 @@ Volume, for example). Nothing was written; name the other side.
 
 When both branches also accepted new Database Evidence,
 `.aoci/database-baseline.json` conflicts too and is not part of the restore.
-Resolve that file to the side that matches the database as it is now (the
-schema a fresh snapshot would read); while it holds conflict markers the
-evidence commands Maintain returns cannot bind a snapshot.
+Resolve that file to either side's whole file (`git checkout HEAD --
+.aoci/database-baseline.json`, or `MERGE_HEAD`); while it holds conflict
+markers the evidence commands Maintain returns cannot bind a snapshot. The
+merged database may match neither branch, and it does not need to: the
+`database snapshot` and `database baseline accept` Maintain names next
+rebind the Evidence to the database as it is now, and Maintain then returns
+the tables whose Entries no longer describe it.
 
 A Volume left holding conflict markers may not load at all. Maintain then
 answers the load failure naming the asset; the same checkout repairs it.

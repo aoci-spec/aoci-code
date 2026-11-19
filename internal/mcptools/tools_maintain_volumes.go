@@ -241,7 +241,7 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 		// is authoring work the batch below clears through removals.
 		result.Status, result.Aligned, result.Result = autoStatusStopped, false, volumegovernance.ResultBlocked
 		result.NextAction = blockedNextAction(facts, databaseOrphans(result.OrphanRemovals))
-		result.NextCommands = blockedNextCommands(root, facts)
+		result.NextCommands = blockedNextCommands(root, facts, databaseOrphans(result.OrphanRemovals))
 		result.ObserveReview = observeReviewFor(facts)
 	case len(result.Candidates) > 0:
 		result.Status, result.Aligned, result.Result, result.NextAction = autoStatusRepairRequired, false, volumegovernance.ResultAuthoringRequired, result.Batch.NextAction

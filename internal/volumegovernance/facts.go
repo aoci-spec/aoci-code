@@ -931,7 +931,7 @@ const CauseVolumeChangedAfterBaseline = "changed_after_baseline"
 func volumeUnbaselined(root, rel string, state *baseline.Baseline) (string, string) {
 	if state != nil {
 		if _, recorded := state.Files[rel]; recorded {
-			return CauseVolumeChangedAfterBaseline, "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Root, every Volume, and .aoci/baseline.json together from one commit, then run aoci_maintain: after any Scope Change, Locale switch, or Observe review it names first, it returns every source or table that commit's Entries do not describe; a conflicted .aoci/database-baseline.json is resolved separately, to the side that matches the database as it is now"
+			return CauseVolumeChangedAfterBaseline, "this Volume's bytes changed after the Baseline was established, for example by a merge; restore the Root, every Volume, and .aoci/baseline.json together from one commit, then run aoci_maintain: after any Scope Change, Locale switch, or Observe review it names first, it returns every source or table that commit's Entries do not describe; a conflicted .aoci/database-baseline.json is resolved separately, to either side's whole file, and the snapshot and accept Maintain names next rebind it to the database as it is now"
 		}
 	}
 	if ignored, _ := afs.PathIgnoredByGit(root, rel); ignored {

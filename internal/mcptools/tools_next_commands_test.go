@@ -44,7 +44,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 		{Code: "observed_pending"}, // duplicates must not duplicate commands
 		{Code: "cognition_budget_exceeded"},
 	}
-	blocked := blockedNextCommands(root, facts)
+	blocked := blockedNextCommands(root, facts, nil)
 	joined := strings.Join(blocked, "\n")
 	if len(blocked) != 2 ||
 		strings.Contains(joined, machinecontract.RemediationCommandScopeAcknowledge) ||
@@ -56,7 +56,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 	review := blockedNextCommands(root, &volumegovernance.Facts{
 		NextRequiredAction: machinecontract.ActionReviewObservedEvidence,
 		Findings:           []volumegovernance.Finding{{Code: "observed_pending"}, {Code: "observed_pending"}},
-	})
+	}, nil)
 	if len(review) != 3 || !strings.HasSuffix(review[0], machinecontract.RemediationCommandScopeStatus) ||
 		!strings.HasSuffix(review[1], machinecontract.RemediationCommandScopeAcknowledge) ||
 		!strings.HasSuffix(review[2], machinecontract.RemediationCommandAgentGuide) {
@@ -66,7 +66,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 
 	scopeCommands := blockedNextCommands(root, &volumegovernance.Facts{Findings: []volumegovernance.Finding{
 		{Code: "scope_change_required"}, {Code: "scope_change_required"},
-	}})
+	}}, nil)
 	if len(scopeCommands) != 2 ||
 		!strings.HasSuffix(scopeCommands[0], " "+machinecontract.RemediationCommandScopeStatus) ||
 		!strings.HasSuffix(scopeCommands[1], " "+machinecontract.RemediationCommandScopeActivate) {
@@ -74,7 +74,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 	}
 	bound(scopeCommands)
 
-	if commands := blockedNextCommands(root, &volumegovernance.Facts{}); commands != nil {
+	if commands := blockedNextCommands(root, &volumegovernance.Facts{}, nil); commands != nil {
 		t.Fatalf("no clearable blocker must yield no commands, got %v", commands)
 	}
 
@@ -90,7 +90,7 @@ func TestNextCommandsCarryTheSharedSpellings(t *testing.T) {
 	// A root the shell cannot be handed safely yields no command at all: an
 	// absent advisory beats one that would govern the wrong tree.
 	for _, unusable := range []string{"", "/tmp/one\ntwo"} {
-		if commands := blockedNextCommands(unusable, facts); commands != nil {
+		if commands := blockedNextCommands(unusable, facts, nil); commands != nil {
 			t.Fatalf("root %q must yield no commands, got %v", unusable, commands)
 		}
 		if commands := evidenceNextCommands(unusable); commands != nil {
@@ -151,7 +151,7 @@ func TestMergedVolumeStopNamesTheRestore(t *testing.T) {
 	if code, action := blockingFinding(facts, nil); code != "code_volume_unbaselined" || action != machinecontract.MaintainActionRestoreFormalAssets {
 		t.Fatalf("the merged Volume must be the named blocker: %s %s", code, action)
 	}
-	commands := blockedNextCommands(root, facts)
+	commands := blockedNextCommands(root, facts, nil)
 	if len(commands) != 1 || !strings.HasPrefix(commands[0], "git -C ") ||
 		!strings.Contains(commands[0], " "+machinecontract.RemediationGitRestoreFormalAssets+" ") ||
 		strings.Contains(commands[0], "aoci.database.txt") {
@@ -164,7 +164,7 @@ func TestMergedVolumeStopNamesTheRestore(t *testing.T) {
 	}
 	// An enabled Database Volume is restored with the rest.
 	facts.Database.Enabled = true
-	if commands = blockedNextCommands(root, facts); len(commands) != 1 || !strings.Contains(commands[0], "aoci.database.txt") {
+	if commands = blockedNextCommands(root, facts, nil); len(commands) != 1 || !strings.Contains(commands[0], "aoci.database.txt") {
 		t.Fatalf("an enabled Database Volume belongs to the set: %v", commands)
 	}
 	// A Volume Git hides needs scan, not a restore: nothing is offered.
@@ -172,7 +172,7 @@ func TestMergedVolumeStopNamesTheRestore(t *testing.T) {
 	if code, action := blockingFinding(facts, nil); action != machinecontract.MaintainActionResolveBlocker || code != "code_missing" {
 		t.Fatalf("a hidden Volume is not the restore stop: %s %s", code, action)
 	}
-	if commands = blockedNextCommands(root, facts); commands != nil {
+	if commands = blockedNextCommands(root, facts, nil); commands != nil {
 		t.Fatalf("no restore for a hidden Volume: %v", commands)
 	}
 }
@@ -194,15 +194,24 @@ func TestRestoreIsOfferedOnlyAsTheNamedBlocker(t *testing.T) {
 	if _, action := blockingFinding(pending, nil); action != machinecontract.MaintainActionClosePendingRecovery {
 		t.Fatalf("a pending Recovery comes first: %s", action)
 	}
-	if commands := strings.Join(blockedNextCommands(root, pending), "\n"); strings.Contains(commands, "git ") {
+	if commands := strings.Join(blockedNextCommands(root, pending, nil), "\n"); strings.Contains(commands, "git ") {
 		t.Fatalf("no restore beside a pending Recovery: %s", commands)
+	}
+	// A Database orphan the result asks to remove first is named instead, and
+	// the command follows the action that was chosen.
+	orphaned := build("code_missing")
+	if _, action := blockingFinding(orphaned, []string{"database://local/main/gone"}); action != machinecontract.MaintainActionExplicitOrphanRemove {
+		t.Fatalf("a Database orphan comes first: %s", action)
+	}
+	if commands := strings.Join(blockedNextCommands(root, orphaned, []string{"database://local/main/gone"}), "\n"); strings.Contains(commands, "git ") {
+		t.Fatalf("no restore beside a Database orphan to remove: %s", commands)
 	}
 	for _, later := range []string{"scope_change_required", "cognition_budget_exceeded"} {
 		facts := build(later)
 		if _, action := blockingFinding(facts, nil); action != machinecontract.MaintainActionRestoreFormalAssets {
 			t.Fatalf("the restore comes before %s: %s", later, action)
 		}
-		if commands := blockedNextCommands(root, facts); len(commands) == 0 || !strings.HasPrefix(commands[0], "git -C ") {
+		if commands := blockedNextCommands(root, facts, nil); len(commands) == 0 || !strings.HasPrefix(commands[0], "git -C ") {
 			t.Fatalf("the restore command leads before %s: %v", later, commands)
 		}
 	}
