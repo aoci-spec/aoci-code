@@ -432,9 +432,12 @@ ok("attestation.seven_of_ten_is_partial", (not perr) and "challenge_passed: 7/10
 it, ierr = attest2(wreck_ident=(0,1))
 ok("attestation.two_identity_misses_partial", (not ierr) and "challenge_passed: 8/10" in it
    and "model_attestation: partial" in it, it[:240])
-et, eerr = attest2(wreck_f=(0,1))
+# The same proof carries a low self-assessed mastery: the number is recorded
+# and shown and decides nothing, so the verdict stays reliable and complete.
+et, eerr = attest2(wreck_f=(0,1), mastery=50)
 ok("attestation.eight_of_ten_passes", (not eerr) and "challenge_passed: 8/10" in et
-   and "model_attestation: pass" in et and "model_full_cognition_reliable: true" in et, et[:240])
+   and "model_attestation: pass" in et and "model_full_cognition_reliable: true" in et
+   and "cognition_assimilation: complete" in et and "system_mastery_percent: 50.00" in et, et[:400])
 ok("stdout.purity.session2", not s2.nonjson_stdout)
 s2.close()
 

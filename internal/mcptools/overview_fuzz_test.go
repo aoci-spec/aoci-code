@@ -410,8 +410,7 @@ func FuzzOverviewAttestationInput(f *testing.F) {
 			t.Fatalf("fail with a valid envelope and recall: %+v", attestation)
 		}
 		if attestation.CognitionAssimilation == cognitionAssimilationComplete &&
-			(attestation.DeliveryIntegrity != deliveryIntegrityConfirmed || attestation.ModelAttestation != modelAttestationPass ||
-				attestation.SystemMasteryPercent < attestationMasteryComplete) {
+			(attestation.DeliveryIntegrity != deliveryIntegrityConfirmed || attestation.ModelAttestation != modelAttestationPass) {
 			t.Fatalf("complete assimilation without proof: %+v", attestation)
 		}
 		if attestation.DeliveryIntegrity == deliveryIntegrityConfirmed {

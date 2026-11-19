@@ -162,8 +162,8 @@ to repair or supplement cognition.
 Initial cognition keeps the strict acceptance gate. Complete transport,
 100-percent object coverage, a passing Challenge (at least 80 percent of
 ordinals fully correct with at most one object identity miss), passing
-Attestation, aligned
-governance, and sufficient framework mastery are all required before
+Attestation, and aligned
+governance are all required before
 `model_full_cognition_reliable=true`. A partial or failed initial Attestation
 cannot be repaired from source or local retrieval and cannot authorize
 Root/Meta, Migration, layout-wide, or other unbound system decisions. It may,

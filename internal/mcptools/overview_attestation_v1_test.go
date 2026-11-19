@@ -455,13 +455,23 @@ func TestModelCognitionAttestationDetectsTruncationAndFalseClaims(t *testing.T) 
 	}
 }
 
-func TestModelCognitionAttestationLowMasteryIsPartialAssimilation(t *testing.T) {
+// system_mastery_percent is a self-assessment: it is recorded and shown and
+// decides nothing. Ten correct answers with an honest low number used to grade
+// partial, which taught a model to report 80.
+func TestModelCognitionAttestationMasteryDecidesNothing(t *testing.T) {
 	challenge := syntheticChallenge(120)
-	report := completeAttestation(challenge, 120, 30_000)
-	report.SystemMasteryPercent = 64
-	result := assessOverviewAttestation(challenge, 120, 30_000, hostDeliveryConfirmed, true, report)
-	if result.ModelAttestation != modelAttestationPass || result.CognitionAssimilation != cognitionAssimilationPartial {
-		t.Fatalf("low mastery must not erase delivery or become complete: %+v", result)
+	for _, mastery := range []float64{0, 64, 79.9, 100} {
+		report := completeAttestation(challenge, 120, 30_000)
+		report.SystemMasteryPercent = mastery
+		result := assessOverviewAttestation(challenge, 120, 30_000, hostDeliveryConfirmed, true, report)
+		if result.ModelAttestation != modelAttestationPass || result.CognitionAssimilation != cognitionAssimilationComplete ||
+			result.SystemMasteryPercent != mastery {
+			t.Fatalf("mastery %.1f changed the verdict or was not recorded: %+v", mastery, result)
+		}
+		state := assessOverviewCognitionStateV2(true, true, true, true, result)
+		if !state.ModelCognitionUsable || !state.CurrentSystemCognitionReliable {
+			t.Fatalf("mastery %.1f made verified cognition unusable: %+v", mastery, state)
+		}
 	}
 }
 

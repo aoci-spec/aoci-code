@@ -101,10 +101,12 @@ delivered body and current Attestation report:
 * the reported Entry count matches the delivered Entry count;
 * the reported estimated Token count is within the existing Attestation
   tolerance;
-* reported coverage is at least the existing complete-coverage threshold;
-* truncation is not detected; and
-* reported system-framework mastery is at least the existing complete-mastery
-  threshold.
+* reported coverage is at least the existing complete-coverage threshold; and
+* truncation is not detected.
+
+Reported system-framework mastery is recorded and shown beside the result and
+decides nothing: not usability, not strict Attestation, not reliability. A
+person reading the number judges whether it is enough.
 
 Ordinal order, Challenge object identity, Tag, and core F exactness do not
 participate in model cognition usability. They remain strict proof facts. A

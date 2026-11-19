@@ -286,9 +286,9 @@ machine count, a reasonable token report, at least 95 percent reported
 coverage, no detected truncation, and the Challenge pass share above.
 Complete assimilation additionally requires continuous 100 percent machine
 Entry coverage, confirmed Host delivery, current aligned formal cognition,
-a passing Challenge, `governance_aligned=true`, passing Attestation, and at
-least 80 percent model-reported system mastery. Mastery is a self-assessment and never
-replaces machine coverage.
+a passing Challenge, `governance_aligned=true`, and passing Attestation.
+Model-reported system mastery is a self-assessment: it is recorded and shown,
+never replaces machine coverage, and decides no verdict.
 
 `system_mastery_percent` means only the model's self-assessed mastery of the
 system framework: overall architecture, module responsibilities, strong
@@ -330,8 +330,8 @@ listed above stops the chain or acceptance; local and historical information
 must not be used to claim completion.
 
 Initial cognition still requires complete transport, continuous coverage, a
-passing Challenge, passing Attestation, aligned governance, and sufficient
-mastery for `model_full_cognition_reliable=true`. Initial partial or failure
+passing Challenge, passing Attestation, and aligned governance for
+`model_full_cognition_reliable=true`. Initial partial or failure
 blocks unbound Root/Meta, Migration, layout-wide, and other system decisions,
 but it does not prohibit honest answers or task-bound source/test inspection.
 

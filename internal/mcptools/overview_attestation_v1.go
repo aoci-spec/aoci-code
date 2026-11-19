@@ -34,7 +34,6 @@ const (
 	cognitionAssimilationUncertain = "uncertain"
 
 	attestationCoverageComplete = 95.0
-	attestationMasteryComplete  = 80.0
 
 	// The Challenge measures assimilation, not verbatim recall. Delivery
 	// integrity is already proven by the host receipt over the exact bytes, so
@@ -351,8 +350,10 @@ func assessOverviewAttestation(
 	if result.DeliveryIntegrity != deliveryIntegrityConfirmed || !governanceAligned ||
 		result.ModelAttestation == modelAttestationFail || result.ModelAttestation == modelAttestationNotProvided {
 		result.CognitionAssimilation = cognitionAssimilationUncertain
-	} else if result.ModelAttestation == modelAttestationPass &&
-		report.SystemMasteryPercent >= attestationMasteryComplete {
+	} else if result.ModelAttestation == modelAttestationPass {
+		// system_mastery_percent is shown and recorded and decides nothing: a
+		// self-assessment that gated the verdict graded ten correct answers
+		// down for an honest 75 and taught a model to report 80.
 		result.CognitionAssimilation = cognitionAssimilationComplete
 	} else {
 		result.CognitionAssimilation = cognitionAssimilationPartial

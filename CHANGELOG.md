@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `system_mastery_percent` decides nothing. It was a self-assessment with a
+  threshold behind it: a model that answered the whole Challenge correctly
+  and honestly reported less than 80 was graded `cognition_assimilation:
+  partial` and `model_cognition_usable: false`, with no reason given, so the
+  reliable way to pass was to report 80. The number is still required,
+  recorded, and shown; complete assimilation and usable cognition now follow
+  from confirmed delivery, the coverage and count claims, the Challenge, and
+  aligned governance alone. A person reading the number judges whether it is
+  enough. No input or output field changes shape; a report that passed before
+  still passes. Reported by a host that built scipy's index (A3).
 - A batch is sized by what it asks a model to read, not only by what fits the
   response. One batch used to name two ten-thousand-line files, and on five
   real trees the largest batch read 28,000 to 153,000 source lines against a
