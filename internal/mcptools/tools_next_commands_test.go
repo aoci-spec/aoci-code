@@ -234,3 +234,46 @@ func TestMaintainOnDamagedVolumesIsNotTheLegacyStop(t *testing.T) {
 		t.Fatalf("a damaged Volumes repository was answered as Legacy:\n%s", text)
 	}
 }
+
+// A Baseline that does not parse, as one a merge left with conflict markers,
+// answers with the restore command instead of a bare internal code.
+func TestMaintainOnAConflictedBaselineNamesTheRestore(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	session := connectMCPClient(t, root)
+	if err := os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), []byte("<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> other\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "aoci_maintain", Arguments: map[string]any{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := resText(t, result)
+	if !result.IsError || !strings.Contains(text, "volumes_governance_baseline_invalid") ||
+		!strings.Contains(text, machinecontract.MaintainActionRestoreFormalAssets+": git -C ") ||
+		!strings.Contains(text, " "+machinecontract.RemediationGitRestoreFormalAssets+" ") || !strings.Contains(text, ".aoci/baseline.json") {
+		t.Fatalf("a conflicted Baseline must name the restore:\n%s", text)
+	}
+}
+
+// Beside a pending receipt the conflicted Baseline offers no restore: the
+// Recovery comes first and the checkout would overwrite what it resumes from.
+func TestAConflictedBaselineOffersNoRestoreBesideAReceipt(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	if err := os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), []byte("<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> other\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, ".aoci", "transactions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".aoci", "transactions", "entries-probe.json"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	_, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if err == nil || !strings.Contains(err.Error(), "volumes_governance_baseline_invalid") || strings.Contains(err.Error(), "git ") {
+		t.Fatalf("no restore beside a pending receipt: %v", err)
+	}
+}

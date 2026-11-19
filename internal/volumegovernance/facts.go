@@ -531,6 +531,21 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 
 	state, exists, err := baseline.Load(root)
 	if err != nil {
+		// A Baseline that does not parse is most often one a merge left with
+		// conflict markers, the moment its way out is needed most: the same
+		// restore that repairs a drifted Volume overwrites it.
+		paths := []string{facts.Root.Path, facts.Meta.Path}
+		for _, scope := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
+			if asset := enabledAsset(set, scope); asset != nil {
+				paths = append(paths, asset.Descriptor.Path)
+			}
+		}
+		// Never beside a pending receipt: its Recovery comes first, and the
+		// restore would overwrite the bytes it resumes from.
+		pending, pendingErr := cognitiontxn.Pending(root)
+		if command := restoreCommand(root, append(paths, ".aoci/baseline.json")); command != "" && pendingErr == nil && len(pending) == 0 {
+			return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w; %s: %s", err, machinecontract.MaintainActionRestoreFormalAssets, command)
+		}
 		return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}
 	if !exists || state == nil {
@@ -975,7 +990,10 @@ func (facts *Facts) RestoreSet() []string {
 // `git -C <root> checkout {commit} -- <RestoreSet>`. It is empty when nothing
 // calls for the restore or a path cannot be quoted for the Host's shell.
 func (facts *Facts) RestoreCommand(root string) string {
-	paths := facts.RestoreSet()
+	return restoreCommand(root, facts.RestoreSet())
+}
+
+func restoreCommand(root string, paths []string) string {
 	if len(paths) == 0 || root == "" {
 		return ""
 	}

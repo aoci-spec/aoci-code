@@ -179,6 +179,10 @@ not describe (what the other branch changed or added), and the batch aligns
 the repository. Add `aoci.database.txt` when the Root enables a Database
 Volume.
 
+Straight after `git merge` reports the conflict, while `.aoci/baseline.json`
+still holds conflict markers, Maintain already answers
+`volumes_governance_baseline_invalid` with that command as its next step.
+
 If only one of the files was taken, Maintain stops with
 `next_action=restore_formal_assets_from_one_commit`, the
 `code_volume_unbaselined` finding carries `cause=changed_after_baseline`, and

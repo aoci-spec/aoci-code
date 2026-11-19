@@ -2182,12 +2182,21 @@ def group_n():
     sm.close()
     sh(fx, "git", "add", "-A"); sh(fx, "git", "commit", "-q", "-m", "side a source")
     merged = subprocess.run(["git", "merge", "side-b"], cwd=fx, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+    # Straight after the merge both files hold conflict markers: Maintain
+    # already returns the restore command, and verify names the action,
+    # before anything was resolved by hand.
+    sm = Session(fx)
+    raw, raw_err = text_of(sm.call("aoci_maintain"))
+    sm.close()
+    _, _, v_out, v_err = cli(fx, "verify")
+    early = ("restore_formal_assets_from_one_commit: git -C " in raw and " checkout {commit} -- " in raw
+             and "restore_formal_assets_from_one_commit" in v_out + v_err)
     sh(fx, "git", "checkout", "--theirs", "--", ".aoci/baseline.json")
     sm = Session(fx)
     m, t, _ = maintain(sm)
     cmds = m.get("next_commands") or []
     restore = next((c for c in cmds if c.startswith("git -C ") and " checkout {commit} -- " in c), "")
-    named = (merged.returncode != 0 and m.get("status") == "stopped" and not (m.get("candidates") or [])
+    named = (early and merged.returncode != 0 and m.get("status") == "stopped" and not (m.get("candidates") or [])
              and m.get("next_action") == "restore_formal_assets_from_one_commit"
              and all(asset in restore for asset in ("aoci.txt", "aoci.meta.txt", "aoci.code.txt", ".aoci/baseline.json"))
              and "aoci.database.txt" not in restore)
@@ -2208,7 +2217,7 @@ def group_n():
              and stale.get("next_action") == "restore_formal_assets_from_one_commit"
              and (stale.get("next_commands") or [""])[0] == restore)
     record(g, "N5.merge-stop-names-the-restore", "PASS" if named else "FAIL",
-           f"merge_rc={merged.returncode} next={m.get('next_action')} stop={stop.get('rule_code')} scope={mp.get('next_action')} {codes} cmds={cmds}"[:300])
+           f"early={early} merge_rc={merged.returncode} next={m.get('next_action')} stop={stop.get('rule_code')} scope={mp.get('next_action')} {codes} cmds={cmds}"[:300])
     if named:
         proc = subprocess.run(restore.replace("{commit}", "MERGE_HEAD"), shell=True, cwd=os.path.join(WORK, "elsewhere"),
                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)

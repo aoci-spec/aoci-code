@@ -143,6 +143,12 @@ func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeIn
 	// read of the tree.
 	facts, state, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
 	if err != nil {
+		// An unreadable Baseline names its own way out (a merge that left
+		// conflict markers); the caller gets it instead of a bare internal code.
+		if _, restore, found := strings.Cut(err.Error(), "; "+machinecontract.MaintainActionRestoreFormalAssets+": "); found {
+			return failResult(&Fail{Code: errIndexInvalid, Msg: "volumes_governance_baseline_invalid",
+				Hint: machinecontract.MaintainActionRestoreFormalAssets + ": " + restore})
+		}
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
 	}
 	refreshSession.RecordAlignedIdentity(

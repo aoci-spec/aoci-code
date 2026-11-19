@@ -33,8 +33,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   carries `cause=changed_after_baseline`, and `next_commands` holds the one
   `git checkout {commit} -- <Root> <Meta> <Volumes> .aoci/baseline.json` for
   this repository; after it, Maintain returns what the other side changed.
-  The Guide's stop names the same, and a pending Scope Change no longer hides
-  the drifted Volume. No new command; troubleshooting documents the merge.
+  The Guide's stop names the same, a pending Scope Change no longer hides
+  the drifted Volume, and a Baseline still holding conflict markers answers
+  with the same command instead of a bare internal code. No new command; troubleshooting documents the merge.
   Reported by aoci-agent.
 - Maintain on a Volumes v1 repository whose assets do not load (a Volume
   holding merge conflict markers, a missing Meta) answered the Legacy
