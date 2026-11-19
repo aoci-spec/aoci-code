@@ -1187,3 +1187,35 @@ func TestCognitionOptimizationRedeliveryKeepsExplicitSelectionReason(t *testing.
 		t.Fatalf("redelivery must keep the opening reason: %#v", again.Candidates)
 	}
 }
+
+// A replacement judged before the lock is judged again under it: with a cut
+// write pending, the open pass is kept and its batch receipt stays, so the
+// cut batch can still close.
+func TestReplacingAPassWaitsForAPendingWrite(t *testing.T) {
+	root := buildCognitionOptimizationRepo(t, 3)
+	session := connectMCPClient(t, root)
+	first := callCognitionOptimizationMaintain(t, session, cognitionOptimizationObjectRefs(3))
+	stored, err := cognitionoptimization.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transactions := filepath.Join(root, ".aoci", "transactions")
+	if err := os.MkdirAll(transactions, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pending := filepath.Join(transactions, "entries-"+strings.Repeat("c", 64)+".json")
+	if err := os.WriteFile(pending, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	if _, err := replaceOpenOptimizationPass(root, loaded.set.Volumes[cognition.ScopeCode], stored,
+		cognitionoptimization.CreateInput{OptimizationID: strings.Repeat("d", 64), RemainingObjectRefs: []string{"code:optimized/0000.go"}}); err == nil {
+		t.Fatal("a pass was replaced while a cut write was pending")
+	}
+	if _, err := codebatch.LoadReceipt(root, first.CodePlan.BatchID); err != nil {
+		t.Fatalf("the open pass's batch receipt was retired: %v", err)
+	}
+}

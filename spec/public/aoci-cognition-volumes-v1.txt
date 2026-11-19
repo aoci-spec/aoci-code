@@ -259,7 +259,11 @@ of a completed batch fails before Apply. A request with object_refs while a
 pass is open replaces that pass: the checkpoint is draft progress, so no
 Entry changes, the answer reports dropped_open_pass with the Entries the
 dropped pass had left, and the dropped pass's issued batch is retired under
-the index lock, so a submission of it, waiting or later, writes nothing. An open pass blocks nothing, and `aoci status` reports it as
+the index lock, so a submission of it, waiting or later, writes nothing. A
+batch the new pass issues under the same identity (the same objects at the
+same source digests) is the same batch: a review submitted for it counts for
+the new pass, whichever pass first issued it. A replacement is refused while
+a cut write is pending or the Code Volume moved after it was planned. An open pass blocks nothing, and `aoci status` reports it as
 open_optimization_pass. Ordinary no-argument Maintain behavior is
 unchanged, and no MCP tool is added.
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/cognitionoptimization"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
@@ -144,7 +146,7 @@ func handleCognitionOptimizationMaintain(
 				if loadErr == nil && stored.Checkpoint.Completed {
 					checkpoint, err = cognitionoptimization.RestartCompleted(root, stored.SHA256, create)
 				} else if replacedOpen > 0 || (loadErr == nil && !stored.Checkpoint.Completed) {
-					checkpoint, err = replaceOpenOptimizationPass(root, stored, create)
+					checkpoint, err = replaceOpenOptimizationPass(root, loaded.set.Volumes[cognition.ScopeCode], stored, create)
 				} else {
 					checkpoint, err = cognitionoptimization.Create(root, create)
 				}
@@ -736,12 +738,21 @@ func advanceCognitionOptimizationUpdate(root string, current *cognitionOptimizat
 // receipt is removed, so a later or waiting submission of it writes nothing.
 // A batch the new pass issues again under the same identity is the same
 // batch and stays.
-func replaceOpenOptimizationPass(root string, stored cognitionoptimization.StoredCheckpoint, create cognitionoptimization.CreateInput) (cognitionoptimization.StoredCheckpoint, error) {
+func replaceOpenOptimizationPass(root string, code *cognition.Asset, stored cognitionoptimization.StoredCheckpoint, create cognitionoptimization.CreateInput) (cognitionoptimization.StoredCheckpoint, error) {
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
 		return cognitionoptimization.StoredCheckpoint{}, err
 	}
 	defer func() { _ = lock.Release() }()
+	// What was judged before the lock is judged again under it: a write cut
+	// while this request waited needs its receipt to close, and a Volume that
+	// moved is not the one the new pass was planned on.
+	if pending, pendingErr := cognitiontxn.Pending(root); pendingErr != nil || len(pending) != 0 {
+		return cognitionoptimization.StoredCheckpoint{}, fmt.Errorf("cognition_optimization_transaction_pending")
+	}
+	if current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path))); readErr != nil || codebatch.BytesSHA256(current) != code.SHA256 {
+		return cognitionoptimization.StoredCheckpoint{}, fmt.Errorf("cognition_optimization_volume_moved")
+	}
 	replaced, err := cognitionoptimization.ReplaceOpen(root, stored.SHA256, create)
 	if err != nil {
 		return cognitionoptimization.StoredCheckpoint{}, err
