@@ -297,9 +297,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "unreleased",
-    "date": "2026-11-04",
-    "evidence": ".aoci/dev-tools/bench-compare-1104.txt (42 results on 87f8bcb, quiet machine; three MigrationScale/objects-1 results 30-36% over the 10-26 baseline: same at c421d41 and 87f8bcb, bisected to the fingerprint cache of 5936993, gone under AOCI_FINGERPRINT_CACHE=off; a fresh fixture per iteration is racily clean, so every call rehashes and rewrites the cache, about 16 ms; objects-10000 7% faster; baseline kept)"
+    "version": "v0.2.0-rc2",
+    "date": "2026-11-19",
+    "evidence": ".aoci/dev-tools/bench-compare-1119.txt (42 results on 535d5f9, quiet machine, load average under 2; none slower than the threshold)"
    }
   },
   {
