@@ -136,6 +136,25 @@ func (store *volumeDeliveryStore) completed(entry *volumeDelivery) {
 // Proof halves are retained too. Reserve their conservative high-water cost
 // before merge; replacement never reduces the budget while requests may hold
 // the prior report. In-flight request arguments are transient, not store state.
+// proofFits reports, without reserving or evicting anything, whether the
+// store could retain that proof for the delivery.
+func (store *volumeDeliveryStore) proofFits(entry *volumeDelivery, report *overviewModelAttestation) bool {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if store.entries[entry.id] != entry {
+		return false
+	}
+	if report == nil {
+		return true
+	}
+	encoded, err := json.Marshal(report)
+	if err != nil {
+		return false
+	}
+	cost := 8*len(encoded) + 4096
+	return cost <= entry.proofBytes || entry.bytes+cost-entry.proofBytes <= store.maxBytes
+}
+
 func (store *volumeDeliveryStore) reserveProof(entry *volumeDelivery, report *overviewModelAttestation) error {
 	if report == nil {
 		return nil
@@ -339,7 +358,7 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	if !refresh.deliveries.holds(entry) {
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
-	if err := refresh.deliveries.reserveProof(entry, input.ModelAttestation); err != nil {
+	if !refresh.deliveries.proofFits(entry, input.ModelAttestation) {
 		refresh.deliveries.remove(entry)
 		return nil
 	}
@@ -361,6 +380,11 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	}
 	if deliveryCompleted(delivery, entry) {
 		refresh.deliveries.completed(entry)
+	}
+	// The response stands. Only now is room made for its proof (which may
+	// evict another delivery) and its proof memory written.
+	if err := refresh.deliveries.reserveProof(entry, input.ModelAttestation); err == nil {
+		delivery.evidence.commit()
 	}
 	refresh.commitTransport(entry.owner, ctx.RequestedScope, entry.id, input, delivery.Facts)
 	// A reused delivery is never fresh, so it opens no attempt; its scope still

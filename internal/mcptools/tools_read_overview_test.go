@@ -27,6 +27,7 @@ import (
 func renderOverviewSent(ctx overviewRenderContext, input overviewIn, chunkTokens int) (overviewRendered, error) {
 	rendered, err := renderOverviewDelivery(ctx, input, chunkTokens)
 	if err == nil {
+		rendered.evidence.commit()
 		ctx.transport().commitTransport(ctx.Owner, ctx.RequestedScope, ctx.DeliveryID, input, rendered.Facts)
 	}
 	return rendered, err

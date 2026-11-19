@@ -321,6 +321,7 @@ func handleVolumeOverview(
 	if fresh {
 		refreshSession.deliveries.supersede(owner, view.RequestedScope, entry)
 	}
+	delivery.evidence.commit()
 	refreshSession.commitTransport(owner, view.RequestedScope, deliveryID, input, delivery.Facts)
 	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil, assessment.RefreshReasons, estimatedTokens)
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)

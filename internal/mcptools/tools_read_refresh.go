@@ -739,6 +739,48 @@ func (session *cognitionRefreshSession) mergeDeliveryEvidence(
 	return hostStatus, report
 }
 
+// pendingEvidence is what a rendered response would leave in the proof memory
+// of its body: the state of both halves after this call. It is written only
+// once the response is committed (commitEvidence), so a refused proof is
+// forgotten whole.
+type pendingEvidence struct {
+	session     *cognitionRefreshSession
+	key         deliveryKey
+	confirmed   bool
+	attestation *overviewModelAttestation
+}
+
+// peekDeliveryEvidence answers what mergeDeliveryEvidence would, and writes
+// nothing: the half this call carries wins, memory fills the other.
+func (session *cognitionRefreshSession) peekDeliveryEvidence(owner volumeDeliveryOwner, bodySHA256, hostStatus string, report *overviewModelAttestation) (string, *overviewModelAttestation) {
+	if session == nil || bodySHA256 == "" {
+		return hostStatus, report
+	}
+	evidence := session.deliveryEvidence[deliveryKey{owner: owner, body: bodySHA256}]
+	if evidence == nil {
+		return hostStatus, report
+	}
+	if hostStatus != hostDeliveryConfirmed && hostStatus != hostDeliveryIncomplete && evidence.confirmed {
+		hostStatus = hostDeliveryConfirmed
+	}
+	if report == nil {
+		report = evidence.attestation
+	}
+	return hostStatus, report
+}
+
+// commit writes a committed response's proof memory. The caller holds
+// the Host session's lock.
+func (pending *pendingEvidence) commit() {
+	if pending == nil || pending.session == nil || pending.key.body == "" {
+		return
+	}
+	if pending.session.deliveryEvidence == nil {
+		pending.session.deliveryEvidence = map[deliveryKey]*overviewDeliveryEvidence{}
+	}
+	pending.session.deliveryEvidence[pending.key] = &overviewDeliveryEvidence{confirmed: pending.confirmed, attestation: pending.attestation}
+}
+
 // deliveryKey names one body as one Host session received it. Two MCP sessions
 // of one server share the refresh session, and neither may ride the other's
 // transport or proof.
@@ -815,7 +857,8 @@ func (session *cognitionRefreshSession) advanceDelivery(owner volumeDeliveryOwne
 // Host session and scope, a continuation advances it. A request that failed
 // after rendering never reaches this point, so it leaves the record, and the
 // proof memory beginDelivery drops, as they were. A proof response carries no
-// body and records nothing. delivery names the retained delivery the response
+// body and records no transport; its proof memory is committed beside this
+// call (pendingEvidence). delivery names the retained delivery the response
 // came through, empty on the live path. The caller holds session.mu.
 func (session *cognitionRefreshSession) commitTransport(owner volumeDeliveryOwner, scope, delivery string, input overviewIn, facts overviewDeliveryFacts) {
 	if session == nil || !facts.ChunkKnown {
@@ -846,18 +889,6 @@ func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner
 		return false
 	}
 	return current.count > 0 && current.sent >= current.count
-}
-
-// unconfirmDelivery forgets a remembered confirmation for that body: a
-// confirmation that arrived before the body was sent to its end vouches for
-// nothing and must not latch for a later call.
-func (session *cognitionRefreshSession) unconfirmDelivery(owner volumeDeliveryOwner, bodySHA256 string) {
-	if session == nil {
-		return
-	}
-	if evidence := session.deliveryEvidence[deliveryKey{owner: owner, body: bodySHA256}]; evidence != nil {
-		evidence.confirmed = false
-	}
 }
 
 // recordAttestedDelivery consumes one complete, host-confirmed delivery

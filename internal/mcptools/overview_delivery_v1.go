@@ -257,6 +257,8 @@ type overviewRendered struct {
 	Output      string
 	Facts       overviewDeliveryFacts
 	Attestation overviewAttestationResult
+	// evidence is the proof memory this response leaves once it is committed.
+	evidence *pendingEvidence
 }
 
 // overviewRenderedHook is test-only: it fires once a response is rendered and
@@ -299,13 +301,14 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
 	body := framed.Receipt.BodySHA256
-	if input.HostConfirmation != nil || input.ModelAttestation != nil || input.Cursor != "" {
+	remembers := input.HostConfirmation != nil || input.ModelAttestation != nil || input.Cursor != ""
+	if remembers {
 		// The two proof halves each bind this exact body, so the half missing
 		// from this call may be the one an earlier call already delivered. A
 		// fresh request reads no memory: it takes its own evidence, and the
 		// memory of the body it replaces is dropped only once its response is
 		// committed (commitTransport), so a refused request forgets nothing.
-		hostStatus, report = ctx.Session.mergeDeliveryEvidence(ctx.Owner, body, hostStatus, report)
+		hostStatus, report = ctx.Session.peekDeliveryEvidence(ctx.Owner, body, hostStatus, report)
 	}
 	served := ctx.transport().deliveryServed(ctx.Owner, ctx.RequestedScope, body, ctx.DeliveryID)
 	if hostStatus == hostDeliveryConfirmed && !served {
@@ -313,9 +316,16 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		// has the hash it had before, so a matching confirmation proves a
 		// copy, not a transport. It counts only for the current delivery of
 		// this Host session and scope, sent to its end, whether the
-		// confirmation came with this call or from memory.
+		// confirmation came with this call or from memory; and a confirmation
+		// that does not count is not remembered.
 		hostStatus = hostDeliveryIncomplete
-		ctx.Session.unconfirmDelivery(ctx.Owner, body)
+	}
+	// What this call leaves in the proof memory is written only when its
+	// response is committed: a refused proof leaves no half behind.
+	var evidence *pendingEvidence
+	if remembers && ctx.Session != nil {
+		evidence = &pendingEvidence{session: ctx.Session, key: deliveryKey{owner: ctx.Owner, body: body},
+			confirmed: hostStatus == hostDeliveryConfirmed, attestation: report}
 	}
 	if report != nil {
 		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scoring_started", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: "started"})
@@ -346,7 +356,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 			cognitionStateV2Requested(input),
 		)
 		facts.OutputBytes = len(output)
-		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
+		return overviewRendered{Output: output, Facts: facts, Attestation: attestation, evidence: evidence}, nil
 	}
 
 	if len(framed.Text)/3 <= chunkTokens && input.Cursor == "" {
@@ -370,7 +380,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		output := metadata + "\n" + framed.Text + renderOverviewCognitionLevelMessage(level)
 		facts.OutputBytes = len(output)
 		facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, 1, 1, true
-		return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
+		return overviewRendered{Output: output, Facts: facts, Attestation: attestation, evidence: evidence}, nil
 	}
 
 	cursor := input.Cursor
@@ -391,7 +401,7 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	facts.FullTextIncluded = false
 	facts.OutputBytes = len(output)
 	facts.ChunkKnown, facts.ChunkIndex, facts.ChunkCount, facts.Completed = true, position.Index, position.Count, position.Completed
-	return overviewRendered{Output: output, Facts: facts, Attestation: attestation}, nil
+	return overviewRendered{Output: output, Facts: facts, Attestation: attestation, evidence: evidence}, nil
 }
 
 func renderOverviewMetadata(

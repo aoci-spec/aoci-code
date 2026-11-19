@@ -617,3 +617,49 @@ func TestARetainedDeliverysMemoryProvesOnlyItself(t *testing.T) {
 		t.Fatalf("the current delivery's own memory must count: %v %+v", err, rendered.Facts)
 	}
 }
+
+// A refused proof is forgotten whole. On the live path its model half must
+// not wait in memory for a later Host half; through a retained delivery the
+// room for it must not be made, at another delivery's expense, before the
+// response stands.
+func TestARefusedProofLeavesNoTrace(t *testing.T) {
+	t.Run("the live path remembers no refused half", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		fixture.session.deliveries.maxBytes = 1
+		first := fixture.chunk("host", freshAll())
+		if strings.HasPrefix(first["next_cursor"].(string), machinecontract.OverviewDeliverySessionPrefix+":") {
+			t.Fatal("the fixture must be served the live way")
+		}
+		fixture.rest("host", first)
+		restore := refuseOnce(t, fixture.root)
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", fixture.model); !result.IsError {
+			t.Fatalf("the changed snapshot must refuse the model half: %.300s", resText(t, result))
+		}
+		restore()
+		out := fixture.prove("host", fixture.host)
+		expectTransport(t, "the Host half after a refused model half", out, true)
+		if strings.Contains(out, "model_attestation: pass") || strings.Contains(out, "model_full_cognition_reliable: true") {
+			t.Fatalf("the refused model half was remembered:\n%s", out)
+		}
+		// An accepted half is remembered: the model half given again meets it.
+		if out = fixture.prove("host", fixture.model); !strings.Contains(out, "host_delivery_status: "+hostDeliveryConfirmed) ||
+			!strings.Contains(out, "model_attestation: pass") {
+			t.Fatalf("halves accepted on the live path must latch:\n%s", out)
+		}
+	})
+	t.Run("a refused proof evicts no other delivery", func(t *testing.T) {
+		fixture := newTransportProofFixture(t)
+		fixture.rest("host", fixture.chunk("host", freshAll()))
+		code, _ := chunkMetadata(t, sessionOverview(t, fixture.root, fixture.session, "host", overviewIn{Scope: cognition.ScopeCode}))
+		store := fixture.session.deliveries
+		store.maxBytes = store.bytes
+		restore := refuseOnce(t, fixture.root)
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", fixture.both); !result.IsError {
+			t.Fatalf("the changed snapshot must refuse the proof: %.300s", resText(t, result))
+		}
+		restore()
+		if result := sessionOverview(t, fixture.root, fixture.session, "host", overviewIn{Scope: cognition.ScopeCode, Cursor: code["next_cursor"].(string)}); result.IsError {
+			t.Fatalf("the refused proof evicted another scope's delivery: %s", resText(t, result))
+		}
+	})
+}
