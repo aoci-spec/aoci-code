@@ -273,7 +273,16 @@ func planCognitionVolumeUpdates(
 		}
 		candidates = append(candidates, candidate)
 	}
-	envelope, fail := resolveCognitionChangeEnvelope(loaded.set, candidates)
+	var envelope *cognitionChangeEnvelope
+	var fail *Fail
+	if len(candidates) == 0 && len(landedRemovals) > 0 {
+		// Every item was a removal that already landed before a cut: there is
+		// nothing for the impact to resolve, and the write it finishes is the
+		// Code Volume the receipt names.
+		envelope, fail = landedRemovalEnvelope(loaded.set, landedRemovals)
+	} else {
+		envelope, fail = resolveCognitionChangeEnvelope(loaded.set, candidates)
+	}
 	if fail != nil {
 		if receiptMode && fail.Code == errImpactResolutionFailed && strings.Contains(fail.Msg, "impact_candidate_") {
 			fail.Code = errCandidateInvalid
@@ -553,6 +562,33 @@ func planCognitionVolumeUpdates(
 			recovery: recovery, allPost: allPost, databaseBindings: databaseBindings, databaseReceipt: databaseReceipt, codeReceipt: codeReceipt},
 		batchKey: batchKey, start: start,
 	}, nil
+}
+
+// landedRemovalEnvelope is the change envelope of a batch whose removals all
+// landed before its write was cut: the Code Volume is the one write, and
+// every other formal asset is a guard, as for any Code removal.
+func landedRemovalEnvelope(set *cognition.Set, landed []normalizedAtomicItem) (*cognitionChangeEnvelope, *Fail) {
+	code := set.Volumes[cognition.ScopeCode]
+	if code == nil || code.State != cognition.AssetPresent {
+		return nil, &Fail{Code: errVolumeReadOnly, Msg: writeMessage("entry.volume.target_not_supported", cognition.ScopeCode)}
+	}
+	guards := map[string]cognitionGuard{
+		"root": {Path: set.Root.Descriptor.Path, SHA256: set.Root.SHA256},
+		"meta": {Path: set.Meta.Descriptor.Path, SHA256: set.Meta.SHA256},
+	}
+	guardSet := []string{"meta", "root"}
+	if database := set.Volumes[cognition.ScopeDatabase]; database != nil && database.State == cognition.AssetPresent {
+		guards[cognition.ScopeDatabase] = cognitionGuard{Path: database.Descriptor.Path, SHA256: database.SHA256}
+		guardSet = append([]string{cognition.ScopeDatabase}, guardSet...)
+	}
+	objects := make([]string, 0, len(landed))
+	for _, item := range landed {
+		objects = append(objects, "code:"+item.rel)
+	}
+	sort.Strings(objects)
+	return &cognitionChangeEnvelope{ChangeObject: strings.Join(objects, ","), ChangeObjects: objects,
+		Volume: cognition.ScopeCode, Volumes: []string{cognition.ScopeCode}, WriteSet: []string{cognition.ScopeCode},
+		GuardSet: guardSet, Strategy: cognition.ImpactStrategyDependencyClosure, guards: guards}, nil
 }
 
 // removalRepairFinding judges one removal: the path must carry a Code Entry
