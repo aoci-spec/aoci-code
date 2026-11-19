@@ -4,6 +4,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Narrowing the scope before the first Entry is written no longer asks for
+  approval. Every unauthored source leaving the Index role counted as a
+  coverage reduction, so focusing a fresh repository on one directory went
+  through a preview and a person's approval although nothing had been
+  authored that could be lost. While the index holds no Entry such a change
+  applies under the posture's ordinary rules; once one Entry exists a
+  narrowing that drops an unauthored source waits for a person again.
 - An open cognition optimization pass can be replaced and is visible. A
   request with `object_refs` while a pass was open was refused as
   `cognition_optimization_object_refs_only_allowed_on_initial_request`, and
