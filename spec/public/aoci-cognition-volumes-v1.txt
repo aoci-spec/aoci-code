@@ -476,8 +476,16 @@ terminal_proof a final Apply does plus root_overview_result. The same values
 submitted again answer already_applied. The write is its own receipted
 transaction, `.aoci/transactions/root-overview.json`, never part of the
 Entries batch: a write cut short is rolled forward by the next aoci_maintain
-or aoci_update_entry, and bytes the receipt does not know stop it with the
-receipt in place. No Entry, Volume, or Scope fact changes.
+or aoci_update_entry, whose result then carries root_overview_recovered and
+root_overview_formal_writes whatever became of its own request. The
+roll-forward checks before it writes: another pending receipt, a `.aoci` or
+`.aoci/transactions` that is not a real directory, a receipt that names any
+file but the Root, and bytes in the Root or the Baseline that are neither the
+receipt's preimage nor its postimage each stop it with both files and the
+receipt as they were; both files are read once more before the receipt is
+closed. No invitation is made while the Root's bytes are not the ones the
+Baseline records, since the write would refuse them
+(root_overview_root_not_at_baseline). No Entry, Volume, or Scope fact changes.
 
 A Maintain that lists pending Observe evidence, blocked by it or issuing the
 batch beside it, carries observe_review: the pending evidence as path,

@@ -49,6 +49,13 @@ type databaseMaintainResult struct {
 }
 
 func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+	var rolled rootOverviewProgress
+	return withRootOverviewProgress(maintainInput(root, mcpServiceVersion, input, refreshSession, &rolled), rolled)
+}
+
+// maintainInput is the Maintain request proper; rolled reports a Root
+// overview write this call rolled forward before it answered.
+func maintainInput(root, mcpServiceVersion string, input maintainIn, refreshSession *cognitionRefreshSession, rolled *rootOverviewProgress) *mcp.CallToolResult {
 	// human_approval opens a host dialog, so it is served where the MCP
 	// session is in hand (registerMaintainTool); reaching here means there is
 	// no session to ask through.
@@ -66,7 +73,9 @@ func handleMaintainInput(root, mcpServiceVersion string, input maintainIn, refre
 	}
 	// A Root overview write cut short is rolled forward here, so it never
 	// stands in the way as a pending receipt.
-	if _, recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent); recoveryFail != nil {
+	progress, recoveryFail := completeRootOverviewRecovery(root, ledger.SourceAgent)
+	*rolled = progress
+	if recoveryFail != nil {
 		return failResult(recoveryFail)
 	}
 	loaded, fail := loadCognitionCtx(root)

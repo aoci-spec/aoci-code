@@ -300,9 +300,9 @@ func cutRootOverview(t *testing.T, root string, session *mcp.ClientSession) (roo
 func TestRootOverviewRecoveryChecksBeforeItWrites(t *testing.T) {
 	unchanged := func(t *testing.T, root string, rootBefore []byte, want string) {
 		t.Helper()
-		_, fail := completeRootOverviewRecovery(root, "test")
+		progress, fail := completeRootOverviewRecovery(root, "test")
 		after, _ := os.ReadFile(filepath.Join(root, "aoci.txt"))
-		if fail == nil || !strings.Contains(fail.Msg, want) || string(after) != string(rootBefore) || !rootReceiptPending(root) {
+		if fail == nil || !strings.Contains(fail.Msg, want) || progress.wrote || string(after) != string(rootBefore) || !rootReceiptPending(root) {
 			t.Fatalf("want %s with the Root untouched and the receipt kept, got %v", want, fail)
 		}
 	}
@@ -390,5 +390,87 @@ func TestRootOverviewInvitationIsBounded(t *testing.T) {
 	invite := rootOverviewInvitation(loaded, facts)
 	if invite == nil || len([]rune(invite.Project)) != machinecontract.RootOverviewProjectMaxChars {
 		t.Fatalf("the shown value must be cut at its limit: %d", len([]rune(invite.Project)))
+	}
+}
+
+// A roll-forward done on the way into another request is reported on that
+// request's result, whatever its own outcome: the formal assets changed in
+// this call.
+func TestAnotherRequestReportsTheRootOverviewItFinished(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	cutRootOverview(t, root, session)
+	maintained := decodeToolJSON(t, callVolumeTool(t, session, "aoci_maintain", map[string]any{}))
+	if maintained["aligned"] != true || maintained["root_overview_recovered"] != true || maintained["root_overview_formal_writes"] != true {
+		t.Fatalf("the Maintain that finished the write must say so: %v %v", maintained["root_overview_recovered"], maintained["root_overview_formal_writes"])
+	}
+	if again := decodeToolJSON(t, callVolumeTool(t, session, "aoci_maintain", map[string]any{})); again["root_overview_recovered"] != nil {
+		t.Fatal("a call that rolled nothing forward reports nothing")
+	}
+
+	root, session = deltaVolumesFixture(t, 3)
+	cutRootOverview(t, root, session)
+	refused := decodeToolJSON(t, callVolumeTool(t, session, "aoci_update_entry", map[string]any{"removals": []any{map[string]any{"path": "pkg/mod000/file000.go"}}}))
+	if refused["formal_writes_started"] != true || refused["root_overview_recovered"] != true || rootReceiptPending(root) {
+		t.Fatalf("an Entries request refused after the roll-forward must report the writes: %v", refused)
+	}
+}
+
+// A .aoci that is a link is refused before the receipt is read; and a
+// participant replaced while the other was written leaves the receipt.
+func TestRootOverviewRefusesLinkedDirectoriesAndRechecksBothFiles(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	cutRootOverview(t, root, session)
+	moved := filepath.Join(root, "moved-aoci")
+	if err := os.Rename(filepath.Join(root, ".aoci"), moved); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(moved, filepath.Join(root, ".aoci")); err != nil {
+		t.Skip("symlinks unavailable")
+	}
+	if progress, fail := completeRootOverviewRecovery(root, "test"); fail == nil || fail.Msg != "root_overview_runtime_directory_unsafe" || progress.wrote {
+		t.Fatalf("a linked .aoci must be refused before anything is read: %v", fail)
+	}
+
+	root, session = deltaVolumesFixture(t, 3)
+	_, baselineBefore := cutRootOverview(t, root, session)
+	original := rootOverviewWriteCAS
+	t.Cleanup(func() { rootOverviewWriteCAS = original })
+	writes := 0
+	rootOverviewWriteCAS = func(path string, data []byte, expected string) error {
+		writes++
+		if err := original(path, data, expected); err != nil {
+			return err
+		}
+		if writes == 2 {
+			// The Baseline was just written; another writer puts the old one back.
+			return os.WriteFile(filepath.Join(root, ".aoci", "baseline.json"), baselineBefore, 0o644)
+		}
+		return nil
+	}
+	progress, fail := completeRootOverviewRecovery(root, "test")
+	if fail == nil || fail.Msg != "root_overview_baseline_postimage_unconfirmed" || !progress.wrote || progress.finished || !rootReceiptPending(root) {
+		t.Fatalf("a participant replaced before the end must keep the receipt and report the writes: %v %+v", fail, progress)
+	}
+}
+
+// A Root whose bytes are not the ones the Baseline records is not invited:
+// the write would refuse it.
+func TestNoRootOverviewInvitationWhenTheRootLeftItsBaselineRecord(t *testing.T) {
+	root, session := deltaVolumesFixture(t, 3)
+	rootPath := filepath.Join(root, "aoci.txt")
+	raw, _ := os.ReadFile(rootPath)
+	if err := os.WriteFile(rootPath, []byte(strings.ReplaceAll(string(raw), "\n", "\r\n")), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	maintained := decodeToolJSON(t, callVolumeTool(t, session, "aoci_maintain", map[string]any{}))
+	if maintained["root_overview"] != nil {
+		t.Fatalf("no invitation the write would refuse (aligned=%v)", maintained["aligned"])
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		t.Fatal(fail.Msg)
+	}
+	if refused := submitRootOverview(t, session, "p", "g", loaded.set.Root.SHA256); !strings.Contains(refused["next_action"].(string), "root_overview_") || refused["formal_writes_started"] != false {
+		t.Fatalf("the write must refuse a Root that left its Baseline record: %v", refused)
 	}
 }

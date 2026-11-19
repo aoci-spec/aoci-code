@@ -210,6 +210,27 @@ func Load(root string) (*Baseline, bool, error) {
 	return &baselineValue, true, nil
 }
 
+// Decode reads a Baseline from bytes the caller already holds, with the
+// validation Load applies. A transaction that will replace the file by CAS
+// builds its postimage from the very bytes whose digest it demands, so the
+// two can never be different versions of the file.
+func Decode(data []byte) (*Baseline, error) {
+	var baselineValue Baseline
+	if err := json.Unmarshal(data, &baselineValue); err != nil {
+		return nil, fmt.Errorf("baseline.json 损坏(%v): 请人工核对后再决定是否重建Baseline", err)
+	}
+	if baselineValue.Files == nil {
+		baselineValue.Files = map[string]Fingerprint{}
+	}
+	if err := validateDatabaseCognitionBindings(baselineValue.DatabaseCognition); err != nil {
+		return nil, fmt.Errorf("database cognition Baseline is invalid: %w", err)
+	}
+	if err := validateManagedScope(&baselineValue); err != nil {
+		return nil, fmt.Errorf("managed scope Baseline is invalid: %w", err)
+	}
+	return &baselineValue, nil
+}
+
 // Save writes the Baseline inside the shared index lock, for callers without an outer governance transaction.
 func Save(root string, baselineValue *Baseline) error {
 	lock, err := afs.AcquireIndexLock(root)
