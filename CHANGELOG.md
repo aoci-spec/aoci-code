@@ -4,6 +4,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- The scope proposal init shows no longer lists directories Git ignores. A
+  build or install tree under `.gitignore` crowded the five largest
+  directories a person reads to decide the first scope, though nothing in it
+  can enter the index.
 - Narrowing the scope before the first Entry is written no longer asks for
   approval. Every unauthored source leaving the Index role counted as a
   coverage reduction, so focusing a fresh repository on one directory went
