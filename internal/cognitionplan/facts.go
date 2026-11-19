@@ -408,7 +408,7 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 func buildEvidence(root string, cfg *config.Config) ([]EvidenceObject, error) {
 	result := make([]EvidenceObject, 0)
 	for _, source := range cfg.DatabaseSources {
-		if !source.Enabled {
+		if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 			continue
 		}
 		manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)

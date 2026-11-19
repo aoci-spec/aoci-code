@@ -4,6 +4,70 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- A repository with a Database Volume reuses Overview deliveries. Such a
+  repository took the live path on every chunk and proof call, re-running
+  governance each time, because Database Evidence was thought to change
+  without its bytes changing. Database governance reads only the accepted
+  Database Baseline and the Evidence files, so the reuse guard now binds
+  their digests; a changed file stops the reuse as a changed source does.
+  Incremental (delta) Overviews become available to these repositories too.
+- A MongoDB source can be declared (contributed by @dayebishouji, PR #172,
+  the declaration step of #135). `database source add --engine mongodb
+  --database-name app --credential-env AOCI_DB_APP_URI` saves the source;
+  its namespace is the database. Access, inspect, snapshot, and verify answer
+  `database_engine_not_implemented` before any credential lookup or
+  connection, and an enabled MongoDB declaration owes no Evidence or Database
+  Volume, nor does a disabled one or a repository with only such
+  declarations. A source id whose tables already carry Database Entries
+  cannot be switched to MongoDB until they are removed. No driver is added.
+  Earlier binaries refuse the engine, so every machine sharing such a
+  repository needs this release.
+- The Attestation Challenge asks about important Entries and changes with the
+  index. Each stratum drew by a fixed per-object key, so two deliveries of a
+  slightly changed index asked nearly the same ordinals, mostly
+  low-information files. Each stratum now draws its highest-C Entry, the tie
+  broken by a key salted with the delivered identity; a delivery and its
+  proof still draw the same targets.
+- A new Entry is written in path order inside its section. It was appended
+  after the section's last Entry, so a new `_a_test.py` landed after
+  `sampling.py`, moving the ordinal a reader cites. A section that was never
+  in order is left as it is around the insert; new sections still go last.
+- The scope proposal init shows no longer lists directories Git ignores. A
+  build or install tree under `.gitignore` crowded the five largest
+  directories a person reads to decide the first scope, though nothing in it
+  can enter the index.
+- Narrowing the scope before the first Entry is written no longer asks for
+  approval. Every unauthored source leaving the Index role counted as a
+  coverage reduction, so focusing a fresh repository on one directory went
+  through a preview and a person's approval although nothing had been
+  authored that could be lost. While the index holds no Entry such a change
+  applies under the posture's ordinary rules; once one Entry exists a
+  narrowing that drops an unauthored source waits for a person again.
+- An open cognition optimization pass can be replaced and is visible. A
+  request with `object_refs` while a pass was open was refused as
+  `cognition_optimization_object_refs_only_allowed_on_initial_request`, and
+  the only way to close an unwanted pass was to submit its Entries as
+  unchanged, which vouches for Entries nobody read. Now such a request
+  replaces the open pass, changing no Entry, and reports `dropped_open_pass`;
+  the dropped pass's issued batch is retired, so submitting it writes nothing;
+  `aoci status` shows an open pass as `open_optimization_pass`.
+- The authoring contract states the R limit the write enforces. Under an
+  enforced cognition budget, the default for new repositories, R is also
+  limited by importance in UTF-8 bytes (C9 542, C8 422, C7-5 272, C4-1 152
+  by default), tighter than the 360-rune FRAS limit the contract stated; a
+  model learnt it only from a refused batch, half the batches of a first
+  build in one report. The contract now carries the bands, so the first
+  batch states every limit the write checks.
+- `aoci_get_entries` no longer answers with another file's Entry. A request
+  was normalized before the lookup (trailing space trimmed, backslash read
+  as a separator), so asking for a real file whose name ends in a space or
+  holds a backslash returned the Entry of the file the normalized name
+  denotes, with nothing in the answer to show it. The path as sent is now
+  looked up first, and normalization serves only a path that names no other
+  file. An answer line whose identity holds `]`, a quote, a backslash, or a
+  control character writes it as a JSON string, so a reader can always find
+  where the identity ends; every other line is unchanged. Reported by an
+  embedding host.
 - A first build issues three sibling batches by default. Users reported the
   first build as the slow part, and the parallel batches that shorten it were
   off unless a team found the setting. `code_cognition_parallel_batches` now
@@ -37,8 +101,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   submitted again was refused as `removal_target_missing`, because the Entry
   it removes was already gone, and its transaction stayed pending with no
   request that could close it. The removal that landed is now recognised by
-  the receipt of that write. Present since removals ride the batch
-  (0.2.0-rc1), with or without parallel batches.
+  the receipt of that write, and a batch that carried only removals closes
+  the same way instead of answering `cross_volume_write_not_supported`, as
+  does one that dropped a Code orphan beside Database Entries. While such a
+  cut write is pending, another batch is refused with zero writes
+  (`entries_other_transaction_pending`) instead of writing over the Volume
+  the pending one must close on.
+  Present since removals ride the batch (0.2.0-rc1), with or without
+  parallel batches.
 - A batch no longer has to copy hashes back. An `aoci_update_entry` batch item
   may carry only its `path` (a Database item its `object_ref`) and its
   `new_entry`; the server completes `source_sha256` and `candidate_id` from the

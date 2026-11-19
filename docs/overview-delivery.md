@@ -59,8 +59,10 @@ minutes in all), eviction, a foreign Host, or a process restart answers
 starts again at Chunk 1; nothing is reconstructed from a `v2:` token. The
 proof halves submitted after the chain reuse the same delivery, so the
 Attestation call no longer repeats the assessment either. A repository with
-an enabled Database Volume, a pending scope change, or source warnings keeps
-the live path, as does a delivery the server cannot retain within its 32
+an enabled Database Volume reuses deliveries too: the guard binds the
+accepted Database Baseline and every Evidence file, the only things Database
+governance reads. A pending scope change or source warnings keep the live
+path, as does a delivery the server cannot retain within its 32
 deliveries and 64 MiB; those chains carry the reconstructable v1 cursor,
 which an unchanged Index and Chunk budget still accept across process
 restarts. Successful Volumes responses carry `_meta.aoci_work` with
@@ -140,10 +142,10 @@ Each Challenge and Attestation explicitly binds the current `index_sha256`, the
 SHA-256 of the current ordered formal Entry/object sequence, and the current
 Entry count. The digest covers all three facts plus the selected current
 ordinals. Selection is recomputed only from the current sequence: one object is
-chosen from every current stratum by a stable object-identity key, then reported
-at its current ordinal. Nearby additions or removals therefore do not
-randomize all unaffected targets, but no prior ordinal, prior Entry set, or old
-Attestation can validate against the new Index.
+chosen from every current stratum, the most important one there (highest C),
+ties broken by a key salted with the delivered scope identity, then reported at
+its current ordinal. A changed index draws afresh, and no prior ordinal, prior
+Entry set, or old Attestation can validate against the new Index.
 
 For a Code object, the Attestation accepts either the exact delivered
 repository-relative path or its one-to-one `code:<path>` canonical identity.

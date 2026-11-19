@@ -116,6 +116,21 @@ func prepare(root string, preparedAt time.Time) (*Preview, error) {
 	if set.Volumes[cognition.ScopeDatabase] != nil {
 		return nil, fmt.Errorf("database_bootstrap_not_required")
 	}
+	// Without an enabled source AOCI can collect from there is no Evidence to
+	// bind and nothing to bootstrap, whatever else the repository lacks:
+	// asking for Code readiness or an Evidence Baseline would name steps that
+	// lead nowhere.
+	if len(cfg.DatabaseSources) > 0 {
+		collectable := false
+		for _, source := range cfg.DatabaseSources {
+			if source.Enabled && dbevidence.EngineCollectable(source.Engine) {
+				collectable = true
+			}
+		}
+		if !collectable {
+			return nil, fmt.Errorf("database_bootstrap_not_required")
+		}
+	}
 	if set.Volumes[cognition.ScopeCode] == nil || set.Volumes[cognition.ScopeCode].State != cognition.AssetPresent {
 		return nil, fmt.Errorf("database_bootstrap_code_cognition_required")
 	}
