@@ -142,8 +142,11 @@ Failure reasons are deterministic, ordered, and additive. The vocabulary is:
 and are no longer emitted: the numbers they named decide nothing.
 
 The projection reports only reason tokens. It never returns expected object
-identities, Tags, core F text, or another Challenge answer oracle. An empty
-array means strict verification passed.
+identities, Tags, core F text, or another Challenge answer oracle. The array
+explains a result and does not decide it: read `strict_attestation_verified`
+or `strict_attestation_status` for the verdict. A report graded on something
+no token names, such as a deletion-only delta whose Host confirmation did not
+match, can fail with an empty array.
 
 Governance and current-system reliability
 -----------------------------------------
