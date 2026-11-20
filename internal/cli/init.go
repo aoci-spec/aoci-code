@@ -195,6 +195,10 @@ func init() {
 			configExisted := true
 			newRepositoryAutomationMessage := ""
 			var scopeProposal *managedscope.Proposal
+			// Without Git anywhere under the root there is no ignore authority:
+			// .dvignore, .hgignore and the like are not read, so build output is
+			// a candidate unless excluded before the first scan (#184).
+			noIgnoreAuthority := false
 			var initIndexPaths []string
 
 			if _, statErr := os.Stat(
@@ -256,6 +260,7 @@ func init() {
 				}
 				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
 				scopeProposal = &proposal
+				noIgnoreAuthority = !evaluation.SafeInventory.GitRepository && evaluation.SafeInventory.ChildRepositories == 0
 				for _, item := range evaluation.Index {
 					initIndexPaths = append(initIndexPaths, item.Path)
 				}
@@ -376,6 +381,9 @@ func init() {
 					scopeProposal.NewSourceFiles, scopeProposal.IndexObjects, scopeProposal.ObserveObjects,
 					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
 					scopeProposal.RequiredHumanDecisions, formatDirectoryImpacts(scopeProposal.LargestDirectories)))
+				if noIgnoreAuthority && scopeProposal.IndexObjects > 0 {
+					outputLines = append(outputLines, cliMessage("init.no_ignore_authority", scopeProposal.IndexObjects, root))
+				}
 			}
 
 			expectedPostimages := map[string]baseline.Fingerprint{}

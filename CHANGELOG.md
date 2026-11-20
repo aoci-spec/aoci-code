@@ -10,6 +10,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   misleading Database batch or SHA error. Nothing is written and an attached
   Observe review is not recorded (#192, PR #197 by @dayebishouji).
 
+- `aoci init` in a directory with no Git repository warns that no ignore file
+  applies (`.dvignore`, `.hgignore` and similar are not read), so build output
+  is an index candidate, and hands the command that excludes directories
+  before the first scan. `docs/install.md` states the consequence (#184).
+
 - pgx 5.13.0 (dependabot #195). It returns an error instead of panicking when
   a PostgreSQL server sends fewer row values than declared fields
   (GHSA-w9rp-vfrh-q8vv). No new modules; the license text is unchanged.

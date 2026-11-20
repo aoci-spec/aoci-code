@@ -34,6 +34,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
 // runInit runs one quiet `aoci init` and returns both outputs and an error built from the exit code.
@@ -479,6 +480,43 @@ func TestInitCodexHooksConflictIsZeroWrite(t *testing.T) {
 			}
 			if len(codexEntries) != 1 || codexEntries[0].Name() != "config.toml" {
 				t.Fatalf("冲突预检产生了 Codex 备份或其他文件: %v", codexEntries)
+			}
+		})
+	}
+}
+
+// Without Git there is no ignore authority (#184): init says so, names the
+// index candidate count, and hands the pre-scan exclude command for this root.
+// A Git root, or a container whose sources live in a child Git repository,
+// keeps its ignore files and gets no warning.
+func TestInitWarnsWhenNoGitIgnoreAuthority(t *testing.T) {
+	for _, layout := range []string{"plain", "git", "child"} {
+		t.Run(layout, func(t *testing.T) {
+			root := t.TempDir()
+			source := root
+			switch layout {
+			case "git":
+				testkit.InitGit(t, root)
+			case "child":
+				source = filepath.Join(root, "app")
+				if err := os.Mkdir(source, 0o755); err != nil {
+					t.Fatal(err)
+				}
+				testkit.InitGit(t, source)
+			}
+			testkit.WriteFile(t, source, "main.go", "package main\n")
+			testkit.WriteFile(t, source, "Intermediate/Build/Generated.gen.h", "#pragma once\n")
+			output, _, stderr, code := runCLIPrinted(t, root, "init", "--agent=", "--hooks=false", "--here=false", "--locale=en-US")
+			if code != ExitOK {
+				t.Fatalf("init failed: exit %d\n%s", code, stderr)
+			}
+			warned := strings.Contains(output, "is not a Git repository, so no ignore file applies")
+			if warned != (layout == "plain") {
+				t.Fatalf("%s: warned=%t\n%s", layout, warned, output)
+			}
+			if warned && (!strings.Contains(output, "index=2 above counts every file") ||
+				!strings.Contains(output, "aoci --repo "+root+" scope rule add later --action exclude")) {
+				t.Fatalf("warning must name the count and this root's command:\n%s", output)
 			}
 		})
 	}
