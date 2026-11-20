@@ -40,7 +40,15 @@ OPENGAUSS_PATCH_GO_FILES := \
 .PHONY: build test fast fast-test fast-builds full verify release-check race vuln fuzz-smoke database-integration clean-room-smoke example-test vet fmt fmt-check safety check-deps toolchain-preflight opengauss-connector licenses textassets-check update-goldens staticcheck coverage-floors ladder check cross clean axis-self longrun-refresh legacy-migration
 
 # 静态编译单二进制,使用Go目标平台的原生可执行文件后缀。
+# A local checkout's build/aoci is the installed release an MCP config points at;
+# a default-path build would silently replace it with a dev binary. Refuse when
+# the target already reports a release version (a dev build reports v…-g<hash>).
 build:
+	@if [ -z "$(AOCI_OVERWRITE_RELEASE)" ] && [ -x "$(BUILD_BIN)" ] && \
+		"$(BUILD_BIN)" --version 2>/dev/null | grep -Eq '^aoci version [0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+)? '; then \
+		echo "build: $(BUILD_BIN) is the installed release ($$("$(BUILD_BIN)" --version | cut -d' ' -f3)); refusing to overwrite it. Pass BUILD_BIN=build/aoci-<label>, or AOCI_OVERWRITE_RELEASE=1 to replace it." >&2; \
+		exit 2; \
+	fi
 	CGO_ENABLED=0 $(GO_BIN) build -ldflags "$(LDFLAGS)" -o "$(BUILD_BIN)" ./cmd/aoci
 
 # 全量测试(-count=1 禁用测试缓存 —— 缓存曾掩盖默认值变更引发的回归,审查纪律)
