@@ -349,6 +349,7 @@ func newEventID() string {
 
 // Recent reads the latest n valid events (returned in time order).
 // It returns (event list, corrupt line count); a missing file returns an empty list with zero corruption.
+// A positive n bounds retained events while still counting corruption across the whole file; n <= 0 reads all events.
 func Recent(root string, n int) ([]Event, int) {
 	file, err := os.Open(ledgerPath(root))
 	if err != nil {
@@ -357,6 +358,7 @@ func Recent(root string, n int) ([]Event, int) {
 	defer file.Close()
 
 	var all []Event
+	next := 0
 
 	corrupt := 0
 
@@ -383,11 +385,19 @@ func Recent(root string, n int) ([]Event, int) {
 			continue
 		}
 
-		all = append(all, event)
+		if n <= 0 || len(all) < n {
+			all = append(all, event)
+		} else {
+			all[next] = event
+			next = (next + 1) % n
+		}
 	}
 
-	if n > 0 && len(all) > n {
-		all = all[len(all)-n:]
+	if next != 0 {
+		ordered := make([]Event, len(all))
+		copy(ordered, all[next:])
+		copy(ordered[len(all)-next:], all[:next])
+		all = ordered
 	}
 	if all == nil {
 		all = []Event{}
