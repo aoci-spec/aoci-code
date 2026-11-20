@@ -176,7 +176,20 @@ constraints and indexes sort by name; key/FK columns and index elements retain
 ordinal order; partition children sort by canonical identity; partition
 definitions sort by ordinal. Nil repeated collections encode as empty arrays.
 Catalog text preserves engine syntax, trims surrounding whitespace, and folds
-CRLF to LF. It is never rewritten by a SQL parser or heuristic.
+CRLF to LF, except for MySQL column defaults. MySQL COLUMN_DEFAULT can contain
+an unquoted literal value; default_expression preserves that exact UTF-8 value,
+including surrounding whitespace and CRLF. It is never rewritten or quoted by
+a SQL parser or heuristic.
+
+Previously saved MySQL Evidence remains readable with its existing bytes and
+digests. A fresh capture corrects an affected default, changing its columns,
+table, and source fingerprints through the existing snapshot/accept workflow.
+No JSON field or version changes. A pre-fix binary rejects newly saved Evidence
+containing a preserved default that its canonicalizer would trim or fold, as
+non-canonical Evidence. Use the corrected binary on every host reading that
+source; an in-flight authoring batch bound to earlier Evidence must be replanned
+when its Evidence changes. No saved Evidence or accepted Baseline is rewritten
+automatically.
 
 Each table records engine/source/database/namespace identity; base-table kind;
 ordinal columns with native and canonical type, nullability, default, serial,
