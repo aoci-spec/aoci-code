@@ -141,6 +141,13 @@ HEAD, aggregate algorithm, aggregate SHA, and the Inventory summary.
 The aggregate algorithm is `sha256-nul-domain-separated-v1`. It performs no
 network access.
 
+The optional Git HEAD agrees with Git's reference resolution. The bounded
+metadata fast path may consult packed references only when the loose reference
+is absent. An unreadable, non-regular, or oversized loose reference or
+`commondir` delegates to the hardened Git invocation; it must not be treated as
+missing metadata and bind an older packed commit instead. This changes no
+manifest or persisted-artifact format.
+
 Baseline Scope Refresh v1 (retired)
 -----------------------------------
 

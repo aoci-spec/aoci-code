@@ -34,8 +34,8 @@ func GitHeadFast(root string) (string, bool) {
 	case info.Mode()&os.ModeSymlink != 0:
 		return "", false
 	case info.Mode().IsRegular():
-		data, ok := readGitSmallFile(gitPath)
-		if !ok || !strings.HasPrefix(data, "gitdir:") {
+		data, err := readGitSmallFile(gitPath)
+		if err != nil || !strings.HasPrefix(data, "gitdir:") {
 			return "", false
 		}
 		gitDir = strings.TrimSpace(strings.TrimPrefix(data, "gitdir:"))
@@ -52,7 +52,7 @@ func GitHeadFast(root string) (string, bool) {
 		return "", false
 	}
 	commonDir := gitDir
-	if data, ok := readGitSmallFile(filepath.Join(gitDir, "commondir")); ok {
+	if data, err := readGitSmallFile(filepath.Join(gitDir, "commondir")); err == nil {
 		common := strings.TrimSpace(data)
 		if common == "" {
 			return "", false
@@ -61,9 +61,11 @@ func GitHeadFast(root string) (string, bool) {
 			common = filepath.Join(gitDir, common)
 		}
 		commonDir = common
+	} else if !os.IsNotExist(err) {
+		return "", false
 	}
-	head, ok := readGitSmallFile(filepath.Join(gitDir, "HEAD"))
-	if !ok {
+	head, err := readGitSmallFile(filepath.Join(gitDir, "HEAD"))
+	if err != nil {
 		return "", false
 	}
 	head = strings.TrimSpace(head)
@@ -77,15 +79,19 @@ func GitHeadFast(root string) (string, bool) {
 	if !gitRefNameRe.MatchString(ref) || strings.Contains(ref, "..") || strings.Contains(ref, "//") {
 		return "", false
 	}
-	if loose, looseOK := readGitSmallFile(filepath.Join(commonDir, filepath.FromSlash(ref))); looseOK {
+	if loose, err := readGitSmallFile(filepath.Join(commonDir, filepath.FromSlash(ref))); err == nil {
 		value := strings.TrimSpace(loose)
 		if gitObjectIDRe.MatchString(value) {
 			return value, true
 		}
 		return "", false
+	} else if !os.IsNotExist(err) {
+		// An existing loose ref takes precedence over packed-refs. A shape
+		// this reader cannot inspect is not proof that the loose ref is absent.
+		return "", false
 	}
-	packed, packedOK := readGitSmallFile(filepath.Join(commonDir, "packed-refs"))
-	if !packedOK {
+	packed, err := readGitSmallFile(filepath.Join(commonDir, "packed-refs"))
+	if err != nil {
 		return "", false
 	}
 	for _, line := range strings.Split(packed, "\n") {
@@ -108,16 +114,20 @@ func GitHeadFast(root string) (string, bool) {
 	return "", false
 }
 
-// readGitSmallFile reads a regular, bounded git metadata file; anything else
-// (absent, a symlink, a directory, too large) is not understood.
-func readGitSmallFile(path string) (string, bool) {
+// readGitSmallFile reads a regular, bounded git metadata file. Only a missing
+// file permits an optional-metadata fallback; unsupported shapes and read
+// failures must remain distinguishable from absence.
+func readGitSmallFile(path string) (string, error) {
 	info, err := os.Lstat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Size() > gitSmallFileLimit {
-		return "", false
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() || info.Size() > gitSmallFileLimit {
+		return "", os.ErrInvalid
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", false
+		return "", err
 	}
-	return string(data), true
+	return string(data), nil
 }
