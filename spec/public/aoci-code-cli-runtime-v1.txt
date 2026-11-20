@@ -241,6 +241,16 @@ active Baseline receipt and the Plan moves no object, Entry, or fingerprint,
 activation reports `already_aligned` with exit status 0, starts no formal
 write, and records no transaction. `scope status` and `scope show` carry
 `repository_root`, the root the reading was taken from.
+Without `--transaction`, `scope status` also reports an advisory
+`git_untracked_paths` JSON array (omitted when empty), sorted by repository-relative
+path, and a localized warning in human output. It lists existing, non-ignored,
+Git-untracked Safe Inventory source candidates referenced by the readable Code index or Baseline,
+including Observe fingerprints. Formal cognition assets, missing files, and
+files outside Git repositories are not untracked source diagnostics. Child Git
+repositories under a non-Git container use their own Git tracking facts.
+This diagnostic changes no exit code, governance stage, or source eligibility;
+Git-tracked includes staged files and is not proof of a commit or reproducibility.
+The status query writes no repository files, fingerprint cache, or Ledger events.
 In particular, a Legacy stale source still requires an explicit Entry candidate,
 the one Legacy index write this release retains; Volumes source drift remains
 available to subsequent ordinary maintenance.
