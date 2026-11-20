@@ -555,4 +555,17 @@ func TestInitWarnsWhenConfigPrecedesFirstInit(t *testing.T) {
 	if code != ExitOK || strings.Contains(output, warning) {
 		t.Fatalf("re-init after the first scan must not warn: exit %d\n%s\n%s", code, output, stderr)
 	}
+	// An unreadable Baseline is not a missing one: its first scan happened.
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		return
+	}
+	baselineFile := filepath.Join(root, ".aoci", "baseline.json")
+	if err := os.Chmod(baselineFile, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(baselineFile, 0o644) })
+	output, _, _, _ = runCLIPrinted(t, root, "init", "--agent=", "--hooks=false", "--here=false")
+	if strings.Contains(output, warning) {
+		t.Fatalf("an unreadable Baseline must not be taken for a first scan:\n%s", output)
+	}
 }

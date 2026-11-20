@@ -271,7 +271,7 @@ func init() {
 				}
 
 				newRepositoryAutomationMessage = cliMessage("init.automation_default")
-			} else if _, baselineExists, _ := baseline.Load(root); !baselineExists {
+			} else if _, baselineExists, baselineErr := baseline.Load(root); baselineErr == nil && !baselineExists {
 				// A config written first (database source add, config set) does
 				// not make the first scan any less exposed to build output.
 				if evaluation, evaluationErr := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
