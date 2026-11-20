@@ -118,6 +118,7 @@ type volumeMaintainResult struct {
 	// which is a failure to report and never an empty, aligned-looking answer.
 	volumeMoved  bool
 	issueFailure string
+	lockErr      error
 	Batch        volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
@@ -206,8 +207,8 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 				}
 				return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
 			}
-			if result.issueFailure == "code_batch_lock_unavailable" {
-				return failResult(&Fail{Code: errWriteConflict, Msg: "code_batch_lock_unavailable", Hint: writeMessage("entry.batch.hint.lock_timeout")})
+			if result.lockErr != nil {
+				return failResult(maintainLockFailure(result.lockErr))
 			}
 			if result.issueFailure != "" {
 				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
@@ -436,25 +437,28 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // report, so the plan can never promise more than it issues.
 func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool, session *cognitionRefreshSession) {
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
-	if len(all) == 0 {
-		_ = codebatch.RemoveParallelPlans(root)
-		codebatch.ClearSoloBuild(root)
-		return
+	var budget codebatch.Budget
+	var selected []codebatch.Candidate
+	if len(all) > 0 {
+		budget = codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
+		_, selected = codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
 	}
-	budget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
 	// The plan records are read and written under the index lock, on the
 	// Volume bytes this call loaded: a sibling's Apply that landed since is
 	// no reason to judge the plan broken, the call starts over instead. Work
 	// that fits one batch with no plan on record touches no plan record and
 	// takes no lock, as Maintain never did: a lock a killed writer left
-	// behind must not hold up an ordinary Maintain.
-	parallelWork := loaded.cfg.CodeCognitionParallelBatchLimit() > 1 &&
-		(len(selected) < len(all) || codebatch.ParallelRecordsExist(root))
-	if parallelWork {
+	// behind must not hold up an ordinary Maintain. Plan records are only
+	// ever dropped under the lock, so an unlocked Maintain can never remove
+	// a plan another session recorded after this one looked.
+	recordsExist := codebatch.ParallelRecordsExist(root)
+	afterPlanRecordsCheck(root)
+	planLocked := recordsExist ||
+		(loaded.cfg.CodeCognitionParallelBatchLimit() > 1 && len(selected) < len(all))
+	if planLocked {
 		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
 		if lockErr != nil {
-			result.issueFailure = "code_batch_lock_unavailable"
+			result.lockErr = lockErr
 			return
 		}
 		if moved {
@@ -463,6 +467,14 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		}
 		defer release()
 	}
+	if len(all) == 0 {
+		if planLocked {
+			_ = codebatch.RemoveParallelPlans(root)
+			codebatch.ClearSoloBuild(root)
+		}
+		return
+	}
+	parallelWork := planLocked && loaded.cfg.CodeCognitionParallelBatchLimit() > 1
 	// Sibling batches exist for work one batch cannot hold: a plan with a
 	// sibling still out continues, and work beyond one batch starts one.
 	// Everything else is the single current batch, byte for byte, whatever
@@ -488,7 +500,9 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	}
 	// One current batch per Maintain: a logical plan with nothing left out,
 	// or left by a parallel setting that was since lowered, is dropped.
-	_ = codebatch.RemoveParallelPlans(root)
+	if planLocked {
+		_ = codebatch.RemoveParallelPlans(root)
+	}
 	if fail := firstUnspellableCandidate(root, loaded, selected); fail != nil {
 		result.Stop = fail.GlobalStop
 		return
@@ -842,4 +856,26 @@ func maintainBlocker(facts *volumegovernance.Facts, orphans []string, unspellabl
 // ledgerFlag is a Ledger boolean that records false as well as true.
 func ledgerFlag(value bool) *bool {
 	return &value
+}
+
+// afterPlanRecordsCheck lets a test land another session's plan record
+// between the unlocked check and the rest of the call; production never sets it.
+var afterPlanRecordsCheck = func(string) {}
+
+// maintainLockFailure answers a plan lock Maintain could not take the way an
+// Apply answers it: another writer holding the lock is a conflict worth
+// retrying, any other failure (a read-only .aoci, a permission error) is not.
+func maintainLockFailure(lockErr error) *Fail {
+	if errors.Is(lockErr, afs.ErrLockTimeout) {
+		return &Fail{
+			Code: errWriteConflict,
+			Msg:  writeMessage("entry.batch.lock_timeout", localeSafeWriteDetail(lockErr.Error())),
+			Hint: writeMessage("entry.batch.hint.lock_timeout"),
+		}
+	}
+	return &Fail{
+		Code: errInternal,
+		Msg:  writeMessage("entry.batch.lock_failed", localeSafeWriteDetail(lockErr.Error())),
+		Hint: writeMessage("entry.write.hint.lock_failed"),
+	}
 }

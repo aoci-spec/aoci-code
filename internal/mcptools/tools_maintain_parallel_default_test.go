@@ -2,6 +2,7 @@ package mcptools
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -242,5 +243,39 @@ func TestSingleBatchMaintainTakesNoLock(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("a single-batch Maintain waited for the index lock")
+	}
+}
+
+// An unlocked single-batch Maintain must never drop a plan another session
+// recorded after this one looked: plan records are only removed under the lock.
+func TestUnlockedMaintainKeepsPlanRecordedMeanwhile(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 3)
+	record := filepath.Join(root, ".aoci", "drafts", "code-cognition", "parallel-other-session.json")
+	afterPlanRecordsCheck = func(string) {
+		if err := os.MkdirAll(filepath.Dir(record), 0o755); err != nil {
+			t.Error(err)
+		}
+		if err := os.WriteFile(record, []byte("{}"), 0o644); err != nil {
+			t.Error(err)
+		}
+	}
+	t.Cleanup(func() { afterPlanRecordsCheck = func(string) {} })
+	result := maintainVolumeBatch(t, connectMCPClient(t, root))
+	if len(result.Candidates) == 0 {
+		t.Fatalf("the single-batch Maintain issued nothing: %s", result.Status)
+	}
+	if _, err := os.Stat(record); err != nil {
+		t.Fatalf("an unlocked Maintain removed a plan record another session wrote: %v", err)
+	}
+}
+
+func TestMaintainLockFailureKeepsItsKind(t *testing.T) {
+	timeout := maintainLockFailure(fmt.Errorf("held: %w", afs.ErrLockTimeout))
+	if timeout.Code != errWriteConflict {
+		t.Fatalf("a held lock must answer write_conflict, got %s", timeout.Code)
+	}
+	other := maintainLockFailure(errors.New("permission denied"))
+	if other.Code == errWriteConflict || other.Hint == timeout.Hint {
+		t.Fatalf("a lock that cannot be created must not read as another writer: %+v", other)
 	}
 }
