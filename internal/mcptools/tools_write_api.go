@@ -585,15 +585,29 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 	stale := func(detail string) *Fail {
 		return &Fail{Code: errWriteConflict, Msg: detail, Hint: writeMessage("entry.batch.hint.replan")}
 	}
+	// A Code object sent as object_ref (#192) is named for every candidate in
+	// one answer, under the identity the write path would give its path, so
+	// retry_scope matches what Maintain issued.
+	var misnamed []cognition.RepairFinding
 	for index, item := range result {
-		if identity := strings.TrimSpace(item.ObjectRef); strings.HasPrefix(identity, "code:") {
-			finding := cognition.RepairFinding{CandidateIndex: index + 1, Path: strings.TrimPrefix(identity, "code:"),
-				CanonicalObjectIdentity: identity, Domain: cognition.ScopeCode, Field: "object_ref",
-				RuleCode: "code_object_ref_requires_path", Code: "code_object_ref_requires_path",
-				Expected: "field=path", Actual: "field=object_ref", Cause: writeMessage("entry.repair.cause.code_object_ref")}
-			return result, &Fail{Code: errBadArgs, Msg: finding.Cause, Repairable: true,
-				Findings: LocalizeRepairFindings([]cognition.RepairFinding{finding})}
+		identity := strings.TrimSpace(item.ObjectRef)
+		if !strings.HasPrefix(identity, "code:") {
+			continue
 		}
+		path := strings.TrimPrefix(identity, "code:")
+		if rel, err := afs.NormalizeRelPath(path); err == nil {
+			path = rel
+		}
+		misnamed = append(misnamed, cognition.RepairFinding{CandidateIndex: index + 1, Path: path,
+			CanonicalObjectIdentity: "code:" + path, Domain: cognition.ScopeCode, Field: "object_ref",
+			RuleCode: "code_object_ref_requires_path", Code: "code_object_ref_requires_path",
+			Expected: "field=path", Actual: "field=object_ref", Cause: writeMessage("entry.repair.cause.code_object_ref")})
+	}
+	if len(misnamed) > 0 {
+		return result, &Fail{Code: errBadArgs, Msg: misnamed[0].Cause, Repairable: true,
+			Findings: LocalizeRepairFindings(misnamed)}
+	}
+	for index, item := range result {
 		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
 		if item.Remove || item.noCompletion || batchID == "" {
 			continue

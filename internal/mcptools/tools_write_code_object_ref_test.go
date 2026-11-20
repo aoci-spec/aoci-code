@@ -112,3 +112,40 @@ func TestCodeObjectRefRecordsNoObserveReview(t *testing.T) {
 	}
 	assertCodeBatchFormalAssetUnchanged(t, root, filepath.Join(".aoci", "baseline.json"), before)
 }
+
+// Every misnamed candidate is answered in one round, each under the identity
+// its path normalizes to, so retry_scope matches what Maintain issued.
+func TestCodeObjectRefNamesEveryCandidateUnderItsCanonicalPath(t *testing.T) {
+	root := buildLargeCodeCandidateRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	if len(maintain.Candidates) != 2 {
+		t.Fatalf("expected 2 candidates: %#v", maintain)
+	}
+	arguments := codeBatchArguments(wireCodePlan(maintain))
+	entries := arguments["entries"].([]map[string]any)
+	var paths []string
+	for position, entry := range entries {
+		path := entry["path"].(string)
+		paths = append(paths, path)
+		delete(entry, "path")
+		spelled := path
+		if position == 1 {
+			spelled = "./" + strings.ReplaceAll(path, "/", `\`)
+		}
+		entry["object_ref"] = "code:" + spelled
+	}
+	rejected := applyVolumeBatch(t, session, arguments)
+	if rejected.Status != autoStatusRepairRequired || rejected.FormalWritesStarted || len(rejected.Findings) != 2 {
+		t.Fatalf("every misnamed candidate must be answered at once: %#v", rejected)
+	}
+	if want := []string{"code:" + paths[0], "code:" + paths[1]}; strings.Join(rejected.RetryScope, ",") != strings.Join(want, ",") {
+		t.Fatalf("retry_scope = %v, want %v", rejected.RetryScope, want)
+	}
+	for position, finding := range rejected.Findings {
+		if finding.CandidateIndex != position+1 || finding.Path != paths[position] ||
+			finding.CanonicalObjectIdentity != "code:"+paths[position] {
+			t.Fatalf("finding %d must carry the issued identity %q: %#v", position, paths[position], finding)
+		}
+	}
+}

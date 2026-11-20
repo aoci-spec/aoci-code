@@ -536,7 +536,8 @@ one already declared CognitionSet. Code uses path and current source SHA.
 Database uses canonical object_ref plus its candidate receipt and is never
 represented as a repository file path. Sending a code: identity in object_ref
 is refused as repair_required with code_object_ref_requires_path, domain=code,
-and field=object_ref, directing the caller to path. This applies to single-object
+and field=object_ref, directing the caller to path; every such candidate is
+named in the same answer under its normalized path. This applies to single-object
 and entries[] inputs before completing that candidate's bindings or Observe review, without
 starting an Entry write or recording that review. Existing single-object and
 C3 inputs remain compatible. No new MCP tool is added. AOCI derives the internal Change
