@@ -11,6 +11,33 @@ All notable public changes to AOCI-CODE will be documented in this file.
   the empty binding. A preview without a binding now renders the proposed
   entry and writes nothing; a binding that is given is still checked, and a
   formal write without one is still refused (#191).
+  Contributed by @cklxx in PR #194.
+
+- `aoci scope status` warns about Git-untracked sources that the index or
+  Baseline already references, so a checkout does not publish an Entry its
+  teammates' clones cannot see. `--json` adds `git_untracked_paths` when
+  nonempty; the warning is advisory and the query writes nothing (#183, PR
+  #186 by @dayebishouji).
+
+- A negated Git ignore rule such as `!AGENTS.md` keeps the path visible.
+  `git check-ignore -v` reports the matching negative rule with success, and
+  the path was treated as ignored, so `init` dropped its postimage for an
+  unignored `AGENTS.md` (PR #187 by @Afloat16).
+
+- The fast Git HEAD reader defers to Git when an existing loose ref or
+  `commondir` cannot be read as a plain file, instead of falling through to an
+  older packed ref and binding the wrong commit (PR #189 by @Afloat16).
+
+- `ledger.Recent` keeps only the requested number of events in memory while it
+  still counts corrupt lines across the whole file (PR #188 by @Afloat16).
+
+- Database Evidence fixes. PostgreSQL index keys record their direction, so an
+  `ASC` to `DESC` change is drift (PR #190). MySQL column defaults are kept
+  byte for byte, so `' active '` and `'active'` no longer share a fingerprint
+  (PR #193). SQLite identifiers that start with a non-ASCII character, or
+  contain the dotless `ı`, are no longer read as keywords (PR #185). A new
+  snapshot of an affected table changes its fingerprint once and follows the
+  normal drift and accept flow. All three by @Afloat16.
 
 - A repository with a Database Volume reuses Overview deliveries. Such a
   repository took the live path on every chunk and proof call, re-running
