@@ -397,7 +397,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	for attempt := 1; ; attempt++ {
 		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
 		if lockErr != nil {
-			return failResult(&Fail{Code: errWriteConflict, Msg: "code_batch_lock_unavailable", Hint: writeMessage("entry.batch.hint.replan")})
+			return failResult(maintainLockFailure(lockErr))
 		}
 		if !moved {
 			defer release()

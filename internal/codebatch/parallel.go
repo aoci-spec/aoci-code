@@ -647,6 +647,24 @@ func ValidateParallelSubmission(root, repoRoot, batchID string, ids ParallelIden
 	return receipt, plan, nil
 }
 
+// ParallelPlanMarker names the logical plans on record. A Maintain reads it
+// before it assesses the tree and again under the index lock: a different
+// marker means another session recorded a plan from a newer view of the tree,
+// which this call must not judge from its older one.
+func ParallelPlanMarker(root string) string {
+	entries, err := os.ReadDir(parallelDirectory(root))
+	if err != nil {
+		return ""
+	}
+	var names []string
+	for _, entry := range entries {
+		if name := entry.Name(); strings.HasPrefix(name, "parallel-") {
+			names = append(names, name)
+		}
+	}
+	return strings.Join(names, "\n")
+}
+
 // ParallelRecordsExist reports whether any logical plan record or the solo
 // mark is on disk, without reading or locking: the cheap test that decides
 // whether a Maintain has plan records to handle at all.

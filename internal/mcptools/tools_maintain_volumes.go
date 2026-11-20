@@ -119,6 +119,7 @@ type volumeMaintainResult struct {
 	volumeMoved  bool
 	issueFailure string
 	lockErr      error
+	planMarker   string
 	Batch        volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
@@ -158,6 +159,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	// The snapshot the verdict was computed from binds the candidates: the
 	// digest a target had when it was judged missing or stale, with no second
 	// read of the tree.
+	planMarker := codebatch.ParallelPlanMarker(root)
 	facts, state, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
 	if err != nil {
 		// An unreadable Baseline names its own way out (a merge that left
@@ -196,6 +198,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
 	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
 		if requested[cognition.ScopeCode] && facts.Code.Enabled {
+			result.planMarker = planMarker
 			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
 			if result.volumeMoved {
 				if attempt >= maintainReloadAttempts {
@@ -451,6 +454,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	// behind must not hold up an ordinary Maintain. Plan records are only
 	// ever dropped under the lock, so an unlocked Maintain can never remove
 	// a plan another session recorded after this one looked.
+	beforePlanRecordsCheck(root)
 	recordsExist := codebatch.ParallelRecordsExist(root)
 	afterPlanRecordsCheck(root)
 	planLocked := recordsExist ||
@@ -461,7 +465,14 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			result.lockErr = lockErr
 			return
 		}
+		// A plan recorded since this call assessed the tree came from a
+		// newer view of it; the call starts over instead of judging it.
 		if moved {
+			result.volumeMoved = true
+			return
+		}
+		if codebatch.ParallelPlanMarker(root) != result.planMarker {
+			release()
 			result.volumeMoved = true
 			return
 		}
@@ -861,6 +872,10 @@ func ledgerFlag(value bool) *bool {
 // afterPlanRecordsCheck lets a test land another session's plan record
 // between the unlocked check and the rest of the call; production never sets it.
 var afterPlanRecordsCheck = func(string) {}
+
+// beforePlanRecordsCheck lets a test land another session's plan, and the
+// source change behind it, after this call assessed the tree.
+var beforePlanRecordsCheck = func(string) {}
 
 // maintainLockFailure answers a plan lock Maintain could not take the way an
 // Apply answers it: another writer holding the lock is a conflict worth

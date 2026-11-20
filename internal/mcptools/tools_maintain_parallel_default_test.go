@@ -279,3 +279,33 @@ func TestMaintainLockFailureKeepsItsKind(t *testing.T) {
 		t.Fatalf("a lock that cannot be created must not read as another writer: %+v", other)
 	}
 }
+
+// A plan another session recorded after this Maintain assessed the tree came
+// from a newer view of it: the call must start over rather than judge (and
+// drop) that plan from its older snapshot.
+func TestMaintainRestartsOnPlanRecordedSinceItsAssessment(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 3)
+	fired := 0
+	beforePlanRecordsCheck = func(string) {
+		fired++
+		if fired > 1 {
+			return
+		}
+		writeVolumeTestFile(t, root, "pkg/late/added_since.go", "package late\n\nfunc AddedSince() int { return 1 }\n")
+		writeVolumeTestFile(t, root, ".aoci/drafts/code-cognition/parallel-other-session.json", "{}")
+	}
+	t.Cleanup(func() { beforePlanRecordsCheck = func(string) {} })
+	result := maintainVolumeBatch(t, connectMCPClient(t, root))
+	if fired < 2 {
+		t.Fatalf("Maintain judged a plan recorded after its assessment instead of starting over (assessed %d time(s))", fired)
+	}
+	found := false
+	for _, candidate := range result.Candidates {
+		if candidate.Path == "pkg/late/added_since.go" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("the restarted Maintain did not see the newer tree: %s", result.Status)
+	}
+}
