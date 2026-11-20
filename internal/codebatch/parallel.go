@@ -646,3 +646,20 @@ func ValidateParallelSubmission(root, repoRoot, batchID string, ids ParallelIden
 	}
 	return receipt, plan, nil
 }
+
+// ParallelRecordsExist reports whether any logical plan record or the solo
+// mark is on disk, without reading or locking: the cheap test that decides
+// whether a Maintain has plan records to handle at all.
+func ParallelRecordsExist(root string) bool {
+	entries, err := os.ReadDir(parallelDirectory(root))
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if strings.HasPrefix(name, "parallel-") || name == "solo-build" {
+			return true
+		}
+	}
+	return false
+}

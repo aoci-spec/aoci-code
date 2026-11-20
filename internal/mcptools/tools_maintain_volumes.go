@@ -206,6 +206,9 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 				}
 				return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
 			}
+			if result.issueFailure == "code_batch_lock_unavailable" {
+				return failResult(&Fail{Code: errWriteConflict, Msg: "code_batch_lock_unavailable", Hint: writeMessage("entry.batch.hint.lock_timeout")})
+			}
 			if result.issueFailure != "" {
 				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
 			}
@@ -442,17 +445,24 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
 	// The plan records are read and written under the index lock, on the
 	// Volume bytes this call loaded: a sibling's Apply that landed since is
-	// no reason to judge the plan broken, the call starts over instead.
-	release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
-	if lockErr != nil {
-		result.issueFailure = "code_batch_lock_unavailable"
-		return
+	// no reason to judge the plan broken, the call starts over instead. Work
+	// that fits one batch with no plan on record touches no plan record and
+	// takes no lock, as Maintain never did: a lock a killed writer left
+	// behind must not hold up an ordinary Maintain.
+	parallelWork := loaded.cfg.CodeCognitionParallelBatchLimit() > 1 &&
+		(len(selected) < len(all) || codebatch.ParallelRecordsExist(root))
+	if parallelWork {
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		if lockErr != nil {
+			result.issueFailure = "code_batch_lock_unavailable"
+			return
+		}
+		if moved {
+			result.volumeMoved = true
+			return
+		}
+		defer release()
 	}
-	if moved {
-		result.volumeMoved = true
-		return
-	}
-	defer release()
 	// Sibling batches exist for work one batch cannot hold: a plan with a
 	// sibling still out continues, and work beyond one batch starts one.
 	// Everything else is the single current batch, byte for byte, whatever
@@ -461,7 +471,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	// of the plan applied while the others were never handed to anyone.
 	// Those are released, and until this authoring work is done the build is
 	// one session's, served by full single batches.
-	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
+	if parallel := loaded.cfg.CodeCognitionParallelBatchLimit(); parallelWork {
 		outstanding, alone := parallelPlanState(root, parallelIdentitiesOf(result.Governance.Facts, loaded.set))
 		if alone {
 			_ = codebatch.RemoveParallelPlans(root)

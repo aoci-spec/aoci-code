@@ -7,9 +7,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
@@ -218,5 +220,27 @@ func TestARebindOnlyWaveBeyondOneBatchConverges(t *testing.T) {
 		if applied.Aligned {
 			break
 		}
+	}
+}
+
+// Work that fits one batch takes no lock, as Maintain never did: a lock held
+// elsewhere (a killed writer's, until it is reclaimed) does not hold up an
+// ordinary Maintain (scenario C2 on CI, 2026-11-20).
+func TestSingleBatchMaintainTakesNoLock(t *testing.T) {
+	root := buildManyFileVolumesRepo(t, 3)
+	lock, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lock.Release() }()
+	done := make(chan volumeMaintainResult, 1)
+	go func() { done <- maintainVolumeBatch(t, connectMCPClient(t, root)) }()
+	select {
+	case result := <-done:
+		if len(result.Candidates) == 0 {
+			t.Fatalf("a single-batch Maintain issued nothing while the lock was held: %s", result.Status)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("a single-batch Maintain waited for the index lock")
 	}
 }
