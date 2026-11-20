@@ -2,7 +2,28 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc3
+
+The third 0.2.0 candidate makes the first build faster and folds in a week of
+contributor fixes. A first build now issues three sibling batches by default
+and falls back to one batch by itself when only one session takes them, so a
+single Host loses nothing; on a 798-file real repository three sessions
+finish in half the rounds. Ten contributor pull requests landed, among them
+Database Evidence fixes, a Git-untracked source diagnostic, and a repair
+Finding for a Code object sent as `object_ref`; init also warns in a
+directory without Git.
+
+Upgrading: a repository governed by v0.2.0-rc2 needs no migration. Three
+Database Evidence fixes change the fingerprint of an affected table once
+(PostgreSQL index direction, MySQL defaults kept verbatim, SQLite non-ASCII
+identifiers): the first `database verify` after upgrading reports that table
+as drifted, and the normal accept flow clears it. Use this binary on every
+host that reads such a source: v0.2.0-rc2 refuses newly saved MySQL Evidence
+that keeps a default it would have trimmed. Rolling back follows
+docs/rollback.md; for such a source, also check out the formal assets
+committed before that accept.
+
+Changes:
 
 - `aoci_update_entry` names a Code candidate sent as `object_ref:
   "code:<path>"` as a repairable `code_object_ref_requires_path` finding that
