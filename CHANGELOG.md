@@ -4,6 +4,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `update-entry --preview` no longer requires `--source-sha256`. The help
+  text has always said the binding is required unless `--preview` is used,
+  but the volume plan refused a binding-less preview with
+  `source_binding_required` and then compared the source fingerprint against
+  the empty binding. A preview without a binding now renders the proposed
+  entry and writes nothing; a binding that is given is still checked, and a
+  formal write without one is still refused (#191).
+
 - A repository with a Database Volume reuses Overview deliveries. Such a
   repository took the live path on every chunk and proof call, re-running
   governance each time, because Database Evidence was thought to change

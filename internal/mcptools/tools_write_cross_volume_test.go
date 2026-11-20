@@ -34,7 +34,7 @@ func TestCrossVolumeCodeAndDatabaseUseOneGovernancePipeline(t *testing.T) {
 	rootBefore := volumeFileText(t, root, "aoci.txt")
 	metaBefore := volumeFileText(t, root, "aoci.meta.txt")
 	items := crossVolumeItems(t, root)
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, false)
 	if fail != nil {
 		t.Fatalf("cross-Volume plan failed: %+v", fail)
 	}
@@ -61,7 +61,7 @@ func TestCrossVolumeDatabaseOnlyDoesNotModifyCode(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	codeBefore := volumeFileText(t, root, "aoci.code.txt")
 	item := AtomicUpdateItem{ObjectRef: "database://primary/public/users", NewEntry: crossDatabaseLine, SourceSHA256: volumeSourceSHA(t, root, "aoci.database.txt")}
-	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item})
+	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item}, false)
 	if fail != nil {
 		t.Fatalf("Database-only plan failed: %+v", fail)
 	}
@@ -80,7 +80,7 @@ func TestCrossVolumeDatabaseOnlyDoesNotModifyCode(t *testing.T) {
 func TestCrossVolumeGuardCASConflictIsZeroWrite(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	items := crossVolumeItems(t, root)
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, false)
 	if fail != nil {
 		t.Fatal(fail.Msg)
 	}
@@ -99,7 +99,7 @@ func TestCrossVolumeGuardCASConflictIsZeroWrite(t *testing.T) {
 func TestCrossVolumeUnprovenTargetPostimageConflictsBeforeOtherWrite(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	items := crossVolumeItems(t, root)
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, false)
 	if fail != nil {
 		t.Fatal(fail.Msg)
 	}
@@ -405,7 +405,7 @@ func TestCrossVolumeRecoveryNeverOverwritesThirdPartyCodeState(t *testing.T) {
 func TestCrossVolumeGuardRequiresRegularRootAndMetaFiles(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, true)
 	items := crossVolumeItems(t, root)
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, false)
 	if fail != nil {
 		t.Fatal(fail.Msg)
 	}
