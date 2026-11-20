@@ -132,4 +132,10 @@ func TestUnbaselinedVolumeNamesWhichOfTwoCausesItIs(t *testing.T) {
 	if strings.Contains(action, "bytes changed") {
 		t.Fatal("a never-recorded Volume must not be described as byte drift")
 	}
+	if err := os.WriteFile(excludePath, []byte("*.txt\n!volume.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if action := volumeUnbaselinedRepairAction(root, "volume.txt", empty); strings.Contains(action, "hidden from Git") || !strings.Contains(action, "run scan") {
+		t.Fatalf("a negated ignore rule makes the Volume visible; the remedy must be scan, not removing that rule: %q", action)
+	}
 }

@@ -18,15 +18,17 @@ import (
 // One call covers all three sources, .gitignore, .git/info/exclude, and core.excludesFile, which is
 // exactly why Git must be asked instead of parsing .gitignore here.
 //
-// Two semantic points:
+// Three semantic points:
 //   - A tracked file always answers false. git check-ignore reports no ignore for a tracked path, which
 //     matches what AOCI needs: a tracked file always enters the listing, and ignore rules do not apply to it.
 //   - --no-index is not passed. With it a tracked file would also read as ignored, turning the immune case into a false fault.
+//   - Verbose check-ignore also reports a matching negative rule with exit code 0; that rule makes the path visible.
 //
 // When the Git facts cannot be obtained it answers (false, ""): better to report nothing than to accuse a rule because of an environment problem.
 func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	command := UntrustedRepositoryGitCommand(root,
-		"-c", "core.quotepath=false", "check-ignore", "-v", "--", rel)
+		"check-ignore", "-v", "-z", "--stdin")
+	command.Stdin = strings.NewReader(rel + "\x00")
 	var stdout bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = nil
@@ -38,16 +40,14 @@ func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 		}
 		return false, ""
 	}
-	line := strings.TrimSpace(stdout.String())
-	if line == "" {
+	// -v -z separates source, line, pattern, and path with NULs and never quotes
+	// their contents. Colons in a source path and tabs in a pattern cannot hide
+	// the negative-rule marker or corrupt the reported rule source.
+	fields := strings.Split(stdout.String(), "\x00")
+	if len(fields) != 5 || fields[4] != "" || fields[2] == "" || strings.HasPrefix(fields[2], "!") {
 		return false, ""
 	}
-	// -v prints "<source>:<line>:<pattern>\t<path>". The rule's source is worth more to the operator
-	// than the pattern itself: it names the file to change.
-	if tab := strings.IndexByte(line, '\t'); tab > 0 {
-		line = line[:tab]
-	}
-	return true, line
+	return true, strings.Join(fields[:3], ":")
 }
 
 func asExitError(err error, target **exec.ExitError) bool {
