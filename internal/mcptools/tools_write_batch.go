@@ -109,6 +109,7 @@ type atomicBatchPlan struct {
 func planUpdateEntriesAtomic(
 	root string,
 	items []AtomicUpdateItem,
+	dryRun bool,
 ) (*atomicBatchPlan, *Fail) {
 	start := time.Now()
 	if fail := validateEntryWriteMessages(); fail != nil {
@@ -223,7 +224,7 @@ func planUpdateEntriesAtomic(
 	if loaded.set.LayoutMode == cognition.LayoutLegacyMonolithic {
 		return nil, legacyReadOnlyFail()
 	}
-	return planCognitionVolumeUpdates(root, loaded, normalized, start)
+	return planCognitionVolumeUpdates(root, loaded, normalized, start, dryRun)
 }
 
 // commitAtomicBatch performs one CAS and one AtomicWrite inside one write-lock critical section.
@@ -318,7 +319,7 @@ func applyUpdateEntriesAtomicBound(
 ) (*AtomicBatchOutcome, *Fail) {
 	start := time.Now()
 
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, dryRun)
 	if fail != nil {
 		if !dryRun {
 			appendWriteFailEvent(

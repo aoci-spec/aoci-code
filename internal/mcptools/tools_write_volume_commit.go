@@ -70,6 +70,7 @@ func planCognitionVolumeUpdates(
 	loaded *cognitionRepoCtx,
 	normalized []normalizedAtomicItem,
 	start time.Time,
+	dryRun bool,
 ) (*atomicBatchPlan, *Fail) {
 	if len(normalized) == 0 {
 		return nil, &Fail{Code: errCrossVolumeWriteNotSupported, Msg: writeMessage("entry.volume.cross_write_not_supported")}
@@ -237,7 +238,10 @@ func planCognitionVolumeUpdates(
 			volumes[cognition.ScopeCode] = true
 			continue
 		}
-		if !receiptMode && !validRecoverySHA256(item.sourceSHA256) {
+		// A preview renders the proposed entry without writing, so it needs no
+		// evidence binding: --help documents --source-sha256 as "required unless
+		// --preview is used". A binding that is given is still checked.
+		if !receiptMode && !validRecoverySHA256(item.sourceSHA256) && !(dryRun && item.sourceSHA256 == "") {
 			return nil, &Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.source_binding_required", volumeItemIdentity(item)), Hint: writeMessage("entry.write.mcp.hint.source_binding")}
 		}
 		candidate := cognition.ImpactCandidate{
@@ -344,7 +348,7 @@ func planCognitionVolumeUpdates(
 		}
 		if item.rel != "" {
 			fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(item.rel)))
-			if err != nil || fingerprint.SHA256 != item.sourceSHA256 {
+			if err != nil || (fingerprint.SHA256 != item.sourceSHA256 && !(dryRun && item.sourceSHA256 == "")) {
 				return nil, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.source_conflict", "code:"+item.rel), Hint: writeMessage("entry.batch.hint.refresh_binding")}
 			}
 			sourceFingerprints[item.rel] = fingerprint

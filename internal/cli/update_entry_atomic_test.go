@@ -78,3 +78,56 @@ func TestUpdateEntryCLIRefusesLegacyLayout(t *testing.T) {
 		t.Fatal("a refused Legacy update changed the index")
 	}
 }
+
+// #191: --preview renders a proposed entry without writing, so it needs no
+// --source-sha256 evidence binding, exactly as --help documents. The plan
+// layer used to refuse the binding-less preview the CLI had already accepted.
+func TestUpdateEntryCLIPreviewNeedsNoSourceBinding(t *testing.T) {
+	root, _ := alignedVolumeCLIFixture(t, true, false)
+	before, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stdout, stderr, code := runCLI(t, root, "update-entry",
+		"--path", "main.go",
+		"--entry", "main.go[CD7S]: F:preview the fixture without a binding | R:- | A:main | S:Preview writes nothing",
+		"--preview",
+	)
+	if code != ExitOK {
+		t.Fatalf("binding-less preview must succeed: exit %d\nstdout:\n%s\nstderr:\n%s", code, stdout, stderr)
+	}
+	if !strings.Contains(stdout, "main.go") {
+		t.Fatalf("preview did not render the proposed entry:\n%s", stdout)
+	}
+	after, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("a preview changed the index")
+	}
+}
+
+// The binding-less allowance is the preview's alone: a formal write without
+// --source-sha256 keeps the documented refusal.
+func TestUpdateEntryCLIFormalWriteStillNeedsSourceBinding(t *testing.T) {
+	root, _ := alignedVolumeCLIFixture(t, true, false)
+	before, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, code := runCLI(t, root, "update-entry",
+		"--path", "main.go",
+		"--entry", "main.go[CD7S]: F:write the fixture without a binding | R:- | A:main | S:Formal writes keep the binding",
+	)
+	if code != ExitConfig {
+		t.Fatalf("a formal write without --source-sha256 must be refused with exit %d, got %d", ExitConfig, code)
+	}
+	after, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("a refused formal write changed the index")
+	}
+}

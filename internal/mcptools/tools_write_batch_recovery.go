@@ -360,7 +360,7 @@ func CompleteUpdateEntriesAtomicRecovery(root string, items []AtomicUpdateItem) 
 // a proven preimage or postimage; otherwise the caller must Resume or hard
 // block according to the existing recovery policy.
 func RollbackUpdateEntriesAtomicRecovery(root string, items []AtomicUpdateItem) error {
-	plan, fail := planUpdateEntriesAtomic(root, items)
+	plan, fail := planUpdateEntriesAtomic(root, items, false)
 	if fail != nil {
 		return fmt.Errorf("entries_rollback_plan_failed[%s]: %s", fail.Code, fail.Msg)
 	}

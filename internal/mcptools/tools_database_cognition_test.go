@@ -196,7 +196,7 @@ func TestDatabaseCreateCannotBypassEvidenceReceiptWithVolumeSHA(t *testing.T) {
 		SourceSHA256: volumeSourceSHA(t, root, "aoci.database.txt"),
 	}
 	before := volumeFileText(t, root, "aoci.database.txt")
-	if _, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item}); fail == nil ||
+	if _, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item}, false); fail == nil ||
 		!strings.Contains(fail.Msg, "database_create_requires_candidate_receipt") {
 		t.Fatalf("legacy Volume binding created an unbound Database Entry: %+v", fail)
 	}

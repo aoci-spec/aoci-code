@@ -70,7 +70,7 @@ func TestSingleCodeVolumeUpdateUsesExistingGovernancePipeline(t *testing.T) {
 	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		Path: "main.go", NewEntry: volumeUpdateLine,
 		SourceSHA256: volumeSourceSHA(t, root, "main.go"),
-	}})
+	}}, false)
 	if fail != nil {
 		t.Fatalf("plan failed: %+v", fail)
 	}
@@ -383,7 +383,7 @@ func TestSingleCodeVolumeUpdateUsesCrossVolumeGuardWithoutWritingDatabase(t *tes
 	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		Path: "main.go", NewEntry: line,
 		SourceSHA256: volumeSourceSHA(t, root, "main.go"),
-	}})
+	}}, false)
 	if fail != nil || plan.changeEnvelope == nil ||
 		strings.Join(plan.changeEnvelope.WriteSet, ",") != "code" ||
 		strings.Join(plan.changeEnvelope.GuardSet, ",") != "root,meta,code,database" {
@@ -498,7 +498,7 @@ func TestSingleCodeVolumePathNormalizationKeepsRecoveryIdentity(t *testing.T) {
 		NewEntry:     "src/main.go[CD9S]: F:run the updated fixture | R:- | A:main | S:Keep execution deterministic",
 		SourceSHA256: volumeSourceSHA(t, root, "src/main.go"),
 	}
-	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item})
+	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{item}, false)
 	if fail != nil {
 		t.Fatalf("path-normalized plan failed: %+v", fail)
 	}
@@ -710,7 +710,7 @@ func TestSingleCodeVolumeGuardCASConflictUsesExistingConflict(t *testing.T) {
 	plan, fail := planUpdateEntriesAtomic(root, []AtomicUpdateItem{{
 		Path: "main.go", NewEntry: volumeUpdateLine,
 		SourceSHA256: volumeSourceSHA(t, root, "main.go"),
-	}})
+	}}, false)
 	if fail != nil {
 		t.Fatalf("plan failed: %+v", fail)
 	}
