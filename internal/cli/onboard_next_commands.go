@@ -103,7 +103,12 @@ func bindOnboardingCommands(root string, session *onboarding.Session, suffixes .
 }
 
 func onboardingShellPath(root, rel string) string {
-	path := filepath.Join(root, filepath.FromSlash(rel))
+	return shellPathArgument(filepath.Join(root, filepath.FromSlash(rel)))
+}
+
+// shellPathArgument quotes a path for a command handed to the user, so a root
+// with spaces or shell metacharacters stays one argument when pasted.
+func shellPathArgument(path string) string {
 	if runtime.GOOS == "windows" {
 		return powerShellQuote(path)
 	}

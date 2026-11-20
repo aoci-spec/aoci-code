@@ -28,6 +28,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -492,7 +493,10 @@ func TestInitCodexHooksConflictIsZeroWrite(t *testing.T) {
 func TestInitWarnsWhenNoGitIgnoreAuthority(t *testing.T) {
 	for _, layout := range []string{"plain", "git", "child"} {
 		t.Run(layout, func(t *testing.T) {
-			root := t.TempDir()
+			root := filepath.Join(t.TempDir(), "my repo")
+			if err := os.Mkdir(root, 0o755); err != nil {
+				t.Fatal(err)
+			}
 			source := root
 			switch layout {
 			case "git":
@@ -514,8 +518,11 @@ func TestInitWarnsWhenNoGitIgnoreAuthority(t *testing.T) {
 			if warned != (layout == "plain") {
 				t.Fatalf("%s: warned=%t\n%s", layout, warned, output)
 			}
+			if warned && runtime.GOOS != "windows" && !strings.Contains(output, "--repo '"+root+"' scope") {
+				t.Fatalf("a root with a space must be handed quoted:\n%s", output)
+			}
 			if warned && (!strings.Contains(output, "index=2 above counts every file") ||
-				!strings.Contains(output, "aoci --repo "+root+" scope rule add later --action exclude")) {
+				!strings.Contains(output, "aoci --repo "+shellPathArgument(root)+" scope rule add later --action exclude")) {
 				t.Fatalf("warning must name the count and this root's command:\n%s", output)
 			}
 		})

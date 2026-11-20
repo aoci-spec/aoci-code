@@ -106,7 +106,7 @@ func initAuthoringEstimateLines(root string, cfg *config.Config, paths []string)
 		lines = append(lines, line)
 	}
 	if estimate.Rounds >= initNarrowHintRounds {
-		lines = append(lines, cliMessage("scan.narrow_hint", root))
+		lines = append(lines, cliMessage("scan.narrow_hint", shellPathArgument(root)))
 	}
 	return lines
 }
@@ -183,7 +183,7 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 		fmt.Println(line)
 	}
 	if dryRun {
-		fmt.Println(cliMessage("scan.narrow_hint", root))
+		fmt.Println(cliMessage("scan.narrow_hint", shellPathArgument(root)))
 	}
 }
 

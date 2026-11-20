@@ -382,7 +382,7 @@ func init() {
 					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
 					scopeProposal.RequiredHumanDecisions, formatDirectoryImpacts(scopeProposal.LargestDirectories)))
 				if noIgnoreAuthority && scopeProposal.IndexObjects > 0 {
-					outputLines = append(outputLines, cliMessage("init.no_ignore_authority", scopeProposal.IndexObjects, root))
+					outputLines = append(outputLines, cliMessage("init.no_ignore_authority", scopeProposal.IndexObjects, shellPathArgument(root)))
 				}
 			}
 
