@@ -153,6 +153,8 @@ var requiredEntryWriteMessages = map[string][]any{
 	"entry.repair.action.volume":                         nil,
 	"entry.repair.action.duplicate":                      nil,
 	"entry.repair.action.code_path":                      nil,
+	"entry.repair.cause.code_object_ref":                 nil,
+	"entry.repair.action.code_object_ref":                nil,
 	"entry.repair.action.directory_unspellable":          nil,
 	"entry.repair.action.root_unspellable":               nil,
 	"entry.repair.action.code_candidate_id":              nil,
@@ -584,6 +586,14 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 		return &Fail{Code: errWriteConflict, Msg: detail, Hint: writeMessage("entry.batch.hint.replan")}
 	}
 	for index, item := range result {
+		if identity := strings.TrimSpace(item.ObjectRef); strings.HasPrefix(identity, "code:") {
+			finding := cognition.RepairFinding{CandidateIndex: index + 1, Path: strings.TrimPrefix(identity, "code:"),
+				CanonicalObjectIdentity: identity, Domain: cognition.ScopeCode, Field: "object_ref",
+				RuleCode: "code_object_ref_requires_path", Code: "code_object_ref_requires_path",
+				Expected: "field=path", Actual: "field=object_ref", Cause: writeMessage("entry.repair.cause.code_object_ref")}
+			return result, &Fail{Code: errBadArgs, Msg: finding.Cause, Repairable: true,
+				Findings: LocalizeRepairFindings([]cognition.RepairFinding{finding})}
+		}
 		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
 		if item.Remove || item.noCompletion || batchID == "" {
 			continue

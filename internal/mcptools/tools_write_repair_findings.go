@@ -135,6 +135,8 @@ func safeRepairAction(finding cognition.RepairFinding) string {
 		return writeMessage("entry.repair.action.duplicate")
 	case "code_candidate_path_mismatch":
 		return writeMessage("entry.repair.action.code_path")
+	case "code_object_ref_requires_path":
+		return writeMessage("entry.repair.action.code_object_ref")
 	case "code_directory_unspellable":
 		return writeMessage("entry.repair.action.directory_unspellable")
 	case "code_root_unspellable":
