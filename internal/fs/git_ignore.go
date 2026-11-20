@@ -10,7 +10,9 @@ package fs
 import (
 	"bytes"
 	"os/exec"
+	"strconv"
 	"strings"
+	"unicode"
 )
 
 // PathIgnoredByGit answers whether rel is hidden by Git's ignore authority and names the matching rule's source.
@@ -47,7 +49,33 @@ func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	if len(fields) != 5 || fields[4] != "" || fields[2] == "" || strings.HasPrefix(fields[2], "!") {
 		return false, ""
 	}
-	return true, strings.Join(fields[:3], ":")
+	// The rule source is printed for a person: -z leaves its bytes raw, so a
+	// control character in an excludes-file path is escaped the way Git's own
+	// quoted output would show it rather than breaking or overwriting the line.
+	return true, EscapeControlChars(strings.Join(fields[:3], ":"))
+}
+
+// EscapeControlChars renders control characters as Go escapes (\n, \r, \x01)
+// and leaves every other character, a tab included, as is, for text shown on
+// a terminal: a tab cannot break or overwrite the line.
+func EscapeControlChars(text string) string {
+	if strings.IndexFunc(text, lineBreakingControl) < 0 {
+		return text
+	}
+	var out strings.Builder
+	for _, r := range text {
+		if lineBreakingControl(r) {
+			quoted := strconv.QuoteRune(r)
+			out.WriteString(quoted[1 : len(quoted)-1])
+			continue
+		}
+		out.WriteRune(r)
+	}
+	return out.String()
+}
+
+func lineBreakingControl(r rune) bool {
+	return r != '\t' && unicode.IsControl(r)
 }
 
 func asExitError(err error, target **exec.ExitError) bool {

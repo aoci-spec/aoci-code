@@ -681,7 +681,11 @@ func newScopeStatusCmd() *cobra.Command {
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
 			status.ObservedPendingReview, status.DesiredPolicyIdentity))
 		if len(status.GitUntrackedPaths) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", strings.Join(status.GitUntrackedPaths, ", ")))
+			shown := make([]string, 0, len(status.GitUntrackedPaths))
+			for _, path := range status.GitUntrackedPaths {
+				shown = append(shown, afs.EscapeControlChars(path))
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", strings.Join(shown, ", ")))
 		}
 		return nil
 	}}

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -180,5 +181,35 @@ func TestScopeStatusUntrackedWarningLocalized(t *testing.T) {
 				t.Fatalf("missing localized warning: %s", text)
 			}
 		})
+	}
+}
+
+// The text warning prints each path escaped: a newline or carriage return in
+// a referenced file name must not break or overwrite the line, while --json
+// still carries the exact path.
+func TestScopeStatusUntrackedWarningEscapesControlChars(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file names cannot carry control characters on Windows")
+	}
+	root := buildScopeCLIRepo(t)
+	odd := "first\nsecond\r_test.go"
+	testkit.WriteFile(t, root, odd, "package sample\n")
+	active, _, err := baseline.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	active.Files[odd] = active.Files["main_test.go"]
+	if err := baseline.Save(root, active); err != nil {
+		t.Fatal(err)
+	}
+	untrackedScopeStatus(t, root, odd, "main.go", "main_test.go")
+	text := mustCLI(t, root, "scope", "status")
+	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+		if strings.Contains(line, "\r") || line == "second" || strings.HasPrefix(line, "second") {
+			t.Fatalf("a control character in a path reached the terminal raw: %q", text)
+		}
+	}
+	if !strings.Contains(text, `first\nsecond\r_test.go`) {
+		t.Fatalf("the path must be shown escaped: %q", text)
 	}
 }

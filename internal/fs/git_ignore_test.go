@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -84,5 +85,36 @@ func TestPathIgnoredByGitWithoutGitFacts(t *testing.T) {
 	}
 	if ignored, rule := PathIgnoredByGit(root, "aoci.txt"); ignored || rule != "" {
 		t.Fatalf("failed Git lookup must not accuse an ignore rule: %t %q", ignored, rule)
+	}
+}
+
+// -z hands back the rule source raw; a newline or carriage return in an
+// excludes-file name must reach the terminal escaped, not as a line break.
+func TestPathIgnoredByGitEscapesControlCharsInRuleSource(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("file names cannot carry control characters on Windows")
+	}
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	rules := filepath.Join(root, "rules\nfile\r")
+	if err := os.WriteFile(rules, []byte("hidden.txt\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitCommand(t, root, "config", "core.excludesFile", rules)
+	mustWrite(t, root, "hidden.txt", "x")
+	ignored, rule := PathIgnoredByGit(root, "hidden.txt")
+	if !ignored {
+		t.Fatal("the excludes file must hide the path")
+	}
+	if strings.ContainsAny(rule, "\n\r") || !strings.Contains(rule, `rules\nfile\r`) {
+		t.Fatalf("control characters must be escaped in the rule source: %q", rule)
+	}
+}
+
+func TestEscapeControlChars(t *testing.T) {
+	for in, want := range map[string]string{"plain.go": "plain.go", "a\nb\rc\x01": `a\nb\rc\x01`, "tab\there": "tab\there", "名\u0085": `名\u0085`} {
+		if got := EscapeControlChars(in); got != want {
+			t.Errorf("EscapeControlChars(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
