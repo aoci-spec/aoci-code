@@ -521,10 +521,38 @@ func TestInitWarnsWhenNoGitIgnoreAuthority(t *testing.T) {
 			if warned && runtime.GOOS != "windows" && !strings.Contains(output, "--repo '"+root+"' scope") {
 				t.Fatalf("a root with a space must be handed quoted:\n%s", output)
 			}
-			if warned && (!strings.Contains(output, "index=2 above counts every file") ||
+			if warned && (!strings.Contains(output, "2 files are index candidates now") ||
 				!strings.Contains(output, "aoci --repo "+shellPathArgument(root)+" scope rule add later --action exclude")) {
 				t.Fatalf("warning must name the count and this root's command:\n%s", output)
 			}
 		})
+	}
+}
+
+// A config written before the first init (database source add, config set)
+// leaves the first scan just as exposed, so init still warns; once a scan has
+// set the Baseline, a re-init does not repeat it.
+func TestInitWarnsWhenConfigPrecedesFirstInit(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	testkit.WriteFile(t, root, "main.go", "package main\n")
+	testkit.WriteFile(t, root, "Intermediate/Build/Generated.gen.h", "#pragma once\n")
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	warning := "is not a Git repository, so no ignore file applies"
+	output, _, stderr, code := runCLIPrinted(t, root, "init", "--agent=", "--hooks=false", "--here=false", "--locale=en-US")
+	if code != ExitOK || !strings.Contains(output, warning) {
+		t.Fatalf("first init after a config must warn: exit %d\n%s\n%s", code, output, stderr)
+	}
+	if _, stderr, code := runCLI(t, root, "scan"); code != ExitOK {
+		t.Fatalf("scan: exit %d\n%s", code, stderr)
+	}
+	output, _, stderr, code = runCLIPrinted(t, root, "init", "--agent=", "--hooks=false", "--here=false")
+	if code != ExitOK || strings.Contains(output, warning) {
+		t.Fatalf("re-init after the first scan must not warn: exit %d\n%s\n%s", code, output, stderr)
 	}
 }

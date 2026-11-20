@@ -679,7 +679,7 @@
   "init.lock_warning": "警告: Baseline共享写锁失败(%s)",
   "init.minimal_asset_error": "加载最小索引模板资产失败: %v",
   "init.mkdir_error": "创建 %s 失败: %v",
-  "init.no_ignore_authority": "警告：这个目录不是 Git 仓库，任何忽略文件都不生效（.gitignore 依赖 Git；.dvignore、.hgignore 等其他版本控制的忽略文件不会读取）。上面的 index=%d 包含内置规则没有排除的全部文件，构建产物和生成文件也在内。请在首次 scan 之前排除这些目录；之后再缩范围属于受治理的 Scope Change。示例：aoci --repo %s scope rule add later --action exclude --pattern-kind directory --pattern <dir> --pattern <dir> --reason \"<why>\"",
+  "init.no_ignore_authority": "警告：这个目录不是 Git 仓库，任何忽略文件都不生效（.gitignore 依赖 Git；.dvignore、.hgignore 等其他版本控制的忽略文件不会读取）。根下的构建产物、日志和生成文件都可能成为 index 候选；当前有 %d 个 index 候选。请在首次 scan 之前排除不是源码的目录；之后再缩范围属于受治理的 Scope Change。示例：aoci --repo %s scope rule add later --action exclude --pattern-kind directory --pattern <dir> --pattern <dir> --reason \"<why>\"",
   "init.repo_not_found": "未找到仓库根: 当前目录及各级上级均无 .git 或 .aoci,已停止。确认要以当前目录为根,请加 --here",
   "init.scope_blocked_high_risk": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision —— 已配置%d条精确高风险接纳，首次建立Baseline前需要真人复核。",
   "init.scope_blocked_no_index": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision —— %q配置未把任何路径分配给index角色，但存在%d个受管候选。请改用会索引源码的配置（--scope-profile production），或在初始化前声明index规则。",
