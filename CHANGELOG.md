@@ -4,6 +4,16 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `aoci_update_entry` names a Code candidate sent as `object_ref:
+  "code:<path>"` as a repairable `code_object_ref_requires_path` finding that
+  points to `path`, instead of routing it to Database binding and reporting a
+  misleading Database batch or SHA error. Nothing is written and an attached
+  Observe review is not recorded (#192, PR #197 by @dayebishouji).
+
+- pgx 5.13.0 (dependabot #195). It returns an error instead of panicking when
+  a PostgreSQL server sends fewer row values than declared fields
+  (GHSA-w9rp-vfrh-q8vv). No new modules; the license text is unchanged.
+
 - `update-entry --preview` no longer requires `--source-sha256`. The help
   text has always said the binding is required unless `--preview` is used,
   but the volume plan refused a binding-less preview with
