@@ -231,9 +231,9 @@ func postgresqlIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables m
 	for rows.Next() {
 		var namespace, tableName, name, method, predicate string
 		var column, expression sql.NullString
-		var unique, primary, included bool
+		var unique, primary, included, descending bool
 		var position int
-		if err := rows.Scan(&namespace, &tableName, &name, &unique, &primary, &method, &position, &column, &expression, &included, &predicate); err != nil {
+		if err := rows.Scan(&namespace, &tableName, &name, &unique, &primary, &method, &position, &column, &expression, &included, &predicate, &descending); err != nil {
 			return err
 		}
 		table := tables[tableKey(namespace, tableName)]
@@ -247,7 +247,7 @@ func postgresqlIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables m
 			states[stateKey] = state
 			order = append(order, stateKey)
 		}
-		element := IndexElement{Position: position, Included: included}
+		element := IndexElement{Position: position, Included: included, Descending: descending}
 		if column.Valid {
 			columnCopy := column.String
 			element.Column = &columnCopy

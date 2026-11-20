@@ -182,12 +182,18 @@ Each table records engine/source/database/namespace identity; base-table kind;
 ordinal columns with native and canonical type, nullability, default, serial,
 identity, auto_increment, and generated facts; ordered primary, unique, and
 foreign keys with actions; checks; ordered column/expression indexes with
-uniqueness, prefix, visibility, method, and predicate facts where supported;
+uniqueness, direction, prefix, visibility, method, and predicate facts where supported;
 and the partition facts supported by the applicable engine profile. These
 remain table evidence rather than independent FRAS objects. The initial
 openGauss profile accepts only non-partitioned tables, so it cannot emit an
 apparently complete v1 table after discarding openGauss partition or index
 semantics.
+
+PostgreSQL index direction comes from the catalog's per-column `desc` property
+for both ordinary and expression keys. Included columns and access methods
+without an applicable ordering property are not marked descending. The existing
+optional `descending` field participates in the index component identity, so a
+direction-only change is reported as index drift without changing the v1 shape.
 
 The version is database-evidence/v1. A complete example is:
 
