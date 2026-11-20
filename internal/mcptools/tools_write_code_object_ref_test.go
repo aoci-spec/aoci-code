@@ -149,3 +149,46 @@ func TestCodeObjectRefNamesEveryCandidateUnderItsCanonicalPath(t *testing.T) {
 		}
 	}
 }
+
+// The misnamed identity does not hide the batch's other repairable errors:
+// they arrive in the same answer, so one repair round fixes both.
+func TestCodeObjectRefKeepsOtherFindingsInTheSameAnswer(t *testing.T) {
+	root := buildLargeCodeCandidateRepo(t, 2)
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	arguments := codeBatchArguments(wireCodePlan(maintain))
+	entries := arguments["entries"].([]map[string]any)
+	path := entries[0]["path"].(string)
+	delete(entries[0], "path")
+	entries[0]["object_ref"] = "code:" + path
+	broken := entries[1]["path"].(string)
+	entries[1]["new_entry"] = filepath.Base(broken) + "[CD5S]: F: | R:- | A:- | S:-"
+	rejected := applyVolumeBatch(t, session, arguments)
+	if rejected.Status != autoStatusRepairRequired || rejected.FormalWritesStarted {
+		t.Fatalf("batch must be repairable before writes: %#v", rejected)
+	}
+	misnamed, other := false, false
+	for _, finding := range rejected.Findings {
+		misnamed = misnamed || (finding.CandidateIndex == 1 && finding.RuleCode == "code_object_ref_requires_path")
+		other = other || (finding.CandidateIndex == 2 && finding.Field == "F")
+	}
+	if !misnamed || !other {
+		t.Fatalf("both repairs belong in one answer: %#v", rejected.Findings)
+	}
+}
+
+// A code: identity whose path cannot be normalized is the path error it would
+// be under path, never a retry_scope naming an unsafe identity.
+func TestCodeObjectRefUnsafePathIsAPathError(t *testing.T) {
+	root := buildLargeCodeCandidateRepo(t, 1)
+	session := connectMCPClient(t, root)
+	maintain := maintainVolumeBatch(t, session)
+	arguments := codeBatchArguments(wireCodePlan(maintain))
+	entry := arguments["entries"].([]map[string]any)[0]
+	entry["object_ref"] = "code:../" + entry["path"].(string)
+	delete(entry, "path")
+	text := callVolumeTool(t, session, "aoci_update_entry", arguments)
+	if !strings.Contains(text, "path_unsafe") || strings.Contains(text, "code_object_ref_requires_path") {
+		t.Fatalf("an unsafe path must be refused as a path error: %s", text)
+	}
+}

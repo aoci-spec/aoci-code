@@ -434,7 +434,7 @@ func registerWriteTools(
 						return failResult(&Fail{Code: errBadArgs, Msg: writeMessage("entry.write.mcp.mixed_fields")})
 					}
 					items := withVolumeBatchIDs(withRemovals(in.Entries, in.Removals), in.CodeBatchID, in.BatchID)
-					if completed, bindingFail := fillIssuedBindings(root, items); bindingFail != nil || bindingsIncomplete(completed) {
+					if completed, misnamed, bindingFail := fillIssuedBindings(root, items); bindingFail != nil || len(misnamed) > 0 || bindingsIncomplete(completed) {
 						// A batch that still lacks a binding is refused with zero
 						// writes, so the Observe review beside it is not recorded
 						// either: the batch renders its own refusal below.
@@ -506,7 +506,7 @@ func handleMCPUpdateSingle(
 		NewEntry:     in.NewEntry,
 		SourceSHA256: in.SourceSHA256,
 		CandidateID:  in.CandidateID,
-		BatchID:      map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != ""],
+		BatchID:      map[bool]string{true: in.CodeBatchID, false: in.BatchID}[in.Path != "" || misnamedCodeObjectRef(in.ObjectRef)],
 		// The single-Entry compatibility mode keeps its contract: its
 		// bindings are whatever was sent, never completed.
 		noCompletion: true,
@@ -578,34 +578,35 @@ func bindingsIncomplete(items []updateEntryItemIn) bool {
 // whose batch is not on record, or any item its batch never issued, has
 // nothing to be completed from: that is a stale plan, answered before
 // anything is planned.
-func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryItemIn, *Fail) {
+func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryItemIn, []cognition.RepairFinding, *Fail) {
 	result := append([]updateEntryItemIn{}, input...)
 	codeTargets := map[string]map[string]codebatch.Target{}
 	databaseTargets := map[string]map[string]string{}
 	stale := func(detail string) *Fail {
 		return &Fail{Code: errWriteConflict, Msg: detail, Hint: writeMessage("entry.batch.hint.replan")}
 	}
-	// A Code object sent as object_ref (#192) is named for every candidate in
-	// one answer, under the identity the write path would give its path, so
-	// retry_scope matches what Maintain issued.
+	// A Code object sent as object_ref (#192) is answered as a Finding under
+	// the identity its path normalizes to, so retry_scope matches what
+	// Maintain issued. The item then continues as the path item it meant to
+	// be, so the rest of the batch is still validated in the same answer; the
+	// caller refuses the batch whenever misnamed is nonempty. A path that does
+	// not normalize is the path error it would be under path.
 	var misnamed []cognition.RepairFinding
 	for index, item := range result {
-		identity := strings.TrimSpace(item.ObjectRef)
-		if !strings.HasPrefix(identity, "code:") {
+		if !misnamedCodeObjectRef(item.ObjectRef) {
 			continue
 		}
-		path := strings.TrimPrefix(identity, "code:")
-		if rel, err := afs.NormalizeRelPath(path); err == nil {
-			path = rel
+		raw := strings.TrimPrefix(strings.TrimSpace(item.ObjectRef), "code:")
+		rel, err := afs.NormalizeRelPath(raw)
+		if err != nil {
+			return result, nil, &Fail{Code: errPathUnsafe, Msg: writeMessage("entry.batch.path_invalid", index+1, raw, localizeRelPathError(err)),
+				Hint: writeMessage("entry.batch.hint.paths_relative")}
 		}
-		misnamed = append(misnamed, cognition.RepairFinding{CandidateIndex: index + 1, Path: path,
-			CanonicalObjectIdentity: "code:" + path, Domain: cognition.ScopeCode, Field: "object_ref",
+		misnamed = append(misnamed, cognition.RepairFinding{CandidateIndex: index + 1, Path: rel,
+			CanonicalObjectIdentity: "code:" + rel, Domain: cognition.ScopeCode, Field: "object_ref",
 			RuleCode: "code_object_ref_requires_path", Code: "code_object_ref_requires_path",
 			Expected: "field=path", Actual: "field=object_ref", Cause: writeMessage("entry.repair.cause.code_object_ref")})
-	}
-	if len(misnamed) > 0 {
-		return result, &Fail{Code: errBadArgs, Msg: misnamed[0].Cause, Repairable: true,
-			Findings: LocalizeRepairFindings(misnamed)}
+		result[index].Path, result[index].ObjectRef = rel, ""
 	}
 	for index, item := range result {
 		batchID := strings.ToLower(strings.TrimSpace(item.BatchID))
@@ -627,7 +628,7 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 			if !loaded {
 				receipt, loadErr := codebatch.LoadReceipt(root, batchID)
 				if loadErr != nil {
-					return result, stale(localeSafeWriteDetail(loadErr.Error()))
+					return result, misnamed, stale(localeSafeWriteDetail(loadErr.Error()))
 				}
 				targets = make(map[string]codebatch.Target, len(receipt.Targets))
 				for _, target := range receipt.Targets {
@@ -637,7 +638,7 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 			}
 			target, issued := targets[rel]
 			if !issued {
-				return result, stale("code_candidate_batch_mismatch")
+				return result, misnamed, stale("code_candidate_batch_mismatch")
 			}
 			if needSource {
 				result[index].SourceSHA256 = target.SourceSHA256
@@ -656,7 +657,7 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 					// A copied candidate_id can still close an interrupted
 					// write of this batch after its receipt is gone, so the
 					// refusal names the receipt and both ways on.
-					return result, &Fail{Code: errWriteConflict,
+					return result, misnamed, &Fail{Code: errWriteConflict,
 						Msg:  writeMessage("entry.batch.database_receipt_missing", loadErr.Error()),
 						Hint: writeMessage("entry.batch.hint.replan")}
 				}
@@ -668,12 +669,12 @@ func fillIssuedBindings(root string, input []updateEntryItemIn) ([]updateEntryIt
 			}
 			candidateID, issued := targets[strings.TrimSpace(item.ObjectRef)]
 			if !issued {
-				return result, stale("database_candidate_batch_mismatch")
+				return result, misnamed, stale("database_candidate_batch_mismatch")
 			}
 			result[index].CandidateID = candidateID
 		}
 	}
-	return result, nil
+	return result, misnamed, nil
 }
 
 func handleMCPUpdateBatch(
@@ -713,7 +714,7 @@ func handleMCPUpdateBatchReviewed(
 	}
 	start := time.Now()
 	items := make([]AtomicUpdateItem, 0, len(input))
-	input, bindingFail := fillIssuedBindings(root, input)
+	input, misnamed, bindingFail := fillIssuedBindings(root, input)
 	for _, item := range input {
 		if bindingFail != nil {
 			break
@@ -746,6 +747,9 @@ func handleMCPUpdateBatchReviewed(
 	}
 	var outcome *AtomicBatchOutcome
 	fail := bindingFail
+	if len(misnamed) > 0 {
+		fail = withMisnamedCodeFindings(root, items, misnamed, fail)
+	}
 	var optimizationContext *cognitionOptimizationUpdateContext
 	optimizationTransactionComplete := false
 	optimizationRecoveryNeedsCompletion := false
@@ -1042,8 +1046,10 @@ func handleMCPUpdateBatchReviewed(
 func withVolumeBatchIDs(input []updateEntryItemIn, codeBatchID, databaseBatchID string) []updateEntryItemIn {
 	result := append([]updateEntryItemIn{}, input...)
 	for index := range result {
-		if result[index].ObjectRef != "" {
+		if result[index].ObjectRef != "" && !misnamedCodeObjectRef(result[index].ObjectRef) {
 			result[index].BatchID = databaseBatchID
+		} else if misnamedCodeObjectRef(result[index].ObjectRef) {
+			result[index].BatchID = codeBatchID
 		} else if result[index].Path != "" {
 			result[index].BatchID = codeBatchID
 		}
@@ -1076,4 +1082,27 @@ func appendAutoFinalizeEvent(root, status string, metrics autoMetrics) {
 		DuplicateApplies:  metrics.DuplicateApplies,
 		RepeatedMaintains: metrics.RepeatedMaintains,
 	})
+}
+
+// withMisnamedCodeFindings refuses a batch that sent a Code object as
+// object_ref. The rest of the batch is validated by a zero-write preview, so
+// its independently repairable Findings arrive in the same answer; a refusal
+// without Findings yields to the misnamed ones, which are repaired first.
+func withMisnamedCodeFindings(root string, items []AtomicUpdateItem, misnamed []cognition.RepairFinding, fail *Fail) *Fail {
+	if fail == nil {
+		_, fail = ApplyUpdateEntriesAtomicBound(root, items, ledger.SourceAgent, true, "")
+	}
+	findings := LocalizeRepairFindings(misnamed)
+	if fail != nil {
+		findings = append(findings, fail.Findings...)
+	}
+	cognition.SortRepairFindings(findings)
+	return &Fail{Code: errBadArgs, Msg: misnamed[0].Cause, Repairable: true, Findings: findings}
+}
+
+// misnamedCodeObjectRef reports a Code object sent in object_ref (#192): it
+// belongs to the Code batch it was meant for, and fillIssuedBindings answers
+// the field.
+func misnamedCodeObjectRef(objectRef string) bool {
+	return strings.HasPrefix(strings.TrimSpace(objectRef), "code:")
 }
