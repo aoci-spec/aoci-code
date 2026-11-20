@@ -104,6 +104,10 @@ ordered primary and foreign keys, unique constraints, and basic column indexes.
 An untyped SQLite column alone may have empty native_type, with blob affinity.
 Primary and foreign keys use deterministic synthetic names; unique constraints
 use their backing index names. Views and sqlite_* system tables are excluded.
+DDL feature checks keep non-ASCII identifier characters in their tokens and
+use SQLite's ASCII-only case folding. A keyword-like suffix or Unicode case
+mapping inside such an identifier neither rejects the table nor enables
+AUTOINCREMENT. A token-leading UTF-8 byte-order mark remains whitespace.
 Selected virtual/FTS tables, generated columns, CHECK, DEFERRABLE, ON CONFLICT,
 STRICT, WITHOUT ROWID, expression/partial indexes, explicit column COLLATE
 clauses, and non-BINARY index collations
