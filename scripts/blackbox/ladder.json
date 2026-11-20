@@ -133,9 +133,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.2.0-rc2",
-    "date": "2026-11-18",
-    "evidence": ".aoci/dev-tools/axis-020rc2-release.txt (released 0.2.0-rc2 binary over v0.2.0-rc1,v0.2.0-rc2: 160 passed, 0 failed)"
+    "version": "v0.2.0-rc3",
+    "date": "2026-11-20",
+    "evidence": ".aoci/dev-tools/axis-020rc3-release.txt (released v0.2.0-rc3 binary, sha256 7f034d99…, over v0.2.0-rc2 and v0.2.0-rc3: 160 passed, 0 failed)"
    }
   },
   {
