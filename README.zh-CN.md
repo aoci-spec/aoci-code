@@ -11,7 +11,7 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
-<a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
+<a href="https://wangruofeng007.com/blog/2026-11/github-trending-daily-1119-agent-papers/#%E5%AE%8C%E6%95%B4%E6%A6%9C%E5%8D%95" target="_blank" rel="noopener noreferrer"><img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/github-trending-badge.svg" alt="GitHub Trending: #18 Repository Of The Day" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
 
 https://github.com/user-attachments/assets/78fcbeeb-013a-4ad3-aeee-c1dc303d2501
 
@@ -971,9 +971,9 @@ AOCI-CODE v0.2.0-rc3 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软�
 
 ## 💬 交流群
 
-用微信或企业微信扫码，加入 AOCI 项目交流群，和维护者及其他用户直接交流。问题反馈和功能建议请尽量提 [GitHub Issue](https://github.com/aoci-spec/aoci-code/issues)，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
+用微信或企业微信扫码，先添加 AOCI 小助手（企业微信），小助手会拉您进讨论群，和维护者及其他用户直接交流。问题反馈和功能建议请尽量提 [GitHub Issue](https://github.com/aoci-spec/aoci-code/issues)，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
 
-<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="AOCI 项目交流群企业微信二维码" width="240">
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="AOCI 小助手企业微信二维码" width="240">
 
 ---
 

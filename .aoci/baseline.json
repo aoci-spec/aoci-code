@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-20T14:08:15Z",
+  "updated_at": "2026-11-21T16:27:31Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -107,15 +107,15 @@
     },
     "README.md": {
       "role": "index",
-      "sha256": "2e4c2bbaa606eacc8b9e6e1c7ab5bb0e0a598e651867ab8ad42cc5ab1ae11542",
-      "size": 78252,
-      "normalized_sha256": "2e4c2bbaa606eacc8b9e6e1c7ab5bb0e0a598e651867ab8ad42cc5ab1ae11542"
+      "sha256": "5498459e090f5b968247d71ae9d12354a9e41d849b19704826d3ed33da4ae5ca",
+      "size": 78638,
+      "normalized_sha256": "5498459e090f5b968247d71ae9d12354a9e41d849b19704826d3ed33da4ae5ca"
     },
     "README.zh-CN.md": {
       "role": "index",
-      "sha256": "cb328fbde480a41e3bd3bb14f6d66905b28e90660803725ef46a8af50325fab6",
-      "size": 70193,
-      "normalized_sha256": "cb328fbde480a41e3bd3bb14f6d66905b28e90660803725ef46a8af50325fab6"
+      "sha256": "fa9a058ecdfe7f70c0cf8a9dd2244a42c2956d461b0ad82e46b693583ff89032",
+      "size": 70587,
+      "normalized_sha256": "fa9a058ecdfe7f70c0cf8a9dd2244a42c2956d461b0ad82e46b693583ff89032"
     },
     "SECURITY.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "3529e41c6dcf4964b73d8b2618d09f9536cb86326d17a34b3a415f6e61bb14c8",
-      "size": 238315,
-      "normalized_sha256": "3529e41c6dcf4964b73d8b2618d09f9536cb86326d17a34b3a415f6e61bb14c8"
+      "sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155",
+      "size": 238573,
+      "normalized_sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -162,6 +162,12 @@
       "role": "observe",
       "sha256": "4258f471c398d669fbf39a23e5ff4883e1d9dfa7356bcaab34674623d58687d0",
       "size": 161131
+    },
+    "assets/github-trending-badge.svg": {
+      "role": "index",
+      "sha256": "d6931a0d0ac0b16d6e71c4602197aa26bc6c819e49fffec551a2acc79d936d90",
+      "size": 2582,
+      "normalized_sha256": "d6931a0d0ac0b16d6e71c4602197aa26bc6c819e49fffec551a2acc79d936d90"
     },
     "cmd/aoci/main.go": {
       "role": "index",

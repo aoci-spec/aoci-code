@@ -11,7 +11,7 @@
 ![MCP](https://img.shields.io/badge/MCP-9%20tools-6f42c1)
 ![License](https://img.shields.io/badge/license-FSL--1.1--MIT-blue)
 
-<a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
+<a href="https://wangruofeng007.com/blog/2026-11/github-trending-daily-1119-agent-papers/#%E5%AE%8C%E6%95%B4%E6%A6%9C%E5%8D%95" target="_blank" rel="noopener noreferrer"><img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/github-trending-badge.svg" alt="GitHub Trending: #18 Repository Of The Day" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/daily?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a> <a href="https://trendshift.io/repositories/195419?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-195419" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/195419/weekly?language=Go" alt="aoci-spec%2Faoci-code | Trendshift" width="250" height="55"/></a>
 
 https://github.com/user-attachments/assets/31636873-3e05-401f-849a-1f1ea87cd0a4
 
@@ -1024,9 +1024,9 @@ AOCI-CODE v0.2.0-rc3 is Fair Source/source-available software licensed under FSL
 
 ## Community
 
-Scan the code with WeChat or WeCom (企业微信) to join the AOCI project group and talk with the maintainers and other users. File bug reports and feature requests as [GitHub issues](https://github.com/aoci-spec/aoci-code/issues) so they stay searchable, and report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
+Scan the code with WeChat or WeCom (企业微信) to add the AOCI assistant, who will invite you to the discussion group to talk with the maintainers and other users. File bug reports and feature requests as [GitHub issues](https://github.com/aoci-spec/aoci-code/issues) so they stay searchable, and report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
 
-<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="QR code for joining the AOCI project group on WeCom" width="240">
+<img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="QR code for adding the AOCI assistant on WeCom" width="240">
 
 ---
 
