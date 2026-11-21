@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-20T14:08:15Z",
+  "updated_at": "2026-11-21T08:19:07Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -3978,18 +3978,18 @@
     },
     "internal/fs/safe_inventory_test.go": {
       "role": "observe",
-      "sha256": "2f7ea95f7874a9134e1119b30a6e1219c47f23726f3d1e513b9a00123569f9f2",
-      "size": 42382,
-      "normalized_sha256": "2f7ea95f7874a9134e1119b30a6e1219c47f23726f3d1e513b9a00123569f9f2",
-      "format_sha256": "2f7ea95f7874a9134e1119b30a6e1219c47f23726f3d1e513b9a00123569f9f2",
+      "sha256": "649bb517585592080db338a17382f6c4bfcb3035fd2f33c8be1df0404c08f55d",
+      "size": 42796,
+      "normalized_sha256": "649bb517585592080db338a17382f6c4bfcb3035fd2f33c8be1df0404c08f55d",
+      "format_sha256": "649bb517585592080db338a17382f6c4bfcb3035fd2f33c8be1df0404c08f55d",
       "format_kind": "gofmt"
     },
     "internal/fs/safe_inventory_windows_test.go": {
       "role": "observe",
-      "sha256": "fdaf965c0923d8b956b178d0ad205e051546d02fc80864f552bc910080803538",
-      "size": 3565,
-      "normalized_sha256": "fdaf965c0923d8b956b178d0ad205e051546d02fc80864f552bc910080803538",
-      "format_sha256": "fdaf965c0923d8b956b178d0ad205e051546d02fc80864f552bc910080803538",
+      "sha256": "d63c4184f0a7220242dc0557755754a65abeb34ac5c40f84647051909244c1e0",
+      "size": 3347,
+      "normalized_sha256": "d63c4184f0a7220242dc0557755754a65abeb34ac5c40f84647051909244c1e0",
+      "format_sha256": "d63c4184f0a7220242dc0557755754a65abeb34ac5c40f84647051909244c1e0",
       "format_kind": "gofmt"
     },
     "internal/fs/safe_path.go": {

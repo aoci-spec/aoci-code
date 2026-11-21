@@ -4,7 +4,6 @@ package fs
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,9 +33,8 @@ func TestSafeInventoryWindowsAttributesJunctionAndLongPath(t *testing.T) {
 	}
 	mustWrite(t, root, "junction-target/inside.go", "package target\n")
 	junction := filepath.Join(root, "junction")
-	command := exec.Command("cmd", "/c", "mklink", "/J", junction, target)
-	if output, err := command.CombinedOutput(); err != nil {
-		t.Fatalf("create test junction: %v: %s", err, output)
+	if err := createTestJunction(junction, target); err != nil {
+		t.Fatal(err)
 	}
 
 	longParts := make([]string, 10)
@@ -74,8 +72,8 @@ func TestSafeInventoryFinishesOnAnIgnoredJunctionCycle(t *testing.T) {
 	mustWrite(t, root, "node_modules/pkg/index.js", "module.exports = 1\n")
 	link := filepath.Join(root, "node_modules", "pkg", "loop")
 	target := filepath.Join(root, "node_modules")
-	if output, err := exec.Command("cmd", "/c", "mklink", "/J", link, target).CombinedOutput(); err != nil {
-		t.Skipf("cannot create a junction here: %v: %s", err, output)
+	if err := createTestJunction(link, target); err != nil {
+		t.Skip(err)
 	}
 	started := time.Now()
 	report, err := BuildSafeInventory(root, WalkOptions{IncludeIgnoredCandidates: true})
