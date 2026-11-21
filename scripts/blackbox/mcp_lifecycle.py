@@ -454,7 +454,17 @@ def suite_bringup(rep, work):
         rep.rec(g, f"repo-{key}.init-en", "PASS" if rec_ok else "FAIL", (out + errs)[:150] if not rec_ok else "")
         rc, _, out, errs = cli(fx, "init", "--agent", "opencode")
         oc = os.path.join(fx, "opencode.json")
-        ok = rc == 0 and os.path.exists(oc) and BIN in open(oc, encoding="utf-8").read() and fx in open(oc, encoding="utf-8").read()
+        ok = False
+        if rc == 0:
+            try:
+                with open(oc, encoding="utf-8") as config_file:
+                    command = json.load(config_file)["mcp"]["aoci"]["command"]
+                ok = (isinstance(command, list) and len(command) == 4
+                      and command[1] == "--repo" and command[3] == "mcp"
+                      and isinstance(command[0], str) and isinstance(command[2], str)
+                      and os.path.samefile(command[0], BIN) and os.path.samefile(command[2], fx))
+            except (OSError, ValueError, KeyError, TypeError):
+                pass
         rep.rec(g, f"repo-{key}.init-agent-opencode", "PASS" if ok else "FAIL")
         rc, _, out, errs = cli(fx, "scan")
         ok = rc == 0 and os.path.exists(os.path.join(fx, ".aoci", "baseline.json"))
@@ -829,7 +839,9 @@ def machine_view(obj, root):
     if isinstance(obj, list):
         return [machine_view(v, root) for v in obj]
     if isinstance(obj, str):
-        return TIMESTAMP_RUN.sub("<ts>", HEX_RUN.sub("<hex>", obj.replace(root, "<root>")))
+        # Guide commands use forward slashes even when the fixture path does not.
+        value = obj.replace(root, "<root>").replace(root.replace(os.sep, "/"), "<root>")
+        return TIMESTAMP_RUN.sub("<ts>", HEX_RUN.sub("<hex>", value))
     return obj
 
 
