@@ -122,6 +122,9 @@ func newScopeBudgetSetCmd() *cobra.Command {
 				if decodeErr := decoder.Decode(policy); decodeErr != nil {
 					return fmt.Errorf("cognition_budget_policy_invalid: %w", decodeErr)
 				}
+				if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+					return errors.New("cognition_budget_policy_invalid: trailing data after policy JSON")
+				}
 				return nil
 			}
 			if mode != "" {
