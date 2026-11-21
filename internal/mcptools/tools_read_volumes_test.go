@@ -103,11 +103,11 @@ func TestVolumeOverviewScopesAndReceiptV2(t *testing.T) {
 		forbid []string
 		full   bool
 	}{
-		{"project", nil, []string{"main.go[CD9S]", "users[DB9S]"}, false},
-		{"meta", []string{cognition.MetaVolumeMarker, "requested_scope: meta"}, []string{"main.go[CD9S]", "users[DB9S]"}, false},
-		{"code", []string{"main.go[CD9S]", "\"requested_scope\":\"code\"", "\"id\":\"code\""}, []string{"users[DB9S]"}, false},
-		{"database", []string{"users[DB9S]", "object_count=1", "\"id\":\"database\""}, []string{"main.go[CD9S]"}, false},
-		{"all", []string{"main.go[CD9S]", "users[DB9S]", "model_full_cognition_reliable: false", "host_delivery_status: host_delivery_unconfirmed"}, nil, false},
+		{"project", nil, []string{"main.go[CD9S]", "users[DB9S]", "section_root:"}, false},
+		{"meta", []string{cognition.MetaVolumeMarker, "requested_scope: meta"}, []string{"main.go[CD9S]", "users[DB9S]", "section_root:"}, false},
+		{"code", []string{"main.go[CD9S]", "\"requested_scope\":\"code\"", "\"id\":\"code\"", "section_root: recorded\n"}, []string{"users[DB9S]"}, false},
+		{"database", []string{"users[DB9S]", "object_count=1", "\"id\":\"database\""}, []string{"main.go[CD9S]", "section_root:"}, false},
+		{"all", []string{"main.go[CD9S]", "users[DB9S]", "model_full_cognition_reliable: false", "host_delivery_status: host_delivery_unconfirmed", "section_root: recorded\n"}, nil, false},
 	} {
 		t.Run(test.scope, func(t *testing.T) {
 			output := callVolumeTool(t, session, "aoci_overview", map[string]any{"scope": test.scope})
@@ -128,6 +128,26 @@ func TestVolumeOverviewScopesAndReceiptV2(t *testing.T) {
 				t.Fatalf("wrong full reliability for %s", test.scope)
 			}
 		})
+	}
+}
+
+func TestVolumeOverviewReportsNeutralSectionRoot(t *testing.T) {
+	root := buildVolumeRepo(t, true, false)
+	path := filepath.Join(root, "aoci.code.txt")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relocated, changed, err := index.RelocateSectionRoots(string(raw), root)
+	if err != nil || changed != 1 {
+		t.Fatalf("relocate section root: changed=%d, error=%v", changed, err)
+	}
+	if err := os.WriteFile(path, []byte(relocated), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	output := callVolumeTool(t, connectMCPClient(t, root), "aoci_overview", nil)
+	if !strings.Contains(output, "section_root: neutral\n") || !strings.Contains(output, relocated) {
+		t.Fatalf("missing neutral root metadata or original body:\n%s", output)
 	}
 }
 

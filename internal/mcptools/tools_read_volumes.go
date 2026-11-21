@@ -264,12 +264,13 @@ func handleVolumeOverview(
 		current, assessment, eventID, true,
 	)
 	delivered = receiptWithDeliveredVolumes(delivered, view)
+	sectionCount, sectionRoot := volumeOverviewSections(view)
 	renderCtx := overviewRenderContext{
 		Root: root, MCPServiceVersion: mcpServiceVersion,
 		LayoutMode: string(loaded.set.LayoutMode), RequestedScope: view.RequestedScope,
 		EffectiveScope: view.EffectiveScope, AssetState: view.AssetState,
 		ScopeIdentity: view.ScopeIdentity, Content: body, ContentBytes: contentBytes,
-		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
+		EntryCount: len(sequence), SectionCount: sectionCount, SectionRoot: sectionRoot,
 		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
 		Session: refreshSession, Transport: refreshSession, Owner: owner, DeliveryID: selected, LedgerEnabled: loaded.cfg.LedgerEnabled,
@@ -424,11 +425,15 @@ func volumeScopeBytes(view cognition.ScopeView) int {
 	return total
 }
 
-func countVolumeSections(view cognition.ScopeView) int {
+func volumeOverviewSections(view cognition.ScopeView) (int, string) {
 	total := 0
+	root := ""
 	for _, asset := range view.Assets {
 		if asset.Document == nil {
 			continue
+		}
+		if asset.Descriptor.Kind == cognition.ScopeCode {
+			root = overviewSectionRoot(asset.Document)
 		}
 		for _, section := range asset.Document.Sections {
 			if section.AbsPath != "" {
@@ -436,5 +441,5 @@ func countVolumeSections(view cognition.ScopeView) int {
 			}
 		}
 	}
-	return total
+	return total, root
 }

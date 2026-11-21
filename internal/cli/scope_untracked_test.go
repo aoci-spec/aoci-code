@@ -97,6 +97,36 @@ func TestScopeStatusUntrackedTwoCheckoutsIsAdvisoryAndReadOnly(t *testing.T) {
 	untrackedScopeStatus(t, root)
 }
 
+func TestScopeStatusFailOnUntracked(t *testing.T) {
+	root := buildScopeCLIRepo(t)
+	before := scopeStatusTree(t, root)
+	advisory, stderr, code := runCLI(t, root, "scope", "status", "--json")
+	if code != ExitOK || stderr != "" || !strings.Contains(advisory, `"git_untracked_paths"`) {
+		t.Fatalf("advisory status: exit=%d stdout=%s stderr=%s", code, advisory, stderr)
+	}
+	strict, stderr, code := runCLI(t, root, "scope", "status", "--json", "--fail-on-untracked")
+	if code != ExitDrift || stderr != "" || strict != advisory {
+		t.Fatalf("strict JSON status: exit=%d same_output=%t stderr=%s", code, strict == advisory, stderr)
+	}
+	human, stderr, code := runCLI(t, root, "scope", "status", "--fail-on-untracked")
+	if code != ExitDrift || stderr != "" || !strings.Contains(human, "Untracked source check failed: main.go, main_test.go") {
+		t.Fatalf("strict text status: exit=%d stdout=%s stderr=%s", code, human, stderr)
+	}
+	_, stderr, code = runCLI(t, root, "scope", "status", "--transaction", "pending", "--fail-on-untracked")
+	if code == ExitOK || !strings.Contains(stderr, "if any flags in the group") {
+		t.Fatalf("incompatible flags: exit=%d stderr=%s", code, stderr)
+	}
+	if after := scopeStatusTree(t, root); !reflect.DeepEqual(after, before) {
+		t.Fatal("the untracked check changed repository files, Git metadata, or Ledger")
+	}
+
+	testkit.Git(t, root, "add", "--", "main.go", "main_test.go")
+	clean, stderr, code := runCLI(t, root, "scope", "status", "--json", "--fail-on-untracked")
+	if code != ExitOK || stderr != "" || !json.Valid([]byte(clean)) || strings.Contains(clean, `"git_untracked_paths"`) {
+		t.Fatalf("tracked sources: exit=%d stdout=%s stderr=%s", code, clean, stderr)
+	}
+}
+
 func TestScopeStatusUntrackedReferencesAndEarlyReturns(t *testing.T) {
 	root := buildScopeCLIRepo(t)
 	testkit.WriteFile(t, root, "not_referenced.go", "package sample\n")

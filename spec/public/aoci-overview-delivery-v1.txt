@@ -79,6 +79,14 @@ completion state. The first Chunk also carries the full-body receipt; middle
 Chunks carry only the minimal Receipt and body. v1 is sufficient and no v2 is
 introduced.
 
+A complete delivery containing Legacy or Code directory sections can report
+`section_root` in its Metadata (Chunk 1 for chunked delivery). The value is
+`neutral` when every directory header is under `/<repository>`, or
+`recorded` when every directory header uses a recorded path. With no
+directory sections or mixed spellings the field is omitted. This describes
+header spelling only. It leaves directory resolution, body bytes, and all
+receipt digests unchanged.
+
 Legacy Whole-Index uses one `formal_entry_ordinal`: the 1-based position in the
 formal Entry sequence, with valid range `1..entry_count`. Header content,
 comments, blank lines, Section markers, Overview markers, Chunk markers,

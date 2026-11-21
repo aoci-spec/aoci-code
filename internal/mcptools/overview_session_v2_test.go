@@ -94,6 +94,9 @@ func TestOverviewV2CanonicalChunksAndWork(t *testing.T) {
 		if ordinal == 1 && meta["body_sha256"] != expected.Receipt.BodySHA256 {
 			t.Fatal("body identity changed")
 		}
+		if ordinal == 1 && meta["section_root"] != "recorded" || ordinal > 1 && meta["section_root"] != nil {
+			t.Fatalf("chunk %d section_root = %v", ordinal, meta["section_root"])
+		}
 		if work := workCounters(t, result); work != want {
 			t.Fatalf("chunk %d work=%+v want=%+v", ordinal, work, want)
 		}
