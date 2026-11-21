@@ -219,9 +219,14 @@ aoci --repo /work scope rule add host-config --action exclude --pattern .mcp.jso
 aoci --repo /work scan
 ```
 
-Order matters because roles freeze at the first `scan`: narrowing afterwards
-reduces coverage, which needs `scope approve` on a TTY even when no Entry has
-been written yet.
+Once the first `scan` has created a Baseline, edit the rules and run
+`aoci scope activate` to adopt the narrower scope.
+
+Starting with v0.2.0-rc3, excluding an Index source that is still waiting
+for its first Entry follows the ordinary approval policy while both the Code
+and Database Volumes are empty. An eligible change can apply automatically
+in `auto` mode. Once either Volume has an Entry, dropping such a source
+counts as a coverage reduction and requires human approval.
 
 To defer several directories in one edit, repeat `--pattern` before the first
 scan. The rules share a reason and each has its own ID in the result.
