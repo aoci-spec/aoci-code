@@ -248,8 +248,12 @@ Git-untracked Safe Inventory source candidates referenced by the readable Code i
 including Observe fingerprints. Formal cognition assets, missing files, and
 files outside Git repositories are not untracked source diagnostics. Child Git
 repositories under a non-Git container use their own Git tracking facts.
-This diagnostic changes no exit code, governance stage, or source eligibility;
-Git-tracked includes staged files and is not proof of a commit or reproducibility.
+By default the diagnostic does not change the exit code. With
+`--fail-on-untracked`, a nonempty diagnostic exits 1 after printing the
+status, preserving the same status object under `--json`. The flag is mutually
+exclusive with `--transaction`. Neither mode changes governance stage or source
+eligibility. Git-tracked includes staged files and is not proof of a commit or
+reproducibility.
 The status query writes no repository files, fingerprint cache, or Ledger events.
 In particular, a Legacy stale source still requires an explicit Entry candidate,
 the one Legacy index write this release retains; Volumes source drift remains

@@ -655,6 +655,7 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 
 func newScopeStatusCmd() *cobra.Command {
 	var transaction string
+	var failOnUntracked bool
 	command := &cobra.Command{Use: "status", Short: cliMessage("cli.short.scope_status"), RunE: func(cmd *cobra.Command, _ []string) error {
 		root, err := resolveRepoRoot()
 		if err != nil {
@@ -676,20 +677,33 @@ func newScopeStatusCmd() *cobra.Command {
 		}
 		status.GitUntrackedPaths = scopeGitUntrackedPaths(root, status.Evaluation)
 		if flagJSON {
-			return writePlannerJSON(cmd, status)
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
-			status.ObservedPendingReview, status.DesiredPolicyIdentity))
-		if len(status.GitUntrackedPaths) > 0 {
-			shown := make([]string, 0, len(status.GitUntrackedPaths))
-			for _, path := range status.GitUntrackedPaths {
-				shown = append(shown, afs.EscapeControlChars(path))
+			if err := writePlannerJSON(cmd, status); err != nil {
+				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", strings.Join(shown, ", ")))
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
+				status.ObservedPendingReview, status.DesiredPolicyIdentity))
+			if len(status.GitUntrackedPaths) > 0 {
+				shown := make([]string, 0, len(status.GitUntrackedPaths))
+				for _, path := range status.GitUntrackedPaths {
+					shown = append(shown, afs.EscapeControlChars(path))
+				}
+				paths := strings.Join(shown, ", ")
+				if failOnUntracked {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_check_failed", paths))
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", paths))
+				}
+			}
+		}
+		if failOnUntracked && len(status.GitUntrackedPaths) > 0 {
+			return &ExitError{Code: ExitDrift}
 		}
 		return nil
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().BoolVar(&failOnUntracked, "fail-on-untracked", false, cliMessage("scope.flag.fail_on_untracked"))
+	command.MarkFlagsMutuallyExclusive("transaction", "fail-on-untracked")
 	return command
 }
 
