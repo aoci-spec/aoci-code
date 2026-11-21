@@ -36,7 +36,13 @@ func init() {
 		Use:   "scan",
 		Short: cliMessage("cli.short.scan"),
 		Long:  scanLongHelp(),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return &ExitError{Code: ExitInvalid, Msg: cliMessage("scan.unexpected_arguments")}
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			start := time.Now()
 
 			root, err := config.FindRepoRoot(".", flagRepo)

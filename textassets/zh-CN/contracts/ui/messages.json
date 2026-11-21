@@ -900,6 +900,7 @@
   "report.note_empty": "note为空；请说明改了什么或为何仍无法确定语义",
   "report.path_rejected": "拒绝待办路径 %s: %s",
   "scan.baseline_exists": "基线已存在: 重建将以当前磁盘状态整体覆盖(未处理的漂移会被洗白)。确认请加 --force;仅看统计请用 --dry-run",
+  "scan.unexpected_arguments": "scan 扫描整个仓库，不接受位置参数。请用 --repo 指定仓库根目录。",
   "scan.complete": "基线已建立: %d 个文件,耗时 %dms",
   "scan.curation_excluded": "%d 个 index 文件被策展裁决挡在外面、不需要 Entry;aoci verify 以 code_curation_excluded 列出",
   "scan.dry_run": "dry-run: 将收录 %d 个文件(警告 %d 条),未落盘",
