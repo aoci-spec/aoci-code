@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
 func TestScopeRuleAddBatch(t *testing.T) {
@@ -91,5 +93,70 @@ func TestScopeRuleAddBatch(t *testing.T) {
 	assertRejected("managed_scope_initial_baseline_exists", "later", "svc-b", "svc-d")
 	if _, err := add("ordinary rule edit", "svc-d"); err != nil {
 		t.Fatalf("single-pattern add on a scanned repository: %v", err)
+	}
+}
+
+func TestScopeRuleRemoveBatch(t *testing.T) {
+	root := scopeActivationFixture(t)
+	for _, module := range []string{"svc-b", "svc-c", "svc-d"} {
+		testkit.WriteFile(t, root, module+"/handler.go", "package svc\n")
+		if _, err := runScopeCLI(t, root, "rule", "add", "later-"+module, "--action", "exclude",
+			"--pattern", module, "--pattern-kind", "directory", "--reason", "defer indexing"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if code, output := activateJSON(t, root); code != ExitOK {
+		t.Fatalf("activate exclusions: exit=%d %s", code, output)
+	}
+	unchanged := activationFiles(t, root, ".aoci/config.json", ".aoci/baseline.json", "aoci.code.txt")
+	for _, invalid := range []struct {
+		id, detail string
+	}{
+		{"missing", "managed_scope_rule_not_found"},
+		{"later-svc-b", "managed_scope_rule_id_duplicate"},
+	} {
+		if _, err := runScopeCLI(t, root, "rule", "remove", "later-svc-b", invalid.id); err == nil ||
+			!strings.Contains(err.Error(), invalid.detail) {
+			t.Fatalf("expected %s: %v", invalid.detail, err)
+		}
+		assertActivationFiles(t, root, unchanged)
+	}
+
+	ids := []string{"later-svc-c", "later-svc-b"}
+	output, err := runScopeCLI(t, root, append([]string{"rule", "remove"}, ids...)...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		RuleID  string   `json:"rule_id"`
+		RuleIDs []string `json:"rule_ids"`
+		Status  string   `json:"status"`
+	}
+	if err := json.Unmarshal(output, &result); err != nil || result.RuleID != "" ||
+		!slices.Equal(result.RuleIDs, ids) || result.Status != "scope_refresh_required" {
+		t.Fatalf("unexpected batch result: %s (%v)", output, err)
+	}
+	delete(unchanged, ".aoci/config.json")
+	assertActivationFiles(t, root, unchanged)
+
+	if code, output := activateJSON(t, root); code != ExitOK {
+		t.Fatalf("activate expansion: exit=%d %s", code, output)
+	}
+	current, _, err := baseline.Load(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, module := range []string{"svc-b", "svc-c"} {
+		if current.Files[module+"/handler.go"].Role != machinecontract.ScopeRoleIndex {
+			t.Fatalf("%s was not admitted to the Index scope", module)
+		}
+	}
+	if current.Files["svc-d/handler.go"].Role == machinecontract.ScopeRoleIndex {
+		t.Fatal("the remaining exclusion was removed")
+	}
+	single, err := runScopeCLI(t, root, "rule", "remove", "later-svc-d")
+	if err != nil || !strings.Contains(string(single), `"rule_id": "later-svc-d"`) ||
+		strings.Contains(string(single), `"rule_ids"`) {
+		t.Fatalf("single removal changed its result: %s (%v)", single, err)
 	}
 }

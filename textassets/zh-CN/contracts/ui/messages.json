@@ -968,6 +968,7 @@
   "scope.rule_batch_added": "已添加排除规则 %s（目录 %s），首次 scan 时生效。",
   "scope.rule_batch_existing": "排除规则 %s（目录 %s）已存在。",
   "scope.rule_mutation": "规则%s已%s；需要Scope Refresh。Entry和Baseline均未改变。",
+  "scope.rule_remove_id_required": "请指定至少一个规则 ID：aoci scope rule remove <rule-id> [<rule-id>...]",
   "scope.safety_approval_prompt": "批准后 AOCI 才会读取这些高风险路径的内容：%s。",
   "scope.show_summary": "Managed Scope配置%s | 期望%s | 已生效%s | 对齐%t | index %d | observe %d | exclude %d",
   "scope.status_summary": "Scope阶段%s | 策略已对齐%t | observe待复核%d | 期望策略%s",

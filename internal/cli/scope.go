@@ -360,7 +360,7 @@ func newScopeRuleAddCmd() *cobra.Command {
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeRuleMutation(cmd, args[0], "added")
+			return writeScopeRuleMutation(cmd, "added", args[0])
 		}}
 	bindScopeRuleFlags(command, &flags, false)
 	return command
@@ -422,32 +422,57 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeRuleMutation(cmd, args[0], "updated")
+			return writeScopeRuleMutation(cmd, "updated", args[0])
 		}}
 	bindScopeRuleFlags(command, &flags, true)
 	return command
 }
 
 func newScopeRuleRemoveCmd() *cobra.Command {
-	return &cobra.Command{Use: "remove <rule-id>", Short: cliMessage("cli.short.scope_rule_remove"), Args: oneArgument("rule remove <rule-id>"),
+	return &cobra.Command{Use: "remove <rule-id> [<rule-id>...]", Short: cliMessage("cli.short.scope_rule_remove"),
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return errors.New(cliMessage("scope.rule_remove_id_required"))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
 				return managedScopeExitError(err)
 			}
 			err = config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
-				for index, rule := range policy.Rules {
-					if rule.RuleID == args[0] {
-						policy.Rules = append(policy.Rules[:index], policy.Rules[index+1:]...)
-						return nil
+				// Rebuild the request set for each CAS attempt.
+				requested := make(map[string]bool, len(args))
+				for _, id := range args {
+					if _, duplicate := requested[id]; duplicate {
+						return fmt.Errorf("managed_scope_rule_id_duplicate: %q", id)
+					}
+					requested[id] = false
+				}
+				retained := make([]managedscope.Rule, 0, len(policy.Rules))
+				for _, rule := range policy.Rules {
+					if _, remove := requested[rule.RuleID]; remove {
+						requested[rule.RuleID] = true
+					} else {
+						retained = append(retained, rule)
 					}
 				}
-				return fmt.Errorf("managed_scope_rule_not_found")
+				for _, id := range args {
+					if !requested[id] {
+						if len(args) == 1 {
+							return fmt.Errorf("managed_scope_rule_not_found")
+						}
+						return fmt.Errorf("managed_scope_rule_not_found: %q", id)
+					}
+				}
+				policy.Rules = retained
+				return nil
 			})
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeRuleMutation(cmd, args[0], "removed")
+			return writeScopeRuleMutation(cmd, "removed", args...)
 		}}
 }
 
@@ -465,17 +490,24 @@ func newScopeRuleResetCmd() *cobra.Command {
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeRuleMutation(cmd, args[0], "reset")
+			return writeScopeRuleMutation(cmd, "reset", args[0])
 		}}
 }
 
-func writeScopeRuleMutation(cmd *cobra.Command, ruleID, operation string) error {
-	result := map[string]any{"version": machinecontract.ManagedScopePolicyV2, "status": "scope_refresh_required",
-		"operation": operation, "rule_id": ruleID, "baseline_advanced": false, "index_changed": false}
+func writeScopeRuleMutation(cmd *cobra.Command, operation string, ruleIDs ...string) error {
 	if flagJSON {
+		result := map[string]any{"version": machinecontract.ManagedScopePolicyV2, "status": "scope_refresh_required",
+			"operation": operation, "baseline_advanced": false, "index_changed": false}
+		if len(ruleIDs) == 1 {
+			result["rule_id"] = ruleIDs[0]
+		} else {
+			result["rule_ids"] = ruleIDs
+		}
 		return writePlannerJSON(cmd, result)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_mutation", ruleID, operation))
+	for _, id := range ruleIDs {
+		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_mutation", id, operation))
+	}
 	return nil
 }
 
