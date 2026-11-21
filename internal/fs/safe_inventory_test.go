@@ -104,16 +104,30 @@ func TestSameGitRootPathNormalizesWindowsGitOutput(t *testing.T) {
 	}
 }
 
-func TestSameGitRootPathResolvesSymlinkedComponents(t *testing.T) {
+func createTestJunction(link, target string) error {
+	if output, err := exec.Command("cmd", "/c", "mklink", "/J", link, target).CombinedOutput(); err != nil {
+		return fmt.Errorf("create test junction: %w: %s", err, output)
+	}
+	return nil
+}
+
+func TestSameGitRootPathResolvesDirectoryAliases(t *testing.T) {
 	root := t.TempDir()
 	alias := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-alias")
-	if err := os.Symlink(root, alias); err != nil {
+	var err error
+	if runtime.GOOS == "windows" {
+		// A directory junction exercises file identity without symlink privileges.
+		err = createTestJunction(alias, root)
+	} else {
+		err = os.Symlink(root, alias)
+	}
+	if err != nil {
 		t.Fatal(err)
 	}
 	// git prints the resolved toplevel, so a --repo spelled through the alias
 	// must still be recognized as this repository rather than foreign.
 	if !sameGitRootPath(root, alias, runtime.GOOS) {
-		t.Fatal("a symlinked --repo spelling must identify the same Git root")
+		t.Fatal("a --repo directory alias must identify the same Git root")
 	}
 	foreign := filepath.Join(filepath.Dir(root), filepath.Base(root)+"-foreign")
 	if err := os.MkdirAll(foreign, 0o755); err != nil {
