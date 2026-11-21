@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-21T16:27:31Z",
+  "updated_at": "2026-11-23T02:56:18Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155",
-      "size": 238573,
-      "normalized_sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155"
+      "sha256": "3effcfa61a7bebf2545de0116b525d1593793536bcbbab6006880e5bcc61e5af",
+      "size": 238465,
+      "normalized_sha256": "3effcfa61a7bebf2545de0116b525d1593793536bcbbab6006880e5bcc61e5af"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2088,10 +2088,18 @@
     },
     "internal/cli/scan.go": {
       "role": "index",
-      "sha256": "252acc49d6b6f7f725320fa66eaf10558153d3174ec5205551a8e579b1f80f57",
-      "size": 11682,
-      "normalized_sha256": "252acc49d6b6f7f725320fa66eaf10558153d3174ec5205551a8e579b1f80f57",
-      "format_sha256": "252acc49d6b6f7f725320fa66eaf10558153d3174ec5205551a8e579b1f80f57",
+      "sha256": "a441d841c93b955a7b3c2a2361618ad4651be1c669b880ea50650fdcda829245",
+      "size": 11867,
+      "normalized_sha256": "a441d841c93b955a7b3c2a2361618ad4651be1c669b880ea50650fdcda829245",
+      "format_sha256": "a441d841c93b955a7b3c2a2361618ad4651be1c669b880ea50650fdcda829245",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/scan_args_test.go": {
+      "role": "observe",
+      "sha256": "a89254eb2ebe142036fdd72b197a587aa26c98c8e688fe00b8e63a65754b5638",
+      "size": 1151,
+      "normalized_sha256": "a89254eb2ebe142036fdd72b197a587aa26c98c8e688fe00b8e63a65754b5638",
+      "format_sha256": "a89254eb2ebe142036fdd72b197a587aa26c98c8e688fe00b8e63a65754b5638",
       "format_kind": "gofmt"
     },
     "internal/cli/scan_formal_assets_test.go": {
@@ -7356,9 +7364,9 @@
     },
     "spec/public/aoci-code-cli-runtime-v1.txt": {
       "role": "index",
-      "sha256": "06a27bee0fa5cd209b921fcfdf5206d06fd44097664b6ebcafe701207a44fb6f",
-      "size": 19141,
-      "normalized_sha256": "06a27bee0fa5cd209b921fcfdf5206d06fd44097664b6ebcafe701207a44fb6f"
+      "sha256": "d271092c6c0f300dde89cbf286eda217c798ec5b6c7ae207a07c5e2baea6347d",
+      "size": 19425,
+      "normalized_sha256": "d271092c6c0f300dde89cbf286eda217c798ec5b6c7ae207a07c5e2baea6347d"
     },
     "spec/public/aoci-cognition-refresh-v1.txt": {
       "role": "index",
@@ -7850,9 +7858,9 @@
     },
     "textassets/en-US/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "51aaa950409c2aa29fc34f428661949a4ac68e917a72a10e69ec964e40eea052",
-      "size": 151834,
-      "normalized_sha256": "51aaa950409c2aa29fc34f428661949a4ac68e917a72a10e69ec964e40eea052"
+      "sha256": "38631d6c9628aae1eb22341a2f52283d3456d93012fa999927d74881f8723cb7",
+      "size": 151985,
+      "normalized_sha256": "38631d6c9628aae1eb22341a2f52283d3456d93012fa999927d74881f8723cb7"
     },
     "textassets/en-US/prompts/database-entry-authoring-rules.txt": {
       "role": "observe",
@@ -8450,9 +8458,9 @@
     },
     "textassets/zh-CN/contracts/ui/messages.json": {
       "role": "observe",
-      "sha256": "cb4ad4ac48cfa0f92ee2a7171b16938ac147578a0db157b5e7f7f72091cad7f0",
-      "size": 140944,
-      "normalized_sha256": "cb4ad4ac48cfa0f92ee2a7171b16938ac147578a0db157b5e7f7f72091cad7f0"
+      "sha256": "db74667a93562286af185887fca95372e09385cd1c1d44e61032382d86f40e9f",
+      "size": 141067,
+      "normalized_sha256": "db74667a93562286af185887fca95372e09385cd1c1d44e61032382d86f40e9f"
     },
     "textassets/zh-CN/prompts/database-entry-authoring-rules.txt": {
       "role": "observe",
