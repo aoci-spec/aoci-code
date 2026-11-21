@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-21T16:27:31Z",
+  "updated_at": "2026-11-23T02:56:29Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155",
-      "size": 238573,
-      "normalized_sha256": "e417a9223f67f2520b9fd2a1e295fd7f4a945bfef9bc1c67cdb37a0d25dd1155"
+      "sha256": "3c5bd1499ea9b19b676cc270921590352199f2bf67613f83da6477bb115017c1",
+      "size": 238523,
+      "normalized_sha256": "3c5bd1499ea9b19b676cc270921590352199f2bf67613f83da6477bb115017c1"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -2136,10 +2136,10 @@
     },
     "internal/cli/scope.go": {
       "role": "index",
-      "sha256": "428ec65ae530589d3f484619a8914c4fb588e357df573f7019f157dd30a597b0",
-      "size": 47757,
-      "normalized_sha256": "428ec65ae530589d3f484619a8914c4fb588e357df573f7019f157dd30a597b0",
-      "format_sha256": "428ec65ae530589d3f484619a8914c4fb588e357df573f7019f157dd30a597b0",
+      "sha256": "d3b78bca317f286163711562109d36b27e61dff1ab9e0630c5535779b7d1b4c0",
+      "size": 48083,
+      "normalized_sha256": "d3b78bca317f286163711562109d36b27e61dff1ab9e0630c5535779b7d1b4c0",
+      "format_sha256": "d3b78bca317f286163711562109d36b27e61dff1ab9e0630c5535779b7d1b4c0",
       "format_kind": "gofmt"
     },
     "internal/cli/scope_activate.go": {
@@ -2172,6 +2172,14 @@
       "size": 11950,
       "normalized_sha256": "50d636c258aaedd59d93d1ad438aaf161213603dc8ddafd3c256eb6a9b3f576a",
       "format_sha256": "50d636c258aaedd59d93d1ad438aaf161213603dc8ddafd3c256eb6a9b3f576a",
+      "format_kind": "gofmt"
+    },
+    "internal/cli/scope_budget_flags_test.go": {
+      "role": "observe",
+      "sha256": "18b8f359a5ff12e7d465c84d122139d4ce413967ba06f9a1e1e6d2cb5ffe0784",
+      "size": 2523,
+      "normalized_sha256": "18b8f359a5ff12e7d465c84d122139d4ce413967ba06f9a1e1e6d2cb5ffe0784",
+      "format_sha256": "18b8f359a5ff12e7d465c84d122139d4ce413967ba06f9a1e1e6d2cb5ffe0784",
       "format_kind": "gofmt"
     },
     "internal/cli/scope_drift_recovery_test.go": {
