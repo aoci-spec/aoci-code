@@ -165,6 +165,7 @@ type overviewRenderContext struct {
 	ContentBytes      int
 	EntryCount        int
 	SectionCount      int
+	SectionRoot       string
 	EstimatedTokens   int
 	Receipt           cognitionReceipt
 	Assessment        cognitionRefreshAssessment
@@ -485,6 +486,9 @@ func renderOverviewMetadata(
 	if includeCognitionLevelMessage {
 		builder.WriteString(renderOverviewCognitionLevelMessage(level))
 	}
+	if deliveryMode == overviewDeliveryFull && ctx.SectionRoot != "" {
+		fmt.Fprintf(&builder, "section_root: %s\n", ctx.SectionRoot)
+	}
 	if ctx.FallbackReason != "" {
 		fmt.Fprintf(&builder, "fallback_reason: %s\n", ctx.FallbackReason)
 	}
@@ -633,6 +637,9 @@ func renderOverviewChunk(
 		metadata["runtime_repository_root"] = ctx.Root
 		metadata["entry_count"] = ctx.EntryCount
 		metadata["section_count"] = ctx.SectionCount
+		if ctx.Delta == nil && ctx.SectionRoot != "" {
+			metadata["section_root"] = ctx.SectionRoot
+		}
 		metadata["estimated_tokens"] = ctx.EstimatedTokens
 		metadata["index_bytes"] = ctx.ContentBytes
 		metadata["body_utf8_bytes"] = body.Receipt.BodyUTF8Bytes
@@ -773,6 +780,30 @@ func countOverviewDimensions(document *index.Document) (int, int) {
 		entries += len(section.Entries)
 	}
 	return sections, entries
+}
+
+// overviewSectionRoot describes directory headers only. A mixed or empty
+// document has no single spelling convention to report.
+func overviewSectionRoot(document *index.Document) string {
+	if document == nil {
+		return ""
+	}
+	root := ""
+	for _, section := range document.Sections {
+		path := section.AbsPath
+		if path == "" {
+			continue
+		}
+		kind := "recorded"
+		if path == index.NeutralRepositoryRoot || strings.HasPrefix(path, index.NeutralRepositoryRoot+"/") {
+			kind = "neutral"
+		}
+		if root != "" && root != kind {
+			return ""
+		}
+		root = kind
+	}
+	return root
 }
 
 func overviewMetadataLineValue(value string) string {

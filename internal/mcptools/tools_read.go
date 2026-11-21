@@ -313,6 +313,7 @@ func registerReadTools(
 						ScopeIdentity:  currentReceipt.IndexSHA256,
 						Content:        repository.text, ContentBytes: len(repository.text),
 						EntryCount: entryCount, SectionCount: sectionCount,
+						SectionRoot:     overviewSectionRoot(repository.doc),
 						EstimatedTokens: len(repository.text) / 3,
 						Receipt:         deliveredReceipt, Assessment: assessment,
 						Sequence: sequence, Session: refreshSession, Owner: volumeOwner(request), LedgerEnabled: loaded.cfg.LedgerEnabled,
