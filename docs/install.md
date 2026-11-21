@@ -49,13 +49,14 @@ directories work without it, but scanning a repository that contains `.git`
 invokes the host `git` executable for tracked/ignored authority and fails
 closed (`safe_inventory_git_unavailable`) when it is absent.
 
-A directory with no Git repository has no ignore authority at all: AOCI reads
-`.gitignore` only through Git and does not read `.dvignore`, `.hgignore`, or
-other version-control ignore files, so build output, logs, and generated files
-under the root can become index candidates. `aoci init` warns about this before
-the first scan, and for a new project its Scope Proposal line lists the largest
-directories. Exclude the ones that are not source with `aoci scope rule add`
-before the first `aoci scan`
+In a non-Git container, each child Git repository uses its own Git ignore
+rules. Files outside those repositories are outside Git's ignore scope.
+AOCI does not read other version-control ignore files such as `.dvignore` or
+`.hgignore`. Build output, logs, and generated files outside Git repositories
+can become index candidates. `aoci init` warns about this before the first
+scan and lists the largest directories in the Scope Proposal for a new
+project. Use `aoci scope rule add` to exclude unwanted directories before
+the first `aoci scan`
 ([Managed Scope](managed-scope-and-budget.md)).
 
 ### Basic installation: archive checksum and binary identity

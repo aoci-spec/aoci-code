@@ -195,10 +195,8 @@ func init() {
 			configExisted := true
 			newRepositoryAutomationMessage := ""
 			var scopeProposal *managedscope.Proposal
-			// Without Git anywhere under the root there is no ignore authority:
-			// .dvignore, .hgignore and the like are not read, so build output is
-			// a candidate unless excluded before the first scan (#184).
-			noIgnoreAuthority, noIgnoreIndexCount := false, 0
+			var initialInventory afs.SafeInventorySummary
+			var initialIndexCount int
 			var initIndexPaths []string
 
 			if _, statErr := os.Stat(
@@ -237,6 +235,8 @@ func init() {
 				}
 			}
 
+			_, baselineExists, baselineErr := baseline.Load(root)
+			beforeFirstScan := baselineErr == nil && !baselineExists
 			if !configExisted {
 				cfg.SetNewProjectArtifactExclusions()
 				if setErr := cfg.SetAutomationMode(
@@ -260,8 +260,7 @@ func init() {
 				}
 				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
 				scopeProposal = &proposal
-				noIgnoreAuthority = !evaluation.SafeInventory.GitRepository && evaluation.SafeInventory.ChildRepositories == 0
-				noIgnoreIndexCount = evaluation.IndexCount
+				initialInventory, initialIndexCount = evaluation.SafeInventory, evaluation.IndexCount
 				for _, item := range evaluation.Index {
 					initIndexPaths = append(initIndexPaths, item.Path)
 				}
@@ -271,13 +270,12 @@ func init() {
 				}
 
 				newRepositoryAutomationMessage = cliMessage("init.automation_default")
-			} else if _, baselineExists, baselineErr := baseline.Load(root); baselineErr == nil && !baselineExists {
+			} else if beforeFirstScan {
 				// A config written first (database source add, config set) does
 				// not make the first scan any less exposed to build output.
 				if evaluation, evaluationErr := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
 					WalkOptions: cfg.WalkOptions(), CurationExclude: cfg.CurationExclude}); evaluationErr == nil {
-					noIgnoreAuthority = !evaluation.SafeInventory.GitRepository && evaluation.SafeInventory.ChildRepositories == 0
-					noIgnoreIndexCount = evaluation.IndexCount
+					initialInventory, initialIndexCount = evaluation.SafeInventory, evaluation.IndexCount
 				}
 			}
 
@@ -391,8 +389,13 @@ func init() {
 					scopeProposal.ExcludeObjects, scopeProposal.SafetyExcluded, scopeProposal.EstimatedWholeIndexTokens,
 					scopeProposal.RequiredHumanDecisions, formatDirectoryImpacts(scopeProposal.LargestDirectories)))
 			}
-			if noIgnoreAuthority && noIgnoreIndexCount > 0 {
-				outputLines = append(outputLines, cliMessage("init.no_ignore_authority", noIgnoreIndexCount, shellPathArgument(root)))
+			if beforeFirstScan && !initialInventory.GitRepository {
+				switch {
+				case initialInventory.ChildRepositories > 0:
+					outputLines = append(outputLines, cliMessage("init.child_git_ignore_boundary", shellPathArgument(root)))
+				case initialIndexCount > 0:
+					outputLines = append(outputLines, cliMessage("init.no_ignore_authority", initialIndexCount, shellPathArgument(root)))
+				}
 			}
 
 			expectedPostimages := map[string]baseline.Fingerprint{}
