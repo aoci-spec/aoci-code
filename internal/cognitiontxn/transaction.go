@@ -365,6 +365,13 @@ func ArchiveImmutable(active, archive string, expected []byte) error {
 	if err := os.Remove(active); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	// Only Managed Scope archives are bounded here: each holds a complete
+	// preview, megabytes on a large repository, and serves only the replay of
+	// its own transaction. Migration, bootstrap, and reversal archives are
+	// reversal inputs and are kept.
+	if name := filepath.Base(archive); strings.HasPrefix(name, "scope-") {
+		afs.PruneAgedRecords(filepath.Dir(archive), "scope-", afs.ArchivedTransactionRetention, name)
+	}
 	return nil
 }
 

@@ -310,6 +310,7 @@ func archiveAtomicBatchRecoveryByKey(root, batchKey string) (string, string, err
 	if err := os.Remove(activePath); err != nil && !os.IsNotExist(err) {
 		return "", "", err
 	}
+	afs.PruneAgedRecords(filepath.Dir(archivePath), "entries-", afs.ArchivedTransactionRetention, filepath.Base(archivePath))
 	rel, err := filepath.Rel(root, archivePath)
 	if err != nil {
 		return "", "", err

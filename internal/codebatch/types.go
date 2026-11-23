@@ -16,15 +16,19 @@ type Target struct {
 }
 
 type Receipt struct {
-	Version             string   `json:"version"`
-	PlanID              string   `json:"plan_id"`
-	BatchID             string   `json:"batch_id"`
-	CompositeIdentity   string   `json:"composite_identity"`
-	ScopePolicyIdentity string   `json:"scope_policy_identity"`
-	CodeVolumePath      string   `json:"code_volume_path"`
-	CodeVolumeSHA256    string   `json:"code_volume_sha256"`
-	AllTargets          []Target `json:"all_targets"`
-	Targets             []Target `json:"targets"`
+	Version             string `json:"version"`
+	PlanID              string `json:"plan_id"`
+	BatchID             string `json:"batch_id"`
+	CompositeIdentity   string `json:"composite_identity"`
+	ScopePolicyIdentity string `json:"scope_policy_identity"`
+	CodeVolumePath      string `json:"code_volume_path"`
+	CodeVolumeSHA256    string `json:"code_volume_sha256"`
+	// AllTargets is read from receipts written before v0.2.0-rc4, which stored
+	// the complete plan in every batch receipt: megabytes per batch on a large
+	// repository (#208). A receipt written now leaves it out; PlanID is still
+	// derived from the complete plan when the batch is issued.
+	AllTargets []Target `json:"all_targets,omitempty"`
+	Targets    []Target `json:"targets"`
 	// LogicalPlan names the parallel plan this batch is a sibling of; empty
 	// for an ordinary single current batch. It is outside the batch identity.
 	LogicalPlan string `json:"logical_plan,omitempty"`

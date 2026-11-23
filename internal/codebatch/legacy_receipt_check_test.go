@@ -47,7 +47,7 @@ func TestReceiptCarryingLegacyObservedRelationsStillLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("新二进制必须能读旧收据: %v", err)
 	}
-	if len(receipt.Targets) != 4 || len(receipt.AllTargets) != 6 {
+	if len(receipt.Targets) != 4 {
 		t.Fatalf("旧收据的批次内容必须原样保留: %+v", receipt)
 	}
 	// The key: the old field takes part in no identity derivation, and the receipt still validates the candidates the host submits under the original binding.

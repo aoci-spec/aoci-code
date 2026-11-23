@@ -362,10 +362,11 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 	}
 	receipt := Receipt{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
-		AllTargets: allTargets, Targets: selectedTargets, LogicalPlan: logical}
+		Targets: selectedTargets, LogicalPlan: logical}
 	if err := saveReceipt(root, receipt); err != nil {
 		return Plan{}, err
 	}
+	afs.PruneAgedRecords(filepath.Dir(receiptPath(root, batchID)), "candidate-", afs.CandidateReceiptRetention, filepath.Base(receiptPath(root, batchID)))
 	remaining := len(all) - len(selected)
 	return Plan{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
@@ -397,14 +398,19 @@ func saveReceipt(root string, receipt Receipt) error {
 		// upgrade that changed its default. It is the same batch, so the
 		// record takes the mode it is issued under now and the batch the Host
 		// holds still applies. Any other difference is a conflict.
+		// A receipt of the same batch written before v0.2.0-rc4 also holds the
+		// complete plan; it is the same batch and is rewritten without it.
 		var held Receipt
-		if json.Unmarshal(existing, &held) != nil || held.LogicalPlan == receipt.LogicalPlan {
+		if json.Unmarshal(existing, &held) != nil || (held.LogicalPlan == receipt.LogicalPlan && len(held.AllTargets) == 0) {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
 		if stored, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(stored, '\n'), existing) {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
-		held.LogicalPlan = receipt.LogicalPlan
+		if len(held.AllTargets) > 0 && validateReceipt(held) != nil {
+			return fmt.Errorf("code_candidate_receipt_conflict")
+		}
+		held.LogicalPlan, held.AllTargets = receipt.LogicalPlan, nil
 		if same, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(same, '\n'), data) {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
@@ -421,7 +427,7 @@ func validateReceipt(receipt Receipt) error {
 	path, pathErr := afs.NormalizeRelPath(receipt.CodeVolumePath)
 	if receipt.Version != Version || !validSHA256(receipt.PlanID) || !validSHA256(receipt.BatchID) ||
 		!validSHA256(receipt.CompositeIdentity) || pathErr != nil || path != receipt.CodeVolumePath ||
-		!validSHA256(receipt.CodeVolumeSHA256) || len(receipt.AllTargets) == 0 || len(receipt.Targets) == 0 {
+		!validSHA256(receipt.CodeVolumeSHA256) || len(receipt.Targets) == 0 {
 		return fmt.Errorf("code_candidate_receipt_invalid")
 	}
 	if receipt.ScopePolicyIdentity != "" && !validSHA256(receipt.ScopePolicyIdentity) {
@@ -433,10 +439,15 @@ func validateReceipt(receipt Receipt) error {
 	if err := validateTargets(receipt.Targets, true); err != nil {
 		return err
 	}
-	wantPlan := receiptHash("code-cognition-plan/v1", receipt.CompositeIdentity, receipt.ScopePolicyIdentity,
-		receipt.CodeVolumePath, receipt.CodeVolumeSHA256, encodeTargets(receipt.AllTargets, false))
-	if receipt.PlanID != wantPlan {
-		return fmt.Errorf("code_candidate_plan_id_mismatch")
+	// A receipt that still carries its complete plan (written before
+	// v0.2.0-rc4) is checked against it as it always was.
+	planHeld := len(receipt.AllTargets) > 0
+	if planHeld {
+		wantPlan := receiptHash("code-cognition-plan/v1", receipt.CompositeIdentity, receipt.ScopePolicyIdentity,
+			receipt.CodeVolumePath, receipt.CodeVolumeSHA256, encodeTargets(receipt.AllTargets, false))
+		if receipt.PlanID != wantPlan {
+			return fmt.Errorf("code_candidate_plan_id_mismatch")
+		}
 	}
 	wantBatch := receiptHash("code-cognition-batch/v1", receipt.PlanID, encodeTargets(receipt.Targets, false))
 	if receipt.BatchID != wantBatch {
@@ -447,9 +458,8 @@ func validateReceipt(receipt Receipt) error {
 		all[target.ObjectRef] = target
 	}
 	for _, target := range receipt.Targets {
-		base, ok := all[target.ObjectRef]
-		if !ok || base.Path != target.Path || base.Change != target.Change || base.SourceSHA256 != target.SourceSHA256 ||
-			base.ExistingEntry != target.ExistingEntry {
+		if base, ok := all[target.ObjectRef]; planHeld && (!ok || base.Path != target.Path || base.Change != target.Change ||
+			base.SourceSHA256 != target.SourceSHA256 || base.ExistingEntry != target.ExistingEntry) {
 			return fmt.Errorf("code_candidate_batch_target_not_in_plan")
 		}
 		wantCandidate := receiptHash("code-cognition-object/v1", receipt.BatchID, encodeTarget(target, false))

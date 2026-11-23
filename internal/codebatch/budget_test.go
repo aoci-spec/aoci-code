@@ -74,8 +74,8 @@ func TestBuildPlanWithBudgetReportsTheTeamBudgetAndKeepsIdentities(t *testing.T)
 		t.Fatalf("budgeted plan facts: included=%d remaining=%d max=%d budget=%d", plan.Included, plan.Remaining, plan.MaxEntries, plan.TransportBudgetBytes)
 	}
 	receipt, err := LoadReceipt(root, plan.BatchID)
-	if err != nil || len(receipt.Targets) != 5 || len(receipt.AllTargets) != 12 {
-		t.Fatalf("the disk receipt must hold the budgeted batch and the complete plan: %v %d %d", err, len(receipt.Targets), len(receipt.AllTargets))
+	if err != nil || len(receipt.Targets) != 5 || len(receipt.AllTargets) != 0 {
+		t.Fatalf("the disk receipt must hold the budgeted batch and not the complete plan: %v %d %d", err, len(receipt.Targets), len(receipt.AllTargets))
 	}
 	unbudgeted, err := BuildPlan(root, hexIdentity("1"), hexIdentity("2"), "aoci.code.txt", hexIdentity("3"), candidates, 50)
 	if err != nil || unbudgeted.PlanID != plan.PlanID {
