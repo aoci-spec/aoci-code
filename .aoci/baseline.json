@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-23T19:42:23Z",
+  "updated_at": "2026-11-23T19:46:18Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -29,9 +29,9 @@
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
-      "sha256": "f4bd31231a056ed624e174d7fc04253ff26faa75b5a1167d2c612b70b69f32b7",
-      "size": 27218,
-      "normalized_sha256": "f4bd31231a056ed624e174d7fc04253ff26faa75b5a1167d2c612b70b69f32b7"
+      "sha256": "e3f58cdb9492d8c5aa2c1f9234b5662167b140c186efe8a4df5bdf129e88f0fa",
+      "size": 27329,
+      "normalized_sha256": "e3f58cdb9492d8c5aa2c1f9234b5662167b140c186efe8a4df5bdf129e88f0fa"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",

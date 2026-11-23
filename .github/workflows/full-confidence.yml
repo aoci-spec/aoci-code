@@ -119,8 +119,13 @@ jobs:
       - name: coverage snapshot
         run: |
           if ! go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >"$RUNNER_TEMP/coverage-tests.log" 2>&1; then
-            grep -E -A25 '^(--- FAIL|panic:)' "$RUNNER_TEMP/coverage-tests.log" | head -200
-            grep -E '^(FAIL|ok) ' "$RUNNER_TEMP/coverage-tests.log" | grep '^FAIL' || true
+            log="$RUNNER_TEMP/coverage-tests.log"
+            if grep -qE '^(--- FAIL|panic:)' "$log"; then
+              grep -E -A25 '^(--- FAIL|panic:)' "$log" | head -200
+            else
+              tail -n 120 "$log"
+            fi
+            grep -E '^FAIL[[:space:]]' "$log" || true
             exit 1
           fi
           {
