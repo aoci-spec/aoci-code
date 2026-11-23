@@ -110,10 +110,22 @@ func Message(locale, key string, args ...any) (string, error) {
 		)
 	}
 	result := fmt.Sprintf(format, args...)
-	if strings.Contains(result, "%!") {
+	if strings.Count(result, "%!") > argumentFailureMarkers(args) {
 		return "", fmt.Errorf("UI message %q formatting failed", key)
 	}
 	return result, nil
+}
+
+// argumentFailureMarkers counts the "%!" an argument carries itself, such as
+// a file named 100%!.go. Only markers beyond these come from fmt; counting
+// every marker failed a valid message, and the Entry write path panics on a
+// failed message (audit G8-02).
+func argumentFailureMarkers(args []any) int {
+	count := 0
+	for _, arg := range args {
+		count += strings.Count(fmt.Sprint(arg), "%!")
+	}
+	return count
 }
 
 // ValidateMessageKeys confirms that every compiled consumer key exists in the

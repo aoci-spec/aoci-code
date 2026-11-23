@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-23T17:20:54Z",
+  "updated_at": "2026-11-23T17:33:05Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "50e8389ad1d494b80f1d125c32ef0b9bb9c3476560a24eddbddbbf7382b49991",
-      "size": 228787,
-      "normalized_sha256": "50e8389ad1d494b80f1d125c32ef0b9bb9c3476560a24eddbddbbf7382b49991"
+      "sha256": "990ba007c8a734f4f1b1d1f33c503d770548213eb3ebc89d1f414859ff179801",
+      "size": 229322,
+      "normalized_sha256": "990ba007c8a734f4f1b1d1f33c503d770548213eb3ebc89d1f414859ff179801"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "2ab9adafcee2cd619948337823886ee627bbf009c78732cb7e3c7ba8285915fd",
-      "size": 241695,
-      "normalized_sha256": "2ab9adafcee2cd619948337823886ee627bbf009c78732cb7e3c7ba8285915fd"
+      "sha256": "6269da3805eb409d53c0f47c22e2f981d9ffde4a0721b20f27c314616fae1774",
+      "size": 241826,
+      "normalized_sha256": "6269da3805eb409d53c0f47c22e2f981d9ffde4a0721b20f27c314616fae1774"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4264,10 +4264,10 @@
     },
     "internal/hooks/installer.go": {
       "role": "index",
-      "sha256": "7104ccd7b59e2db1a4b384f485088db18bf4c62fc956baa76f3b4219c7279717",
-      "size": 13639,
-      "normalized_sha256": "7104ccd7b59e2db1a4b384f485088db18bf4c62fc956baa76f3b4219c7279717",
-      "format_sha256": "7104ccd7b59e2db1a4b384f485088db18bf4c62fc956baa76f3b4219c7279717",
+      "sha256": "e7cb74c0f9cd2aa049bcabe8f2cc8a205b204de3f3b1f80fa3cfd1d10dc899b9",
+      "size": 14062,
+      "normalized_sha256": "e7cb74c0f9cd2aa049bcabe8f2cc8a205b204de3f3b1f80fa3cfd1d10dc899b9",
+      "format_sha256": "e7cb74c0f9cd2aa049bcabe8f2cc8a205b204de3f3b1f80fa3cfd1d10dc899b9",
       "format_kind": "gofmt"
     },
     "internal/hooks/installer_backup_test.go": {
@@ -4372,6 +4372,14 @@
       "size": 10134,
       "normalized_sha256": "e2164c64d3c1136993794cab1e31cb707e643c9a0ab453f211c6401f169087c0",
       "format_sha256": "e2164c64d3c1136993794cab1e31cb707e643c9a0ab453f211c6401f169087c0",
+      "format_kind": "gofmt"
+    },
+    "internal/hooks/template_quoting_test.go": {
+      "role": "observe",
+      "sha256": "a7790aa5f550319aff479b0baf1c8dba3f5fe6af8338ca669ac65847b0944cdd",
+      "size": 2246,
+      "normalized_sha256": "a7790aa5f550319aff479b0baf1c8dba3f5fe6af8338ca669ac65847b0944cdd",
+      "format_sha256": "a7790aa5f550319aff479b0baf1c8dba3f5fe6af8338ca669ac65847b0944cdd",
       "format_kind": "gofmt"
     },
     "internal/index/bom_test.go": {
@@ -8138,9 +8146,9 @@
     },
     "textassets/en-US/templates/claude-pretool.sh.tmpl": {
       "role": "observe",
-      "sha256": "f78ea1799b11dc98237ddac22049afecca5cdf083669c67c0c31f59a8c2ceca1",
-      "size": 266,
-      "normalized_sha256": "f78ea1799b11dc98237ddac22049afecca5cdf083669c67c0c31f59a8c2ceca1"
+      "sha256": "dfc973ae51b07b01d2dd4d6c4c113ef7835af5995400fe57fd1b32f34434df0f",
+      "size": 272,
+      "normalized_sha256": "dfc973ae51b07b01d2dd4d6c4c113ef7835af5995400fe57fd1b32f34434df0f"
     },
     "textassets/en-US/templates/codex-compact-hook.toml.tmpl": {
       "role": "observe",
@@ -8162,9 +8170,9 @@
     },
     "textassets/en-US/templates/codex-mcp.toml.tmpl": {
       "role": "observe",
-      "sha256": "a5afd369018c7843a0f37cb3b755e223b89f1f1cf1fcfbbbb6c58bca25c67bb2",
-      "size": 304,
-      "normalized_sha256": "a5afd369018c7843a0f37cb3b755e223b89f1f1cf1fcfbbbb6c58bca25c67bb2"
+      "sha256": "a11c56083fc1d4dbc5e0daedc230b69ca76d59522f8489ad1f322f931d1a47d5",
+      "size": 324,
+      "normalized_sha256": "a11c56083fc1d4dbc5e0daedc230b69ca76d59522f8489ad1f322f931d1a47d5"
     },
     "textassets/en-US/templates/minimal-index.txt.tmpl": {
       "role": "observe",
@@ -8288,9 +8296,9 @@
     },
     "textassets/manifests/agents.json": {
       "role": "index",
-      "sha256": "4ae671d5a489e2c9d15f165db0079013669c6103ecf5f3ab64685b1252edd37c",
-      "size": 4519,
-      "normalized_sha256": "4ae671d5a489e2c9d15f165db0079013669c6103ecf5f3ab64685b1252edd37c"
+      "sha256": "10d22ef7957044e40441a96b4efb255b3397b279ed93ced34154d1bbc62c8aff",
+      "size": 4529,
+      "normalized_sha256": "10d22ef7957044e40441a96b4efb255b3397b279ed93ced34154d1bbc62c8aff"
     },
     "textassets/manifests/ai-probe.json": {
       "role": "index",
@@ -8360,6 +8368,14 @@
       "format_sha256": "b1cc5a286babaeec49b240a97c93bbc7ec4eac4babb19aa2cd7d38b24853ab8c",
       "format_kind": "gofmt"
     },
+    "textassets/message_marker_test.go": {
+      "role": "observe",
+      "sha256": "ff94dbdbea879b95cd8bbcacb0015cf0229e42b58b2e4d52ad5a21c36c03f472",
+      "size": 797,
+      "normalized_sha256": "ff94dbdbea879b95cd8bbcacb0015cf0229e42b58b2e4d52ad5a21c36c03f472",
+      "format_sha256": "ff94dbdbea879b95cd8bbcacb0015cf0229e42b58b2e4d52ad5a21c36c03f472",
+      "format_kind": "gofmt"
+    },
     "textassets/model_prompt_assets.go": {
       "role": "index",
       "sha256": "878fb2b3a68dcc697be210f7370f366c9437ecced429b7899bf556b211746748",
@@ -8402,10 +8418,10 @@
     },
     "textassets/ui.go": {
       "role": "index",
-      "sha256": "a36ec889c7591925019469e1014e341abca125b1fc89ecc556b5f95d84d34016",
-      "size": 11451,
-      "normalized_sha256": "a36ec889c7591925019469e1014e341abca125b1fc89ecc556b5f95d84d34016",
-      "format_sha256": "a36ec889c7591925019469e1014e341abca125b1fc89ecc556b5f95d84d34016",
+      "sha256": "898e4cb3c8e1298c6b1ab9339731868ff8cfee98d5cafcb1bbafe88227474015",
+      "size": 11897,
+      "normalized_sha256": "898e4cb3c8e1298c6b1ab9339731868ff8cfee98d5cafcb1bbafe88227474015",
+      "format_sha256": "898e4cb3c8e1298c6b1ab9339731868ff8cfee98d5cafcb1bbafe88227474015",
       "format_kind": "gofmt"
     },
     "textassets/ui_test.go": {
@@ -8738,9 +8754,9 @@
     },
     "textassets/zh-CN/templates/claude-pretool.sh.tmpl": {
       "role": "observe",
-      "sha256": "77b78e34be4b46eb296f5717eeda646ed87e080b80f02c29a1319714df51ed07",
-      "size": 278,
-      "normalized_sha256": "77b78e34be4b46eb296f5717eeda646ed87e080b80f02c29a1319714df51ed07"
+      "sha256": "685b533923ff5a5aca5261d50fcea27ef7686ade0f674937e38e6ed1a643b2b5",
+      "size": 284,
+      "normalized_sha256": "685b533923ff5a5aca5261d50fcea27ef7686ade0f674937e38e6ed1a643b2b5"
     },
     "textassets/zh-CN/templates/codex-compact-hook.toml.tmpl": {
       "role": "observe",
@@ -8762,9 +8778,9 @@
     },
     "textassets/zh-CN/templates/codex-mcp.toml.tmpl": {
       "role": "observe",
-      "sha256": "0a38c1fb015268cfa2532bdaa4f871fa34f9ad557d8552b3b95954de482ac854",
-      "size": 290,
-      "normalized_sha256": "0a38c1fb015268cfa2532bdaa4f871fa34f9ad557d8552b3b95954de482ac854"
+      "sha256": "bcbed521648500f992098dbbd92eb419ca3092ee7c784c11b8edaceede17af96",
+      "size": 310,
+      "normalized_sha256": "bcbed521648500f992098dbbd92eb419ca3092ee7c784c11b8edaceede17af96"
     },
     "textassets/zh-CN/templates/minimal-index.txt.tmpl": {
       "role": "observe",

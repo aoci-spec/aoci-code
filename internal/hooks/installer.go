@@ -52,6 +52,8 @@ type TplData struct {
 	SQuotaDefaultCompact       string
 	CodexCompactCommand        string // POSIX shell command, arguments safely quoted
 	CodexCompactCommandWindows string // PowerShell 5 command, arguments safely quoted
+	BinPathShell               string // BinPath as one POSIX shell word
+	RepoRootShell              string // RepoRoot as one POSIX shell word
 }
 
 // toSlash converts backslashes to forward slashes uniformly (TOML/JSON escape safety plus the protocol's forward-slash convention)
@@ -89,6 +91,11 @@ func NewTplData(root string) TplData {
 		SQuotaDefaultCompact:       machinecontract.NumericText().SQuotaDefaultCompact,
 		CodexCompactCommand:        posixCommand,
 		CodexCompactCommandWindows: windowsCommand,
+		// A path inside shell double quotes still expands $, backticks and
+		// a quote (audit G8-01); the hook takes the same single-quoted words
+		// as the Codex compact command.
+		BinPathShell:  quotePOSIXShellArgument(binSlash),
+		RepoRootShell: quotePOSIXShellArgument(rootSlash),
 	}
 }
 

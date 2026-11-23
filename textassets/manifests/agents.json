@@ -125,8 +125,8 @@
       "description": "Thin Claude Code PreToolUse shell hook with locale-specific comments",
       "used_by": "internal/hooks/claude.go:InstallClaudeHook",
       "variables": [
-        "BinPath",
-        "RepoRoot"
+        "BinPathShell",
+        "RepoRootShell"
       ],
       "protocol_tokens": [
         "#!/usr/bin/env bash",

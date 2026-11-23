@@ -106,6 +106,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   openGauss query times out and the cancel request cannot reach the server,
   the stuck read on the main connection now ends at once instead of waiting
   for TCP keepalive.
+- Fixes from the pre-release audit, contracts and text assets: the Claude
+  Code hook script and the Codex MCP configuration quote the binary and
+  repository paths, so a path holding `$`, a backtick, or a quote is passed
+  as written instead of expanded by the shell or breaking the TOML (a
+  previously installed hook keeps working; `init` again rewrites it); and a
+  message whose argument contains `%!`, such as a file named `100%!.go`, no
+  longer fails as a formatting error, which stopped an Entry write as an
+  internal error.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
