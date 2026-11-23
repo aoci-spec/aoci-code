@@ -1,6 +1,8 @@
 package pq
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/binary"
@@ -482,5 +484,18 @@ func TestFailedCancelUnblocksMainConnectionRead(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("a failed cancel left the main connection read blocked")
+	}
+}
+
+// A backend frame whose length is below its own four bytes, or above the
+// server's allocation limit, is a driver error, never a panic or an
+// unbounded allocation.
+func TestRecvMessageRejectsImpossibleLengths(t *testing.T) {
+	for _, frame := range [][]byte{{'D', 0, 0, 0, 3}, {'D', 0, 0, 0, 0}, {'D', 0x7f, 0xff, 0xff, 0xff}} {
+		cn := &conn{buf: bufio.NewReader(bytes.NewReader(frame)), scratch: make([]byte, 512)}
+		var r readBuf
+		if _, err := cn.recvMessage(&r); err == nil || !strings.Contains(err.Error(), "invalid backend message length") {
+			t.Fatalf("frame %v: err=%v", frame, err)
+		}
 	}
 }

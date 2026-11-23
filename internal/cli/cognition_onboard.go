@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -211,17 +212,7 @@ func newOnboardPrepareCmd() *cobra.Command {
 			}{Mechanism: "policy_bound_auto", TTYRequired: false, NextAction: session.NextAction},
 				NextCommands: onboardingNextCommands(root, session)})
 		}
-		var digest string
-		var writeCount int
-		var exact string
-		switch value := envelope.(type) {
-		case *bootstrapapply.ApplyEnvelope:
-			digest, writeCount = value.EnvelopeDigest, len(value.WriteOrder)
-			exact = hostInteractionCommand("cognition", "bootstrap", "approve", "--envelope-file", session.EnvelopeArtifact, "--actor", actor, "--json")
-		case *migrationapply.ApplyEnvelope:
-			digest, writeCount = value.EnvelopeDigest, len(value.WriteSet)
-			exact = hostInteractionCommand("cognition", "migration", "approve", "--envelope-file", session.EnvelopeArtifact, "--actor", actor, "--json")
-		}
+		digest, writeCount, exact := onboardingApproveCommand(root, session.EnvelopeArtifact, actor, envelope)
 		interaction := hostInteractionRequired{Version: hostInteractionVersion, InteractionRequired: true,
 			InteractionKind: "human_tty_digest_confirmation", ExactCommand: exact, Digest: digest,
 			SafeSummary: fmt.Sprintf("write_set_count=%d", writeCount), ConfirmationPhrase: humanApprovalAnswer,
@@ -379,4 +370,21 @@ func decodeOnboardingCLI(data []byte, target any) error {
 
 func onboardingExitError(err error) error {
 	return &ExitError{Code: ExitInvalid, MachineCode: "cognition_onboarding_invalid", Msg: cliMessage("onboarding.error", textassets.DiagnosticFacts(err.Error()))}
+}
+
+// onboardingApproveCommand is the terminal approval the onboarding hands a
+// person, with the envelope's digest and write count. --envelope-file is
+// read from the working directory, which is often not the repository root,
+// so the command carries the absolute path (audit G5-09).
+func onboardingApproveCommand(root, envelopeArtifact, actor string, envelope any) (string, int, string) {
+	envelopePath := filepath.Join(root, filepath.FromSlash(envelopeArtifact))
+	switch value := envelope.(type) {
+	case *bootstrapapply.ApplyEnvelope:
+		return value.EnvelopeDigest, len(value.WriteOrder),
+			hostInteractionCommand("--repo", root, "cognition", "bootstrap", "approve", "--envelope-file", envelopePath, "--actor", actor, "--json")
+	case *migrationapply.ApplyEnvelope:
+		return value.EnvelopeDigest, len(value.WriteSet),
+			hostInteractionCommand("--repo", root, "cognition", "migration", "approve", "--envelope-file", envelopePath, "--actor", actor, "--json")
+	}
+	return "", 0, ""
 }

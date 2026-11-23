@@ -703,6 +703,10 @@ func (cn *conn) saveMessage(typ byte, buf *readBuf) {
 
 // recvMessage receives any message from the backend, or returns an error if
 // a problem occurred while reading the message.
+// maxBackendMessageBytes is the largest message body a backend can send: the
+// server's own allocation limit (MaxAllocSize, 1 GiB - 1).
+const maxBackendMessageBytes = 1<<30 - 1
+
 func (cn *conn) recvMessage(r *readBuf) (byte, error) {
 	// workaround for a QueryRow bug, see exec
 	if cn.saveMessageType != 0 {
@@ -722,6 +726,12 @@ func (cn *conn) recvMessage(r *readBuf) (byte, error) {
 	// read the type and length of the message that follows
 	t := x[0]
 	n := int(binary.BigEndian.Uint32(x[1:])) - 4
+	// A length below its own four bytes sliced the scratch buffer with a
+	// negative bound and panicked; above the server's 1 GiB allocation limit
+	// it asked for any size the frame named.
+	if n < 0 || n > maxBackendMessageBytes {
+		return 0, fmt.Errorf("pq: invalid backend message length %d", n+4)
+	}
 	var y []byte
 	if n <= len(cn.scratch) {
 		y = cn.scratch[:n]

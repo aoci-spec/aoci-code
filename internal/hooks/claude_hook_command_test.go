@@ -46,8 +46,12 @@ func TestClaudeHookCommandIsOneShellWord(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(spaced, ".claude"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	legacy := `{"hooks":{"PreToolUse":[{"matcher":"Edit|Write|MultiEdit","hooks":[{"type":"command","command":"` + script + `"}]}]}}` + "\n"
-	if err := os.WriteFile(filepath.Join(spaced, ".claude", "settings.json"), []byte(legacy), 0o644); err != nil {
+	legacy, err := json.Marshal(map[string]any{"hooks": map[string]any{"PreToolUse": []any{map[string]any{
+		"matcher": "Edit|Write|MultiEdit", "hooks": []any{map[string]any{"type": "command", "command": script}}}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(spaced, ".claude", "settings.json"), legacy, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := InstallClaudeHook(spaced); err != nil {
@@ -57,11 +61,11 @@ func TestClaudeHookCommandIsOneShellWord(t *testing.T) {
 		t.Fatalf("hook commands on a spaced path: %q", got)
 	}
 
-	plain := t.TempDir()
-	if _, err := InstallClaudeHook(plain); err != nil {
-		t.Fatal(err)
-	}
-	if got := claudeHookCommands(t, plain); len(got) != 1 || got[0] != filepath.Join(plain, ".aoci", "hooks", "claude-pretool.sh") {
-		t.Fatalf("hook command on a plain path changed form: %q", got)
+	// A plain path keeps its form; fixed samples, since the temporary
+	// directory's own spelling is the environment's (rv36).
+	for _, plain := range []string{"/home/dev/repo/.aoci/hooks/claude-pretool.sh", "C:/work/repo/.aoci/hooks/claude-pretool.sh"} {
+		if got := claudeHookCommand(plain); got != plain {
+			t.Fatalf("hook command on a plain path changed form: %q", got)
+		}
 	}
 }

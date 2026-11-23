@@ -169,6 +169,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
   `aligned`; the cognition probe grades `core_f` with the same paraphrase
   tolerance as the full Attestation; and the capability manifest lists the
   `capacity_stop` delivery mode.
+- More of the audit's lower-priority findings: `verify` and `check` name an
+  orphan's removal only when authoring is the verdict, not over a blocker or
+  owed Evidence that Maintain would refuse on; the Codex compaction snippet
+  is recognized after a checkout turned it into CRLF instead of reported as
+  a conflict; `scope safety remove ./path` matches the stored path; the
+  Guide answered when the Meta tag dictionary is unusable hands a command
+  bound to this binary and repository; the onboarding approval command
+  names its envelope by absolute path, so it runs from any directory; a
+  Migration refuses a header atom resolved into a Code or Database Volume;
+  a Database batch reads each source's snapshot once instead of once per
+  target; and the openGauss driver refuses a backend message whose length
+  is impossible instead of panicking.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

@@ -395,6 +395,13 @@ func reconcileMigrationMapping(mapping *SemanticMapping, projected *cognition.Se
 			unresolvedSemantic++
 			continue
 		}
+		// Header and unparsed atoms carry their allowed targets too (Meta or
+		// Root); a resolution elsewhere moved header semantics into a Code or
+		// Database Volume unchecked (audit G2-14).
+		if !containsString(record.AllowedTargets, resolution.TargetAsset) {
+			risks = append(risks, Risk{Code: "mapping_disposition_target_invalid", Target: record.UnitID})
+			continue
+		}
 		record.TargetAsset = resolution.TargetAsset
 		record.TargetRef = resolution.TargetRef
 		record.ReasonCode = "model_reviewed_mapping"

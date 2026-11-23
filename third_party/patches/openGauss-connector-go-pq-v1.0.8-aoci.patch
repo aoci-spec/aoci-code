@@ -1,9 +1,9 @@
 diff --git a/AOCI-PATCHES.md b/AOCI-PATCHES.md
 new file mode 100644
-index 0000000..68640c9
+index 0000000..945fdb0
 --- /dev/null
 +++ b/AOCI-PATCHES.md
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,31 @@
 +# AOCI connector patch set
 +
 +This module is based on the official
@@ -27,6 +27,9 @@ index 0000000..68640c9
 +- reject truncated SHA256/SM3 authentication challenges and server-controlled
 +  PBKDF2 iteration counts outside `1..1,000,000` before parsing or computation;
 +  and
++- refuse a backend message whose length is below its own header or above the
++  server's 1 GiB allocation limit as a driver error, instead of panicking on
++  a negative slice bound or allocating whatever the frame names;
 +- refuse a connection string whose quoted value ends in a backslash instead of
 +  stepping past the end of the input, which panicked in every parser entry
 +  point (found by fuzzing `ParseConfigStrict`).
@@ -34,13 +37,15 @@ index 0000000..68640c9
 +The upstream `LICENSE.md` remains authoritative for this vendored module.
 diff --git a/aoci_security_patch_test.go b/aoci_security_patch_test.go
 new file mode 100644
-index 0000000..cdf9945
+index 0000000..f2c0bdc
 --- /dev/null
 +++ b/aoci_security_patch_test.go
-@@ -0,0 +1,486 @@
+@@ -0,0 +1,501 @@
 +package pq
 +
 +import (
++	"bufio"
++	"bytes"
 +	"context"
 +	"crypto/tls"
 +	"encoding/binary"
@@ -524,6 +529,19 @@ index 0000000..cdf9945
 +		t.Fatal("a failed cancel left the main connection read blocked")
 +	}
 +}
++
++// A backend frame whose length is below its own four bytes, or above the
++// server's allocation limit, is a driver error, never a panic or an
++// unbounded allocation.
++func TestRecvMessageRejectsImpossibleLengths(t *testing.T) {
++	for _, frame := range [][]byte{{'D', 0, 0, 0, 3}, {'D', 0, 0, 0, 0}, {'D', 0x7f, 0xff, 0xff, 0xff}} {
++		cn := &conn{buf: bufio.NewReader(bytes.NewReader(frame)), scratch: make([]byte, 512)}
++		var r readBuf
++		if _, err := cn.recvMessage(&r); err == nil || !strings.Contains(err.Error(), "invalid backend message length") {
++			t.Fatalf("frame %v: err=%v", frame, err)
++		}
++	}
++}
 diff --git a/config.go b/config.go
 index 0911176..38e66fc 100644
 --- a/config.go
@@ -711,7 +729,7 @@ index 0911176..38e66fc 100644
  			}
  			if end == len(s) {
 diff --git a/conn.go b/conn.go
-index 7185409..c00db00 100644
+index 7185409..8926701 100644
 --- a/conn.go
 +++ b/conn.go
 @@ -56,6 +56,8 @@ const (
@@ -723,7 +741,31 @@ index 7185409..c00db00 100644
  	ClientEncoding        = "client_encoding"
  	ServerEncoding        = "server_encoding"
  	ServerVersion         = "server_version"
-@@ -855,6 +857,7 @@ func (cn *conn) startup() {
+@@ -701,6 +703,10 @@ func (cn *conn) saveMessage(typ byte, buf *readBuf) {
+ 
+ // recvMessage receives any message from the backend, or returns an error if
+ // a problem occurred while reading the message.
++// maxBackendMessageBytes is the largest message body a backend can send: the
++// server's own allocation limit (MaxAllocSize, 1 GiB - 1).
++const maxBackendMessageBytes = 1<<30 - 1
++
+ func (cn *conn) recvMessage(r *readBuf) (byte, error) {
+ 	// workaround for a QueryRow bug, see exec
+ 	if cn.saveMessageType != 0 {
+@@ -720,6 +726,12 @@ func (cn *conn) recvMessage(r *readBuf) (byte, error) {
+ 	// read the type and length of the message that follows
+ 	t := x[0]
+ 	n := int(binary.BigEndian.Uint32(x[1:])) - 4
++	// A length below its own four bytes sliced the scratch buffer with a
++	// negative bound and panicked; above the server's 1 GiB allocation limit
++	// it asked for any size the frame named.
++	if n < 0 || n > maxBackendMessageBytes {
++		return 0, fmt.Errorf("pq: invalid backend message length %d", n+4)
++	}
+ 	var y []byte
+ 	if n <= len(cn.scratch) {
+ 		y = cn.scratch[:n]
+@@ -855,6 +867,7 @@ func (cn *conn) startup() {
  }
  
  func (cn *conn) auth(r *readBuf) {
@@ -731,7 +773,7 @@ index 7185409..c00db00 100644
  	switch code := r.int32(); code {
  	case AuthReqOk:
  		// OK
-@@ -935,15 +938,20 @@ func (cn *conn) auth(r *readBuf) {
+@@ -935,15 +948,20 @@ func (cn *conn) auth(r *readBuf) {
  		}
  	case AuthReqSha256:
  		// 这里在openGauss为sha256加密办法，主要代码流程来自jdbc相关实现
@@ -752,7 +794,7 @@ index 7185409..c00db00 100644
  			result := RFC5802Algorithm(cn.config.Password, random64code, token, "", serverIteration, "sha256")
  			if len(result) == 0 {
  				errorf("Invalid username/password,login denied.")
-@@ -962,11 +970,13 @@ func (cn *conn) auth(r *readBuf) {
+@@ -962,11 +980,13 @@ func (cn *conn) auth(r *readBuf) {
  				errorf("unexpected password response: %q", t)
  			}
  
@@ -766,7 +808,7 @@ index 7185409..c00db00 100644
  			s := string(r.next(4))
  			digest = "md5" + md5s(md5s(cn.config.Password+cn.config.User)+s)
  			w := cn.writeBuf('p')
-@@ -979,6 +989,7 @@ func (cn *conn) auth(r *readBuf) {
+@@ -979,6 +999,7 @@ func (cn *conn) auth(r *readBuf) {
  				errorf("unexpected password response: %q", t)
  			}
  
@@ -774,7 +816,7 @@ index 7185409..c00db00 100644
  			if r.int32() != 0 {
  				errorf("unexpected authentication response: %q", t)
  			}
-@@ -986,6 +997,7 @@ func (cn *conn) auth(r *readBuf) {
+@@ -986,6 +1007,7 @@ func (cn *conn) auth(r *readBuf) {
  			errorf("The  password-stored method is not supported ,must be plain, md5 or sha256.")
  		}
  	case AuthReqMd5Sha256:
@@ -782,7 +824,7 @@ index 7185409..c00db00 100644
  		random64code := string(r.next(64))
  		md5Salt := r.next(4)
  		result := Md5Sha256encode(cn.config.Password, random64code, md5Salt)
-@@ -1003,15 +1015,24 @@ func (cn *conn) auth(r *readBuf) {
+@@ -1003,15 +1025,24 @@ func (cn *conn) auth(r *readBuf) {
  			errorf("unexpected password response: %q", t)
  		}
  
@@ -807,7 +849,7 @@ index 7185409..c00db00 100644
  
  			result := RFC5802Algorithm(cn.config.Password, random64code, token, "", serverIteration, "sm3")
  			if len(result) == 0 {
-@@ -1032,6 +1053,7 @@ func (cn *conn) auth(r *readBuf) {
+@@ -1032,6 +1063,7 @@ func (cn *conn) auth(r *readBuf) {
  				errorf("unexpected password response: %q", t)
  			}
  
@@ -815,7 +857,7 @@ index 7185409..c00db00 100644
  			if r.int32() != 0 {
  				errorf("unexpected authentication response: %q", t)
  			}
-@@ -1043,6 +1065,19 @@ func (cn *conn) auth(r *readBuf) {
+@@ -1043,6 +1075,19 @@ func (cn *conn) auth(r *readBuf) {
  	}
  }
  
@@ -835,7 +877,7 @@ index 7185409..c00db00 100644
  type format int
  
  const formatText format = 0
-@@ -1225,10 +1260,10 @@ func (cn *conn) parseComplete(commandTag string) (driver.Result, string) {
+@@ -1225,10 +1270,10 @@ func (cn *conn) parseComplete(commandTag string) (driver.Result, string) {
  // QuoteIdentifier quotes an "identifier" (e.g. a table or a column name) to be
  // used as part of an SQL statement.  For example:
  //
@@ -850,7 +892,7 @@ index 7185409..c00db00 100644
  //
  // Any double quotes in name will be escaped.  The quoted identifier will be
  // case sensitive when used in a query.  If the input string contains a zero
-@@ -1245,8 +1280,8 @@ func QuoteIdentifier(name string) string {
+@@ -1245,8 +1290,8 @@ func QuoteIdentifier(name string) string {
  // to DDL and other statements that do not accept parameters) to be used as part
  // of an SQL statement.  For example:
  //

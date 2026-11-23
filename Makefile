@@ -118,7 +118,7 @@ toolchain-preflight:
 # 聚焦测试不会启动或访问数据库。
 opengauss-connector: toolchain-preflight
 	@GO_BIN="$(GO_BIN)" bash scripts/check-opengauss-connector.sh
-	@cd third_party/openGauss-connector-go-pq && $(GO_BIN) test -count=1 -run '^(TestParseConfigStrict.*|TestParseConfigStrictRejectsTrailingBackslashInQuotedValue|TestConnectorContextBoundsTLSStartup|TestNewPrintfLoggerWritesToStderr|TestBadClientCertificateDoesNotWriteStdout|TestCancelTLSFailureUsesOnlyCancelConnection|TestFailedCancelUnblocksMainConnectionRead|TestServerPBKDF2IterationBounds|TestAuthenticationPayloadAndIterationFailuresAreDriverErrors)$$' .
+	@cd third_party/openGauss-connector-go-pq && $(GO_BIN) test -count=1 -run '^(TestParseConfigStrict.*|TestParseConfigStrictRejectsTrailingBackslashInQuotedValue|TestConnectorContextBoundsTLSStartup|TestNewPrintfLoggerWritesToStderr|TestBadClientCertificateDoesNotWriteStdout|TestCancelTLSFailureUsesOnlyCancelConnection|TestFailedCancelUnblocksMainConnectionRead|TestRecvMessageRejectsImpossibleLengths|TestServerPBKDF2IterationBounds|TestAuthenticationPayloadAndIterationFailuresAreDriverErrors)$$' .
 
 # 可达外部Go包许可证闸；工具由CI和发布排练固定安装，不进入go.mod。
 licenses: toolchain-preflight

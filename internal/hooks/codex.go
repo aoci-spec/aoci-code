@@ -116,8 +116,10 @@ func inspectCodexCompactPrompt(text string) codexCompactPromptState {
 }
 
 func containsCodexManagedSnippet(text, snippet string) bool {
-	text = strings.TrimPrefix(text, codexUTF8BOM)
-	snippet = strings.TrimRight(snippet, "\n")
+	// A checkout with core.autocrlf turns the installed snippet into CRLF;
+	// it is still the managed snippet, not a conflict (audit G5-11).
+	text = strings.ReplaceAll(strings.TrimPrefix(text, codexUTF8BOM), "\r\n", "\n")
+	snippet = strings.TrimRight(strings.ReplaceAll(snippet, "\r\n", "\n"), "\n")
 	return snippet != "" && strings.Contains(text, snippet)
 }
 

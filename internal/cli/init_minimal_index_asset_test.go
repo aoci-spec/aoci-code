@@ -373,4 +373,9 @@ func TestVolumeGuideRoutesUnusableMetaWithoutCodeReplan(t *testing.T) {
 	if strings.Contains(output.String(), `"check"`) {
 		t.Fatalf("blocked Volumes Guide exposed a terminal Check command:\n%s", output.String())
 	}
+	// The handed Guide command is bound to this binary and repository, as on
+	// every other route (audit G5-08).
+	if strings.Contains(output.String(), `"guide": "aoci index`) || !strings.Contains(output.String(), "--repo") {
+		t.Fatalf("Meta Guide route hands an unbound command:\n%s", output.String())
+	}
 }

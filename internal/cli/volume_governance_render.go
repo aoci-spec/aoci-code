@@ -153,8 +153,6 @@ func volumeGovernanceNextStep(facts *volumegovernance.Facts) string {
 		return cliMessage("governance.next.scope_change_required")
 	case volumeHasFinding(facts, "root_locale_mismatch"):
 		return cliMessage("governance.next.root_locale_mismatch")
-	case volumeHasFinding(facts, "code_orphan"):
-		return cliMessage("governance.next.code_orphan")
 	case facts.Result == volumegovernance.ResultBlocked && facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence:
 		return cliMessage("governance.next.review_observed_evidence")
 	case facts.Result == volumegovernance.ResultBlocked:
@@ -163,6 +161,11 @@ func volumeGovernanceNextStep(facts *volumegovernance.Facts) string {
 		return cliMessage("governance.next.bootstrap_database_cognition")
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
 		return cliMessage("governance.next.evidence_required")
+	// An orphan is authoring work Maintain clears, so it ranks with
+	// authoring, below a blocker or owed Evidence that Maintain would refuse
+	// on (audit G5-07).
+	case facts.Result == volumegovernance.ResultAuthoringRequired && volumeHasFinding(facts, "code_orphan"):
+		return cliMessage("governance.next.code_orphan")
 	case facts.Result == volumegovernance.ResultAuthoringRequired:
 		return cliMessage("governance.next.authoring_required")
 	}

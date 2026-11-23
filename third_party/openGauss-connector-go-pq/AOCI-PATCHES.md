@@ -21,6 +21,9 @@ the following narrowly scoped production hardening:
 - reject truncated SHA256/SM3 authentication challenges and server-controlled
   PBKDF2 iteration counts outside `1..1,000,000` before parsing or computation;
   and
+- refuse a backend message whose length is below its own header or above the
+  server's 1 GiB allocation limit as a driver error, instead of panicking on
+  a negative slice bound or allocating whatever the frame names;
 - refuse a connection string whose quoted value ends in a backslash instead of
   stepping past the end of the input, which panicked in every parser entry
   point (found by fuzzing `ParseConfigStrict`).

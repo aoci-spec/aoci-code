@@ -162,7 +162,7 @@ func newIndexAgentGuideCmd() *cobra.Command {
 			if cognitionErr != nil {
 				if set != nil && set.LayoutMode == cognition.LayoutVolumesV1 {
 					if stop := volumeMetaDictionaryStop(cognitionErr); stop != nil {
-						return writeVolumeMetaBlockedGuide(cmd, agentName, stop)
+						return writeVolumeMetaBlockedGuide(cmd, repoRoot, agentName, stop)
 					}
 				}
 				return &ExitError{Code: ExitConfig, Err: cognitionErr}
@@ -451,12 +451,17 @@ func volumeMetaDictionaryStop(err error) *volumeGuideStopFacts {
 	return nil
 }
 
-func writeVolumeMetaBlockedGuide(cmd *cobra.Command, agent string, stop *volumeGuideStopFacts) error {
+func writeVolumeMetaBlockedGuide(cmd *cobra.Command, root, agent string, stop *volumeGuideStopFacts) error {
 	guide := volumeAgentGuide{
 		Version: agentGuideVersion, Agent: agent, Mode: "governance", Stage: volumegovernance.ResultBlocked,
 		Complete: false, NextAction: "repair_meta_tag_dictionary", ExecutableTargets: 0,
 		AffectedDomains: []string{cognition.ScopeMeta}, Findings: []volumegovernance.Finding{},
 		Instructions: []string{stop.SafeNextAction}, Commands: agentGuideCommands{Guide: "aoci index agent guide --agent " + agent + " --json"}, Stop: stop,
+	}
+	// Bound like every other Guide: the handed command carries the binary
+	// and --repo (audit G5-08).
+	if err := finalizeVolumeAgentGuideRuntimeContract(&guide, root); err != nil {
+		return &ExitError{Code: ExitConfig, Err: err}
 	}
 	if flagJSON {
 		encoder := json.NewEncoder(cmd.OutOrStdout())

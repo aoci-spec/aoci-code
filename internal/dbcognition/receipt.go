@@ -85,6 +85,12 @@ func BuildPlan(root string, assessment Assessment, set *cognition.Set, objectLim
 	return Plan{Version: receipt.Version, BatchID: batchID, DatabaseVolumePath: receipt.DatabaseVolumePath, DatabaseVolumeSHA256: receipt.DatabaseVolumeSHA256, TargetCount: len(selected), Remaining: len(actionable) - len(selected), EvidenceBytes: totalBytes, Candidates: selected, NextAction: machinecontract.DatabaseCognitionActionAuthorCompleteBatch}, nil
 }
 
+type loadedSnapshot struct {
+	manifest dbevidence.SourceManifest
+	snapshot dbevidence.Snapshot
+	ok       bool
+}
+
 func ValidateSubmission(root string, sources []dbevidence.SourceConfig, batchID string, submissions []Submission) (Receipt, error) {
 	receipt, err := LoadReceipt(root, batchID)
 	if err != nil {
@@ -98,6 +104,7 @@ func ValidateSubmission(root string, sources []dbevidence.SourceConfig, batchID 
 		configured[source.SourceID] = source
 	}
 	acceptance := loadSnapshotAcceptance(root)
+	snapshots := map[string]loadedSnapshot{}
 	submitted := map[string]string{}
 	for _, item := range submissions {
 		if item.ObjectRef == "" || item.CandidateID == "" || submitted[item.ObjectRef] != "" {
@@ -113,10 +120,19 @@ func ValidateSubmission(root string, sources []dbevidence.SourceConfig, batchID 
 		if !ok || !source.Enabled {
 			return Receipt{}, fmt.Errorf("database_candidate_source_unavailable")
 		}
-		manifest, snapshot, exists, loadErr := dbevidence.LoadSnapshot(root, target.SourceID)
-		if loadErr != nil || !exists {
+		// One snapshot load per source, not per target: a batch of B targets
+		// over T tables reloaded and rehashed the snapshot B times (audit
+		// G6-10).
+		loaded, cached := snapshots[target.SourceID]
+		if !cached {
+			manifest, snapshot, exists, loadErr := dbevidence.LoadSnapshot(root, target.SourceID)
+			loaded = loadedSnapshot{manifest: manifest, snapshot: snapshot, ok: loadErr == nil && exists}
+			snapshots[target.SourceID] = loaded
+		}
+		if !loaded.ok {
 			return Receipt{}, fmt.Errorf("database_candidate_evidence_invalid_or_unavailable")
 		}
+		manifest, snapshot := loaded.manifest, loaded.snapshot
 		if !dbevidence.SourceConfigMatchesManifest(source, manifest) {
 			return Receipt{}, fmt.Errorf("database_candidate_source_selection_changed")
 		}

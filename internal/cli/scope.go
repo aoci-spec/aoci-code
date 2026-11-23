@@ -596,10 +596,20 @@ func newScopeSafetyMutationCmd(add bool) *cobra.Command {
 				if add {
 					return append(paths, args[0]), nil
 				}
+				// Stored paths are normalized, so ./x or a backslash spelling
+				// names the same entry (audit G4-19).
+				wanted := args[0]
+				if clean, normalizeErr := afs.NormalizeRelPath(args[0]); normalizeErr == nil {
+					wanted = clean
+				}
 				result := []string{}
 				found := false
 				for _, path := range paths {
-					if path == args[0] {
+					stored := path
+					if clean, normalizeErr := afs.NormalizeRelPath(path); normalizeErr == nil {
+						stored = clean
+					}
+					if stored == wanted {
 						found = true
 						continue
 					}
