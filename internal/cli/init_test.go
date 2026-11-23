@@ -491,7 +491,7 @@ func TestInitCodexHooksConflictIsZeroWrite(t *testing.T) {
 // A Git root gets no warning. A container with a child Git repository gets
 // a narrower warning about files outside that repository.
 func TestInitWarnsAboutGitIgnoreScopeBeforeScan(t *testing.T) {
-	for _, layout := range []string{"plain", "git", "child"} {
+	for _, layout := range []string{"plain", "git", "child", "child-only"} {
 		t.Run(layout, func(t *testing.T) {
 			root := filepath.Join(t.TempDir(), "my repo")
 			if err := os.Mkdir(root, 0o755); err != nil {
@@ -501,14 +501,16 @@ func TestInitWarnsAboutGitIgnoreScopeBeforeScan(t *testing.T) {
 			switch layout {
 			case "git":
 				testkit.InitGit(t, root)
-			case "child":
+			case "child", "child-only":
 				source = filepath.Join(root, "app")
 				if err := os.Mkdir(source, 0o755); err != nil {
 					t.Fatal(err)
 				}
 				testkit.InitGit(t, source)
 				testkit.WriteFile(t, source, ".gitignore", "Intermediate/\n")
-				testkit.WriteFile(t, root, "tools/generated.go", "package tools\n")
+				if layout == "child" {
+					testkit.WriteFile(t, root, "tools/generated.go", "package tools\n")
+				}
 			}
 			testkit.WriteFile(t, source, "main.go", "package main\n")
 			testkit.WriteFile(t, source, "Intermediate/Build/Generated.gen.h", "#pragma once\n")
@@ -532,6 +534,14 @@ func TestInitWarnsAboutGitIgnoreScopeBeforeScan(t *testing.T) {
 			if warned && (!strings.Contains(output, "2 files are index candidates now") ||
 				!strings.Contains(output, "aoci --repo "+shellPathArgument(root)+" scope rule add later --action exclude")) {
 				t.Fatalf("warning must name the count and this root's command:\n%s", output)
+			}
+			if layout == "child-only" {
+				// The files init itself wrote at the container root are not
+				// sources outside the children.
+				output, _, stderr, code = runCLIPrinted(t, root, initArgs...)
+				if code != ExitOK || strings.Contains(output, outsideWarning) {
+					t.Fatalf("a container with nothing outside its children must stay quiet: exit %d\n%s\n%s", code, output, stderr)
+				}
 			}
 			if layout == "child" {
 				if !strings.Contains(output, "aoci --repo "+shellPathArgument(root)+" scope rule add later --action exclude") {

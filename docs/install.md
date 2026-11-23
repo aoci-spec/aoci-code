@@ -49,8 +49,9 @@ directories work without it, but scanning a repository that contains `.git`
 invokes the host `git` executable for tracked/ignored authority and fails
 closed (`safe_inventory_git_unavailable`) when it is absent.
 
-In a non-Git container, each child Git repository uses its own Git ignore
-rules. Files outside those repositories are outside Git's ignore scope.
+A directory with no Git repository has no ignore authority at all. In a
+non-Git container, each child Git repository uses its own Git ignore rules,
+and files outside those repositories are outside Git's ignore scope.
 AOCI does not read other version-control ignore files such as `.dvignore` or
 `.hgignore`. Build output, logs, and generated files outside Git repositories
 can become index candidates. `aoci init` warns about this before the first

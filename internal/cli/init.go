@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -196,7 +197,7 @@ func init() {
 			newRepositoryAutomationMessage := ""
 			var scopeProposal *managedscope.Proposal
 			var initialInventory afs.SafeInventorySummary
-			var initialIndexCount int
+			var initialIndexCount, outsideChildIndexCount int
 			var initIndexPaths []string
 
 			if _, statErr := os.Stat(
@@ -264,6 +265,7 @@ func init() {
 				for _, item := range evaluation.Index {
 					initIndexPaths = append(initIndexPaths, item.Path)
 				}
+				outsideChildIndexCount = indexPathsOutsideChildRepositories(root, initIndexPaths)
 				if proposal.RequiresHumanApproval {
 					return &ExitError{Code: ExitConfig, MachineCode: "managed_scope_auto_authorization_blocked",
 						Msg: initialScopeBlockedDetail(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))}
@@ -276,6 +278,11 @@ func init() {
 				if evaluation, evaluationErr := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
 					WalkOptions: cfg.WalkOptions(), CurationExclude: cfg.CurationExclude}); evaluationErr == nil {
 					initialInventory, initialIndexCount = evaluation.SafeInventory, evaluation.IndexCount
+					paths := make([]string, 0, len(evaluation.Index))
+					for _, item := range evaluation.Index {
+						paths = append(paths, item.Path)
+					}
+					outsideChildIndexCount = indexPathsOutsideChildRepositories(root, paths)
 				}
 			}
 
@@ -392,6 +399,11 @@ func init() {
 			if beforeFirstScan && !initialInventory.GitRepository {
 				switch {
 				case initialInventory.ChildRepositories > 0:
+					// A container whose every source sits in a child
+					// repository has nothing outside Git's ignore scope.
+					if outsideChildIndexCount == 0 {
+						break
+					}
 					outputLines = append(outputLines, cliMessage("init.child_git_ignore_boundary", shellPathArgument(root)))
 				case initialIndexCount > 0:
 					outputLines = append(outputLines, cliMessage("init.no_ignore_authority", initialIndexCount, shellPathArgument(root)))
@@ -746,4 +758,30 @@ func formatDirectoryImpacts(impacts []managedscope.DirectoryImpact) string {
 			impact.Directory, impact.Index, impact.Observe, impact.Exclude))
 	}
 	return strings.Join(parts, "; ")
+}
+
+// indexPathsOutsideChildRepositories counts the index-role paths of a non-Git
+// container that sit in a directory no child Git repository holds: only those
+// lie outside every ignore file's reach. Files directly at the container root
+// are not counted: init writes its own there (AGENTS.md, .gitattributes, host
+// configuration), and the remedy the warning hands excludes directories.
+func indexPathsOutsideChildRepositories(root string, paths []string) int {
+	inChild := map[string]bool{"": false, ".": false}
+	var held func(dir string) bool
+	held = func(dir string) bool {
+		if value, known := inChild[dir]; known {
+			return value
+		}
+		_, err := os.Lstat(filepath.Join(root, filepath.FromSlash(dir), ".git"))
+		value := err == nil || held(path.Dir(dir))
+		inChild[dir] = value
+		return value
+	}
+	outside := 0
+	for _, item := range paths {
+		if dir := path.Dir(item); dir != "." && !held(dir) {
+			outside++
+		}
+	}
+	return outside
 }
