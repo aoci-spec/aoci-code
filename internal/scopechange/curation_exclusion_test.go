@@ -1,6 +1,8 @@
 package scopechange
 
 import (
+	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"path/filepath"
 	"testing"
 	"time"
@@ -54,5 +56,19 @@ func TestCurationExclusionOfBaselinedPathCompletesAndArchives(t *testing.T) {
 	status, err := Inspect(root, result.TransactionID)
 	if err == nil && status != nil && status.State != "" && status.State != "complete" {
 		t.Fatalf("完成的事务未收敛为 complete: %#v", status)
+	}
+	// After the change the exclusion must still hold: the decision is no
+	// longer matched against the Baseline record the change removed, or the
+	// repository would ask for the same Scope Change again (audit G4-04).
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := managedstate.Load(root, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !state.PolicyAligned || state.DesiredPolicyIdentity != state.ActivePolicyIdentity {
+		t.Fatalf("an applied curation exclusion must stay aligned: desired=%s active=%s", state.DesiredPolicyIdentity, state.ActivePolicyIdentity)
 	}
 }

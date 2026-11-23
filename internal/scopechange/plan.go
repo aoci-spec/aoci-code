@@ -90,7 +90,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		}
 		curationPostBytes = append(curationPostBytes, '\n')
 	}
-	curationExclude := activeCurationExclusions(cfg.CurationExclude, curationPostDocument, oldBaseline)
+	curationExclude := curation.ActiveExclusions(root, cfg.CurationExclude, curationPostDocument, oldBaseline)
 	policy := cfg.EffectiveManagedScope()
 	budgetPolicy := cfg.EffectiveCognitionBudget()
 	budgetIdentity, err := cognitionbudget.Identity(budgetPolicy)
@@ -595,20 +595,6 @@ func normalizeCandidateSet(value CandidateSet) (CandidateSet, error) {
 	sort.Slice(value.Entries, func(i, j int) bool { return value.Entries[i].Path < value.Entries[j].Path })
 	sort.Slice(value.Dispositions, func(i, j int) bool { return value.Dispositions[i].SourcePath < value.Dispositions[j].SourcePath })
 	return value, nil
-}
-
-func activeCurationExclusions(configured []string, document *curation.Document, active *baseline.Baseline) []string {
-	result := append([]string{}, configured...)
-	if document != nil && active != nil {
-		for _, decision := range document.Decisions {
-			fingerprint, exists := active.Files[decision.Path]
-			if decision.Decision == curation.DecisionExclude && exists && fingerprint.SHA256 == decision.SourceSHA256 {
-				result = append(result, decision.Path)
-			}
-		}
-	}
-	sort.Strings(result)
-	return deduplicate(result)
 }
 
 func entriesByPath(document *index.Document) (map[string]*index.Entry, error) {

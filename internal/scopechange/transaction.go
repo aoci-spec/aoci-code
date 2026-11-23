@@ -677,7 +677,7 @@ func validateSourceGuardsWithCurationBasis(root string, intent *RecoveryIntent, 
 	// even when those paths are absent from the current inventory. Reconstruct
 	// the exact Build input instead of projecting only exclusions that happened
 	// to produce a PathEvaluation.
-	curationExclude := activeCurationExclusions(cfg.CurationExclude, curationDocument, activeBaseline)
+	curationExclude := curation.ActiveExclusions(root, cfg.CurationExclude, curationDocument, activeBaseline)
 	if replayPlanTimeCuration && intent.Preview.CurationExclusions != nil {
 		curationExclude = append([]string{}, intent.Preview.CurationExclusions...)
 	}

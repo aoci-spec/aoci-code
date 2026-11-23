@@ -15,7 +15,6 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
-	"github.com/aoci-spec/aoci-code/internal/curation"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -1082,31 +1081,14 @@ func containsScopePath(values []string, rel string) bool {
 }
 
 func managedScopeCurationExclusions(root string, cfg *config.Config) ([]string, error) {
-	result := append([]string{}, cfg.CurationExclude...)
-	document, _, _, err := curation.Load(root)
-	if err != nil {
-		return nil, err
-	}
 	value, exists, err := baseline.Load(root)
 	if err != nil {
 		return nil, err
 	}
-	if exists {
-		for _, decision := range document.Decisions {
-			fingerprint, found := value.Files[decision.Path]
-			if found && decision.Decision == curation.DecisionExclude && fingerprint.SHA256 == decision.SourceSHA256 {
-				result = append(result, decision.Path)
-			}
-		}
+	if !exists {
+		value = nil
 	}
-	sort.Strings(result)
-	deduplicated := result[:0]
-	for _, path := range result {
-		if len(deduplicated) == 0 || deduplicated[len(deduplicated)-1] != path {
-			deduplicated = append(deduplicated, path)
-		}
-	}
-	return deduplicated, nil
+	return managedstate.CurationExclusions(root, cfg, value)
 }
 
 // rejectUnsupportedGlob refuses brace alternation in a glob rule. The glob

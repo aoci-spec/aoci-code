@@ -6,7 +6,6 @@ package managedstate
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
@@ -103,25 +102,9 @@ func Detect(root string, cfg *config.Config, document *index.Document, state *St
 }
 
 func CurationExclusions(root string, cfg *config.Config, value *baseline.Baseline) ([]string, error) {
-	result := append([]string{}, cfg.CurationExclude...)
 	document, _, _, err := curation.Load(root)
 	if err != nil {
 		return nil, err
 	}
-	if value != nil {
-		for _, decision := range document.Decisions {
-			fingerprint, exists := value.Files[decision.Path]
-			if exists && decision.Decision == curation.DecisionExclude && fingerprint.SHA256 == decision.SourceSHA256 {
-				result = append(result, decision.Path)
-			}
-		}
-	}
-	sort.Strings(result)
-	deduplicated := result[:0]
-	for _, path := range result {
-		if len(deduplicated) == 0 || deduplicated[len(deduplicated)-1] != path {
-			deduplicated = append(deduplicated, path)
-		}
-	}
-	return deduplicated, nil
+	return curation.ActiveExclusions(root, cfg.CurationExclude, document, value), nil
 }

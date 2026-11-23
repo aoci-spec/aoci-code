@@ -63,6 +63,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   content was read from outside the repository; and the budget `scope
   status` and a Scope Change report under Volumes applies the Meta's declared
   S quota and checks Database Volume Entries, as governance does.
+- A curation `exclude` decision for a file the Baseline already recorded
+  stays in effect after the Scope Change that applies it. The decision was
+  matched against the Baseline record that change removes, so it was dropped
+  the moment it took effect and the repository asked for the same Scope
+  Change again; activating it turned the file back to index, and so on. A
+  path the Baseline no longer records is now matched against the file on
+  disk, in the one implementation the CLI, governance and Scope Change share
+  (pre-release audit).
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
