@@ -52,6 +52,12 @@ func Apply(root string, preview *Preview) (*Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		// A rollback archives its intent beside the same result file; it is
+		// not an applied Volume (audit G1-09). A fresh plan carries a new
+		// PreparedAt and so a new transaction.
+		if result.Status != StatusApplied {
+			return nil, fmt.Errorf("database_bootstrap_transaction_rolled_back")
+		}
 		copyResult := *result
 		copyResult.Status = StatusAlreadyApplied
 		return &copyResult, nil
@@ -127,7 +133,9 @@ func Resume(root, transactionID string) (*Result, error) {
 			return nil, fmt.Errorf("database_bootstrap_transaction_not_found")
 		}
 		copyResult := *result
-		copyResult.Status = StatusAlreadyApplied
+		if result.Status == StatusApplied {
+			copyResult.Status = StatusAlreadyApplied
+		}
 		return &copyResult, nil
 	}
 	if err != nil {
@@ -192,6 +200,9 @@ func advance(root string, intent *RecoveryIntent) (*Result, error) {
 		return nil, err
 	}
 	if err := saveResult(root, result); err != nil {
+		return nil, err
+	}
+	if err := transactionFault("after_result"); err != nil {
 		return nil, err
 	}
 	cfg, _ := config.LoadReadOnly(root)

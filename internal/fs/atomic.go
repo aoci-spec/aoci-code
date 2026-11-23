@@ -188,6 +188,12 @@ func AtomicMoveCAS(sourcePath, recoveryPath, expectedSHA256 string) error {
 	}
 	captured, err := atomicFileSHA256(absRecovery)
 	if err == nil && captured == expectedSHA256 {
+		// A degraded publish (link then unlink, or copy then remove) can
+		// leave the source behind; a move that did not remove it did not
+		// move, and a rollback would leave the formal asset in place.
+		if _, srcErr := os.Lstat(absSource); !os.IsNotExist(srcErr) {
+			return fmt.Errorf("%w: moved bytes are at %s but the source remains at %s", ErrAtomicCASRecovery, absRecovery, absSource)
+		}
 		return nil
 	}
 	// The moved bytes are third-party state. Preserve them and attempt to put
@@ -336,6 +342,23 @@ func RecoverAtomicWriteCAS(targetPath string) error {
 	}
 	defer lock.Release()
 	return recoverAtomicCAS(absTarget, absTarget+".aoci-cas.swap", absTarget+".aoci-cas.intent")
+}
+
+// SettlePendingAtomicWriteCAS runs RecoverAtomicWriteCAS only when a cut
+// exchange left its intent or swap beside targetPath, so the common case takes
+// no lock. Every resume, rollback, or status that judges a formal asset's bytes
+// against a preimage and a postimage calls it first: judging the target alone
+// let a resume see the postimage, skip the write that would have cleaned up,
+// and leave the intent blocking Overview for good (audit G1-02).
+func SettlePendingAtomicWriteCAS(targetPath string) error {
+	for _, suffix := range []string{".aoci-cas.intent", ".aoci-cas.swap"} {
+		if _, err := os.Lstat(targetPath + suffix); err == nil {
+			return RecoverAtomicWriteCAS(targetPath)
+		} else if !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func atomicCASLockPath(targetPath string) string {

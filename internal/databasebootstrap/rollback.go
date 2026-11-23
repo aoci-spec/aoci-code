@@ -37,6 +37,15 @@ func Rollback(root, transactionID string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("database_bootstrap_incomplete_transaction_required")
 	}
+	// A transaction whose applied result is written finished its writes; a
+	// crash before archiving leaves Resume to archive it. Rolling it back
+	// left rolled-back files beside an applied result (audit G1-09).
+	if result, resultErr := loadResult(absRoot, transactionID); resultErr == nil && result.Status == StatusApplied {
+		return nil, fmt.Errorf("database_bootstrap_completed_transaction_rollback_forbidden")
+	}
+	if err := cognitiontxn.RejectOtherPending(absRoot, filepath.Base(intentPath(absRoot, transactionID))); err != nil {
+		return nil, err
+	}
 	preview := &intent.Preview
 	if err := validateGuards(absRoot, preview); err != nil {
 		return nil, err

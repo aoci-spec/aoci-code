@@ -245,6 +245,25 @@ func TestCrossVolumePartialWriteSupportsExactPolicyRollback(t *testing.T) {
 	if err != nil || pending {
 		t.Fatalf("exact rollback retained an active recovery receipt: pending=%t err=%v", pending, err)
 	}
+	// Resubmitted and cut again, the same batch must leave an active recovery
+	// receipt: a rolled-back receipt filed with the replay archive made it
+	// write the Volumes without one (audit G1-10).
+	writeAtomicIndex = func(target string, data []byte, expected string) error {
+		if filepath.Base(target) == "aoci.database.txt" {
+			return errors.New("simulated Database Volume write failure")
+		}
+		return original(target, data, expected)
+	}
+	if outcome, fail := ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false); fail != nil || outcome == nil || outcome.BaselineComplete {
+		t.Fatalf("second partial write was not created: outcome=%#v fail=%+v", outcome, fail)
+	}
+	writeAtomicIndex = original
+	if pending, err := UpdateEntriesAtomicRecoveryPending(root, items); err != nil || !pending {
+		t.Fatalf("a resubmitted batch wrote without an active recovery receipt: pending=%t err=%v", pending, err)
+	}
+	if err := RollbackUpdateEntriesAtomicRecovery(root, items); err != nil {
+		t.Fatalf("second rollback failed: %v", err)
+	}
 	if outcome, fail := ApplyUpdateEntriesAtomic(root, items, ledger.SourceAgent, false); fail != nil || outcome == nil || !outcome.BaselineComplete {
 		t.Fatalf("fresh Apply after rollback did not converge: outcome=%#v fail=%+v", outcome, fail)
 	}

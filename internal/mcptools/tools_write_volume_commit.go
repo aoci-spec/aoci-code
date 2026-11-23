@@ -1203,6 +1203,7 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 		volumePlan.recovery = &recovery
 	}
 	for _, target := range volumePlan.targets {
+		_ = afs.SettlePendingAtomicWriteCAS(filepath.Join(root, filepath.FromSlash(target.Path)))
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(target.Path)))
 		if err == nil && current.SHA256 == target.PostSHA {
 			continue
@@ -1322,6 +1323,9 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 		}
 	}
 	for _, target := range volumePlan.targets {
+		if settleErr := afs.SettlePendingAtomicWriteCAS(filepath.Join(root, filepath.FromSlash(target.Path))); settleErr != nil {
+			return &Fail{Code: errWriteConflict, Msg: writeMessage("entry.batch.prewrite_source_conflict", target.Path), Hint: writeMessage("entry.batch.hint.refresh_binding")}
+		}
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(target.Path)))
 		allowProvenPostimage := volumePlan.recovery != nil && current.SHA256 == target.PostSHA
 		if err != nil || (current.SHA256 != target.PreSHA && !allowProvenPostimage) {
@@ -1334,6 +1338,9 @@ func validateVolumePlanPrewrite(root string, volumePlan *cognitionVolumeBatchPla
 func inspectVolumeTargetStates(root string, targets []cognitionVolumeWriteTarget) string {
 	pre, post := true, true
 	for _, target := range targets {
+		if afs.SettlePendingAtomicWriteCAS(filepath.Join(root, filepath.FromSlash(target.Path))) != nil {
+			return "unknown"
+		}
 		current, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(target.Path)))
 		if err != nil {
 			return "unknown"

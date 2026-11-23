@@ -301,6 +301,9 @@ func ReadStaged(root string, staged []StagedPostimage, targetPath string) ([]byt
 // absentPreimage is true, a missing path is the preimage. Otherwise both
 // preimageSHA and postimageSHA must be non-empty.
 func Classify(path, preimageSHA, postimageSHA string, absentPreimage bool) (string, string, error) {
+	if err := afs.SettlePendingAtomicWriteCAS(path); err != nil {
+		return StateUnknown, "", err
+	}
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		if absentPreimage {

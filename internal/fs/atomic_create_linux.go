@@ -49,9 +49,10 @@ func publishAtomicCreateByLink(source, target string) error {
 	if err := unix.Link(source, target); err != nil {
 		return &linkError{op: "link", err: err}
 	}
-	if err := unix.Unlink(source); err != nil {
-		return &linkError{op: "unlink", err: err}
-	}
+	// As on the darwin copy path, a failed unlink is not a failed publish:
+	// the target holds the bytes, and an error here read as the name being
+	// owned by somebody else (audit G1-11). A move checks its source is gone.
+	_ = unix.Unlink(source)
 	return nil
 }
 

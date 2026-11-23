@@ -47,11 +47,15 @@ func Rollback(root, transactionID string) (*ApplyResult, error) {
 		return nil, err
 	}
 
-	order := []string{}
-	if status.LayoutActivated {
-		order = append(order, "aoci.txt", ".aoci/baseline.json")
+	// The exact reverse of the write order (every target, then the Baseline),
+	// so a rollback cut at any step leaves the post..., pre... prefix that
+	// inspectEnvelopeState accepts. Rolling the Root back before the Baseline
+	// left a Root preimage ahead of a Baseline postimage, which both Resume and
+	// Rollback then refused as a conflict (audit G1-03).
+	order := []string{intent.Envelope.Baseline.Path}
+	for index := len(intent.Envelope.Targets) - 1; index >= 0; index-- {
+		order = append(order, intent.Envelope.Targets[index].Path)
 	}
-	order = append(order, "aoci.database.txt", "aoci.code.txt", "aoci.meta.txt")
 	recovered := []string{}
 	for index, path := range order {
 		target, declared := declaredTargetStatus(status, path)

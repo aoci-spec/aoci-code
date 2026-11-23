@@ -3,6 +3,7 @@ package bootstrapapply
 import (
 	"errors"
 	"fmt"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"os"
 	"path/filepath"
 
@@ -145,6 +146,9 @@ func classifyPath(path, expectedSHA string) (string, string, error) {
 }
 
 func classifyFormalPath(path, expectedSHA, preimageSHA string) (string, string, error) {
+	if err := afs.SettlePendingAtomicWriteCAS(path); err != nil {
+		return StateUnknown, "", err
+	}
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return StatePreimage, "", nil

@@ -114,6 +114,21 @@ All notable public changes to AOCI-CODE will be documented in this file.
   message whose argument contains `%!`, such as a file named `100%!.go`, no
   longer fails as a formatting error, which stopped an Entry write as an
   internal error.
+- Fixes from the pre-release audit, recovery group, second pass: every
+  resume, rollback and status that judges a formal asset first settles an
+  atomic write a crash cut after its exchange, so such a write is no longer
+  taken as done while its leftover files block `aoci_overview` for good, and
+  third-party bytes it captured are restored instead of overwritten; a Fresh
+  Bootstrap rollback reverses the exact write order, so a rollback stopped
+  after the Root no longer leaves a conflict neither resume nor rollback can
+  close; a rolled-back Database bootstrap no longer reads as
+  `already_applied`, and one whose applied result is written is resumed, not
+  rolled back, as a Migration now is too; an Entries rollback no longer files
+  its receipt with the replay archive, which let a resubmitted batch write
+  without a recovery receipt; and a move on a filesystem without native
+  no-replace rename reports a source it could not remove instead of leaving
+  the formal asset in place, while a create there no longer reports its own
+  published file as a conflict.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

@@ -35,6 +35,13 @@ func Rollback(root, transactionID string) (*ApplyResult, error) {
 		}
 		return nil, fmt.Errorf("migration_incomplete_transaction_required")
 	}
+	// Its completion result is written once every write is verified; a crash
+	// before archiving leaves Resume to finish it. Rolling it back produced a
+	// Legacy index beside an applied result (audit G1-12), as Bootstrap
+	// already refuses.
+	if _, resultErr := loadResultAt(resultPath(absRoot, transactionID), transactionID); resultErr == nil {
+		return nil, fmt.Errorf("migration_completed_transaction_rollback_forbidden")
+	}
 	if err := cognitiontxn.RejectOtherPending(absRoot, "migration-"+transactionID+".json"); err != nil {
 		return nil, err
 	}

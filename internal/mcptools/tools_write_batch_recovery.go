@@ -395,6 +395,9 @@ func RollbackUpdateEntriesAtomicRecovery(root string, items []AtomicUpdateItem) 
 	states := make([]string, len(recovery.Assets))
 	for index, asset := range recovery.Assets {
 		path := filepath.Join(root, filepath.FromSlash(asset.Path))
+		if err := afs.SettlePendingAtomicWriteCAS(path); err != nil {
+			return fmt.Errorf("entries_rollback_exchange_unsettled: %s: %v", asset.VolumeID, err)
+		}
 		info, statErr := os.Lstat(path)
 		if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 			return fmt.Errorf("entries_rollback_participant_changed: %s", asset.VolumeID)
@@ -427,7 +430,11 @@ func RollbackUpdateEntriesAtomicRecovery(root string, items []AtomicUpdateItem) 
 			return fmt.Errorf("entries_rollback_postcondition_failed: %s", asset.VolumeID)
 		}
 	}
-	if _, _, err := archiveAtomicBatchRecoveryByKey(root, recovery.BatchKey); err != nil {
+	// The history archive is the replay proof of an applied batch: a
+	// rolled-back receipt filed there read as one, so resubmitting the same
+	// batch skipped writing its active receipt and wrote the Volumes without
+	// a recovery point (audit G1-10). A rollback only clears its receipt.
+	if err := cleanupAtomicBatchRecovery(root, recovery.BatchKey); err != nil {
 		return fmt.Errorf("entries_rollback_archive_failed: %w", err)
 	}
 	return nil
