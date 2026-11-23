@@ -2,7 +2,31 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc4
+
+The fourth 0.2.0 candidate is the pre-release audit: a whole-system review of
+persistence, recovery, the write path, scope and inventory, the CLI and Host
+integrations, team configuration, the Database group, and the public text,
+each finding verified against the code, the fixes carrying targeted
+regression tests. Concurrent sessions that build one repository now finish without
+duplicated or lost orphan removals, a removal is judged again under the write
+lock, and a candidate receipt holds its batch rather than the whole plan, so a
+large first build no longer writes hundreds of megabytes of receipts. Pi joins
+the Agent integrations.
+
+Upgrading: a repository governed by v0.2.0-rc3 needs no migration. With a
+Database Volume, Maintain and `aoci_update_entry` now read only a snapshot
+`database baseline accept` recorded: a snapshot captured but never accepted
+holds its Database work until it is accepted. `init --agent claude --hooks`
+rewrites an earlier Claude Code hook with quoted paths; one that worked
+keeps working until then. A new Codex MCP configuration quotes its paths,
+but `init --agent codex` keeps an existing `[mcp_servers.aoci]` table as it
+is: one that a quote in the repository path already broke has to be
+removed by hand before `init` writes it again. Rolling back follows docs/rollback.md: an
+older binary reissues a batch whose receipt this version wrote under the new
+name, and nothing else needs undoing.
+
+Changes:
 
 - A candidate receipt holds its batch, not the whole plan. Every
   `.aoci/drafts/code-cognition/candidate-*.json` stored the complete target

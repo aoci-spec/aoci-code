@@ -31,9 +31,9 @@
     "make verify"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/make-verify-020rc3.txt (f7f659f: make full constituents green, conformance 62/0, scenarios 107/0, axis-self 80/0; lifecycle 81 PASS/2 CHAR/1 FAIL, the database group only, local Docker daemon down; CI full-confidence 44721679241 ran the database groups green)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/make-verify-020rc4.txt (6396f40: make full constituents green, conformance 62/0, scenarios 107/0, lifecycle 97 PASS/2 CHAR/0 FAIL with the database group, axis-self 80/0)"
    }
   },
   {
@@ -150,9 +150,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/axis-full-020rc3.txt (build/aoci-rc3 over every release: 2160 passed, 0 failed, v0.2.0-rc3 pending publication)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/axis-full-020rc4.txt (build/aoci-rc4 over every release: 2240 passed, 0 failed, v0.2.0-rc4 pending publication)"
    }
   },
   {
@@ -168,9 +168,9 @@
     "release-rehearsal.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/axis-self-020rc3.txt (make axis-self BUILD_BIN=build/aoci-rc3: 80 passed, 0 failed)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/axis-self-020rc4.txt (make axis-self BUILD_BIN=build/aoci-rc4: 80 passed, 0 failed)"
    }
   },
   {
@@ -184,9 +184,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/realrepo-RuoYi-rc3.txt, realrepo-excalidraw-rc3.txt, realrepo-excalidraw-concurrent-rc3.txt, realrepo-excalidraw-alone-rc3.txt (build/aoci-rc3, parallel default: RuoYi first build 7 rounds (rc2 15), excalidraw 10; three concurrent sessions 10 rounds 55 s, one session 20 rounds 107 s; 0 over-budget rounds, all aligned)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/realrepo-RuoYi-020rc4.txt, realrepo-excalidraw-020rc4.txt, realrepo-excalidraw-concurrent-020rc4.txt, realrepo-excalidraw-alone-020rc4.txt (build/aoci-rc4: RuoYi first build 7 rounds, excalidraw 10; three concurrent sessions 82 s, one session 136 s; 0 over-budget rounds, all aligned)"
    }
   },
   {
@@ -199,9 +199,9 @@
    ],
    "runs_in": [],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/perf-calls-020rc3.txt (build/aoci-rc3, five repositories: totals 0.70/1.07/1.66/2.58/8.41 s against rc2 1.22/1.27/1.94/2.33/11.01 s)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/perf-calls-020rc4.txt (build/aoci-rc4, five repositories: totals 0.63/0.86/1.55/1.49/5.95 s against rc3 0.70/1.07/1.66/2.58/8.41 s)"
    }
   },
   {
@@ -232,9 +232,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/fuzz-smoke-020rc3.txt (every fuzz target 30 s without a crash)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/fuzz-smoke-020rc4.txt (every fuzz target 30 s without a crash)"
    }
   },
   {
@@ -247,9 +247,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/coverage-floors-020rc3.txt (13 packages at or above their floors)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/coverage-floors-020rc4.txt (13 safety-core packages at or above their floors; cognitionbaseline 69.5% after 8a2f802)"
    }
   },
   {
@@ -262,9 +262,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/longrun-020rc3.txt (overall_passed true, build/aoci-rc3)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/longrun-020rc4.txt (build/aoci-rc4: overall_passed true)"
    }
   },
   {
@@ -279,9 +279,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc3",
-    "date": "2026-11-20",
-    "evidence": ".aoci/dev-tools/legacy-migration-020rc3.txt (24 passed, 0 failed: en-US and zh-CN, build/aoci-rc3)"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-24",
+    "evidence": ".aoci/dev-tools/legacy-migration-020rc4.txt (build/aoci-rc4: 24 passed, 0 failed)"
    }
   },
   {

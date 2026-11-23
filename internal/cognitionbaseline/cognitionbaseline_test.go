@@ -174,7 +174,7 @@ func TestVerifyVolumeStateAcceptsThePublishedStateAndNamesEachMismatch(t *testin
 // repository accepted: an object without Evidence, or Evidence whose source
 // has no accepted snapshot, stops the postimage before anything is bound.
 func TestBuildVolumePostimageRefusesUnboundOrUnacceptedDatabaseObjects(t *testing.T) {
-	const ref = "db:main/public.users"
+	const ref = "database://main/public/users"
 	projected := &cognition.Set{Volumes: map[string]*cognition.Asset{"database": {Objects: []cognition.Object{{
 		CanonicalRef: ref, CanonicalLine: "public.users[DT5T]: F:Holds accounts | R:- | A:- | S:-",
 	}}}}}
@@ -184,7 +184,7 @@ func TestBuildVolumePostimageRefusesUnboundOrUnacceptedDatabaseObjects(t *testin
 		want     string
 	}{
 		{"no evidence", nil, "cognition_database_binding_missing: " + ref},
-		{"no accepted snapshot", []cognitionplan.EvidenceObject{{SourceID: "main", ObjectRef: ref, EvidenceVersion: "v1", TableEvidenceSHA256: "abc"}},
+		{"no accepted snapshot", []cognitionplan.EvidenceObject{{SourceID: "main", ObjectRef: ref, EvidenceVersion: "v1", TableEvidenceSHA256: strings.Repeat("ab", 32)}},
 			"cognition_database_evidence_not_accepted: main (database_snapshot_missing"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
