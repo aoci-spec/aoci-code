@@ -415,3 +415,26 @@ with open(report_path, "w", encoding="utf-8") as fh:
     json.dump(report, fh, indent=1)
 print("report:", report_path, flush=True)
 print(json.dumps({k: report[k] for k in ("scan", "first_build", "update_wave", "optimization", "hook", "drift", "total_seconds") if k in report}, indent=1))
+
+# The report is release evidence: a run that stopped, ended unaligned, sent a
+# round over the transport budget, or injected no Entry through the hook
+# exits non-zero, so it is never recorded as a pass (audit G7-10).
+failures = []
+for phase in ("first_build", "update_wave"):
+    result = report.get(phase)
+    if not result:
+        continue
+    if result.get("stopped"):
+        failures.append(f"{phase} stopped: {str(result.get('stopped'))[:120]}")
+    if not result.get("verify_aligned"):
+        failures.append(f"{phase} did not end aligned")
+    if result.get("over_budget_rounds"):
+        failures.append(f"{phase} sent {result['over_budget_rounds']} round(s) over the transport budget")
+if not opt.get("skipped") and not opt.get("verify_aligned_after"):
+    failures.append("the optimization batch left the repository unaligned")
+if not hook.get("skipped") and (hook.get("exit") != 0 or not hook.get("has_entry")):
+    failures.append(f"the pretool hook injected no Entry: {json.dumps(hook)}")
+for failure in failures:
+    print("FAIL:", failure, flush=True)
+if failures:
+    sys.exit(1)

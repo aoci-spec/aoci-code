@@ -181,6 +181,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
   a Database batch reads each source's snapshot once instead of once per
   target; and the openGauss driver refuses a backend message whose length
   is impossible instead of panicking.
+- Database Evidence: an openGauss index or key whose column vector names a
+  column twice fails closed instead of losing the repeat; a SQLite table's
+  foreign key into a parent excluded from the selection resolves even when
+  the parent has a generated column, and a refused SQLite feature names its
+  table; `verify`'s `database_evidence` no longer reads current for Evidence
+  taken under another source selection; and the Ledger records a Host
+  delivery confirmation as accepted only when the delivery settled on it.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

@@ -155,6 +155,14 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 }
 
 func sqliteColumns(ctx context.Context, tx *sql.Tx, table *TableEvidence) error {
+	return sqliteTableColumns(ctx, tx, table, true)
+}
+
+// sqliteTableColumns reads a table's columns. A selected table refuses a
+// generated column; a foreign key's parent, read only to resolve the
+// referenced columns, skips them, since the parent may be excluded from the
+// selection and its own collection refuses them anyway (audit G6-08).
+func sqliteTableColumns(ctx context.Context, tx *sql.Tx, table *TableEvidence, refuseGenerated bool) error {
 	rows, err := sqlitePragma(ctx, tx, "table_xinfo", table.Name)
 	if err != nil {
 		return err
@@ -170,7 +178,10 @@ func sqliteColumns(ctx context.Context, tx *sql.Tx, table *TableEvidence) error 
 			return err
 		}
 		if hidden != 0 {
-			return &unsupportedCatalogFeature{feature: "sqlite_generated_column"}
+			if !refuseGenerated {
+				continue
+			}
+			return &unsupportedCatalogFeature{feature: "sqlite_generated_column", object: table.Name}
 		}
 		column.Ordinal, column.CanonicalType = cid+1, sqliteAffinity(column.NativeType)
 		column.Nullable = !notNull
@@ -202,7 +213,7 @@ func sqliteIndexes(ctx context.Context, tx *sql.Tx, table *TableEvidence) error 
 		}
 		if partial {
 			rows.Close()
-			return &unsupportedCatalogFeature{feature: "sqlite_partial_index"}
+			return &unsupportedCatalogFeature{feature: "sqlite_partial_index", object: table.Name}
 		}
 		index.Primary, index.Method = origin == "pk", "btree"
 		table.Indexes = append(table.Indexes, index)
@@ -236,7 +247,7 @@ func sqliteIndexes(ctx context.Context, tx *sql.Tx, table *TableEvidence) error 
 			}
 			if cid < 0 || !name.Valid || !strings.EqualFold(coll, "BINARY") {
 				rows.Close()
-				return &unsupportedCatalogFeature{feature: "sqlite_index_expression_or_collation"}
+				return &unsupportedCatalogFeature{feature: "sqlite_index_expression_or_collation", object: table.Name}
 			}
 			index.Elements = append(index.Elements, IndexElement{Position: seq + 1, Column: &name.String, Descending: desc})
 		}
@@ -299,15 +310,15 @@ func sqliteForeignKeys(ctx context.Context, tx *sql.Tx, table *TableEvidence) er
 		foreign := &table.ForeignKeys[i]
 		var parent string
 		if err := tx.QueryRowContext(ctx, `SELECT name FROM main.sqlite_schema WHERE type = 'table' AND name = ? COLLATE NOCASE`, foreign.ReferencedObject).Scan(&parent); err != nil {
-			return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target"}
+			return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
 		}
 		parentTable := TableEvidence{Name: parent}
-		if err := sqliteColumns(ctx, tx, &parentTable); err != nil {
+		if err := sqliteTableColumns(ctx, tx, &parentTable, false); err != nil {
 			return err
 		}
 		if foreign.ReferencedColumns[0] == "" {
 			if parentTable.PrimaryKey == nil || len(parentTable.PrimaryKey.Columns) != len(foreign.Columns) {
-				return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target"}
+				return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
 			}
 			foreign.ReferencedColumns = parentTable.PrimaryKey.Columns
 		} else {
@@ -320,7 +331,7 @@ func sqliteForeignKeys(ctx context.Context, tx *sql.Tx, table *TableEvidence) er
 					}
 				}
 				if !found {
-					return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target"}
+					return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
 				}
 			}
 		}

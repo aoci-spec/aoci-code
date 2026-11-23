@@ -3,6 +3,7 @@ package dbevidence
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"sort"
@@ -179,7 +180,7 @@ func openGaussKeys(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables map[s
 		if table == nil {
 			continue
 		}
-		ordinals, err := catalogVectorOrdinals(vector)
+		ordinals, err := catalogColumnVector(vector)
 		if err != nil {
 			return err
 		}
@@ -246,7 +247,7 @@ func openGaussForeignKeys(ctx context.Context, tx *sql.Tx, source SourceConfig, 
 		if !exists || localOrdinal != localAttnum {
 			return fmt.Errorf("foreign key %s references unknown local column %s", name, column)
 		}
-		localOrdinals, err := catalogVectorOrdinals(localVector)
+		localOrdinals, err := catalogColumnVector(localVector)
 		if err != nil {
 			return err
 		}
@@ -254,8 +255,12 @@ func openGaussForeignKeys(ctx context.Context, tx *sql.Tx, source SourceConfig, 
 		if !exists {
 			return fmt.Errorf("foreign key %s has inconsistent local catalog vector", name)
 		}
-		refOrdinals, err := catalogVectorOrdinals(refVector)
+		refOrdinals, err := catalogColumnVector(refVector)
 		if err != nil {
+			var unsupported *unsupportedCatalogFeature
+			if errors.As(err, &unsupported) {
+				return err
+			}
 			return fmt.Errorf("foreign key %s has inconsistent referenced catalog vector", name)
 		}
 		refPosition, exists := positionInCatalogVector(refOrdinals, refAttnum)
@@ -352,7 +357,7 @@ func openGaussIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables ma
 		}
 		// NULL placement is judged from indoption below, never from the DDL
 		// text, which also matched an explicit, representable ASC NULLS LAST.
-		ordinals, err := catalogVectorOrdinals(vector)
+		ordinals, err := catalogColumnVector(vector)
 		if err != nil {
 			return err
 		}
@@ -424,6 +429,24 @@ func catalogVectorOrdinals(value string) ([]int, error) {
 		result[index] = ordinal
 	}
 	return result, nil
+}
+
+// catalogColumnVector parses a vector of column ordinals. A column named
+// twice cannot be placed by its first position, which silently dropped the
+// repeat from an index or key, so it fails closed (audit G6-07).
+func catalogColumnVector(value string) ([]int, error) {
+	ordinals, err := catalogVectorOrdinals(value)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[int]bool{}
+	for _, ordinal := range ordinals {
+		if seen[ordinal] {
+			return nil, &unsupportedCatalogFeature{feature: "repeated_column"}
+		}
+		seen[ordinal] = true
+	}
+	return ordinals, nil
 }
 
 func ordinalForColumn(table *TableEvidence, column string) (int, bool) {

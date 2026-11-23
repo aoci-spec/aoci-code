@@ -82,7 +82,6 @@
    "proves": "Init-to-realignment lifecycles on the frozen fixtures",
    "preconditions": [],
    "runs_in": [
-    "ci.yml",
     "full-confidence.yml",
     "make verify"
    ],

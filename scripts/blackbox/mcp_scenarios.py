@@ -2472,7 +2472,9 @@ def verify_published_scenario_count(total):
     drift = []
     for rel, pattern in patterns.items():
         try:
-            with open(os.path.join(REAL, rel), encoding="utf-8") as fh:
+            # The counts describe this suite, so they are read from the
+            # checkout holding it, never from an AOCI_REPO target (G7-09).
+            with open(os.path.join(_REPO_DEFAULT, rel), encoding="utf-8") as fh:
                 match = re.search(pattern, fh.read())
         except OSError as err:
             drift.append(f"{rel}: unreadable ({err})")

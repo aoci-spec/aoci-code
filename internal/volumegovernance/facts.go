@@ -1068,8 +1068,12 @@ func assessDatabase(root string, cfg *config.Config, facts *Facts) {
 			if !source.Enabled || !dbevidence.EngineCollectable(source.Engine) {
 				continue
 			}
-			_, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)
-			if err != nil || !exists || accepted[source.SourceID] != snapshot.SourceSnapshotSHA256 {
+			manifest, snapshot, exists, err := dbevidence.LoadSnapshot(root, source.SourceID)
+			// A snapshot taken under another selection is not current Evidence,
+			// as dbcognition judges it; the subfield said current while the
+			// verdict did not (audit G2-08).
+			if err != nil || !exists || accepted[source.SourceID] != snapshot.SourceSnapshotSHA256 ||
+				!dbevidence.SourceConfigMatchesManifest(source, manifest) {
 				current = false
 				facts.Findings = append(facts.Findings, Finding{Code: "database_evidence_baseline_stale", Domain: cognition.ScopeDatabase, Target: source.SourceID})
 				continue

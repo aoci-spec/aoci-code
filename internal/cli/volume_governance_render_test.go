@@ -118,7 +118,8 @@ func TestVolumeGovernanceNextStepFollowsFinalizePrecedence(t *testing.T) {
 			Findings: []volumegovernance.Finding{{Code: "observed_pending"}, {Code: "scope_change_required"}}}, "aoci scope activate"},
 		{"locale mismatch", volumegovernance.Facts{Result: volumegovernance.ResultBlocked,
 			Findings: []volumegovernance.Finding{{Code: "root_locale_mismatch"}}}, "aoci config set locale"},
-		{"orphan", volumegovernance.Facts{Result: volumegovernance.ResultBlocked,
+		// finalize counts a Code orphan as authoring work (audit G5-07).
+		{"orphan", volumegovernance.Facts{Result: volumegovernance.ResultAuthoringRequired,
 			Findings: []volumegovernance.Finding{{Code: "code_orphan"}, {Code: "code_stale"}}}, "aoci_remove_entry"},
 		{"observe review", volumegovernance.Facts{Result: volumegovernance.ResultBlocked,
 			NextRequiredAction: machinecontract.ActionReviewObservedEvidence,

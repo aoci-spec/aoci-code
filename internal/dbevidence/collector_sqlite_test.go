@@ -363,3 +363,31 @@ func TestSQLiteAffinityUsesASCIIAndSQLitePrecedence(t *testing.T) {
 		}
 	}
 }
+
+// A child's foreign key into a parent excluded from the selection resolves
+// even when the parent holds a generated column, and a refused feature names
+// its table (audit G6-08).
+func TestSQLiteExcludedParentWithGeneratedColumnDoesNotBlockItsChild(t *testing.T) {
+	root, source := sqliteFixture(t, `
+CREATE TABLE parent (id INTEGER PRIMARY KEY, derived INTEGER GENERATED ALWAYS AS (id+1));
+CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id));`)
+	source.ExcludeTables = []string{"parent"}
+	_, snapshot, files, err := NewCollectorAtRoot(root).Snapshot(context.Background(), source)
+	if err != nil || len(snapshot.Tables) != 1 {
+		t.Fatalf("child beside an excluded generated-column parent: %v %+v", err, snapshot)
+	}
+	var child TableEvidence
+	if err := decodeStrict(files["database://local/main/child"], &child); err != nil {
+		t.Fatal(err)
+	}
+	if len(child.ForeignKeys) != 1 || child.ForeignKeys[0].ReferencedColumns[0] != "id" {
+		t.Fatalf("child foreign key: %+v", child.ForeignKeys)
+	}
+
+	root, source = sqliteFixture(t, `CREATE TABLE bad (id INTEGER, derived INTEGER GENERATED ALWAYS AS (id+1));`)
+	_, _, _, err = NewCollectorAtRoot(root).Snapshot(context.Background(), source)
+	var sourceErr *SourceError
+	if !errors.As(err, &sourceErr) || sourceErr.Object != "bad" {
+		t.Fatalf("a refused feature does not name its table: %v", err)
+	}
+}

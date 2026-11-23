@@ -1351,7 +1351,9 @@ def published_fixture_drift():
     drift = []
     for rel in ("README.md", "README.zh-CN.md", os.path.join("scripts", "blackbox", "README.md")):
         try:
-            with open(os.path.join(REPO, rel), encoding="utf-8") as handle:
+            # The fixture list describes this suite: read the checkout holding
+            # it, never an AOCI_REPO target (G7-09).
+            with open(os.path.join(os.path.dirname(os.path.dirname(_HERE)), rel), encoding="utf-8") as handle:
                 text = handle.read()
         except OSError as err:
             drift.append(f"{rel}: unreadable ({err})")

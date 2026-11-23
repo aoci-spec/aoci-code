@@ -72,7 +72,10 @@ func recordOverviewProofEvents(root string, enabled bool, input overviewIn, deli
 		(chunkedDeliveryMode(delivery.Facts.DeliveryMode) && strings.HasSuffix(delivery.Output, body.Receipt.EndMarker+"\n")) {
 		ledger.Append(root, enabled, ledger.Event{Op: "overview_delivery_completed", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "completed", DeliveryChainID: chain})
 	}
-	if input.HostConfirmation != nil && hostDeliveryStatus(input.HostConfirmation, body) == hostDeliveryConfirmed {
+	// The status the delivery settled on, not the raw confirmation: one the
+	// handler downgraded (a stale or partial delivery) is no accepted
+	// confirmation in the audit trail (audit G3-10).
+	if input.HostConfirmation != nil && delivery.Facts.HostDeliveryStatus == hostDeliveryConfirmed {
 		ledger.Append(root, enabled, ledger.Event{Op: "overview_host_confirmation_accepted", Source: ledger.SourceAgent, IndexSHA256: delivery.Facts.IndexSHA256, Result: "accepted", DeliveryChainID: chain})
 	}
 }
