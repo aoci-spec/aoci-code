@@ -28,6 +28,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
   stuck this way closes with `aoci scope resume --transaction <id>`. Found by
   the pre-release audit.
 
+- Fixes from the pre-release audit, persistence and recovery group:
+  a CAS write records its recovery intent before its staging copy, so a
+  process stopped between the two no longer leaves a staging file recovery
+  refuses forever; on macOS and the BSDs a lock holder's identity no longer
+  depends on the caller's time zone or locale, which let a waiter take a live
+  holder's lock; a CAS lock directory in the shared temporary directory that
+  belongs to another user no longer makes every write fail; a database
+  onboarding rollback proves the Root can be restored before it restores the
+  Baseline, and restores a Root without a final line break; and a sensitive
+  file admitted by an exact high-risk opt-in is no longer reported missing
+  after its Entry is written.
+
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
   says to keep the repository on NTFS. ReFS, a Dev Drive included, refuses

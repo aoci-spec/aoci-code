@@ -4,6 +4,7 @@ package fs
 
 import (
 	"errors"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -20,12 +21,24 @@ func processIdentity(pid int) (string, bool, bool) {
 	case err != nil && !errors.Is(err, syscall.EPERM):
 		return "", false, false
 	}
-	output, lookupErr := exec.Command(
-		"ps", "-o", "lstart=", "-p", strconv.Itoa(pid),
-	).Output()
+	// ps prints lstart in the caller's locale and time zone, so two processes
+	// with different TZ or LC_TIME saw different identities for one live PID
+	// and a waiter took a live holder's lock (audit G1-05). Fix both, and mark
+	// the identity so one recorded before the fix is never compared with it.
+	command := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
+	command.Env = append(os.Environ(), "LC_ALL=C", "LANG=C", "TZ=UTC")
+	output, lookupErr := command.Output()
 	identity := strings.TrimSpace(string(output))
 	if lookupErr != nil || identity == "" {
 		return "", true, false
 	}
-	return identity, true, true
+	return lstartIdentityPrefix + identity, true, true
+}
+
+const lstartIdentityPrefix = "lstart-c-utc:"
+
+// identitiesComparable is false for an identity recorded before the format
+// was fixed: it may differ from a fresh one only by locale or time zone.
+func identitiesComparable(recorded, current string) bool {
+	return strings.HasPrefix(recorded, lstartIdentityPrefix) && strings.HasPrefix(current, lstartIdentityPrefix)
 }

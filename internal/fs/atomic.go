@@ -52,6 +52,10 @@ type atomicCASIntent struct {
 }
 
 var beforeAtomicCASExchange = func(string) {}
+
+// afterAtomicCASIntent runs between the intent write and the swap write; tests
+// stop there to prove the state a process leaves at that instant recovers.
+var afterAtomicCASIntent = func(string) {}
 var exchangeAtomicPathsPlatform = exchangeAtomicPaths
 
 // AtomicExchangeUnsupportedFilesystem is the stable token of a governed write
@@ -265,9 +269,6 @@ func AtomicWriteCAS(targetPath string, data []byte, expectedSHA256 string) error
 		return fmt.Errorf("读取CAS目标权限失败: %w", err)
 	}
 	targetPerm := targetInfo.Mode().Perm()
-	if err := atomicWriteWithPerm(swapPath, data, &targetPerm); err != nil {
-		return fmt.Errorf("准备CAS交换文件失败: %w", err)
-	}
 	newDigest := sha256.Sum256(data)
 	intent := atomicCASIntent{
 		ExpectedSHA256: expectedSHA256,
@@ -275,12 +276,19 @@ func AtomicWriteCAS(targetPath string, data []byte, expectedSHA256 string) error
 	}
 	intentData, err := json.Marshal(intent)
 	if err != nil {
-		_ = os.Remove(swapPath)
 		return fmt.Errorf("序列化CAS恢复意图失败: %w", err)
 	}
+	// The intent goes first. A process stopped between the two writes then
+	// leaves an intent without a swap over an untouched target, which
+	// recoverAtomicCAS clears with zero writes; the other order left a swap
+	// without an intent, which recovery refuses forever (audit G1-01).
 	if err := AtomicWrite(intentPath, intentData); err != nil {
-		_ = os.Remove(swapPath)
 		return fmt.Errorf("写入CAS恢复意图失败: %w", err)
+	}
+	afterAtomicCASIntent(absTarget)
+	if err := atomicWriteWithPerm(swapPath, data, &targetPerm); err != nil {
+		_ = os.Remove(intentPath)
+		return fmt.Errorf("准备CAS交换文件失败: %w", err)
 	}
 
 	beforeAtomicCASExchange(absTarget)
@@ -332,7 +340,20 @@ func RecoverAtomicWriteCAS(targetPath string) error {
 
 func atomicCASLockPath(targetPath string) string {
 	digest := sha256.Sum256([]byte(targetPath))
-	return filepath.Join(os.TempDir(), "aoci-cas-locks", hex.EncodeToString(digest[:])+".lock")
+	return filepath.Join(atomicCASLockDir(), hex.EncodeToString(digest[:])+".lock")
+}
+
+// atomicCASLockDir is the shared temporary lock directory while it belongs to
+// this user. Another user's directory there (a multi-user host, audit G1-06)
+// cannot take this user's lock files, so this user gets its own; keeping the
+// shared name otherwise keeps every binary of one user on the same locks.
+func atomicCASLockDir() string {
+	shared := filepath.Join(os.TempDir(), "aoci-cas-locks")
+	info, err := os.Lstat(shared)
+	if err != nil || (info.IsDir() && ownedByCurrentUser(info)) {
+		return shared
+	}
+	return shared + "-" + currentUserTag()
 }
 
 func atomicFileSHA256(path string) (string, error) {

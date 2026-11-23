@@ -242,6 +242,7 @@ func staleOwnerIsDead(ownerData []byte) bool {
 		return true
 	}
 	return owner.ProcessIdentity != "" && identity != "" &&
+		identitiesComparable(owner.ProcessIdentity, identity) &&
 		owner.ProcessIdentity != identity
 }
 

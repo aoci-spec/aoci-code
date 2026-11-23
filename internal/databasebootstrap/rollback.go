@@ -68,17 +68,23 @@ func Rollback(root, transactionID string) (*Result, error) {
 		}
 		return ""
 	}
+	// Prove the Root can be restored before the Baseline is: the other order
+	// left the Baseline rolled back over a Root this rollback then could not
+	// restore (audit G1-04).
+	var rootRestore []byte
+	if stateFor(preview.RootPath) == cognitiontxn.StatePostimage {
+		rootRestore = rootPreimage(preview)
+		if cognitiontxn.SHA256(rootRestore) != preview.RootPreimageSHA256 {
+			return nil, fmt.Errorf("database_bootstrap_rollback_root_preimage_invalid")
+		}
+	}
 	if stateFor(preview.BaselinePath) == cognitiontxn.StatePostimage {
 		if err := afs.AtomicWriteCAS(filepath.Join(absRoot, filepath.FromSlash(preview.BaselinePath)), []byte(preview.BaselinePreimage), preview.BaselinePostimageSHA256); err != nil {
 			return nil, fmt.Errorf("database_bootstrap_rollback_baseline_failed: %w", err)
 		}
 	}
-	if stateFor(preview.RootPath) == cognitiontxn.StatePostimage {
-		preimage := rootPreimage(preview)
-		if cognitiontxn.SHA256(preimage) != preview.RootPreimageSHA256 {
-			return nil, fmt.Errorf("database_bootstrap_rollback_root_preimage_invalid")
-		}
-		if err := afs.AtomicWriteCAS(filepath.Join(absRoot, filepath.FromSlash(preview.RootPath)), preimage, preview.RootPostimageSHA256); err != nil {
+	if rootRestore != nil {
+		if err := afs.AtomicWriteCAS(filepath.Join(absRoot, filepath.FromSlash(preview.RootPath)), rootRestore, preview.RootPostimageSHA256); err != nil {
 			return nil, fmt.Errorf("database_bootstrap_rollback_root_failed: %w", err)
 		}
 	}
@@ -120,6 +126,13 @@ func rootPreimage(preview *Preview) []byte {
 	descriptor = []byte(databaseDescriptor + "\r\n")
 	if index := bytes.Index(post, descriptor); index >= 0 {
 		return append(append([]byte{}, post[:index]...), post[index+len(descriptor):]...)
+	}
+	// A Root without a final line break got the descriptor as its new last
+	// line, after the separator addDatabaseDescriptor inserted.
+	for _, separator := range []string{"\r\n", "\n"} {
+		if tail := []byte(separator + databaseDescriptor); bytes.HasSuffix(post, tail) {
+			return append([]byte{}, post[:len(post)-len(tail)]...)
+		}
 	}
 	return nil
 }

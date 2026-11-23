@@ -146,7 +146,10 @@ func isExcludedRel(
 	relPath string,
 	options afs.WalkOptions,
 ) bool {
-	if category, _ := afs.BuiltInSafetyCategory(relPath, options.SensitiveNameRules); category != "" {
+	// An exact high-risk opt-in is admitted by Safe Inventory, so drift must
+	// see it too; otherwise its written Entry reads as missing forever (audit
+	// G1-07).
+	if category, _ := afs.BuiltInSafetyCategory(relPath, options.SensitiveNameRules); category != "" && !optedIn(relPath, options.HighRiskOptIn) {
 		return true
 	}
 
@@ -402,4 +405,13 @@ func IsStaleFileWith(
 		)
 
 	return !equal, false, lineEndingOnly
+}
+
+func optedIn(relPath string, optIn []string) bool {
+	for _, path := range optIn {
+		if path == relPath {
+			return true
+		}
+	}
+	return false
 }
