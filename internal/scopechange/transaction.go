@@ -457,7 +457,7 @@ func advance(root string, intent *RecoveryIntent) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := cognitiontxn.EnsureLedger(root, cfg.LedgerEnabled, ledger.Event{Op: "managed_scope_change_apply",
+	if err := ensureScopeLedger(root, cfg.LedgerEnabled, ledger.Event{Op: "managed_scope_change_apply",
 		Source: authorizationSource(intent), Result: ledger.ResultOK, AppliedCount: formalMutationCount(&intent.Preview),
 		RecoveryTransactionID: intent.TransactionID, PreIndexSHA256: intent.Preview.IndexPostimage.PreimageSHA256,
 		PostIndexSHA256: intent.Preview.IndexPostimage.PostimageSHA256, IndexSHA256: intent.Preview.IndexPostimage.PostimageSHA256,
@@ -549,7 +549,7 @@ func Rollback(repositoryRoot, transactionID string) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := cognitiontxn.EnsureLedger(root, cfg.LedgerEnabled, ledger.Event{Op: "managed_scope_change_rollback",
+	if err := ensureScopeLedger(root, cfg.LedgerEnabled, ledger.Event{Op: "managed_scope_change_rollback",
 		Source: authorizationSource(intent), Result: ledger.ResultOK, RecoveredCount: len(recovered), RecoveryTransactionID: intent.TransactionID,
 		IndexSHA256: intent.Preview.IndexPostimage.PreimageSHA256, BaselineSHA256: intent.Preview.BaselinePostimage.PreimageSHA256}); err != nil {
 		return nil, err
@@ -869,4 +869,16 @@ func preimageFor(values []FormalImage, path string) (FormalImage, bool) {
 		}
 	}
 	return FormalImage{}, false
+}
+
+// ensureScopeLedger records the terminal event when the team keeps a Ledger.
+// With the Ledger disabled the transaction completes without it, as an
+// Entries write does: requiring it after the formal writes left the change
+// applied but pending, and resume and rollback refused for the same reason,
+// so the repository had no way out (audit G1).
+func ensureScopeLedger(root string, enabled bool, event ledger.Event) error {
+	if !enabled {
+		return nil
+	}
+	return cognitiontxn.EnsureLedger(root, true, event)
 }

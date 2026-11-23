@@ -17,6 +17,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
   an applied batch. Once the repository is aligned with nothing pending, old
   `candidate-*.json` files can be deleted by hand (#208).
 
+- A Scope Change completes when the team has disabled the Ledger. The
+  terminal Ledger event was required after the formal writes, so `scope
+  activate` changed the Baseline, then stopped with
+  `cognition_transaction_ledger_required` and left the change pending;
+  `scope resume` and `scope rollback` refused for the same reason, and
+  `config set ledger_enabled true` was blocked by the pending change, so no
+  command could close it. Like an Entries write, a Scope Change now records
+  its terminal event only when the Ledger is enabled. A repository already
+  stuck this way closes with `aoci scope resume --transaction <id>`. Found by
+  the pre-release audit.
+
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
   says to keep the repository on NTFS. ReFS, a Dev Drive included, refuses
