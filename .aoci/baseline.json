@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-23T19:46:18Z",
+  "updated_at": "2026-11-23T20:27:27Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -2864,10 +2864,10 @@
     },
     "internal/cognitionbaseline/cognitionbaseline_test.go": {
       "role": "observe",
-      "sha256": "d8334e6fe5e5e53dc3b4bed16c49ecd0cd0ddcfe780b54a79bf9d66e056d2f8a",
-      "size": 6748,
-      "normalized_sha256": "d8334e6fe5e5e53dc3b4bed16c49ecd0cd0ddcfe780b54a79bf9d66e056d2f8a",
-      "format_sha256": "d8334e6fe5e5e53dc3b4bed16c49ecd0cd0ddcfe780b54a79bf9d66e056d2f8a",
+      "sha256": "b5d97ff5f009721a6032259c3bcfdd7eed0576e5ff594397c92dcfbad27344d1",
+      "size": 8369,
+      "normalized_sha256": "b5d97ff5f009721a6032259c3bcfdd7eed0576e5ff594397c92dcfbad27344d1",
+      "format_sha256": "b5d97ff5f009721a6032259c3bcfdd7eed0576e5ff594397c92dcfbad27344d1",
       "format_kind": "gofmt"
     },
     "internal/cognitionbaseline/verify.go": {

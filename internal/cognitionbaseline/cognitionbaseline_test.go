@@ -169,3 +169,36 @@ func TestVerifyVolumeStateAcceptsThePublishedStateAndNamesEachMismatch(t *testin
 		t.Fatalf("a drifted source must fail verification, got %v", err)
 	}
 }
+
+// A Database Volume binds every object to plan Evidence whose snapshot the
+// repository accepted: an object without Evidence, or Evidence whose source
+// has no accepted snapshot, stops the postimage before anything is bound.
+func TestBuildVolumePostimageRefusesUnboundOrUnacceptedDatabaseObjects(t *testing.T) {
+	const ref = "db:main/public.users"
+	projected := &cognition.Set{Volumes: map[string]*cognition.Asset{"database": {Objects: []cognition.Object{{
+		CanonicalRef: ref, CanonicalLine: "public.users[DT5T]: F:Holds accounts | R:- | A:- | S:-",
+	}}}}}
+	for _, tc := range []struct {
+		name     string
+		evidence []cognitionplan.EvidenceObject
+		want     string
+	}{
+		{"no evidence", nil, "cognition_database_binding_missing: " + ref},
+		{"no accepted snapshot", []cognitionplan.EvidenceObject{{SourceID: "main", ObjectRef: ref, EvidenceVersion: "v1", TableEvidenceSHA256: "abc"}},
+			"cognition_database_evidence_not_accepted: main (database_snapshot_missing"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			plan := sourcePlan(t, root)
+			plan.Evidence = tc.evidence
+			assets := map[string]cognitionplan.CandidateAsset{
+				"code":     {Path: "aoci.code.txt", Content: testCodeVolume},
+				"database": {Path: "aoci.database.txt", Content: "#AOCI-DATABASE-VOLUME: 1\n"},
+			}
+			value, bindings, err := BuildVolumePostimage(root, plan, projected, assets, "2026-01-01T00:00:00Z")
+			if err == nil || !strings.HasPrefix(err.Error(), tc.want) || value != nil || bindings != nil {
+				t.Fatalf("want refusal %q, got value=%v bindings=%v err=%v", tc.want, value, bindings, err)
+			}
+		})
+	}
+}
