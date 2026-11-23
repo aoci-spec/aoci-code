@@ -107,6 +107,13 @@ func newScopeBudgetSetCmd() *cobra.Command {
 	var mode, policyFile string
 	var target, warning, maximum int
 	command := &cobra.Command{Use: "set", Short: cliMessage("cli.short.scope_budget_set"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if cmd.Flags().Changed("policy-file") {
+			for _, flag := range []string{"mode", "target-tokens", "warning-tokens", "max-tokens"} {
+				if cmd.Flags().Changed(flag) {
+					return managedScopeExitError(fmt.Errorf("cognition_budget_policy_file_flag_conflict: --policy-file cannot be combined with --%s", flag))
+				}
+			}
+		}
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return managedScopeExitError(err)
