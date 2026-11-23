@@ -480,7 +480,13 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 	volumeSHA := indexTextHash(string(volumeRaw))
 	if volumeSHA == recovery.PreIndexSHA256 {
 		if err := writeRemoveIndex(plan.rc.paths.IndexPath, []byte(recovery.VolumePostimage), recovery.PreIndexSHA256); err != nil {
-			_ = removeRecoveryFile(removeRecoveryPath(root, plan.objectRef))
+			// The receipt is the only way to finish a write that did land, so
+			// it goes only when the Volume provably still holds its preimage
+			// (audit G2-02), as an Entries write decides.
+			_ = afs.RecoverAtomicWriteCAS(plan.rc.paths.IndexPath)
+			if after, readErr := os.ReadFile(plan.rc.paths.IndexPath); readErr == nil && indexTextHash(string(after)) == recovery.PreIndexSHA256 {
+				_ = removeRecoveryFile(removeRecoveryPath(root, plan.objectRef))
+			}
 			return &Fail{Code: errWriteConflict, Msg: writeMessage("remove.index_write_failed", localeSafeWriteDetail(err.Error()))}
 		}
 	} else if volumeSHA != recovery.PostIndexSHA256 {
@@ -499,8 +505,15 @@ func commitVolumeRemove(root, source string, plan *removePlan) *Fail {
 	} else if baselineSHA != recovery.BaselinePostSHA256 {
 		return &Fail{Code: errWriteConflict, Msg: "remove_baseline_third_party_conflict"}
 	}
-	set, loadErr := cognition.Load(root, plan.rc.cfg.IndexPath)
-	if loadErr != nil || cognitionObjectByRef(set.Volumes[plan.volumeID], plan.objectRef) != nil {
+	// plan.rc.cfg.IndexPath names the object Volume; the set loads from the
+	// Root, or the check read nothing and passed (audit G2-01).
+	rootCfg, cfgErr := config.LoadReadOnly(root)
+	if cfgErr != nil {
+		return &Fail{Code: errInternal, Msg: "remove_volume_postimage_unconfirmed"}
+	}
+	set, loadErr := cognition.Load(root, rootCfg.IndexPath)
+	if loadErr != nil || set.LayoutMode != cognition.LayoutVolumesV1 || set.Volumes[plan.volumeID] == nil ||
+		cognitionObjectByRef(set.Volumes[plan.volumeID], plan.objectRef) != nil {
 		return &Fail{Code: errInternal, Msg: "remove_volume_postimage_unconfirmed"}
 	}
 	if plan.out.OwnershipRepair {

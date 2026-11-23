@@ -184,14 +184,21 @@ func inspectCognitionVolumeAlignment(
 		volumePath := asset.Descriptor.Path
 		current, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(volumePath)))
 		stored, ok := state.Files[volumePath]
-		if hashErr != nil || !ok || stored.SHA256 != current.SHA256 {
+		// The same equivalence governance uses: a Volume that differs from its
+		// Baseline record only by line endings is aligned under the team's
+		// tolerance (audit G2-04).
+		if hashErr != nil || !ok {
+			findings = append(findings, "unaligned: "+volumePath)
+		} else if equal, _ := baseline.EquivalentFingerprints(stored, current, loaded.cfg.LineEndingTolerance); !equal {
 			findings = append(findings, "unaligned: "+volumePath)
 		}
 	}
 	if containsString(outcome.Volumes, "database") {
 		database := dbcognition.Assess(root, loaded.cfg.DatabaseSources, loaded.set, state)
 		for _, source := range database.Sources {
-			if source.State != machinecontract.DatabaseCognitionCurrent {
+			// A declared-only source blocks nothing, as Maintain answers
+			// (audit G2-03).
+			if source.State != machinecontract.DatabaseCognitionCurrent && source.State != machinecontract.DatabaseCognitionEngineNotImplemented {
 				findings = append(findings, source.State+": source:"+source.SourceID)
 			}
 		}

@@ -42,6 +42,15 @@ All notable public changes to AOCI-CODE will be documented in this file.
   the cognition budget the way `scope status` does, on the Code Volume and
   over every declared asset: it measured the Root alone, so its R and S
   bands checked no Entry and its plan recorded zero Entries.
+- Fixes from the pre-release audit, write path group: the final Apply's
+  alignment check agrees with governance on a Volume that differs from its
+  Baseline only by line endings (a zero-write batch on a CRLF checkout never
+  closed) and on a declared-only database source such as MongoDB (the last
+  batch never carried `terminal_proof`); a Volumes removal's post-write check
+  loads the cognition set from the Root instead of reading nothing; and a
+  removal whose Volume write landed but reported an error keeps its receipt,
+  so the next call finishes the Baseline instead of leaving the Volume ahead
+  of it.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
