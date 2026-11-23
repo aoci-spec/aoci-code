@@ -70,7 +70,11 @@ fi
 
 echo
 echo "2. Direct Go modules (go list -m -u; the replaced connector is section 3)"
-if ! "${GO_BIN}" list -m -u -f '{{if and (not .Indirect) (not .Main) (not .Replace)}}  {{.Path}} {{.Version}}{{with .Update}}  ->  {{.Version}} available{{else}}  (current){{end}}{{end}}' all 2>"${TMPDIR:-/tmp}/dependency-review.$$" | sed '/^$/d'; then
+# Captured before printing: piped into sed, a failed go list reported sed's
+# status and the review passed with section 2 empty.
+if modules="$("${GO_BIN}" list -m -u -f '{{if and (not .Indirect) (not .Main) (not .Replace)}}  {{.Path}} {{.Version}}{{with .Update}}  ->  {{.Version}} available{{else}}  (current){{end}}{{end}}' all 2>"${TMPDIR:-/tmp}/dependency-review.$$")"; then
+  printf '%s\n' "${modules}" | sed '/^$/d'
+else
   fail "go list -m -u failed: $(tr '\n' ' ' <"${TMPDIR:-/tmp}/dependency-review.$$")"
 fi
 rm -f "${TMPDIR:-/tmp}/dependency-review.$$"
@@ -100,9 +104,9 @@ fi
 
 echo
 echo "4. GitHub Action pins (.github/workflows)"
-grep -hoE 'uses: *[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40} *# *v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/*.yml |
-  sed -E 's/uses: *//; s/@/ /; s/ *# */ /' | sort -u |
-  while read -r action pinned_sha pinned_version; do
+# Fed by process substitution so fail() sets failed in this shell; a piped
+# loop ran in a subshell and the re-check after it missed an empty listing.
+while read -r action pinned_sha pinned_version; do
     if ! tags="$(remote_tags "https://github.com/${action}")" || [ -z "${tags}" ]; then
       fail "${action}: github.com tag listing unreachable"
       continue
@@ -118,10 +122,8 @@ grep -hoE 'uses: *[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40} *# *v[0-9]+\.[0-9
       state="${state}; PIN MISMATCH: ${pinned_version} is ${claimed_sha} upstream, not the pinned sha"
     fi
     echo "  ${action} ${pinned_version} (${pinned_sha:0:12})  ${state}"
-  done
-# The while loop ran in a subshell, so its failures are re-derived here.
-if grep -hoE 'uses: *[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40} *# *v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/*.yml | sed -E 's/uses: *//; s/@.*//' | sort -u |
-  while read -r action; do git ls-remote --tags "https://github.com/${action}" >/dev/null 2>&1 || exit 1; done; then :; else failed=1; fi
+done < <(grep -hoE 'uses: *[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40} *# *v[0-9]+\.[0-9]+\.[0-9]+' .github/workflows/*.yml |
+  sed -E 's/uses: *//; s/@/ /; s/ *# */ /' | sort -u)
 echo "  every pin must stay equal across workflows (internal/safety); dependabot proposes the bumps, a person merges them"
 
 echo

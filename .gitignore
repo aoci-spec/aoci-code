@@ -57,6 +57,7 @@ coverage.txt
 .claude/settings.json
 .codex/config.toml
 .cursor/mcp.json
+.pi/mcp.json
 opencode.json
 opencode.jsonc
 .opencode/

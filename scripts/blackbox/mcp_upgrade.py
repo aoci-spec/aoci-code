@@ -881,9 +881,13 @@ def check_version(version, shape, old_binary, workdir):
         # behind across an upgrade. The binary under test must then plan over
         # that receipt through the MCP path (the path that reads receipts):
         # its Maintain has to issue the new file and its own batch must apply.
+        # No CLI fallback: update-entry reads no batch receipt, so finishing
+        # through it once the MCP path failed passed this shape without
+        # testing the receipt it exists for (audit G7-02).
         with Session(old_binary, repo) as stale:
-            stale.call("aoci_maintain")
-        grew = False
+            stale_plan = maintain_facts(stale.call("aoci_maintain"))
+        stale_issued = bool(((stale_plan or {}).get("code_plan") or {}).get("batch_id"))
+        grew, first_applied = False, None
         with Session(BIN, repo) as fresh:
             planned = maintain_facts(fresh.call("aoci_maintain"))
             cands = (planned or {}).get("candidates") or []
@@ -892,10 +896,13 @@ def check_version(version, shape, old_binary, workdir):
                 entries = [{"path": c["path"], "source_sha256": c["source_sha256"], "candidate_id": c["candidate_id"],
                             "new_entry": f"{os.path.basename(c['path'])}[CG5T]: F:{ENTRY_F} | R:- | A:- | S:-"}
                            for c in cands]
-                applied = maintain_facts(fresh.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}))
-                grew = bool(applied and applied.get("status") == "applied" and applied.get("aligned") is True)
+                first_applied = maintain_facts(fresh.call("aoci_update_entry", {"code_batch_id": batch, "entries": entries}))
+        if stale_issued and first_applied and first_applied.get("status") == "applied":
+            # Any batch still left goes through the same MCP path.
+            grew = first_applied.get("aligned") is True or mcp_author_to_aligned(BIN, repo)[0]
         if not grew:
-            grew = author_to_aligned(BIN, repo)
+            how = (f" stale_issued={stale_issued} planned={json.dumps(planned)[:200] if planned else planned}"
+                   f" applied={json.dumps(first_applied)[:200] if first_applied else first_applied}")
     elif shape == "ignoredpull":
         # Further governance beside the rule-pulled object, only through the MCP
         # path a host drives and with no CLI fallback: a changed tracked file and
@@ -1030,7 +1037,7 @@ def check_downgrade(version, old_binary, workdir):
     os.makedirs(os.path.dirname(grown), exist_ok=True)
     with open(grown, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("package grow\n\n// Grow is authored by the binary under test.\nfunc Grow() {}\n")
-    grew = author_to_aligned(BIN, repo)
+    grew = mcp_author_to_aligned(BIN, repo)[0]
     checkout = os.path.join(workdir, f"{version}-downgrade-checkout")
     shutil.copytree(repo, checkout)
     moved = verify_facts(BIN, checkout)

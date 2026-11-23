@@ -83,7 +83,7 @@ jobs:
         run: echo "AOCI_JOB_START=$(date +%s)" >> "$GITHUB_ENV"
       - name: CAS, Recovery, Migration, Scope, and Database safety
         run: |
-          go test -short -count=1 ./internal/fs ./internal/baseline ./internal/bootstrapapply ./internal/migrationapply ./internal/scopechange ./internal/dbevidence ./internal/dbcognition ./internal/onboarding
+          go test -short -count=1 ./internal/fs ./internal/baseline ./internal/bootstrapapply ./internal/migrationapply ./internal/scopechange ./internal/dbevidence ./internal/dbcognition ./internal/onboarding ./internal/cognitiontxn ./internal/managedstate
           go test -short -count=1 -run '^(TestMCPInvocationUsesTopLevelCommandOnly|TestCheckCleanRepo|TestScopeStatusObservesTestsWithoutChangingWholeIndex|TestScopeAcknowledgePreservesIndexAuthoringDebt|TestScopeBudgetDirectEditRequiresRefreshWithoutFormalWrites|TestDatabaseEvidenceBundleContainsFactsButNoSemanticCandidate|TestFirstManagedScanPersistsRolesAndForceCannotWashReceipt)$' ./internal/cli
       - name: timing
         if: always()

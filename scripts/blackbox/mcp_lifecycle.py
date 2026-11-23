@@ -113,7 +113,7 @@ class Report:
         counts = {}
         for r in self.records:
             counts[r["status"]] = counts.get(r["status"], 0) + 1
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump({"meta": self.meta, "totals": counts, "records": self.records}, f,
                       ensure_ascii=False, indent=1)
         return path, counts
@@ -873,7 +873,7 @@ def without_command_spans(text):
 # sentence to EN_RUN and was flagged as a leak on developer machines while CI
 # runners, which detect none, passed. A fragment made only of host names is
 # runtime data, not a sentence.
-HOST_NAMES = {"claude", "codex", "cursor", "opencode", "qoder", "windsurf"}
+HOST_NAMES = {"claude", "codex", "cursor", "opencode", "qoder", "pi", "windsurf"}
 
 
 def en_sentence_fragments(text, machine_blob):
@@ -1124,7 +1124,7 @@ def suite_incremental(rep, work):
         return
     # a) 语义修改 → 单候选 update → 重对齐
     tgt = os.path.join(fx, "src", "utils", "time.ts")
-    with open(tgt, "a") as f:
+    with open(tgt, "a", encoding="utf-8") as f:
         f.write("\n// incremental probe: clarify timezone contract\n")
     s = Session(fx)
     m, t, _ = maintain(s)
@@ -1139,7 +1139,7 @@ def suite_incremental(rep, work):
     al, _ = aligned(fx)
     rep.rec(g, "modify-one-file", "PASS" if one and al else "FAIL", f"cands={len(c)}")
     # b) 新增文件 → create 候选
-    with open(os.path.join(fx, "src", "utils", "clock_format.ts"), "w") as f:
+    with open(os.path.join(fx, "src", "utils", "clock_format.ts"), "w", encoding="utf-8") as f:
         f.write("export function formatClock(ms: number): string {\n"
                 "  const s = Math.floor(ms / 1000);\n"
                 "  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;\n}\n")
@@ -1585,7 +1585,7 @@ def suite_governance(rep, work):
     open(cs, "w", encoding="utf-8").write('{"version":"managed-scope-candidate-set/v1","entries":[],"dispositions":[]}')
     rc, v, out, _ = cli(fx, "scope", "preview", "--candidate-file", cs, expect_ok=False)
     pv = os.path.join(work, "gov-pv.json")
-    open(pv, "w").write(out)
+    open(pv, "w", encoding="utf-8").write(out)
     rc, v, out, _ = cli(fx, "scope", "apply", "--preview-file", pv, expect_ok=False)
     # 两件事都要成立: Apply 仍被拒, 且原因仍然看得见。理由字符串本身不是判据 ——
     # 覆盖缩减现在路由给独立审批(它本就该有审批人), 于是 Apply 说的是"需要真人",
@@ -1731,7 +1731,7 @@ def opencode_run(fx, model, prompt, timeout_s, artifact):
         out = (e.stdout or b"").decode("utf-8", "replace") if isinstance(e.stdout, bytes) else (e.stdout or "")
         err = (e.stderr or b"").decode("utf-8", "replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
         err += "\n===TIMEOUT===\n"
-    with open(artifact, "w") as f:
+    with open(artifact, "w", encoding="utf-8") as f:
         f.write(out)
         if err:
             f.write("\n===STDERR===\n" + err[-8000:])
@@ -1826,7 +1826,7 @@ def m_attest(rep, work, model, timeout_s, artifacts):
 
 # ---------------------------------------------------------------- compare
 def compare(pa, pb):
-    A, B = json.load(open(pa)), json.load(open(pb))
+    A, B = json.load(open(pa, encoding="utf-8")), json.load(open(pb, encoding="utf-8"))
     # 跨模型对比: 把 establish[claude-sonnet-5] 归一成 establish[*] 使行对齐
     def key(r):
         return (re.sub(r"\[[^\]]+\]$", "[*]", r["suite"]), r["name"])
