@@ -254,6 +254,11 @@ func Detect(root string) []string {
 		(home != "" && dirExists(filepath.Join(home, ".qoder"))) {
 		found = append(found, "qoder")
 	}
+	// pi: project .pi/ or the user-level ~/.pi/agent/
+	if dirExists(filepath.Join(root, ".pi")) ||
+		(home != "" && dirExists(filepath.Join(home, ".pi", "agent"))) {
+		found = append(found, "pi")
+	}
 	// opencode: a project-level root configuration or a nested configuration in the flesh; a lone .opencode directory may hold only
 	// skills/commands, which does not prove an MCP configuration environment and must not be reported as one.
 	if fileExists(filepath.Join(root, "opencode.json")) ||
@@ -298,6 +303,15 @@ func Install(root, agent string, withHooks bool) (string, error) {
 			return "", err
 		}
 		return msg + "\n" + hookMessage("hook.qoder_shares_mcp_json"), nil
+	case "pi":
+		// Pi reads project servers from .pi/mcp.json after the project is
+		// trusted, and the repository-root AGENTS.md on its own. Its hooks are
+		// TypeScript extensions, which AOCI does not install.
+		msg, err := InstallPiMCP(root)
+		if err != nil {
+			return "", err
+		}
+		return msg + "\n" + hookMessage("hook.pi_trust_note"), nil
 	case "codex":
 		var b strings.Builder
 		// The conflict precheck must finish before the MCP write, so a conflict between the user's own compaction policy

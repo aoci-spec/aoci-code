@@ -56,20 +56,33 @@ func claudeSettingsHasAociHook(settings map[string]any) bool {
 
 // InstallClaudeMCP merge-writes mcpServers.aoci into the project-level .mcp.json
 func InstallClaudeMCP(root string) (string, error) {
-	path := filepath.Join(root, ".mcp.json")
+	return installMCPServersFile(root, ".mcp.json", "hook.claude_mcp_current", "hook.claude_mcp_invalid", "hook.claude_mcp_written")
+}
+
+// InstallPiMCP merge-writes mcpServers.aoci into the project-level
+// .pi/mcp.json, the file Pi reads for project servers once the project is
+// trusted. The schema is the mcpServers shape .mcp.json uses.
+func InstallPiMCP(root string) (string, error) {
+	return installMCPServersFile(root, ".pi/mcp.json", "hook.pi_mcp_current", "hook.pi_mcp_invalid", "hook.pi_mcp_written")
+}
+
+// installMCPServersFile is the one writer of an mcpServers-shaped host file.
+func installMCPServersFile(root, relativePath, currentKey, invalidKey, writtenKey string) (string, error) {
+	path := filepath.Join(root, filepath.FromSlash(relativePath))
 	data := NewTplData(root)
 
-	// Idempotent early return: reuse the criterion-side IsClaudeMCPInstalled (single source of truth).
-	// On corrupt JSON the criterion returns false by principle, and the parsing path below gives the actionable error; behaviour unchanged.
-	if IsClaudeMCPInstalled(root) {
-		return hookMessage("hook.claude_mcp_current"), nil
+	// Idempotent early return through the criterion the status readers use.
+	// On corrupt JSON the criterion answers false and the parse below gives
+	// the actionable error.
+	if mcpServersFileHasAOCI(root, relativePath) {
+		return hookMessage(currentKey), nil
 	}
 
 	// Read the existing configuration (missing = an empty object)
 	cfg := map[string]any{}
 	if raw, err := os.ReadFile(path); err == nil {
 		if jerr := json.Unmarshal(raw, &cfg); jerr != nil {
-			return "", errors.New(hookMessage("hook.claude_mcp_invalid", jerr))
+			return "", errors.New(hookMessage(invalidKey, jerr))
 		}
 	}
 	servers, _ := cfg["mcpServers"].(map[string]any)
@@ -89,7 +102,7 @@ func InstallClaudeMCP(root string) (string, error) {
 	if err := BackupThenWrite(path, append(out, '\n')); err != nil {
 		return "", err
 	}
-	return hookMessage("hook.claude_mcp_written"), nil
+	return hookMessage(writtenKey), nil
 }
 
 // InstallClaudeHook writes the hook script (.aoci/hooks/claude-pretool.sh) and

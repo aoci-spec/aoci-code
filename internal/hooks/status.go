@@ -39,7 +39,16 @@ func IsAgentsBlockPresent(root string) bool {
 // Criterion: the file exists, parses as JSON, and its top-level mcpServers object holds the "aoci" key.
 // This function is the single implementation of that criterion; InstallClaudeMCP's idempotent early return reuses it.
 func IsClaudeMCPInstalled(root string) bool {
-	data, err := os.ReadFile(filepath.Join(root, ".mcp.json"))
+	return mcpServersFileHasAOCI(root, ".mcp.json")
+}
+
+// IsPiMCPInstalled reports whether .pi/mcp.json configures the aoci server.
+func IsPiMCPInstalled(root string) bool {
+	return mcpServersFileHasAOCI(root, ".pi/mcp.json")
+}
+
+func mcpServersFileHasAOCI(root, relativePath string) bool {
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relativePath)))
 	if err != nil {
 		return false
 	}

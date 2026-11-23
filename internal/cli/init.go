@@ -51,6 +51,8 @@ func initAgentCandidatePaths(agent string) []string {
 		// Qoder CLI reads the same project-level .mcp.json Claude Code does;
 		// nothing else is written for it.
 		return []string{".mcp.json"}
+	case "pi":
+		return []string{".pi/mcp.json"}
 	default:
 		return nil
 	}
@@ -110,9 +112,9 @@ func initAgentGuideCommand(
 		return "aoci index agent guide --agent " +
 			agent +
 			" --json"
-	case "qoder":
-		// The Guide has no Qoder-specific text; the Claude Code guide reads the
-		// same .mcp.json and the same AGENTS.md block.
+	case "qoder", "pi":
+		// The Guide has no Qoder- or Pi-specific text; both read an
+		// mcpServers file and the same AGENTS.md block as Claude Code.
 		return "aoci index agent guide --agent claude --json"
 	default:
 		return "aoci index agent guide --agent " +
@@ -150,7 +152,7 @@ func init() {
 				}
 			}
 			switch agent {
-			case "", "claude", "codex", "cursor", "opencode", "qoder", "all":
+			case "", "claude", "codex", "cursor", "opencode", "qoder", "pi", "all":
 			default:
 				return &ExitError{
 					Code: ExitConfig,

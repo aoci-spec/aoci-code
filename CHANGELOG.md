@@ -2,6 +2,54 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- A candidate receipt holds its batch, not the whole plan, and old runtime
+  records are pruned. Every `.aoci/drafts/code-cognition/candidate-*.json`
+  stored the complete target list of its plan: megabytes per twenty-file batch
+  on a large repository, 400 MiB over one first build in the report, and
+  neither receipts nor `.aoci/transactions/history/` were ever pruned. A
+  receipt is now sized by its batch; issuing a batch removes candidate
+  receipts older than 14 days, and archiving an Entries or Managed Scope
+  transaction removes that kind's archives older than 30 days. Migration,
+  bootstrap, and reversal archives are kept. A receipt written by an earlier
+  version still works. After a downgrade, call Maintain again for a batch this
+  version issued: an older binary refuses the short receipt as
+  `code_candidate_receipt_invalid`, with zero writes (#208).
+
+- On Windows, a governed write on a volume that cannot do the atomic file
+  replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
+  says to keep the repository on NTFS. ReFS, a Dev Drive included, refuses
+  `ReplaceFileW`, and the failure read as an internal CAS error
+  (`ReplaceFileW失败: Access is denied`). Nothing is written when it stops;
+  troubleshooting documents the NTFS worktree route. ReFS itself is not yet
+  supported (#210).
+
+- `aoci scan` rejects positional arguments with exit 2 before scanning.
+  `aoci scan svc-a` ignored the argument and wrote the whole repository into
+  the Baseline (PR #200 by @dayebishouji).
+
+- `aoci scope budget set` refuses a policy file with a second JSON value or
+  stray text after the policy, and refuses `--policy-file` combined with
+  `--mode` or a token flag; both used to succeed and save something other
+  than what was asked (PR #202, PR #207 by @dayebishouji).
+
+- `aoci init` in a non-Git container warns when index-role files sit in a
+  directory outside every child Git repository, where no ignore file applies,
+  and hands the exclude command. A container whose sources all live in its
+  child repositories gets no warning (#184, PR #203 by @dayebishouji).
+
+- `aoci init --agent pi` integrates Pi: it merges the `aoci` server into the
+  project-level `.pi/mcp.json`, keeps that file out of Git and Managed Scope,
+  and writes the managed `AGENTS.md` block. No Pi extension or hook is
+  installed. Written from Pi's MCP documentation and not yet exercised against
+  a running Pi (#209).
+
+- Documentation and tests: the container guide states when narrowing before
+  the first Entry needs approval (PR #199); the Windows lifecycle suite
+  compares paths by file identity and the Git root alias test uses a
+  junction (PR #205, PR #206), all by @dayebishouji.
+
 ## v0.2.0-rc3
 
 The third 0.2.0 candidate makes the first build faster and folds in a week of

@@ -192,6 +192,23 @@ Cursor version before adding it manually:
 
 This limitation must remain visible in compatibility claims; a reference template is not native-host validation.
 
+## Pi
+
+```bash
+aoci --repo /absolute/path/to/repository init --agent pi
+```
+
+Pi reads project MCP servers from `.pi/mcp.json` once the project is trusted
+in Pi, in the `mcpServers` shape `.mcp.json` uses, and reads a repository-root
+`AGENTS.md` on its own. `init --agent pi` merges the `aoci` server into that
+file, keeps it out of Git and Managed Scope, writes the managed `AGENTS.md`
+block, and installs nothing else: Pi's hooks are TypeScript extensions, which
+AOCI does not ship (`--hooks` is reported as ignored). Transport settings stay
+at the defaults because Pi's tool-result window has not been measured.
+
+This follows Pi's published MCP documentation for `@earendil-works/pi-coding-agent`
+1.6.0. It was not exercised against a running Pi here; report what you see.
+
 ## Qoder
 
 ```bash

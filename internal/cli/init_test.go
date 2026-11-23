@@ -390,7 +390,7 @@ func TestInitInvalidAgentRejected(t *testing.T) {
 	if !errors.As(err, &ee) || ee.Code != ExitConfig {
 		t.Fatalf("应为 ExitConfig 的 ExitError: %v", err)
 	}
-	if !strings.Contains(ee.Msg, "claude/codex/cursor/opencode/qoder/all") {
+	if !strings.Contains(ee.Msg, "claude/codex/cursor/opencode/qoder/pi/all") {
 		t.Fatalf("拒绝文案应列出合法值: %q", ee.Msg)
 	}
 	if _, serr := os.Stat(filepath.Join(root, ".aoci")); !os.IsNotExist(serr) {
