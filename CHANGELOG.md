@@ -51,6 +51,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
   removal whose Volume write landed but reported an error keeps its receipt,
   so the next call finishes the Baseline instead of leaving the Volume ahead
   of it.
+- An Overview of a partial scope (`code`, `meta`, `project`, `database`)
+  whose Attestation passed no longer prints
+  `model_full_cognition_reliable: true` in its metadata while its own
+  receipt says false; a scope proves only itself (pre-release audit).
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

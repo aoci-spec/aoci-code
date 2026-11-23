@@ -480,7 +480,7 @@ func renderOverviewMetadata(
 		modelCognitionAttestationV1, challenge.IndexSHA256,
 		challenge.EntrySequenceSHA256, challenge.EntryCount, challenge.Digest,
 		formatChallengeOrdinals(challenge.Ordinals), len(challenge.Ordinals),
-		level.Level, level.State, reliable,
+		level.Level, level.State, fullScopeReliable(receipt, reliable),
 	)
 	if includeCognitionLevelMessage {
 		builder.WriteString(renderOverviewCognitionLevelMessage(level))
@@ -810,4 +810,12 @@ func (facts overviewDeliveryFacts) ledgerEvent(durationMs int64) ledger.Event {
 		event.Result = facts.Attestation.ModelAttestation
 	}
 	return event
+}
+
+// fullScopeReliable is the top-level model_full_cognition_reliable line: the
+// rule receiptWithState applies, so a passing Attestation of a partial scope
+// never reads as complete-system cognition beside a receipt that says
+// otherwise (audit G3-05).
+func fullScopeReliable(receipt cognitionReceipt, reliable bool) bool {
+	return receiptWithState(receipt, receipt.State, reliable).ModelFullReliable
 }
