@@ -946,8 +946,13 @@ func (session *cognitionRefreshSession) markDeliveryAttempt(receipt cognitionRec
 	// The pending compaction events are consumed, so no reload is open.
 	session.compactionAttempt = nil
 	session.established = true
-	session.generation = receipt.RefreshGeneration
-	session.lastReceipt = receipt
+	// A chain started earlier can finish after a newer one: its frozen
+	// receipt carries an older generation, which must not move the session
+	// back or replace the newer receipt (audit G3-02).
+	if receipt.RefreshGeneration >= session.generation {
+		session.generation = receipt.RefreshGeneration
+		session.lastReceipt = receipt
+	}
 	session.pendingReasons = map[string]bool{}
 	session.pendingEvents = map[string]bool{}
 }

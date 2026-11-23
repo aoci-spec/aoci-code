@@ -298,6 +298,37 @@ func rejectPendingRecovery(root string) error {
 	return nil
 }
 
+func curationDecisionsByPath(document *curation.Document) map[string]curation.Decision {
+	decisions := map[string]curation.Decision{}
+	if document != nil {
+		for _, decision := range document.Decisions {
+			decisions[decision.Path] = decision
+		}
+	}
+	return decisions
+}
+
+// heldFromAuthoring is the one rule for whether an index-role file is owed an
+// Entry: a configured curation exclusion, then a reviewed decision on these
+// exact bytes, then the file's profile (empty, binary, oversized). Both
+// inventory branches use it; the Managed Scope branch skipped it, so a Plan
+// demanded Entries governance holds out (audit G2-07).
+func heldFromAuthoring(path string, profile curation.Profile, cfg *config.Config, decisions map[string]curation.Decision) (bool, string) {
+	if afs.MatchExcludePattern(path, cfg.CurationExclude) {
+		return false, "curation_excluded"
+	}
+	if decision, exists := decisions[path]; exists && decision.SourceSHA256 == profile.SourceSHA256 {
+		if decision.Decision == curation.DecisionInclude {
+			return true, ""
+		}
+		return false, "curation_excluded"
+	}
+	if profile.Reason != "" {
+		return false, profile.Reason
+	}
+	return true, ""
+}
+
 func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.SafeInventorySummary, string, error) {
 	document, _, curationSHA, err := curation.Load(root)
 	if err != nil {
@@ -330,6 +361,7 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 			}
 		}
 		sort.Strings(paths)
+		decisions := curationDecisionsByPath(document)
 		result := make([]InventoryObject, 0, len(paths))
 		for _, path := range paths {
 			profile, profileErr := profiler.Path(path)
@@ -341,6 +373,8 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 				Lines: profile.Lines, Extension: profile.Ext, Eligible: role == machinecontract.ScopeRoleIndex, ScopeRole: role}
 			if !object.Eligible {
 				object.Reason = "managed_scope_observe_evidence"
+			} else {
+				object.Eligible, object.Reason = heldFromAuthoring(path, profile, cfg, decisions)
 			}
 			result = append(result, object)
 		}
@@ -359,10 +393,7 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 		return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("inventory_walk_failed")
 	}
 	paths := safeInventory.ManagedCandidates
-	decisions := make(map[string]curation.Decision, len(document.Decisions))
-	for _, decision := range document.Decisions {
-		decisions[decision.Path] = decision
-	}
+	decisions := curationDecisionsByPath(document)
 	result := make([]InventoryObject, 0, len(paths))
 	selectedPaths := make([]string, 0, len(paths))
 	curationExcluded := 0
@@ -374,19 +405,8 @@ func buildInventory(root string, cfg *config.Config) ([]InventoryObject, afs.Saf
 		if profileErr != nil {
 			return nil, afs.SafeInventorySummary{}, "", fmt.Errorf("inventory_profile_failed: %s", path)
 		}
-		object := InventoryObject{Path: path, SourceSHA256: profile.SourceSHA256, SizeBytes: profile.SizeBytes, Lines: profile.Lines, Extension: profile.Ext, Eligible: true}
-		if afs.MatchExcludePattern(path, cfg.CurationExclude) {
-			object.Eligible = false
-			object.Reason = "curation_excluded"
-		} else if decision, exists := decisions[path]; exists && decision.SourceSHA256 == profile.SourceSHA256 {
-			object.Eligible = decision.Decision == curation.DecisionInclude
-			if !object.Eligible {
-				object.Reason = "curation_excluded"
-			}
-		} else if profile.Reason != "" {
-			object.Eligible = false
-			object.Reason = profile.Reason
-		}
+		object := InventoryObject{Path: path, SourceSHA256: profile.SourceSHA256, SizeBytes: profile.SizeBytes, Lines: profile.Lines, Extension: profile.Ext}
+		object.Eligible, object.Reason = heldFromAuthoring(path, profile, cfg, decisions)
 		result = append(result, object)
 		if object.Eligible {
 			selectedPaths = append(selectedPaths, path)

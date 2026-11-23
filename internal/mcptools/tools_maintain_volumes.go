@@ -217,7 +217,11 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
 			}
 		}
-		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled {
+		// Code siblings issued in parallel plan against the Database Volume's
+		// bytes: a Database batch beside them would stale every sibling still
+		// being authored once it applies (audit G2-05), so Database waits
+		// until the siblings are in.
+		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
 		}
 	}
@@ -230,12 +234,17 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	}
 	result.Batch.CompleteCandidateSet = len(result.Candidates) > 0
 	result.Batch.ContinuationRequired = result.Batch.Remaining > 0
-	if result.CodePlan != nil && result.CodePlan.LogicalPlan != "" {
+	if codeSiblingsIssued(result) {
 		// Siblings issued ahead hold targets this response does not carry:
-		// remaining counts what no sibling holds, and the plan continues
-		// while any sibling is outstanding.
-		result.Batch.Remaining = result.CodePlan.Remaining
-		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired
+		// remaining counts what no sibling holds plus the Database work held
+		// back, and the plan continues while either is outstanding.
+		databaseOutstanding := 0
+		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
+			summary := facts.DatabaseCognition.Summary
+			databaseOutstanding = summary.Missing + summary.Stale + summary.Unbaselined
+		}
+		result.Batch.Remaining = result.CodePlan.Remaining + databaseOutstanding
+		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
 	}
 	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
@@ -635,6 +644,12 @@ func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result
 			EvidenceVersion: candidate.EvidenceVersion, EvidenceSHA256: candidate.TableEvidenceSHA256,
 			CandidateID: candidate.CandidateID, BatchID: plan.BatchID, ModelAuthoringOnly: true})
 	}
+}
+
+// codeSiblingsIssued reports a parallel Code plan in this response; only the
+// parallel issuer sets LogicalPlan.
+func codeSiblingsIssued(result volumeMaintainResult) bool {
+	return result.CodePlan != nil && result.CodePlan.LogicalPlan != ""
 }
 
 func volumeAuthoringTargetCount(facts *volumegovernance.Facts, requested map[string]bool, work volumegovernance.CodeAuthoringWork) int {

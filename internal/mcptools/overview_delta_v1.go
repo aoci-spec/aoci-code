@@ -356,8 +356,12 @@ func renderOverviewDeltaEmpty(ctx overviewRenderContext, receipt cognitionReceip
 	fmt.Fprintf(&builder, "layout_mode: %s\nrequested_scope: %s\neffective_scope: %s\nscope_available: true\nasset_state: %s\nmodel_scope_cognition_reliable: %t\n",
 		ctx.LayoutMode, ctx.RequestedScope, ctx.EffectiveScope, ctx.AssetState, receipt.ModelScopeReliable)
 	if includeCognitionStateV2 {
-		state := assessOverviewCognitionStateV2(true, true, ctx.Assessment.Semantic.GovernanceAligned, false,
-			overviewAttestationResult{DeliveryIntegrity: deliveryIntegrityConfirmed, ModelAttestation: modelAttestationNotProvided})
+		// Nothing was owed, so the protocol is complete and the attested base
+		// carries over, as the legacy fields above already say; reporting
+		// attestation_not_provided contradicted them (audit G3-04).
+		state := assessOverviewCognitionStateV2(true, true, ctx.Assessment.Semantic.GovernanceAligned, true,
+			overviewAttestationResult{DeliveryIntegrity: deliveryIntegrityConfirmed, ReportProvided: true, EnvelopeValid: true,
+				ModelAttestation: modelAttestationPass})
 		encoded, _ := json.Marshal(state)
 		fmt.Fprintf(&builder, "cognition_state_v2: %s\n", encoded)
 	}

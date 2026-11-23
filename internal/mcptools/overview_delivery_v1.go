@@ -723,10 +723,17 @@ func planOverviewChunks(
 		span := overviewChunkSpan{Start: boundaries[index], End: boundaries[index+1]}
 		for ordinal, offset := range entryOffsets {
 			if offset >= span.Start && offset < span.End {
-				if span.FirstOrdinal == 0 {
-					span.FirstOrdinal = ordinal + 1
+				// A delta carries each Entry's ordinal in the formal sequence,
+				// the one its Challenge asks for; chunk-local positions are
+				// forbidden by the delivery contract (audit G3-03).
+				formal := sequence[ordinal].Ordinal
+				if formal <= 0 {
+					formal = ordinal + 1
 				}
-				span.LastOrdinal = ordinal + 1
+				if span.FirstOrdinal == 0 {
+					span.FirstOrdinal = formal
+				}
+				span.LastOrdinal = formal
 			}
 		}
 		spans = append(spans, span)

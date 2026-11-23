@@ -58,15 +58,19 @@ func newScopeActivateCmd() *cobra.Command {
 				}
 				return managedScopeExitError(err)
 			}
-			if preview.Plan.InteractionRequired {
-				return pauseScopeActivation(cmd, root, preview)
-			}
-			aligned, err := scopeActivationAlreadyAligned(root, &preview.Plan)
+			// Nothing to activate writes nothing, under any posture: a review
+			// or high-risk posture always needs interaction, so asking first
+			// saved a preview and exited 2 on an aligned repository (audit
+			// G4-05).
+			aligned, err := scopeActivationAlreadyAligned(root, preview)
 			if err != nil {
 				return managedScopeExitError(err)
 			}
 			if aligned {
 				return writeScopeActivationAligned(cmd, &preview.Plan)
+			}
+			if preview.Plan.InteractionRequired {
+				return pauseScopeActivation(cmd, root, preview)
 			}
 			result, err := scopechange.Apply(root, preview, nil)
 			if err != nil {
@@ -94,7 +98,16 @@ type scopeActivationAligned struct {
 // recorded a transaction whose old and new identities were equal and whose
 // change lists were empty, which read as a plain "applied" (#113). An active
 // receipt without a recorded posture is left to Apply, which records one.
-func scopeActivationAlreadyAligned(root string, plan *scopechange.Plan) (bool, error) {
+func scopeActivationAlreadyAligned(root string, preview *scopechange.Preview) (bool, error) {
+	plan := &preview.Plan
+	// The change lists carry no in-place fingerprint update, such as an
+	// observe file edited where it stands; a formal image that would change
+	// is work to activate.
+	for _, image := range []*scopechange.FormalImage{&preview.IndexPostimage, &preview.BaselinePostimage, preview.CurationPostimage} {
+		if image != nil && image.PreimageSHA256 != image.PostimageSHA256 {
+			return false, nil
+		}
+	}
 	state, exists, err := baseline.Load(root)
 	if err != nil {
 		return false, err

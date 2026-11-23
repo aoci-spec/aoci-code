@@ -198,6 +198,18 @@ func TestScopeActivateApprovalStopsAndSavedPreviewCanBeApplied(t *testing.T) {
 			if err != nil {
 				t.Fatalf("saved preview cannot be applied: %v %s", err, out)
 			}
+			// Under the review posture now in effect, nothing left to activate
+			// is already_aligned: no preview, no approval, exit 0 (audit G4-05).
+			if change == "review" {
+				previews, _ := filepath.Glob(filepath.Join(root, ".aoci", "scope-change", "*"))
+				code, aligned := activateJSON(t, root)
+				if code != ExitOK || !strings.Contains(string(aligned), `"status": "already_aligned"`) {
+					t.Fatalf("an aligned review-posture activation: code=%d %s", code, aligned)
+				}
+				if after, _ := filepath.Glob(filepath.Join(root, ".aoci", "scope-change", "*")); len(after) != len(previews) {
+					t.Fatalf("an aligned activation saved a preview: %v -> %v", previews, after)
+				}
+			}
 		})
 	}
 }

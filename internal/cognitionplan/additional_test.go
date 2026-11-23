@@ -16,6 +16,9 @@ import (
 func TestManagedScopeOnboardingAuthorsOnlyIndexAndKeepsObserveAsEvidence(t *testing.T) {
 	root := t.TempDir()
 	writeFile(t, root, "src/main.go", "package main\n")
+	// Index-role files governance holds out of authoring (audit G2-07).
+	writeFile(t, root, "src/empty.go", "")
+	writeFile(t, root, "src/blob.go", "package main\x00binary\n")
 	writeFile(t, root, "src/main_test.go", "package main\n")
 	writeFile(t, root, "src/testdata/case.txt", "fixture\n")
 	cfg := config.DefaultConfig()
@@ -52,7 +55,8 @@ func TestManagedScopeOnboardingAuthorsOnlyIndexAndKeepsObserveAsEvidence(t *test
 	for _, task := range plan.AuthoringTasks {
 		authoring[task.ObjectRef] = true
 	}
-	if !authoring["code:src/main.go"] || authoring["code:src/main_test.go"] || authoring["code:src/testdata/case.txt"] {
+	if !authoring["code:src/main.go"] || authoring["code:src/main_test.go"] || authoring["code:src/testdata/case.txt"] ||
+		authoring["code:src/empty.go"] || authoring["code:src/blob.go"] {
 		t.Fatalf("Managed Scope authoring selection invalid: %+v", plan.AuthoringTasks)
 	}
 	inventory := map[string]InventoryObject{}

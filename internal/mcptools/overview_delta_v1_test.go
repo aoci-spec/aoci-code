@@ -303,6 +303,16 @@ func TestOverviewDeletionOnlyDeltaReanchors(t *testing.T) {
 	if overviewMetadataValue(t, next, "delivery_mode") != overviewDeliveryDelta || strings.Contains(next, "challenge_digest") {
 		t.Fatalf("the new base did not produce an empty delta: %s", next)
 	}
+	// The v2 projection of an empty delta agrees with its legacy fields: the
+	// protocol is complete and the attested base carries over (audit G3-04).
+	passProbe(t, session, root)
+	v2 := callVolumeTool(t, session, "aoci_overview", map[string]any{"delta_since": overviewMetadataValue(t, delta, "index_sha256"),
+		"cognition_state_version": "cognition-state/v2"})
+	state := overviewMetadataValue(t, v2, "cognition_state_v2")
+	if !strings.Contains(state, `"protocol_completed":true`) || !strings.Contains(state, `"model_cognition_usable":true`) ||
+		strings.Contains(state, "attestation_not_provided") {
+		t.Fatalf("empty delta v2 state contradicts its legacy fields: %s", state)
+	}
 	// An empty delta sends no body, so it supersedes nothing: the delivery
 	// just proven is still the current one and its proof still stands.
 	again := attestDelivered(t, session, root, delta, false)

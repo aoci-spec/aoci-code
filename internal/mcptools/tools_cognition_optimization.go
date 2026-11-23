@@ -312,6 +312,13 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 		if !wanted[target.ObjectRef] {
 			return codebatch.Plan{}, cognitionoptimization.Selection{}, fmt.Errorf("optimization receipt does not match checkpoint prefix")
 		}
+		// Line-ending tolerance keeps governance aligned across an LF/CRLF
+		// change, but the write binds raw bytes: a receipt replayed over them
+		// was refused forever. A stale source makes the caller plan afresh
+		// (audit G3-07).
+		if live, hashErr := baseline.HashFile(filepath.Join(root, filepath.FromSlash(target.Path))); hashErr != nil || live.SHA256 != target.SourceSHA256 {
+			return codebatch.Plan{}, cognitionoptimization.Selection{}, fmt.Errorf("optimization candidate source is stale: %s", target.Path)
+		}
 		entries = append(entries, cognitionoptimization.AlignedEntry{ObjectRef: target.ObjectRef, Path: target.Path,
 			SourceSHA256: target.SourceSHA256, ExistingEntry: target.ExistingEntry,
 			EScaleMismatch: optimizationEScaleMismatch(root, thresholds, target.Path, target.ExistingEntry)})
@@ -327,7 +334,8 @@ func loadOptimizationCurrentBatch(root string, loaded *cognitionRepoCtx, facts *
 		CompositeIdentity: receipt.CompositeIdentity, ScopePolicyIdentity: receipt.ScopePolicyIdentity,
 		CodeVolumePath: receipt.CodeVolumePath, CodeVolumeSHA256: receipt.CodeVolumeSHA256,
 		TotalTargets: len(receipt.Targets), MaxEntries: codeBatchLimit(loaded.cfg),
-		Included: len(receipt.Targets), CompleteCandidateSetForBatch: true,
+		TransportBudgetBytes: maintainTransportBudget(loaded.cfg),
+		Included:             len(receipt.Targets), CompleteCandidateSetForBatch: true,
 		Candidates: make([]codebatch.Candidate, 0, len(receipt.Targets)), NextAction: "author_complete_current_machine_batch"}
 	for _, target := range receipt.Targets {
 		plan.Candidates = append(plan.Candidates, codebatch.Candidate{Target: target})

@@ -835,8 +835,23 @@ func loadBaseSnapshot(repoRoot string) (*Config, string, error) {
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, "", fmt.Errorf("configuration JSON is invalid %s: %w", path, err)
 	}
+	// A file written before the Locale field is a zh-CN project, as Load
+	// reads it; a CAS save from here wrote the en-US default into it (audit
+	// G4-03).
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(data, &fields) == nil {
+		if _, exists := fields["locale"]; !exists {
+			cfg.Locale = textassets.LegacyLocale
+		}
+	}
 	applyFallbacks(cfg)
 	if err := normalizeAutomationConfig(cfg); err != nil {
+		return nil, "", err
+	}
+	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
+		return nil, "", err
+	}
+	if err := validateHumanApprovalChannel(cfg.HumanApprovalChannel); err != nil {
 		return nil, "", err
 	}
 	if err := validateCognitionRefreshThreshold(cfg.CognitionRefreshThreshold); err != nil {
@@ -954,6 +969,12 @@ func normalizeForSave(cfg *Config) error {
 		return err
 	}
 	if err := validateIndexPath(cfg.IndexPath); err != nil {
+		return err
+	}
+	if err := validateSensitiveNameRules(cfg.SensitiveNameRules); err != nil {
+		return err
+	}
+	if err := validateHumanApprovalChannel(cfg.HumanApprovalChannel); err != nil {
 		return err
 	}
 	if err := validateLocale(cfg.Locale); err != nil {

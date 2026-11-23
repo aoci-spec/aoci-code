@@ -460,7 +460,26 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	result.CodePlan = &codebatch.Plan{Version: codebatch.Version, BatchID: batchID, CompositeIdentity: ids.CompositeIdentity,
 		ScopePolicyIdentity: ids.ScopePolicyIdentity, CodeVolumePath: ids.CodeVolumePath, CodeVolumeSHA256: plan.PreimageSHA256,
 		MaxEntries: codeBatchLimit(loaded.cfg), LogicalPlan: plan.LogicalPlan, SiblingOf: plan.LogicalPlan, Siblings: others}
+	// The repository's own stop comes first, as on the no-argument path: a
+	// pending recovery, a budget or Locale block, or owed Evidence leaves the
+	// plan unchanged instead of handing out a batch every Apply will refuse
+	// (audit G2-06). Observe evidence the batch can confirm still rides.
+	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
+	if facts.Result == volumegovernance.ResultEvidenceRequired || (facts.Result == volumegovernance.ResultBlocked && !observeRides) {
+		result.Status, result.Aligned, result.Result = autoStatusStopped, false, facts.Result
+		if facts.Result == volumegovernance.ResultEvidenceRequired {
+			result.NextAction = facts.NextRequiredAction
+			result.NextCommands = evidenceNextCommands(root)
+		} else {
+			result.NextAction = blockedNextAction(facts, nil)
+			result.NextCommands = blockedNextCommands(root, facts, nil)
+			result.ObserveReview = observeReviewFor(facts)
+		}
+		result.CodePlan.NextAction = result.NextAction
+		state = ""
+	}
 	switch state {
+	case "":
 	case codebatch.SiblingIssued, codebatch.SiblingDelivered:
 		receipt := receipts[batchID]
 		if state == codebatch.SiblingIssued {

@@ -218,11 +218,14 @@ func handleVolumeOverview(
 			case guard == nil:
 				fallbackReason = machinecontract.OverviewFallbackDeltaRetentionUnavailable
 			case plan.deltaCount() == 0 && len(plan.removed) == 0 && !base.headerChanged(anchor):
-				// Nothing changed since the base: re-anchor it at the current
-				// identity and answer without a body, a Challenge, or a proof.
-				base.ScopeIdentity, base.CompositeIdentity = view.ScopeIdentity, loaded.set.CompositeIdentity
+				// Nothing changed since the base: answer without a body, a
+				// Challenge, or a proof. Only aligned governance re-anchors the
+				// base; under Dirty or Stale it stays where the last reliable
+				// sequence left it (aoci-overview-delivery-v1, audit G3-04).
 				receipt := receiptWithRefresh(receiptWithState(current, cognitionStateValid, true), refreshSession.generation, refreshSession.lastReceipt.LastRefreshEventID, nil)
-				if !assessment.Semantic.GovernanceAligned {
+				if assessment.Semantic.GovernanceAligned {
+					base.ScopeIdentity, base.CompositeIdentity = view.ScopeIdentity, loaded.set.CompositeIdentity
+				} else {
 					receipt = receiptWithRefresh(receiptWithState(current, cognitionStateInvalid, false), refreshSession.generation, refreshSession.lastReceipt.LastRefreshEventID, assessment.RefreshReasons)
 				}
 				facts := overviewDeltaFacts{BaseScopeIdentity: input.DeltaSince, BaseGeneration: base.Generation,

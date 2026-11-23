@@ -129,6 +129,27 @@ All notable public changes to AOCI-CODE will be documented in this file.
   no-replace rename reports a source it could not remove instead of leaving
   the formal asset in place, while a create there no longer reports its own
   published file as a conflict.
+- Fixes from the pre-release audit, write path, delivery and scope, second
+  pass: while parallel Code sibling batches are out, Maintain holds Database
+  work back and still counts it in `remaining`, since a Database batch
+  applied beside them staled every sibling still being authored; a sibling
+  fetched by `batch_id` while the repository is blocked (a pending recovery,
+  a budget or Locale stop, owed Evidence) returns the stop instead of a batch
+  every Apply refuses; a Bootstrap or Migration Plan under Managed Scope no
+  longer asks for Entries on empty, binary, oversized, or curation-excluded
+  files that governance holds out; an Overview chain finished after a newer
+  one no longer moves the refresh generation back; a chunked delta reports
+  formal Entry ordinals, the ones its Challenge asks for; an empty delta
+  under Dirty or Stale governance keeps its base, and its
+  `cognition_state_v2` agrees with its other fields; a cognition
+  optimization batch whose source changed only its line endings is planned
+  again instead of replayed until every update is refused, and a replayed
+  batch keeps its transport budget; a configuration written before the
+  Locale field keeps zh-CN through a Scope Change, and invalid
+  `sensitive_name_rules` or `human_approval_channel` values are refused on
+  every team-file write; and `scope activate` reports `already_aligned`
+  under a review posture instead of asking for approval, while an observe
+  file edited where it stands is no longer read as aligned.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
