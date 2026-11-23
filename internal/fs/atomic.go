@@ -53,6 +53,12 @@ type atomicCASIntent struct {
 
 var beforeAtomicCASExchange = func(string) {}
 var exchangeAtomicPathsPlatform = exchangeAtomicPaths
+
+// AtomicExchangeUnsupportedFilesystem is the stable token of a governed write
+// refused because the volume lacks the platform's atomic replacement (ReFS
+// on Windows, #210). The bracketed suffix names the file system.
+const AtomicExchangeUnsupportedFilesystem = "atomic_exchange_unsupported_filesystem"
+
 var beforeAtomicCreatePublish = func(string) {}
 var publishAtomicCreatePlatform = publishAtomicCreate
 var beforeAtomicMovePublish = func(string, string) {}

@@ -467,6 +467,19 @@ raising it, and keep `maintain_transport_budget_bytes` at its default of 24 KiB:
 a Maintain response is subject to the same cap, and an update batch of long
 existing Entries is the response most likely to reach it.
 
+## Windows: governed writes fail on a ReFS volume
+
+AOCI replaces formal assets and the Baseline atomically, which on Windows uses
+`ReplaceFileW`. ReFS (including a Dev Drive) refuses that call with "Access is
+denied" where NTFS performs it, so `aoci_update_entry`, `scope acknowledge`,
+and every other governed write stop with
+`atomic_exchange_unsupported_filesystem[ReFS]` (before v0.2.0-rc4 the message
+read `ReplaceFileW失败: Access is denied`). Nothing is written when it stops.
+
+Keep the repository, or a worktree of it, on an NTFS volume and run AOCI
+there. The formal assets and `.aoci/baseline.json` are ordinary tracked files,
+so a ReFS checkout receives them through Git like any other change.
+
 ## Windows host cannot start MCP
 
 Use an absolute `.exe` path and explicit `--repo` path. Avoid PowerShell 5 text pipelines for signed or non-ASCII JSON. See [`windows-host-agent.en.md`](windows-host-agent.en.md) (English) or the Chinese original [`windows-host-agent.md`](windows-host-agent.md).
