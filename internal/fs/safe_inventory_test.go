@@ -968,3 +968,41 @@ func TestLogsAndRunDirectoriesAreConfiguredNotBuiltIn(t *testing.T) {
 		t.Fatalf("without the configured name a logs/ module is source and its log file is not: %#v", report.ManagedCandidates)
 	}
 }
+
+// A path Git still lists under a directory that became a symbolic link is a
+// filesystem boundary, not a candidate: reading it would read outside the
+// repository (audit G4-02).
+func TestSafeInventoryRefusesAPathUnderALinkedDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs a privilege on Windows")
+	}
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, "sub/file.go", "package sub\n")
+	mustWrite(t, root, "main.go", "package main\n")
+	gitCommand(t, root, "add", "-A")
+	outside := t.TempDir()
+	mustWrite(t, outside, "file.go", "package sub // outside\n")
+	if err := os.RemoveAll(filepath.Join(root, "sub")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "sub")); err != nil {
+		t.Fatal(err)
+	}
+	report, err := BuildSafeInventory(root, WalkOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range report.ManagedCandidates {
+		if candidate == "sub/file.go" {
+			t.Fatal("a path under a linked directory must not be a managed candidate")
+		}
+	}
+	found := false
+	for _, exclusion := range report.Exclusions {
+		found = found || (exclusion.PathSummary == "sub/file.go" && exclusion.Category == SafetyUnsafe)
+	}
+	if !found {
+		t.Fatalf("the path must be reported as a filesystem boundary: %+v", report.Exclusions)
+	}
+}

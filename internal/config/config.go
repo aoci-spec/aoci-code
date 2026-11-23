@@ -368,6 +368,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
 		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
 	}
+	if err := validateIndexPath(cfg.IndexPath); err != nil {
+		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
+	}
 
 	teamAutomation := cloneAutomationConfig(
 		cfg.Automation,
@@ -432,6 +435,9 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
 		return nil, err
 	}
+	if err := validateIndexPath(cfg.IndexPath); err != nil {
+		return nil, err
+	}
 	if err := validateLocale(cfg.Locale); err != nil {
 		return nil, err
 	}
@@ -487,6 +493,9 @@ func LoadBase(repoRoot string) (*Config, error) {
 		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
 	}
 	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
+		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
+	}
+	if err := validateIndexPath(cfg.IndexPath); err != nil {
 		return nil, fmt.Errorf("team configuration is invalid %s: %w", FilePath(repoRoot), err)
 	}
 	if err := validateLocale(cfg.Locale); err != nil {
@@ -814,6 +823,9 @@ func loadBaseSnapshot(repoRoot string) (*Config, string, error) {
 	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
 		return nil, "", err
 	}
+	if err := validateIndexPath(cfg.IndexPath); err != nil {
+		return nil, "", err
+	}
 	if err := validateLocale(cfg.Locale); err != nil {
 		return nil, "", err
 	}
@@ -917,6 +929,9 @@ func normalizeForSave(cfg *Config) error {
 		return err
 	}
 	if err := validateOverviewDelivery(cfg.OverviewDelivery); err != nil {
+		return err
+	}
+	if err := validateIndexPath(cfg.IndexPath); err != nil {
 		return err
 	}
 	if err := validateLocale(cfg.Locale); err != nil {
@@ -1144,4 +1159,18 @@ func (configValue *Config) WalkOptions() fs.WalkOptions {
 func (configValue *Config) IsAIEnabled() bool {
 	return configValue.AI.Enabled &&
 		configValue.AI.BaseURL != ""
+}
+
+// validateIndexPath refuses an index_path that is not a plain path inside the
+// repository (audit G4-01): every reader and writer joins it to the root, and
+// only a later layout check kept "../outside.txt" from being read.
+func validateIndexPath(indexPath string) error {
+	if indexPath == "" {
+		return nil
+	}
+	clean, err := fs.NormalizeRelPath(indexPath)
+	if err != nil || clean != indexPath {
+		return fmt.Errorf("index_path_invalid: %q must be a repository-relative path without .. or a leading slash", indexPath)
+	}
+	return nil
 }

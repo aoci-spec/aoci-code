@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -174,6 +175,10 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		GitTracked: len(tracked), NonignoredUntracked: len(untracked), Ignored: len(ignored) + len(ignoredDirs),
 		ChildRepositories: len(childRoots),
 	}, ManagedCandidates: []string{}, TrackedPaths: []string{}, IgnoredPaths: []string{}, Exclusions: []SafeInventoryExclusion{}, ChildRepositoryRoots: childRoots}
+	// A path Git still lists under a directory that is now a link reads a file
+	// outside the repository through that link: only the last component was
+	// checked (audit G4-02).
+	parents := parentBoundary{root: absRoot, seen: map[string]bool{}}
 	for _, exclusion := range pruned {
 		report.addExclusion(exclusion.PathSummary, exclusion.Category, exclusion.RuleSource, false)
 	}
@@ -248,7 +253,8 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 			continue
 		}
 		info, statErr := os.Lstat(filepath.Join(absRoot, filepath.FromSlash(rel)))
-		if statErr != nil || unsafePlatformObject(filepath.Join(absRoot, filepath.FromSlash(rel))) || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
+		if statErr != nil || unsafePlatformObject(filepath.Join(absRoot, filepath.FromSlash(rel))) || info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() ||
+			parents.linked(rel) {
 			report.addExclusion(rel, SafetyUnsafe, "filesystem_boundary", trackedPath)
 			continue
 		}
@@ -1001,4 +1007,30 @@ func digestStrings(values []string) string {
 		_, _ = hash.Write([]byte{0})
 	}
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// parentBoundary reports whether any directory between the root and a path is
+// a symbolic link or another object the walk does not descend, caching each
+// directory's answer.
+type parentBoundary struct {
+	root string
+	seen map[string]bool
+}
+
+func (p parentBoundary) linked(rel string) bool {
+	dir := path.Dir(rel)
+	if dir == "." || dir == "/" || dir == "" {
+		return false
+	}
+	if value, known := p.seen[dir]; known {
+		return value
+	}
+	value := p.linked(dir)
+	if !value {
+		full := filepath.Join(p.root, filepath.FromSlash(dir))
+		info, err := os.Lstat(full)
+		value = err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || unsafePlatformObject(full)
+	}
+	p.seen[dir] = value
+	return value
 }

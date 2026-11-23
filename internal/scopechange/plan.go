@@ -452,6 +452,10 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		return nil, err
 	}
 	if volumesBudget {
+		// The projection cannot change an Entry, so its verdict is the
+		// report's, which carries the Meta quota and the Database Volume.
+		projection.Violations = append([]cognitionbudget.Violation{}, beforeReport.Violations...)
+		projection.Allowed = projection.Mode != machinecontract.BudgetModeEnforce || len(projection.Violations) == 0
 		projection.CurrentTokens = cognitionbudget.EstimateTokensOfSize(wholeBytes)
 		projection.ProjectedWholeIndexTokens = cognitionbudget.EstimateTokensOfSize(wholeBytes - len(indexBytes) + len(projectedBytes))
 		projection.BatchDeltaTokens = projection.ProjectedWholeIndexTokens - projection.CurrentTokens

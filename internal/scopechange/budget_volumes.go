@@ -4,6 +4,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/index"
 )
 
 // BudgetMeasure names the bytes whose Entries a budget measures and the size
@@ -37,12 +38,30 @@ func BudgetMeasure(root string, cfg *config.Config, raw []byte) (measured []byte
 }
 
 // BuildBudgetReport is the budget report of raw (the bytes at the configured
-// index path) under policy, measured through BudgetMeasure.
+// index path) under policy, measured through BudgetMeasure. Under Volumes the
+// S hard limit is the Meta's declared quota and the Database Volume's Entries
+// are checked too, as governance checks them (audit G4-06).
 func BuildBudgetReport(root string, cfg *config.Config, raw []byte, policy cognitionbudget.Policy) (*cognitionbudget.Report, error) {
 	measured, total, volumes := BudgetMeasure(root, cfg, raw)
-	report, err := cognitionbudget.Build(root, measured, policy)
-	if err != nil || !volumes {
-		return report, err
+	if !volumes {
+		return cognitionbudget.Build(root, measured, policy)
+	}
+	set, err := cognition.Load(root, cfg.IndexPath)
+	if err != nil {
+		return cognitionbudget.Build(root, measured, policy)
+	}
+	quota := index.ExtractSQuotaThresholds(string(set.Meta.Raw))
+	report, err := cognitionbudget.BuildWithSQuota(root, measured, policy, quota)
+	if err != nil {
+		return nil, err
+	}
+	if database := set.Volumes[cognition.ScopeDatabase]; database != nil && database.State == cognition.AssetPresent {
+		for _, object := range database.Objects {
+			for _, violation := range cognitionbudget.ValidateEntryWithSQuota(object.CanonicalLine, policy, quota) {
+				violation.Path = object.CanonicalRef
+				report.Violations = append(report.Violations, violation)
+			}
+		}
 	}
 	if err := report.RebindWholeIndexTokens(cognitionbudget.EstimateTokensOfSize(total), policy); err != nil {
 		return nil, err

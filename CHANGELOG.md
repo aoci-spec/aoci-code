@@ -55,6 +55,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   whose Attestation passed no longer prints
   `model_full_cognition_reliable: true` in its metadata while its own
   receipt says false; a scope proves only itself (pre-release audit).
+- Fixes from the pre-release audit, scope and inventory group: `index_path`
+  must be a plain path inside the repository (`config set index_path
+  ../outside.txt` used to be saved, and only a later layout check kept it
+  from being read); a path Git still lists under a directory that became a
+  symbolic link is a filesystem boundary instead of a candidate whose
+  content was read from outside the repository; and the budget `scope
+  status` and a Scope Change report under Volumes applies the Meta's declared
+  S quota and checks Database Volume Entries, as governance does.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

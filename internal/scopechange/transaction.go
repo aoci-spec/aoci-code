@@ -762,9 +762,8 @@ func internalVerify(root string, intent *RecoveryIntent) error {
 	if err != nil || digestBytes(indexBytes) != intent.Preview.IndexPostimage.PostimageSHA256 {
 		return fmt.Errorf("index_postimage_invalid")
 	}
-	measured, _, _ := BudgetMeasure(root, cfg, indexBytes)
-	validation, err := cognitionbudget.Validate(root, measured, cfg.EffectiveCognitionBudget())
-	if err != nil || !validation.Allowed {
+	budgetReport, err := BuildBudgetReport(root, cfg, indexBytes, cfg.EffectiveCognitionBudget())
+	if err != nil || (budgetReport.Mode == machinecontract.BudgetModeEnforce && len(budgetReport.Violations) > 0) {
 		return fmt.Errorf("budget_postimage_invalid")
 	}
 	value, exists, err := baseline.Load(root)
