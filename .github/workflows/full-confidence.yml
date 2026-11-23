@@ -118,7 +118,11 @@ jobs:
       # 覆盖率是可见性而非门禁: 让安全核心包的薄弱处暴露在构建摘要里。
       - name: coverage snapshot
         run: |
-          go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >/dev/null
+          if ! go test -short -count=1 -coverprofile="$RUNNER_TEMP/coverage.out" ./... >"$RUNNER_TEMP/coverage-tests.log" 2>&1; then
+            grep -E -A25 '^(--- FAIL|panic:)' "$RUNNER_TEMP/coverage-tests.log" | head -200
+            grep -E '^(FAIL|ok) ' "$RUNNER_TEMP/coverage-tests.log" | grep '^FAIL' || true
+            exit 1
+          fi
           {
             echo '### Coverage by package (safety core first)'
             echo '```'

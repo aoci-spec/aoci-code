@@ -1,10 +1,12 @@
 package scopechange
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 )
@@ -43,5 +45,33 @@ func TestAlignedPlanKeepsTheBaselineBytes(t *testing.T) {
 	image := again.BaselinePostimage
 	if image.PreimageSHA256 != image.PostimageSHA256 || again.Baseline.UpdatedAt != applied.UpdatedAt {
 		t.Fatalf("an aligned Plan re-stamped the Baseline: updated_at %q -> %q", applied.UpdatedAt, again.Baseline.UpdatedAt)
+	}
+	// A Plan with a real change keeps the PreparedAt stamp, so a preview an
+	// earlier release built and approved rebuilds to the same envelope.
+	mainFingerprint, err := baseline.HashFile(filepath.Join(root, "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := &curation.Document{Version: curation.Version, Decisions: []curation.Decision{{
+		Path: "main.go", Decision: curation.DecisionInclude, Role: "production source", Reason: "reviewed project scope",
+		Confidence: 100, SourceSHA256: mainFingerprint.SHA256, Agent: "scope-test", UpdatedAt: "2026-08-12T00:00:00Z",
+	}}}
+	if err := curation.Save(root, document); err != nil {
+		t.Fatal(err)
+	}
+	changed := *document
+	changed.Decisions = append([]curation.Decision{}, document.Decisions...)
+	changed.Decisions[0].Model = "model-retention-review"
+	withCuration := empty()
+	withCuration.Curation = &changed
+	curated, err := Build(root, "2026-08-12T02:00:00Z", withCuration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if curated.CurationPostimage == nil || curated.CurationPostimage.PreimageSHA256 == curated.CurationPostimage.PostimageSHA256 {
+		t.Fatal("fixture: the Curation change moved no byte")
+	}
+	if curated.Baseline.UpdatedAt != "2026-08-12T02:00:00Z" {
+		t.Fatalf("a Curation change lost its PreparedAt stamp: %q", curated.Baseline.UpdatedAt)
 	}
 }

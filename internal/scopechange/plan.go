@@ -491,11 +491,15 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		fingerprint.Role = machinecontract.ScopeRoleIndex
 		postBaseline.Files[cfg.IndexPath] = fingerprint
 	}
-	// A postimage that changes nothing but updated_at keeps the Baseline's
-	// bytes, as a Baseline save does (#173). Re-stamping it made an aligned
+	// A Plan that moves no formal byte keeps the Baseline's, updated_at
+	// included, as a Baseline save does (#173). Re-stamping it made an aligned
 	// activation look like work once the clock passed a second, so the review
 	// posture saved a preview and asked for approval on an aligned repository.
-	if oldBaseline.UpdatedAt != "" && len(baselineBytes) > 0 {
+	// A Plan that changes the index or Curation keeps the PreparedAt stamp, so
+	// a preview an earlier release built and approved rebuilds to the same
+	// envelope after an upgrade.
+	if oldBaseline.UpdatedAt != "" && len(baselineBytes) > 0 &&
+		bytes.Equal(indexBytes, projectedBytes) && bytes.Equal(curationBytes, curationPostBytes) {
 		unchanged := postBaseline
 		unchanged.UpdatedAt = oldBaseline.UpdatedAt
 		if same, marshalErr := baseline.MarshalExact(&unchanged); marshalErr == nil && bytes.Equal(same, baselineBytes) {

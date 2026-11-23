@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-23T19:32:56Z",
+  "updated_at": "2026-11-23T19:42:23Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -29,9 +29,9 @@
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
-      "sha256": "5ebada2806249e9e0de11947990e22fa571163aafa7718fc994846af6dc1af0d",
-      "size": 26963,
-      "normalized_sha256": "5ebada2806249e9e0de11947990e22fa571163aafa7718fc994846af6dc1af0d"
+      "sha256": "f4bd31231a056ed624e174d7fc04253ff26faa75b5a1167d2c612b70b69f32b7",
+      "size": 27218,
+      "normalized_sha256": "f4bd31231a056ed624e174d7fc04253ff26faa75b5a1167d2c612b70b69f32b7"
     },
     ".github/workflows/release-rehearsal.yml": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "e2087a20b9aeb24f8b8254aa337fcf2d46727df1ac570fe75fc3a26a4d3d0387",
-      "size": 242379,
-      "normalized_sha256": "e2087a20b9aeb24f8b8254aa337fcf2d46727df1ac570fe75fc3a26a4d3d0387"
+      "sha256": "416b14ff99f8166b13d7d15fc4aca93d3f84235ed6db527d810cf265ee5c456b",
+      "size": 242389,
+      "normalized_sha256": "416b14ff99f8166b13d7d15fc4aca93d3f84235ed6db527d810cf265ee5c456b"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4136,10 +4136,10 @@
     },
     "internal/fs/lock_test.go": {
       "role": "observe",
-      "sha256": "ab5c91cc8b482afb9286014e34eb9204a80795f8ae272ed1c23fb0e3aee7ab06",
-      "size": 18181,
-      "normalized_sha256": "ab5c91cc8b482afb9286014e34eb9204a80795f8ae272ed1c23fb0e3aee7ab06",
-      "format_sha256": "ab5c91cc8b482afb9286014e34eb9204a80795f8ae272ed1c23fb0e3aee7ab06",
+      "sha256": "30913dd8603bdf87acfe4b4c224ab32a00f9286b4ea41ece70859da0de062e97",
+      "size": 18221,
+      "normalized_sha256": "30913dd8603bdf87acfe4b4c224ab32a00f9286b4ea41ece70859da0de062e97",
+      "format_sha256": "30913dd8603bdf87acfe4b4c224ab32a00f9286b4ea41ece70859da0de062e97",
       "format_kind": "gofmt"
     },
     "internal/fs/lock_vanished_owner_test.go": {
@@ -4172,6 +4172,22 @@
       "size": 330,
       "normalized_sha256": "643c5afa5f07ddf9ff65bd3ee8fc731dea8dc9630350dfe65a297a1fdef35944",
       "format_sha256": "643c5afa5f07ddf9ff65bd3ee8fc731dea8dc9630350dfe65a297a1fdef35944",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/process_identity_fixture_bsd_test.go": {
+      "role": "observe",
+      "sha256": "c7271342c10f4d7274ad4a9849571b9fddff69f3a06a2a7f20646914add2ba08",
+      "size": 321,
+      "normalized_sha256": "c7271342c10f4d7274ad4a9849571b9fddff69f3a06a2a7f20646914add2ba08",
+      "format_sha256": "c7271342c10f4d7274ad4a9849571b9fddff69f3a06a2a7f20646914add2ba08",
+      "format_kind": "gofmt"
+    },
+    "internal/fs/process_identity_fixture_test.go": {
+      "role": "observe",
+      "sha256": "50cf3ae90570021c5dc88d5d7f019299469cf73f1dcf96c71bbd1adeb10c3dc7",
+      "size": 301,
+      "normalized_sha256": "50cf3ae90570021c5dc88d5d7f019299469cf73f1dcf96c71bbd1adeb10c3dc7",
+      "format_sha256": "50cf3ae90570021c5dc88d5d7f019299469cf73f1dcf96c71bbd1adeb10c3dc7",
       "format_kind": "gofmt"
     },
     "internal/fs/process_identity_linux.go": {
@@ -6976,10 +6992,10 @@
     },
     "internal/scopechange/aligned_postimage_test.go": {
       "role": "observe",
-      "sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
-      "size": 2047,
-      "normalized_sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
-      "format_sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
+      "sha256": "a3b14931e3cc37c923861a10eb8817a3c057bf724ac2eeb0928ae29c4ba56b4d",
+      "size": 3420,
+      "normalized_sha256": "a3b14931e3cc37c923861a10eb8817a3c057bf724ac2eeb0928ae29c4ba56b4d",
+      "format_sha256": "a3b14931e3cc37c923861a10eb8817a3c057bf724ac2eeb0928ae29c4ba56b4d",
       "format_kind": "gofmt"
     },
     "internal/scopechange/approval_relaxation_test.go": {
@@ -7112,10 +7128,10 @@
     },
     "internal/scopechange/plan.go": {
       "role": "index",
-      "sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
-      "size": 70002,
-      "normalized_sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
-      "format_sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
+      "sha256": "ba976f4cb50b426e1ec36f951dc3396d12307b49be928cf49e1f5bd74b085bdb",
+      "size": 70277,
+      "normalized_sha256": "ba976f4cb50b426e1ec36f951dc3396d12307b49be928cf49e1f5bd74b085bdb",
+      "format_sha256": "ba976f4cb50b426e1ec36f951dc3396d12307b49be928cf49e1f5bd74b085bdb",
       "format_kind": "gofmt"
     },
     "internal/scopechange/posture_relaxation_test.go": {

@@ -140,12 +140,12 @@ func TestStaleLockOwnedByLiveProcessCannotBePreempted(t *testing.T) {
 func TestStaleLockWithReusedPIDCanBePreempted(t *testing.T) {
 	p := lockTestPath(t)
 	previousIdentity := lockProcessIdentity
-	lockProcessIdentity = func(int) (string, bool, bool) { return "new-process", true, true }
+	lockProcessIdentity = func(int) (string, bool, bool) { return comparableIdentity("new-process"), true, true }
 	t.Cleanup(func() { lockProcessIdentity = previousIdentity })
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	owner := lockContent{PID: 42, Token: "old", ProcessIdentity: "old-process"}
+	owner := lockContent{PID: 42, Token: "old", ProcessIdentity: comparableIdentity("old-process")}
 	data, _ := json.Marshal(owner)
 	if err := os.WriteFile(p, data, 0o644); err != nil {
 		t.Fatal(err)
