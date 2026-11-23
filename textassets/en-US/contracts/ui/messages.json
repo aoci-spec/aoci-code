@@ -900,6 +900,7 @@
   "report.note_empty": "note is empty; explain what changed or why the semantics remain uncertain",
   "report.path_rejected": "Rejected report path %s: %s",
   "scan.baseline_exists": "a Baseline already exists; rebuilding replaces it with the complete current disk state and can erase unresolved drift. Add --force to confirm or use --dry-run for statistics only",
+  "scan.unexpected_arguments": "scan operates on the whole repository and accepts no positional arguments. Use --repo to select the repository root.",
   "scan.complete": "Baseline established: %d files in %dms",
   "scan.curation_excluded": "%d index files are kept out by a curation decision and need no Entry; aoci verify lists them as code_curation_excluded",
   "scan.dry_run": "dry-run: %d files would be included (%d warnings); nothing was written",
