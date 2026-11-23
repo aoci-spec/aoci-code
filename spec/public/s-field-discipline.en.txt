@@ -36,7 +36,8 @@ Warning by character count, no machine hard rejection by character count, no
 blocking of automatic Stage, Check, or Apply because of F length. Quality is
 improved through the model contract, human calibration examples, Diff review,
 and later semantic sampling. (Volumes v1 objects additionally enforce the
-FRAS v2 field limits owned by internal/machinecontract.)
+FRAS v2 field limits owned by internal/machinecontract, including F at most
+160 characters; a longer F is rejected.)
 
 2. The R field
 

@@ -176,7 +176,7 @@ approval, write-state, or environment failures stop.
 
 Entries are written only through `aoci_update_entry`; MCP stdio is raw UTF-8
 JSON-RPC and needs no staging file (section 11.1). Governance commands that
-still take a file (`scope preview --candidate-file`, `scope approve
+still take a file (`scope preview --candidate-file`, `scope apply
 --approval-file`, the `cognition migration` snapshot and mapping files) read
 UTF-8 files, because Windows PowerShell 5 text pipelines may re-encode
 non-ASCII content through the local code page. Write UTF-8 without BOM from

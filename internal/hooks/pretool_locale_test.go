@@ -23,7 +23,7 @@ const (
 	pretoolEnglishEntryHeader = "aoci: the index Entry for this file (follow its constraints before changing it):\n"
 	pretoolEnglishStaleHeader = "aoci ⚠ STALE: this file changed after its Entry was written; the Entry below may be stale, check the source first:\n"
 	pretoolEnglishUnbaselined = "aoci: this file is absent from the Baseline (drift is unknown); its Entry follows:\n"
-	pretoolEnglishStrictBlock = "\naoci strict: the Entry is stale, so this write is blocked — check the source and update the Entry with aoci_update_entry (or move the Baseline forward with aoci scan), then retry."
+	pretoolEnglishStrictBlock = "\naoci strict: the Entry is stale, so this write is blocked — check the source and update the Entry with aoci_update_entry, then retry (aoci scan cannot move a Managed Scope Baseline forward)."
 	pretoolEnglishNotIndexed  = "aoci: this file has no index Entry (src/n.go). After the change, add one with aoci_update_entry."
 )
 

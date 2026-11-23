@@ -118,3 +118,19 @@ func TestEscapeControlChars(t *testing.T) {
 		}
 	}
 }
+
+// A root without its own .git is judged by no enclosing repository's rules:
+// scan does not filter it by them either (audit G4-17).
+func TestPathIgnoredByGitIgnoresAnEnclosingRepository(t *testing.T) {
+	outer := t.TempDir()
+	gitCommand(t, outer, "init", "-q")
+	mustWrite(t, outer, ".gitignore", "*.txt\n")
+	inner := filepath.Join(outer, "project")
+	mustWrite(t, inner, "notes.txt", "fixture\n")
+	if ignored, rule := PathIgnoredByGit(inner, "notes.txt"); ignored {
+		t.Fatalf("an enclosing repository's rule applied to a non-Git root: %s", rule)
+	}
+	if ignored, _ := PathIgnoredByGit(outer, "project/notes.txt"); !ignored {
+		t.Fatal("fixture: the outer repository does ignore the file")
+	}
+}

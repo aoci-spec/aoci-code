@@ -13,8 +13,8 @@
 //   - the team's explicit strict mode and real content changes still dispatch normally;
 //   - this tool does not change the raw SHA, the Baseline, the formal index, or the Stage binding.
 //
-// This tool only auto-advances a format-only Baseline proven by the canonical formatter; a real semantic change
-// is still dispatched to the host model only, and the index candidates are governed atomically in batch by aoci_update_entry.
+// This tool never advances the Baseline itself, not even for format-only drift; a real semantic change
+// is dispatched to the host model only, and the index candidates are governed atomically in batch by aoci_update_entry.
 package mcptools
 
 import (

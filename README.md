@@ -686,7 +686,7 @@ aoci --repo . cognition system relations
 aoci --repo . mcp
 ```
 
-Plan, Stage, Check, Diff, Apply, Curation, Scope Change, Bootstrap, Migration, and recovery commands still exist. Follow the guide the running binary returns; do not copy the internal state machine into scripts.
+The Legacy `index agent` plan, stage, check, diff, apply, and curation commands were retired in 0.2.0; cognition plan, Bootstrap, Migration, onboarding, Scope Change, and recovery commands remain. Follow the guide the running binary returns; do not copy the internal state machine into scripts.
 
 ### About "read-only" commands
 

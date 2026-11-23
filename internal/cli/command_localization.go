@@ -5,22 +5,8 @@ import (
 
 	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
-
-var localizedFlagNames = []string{
-	"agent", "completed",
-	"connect-timeout", "credential-env", "database-name", "deep", "dim", "disabled", "dry-run", "engine", "entry", "exclude-namespace", "exclude-table", "force",
-	"help", "here", "hooks", "json",
-	"include-namespace", "include-table", "locale", "missing", "namespace", "next", "kind",
-	"no-descriptions", "path", "preview",
-	"query-timeout", "quiet", "replace", "repo", "snapshot-sha", "source", "source-id", "source-sha256", "stdin",
-	"stdin-json", "tool", "version", "object", "captured-at", "prepared-at",
-	"snapshot-file", "plan-file", "candidate-file", "mapping-file", "preview-file", "baseline-timestamp",
-	"envelope-file", "approval-file", "actor", "transaction",
-	"action", "pattern", "pattern-kind", "reason", "created-by", "order", "enabled", "scope-profile", "reviewed-by", "safety-approval-file",
-	"out-file",
-	"port", "host", "open", "also", "discover", "detach", "stop",
-}
 
 // Command groups: a parent that declares groups lists each group's members
 // under the group's localized title and every other child under "Additional
@@ -286,26 +272,19 @@ func refreshCommandLocalization(root *cobra.Command) {
 		// so both sets are taken once per command rather than once per name;
 		// the *Flag values they hold are the command's own, so the rebound
 		// Usage lands on the flag the command renders.
-		local := command.LocalNonPersistentFlags()
-		persistent := command.PersistentFlags()
-		for _, flagName := range localizedFlagNames {
-			if flag := local.Lookup(flagName); flag != nil {
-				localized, found, err := textassets.RelocalizeMessageExact(textassets.ActiveLocale(), flag.Usage)
-				if err != nil {
-					flag.Usage = fmt.Sprintf("[text_asset_error: flag localization failed: %v]", err)
-				} else if found {
-					flag.Usage = localized
-				}
-			}
-			if flag := persistent.Lookup(flagName); flag != nil {
-				localized, found, err := textassets.RelocalizeMessageExact(textassets.ActiveLocale(), flag.Usage)
-				if err != nil {
-					flag.Usage = fmt.Sprintf("[text_asset_error: flag localization failed: %v]", err)
-				} else if found {
-					flag.Usage = localized
-				}
+		// Every flag the command defines is relocalized, not a hand-kept name
+		// list: a flag missing from that list stayed in English under zh-CN
+		// (audit G5-17).
+		relocalize := func(flag *pflag.Flag) {
+			localized, found, err := textassets.RelocalizeMessageExact(textassets.ActiveLocale(), flag.Usage)
+			if err != nil {
+				flag.Usage = fmt.Sprintf("[text_asset_error: flag localization failed: %v]", err)
+			} else if found {
+				flag.Usage = localized
 			}
 		}
+		command.LocalNonPersistentFlags().VisitAll(relocalize)
+		command.PersistentFlags().VisitAll(relocalize)
 		for _, child := range command.Commands() {
 			visit(child)
 		}

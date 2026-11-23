@@ -176,8 +176,10 @@ command with the same target resumes it, and another target exits 3. A
 Baseline record of the Root that no longer matches the file exits 3 before
 any write. When the Ledger is enabled the terminal event
 `locale_switch_apply` is written once. `locale_migration` is absent for this
-layout; the same Locale exits 0 and writes nothing. The managed AGENTS block
-is re-rendered in the new Locale after the transaction completes.
+layout; the same Locale exits 0 and leaves the Root, configuration, and
+Baseline unchanged, re-rendering only a managed AGENTS block that differs from
+that Locale's rendering. The managed AGENTS block is re-rendered in the new
+Locale after the transaction completes.
 
 On a Legacy single-file index, `set locale` to a Locale other than the one
 the index was written in exits 3 before any write: that index is read-only

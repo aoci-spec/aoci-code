@@ -98,7 +98,7 @@ AI Agent decides when it needs that view except after known Host compaction,
 where the ordinary complete Overview is mandatory.
 
 In the Volumes v1 layout, `aoci_overview` also accepts `project`,
-`code`, and `database` scopes. Scope selection changes delivery identity, not
+`meta`, `code`, and `database` scopes. Scope selection changes delivery identity, not
 the three-reason refresh model. Receipt v2 uses scope identity for partial
 reliability and reports composite identity separately; only a complete `all`
 delivery can establish full repository cognition.
@@ -133,8 +133,9 @@ partial or failed Attestation records an uncertain receipt and disables a
 full-system claim, but it does not automatically request another Overview in
 the same generation. Repeated
 ordinary calls still return the complete requested scope; repeated check_only
-calls stay compact. The server keeps only small session state and never caches
-the complete index text.
+calls stay compact. The refresh state itself is small; the Overview delivery
+store keeps each delivered body in bounded process memory for its Chunk and
+proof calls, never writes it to disk, and drops it on expiry or eviction.
 
 For the legacy host assessment, `model_cognition_state=invalid` implies
 context compaction only when it accompanies a previously reliable complete

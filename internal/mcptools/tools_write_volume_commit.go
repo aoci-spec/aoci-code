@@ -208,6 +208,23 @@ func planCognitionVolumeUpdates(
 		}
 		ordered = kept
 	}
+	// Siblings of one parallel plan carry the same orphan removals; the
+	// first to apply removes them. In a later sibling a removal whose Entry is
+	// gone and whose file is still absent is that sibling's work, done: it is
+	// dropped, and the replay proof under the lock still requires the Volume
+	// to be this plan's (audit G2-10).
+	if codeReceipt != nil && codeReceipt.LogicalPlan != "" {
+		kept := make([]normalizedAtomicItem, 0, len(ordered))
+		for _, item := range ordered {
+			if item.remove && cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
+				if _, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(item.rel))); os.IsNotExist(statErr) {
+					continue
+				}
+			}
+			kept = append(kept, item)
+		}
+		ordered = kept
+	}
 	removalFindings := []cognition.RepairFinding{}
 	for _, item := range ordered {
 		if !item.remove {
@@ -1605,7 +1622,8 @@ func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail
 			// Volume as it now stands.
 			object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel)
 			if object == nil {
-				return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
+				// An applied sibling of this replay-proven plan removed it.
+				continue
 			}
 			text, removeErr := index.RemoveEntryForPath(codeContext.text, root, item.rel, object.CanonicalLine)
 			if removeErr != nil {

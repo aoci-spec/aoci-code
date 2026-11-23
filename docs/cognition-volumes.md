@@ -37,8 +37,10 @@ It does not provide general Root/Meta editing or Volume Apply.
 Fresh and existing Volumes repositories use the current Guide and ordinary
 no-argument `aoci_maintain`. The model authors the complete current
 machine-issued batch and submits it through `aoci_update_entry`; a successful
-non-final batch returns to Maintain, and the final batch closes with Verify,
-Aggregate Check, and Guide.
+non-final batch returns to Maintain, and the final batch (remaining=0)
+closes the task: its `terminal_proof` carries the verdict Verify, the
+aggregate Check, and Guide would compute, so none of them needs to run
+afterwards. They stay available to CI and to a person.
 
 `status --deep` remains a Legacy-only read command. `index score` reads both
 layouts: on a Volumes repository its nine dimensions are projected from the
@@ -139,8 +141,8 @@ larger allowance than the small lookup or junction tables.
 If the new limits were hypothetically applied to the 875 Legacy Entries, 15
 distinct Entries would receive a density finding: 0 for F characters, 4 for R
 characters, 8 for R item count, 6 for A characters, and 1 for A item count
-(categories overlap). They are deliberately not applied: Legacy v1 remains
-readable and writable under its existing contract without new rejection.
+(categories overlap). They are deliberately not applied: Legacy v1 is
+read-only since 0.2.0, so its Entries are never rewritten under the new limits.
 
 The numbers above are a calibration record, not a second executable authority.
 `internal/machinecontract.ObjectFRASV2Limits` owns the values consumed by the
@@ -261,9 +263,10 @@ class of drift gets a model review instead of rotting silently.
 
 The pass orders its review candidates deterministically: Entries over their
 C-band maximum first, then Entries over their target, then Entries at C7 or
-above whose S is `-`, then the rest by C and size. Each candidate names its
+above whose S is `-`, then Entries whose E scale letter contradicts the
+source line count, then the rest by C and size. Each candidate names its
 `selection_reason` (`c_band_target_overage`, `s_absent_high_importance`,
-`explicit_object_ref`, or `c_importance_and_entry_cost`). An empty S on a
+`e_scale_mismatch`, `explicit_object_ref`, or `c_importance_and_entry_cost`). An empty S on a
 high-importance Entry is a review signal read off the Entry, not a verdict:
 the model looks at where the object's behaviour is decided and either authors
 the constraint or returns the Entry unchanged, and an all-unchanged batch is a
@@ -461,14 +464,17 @@ and `confirm_request`, the call that confirms it: the batch's own
 `observe_review` when the review rides with the batch, otherwise
 `aoci_maintain` with `intent=observe_review`. Either runs the `scope
 acknowledge` transaction over exactly the listed bytes; a digest the current list no
-longer has answers `stale` with the current listing and writes nothing. A
+longer has writes nothing and returns the current listing: the Maintain intent
+answers `stale`, and the batch answers `repair_required`
+(`observe_review_stale`) with `observe_review_current`. A
 list too long to show in full carries no confirmation and goes through the
 terminal route. See `managed-scope-and-budget.md`.
 
 The current repair path closes an ownership-conflicting Entry,
 which is one of those governed orphans. Ordinary
-orphan removal still rejects a still-valid relation. The only exception is an
-exact machine ownership-conflict finding whose expected and actual owners
+orphan removal never checks R references from other Entries; any dangling
+relation it leaves stays model-owned. Ownership-conflict repair applies only
+to an exact machine ownership-conflict finding whose expected and actual owners
 differ and whose expected formal owner exists, with valid structure and no
 Recovery or third-party conflict. Repair removes only the incorrect Volume
 Entry through the existing transaction, guards every formal owner, and reports
@@ -484,7 +490,8 @@ changed.
 - Database Volume declaration or creation by Maintain or Entry Apply;
 - automatic database FRAS generation.
 
-PostgreSQL/MySQL/openGauss connections, Canonical Schema Evidence, an
+PostgreSQL/MySQL/openGauss connections, read-only SQLite files, Canonical
+Schema Evidence, an
 independent evidence Baseline, and drift detection remain in the explicit CLI
 Database Evidence Layer. The initial openGauss profile is limited to 6.0.5 LTS
 in A/PG compatibility mode and ordinary non-partitioned base tables; unsupported

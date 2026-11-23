@@ -1,4 +1,5 @@
 聚合回答“现在可以提交吗”:
   阻断: ActionableMissing / PendingCurationMissing / Stale / Unbaselined / 字典违规 / 格式错误 / Entries或Curation草稿悬置;
   展示不拦: RawMissing / CurationExcludedMissing / 非Pending的SkippedMissing / Orphan / LineEndingOnly / S配额 / E档位 / tagparse Warning。
+Volumes 布局中的 Code Orphan 属于漂移并阻断；aoci_maintain 会把它列入下一批删除。
 原始四态、Missing三分与完整策展路径请看 aoci verify。

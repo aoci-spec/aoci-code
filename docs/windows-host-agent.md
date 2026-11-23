@@ -155,7 +155,7 @@ aoci_maintain是日常开发任务的最终收尾入口，不是修改过程中�
 → Lint、测试及必要检查
 → git diff检查
 → aoci_maintain
-→ format-only内部快速处理；真实语义候选由模型逐文件生成
+→ 机器签发的候选由模型逐文件生成完整语义；Maintain自身不前移Baseline，format-only也一样
 → 保留source_sha256绑定，一次aoci_update_entry.entries提交整批
 → AOCI内部Check / Diff / CAS / AtomicWrite / Baseline / Ledger / aligned复查
 → 最终回复
@@ -400,7 +400,7 @@ status = stopped
 
 条目写入只经MCP的aoci_update_entry；MCP stdio始终是原始UTF-8 JSON-RPC，不经PowerShell文本管道，也不需要中间文件（见11.1）。
 
-仍需向CLI传文件的治理命令（scope preview --candidate-file、scope approve --approval-file、cognition migration的snapshot与mapping文件）一律使用UTF-8文件；Windows PowerShell 5文本管道可能按本地代码页重新编码中文。
+仍需向CLI传文件的治理命令（scope preview --candidate-file、scope apply --approval-file、cognition migration的snapshot与mapping文件）一律使用UTF-8文件；Windows PowerShell 5文本管道可能按本地代码页重新编码中文。
 
 PowerShell 5写入UTF-8无BOM：
 
@@ -552,7 +552,7 @@ unbaselined = 0
 - 上下文丢失、语义阈值或主要阶段切换按合同判定；
 - 有漂移时Maintain、Verify、Check、Guide先于一次Overview；
 - 29个语义文件不触发，默认第30个触发；
-- 相同事件与无触发重复调用不传输完整正文；
+- 重复的check_only调用保持紧凑；普通Overview调用每次都交付完整请求范围；
 - MEMORY不覆盖当前索引和源码。
 
 ### 16.2 纯模型语义

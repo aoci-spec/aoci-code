@@ -5,7 +5,8 @@ model-authored table cognition without giving the program any
 database-semantic authoring role. It
 works only with an already declared and present Cognition Volumes v1 Database
 Volume. A marker-only `aoci.database.txt` is a supported present-empty starting
-point; an absent Volume is not created.
+point. Authoring never creates an absent Volume; only the independent
+Database Cognition Bootstrap described below does.
 
 The normative contract is
 [`aoci-database-cognition-authoring-v1.txt`](../spec/public/aoci-database-cognition-authoring-v1.txt).
@@ -98,7 +99,7 @@ assessment together; they do not collapse to Database scope.
 
 `candidate_id` and `batch_id` are non-secret machine identities. The receipt
 internally binds the exact Database Volume preimage and each target Table
-Evidence SHA, so the model does not copy multiple long hashes. Legacy and Code
+Evidence SHA, so the model does not copy multiple long hashes. Code
 `source_sha256` inputs remain compatible.
 
 Saved Evidence must also match the current non-secret source selection:
@@ -142,7 +143,9 @@ to create one.
 
 Immediately before writing, AOCI rechecks target Evidence, the receipt, the
 Database Volume preimage, source configuration, full target set, Meta
-dictionary, FRAS limits, identities, and cross-Volume relations. Target schema
+dictionary, FRAS limits, and identities. R is checked for its own form only;
+AOCI never resolves it against other Entries, so a dangling relation does not
+block the batch. Target schema
 drift invalidates the candidate; a valid unrelated-table change does not.
 
 ## Present-empty and update behavior
@@ -154,7 +157,9 @@ drift makes only the affected Entry stale. The model rewrites its complete
 Entry and preserves an old high-entropy S constraint only when current Evidence
 and code still support it.
 
-Orphans stop for review and are never removed automatically. Missing or invalid
+Orphans stop for review and are never removed automatically; the explicit
+`aoci_remove_entry` orphan removal is the only way to remove one, and R
+references from other Entries do not block it. Missing or invalid
 Evidence stops authoring rather than being interpreted as an empty database.
 An absent Database Volume remains read-only during Maintain. It returns
 `snapshot_or_repair_evidence` until every enabled source has accepted Evidence,

@@ -101,7 +101,9 @@ Given reliable current Evidence, the formal Database Entry, and this binding:
 
 Unavailable is never empty. Snapshot and Verify never refresh cognition
 bindings. Evidence Baseline acceptance never makes cognition current. A rename
-is old orphan plus new missing; no rename is inferred and no orphan is deleted.
+is old orphan plus new missing; no rename is inferred and assessment never
+deletes an orphan. The explicit aoci_remove_entry orphan removal of
+aoci-cognition-volumes-v1.txt is the only removal path.
 With no configured source, Database cognition contributes no debt and no
 network access.
 
@@ -113,8 +115,9 @@ object_refs filter, which applies only to aligned Volumes v1 Code Entries and
 never to Database assessment (see `aoci-cognition-volumes-v1.txt`). In a
 Volumes repository, absent scope is the ordinary path and uses the
 shared governance facts to select Code, Database, both, or aligned. Explicit
-scope remains an advanced compatibility diagnostic. In Legacy, absent scope
-and code retain established behavior. Database assessment reads only accepted
+scope remains an advanced compatibility diagnostic. A Legacy layout is
+read-only: Maintain answers legacy_read_only_migrate_required and performs no
+Database assessment. Database assessment reads only accepted
 saved canonical Evidence, the current CognitionSet, and the existing Baseline;
 it never opens a database connection.
 
@@ -158,8 +161,8 @@ authentication. The normal model submission carries one top-level batch_id and
 each unchanged candidate_id plus its complete Entry; a candidate_id may be
 omitted, in which case AOCI takes it from the issued receipt of that batch_id,
 and a copied one must match. source_sha256 is not used
-to impersonate both the cognition preimage and Evidence identity. Legacy and
-Code source_sha256 contracts remain compatible.
+to impersonate both the cognition preimage and Evidence identity. Code
+source_sha256 contracts remain compatible.
 
 At planning and immediately under the existing write lock, AOCI revalidates the
 receipt, configured/enabled source, target presence, complete canonical table
@@ -201,8 +204,9 @@ exists.
 
 Before any formal write, the entire projected CognitionSet must satisfy the
 Volume marker and namespace boundaries, Meta dictionary, Object FRAS v2
-format/length/item rules, identity rules, and unambiguous non-dangling
-cross-Volume relations. One failure leaves the whole Database Volume unchanged.
+format/length/item rules, and identity rules. R is checked for its own form
+only; AOCI never resolves it against other Entries (aoci-cognition-volumes-v1.txt),
+so a dangling or ambiguous relation never blocks the batch. One failure leaves the whole Database Volume unchanged.
 The program never edits the candidate to pass validation.
 
 One Database Volume postimage contains the complete multi-table page and is

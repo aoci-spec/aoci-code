@@ -287,9 +287,11 @@ kind. A `remove-*.json` receipt closes through `aoci_remove_entry` for the same
 object: when the Volume has moved past the receipt and the object is absent,
 the receipt completes as superseded and nothing else is written; when the
 object is still present with the text the receipt recorded, the stale receipt
-is discarded and the removal is re-planned from the current Volume; a Legacy
-index closes its receipt the same way through `aoci_remove_entry` or
-`aoci remove-entry`. When the Entry came back after a completed removal or
+is discarded and the removal is re-planned from the current Volume. On a
+Legacy index, which is read-only since 0.2.0, `aoci_remove_entry` and
+`aoci remove-entry` refuse the removal and clean up only a receipt already
+marked completed; any other Legacy receipt is closed by the manual step below.
+When the Entry came back after a completed removal or
 with different text, the call is refused with `recovery_entry_reappeared`,
 because the decision the receipt carried no longer describes that Entry:
 inspect the receipt, and move it out of `.aoci/transactions` by hand so the
@@ -488,8 +490,9 @@ Use an absolute `.exe` path and explicit `--repo` path. Avoid PowerShell 5 text 
 
 Follow the current Guide. For Cognition Volumes, call ordinary no-argument
 `aoci_maintain`, author every candidate in the complete current machine-issued
-batch, submit that batch through `aoci_update_entry`, and finish with Verify,
-Check, and Guide. Do not infer recovery solely from old logs or documentation;
+batch, submit that batch through `aoci_update_entry`, and continue until a
+batch reports remaining=0; its `terminal_proof` is the closing verdict. Do
+not infer recovery solely from old logs or documentation;
 the Guide is bound to current repository evidence.
 
 `status --deep` reads Legacy repositories only; `index score` reads both

@@ -1,2 +1,2 @@
 遍历仓库(按排除规则剪枝)计算全部文件 SHA256,写入 .aoci/baseline.json。
-语义为「承认当前源码为对齐新起点」;已有基线时需 --force 确认,防止一键洗白未处理的漂移。
+语义为「承认当前源码为对齐新起点」;已有基线时需 --force 确认,防止一键洗白未处理的漂移;Managed Scope 下即使带 --force 也拒绝替换已有基线:漂移走 aoci_maintain,策略修改走 Scope Change。

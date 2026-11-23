@@ -1,1 +1,1 @@
-The index Header is empty: this repository has not established its rules and dictionaries. Record the missing tag decision with aoci_report so a maintainer can complete the Header.
+The index Header is empty: this repository has not established its rules and dictionaries. Do not guess tag values; run aoci cognition onboard start --json and let the host Agent follow the Guide it returns to author the Header.

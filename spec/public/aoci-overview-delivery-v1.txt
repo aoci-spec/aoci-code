@@ -127,8 +127,10 @@ exactly as governance would miss it; any other change invalidates the chain.
 Commit-only HEAD changes are not governance drift, as in the existing binding;
 Ledger and other safety-excluded runtime records are not source identities.
 
-Database-enabled deliveries retain the original live-governance path because
-Evidence expiry and connector state require a separate reusable guard. A Code
+Database-enabled deliveries are reused under a separate guard: the digest of
+the accepted Database Baseline and every Evidence file must still match, and a
+symbolic link, a non-regular file, or an unreadable Evidence tree returns the
+delivery to the live-governance path. A Code
 snapshot with pending scope-policy alignment or unreadable source warnings also
 retains the original path. The optimization never upgrades a dirty verdict.
 

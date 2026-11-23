@@ -99,7 +99,7 @@ func TestMCPMaintainDescriptionDisclosesWritesAndGuideBoundary(t *testing.T) {
 		}
 
 		for _, required := range []string{
-			"format-only可能前移Baseline",
+			"Maintain自身从不前移Baseline",
 			"可能追加本地Ledger审计记录",
 			"新仓",
 			"不完整索引",

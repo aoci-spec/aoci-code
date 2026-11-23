@@ -249,9 +249,11 @@ then selects already-aligned Code Entries for explicit model review by
 deterministic Entry cost and C-band budget facts, transports the current
 complete Entries, and records resumable checkpoint progress. Review order is
 budget overage first, then Entries at or above the machine high-importance
-C value whose S is "-", then C and Entry cost; each candidate carries a
-selection_reason, and s_absent_high_importance is a structural fact about the
-Entry, never a judgement that an S is owed. The program still
+C value whose S is "-", then Entries whose E scale letter contradicts the
+source line count under the Meta thresholds, then C and Entry cost; each
+candidate carries a selection_reason (e_scale_mismatch for that rank), and
+s_absent_high_importance and e_scale_mismatch are structural facts about the
+Entry, never a judgement that a change is owed. The program still
 generates no semantics, truncates nothing, and lowers no C value; review
 batches close through the existing Update, Baseline, and Recovery authorities,
 an all-no-change batch advances with zero formal writes, and an altered replay

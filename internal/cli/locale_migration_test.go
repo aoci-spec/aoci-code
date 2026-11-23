@@ -46,8 +46,8 @@ func TestVolumeReadOnlyDiagnosticIsBilingualAndDoesNotClaimVersionMismatch(t *te
 		terminalProof      string
 		runtimeInstruction string
 	}{
-		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "Do not run the Legacy-only", "code_batch_id must equal code_plan.batch_id", "remaining nonzero", "commands.verify, commands.check (the aggregate Check), and commands.guide in that order", "does not by itself prove a CLI/MCP version mismatch"},
-		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "code_batch_id必须等于code_plan.batch_id", "remaining非零", "依次执行commands.verify、commands.check（Aggregate Check）和commands.guide", "不能单独证明CLI与MCP版本不一致"},
+		{textassets.DefaultLocale, "compatibility write path", "does not prove a CLI/MCP version mismatch", "Do not run the Legacy-only", "code_batch_id must equal code_plan.batch_id", "remaining nonzero", "its terminal_proof carries the verdict commands.verify, commands.check (the aggregate Check), and commands.guide would compute", "does not by itself prove a CLI/MCP version mismatch"},
+		{textassets.LegacyLocale, "兼容写入路径", "不能判断CLI与MCP版本不一致", "不要运行仅适用于Legacy布局", "code_batch_id必须等于code_plan.batch_id", "remaining非零", "它的terminal_proof已带上commands.verify、commands.check（Aggregate Check）和commands.guide会给出的结论", "不能单独证明CLI与MCP版本不一致"},
 	} {
 		if err := textassets.SetActiveLocale(current.locale); err != nil {
 			t.Fatal(err)

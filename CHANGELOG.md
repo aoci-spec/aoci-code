@@ -188,6 +188,24 @@ All notable public changes to AOCI-CODE will be documented in this file.
   table; `verify`'s `database_evidence` no longer reads current for Evidence
   taken under another source selection; and the Ledger records a Host
   delivery confirmation as accepted only when the delivery settled on it.
+- The Guide's closing instruction says what the final batch already proves:
+  its `terminal_proof` carries the Verify, aggregate Check, and Guide verdict,
+  so none of them needs to run after remaining=0. Parallel sibling batches
+  that carry the same orphan removals now all apply: a later sibling drops a
+  removal its predecessor already made. A repository without its own `.git`
+  inside another Git repository is no longer judged by the enclosing
+  repository's ignore rules. Every command flag's help is localized; a
+  hand-kept list had left fifteen of them in English under zh-CN.
+- Public text caught up with 0.2.0 behavior (pre-release audit): Database
+  deliveries are reused under the Database Baseline and Evidence guard; the
+  delivery store keeps bodies in bounded process memory, never on disk;
+  the Database specifications and guides drop 0.1.x rules (writable Legacy,
+  a cross-Volume R pre-check, no Volume creation) and name SQLite; Maintain
+  never advances the Baseline itself, even for format-only drift; hints no
+  longer point at `aoci_report` or retired `index agent` commands; an
+  expired `observe_review` in a batch answers `repair_required`; the `index`,
+  `check`, and `scan` help describe Volumes behavior; and the optimization
+  ranking lists `e_scale_mismatch`.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

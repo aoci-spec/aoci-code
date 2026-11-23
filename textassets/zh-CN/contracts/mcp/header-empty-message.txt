@@ -1,1 +1,1 @@
-索引头部为空: 本仓尚未建立规范与字典,标签取值请先经 aoci_report 登记待办由维护者补全头部。
+索引头部为空: 本仓尚未建立规范与字典,不要猜测标签取值;请运行 aoci cognition onboard start --json,再让宿主Agent按返回的Guide创作头部。

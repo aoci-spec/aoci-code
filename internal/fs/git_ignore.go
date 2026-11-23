@@ -9,7 +9,9 @@ package fs
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
@@ -28,6 +30,13 @@ import (
 //
 // When the Git facts cannot be obtained it answers (false, ""): better to report nothing than to accuse a rule because of an environment problem.
 func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
+	// Only the root's own repository decides, as the Safe Inventory's Git
+	// listing does: in a root without .git, git would climb to an enclosing
+	// repository and apply its rules to files scan never filters by them
+	// (audit G4-17).
+	if _, err := os.Lstat(filepath.Join(root, ".git")); err != nil {
+		return false, ""
+	}
 	command := UntrustedRepositoryGitCommand(root,
 		"check-ignore", "-v", "-z", "--stdin")
 	command.Stdin = strings.NewReader(rel + "\x00")

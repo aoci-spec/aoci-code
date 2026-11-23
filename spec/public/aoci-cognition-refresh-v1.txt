@@ -181,7 +181,10 @@ The existing cognition receipt adds optional fields:
 
 The original required fields are unchanged. During one MCP stdio session the
 server retains only receipt identity, pending reasons, bounded event IDs, and a
-generation number. It never retains the complete index body. One complete,
+generation number in the refresh state. Separately, the Overview delivery
+store of aoci-overview-delivery-v1.txt keeps each delivered body in bounded
+process memory so later Chunk and proof calls are answered from the same bytes;
+it is never persisted and expires or is evicted under that spec's limits. One complete,
 Host-confirmed, aligned Attestation attempt consumes the merged event and
 starts the next counting cycle. Pass records a reliable receipt; partial or
 fail records an uncertain receipt and the existing source-bound delivery

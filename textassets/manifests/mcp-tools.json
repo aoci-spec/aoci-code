@@ -177,7 +177,7 @@
       "description": "Host recovery contract when no Header dictionary exists",
       "used_by": "internal/mcptools/tools_header.go:registerHeaderTool",
       "protocol_tokens": [
-        "aoci_report"
+        "aoci cognition onboard start"
       ],
       "locale_anchors": {
         "zh-CN": [

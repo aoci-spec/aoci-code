@@ -235,7 +235,7 @@ func TestInitMaterializesVolumeFirstAssetsWithoutDatabaseCognition(
 	instructions := strings.Join(renderedGuide.Instructions, "\n")
 	for _, want := range []string{"EG7T", "code:path/to/file", "database://source/namespace/table",
 		machinecontract.NumericText().SQuotaDefaultCompact, "call no-argument aoci_maintain", "remaining nonzero",
-		"commands.verify, commands.check (the aggregate Check), and commands.guide in that order"} {
+		"its terminal_proof carries the verdict commands.verify, commands.check (the aggregate Check), and commands.guide would compute"} {
 		if !strings.Contains(instructions, want) {
 			t.Fatalf("首次Guide未自动交付作者化合同 %q:\n%s", want, instructions)
 		}

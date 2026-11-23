@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/testkit"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // Locks: every visible command in the tree has a localized short description.
@@ -51,4 +53,27 @@ func newRootCmdLocalized() *cobra.Command {
 	root := newRootCmd()
 	refreshCommandLocalization(root)
 	return root
+}
+
+// Locks: no flag usage stays in English under zh-CN when the catalog has its
+// zh-CN rendering; a hand-kept flag-name list left thirteen flags English
+// (audit G5-17).
+func TestEveryFlagUsageWithACatalogEntryIsLocalized(t *testing.T) {
+	testkit.PinLocale(t, "zh-CN")
+	root := newRootCmdLocalized()
+	var visit func(*cobra.Command)
+	visit = func(command *cobra.Command) {
+		check := func(flag *pflag.Flag) {
+			localized, found, err := textassets.RelocalizeMessageExact("zh-CN", flag.Usage)
+			if err == nil && found && localized != flag.Usage {
+				t.Errorf("%s --%s usage is still English under zh-CN: %q", command.CommandPath(), flag.Name, flag.Usage)
+			}
+		}
+		command.LocalNonPersistentFlags().VisitAll(check)
+		command.PersistentFlags().VisitAll(check)
+		for _, child := range command.Commands() {
+			visit(child)
+		}
+	}
+	visit(root)
 }

@@ -28,8 +28,7 @@ preimage, Plan or transaction identity, TTY requirement,
 automatic-retry flag, one transport-schema correction limit, and success next
 action.
 
-Generated Header, Entries, and Curation commands always include the explicit
-`--agent` value. Unknown or mistyped transport fields fail before Draft or
+Generated Guide commands always include the explicit `--agent` value. Unknown or mistyped transport fields fail before Draft or
 formal writes. A Host may correct one purely structural request-field error
 using the advertised schema. That correction does not change Candidate
 identity and is not semantic `repair_required`.

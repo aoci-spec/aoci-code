@@ -661,7 +661,7 @@ aoci --repo . cognition system relations
 aoci --repo . mcp
 ```
 
-Plan、Stage、Check、Diff、Apply、Curation、Scope Change、Bootstrap、Migration 和恢复命令仍然存在。普通用户应遵循运行中二进制返回的 Guide，而不是把内部状态机复制到脚本中。
+Legacy 的 `index agent` plan、stage、check、diff、apply 与 curation 命令已在 0.2.0 退役；cognition plan、Bootstrap、Migration、onboarding、Scope Change 和恢复命令仍然存在。普通用户应遵循运行中二进制返回的 Guide，而不是把内部状态机复制到脚本中。
 
 ### 🔒 关于“只读”命令
 
