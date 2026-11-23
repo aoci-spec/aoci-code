@@ -633,3 +633,30 @@ func TestInitExcludesHostConfigWithoutGit(t *testing.T) {
 		}
 	}
 }
+
+// A config written before init still gets the exclusion; a host file init did
+// not write (a user's own .claude/settings.json under --hooks=false) keeps its
+// role.
+func TestInitHostConfigExclusionEdges(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "repo")
+	testkit.WriteFile(t, root, "main.go", "package main\n")
+	testkit.WriteFile(t, root, ".claude/settings.json", "{}\n")
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, stderr, code := runCLIPrinted(t, root, "init", "--agent=claude", "--hooks=false", "--here=false"); code != ExitOK {
+		t.Fatalf("init: exit %d\n%s", code, stderr)
+	}
+	mustCLI(t, root, "scan")
+	if out := mustCLI(t, root, "scope", "explain", ".mcp.json"); !strings.Contains(out, "=> exclude") {
+		t.Fatalf("the .mcp.json init wrote must be excluded with a config written first: %s", out)
+	}
+	if out := mustCLI(t, root, "scope", "explain", ".claude/settings.json"); !strings.Contains(out, "=> index") {
+		t.Fatalf("a settings file init did not write must keep its role: %s", out)
+	}
+
+}

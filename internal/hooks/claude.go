@@ -73,7 +73,7 @@ func installMCPServersFile(root, relativePath, currentKey, invalidKey, writtenKe
 	// The file and every directory between it and the root must be real
 	// entries of this repository: a symlinked .pi or .mcp.json would have the
 	// merge read, back up, and rewrite a configuration outside it.
-	if link := firstSymlinkUnder(root, relativePath); link != "" {
+	if link := FirstSymlinkUnder(root, relativePath); link != "" {
 		return "", errors.New(hookMessage("hook.mcp_path_symlink", link))
 	}
 
@@ -171,9 +171,9 @@ func InstallClaudeHook(root string) (string, error) {
 	return hookMessage("hook.claude_hook_installed", scriptPath), nil
 }
 
-// firstSymlinkUnder reports the first component of relativePath, walking down
+// FirstSymlinkUnder reports the first component of relativePath, walking down
 // from root, that is a symbolic link (or, on Windows, a junction), or "".
-func firstSymlinkUnder(root, relativePath string) string {
+func FirstSymlinkUnder(root, relativePath string) string {
 	current := root
 	for _, part := range strings.Split(filepath.ToSlash(relativePath), "/") {
 		current = filepath.Join(current, part)
@@ -187,4 +187,22 @@ func firstSymlinkUnder(root, relativePath string) string {
 		}
 	}
 	return ""
+}
+
+// MCPServersFile names the mcpServers-shaped file Install writes for agent,
+// or "" for an agent whose configuration has another shape.
+func MCPServersFile(agent string) string {
+	switch agent {
+	case "claude", "qoder":
+		return ".mcp.json"
+	case "pi":
+		return ".pi/mcp.json"
+	}
+	return ""
+}
+
+// MCPPathSymlinkError is the refusal installMCPServersFile gives, for a
+// caller that must refuse before it reads the file at all.
+func MCPPathSymlinkError(link string) error {
+	return errors.New(hookMessage("hook.mcp_path_symlink", link))
 }

@@ -483,7 +483,16 @@ func init() {
 					}
 				}
 
+				var writtenHostPaths []string
 				for _, agentName := range agents {
+					// Refuse a host file reached through a link before reading
+					// it: the fingerprint below would follow the link out of the
+					// repository, or block on a FIFO.
+					if file := hooks.MCPServersFile(agentName); file != "" {
+						if link := hooks.FirstSymlinkUnder(root, file); link != "" {
+							return hooks.MCPPathSymlinkError(link)
+						}
+					}
 					beforeInstall := map[string]baseline.Fingerprint{}
 					for _, relativePath := range initAgentCandidatePaths(agentName) {
 						if fingerprint, ok := fingerprintInitPath(root, relativePath); ok {
@@ -515,6 +524,7 @@ func init() {
 						before, existed := beforeInstall[relativePath]
 						if !existed || before.SHA256 != after.SHA256 {
 							expectedPostimages[relativePath] = after
+							writtenHostPaths = append(writtenHostPaths, relativePath)
 						}
 					}
 
@@ -560,7 +570,7 @@ func init() {
 				// Managed Scope, so init excludes it by rule while the first scan
 				// is still ahead: a later exclusion is a coverage reduction.
 				if beforeFirstScan && !initialInventory.GitRepository {
-					if excluded := excludeHostConfigWithoutGit(root, cfg, hostIgnoreCandidates); len(excluded) > 0 {
+					if excluded := excludeHostConfigWithoutGit(root, cfg, writtenHostPaths); len(excluded) > 0 {
 						outputLines = append(outputLines, cliMessage("init.host_config_excluded", strings.Join(excluded, ", ")))
 					}
 				}
@@ -800,11 +810,12 @@ func indexPathsOutsideChildRepositories(root string, paths []string) int {
 }
 
 // excludeHostConfigWithoutGit adds one exclude rule per host configuration
-// file init wrote, for a root no Git repository governs, and reports the
-// paths. The rules go into the in-memory policy init saves next; a rule that
-// already exists is left alone.
+// file init wrote in this run (a user's own file it did not touch keeps its
+// role), for a root no Git repository governs, and reports the paths. The
+// rules go into the policy init saves next, on top of the effective policy
+// when the config carries none yet; a rule that already exists is left alone.
 func excludeHostConfigWithoutGit(root string, cfg *config.Config, candidates []string) []string {
-	if cfg == nil || cfg.ManagedScope == nil {
+	if cfg == nil {
 		return nil
 	}
 	policy := cfg.EffectiveManagedScope()
