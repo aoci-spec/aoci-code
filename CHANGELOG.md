@@ -190,9 +190,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   delivery confirmation as accepted only when the delivery settled on it.
 - The Guide's closing instruction says what the final batch already proves:
   its `terminal_proof` carries the Verify, aggregate Check, and Guide verdict,
-  so none of them needs to run after remaining=0. Parallel sibling batches
-  that carry the same orphan removals now all apply: a later sibling drops a
-  removal its predecessor already made. A repository without its own `.git`
+  so none of them needs to run after remaining=0. Code orphan removals ride
+  only the response that issues a parallel plan, so sibling batches no longer
+  carry the same removals and every sibling applies. A removal is judged
+  again under the write lock: a file re-created while the batch waited keeps
+  its Entry and the batch writes nothing. A repository without its own `.git`
   inside another Git repository is no longer judged by the enclosing
   repository's ignore rules. Every command flag's help is localized; a
   hand-kept list had left fifteen of them in English under zh-CN.

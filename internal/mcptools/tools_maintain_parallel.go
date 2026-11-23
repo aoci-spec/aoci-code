@@ -278,6 +278,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 	}
 	firstBudget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
 	if plan == nil {
+		result.planIssuedNow = true
 		fresh := codebatch.NewParallelPlan(ids)
 		ordered, _ := codebatch.Select(all, 0)
 		cuts := cutParallelSiblings(ordered, limit, parallel, firstBudget, codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true))

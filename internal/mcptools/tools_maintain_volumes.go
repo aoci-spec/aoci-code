@@ -118,9 +118,12 @@ type volumeMaintainResult struct {
 	// which is a failure to report and never an empty, aligned-looking answer.
 	volumeMoved  bool
 	issueFailure string
-	lockErr      error
-	planMarker   string
-	Batch        volumeAuthoringBatch `json:"authoring_batch"`
+	// planIssuedNow marks the response that issued a fresh parallel plan:
+	// the one sibling Code orphans may ride.
+	planIssuedNow bool
+	lockErr       error
+	planMarker    string
+	Batch         volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
 	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
@@ -249,8 +252,13 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	}
 	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
+	// Code orphans ride a single batch, or of a parallel plan only the
+	// response that issued it: a sibling handed out later by no-argument
+	// Maintain carried the same removals, and the second to apply found them
+	// gone and stopped (audit G2-10, rv37).
+	codeOrphansRide := !codeSiblingsIssued(result) || result.planIssuedNow
 	for _, orphan := range facts.CodeDrift.Orphan {
-		if requested[cognition.ScopeCode] {
+		if requested[cognition.ScopeCode] && codeOrphansRide {
 			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+orphan)
 		}
 	}

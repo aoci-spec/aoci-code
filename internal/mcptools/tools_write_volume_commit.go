@@ -36,8 +36,12 @@ func codeBatchLimit(cfg *config.Config) int {
 }
 
 var (
-	saveVolumeGovernanceReceipt = saveCompletedEntriesGovernanceReceipt
-	ensureVolumeLedger          = func(root string, enabled bool, event ledger.Event) error {
+	// beforeVolumeBatchCommitLocked runs once the write lock is held, before
+	// any locked check; tests change the repository there as a session that
+	// wrote while this batch waited for the lock.
+	beforeVolumeBatchCommitLocked = func(string) {}
+	saveVolumeGovernanceReceipt   = saveCompletedEntriesGovernanceReceipt
+	ensureVolumeLedger            = func(root string, enabled bool, event ledger.Event) error {
 		if !enabled {
 			return nil
 		}
@@ -203,23 +207,6 @@ func planCognitionVolumeUpdates(
 			if item.remove && cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
 				landedRemovals = append(landedRemovals, item)
 				continue
-			}
-			kept = append(kept, item)
-		}
-		ordered = kept
-	}
-	// Siblings of one parallel plan carry the same orphan removals; the
-	// first to apply removes them. In a later sibling a removal whose Entry is
-	// gone and whose file is still absent is that sibling's work, done: it is
-	// dropped, and the replay proof under the lock still requires the Volume
-	// to be this plan's (audit G2-10).
-	if codeReceipt != nil && codeReceipt.LogicalPlan != "" {
-		kept := make([]normalizedAtomicItem, 0, len(ordered))
-		for _, item := range ordered {
-			if item.remove && cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel) == nil {
-				if _, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(item.rel))); os.IsNotExist(statErr) {
-					continue
-				}
 			}
 			kept = append(kept, item)
 		}
@@ -665,6 +652,41 @@ func landedRemovalEnvelope(set *cognition.Set, landed []normalizedAtomicItem) (*
 	return &cognitionChangeEnvelope{ChangeObject: strings.Join(objects, ","), ChangeObjects: objects,
 		Volume: cognition.ScopeCode, Volumes: []string{cognition.ScopeCode}, WriteSet: []string{cognition.ScopeCode},
 		GuardSet: guardSet, Strategy: cognition.ImpactStrategyDependencyClosure, guards: guards}, nil
+}
+
+// revalidateRemovalsUnderLock judges every removal again under the write
+// lock, on the facts as they stand: a file re-created at an orphan's path
+// while the batch waited for the lock made the removal delete a live Entry
+// (rv37). Zero writes when one no longer holds.
+func revalidateRemovalsUnderLock(root string, plan *atomicBatchPlan) *Fail {
+	removals := []normalizedAtomicItem{}
+	for _, item := range plan.normalizedItems {
+		if item.remove && item.rel != "" {
+			removals = append(removals, item)
+		}
+	}
+	if len(removals) == 0 {
+		return nil
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		return fail
+	}
+	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
+	if err != nil {
+		return &Fail{Code: errInternal, Msg: "code_candidate_governance_unavailable"}
+	}
+	findings := []cognition.RepairFinding{}
+	for _, item := range removals {
+		if finding := removalRepairFinding(loaded.set, facts, item); finding != nil {
+			findings = append(findings, *finding)
+		}
+	}
+	if len(findings) > 0 {
+		return &Fail{Code: errCandidateInvalid, Msg: "removal_target_not_orphan",
+			Hint: writeMessage("entry.batch.hint.replan"), Findings: LocalizeRepairFindings(findings), Repairable: true}
+	}
+	return nil
 }
 
 // removalRepairFinding judges one removal: the path must carry a Code Entry
@@ -1151,6 +1173,7 @@ func cognitionVolumeTransitionIdentity(targets []cognitionVolumeWriteTarget, pos
 }
 
 func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan, retainRecovery bool) (string, bool, *Fail) {
+	beforeVolumeBatchCommitLocked(root)
 	volumePlan := plan.volumePlan
 	if fail := rejectFreshBatchOverPendingWrite(root, plan); fail != nil {
 		return "", false, fail
@@ -1176,6 +1199,11 @@ func commitCognitionVolumeBatchLocked(root, source string, plan *atomicBatchPlan
 	}
 	if guardID, _ := externalGuardMismatch(root, plan.changeEnvelope); guardID != "" {
 		return "", false, &Fail{Code: errWriteConflict, Msg: writeMessage("entry.volume.guard_stale", guardID), Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	if volumePlan.recovery == nil {
+		if fail := revalidateRemovalsUnderLock(root, plan); fail != nil {
+			return "", false, fail
+		}
 	}
 
 	if volumePlan.recovery == nil && len(volumePlan.targets) > 0 {
@@ -1622,8 +1650,7 @@ func reprojectParallelSiblingUnderLock(root string, plan *atomicBatchPlan) *Fail
 			// Volume as it now stands.
 			object := cognitionObjectByRef(loaded.set.Volumes[cognition.ScopeCode], "code:"+item.rel)
 			if object == nil {
-				// An applied sibling of this replay-proven plan removed it.
-				continue
+				return &Fail{Code: errWriteConflict, Msg: "code_candidate_volume_preimage_stale", Hint: writeMessage("entry.batch.hint.replan")}
 			}
 			text, removeErr := index.RemoveEntryForPath(codeContext.text, root, item.rel, object.CanonicalLine)
 			if removeErr != nil {
