@@ -1059,35 +1059,7 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 // where the Entries are, and the Whole-Index total is rebound to the complete
 // declared asset set.
 func buildScopeStatusBudget(root string, cfg *config.Config, raw []byte) (*cognitionbudget.Report, error) {
-	policy := cfg.EffectiveCognitionBudget()
-	layout, layoutErr := cognition.DetectLayout(raw)
-	if layoutErr != nil || layout != cognition.LayoutVolumesV1 {
-		return cognitionbudget.Build(root, raw, policy)
-	}
-	set, loadErr := cognition.Load(root, cfg.IndexPath)
-	if loadErr != nil {
-		// A set that cannot be assembled is reported by the governance findings,
-		// not by silently substituting a wrong budget.
-		return cognitionbudget.Build(root, raw, policy)
-	}
-	code := set.Volumes[cognition.ScopeCode]
-	if code == nil || code.State != cognition.AssetPresent {
-		return cognitionbudget.Build(root, raw, policy)
-	}
-	report, err := cognitionbudget.Build(root, code.Raw, policy)
-	if err != nil {
-		return nil, err
-	}
-	total := len(raw)
-	for _, id := range set.DeclaredOrder {
-		if asset := set.Volumes[id]; asset != nil {
-			total += len(asset.Raw)
-		}
-	}
-	if err := report.RebindWholeIndexTokens(cognitionbudget.EstimateTokensOfSize(total), policy); err != nil {
-		return nil, err
-	}
-	return report, nil
+	return scopechange.BuildBudgetReport(root, cfg, raw, cfg.EffectiveCognitionBudget())
 }
 
 func findScopeEvaluation(evaluation *managedscope.Evaluation, rel string) (managedscope.PathEvaluation, bool) {

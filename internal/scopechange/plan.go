@@ -435,13 +435,26 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		}
 	}
 	projectedBytes := []byte(projected)
-	beforeReport, err := cognitionbudget.Build(root, indexBytes, budgetPolicy)
+	beforeReport, err := BuildBudgetReport(root, cfg, indexBytes, budgetPolicy)
 	if err != nil {
 		return nil, err
 	}
-	projection, err := cognitionbudget.ValidateProjected(root, indexBytes, projectedBytes, budgetPolicy)
+	// Under Volumes the projection cannot change an Entry (Entry candidates
+	// are refused above), so current and projected are the same measured
+	// Volume; the bands are still checked against every written Entry.
+	measured, wholeBytes, volumesBudget := BudgetMeasure(root, cfg, indexBytes)
+	projectedMeasured := projectedBytes
+	if volumesBudget {
+		projectedMeasured = measured
+	}
+	projection, err := cognitionbudget.ValidateProjected(root, measured, projectedMeasured, budgetPolicy)
 	if err != nil {
 		return nil, err
+	}
+	if volumesBudget {
+		projection.CurrentTokens = cognitionbudget.EstimateTokensOfSize(wholeBytes)
+		projection.ProjectedWholeIndexTokens = cognitionbudget.EstimateTokensOfSize(wholeBytes - len(indexBytes) + len(projectedBytes))
+		projection.BatchDeltaTokens = projection.ProjectedWholeIndexTokens - projection.CurrentTokens
 	}
 	if len(projection.Violations) > 0 {
 		return nil, fmt.Errorf("cognition_budget_exceeded: current=%d projected=%d target=%d warning=%d max=%d delta=%d violations=%d suggested=%v",
@@ -449,7 +462,7 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 			projection.WarningTokens, projection.MaxTokens, projection.BatchDeltaTokens, len(projection.Violations), projection.SuggestedCompression)
 	}
 	plan.WholeIndexBefore = *beforeReport
-	afterReport, err := cognitionbudget.Build(root, projectedBytes, budgetPolicy)
+	afterReport, err := BuildBudgetReport(root, cfg, projectedBytes, budgetPolicy)
 	if err != nil {
 		return nil, err
 	}

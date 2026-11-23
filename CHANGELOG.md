@@ -38,7 +38,10 @@ All notable public changes to AOCI-CODE will be documented in this file.
   onboarding rollback proves the Root can be restored before it restores the
   Baseline, and restores a Root without a final line break; and a sensitive
   file admitted by an exact high-risk opt-in is no longer reported missing
-  after its Entry is written.
+  after its Entry is written. A Scope Change on a Volumes repository measures
+  the cognition budget the way `scope status` does, on the Code Volume and
+  over every declared asset: it measured the Root alone, so its R and S
+  bands checked no Entry and its plan recorded zero Entries.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
