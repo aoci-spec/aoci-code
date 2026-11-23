@@ -94,7 +94,9 @@ func buildSnapshot(root string, options Options, running []Instance) (Snapshot, 
 		"qoder_mcp":    hooks.IsClaudeMCPInstalled(root),
 		"agents_block": hooks.IsAgentsBlockPresent(root),
 	}
-	cfg, err := config.Load(root)
+	// The viewer observes; it must not record a legacy Locale upgrade in this
+	// or any discovered repository.
+	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
 		snapshot.Error = "config_unavailable: " + err.Error()
 		return snapshot, nil

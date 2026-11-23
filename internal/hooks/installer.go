@@ -278,6 +278,9 @@ func Detect(root string) []string {
 // cursor: prints a reference configuration fragment (an honest placeholder, no file written).
 // It returns a multi-line user-facing result explanation.
 func Install(root, agent string, withHooks bool) (string, error) {
+	if link := FirstLinkedTarget(root, agent, withHooks); link != "" {
+		return "", MCPPathSymlinkError(link)
+	}
 	switch agent {
 	case "claude":
 		var b strings.Builder

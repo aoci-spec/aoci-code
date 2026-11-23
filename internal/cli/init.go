@@ -37,6 +37,11 @@ import (
 var beforeInitBaselineAdvance = func() {}
 
 func fingerprintInitPath(root, relativePath string) (baseline.Fingerprint, bool) {
+	// A path through a link is not this repository's file; reading it would
+	// follow the link out of the repository or block on a FIFO.
+	if hooks.FirstSymlinkUnder(root, relativePath) != "" {
+		return baseline.Fingerprint{}, false
+	}
 	fingerprint, err := baseline.HashFile(filepath.Join(root, filepath.FromSlash(relativePath)))
 	return fingerprint, err == nil
 }
@@ -82,10 +87,21 @@ func advanceInitBaseline(
 	advanced := []string{}
 	conflicted := []string{}
 	for relativePath, expected := range expectedPostimages {
+		existing, recorded := currentBaseline.Files[relativePath]
+		// Under Managed Scope a path's role is the policy's decision: init
+		// advances only paths the Baseline already records and keeps their
+		// role, so an observe file stays observe and an excluded or not yet
+		// scanned path is left for scan to classify.
+		if currentBaseline.ManagedScope != nil && !recorded {
+			continue
+		}
 		fingerprint, ok := fingerprintInitPath(root, relativePath)
 		if !ok || fingerprint.SHA256 != expected.SHA256 {
 			conflicted = append(conflicted, relativePath)
 			continue
+		}
+		if recorded {
+			expected.Role = existing.Role
 		}
 		baseline.UpdateOne(currentBaseline, relativePath, expected)
 		advanced = append(advanced, relativePath)
@@ -488,10 +504,8 @@ func init() {
 					// Refuse a host file reached through a link before reading
 					// it: the fingerprint below would follow the link out of the
 					// repository, or block on a FIFO.
-					if file := hooks.MCPServersFile(agentName); file != "" {
-						if link := hooks.FirstSymlinkUnder(root, file); link != "" {
-							return hooks.MCPPathSymlinkError(link)
-						}
+					if link := hooks.FirstLinkedTarget(root, agentName, withHooks && (agentName == "claude" || agentName == "codex")); link != "" {
+						return hooks.MCPPathSymlinkError(link)
 					}
 					beforeInstall := map[string]baseline.Fingerprint{}
 					for _, relativePath := range initAgentCandidatePaths(agentName) {

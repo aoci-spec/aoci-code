@@ -56,7 +56,7 @@ func TestDoctorReportsQoderMCPAfterInitQoder(t *testing.T) {
 	if !strings.Contains(out, configured) {
 		t.Fatalf("doctor must report the Qoder MCP row as configured after init --agent qoder (want %q):\n%s", configured, out)
 	}
-	if strings.Contains(out, "[text asset") {
+	if strings.Contains(out, "[text_asset_error") {
 		t.Fatalf("doctor printed a missing text asset:\n%s", out)
 	}
 

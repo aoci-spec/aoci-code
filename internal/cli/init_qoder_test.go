@@ -51,7 +51,7 @@ func TestInitQoderWritesSharedMCPJSONAndNoHooks(t *testing.T) {
 	if !strings.Contains(out, hint) {
 		t.Fatalf("init --agent qoder must say Qoder reads the shared .mcp.json: %s", out)
 	}
-	if strings.Contains(out, "[text asset") {
+	if strings.Contains(out, "[text_asset_error") {
 		t.Fatalf("init --agent qoder printed a missing text asset: %s", out)
 	}
 	if _, err := os.Stat(filepath.Join(root, "AGENTS.md")); err != nil {

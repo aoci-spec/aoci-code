@@ -108,16 +108,21 @@ func TestMCPServersInstallRefusesSymlinkedPaths(t *testing.T) {
 	if err := os.WriteFile(foreign, []byte(`{"mcpServers":{"other":{"command":"x"}}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	for _, test := range []struct{ agent, link, target string }{
-		{"pi", ".pi", outside},
-		{"qoder", ".mcp.json", foreign},
+	for _, test := range []struct {
+		agent, link, target string
+		hooks               bool
+	}{
+		{"pi", ".pi", outside, false},
+		{"qoder", ".mcp.json", foreign, false},
+		{"codex", ".codex", outside, true},
+		{"claude", ".claude", outside, true},
 	} {
 		t.Run(test.agent, func(t *testing.T) {
 			root := t.TempDir()
 			if err := os.Symlink(test.target, filepath.Join(root, test.link)); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := Install(root, test.agent, false); err == nil {
+			if _, err := Install(root, test.agent, test.hooks); err == nil {
 				t.Fatal("a symlinked host configuration path must be refused")
 			}
 			entries, _ := os.ReadDir(outside)

@@ -189,6 +189,39 @@ func FirstSymlinkUnder(root, relativePath string) string {
 	return ""
 }
 
+// WriteTargets lists every file Install writes for agent, so a caller can
+// refuse a target reached through a link before anything is read or written
+// (audit G5-02: only the mcpServers files were checked).
+func WriteTargets(agent string, withHooks bool) []string {
+	switch agent {
+	case "claude":
+		if withHooks {
+			return []string{".mcp.json", ".aoci/hooks/claude-pretool.sh", ".claude/settings.json"}
+		}
+		return []string{".mcp.json"}
+	case "codex":
+		return []string{".codex/config.toml"}
+	case "qoder":
+		return []string{".mcp.json"}
+	case "pi":
+		return []string{".pi/mcp.json"}
+	case "opencode":
+		return []string{"opencode.json"}
+	}
+	return nil
+}
+
+// FirstLinkedTarget is the first WriteTargets path that runs through a
+// symbolic link, or "".
+func FirstLinkedTarget(root, agent string, withHooks bool) string {
+	for _, target := range WriteTargets(agent, withHooks) {
+		if link := FirstSymlinkUnder(root, target); link != "" {
+			return link
+		}
+	}
+	return ""
+}
+
 // MCPServersFile names the mcpServers-shaped file Install writes for agent,
 // or "" for an agent whose configuration has another shape.
 func MCPServersFile(agent string) string {

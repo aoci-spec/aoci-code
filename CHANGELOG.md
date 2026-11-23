@@ -71,6 +71,19 @@ All notable public changes to AOCI-CODE will be documented in this file.
   path the Baseline no longer records is now matched against the file on
   disk, in the one implementation the CLI, governance and Scope Change share
   (pre-release audit).
+- Fixes from the pre-release audit, CLI and host integration group: an
+  interrupted Database onboarding can be inspected, resumed and rolled back
+  again, since its `status`, `resume` and `rollback` commands were blocked by
+  the recovery gate they close; `init` refuses a host configuration target
+  reached through a symbolic link for every host, Claude Code hooks and Codex
+  included, before reading it; `aoci mcp` and `aoci ui` no longer record the
+  legacy Locale in a configuration written before that field, as the MCP
+  contract says the server never writes configuration (an ordinary command
+  still records it); a repeated `init` keeps the Managed Scope role of a file
+  it rewrites and no longer adds a path the Baseline never recorded; `aoci ui`
+  and `aoci ui --stop` run while a recovery is pending, since the page shows
+  that state itself; and a damaged help text asset fails `--help` instead of
+  printing its marker with exit 0.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

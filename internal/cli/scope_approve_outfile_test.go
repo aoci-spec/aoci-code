@@ -267,7 +267,7 @@ func TestOutFileUsageIsLocalizedOnEveryApproveCommand(t *testing.T) {
 			}
 			// The sentinel appears when two message values collide byte-for-byte;
 			// it makes --help exit 10 with no output at all.
-			if strings.Contains(line, "text asset flag localization failed") {
+			if strings.Contains(line, "flag localization failed") {
 				t.Fatalf("%v --out-file usage collided with another message: %q", path, line)
 			}
 			if !hanTextPattern.MatchString(line) {

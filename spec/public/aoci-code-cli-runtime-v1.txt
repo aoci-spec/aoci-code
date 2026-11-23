@@ -169,8 +169,9 @@ transaction, published under the index lock in this order: the Root
 publish is against the exact preimage the receipt names; the Meta, Code, and
 Database Volumes are guards that must be unchanged before every publish and
 are never written. The receipt is `locale-<id>.json` under
-`.aoci/transactions`: while it is pending every other command exits 2 with
-`cognition_recovery_pending`, the Agent Guide names it, running the same
+`.aoci/transactions`: while it is pending every other command except `mcp`,
+`ui`, and `index agent guide` exits 2 with `cognition_recovery_pending`, the
+Agent Guide names it, running the same
 command with the same target resumes it, and another target exits 3. A
 Baseline record of the Root that no longer matches the file exits 3 before
 any write. When the Ledger is enabled the terminal event
@@ -191,7 +192,8 @@ when a header changes, and `.aoci/baseline.json` with the records of the
 rewritten assets moved to their new bytes, each publish against the exact
 preimage the receipt names, the Root and every other Volume unchanged guards.
 The receipt is `relocate-<id>.json` under `.aoci/transactions`: while it is
-pending every other command exits 2 with `cognition_recovery_pending`, the
+pending every other command except `mcp`, `ui`, and `index agent guide` exits
+2 with `cognition_recovery_pending`, the
 Agent Guide names it, and running `index relocate` again resumes it. A
 Baseline record of a rewritten asset that no longer matches the file exits 3
 before any write; roots already neutral exit 0 and write nothing; `--dry-run`

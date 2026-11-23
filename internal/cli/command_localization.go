@@ -292,7 +292,7 @@ func refreshCommandLocalization(root *cobra.Command) {
 			if flag := local.Lookup(flagName); flag != nil {
 				localized, found, err := textassets.RelocalizeMessageExact(textassets.ActiveLocale(), flag.Usage)
 				if err != nil {
-					flag.Usage = fmt.Sprintf("[text asset flag localization failed: %v]", err)
+					flag.Usage = fmt.Sprintf("[text_asset_error: flag localization failed: %v]", err)
 				} else if found {
 					flag.Usage = localized
 				}
@@ -300,7 +300,7 @@ func refreshCommandLocalization(root *cobra.Command) {
 			if flag := persistent.Lookup(flagName); flag != nil {
 				localized, found, err := textassets.RelocalizeMessageExact(textassets.ActiveLocale(), flag.Usage)
 				if err != nil {
-					flag.Usage = fmt.Sprintf("[text asset flag localization failed: %v]", err)
+					flag.Usage = fmt.Sprintf("[text_asset_error: flag localization failed: %v]", err)
 				} else if found {
 					flag.Usage = localized
 				}

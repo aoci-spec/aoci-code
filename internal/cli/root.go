@@ -450,10 +450,15 @@ func activateInvocationLocale(args []string) error {
 		explicitRepo := repoArgument(args)
 		command, _ := rootCommandToken(args)
 		hookInvocation := command == "hook"
+		// The MCP server and the UI viewer never write team configuration
+		// (aoci-mcp-runtime-v1): a pre-Locale config is served as the legacy
+		// Locale without recording it, so the upgrade waits for an ordinary
+		// CLI command.
+		observeOnly := command == "mcp" || command == "ui"
 		if root, err := config.FindRepoRoot(".", explicitRepo); err == nil {
 			var cfg *config.Config
 			var loadErr error
-			if isCognitionPlannerInvocation(args) || hookInvocation {
+			if isCognitionPlannerInvocation(args) || hookInvocation || observeOnly {
 				cfg, loadErr = config.LoadReadOnly(root)
 			} else {
 				cfg, loadErr = config.Load(root)
@@ -898,7 +903,10 @@ func writeBytes(
 // receipt has no closure in this release (0.1.x wrote it and 0.1.x finishes
 // it), so only its read surface stays open.
 func recoveryGateAllows(operation, path string) bool {
-	if path == "aoci index agent guide" || path == "aoci mcp" {
+	// aoci ui is a read-only viewer that renders recovery_pending itself, and
+	// --stop only touches the per-user registry; blocking it hid the very
+	// state it exists to show (audit G5-06).
+	if path == "aoci index agent guide" || path == "aoci mcp" || path == "aoci ui" {
 		return true
 	}
 	switch operation {
@@ -906,6 +914,12 @@ func recoveryGateAllows(operation, path string) bool {
 		return path == "aoci cognition bootstrap status" || path == "aoci cognition bootstrap resume" || path == "aoci cognition bootstrap rollback"
 	case "migration":
 		return path == "aoci cognition migration status" || path == "aoci cognition migration resume" || path == "aoci cognition migration rollback"
+	case "database-bootstrap":
+		// Its own status, resume, and rollback were missing here, so an
+		// interrupted Database onboarding blocked the only commands that
+		// close it (audit G5-01).
+		return path == "aoci database cognition status" || path == "aoci database cognition bootstrap resume" ||
+			path == "aoci database cognition bootstrap rollback"
 	case "reversal":
 		return path == "aoci cognition migration reversal status" || path == "aoci cognition migration reversal resume"
 	case "scope":

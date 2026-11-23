@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	cliHelpAssetFailurePrefix   = "[text asset"
+	cliHelpAssetFailurePrefix   = "[text_asset_error"
 	cliHelpAssetErrorAnnotation = "aoci.cli/help-asset-error"
 )
 

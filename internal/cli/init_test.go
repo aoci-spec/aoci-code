@@ -35,6 +35,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
@@ -659,4 +660,52 @@ func TestInitHostConfigExclusionEdges(t *testing.T) {
 		t.Fatalf("a settings file init did not write must keep its role: %s", out)
 	}
 
+}
+
+// Under Managed Scope init advances only recorded paths and keeps their role:
+// an observe AGENTS.md stays observe, and a path the Baseline never recorded
+// is left for scan to classify.
+func TestInitBaselineAdvanceKeepsManagedScopeRoles(t *testing.T) {
+	root := t.TempDir()
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	agentsPath := filepath.Join(root, "AGENTS.md")
+	data, err := os.ReadFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(agentsPath, []byte(strings.Replace(string(data), "<!-- aoci:end -->", "# stale\n<!-- aoci:end -->", 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agents, err := baseline.HashFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agents.Role = machinecontract.ScopeRoleObserve
+	state := baseline.NewBaseline(map[string]baseline.Fingerprint{"AGENTS.md": agents})
+	state.ManagedScope = &baseline.ManagedScopeState{Version: machinecontract.ManagedScopeBaselineV1, PolicyIdentity: strings.Repeat("a", 64), ObserveChangePolicy: machinecontract.ObserveChangeInformational}
+	if err := baseline.Save(root, state); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := runInit(t, root, "--agent=claude", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	after, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load Baseline: exists=%t err=%v", exists, err)
+	}
+	disk, err := baseline.HashFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := after.Files["AGENTS.md"]
+	if got.SHA256 != disk.SHA256 || got.Role != machinecontract.ScopeRoleObserve {
+		t.Fatalf("AGENTS.md = %+v, want postimage %s with role observe", got, disk.SHA256)
+	}
+	for rel := range after.Files {
+		if rel != "AGENTS.md" {
+			t.Fatalf("init added unrecorded path %q under Managed Scope", rel)
+		}
+	}
 }
