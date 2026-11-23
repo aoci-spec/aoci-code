@@ -31,6 +31,7 @@ func Assess(root string, sources []dbevidence.SourceConfig, set *cognition.Set, 
 	blockingSources := 0
 	evidenceBlockingSource := false
 	evidence := map[string]Item{}
+	acceptance := loadSnapshotAcceptance(root)
 	for _, source := range orderedSources {
 		// A declaration AOCI cannot collect from owes nothing whether it is
 		// enabled or not; an Entry under it still blocks below.
@@ -70,6 +71,13 @@ func Assess(root string, sources []dbevidence.SourceConfig, set *cognition.Set, 
 			blockingSources++
 			evidenceBlockingSource = true
 			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: machinecontract.DatabaseCognitionEvidenceUnavailable, ErrorCode: "database_snapshot_selection_mismatch"})
+			continue
+		}
+		if state, code := acceptance.refusal(source.SourceID, snapshot.SourceSnapshotSHA256); code != "" {
+			sourceStatus[source.SourceID] = state
+			blockingSources++
+			evidenceBlockingSource = true
+			result.Sources = append(result.Sources, SourceState{SourceID: source.SourceID, State: state, ErrorCode: code})
 			continue
 		}
 		sourceStatus[source.SourceID] = machinecontract.DatabaseCognitionCurrent
@@ -224,7 +232,10 @@ func assessAbsentVolume(root string, sources []dbevidence.SourceConfig, result *
 				result.EvidenceTableCount += len(snapshot.Tables)
 			}
 		}
-		if state.State == machinecontract.DatabaseCognitionEngineNotImplemented {
+		// Without a Volume no Entry can belong to a disabled source, so it
+		// governs nothing, as in volumegovernance and databasebootstrap;
+		// counting it as blocking hid a due bootstrap (audit G6-03).
+		if state.State == machinecontract.DatabaseCognitionEngineNotImplemented || state.State == machinecontract.DatabaseCognitionSourceDisabled {
 			result.Sources = append(result.Sources, state)
 			continue
 		}
@@ -281,4 +292,56 @@ func addSummary(summary *Summary, state string) {
 	case machinecontract.DatabaseCognitionSourceDisabled:
 		summary.SourceDisabled++
 	}
+}
+
+// snapshotAcceptance is the accepted Evidence Baseline every Database reader
+// requires: assessment and submission read only a snapshot that
+// database baseline accept recorded (aoci-database-cognition-authoring-v1).
+// The present-Volume branch and ValidateSubmission used to skip it, so a
+// captured but unaccepted snapshot was issued and written (audit G6-02).
+type snapshotAcceptance struct {
+	accepted map[string]string
+	exists   bool
+	err      error
+}
+
+func loadSnapshotAcceptance(root string) snapshotAcceptance {
+	document, exists, err := dbevidence.LoadBaseline(root)
+	result := snapshotAcceptance{accepted: map[string]string{}, exists: exists, err: err}
+	if err == nil && exists {
+		for _, source := range document.Sources {
+			result.accepted[source.SourceID] = source.SourceSnapshotSHA256
+		}
+	}
+	return result
+}
+
+// refusal names the state and error code when the snapshot is not the
+// accepted one, or empty strings when it is.
+func (a snapshotAcceptance) refusal(sourceID, snapshotSHA256 string) (string, string) {
+	switch {
+	case a.err != nil:
+		return machinecontract.DatabaseCognitionEvidenceInvalid, "database_evidence_baseline_invalid"
+	case !a.exists:
+		return machinecontract.DatabaseCognitionEvidenceUnavailable, "database_evidence_baseline_missing"
+	case a.accepted[sourceID] != snapshotSHA256:
+		return machinecontract.DatabaseCognitionEvidenceUnavailable, "database_snapshot_not_accepted"
+	}
+	return "", ""
+}
+
+// AcceptedSnapshotRefusal reports, as an error code, why the saved snapshot
+// of sourceID is not the one database baseline accept recorded, or "" when it
+// is. A writer that binds Entries to Evidence checks it before any write, so
+// the post-write verify, which reads only accepted Evidence, cannot fail late.
+func AcceptedSnapshotRefusal(root, sourceID string) string {
+	_, snapshot, exists, err := dbevidence.LoadSnapshot(root, sourceID)
+	if err != nil {
+		return "database_evidence_invalid"
+	}
+	if !exists {
+		return "database_snapshot_missing"
+	}
+	_, code := loadSnapshotAcceptance(root).refusal(sourceID, snapshot.SourceSnapshotSHA256)
+	return code
 }

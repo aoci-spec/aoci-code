@@ -94,6 +94,19 @@ func TestAcceptedEvidenceRoutesAbsentDatabaseVolumeToIndependentBootstrap(t *tes
 		assessment.NextAction != machinecontract.DatabaseCognitionActionBootstrapVolume || assessment.EvidenceTableCount != 1 {
 		t.Fatalf("accepted Evidence did not route to independent Database Bootstrap: %#v", assessment)
 	}
+
+	// Without a Volume a disabled source governs nothing: it neither blocks
+	// the due bootstrap nor, alone, creates debt (audit G6-03).
+	staging := sources[0]
+	staging.SourceID, staging.Enabled = "staging", false
+	withDisabled := Assess(root, append(append([]dbevidence.SourceConfig{}, sources...), staging), set, baseline.NewBaseline(nil))
+	if withDisabled.BlockingSourceCount != 0 || withDisabled.NextAction != machinecontract.DatabaseCognitionActionBootstrapVolume {
+		t.Fatalf("a disabled source blocked the bootstrap: %#v", withDisabled)
+	}
+	onlyDisabled := Assess(root, []dbevidence.SourceConfig{staging}, set, baseline.NewBaseline(nil))
+	if !onlyDisabled.CognitionCurrent || onlyDisabled.BlockingSourceCount != 0 || onlyDisabled.NextAction != machinecontract.DatabaseCognitionActionNoConfiguration {
+		t.Fatalf("a lone disabled source created Database debt: %#v", onlyDisabled)
+	}
 }
 
 func TestEvidenceUnavailableInvalidAndDisabledRemainDistinct(t *testing.T) {
@@ -325,6 +338,11 @@ func writeEvidence(t testing.TB, root string, tables []dbevidence.TableEvidence)
 		t.Fatal(err)
 	}
 	if err := dbevidence.WriteSnapshot(root, manifest, snapshot, files); err != nil {
+		t.Fatal(err)
+	}
+	// database snapshot is followed by database baseline accept: every reader
+	// requires the accepted snapshot.
+	if err := dbevidence.AcceptSnapshot(root, snapshot, snapshot.SourceSnapshotSHA256); err != nil {
 		t.Fatal(err)
 	}
 }

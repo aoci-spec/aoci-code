@@ -20,7 +20,8 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
-func preparedMigrationFixture(t testing.TB, root string, kinds []string) (*ApplyEnvelope, *Approval) {
+// migrationApplyRequest builds the complete request Prepare takes.
+func migrationApplyRequest(t testing.TB, root string, kinds []string) *ApplyRequest {
 	t.Helper()
 	snapshot, err := CaptureSnapshot(root, "en-US", kinds, "2026-07-30T00:00:00Z")
 	if err != nil || snapshot.Eligibility != machinecontract.CognitionMigrationEligibilityEligible {
@@ -44,9 +45,14 @@ func preparedMigrationFixture(t testing.TB, root string, kinds []string) (*Apply
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelope, err := Prepare(root, &ApplyRequest{Version: machinecontract.CognitionMigrationApplyRequestV2,
+	return &ApplyRequest{Version: machinecontract.CognitionMigrationApplyRequestV2,
 		Snapshot: *snapshot, Plan: *plan, Mapping: *mapping, Candidate: *candidate, Preview: *preview,
-		BaselineTimestamp: "2026-07-30T00:00:00Z"})
+		BaselineTimestamp: "2026-07-30T00:00:00Z"}
+}
+
+func preparedMigrationFixture(t testing.TB, root string, kinds []string) (*ApplyEnvelope, *Approval) {
+	t.Helper()
+	envelope, err := Prepare(root, migrationApplyRequest(t, root, kinds))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,6 +630,9 @@ func installMigrationDatabaseEvidence(t testing.TB, root string) {
 		t.Fatal(err)
 	}
 	if err := dbevidence.WriteSnapshot(root, manifest, snapshot, files); err != nil {
+		t.Fatal(err)
+	}
+	if err := dbevidence.AcceptSnapshot(root, snapshot, snapshot.SourceSnapshotSHA256); err != nil {
 		t.Fatal(err)
 	}
 }

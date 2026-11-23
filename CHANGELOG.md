@@ -84,6 +84,28 @@ All notable public changes to AOCI-CODE will be documented in this file.
   and `aoci ui --stop` run while a recovery is pending, since the page shows
   that state itself; and a damaged help text asset fails `--help` instead of
   printing its marker with exit 0.
+- Fixes from the pre-release audit, team configuration: `exclude_dirs`,
+  `exclude_files`, `exclude_exts`, `curation_exclude` and `installed_agents`
+  in `.aoci/config.local.json` no longer override the team file, as the
+  configuration contract says these are team-owned; a local copy made one
+  machine compute a different inventory and Scope state. `config set
+  curation_exclude` refuses a directory, an absolute path, or a path leaving
+  the repository: an entry names one file, and an invalid entry used to stop
+  `scope status` and `verify` with `managed_scope_curation_path_invalid`.
+- Fixes from the pre-release audit, Database group: with a Database Volume,
+  assessment and `aoci_update_entry` read only the snapshot `database
+  baseline accept` recorded, as they already did before the Volume existed;
+  a snapshot captured but not accepted was issued and written. A Legacy
+  migration or Fresh Bootstrap that creates the Database Volume now refuses
+  unaccepted Evidence before writing, naming `aoci database baseline accept`,
+  instead of failing its own verification after the writes. Without a
+  Volume, a disabled source no longer hides a due Database bootstrap. An
+  openGauss index whose table, schema, or name starts with `local` or
+  `global` (a table named `locale`, say) no longer refuses the whole source as
+  a partition index, and an explicit `ASC NULLS LAST` is accepted. When an
+  openGauss query times out and the cancel request cannot reach the server,
+  the stuck read on the main connection now ends at once instead of waiting
+  for TCP keepalive.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

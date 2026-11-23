@@ -1,9 +1,9 @@
 diff --git a/AOCI-PATCHES.md b/AOCI-PATCHES.md
 new file mode 100644
-index 0000000..805fbe3
+index 0000000..68640c9
 --- /dev/null
 +++ b/AOCI-PATCHES.md
-@@ -0,0 +1,26 @@
+@@ -0,0 +1,28 @@
 +# AOCI connector patch set
 +
 +This module is based on the official
@@ -14,7 +14,9 @@ index 0000000..805fbe3
 +- reserve process stdout for the host protocol and send the default connector
 +  logger to stderr;
 +- perform TLS query cancellation on the dedicated cancel socket without
-+  closing or upgrading the main connection;
++  closing or upgrading the main connection, and when that CancelRequest
++  cannot reach the server, end a read still blocked on the main connection
++  with a deadline so the query honors its context;
 +- provide `ParseConfigStrict`, an opt-in deterministic configuration entrypoint
 +  that does not consume ambient libpq or home-directory configuration and does
 +  not permit TLS downgrade or multi-host fallback, rejects unknown parameters,
@@ -32,10 +34,10 @@ index 0000000..805fbe3
 +The upstream `LICENSE.md` remains authoritative for this vendored module.
 diff --git a/aoci_security_patch_test.go b/aoci_security_patch_test.go
 new file mode 100644
-index 0000000..4dd1112
+index 0000000..cdf9945
 --- /dev/null
 +++ b/aoci_security_patch_test.go
-@@ -0,0 +1,448 @@
+@@ -0,0 +1,486 @@
 +package pq
 +
 +import (
@@ -484,6 +486,44 @@ index 0000000..4dd1112
 +
 +func (a dummyAddr) Network() string { return string(a) }
 +func (a dummyAddr) String() string  { return string(a) }
++
++// A cancel that cannot reach the server still ends a read stuck on the main
++// connection, so the query honors its context on a black-holed network.
++func TestFailedCancelUnblocksMainConnectionRead(t *testing.T) {
++	client, server := net.Pipe()
++	t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
++	// The server never answers; draining it only lets Close send its
++	// terminate message.
++	go func() { _, _ = io.Copy(io.Discard, server) }()
++	cn := &conn{
++		c: client,
++		config: &Config{
++			DialFunc: func(context.Context, string, string) (net.Conn, error) {
++				return nil, errors.New("cancel dial black-holed")
++			},
++			minReadBufferSize: 8,
++		},
++		fallbackConfig: &FallbackConfig{Host: "127.0.0.1", Port: 5432},
++	}
++	ctx, cancel := context.WithCancel(context.Background())
++	finish := cn.watchCancel(ctx)
++	defer finish()
++	readDone := make(chan error, 1)
++	go func() {
++		_, err := io.ReadFull(client, make([]byte, 1))
++		readDone <- err
++	}()
++	cancel()
++	select {
++	case err := <-readDone:
++		var netErr net.Error
++		if !errors.As(err, &netErr) || !netErr.Timeout() {
++			t.Fatalf("stuck read ended with %v, want a deadline error", err)
++		}
++	case <-time.After(5 * time.Second):
++		t.Fatal("a failed cancel left the main connection read blocked")
++	}
++}
 diff --git a/config.go b/config.go
 index 0911176..38e66fc 100644
 --- a/config.go
@@ -822,14 +862,33 @@ index 7185409..c00db00 100644
  // Any single quotes in name will be escaped. Any backslashes (i.e. "\") will be
  // replaced by two backslashes (i.e. "\\") and the C-style escape identifier
 diff --git a/conn_go18.go b/conn_go18.go
-index d6d7798..84551e3 100644
+index d6d7798..fca34ca 100644
 --- a/conn_go18.go
 +++ b/conn_go18.go
-@@ -141,7 +141,12 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
+@@ -125,7 +125,7 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
+ 				ctxCancel, cancel := context.WithTimeout(context.Background(), watchCancelDialContextTimeout)
+ 				defer cancel()
+ 
+-				_ = cn.cancel(ctxCancel)
++				cn.unblockAfterFailedCancel(cn.cancel(ctxCancel))
+ 			case <-finished:
+ 			}
+ 		}()
+@@ -141,7 +141,22 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
  	return nil
  }
  
 -func (cn *conn) cancel(ctx context.Context) error {
++// unblockAfterFailedCancel ends a read still waiting on the main connection
++// when the CancelRequest could not reach the server. A black-holed network
++// otherwise held the query past its context until TCP keepalive gave up; the
++// cancel itself still never touches the main connection.
++func (cn *conn) unblockAfterFailedCancel(cancelErr error) {
++	if cancelErr != nil && cn.c != nil {
++		_ = cn.c.SetDeadline(time.Now())
++	}
++}
++
 +func (cn *conn) cancel(ctx context.Context) (err error) {
 +	defer func() {
 +		if err != nil {
@@ -839,7 +898,7 @@ index d6d7798..84551e3 100644
  	// Create a new values map (copy). This makes sure the connection created
  	// in this method cannot write to the same underlying data, which could
  	// cause a concurrent map write panic. This is necessary because cancel
-@@ -153,14 +158,20 @@ func (cn *conn) cancel(ctx context.Context) error {
+@@ -153,14 +168,20 @@ func (cn *conn) cancel(ctx context.Context) error {
  		return err
  	}
  	defer c.Close()
@@ -862,7 +921,7 @@ index d6d7798..84551e3 100644
  				return err
  			}
  		}
-@@ -176,7 +187,7 @@ func (cn *conn) cancel(ctx context.Context) error {
+@@ -176,7 +197,7 @@ func (cn *conn) cancel(ctx context.Context) error {
  	// Read until EOF to ensure that the server received the cancel.
  	{
  		_, err := io.Copy(ioutil.Discard, c)
@@ -871,6 +930,15 @@ index d6d7798..84551e3 100644
  	}
  }
  
+@@ -226,7 +247,7 @@ func (st *stmt) watchCancel(ctx context.Context) func() {
+ 				ctxCancel, cancel := context.WithTimeout(context.Background(), watchCancelDialContextTimeout)
+ 				defer cancel()
+ 
+-				_ = st.cancel(ctxCancel)
++				st.cn.unblockAfterFailedCancel(st.cancel(ctxCancel))
+ 				finished <- struct{}{}
+ 			case <-finished:
+ 			}
 diff --git a/connector.go b/connector.go
 index 04a5c1b..bfc1323 100644
 --- a/connector.go

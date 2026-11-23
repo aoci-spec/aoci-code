@@ -394,6 +394,16 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	teamCodeCognitionBatchEntries := cfg.CodeCognitionBatchEntries
 	teamMaintainTransportBudgetBytes := cfg.MaintainTransportBudgetBytes
 	teamCodeCognitionParallelBatches := cfg.CodeCognitionParallelBatches
+	// Inventory and curation exclusions and installed Host integrations are
+	// team-owned too (aoci-config-runtime-v1): a local copy made one machine
+	// compute a different inventory, rules identity, and Scope state.
+	// The clone keeps nil apart from an explicit empty list, which
+	// applyFallbacks must not refill.
+	teamExcludeDirs := cloneTeamList(cfg.ExcludeDirs)
+	teamExcludeFiles := cloneTeamList(cfg.ExcludeFiles)
+	teamExcludeExts := cloneTeamList(cfg.ExcludeExts)
+	teamCurationExclude := cloneTeamList(cfg.CurationExclude)
+	teamInstalledAgents := cloneTeamList(cfg.InstalledAgents)
 
 	if err := applyJSONFileIfExists(
 		LocalFilePath(repoRoot),
@@ -423,6 +433,11 @@ func loadEffective(repoRoot string, materializeLegacyLocale bool) (*Config, erro
 	cfg.CodeCognitionBatchEntries = teamCodeCognitionBatchEntries
 	cfg.MaintainTransportBudgetBytes = teamMaintainTransportBudgetBytes
 	cfg.CodeCognitionParallelBatches = teamCodeCognitionParallelBatches
+	cfg.ExcludeDirs = teamExcludeDirs
+	cfg.ExcludeFiles = teamExcludeFiles
+	cfg.ExcludeExts = teamExcludeExts
+	cfg.CurationExclude = teamCurationExclude
+	cfg.InstalledAgents = teamInstalledAgents
 
 	applyFallbacks(cfg)
 
@@ -535,6 +550,13 @@ func LoadBase(repoRoot string) (*Config, error) {
 // applyFallbacks handles only fields that can tell "missing" from "explicitly empty".
 //
 // LineEndingTolerance must never be changed here: a bool zero value cannot tell a missing field from an explicit false.
+func cloneTeamList(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string{}, values...)
+}
+
 func applyFallbacks(cfg *Config) {
 	if cfg.IndexPath == "" {
 		cfg.IndexPath = "aoci.txt"
@@ -1045,6 +1067,10 @@ func SaveLocal(
 	delete(existing, "exclude_root_dirs")
 	delete(existing, "sensitive_name_rules")
 	delete(existing, "human_approval_channel")
+	for _, key := range []string{"code_cognition_parallel_batches", "safe_inventory_high_risk_opt_in",
+		"exclude_dirs", "exclude_files", "exclude_exts", "curation_exclude", "installed_agents"} {
+		delete(existing, key)
+	}
 
 	if err := os.MkdirAll(
 		dirPath(repoRoot),

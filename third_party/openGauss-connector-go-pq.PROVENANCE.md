@@ -19,9 +19,9 @@ official openGauss release artifact.
 ## AOCI patch identity
 
 - Canonical patch: `third_party/patches/openGauss-connector-go-pq-v1.0.8-aoci.patch`
-- Canonical patch SHA-256: `86e2f295d7e8d30293aadd303f7e01b1676c3209c4e71dacfb1e24595544bbb1`
+- Canonical patch SHA-256: `e6182420d3a03f9064c118ca818d6486a9abddf6bf64b98d99e9c12ae225da8f`
 - Checked-in patched tree: `third_party/openGauss-connector-go-pq`
-- Patched tree manifest SHA-256: `e6c7393c6b4a56d4bc3126a37f3ba56f64b4ada1fcd06a7f41f679b2e27a5f4c`
+- Patched tree manifest SHA-256: `fc756ce07e53215d3d182b75703d574fdc8a2f92c8465dcb9d4f450dc09da293`
 
 The patch is limited to AOCI's production safety boundary: deterministic
 allowlisted connection parsing without ambient files, strict TLS with no

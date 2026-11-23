@@ -8,7 +8,9 @@ the following narrowly scoped production hardening:
 - reserve process stdout for the host protocol and send the default connector
   logger to stderr;
 - perform TLS query cancellation on the dedicated cancel socket without
-  closing or upgrading the main connection;
+  closing or upgrading the main connection, and when that CancelRequest
+  cannot reach the server, end a read still blocked on the main connection
+  with a deadline so the query honors its context;
 - provide `ParseConfigStrict`, an opt-in deterministic configuration entrypoint
   that does not consume ambient libpq or home-directory configuration and does
   not permit TLS downgrade or multi-host fallback, rejects unknown parameters,

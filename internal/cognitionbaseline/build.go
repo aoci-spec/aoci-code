@@ -64,10 +64,17 @@ func BuildVolumePostimage(root string, plan *cognitionplan.Plan, projected *cogn
 				evidenceByRef[evidence.ObjectRef] = evidence
 			}
 		}
+		checkedSources := map[string]bool{}
 		for _, object := range projected.Volumes["database"].Objects {
 			evidence, exists := evidenceByRef[object.CanonicalRef]
 			if !exists {
 				return nil, nil, fmt.Errorf("cognition_database_binding_missing: %s", object.CanonicalRef)
+			}
+			if !checkedSources[evidence.SourceID] {
+				checkedSources[evidence.SourceID] = true
+				if code := dbcognition.AcceptedSnapshotRefusal(root, evidence.SourceID); code != "" {
+					return nil, nil, fmt.Errorf("cognition_database_evidence_not_accepted: %s (%s; run aoci database baseline accept)", evidence.SourceID, code)
+				}
 			}
 			bindings = append(bindings, baseline.DatabaseCognitionBinding{
 				ObjectRef: object.CanonicalRef, SourceID: evidence.SourceID,

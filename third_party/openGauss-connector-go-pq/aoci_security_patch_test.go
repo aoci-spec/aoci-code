@@ -446,3 +446,41 @@ type dummyAddr string
 
 func (a dummyAddr) Network() string { return string(a) }
 func (a dummyAddr) String() string  { return string(a) }
+
+// A cancel that cannot reach the server still ends a read stuck on the main
+// connection, so the query honors its context on a black-holed network.
+func TestFailedCancelUnblocksMainConnectionRead(t *testing.T) {
+	client, server := net.Pipe()
+	t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+	// The server never answers; draining it only lets Close send its
+	// terminate message.
+	go func() { _, _ = io.Copy(io.Discard, server) }()
+	cn := &conn{
+		c: client,
+		config: &Config{
+			DialFunc: func(context.Context, string, string) (net.Conn, error) {
+				return nil, errors.New("cancel dial black-holed")
+			},
+			minReadBufferSize: 8,
+		},
+		fallbackConfig: &FallbackConfig{Host: "127.0.0.1", Port: 5432},
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	finish := cn.watchCancel(ctx)
+	defer finish()
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := io.ReadFull(client, make([]byte, 1))
+		readDone <- err
+	}()
+	cancel()
+	select {
+	case err := <-readDone:
+		var netErr net.Error
+		if !errors.As(err, &netErr) || !netErr.Timeout() {
+			t.Fatalf("stuck read ended with %v, want a deadline error", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("a failed cancel left the main connection read blocked")
+	}
+}

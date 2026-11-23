@@ -322,6 +322,7 @@
   "cognition.transaction.pending_gate": "Cognition transaction recovery is pending for %s. Only the matching status, resume, rollback controls and the read-only Agent Guide are available.",
   "config.agents_locale_error": "The project Locale was saved, but the managed AGENTS.md contract could not be updated: %v. Retry the same Locale command; an indexed project remains in language migration until Header Apply also verifies this contract.",
   "config.bad_boolean": "Boolean value must be true or false; received %q",
+  "config.bad_curation_path": "%q is not a repository file path: curation_exclude names files, never a directory, an absolute path, or a path leaving the repository; use a scope rule to take a directory out of the index",
   "config.bad_directory_name": "%q is not a directory name: exclude_dirs and exclude_root_dirs match one path component each, so write build rather than build/ or app/build",
   "config.bad_sensitive_name_rules": "sensitive_name_rules must be v1 or v2; received %q (v1 is the original built-in sensitive-name rule set, v2 also matches prod.env-style names and credential words in data and configuration file names; changing it on an initialized repository is a Scope Change)",
   "config.bad_human_approval_channel": "human_approval_channel must be tty_or_host_dialog or tty_only; received %q (tty_or_host_dialog, the default, lets a person approve a protected change in the dialog the MCP host shows or by typing the phrase in a terminal; tty_only accepts the terminal alone)",

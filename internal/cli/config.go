@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -133,7 +135,11 @@ func init() {
 			case "exclude_files":
 				cfg.ExcludeFiles = splitCSV(value)
 			case "curation_exclude":
-				cfg.CurationExclude = splitCSV(value)
+				paths, pathErr := curationFilePaths(root, value)
+				if pathErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: pathErr.Error()}
+				}
+				cfg.CurationExclude = paths
 			case "index_path":
 				cfg.IndexPath = value
 			case "locale":
@@ -422,6 +428,26 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 	default:
 		return nil, false
 	}
+}
+
+// curationFilePaths parses curation_exclude. Managed Scope matches each entry
+// as one exact file, so a directory, an absolute path, or a path leaving the
+// repository is refused here instead of being saved as an entry that Managed
+// Scope rejects (managed_scope_curation_path_invalid blocked status and
+// verify) or that other readers took as a subtree (audit G4-08).
+func curationFilePaths(root, raw string) ([]string, error) {
+	out := []string{}
+	for _, part := range splitCSV(raw) {
+		clean, err := afs.NormalizeRelPath(part)
+		if err != nil || strings.HasSuffix(strings.ReplaceAll(part, `\`, "/"), "/") {
+			return nil, errors.New(cliMessage("config.bad_curation_path", part))
+		}
+		if info, statErr := os.Lstat(filepath.Join(root, filepath.FromSlash(clean))); statErr == nil && info.IsDir() {
+			return nil, errors.New(cliMessage("config.bad_curation_path", part))
+		}
+		out = append(out, clean)
+	}
+	return out, nil
 }
 
 // directoryNames parses the value of exclude_dirs or exclude_root_dirs. Both

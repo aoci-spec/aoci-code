@@ -125,7 +125,7 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
 				ctxCancel, cancel := context.WithTimeout(context.Background(), watchCancelDialContextTimeout)
 				defer cancel()
 
-				_ = cn.cancel(ctxCancel)
+				cn.unblockAfterFailedCancel(cn.cancel(ctxCancel))
 			case <-finished:
 			}
 		}()
@@ -139,6 +139,16 @@ func (cn *conn) watchCancel(ctx context.Context) func() {
 		}
 	}
 	return nil
+}
+
+// unblockAfterFailedCancel ends a read still waiting on the main connection
+// when the CancelRequest could not reach the server. A black-holed network
+// otherwise held the query past its context until TCP keepalive gave up; the
+// cancel itself still never touches the main connection.
+func (cn *conn) unblockAfterFailedCancel(cancelErr error) {
+	if cancelErr != nil && cn.c != nil {
+		_ = cn.c.SetDeadline(time.Now())
+	}
 }
 
 func (cn *conn) cancel(ctx context.Context) (err error) {
@@ -237,7 +247,7 @@ func (st *stmt) watchCancel(ctx context.Context) func() {
 				ctxCancel, cancel := context.WithTimeout(context.Background(), watchCancelDialContextTimeout)
 				defer cancel()
 
-				_ = st.cancel(ctxCancel)
+				st.cn.unblockAfterFailedCancel(st.cancel(ctxCancel))
 				finished <- struct{}{}
 			case <-finished:
 			}

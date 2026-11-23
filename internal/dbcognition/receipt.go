@@ -97,6 +97,7 @@ func ValidateSubmission(root string, sources []dbevidence.SourceConfig, batchID 
 	for _, source := range sources {
 		configured[source.SourceID] = source
 	}
+	acceptance := loadSnapshotAcceptance(root)
 	submitted := map[string]string{}
 	for _, item := range submissions {
 		if item.ObjectRef == "" || item.CandidateID == "" || submitted[item.ObjectRef] != "" {
@@ -118,6 +119,9 @@ func ValidateSubmission(root string, sources []dbevidence.SourceConfig, batchID 
 		}
 		if !dbevidence.SourceConfigMatchesManifest(source, manifest) {
 			return Receipt{}, fmt.Errorf("database_candidate_source_selection_changed")
+		}
+		if _, code := acceptance.refusal(target.SourceID, snapshot.SourceSnapshotSHA256); code != "" {
+			return Receipt{}, fmt.Errorf("database_candidate_evidence_not_accepted")
 		}
 		matched := false
 		for _, record := range snapshot.Tables {

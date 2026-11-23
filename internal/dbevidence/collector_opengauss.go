@@ -347,12 +347,11 @@ func openGaussIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables ma
 		if !usable || !valid || !ready || exclusion || !immediate {
 			return &unsupportedCatalogFeature{feature: "index_state"}
 		}
-		if strings.Contains(strings.ToUpper(definition), " LOCAL") || strings.Contains(strings.ToUpper(definition), " GLOBAL") {
+		if openGaussPartitionIndexDefinition(definition) {
 			return &unsupportedCatalogFeature{feature: "partition_index"}
 		}
-		if strings.Contains(strings.ToUpper(definition), " NULLS ") {
-			return &unsupportedCatalogFeature{feature: "index_null_order"}
-		}
+		// NULL placement is judged from indoption below, never from the DDL
+		// text, which also matched an explicit, representable ASC NULLS LAST.
 		ordinals, err := catalogVectorOrdinals(vector)
 		if err != nil {
 			return err
@@ -443,4 +442,14 @@ func positionInCatalogVector(vector []int, ordinal int) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// openGaussPartitionLocality finds the LOCAL or GLOBAL clause openGauss
+// appends after an index's column list. A plain substring test matched any
+// name that starts with those words, so a table named locale or
+// global_settings refused the whole source (audit G6-01).
+var openGaussPartitionLocality = regexp.MustCompile(`(?i)\)\s+(TABLESPACE\s+\S+\s+)?(LOCAL|GLOBAL)\b`)
+
+func openGaussPartitionIndexDefinition(definition string) bool {
+	return openGaussPartitionLocality.MatchString(definition)
 }
