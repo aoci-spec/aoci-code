@@ -383,8 +383,12 @@ func SettledAtomicWriteCASSHA256(targetPath string) (sha string, pending bool, e
 	if err := json.Unmarshal(intentData, &intent); err != nil {
 		return "", true, fmt.Errorf("%w: %v", ErrAtomicCASRecovery, err)
 	}
+	effectiveSwap, err := effectiveAtomicExchangeSwap(swapPath)
+	if err != nil {
+		return "", true, fmt.Errorf("%w: %v", ErrAtomicCASRecovery, err)
+	}
 	targetSHA, targetErr := atomicFileSHA256(targetPath)
-	swapSHA, swapErr := atomicFileSHA256(swapPath)
+	swapSHA, swapErr := atomicFileSHA256(effectiveSwap)
 	switch {
 	case os.IsNotExist(swapErr) && targetErr == nil:
 		return targetSHA, true, nil

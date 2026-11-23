@@ -64,8 +64,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   status` and a Scope Change report under Volumes applies the Meta's declared
   S quota and checks Database Volume Entries, as governance does.
 - A curation `exclude` decision whose file left the Baseline is matched
-  only against a regular file inside the repository: a link to an outside
-  file is not followed and a FIFO no longer blocks `scope status`.
+  only against a regular file inside the repository, hashed as it is read: a
+  link to an outside file is not followed, a FIFO no longer blocks `scope
+  status`, and a large file no longer runs it out of memory.
 - A curation `exclude` decision for a file the Baseline already recorded
   stays in effect after the Scope Change that applies it. The decision was
   matched against the Baseline record that change removes, so it was dropped
@@ -156,6 +157,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
   every team-file write; and `scope activate` reports `already_aligned`
   under a review posture instead of asking for approval, while an observe
   file edited where it stands is no longer read as aligned.
+- Fixes from the pre-release audit's lower-priority findings: under a
+  review posture `scope acknowledge` pauses with a saved preview and the
+  approve and apply commands, as `scope activate` does, instead of failing;
+  the approval commands MCP hands out no longer carry `--actor <id>`, which a
+  shell reads as a redirection (`--actor` has a default), and their
+  guidance says to answer `yes`; the Claude Code hook command is quoted when
+  the repository path holds a space or a shell character, and an entry
+  installed unquoted on such a path is rewritten in place; `scope status`
+  reports an orphan or unbaselined Entry as authoring work instead of
+  `aligned`; the cognition probe grades `core_f` with the same paraphrase
+  tolerance as the full Attestation; and the capability manifest lists the
+  `capacity_stop` delivery mode.
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and

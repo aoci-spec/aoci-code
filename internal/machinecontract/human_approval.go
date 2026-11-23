@@ -1,7 +1,7 @@
 package machinecontract
 
 // A protected change has always needed a person: in a terminal the operator
-// types the digest phrase (interactive_digest_confirmation). The host dialog is
+// answers yes to the shown digest (interactive_digest_confirmation). The host dialog is
 // the second channel. aoci_maintain with intent=human_approval asks the MCP
 // host to show the change, as AOCI itself describes it, to the person at the
 // keyboard, and records what they chose. The host vouches that a person

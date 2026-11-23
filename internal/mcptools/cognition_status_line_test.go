@@ -95,6 +95,18 @@ func TestCognitionProbeBuildAndGrade(t *testing.T) {
 		t.Fatalf("正确作答应 pass: %+v", pass)
 	}
 
+	// A paraphrase the full Attestation accepts (here only the case differs)
+	// passes the probe too (audit G3-09).
+	paraphrased := make([]overviewChallengeAnswer, 0, len(correct))
+	for _, answer := range correct {
+		answer.CoreF = strings.ToUpper(answer.CoreF)
+		paraphrased = append(paraphrased, answer)
+	}
+	if loose := gradeCognitionProbe(&overviewProbeAnswers{Version: cognitionProbeV1, Digest: first.Digest, Answers: paraphrased},
+		"1111", 3, targets); loose.Result != probeResultPass {
+		t.Fatalf("a paraphrase the Attestation accepts failed the probe: %+v", loose)
+	}
+
 	// Only one question answered: the unanswered one counts as a mismatch, and the result is fail.
 	partial := gradeCognitionProbe(&overviewProbeAnswers{Version: cognitionProbeV1, Digest: first.Digest, Answers: correct[:1]},
 		"1111", 3, targets)

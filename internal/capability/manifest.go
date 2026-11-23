@@ -117,7 +117,7 @@ func Build(repositoryRoot, version, commit string) (*Manifest, error) {
 			TeamSetting: "human_approval_channel", Channels: machinecontract.HumanApprovalChannels(),
 			DefaultChannel: machinecontract.HumanApprovalChannelTTYOrHostDialog, ModelSelfApproval: false},
 		DatabaseCapabilities:  []string{"postgresql_schema_evidence", "opengauss_schema_evidence", "mysql_schema_evidence", "sqlite_schema_evidence", "database_cognition", "independent_database_cognition_bootstrap", "environment_credential_provider", "database_access_preflight_v1", "database_to_code_impact_v1", "business_rows_read_zero", "ddl_dml_zero"},
-		OverviewDeliveryModes: []string{"full", "checkpoint", "blocked", "scope_absent", "chunked_full", "delta", "chunked_delta"},
+		OverviewDeliveryModes: []string{"full", "checkpoint", "blocked", "scope_absent", "chunked_full", "delta", "chunked_delta", machinecontract.OverviewDeliveryModeCapacityStop},
 		CompatibilityStrategy: []string{"legacy_monolithic_read", "volumes_v1_read_write", "baseline_v1_read", "additive_json_fields", "fail_closed_unknown_schema"},
 		NetworkAccessed:       false,
 	}, nil

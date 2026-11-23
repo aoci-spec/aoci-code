@@ -158,7 +158,14 @@ func siblingsNeverFetched(siblings []codebatch.Sibling) bool {
 // Database scope went around the response-level check).
 func codeSiblingsOutstandingOnDisk(root string, facts *volumegovernance.Facts, set *cognition.Set) bool {
 	plan, err := codebatch.LoadParallelPlan(root)
-	if err != nil || plan == nil || len(plan.Siblings) == 0 || !plan.PlanHolds(parallelIdentitiesOf(facts, set)) {
+	ids := parallelIdentitiesOf(facts, set)
+	if err != nil || plan == nil || len(plan.Siblings) == 0 || !plan.PlanHolds(ids) {
+		return false
+	}
+	// A plan the current Code Volume no longer replays from (a foreign Code
+	// write landed) holds no live sibling, as currentParallelPlan judges; it
+	// is only read here, never dropped, since this check takes no lock (rv35).
+	if proven, replayErr := codebatch.ReplayProves(root, root, plan, ids.CodeVolumeSHA256); replayErr != nil || !proven {
 		return false
 	}
 	siblings, _ := parallelSiblingStates(root, plan)

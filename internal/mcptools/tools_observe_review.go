@@ -211,7 +211,7 @@ func acknowledgeObservedEvidence(root string, loaded *cognitionRepoCtx, facts *v
 			}}
 		}
 		result.NextCommands = humanApprovalCommands(
-			[]string{"--repo", root, "scope", "approve", "--preview-file", previewPath, "--actor", "<id>", "--out-file", approvalPath},
+			[]string{"--repo", root, "scope", "approve", "--preview-file", previewPath, "--out-file", approvalPath},
 			[]string{"--repo", root, "scope", "apply", "--preview-file", previewPath, "--approval-file", approvalPath})
 		return nil
 	}

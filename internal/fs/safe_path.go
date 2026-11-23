@@ -9,8 +9,11 @@
 package fs
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -97,28 +100,43 @@ func NormalizeRelPath(raw string) (string, error) {
 	return clean, nil
 }
 
-// ReadRegularFileInRoot reads root/rel only when every component of rel is a
-// real directory or, last, a regular file inside root: a symbolic link, a
-// FIFO, or a device anywhere on the way is refused before anything is
-// opened, so a lookup that runs outside Safe Inventory cannot read past the
-// repository or block on a pipe (rv34).
-func ReadRegularFileInRoot(root, rel string) ([]byte, error) {
+// HashRegularFileInRoot streams the SHA-256 of root/rel only when every
+// component of rel is a real directory or, last, a regular file inside root:
+// a symbolic link, a FIFO, or a device anywhere on the way is refused before
+// anything is opened, the opened file must be the one inspected, and the
+// bytes are hashed as they are read, never held whole (rv34, rv35).
+func HashRegularFileInRoot(root, rel string) (string, error) {
 	clean, err := NormalizeRelPath(rel)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	parts := strings.Split(clean, "/")
 	current := root
+	var inspected os.FileInfo
 	for index, part := range parts {
 		current = filepath.Join(current, part)
 		info, err := os.Lstat(current)
 		if err != nil {
-			return nil, err
+			return "", err
 		}
 		last := index == len(parts)-1
 		if info.Mode()&os.ModeSymlink != 0 || (last && !info.Mode().IsRegular()) || (!last && !info.IsDir()) {
-			return nil, fmt.Errorf("not a regular file inside the repository: %s", clean)
+			return "", fmt.Errorf("not a regular file inside the repository: %s", clean)
 		}
+		inspected = info
 	}
-	return os.ReadFile(current)
+	file, err := os.Open(current)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(inspected, opened) {
+		return "", fmt.Errorf("file changed while it was opened: %s", clean)
+	}
+	digest := sha256.New()
+	if _, err := io.Copy(digest, file); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(digest.Sum(nil)), nil
 }

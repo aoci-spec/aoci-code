@@ -1,18 +1,11 @@
 package curation
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"sort"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 )
-
-func sha256Hex(data []byte) string {
-	sum := sha256.Sum256(data)
-	return hex.EncodeToString(sum[:])
-}
 
 // ActiveExclusions is the one judgement of which paths Managed Scope excludes
 // by curation: the configured list, plus every exclude decision whose source
@@ -38,7 +31,7 @@ func ActiveExclusions(root string, configured []string, document *Document, acti
 			}
 			// The path left the Baseline, so nothing has vetted it: read it
 			// only as a regular file inside the repository (rv34).
-			if data, err := afs.ReadRegularFileInRoot(root, decision.Path); err == nil && sha256Hex(data) == decision.SourceSHA256 {
+			if digest, err := afs.HashRegularFileInRoot(root, decision.Path); err == nil && digest == decision.SourceSHA256 {
 				result = append(result, decision.Path)
 			}
 		}

@@ -134,7 +134,10 @@ func gradeCognitionProbe(
 		answered[answer.Ordinal] = true
 		if overviewAnswerIdentityMatches(answer.ObjectIdentity, target.ObjectIdentity) &&
 			answer.Tag == target.Tag &&
-			strings.TrimSpace(answer.CoreF) == strings.TrimSpace(target.CoreF) {
+			// The same core-F criterion as the full Attestation, as the
+			// refresh contract requires: a faithful paraphrase passes (audit
+			// G3-09).
+			overviewCoreFMatches(answer.CoreF, target.CoreF) {
 			result.Passed++
 		} else {
 			result.MismatchedOrdinals = append(result.MismatchedOrdinals, answer.Ordinal)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
@@ -90,5 +91,35 @@ func TestParallelCodeSiblingsHoldDatabaseWorkBack(t *testing.T) {
 	}
 	if !held {
 		t.Fatalf("the explicit Database Maintain does not name the hold: %+v", explicit.Findings)
+	}
+
+	// A foreign Code write the plan does not replay from retires it: the
+	// Database work is no longer held (rv35).
+	changed := map[string]bool{"internal/domain/accounts.go": true, "internal/domain/orders.go": true, "internal/domain/audit.go": true,
+		"internal/domain/catalog.go": true, "internal/domain/payments.go": true}
+	var foreignPath, foreignLine string
+	set, err := cognition.Load(root, "aoci.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, object := range set.Volumes[cognition.ScopeCode].Objects {
+		rel := strings.TrimPrefix(object.CanonicalRef, "code:")
+		if !changed[rel] && strings.Contains(object.CanonicalLine, "F:") {
+			foreignPath, foreignLine = rel, object.CanonicalLine
+			break
+		}
+	}
+	if foreignPath == "" {
+		t.Fatal("fixture has no Code Entry outside the siblings")
+	}
+	rewritten := strings.Replace(foreignLine, "F:", "F:Foreign edit; ", 1)
+	applied := callVolumeTool(t, other, "aoci_update_entry", map[string]any{"entries": []map[string]any{{
+		"path": foreignPath, "source_sha256": volumeSourceSHA(t, root, foreignPath), "new_entry": rewritten}}})
+	if !strings.Contains(applied, `"status":"applied"`) {
+		t.Fatalf("foreign Code write: %s", applied)
+	}
+	released := decodeDatabaseMaintain(t, toolCall(t, other, "aoci_maintain", map[string]any{"scope": cognition.ScopeDatabase}))
+	if released.Plan == nil {
+		t.Fatalf("a retired Code plan still holds Database work: %+v", released.Findings)
 	}
 }

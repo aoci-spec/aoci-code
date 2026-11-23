@@ -3,6 +3,8 @@
 package curation
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -21,7 +23,7 @@ func TestActiveExclusionsReadsOnlyRegularFilesInTheRepository(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(outside, "excluded.go"), data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	document := &Document{Version: 1, Decisions: []Decision{{Path: "excluded.go", Decision: DecisionExclude, SourceSHA256: sha256Hex(data)}}}
+	document := &Document{Version: 1, Decisions: []Decision{{Path: "excluded.go", Decision: DecisionExclude, SourceSHA256: hexSum(data)}}}
 	active := baseline.NewBaseline(nil)
 
 	if err := os.Symlink(filepath.Join(outside, "excluded.go"), filepath.Join(root, "excluded.go")); err != nil {
@@ -47,4 +49,9 @@ func TestActiveExclusionsReadsOnlyRegularFilesInTheRepository(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("ActiveExclusions blocked opening a FIFO")
 	}
+}
+
+func hexSum(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }

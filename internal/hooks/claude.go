@@ -142,9 +142,24 @@ func InstallClaudeHook(root string) (string, error) {
 		}
 	}
 
-	// Idempotence: the criterion shares one implementation with IsClaudeHookInstalled (single source of truth)
+	// Claude Code runs the command through a shell, so a script path holding
+	// a space or a shell character is one quoted word; a plain path stays as
+	// it always was (audit G5-10).
+	command := claudeHookCommand(scriptPath)
+	// Idempotence: the criterion shares one implementation with IsClaudeHookInstalled (single source of truth).
+	// An entry installed unquoted on such a path is rewritten in place.
 	if claudeSettingsHasAociHook(settings) {
-		return hookMessage("hook.claude_hook_current"), nil
+		if command == scriptPath || !replaceClaudeHookCommand(settings, scriptPath, command) {
+			return hookMessage("hook.claude_hook_current"), nil
+		}
+		out, err := json.MarshalIndent(settings, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		if err := BackupThenWrite(settingsPath, append(out, '\n')); err != nil {
+			return "", err
+		}
+		return hookMessage("hook.claude_hook_installed", scriptPath), nil
 	}
 
 	hooksObj, _ := settings["hooks"].(map[string]any)
@@ -155,7 +170,7 @@ func InstallClaudeHook(root string) (string, error) {
 	pre = append(pre, map[string]any{
 		"matcher": "Edit|Write|MultiEdit",
 		"hooks": []any{
-			map[string]any{"type": "command", "command": scriptPath},
+			map[string]any{"type": "command", "command": command},
 		},
 	})
 	hooksObj["PreToolUse"] = pre
@@ -169,6 +184,34 @@ func InstallClaudeHook(root string) (string, error) {
 		return "", err
 	}
 	return hookMessage("hook.claude_hook_installed", scriptPath), nil
+}
+
+// claudeHookCommand is the hook command for scriptPath: the path itself when
+// the shell reads it as one word, else the path in single quotes.
+func claudeHookCommand(scriptPath string) string {
+	if strings.ContainsAny(scriptPath, " \t\n'\"$`\\;&|<>()*?[]{}!#~") {
+		return quotePOSIXShellArgument(scriptPath)
+	}
+	return scriptPath
+}
+
+// replaceClaudeHookCommand rewrites an AOCI hook entry whose command is the
+// bare script path to the quoted command and reports whether it did.
+func replaceClaudeHookCommand(settings map[string]any, scriptPath, command string) bool {
+	hooksObj, _ := settings["hooks"].(map[string]any)
+	pre, _ := hooksObj["PreToolUse"].([]any)
+	replaced := false
+	for _, item := range pre {
+		entry, _ := item.(map[string]any)
+		hookList, _ := entry["hooks"].([]any)
+		for _, h := range hookList {
+			if hook, ok := h.(map[string]any); ok && hook["command"] == scriptPath {
+				hook["command"] = command
+				replaced = true
+			}
+		}
+	}
+	return replaced
 }
 
 // FirstSymlinkUnder reports the first component of relativePath, walking down

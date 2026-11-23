@@ -11,3 +11,5 @@ func exchangeAtomicPaths(_, _ string) error {
 }
 
 func normalizeAtomicExchangeArtifacts(string) error { return nil }
+
+func effectiveAtomicExchangeSwap(swapPath string) (string, error) { return swapPath, nil }

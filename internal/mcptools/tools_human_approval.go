@@ -515,7 +515,7 @@ func loadScopeChangeApproval(root, previewFile string) (*pendingApproval, *human
 		approvalPath: approvalPath, approvalRel: approvalRel,
 		apply: []string{"--repo", root, "scope", "apply", "--preview-file", previewPath, "--approval-file", approvalPath},
 		terminal: [][]string{
-			{"--repo", root, "scope", "approve", "--preview-file", previewPath, "--actor", "<id>", "--out-file", approvalPath},
+			{"--repo", root, "scope", "approve", "--preview-file", previewPath, "--out-file", approvalPath},
 			{"--repo", root, "scope", "apply", "--preview-file", previewPath, "--approval-file", approvalPath},
 		},
 		status:   []string{"--repo", root, "scope", "status"},
@@ -620,7 +620,7 @@ func loadOnboardingApproval(root string) (*pendingApproval, *humanApprovalResult
 			return humanApprovalArtifactBytes(approval)
 		}
 		pending.terminal = [][]string{
-			{"--repo", root, "cognition", "bootstrap", "approve", "--envelope-file", envelopePath, "--actor", "<id>", "--out-file", approvalPath},
+			{"--repo", root, "cognition", "bootstrap", "approve", "--envelope-file", envelopePath, "--out-file", approvalPath},
 			pending.apply,
 		}
 	} else {
@@ -650,7 +650,7 @@ func loadOnboardingApproval(root string) (*pendingApproval, *humanApprovalResult
 			return humanApprovalArtifactBytes(approval)
 		}
 		pending.terminal = [][]string{
-			{"--repo", root, "cognition", "migration", "approve", "--envelope-file", envelopePath, "--actor", "<id>", "--out-file", approvalPath},
+			{"--repo", root, "cognition", "migration", "approve", "--envelope-file", envelopePath, "--out-file", approvalPath},
 			pending.apply,
 		}
 	}

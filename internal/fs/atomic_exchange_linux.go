@@ -126,3 +126,21 @@ func normalizeAtomicExchangeArtifacts(swapPath string) error {
 	}
 	return os.Rename(capture, swapPath)
 }
+
+// effectiveAtomicExchangeSwap names, without renaming anything, the file
+// normalizeAtomicExchangeArtifacts would leave as the swap: the capture when
+// only it holds the displaced bytes (rv35: the read-only view missed it).
+func effectiveAtomicExchangeSwap(swapPath string) (string, error) {
+	capture := atomicExchangeCapturePath(swapPath)
+	if _, err := os.Lstat(capture); errors.Is(err, os.ErrNotExist) {
+		return swapPath, nil
+	} else if err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(swapPath); err == nil {
+		return swapPath, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	return capture, nil
+}

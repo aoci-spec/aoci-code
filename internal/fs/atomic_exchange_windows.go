@@ -83,3 +83,20 @@ func volumeFileSystemName(path string) string {
 	}
 	return windows.UTF16ToString(name)
 }
+
+// effectiveAtomicExchangeSwap names, without renaming anything, the file
+// normalizeAtomicExchangeArtifacts would leave as the swap.
+func effectiveAtomicExchangeSwap(swapPath string) (string, error) {
+	backup := swapPath + ".exchange-backup"
+	if _, err := os.Lstat(backup); os.IsNotExist(err) {
+		return swapPath, nil
+	} else if err != nil {
+		return "", err
+	}
+	if _, err := os.Lstat(swapPath); err == nil {
+		return "", fmt.Errorf("交换副本与swap同时存在: %s", swapPath)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	return backup, nil
+}

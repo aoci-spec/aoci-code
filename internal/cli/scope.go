@@ -883,6 +883,12 @@ func newScopeAcknowledgeCmd() *cobra.Command {
 		if err != nil {
 			return managedScopeExitError(err)
 		}
+		// A review or high-risk posture needs a person: pause with a saved
+		// preview, as scope activate does; Apply without an approval could
+		// only fail (audit G4-14).
+		if preview.Plan.InteractionRequired {
+			return pauseScopeActivation(cmd, root, preview)
+		}
 		result, err := scopechange.Apply(root, preview, nil)
 		if err != nil {
 			return managedScopeExitError(err)
@@ -1039,7 +1045,9 @@ func buildScopePolicyStatus(root string, includeDrift bool) (*scopePolicyStatus,
 		status.Stage = "observed_evidence_review_required"
 	} else if status.Budget != nil && len(status.Budget.Violations) > 0 {
 		status.Stage = "budget_exceeded"
-	} else if status.AuthoringTargets > 0 || len(status.Drift.Stale) > 0 {
+	} else if status.AuthoringTargets > 0 || len(status.Drift.Stale) > 0 || len(status.Drift.Orphan) > 0 || len(status.Drift.Unbaselined) > 0 {
+		// An orphan or an unbaselined Entry is Code drift Maintain clears, as
+		// Verify counts it; reading aligned over it disagreed (audit G4-09).
 		status.Stage = "authoring_required"
 	}
 	return status, nil
