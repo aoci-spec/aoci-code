@@ -386,6 +386,11 @@ func advanceLocaleSwitch(root string, intent *localeSwitchIntent) error {
 }
 
 func localeSwitchImageState(root string, image localeSwitchImage) (string, error) {
+	// Only the transaction itself reads its images, so it settles a cut
+	// exchange first (rerunning the command is its resume).
+	if err := cognitiontxn.SettleTargets(root, image.Path); err != nil {
+		return "", err
+	}
 	state, _, err := cognitiontxn.Classify(filepath.Join(root, filepath.FromSlash(image.Path)),
 		image.PreimageSHA256, image.PostimageSHA256, false)
 	if err != nil {

@@ -41,7 +41,11 @@ newest_semver() {
 # remote_tags prints "sha<TAB>tag" for every tag of a git remote, annotated
 # tags peeled to the commit they name.
 remote_tags() {
-  git ls-remote --tags "$1" 2>/dev/null | awk '
+  # The listing is captured first: piped, a git that printed part of it and
+  # then failed returned awk's status and passed as a complete answer (rv34).
+  local listing
+  listing="$(git ls-remote --tags "$1" 2>/dev/null)" || return 1
+  printf '%s\n' "${listing}" | awk '
     /\^\{\}$/ { sub(/\^\{\}$/, "", $2); peeled[$2] = $1; next }
     { sha[$2] = $1 }
     END { for (t in sha) { s = (t in peeled) ? peeled[t] : sha[t]; sub("refs/tags/", "", t); print s "\t" t } }'

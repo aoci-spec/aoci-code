@@ -152,6 +152,9 @@ func advance(root string, intent *RecoveryIntent) (*Result, error) {
 	if err := validateGuards(root, preview); err != nil {
 		return nil, err
 	}
+	if err := cognitiontxn.SettleTargets(root, preview.DatabasePath, preview.RootPath, preview.BaselinePath); err != nil {
+		return nil, err
+	}
 	databaseState, _, err := cognitiontxn.Classify(filepath.Join(root, preview.DatabasePath), "", preview.DatabasePostimageSHA256, true)
 	if err != nil || (databaseState != cognitiontxn.StatePreimage && databaseState != cognitiontxn.StatePostimage) {
 		return nil, fmt.Errorf("database_bootstrap_database_conflict")

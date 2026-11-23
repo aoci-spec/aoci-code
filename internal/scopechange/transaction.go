@@ -403,6 +403,9 @@ func Resume(repositoryRoot, transactionID string) (*Result, error) {
 }
 
 func advance(root string, intent *RecoveryIntent) (*Result, error) {
+	if err := settlePreviewTargets(root, &intent.Preview); err != nil {
+		return nil, err
+	}
 	status, err := inspectIntent(root, intent, true)
 	if err != nil {
 		return nil, err
@@ -508,6 +511,9 @@ func Rollback(repositoryRoot, transactionID string) (*Result, error) {
 	intent, err := loadIntentAt(intentPath(root, transactionID), transactionID)
 	if err != nil {
 		return nil, fmt.Errorf("managed_scope_recovery_not_found")
+	}
+	if err := settlePreviewTargets(root, &intent.Preview); err != nil {
+		return nil, err
 	}
 	status, err := inspectIntent(root, intent, true)
 	if err != nil || status.ThirdPartyConflict {
@@ -627,6 +633,16 @@ func validatePreview(preview *Preview) error {
 		}
 	}
 	return nil
+}
+
+// settlePreviewTargets settles a cut CAS exchange beside every formal image
+// before a resume or rollback inspects them; Inspect only reads (rv34).
+func settlePreviewTargets(root string, preview *Preview) error {
+	paths := []string{}
+	for _, image := range formalImages(preview) {
+		paths = append(paths, image.Path)
+	}
+	return cognitiontxn.SettleTargets(root, paths...)
 }
 
 func classifyPreviewPreimages(root string, preview *Preview) error {

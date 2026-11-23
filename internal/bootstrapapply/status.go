@@ -146,11 +146,20 @@ func classifyPath(path, expectedSHA string) (string, string, error) {
 }
 
 func classifyFormalPath(path, expectedSHA, preimageSHA string) (string, string, error) {
-	if err := afs.SettlePendingAtomicWriteCAS(path); err != nil {
-		return StateUnknown, "", err
+	// Read-only, like cognitiontxn.Classify: Status writes nothing, and
+	// Resume and Rollback settle their targets before they inspect.
+	settled, pending, settleErr := afs.SettledAtomicWriteCASSHA256(path)
+	if settleErr != nil {
+		return StateUnknown, "", settleErr
 	}
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
+		// Absent is the preimage only of a target created from nothing; a
+		// Root with recorded preimage bytes that is gone is unknown, as in
+		// cognitiontxn.Classify (audit G1-13).
+		if preimageSHA != "" {
+			return StateUnknown, "", nil
+		}
 		return StatePreimage, "", nil
 	}
 	if err != nil {
@@ -159,11 +168,14 @@ func classifyFormalPath(path, expectedSHA, preimageSHA string) (string, string, 
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return StateWrongType, "", nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return StateUnknown, "", err
+	digest := settled
+	if !pending {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return StateUnknown, "", err
+		}
+		digest = sha256Hex(data)
 	}
-	digest := sha256Hex(data)
 	if digest == expectedSHA {
 		return StatePostimage, digest, nil
 	}

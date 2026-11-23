@@ -8,6 +8,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
@@ -136,6 +137,19 @@ func maintainInput(root, mcpServiceVersion string, input maintainIn, refreshSess
 	}
 }
 
+// databaseWaitsForCodeSiblings applies the sibling hold to the explicit
+// Database scope; facts are assessed only when a parallel plan exists.
+func databaseWaitsForCodeSiblings(root string, loaded *cognitionRepoCtx) bool {
+	if plan, err := codebatch.LoadParallelPlan(root); err != nil || plan == nil {
+		return false
+	}
+	facts, _, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
+	if err != nil {
+		return false
+	}
+	return codeSiblingsOutstandingOnDisk(root, facts, loaded.set)
+}
+
 func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp.CallToolResult {
 	start := time.Now()
 	loaded, fail := loadCognitionCtx(root)
@@ -176,6 +190,9 @@ func handleDatabaseMaintain(root, mcpServiceVersion, requestedScope string) *mcp
 				result.Findings = append(result.Findings, item.State+": "+item.ObjectRef)
 			}
 		}
+	case databaseWaitsForCodeSiblings(root, loaded):
+		result.Findings = append(result.Findings, "code_siblings_outstanding")
+		result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
 	default:
 		objectLimit, evidenceLimit := loaded.cfg.DatabaseCognitionBatchLimits()
 		plan, planErr := dbcognition.BuildPlan(root, assessment, loaded.set, objectLimit, evidenceLimit)

@@ -77,4 +77,18 @@ func TestParallelCodeSiblingsHoldDatabaseWorkBack(t *testing.T) {
 	if maintain.Batch.Remaining <= maintain.CodePlan.Remaining || !maintain.Batch.ContinuationRequired {
 		t.Fatalf("held-back Database work is missing from remaining: batch=%+v code=%+v", maintain.Batch, maintain.CodePlan)
 	}
+	// The explicit Database scope holds the same way, from another session
+	// too, as long as the siblings are out (rv34).
+	other := connectMCPClient(t, root)
+	explicit := decodeDatabaseMaintain(t, toolCall(t, other, "aoci_maintain", map[string]any{"scope": cognition.ScopeDatabase}))
+	if explicit.Plan != nil {
+		t.Fatalf("an explicit Database Maintain issued a batch beside outstanding Code siblings: %+v", explicit.Plan)
+	}
+	held := false
+	for _, finding := range explicit.Findings {
+		held = held || finding == "code_siblings_outstanding"
+	}
+	if !held {
+		t.Fatalf("the explicit Database Maintain does not name the hold: %+v", explicit.Findings)
+	}
 }

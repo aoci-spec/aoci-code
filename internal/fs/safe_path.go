@@ -10,7 +10,10 @@ package fs
 
 import (
 	"errors"
+	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -92,4 +95,30 @@ func NormalizeRelPath(raw string) (string, error) {
 		clean += "/"
 	}
 	return clean, nil
+}
+
+// ReadRegularFileInRoot reads root/rel only when every component of rel is a
+// real directory or, last, a regular file inside root: a symbolic link, a
+// FIFO, or a device anywhere on the way is refused before anything is
+// opened, so a lookup that runs outside Safe Inventory cannot read past the
+// repository or block on a pipe (rv34).
+func ReadRegularFileInRoot(root, rel string) ([]byte, error) {
+	clean, err := NormalizeRelPath(rel)
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.Split(clean, "/")
+	current := root
+	for index, part := range parts {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return nil, err
+		}
+		last := index == len(parts)-1
+		if info.Mode()&os.ModeSymlink != 0 || (last && !info.Mode().IsRegular()) || (!last && !info.IsDir()) {
+			return nil, fmt.Errorf("not a regular file inside the repository: %s", clean)
+		}
+	}
+	return os.ReadFile(current)
 }

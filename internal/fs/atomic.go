@@ -361,6 +361,45 @@ func SettlePendingAtomicWriteCAS(targetPath string) error {
 	return nil
 }
 
+// SettledAtomicWriteCASSHA256 is the read-only view of
+// SettlePendingAtomicWriteCAS: the SHA-256 the target will hold once a cut
+// exchange is settled, without settling it. pending is false when no exchange
+// is cut, and the caller reads the target as usual. A status that must write
+// nothing judges a cut exchange by this view, and leaves the settling to the
+// resume or rollback that owns it (rv34).
+func SettledAtomicWriteCASSHA256(targetPath string) (sha string, pending bool, err error) {
+	swapPath, intentPath := targetPath+".aoci-cas.swap", targetPath+".aoci-cas.intent"
+	intentData, err := os.ReadFile(intentPath)
+	if os.IsNotExist(err) {
+		if _, swapErr := os.Lstat(swapPath); swapErr == nil {
+			return "", true, fmt.Errorf("%w: swap without intent %s", ErrAtomicCASRecovery, swapPath)
+		}
+		return "", false, nil
+	}
+	if err != nil {
+		return "", true, fmt.Errorf("%w: %v", ErrAtomicCASRecovery, err)
+	}
+	var intent atomicCASIntent
+	if err := json.Unmarshal(intentData, &intent); err != nil {
+		return "", true, fmt.Errorf("%w: %v", ErrAtomicCASRecovery, err)
+	}
+	targetSHA, targetErr := atomicFileSHA256(targetPath)
+	swapSHA, swapErr := atomicFileSHA256(swapPath)
+	switch {
+	case os.IsNotExist(swapErr) && targetErr == nil:
+		return targetSHA, true, nil
+	case targetErr != nil || swapErr != nil:
+		return "", true, fmt.Errorf("%w: target=%v swap=%v", ErrAtomicCASRecovery, targetErr, swapErr)
+	case swapSHA == intent.NewSHA256, swapSHA == intent.ExpectedSHA256:
+		return targetSHA, true, nil
+	case targetSHA == intent.NewSHA256:
+		// Settling restores the third-party bytes the swap captured.
+		return swapSHA, true, nil
+	default:
+		return "", true, fmt.Errorf("%w: target and swap both hold unplanned bytes", ErrAtomicCASRecovery)
+	}
+}
+
 func atomicCASLockPath(targetPath string) string {
 	digest := sha256.Sum256([]byte(targetPath))
 	return filepath.Join(atomicCASLockDir(), hex.EncodeToString(digest[:])+".lock")

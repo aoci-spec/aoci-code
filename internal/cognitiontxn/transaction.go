@@ -301,8 +301,12 @@ func ReadStaged(root string, staged []StagedPostimage, targetPath string) ([]byt
 // absentPreimage is true, a missing path is the preimage. Otherwise both
 // preimageSHA and postimageSHA must be non-empty.
 func Classify(path, preimageSHA, postimageSHA string, absentPreimage bool) (string, string, error) {
-	if err := afs.SettlePendingAtomicWriteCAS(path); err != nil {
-		return StateUnknown, "", err
+	// Read-only: a cut CAS exchange is judged by the bytes settling it would
+	// leave, so a status reports the truth and writes nothing; the resume or
+	// rollback that owns the transaction settles it first (SettleTargets).
+	settled, pending, settleErr := afs.SettledAtomicWriteCASSHA256(path)
+	if settleErr != nil {
+		return StateUnknown, "", settleErr
 	}
 	info, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -317,11 +321,14 @@ func Classify(path, preimageSHA, postimageSHA string, absentPreimage bool) (stri
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return StateWrongType, "", nil
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return StateUnknown, "", err
+	digest := settled
+	if !pending {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return StateUnknown, "", err
+		}
+		digest = SHA256(data)
 	}
-	digest := SHA256(data)
 	if digest == postimageSHA {
 		return StatePostimage, digest, nil
 	}
@@ -329,6 +336,21 @@ func Classify(path, preimageSHA, postimageSHA string, absentPreimage bool) (stri
 		return StatePreimage, digest, nil
 	}
 	return StateUnknown, digest, nil
+}
+
+// SettleTargets settles every cut CAS exchange beside the given formal paths.
+// Resume, rollback, and apply call it before they classify, so a target read
+// as done never keeps the intent and swap that block Overview (audit G1-02).
+func SettleTargets(root string, relativePaths ...string) error {
+	for _, rel := range relativePaths {
+		if rel == "" {
+			continue
+		}
+		if err := afs.SettlePendingAtomicWriteCAS(filepath.Join(root, filepath.FromSlash(rel))); err != nil {
+			return fmt.Errorf("cognition_exchange_unsettled: %s: %w", rel, err)
+		}
+	}
+	return nil
 }
 
 func SaveImmutable(path string, data []byte) error {

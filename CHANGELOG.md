@@ -63,6 +63,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   content was read from outside the repository; and the budget `scope
   status` and a Scope Change report under Volumes applies the Meta's declared
   S quota and checks Database Volume Entries, as governance does.
+- A curation `exclude` decision whose file left the Baseline is matched
+  only against a regular file inside the repository: a link to an outside
+  file is not followed and a FIFO no longer blocks `scope status`.
 - A curation `exclude` decision for a file the Baseline already recorded
   stays in effect after the Scope Change that applies it. The decision was
   matched against the Baseline record that change removes, so it was dropped
@@ -115,10 +118,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
   longer fails as a formatting error, which stopped an Entry write as an
   internal error.
 - Fixes from the pre-release audit, recovery group, second pass: every
-  resume, rollback and status that judges a formal asset first settles an
-  atomic write a crash cut after its exchange, so such a write is no longer
-  taken as done while its leftover files block `aoci_overview` for good, and
-  third-party bytes it captured are restored instead of overwritten; a Fresh
+  resume and rollback first settles an atomic write a crash cut after its
+  exchange, so such a write is no longer taken as done while its leftover
+  files block `aoci_overview` for good, and third-party bytes it captured are
+  restored instead of overwritten; a status reports the state that settling
+  will leave and writes nothing; a Bootstrap whose Root went missing reads as
+  a conflict instead of rolled back; a Fresh
   Bootstrap rollback reverses the exact write order, so a rollback stopped
   after the Root no longer leaves a conflict neither resume nor rollback can
   close; a rolled-back Database bootstrap no longer reads as
@@ -131,7 +136,8 @@ All notable public changes to AOCI-CODE will be documented in this file.
   published file as a conflict.
 - Fixes from the pre-release audit, write path, delivery and scope, second
   pass: while parallel Code sibling batches are out, Maintain holds Database
-  work back and still counts it in `remaining`, since a Database batch
+  work back, an explicit `scope=database` Maintain included, and still
+  counts it in `remaining`, since a Database batch
   applied beside them staled every sibling still being authored; a sibling
   fetched by `batch_id` while the repository is blocked (a pending recovery,
   a budget or Locale stop, owed Evidence) returns the stop instead of a batch

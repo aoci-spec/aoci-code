@@ -365,6 +365,9 @@ func advanceReversal(root string, intent *reversalRecovery) (*ApplyResult, error
 	if err := validateActiveReversalGuards(root, intent); err != nil {
 		return nil, err
 	}
+	if err := cognitiontxn.SettleTargets(root, intent.Envelope.WriteOrder...); err != nil {
+		return nil, err
+	}
 	rootState, _, err := cognitiontxn.Classify(filepath.Join(root, "aoci.txt"), intent.Envelope.Root.PostSHA256, intent.Envelope.Snapshot.LegacySHA256, false)
 	if err != nil || (rootState != cognitiontxn.StatePreimage && rootState != cognitiontxn.StatePostimage) {
 		return nil, fmt.Errorf("migration_reversal_recovery_conflict: aoci.txt")

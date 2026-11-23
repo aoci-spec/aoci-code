@@ -50,6 +50,9 @@ func Rollback(root, transactionID string) (*Result, error) {
 	if err := validateGuards(absRoot, preview); err != nil {
 		return nil, err
 	}
+	if err := cognitiontxn.SettleTargets(absRoot, preview.DatabasePath, preview.RootPath, preview.BaselinePath); err != nil {
+		return nil, err
+	}
 	type targetState struct {
 		path  string
 		state string

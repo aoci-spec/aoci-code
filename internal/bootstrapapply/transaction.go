@@ -149,6 +149,9 @@ func Resume(root, transactionID string) (*ApplyResult, error) {
 }
 
 func advanceTransaction(root string, intent *RecoveryIntent) (*ApplyResult, error) {
+	if err := cognitiontxn.SettleTargets(root, intent.Envelope.WriteOrder...); err != nil {
+		return nil, err
+	}
 	status, err := inspectEnvelopeState(root, intent.TransactionID, &intent.Envelope, true)
 	if err != nil {
 		return nil, err

@@ -151,6 +151,25 @@ func siblingsNeverFetched(siblings []codebatch.Sibling) bool {
 	return applied && issued
 }
 
+// codeSiblingsOutstandingOnDisk reports a parallel Code plan that still holds
+// over the current assets with a sibling issued or delivered and not yet
+// applied. A Database batch applied then stales every such sibling, so no
+// Maintain entry issues one while this holds (audit G2-05, rv34: the explicit
+// Database scope went around the response-level check).
+func codeSiblingsOutstandingOnDisk(root string, facts *volumegovernance.Facts, set *cognition.Set) bool {
+	plan, err := codebatch.LoadParallelPlan(root)
+	if err != nil || plan == nil || len(plan.Siblings) == 0 || !plan.PlanHolds(parallelIdentitiesOf(facts, set)) {
+		return false
+	}
+	siblings, _ := parallelSiblingStates(root, plan)
+	for _, sibling := range siblings {
+		if siblingOutstanding(sibling.State) {
+			return true
+		}
+	}
+	return false
+}
+
 func siblingOutstanding(state string) bool {
 	return state == codebatch.SiblingIssued || state == codebatch.SiblingDelivered
 }

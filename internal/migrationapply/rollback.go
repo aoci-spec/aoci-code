@@ -48,6 +48,9 @@ func Rollback(root, transactionID string) (*ApplyResult, error) {
 	if err := cognitionplan.ValidateExternalGuards(absRoot, &intent.Envelope.Plan); err != nil {
 		return nil, fmt.Errorf("migration_guard_drift: %w", err)
 	}
+	if err := cognitiontxn.SettleTargets(absRoot, intent.Envelope.WriteOrder...); err != nil {
+		return nil, err
+	}
 	status, err := inspectEnvelopeState(absRoot, transactionID, &intent.Envelope, true)
 	if err != nil {
 		return nil, err

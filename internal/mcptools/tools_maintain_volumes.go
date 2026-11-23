@@ -221,7 +221,8 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		// bytes: a Database batch beside them would stale every sibling still
 		// being authored once it applies (audit G2-05), so Database waits
 		// until the siblings are in.
-		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) {
+		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) &&
+			!codeSiblingsOutstandingOnDisk(root, facts, loaded.set) {
 			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
 		}
 	}
