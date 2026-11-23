@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-23T19:16:48Z",
+  "updated_at": "2026-11-23T19:32:56Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -65,9 +65,9 @@
     },
     "CHANGELOG.md": {
       "role": "index",
-      "sha256": "61c146d367874b080470429845488b33d78b97c262521ec785d613427d94712c",
-      "size": 236034,
-      "normalized_sha256": "61c146d367874b080470429845488b33d78b97c262521ec785d613427d94712c"
+      "sha256": "7092f273b761e78a599659d86f914b19348a30838dbb4ca228f4f4903925c135",
+      "size": 236186,
+      "normalized_sha256": "7092f273b761e78a599659d86f914b19348a30838dbb4ca228f4f4903925c135"
     },
     "CODE_OF_CONDUCT.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "a394b625d3774e0ebb5244537f05f64c0e8599909462d44dbcb5612d546a0a09",
-      "size": 242383,
-      "normalized_sha256": "a394b625d3774e0ebb5244537f05f64c0e8599909462d44dbcb5612d546a0a09"
+      "sha256": "e2087a20b9aeb24f8b8254aa337fcf2d46727df1ac570fe75fc3a26a4d3d0387",
+      "size": 242379,
+      "normalized_sha256": "e2087a20b9aeb24f8b8254aa337fcf2d46727df1ac570fe75fc3a26a4d3d0387"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -6974,6 +6974,14 @@
       "format_sha256": "192256258d629c16cdcee83eca67bef6f4c606a55c209bac067edad4a8e11efb",
       "format_kind": "gofmt"
     },
+    "internal/scopechange/aligned_postimage_test.go": {
+      "role": "observe",
+      "sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
+      "size": 2047,
+      "normalized_sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
+      "format_sha256": "a1404a1ffd32adc665051fb1d1bbe2d70c4474dd70de8751ff3b7b6b89afa1f9",
+      "format_kind": "gofmt"
+    },
     "internal/scopechange/approval_relaxation_test.go": {
       "role": "observe",
       "sha256": "7fcb9b327f19f58d3b2de708ed6572a8623c729345fbce853fb967f023e632d3",
@@ -7104,10 +7112,10 @@
     },
     "internal/scopechange/plan.go": {
       "role": "index",
-      "sha256": "6b4aac7cdd5ecbd4bfa8a4ce6a8a9655dbc3874592876cbde1476037dc61f4f9",
-      "size": 69395,
-      "normalized_sha256": "6b4aac7cdd5ecbd4bfa8a4ce6a8a9655dbc3874592876cbde1476037dc61f4f9",
-      "format_sha256": "6b4aac7cdd5ecbd4bfa8a4ce6a8a9655dbc3874592876cbde1476037dc61f4f9",
+      "sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
+      "size": 70002,
+      "normalized_sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
+      "format_sha256": "c30273a7352fd137133c5ad27136603aafacba3ea707f7d8398a71cf54ee804c",
       "format_kind": "gofmt"
     },
     "internal/scopechange/posture_relaxation_test.go": {

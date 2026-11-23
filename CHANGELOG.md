@@ -156,7 +156,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   `sensitive_name_rules` or `human_approval_channel` values are refused on
   every team-file write; and `scope activate` reports `already_aligned`
   under a review posture instead of asking for approval, while an observe
-  file edited where it stands is no longer read as aligned.
+  file edited where it stands is no longer read as aligned. A Plan that
+  moves nothing keeps the Baseline's `updated_at`, as a Baseline save does,
+  so that answer holds more than a second after the last Apply.
 - Fixes from the pre-release audit's lower-priority findings: under a
   review posture `scope acknowledge` pauses with a saved preview and the
   approve and apply commands, as `scope activate` does, instead of failing;

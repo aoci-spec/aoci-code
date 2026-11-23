@@ -491,6 +491,17 @@ func Build(repositoryRoot, preparedAt string, candidates CandidateSet) (*Preview
 		fingerprint.Role = machinecontract.ScopeRoleIndex
 		postBaseline.Files[cfg.IndexPath] = fingerprint
 	}
+	// A postimage that changes nothing but updated_at keeps the Baseline's
+	// bytes, as a Baseline save does (#173). Re-stamping it made an aligned
+	// activation look like work once the clock passed a second, so the review
+	// posture saved a preview and asked for approval on an aligned repository.
+	if oldBaseline.UpdatedAt != "" && len(baselineBytes) > 0 {
+		unchanged := postBaseline
+		unchanged.UpdatedAt = oldBaseline.UpdatedAt
+		if same, marshalErr := baseline.MarshalExact(&unchanged); marshalErr == nil && bytes.Equal(same, baselineBytes) {
+			postBaseline.UpdatedAt = oldBaseline.UpdatedAt
+		}
+	}
 	baselinePostBytes, err := baseline.MarshalExact(&postBaseline)
 	if err != nil {
 		return nil, fmt.Errorf("managed_scope_baseline_postimage_invalid: %w", err)
