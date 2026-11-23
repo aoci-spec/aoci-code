@@ -575,7 +575,7 @@ After configuration, check whether the current host session already exposes the 
 | **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; you complete the integration manually for the host |
 | **Qoder** | `--agent qoder` writes the project-level `.mcp.json` Qoder CLI reads (verified with `qoder mcp list`); the IDE takes the same block through Settings > MCP | No hook surface; `--hooks` is reported as ignored |
-| **Pi** | `--agent pi` writes the project-level `.pi/mcp.json` Pi reads once the project is trusted (from Pi's MCP documentation; not yet exercised against a running Pi) | No extension or hook is installed; `--hooks` is reported as ignored |
+| **Pi** | `--agent pi` writes the project-level `.pi/mcp.json` Pi reads once the project is trusted (verified with `pi mcp list`) | No extension or hook is installed; `--hooks` is reported as ignored |
 | **Other MCP hosts** | Connect to the standard stdio server | Require manual configuration and host-specific validation |
 
 ```bash

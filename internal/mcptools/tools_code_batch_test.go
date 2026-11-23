@@ -226,7 +226,7 @@ func TestVolumeCodeWrongBatchDoesNotRepairUnprovenReceipt(t *testing.T) {
 		}},
 		{name: "ambiguous", mutate: func(t *testing.T, root string, maintain *volumeMaintainResult, _ map[string]any) {
 			directory := filepath.Join(root, ".aoci", "drafts", "code-cognition")
-			data, err := os.ReadFile(filepath.Join(directory, "candidate-"+maintain.CodePlan.BatchID+".json"))
+			data, err := os.ReadFile(filepath.Join(directory, "batch-"+maintain.CodePlan.BatchID+".json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -234,7 +234,7 @@ func TestVolumeCodeWrongBatchDoesNotRepairUnprovenReceipt(t *testing.T) {
 			if alias == maintain.CodePlan.BatchID || alias == maintain.Batch.BatchIdentity {
 				alias = strings.Repeat("f", 64)
 			}
-			if err := os.WriteFile(filepath.Join(directory, "candidate-"+alias+".json"), data, 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(directory, "batch-"+alias+".json"), data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 		}},

@@ -206,8 +206,11 @@ block, and installs nothing else: Pi's hooks are TypeScript extensions, which
 AOCI does not ship (`--hooks` is reported as ignored). Transport settings stay
 at the defaults because Pi's tool-result window has not been measured.
 
-This follows Pi's published MCP documentation for `@earendil-works/pi-coding-agent`
-1.6.0. It was not exercised against a running Pi here; report what you see.
+Validated: Pi (`@earendil-works/pi-coding-agent` 1.6.0) lists the server from
+that file as connected with its nine tools in `pi mcp list --json` once the
+project is trusted. An agent run that calls the tools was not exercised here.
+In a directory no Git repository governs, `init` excludes `.pi/mcp.json` from
+Managed Scope by rule before the first scan, as it does for every host file.
 
 ## Qoder
 

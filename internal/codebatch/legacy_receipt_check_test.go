@@ -18,7 +18,7 @@ func TestReceiptCarryingLegacyObservedRelationsStillLoads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(root, ".aoci", "drafts", "code-cognition", "candidate-"+plan.BatchID+".json")
+	path := filepath.Join(root, ".aoci", "drafts", "code-cognition", "batch-"+plan.BatchID+".json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

@@ -7,14 +7,12 @@ import (
 	"time"
 )
 
-// Retention bounds for runtime records that nothing reads once their work is
-// done (#208). A candidate receipt serves the batch it issued; an archived
-// Entries or Managed Scope transaction serves the replay of that same
-// transaction. Both grew without bound on a large first build.
-const (
-	CandidateReceiptRetention    = 14 * 24 * time.Hour
-	ArchivedTransactionRetention = 30 * 24 * time.Hour
-)
+// ArchivedScopeTransactionRetention bounds archived Managed Scope
+// transactions (#208): each holds a complete preview, megabytes on a large
+// repository, and serves only a resume or replay of that same transaction.
+// Candidate receipts and archived Entries transactions are not pruned: they
+// prove idempotent replay of a batch for as long as its postimage stands.
+const ArchivedScopeTransactionRetention = 30 * 24 * time.Hour
 
 // PruneAgedRecords removes the regular .json files directly in dir whose name
 // starts with prefix, were last written more than age ago, and are not keep.

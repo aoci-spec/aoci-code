@@ -70,6 +70,12 @@ func InstallPiMCP(root string) (string, error) {
 func installMCPServersFile(root, relativePath, currentKey, invalidKey, writtenKey string) (string, error) {
 	path := filepath.Join(root, filepath.FromSlash(relativePath))
 	data := NewTplData(root)
+	// The file and every directory between it and the root must be real
+	// entries of this repository: a symlinked .pi or .mcp.json would have the
+	// merge read, back up, and rewrite a configuration outside it.
+	if link := firstSymlinkUnder(root, relativePath); link != "" {
+		return "", errors.New(hookMessage("hook.mcp_path_symlink", link))
+	}
 
 	// Idempotent early return through the criterion the status readers use.
 	// On corrupt JSON the criterion answers false and the parse below gives
@@ -163,4 +169,22 @@ func InstallClaudeHook(root string) (string, error) {
 		return "", err
 	}
 	return hookMessage("hook.claude_hook_installed", scriptPath), nil
+}
+
+// firstSymlinkUnder reports the first component of relativePath, walking down
+// from root, that is a symbolic link (or, on Windows, a junction), or "".
+func firstSymlinkUnder(root, relativePath string) string {
+	current := root
+	for _, part := range strings.Split(filepath.ToSlash(relativePath), "/") {
+		current = filepath.Join(current, part)
+		info, err := os.Lstat(current)
+		if err != nil {
+			return ""
+		}
+		if info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeIrregular != 0 {
+			rel, _ := filepath.Rel(root, current)
+			return filepath.ToSlash(rel)
+		}
+	}
+	return ""
 }

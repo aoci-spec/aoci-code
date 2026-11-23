@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -92,5 +93,38 @@ func TestDetectRecognizesPi(t *testing.T) {
 	}
 	if !containsString(Detect(root), "pi") {
 		t.Fatalf("a project .pi directory must report pi: %v", Detect(root))
+	}
+}
+
+// A symlinked .pi directory or a symlinked .mcp.json would send the merge,
+// its backup, and the rewrite outside the repository: both are refused and
+// nothing outside changes.
+func TestMCPServersInstallRefusesSymlinkedPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink creation needs a privilege on Windows")
+	}
+	outside := t.TempDir()
+	foreign := filepath.Join(outside, "mcp.json")
+	if err := os.WriteFile(foreign, []byte(`{"mcpServers":{"other":{"command":"x"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct{ agent, link, target string }{
+		{"pi", ".pi", outside},
+		{"qoder", ".mcp.json", foreign},
+	} {
+		t.Run(test.agent, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.Symlink(test.target, filepath.Join(root, test.link)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Install(root, test.agent, false); err == nil {
+				t.Fatal("a symlinked host configuration path must be refused")
+			}
+			entries, _ := os.ReadDir(outside)
+			raw, _ := os.ReadFile(foreign)
+			if len(entries) != 1 || string(raw) != `{"mcpServers":{"other":{"command":"x"}}}` {
+				t.Fatalf("nothing outside the repository may change: %d entries, %s", len(entries), raw)
+			}
+		})
 	}
 }

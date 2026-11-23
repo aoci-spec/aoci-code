@@ -555,7 +555,7 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 | **OpenCode V1** | 通过 `--agent opencode` 写入严格的项目根 `opencode.json` | 工具已加载可直接继续；否则刷新或重新打开项目会话 |
 | **Cursor** | 返回 MCP 参考配置片段 | 不写入项目配置，仍需按宿主手工完成接入 |
 | **Qoder** | `--agent qoder` 写入 Qoder CLI 读取的项目级 `.mcp.json`（已用 `qoder mcp list` 验证）；IDE 把同一段粘到 设置 > MCP | 没有 hook 接入面，`--hooks` 会提示被忽略 |
-| **Pi** | `--agent pi` 写入 Pi 在项目被信任后读取的项目级 `.pi/mcp.json`（依据 Pi 的 MCP 文档，尚未在运行中的 Pi 上实测） | 不安装扩展或钩子，`--hooks` 会提示被忽略 |
+| **Pi** | `--agent pi` 写入 Pi 在项目被信任后读取的项目级 `.pi/mcp.json`（已用 `pi mcp list` 验证） | 不安装扩展或钩子，`--hooks` 会提示被忽略 |
 | **其他 MCP Host** | 连接标准 stdio Server | 需要手工配置并完成宿主专项验证 |
 
 ```bash

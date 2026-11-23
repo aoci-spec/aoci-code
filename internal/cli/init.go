@@ -16,8 +16,10 @@
 package cli
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"os"
 	"path"
 	"path/filepath"
@@ -554,6 +556,15 @@ func init() {
 					}
 				}
 
+				// Without Git no ignore file keeps the host configuration out of
+				// Managed Scope, so init excludes it by rule while the first scan
+				// is still ahead: a later exclusion is a coverage reduction.
+				if beforeFirstScan && !initialInventory.GitRepository {
+					if excluded := excludeHostConfigWithoutGit(root, cfg, hostIgnoreCandidates); len(excluded) > 0 {
+						outputLines = append(outputLines, cliMessage("init.host_config_excluded", strings.Join(excluded, ", ")))
+					}
+				}
+
 				if withHooks &&
 					agent != "claude" &&
 					agent != "codex" &&
@@ -786,4 +797,44 @@ func indexPathsOutsideChildRepositories(root string, paths []string) int {
 		}
 	}
 	return outside
+}
+
+// excludeHostConfigWithoutGit adds one exclude rule per host configuration
+// file init wrote, for a root no Git repository governs, and reports the
+// paths. The rules go into the in-memory policy init saves next; a rule that
+// already exists is left alone.
+func excludeHostConfigWithoutGit(root string, cfg *config.Config, candidates []string) []string {
+	if cfg == nil || cfg.ManagedScope == nil {
+		return nil
+	}
+	policy := cfg.EffectiveManagedScope()
+	existing := map[string]bool{}
+	for _, rule := range policy.Rules {
+		existing[rule.RuleID] = true
+	}
+	var added []string
+	for _, relativePath := range candidates {
+		if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(relativePath))); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		digest := sha256.Sum256([]byte(relativePath))
+		ruleID := fmt.Sprintf("host-config-%x", digest[:6])
+		if existing[ruleID] {
+			continue
+		}
+		existing[ruleID] = true
+		policy.Rules = append(policy.Rules, managedscope.Rule{RuleID: ruleID, Action: machinecontract.ScopeRoleExclude,
+			Pattern: relativePath, PatternKind: machinecontract.ScopePatternFile, Reason: "machine-bound agent host configuration",
+			Source: machinecontract.ScopeRuleUser, CreatedBy: "aoci init", Enabled: true})
+		added = append(added, relativePath)
+	}
+	if len(added) == 0 {
+		return nil
+	}
+	normalized, err := managedscope.Normalize(policy)
+	if err != nil {
+		return nil
+	}
+	cfg.ManagedScope = &normalized
+	return added
 }

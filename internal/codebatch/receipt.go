@@ -206,12 +206,19 @@ func resolveExactSubmissionReceipt(root, compositeIdentity, scopePolicyIdentity,
 	}
 	var matched Receipt
 	matchCount := 0
+	seen := map[string]bool{}
 	for _, entry := range entries {
 		name := entry.Name()
-		if entry.IsDir() || !strings.HasPrefix(name, "candidate-") || !strings.HasSuffix(name, ".json") {
+		candidateBatchID := ""
+		for _, prefix := range []string{receiptPrefix, legacyReceiptPrefix} {
+			if !entry.IsDir() && strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".json") {
+				candidateBatchID = strings.TrimSuffix(strings.TrimPrefix(name, prefix), ".json")
+			}
+		}
+		if candidateBatchID == "" || seen[candidateBatchID] {
 			continue
 		}
-		candidateBatchID := strings.TrimSuffix(strings.TrimPrefix(name, "candidate-"), ".json")
+		seen[candidateBatchID] = true
 		receipt, loadErr := LoadReceipt(root, candidateBatchID)
 		if loadErr != nil || receipt.CompositeIdentity != compositeIdentity ||
 			receipt.ScopePolicyIdentity != scopePolicyIdentity || receipt.CodeVolumePath != codeVolumePath ||
@@ -318,6 +325,9 @@ func LoadReceipt(root, batchID string) (Receipt, error) {
 		return Receipt{}, fmt.Errorf("code_candidate_batch_id_invalid")
 	}
 	data, err := os.ReadFile(receiptPath(root, batchID))
+	if os.IsNotExist(err) {
+		data, err = os.ReadFile(legacyReceiptPath(root, batchID))
+	}
 	if err != nil {
 		if os.IsNotExist(err) {
 			return Receipt{}, fmt.Errorf("code_candidate_receipt_missing")
@@ -366,7 +376,6 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 	if err := saveReceipt(root, receipt); err != nil {
 		return Plan{}, err
 	}
-	afs.PruneAgedRecords(filepath.Dir(receiptPath(root, batchID)), "candidate-", afs.CandidateReceiptRetention, filepath.Base(receiptPath(root, batchID)))
 	remaining := len(all) - len(selected)
 	return Plan{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
@@ -398,19 +407,14 @@ func saveReceipt(root string, receipt Receipt) error {
 		// upgrade that changed its default. It is the same batch, so the
 		// record takes the mode it is issued under now and the batch the Host
 		// holds still applies. Any other difference is a conflict.
-		// A receipt of the same batch written before v0.2.0-rc4 also holds the
-		// complete plan; it is the same batch and is rewritten without it.
 		var held Receipt
-		if json.Unmarshal(existing, &held) != nil || (held.LogicalPlan == receipt.LogicalPlan && len(held.AllTargets) == 0) {
+		if json.Unmarshal(existing, &held) != nil || held.LogicalPlan == receipt.LogicalPlan {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
 		if stored, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(stored, '\n'), existing) {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
-		if len(held.AllTargets) > 0 && validateReceipt(held) != nil {
-			return fmt.Errorf("code_candidate_receipt_conflict")
-		}
-		held.LogicalPlan, held.AllTargets = receipt.LogicalPlan, nil
+		held.LogicalPlan = receipt.LogicalPlan
 		if same, marshalErr := json.MarshalIndent(held, "", "  "); marshalErr != nil || !bytes.Equal(append(same, '\n'), data) {
 			return fmt.Errorf("code_candidate_receipt_conflict")
 		}
@@ -503,8 +507,23 @@ func cloneCandidates(values []Candidate) []Candidate {
 	return append([]Candidate{}, values...)
 }
 
+// A batch receipt is written as batch-<id>.json and holds only its batch.
+// Before v0.2.0-rc4 it was candidate-<id>.json and also held the complete
+// plan (#208). The new name keeps a downgrade working: an older binary does
+// not see the short receipt, answers receipt_missing, and its Maintain issues
+// the batch again under the name it knows instead of colliding with a file it
+// cannot read. A receipt under the old name is still read.
+const (
+	receiptPrefix       = "batch-"
+	legacyReceiptPrefix = "candidate-"
+)
+
 func receiptPath(root, batchID string) string {
-	return filepath.Join(root, ".aoci", "drafts", "code-cognition", "candidate-"+batchID+".json")
+	return filepath.Join(root, ".aoci", "drafts", "code-cognition", receiptPrefix+batchID+".json")
+}
+
+func legacyReceiptPath(root, batchID string) string {
+	return filepath.Join(root, ".aoci", "drafts", "code-cognition", legacyReceiptPrefix+batchID+".json")
 }
 
 func encodeTargets(targets []Target, includeCandidateID bool) string {
@@ -549,8 +568,10 @@ func RetireReceipt(root, batchID string) error {
 	if !validSHA256(batchID) {
 		return fmt.Errorf("code_candidate_batch_id_invalid")
 	}
-	if err := os.Remove(receiptPath(root, batchID)); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("code_candidate_receipt_retire_failed")
+	for _, path := range []string{receiptPath(root, batchID), legacyReceiptPath(root, batchID)} {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("code_candidate_receipt_retire_failed")
+		}
 	}
 	return nil
 }

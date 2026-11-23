@@ -4,18 +4,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
-- A candidate receipt holds its batch, not the whole plan, and old runtime
-  records are pruned. Every `.aoci/drafts/code-cognition/candidate-*.json`
-  stored the complete target list of its plan: megabytes per twenty-file batch
-  on a large repository, 400 MiB over one first build in the report, and
-  neither receipts nor `.aoci/transactions/history/` were ever pruned. A
-  receipt is now sized by its batch; issuing a batch removes candidate
-  receipts older than 14 days, and archiving an Entries or Managed Scope
-  transaction removes that kind's archives older than 30 days. Migration,
-  bootstrap, and reversal archives are kept. A receipt written by an earlier
-  version still works. After a downgrade, call Maintain again for a batch this
-  version issued: an older binary refuses the short receipt as
-  `code_candidate_receipt_invalid`, with zero writes (#208).
+- A candidate receipt holds its batch, not the whole plan. Every
+  `.aoci/drafts/code-cognition/candidate-*.json` stored the complete target
+  list of its plan: megabytes per twenty-file batch on a large repository,
+  400 MiB over one first build in the report. A receipt is now
+  `batch-<id>.json` and sized by its batch; a `candidate-*.json` written
+  earlier still works. The new name keeps a downgrade working: an older
+  binary sees no receipt for a batch this version issued and issues it again.
+  Archived Managed Scope transactions, which hold a complete preview each,
+  are pruned after 30 days when the next one is archived; candidate receipts
+  and archived Entries transactions are kept, since they prove the replay of
+  an applied batch. Once the repository is aligned with nothing pending, old
+  `candidate-*.json` files can be deleted by hand (#208).
 
 - On Windows, a governed write on a volume that cannot do the atomic file
   replacement stops as `atomic_exchange_unsupported_filesystem[ReFS]` and
@@ -42,8 +42,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - `aoci init --agent pi` integrates Pi: it merges the `aoci` server into the
   project-level `.pi/mcp.json`, keeps that file out of Git and Managed Scope,
   and writes the managed `AGENTS.md` block. No Pi extension or hook is
-  installed. Written from Pi's MCP documentation and not yet exercised against
-  a running Pi (#209).
+  installed; verified with `pi mcp list` on Pi 1.6.0 (#209). The shared
+  writer behind `.mcp.json` and `.pi/mcp.json` refuses a path that runs
+  through a symbolic link instead of rewriting a file outside the
+  repository, and in a directory no Git repository governs, `init` excludes
+  the host configuration it wrote from Managed Scope by rule before the first
+  scan; it used to enter the index role there.
 
 - Documentation and tests: the container guide states when narrowing before
   the first Entry needs approval (PR #199); the Windows lifecycle suite

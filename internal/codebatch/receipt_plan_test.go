@@ -5,13 +5,13 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
-// A batch receipt no longer stores the complete plan (#208): its size follows
-// the batch, not the repository. A receipt written before that still loads
-// and is checked against the plan it carries, and issuing the same batch
-// again rewrites it in the short form instead of refusing a conflict.
+// A batch receipt no longer stores the complete plan (#208), and it is
+// written under a name an older binary does not read, so a downgrade sees no
+// receipt and issues the batch again instead of colliding with a file it
+// cannot validate. A receipt written before (candidate-<id>.json, plan
+// included) still loads and is still checked against the plan it carries.
 func TestReceiptHoldsTheBatchNotThePlan(t *testing.T) {
 	root := t.TempDir()
 	candidates := budgetCandidates(400, strings.Repeat("x", 300))
@@ -19,16 +19,18 @@ func TestReceiptHoldsTheBatchNotThePlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := receiptPath(root, plan.BatchID)
-	short, err := os.ReadFile(path)
+	short, err := os.ReadFile(receiptPath(root, plan.BatchID))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(short), "all_targets") || len(short) > 8<<10 {
 		t.Fatalf("a 5-of-400 receipt must not carry the plan: %d bytes", len(short))
 	}
+	if _, err := os.Lstat(legacyReceiptPath(root, plan.BatchID)); !os.IsNotExist(err) {
+		t.Fatal("nothing may be written under the name an older binary validates")
+	}
 
-	// The same batch as a pre-rc4 binary wrote it.
+	// The same batch as a pre-rc4 binary wrote it, under the old name only.
 	var old Receipt
 	if err := json.Unmarshal(short, &old); err != nil {
 		t.Fatal(err)
@@ -39,50 +41,40 @@ func TestReceiptHoldsTheBatchNotThePlan(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, append(legacy, '\n'), 0o644); err != nil {
+	if err := os.Remove(receiptPath(root, plan.BatchID)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(legacyReceiptPath(root, plan.BatchID), append(legacy, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := LoadReceipt(root, plan.BatchID)
 	if err != nil || len(loaded.AllTargets) != 400 {
-		t.Fatalf("a receipt carrying its plan must still load: %v", err)
+		t.Fatalf("a receipt written before must still load: %v", err)
+	}
+	if _, ok := resolveExactSubmissionReceipt(root, old.CompositeIdentity, old.ScopePolicyIdentity, old.CodeVolumePath,
+		old.CodeVolumeSHA256, nil, false); ok {
+		t.Fatal("an empty submission must not resolve a receipt")
 	}
 	again, err := BuildPlan(root, hexIdentity("1"), hexIdentity("2"), "aoci.code.txt", hexIdentity("3"), candidates, 5)
 	if err != nil || again.BatchID != plan.BatchID {
-		t.Fatalf("issuing the same batch over an old receipt must succeed: %v", err)
+		t.Fatalf("issuing the same batch beside an old receipt must succeed: %v", err)
 	}
-	if rewritten, _ := os.ReadFile(path); string(rewritten) != string(short) {
-		t.Fatal("the old receipt must be rewritten in the short form")
+	if err := RetireReceipt(root, plan.BatchID); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{receiptPath(root, plan.BatchID), legacyReceiptPath(root, plan.BatchID)} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Fatalf("retiring must remove both names: %s", path)
+		}
 	}
 
 	// A carried plan that does not contain a batch target is still refused.
 	old.AllTargets = old.AllTargets[10:]
 	tampered, _ := json.MarshalIndent(old, "", "  ")
-	if err := os.WriteFile(path, append(tampered, '\n'), 0o644); err != nil {
+	if err := os.WriteFile(legacyReceiptPath(root, plan.BatchID), append(tampered, '\n'), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := LoadReceipt(root, plan.BatchID); err == nil {
 		t.Fatal("a carried plan that disagrees with the batch must be refused")
-	}
-}
-
-func TestIssuingABatchPrunesOldCandidateReceipts(t *testing.T) {
-	root := t.TempDir()
-	first, err := BuildPlan(root, hexIdentity("1"), hexIdentity("2"), "aoci.code.txt", hexIdentity("3"), budgetCandidates(6, ""), 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	aged := time.Now().Add(-15 * 24 * time.Hour)
-	if err := os.Chtimes(receiptPath(root, first.BatchID), aged, aged); err != nil {
-		t.Fatal(err)
-	}
-	second, err := BuildPlan(root, hexIdentity("1"), hexIdentity("2"), "aoci.code.txt", hexIdentity("4"), budgetCandidates(6, ""), 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := LoadReceipt(root, first.BatchID); err == nil || !strings.Contains(err.Error(), "code_candidate_receipt_missing") {
-		t.Fatalf("a receipt past its retention must be pruned: %v", err)
-	}
-	if _, err := LoadReceipt(root, second.BatchID); err != nil {
-		t.Fatalf("the batch just issued must stay: %v", err)
 	}
 }

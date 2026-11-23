@@ -3246,11 +3246,14 @@ def group_l_parallel():
     def sibling_targets(fx, sib):
         """A listed sibling's targets, from its receipt: the listing names the
         batch and its size, the paths stay off the wire."""
-        try:
-            with open(os.path.join(fx, ".aoci", "drafts", "code-cognition", f"candidate-{sib.get('batch_id')}.json"), encoding="utf-8") as fh:
-                return [t["path"] for t in json.load(fh).get("targets") or []]
-        except (OSError, ValueError):
-            return []
+        # batch-<id>.json since v0.2.0-rc4; candidate-<id>.json before.
+        for prefix in ("batch-", "candidate-"):
+            try:
+                with open(os.path.join(fx, ".aoci", "drafts", "code-cognition", f"{prefix}{sib.get('batch_id')}.json"), encoding="utf-8") as fh:
+                    return [t["path"] for t in json.load(fh).get("targets") or []]
+            except (OSError, ValueError):
+                continue
+        return []
 
     def entry_lines(fx):
         with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as fh:

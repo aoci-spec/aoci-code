@@ -370,7 +370,7 @@ func ArchiveImmutable(active, archive string, expected []byte) error {
 	// its own transaction. Migration, bootstrap, and reversal archives are
 	// reversal inputs and are kept.
 	if name := filepath.Base(archive); strings.HasPrefix(name, "scope-") {
-		afs.PruneAgedRecords(filepath.Dir(archive), "scope-", afs.ArchivedTransactionRetention, name)
+		afs.PruneAgedRecords(filepath.Dir(archive), "scope-", afs.ArchivedScopeTransactionRetention, name)
 	}
 	return nil
 }

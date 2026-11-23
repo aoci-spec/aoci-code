@@ -601,3 +601,35 @@ func TestInitWarnsWhenConfigPrecedesFirstInit(t *testing.T) {
 		t.Fatalf("an unreadable Baseline must not be taken for a first scan:\n%s", output)
 	}
 }
+
+// Without Git, no ignore file keeps the host configuration init writes out of
+// Managed Scope; init excludes it by rule before the first scan. Under Git the
+// .gitignore entry does that and no rule is added.
+func TestInitExcludesHostConfigWithoutGit(t *testing.T) {
+	for _, withGit := range []bool{false, true} {
+		root := filepath.Join(t.TempDir(), "repo")
+		testkit.WriteFile(t, root, "main.go", "package main\n")
+		if withGit {
+			testkit.InitGit(t, root)
+		}
+		if _, _, stderr, code := runCLIPrinted(t, root, "init", "--agent=pi", "--hooks=false", "--here=false", "--locale=en-US"); code != ExitOK {
+			t.Fatalf("init: exit %d\n%s", code, stderr)
+		}
+		cfg, err := config.LoadReadOnly(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ruled := false
+		for _, rule := range cfg.EffectiveManagedScope().Rules {
+			ruled = ruled || (rule.Pattern == ".pi/mcp.json" && rule.Action == "exclude")
+		}
+		if ruled == withGit {
+			t.Fatalf("git=%t: host configuration exclude rule present=%t", withGit, ruled)
+		}
+		mustCLI(t, root, "scan")
+		explain := mustCLI(t, root, "scope", "explain", ".pi/mcp.json")
+		if !strings.Contains(explain, "=> exclude") {
+			t.Fatalf("git=%t: .pi/mcp.json must stay out of the index: %s", withGit, explain)
+		}
+	}
+}
