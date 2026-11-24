@@ -38,11 +38,19 @@ func TestAgentCommandPrefixNamesTheRepository(t *testing.T) {
 	if want := `& "C:/Tools/aoci.exe" --repo "D:/work/repo"`; windows != want {
 		t.Fatalf("windows prefix %q, want %q", windows, want)
 	}
+	windows, err = agentCommandPrefixFor("windows", `C:\My Tools\aoci$bin.exe`, `D:\work\re$po`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "& \"C:/My Tools/aoci`$bin.exe\" --repo \"D:/work/re`$po\""; windows != want {
+		t.Fatalf("windows prefix %q, want literal dollars in %q", windows, want)
+	}
 	for _, refused := range []struct{ goos, root, anchor string }{
 		{"linux", "", "empty"},
 		{"linux", "relative/repo", "not absolute"},
 		{"linux", "/tmp/one\ntwo", "control character"},
-		{"windows", `C:\re$po`, "PowerShell"},
+		{"windows", "C:\\re`po", "PowerShell"},
+		{"windows", "C:\\re$po“", "PowerShell"},
 		{"windows", `repo`, "not absolute"},
 	} {
 		_, err := agentCommandPrefixFor(refused.goos, "/opt/aoci/bin/aoci", refused.root)
