@@ -709,6 +709,9 @@ func newScopeStatusCmd() *cobra.Command {
 	var transaction string
 	var failOnUntracked bool
 	command := &cobra.Command{Use: "status", Short: cliMessage("cli.short.scope_status"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if transaction != "" && failOnUntracked {
+			return &ExitError{Code: ExitInvalid, MachineCode: "scope_status_flags_conflict", Msg: cliMessage("scope.status_flags_conflict")}
+		}
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return managedScopeExitError(err)
@@ -755,7 +758,6 @@ func newScopeStatusCmd() *cobra.Command {
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
 	command.Flags().BoolVar(&failOnUntracked, "fail-on-untracked", false, cliMessage("scope.flag.fail_on_untracked"))
-	command.MarkFlagsMutuallyExclusive("transaction", "fail-on-untracked")
 	return command
 }
 

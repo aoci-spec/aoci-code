@@ -112,9 +112,9 @@ func TestScopeStatusFailOnUntracked(t *testing.T) {
 	if code != ExitDrift || stderr != "" || !strings.Contains(human, "Untracked source check failed: main.go, main_test.go") {
 		t.Fatalf("strict text status: exit=%d stdout=%s stderr=%s", code, human, stderr)
 	}
-	_, stderr, code = runCLI(t, root, "scope", "status", "--transaction", "pending", "--fail-on-untracked")
-	if code == ExitOK || !strings.Contains(stderr, "if any flags in the group") {
-		t.Fatalf("incompatible flags: exit=%d stderr=%s", code, stderr)
+	conflict, stderr, code := runCLI(t, root, "scope", "status", "--transaction", "pending", "--fail-on-untracked")
+	if code != ExitInvalid || !strings.Contains(conflict+stderr, "--fail-on-untracked") {
+		t.Fatalf("incompatible flags are invalid input: exit=%d stdout=%s stderr=%s", code, conflict, stderr)
 	}
 	if after := scopeStatusTree(t, root); !reflect.DeepEqual(after, before) {
 		t.Fatal("the untracked check changed repository files, Git metadata, or Ledger")

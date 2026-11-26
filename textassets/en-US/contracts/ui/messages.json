@@ -953,6 +953,7 @@
   "scope.flag.decision_basis": "Structured cognition basis; transport_constraint can never auto-authorize a coverage reduction",
   "scope.flag.enabled": "Whether this rule participates in evaluation",
   "scope.flag.fail_on_untracked": "Exit 1 when the index or Baseline references Git-untracked sources",
+  "scope.status_flags_conflict": "--transaction and --fail-on-untracked cannot be combined; the untracked check reads the active scope, not a transaction",
   "scope.flag.max_tokens": "Whole-Index maximum token count",
   "scope.flag.order": "Stable rule order; the last matching rule at one priority wins",
   "scope.flag.out_file": "Write the managed-scope-change-approval/v2 artifact to this path instead of stdout",

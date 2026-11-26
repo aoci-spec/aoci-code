@@ -5,15 +5,18 @@ All notable public changes to AOCI-CODE will be documented in this file.
 ## Unreleased
 
 - `aoci scope status --fail-on-untracked` exits 1 when Git-untracked sources
-  are referenced by the index or Baseline, printing the same status, so a
-  pre-commit hook can enforce what the advisory warning reports (#204, by
+  are referenced by the index or Baseline, printing the same JSON status, so
+  a pre-commit hook can enforce what the advisory warning reports; combined
+  with `--transaction` it is refused as invalid input, exit 2 (#204, by
   caokai674).
 - `aoci scope rule remove` takes several rule IDs and saves the policy once:
   an unknown or duplicate ID leaves every rule in place. One ID keeps the
   `rule_id` JSON field; several return `rule_ids` (#212, by caokai674).
 - On Windows, Guide and onboarding commands escape a literal `$` in the
   executable and repository paths for PowerShell instead of refusing them
-  (#211, by dayebishouji).
+  (#211, by dayebishouji), and a single-quoted onboarding argument doubles a
+  typographic single quote as well as the ASCII one, so a path holding `’`
+  no longer splits the plan and snapshot arguments.
 - Getting Started shows how to keep a design decision as an ADR next to the
   code and reach it from the code Entry's `R` (#214, by dayebishouji).
 

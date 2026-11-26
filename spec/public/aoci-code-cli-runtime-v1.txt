@@ -273,8 +273,8 @@ files outside Git repositories are not untracked source diagnostics. Child Git
 repositories under a non-Git container use their own Git tracking facts.
 By default the diagnostic does not change the exit code. With
 `--fail-on-untracked`, a nonempty diagnostic exits 1 after printing the
-status, preserving the same status object under `--json`. The flag is mutually
-exclusive with `--transaction`. Neither mode changes governance stage or source
+status, preserving the same status object under `--json`. Combined with
+`--transaction` it is invalid input and exits 2. Neither mode changes governance stage or source
 eligibility. Git-tracked includes staged files and is not proof of a commit or
 reproducibility.
 The status query writes no repository files, fingerprint cache, or Ledger events.
