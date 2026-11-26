@@ -104,9 +104,11 @@ session from its state, built from the machine command suffixes and bound,
 as the Guide's commands are, to the running binary and to the repository
 root (`--repo`), so they run from any working directory, with `{completion_file}`,
 `{candidate_file}`, `{mapping_file}`, and `{agent}` left for the Host to fill
-and the session's own Plan and Snapshot paths filled in. The field is
-omitted when there is no next command or the binary cannot be bound, and it
-is never persisted with the session. A batch with tasks also carries
+and the session's own Plan and Snapshot paths filled in. On Windows, Guide and
+onboarding commands escape literal dollar signs in the executable and repository
+paths for PowerShell. The field is omitted when there is no next command or
+the binary cannot be bound, and it is never persisted with the session.
+A batch with tasks also carries
 `completion_template`, the receipt that completes it once its tasks are
 authored. A v1 receipt, which every Migration session takes, may name the
 batch it completes as the template does, or no batch for any pending
