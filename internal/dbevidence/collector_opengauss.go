@@ -74,7 +74,7 @@ func openGaussRejectUnsupported(ctx context.Context, tx *sql.Tx, source SourceCo
 			return err
 		}
 		if Included(source, namespace, tableName) {
-			return &unsupportedCatalogFeature{feature: feature}
+			return &unsupportedCatalogFeature{feature: feature, object: namespace + "." + tableName}
 		}
 	}
 	if err := rows.Err(); err != nil {
@@ -95,7 +95,7 @@ func openGaussRejectUnsupported(ctx context.Context, tx *sql.Tx, source SourceCo
 			if partType == "s" {
 				feature = "subpartition"
 			}
-			return &unsupportedCatalogFeature{feature: feature}
+			return &unsupportedCatalogFeature{feature: feature, object: namespace + "." + tableName}
 		}
 	}
 	return partitionRows.Err()
@@ -180,7 +180,7 @@ func openGaussKeys(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables map[s
 		if table == nil {
 			continue
 		}
-		ordinals, err := catalogColumnVector(vector)
+		ordinals, err := catalogColumnVector(vector, openGaussTableMember(namespace, tableName, constraintName))
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,8 @@ func openGaussForeignKeys(ctx context.Context, tx *sql.Tx, source SourceConfig, 
 		if !exists || localOrdinal != localAttnum {
 			return fmt.Errorf("foreign key %s references unknown local column %s", name, column)
 		}
-		localOrdinals, err := catalogColumnVector(localVector)
+		object := openGaussTableMember(namespace, tableName, name)
+		localOrdinals, err := catalogColumnVector(localVector, object)
 		if err != nil {
 			return err
 		}
@@ -255,7 +256,7 @@ func openGaussForeignKeys(ctx context.Context, tx *sql.Tx, source SourceConfig, 
 		if !exists {
 			return fmt.Errorf("foreign key %s has inconsistent local catalog vector", name)
 		}
-		refOrdinals, err := catalogColumnVector(refVector)
+		refOrdinals, err := catalogColumnVector(refVector, object)
 		if err != nil {
 			var unsupported *unsupportedCatalogFeature
 			if errors.As(err, &unsupported) {
@@ -346,24 +347,25 @@ func openGaussIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables ma
 		if table == nil {
 			continue
 		}
+		object := openGaussTableMember(namespace, tableName, name)
 		if keyCount != totalCount {
-			return &unsupportedCatalogFeature{feature: "included_index_columns"}
+			return &unsupportedCatalogFeature{feature: "included_index_columns", object: object}
 		}
 		if !usable || !valid || !ready || exclusion || !immediate {
-			return &unsupportedCatalogFeature{feature: "index_state"}
+			return &unsupportedCatalogFeature{feature: "index_state", object: object}
 		}
 		if openGaussPartitionIndexDefinition(definition) {
-			return &unsupportedCatalogFeature{feature: "partition_index"}
+			return &unsupportedCatalogFeature{feature: "partition_index", object: object}
 		}
 		// NULL placement is judged from indoption below, never from the DDL
 		// text, which also matched an explicit, representable ASC NULLS LAST.
-		ordinals, err := catalogColumnVector(vector)
+		ordinals, err := catalogColumnVector(vector, object)
 		if err != nil {
 			return err
 		}
 		for _, ordinal := range ordinals {
 			if ordinal == 0 {
-				return &unsupportedCatalogFeature{feature: "expression_index"}
+				return &unsupportedCatalogFeature{feature: "expression_index", object: object}
 			}
 		}
 		options, err := catalogVectorOrdinals(optionVector)
@@ -376,7 +378,7 @@ func openGaussIndexes(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables ma
 			// represented by Evidence v1, even when pg_get_indexdef omits the
 			// spelling that produced the catalog bits.
 			if option != 0 && option != 3 {
-				return &unsupportedCatalogFeature{feature: "index_null_order"}
+				return &unsupportedCatalogFeature{feature: "index_null_order", object: object}
 			}
 		}
 		if !column.Valid {
@@ -434,7 +436,7 @@ func catalogVectorOrdinals(value string) ([]int, error) {
 // catalogColumnVector parses a vector of column ordinals. A column named
 // twice cannot be placed by its first position, which silently dropped the
 // repeat from an index or key, so it fails closed (audit G6-07).
-func catalogColumnVector(value string) ([]int, error) {
+func catalogColumnVector(value, object string) ([]int, error) {
 	ordinals, err := catalogVectorOrdinals(value)
 	if err != nil {
 		return nil, err
@@ -442,11 +444,15 @@ func catalogColumnVector(value string) ([]int, error) {
 	seen := map[int]bool{}
 	for _, ordinal := range ordinals {
 		if seen[ordinal] {
-			return nil, &unsupportedCatalogFeature{feature: "repeated_column"}
+			return nil, &unsupportedCatalogFeature{feature: "repeated_column", object: object}
 		}
 		seen[ordinal] = true
 	}
 	return ordinals, nil
+}
+
+func openGaussTableMember(namespace, table, name string) string {
+	return namespace + "." + table + " (" + name + ")"
 }
 
 func ordinalForColumn(table *TableEvidence, column string) (int, bool) {
