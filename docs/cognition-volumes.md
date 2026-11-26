@@ -329,11 +329,12 @@ and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
 
-`init` and `scan` estimate rounds for the first Code build. They use the
-same batch limits and trusted cached line counts as Maintain and size each
-round from the remaining paths. With a cold cache, file reads contribute to
-the displayed source-line total. Both the estimator and Maintain reserve the
-widest scale evidence when the cache has no trusted count.
+`init`, `scan --dry-run`, and `scan` estimate rounds for the first Code build
+using Maintain's batch limits and the paths remaining in each round. With the
+fingerprint cache enabled by default, the estimate assumes a normal `scan`
+will save the measured line counts for Maintain. When caching is disabled,
+file reads still contribute to the displayed source-line total, and the
+estimator and Maintain reserve the widest scale evidence.
 
 Database authoring, an orphan-only cleanup batch, and a separate Observe
 review under a human approval posture can add rounds. The estimate assumes

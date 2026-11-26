@@ -112,6 +112,10 @@ func OpenFingerprintCache(repositoryRoot string) *FingerprintCache {
 	return cache
 }
 
+// Enabled reports whether the cache is configured to track fingerprints and
+// line counts. It is independent of whether this invocation may save them.
+func (c *FingerprintCache) Enabled() bool { return c != nil && !c.disabled }
+
 // HashFile returns exactly what HashFileReusing(path, prior) returns for the
 // file at path, known in the cache as rel: from the cache when the file's
 // size and mtime still match an entry hashed long enough ago, otherwise by

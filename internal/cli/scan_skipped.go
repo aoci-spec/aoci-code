@@ -61,8 +61,8 @@ type scanAuthoringEstimate struct {
 // estimateScanAuthoring is shared by scan and by init, which shows the
 // estimate before the first scan while narrowing the scope is still free.
 func estimateScanAuthoring(root string, cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
-	cachedLines, total := countSourceLines(root, skipped.actionable)
-	rounds, parallelRounds := mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable, cachedLines)
+	projectedLines, total := countSourceLines(root, skipped.actionable)
+	rounds, parallelRounds := mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable, projectedLines)
 	return scanAuthoringEstimate{Targets: len(skipped.actionable), Rounds: rounds,
 		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
 		ParallelBatches: cfg.CodeCognitionParallelBatchLimit(), ParallelRounds: parallelRounds,
@@ -198,30 +198,32 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 	}
 }
 
-// countSourceLines takes scheduling evidence from the same trusted cache as
-// Maintain. Counts read on a cache miss contribute only to the displayed total.
-func countSourceLines(root string, paths []string) (cachedLines map[string]int, total int) {
+// countSourceLines projects the line evidence Maintain will have after a
+// normal scan saves the cache. The total includes reads even with caching off.
+func countSourceLines(root string, paths []string) (projectedLines map[string]int, total int) {
 	cache := baseline.OpenFingerprintCache(root)
-	cachedLines = make(map[string]int, len(paths))
+	projectedLines = make(map[string]int, len(paths))
 	for _, path := range paths {
 		absolute := filepath.Join(root, filepath.FromSlash(path))
 		var count int
 		var known bool
-		if index.ShouldCheckEScalePath(path) {
+		eligible := cache.Enabled() && index.ShouldCheckEScalePath(path)
+		if eligible {
 			count, known = cache.KnownLines(absolute, path)
 		}
-		if known {
-			cachedLines[path] = count
-		} else {
+		if !known {
 			var err error
 			count, err = afs.CountFileLines(absolute)
 			if err != nil {
 				continue
 			}
 		}
+		if eligible {
+			projectedLines[path] = count
+		}
 		total += count
 	}
-	return cachedLines, total
+	return projectedLines, total
 }
 
 // scanReadingEstimateLine says how much source the first build reads; a

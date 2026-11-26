@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -129,12 +132,85 @@ func TestColdFirstBuildEstimateUsesMaintainLineEvidence(t *testing.T) {
 	}
 }
 
-func readScanAuthoringEstimate(t *testing.T, root string) scanAuthoringEstimate {
+func TestFirstBuildEstimateAcrossCacheTransition(t *testing.T) {
+	pinDefaultLocale(t)
+	t.Setenv(baseline.FingerprintCacheEnv, "")
+	cacheWrites := baseline.FingerprintCacheWritesEnabled()
+	baseline.SetFingerprintCacheWrites(true)
+	t.Cleanup(func() { baseline.SetFingerprintCacheWrites(cacheWrites) })
+	root := t.TempDir()
+	initCLITestGitRepository(t, root)
+	stable := time.Unix(1234567890, 0)
+	const tallLines = machinecontract.CodeCognitionBatchSourceLines + 1
+	for _, source := range []struct {
+		path  string
+		lines int
+	}{{"src/a.go", 1}, {"src/b.go", tallLines}, {"src/c.go", 1}} {
+		testkit.WriteFile(t, root, source.path, "package fixture\n"+strings.Repeat("//x\n", source.lines-1))
+		if err := os.Chtimes(filepath.Join(root, filepath.FromSlash(source.path)), stable, stable); err != nil {
+			t.Fatal(err)
+		}
+	}
+	printed, _, stderr, code := runCLIPrinted(t, root, "init", "--locale", "en-US", "--agent=", "--hooks=false", "--here=false")
+	if code != ExitOK {
+		t.Fatalf("init: exit %d: %s", code, stderr)
+	}
+	before := snapshotInitTree(t, root)
+	if _, exists := before[".aoci/fingerprints.json"]; exists {
+		t.Fatal("init persisted the fingerprint cache")
+	}
+	if _, exists, err := baseline.Load(root); err != nil || exists {
+		t.Fatalf("expected no Baseline after init, got exists=%t err=%v", exists, err)
+	}
+	dry := readScanAuthoringEstimate(t, root, "--dry-run")
+	if after := snapshotInitTree(t, root); !maps.Equal(before, after) {
+		t.Error("scan --dry-run changed the repository tree")
+	}
+	scan := readScanAuthoringEstimate(t, root)
+	if lines, known := baseline.OpenFingerprintCache(root).KnownLines(filepath.Join(root, "src", "b.go"), "src/b.go"); !known || lines != tallLines {
+		t.Errorf("scan must persist %d trusted lines for src/b.go, got %d (known=%t)", tallLines, lines, known)
+	}
+	const targets = 5
+	sizes := authorFirstBuild(t, root, scan.ParallelBatches, targets, false)
+	t.Logf("init=%q dry-run=%+v scan=%+v Maintain batch sizes=%v", firstBuildEstimateOutput(printed), dry, scan, sizes)
+	if !slices.Equal(sizes, []int{3, 1, 1}) {
+		t.Fatalf("first build batch sizes = %v, want [3 1 1]", sizes)
+	}
+	if scan.Targets != targets || scan.Rounds != len(sizes) || dry != scan {
+		t.Errorf("dry-run and scan must both predict %d targets in %d rounds: dry-run=%+v scan=%+v", targets, len(sizes), dry, scan)
+	}
+	if got, want := firstBuildEstimateOutput(printed), scanAuthoringEstimateLine(scan); got != want {
+		t.Errorf("init disagrees with scan: got %q, want %q", got, want)
+	}
+}
+
+func firstBuildEstimateOutput(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		if strings.Contains(line, "index files need an Entry:") {
+			return strings.TrimPrefix(strings.TrimSpace(line), "- ")
+		}
+	}
+	return ""
+}
+
+func TestScanDryRunLeavesLegacyLocaleUnwritten(t *testing.T) {
+	root := t.TempDir()
+	initCLITestGitRepository(t, root)
+	testkit.WriteFile(t, root, ".aoci/config.json", "{\"version\": 1}\n")
+	testkit.WriteFile(t, root, "main.go", "package fixture\n")
+	before := snapshotInitTree(t, root)
+	mustCLI(t, root, "scan", "--json", "--dry-run")
+	if after := snapshotInitTree(t, root); !maps.Equal(before, after) {
+		t.Fatal("scan --dry-run changed the pre-Locale repository tree")
+	}
+}
+
+func readScanAuthoringEstimate(t *testing.T, root string, flags ...string) scanAuthoringEstimate {
 	t.Helper()
 	var scan struct {
 		Estimate scanAuthoringEstimate `json:"authoring_estimate"`
 	}
-	raw := mustCLI(t, root, "scan", "--json")
+	raw := mustCLI(t, root, append([]string{"scan", "--json"}, flags...)...)
 	if err := json.Unmarshal([]byte(raw), &scan); err != nil {
 		t.Fatal(err)
 	}
