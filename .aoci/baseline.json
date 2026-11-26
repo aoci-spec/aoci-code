@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-26T11:57:14Z",
+  "updated_at": "2026-11-26T12:30:57Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -6240,10 +6240,10 @@
     },
     "internal/mcptools/tools_maintain_revalidation_test.go": {
       "role": "observe",
-      "sha256": "1710d00de522bd0576844b5bccf3d521595fa2470a76b5ce9d04975ae573c280",
-      "size": 10904,
-      "normalized_sha256": "1710d00de522bd0576844b5bccf3d521595fa2470a76b5ce9d04975ae573c280",
-      "format_sha256": "1710d00de522bd0576844b5bccf3d521595fa2470a76b5ce9d04975ae573c280",
+      "sha256": "640c1fd6282c792ec01983d8d3fb25282eaed2b4ed2859fc7420c3e9802518b1",
+      "size": 11396,
+      "normalized_sha256": "640c1fd6282c792ec01983d8d3fb25282eaed2b4ed2859fc7420c3e9802518b1",
+      "format_sha256": "640c1fd6282c792ec01983d8d3fb25282eaed2b4ed2859fc7420c3e9802518b1",
       "format_kind": "gofmt"
     },
     "internal/mcptools/tools_maintain_scale_evidence_test.go": {

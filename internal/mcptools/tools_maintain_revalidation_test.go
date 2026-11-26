@@ -207,6 +207,13 @@ func maintainRuntimeFiles(t *testing.T, root string) map[string]string {
 }
 
 func TestMaintainBudgetRetryPreservesOwnSoloAssessment(t *testing.T) {
+	// Each call's first cut reserves scale evidence at the width the line
+	// cache can vouch for, and the cache trusts only a hash and line count
+	// taken more than two seconds after the file's mtime. A slow run (race,
+	// few CPUs) crosses that window between the two calls and starts the
+	// replay one candidate wider, so the cache is off here: both calls reserve
+	// the widest width and the count below compares lock checks, not cache age.
+	t.Setenv(baseline.FingerprintCacheEnv, "off")
 	root, _, solo, markPath := beginSoloBuild(t, 160, 50)
 	// Add recorded Entries for sources already gone. Long orphan paths occupy
 	// mandatory response bytes, which the initial candidate cut cannot see.
