@@ -57,11 +57,17 @@ Before sharing AOCI assets, `aoci scope status` warns about Git-untracked source
 paths already referenced by the index or Baseline, including Observe paths.
 `--json` adds the sorted `git_untracked_paths` array when it is nonempty.
 Track sources intended for teammates, or review their Scope rules if they should
-stay local. The warning is advisory: it does not change governance, exit codes,
-or eligibility for work before `git add`. Missing files and files outside Git
+stay local. By default, the warning is advisory and does not change the exit
+code. The check does not change governance or eligibility for work before
+`git add`. Missing files and files outside Git
 repositories are not reported as untracked. Git-tracked files can still be only
 staged, so an empty diagnostic does not prove reproducibility. The query writes
 no repository files or Ledger events.
+
+To enforce this check before a commit, run
+`aoci scope status --fail-on-untracked --json` from the repository root. If
+`git_untracked_paths` is nonempty, the command prints the same status object and
+exits 1. Use `aoci verify` separately to check alignment and missing sources.
 
 ## Approving a change
 
