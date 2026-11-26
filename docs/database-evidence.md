@@ -139,6 +139,11 @@ Human output is compact. JSON outputs include source identity, visible table
 count or drift counts, Snapshot SHA, stable error code when applicable, and
 `business_data_read: false`.
 
+When accepted Evidence is ready for a Database Volume, the Guide binds
+`commands.database_bootstrap` to the current executable and repository.
+The status page uses that command for bootstrap and suggests snapshots
+for sources whose Evidence is missing or invalid.
+
 ## SQLite collector
 
 The initial collector uses the pure Go ncruces driver and supports ordinary

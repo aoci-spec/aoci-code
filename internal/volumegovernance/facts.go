@@ -362,6 +362,23 @@ type Facts struct {
 	ObservedReviewDigest string             `json:"-"`
 }
 
+// DatabaseEvidenceRemediation describes the next operation for an Evidence
+// stop. Only sources with missing or invalid Evidence need a snapshot.
+func (facts *Facts) DatabaseEvidenceRemediation() (bootstrap bool, snapshotSources []string) {
+	if facts.Result != ResultEvidenceRequired {
+		return false, nil
+	}
+	if facts.NextRequiredAction == machinecontract.DatabaseCognitionActionBootstrapVolume {
+		return true, nil
+	}
+	for _, source := range facts.DatabaseCognition.Sources {
+		if source.State == machinecontract.DatabaseCognitionEvidenceUnavailable || source.State == machinecontract.DatabaseCognitionEvidenceInvalid {
+			snapshotSources = append(snapshotSources, source.SourceID)
+		}
+	}
+	return false, snapshotSources
+}
+
 // ObservedEvidence is one Observe source whose bytes moved since the active
 // Baseline. SHA256 is the current raw digest, empty for a removed file.
 type ObservedEvidence struct {

@@ -292,6 +292,7 @@ func bindAgentGuideCommands(
 		&commands.ScopeBudget,
 		&commands.DatabaseSnapshot,
 		&commands.DatabaseBaselineAccept,
+		&commands.DatabaseBootstrap,
 	}
 
 	for _, field := range fields {
