@@ -836,16 +836,24 @@ cost a quarter of each batch. The server that was handed a sibling by a
 no-argument Maintain answers that same sibling again while it is
 outstanding, as a single batch always was; another server, or a request by
 `batch_id`, takes one no session holds. Plan records are read and written
-under the index lock, and a call that finds the Code Volume moved since it
-loaded starts over instead of judging the plan. A Host obtains a sibling's complete
+under the index lock. A no-argument call rechecks the Code Volume, plan
+marker, and Baseline of its assessment before using it to issue a plan.
+An assessment recommending restoration of formal assets is also checked
+under the lock against the formal assets it would restore and pending
+Recovery state. A moved snapshot requires a fresh assessment. If the
+bounded reload cannot settle, the tool error is a `write_conflict` with
+`reason_code=maintain_snapshot_changed` and structured
+`next_action=call_no_argument_aoci_maintain_for_current_machine_batch`.
+A Host obtains a sibling's complete
 candidates with `aoci_maintain` carrying that `batch_id`; the response is a
 complete current batch sized by the same transport budget, marked
 `sibling_of` the logical plan, and its `next_action` is
 `author_complete_current_machine_batch`. A Host never slices Maintain output;
 a sibling is the machine's cut, delivered whole.
 
-Under a reduced transport budget, an undelivered sibling that would exceed
-the budget is cut again under the index lock. The response names the new
+Delivery by `batch_id` reads the current team transport budget under the
+index lock. Under a reduced transport budget, an undelivered sibling that
+would exceed the budget is cut again. The response names the new
 `batch_id`, the previous receipt no longer authorizes Apply, and the released
 targets remain for later batches. Delivered siblings retain their bindings.
 After an optimization Apply, the next unissued batch is cut from the remaining

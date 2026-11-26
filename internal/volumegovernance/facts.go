@@ -516,6 +516,20 @@ func AssessWithSnapshot(root string, cfg *config.Config, set *cognition.Set) (*F
 	return facts, snapshot, err
 }
 
+// BaselineRestoreError binds the restore command to the malformed Baseline
+// that prompted it. Maintain rechecks the digest under the index lock.
+type BaselineRestoreError struct {
+	BaselineSHA256 string
+	Command        string
+	cause          error
+}
+
+func (err *BaselineRestoreError) Error() string {
+	return fmt.Sprintf("volumes_governance_baseline_invalid: %v; %s: %s", err.cause, machinecontract.MaintainActionRestoreFormalAssets, err.Command)
+}
+
+func (err *BaselineRestoreError) Unwrap() error { return err.cause }
+
 func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **managedstate.State) (*Facts, error) {
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
 		return nil, fmt.Errorf("volumes_governance_input_invalid")
@@ -544,8 +558,8 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 		// Never beside a pending receipt: its Recovery comes first, and the
 		// restore would overwrite the bytes it resumes from.
 		pending, pendingErr := cognitiontxn.Pending(root)
-		if command := restoreCommand(root, append(paths, ".aoci/baseline.json")); command != "" && pendingErr == nil && len(pending) == 0 {
-			return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w; %s: %s", err, machinecontract.MaintainActionRestoreFormalAssets, command)
+		if command := restoreCommand(root, append(paths, ".aoci/baseline.json")); digest != "" && command != "" && pendingErr == nil && len(pending) == 0 {
+			return nil, &BaselineRestoreError{BaselineSHA256: digest, Command: command, cause: err}
 		}
 		return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}

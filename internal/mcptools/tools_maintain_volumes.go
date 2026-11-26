@@ -155,11 +155,24 @@ type volumeMaintainResult struct {
 // sibling's Apply landed between its load and its turn at the plan.
 const maintainReloadAttempts = 4
 
-func reloadMaintainContext(root string, attempt int) (*cognitionRepoCtx, *Fail) {
+func reloadMaintainContext(root string, attempt int) (*cognitionRepoCtx, *mcp.CallToolResult) {
 	if attempt >= maintainReloadAttempts {
-		return nil, &Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")}
+		const reason = machinecontract.MaintainReasonSnapshotChanged
+		result := errResult(errWriteConflict, reason, writeMessage("entry.batch.hint.replan"))
+		result.StructuredContent = map[string]any{
+			"status":                autoStatusStopped,
+			"error_code":            errWriteConflict,
+			"reason_code":           reason,
+			"next_action":           machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch,
+			"formal_writes_started": false,
+		}
+		return nil, result
 	}
-	return loadCognitionCtx(root)
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		return nil, failResult(fail)
+	}
+	return loaded, nil
 }
 
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
@@ -171,17 +184,46 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	if requestedScope != "" && requestedScope != cognition.ScopeCode && requestedScope != cognition.ScopeDatabase && requestedScope != cognition.ScopeAll {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 	}
+	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+		return handleLegacyReadOnlyMaintain(root, serviceVersion)
+	}
+	reload := func() *mcp.CallToolResult {
+		reloaded, failure := reloadMaintainContext(root, attempt)
+		if failure != nil {
+			return failure
+		}
+		return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+	}
 	// The snapshot the verdict was computed from binds the candidates: the
 	// digest a target had when it was judged missing or stale, with no second
 	// read of the tree.
 	planMarker := codebatch.ParallelPlanMarker(root)
 	facts, state, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
+	var badBaseline *volumegovernance.BaselineRestoreError
+	assessment := codePlanAssessment{planMarker: planMarker, restore: true}
+	switch {
+	case errors.As(err, &badBaseline):
+		assessment.baselineSHA256 = badBaseline.BaselineSHA256
+	case facts != nil && facts.Result == volumegovernance.ResultBlocked && len(facts.RestoreSet()) > 0:
+		assessment.baselineSHA256 = facts.BaselineSHA256
+		assessment.recoveryPending = facts.RecoveryPending
+	}
+	if assessment.baselineSHA256 != "" {
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, &assessment)
+		if lockErr != nil {
+			return failResult(maintainLockFailure(lockErr))
+		}
+		if moved {
+			return reload()
+		}
+		defer release()
+	}
 	if err != nil {
 		// An unreadable Baseline names its own way out (a merge that left
 		// conflict markers); the caller gets it instead of a bare internal code.
-		if _, restore, found := strings.Cut(err.Error(), "; "+machinecontract.MaintainActionRestoreFormalAssets+": "); found {
+		if badBaseline != nil {
 			return failResult(&Fail{Code: errIndexInvalid, Msg: "volumes_governance_baseline_invalid",
-				Hint: machinecontract.MaintainActionRestoreFormalAssets + ": " + restore})
+				Hint: machinecontract.MaintainActionRestoreFormalAssets + ": " + badBaseline.Command})
 		}
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
 	}
@@ -227,11 +269,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 				result.planMarker = planMarker
 				buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeLimit, codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
 				if result.volumeMoved {
-					reloaded, fail := reloadMaintainContext(root, attempt)
-					if fail != nil {
-						return failResult(fail)
-					}
-					return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+					return reload()
 				}
 				if result.lockErr != nil {
 					return failResult(maintainLockFailure(result.lockErr))
@@ -284,6 +322,9 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
 		}
 		if result.releasePlanLock != nil {
+			// This attempt may have reconciled its own solo mark. Remember
+			// that postimage while the lock still excludes other writers.
+			planMarker = codebatch.ParallelPlanMarker(root)
 			result.releasePlanLock()
 			result.releasePlanLock = nil
 		}

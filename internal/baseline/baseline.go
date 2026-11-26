@@ -173,7 +173,7 @@ func Load(root string) (*Baseline, bool, error) {
 }
 
 // LoadWithDigest returns the raw SHA-256 of the same bytes decoded as the
-// Baseline. A missing Baseline has no digest.
+// Baseline, including bytes that fail to decode. A missing Baseline has no digest.
 func LoadWithDigest(root string) (*Baseline, bool, string, error) {
 	path := baselinePath(root)
 	data, err := os.ReadFile(path)
@@ -198,7 +198,7 @@ func LoadWithDigest(root string) (*Baseline, bool, string, error) {
 
 	value, err := Decode(data)
 	if err != nil {
-		return nil, true, "", err
+		return nil, true, digest, err
 	}
 	storeBaselineMemo(path, digest, value)
 	return value, true, digest, nil

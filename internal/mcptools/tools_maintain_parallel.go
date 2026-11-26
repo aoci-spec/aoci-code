@@ -17,6 +17,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -36,22 +37,38 @@ func parallelIdentitiesOf(facts *volumegovernance.Facts, set *cognition.Set) cod
 }
 
 type codePlanAssessment struct {
-	baselineSHA256 string
-	planMarker     string
+	baselineSHA256  string
+	planMarker      string
+	restore         bool
+	recoveryPending bool
 }
 
+// beforeMaintainIndexLock lets tests interleave another session after load.
+var beforeMaintainIndexLock = func(string) {}
+
 // lockPlanOnLoadedVolume checks the loaded Code Volume and any assessment
-// made before the lock against the state Apply last left. Delivery by batch
-// ID assesses under the lock, so it supplies no earlier assessment.
+// made before the lock against the state Apply last left. A restore also
+// depends on every formal asset it would overwrite and on Recovery state.
 func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx, assessment *codePlanAssessment) (release func(), moved bool, err error) {
+	beforeMaintainIndexLock(root)
 	lock, lockErr := afs.AcquireIndexLock(root)
 	if lockErr != nil {
 		return nil, false, lockErr
 	}
+	assets := []*cognition.Asset{loaded.set.Volumes[cognition.ScopeCode]}
+	if assessment != nil && assessment.restore {
+		assets = mustVolumeScope(loaded.set).Assets
+	}
 	currentState := true
-	if code := loaded.set.Volumes[cognition.ScopeCode]; code != nil {
-		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path)))
-		currentState = readErr == nil && codebatch.BytesSHA256(current) == code.SHA256
+	for _, asset := range assets {
+		if asset == nil || asset.State != cognition.AssetPresent {
+			continue
+		}
+		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(asset.Descriptor.Path)))
+		if readErr != nil || codebatch.BytesSHA256(current) != asset.SHA256 {
+			currentState = false
+			break
+		}
 	}
 	if currentState && assessment != nil {
 		// A rebind can advance the Baseline while leaving the Code Volume
@@ -59,6 +76,10 @@ func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx, assessment *c
 		current, readErr := os.ReadFile(loaded.paths.BaselinePath)
 		currentState = readErr == nil && codebatch.BytesSHA256(current) == assessment.baselineSHA256 &&
 			codebatch.ParallelPlanMarker(root) == assessment.planMarker
+	}
+	if currentState && assessment != nil && assessment.restore {
+		pending, pendingErr := cognitiontxn.Pending(root)
+		currentState = pendingErr == nil && (len(pending) > 0) == assessment.recoveryPending
 	}
 	if !currentState {
 		_ = lock.Release()
@@ -550,26 +571,38 @@ func appendReceiptCandidates(root string, loaded *cognitionRepoCtx, result *volu
 // issued sibling, complete, as the current batch; an applied or invalidated
 // one answers its state and sends the Host back to no-argument Maintain.
 func handleParallelSiblingDelivery(root, serviceVersion, batchID string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
-	if loaded.cfg.CodeCognitionParallelBatchLimit() <= 1 {
-		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_requires_parallel_batches"})
-	}
 	// A sibling is read, judged, and marked delivered under the index lock on
 	// the Volume this call loaded; when another sibling's Apply landed in
 	// between, the call starts over instead of calling the plan broken.
 	for attempt := 1; ; attempt++ {
+		if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+			return handleLegacyReadOnlyMaintain(root, serviceVersion)
+		}
 		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, nil)
 		if lockErr != nil {
 			return failResult(maintainLockFailure(lockErr))
 		}
 		if !moved {
-			defer release()
-			break
+			cfg, fail := loadMCPConfig(root)
+			if fail != nil {
+				release()
+				return failResult(fail)
+			}
+			if cfg.IndexPath == loaded.cfg.IndexPath {
+				loaded.cfg = cfg
+				defer release()
+				break
+			}
+			release()
 		}
-		reloaded, fail := reloadMaintainContext(root, attempt)
-		if fail != nil {
-			return failResult(fail)
+		reloaded, failure := reloadMaintainContext(root, attempt)
+		if failure != nil {
+			return failure
 		}
 		loaded = reloaded
+	}
+	if loaded.cfg.CodeCognitionParallelBatchLimit() <= 1 {
+		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_requires_parallel_batches"})
 	}
 	start := time.Now()
 	facts, _, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)

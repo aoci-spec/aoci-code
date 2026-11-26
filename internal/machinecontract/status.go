@@ -12,6 +12,9 @@ const (
 // domain status projections so every ordinary Maintain route uses one token.
 const ActionCallNoArgumentMaintainForCurrentMachineBatch = "call_no_argument_aoci_maintain_for_current_machine_batch"
 
+// MaintainReasonSnapshotChanged identifies a reload that exhausted its attempts.
+const MaintainReasonSnapshotChanged = "maintain_snapshot_changed"
+
 // A blocked Volumes Maintain names the blocker the Host must clear in
 // next_action. Until v0.1.0-rc21 every blocked arm answered the orphan token,
 // so a Host acting on it tried to remove orphans that did not exist (#147).
