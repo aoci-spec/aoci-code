@@ -19,7 +19,8 @@ type SourceError struct {
 	// Object names the catalog object the operation stopped on when one is
 	// known (a table that uses an unsupported feature); never a host, user,
 	// or credential.
-	Object string
+	Object     string
+	objectName catalogObjectName
 }
 
 type catalogQueryFailure struct {
@@ -33,8 +34,9 @@ type catalogStageFailure struct {
 }
 
 type unsupportedCatalogFeature struct {
-	feature string
-	object  string
+	feature    string
+	object     string
+	objectName catalogObjectName
 }
 
 func (err *catalogQueryFailure) Error() string { return "catalog query " + err.name + " failed" }
@@ -251,7 +253,14 @@ func (collector *Collector) collect(ctx context.Context, source SourceConfig, in
 		}
 		var unsupported *unsupportedCatalogFeature
 		if errors.As(err, &unsupported) {
-			return SourceManifest{}, nil, &SourceError{Code: "unsupported_catalog_feature", SourceID: source.SourceID, Op: op + "_" + unsupported.feature, Object: unsupported.object}
+			object := unsupported.object
+			if unsupported.objectName.namespace != "" {
+				object = unsupported.objectName.label(func(value string) string { return value })
+			}
+			return SourceManifest{}, nil, &SourceError{
+				Code: "unsupported_catalog_feature", SourceID: source.SourceID, Op: op + "_" + unsupported.feature,
+				Object: object, objectName: unsupported.objectName,
+			}
 		}
 		return SourceManifest{}, nil, classifySourceError(ctx, source.SourceID, op, err)
 	}

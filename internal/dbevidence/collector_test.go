@@ -325,7 +325,7 @@ func TestOpenGaussCollectorNamesRepeatedKeyColumn(t *testing.T) {
 	}
 }
 
-func assertOpenGaussCatalogObject(t *testing.T, query string, row []driver.Value, stage, feature, object string) {
+func assertOpenGaussCatalogObject(t *testing.T, query string, row []driver.Value, stage, feature, object string) *SourceError {
 	t.Helper()
 	registerMockCatalogDriver.Do(func() { sql.Register("aoci_mock_catalog", mockCatalogDriver{}) })
 	activeMockCatalogState = &mockCatalogState{engine: EngineOpenGauss, openGaussRows: map[string][][]driver.Value{query: {row}}}
@@ -335,7 +335,7 @@ func assertOpenGaussCatalogObject(t *testing.T, query string, row []driver.Value
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	collector := newCollectorForTest(func(string) string { return "credential_sentinel" }, func(string, string) (*sql.DB, error) { return database, nil })
-	source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{"public"}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
+	source := SourceConfig{SourceID: "ogtemp", Engine: EngineOpenGauss, Database: "app", Namespaces: []string{row[0].(string)}, CredentialEnv: "AOCI_DB_OGTEMP_DSN", Enabled: true}
 	_, snapshot, files, err := collector.Snapshot(context.Background(), source)
 	var sourceErr *SourceError
 	if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" || sourceErr.Op != "catalog_query_"+stage+"_"+feature ||
@@ -345,6 +345,7 @@ func assertOpenGaussCatalogObject(t *testing.T, query string, row []driver.Value
 	if sourceErr.Object != object {
 		t.Fatalf("%s object = %q, want %q", feature, sourceErr.Object, object)
 	}
+	return sourceErr
 }
 
 func TestOpenGaussCollectorRejectsUnsupportedServerProfiles(t *testing.T) {

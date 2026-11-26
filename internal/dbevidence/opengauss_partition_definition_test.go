@@ -23,10 +23,10 @@ func TestOpenGaussPartitionIndexDefinition(t *testing.T) {
 // A column vector naming one column twice fails closed; the option vector,
 // where repeats are ordinary, is untouched (audit G6-07).
 func TestCatalogColumnVectorRefusesARepeatedColumn(t *testing.T) {
-	if _, err := catalogColumnVector("2 2", "public.accounts (accounts_pk)"); err == nil {
+	if _, err := catalogColumnVector("2 2", catalogObjectName{}); err == nil {
 		t.Fatal("a repeated column ordinal was accepted")
 	}
-	if got, err := catalogColumnVector("1 3", "public.accounts (accounts_pk)"); err != nil || len(got) != 2 {
+	if got, err := catalogColumnVector("1 3", catalogObjectName{}); err != nil || len(got) != 2 {
 		t.Fatalf("distinct ordinals: %v %v", got, err)
 	}
 	if got, err := catalogVectorOrdinals("0 0"); err != nil || len(got) != 2 {

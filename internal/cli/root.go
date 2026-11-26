@@ -76,6 +76,9 @@ type ExitError struct {
 	Err         error
 	Msg         string
 	Details     any
+	// renderedLocale records the locale of a message already formatted from
+	// a localized template, whose data may use a different language.
+	renderedLocale string
 }
 
 // Error implements the error interface.
@@ -783,6 +786,9 @@ func localizedCLIErrorMessage(err error, code int) string {
 		return ""
 	}
 	message := err.Error()
+	if exit, ok := err.(*ExitError); ok && exit.Msg != "" && exit.renderedLocale == textassets.ActiveLocale() {
+		return message
+	}
 	if localeDiagnosticMatchesActiveLocale(message) {
 		return message
 	}

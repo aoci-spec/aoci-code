@@ -522,16 +522,16 @@ func TestDatabaseBootstrapErrorKeepsOuterCodeAndAddsSafeDiagnostic(t *testing.T)
 	}
 }
 
-func TestDatabaseSourceErrorShowsOpenGaussCatalogObject(t *testing.T) {
-	const op = "catalog_query_indexes_expression_index"
-	const object = "public.accounts (accounts_pk)"
+func TestDatabaseSourceErrorShowsPlainCatalogObject(t *testing.T) {
+	const op = "catalog_query_sqlite_table_options"
+	const object = "accounts"
 	err := databaseSourceExitError(&dbevidence.SourceError{
 		SourceID: "ogtemp", Code: "unsupported_catalog_feature", Op: op, Object: object,
 	})
 	exit, ok := err.(*ExitError)
 	if !ok || exit.Code != ExitInternal || exit.MachineCode != "database_unsupported_catalog_feature" ||
 		!strings.Contains(exit.Msg, "operation="+op) || !strings.Contains(exit.Msg, "object="+object) {
-		t.Fatalf("CLI error must display the openGauss catalog operation and object: %v", err)
+		t.Fatalf("CLI error must display the catalog operation and object: %v", err)
 	}
 }
 
