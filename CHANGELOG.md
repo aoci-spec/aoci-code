@@ -2,7 +2,28 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc5
+
+The fifth 0.2.0 candidate closes three known limitations of rc4 and the
+audit items it deferred. The first-build forecast in `init` and `scan`
+follows the batch cut Maintain uses, a Code Maintain response is cut to
+the transport budget at any path length, and a build that fell back to single
+batches returns to sibling batches once that work ends. Maintain also checks
+under the index lock that what it assessed is still current before it issues
+a batch. Database Evidence refusals name their object, partition Evidence
+is filtered to the selected tables, and four contributor changes land: `scope
+status --fail-on-untracked`, multi-ID `scope rule remove`, PowerShell-safe
+`$` in paths, and the ADR section of Getting Started.
+
+Upgrading: a repository governed by v0.2.0-rc4 needs no migration. A
+selected MySQL table with subpartitions, which used to snapshot without them,
+is now refused by name; exclude it from the source to keep the rest. Rolling
+back follows docs/rollback.md: an older binary still honours a single-batch
+hint written in the new form while it matches the remaining work, so it may
+keep issuing single batches until that work ends, and nothing else needs
+undoing.
+
+Changes:
 
 - Database Evidence names the object a refusal is about: an unsupported
   openGauss feature reports `schema.table`, or `schema.table (index)` for an
@@ -10,7 +31,7 @@ All notable public changes to AOCI-CODE will be documented in this file.
   break or other control character is escaped and quoted, so the error stays
   on one line, and a known empty name shows as `object=""`. A name in Chinese
   is kept in English output instead of being replaced by a generic message.
-- Partition Evidence reads only the selected tables: an unusual partition on
+- Partition Evidence is filtered to the selected tables: an unusual partition on
   a table outside the selection no longer stops a PostgreSQL snapshot. A
   selected MySQL table with subpartitions is refused as
   `catalog_query_partitions_mysql_subpartition`, naming the table, instead of
@@ -34,12 +55,14 @@ All notable public changes to AOCI-CODE will be documented in this file.
   paths (78 files reported 2 rounds for 3; a long-path tree 6 for 10). It
   covers the Code first build only, and can run high for files written
   moments before the scan.
-- A Maintain response stays within the team transport budget at any path
+- A Code Maintain response is cut to the team transport budget at any path
   length: auxiliary samples shrink first, then the batch carries fewer
-  candidates. Only an object that cannot fit alone, with any Observe evidence
-  or orphan removals that must travel with it, is delivered whole and marked
-  `transport_budget_exceeded`. A batch already delivered keeps its binding
-  when the budget is lowered, and undelivered sibling batches are recut.
+  candidates. What must travel together and still does not fit is delivered
+  whole and marked `transport_budget_exceeded`: an object that cannot fit
+  alone with its Observe evidence or orphan removals, a batch of orphan
+  removals, or a batch already delivered, which keeps its binding when the
+  budget is lowered. A Database-only response keeps its own Evidence limit.
+  Undelivered sibling batches are recut.
   Candidates and orphan removals in one batch share Apply's 200-item limit,
   the rest following in the next round. A delivery is recorded only after
   its response has been checked.
