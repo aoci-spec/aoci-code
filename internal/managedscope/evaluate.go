@@ -31,6 +31,10 @@ func Build(repositoryRoot string, policy Policy, options BuildOptions) (*Evaluat
 		walkOptions.HighRiskOptIn = append([]string{}, options.HighRiskOptIn...)
 	}
 	walkOptions.IncludeIgnoredCandidates = true
+	// The policy evaluated here, not the caller's configured one, decides
+	// which submodules are excluded whole: a Scope Change preview evaluates
+	// its proposed policy.
+	walkOptions.PruneSubmodule = SubmodulePruner(normalized)
 	inventory, err := fs.BuildSafeInventory(repositoryRoot, walkOptions)
 	if err != nil {
 		return nil, err

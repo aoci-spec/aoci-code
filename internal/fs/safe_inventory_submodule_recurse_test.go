@@ -177,3 +177,49 @@ func TestSafeInventoryRecurseSubmodulesEntersTheRulesIdentity(t *testing.T) {
 		t.Fatal("an absent switch keeps the pre-#107 identity")
 	}
 }
+
+func TestSafeInventoryRecurseSubmodulesPrunesAWhollyExcludedSubmodule(t *testing.T) {
+	root := submoduleFixture(t)
+	asked := []string{}
+	prune := func(rel string) (string, bool) {
+		asked = append(asked, rel)
+		return "managed_scope_rule:defer-svc", rel == "svc"
+	}
+	report, err := BuildSafeInventory(root, WalkOptions{RecurseSubmodules: true, PruneSubmodule: prune})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(asked, ",") != "svc" {
+		t.Fatalf("the pruner is asked once per initialized submodule: %v", asked)
+	}
+	for _, path := range append(append([]string{}, report.ManagedCandidates...), report.TrackedPaths...) {
+		if path == "svc" || strings.HasPrefix(path, "svc/") {
+			t.Fatalf("a pruned submodule lists nothing, not even its gitlink: %s", path)
+		}
+	}
+	if exclusionSource(report, "svc/") != "managed_scope_rule:defer-svc" || exclusionCategory(report, "svc/") != SafetyConfigured {
+		t.Fatalf("a pruned submodule is one configured exclusion line: %#v", report.Exclusions)
+	}
+	if report.Summary.ChildRepositories != 0 {
+		t.Fatalf("a pruned submodule is not read as a child repository: %v", report.ChildRepositoryRoots)
+	}
+	plain, err := BuildSafeInventory(root, WalkOptions{RecurseSubmodules: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain.Summary.RulesIdentity != report.Summary.RulesIdentity {
+		t.Fatal("pruning follows policy bound elsewhere and never enters the rules identity")
+	}
+}
+
+func TestSafeInventoryRecurseSubmodulesKeepsASubmoduleWithAnOptInBelowIt(t *testing.T) {
+	root := submoduleFixture(t)
+	prune := func(rel string) (string, bool) { return "managed_scope_rule:defer-svc", true }
+	report, err := BuildSafeInventory(root, WalkOptions{RecurseSubmodules: true, PruneSubmodule: prune, HighRiskOptIn: []string{"svc/.env"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsPath(report.ManagedCandidates, "svc/.env") || report.Summary.ChildRepositories != 1 {
+		t.Fatalf("an exact opt-in below a submodule keeps it listed for approval accounting: %#v", report.ManagedCandidates)
+	}
+}

@@ -290,6 +290,15 @@ func (guard *overviewSourceGuard) validate(root string, loaded *cognitionRepoCtx
 	}
 	options := loaded.cfg.WalkOptions()
 	options.IncludeIgnoredCandidates = !guard.legacy
+	if !guard.legacy {
+		// The same pruning the evaluation behind this guard used, so a
+		// submodule it excluded whole is not listed again on every Chunk.
+		policy, normalizeErr := managedscope.Normalize(loaded.cfg.EffectiveManagedScope())
+		if normalizeErr != nil {
+			return normalizeErr
+		}
+		options.PruneSubmodule = managedscope.SubmodulePruner(policy)
+	}
 	inventory, err := afs.BuildSafeInventory(root, options)
 	if err != nil {
 		return err

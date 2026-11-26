@@ -184,6 +184,44 @@ func Match(rule Rule, rel string) bool {
 	}
 }
 
+// SubmodulePruner answers, for a recursed submodule rel, whether a
+// normalized policy excludes every path below it, so the inventory need not
+// list it: a superproject that defers most of its submodules otherwise lists
+// them all on every governance call (#107). It is narrower than evaluation on
+// purpose. An enabled user exclude directory rule without exceptions must
+// cover rel, and no enabled user rule of another action may reach into rel;
+// a user glob of another action answers false for every submodule. User is
+// the highest policy priority below safety, so no profile, builtin or
+// curation rule can lift a path out of that exclusion, and no formal
+// cognition asset lives below a submodule.
+func SubmodulePruner(policy Policy) func(rel string) (string, bool) {
+	return func(rel string) (string, bool) {
+		covering := ""
+		for _, rule := range policy.Rules {
+			if !rule.Enabled || rule.Source != machinecontract.ScopeRuleUser {
+				continue
+			}
+			if rule.Action != machinecontract.ScopeRoleExclude {
+				if rule.PatternKind != machinecontract.ScopePatternDirectory && rule.PatternKind != machinecontract.ScopePatternFile {
+					return "", false
+				}
+				if rule.Pattern == rel || strings.HasPrefix(rule.Pattern, rel+"/") || strings.HasPrefix(rel, rule.Pattern+"/") {
+					return "", false
+				}
+				continue
+			}
+			if covering == "" && rule.PatternKind == machinecontract.ScopePatternDirectory && len(rule.Exceptions) == 0 &&
+				(rule.Pattern == rel || strings.HasPrefix(rel, rule.Pattern+"/")) {
+				covering = rule.RuleID
+			}
+		}
+		if covering == "" {
+			return "", false
+		}
+		return "managed_scope_rule:" + covering, true
+	}
+}
+
 // globMatch answers whether rel matches pattern under the glob dialect
 // buildGlobRegexp defines. It no longer runs the regexp engine: on a tree of
 // 13,850 files the starter rules cost 260,000 matches per evaluation and the

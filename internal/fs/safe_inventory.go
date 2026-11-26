@@ -177,7 +177,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		}
 		// A recursed gitlink is a directory whose files are listed below it,
 		// not a candidate path of its own.
-		tracked = withoutPaths(tracked, modules.childRoots)
+		tracked = withoutPaths(tracked, append(append([]string{}, modules.childRoots...), modules.prunedRoots...))
 		tracked = append(tracked, modules.tracked...)
 		untracked = append(untracked, modules.untracked...)
 		ignored = append(ignored, modules.ignored...)
@@ -646,6 +646,8 @@ type containerInventory struct {
 	gitlinks                                 map[string]bool
 	pruned                                   []SafeInventoryExclusion
 	childRoots                               []string
+	// prunedRoots are recursed gitlinks PruneSubmodule excluded whole.
+	prunedRoots []string
 }
 
 // traverseContainer walks a non-Git root by name, never opening a file; a
@@ -773,6 +775,13 @@ func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, c
 			result.gitlinks[rel] = true
 			continue
 		}
+		if source, ok := prunableSubmodule(rel, opt); ok {
+			// Every path below would be excluded by the caller's policy:
+			// one line stands for the subtree, and its Git is never run.
+			result.prunedRoots = append(result.prunedRoots, rel)
+			result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: rel + "/", Category: SafetyConfigured, RuleSource: source, GitTracked: true})
+			continue
+		}
 		nested := result.gitlinks
 		result.gitlinks = map[string]bool{}
 		if err := result.addChildRepository(root, rel, filepath.Join(root, filepath.FromSlash(rel)), opt, collapsible); err != nil {
@@ -790,11 +799,26 @@ func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, c
 		result.tracked = withoutPaths(result.tracked, children)
 		pending = append(pending, children...)
 	}
-	for _, list := range []*[]string{&result.tracked, &result.untracked, &result.ignored, &result.ignoredDirs, &result.childRoots} {
+	for _, list := range []*[]string{&result.tracked, &result.untracked, &result.ignored, &result.ignoredDirs, &result.childRoots, &result.prunedRoots} {
 		sort.Strings(*list)
 	}
 	sort.Slice(result.pruned, func(i, j int) bool { return result.pruned[i].PathSummary < result.pruned[j].PathSummary })
 	return result, nil
+}
+
+// prunableSubmodule asks the caller's PruneSubmodule, except when an exact
+// high-risk opt-in lies below rel: that path must stay visible to the
+// approval accounting, so the submodule is read as usual.
+func prunableSubmodule(rel string, opt WalkOptions) (string, bool) {
+	if opt.PruneSubmodule == nil {
+		return "", false
+	}
+	for _, path := range opt.HighRiskOptIn {
+		if clean, ok := safeRelativePath(path); ok && strings.HasPrefix(clean, rel+"/") {
+			return "", false
+		}
+	}
+	return opt.PruneSubmodule(rel)
 }
 
 // submoduleWorkTree reports whether rel names an initialized submodule work
