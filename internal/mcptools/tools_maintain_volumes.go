@@ -155,6 +155,13 @@ type volumeMaintainResult struct {
 // sibling's Apply landed between its load and its turn at the plan.
 const maintainReloadAttempts = 4
 
+func reloadMaintainContext(root string, attempt int) (*cognitionRepoCtx, *Fail) {
+	if attempt >= maintainReloadAttempts {
+		return nil, &Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")}
+	}
+	return loadCognitionCtx(root)
+}
+
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, loaded, refreshSession, 1)
 }
@@ -220,10 +227,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 				result.planMarker = planMarker
 				buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeLimit, codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
 				if result.volumeMoved {
-					if attempt >= maintainReloadAttempts {
-						return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
-					}
-					reloaded, fail := loadCognitionCtx(root)
+					reloaded, fail := reloadMaintainContext(root, attempt)
 					if fail != nil {
 						return failResult(fail)
 					}
@@ -527,21 +531,13 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	planLocked := recordsExist ||
 		(loaded.cfg.CodeCognitionParallelBatchLimit() > 1 && len(selected) < len(all))
 	if planLocked {
-		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		assessment := codePlanAssessment{baselineSHA256: result.Governance.BaselineSHA256, planMarker: result.planMarker}
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, &assessment)
 		if lockErr != nil {
 			result.lockErr = lockErr
 			return
 		}
-		// Apply may advance only the Baseline. If the solo mark rewrite
-		// also failed, the Volume and plan marker still match the old view.
 		if moved {
-			result.volumeMoved = true
-			return
-		}
-		baselineBytes, baselineErr := os.ReadFile(loaded.paths.BaselinePath)
-		if baselineErr != nil || codebatch.BytesSHA256(baselineBytes) != result.Governance.BaselineSHA256 ||
-			codebatch.ParallelPlanMarker(root) != result.planMarker {
-			release()
 			result.volumeMoved = true
 			return
 		}

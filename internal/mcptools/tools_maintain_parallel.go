@@ -35,23 +35,34 @@ func parallelIdentitiesOf(facts *volumegovernance.Facts, set *cognition.Set) cod
 	return ids
 }
 
-// lockPlanOnLoadedVolume takes the index lock for a Maintain that reads or
-// writes plan records and reports whether the Code Volume on disk is still
-// the one the call loaded. Applies hold the same lock, so under it the
-// records and the Volume agree; a Volume that moved means the call's facts
-// are a step behind and it must start over, never that the plan is broken.
-func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx) (release func(), moved bool, err error) {
+type codePlanAssessment struct {
+	baselineSHA256 string
+	planMarker     string
+}
+
+// lockPlanOnLoadedVolume checks the loaded Code Volume and any assessment
+// made before the lock against the state Apply last left. Delivery by batch
+// ID assesses under the lock, so it supplies no earlier assessment.
+func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx, assessment *codePlanAssessment) (release func(), moved bool, err error) {
 	lock, lockErr := afs.AcquireIndexLock(root)
 	if lockErr != nil {
 		return nil, false, lockErr
 	}
-	code := loaded.set.Volumes[cognition.ScopeCode]
-	if code != nil {
+	currentState := true
+	if code := loaded.set.Volumes[cognition.ScopeCode]; code != nil {
 		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path)))
-		if readErr != nil || codebatch.BytesSHA256(current) != code.SHA256 {
-			_ = lock.Release()
-			return nil, true, nil
-		}
+		currentState = readErr == nil && codebatch.BytesSHA256(current) == code.SHA256
+	}
+	if currentState && assessment != nil {
+		// A rebind can advance the Baseline while leaving the Code Volume
+		// and the solo mark byte-identical if the mark rewrite failed.
+		current, readErr := os.ReadFile(loaded.paths.BaselinePath)
+		currentState = readErr == nil && codebatch.BytesSHA256(current) == assessment.baselineSHA256 &&
+			codebatch.ParallelPlanMarker(root) == assessment.planMarker
+	}
+	if !currentState {
+		_ = lock.Release()
+		return nil, true, nil
 	}
 	return func() { _ = lock.Release() }, false, nil
 }
@@ -546,7 +557,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	// the Volume this call loaded; when another sibling's Apply landed in
 	// between, the call starts over instead of calling the plan broken.
 	for attempt := 1; ; attempt++ {
-		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, nil)
 		if lockErr != nil {
 			return failResult(maintainLockFailure(lockErr))
 		}
@@ -554,10 +565,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 			defer release()
 			break
 		}
-		if attempt >= maintainReloadAttempts {
-			return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
-		}
-		reloaded, fail := loadCognitionCtx(root)
+		reloaded, fail := reloadMaintainContext(root, attempt)
 		if fail != nil {
 			return failResult(fail)
 		}
