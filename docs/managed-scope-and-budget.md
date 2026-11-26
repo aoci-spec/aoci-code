@@ -439,10 +439,31 @@ aoci scope preview
 Each initialized submodule is then read through its own Git, exactly as a
 container child is: its `.gitignore` holds, its `.git` stays excluded, and
 its Entries live in the superproject's Volume under the submodule path.
-An uninitialized submodule stays a boundary, so run `git submodule update
---init` first. Moving a submodule to another commit changes its files, which
-the next Maintain reports as drift like any other change. A large workspace
-still needs exclude rules for the modules it defers (#107).
+Discovery asks Git for paths only (`ls-files`), so no tracked file is read
+to list it, including one Safe Inventory excludes.
+
+Two boundaries apply, and they are checked separately. The working-tree
+boundary: the submodule's work tree, and every directory leading to it, must
+be a real directory inside the root, never a symbolic link. The Git-metadata
+boundary: Git must report that work tree as its own top level. Where the
+metadata lives is Git's business; the usual `.git` file pointing into the
+superproject's `.git/modules/` is accepted, as is any other gitdir Git
+resolves for that work tree.
+
+A submodule whose checkout is unavailable locally (never initialized, or
+after `git submodule deinit`) stays a `git_submodule` boundary, at any
+nesting depth; run `git submodule update --init --recursive` to read it. Its
+existing Entries and Baseline records are kept meanwhile: Maintain does not
+offer them as orphans, because the gitlink and the team configuration are
+unchanged. Moving a submodule to another commit changes its files, which the
+next Maintain reports as drift like any other change.
+
+A submodule whose every path is excluded anyway is not listed through its
+Git at all, so a workspace that defers most of its submodules stays fast:
+one under a hard exclusion (a built-in directory, `exclude_root_dirs`,
+`exclude_dirs`), or one an enabled user `exclude` directory rule without
+exceptions covers while no user rule of another action reaches into it.
+Each is one exclusion line instead of one per file (#107).
 
 A git-ignored directory whose every file is a hard exclusion anyway, because
 its name is built in or a component listed in `exclude_dirs` or in

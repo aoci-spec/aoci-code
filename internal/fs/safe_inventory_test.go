@@ -644,14 +644,14 @@ func TestSafeInventoryKeepsIgnoredFilesBesideTrackedOnes(t *testing.T) {
 	}
 }
 
-// git before 2.16 has no --ignored=matching; the inventory then falls back to
-// the rc17 listing instead of failing.
+// When the collapsed listing fails the inventory falls back to the rc17
+// listing instead of failing.
 func TestGitIgnoredPathsFallsBackWhenStatusMatchingIsUnavailable(t *testing.T) {
 	calls := [][]string{}
 	run := func(args ...string) ([]byte, error) {
 		calls = append(calls, args)
-		if args[0] == "status" {
-			return nil, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: "error: unknown option `ignored=matching'"}
+		if args[len(args)-1] == "--directory" {
+			return nil, &GitQueryError{Code: "safe_inventory_git_query_failed", Stderr: "error: unknown option `directory'"}
 		}
 		return []byte("gen/api.go\x00node_modules/x.js\x00"), nil
 	}

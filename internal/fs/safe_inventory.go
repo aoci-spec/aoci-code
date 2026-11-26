@@ -422,39 +422,35 @@ func gitInventory(root string, collapsible func(dir string) bool) (tracked, untr
 // each one (#127). The fallback path lists nothing untracked (listed=false)
 // and the caller runs the rc17 listing for them.
 func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(dir string) bool) (files, collapsed, untracked []string, listed bool, err error) {
-	data, statusErr := run("status", "--porcelain=v1", "-z", "--ignored=matching", "--untracked-files=all", "--no-renames", "--ignore-submodules=all")
-	if statusErr != nil {
+	// Path-only queries: `git status` would also compare every tracked file
+	// whose stat moved against the index, reading its content, including a
+	// file Safe Inventory excludes (a `.env` placeholder edited in place).
+	// `ls-files --others` reads directory entries and ignore rules, never a
+	// tracked file's bytes.
+	data, ignoredErr := run("ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory")
+	if ignoredErr != nil {
 		data, err = run("ls-files", "-z", "--others", "--ignored", "--exclude-standard")
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
 		return splitNULPaths(data), nil, nil, false, nil
 	}
+	untrackedData, err := run("ls-files", "-z", "--others", "--exclude-standard")
+	if err != nil {
+		return nil, nil, nil, false, err
+	}
 	seen := map[string]bool{}
 	seenUntracked := map[string]bool{}
 	expand := []string{}
-	expandUntracked := []string{}
-	for _, record := range strings.Split(string(data), "\x00") {
-		if strings.HasPrefix(record, "?? ") {
-			value := record[3:]
-			clean, ok := safeRelativePath(value)
-			if !ok {
-				continue
-			}
-			if strings.HasSuffix(value, "/") {
-				// --untracked-files=all never collapses a directory; should a
-				// git do so, its files are listed the rc17 way below.
-				expandUntracked = append(expandUntracked, clean)
-			} else if !seenUntracked[clean] {
-				seenUntracked[clean] = true
-				untracked = append(untracked, clean)
-			}
-			continue
+	for _, value := range splitNULPaths(untrackedData) {
+		if clean, ok := safeRelativePath(value); ok && !seenUntracked[clean] {
+			seenUntracked[clean] = true
+			untracked = append(untracked, clean)
 		}
-		if !strings.HasPrefix(record, "!! ") {
-			continue
-		}
-		value := record[3:]
+	}
+	// Raw records: the trailing "/" that marks a directory must survive until
+	// safeRelativePath below, which drops it.
+	for _, value := range ignoredMatches(strings.Split(string(data), "\x00")) {
 		isDirectory := strings.HasSuffix(value, "/")
 		clean, ok := safeRelativePath(value)
 		if !ok {
@@ -482,22 +478,33 @@ func gitIgnoredPaths(run func(args ...string) ([]byte, error), collapsible func(
 			}
 		}
 	}
-	for _, batch := range literalPathspecBatches(expandUntracked) {
-		data, err = run(append([]string{"ls-files", "-z", "--others", "--exclude-standard", "--"}, batch...)...)
-		if err != nil {
-			return nil, nil, nil, false, err
-		}
-		for _, path := range splitNULPaths(data) {
-			if !seenUntracked[path] {
-				seenUntracked[path] = true
-				untracked = append(untracked, path)
-			}
-		}
-	}
 	sort.Strings(files)
 	sort.Strings(collapsed)
 	sort.Strings(untracked)
 	return files, collapsed, untracked, true, nil
+}
+
+// ignoredMatches turns `ls-files --others --ignored --directory` output into
+// the records `git status --ignored=matching` printed: an ignored directory
+// that matches a pattern as one "dir/" entry, every other ignored file by
+// name. ls-files also prints a directory that merely holds ignored entries,
+// followed by those entries; such an aggregate line is always followed in
+// byte order by a path beneath it, and a matched directory never is, which is
+// the one difference dropped here.
+func ignoredMatches(paths []string) []string {
+	sorted := append([]string{}, paths...)
+	sort.Strings(sorted)
+	result := make([]string, 0, len(sorted))
+	for index, value := range sorted {
+		if value == "" {
+			continue
+		}
+		if strings.HasSuffix(value, "/") && index+1 < len(sorted) && strings.HasPrefix(sorted[index+1], value) {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
 }
 
 // literalPathspecBatches turns directories into literal pathspecs (so a
@@ -775,6 +782,14 @@ func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, c
 			result.gitlinks[rel] = true
 			continue
 		}
+		if category, source, ok := hardExcludedSubmodule(rel, opt); ok {
+			// Every path below is a hard exclusion (a built-in directory,
+			// exclude_root_dirs, exclude_dirs): its Git is never started, so
+			// stale metadata there cannot fail the inventory.
+			result.prunedRoots = append(result.prunedRoots, rel)
+			result.pruned = append(result.pruned, SafeInventoryExclusion{PathSummary: rel + "/", Category: category, RuleSource: source, GitTracked: true})
+			continue
+		}
 		if source, ok := prunableSubmodule(rel, opt); ok {
 			// Every path below would be excluded by the caller's policy:
 			// one line stands for the subtree, and its Git is never run.
@@ -793,12 +808,13 @@ func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, c
 		}
 		sort.Strings(children)
 		result.gitlinks = nested
-		// The child's gitlinks are its nested submodules; the child's own
-		// listing also named each as a tracked path, which the next read
-		// replaces with that submodule's files.
-		result.tracked = withoutPaths(result.tracked, children)
 		pending = append(pending, children...)
 	}
+	// The child's listing named each nested gitlink as a tracked path. Only
+	// the ones actually expanded (read, or pruned as one exclusion line) are
+	// replaced by what stands for them; an uninitialized one stays tracked,
+	// so the inventory keeps it a git_submodule boundary like a top-level one.
+	result.tracked = withoutPaths(result.tracked, append(append([]string{}, result.childRoots...), result.prunedRoots...))
 	for _, list := range []*[]string{&result.tracked, &result.untracked, &result.ignored, &result.ignoredDirs, &result.childRoots, &result.prunedRoots} {
 		sort.Strings(*list)
 	}
@@ -806,17 +822,40 @@ func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, c
 	return result, nil
 }
 
+// hardExcludedSubmodule reports the hard exclusion that already covers every
+// path below rel, judged by name before any Git runs there: a built-in
+// directory category, exclude_root_dirs at the root, or an exclude_dirs
+// component. A built-in sensitive directory with an exact opt-in below it is
+// still read, as the opt-in lifts exactly that file.
+func hardExcludedSubmodule(rel string, opt WalkOptions) (category, source string, ok bool) {
+	probe := rel + "/" + collapsedCategoryProbe
+	if category, source := BuiltInSafetyCategory(probe, opt.SensitiveNameRules); category != "" {
+		if category == SafetySensitive && optInBelow(rel, opt) {
+			return "", "", false
+		}
+		return category, source, true
+	}
+	if source, excluded := ConfiguredExclusionSource(probe, opt); excluded {
+		return SafetyConfigured, source, true
+	}
+	return "", "", false
+}
+
+func optInBelow(rel string, opt WalkOptions) bool {
+	for _, path := range opt.HighRiskOptIn {
+		if clean, ok := safeRelativePath(path); ok && strings.HasPrefix(clean, rel+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // prunableSubmodule asks the caller's PruneSubmodule, except when an exact
 // high-risk opt-in lies below rel: that path must stay visible to the
 // approval accounting, so the submodule is read as usual.
 func prunableSubmodule(rel string, opt WalkOptions) (string, bool) {
-	if opt.PruneSubmodule == nil {
+	if opt.PruneSubmodule == nil || optInBelow(rel, opt) {
 		return "", false
-	}
-	for _, path := range opt.HighRiskOptIn {
-		if clean, ok := safeRelativePath(path); ok && strings.HasPrefix(clean, rel+"/") {
-			return "", false
-		}
 	}
 	return opt.PruneSubmodule(rel)
 }

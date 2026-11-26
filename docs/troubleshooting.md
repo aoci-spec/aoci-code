@@ -617,11 +617,15 @@ files are never listed.
 ## Files inside a git submodule are missing from the index
 
 A submodule is a separate repository: the superproject tracks only its
-commit, so `scan` lists none of its files, announces how many submodules it
-left alone, and `scope explain <path>` on anything beneath one answers
-`git_submodule`. Set `aoci config set recurse_submodules true` to read
-initialized submodules from the superproject, or initialize the submodule
-itself to index its code. Before
+commit. With `recurse_submodules` off (the default), `scan` lists none of its
+files, announces how many submodules it left alone, and `scope explain
+<path>` on anything beneath one answers `git_submodule`. Set `aoci config set
+recurse_submodules true` to read initialized submodules from the
+superproject, or initialize the submodule itself to index its code. With the
+switch on, a submodule is still a `git_submodule` boundary when its checkout
+is unavailable locally (never initialized, or after `git submodule deinit`):
+run `git submodule update --init`. Its existing Entries are kept meanwhile,
+not offered as orphans. Before
 rc20 the gitlink was reported as `unsafe_filesystem_object`, which said
 nothing about why (#107).
 

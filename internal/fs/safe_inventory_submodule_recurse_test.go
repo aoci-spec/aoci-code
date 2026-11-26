@@ -2,7 +2,9 @@ package fs
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -221,5 +223,96 @@ func TestSafeInventoryRecurseSubmodulesKeepsASubmoduleWithAnOptInBelowIt(t *test
 	}
 	if !containsPath(report.ManagedCandidates, "svc/.env") || report.Summary.ChildRepositories != 1 {
 		t.Fatalf("an exact opt-in below a submodule keeps it listed for approval accounting: %#v", report.ManagedCandidates)
+	}
+}
+
+// Review of #215: `git status` compares a tracked file whose stat moved
+// against the index by reading it, so an edited `.env` placeholder inside a
+// submodule was opened although Safe Inventory excludes it. Discovery runs
+// path-only queries; a git wrapper on PATH records every subcommand and the
+// test refuses any that can read a tracked file's content.
+func TestSafeInventoryRecurseSubmodulesRunsOnlyPathOnlyGitQueries(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the PATH wrapper is a POSIX shell script")
+	}
+	root := submoduleFixture(t)
+	gitCommand(t, filepath.Join(root, "svc"), "add", "-f", ".env")
+	gitCommand(t, filepath.Join(root, "svc"), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "placeholder")
+	// Same size, new bytes and mtime: exactly the file git status re-reads.
+	mustWrite(t, root, "svc/.env", "SECRET=2\n")
+	real, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git is not on PATH")
+	}
+	bin := t.TempDir()
+	logPath := filepath.Join(t.TempDir(), "git.log")
+	wrapper := "#!/bin/sh\nfor arg in \"$@\"; do case \"$arg\" in status|diff|diff-files|diff-index|update-index) echo \"$arg\" >> '" + logPath + "';; esac; done\nexec '" + real + "' \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(wrapper), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	report, err := BuildSafeInventory(root, WalkOptions{RecurseSubmodules: true, IncludeIgnoredCandidates: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exclusionCategory(report, "svc/.env") != SafetySensitive {
+		t.Fatalf("the placeholder stays a sensitive exclusion: %#v", report.Exclusions)
+	}
+	if data, _ := os.ReadFile(logPath); len(data) != 0 {
+		t.Fatalf("discovery ran a git command that reads tracked content: %s", data)
+	}
+}
+
+// Review of #215: with only the outer submodule initialized, a nested
+// gitlink lost its boundary because every nested gitlink was dropped from the
+// tracked list before recursion. Only expanded gitlinks are dropped now.
+func TestSafeInventoryRecurseSubmodulesKeepsANestedUninitializedGitlinkABoundary(t *testing.T) {
+	leaf := filepath.Join(t.TempDir(), "leaf")
+	committedRepository(t, leaf, map[string]string{"leaf.go": "package leaf\n"})
+	middle := filepath.Join(t.TempDir(), "middle")
+	committedRepository(t, middle, map[string]string{"middle.go": "package middle\n"})
+	addSubmodule(t, middle, leaf, "deps/leaf")
+	root := filepath.Join(t.TempDir(), "super")
+	committedRepository(t, root, map[string]string{"README.md": "# super\n"})
+	addSubmodule(t, root, middle, "middle")
+	// Only the outer submodule: middle/deps/leaf stays uninitialized.
+	report, err := BuildSafeInventory(root, WalkOptions{RecurseSubmodules: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsPath(report.ManagedCandidates, "middle/middle.go") {
+		t.Fatalf("the outer submodule is read: %#v", report.ManagedCandidates)
+	}
+	if exclusionSource(report, "middle/deps/leaf") != "git_submodule" {
+		t.Fatalf("a nested uninitialized gitlink stays a boundary, as at the top level: %#v", report.Exclusions)
+	}
+	if strings.Join(report.ChildRepositoryRoots, ",") != "middle" {
+		t.Fatalf("only the outer submodule is a child repository: %v", report.ChildRepositoryRoots)
+	}
+}
+
+// Review of #215: a submodule under an exclude_root_dirs directory still had
+// its Git started, so stale metadata there failed the inventory. A hard
+// excluded submodule is one exclusion line and its Git never runs.
+func TestSafeInventoryRecurseSubmodulesNeverStartsGitInAHardExcludedSubmodule(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "svc")
+	committedRepository(t, source, map[string]string{"app/main.go": "package main\n"})
+	root := filepath.Join(t.TempDir(), "super")
+	committedRepository(t, root, map[string]string{"README.md": "# super\n"})
+	addSubmodule(t, root, source, "vendor/svc")
+	// Stale metadata: a .git file naming a gitdir that no longer exists.
+	mustWrite(t, root, "vendor/svc/.git", "gitdir: ../../.git/modules/gone\n")
+	options := WalkOptions{RecurseSubmodules: true, ExcludeRootDirs: []string{"vendor"}}
+	report, err := BuildSafeInventory(root, options)
+	if err != nil {
+		t.Fatalf("a hard-excluded submodule must not be queried: %v", err)
+	}
+	if exclusionSource(report, "vendor/svc/") != "exclude_root_dirs:vendor" || exclusionCategory(report, "vendor/svc/") != SafetyConfigured {
+		t.Fatalf("a hard-excluded submodule is one configured exclusion line: %#v", report.Exclusions)
+	}
+	for _, path := range report.ManagedCandidates {
+		if strings.HasPrefix(path, "vendor/") {
+			t.Fatalf("nothing below a hard-excluded submodule is listed: %s", path)
+		}
 	}
 }
