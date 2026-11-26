@@ -1,10 +1,16 @@
 package cli
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -103,6 +109,70 @@ func TestUIEvidenceSuggestionsUseGuideActions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestUIEvidenceSnapshotCommandsKeepRepositoryPlaceholders(t *testing.T) {
+	pinDefaultLocale(t)
+	parent := t.TempDir()
+	root := filepath.Join(parent, "repo {source}")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	mustCLI(t, root, "--json", "init")
+	mustCLI(t, root, "--json", "scan")
+	dbPath := filepath.Join(parent, "fixture.db")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("CREATE TABLE item (id INTEGER PRIMARY KEY)")
+	_ = db.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"invalid", "missing"} {
+		mustCLI(t, root, "database", "source", "add", "--source-id", source, "--engine", "sqlite", "--path", dbPath)
+	}
+	testkit.WriteFile(t, dbevidence.RuntimeEvidenceRoot(root), "invalid/source.json", "{broken")
+	state := fetchUIEvidenceState(t, root)
+	var commands []string
+	for _, suggestion := range state.Suggestions["en-US"] {
+		if suggestion.Command != "" {
+			commands = append(commands, suggestion.Command)
+		}
+	}
+	if len(commands) != 2 {
+		t.Fatalf("expected two source commands: %v", commands)
+	}
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prefix, err := agentCommandPrefixFor(runtime.GOOS, executable, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, source := range []string{"invalid", "missing"} {
+		command := commands[index]
+		want := prefix + " database snapshot --source " + source + " --json"
+		if command != want {
+			t.Errorf("snapshot command must preserve the repository argument: got %q want %q", command, want)
+		}
+		if runtime.GOOS == "windows" {
+			continue
+		}
+		// Parse the rendered command with the target shell, then dispatch the
+		// actual arguments through aoci. The binary in a Go test is cli.test.
+		raw, err := exec.Command("sh", "-c", "set -- "+command+"\nprintf '%s\\000' \"$@\"").Output()
+		if err != nil {
+			t.Fatal(err)
+		}
+		args := strings.Split(strings.TrimSuffix(string(raw), "\x00"), "\x00")
+		var out, errOut bytes.Buffer
+		if code := executeCLI(args[1:], &out, &errOut); code != ExitOK {
+			t.Errorf("run suggested snapshot for %s: exit=%d stdout=%s stderr=%s", source, code, &out, &errOut)
+		}
 	}
 }
 

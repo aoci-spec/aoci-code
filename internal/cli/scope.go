@@ -216,8 +216,9 @@ func newScopeExplainCmd() *cobra.Command {
 			if curationErr != nil {
 				return managedScopeExitError(curationErr)
 			}
+			walkOptions := cfg.WalkOptions()
 			evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
-				WalkOptions: cfg.WalkOptions(), CurationExclude: curationExclude})
+				WalkOptions: walkOptions, CurationExclude: curationExclude})
 			if err != nil {
 				return managedScopeExitError(err)
 			}
@@ -229,16 +230,21 @@ func newScopeExplainCmd() *cobra.Command {
 					item = explainSafetyExclusion(rel, afs.SafetyUnsafe, "git_submodule", "future_or_absent")
 				} else if folded, found := foldedScopeExclusion(rel, evaluation.Exclude); found {
 					item = folded
-				} else if category, source := afs.BuiltInSafetyCategory(rel, cfg.WalkOptions().SensitiveNameRules); category != "" {
+				} else if category, source := afs.BuiltInSafetyCategory(rel, walkOptions.SensitiveNameRules); category != "" {
 					item = explainSafetyExclusion(rel, category, source, "future_or_absent")
-				} else if source, excluded := afs.ConfiguredExclusionSource(rel, cfg.WalkOptions()); excluded {
-					item = explainSafetyExclusion(rel, afs.SafetyConfigured, source, "future_or_absent")
 				} else {
-					curated := containsScopePath(cfg.CurationExclude, rel)
 					ignored, _ := afs.PathIgnoredByGit(root, rel)
-					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, ignored, curated)
-					if !ignored {
-						item.GitStatus = "future_or_absent"
+					artifactSource, artifact := afs.IgnoredArtifactSource(rel, walkOptions)
+					if ignored && artifact {
+						item = explainSafetyExclusion(rel, afs.SafetyConfigured, artifactSource, "untracked_or_non_git")
+					} else if source, excluded := afs.ConfiguredExclusionSource(rel, walkOptions); excluded {
+						item = explainSafetyExclusion(rel, afs.SafetyConfigured, source, "future_or_absent")
+					} else {
+						curated := containsScopePath(cfg.CurationExclude, rel)
+						item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, ignored, curated)
+						if !ignored {
+							item.GitStatus = "future_or_absent"
+						}
 					}
 				}
 			}

@@ -71,6 +71,31 @@ func TestPathIgnoredByGitUsesUnquotedPatternFields(t *testing.T) {
 	}
 }
 
+func TestPathIgnoredByGitTreatsMagicPrefixAsFilename(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("colon is unavailable in Windows file names")
+	}
+	root := t.TempDir()
+	gitCommand(t, root, "init", "-q")
+	mustWrite(t, root, ".gitignore", "*.data.js\n!:(literal)keep.data.js\n")
+	const hidden = ":(literal)future.data.js"
+	const visible = ":(literal)keep.data.js"
+	for _, path := range []string{hidden, visible} {
+		t.Run(path, func(t *testing.T) {
+			check := func() {
+				ignored, rule := PathIgnoredByGit(root, path)
+				if path == hidden && (!ignored || rule != ".gitignore:1:*.data.js") ||
+					path == visible && (ignored || rule != "") {
+					t.Errorf("unexpected ignore result for %s: ignored=%t rule=%q", path, ignored, rule)
+				}
+			}
+			check()
+			mustWrite(t, root, path, "fixture\n")
+			check()
+		})
+	}
+}
+
 func TestPathIgnoredByGitWithoutGitFacts(t *testing.T) {
 	if ignored, rule := PathIgnoredByGit(t.TempDir(), "aoci.txt"); ignored || rule != "" {
 		t.Fatalf("a non-Git directory must not accuse an ignore rule: %t %q", ignored, rule)

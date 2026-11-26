@@ -261,13 +261,16 @@ func suggestions(locale string, facts *volumegovernance.Facts, guide any) []Sugg
 		// The snapshot prints the accept command with the digest it binds
 		// filled in, so the page suggests the snapshot alone rather than an
 		// accept command with a {snapshot_sha} the person cannot fill.
-		command := commands["database_snapshot"]
-		if command == "" {
-			command = "aoci " + machinecontract.RemediationCommandDatabaseSnapshot
+		// Guide binds the executable and --repo before the machine command
+		// suffix. Only that suffix contains a source placeholder to fill.
+		const suffix = " " + machinecontract.RemediationCommandDatabaseSnapshot
+		prefix, ok := strings.CutSuffix(commands["database_snapshot"], suffix)
+		if !ok {
+			prefix = "aoci"
 		}
 		for _, source := range sources {
 			list = append(list, Suggestion{Label: message(locale, "ui.suggest.evidence"),
-				Command: strings.ReplaceAll(command, "{source}", source)})
+				Command: prefix + strings.Replace(suffix, "{source}", source, 1)})
 		}
 	case facts.Result == volumegovernance.ResultAuthoringRequired:
 		note := ""

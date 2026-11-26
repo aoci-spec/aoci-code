@@ -2,8 +2,10 @@ package cli
 
 import (
 	"encoding/json"
+	"runtime"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedscope"
 	"github.com/aoci-spec/aoci-code/internal/testkit"
@@ -53,4 +55,62 @@ func TestScopeExplainGitExcludedDescendantAndFuturePath(t *testing.T) {
 			t.Fatalf("Git negation was ignored: %+v", item)
 		}
 	})
+}
+
+func TestScopeExplainFutureGitPathsMatchScan(t *testing.T) {
+	root := testkit.GitRepo(t)
+	mustCLI(t, root, "--json", "init")
+	testkit.WriteFile(t, root, ".gitignore", "packages/web/dist/*.js\n!packages/web/dist/keep.js\n*.data.js\n")
+	mustCLI(t, root, "scope", "rule", "add", "dist-index", "--action", "index", "--pattern",
+		"packages/web/dist/*.js", "--reason", "fixture explicit index rule")
+
+	const dist = "packages/web/dist/new.js"
+	const keep = "packages/web/dist/keep.js"
+	const literal = ":(literal)future.data.js"
+	paths := []string{dist, keep}
+	if runtime.GOOS != "windows" {
+		paths = append(paths, literal)
+	}
+	explain := func(path string) managedscope.PathEvaluation {
+		t.Helper()
+		var item managedscope.PathEvaluation
+		if err := json.Unmarshal([]byte(mustCLI(t, root, "--json", "scope", "explain", path)), &item); err != nil {
+			t.Fatal(err)
+		}
+		return item
+	}
+	check := func(path string, item managedscope.PathEvaluation) {
+		t.Helper()
+		switch path {
+		case dist:
+			if item.Role != machinecontract.ScopeRoleExclude || item.ReadsContent || item.Reason != "exclude_root_dirs:dist:configured" {
+				t.Errorf("nested ignored artifact did not receive its scan exclusion: %+v", item)
+			}
+		case literal:
+			if item.Role != machinecontract.ScopeRoleExclude || item.ReadsContent || item.GitStatus != "ignored" {
+				t.Errorf("literal filename did not use Git ignore: %+v", item)
+			}
+		case keep:
+			if item.Role != machinecontract.ScopeRoleIndex {
+				t.Errorf("Git negation did not keep the file: %+v", item)
+			}
+		}
+	}
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			check(path, explain(path))
+			testkit.WriteFile(t, root, path, "fixture\n")
+			check(path, explain(path))
+		})
+	}
+	mustCLI(t, root, "--json", "scan")
+	bl, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load scan Baseline: exists=%t err=%v", exists, err)
+	}
+	for _, path := range paths {
+		if _, inBaseline := bl.Files[path]; inBaseline != (path == keep) {
+			t.Errorf("unexpected Baseline membership for %s: %t", path, inBaseline)
+		}
+	}
 }

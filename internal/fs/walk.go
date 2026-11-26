@@ -25,7 +25,7 @@ type WalkOptions struct {
 	// ExcludeDirs excludes by directory base name (node_modules, for example)
 	ExcludeDirs []string
 	// ExcludeRootDirs matches the first repository-relative directory, and a
-	// git-ignored directory of that name at any depth (ignoredArtifactSource).
+	// git-ignored directory of that name at any depth (IgnoredArtifactSource).
 	ExcludeRootDirs []string
 	// ExcludeFiles are file exclusion patterns with the platform's matchExcludePattern semantics:
 	// *.bak suffix / backup_* prefix / *.backup.* contains / without * an exact base name or relative path

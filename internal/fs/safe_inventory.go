@@ -202,7 +202,7 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 				report.addExclusion(rel, category, source, false)
 				continue
 			}
-			if source, artifact := ignoredArtifactSource(rel, opt); artifact {
+			if source, artifact := IgnoredArtifactSource(rel, opt); artifact {
 				// An ignored file under an exclude_root_dirs name at any depth
 				// is an artifact, never a candidate a rule could pull in; the
 				// exclude_dirs names reach ConfiguredExclusionSource below.
@@ -529,7 +529,7 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 	// carrying an exclude_root_dirs name is an artifact at any depth (#104: a
 	// name counts as an artifact at the root or when git ignores it), so
 	// packages/*/dist collapses to one line like a root dist/ does (#97).
-	if source, ok := ignoredArtifactSource(dir+"/"+collapsedCategoryProbe, opt); ok {
+	if source, ok := IgnoredArtifactSource(dir+"/"+collapsedCategoryProbe, opt); ok {
 		return SafetyConfigured, source, true
 	}
 	for _, part := range strings.Split(dir, "/") {
@@ -542,10 +542,9 @@ func HardExcludedDirectory(dir string, opt WalkOptions) (category, source string
 	return "", "", false
 }
 
-// ignoredArtifactSource names the exclude_root_dirs entry that keeps a
-// git-ignored path out at any depth: tracked files under such a name are
-// source, ignored ones are build output, caches, or dumps, whatever the depth.
-func ignoredArtifactSource(rel string, opt WalkOptions) (source string, ok bool) {
+// IgnoredArtifactSource names the exclude_root_dirs entry that keeps a path
+// already known to be Git-ignored out at any depth.
+func IgnoredArtifactSource(rel string, opt WalkOptions) (source string, ok bool) {
 	parts := strings.Split(rel, "/")
 	for _, part := range parts[:len(parts)-1] {
 		for _, entry := range opt.ExcludeRootDirs {
