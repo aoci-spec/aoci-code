@@ -335,10 +335,16 @@ five alongside candidates. A sample may be empty, with its complete count
 still reported. If the response still exceeds the budget, Maintain cuts the
 candidate batch further before issuing it. A single candidate with its
 required fields still travels complete if it exceeds the budget, with
-`authoring_batch.transport_budget_exceeded: true`. Required Observe evidence
-and first-delivery orphan removal obligations travel complete, including in
-responses that carry only these obligations. The Host reads the full result
-and submits the complete machine batch and required review or removals.
+`authoring_batch.transport_budget_exceeded: true`. An already delivered sibling
+or optimization batch keeps its bindings and travels complete with this marker
+if it exceeds the current budget. Required Observe evidence and the current
+batch's orphan removal obligations travel complete. See Observe evidence
+review below for the terminal route when its list exceeds the MCP limit.
+The combined number of candidates and Code removals per batch is at most
+EntriesBatchMaxItems=200. `orphan_remove_candidates_total` reports the full orphan
+count, and `authoring_batch.remaining` includes Code removals left for later
+batches. The Host reads the full result and submits the complete machine batch
+and the required review or removals.
 Pure Database candidate responses use the independent Evidence limit stated
 above. That exception applies only to responses without required Observe
 review or orphan removals. A response combining Database candidates with
@@ -817,7 +823,8 @@ sets are disjoint by construction; each sibling has its own `batch_id` and
 every sibling records the one `logical_plan`. The response delivers the first
 sibling as today's complete current batch under the transport budget rules
 above. Maintain records sibling delivery after building the bounded response.
-Code orphan removals ride with the first successful delivery. The response
+Code orphan removals ride with the first delivered batch, including redelivery
+of that batch. The response
 lists the others under `code_plan.siblings` as issued, not delivered: each
 with `batch_id`, `included`, and `state` (`issued`, `delivered`, `applied`,
 `invalidated`). A listing carries no target paths since 2026-11: the Agent
@@ -833,6 +840,13 @@ complete current batch sized by the same transport budget, marked
 `sibling_of` the logical plan, and its `next_action` is
 `author_complete_current_machine_batch`. A Host never slices Maintain output;
 a sibling is the machine's cut, delivered whole.
+
+Under a reduced transport budget, an undelivered sibling that would exceed
+the budget is cut again under the index lock. The response names the new
+`batch_id`, the previous receipt no longer authorizes Apply, and the released
+targets remain for later batches. Delivered siblings retain their bindings.
+After an optimization Apply, the next unissued batch is cut from the remaining
+objects in checkpoint order using the current budget.
 
 Apply. `aoci_update_entry` with the `code_batch_id` of any issued sibling is
 accepted in any order. The preimage rule is relaxed exactly this far: the Code

@@ -326,12 +326,18 @@ samples and the governance samples when the serialized response needs more
 room, then cuts the batch further if needed. Their complete counts travel with
 any shortened list. If one object with its required fields still exceeds the
 budget with empty samples, Maintain delivers it alone with
-`authoring_batch.transport_budget_exceeded: true`. Required Observe evidence
-and first-delivery orphan removals stay complete. The host opens the full tool
-result or its attachment, then submits the complete batch with the required
-review or removals. A pure Database response without Observe review or orphan
+`authoring_batch.transport_budget_exceeded: true`. An already delivered sibling
+or optimization batch also travels whole with this marker when it exceeds a
+lowered budget. Maintain recuts undelivered work under the new budget. The
+host opens the full tool result or its attachment, then submits the complete
+batch with its required review or removals. The combined ceiling for candidates
+and Code removals is 200. `orphan_remove_candidates_total` gives the full orphan
+count, and `authoring_batch.remaining` includes Code removals left for later
+batches. A pure Database response without Observe review or orphan
 removals uses its independent Evidence limit. Adding required Observe review
-puts the whole response under the team transport budget.
+puts the whole response under the team transport budget. Use the
+[terminal review path](managed-scope-and-budget.md#approving-a-change) when
+the Observe list exceeds the MCP listing limit.
 Verify and Check report the complete governance lists. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
@@ -342,9 +348,10 @@ again against the new preimage; Guide cannot report complete while debt remains.
 `init`, `scan --dry-run`, and `scan` estimate rounds for the first Code build
 using Maintain's batch limits and the paths remaining in each round. With the
 fingerprint cache enabled by default, the estimate assumes a normal `scan`
-will save the measured line counts for Maintain. When caching is disabled,
-file reads still contribute to the displayed source-line total, and the
-estimator and Maintain reserve the widest scale evidence.
+will save the measured line counts for Maintain. The estimate may be high when
+a recently written file is still in the cache trust window. When caching is
+disabled, file reads still contribute to the displayed source-line total, and
+the estimator and Maintain reserve the widest scale evidence.
 
 Database authoring, an orphan-only cleanup batch, and a separate Observe
 review under a human approval posture can add rounds. The estimate assumes

@@ -36,7 +36,7 @@ func maintainPayload(result volumeMaintainResult, cfg *config.Config) (data []by
 			limit /= 2
 			continue
 		}
-		if len(result.Candidates) > 1 {
+		if len(result.Candidates) > 1 && !result.deliveredBatch {
 			return data, false, nil
 		}
 		wire.Batch.TransportBudgetBytes = budget
@@ -59,32 +59,9 @@ func renderMaintainTransport(result volumeMaintainResult, cfg *config.Config, se
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
 	}
 	if !fits {
-		return maintainReplanResponse(result, cfg)
-	}
-	return maintainResponse(data, result, session)
-}
-
-// A previously issued receipt cannot be shortened after delivery. If its
-// immutable batch no longer fits, route to current governance or a fresh plan.
-func maintainReplanResponse(result volumeMaintainResult, cfg *config.Config) *mcp.CallToolResult {
-	result.Candidates = []volumeMaintainCandidate{}
-	result.CodePlan, result.DatabasePlan = nil, nil
-	result.Status, result.Result, result.Aligned = autoStatusStopped, volumegovernance.ResultBlocked, false
-	result.AuthoringMeta, result.Instructions, result.InstructionsRef = "", nil, nil
-	result.Optimization = nil
-	result.authoringContractDigest = ""
-	result.Sets.Review, result.Sets.Write = []string{}, []string{}
-	result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
-	if result.ObserveReview != nil {
-		result.ObserveReview = observeReviewFor(result.Governance.Facts)
-		result.NextAction = machinecontract.ActionReviewObservedEvidence
-	}
-	result.Batch = volumeAuthoringBatch{NextAction: result.NextAction}
-	data, _, err := maintainPayload(result, cfg)
-	if err != nil {
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
 	}
-	return maintainResponse(data, result, nil)
+	return maintainResponse(data, result, session)
 }
 
 func boundMaintainTransport(result *volumeMaintainResult, limit int) {

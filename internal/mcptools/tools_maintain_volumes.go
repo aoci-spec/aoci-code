@@ -118,10 +118,9 @@ type volumeMaintainResult struct {
 	// which is a failure to report and never an empty, aligned-looking answer.
 	volumeMoved  bool
 	issueFailure string
-	// firstDelivery marks the lead response before any sibling is delivered.
-	// Code orphans ride this response while the index lock is held.
-	firstDelivery           bool
-	fixedCodeBatch          bool
+	// Orphans ride only the first sibling, including redelivery of that batch.
+	codeOrphansRide         bool
+	deliveredBatch          bool
 	releasePlanLock         func()
 	publishCodeBatch        func() error
 	checkParallelBudget     func(volumeMaintainResult) (int, error)
@@ -131,21 +130,22 @@ type volumeMaintainResult struct {
 	Batch                   volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
-	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
-	RequestedScope    string                           `json:"requested_scope"`
-	AffectedDomains   []string                         `json:"affected_domains"`
-	Candidates        []volumeMaintainCandidate        `json:"candidates"`
-	OrphanRemovals    []string                         `json:"orphan_remove_candidates"`
-	Sets              volumeMaintainSets               `json:"sets"`
-	DatabasePlan      *dbcognition.Plan                `json:"database_plan,omitempty"`
-	CodePlan          *codebatch.Plan                  `json:"code_plan,omitempty"`
-	Governance        *volumegovernance.TransportFacts `json:"governance"`
-	Receipt           cognitionReceipt                 `json:"cognition_receipt"`
-	Metrics           autoMetrics                      `json:"metrics"`
-	SemanticGenerated bool                             `json:"semantic_generated"`
-	NetworkAccessed   bool                             `json:"network_accessed"`
-	AuthoringMeta     string                           `json:"authoring_meta,omitempty"`
-	Optimization      *cognitionOptimizationStatus     `json:"optimization,omitempty"`
+	ObserveReview      *observeReviewListing            `json:"observe_review,omitempty"`
+	RequestedScope     string                           `json:"requested_scope"`
+	AffectedDomains    []string                         `json:"affected_domains"`
+	Candidates         []volumeMaintainCandidate        `json:"candidates"`
+	OrphanRemovals     []string                         `json:"orphan_remove_candidates"`
+	OrphanRemovalTotal int                              `json:"orphan_remove_candidates_total,omitempty"`
+	Sets               volumeMaintainSets               `json:"sets"`
+	DatabasePlan       *dbcognition.Plan                `json:"database_plan,omitempty"`
+	CodePlan           *codebatch.Plan                  `json:"code_plan,omitempty"`
+	Governance         *volumegovernance.TransportFacts `json:"governance"`
+	Receipt            cognitionReceipt                 `json:"cognition_receipt"`
+	Metrics            autoMetrics                      `json:"metrics"`
+	SemanticGenerated  bool                             `json:"semantic_generated"`
+	NetworkAccessed    bool                             `json:"network_accessed"`
+	AuthoringMeta      string                           `json:"authoring_meta,omitempty"`
+	Optimization       *cognitionOptimizationStatus     `json:"optimization,omitempty"`
 	// ServiceBinaryReplacedOnDisk is a purely advisory fact: the service binary on disk now differs from the one this process
 	// started with, and the host should restart the MCP integration when convenient. It blocks no flow and is absent when there is no drift.
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -274,10 +274,10 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 			databaseLimit = databaseCount / 2
 		} else if narrowSiblingLimit > 0 {
 			codeLimit = narrowSiblingLimit
-		} else if !result.fixedCodeBatch && len(result.Candidates) > 1 {
+		} else if len(result.Candidates) > 1 {
 			codeLimit = len(result.Candidates) - 1
 		} else {
-			return maintainReplanResponse(result, loaded.cfg)
+			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
 		}
 		if result.releasePlanLock != nil {
 			result.releasePlanLock()
@@ -344,24 +344,18 @@ func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *v
 		result.Batch.Remaining = result.CodePlan.Remaining + databaseOutstanding
 		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
 	}
-	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(*result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
-	// Code orphans ride a single batch, or of a parallel plan only the
-	// response that issued it: a sibling handed out later by no-argument
-	// Maintain carried the same removals, and the second to apply found them
-	// gone and stopped (audit G2-10, rv37).
-	codeOrphansRide := !codeSiblingsIssued(*result) || result.firstDelivery
-	for _, orphan := range facts.CodeDrift.Orphan {
-		if requested[cognition.ScopeCode] && codeOrphansRide {
-			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+orphan)
-		}
-	}
 	for _, item := range facts.DatabaseCognition.Items {
 		if requested[cognition.ScopeDatabase] && item.State == machinecontract.DatabaseCognitionOrphan {
 			result.OrphanRemovals = append(result.OrphanRemovals, item.ObjectRef)
 		}
 	}
-	sort.Strings(result.OrphanRemovals)
+	if requested[cognition.ScopeCode] {
+		addMaintainCodeOrphans(result, facts.CodeDrift.Orphan, !codeSiblingsIssued(*result) || result.codeOrphansRide)
+	} else {
+		result.OrphanRemovalTotal = len(result.OrphanRemovals)
+	}
+	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(*result)
 	result.Sets.Write = candidateRefs(result.Candidates)
 	result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
 	if facts.Code.Enabled {
@@ -455,6 +449,23 @@ func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *v
 		result.Instructions = append(result.Instructions, mcpMessage("maintain.orphan_removals_instruction"))
 	}
 	return nil
+}
+
+// addMaintainCodeOrphans uses the same combined candidate/removal ceiling
+// that Apply validates. Database orphans remain separate removal actions.
+func addMaintainCodeOrphans(result *volumeMaintainResult, orphans []string, carry bool) {
+	result.OrphanRemovalTotal = len(result.OrphanRemovals) + len(orphans)
+	included := 0
+	if carry {
+		included = min(len(orphans), machinecontract.EntriesBatchMaxItems-len(result.Candidates))
+		for _, path := range orphans[:included] {
+			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+path)
+		}
+	}
+	sort.Strings(result.OrphanRemovals)
+	result.Batch.Remaining += len(orphans) - included
+	result.Batch.ContinuationRequired = result.Batch.ContinuationRequired || len(orphans) > included
+	result.Batch.CompleteCandidateSet = result.Batch.CompleteCandidateSet || included > 0
 }
 
 // SnapshotOfState is the Code source snapshot a governance verdict was
