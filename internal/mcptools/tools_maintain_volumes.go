@@ -2,7 +2,6 @@ package mcptools
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -70,11 +69,12 @@ type volumeMaintainSets struct {
 }
 
 type volumeAuthoringBatch struct {
-	LogicalPlan          string `json:"logical_plan"`
-	BatchIdentity        string `json:"batch_identity"`
-	TotalTargets         int    `json:"total_targets"`
-	MaxEntries           int    `json:"max_entries"`
-	TransportBudgetBytes int    `json:"transport_budget_bytes,omitempty"`
+	LogicalPlan             string `json:"logical_plan"`
+	BatchIdentity           string `json:"batch_identity"`
+	TotalTargets            int    `json:"total_targets"`
+	MaxEntries              int    `json:"max_entries"`
+	TransportBudgetBytes    int    `json:"transport_budget_bytes,omitempty"`
+	TransportBudgetExceeded bool   `json:"transport_budget_exceeded,omitempty"`
 	// SourceLines is what this batch asks the model to read: the line counts
 	// of its Code candidates, as file_lines reports each. SourceLinesBudget
 	// is the bound the batch was cut under; a single larger file still ships,
@@ -120,10 +120,11 @@ type volumeMaintainResult struct {
 	issueFailure string
 	// planIssuedNow marks the response that issued a fresh parallel plan:
 	// the one sibling Code orphans may ride.
-	planIssuedNow bool
-	lockErr       error
-	planMarker    string
-	Batch         volumeAuthoringBatch `json:"authoring_batch"`
+	planIssuedNow           bool
+	lockErr                 error
+	planMarker              string
+	authoringContractDigest string
+	Batch                   volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
 	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
@@ -362,11 +363,12 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	}
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
-	if refreshSession != nil {
+	response := renderMaintainTransport(result, loaded.cfg, refreshSession)
+	if refreshSession != nil && !response.IsError {
 		refreshSession.noteSemanticThreshold(len(result.Candidates), loaded.cfg.CognitionRefreshThreshold)
 	}
 	ledgerResult := ledger.ResultOK
-	if result.Status == autoStatusStopped {
+	if result.Status == autoStatusStopped || response.IsError {
 		ledgerResult = ledger.ResultError
 	} else if result.Status == autoStatusRepairRequired {
 		ledgerResult = ledger.ResultRepairRequired
@@ -383,41 +385,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
-	boundMaintainTransport(&result)
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
-	}
-	return textResult(string(data) + "\n")
-}
-
-// boundMaintainTransport keeps a Maintain response inside ordinary host
-// tool-result windows regardless of repository size: per-item governance
-// enumerations and the review closure keep a leading sample plus complete
-// counts. Candidates, plans, receipts, and every scalar fact are untouched,
-// so nothing the model must act on is ever cut. (A 453-file fresh repository
-// otherwise answered its first Maintain with 212 KB, three times a common host
-// window; the host spilled it to disk and the model fell back to scripting.)
-func boundMaintainTransport(result *volumeMaintainResult) {
-	limit := machinecontract.MaintainTransportListLimit
-	if len(result.Candidates) > 0 {
-		// While the response carries candidates they are the actionable set:
-		// the governance enumerations, the review closure, and the write set
-		// shrink to a small sample plus complete counts so the batch, not the
-		// situational awareness, spends the transport budget.
-		limit = maintainCandidateSampleLimit
-		if len(result.Sets.Write) > limit {
-			result.Sets.WriteTotal = len(result.Sets.Write)
-			result.Sets.Write = append([]string{}, result.Sets.Write[:limit]...)
-		}
-	}
-	if len(result.Sets.Review) > limit {
-		result.Sets.ReviewTotal = len(result.Sets.Review)
-		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
-	}
-	if result.Governance != nil {
-		result.Governance = volumegovernance.BoundForMaintainTransport(result.Governance.Facts, limit)
-	}
+	return response
 }
 
 // SnapshotOfState is the Code source snapshot a governance verdict was

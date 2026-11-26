@@ -320,9 +320,13 @@ at 20,000 lines of reading. A file known to exceed that limit travels alone.
 The team cap and the budget move it (`aoci config
 set code_cognition_batch_entries N`, `aoci config set
 maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
-closure (while candidates are present the review and write lists are a
-five-item sample with `review_total` and `write_total` counts) and the
-affected-domain authoring contract. The response separates the
+closure and the affected-domain authoring contract. With candidates present,
+the review and write lists hold up to five items. Maintain reduces those
+samples and the governance samples when the serialized response needs more
+room. Their complete counts travel with any shortened list. If one Code
+object and the required fields exceed the budget with empty samples,
+Maintain delivers it alone and sets `authoring_batch.transport_budget_exceeded`.
+Verify and Check report the complete governance lists. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
 and a continuation action. The limit is per request and atomic Apply, never per

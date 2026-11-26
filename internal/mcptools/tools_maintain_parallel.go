@@ -210,7 +210,10 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 		for position := 0; position < parallel; position++ {
 			budget := aheadBudget
 			if position == 0 {
+				// A held batch can be recalled with the complete contract,
+				// including a lead batch first sent with a reference.
 				budget = firstBudget
+				budget.Bytes = min(firstBudget.Bytes, aheadBudget.Bytes)
 			}
 			budget.Bytes -= reserve
 			if budget.Bytes < 1<<10 {
@@ -544,6 +547,8 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		result.CodePlan.NextAction = "author_complete_current_machine_batch"
 		result.Status, result.Result, result.NextAction = autoStatusRepairRequired, volumegovernance.ResultAuthoringRequired, "author_complete_current_machine_batch"
 		result.Batch.TotalTargets, result.Batch.Included, result.Batch.Remaining = len(work.Targets), len(receipt.Targets), remaining
+		result.Batch.TransportBudgetBytes = maintainTransportBudget(loaded.cfg)
+		result.CodePlan.TransportBudgetBytes = result.Batch.TransportBudgetBytes
 		result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
 		result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
 		result.Sets.Write = candidateRefs(result.Candidates)
@@ -575,18 +580,14 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	result.Batch.NextAction = result.NextAction
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
+	response := renderMaintainTransport(result, loaded.cfg, refreshSession)
 	ledgerResult := ledger.ResultError
-	if result.Status == autoStatusRepairRequired {
+	if result.Status == autoStatusRepairRequired && !response.IsError {
 		ledgerResult = ledger.ResultRepairRequired
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates), GovernanceResult: result.Result,
 		NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false), BatchID: batchID})
-	boundMaintainTransport(&result)
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return errResult(errInternal, "volume_maintain_result_invalid", "")
-	}
-	return textResult(string(data) + "\n")
+	return response
 }

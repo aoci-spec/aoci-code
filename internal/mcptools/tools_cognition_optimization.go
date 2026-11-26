@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -73,7 +72,6 @@ func handleCognitionOptimizationMaintain(
 	}
 	// Decided once, before any batch is cut: a loaded current batch keeps the
 	// cut its issuance made, so only an issuance reads this.
-	contractOnWire := codeContractOnWire(loaded.cfg, loaded.set, refreshSession, input.IncludeInstructions)
 	if facts.Result != volumegovernance.ResultAligned || !facts.GovernanceAligned {
 		return failResult(&Fail{Code: errCandidateInvalid, Msg: "cognition_optimization_requires_ordinary_alignment"})
 	}
@@ -115,14 +113,14 @@ func handleCognitionOptimizationMaintain(
 				// Ordinary governance is already aligned and recovery-free here. A
 				// stale or missing draft receipt can therefore be safely replaced by
 				// a fresh Code Batch over the exact unchanged checkpoint prefix.
-				plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs, contractOnWire)
+				plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs)
 				if err == nil {
 					checkpoint, err = cognitionoptimization.RebindBatch(root, stored.SHA256, stored.Checkpoint.OptimizationID,
 						stored.Checkpoint.CurrentBatchID, plan.BatchID)
 				}
 			}
 		} else {
-			plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs, contractOnWire)
+			plan, selection, err = planOptimizationBatch(root, loaded, facts, stored.Checkpoint.RemainingObjectRefs)
 			if err == nil {
 				checkpoint, err = cognitionoptimization.BindBatch(root, stored.SHA256, stored.Checkpoint.OptimizationID, plan.BatchID)
 			}
@@ -131,7 +129,7 @@ func handleCognitionOptimizationMaintain(
 		selection, err = selectOptimizationTargets(root, loaded, input.ObjectRefs)
 		if err == nil && selection.TotalTargets > 0 {
 			var issued []codebatch.Candidate
-			plan, issued, err = buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, selection.Batch, contractOnWire)
+			plan, issued, err = buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, selection.Batch)
 			selection = trimOptimizationSelection(selection, len(issued))
 		}
 		if err == nil && selection.TotalTargets > 0 {
@@ -215,20 +213,19 @@ func handleCognitionOptimizationMaintain(
 	attachAuthoringContract(&result, contract, extra, refreshSession, input.IncludeInstructions)
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
+	response := renderMaintainTransport(result, loaded.cfg, refreshSession)
 	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledger.ResultOK, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
 		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false)}
+	if response.IsError {
+		event.Result = ledger.ResultError
+	}
 	if result.CodePlan != nil {
 		event.BatchID = result.CodePlan.BatchID
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
-	boundMaintainTransport(&result)
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
-	}
-	return textResult(string(data) + "\n")
+	return response
 }
 
 func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, start time.Time) *mcp.CallToolResult {
@@ -241,12 +238,7 @@ func renderEmptyCognitionOptimization(root, serviceVersion string, loaded *cogni
 		SemanticGenerated: false, NetworkAccessed: false, NextAction: "none",
 		Optimization: &cognitionOptimizationStatus{Version: cognitionOptimizationVersion, State: "complete"},
 	}
-	boundMaintainTransport(&result)
-	data, err := json.Marshal(result)
-	if err != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "cognition_optimization_result_invalid"})
-	}
-	return textResult(string(data) + "\n")
+	return renderMaintainTransport(result, loaded.cfg, nil)
 }
 
 func selectOptimizationTargets(root string, loaded *cognitionRepoCtx, objectRefs []string) (cognitionoptimization.Selection, error) {
@@ -260,7 +252,7 @@ func selectOptimizationTargets(root string, loaded *cognitionRepoCtx, objectRefs
 	})
 }
 
-func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, remaining []string, contractOnWire bool) (codebatch.Plan, cognitionoptimization.Selection, error) {
+func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumegovernance.Facts, remaining []string) (codebatch.Plan, cognitionoptimization.Selection, error) {
 	limit := codeBatchLimit(loaded.cfg)
 	if len(remaining) < limit {
 		limit = len(remaining)
@@ -281,7 +273,7 @@ func planOptimizationBatch(root string, loaded *cognitionRepoCtx, facts *volumeg
 		return codebatch.Plan{}, cognitionoptimization.Selection{}, err
 	}
 	ordered := reorderOptimizationSelection(measured, refs)
-	plan, issued, err := buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, ordered.Batch, contractOnWire)
+	plan, issued, err := buildOptimizationCodePlan(root, loaded.cfg, loaded.set, facts, ordered.Batch)
 	if err != nil {
 		return plan, ordered, err
 	}
@@ -375,7 +367,7 @@ func optimizationAlignedEntries(root string, thresholds *index.EScaleThresholds,
 // order the plan sorts by, so the review priority the selector chose survives
 // the cut; the plan is then built over exactly the issued prefix, and the
 // caller trims its selection to the returned candidates.
-func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.Set, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate, contractOnWire bool) (codebatch.Plan, []codebatch.Candidate, error) {
+func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.Set, facts *volumegovernance.Facts, candidates []cognitionoptimization.Candidate) (codebatch.Plan, []codebatch.Candidate, error) {
 	values := make([]codebatch.Candidate, 0, len(candidates))
 	for _, candidate := range candidates {
 		values = append(values, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeUpdate,
@@ -385,7 +377,7 @@ func buildOptimizationCodePlan(root string, cfg *config.Config, set *cognition.S
 	if len(values) == 0 {
 		return codebatch.Plan{}, values, fmt.Errorf("optimization batch is empty")
 	}
-	budget := optimizationCandidateBudget(cfg, set, values, contractOnWire)
+	budget := optimizationCandidateBudget(cfg, set, values)
 	issued := values[:codebatch.PrefixWithinBudget(values, codeBatchLimit(cfg), budget)]
 	plan, err := codebatch.BuildPlan(root, facts.CompositeIdentity, facts.ManagedScope.PolicyIdentity,
 		facts.Code.Path, facts.Code.SHA256, issued, len(issued))

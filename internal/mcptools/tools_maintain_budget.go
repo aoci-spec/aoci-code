@@ -18,7 +18,8 @@ import (
 // neither the repository's Meta, the locale's instructions, nor the paths
 // decide: the bounded governance facts without their path samples (about
 // 2.3 KB since the per-asset records left the wire), plan and batch
-// identities, the receipt, metrics, and JSON framing. Measured at about
+// identities, the receipt, metrics, and JSON framing. The paths in the
+// receipt and plan are reserved separately. Measured at about
 // 5.3 KB on the 60-file transport fixture (the transport test asserts the
 // reservation covers the fixed part it measures). The Meta bytes and the
 // instruction text are measured on the repository (fixedOverheadBytes) and
@@ -72,10 +73,11 @@ func baseCodeCandidateBudget(cfg *config.Config, set *cognition.Set, lines map[s
 	}}
 }
 
-func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) codebatch.Budget {
+func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
 	reserve := scaleEvidenceWireReserve(set)
+	// The optimization checkpoint may redeliver the same batch with its full contract.
 	total := maintainTransportBudget(cfg)
-	budget := codebatch.Budget{Bytes: total - fixedOverheadBytes(cfg, set, contractOnWire), Total: total, Size: func(candidate codebatch.Candidate) int {
+	budget := codebatch.Budget{Bytes: total - fixedOverheadBytes(cfg, set, true), Total: total, Size: func(candidate codebatch.Candidate) int {
 		return codeCandidateWireSize(candidate) + reserve + optimizationCandidateExtraBytes
 	}}
 	ordered, _ := codebatch.Select(candidates, 0)
@@ -93,21 +95,30 @@ func reserveCandidateSamples(budget codebatch.Budget, ordered []codebatch.Candid
 // carrying the reference instead reserves the reference.
 func fixedOverheadBytes(cfg *config.Config, set *cognition.Set, contractOnWire bool) int {
 	total := maintainBaseOverheadBytes
+	if set != nil {
+		total += jsonStringBytes(set.RepositoryRoot) + jsonStringBytes(set.Meta.Descriptor.Path)
+		for scope, volume := range set.Volumes {
+			total += jsonStringBytes(volume.Descriptor.Path)
+			if scope == cognition.ScopeCode {
+				total += jsonStringBytes(volume.Descriptor.Path)
+			}
+		}
+	}
 	if !contractOnWire {
 		return total + maintainInstructionsRefBytes()
 	}
 	if set == nil {
 		return total + maintainInstructionsFallbackBytes
 	}
-	total += len(set.Meta.Raw)
 	contract, err := buildAuthoringContract(cfg, set.Meta.Raw, []string{cognition.ScopeCode})
 	if err != nil {
-		return total + maintainInstructionsFallbackBytes
+		return total + jsonStringBytes(string(set.Meta.Raw)) + maintainInstructionsFallbackBytes
 	}
-	for _, instruction := range contract.Instructions {
-		total += len(instruction) + 4
-	}
-	return total
+	body, _ := json.Marshal(struct {
+		Meta         string   `json:"authoring_meta"`
+		Instructions []string `json:"instructions"`
+	}{contract.AuthoringMeta, contract.Instructions})
+	return total + len(body)
 }
 
 // maintainInstructionsRefBytes is the reference as the wire carries it, with
@@ -131,9 +142,14 @@ func maintainInstructionsRefBytes() int {
 func sampleBytes(ordered []codebatch.Candidate) int {
 	total := 0
 	for _, candidate := range ordered[:min(len(ordered), maintainCandidateSampleLimit)] {
-		total += 4*(len(candidate.ObjectRef)+3) + governanceFindingOverheadBytes
+		total += 4*(jsonStringBytes(candidate.ObjectRef)+1) + governanceFindingOverheadBytes
 	}
 	return total
+}
+
+func jsonStringBytes(value string) int {
+	data, _ := json.Marshal(value)
+	return len(data)
 }
 
 // governanceFindingOverheadBytes is one governance finding beyond its path:

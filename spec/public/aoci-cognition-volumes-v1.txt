@@ -326,11 +326,19 @@ batch. The batch is sized so the model authors it inline as one
 aoci_update_entry call; a Maintain response keeps its candidates, plans, and
 receipts complete while per-item governance enumerations (findings, drift
 lists, the review closure) carry a leading sample plus complete counts under
-`list_truncation` / `review_total`, and the four per-asset governance records
+`list_truncation` / `review_total` / `write_total`. The four per-asset governance records
 (`root`, `meta`, `code`, `database`) stay off the wire, since
-`cognition_receipt` and `code_plan` carry those identities, so the response
-fits ordinary Host tool-result windows regardless of repository size. Verify
-and Check keep reporting every item and every record. Missing, Stale, or
+`cognition_receipt` and `code_plan` carry those identities. Maintain measures
+the serialized UTF-8 tool text including its trailing newline and reduces
+the advisory samples further when they would exceed the team budget. A
+sample may be empty, with its complete count still reported. If a response
+containing one Code object and its required fields still exceeds the budget
+with empty samples, it carries that object alone and reports
+`authoring_batch.transport_budget_exceeded: true`. A remaining oversize
+envelope with multiple actionable objects or a required Observe review
+returns a tool error with `maintain_transport_budget_exceeded`. Database-only
+candidate responses use the Evidence limit stated above. Verify and Check
+keep reporting every item and every record. Missing, Stale, or
 Unbaselined targets keep Guide and Maintain
 authoring_required; neither may report Whole-Index aligned until remaining and
 all governance debt are zero. Source, Scope, Composite, or candidate-receipt
@@ -349,9 +357,9 @@ longer holds the text passes `include_instructions: true` on its next
 context-compaction reload advances the refresh generation, so the Maintain
 after it carries the contract without any flag. What a response adds beyond
 the contract (the optimization review note) rides in `instructions` either
-way. The transport budget reserves the contract only on the rounds that carry
-it, so a later round of the same process may issue more candidates of the
-same ordered targets than the first; the Guide and the `scan` estimate
+way. Sequential rounds that carry a reference can use more of the budget
+for candidates. Issued parallel and optimization batches reserve the full
+contract for a later `include_instructions` call. The Guide and the `scan` estimate
 project the first round's shape. A batch is still decided by the repository
 state alone: calling Maintain again on an unchanged repository issues the
 same targets in the same order, and a batch already applied is never issued
@@ -801,7 +809,8 @@ used, every sibling against the same plan preimage: the Code Volume digest,
 the Composite identity, and the Scope identity at issuance. Sibling target
 sets are disjoint by construction; each sibling has its own `batch_id` and
 every sibling records the one `logical_plan`. The response delivers the first
-sibling as today's complete current batch, within the transport budget, and
+sibling as today's complete current batch under the transport budget rules
+above, and
 lists the others under `code_plan.siblings` as issued, not delivered: each
 with `batch_id`, `included`, and `state` (`issued`, `delivered`, `applied`,
 `invalidated`). A listing carries no target paths since 2026-11: the Agent

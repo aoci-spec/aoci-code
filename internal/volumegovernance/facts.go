@@ -429,7 +429,7 @@ type ListTruncation struct {
 // available from Verify and Check. Counts and every scalar fact are unchanged,
 // so the projection never alters a governance decision.
 func BoundListsForTransport(facts *Facts, limit int) *Facts {
-	if facts == nil || limit <= 0 {
+	if facts == nil || limit < 0 {
 		return facts
 	}
 	bounded := *facts
