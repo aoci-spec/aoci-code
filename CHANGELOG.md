@@ -4,6 +4,29 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Database Evidence names the object a refusal is about: an unsupported
+  openGauss feature reports `schema.table`, or `schema.table (index)` for an
+  index or key; a name holding a line
+  break or other control character is escaped and quoted, so the error stays
+  on one line, and a known empty name shows as `object=""`. A name in Chinese
+  is kept in English output instead of being replaced by a generic message.
+- Partition Evidence reads only the selected tables: an unusual partition on
+  a table outside the selection no longer stops a PostgreSQL snapshot. A
+  selected MySQL table with subpartitions is refused as
+  `catalog_query_partitions_mysql_subpartition`, naming the table, instead of
+  failing as `evidence_invalid`. Upgrading: a table whose partitions each
+  held a single subpartition used to snapshot without its subpartitions and
+  is now refused; exclude it from the source to keep the rest. Existing
+  Evidence is not rewritten.
+- `aoci scope explain` agrees with scan for a path under a nested
+  `exclude_root_dirs` directory and for a future path Git will ignore,
+  including a file name Git would otherwise read as a pathspec.
+  `aoci ui --detach` reports why the panel failed to start (a non-loopback
+  host, a port in use) instead of `unexpected readiness line`. The status
+  page suggests `database cognition bootstrap` once Evidence is accepted but
+  the Database Volume is missing, lists snapshot commands only for sources
+  whose Evidence is missing or invalid, and keeps the repository path in
+  them intact.
 - `aoci init` and `aoci scan` forecast the first build's Maintain rounds from
   the same batch cut Maintain uses, recomputed each round over the targets
   left; with the default line cache on they count the line evidence the
