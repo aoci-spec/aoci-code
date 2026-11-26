@@ -50,9 +50,10 @@ created (`AGENTS.md`, `.gitattributes`, `.gitignore`) among the index files,
 so its number is higher than the proposal `init` printed; they get Entries
 like any other file.
 
-`init` also says what the first build costs: how many files need an Entry,
-about how many Maintain rounds that takes, and what four Agent sessions
-authoring at once would make of it. Read that line before `scan`. Until the
+`init` also reports how many files need an Entry and estimates the Maintain
+rounds for one session and for the configured number of sessions authoring
+at once. A repository set to one batch gets a preview of four sessions.
+Read that estimate before `scan`. Until the
 first scan, excluding a directory is free; afterwards, excluding a file that
 has no Entry yet is a coverage reduction a person approves. On a large
 repository `init` prints the exclusion command to start smaller.

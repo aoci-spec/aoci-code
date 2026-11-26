@@ -63,21 +63,12 @@ func estimateScanAuthoring(root string, cfg *config.Config, skipped scanSkippedS
 // index-role paths, shared by scan and by init, which shows it before the
 // first scan while narrowing the scope is still free.
 func estimateAuthoringForPaths(root string, cfg *config.Config, set *cognition.Set, paths []string) scanAuthoringEstimate {
-	lines, total := countSourceLines(root, paths)
-	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths, lines)
-	parallel := cfg.CodeCognitionParallelBatchLimit()
-	estimate := scanAuthoringEstimate{Targets: len(paths), Rounds: rounds,
+	lines, cachedLines, total := countSourceLines(root, paths)
+	rounds, parallelRounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths, lines, cachedLines)
+	return scanAuthoringEstimate{Targets: len(paths), Rounds: rounds,
 		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
-		ParallelBatches: parallel, ParallelRounds: rounds,
+		ParallelBatches: cfg.CodeCognitionParallelBatchLimit(), ParallelRounds: parallelRounds,
 		SourceLines: total, SourceLinesPerRound: machinecontract.CodeCognitionBatchSourceLines}
-	if parallel > 1 {
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, parallel)
-	} else if rounds > 1 {
-		// What four sessions would take, measured with the same cut Maintain
-		// makes, so the hint names a number the first build then meets.
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, machinecontract.CodeCognitionParallelBatchesMax)
-	}
-	return estimate
 }
 
 // initNarrowHintRounds is the first-build size from which init points at
@@ -187,21 +178,28 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 	}
 }
 
-// countSourceLines counts the lines of each path through the fingerprint
-// cache, which holds them for every file scan hashed; a path that cannot be
-// read is left out, so it never cuts a batch and adds nothing to the total.
-func countSourceLines(root string, paths []string) (map[string]int, int) {
+// countSourceLines keeps the line counts available to Maintain's wire sizing
+// separate from the counts this estimate reads for the source-line budget.
+func countSourceLines(root string, paths []string) (lines, cachedLines map[string]int, total int) {
 	cache := baseline.OpenFingerprintCache(root)
-	lines, total := make(map[string]int, len(paths)), 0
+	lines = make(map[string]int, len(paths))
+	cachedLines = make(map[string]int, len(paths))
 	for _, path := range paths {
-		count, err := cache.FileLines(filepath.Join(root, filepath.FromSlash(path)), path)
-		if err != nil {
-			continue
+		absolute := filepath.Join(root, filepath.FromSlash(path))
+		count, known := cache.KnownLines(absolute, path)
+		if known {
+			cachedLines[path] = count
+		} else {
+			var err error
+			count, err = cache.FileLines(absolute, path)
+			if err != nil {
+				continue
+			}
 		}
 		lines[path] = count
 		total += count
 	}
-	return lines, total
+	return lines, cachedLines, total
 }
 
 // scanReadingEstimateLine says how much source the first build reads; a
@@ -215,7 +213,7 @@ func scanReadingEstimateLine(estimate scanAuthoringEstimate) string {
 
 // scanParallelEstimateLine says what parallel sessions make of the estimate:
 // the rounds each session takes under the team's setting, or, at the
-// default of one, what four sessions would take and how to turn that on. A
+// setting of one, what four sessions would take and how to turn that on. A
 // one-round build has nothing to divide.
 func scanParallelEstimateLine(estimate scanAuthoringEstimate) string {
 	if estimate.Rounds < 2 {

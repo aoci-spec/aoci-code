@@ -317,7 +317,12 @@ response would exceed the transport budget `maintain_transport_budget_bytes`
 batch of long existing ones. It is also cut where its source would pass
 20,000 lines of reading; a larger file travels alone. `authoring_batch.source_lines`
 says how much the batch asks the model to read, and `scan` and `init` print the
-total for the first build next to the round count. The team cap and the budget move it (`aoci config
+total for the first build next to the round estimate. The estimate uses the
+same byte, source-line, and entry limits as Maintain and sizes each round from
+the paths it still has to cover. It assumes one lead session keeps its
+authoring contract between rounds. When cached line counts are unavailable,
+the estimate reserves the widest scale evidence on the wire.
+The team cap and the budget move it (`aoci config
 set code_cognition_batch_entries N`, `aoci config set
 maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
 closure (while candidates are present the review and write lists are a
@@ -354,11 +359,11 @@ on a repository pinned to one batch, what four would take and the
 `config set` that turns it on. A Maintain that lists siblings carries one
 instruction line telling the Agent to hand each to its own session (a
 subagent that calls `aoci_maintain {batch_id}`, authors, and applies) and to
-call Maintain again once every sibling is applied. A Host that runs no
-subagents loses nothing and needs no setting: it authors the batch it was
-given and calls Maintain again. Siblings nobody fetched are released when the
-first applies, and from then until the work is done Maintain issues single
-batches at full size. A sibling listing names each batch, its size, and its
+call Maintain again once every sibling is applied. A Host working in one
+session authors the batch it was given and calls Maintain again. The first
+batch reserves space for the sibling listing. Siblings nobody fetched are
+released when the first applies, and from then until the work is done Maintain
+issues single batches at full size. A sibling listing names each batch, its size, and its
 state, never its paths. Since 2026-11 three siblings are the default for work beyond one
 batch; `aoci config set code_cognition_parallel_batches 1` keeps one batch
 per Maintain.
