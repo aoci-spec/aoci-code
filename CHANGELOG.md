@@ -4,6 +4,33 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- `aoci init` and `aoci scan` forecast the first build's Maintain rounds from
+  the same batch cut Maintain uses, recomputed each round over the targets
+  left; with the default line cache on they count the line evidence the
+  formal scan saves. The forecast was low at batch boundaries and with long
+  paths (78 files reported 2 rounds for 3; a long-path tree 6 for 10). It
+  covers the Code first build only, and can run high for files written
+  moments before the scan.
+- A Maintain response stays within the team transport budget at any path
+  length: auxiliary samples shrink first, then the batch carries fewer
+  candidates. Only an object that cannot fit alone, with any Observe evidence
+  or orphan removals that must travel with it, is delivered whole and marked
+  `transport_budget_exceeded`. A batch already delivered keeps its binding
+  when the budget is lowered, and undelivered sibling batches are recut.
+  Candidates and orphan removals in one batch share Apply's 200-item limit,
+  the rest following in the next round. A delivery is recorded only after
+  its response has been checked.
+- A first build that fell back to single batches (the solo hint) returns to
+  sibling batches once that work ends, however it ended. An older hint is
+  migrated rather than dropped, so a single batch still out when upgrading
+  is not reissued, and a hint that cannot be rewritten is kept as it was.
+  A rejected Scope Apply no longer clears it.
+- Maintain checks, under the index lock, that the Code Volume, plan markers,
+  and Baseline it assessed are still current before it issues a batch or
+  advises restoring formal assets, and reassesses when one has moved; a
+  normal Apply from another session no longer produces a restore advice.
+  When repeated concurrent writes exhaust the reassessments, it answers
+  `maintain_snapshot_changed` with a next action and writes nothing.
 - `aoci scope status --fail-on-untracked` exits 1 when Git-untracked sources
   are referenced by the index or Baseline, printing the same JSON status, so
   a pre-commit hook can enforce what the advisory warning reports; combined
