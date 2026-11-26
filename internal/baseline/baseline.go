@@ -168,13 +168,21 @@ func MarshalExact(baselineValue *Baseline) ([]byte, error) {
 // A missing file returns (nil,false,nil) and is not an error.
 // The added NormalizedSHA256 uses omitempty, so an old Version=1 file reads compatibly as it is.
 func Load(root string) (*Baseline, bool, error) {
-	data, err := os.ReadFile(baselinePath(root))
+	value, exists, _, err := LoadWithDigest(root)
+	return value, exists, err
+}
+
+// LoadWithDigest returns the raw SHA-256 of the same bytes decoded as the
+// Baseline. A missing Baseline has no digest.
+func LoadWithDigest(root string) (*Baseline, bool, string, error) {
+	path := baselinePath(root)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, false, nil
+			return nil, false, "", nil
 		}
 
-		return nil, false, fmt.Errorf(
+		return nil, false, "", fmt.Errorf(
 			"读取基线失败: %w",
 			err,
 		)
@@ -183,31 +191,17 @@ func Load(root string) (*Baseline, bool, error) {
 	// The same bytes decode to the same document: a process that has decoded
 	// this Baseline before gets a fresh copy without decoding the file map
 	// again, which is most of what a large repository's Load costs.
-	if memoized, ok := lookupBaselineMemo(baselinePath(root), data); ok {
-		return memoized, true, nil
+	digest := documentDigest(data)
+	if memoized, ok := lookupBaselineMemo(path, digest); ok {
+		return memoized, true, digest, nil
 	}
 
-	var baselineValue Baseline
-
-	if err := json.Unmarshal(data, &baselineValue); err != nil {
-		return nil, true, fmt.Errorf(
-			"baseline.json 损坏(%v): 请人工核对后再决定是否重建Baseline",
-			err,
-		)
+	value, err := Decode(data)
+	if err != nil {
+		return nil, true, "", err
 	}
-
-	if baselineValue.Files == nil {
-		baselineValue.Files = map[string]Fingerprint{}
-	}
-	if err := validateDatabaseCognitionBindings(baselineValue.DatabaseCognition); err != nil {
-		return nil, true, fmt.Errorf("database cognition Baseline is invalid: %w", err)
-	}
-	if err := validateManagedScope(&baselineValue); err != nil {
-		return nil, true, fmt.Errorf("managed scope Baseline is invalid: %w", err)
-	}
-	storeBaselineMemo(baselinePath(root), data, &baselineValue)
-
-	return &baselineValue, true, nil
+	storeBaselineMemo(path, digest, value)
+	return value, true, digest, nil
 }
 
 // Decode reads a Baseline from bytes the caller already holds, with the

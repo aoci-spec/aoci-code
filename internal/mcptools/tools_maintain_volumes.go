@@ -532,13 +532,15 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			result.lockErr = lockErr
 			return
 		}
-		// A plan or solo progress recorded since this call assessed the
-		// tree came from a newer view of it.
+		// Apply may advance only the Baseline. If the solo mark rewrite
+		// also failed, the Volume and plan marker still match the old view.
 		if moved {
 			result.volumeMoved = true
 			return
 		}
-		if codebatch.ParallelPlanMarker(root) != result.planMarker {
+		baselineBytes, baselineErr := os.ReadFile(loaded.paths.BaselinePath)
+		if baselineErr != nil || codebatch.BytesSHA256(baselineBytes) != result.Governance.BaselineSHA256 ||
+			codebatch.ParallelPlanMarker(root) != result.planMarker {
 			release()
 			result.volumeMoved = true
 			return

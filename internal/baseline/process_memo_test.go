@@ -1,6 +1,8 @@
 package baseline
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -34,14 +36,28 @@ func TestBaselineLoadMemoReturnsEqualIndependentDocuments(t *testing.T) {
 	root := t.TempDir()
 	files := map[string]Fingerprint{"a.go": {SHA256: "1", Size: 1, Role: "index"}, "b.go": {SHA256: "2", Size: 2, Role: "observe"}}
 	writeBaselineFixture(t, root, files)
-	hits0, misses0 := processMemoHits.Load(), processMemoMisses.Load()
-	first, _, err := Load(root)
+	path := baselinePath(root)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, _, err := Load(root)
+	// Keep the parsed value identical while changing the raw preimage.
+	raw = append([]byte("\n\t"), raw...)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	wantDigest := fmt.Sprintf("%x", sha256.Sum256(raw))
+	hits0, misses0 := processMemoHits.Load(), processMemoMisses.Load()
+	first, exists, firstDigest, err := LoadWithDigest(root)
 	if err != nil {
 		t.Fatal(err)
+	}
+	second, _, secondDigest, err := LoadWithDigest(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !exists || firstDigest != wantDigest || secondDigest != wantDigest {
+		t.Fatalf("expected exact raw digest %s on both loads, got %s and %s", wantDigest, firstDigest, secondDigest)
 	}
 	if hits, misses := processMemoHits.Load(), processMemoMisses.Load(); hits-hits0 != 1 || misses-misses0 != 1 {
 		t.Fatalf("expected one miss then one hit, got hits=%d misses=%d", hits-hits0, misses-misses0)

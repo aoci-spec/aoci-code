@@ -53,11 +53,10 @@ type baselineMemoRecord struct {
 	files  map[string]Fingerprint
 }
 
-func lookupBaselineMemo(path string, data []byte) (*Baseline, bool) {
+func lookupBaselineMemo(path, digest string) (*Baseline, bool) {
 	if ProcessMemoDisabled() {
 		return nil, false
 	}
-	digest := documentDigest(data)
 	baselineMemo.mu.Lock()
 	record, ok := baselineMemo.byPath[path]
 	baselineMemo.mu.Unlock()
@@ -75,7 +74,7 @@ func lookupBaselineMemo(path string, data []byte) (*Baseline, bool) {
 	return &value, true
 }
 
-func storeBaselineMemo(path string, data []byte, value *Baseline) {
+func storeBaselineMemo(path, digest string, value *Baseline) {
 	if ProcessMemoDisabled() || value == nil {
 		return
 	}
@@ -85,7 +84,7 @@ func storeBaselineMemo(path string, data []byte, value *Baseline) {
 	if err != nil {
 		return
 	}
-	record := baselineMemoRecord{digest: documentDigest(data), header: encoded, files: cloneFingerprintMap(value.Files)}
+	record := baselineMemoRecord{digest: digest, header: encoded, files: cloneFingerprintMap(value.Files)}
 	baselineMemo.mu.Lock()
 	baselineMemo.byPath[path] = record
 	baselineMemo.mu.Unlock()

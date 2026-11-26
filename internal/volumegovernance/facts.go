@@ -317,6 +317,7 @@ type DatabaseEvidenceFacts struct {
 }
 
 type Facts struct {
+	BaselineSHA256          string                 `json:"-"` // Exact Baseline bytes used by this assessment.
 	Version                 string                 `json:"version"`
 	Layout                  string                 `json:"layout"`
 	EnabledDomains          []string               `json:"enabled_domains"`
@@ -529,7 +530,7 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 		ManagedScope: ManagedScopeFacts{Aligned: true},
 	}
 
-	state, exists, err := baseline.Load(root)
+	loadedBaseline, exists, digest, err := baseline.LoadWithDigest(root)
 	if err != nil {
 		// A Baseline that does not parse is most often one a merge left with
 		// conflict markers, the moment its way out is needed most: the same
@@ -548,6 +549,8 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 		}
 		return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}
+	facts.BaselineSHA256 = digest
+	state := loadedBaseline
 	if !exists || state == nil {
 		state = baseline.NewBaseline(nil)
 		facts.Findings = append(facts.Findings, Finding{Code: "baseline_missing"})
@@ -561,15 +564,18 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
 	assessRootLocale(cfg, set, facts)
 
-	// One managed state per assessment: assessCode loads it for the Code
-	// verdict and the business-source manifest below is built from the same
-	// state instead of loading, evaluating, and hashing the tree a second time.
+	// The Code drift and the formal asset checks share one Baseline read.
+	// The business-source manifest below reuses the resulting managed state.
 	var managed *managedstate.State
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		assessCode(root, cfg, set, state, facts, &managed)
+		managed, err = managedstate.LoadFromBaseline(root, cfg, loadedBaseline)
+		if err != nil {
+			managed = nil
+		}
+		assessCode(root, cfg, set, state, facts, managed)
 		if snapshot != nil {
 			*snapshot = managed
 		}
@@ -712,7 +718,7 @@ func emptyDrift() Drift {
 		Skipped: []string{}, CurationExcluded: []string{}}
 }
 
-func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts, snapshot **managedstate.State) {
+func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts, managed *managedstate.State) {
 	asset := set.Volumes[cognition.ScopeCode]
 	ownershipConflicts := map[string]cognition.OwnershipConflict{}
 	ownershipOrphans := []string{}
@@ -731,13 +737,9 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	ownershipOrphans = sortedUnique(ownershipOrphans)
 	facts.CodeDrift.Orphan = ownershipOrphans
-	managed, err := managedstate.Load(root, cfg)
-	if err != nil {
+	if managed == nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "managed_scope_invalid", Domain: cognition.ScopeCode})
 		return
-	}
-	if snapshot != nil {
-		*snapshot = managed
 	}
 	facts.ManagedScope = ManagedScopeFacts{Aligned: !managed.ScopeChangeRequired,
 		ScopeChangeRequired: managed.ScopeChangeRequired, PolicyIdentity: managed.DesiredPolicyIdentity,
