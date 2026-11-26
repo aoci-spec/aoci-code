@@ -235,21 +235,34 @@ scan. The rules share a reason and each has its own ID in the result.
 aoci --repo /work scope rule add later --action exclude --pattern-kind directory --pattern svc-b --pattern svc-c --reason "defer initial indexing" --json
 ```
 
-All directories must be valid before the batch is saved. Use the returned ID
-to remove one exclusion when you are ready to index that directory.
+All directories must be valid before the batch is saved. Keep the returned IDs
+so you can remove the corresponding exclusions later.
 
 Do not build this policy as `exclude **` followed by `index svc-a`. A user
 `index` rule overrides the production profile and would pull tests and fixtures
 into the Whole-Index instead of preserving their ordinary `observe` or
 `exclude` roles.
 
-To add the deferred module later, remove its rule and activate the resulting
-Scope Change:
+To add deferred modules later, remove their rules together and activate the
+resulting Scope Change. Use the IDs returned by the add command:
 
 ```text
-aoci --repo /work scope rule remove later-svc-b
+aoci --repo /work scope rule remove "$svc_b_rule_id" "$svc_c_rule_id"
 aoci --repo /work scope activate
 ```
+
+The removal validates every ID before saving the desired policy once. A missing
+or duplicate rule ID leaves all rules in place. Before the first scan, the
+remaining policy takes effect at that scan. Once a Baseline exists, removal
+changes only the desired policy; the active scope, Entries and Baseline remain
+unchanged until a separate Scope Change applies it.
+
+Removing an `exclude` rule can widen coverage, while removing an `index` rule
+can narrow it: the remaining ordered rules and profile determine each path's
+new role. `scope activate` previews the combined effect. Safe expansions may
+apply under the existing Auto policy; a coverage reduction requiring human
+approval stops at the normal approval boundary. A batch does not bypass the
+existing coverage-reduction, safety, or budget guards.
 
 With effective approval mode `auto`, an ordinary safe expansion can use
 policy-bound Auto. When the preview requires human approval, activation stops,

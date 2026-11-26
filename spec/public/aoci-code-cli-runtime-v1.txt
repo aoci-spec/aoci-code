@@ -231,8 +231,20 @@ activate the desired policy.
 On success `--json` returns the Managed Scope policy version,
 `status=ready_for_initial_scan`, `baseline_advanced=false`,
 `index_changed=false`, and `rules` in rule-ID order. Each rule includes
-`rule_id`, `pattern`, and `added`. Use `scope rule remove <rule-id>` and
-`scope activate` to bring a deferred directory into scope after scanning.
+`rule_id`, `pattern`, and `added`. After scanning, use `scope rule remove`
+with one or more rule IDs and then `scope activate` to bring deferred
+directories into scope.
+
+`scope rule remove <rule-id> [<rule-id>...]` validates every supplied ID and
+updates the desired policy once. An unknown or duplicate ID rejects the batch
+without saving it. Before the first scan, the desired policy takes effect at that scan. With a
+Baseline, the active scope, Index and Baseline are untouched until a separate
+Scope Change activates the policy. Removing an exclude rule can widen coverage;
+removing an index rule can narrow it, depending on the remaining rules and
+profile. The combined change uses the existing Scope Change preview, approval,
+and Apply guards, including the human approval required for protected coverage
+reductions. The single-ID JSON result keeps
+`rule_id`. The batch result carries `rule_ids` in argument order in its place.
 
 Managed Scope activation
 ------------------------
