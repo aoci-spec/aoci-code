@@ -1023,12 +1023,11 @@ func handleMCPUpdateBatchReviewed(
 	// the remediation. Continuation batches and Optimization keep their own
 	// machine next-actions.
 	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
+		soloDigest := codebatch.SoloBuildDigest(root)
 		proof, facts := BuildTerminalProof(root)
 		result.TerminalProof = proof
 		if proof.Aligned {
-			// The authoring work is done, so the mark that one session built
-			// it alone is too: the next wave is offered as siblings again.
-			codebatch.ClearSoloBuild(root)
+			codebatch.ClearSoloBuildIfUnchanged(root, soloDigest)
 			if current, loadFail := loadCognitionCtx(root); loadFail == nil {
 				result.RootOverview = rootOverviewInvitation(current, facts)
 			}

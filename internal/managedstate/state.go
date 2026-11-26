@@ -36,13 +36,24 @@ func Load(root string, cfg *config.Config) (*State, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("managed_state_configuration_required")
 	}
-	value, exists, err := baseline.Load(root)
+	value, _, err := baseline.Load(root)
 	if err != nil {
 		return nil, err
 	}
+	return LoadFromBaseline(root, cfg, value)
+}
+
+// LoadFromBaseline uses the caller's Baseline, so the governed snapshot and
+// other facts can share the same read. A nil value means the file was absent.
+func LoadFromBaseline(root string, cfg *config.Config, value *baseline.Baseline) (*State, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("managed_state_configuration_required")
+	}
+	exists := value != nil
 	state := &State{Snapshot: map[string]baseline.Fingerprint{}, Baseline: value, Warnings: []string{}}
 	if cfg.ManagedScope == nil && cfg.CognitionBudget == nil && (!exists || value.ManagedScope == nil) {
 		state.Legacy, state.PolicyAligned, state.BudgetAligned = true, true, true
+		var err error
 		state.Snapshot, state.Warnings, state.Inventory, err = baseline.SnapshotWithInventory(root, cfg.WalkOptions())
 		return state, err
 	}

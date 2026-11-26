@@ -18,7 +18,8 @@ import (
 // neither the repository's Meta, the locale's instructions, nor the paths
 // decide: the bounded governance facts without their path samples (about
 // 2.3 KB since the per-asset records left the wire), plan and batch
-// identities, the receipt, metrics, and JSON framing. Measured at about
+// identities, the receipt, metrics, and JSON framing. The paths in the
+// receipt and plan are reserved separately. Measured at about
 // 5.3 KB on the 60-file transport fixture (the transport test asserts the
 // reservation covers the fixed part it measures). The Meta bytes and the
 // instruction text are measured on the repository (fixedOverheadBytes) and
@@ -34,6 +35,9 @@ const maintainInstructionsFallbackBytes = 3 << 10
 // keeps while it carries candidates: the candidates are the actionable set
 // and the complete lists stay in Verify and Check.
 const maintainCandidateSampleLimit = 5
+
+// Samples can be trimmed down to their counts to leave room for candidates.
+const maintainCandidateSampleReserveBytes = 2 << 10
 
 // optimizationCandidateExtraBytes covers the cost, importance, and selection
 // reason an optimization candidate carries beyond an ordinary one.
@@ -55,9 +59,15 @@ func maintainTransportBudget(cfg *config.Config) int {
 // without one reserves the widest form. contractOnWire says whether this
 // response carries the authoring contract or its reference.
 func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, lines map[string]int, contractOnWire bool) codebatch.Budget {
+	ordered, _ := codebatch.Select(candidates, 0)
+	return reserveCandidateSamples(baseCodeCandidateBudget(cfg, set, lines, contractOnWire), ordered)
+}
+
+func baseCodeCandidateBudget(cfg *config.Config, set *cognition.Set, lines map[string]int, contractOnWire bool) codebatch.Budget {
 	reserve := scaleEvidenceWireReserve(set)
 	thresholds := optimizationEScaleThresholds(set)
-	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates, contractOnWire), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
+	total := maintainTransportBudget(cfg)
+	return codebatch.Budget{Bytes: total - fixedOverheadBytes(cfg, set, contractOnWire), Total: total, Size: func(candidate codebatch.Candidate) int {
 		return codeCandidateWireSize(candidate) + scaleEvidenceWireWidth(candidate, lines, thresholds, reserve)
 	}, Lines: machinecontract.CodeCognitionBatchSourceLines, LineCount: func(candidate codebatch.Candidate) int {
 		// A count the caller does not hold never cuts: the batch is then
@@ -66,19 +76,30 @@ func codeCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []co
 	}}
 }
 
-func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) codebatch.Budget {
+func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate) codebatch.Budget {
 	reserve := scaleEvidenceWireReserve(set)
-	return codebatch.Budget{Bytes: candidateBudgetBytes(cfg, set, candidates, contractOnWire), Total: maintainTransportBudget(cfg), Size: func(candidate codebatch.Candidate) int {
+	// The optimization checkpoint may redeliver the same batch with its full contract.
+	total := maintainTransportBudget(cfg)
+	budget := codebatch.Budget{Bytes: total - fixedOverheadBytes(cfg, set, true), Total: total, Size: func(candidate codebatch.Candidate) int {
 		return codeCandidateWireSize(candidate) + reserve + optimizationCandidateExtraBytes
 	}}
+	ordered, _ := codebatch.Select(candidates, 0)
+	return reserveCandidateSamples(budget, ordered)
 }
 
-func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []codebatch.Candidate, contractOnWire bool) int {
-	bytes := maintainTransportBudget(cfg) - fixedOverheadBytes(cfg, set, contractOnWire) - sampleBytes(candidates)
-	if bytes < 1<<10 {
-		bytes = 1 << 10
-	}
-	return bytes
+func reserveCandidateSamples(budget codebatch.Budget, ordered []codebatch.Candidate) codebatch.Budget {
+	// Path samples are advisory. Reserve their encoded size up to a small
+	// share of the response so a few deep paths cannot displace most of the
+	// batch. The wire builder drops the samples that do not fit.
+	budget.Bytes = max(1<<10, budget.Bytes-min(sampleBytes(ordered), maintainCandidateSampleReserveBytes))
+	return budget
+}
+
+// cutMaintainCodeBatch is the shared prefix cut for Maintain and the first
+// build projection. Live Maintain can lower limit when the complete serialized
+// response carries additional required evidence.
+func cutMaintainCodeBatch(ordered []codebatch.Candidate, limit int, budget codebatch.Budget) []codebatch.Candidate {
+	return ordered[:codebatch.PrefixWithinBudget(ordered, limit, budget)]
 }
 
 // fixedOverheadBytes is the base reservation plus the two repository-sized
@@ -87,21 +108,30 @@ func candidateBudgetBytes(cfg *config.Config, set *cognition.Set, candidates []c
 // carrying the reference instead reserves the reference.
 func fixedOverheadBytes(cfg *config.Config, set *cognition.Set, contractOnWire bool) int {
 	total := maintainBaseOverheadBytes
+	if set != nil {
+		total += jsonStringBytes(set.RepositoryRoot) + jsonStringBytes(set.Meta.Descriptor.Path)
+		for scope, volume := range set.Volumes {
+			total += jsonStringBytes(volume.Descriptor.Path)
+			if scope == cognition.ScopeCode {
+				total += jsonStringBytes(volume.Descriptor.Path)
+			}
+		}
+	}
 	if !contractOnWire {
 		return total + maintainInstructionsRefBytes()
 	}
 	if set == nil {
 		return total + maintainInstructionsFallbackBytes
 	}
-	total += len(set.Meta.Raw)
 	contract, err := buildAuthoringContract(cfg, set.Meta.Raw, []string{cognition.ScopeCode})
 	if err != nil {
-		return total + maintainInstructionsFallbackBytes
+		return total + jsonStringBytes(string(set.Meta.Raw)) + maintainInstructionsFallbackBytes
 	}
-	for _, instruction := range contract.Instructions {
-		total += len(instruction) + 4
-	}
-	return total
+	body, _ := json.Marshal(struct {
+		Meta         string   `json:"authoring_meta"`
+		Instructions []string `json:"instructions"`
+	}{contract.AuthoringMeta, contract.Instructions})
+	return total + len(body)
 }
 
 // maintainInstructionsRefBytes is the reference as the wire carries it, with
@@ -122,16 +152,17 @@ func maintainInstructionsRefBytes() int {
 // sample (a finding object around the path), and the code_drift missing
 // sample. A deep Java tree puts 90-byte paths in every one of them; measuring
 // them on the candidates is what keeps the whole response under the budget.
-func sampleBytes(candidates []codebatch.Candidate) int {
-	ordered, _ := codebatch.Select(candidates, 0)
+func sampleBytes(ordered []codebatch.Candidate) int {
 	total := 0
-	for index, candidate := range ordered {
-		if index >= maintainCandidateSampleLimit {
-			break
-		}
-		total += 4*(len(candidate.ObjectRef)+3) + governanceFindingOverheadBytes
+	for _, candidate := range ordered[:min(len(ordered), maintainCandidateSampleLimit)] {
+		total += 4*(jsonStringBytes(candidate.ObjectRef)+1) + governanceFindingOverheadBytes
 	}
 	return total
+}
+
+func jsonStringBytes(value string) int {
+	data, _ := json.Marshal(value)
+	return len(data)
 }
 
 // governanceFindingOverheadBytes is one governance finding beyond its path:
@@ -206,11 +237,11 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 		return 0
 	}
 	budget := codeCandidateBudget(cfg, set, all, lines, true)
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), budget)
+	ordered, _ := codebatch.Select(all, 0)
+	selected := cutMaintainCodeBatch(ordered, codeBatchLimit(cfg), budget)
 	// Work beyond one batch is issued as siblings, whose first is cut under
 	// the budget less the sibling listing: the Guide shows that batch.
 	if parallel := cfg.CodeCognitionParallelBatchLimit(); parallel > 1 && len(selected) < len(all) {
-		ordered, _ := codebatch.Select(all, 0)
 		if cuts := cutParallelSiblings(ordered, codeBatchLimit(cfg), parallel, budget, budget); len(cuts) > 0 {
 			return len(cuts[0])
 		}
@@ -218,18 +249,14 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 	return len(selected)
 }
 
-// EstimateCodeAuthoringRounds reports how many Maintain rounds the current
-// batch rule takes to author the given repository-relative paths as new
-// Entries under the team configuration: the first round carries the
-// authoring contract, every later round in the same process its reference.
-// scan prints it so an operator knows what a first build costs before the
-// model starts. lines carries the source line count of the paths the caller
-// counted: they bound each batch's reading as Maintain does and size the
-// scale evidence; a path without one reserves the widest evidence and never
-// cuts by lines.
-func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string, lines map[string]int) int {
+// EstimateCodeAuthoringRounds projects first-build rounds for one session and
+// for sessions applying all siblings in each plan. With parallelism disabled,
+// the second value previews enabling the maximum number of siblings.
+// It uses the projected line counts from a normal scan for both the reading
+// bound and scale evidence width.
+func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string, projectedLines map[string]int) (rounds, parallelRounds int) {
 	if len(paths) == 0 {
-		return 0
+		return 0, 0
 	}
 	candidates := make([]codebatch.Candidate, 0, len(paths))
 	for _, path := range paths {
@@ -237,64 +264,46 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 			ObjectRef: "code:" + path, Path: path, SourceSHA256: strings.Repeat("0", 64)}})
 	}
 	limit := codeBatchLimit(cfg)
-	if limit < machinecontract.CodeCognitionBatchEntriesMin {
-		limit = machinecontract.CodeCognitionBatchEntriesDefault
-	}
 	ordered, _ := codebatch.Select(candidates, 0)
-	firstBudget := codeCandidateBudget(cfg, set, candidates, lines, true)
-	first := codebatch.PrefixWithinBudget(ordered, limit, firstBudget)
-	if first >= len(ordered) {
-		return 1
+	full := baseCodeCandidateBudget(cfg, set, projectedLines, true)
+	ref := baseCodeCandidateBudget(cfg, set, projectedLines, false)
+
+	parallel := cfg.CodeCognitionParallelBatchLimit()
+	rounds = countCodeAuthoringRounds(ordered, limit, parallel, full, ref, false)
+	if rounds <= 1 {
+		return rounds, rounds
 	}
-	// Work beyond one batch starts as siblings, whose first is a little
-	// smaller than a single batch; one session alone takes that one and
-	// full single batches after it, which is the count this reports.
-	if parallel := cfg.CodeCognitionParallelBatchLimit(); parallel > 1 {
-		if cuts := cutParallelSiblings(ordered, limit, parallel, firstBudget, firstBudget); len(cuts) > 0 && len(cuts[0]) > 0 {
-			first = len(cuts[0])
-		}
+	if parallel == 1 {
+		parallel = machinecontract.CodeCognitionParallelBatchesMax
 	}
-	return 1 + codebatch.CountBatches(ordered[first:], limit, codeCandidateBudget(cfg, set, candidates, lines, false))
+	return rounds, countCodeAuthoringRounds(ordered, limit, parallel, full, ref, true)
 }
 
-// EstimateCodeAuthoringRoundsParallel is EstimateCodeAuthoringRounds for n
-// Agent sessions authoring at once (L4): each round is the first batch plus
-// the n-1 siblings cut the way Maintain cuts them, so the answer is the rounds
-// every session takes, not the sequential rounds divided by n. Siblings are
-// cut under the budget that reserves the contract, since a session that
-// fetches one by batch_id carries it, and the listing's bytes come off every
-// cut; parallel rounds therefore cover fewer Entries per session and more in
-// total than the sequential estimate divides into.
-func EstimateCodeAuthoringRoundsParallel(cfg *config.Config, set *cognition.Set, paths []string, lines map[string]int, n int) int {
-	if n <= 1 {
-		return EstimateCodeAuthoringRounds(cfg, set, paths, lines)
-	}
-	if len(paths) == 0 {
-		return 0
-	}
-	candidates := make([]codebatch.Candidate, 0, len(paths))
-	for _, path := range paths {
-		candidates = append(candidates, codebatch.Candidate{Target: codebatch.Target{Change: cognition.ImpactChangeCreate,
-			ObjectRef: "code:" + path, Path: path, SourceSHA256: strings.Repeat("0", 64)}})
-	}
-	limit := codeBatchLimit(cfg)
-	if limit < machinecontract.CodeCognitionBatchEntriesMin {
-		limit = machinecontract.CodeCognitionBatchEntriesDefault
-	}
-	ordered, _ := codebatch.Select(candidates, 0)
-	ahead := codeCandidateBudget(cfg, set, candidates, lines, true)
+func countCodeAuthoringRounds(remaining []codebatch.Candidate, limit, parallel int, full, ref codebatch.Budget, applySiblings bool) int {
 	rounds := 0
-	for len(ordered) > 0 && rounds < len(paths) {
-		first := codeCandidateBudget(cfg, set, candidates, lines, rounds == 0)
-		cuts := cutParallelSiblings(ordered, limit, n, first, ahead)
-		covered := 0
-		for _, cut := range cuts {
-			covered += len(cut)
+	for len(remaining) > 0 {
+		// Each new plan samples the work left after the previous Apply.
+		// The lead session reuses its contract after the first round.
+		ahead := reserveCandidateSamples(full, remaining)
+		first := ahead
+		if rounds > 0 {
+			first = reserveCandidateSamples(ref, remaining)
 		}
-		if covered == 0 {
-			covered = 1
+		taken := len(cutMaintainCodeBatch(remaining, limit, first))
+		if parallel > 1 && taken < len(remaining) {
+			cuts := cutParallelSiblings(remaining, limit, parallel, first, ahead)
+			taken = len(cuts[0])
+			if applySiblings {
+				for _, cut := range cuts[1:] {
+					taken += len(cut)
+				}
+			} else {
+				// One session leaves the other siblings undelivered. Maintain
+				// releases them and issues single batches for the rest.
+				parallel = 1
+			}
 		}
-		ordered = ordered[covered:]
+		remaining = remaining[taken:]
 		rounds++
 	}
 	return rounds

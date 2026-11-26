@@ -39,7 +39,9 @@ func PathIgnoredByGit(root, rel string) (ignored bool, matchedRule string) {
 	}
 	command := UntrustedRepositoryGitCommand(root,
 		"check-ignore", "-v", "-z", "--stdin")
-	command.Stdin = strings.NewReader(rel + "\x00")
+	// check-ignore disallows some pathspec magic even on stdin. A relative
+	// prefix protects a name starting with ':' without changing Git's rules.
+	command.Stdin = strings.NewReader("./" + rel + "\x00")
 	var stdout bytes.Buffer
 	command.Stdout = &stdout
 	command.Stderr = nil

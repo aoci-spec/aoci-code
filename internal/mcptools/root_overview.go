@@ -530,6 +530,13 @@ func rootOverviewProgressFields(result *mcp.CallToolResult, progress rootOvervie
 	if result == nil || len(result.Content) != 1 {
 		return result
 	}
+	if fields, ok := result.StructuredContent.(map[string]any); ok {
+		fields["root_overview_recovered"] = progress.finished
+		fields["root_overview_formal_writes"] = progress.wrote
+		if progress.wrote {
+			fields["formal_writes_started"] = true
+		}
+	}
 	content, ok := result.Content[0].(*mcp.TextContent)
 	if !ok {
 		return result

@@ -83,7 +83,7 @@ func attachAuthoringContract(result *volumeMaintainResult, contract authoringcon
 	if onWire {
 		result.AuthoringMeta = contract.AuthoringMeta
 		result.Instructions = append(append([]string{}, contract.Instructions...), extra...)
-		session.recordAuthoringContract(digest)
+		result.authoringContractDigest = digest
 		return
 	}
 	result.InstructionsRef = &maintainInstructionsRef{SHA256: digest, DeliveredInGeneration: generation, RecallInput: maintainRecallInput}

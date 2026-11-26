@@ -87,6 +87,7 @@ const (
 	RemediationCommandAgentGuide            = "index agent guide --agent {agent} --json"
 	RemediationCommandCognitionOnboardStart = "cognition onboard start --json"
 	RemediationCommandDatabaseSnapshot      = "database snapshot --source {source} --json"
+	RemediationCommandDatabaseBootstrap     = "database cognition bootstrap --json"
 	// The accept command binds the snapshot it accepts; {snapshot_sha} is the
 	// source_snapshot_sha256 the snapshot command printed, which the Host
 	// fills in like {source}. Without it the command was refused as printed.

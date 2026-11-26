@@ -301,13 +301,16 @@ func mysqlPartitions(ctx context.Context, tx *sql.Tx, _ SourceConfig, tables map
 	for rows.Next() {
 		var namespace, tableName, name, method string
 		var ordinal int
-		var expression, description sql.NullString
-		if err := rows.Scan(&namespace, &tableName, &name, &ordinal, &method, &expression, &description); err != nil {
+		var expression, description, subpartition sql.NullString
+		if err := rows.Scan(&namespace, &tableName, &name, &ordinal, &method, &expression, &description, &subpartition); err != nil {
 			return err
 		}
 		table := tables[tableKey(namespace, tableName)]
 		if table == nil {
 			continue
+		}
+		if subpartition.Valid && subpartition.String != "" {
+			return &unsupportedCatalogFeature{feature: "mysql_subpartition", object: tableName}
 		}
 		if table.Partition == nil {
 			table.Partition = &Partition{Partitioned: true, Method: method, Expression: expression.String, Definitions: []PartitionDefinition{}}

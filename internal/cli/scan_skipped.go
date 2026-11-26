@@ -10,7 +10,10 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/curation"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
+	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/internal/mcptools"
 )
 
@@ -55,29 +58,15 @@ type scanAuthoringEstimate struct {
 	SourceLinesPerRound int `json:"source_lines_per_round"`
 }
 
+// estimateScanAuthoring is shared by scan and by init, which shows the
+// estimate before the first scan while narrowing the scope is still free.
 func estimateScanAuthoring(root string, cfg *config.Config, skipped scanSkippedSources) scanAuthoringEstimate {
-	return estimateAuthoringForPaths(root, cfg, skipped.set, skipped.actionable)
-}
-
-// estimateAuthoringForPaths is the first-build estimate over the given
-// index-role paths, shared by scan and by init, which shows it before the
-// first scan while narrowing the scope is still free.
-func estimateAuthoringForPaths(root string, cfg *config.Config, set *cognition.Set, paths []string) scanAuthoringEstimate {
-	lines, total := countSourceLines(root, paths)
-	rounds := mcptools.EstimateCodeAuthoringRounds(cfg, set, paths, lines)
-	parallel := cfg.CodeCognitionParallelBatchLimit()
-	estimate := scanAuthoringEstimate{Targets: len(paths), Rounds: rounds,
+	projectedLines, total := countSourceLines(root, skipped.actionable)
+	rounds, parallelRounds := mcptools.EstimateCodeAuthoringRounds(cfg, skipped.set, skipped.actionable, projectedLines)
+	return scanAuthoringEstimate{Targets: len(skipped.actionable), Rounds: rounds,
 		BatchLimit: cfg.CodeCognitionBatchLimit(), TransportBudgetBytes: cfg.MaintainTransportBudget(),
-		ParallelBatches: parallel, ParallelRounds: rounds,
+		ParallelBatches: cfg.CodeCognitionParallelBatchLimit(), ParallelRounds: parallelRounds,
 		SourceLines: total, SourceLinesPerRound: machinecontract.CodeCognitionBatchSourceLines}
-	if parallel > 1 {
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, parallel)
-	} else if rounds > 1 {
-		// What four sessions would take, measured with the same cut Maintain
-		// makes, so the hint names a number the first build then meets.
-		estimate.ParallelRounds = mcptools.EstimateCodeAuthoringRoundsParallel(cfg, set, paths, lines, machinecontract.CodeCognitionParallelBatchesMax)
-	}
-	return estimate
 }
 
 // initNarrowHintRounds is the first-build size from which init points at
@@ -89,15 +78,29 @@ const initNarrowHintRounds = 20
 // initAuthoringEstimateLines are the lines init prints about the first
 // build of a fresh repository: its size, what parallel sessions make of
 // it, and, for a large one, how to start smaller before the first scan.
-func initAuthoringEstimateLines(root string, cfg *config.Config, paths []string) []string {
-	if len(paths) == 0 {
-		return nil
-	}
-	set, err := cognition.Load(root, cfg.IndexPath)
+func initAuthoringEstimateLines(root string) []string {
+	cfg, err := config.LoadReadOnly(root)
 	if err != nil {
 		return nil
 	}
-	estimate := estimateAuthoringForPaths(root, cfg, set, paths)
+	// The estimate is advisory. Leave the fingerprint cache as it was
+	// before the inventory and curation profiles are read.
+	cacheWrites := baseline.FingerprintCacheWritesEnabled()
+	baseline.SetFingerprintCacheWrites(false)
+	defer baseline.SetFingerprintCacheWrites(cacheWrites)
+	state, err := managedstate.Load(root, cfg)
+	if err != nil || state.Evaluation == nil {
+		return nil
+	}
+	paths := make([]string, 0, len(state.Evaluation.Index))
+	for _, item := range state.Evaluation.Index {
+		paths = append(paths, item.Path)
+	}
+	skipped := classifyFirstBuildSources(root, cfg, paths)
+	if skipped.set == nil || len(skipped.actionable) == 0 {
+		return nil
+	}
+	estimate := estimateScanAuthoring(root, cfg, skipped)
 	lines := []string{scanAuthoringEstimateLine(estimate)}
 	if line := scanReadingEstimateLine(estimate); line != "" {
 		lines = append(lines, line)
@@ -112,6 +115,16 @@ func initAuthoringEstimateLines(root string, cfg *config.Config, paths []string)
 }
 
 func classifyScanSkippedSources(root string, cfg *config.Config, snap map[string]baseline.Fingerprint) scanSkippedSources {
+	paths := make([]string, 0, len(snap))
+	for rel, fingerprint := range snap {
+		if baseline.EffectiveRole(fingerprint) == machinecontract.ScopeRoleIndex {
+			paths = append(paths, rel)
+		}
+	}
+	return classifyFirstBuildSources(root, cfg, paths)
+}
+
+func classifyFirstBuildSources(root string, cfg *config.Config, indexPaths []string) scanSkippedSources {
 	// A re-scan of a Legacy repository may find files that already carry an
 	// Entry; those are governed objects, not sources held out of authoring.
 	described := map[string]bool{}
@@ -129,14 +142,12 @@ func classifyScanSkippedSources(root string, cfg *config.Config, snap map[string
 			}
 		}
 	}
-	paths := make([]string, 0, len(snap))
-	for rel, fingerprint := range snap {
+	paths := make([]string, 0, len(indexPaths))
+	for _, rel := range indexPaths {
 		if _, formal := cognition.FormalAssetOwner(rel); formal || rel == cfg.IndexPath || described[rel] {
 			continue
 		}
-		if baseline.EffectiveRole(fingerprint) == machinecontract.ScopeRoleIndex {
-			paths = append(paths, rel)
-		}
+		paths = append(paths, rel)
 	}
 	sort.Strings(paths)
 	counts := scanSkippedSources{set: loadedSet}
@@ -187,21 +198,32 @@ func printScanAuthoringEstimate(root string, estimate scanAuthoringEstimate, dry
 	}
 }
 
-// countSourceLines counts the lines of each path through the fingerprint
-// cache, which holds them for every file scan hashed; a path that cannot be
-// read is left out, so it never cuts a batch and adds nothing to the total.
-func countSourceLines(root string, paths []string) (map[string]int, int) {
+// countSourceLines projects the line evidence Maintain will have after a
+// normal scan saves the cache. The total includes reads even with caching off.
+func countSourceLines(root string, paths []string) (projectedLines map[string]int, total int) {
 	cache := baseline.OpenFingerprintCache(root)
-	lines, total := make(map[string]int, len(paths)), 0
+	projectedLines = make(map[string]int, len(paths))
 	for _, path := range paths {
-		count, err := cache.FileLines(filepath.Join(root, filepath.FromSlash(path)), path)
-		if err != nil {
-			continue
+		absolute := filepath.Join(root, filepath.FromSlash(path))
+		var count int
+		var known bool
+		eligible := cache.Enabled() && index.ShouldCheckEScalePath(path)
+		if eligible {
+			count, known = cache.KnownLines(absolute, path)
 		}
-		lines[path] = count
+		if !known {
+			var err error
+			count, err = afs.CountFileLines(absolute)
+			if err != nil {
+				continue
+			}
+		}
+		if eligible {
+			projectedLines[path] = count
+		}
 		total += count
 	}
-	return lines, total
+	return projectedLines, total
 }
 
 // scanReadingEstimateLine says how much source the first build reads; a
@@ -215,7 +237,7 @@ func scanReadingEstimateLine(estimate scanAuthoringEstimate) string {
 
 // scanParallelEstimateLine says what parallel sessions make of the estimate:
 // the rounds each session takes under the team's setting, or, at the
-// default of one, what four sessions would take and how to turn that on. A
+// setting of one, what four sessions would take and how to turn that on. A
 // one-round build has nothing to divide.
 func scanParallelEstimateLine(estimate scanAuthoringEstimate) string {
 	if estimate.Rounds < 2 {

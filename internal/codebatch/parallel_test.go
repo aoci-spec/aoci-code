@@ -60,6 +60,51 @@ func errorCode(err error) string {
 	return err.Error()
 }
 
+func TestSoloBuildProgressInvalidatesOlderCleanup(t *testing.T) {
+	root := t.TempDir()
+	work := []Candidate{
+		{Target: Target{Path: "a.go", SourceSHA256: strings.Repeat("a", 64)}},
+		{Target: Target{Path: "name with spaces.go", SourceSHA256: strings.Repeat("b", 64)}},
+	}
+	if err := MarkSoloBuild(root, work); err != nil {
+		t.Fatal(err)
+	}
+	digest, marker := SoloBuildDigest(root), ParallelPlanMarker(root)
+	RetireSoloBuildTargets(root, []string{work[0].Path})
+	if ParallelPlanMarker(root) == marker {
+		t.Fatal("solo progress must invalidate a Maintain assessed before it")
+	}
+	ClearSoloBuildIfUnchanged(root, digest)
+	if !SoloBuildCovers(root, work[1:]) {
+		t.Fatal("older alignment must leave the newer solo hint intact")
+	}
+	ClearSoloBuildIfUnchanged(root, SoloBuildDigest(root))
+	if ParallelRecordsExist(root) {
+		t.Fatal("current alignment must retire the hint")
+	}
+}
+
+func TestSoloBuildMigratesLegacyHint(t *testing.T) {
+	digest := strings.Repeat("f", 64)
+	for _, departed := range []string{"", digest + " settled.go\n"} {
+		root := t.TempDir()
+		if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		const path = "name with spaces.go"
+		line := digest + " " + path + "\n"
+		if err := os.WriteFile(soloBuildPath(root), []byte(line+departed), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if !SoloBuildCovers(root, []Candidate{{Target: Target{Path: path, SourceSHA256: digest}}}) {
+			t.Fatal("the active subset of a legacy hint must stay solo")
+		}
+		if got := string(soloBuildBytes(root)); got != soloBuildVersion+"\n"+line {
+			t.Fatalf("migration must keep only current work in v2, got %q", got)
+		}
+	}
+}
+
 // Locks: the plan record round-trips with its preimage, every field the
 // sibling is judged by is validated on write and read, an interrupted start
 // (two records) or a corrupt record reads as no plan, and completion drops

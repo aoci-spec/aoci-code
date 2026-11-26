@@ -522,6 +522,19 @@ func TestDatabaseBootstrapErrorKeepsOuterCodeAndAddsSafeDiagnostic(t *testing.T)
 	}
 }
 
+func TestDatabaseSourceErrorShowsPlainCatalogObject(t *testing.T) {
+	const op = "catalog_query_sqlite_table_options"
+	const object = "accounts"
+	err := databaseSourceExitError(&dbevidence.SourceError{
+		SourceID: "ogtemp", Code: "unsupported_catalog_feature", Op: op, Object: object,
+	})
+	exit, ok := err.(*ExitError)
+	if !ok || exit.Code != ExitInternal || exit.MachineCode != "database_unsupported_catalog_feature" ||
+		!strings.Contains(exit.Msg, "operation="+op) || !strings.Contains(exit.Msg, "object="+object) {
+		t.Fatalf("CLI error must display the catalog operation and object: %v", err)
+	}
+}
+
 func TestDatabaseCredentialMissingGuidanceIsSafeAndLocalized(t *testing.T) {
 	tests := []struct {
 		locale string

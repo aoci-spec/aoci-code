@@ -317,6 +317,7 @@ type DatabaseEvidenceFacts struct {
 }
 
 type Facts struct {
+	BaselineSHA256          string                 `json:"-"` // Exact Baseline bytes used by this assessment.
 	Version                 string                 `json:"version"`
 	Layout                  string                 `json:"layout"`
 	EnabledDomains          []string               `json:"enabled_domains"`
@@ -359,6 +360,23 @@ type Facts struct {
 	// so a review confirms exactly the bytes it was shown.
 	ObservedEvidence     []ObservedEvidence `json:"-"`
 	ObservedReviewDigest string             `json:"-"`
+}
+
+// DatabaseEvidenceRemediation describes the next operation for an Evidence
+// stop. Only sources with missing or invalid Evidence need a snapshot.
+func (facts *Facts) DatabaseEvidenceRemediation() (bootstrap bool, snapshotSources []string) {
+	if facts.Result != ResultEvidenceRequired {
+		return false, nil
+	}
+	if facts.NextRequiredAction == machinecontract.DatabaseCognitionActionBootstrapVolume {
+		return true, nil
+	}
+	for _, source := range facts.DatabaseCognition.Sources {
+		if source.State == machinecontract.DatabaseCognitionEvidenceUnavailable || source.State == machinecontract.DatabaseCognitionEvidenceInvalid {
+			snapshotSources = append(snapshotSources, source.SourceID)
+		}
+	}
+	return false, snapshotSources
 }
 
 // ObservedEvidence is one Observe source whose bytes moved since the active
@@ -429,7 +447,7 @@ type ListTruncation struct {
 // available from Verify and Check. Counts and every scalar fact are unchanged,
 // so the projection never alters a governance decision.
 func BoundListsForTransport(facts *Facts, limit int) *Facts {
-	if facts == nil || limit <= 0 {
+	if facts == nil || limit < 0 {
 		return facts
 	}
 	bounded := *facts
@@ -515,6 +533,20 @@ func AssessWithSnapshot(root string, cfg *config.Config, set *cognition.Set) (*F
 	return facts, snapshot, err
 }
 
+// BaselineRestoreError binds the restore command to the malformed Baseline
+// that prompted it. Maintain rechecks the digest under the index lock.
+type BaselineRestoreError struct {
+	BaselineSHA256 string
+	Command        string
+	cause          error
+}
+
+func (err *BaselineRestoreError) Error() string {
+	return fmt.Sprintf("volumes_governance_baseline_invalid: %v; %s: %s", err.cause, machinecontract.MaintainActionRestoreFormalAssets, err.Command)
+}
+
+func (err *BaselineRestoreError) Unwrap() error { return err.cause }
+
 func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **managedstate.State) (*Facts, error) {
 	if cfg == nil || set == nil || set.LayoutMode != cognition.LayoutVolumesV1 {
 		return nil, fmt.Errorf("volumes_governance_input_invalid")
@@ -529,7 +561,7 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 		ManagedScope: ManagedScopeFacts{Aligned: true},
 	}
 
-	state, exists, err := baseline.Load(root)
+	loadedBaseline, exists, digest, err := baseline.LoadWithDigest(root)
 	if err != nil {
 		// A Baseline that does not parse is most often one a merge left with
 		// conflict markers, the moment its way out is needed most: the same
@@ -543,11 +575,13 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 		// Never beside a pending receipt: its Recovery comes first, and the
 		// restore would overwrite the bytes it resumes from.
 		pending, pendingErr := cognitiontxn.Pending(root)
-		if command := restoreCommand(root, append(paths, ".aoci/baseline.json")); command != "" && pendingErr == nil && len(pending) == 0 {
-			return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w; %s: %s", err, machinecontract.MaintainActionRestoreFormalAssets, command)
+		if command := restoreCommand(root, append(paths, ".aoci/baseline.json")); digest != "" && command != "" && pendingErr == nil && len(pending) == 0 {
+			return nil, &BaselineRestoreError{BaselineSHA256: digest, Command: command, cause: err}
 		}
 		return nil, fmt.Errorf("volumes_governance_baseline_invalid: %w", err)
 	}
+	facts.BaselineSHA256 = digest
+	state := loadedBaseline
 	if !exists || state == nil {
 		state = baseline.NewBaseline(nil)
 		facts.Findings = append(facts.Findings, Finding{Code: "baseline_missing"})
@@ -561,15 +595,18 @@ func assess(root string, cfg *config.Config, set *cognition.Set, snapshot **mana
 	assessFormalAsset(root, cfg, state, set.Meta.Descriptor.Path, "meta", facts)
 	assessRootLocale(cfg, set, facts)
 
-	// One managed state per assessment: assessCode loads it for the Code
-	// verdict and the business-source manifest below is built from the same
-	// state instead of loading, evaluating, and hashing the tree a second time.
+	// The Code drift and the formal asset checks share one Baseline read.
+	// The business-source manifest below reuses the resulting managed state.
 	var managed *managedstate.State
 	if asset := enabledAsset(set, cognition.ScopeCode); asset != nil {
 		facts.EnabledDomains = append(facts.EnabledDomains, cognition.ScopeCode)
 		facts.Code = assetFacts(asset, true)
 		facts.CodeEntryCount = asset.ObjectCount
-		assessCode(root, cfg, set, state, facts, &managed)
+		managed, err = managedstate.LoadFromBaseline(root, cfg, loadedBaseline)
+		if err != nil {
+			managed = nil
+		}
+		assessCode(root, cfg, set, state, facts, managed)
 		if snapshot != nil {
 			*snapshot = managed
 		}
@@ -712,7 +749,7 @@ func emptyDrift() Drift {
 		Skipped: []string{}, CurationExcluded: []string{}}
 }
 
-func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts, snapshot **managedstate.State) {
+func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineState *baseline.Baseline, facts *Facts, managed *managedstate.State) {
 	asset := set.Volumes[cognition.ScopeCode]
 	ownershipConflicts := map[string]cognition.OwnershipConflict{}
 	ownershipOrphans := []string{}
@@ -731,13 +768,9 @@ func assessCode(root string, cfg *config.Config, set *cognition.Set, baselineSta
 	}
 	ownershipOrphans = sortedUnique(ownershipOrphans)
 	facts.CodeDrift.Orphan = ownershipOrphans
-	managed, err := managedstate.Load(root, cfg)
-	if err != nil {
+	if managed == nil {
 		facts.Findings = append(facts.Findings, Finding{Code: "managed_scope_invalid", Domain: cognition.ScopeCode})
 		return
-	}
-	if snapshot != nil {
-		*snapshot = managed
 	}
 	facts.ManagedScope = ManagedScopeFacts{Aligned: !managed.ScopeChangeRequired,
 		ScopeChangeRequired: managed.ScopeChangeRequired, PolicyIdentity: managed.DesiredPolicyIdentity,

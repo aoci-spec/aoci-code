@@ -17,6 +17,7 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/cognitiontxn"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -35,23 +36,54 @@ func parallelIdentitiesOf(facts *volumegovernance.Facts, set *cognition.Set) cod
 	return ids
 }
 
-// lockPlanOnLoadedVolume takes the index lock for a Maintain that reads or
-// writes plan records and reports whether the Code Volume on disk is still
-// the one the call loaded. Applies hold the same lock, so under it the
-// records and the Volume agree; a Volume that moved means the call's facts
-// are a step behind and it must start over, never that the plan is broken.
-func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx) (release func(), moved bool, err error) {
+type codePlanAssessment struct {
+	baselineSHA256  string
+	planMarker      string
+	restore         bool
+	recoveryPending bool
+}
+
+// beforeMaintainIndexLock lets tests interleave another session after load.
+var beforeMaintainIndexLock = func(string) {}
+
+// lockPlanOnLoadedVolume checks the loaded Code Volume and any assessment
+// made before the lock against the state Apply last left. A restore also
+// depends on every formal asset it would overwrite and on Recovery state.
+func lockPlanOnLoadedVolume(root string, loaded *cognitionRepoCtx, assessment *codePlanAssessment) (release func(), moved bool, err error) {
+	beforeMaintainIndexLock(root)
 	lock, lockErr := afs.AcquireIndexLock(root)
 	if lockErr != nil {
 		return nil, false, lockErr
 	}
-	code := loaded.set.Volumes[cognition.ScopeCode]
-	if code != nil {
-		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(code.Descriptor.Path)))
-		if readErr != nil || codebatch.BytesSHA256(current) != code.SHA256 {
-			_ = lock.Release()
-			return nil, true, nil
+	assets := []*cognition.Asset{loaded.set.Volumes[cognition.ScopeCode]}
+	if assessment != nil && assessment.restore {
+		assets = mustVolumeScope(loaded.set).Assets
+	}
+	currentState := true
+	for _, asset := range assets {
+		if asset == nil || asset.State != cognition.AssetPresent {
+			continue
 		}
+		current, readErr := os.ReadFile(filepath.Join(root, filepath.FromSlash(asset.Descriptor.Path)))
+		if readErr != nil || codebatch.BytesSHA256(current) != asset.SHA256 {
+			currentState = false
+			break
+		}
+	}
+	if currentState && assessment != nil {
+		// A rebind can advance the Baseline while leaving the Code Volume
+		// and the solo mark byte-identical if the mark rewrite failed.
+		current, readErr := os.ReadFile(loaded.paths.BaselinePath)
+		currentState = readErr == nil && codebatch.BytesSHA256(current) == assessment.baselineSHA256 &&
+			codebatch.ParallelPlanMarker(root) == assessment.planMarker
+	}
+	if currentState && assessment != nil && assessment.restore {
+		pending, pendingErr := cognitiontxn.Pending(root)
+		currentState = pendingErr == nil && (len(pending) > 0) == assessment.recoveryPending
+	}
+	if !currentState {
+		_ = lock.Release()
+		return nil, true, nil
 	}
 	return func() { _ = lock.Release() }, false, nil
 }
@@ -205,25 +237,26 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 	reserve := 0
 	var cuts [][]codebatch.Candidate
 	for iteration := 0; iteration < 4; iteration++ {
-		held := map[string]bool{}
+		remaining := ordered
 		cuts = nil
 		for position := 0; position < parallel; position++ {
 			budget := aheadBudget
 			if position == 0 {
+				// A held batch can be recalled with the complete contract,
+				// including a lead batch first sent with a reference.
 				budget = firstBudget
+				budget.Bytes = min(firstBudget.Bytes, aheadBudget.Bytes)
 			}
 			budget.Bytes -= reserve
 			if budget.Bytes < 1<<10 {
 				budget.Bytes = 1 << 10
 			}
-			selected := codebatch.CutSibling(ordered, held, limit, budget)
+			selected := cutMaintainCodeBatch(remaining, limit, budget)
 			if len(selected) == 0 {
 				break
 			}
-			for _, candidate := range selected {
-				held[candidate.ObjectRef] = true
-			}
 			cuts = append(cuts, selected)
+			remaining = remaining[len(selected):]
 		}
 		listing := siblingListingBytes(cuts)
 		// A sibling delivered by batch_id also names its plan in sibling_of.
@@ -253,7 +286,7 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 // agents calling no-argument Maintain each receive their own; when every
 // outstanding sibling is already delivered, the first of them is delivered
 // again, which is what a single agent sees between its Applies.
-func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, contractOnWire bool, parallel int, session *cognitionRefreshSession) {
+func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, cutLimit int, contractOnWire bool, parallel int, session *cognitionRefreshSession) {
 	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
 	plan := currentParallelPlan(root, ids)
 	if len(all) == 0 {
@@ -277,57 +310,46 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		}
 	}
 	firstBudget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
+	var publishFresh func() error
 	if plan == nil {
-		result.planIssuedNow = true
 		fresh := codebatch.NewParallelPlan(ids)
-		ordered, _ := codebatch.Select(all, 0)
-		cuts := cutParallelSiblings(ordered, limit, parallel, firstBudget, codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true))
+		cuts := cutParallelSiblings(all, cutLimit, parallel, firstBudget, codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true))
 		if len(cuts) == 0 {
 			return
 		}
+		receipts = map[string]codebatch.Receipt{}
+		siblings = nil
+		publishers := make([]func(string) error, 0, len(cuts))
 		for _, cut := range cuts {
 			if fail := firstUnspellableCandidate(root, loaded, cut); fail != nil {
 				result.Stop = fail.GlobalStop
 				return
 			}
-		}
-		if err := codebatch.SaveParallelPlan(root, fresh, loaded.set.Volumes[cognition.ScopeCode].Raw); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
-			return
-		}
-		receipts = map[string]codebatch.Receipt{}
-		siblings = nil
-		for position, cut := range cuts {
-			budget := firstBudget
-			if position > 0 {
-				budget = codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true)
-			}
-			issued, err := codebatch.BuildSiblingPlan(root, fresh.LogicalPlan, ids.CompositeIdentity, ids.ScopePolicyIdentity,
-				ids.CodeVolumePath, fresh.PreimageSHA256, all, cut, limit, budget)
+			issued, publish, err := codebatch.PrepareBatch(ids, fresh.LogicalPlan, all, cut, limit, firstBudget.Total)
 			if err != nil {
-				_ = codebatch.RemoveParallelPlans(root)
-				result.issueFailure = "code_parallel_plan_issue_failed"
+				result.issueFailure = err.Error()
 				return
 			}
-			receipt, loadErr := codebatch.LoadReceipt(root, issued.BatchID)
-			if loadErr != nil {
-				_ = codebatch.RemoveParallelPlans(root)
-				result.issueFailure = "code_parallel_plan_issue_failed"
-				return
-			}
+			publishers = append(publishers, publish)
 			fresh.Siblings = append(fresh.Siblings, issued.BatchID)
-			receipts[issued.BatchID] = receipt
 			paths := make([]string, 0, len(cut))
-			for _, candidate := range cut {
+			targets := make([]codebatch.Target, 0, len(cut))
+			for _, candidate := range issued.Candidates {
 				paths = append(paths, candidate.Path)
+				targets = append(targets, candidate.Target)
 			}
+			receipts[issued.BatchID] = codebatch.Receipt{PlanID: issued.PlanID, BatchID: issued.BatchID, Targets: targets}
 			siblings = append(siblings, codebatch.Sibling{BatchID: issued.BatchID, Targets: paths, Included: len(paths), State: codebatch.SiblingIssued})
 		}
-		if err := codebatch.UpdateParallelPlan(root, fresh); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
-			return
-		}
 		plan = &fresh
+		publishFresh = func() error {
+			for _, publish := range publishers {
+				if err := publish(root); err != nil {
+					return err
+				}
+			}
+			return codebatch.SaveParallelPlan(root, *plan, loaded.set.Volumes[cognition.ScopeCode].Raw)
+		}
 	}
 	// The sibling this server was already handed, while it is still out, is
 	// the current batch again: one session asking twice gets one batch, and
@@ -356,16 +378,39 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 	if current == nil {
 		return
 	}
-	if current.State == codebatch.SiblingIssued {
-		current.State = codebatch.SiblingDelivered
-		plan.Delivered = append(plan.Delivered, current.BatchID)
-		if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
+	deliver := current.State == codebatch.SiblingIssued
+	previousID := current.BatchID
+	result.codeOrphansRide = firstSiblingDelivery(plan, previousID)
+	result.deliveredBatch = !deliver
+	receipt := receipts[previousID]
+	var publishResized func(string) error
+	if deliver && cutLimit < len(receipt.Targets) {
+		var err error
+		receipt, publishResized, err = prepareSiblingPrefix(plan, receipt, cutLimit, limit, firstBudget.Total)
+		if err != nil {
+			result.issueFailure = err.Error()
 			return
 		}
+		current.BatchID, current.Included = receipt.BatchID, len(receipt.Targets)
 	}
-	session.HoldSibling(current.BatchID)
-	receipt := receipts[current.BatchID]
+	batchID := receipt.BatchID
+	if deliver {
+		current.State = codebatch.SiblingDelivered
+	}
+	result.publishCodeBatch = func() error {
+		if deliver {
+			if publishFresh != nil {
+				plan.Delivered = append(plan.Delivered, batchID)
+				if err := publishFresh(); err != nil {
+					return err
+				}
+			} else if err := publishSiblingDelivery(root, plan, previousID, batchID, publishResized); err != nil {
+				return err
+			}
+		}
+		session.HoldSibling(batchID)
+		return nil
+	}
 	held := 0
 	others := make([]codebatch.Sibling, 0, len(siblings))
 	for _, sibling := range siblings {
@@ -395,6 +440,117 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		LogicalPlan: plan.LogicalPlan, Siblings: others}
 	result.Batch.TransportBudgetBytes = firstBudget.Total
 	appendReceiptCandidates(root, loaded, result, receipt)
+	if publishFresh != nil {
+		result.checkParallelBudget = func(wire volumeMaintainResult) (int, error) {
+			return parallelDeliveryCutLimit(root, loaded, wire, siblings, receipts)
+		}
+	} else if deliver {
+		// A replacement must also fit when fetched without a contract memo.
+		result.checkParallelBudget = func(wire volumeMaintainResult) (int, error) {
+			return parallelDeliveryCutLimit(root, loaded, wire, nil, nil)
+		}
+	}
+}
+
+func firstSiblingDelivery(plan *codebatch.ParallelPlan, id string) bool {
+	return len(plan.Delivered) == 0 || plan.Delivered[0] == id
+}
+
+// Only the targets held by this undelivered sibling can enter its replacement.
+// Its suffix is released to later Maintain plans, and delivered siblings retain
+// their original identities and replay preimage.
+func prepareSiblingPrefix(plan *codebatch.ParallelPlan, receipt codebatch.Receipt, count, limit, budget int) (codebatch.Receipt, func(string) error, error) {
+	if count >= len(receipt.Targets) {
+		return receipt, nil, nil
+	}
+	all := make([]codebatch.Candidate, 0, len(receipt.Targets))
+	for _, target := range receipt.Targets {
+		all = append(all, codebatch.Candidate{Target: target})
+	}
+	ids := codebatch.ParallelIdentities{CompositeIdentity: plan.CompositeIdentity, ScopePolicyIdentity: plan.ScopePolicyIdentity,
+		CodeVolumePath: plan.CodeVolumePath, CodeVolumeSHA256: plan.PreimageSHA256}
+	batch, publish, err := codebatch.PrepareBatch(ids, plan.LogicalPlan, all, all[:count], limit, budget)
+	if err != nil {
+		return codebatch.Receipt{}, nil, err
+	}
+	receipt.PlanID, receipt.BatchID = batch.PlanID, batch.BatchID
+	receipt.Targets = make([]codebatch.Target, 0, len(batch.Candidates))
+	for _, candidate := range batch.Candidates {
+		receipt.Targets = append(receipt.Targets, candidate.Target)
+	}
+	return receipt, publish, nil
+}
+
+// This is called only after measurement and while holding the index lock.
+// Updating the plan membership invalidates the old receipt for Apply at the
+// same point that the replacement is marked delivered.
+func publishSiblingDelivery(root string, plan *codebatch.ParallelPlan, previousID, batchID string, publish func(string) error) error {
+	if publish != nil {
+		if err := publish(root); err != nil {
+			return err
+		}
+		for i, id := range plan.Siblings {
+			if id == previousID {
+				plan.Siblings[i] = batchID
+				break
+			}
+		}
+	}
+	plan.Delivered = append(plan.Delivered, batchID)
+	return codebatch.UpdateParallelPlan(root, *plan)
+}
+
+// parallelDeliveryCutLimit tests the full-contract form a fresh worker (or a
+// lead recalling the contract) can request, before publishing any sibling.
+// A zero result accepts the cuts. Otherwise the result caps the next attempt.
+func parallelDeliveryCutLimit(root string, loaded *cognitionRepoCtx, lead volumeMaintainResult, siblings []codebatch.Sibling, receipts map[string]codebatch.Receipt) (int, error) {
+	contract, err := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
+	if err != nil {
+		return 0, err
+	}
+	if lead.InstructionsRef != nil {
+		lead.Instructions = append(append([]string{}, lead.Instructions...), contract.Instructions...)
+		lead.AuthoringMeta, lead.InstructionsRef = contract.AuthoringMeta, nil
+	}
+	_, fits, err := maintainPayload(lead, loaded.cfg)
+	if err != nil {
+		return 0, err
+	}
+	if !fits {
+		return len(lead.Candidates) - 1, nil
+	}
+	for _, sibling := range siblings {
+		if sibling.BatchID == lead.CodePlan.BatchID {
+			continue
+		}
+		wire := lead
+		wire.OrphanRemovals = nil
+		wire.Candidates = nil
+		receipt := receipts[sibling.BatchID]
+		appendReceiptCandidates(root, loaded, &wire, receipt)
+		wire.Sets.Write = candidateRefs(wire.Candidates)
+		wire.Sets.Review = reviewClosure(loaded.set, wire.Candidates)
+		wire.Batch.Included = len(wire.Candidates)
+		wire.Batch.SourceLines, wire.Batch.SourceLinesBudget = batchSourceLines(wire.Candidates)
+		plan := *lead.CodePlan
+		plan.PlanID, plan.BatchID, plan.Included = receipt.PlanID, receipt.BatchID, len(wire.Candidates)
+		plan.SiblingOf = plan.LogicalPlan
+		plan.Siblings = nil
+		for _, other := range siblings {
+			if other.BatchID != receipt.BatchID {
+				plan.Siblings = append(plan.Siblings, other)
+			}
+		}
+		wire.CodePlan = &plan
+		_, fits, err := maintainPayload(wire, loaded.cfg)
+		if err != nil {
+			return 0, err
+		}
+		if !fits {
+			return len(wire.Candidates) - 1, nil
+		}
+	}
+	return 0, nil
 }
 
 // appendReceiptCandidates turns a sibling's receipt targets into the response
@@ -415,29 +571,38 @@ func appendReceiptCandidates(root string, loaded *cognitionRepoCtx, result *volu
 // issued sibling, complete, as the current batch; an applied or invalidated
 // one answers its state and sends the Host back to no-argument Maintain.
 func handleParallelSiblingDelivery(root, serviceVersion, batchID string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
-	if loaded.cfg.CodeCognitionParallelBatchLimit() <= 1 {
-		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_requires_parallel_batches"})
-	}
 	// A sibling is read, judged, and marked delivered under the index lock on
 	// the Volume this call loaded; when another sibling's Apply landed in
 	// between, the call starts over instead of calling the plan broken.
 	for attempt := 1; ; attempt++ {
-		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+			return handleLegacyReadOnlyMaintain(root, serviceVersion)
+		}
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, nil)
 		if lockErr != nil {
 			return failResult(maintainLockFailure(lockErr))
 		}
 		if !moved {
-			defer release()
-			break
+			cfg, fail := loadMCPConfig(root)
+			if fail != nil {
+				release()
+				return failResult(fail)
+			}
+			if cfg.IndexPath == loaded.cfg.IndexPath {
+				loaded.cfg = cfg
+				defer release()
+				break
+			}
+			release()
 		}
-		if attempt >= maintainReloadAttempts {
-			return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
-		}
-		reloaded, fail := loadCognitionCtx(root)
-		if fail != nil {
-			return failResult(fail)
+		reloaded, failure := reloadMaintainContext(root, attempt)
+		if failure != nil {
+			return failure
 		}
 		loaded = reloaded
+	}
+	if loaded.cfg.CodeCognitionParallelBatchLimit() <= 1 {
+		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_batch_id_requires_parallel_batches"})
 	}
 	start := time.Now()
 	facts, _, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
@@ -467,7 +632,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		}
 	}
 	siblings, receipts := parallelSiblingStates(root, plan)
-	changed := false
+	deliver := false
 	var requested *codebatch.Sibling
 	for index := range siblings {
 		if siblings[index].BatchID == batchID {
@@ -505,88 +670,122 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		result.CodePlan.NextAction = result.NextAction
 		state = ""
 	}
-	switch state {
-	case "":
-	case codebatch.SiblingIssued, codebatch.SiblingDelivered:
-		receipt := receipts[batchID]
-		if state == codebatch.SiblingIssued {
-			plan.Delivered = append(plan.Delivered, batchID)
-			changed = true
+	base := result
+	cutLimit := codeBatchLimit(loaded.cfg)
+	var data []byte
+	var receipt codebatch.Receipt
+	var publish func(string) error
+	for {
+		result = base
+		planProjection := *base.CodePlan
+		result.CodePlan = &planProjection
+		switch state {
+		case "":
+		case codebatch.SiblingIssued, codebatch.SiblingDelivered:
+			original := receipts[batchID]
+			receipt = original
+			deliver = state == codebatch.SiblingIssued
+			result.deliveredBatch = !deliver
+			if deliver {
+				receipt, publish, err = prepareSiblingPrefix(plan, original, cutLimit, codeBatchLimit(loaded.cfg), maintainTransportBudget(loaded.cfg))
+				if err != nil {
+					return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+				}
+			}
+			appendReceiptCandidates(root, loaded, &result, receipt)
+			held := 0
+			for _, sibling := range siblings {
+				if siblingOutstanding(sibling.State) {
+					held += sibling.Included
+				}
+			}
+			held -= len(original.Targets) - len(receipt.Targets)
+			work := volumegovernance.CodeAuthoringWorkFor(loaded.set, facts.CodeDrift)
+			remaining := len(work.Targets) - held
+			if remaining < 0 {
+				remaining = 0
+			}
+			result.CodePlan.BatchID = receipt.BatchID
+			result.CodePlan.PlanID, result.CodePlan.Included, result.CodePlan.Remaining = receipt.PlanID, len(receipt.Targets), remaining
+			result.CodePlan.TotalTargets, result.CodePlan.CompleteCandidateSetForBatch = len(work.Targets), true
+			outstandingOthers := 0
+			for _, sibling := range others {
+				if siblingOutstanding(sibling.State) {
+					outstandingOthers++
+				}
+			}
+			result.CodePlan.ContinuationRequired = remaining > 0 || outstandingOthers > 0
+			result.CodePlan.NextAction = "author_complete_current_machine_batch"
+			result.Status, result.Result, result.NextAction = autoStatusRepairRequired, volumegovernance.ResultAuthoringRequired, "author_complete_current_machine_batch"
+			result.Batch.TotalTargets, result.Batch.Included, result.Batch.Remaining = len(work.Targets), len(receipt.Targets), remaining
+			result.Batch.TransportBudgetBytes = maintainTransportBudget(loaded.cfg)
+			result.CodePlan.TransportBudgetBytes = result.Batch.TransportBudgetBytes
+			result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
+			result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
+			result.Sets.Write = candidateRefs(result.Candidates)
+			result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
+			contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
+			if contractErr != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
+			}
+			var lead []string
+			if observeRides {
+				result.ObserveReview = observeReviewForBatch(facts)
+				lead = append(lead, mcpMessage("maintain.observe_review_in_batch_instruction", result.ObserveReview.ReviewDigest))
+			}
+			addMaintainCodeOrphans(&result, facts.CodeDrift.Orphan, firstSiblingDelivery(plan, batchID))
+			if len(result.OrphanRemovals) != 0 {
+				lead = append(lead, mcpMessage("maintain.orphan_removals_instruction"))
+			}
+			attachAuthoringContract(&result, contract, lead, refreshSession, includeInstructions)
+		default:
+			// Applied, or invalidated by a foreign change or its own source drift:
+			// the state is the answer, and no-argument Maintain plans afresh.
+			listed := codebatch.Sibling{BatchID: batchID, Targets: []string{}, State: state}
+			if requested != nil {
+				listed.Targets, listed.Included = requested.Targets, requested.Included
+			}
+			result.CodePlan.Siblings = append([]codebatch.Sibling{listed}, others...)
+			result.Result, result.NextAction = volumegovernance.ResultBlocked, machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
+			result.CodePlan.NextAction = result.NextAction
 		}
-		if changed {
-			// The candidates are returned only once the delivery is on
-			// record: an unrecorded one could be released under its Agent.
-			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+		result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
+		result.Batch.NextAction = result.NextAction
+		result.Metrics.DeterministicMs = elapsedMilliseconds(start)
+		result.Metrics.SemanticFiles = len(result.Candidates)
+		var fits bool
+		data, fits, err = maintainPayload(result, loaded.cfg)
+		if err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+		}
+		if fits && deliver && result.InstructionsRef != nil {
+			cut, err := parallelDeliveryCutLimit(root, loaded, result, nil, nil)
+			if err != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+			}
+			if cut > 0 {
+				cutLimit = cut
+				continue
 			}
 		}
-		appendReceiptCandidates(root, loaded, &result, receipt)
-		held := 0
-		for _, sibling := range siblings {
-			if siblingOutstanding(sibling.State) {
-				held += sibling.Included
-			}
+		if fits {
+			break
 		}
-		work := volumegovernance.CodeAuthoringWorkFor(loaded.set, facts.CodeDrift)
-		remaining := len(work.Targets) - held
-		if remaining < 0 {
-			remaining = 0
-		}
-		result.CodePlan.PlanID, result.CodePlan.Included, result.CodePlan.Remaining = receipt.PlanID, len(receipt.Targets), remaining
-		result.CodePlan.TotalTargets, result.CodePlan.CompleteCandidateSetForBatch = len(work.Targets), true
-		outstandingOthers := 0
-		for _, sibling := range others {
-			if siblingOutstanding(sibling.State) {
-				outstandingOthers++
-			}
-		}
-		result.CodePlan.ContinuationRequired = remaining > 0 || outstandingOthers > 0
-		result.CodePlan.NextAction = "author_complete_current_machine_batch"
-		result.Status, result.Result, result.NextAction = autoStatusRepairRequired, volumegovernance.ResultAuthoringRequired, "author_complete_current_machine_batch"
-		result.Batch.TotalTargets, result.Batch.Included, result.Batch.Remaining = len(work.Targets), len(receipt.Targets), remaining
-		result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
-		result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
-		result.Sets.Write = candidateRefs(result.Candidates)
-		result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
-		contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
-		if contractErr != nil {
-			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
-		}
-		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
-	default:
-		// Applied, or invalidated by a foreign change or its own source drift:
-		// the state is the answer, and no-argument Maintain plans afresh.
-		if changed {
-			// The candidates are returned only once the delivery is on
-			// record: an unrecorded one could be released under its Agent.
-			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
-			}
-		}
-		listed := codebatch.Sibling{BatchID: batchID, Targets: []string{}, State: state}
-		if requested != nil {
-			listed.Targets, listed.Included = requested.Targets, requested.Included
-		}
-		result.CodePlan.Siblings = append([]codebatch.Sibling{listed}, others...)
-		result.Result, result.NextAction = volumegovernance.ResultBlocked, machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
-		result.CodePlan.NextAction = result.NextAction
+		cutLimit = len(result.Candidates) - 1
 	}
-	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
-	result.Batch.NextAction = result.NextAction
-	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
-	result.Metrics.SemanticFiles = len(result.Candidates)
+	if deliver {
+		if err := publishSiblingDelivery(root, plan, batchID, receipt.BatchID, publish); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	response := maintainResponse(data, result, refreshSession)
 	ledgerResult := ledger.ResultError
-	if result.Status == autoStatusRepairRequired {
+	if result.Status == autoStatusRepairRequired && !response.IsError {
 		ledgerResult = ledger.ResultRepairRequired
 	}
 	ledger.Append(root, loaded.cfg.LedgerEnabled, ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
 		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
 		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates), GovernanceResult: result.Result,
-		NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false), BatchID: batchID})
-	boundMaintainTransport(&result)
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return errResult(errInternal, "volume_maintain_result_invalid", "")
-	}
-	return textResult(string(data) + "\n")
+		NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false), BatchID: result.CodePlan.BatchID})
+	return response
 }

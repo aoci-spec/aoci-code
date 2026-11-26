@@ -154,6 +154,14 @@ func (loaded *cognitionRepoCtx) legacyRepo() *repoCtx {
 	return &repoCtx{cfg: loaded.cfg, paths: loaded.paths, text: string(loaded.set.Root.Raw), doc: loaded.set.Root.Document, bl: loaded.bl}
 }
 
+func loadMCPConfig(root string) (*config.Config, *Fail) {
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		return nil, &Fail{Code: errIndexInvalid, Msg: mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())), Hint: mcpMessage("mcp.error.invalid_config_hint")}
+	}
+	return cfg, nil
+}
+
 // loadCognitionCtx is the only physical-layout loader used by MCP callers.
 // Legacy is adapted to CognitionSet; Volumes v1 never falls through to the
 // monolithic parser.
@@ -173,9 +181,9 @@ func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
 			Hint: mcpMessage("overview.delivery.pending_recovery_hint"),
 		}
 	}
-	cfg, err := config.LoadReadOnly(root)
-	if err != nil {
-		return nil, &Fail{Code: errIndexInvalid, Msg: mcpMessage("mcp.error.invalid_config", localeSafeMCPDetail(err.Error())), Hint: mcpMessage("mcp.error.invalid_config_hint")}
+	cfg, fail := loadMCPConfig(root)
+	if fail != nil {
+		return nil, fail
 	}
 	paths := config.AOCIPaths(root, cfg.IndexPath)
 	set, err := cognition.Load(root, cfg.IndexPath)

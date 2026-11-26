@@ -2,7 +2,6 @@ package mcptools
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -70,11 +69,12 @@ type volumeMaintainSets struct {
 }
 
 type volumeAuthoringBatch struct {
-	LogicalPlan          string `json:"logical_plan"`
-	BatchIdentity        string `json:"batch_identity"`
-	TotalTargets         int    `json:"total_targets"`
-	MaxEntries           int    `json:"max_entries"`
-	TransportBudgetBytes int    `json:"transport_budget_bytes,omitempty"`
+	LogicalPlan             string `json:"logical_plan"`
+	BatchIdentity           string `json:"batch_identity"`
+	TotalTargets            int    `json:"total_targets"`
+	MaxEntries              int    `json:"max_entries"`
+	TransportBudgetBytes    int    `json:"transport_budget_bytes,omitempty"`
+	TransportBudgetExceeded bool   `json:"transport_budget_exceeded,omitempty"`
 	// SourceLines is what this batch asks the model to read: the line counts
 	// of its Code candidates, as file_lines reports each. SourceLinesBudget
 	// is the bound the batch was cut under; a single larger file still ships,
@@ -118,29 +118,34 @@ type volumeMaintainResult struct {
 	// which is a failure to report and never an empty, aligned-looking answer.
 	volumeMoved  bool
 	issueFailure string
-	// planIssuedNow marks the response that issued a fresh parallel plan:
-	// the one sibling Code orphans may ride.
-	planIssuedNow bool
-	lockErr       error
-	planMarker    string
-	Batch         volumeAuthoringBatch `json:"authoring_batch"`
+	// Orphans ride only the first sibling, including redelivery of that batch.
+	codeOrphansRide         bool
+	deliveredBatch          bool
+	releasePlanLock         func()
+	publishCodeBatch        func() error
+	checkParallelBudget     func(volumeMaintainResult) (int, error)
+	lockErr                 error
+	planMarker              string
+	authoringContractDigest string
+	Batch                   volumeAuthoringBatch `json:"authoring_batch"`
 	// ObserveReview lists the Observe evidence a review_required policy is
 	// waiting on, with the digest the observe_review intent confirms (#151).
-	ObserveReview     *observeReviewListing            `json:"observe_review,omitempty"`
-	RequestedScope    string                           `json:"requested_scope"`
-	AffectedDomains   []string                         `json:"affected_domains"`
-	Candidates        []volumeMaintainCandidate        `json:"candidates"`
-	OrphanRemovals    []string                         `json:"orphan_remove_candidates"`
-	Sets              volumeMaintainSets               `json:"sets"`
-	DatabasePlan      *dbcognition.Plan                `json:"database_plan,omitempty"`
-	CodePlan          *codebatch.Plan                  `json:"code_plan,omitempty"`
-	Governance        *volumegovernance.TransportFacts `json:"governance"`
-	Receipt           cognitionReceipt                 `json:"cognition_receipt"`
-	Metrics           autoMetrics                      `json:"metrics"`
-	SemanticGenerated bool                             `json:"semantic_generated"`
-	NetworkAccessed   bool                             `json:"network_accessed"`
-	AuthoringMeta     string                           `json:"authoring_meta,omitempty"`
-	Optimization      *cognitionOptimizationStatus     `json:"optimization,omitempty"`
+	ObserveReview      *observeReviewListing            `json:"observe_review,omitempty"`
+	RequestedScope     string                           `json:"requested_scope"`
+	AffectedDomains    []string                         `json:"affected_domains"`
+	Candidates         []volumeMaintainCandidate        `json:"candidates"`
+	OrphanRemovals     []string                         `json:"orphan_remove_candidates"`
+	OrphanRemovalTotal int                              `json:"orphan_remove_candidates_total,omitempty"`
+	Sets               volumeMaintainSets               `json:"sets"`
+	DatabasePlan       *dbcognition.Plan                `json:"database_plan,omitempty"`
+	CodePlan           *codebatch.Plan                  `json:"code_plan,omitempty"`
+	Governance         *volumegovernance.TransportFacts `json:"governance"`
+	Receipt            cognitionReceipt                 `json:"cognition_receipt"`
+	Metrics            autoMetrics                      `json:"metrics"`
+	SemanticGenerated  bool                             `json:"semantic_generated"`
+	NetworkAccessed    bool                             `json:"network_accessed"`
+	AuthoringMeta      string                           `json:"authoring_meta,omitempty"`
+	Optimization       *cognitionOptimizationStatus     `json:"optimization,omitempty"`
 	// ServiceBinaryReplacedOnDisk is a purely advisory fact: the service binary on disk now differs from the one this process
 	// started with, and the host should restart the MCP integration when convenient. It blocks no flow and is absent when there is no drift.
 	ServiceBinaryReplacedOnDisk bool `json:"service_binary_replaced_on_disk,omitempty"`
@@ -149,6 +154,26 @@ type volumeMaintainResult struct {
 // maintainReloadAttempts bounds how often one Maintain starts over because a
 // sibling's Apply landed between its load and its turn at the plan.
 const maintainReloadAttempts = 4
+
+func reloadMaintainContext(root string, attempt int) (*cognitionRepoCtx, *mcp.CallToolResult) {
+	if attempt >= maintainReloadAttempts {
+		const reason = machinecontract.MaintainReasonSnapshotChanged
+		result := errResult(errWriteConflict, reason, writeMessage("entry.batch.hint.replan"))
+		result.StructuredContent = map[string]any{
+			"status":                autoStatusStopped,
+			"error_code":            errWriteConflict,
+			"reason_code":           reason,
+			"next_action":           machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch,
+			"formal_writes_started": false,
+		}
+		return nil, result
+	}
+	loaded, fail := loadCognitionCtx(root)
+	if fail != nil {
+		return nil, failResult(fail)
+	}
+	return loaded, nil
+}
 
 func handleVolumeMaintain(root, serviceVersion, requestedScope string, includeInstructions bool, loaded *cognitionRepoCtx, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
 	return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, loaded, refreshSession, 1)
@@ -159,17 +184,46 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	if requestedScope != "" && requestedScope != cognition.ScopeCode && requestedScope != cognition.ScopeDatabase && requestedScope != cognition.ScopeAll {
 		return failResult(&Fail{Code: errBadArgs, Msg: "maintain_scope_invalid"})
 	}
+	if loaded.set.LayoutMode != cognition.LayoutVolumesV1 {
+		return handleLegacyReadOnlyMaintain(root, serviceVersion)
+	}
+	reload := func() *mcp.CallToolResult {
+		reloaded, failure := reloadMaintainContext(root, attempt)
+		if failure != nil {
+			return failure
+		}
+		return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+	}
 	// The snapshot the verdict was computed from binds the candidates: the
 	// digest a target had when it was judged missing or stale, with no second
 	// read of the tree.
 	planMarker := codebatch.ParallelPlanMarker(root)
 	facts, state, err := volumegovernance.AssessWithSnapshot(root, loaded.cfg, loaded.set)
+	var badBaseline *volumegovernance.BaselineRestoreError
+	assessment := codePlanAssessment{planMarker: planMarker, restore: true}
+	switch {
+	case errors.As(err, &badBaseline):
+		assessment.baselineSHA256 = badBaseline.BaselineSHA256
+	case facts != nil && facts.Result == volumegovernance.ResultBlocked && len(facts.RestoreSet()) > 0:
+		assessment.baselineSHA256 = facts.BaselineSHA256
+		assessment.recoveryPending = facts.RecoveryPending
+	}
+	if assessment.baselineSHA256 != "" {
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, &assessment)
+		if lockErr != nil {
+			return failResult(maintainLockFailure(lockErr))
+		}
+		if moved {
+			return reload()
+		}
+		defer release()
+	}
 	if err != nil {
 		// An unreadable Baseline names its own way out (a merge that left
 		// conflict markers); the caller gets it instead of a bare internal code.
-		if _, restore, found := strings.Cut(err.Error(), "; "+machinecontract.MaintainActionRestoreFormalAssets+": "); found {
+		if badBaseline != nil {
 			return failResult(&Fail{Code: errIndexInvalid, Msg: "volumes_governance_baseline_invalid",
-				Hint: machinecontract.MaintainActionRestoreFormalAssets + ": " + restore})
+				Hint: machinecontract.MaintainActionRestoreFormalAssets + ": " + badBaseline.Command})
 		}
 		return failResult(&Fail{Code: errInternal, Msg: "volumes_governance_facts_invalid"})
 	}
@@ -199,36 +253,121 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	// the posture lets the model confirm it: the batch is issued beside the
 	// listing and confirms it on the way in (2026-11-01).
 	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
-	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
-		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			result.planMarker = planMarker
-			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
-			if result.volumeMoved {
-				if attempt >= maintainReloadAttempts {
-					return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
+
+	base := result
+	codeLimit, databaseLimit := codeBatchLimit(loaded.cfg), codeBatchLimit(loaded.cfg)
+	var data []byte
+	defer func() {
+		if result.releasePlanLock != nil {
+			result.releasePlanLock()
+		}
+	}()
+	for {
+		result = base
+		if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
+			if requested[cognition.ScopeCode] && facts.Code.Enabled {
+				result.planMarker = planMarker
+				buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeLimit, codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
+				if result.volumeMoved {
+					return reload()
 				}
-				reloaded, fail := loadCognitionCtx(root)
-				if fail != nil {
-					return failResult(fail)
+				if result.lockErr != nil {
+					return failResult(maintainLockFailure(result.lockErr))
 				}
-				return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+				if result.issueFailure != "" {
+					return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
+				}
 			}
-			if result.lockErr != nil {
-				return failResult(maintainLockFailure(result.lockErr))
-			}
-			if result.issueFailure != "" {
-				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
+			// Code siblings issued in parallel plan against the Database Volume's
+			// bytes: a Database batch beside them would stale every sibling still
+			// being authored once it applies (audit G2-05), so Database waits
+			// until the siblings are in.
+			if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) &&
+				!codeSiblingsOutstandingOnDisk(root, facts, loaded.set) {
+				buildVolumeDatabaseCandidates(root, loaded, &result, min(databaseLimit, codeBatchLimit(loaded.cfg)-len(result.Candidates)))
 			}
 		}
-		// Code siblings issued in parallel plan against the Database Volume's
-		// bytes: a Database batch beside them would stale every sibling still
-		// being authored once it applies (audit G2-05), so Database waits
-		// until the siblings are in.
-		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) &&
-			!codeSiblingsOutstandingOnDisk(root, facts, loaded.set) {
-			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
+		if failure := finishVolumeMaintainResult(root, loaded, &result, requested, codeWork, observeRides, includeInstructions, refreshSession); failure != nil {
+			return failure
+		}
+		result.Metrics.DeterministicMs = elapsedMilliseconds(start)
+		result.Metrics.SemanticFiles = len(result.Candidates)
+		var fits bool
+		data, fits, err = maintainPayload(result, loaded.cfg)
+		if err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+		}
+		narrowSiblingLimit := 0
+		if fits && result.checkParallelBudget != nil {
+			narrowSiblingLimit, err = result.checkParallelBudget(result)
+			if err != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+			}
+			fits = narrowSiblingLimit == 0
+		}
+		if fits {
+			break
+		}
+		databaseCount := 0
+		if result.DatabasePlan != nil {
+			databaseCount = result.DatabasePlan.TargetCount
+		}
+		if databaseCount > 0 {
+			databaseLimit = databaseCount / 2
+		} else if narrowSiblingLimit > 0 {
+			codeLimit = narrowSiblingLimit
+		} else if len(result.Candidates) > 1 {
+			codeLimit = len(result.Candidates) - 1
+		} else {
+			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+		}
+		if result.releasePlanLock != nil {
+			// This attempt may have reconciled its own solo mark. Remember
+			// that postimage while the lock still excludes other writers.
+			planMarker = codebatch.ParallelPlanMarker(root)
+			result.releasePlanLock()
+			result.releasePlanLock = nil
 		}
 	}
+	if result.DatabasePlan != nil {
+		if err := dbcognition.PublishPlan(root, *result.DatabasePlan); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "database_candidate_batch_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	if result.publishCodeBatch != nil {
+		if err := result.publishCodeBatch(); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + err.Error(), Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	response := maintainResponse(data, result, refreshSession)
+	if refreshSession != nil && !response.IsError {
+		refreshSession.noteSemanticThreshold(len(result.Candidates), loaded.cfg.CognitionRefreshThreshold)
+	}
+	ledgerResult := ledger.ResultOK
+	if result.Status == autoStatusStopped || response.IsError {
+		ledgerResult = ledger.ResultError
+	} else if result.Status == autoStatusRepairRequired {
+		ledgerResult = ledger.ResultRepairRequired
+	}
+	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
+		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
+		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
+		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
+		BatchID: result.Batch.BatchIdentity}
+	if result.CodePlan != nil && result.CodePlan.BatchID != "" {
+		event.BatchID = result.CodePlan.BatchID
+	}
+	if result.Status == autoStatusStopped {
+		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
+	}
+	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
+	return response
+}
+
+// finishVolumeMaintainResult assembles the response without publishing any receipts.
+// The same binding and authoring envelope is measured before it is delivered.
+func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, requested map[string]bool, codeWork volumegovernance.CodeAuthoringWork, observeRides, includeInstructions bool, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+	facts := result.Governance.Facts
 	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested, codeWork)
 	result.Batch.Included = len(result.Candidates)
 	result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
@@ -238,7 +377,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	}
 	result.Batch.CompleteCandidateSet = len(result.Candidates) > 0
 	result.Batch.ContinuationRequired = result.Batch.Remaining > 0
-	if codeSiblingsIssued(result) {
+	if codeSiblingsIssued(*result) {
 		// Siblings issued ahead hold targets this response does not carry:
 		// remaining counts what no sibling holds plus the Database work held
 		// back, and the plan continues while either is outstanding.
@@ -250,24 +389,18 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		result.Batch.Remaining = result.CodePlan.Remaining + databaseOutstanding
 		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
 	}
-	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
-	// Code orphans ride a single batch, or of a parallel plan only the
-	// response that issued it: a sibling handed out later by no-argument
-	// Maintain carried the same removals, and the second to apply found them
-	// gone and stopped (audit G2-10, rv37).
-	codeOrphansRide := !codeSiblingsIssued(result) || result.planIssuedNow
-	for _, orphan := range facts.CodeDrift.Orphan {
-		if requested[cognition.ScopeCode] && codeOrphansRide {
-			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+orphan)
-		}
-	}
 	for _, item := range facts.DatabaseCognition.Items {
 		if requested[cognition.ScopeDatabase] && item.State == machinecontract.DatabaseCognitionOrphan {
 			result.OrphanRemovals = append(result.OrphanRemovals, item.ObjectRef)
 		}
 	}
-	sort.Strings(result.OrphanRemovals)
+	if requested[cognition.ScopeCode] {
+		addMaintainCodeOrphans(result, facts.CodeDrift.Orphan, !codeSiblingsIssued(*result) || result.codeOrphansRide)
+	} else {
+		result.OrphanRemovalTotal = len(result.OrphanRemovals)
+	}
+	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(*result)
 	result.Sets.Write = candidateRefs(result.Candidates)
 	result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
 	if facts.Code.Enabled {
@@ -353,71 +486,31 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		if others := parallelSiblingsToHandOut(result.CodePlan); others > 0 {
 			lead = append(lead, mcpMessage("maintain.parallel_siblings_instruction", others))
 		}
-		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
+		attachAuthoringContract(result, contract, nil, refreshSession, includeInstructions)
 		if len(lead) > 0 {
 			result.Instructions = append(lead, result.Instructions...)
 		}
 	} else if result.NextAction == machinecontract.MaintainActionRemoveOrphansInBatch {
 		result.Instructions = append(result.Instructions, mcpMessage("maintain.orphan_removals_instruction"))
 	}
-	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
-	result.Metrics.SemanticFiles = len(result.Candidates)
-	if refreshSession != nil {
-		refreshSession.noteSemanticThreshold(len(result.Candidates), loaded.cfg.CognitionRefreshThreshold)
-	}
-	ledgerResult := ledger.ResultOK
-	if result.Status == autoStatusStopped {
-		ledgerResult = ledger.ResultError
-	} else if result.Status == autoStatusRepairRequired {
-		ledgerResult = ledger.ResultRepairRequired
-	}
-	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
-		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
-		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
-		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
-		BatchID: result.Batch.BatchIdentity}
-	if result.CodePlan != nil && result.CodePlan.BatchID != "" {
-		event.BatchID = result.CodePlan.BatchID
-	}
-	if result.Status == autoStatusStopped {
-		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
-	}
-	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
-	boundMaintainTransport(&result)
-	data, marshalErr := json.Marshal(result)
-	if marshalErr != nil {
-		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
-	}
-	return textResult(string(data) + "\n")
+	return nil
 }
 
-// boundMaintainTransport keeps a Maintain response inside ordinary host
-// tool-result windows regardless of repository size: per-item governance
-// enumerations and the review closure keep a leading sample plus complete
-// counts. Candidates, plans, receipts, and every scalar fact are untouched,
-// so nothing the model must act on is ever cut. (A 453-file fresh repository
-// otherwise answered its first Maintain with 212 KB, three times a common host
-// window; the host spilled it to disk and the model fell back to scripting.)
-func boundMaintainTransport(result *volumeMaintainResult) {
-	limit := machinecontract.MaintainTransportListLimit
-	if len(result.Candidates) > 0 {
-		// While the response carries candidates they are the actionable set:
-		// the governance enumerations, the review closure, and the write set
-		// shrink to a small sample plus complete counts so the batch, not the
-		// situational awareness, spends the transport budget.
-		limit = maintainCandidateSampleLimit
-		if len(result.Sets.Write) > limit {
-			result.Sets.WriteTotal = len(result.Sets.Write)
-			result.Sets.Write = append([]string{}, result.Sets.Write[:limit]...)
+// addMaintainCodeOrphans uses the same combined candidate/removal ceiling
+// that Apply validates. Database orphans remain separate removal actions.
+func addMaintainCodeOrphans(result *volumeMaintainResult, orphans []string, carry bool) {
+	result.OrphanRemovalTotal = len(result.OrphanRemovals) + len(orphans)
+	included := 0
+	if carry {
+		included = min(len(orphans), machinecontract.EntriesBatchMaxItems-len(result.Candidates))
+		for _, path := range orphans[:included] {
+			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+path)
 		}
 	}
-	if len(result.Sets.Review) > limit {
-		result.Sets.ReviewTotal = len(result.Sets.Review)
-		result.Sets.Review = append([]string{}, result.Sets.Review[:limit]...)
-	}
-	if result.Governance != nil {
-		result.Governance = volumegovernance.BoundForMaintainTransport(result.Governance.Facts, limit)
-	}
+	sort.Strings(result.OrphanRemovals)
+	result.Batch.Remaining += len(orphans) - included
+	result.Batch.ContinuationRequired = result.Batch.ContinuationRequired || len(orphans) > included
+	result.Batch.CompleteCandidateSet = result.Batch.CompleteCandidateSet || included > 0
 }
 
 // SnapshotOfState is the Code source snapshot a governance verdict was
@@ -456,13 +549,14 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // candidates: a target the Code Volume already describes is an update, any
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
-func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool, session *cognitionRefreshSession) {
+func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, cutLimit int, contractOnWire bool, session *cognitionRefreshSession) {
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	var budget codebatch.Budget
-	var selected []codebatch.Candidate
+	var ordered, selected []codebatch.Candidate
 	if len(all) > 0 {
 		budget = codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
-		_, selected = codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
+		ordered, _ = codebatch.Select(all, 0)
+		selected = cutMaintainCodeBatch(ordered, cutLimit, budget)
 	}
 	// The plan records are read and written under the index lock, on the
 	// Volume bytes this call loaded: a sibling's Apply that landed since is
@@ -478,23 +572,17 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 	planLocked := recordsExist ||
 		(loaded.cfg.CodeCognitionParallelBatchLimit() > 1 && len(selected) < len(all))
 	if planLocked {
-		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded)
+		assessment := codePlanAssessment{baselineSHA256: result.Governance.BaselineSHA256, planMarker: result.planMarker}
+		release, moved, lockErr := lockPlanOnLoadedVolume(root, loaded, &assessment)
 		if lockErr != nil {
 			result.lockErr = lockErr
 			return
 		}
-		// A plan recorded since this call assessed the tree came from a
-		// newer view of it; the call starts over instead of judging it.
 		if moved {
 			result.volumeMoved = true
 			return
 		}
-		if codebatch.ParallelPlanMarker(root) != result.planMarker {
-			release()
-			result.volumeMoved = true
-			return
-		}
-		defer release()
+		result.releasePlanLock = release
 	}
 	if len(all) == 0 {
 		if planLocked {
@@ -503,6 +591,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		}
 		return
 	}
+	solo := planLocked && codebatch.SoloBuildCovers(root, all)
 	parallelWork := planLocked && loaded.cfg.CodeCognitionParallelBatchLimit() > 1
 	// Sibling batches exist for work one batch cannot hold: a plan with a
 	// sibling still out continues, and work beyond one batch starts one.
@@ -521,9 +610,10 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 				return
 			}
 			outstanding = false
+			solo = true
 		}
-		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuildCovers(root, all)) {
-			buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel, session)
+		if outstanding || (len(selected) < len(all) && !solo) {
+			buildParallelCodeCandidates(root, loaded, result, ordered, lines, cutLimit, contractOnWire, parallel, session)
 			return
 		}
 	}
@@ -536,13 +626,13 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		result.Stop = fail.GlobalStop
 		return
 	}
-	plan, err := codebatch.BuildPlanWithBudget(root, result.Governance.CompositeIdentity,
-		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), budget)
+	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
+	plan, publish, err := codebatch.PrepareBatch(ids, "", ordered, selected, codeBatchLimit(loaded.cfg), budget.Total)
 	if err != nil {
 		result.issueFailure = err.Error()
 		return
 	}
+	result.publishCodeBatch = func() error { return publish(root) }
 	result.CodePlan = transportCodePlan(plan)
 	result.Batch.TransportBudgetBytes = plan.TransportBudgetBytes
 	thresholds := optimizationEScaleThresholds(loaded.set)
@@ -638,7 +728,7 @@ func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result
 	if objectLimit > capacity {
 		objectLimit = capacity
 	}
-	plan, err := dbcognition.BuildPlan(root, assessment, loaded.set, objectLimit, evidenceLimit)
+	plan, err := dbcognition.PreparePlan(root, assessment, loaded.set, objectLimit, evidenceLimit)
 	if err != nil {
 		return
 	}

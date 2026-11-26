@@ -269,54 +269,141 @@ func soloBuildPath(root string) string {
 	return filepath.Join(parallelDirectory(root), "solo-build")
 }
 
-func soloBuildLine(candidate Candidate) string {
-	return candidate.SourceSHA256 + " " + candidate.Path
-}
+const soloBuildVersion = "code-cognition-solo-build/v2"
 
 // MarkSoloBuild records that siblings were issued and nobody fetched them:
 // one session is authoring alone, so while this same work is outstanding
 // every Maintain issues the single current batch at full size instead of
 // cutting siblings no one takes. The mark names the work, each target with
-// the source digest it had, so it holds for what is left of this build and
-// for nothing else. A runtime mark like the plan records, in no identity.
+// the source digest it had. Only targets still outstanding stay on the mark.
+// This is a runtime hint, outside the plan and recovery identities.
 func MarkSoloBuild(root string, work []Candidate) error {
 	if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
 		return fmt.Errorf("code_candidate_receipt_directory_unavailable")
 	}
-	lines := make([]string, 0, len(work))
+	named := make(map[string]string, len(work))
 	for _, candidate := range work {
-		lines = append(lines, soloBuildLine(candidate))
+		named[candidate.Path] = candidate.SourceSHA256
 	}
-	sort.Strings(lines)
-	return afs.AtomicWrite(soloBuildPath(root), []byte(strings.Join(lines, "\n")+"\n"))
+	return writeSoloBuild(root, named)
 }
 
-// SoloBuildCovers reports whether the mark holds for the given work: every
-// target is one the mark named, at the digest it named. Work the mark does
-// not name is a new wave, however the earlier one ended (an aligning Apply,
-// a Scope Change, a removal), and the mark is dropped.
+// SoloBuildCovers reconciles the mark against the current work under the
+// index lock. A subset at the same digests stays solo. Rewriting the mark
+// retires departed targets and upgrades headerless marks from older binaries.
+// New work starts a fresh plan.
 func SoloBuildCovers(root string, work []Candidate) bool {
-	info, err := os.Lstat(soloBuildPath(root))
-	if err != nil || !info.Mode().IsRegular() {
+	named, legacy := loadSoloBuild(root)
+	if len(named) == 0 {
 		return false
-	}
-	data, err := os.ReadFile(soloBuildPath(root))
-	if err != nil {
-		return false
-	}
-	named := map[string]bool{}
-	for _, line := range strings.Split(string(data), "\n") {
-		if line != "" {
-			named[line] = true
-		}
 	}
 	for _, candidate := range work {
-		if !named[soloBuildLine(candidate)] {
+		if named[candidate.Path] != candidate.SourceSHA256 {
 			ClearSoloBuild(root)
 			return false
 		}
 	}
-	return len(work) > 0
+	if !legacy && len(work) == len(named) {
+		return true
+	}
+	remaining := make(map[string]string, len(work))
+	for _, candidate := range work {
+		remaining[candidate.Path] = candidate.SourceSHA256
+	}
+	return updateSoloBuild(root, remaining)
+}
+
+// RetireSoloBuildTargets forgets the Code paths a write has settled under
+// the index lock. A later change to the same bytes can then start new work
+// even when no Maintain observed the intervening aligned state.
+func RetireSoloBuildTargets(root string, paths []string) {
+	named, _ := loadSoloBuild(root)
+	before := len(named)
+	for _, path := range paths {
+		delete(named, path)
+	}
+	if len(named) < before {
+		updateSoloBuild(root, named)
+	}
+}
+
+func soloBuildBytes(root string) []byte {
+	info, err := os.Lstat(soloBuildPath(root))
+	if err != nil || !info.Mode().IsRegular() {
+		return nil
+	}
+	data, err := os.ReadFile(soloBuildPath(root))
+	if err != nil {
+		return nil
+	}
+	return data
+}
+
+// SoloBuildDigest identifies the hint observed before a governance proof.
+func SoloBuildDigest(root string) string {
+	if data := soloBuildBytes(root); data != nil {
+		return BytesSHA256(data)
+	}
+	return ""
+}
+
+// ClearSoloBuildIfUnchanged closes the hint when a later alignment proof
+// sees targets disappear during Apply. It leaves concurrent progress alone.
+func ClearSoloBuildIfUnchanged(root, digest string) {
+	if digest == "" {
+		return
+	}
+	lock, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		return
+	}
+	defer func() { _ = lock.Release() }()
+	if SoloBuildDigest(root) == digest {
+		ClearSoloBuild(root)
+	}
+}
+
+func loadSoloBuild(root string) (named map[string]string, legacy bool) {
+	data := soloBuildBytes(root)
+	if data == nil {
+		return nil, false
+	}
+	version, rest, _ := strings.Cut(string(data), "\n")
+	legacy = version != soloBuildVersion
+	if legacy {
+		// Earlier binaries wrote the same digest/path rows without a header.
+		rest = string(data)
+	}
+	named = map[string]string{}
+	for _, line := range strings.Split(strings.TrimSuffix(rest, "\n"), "\n") {
+		digest, target, ok := strings.Cut(line, " ")
+		if !ok || !validSHA256(digest) || target == "" {
+			ClearSoloBuild(root)
+			return nil, false
+		}
+		named[target] = digest
+	}
+	return named, legacy
+}
+
+func writeSoloBuild(root string, named map[string]string) error {
+	if len(named) == 0 {
+		ClearSoloBuild(root)
+		return nil
+	}
+	lines := make([]string, 0, len(named))
+	for path, digest := range named {
+		lines = append(lines, digest+" "+path)
+	}
+	sort.Strings(lines)
+	return afs.AtomicWriteKeepingTarget(soloBuildPath(root), []byte(soloBuildVersion+"\n"+strings.Join(lines, "\n")+"\n"))
+}
+
+// A failed shrink leaves the older, wider mark in place. The remaining
+// targets still match it, so Maintain can keep issuing single batches.
+func updateSoloBuild(root string, named map[string]string) bool {
+	_ = writeSoloBuild(root, named)
+	return len(named) != 0
 }
 
 // ClearSoloBuild removes the mark; an absent one is no error.
@@ -647,10 +734,9 @@ func ValidateParallelSubmission(root, repoRoot, batchID string, ids ParallelIden
 	return receipt, plan, nil
 }
 
-// ParallelPlanMarker names the logical plans on record. A Maintain reads it
-// before it assesses the tree and again under the index lock: a different
-// marker means another session recorded a plan from a newer view of the tree,
-// which this call must not judge from its older one.
+// ParallelPlanMarker tracks plans and solo progress. A Maintain compares it
+// before assessment and under the index lock so it cannot judge newer plan
+// state using older facts, including when an Apply only rebinds the Baseline.
 func ParallelPlanMarker(root string) string {
 	entries, err := os.ReadDir(parallelDirectory(root))
 	if err != nil {
@@ -658,8 +744,11 @@ func ParallelPlanMarker(root string) string {
 	}
 	var names []string
 	for _, entry := range entries {
-		if name := entry.Name(); strings.HasPrefix(name, "parallel-") {
+		name := entry.Name()
+		if strings.HasPrefix(name, "parallel-") {
 			names = append(names, name)
+		} else if name == "solo-build" {
+			names = append(names, name+":"+SoloBuildDigest(root))
 		}
 	}
 	return strings.Join(names, "\n")

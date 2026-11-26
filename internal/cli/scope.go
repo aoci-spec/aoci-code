@@ -216,8 +216,9 @@ func newScopeExplainCmd() *cobra.Command {
 			if curationErr != nil {
 				return managedScopeExitError(curationErr)
 			}
+			walkOptions := cfg.WalkOptions()
 			evaluation, err := managedscope.Build(root, cfg.EffectiveManagedScope(), managedscope.BuildOptions{
-				WalkOptions: cfg.WalkOptions(), CurationExclude: curationExclude})
+				WalkOptions: walkOptions, CurationExclude: curationExclude})
 			if err != nil {
 				return managedScopeExitError(err)
 			}
@@ -226,27 +227,25 @@ func newScopeExplainCmd() *cobra.Command {
 				if parent := submoduleParent(rel, evaluation.Exclude); parent != "" {
 					// A path at or under a gitlink belongs to another repository; the
 					// superproject never lists it, so explain names the boundary (#107).
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: afs.SafetyUnsafe, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "git_submodule:" + afs.SafetyUnsafe}
-				} else if category, source := afs.BuiltInSafetyCategory(rel, cfg.WalkOptions().SensitiveNameRules); category != "" {
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + category}
-				} else if source, excluded := afs.ConfiguredExclusionSource(rel, cfg.WalkOptions()); excluded {
-					// A path under an exclude_dirs directory is a configured hard
-					// exclusion; since rc18 a git-ignored directory of that kind is
-					// one inventory line, so its files are not in the evaluation.
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: afs.SafetyConfigured, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + afs.SafetyConfigured}
+					item = explainSafetyExclusion(rel, afs.SafetyUnsafe, "git_submodule", "future_or_absent")
+				} else if folded, found := foldedScopeExclusion(rel, evaluation.Exclude); found {
+					item = folded
+				} else if category, source := afs.BuiltInSafetyCategory(rel, walkOptions.SensitiveNameRules); category != "" {
+					item = explainSafetyExclusion(rel, category, source, "future_or_absent")
 				} else {
-					curated := containsScopePath(cfg.CurationExclude, rel)
-					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, false, curated)
-					item.GitStatus = "future_or_absent"
+					ignored, _ := afs.PathIgnoredByGit(root, rel)
+					artifactSource, artifact := afs.IgnoredArtifactSource(rel, walkOptions)
+					if ignored && artifact {
+						item = explainSafetyExclusion(rel, afs.SafetyConfigured, artifactSource, "untracked_or_non_git")
+					} else if source, excluded := afs.ConfiguredExclusionSource(rel, walkOptions); excluded {
+						item = explainSafetyExclusion(rel, afs.SafetyConfigured, source, "future_or_absent")
+					} else {
+						curated := containsScopePath(cfg.CurationExclude, rel)
+						item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, ignored, curated)
+						if !ignored {
+							item.GitStatus = "future_or_absent"
+						}
+					}
 				}
 			}
 			if flagJSON {
@@ -264,6 +263,24 @@ func newScopeExplainCmd() *cobra.Command {
 			}
 			return nil
 		}}
+}
+
+func explainSafetyExclusion(rel, category, source, gitStatus string) managedscope.PathEvaluation {
+	return managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
+		Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
+		RulePriority: 700, SafetyStatus: category, GitStatus: gitStatus, Reason: source + ":" + category}
+}
+
+// A folded Safe Inventory directory represents all descendants.
+func foldedScopeExclusion(rel string, exclusions []managedscope.PathEvaluation) (managedscope.PathEvaluation, bool) {
+	for _, item := range exclusions {
+		if item.RuleSource == machinecontract.ScopeRuleSafety && strings.HasSuffix(item.Path, "/") &&
+			(strings.HasPrefix(rel, item.Path) || rel == strings.TrimSuffix(item.Path, "/")) {
+			item.Path = rel
+			return item, true
+		}
+	}
+	return managedscope.PathEvaluation{}, false
 }
 
 // submoduleParent returns the gitlink that rel is or sits under, from the
@@ -438,25 +455,50 @@ func newScopeRuleUpdateCmd() *cobra.Command {
 }
 
 func newScopeRuleRemoveCmd() *cobra.Command {
-	return &cobra.Command{Use: "remove <rule-id>", Short: cliMessage("cli.short.scope_rule_remove"), Args: oneArgument("rule remove <rule-id>"),
+	return &cobra.Command{Use: "remove <rule-id> [<rule-id>...]", Short: cliMessage("cli.short.scope_rule_remove"),
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return errors.New(cliMessage("scope.rule_remove_id_required"))
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := resolveRepoRoot()
 			if err != nil {
 				return managedScopeExitError(err)
 			}
 			err = config.MutateManagedScope(root, func(policy *managedscope.Policy) error {
-				for index, rule := range policy.Rules {
-					if rule.RuleID == args[0] {
-						policy.Rules = append(policy.Rules[:index], policy.Rules[index+1:]...)
-						return nil
+				// Rebuild the request set for each CAS attempt.
+				requested := make(map[string]bool, len(args))
+				for _, id := range args {
+					if _, duplicate := requested[id]; duplicate {
+						return fmt.Errorf("managed_scope_rule_id_duplicate: %q", id)
+					}
+					requested[id] = false
+				}
+				retained := make([]managedscope.Rule, 0, len(policy.Rules))
+				for _, rule := range policy.Rules {
+					if _, remove := requested[rule.RuleID]; remove {
+						requested[rule.RuleID] = true
+					} else {
+						retained = append(retained, rule)
 					}
 				}
-				return fmt.Errorf("managed_scope_rule_not_found")
+				for _, id := range args {
+					if !requested[id] {
+						if len(args) == 1 {
+							return fmt.Errorf("managed_scope_rule_not_found")
+						}
+						return fmt.Errorf("managed_scope_rule_not_found: %q", id)
+					}
+				}
+				policy.Rules = retained
+				return nil
 			})
 			if err != nil {
 				return managedScopeExitError(err)
 			}
-			return writeScopeRuleMutation(cmd, args[0], "removed")
+			return writeScopeRuleMutation(cmd, args[0], "removed", args[1:]...)
 		}}
 }
 
@@ -478,13 +520,21 @@ func newScopeRuleResetCmd() *cobra.Command {
 		}}
 }
 
-func writeScopeRuleMutation(cmd *cobra.Command, ruleID, operation string) error {
-	result := map[string]any{"version": machinecontract.ManagedScopePolicyV2, "status": "scope_refresh_required",
-		"operation": operation, "rule_id": ruleID, "baseline_advanced": false, "index_changed": false}
+func writeScopeRuleMutation(cmd *cobra.Command, ruleID, operation string, additionalRuleIDs ...string) error {
+	ruleIDs := append([]string{ruleID}, additionalRuleIDs...)
 	if flagJSON {
+		result := map[string]any{"version": machinecontract.ManagedScopePolicyV2, "status": "scope_refresh_required",
+			"operation": operation, "baseline_advanced": false, "index_changed": false}
+		if len(ruleIDs) == 1 {
+			result["rule_id"] = ruleIDs[0]
+		} else {
+			result["rule_ids"] = ruleIDs
+		}
 		return writePlannerJSON(cmd, result)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_mutation", ruleID, operation))
+	for _, id := range ruleIDs {
+		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.rule_mutation", id, operation))
+	}
 	return nil
 }
 
@@ -674,7 +724,11 @@ func newScopeSafetyApproveCmd() *cobra.Command {
 
 func newScopeStatusCmd() *cobra.Command {
 	var transaction string
+	var failOnUntracked bool
 	command := &cobra.Command{Use: "status", Short: cliMessage("cli.short.scope_status"), RunE: func(cmd *cobra.Command, _ []string) error {
+		if cmd.Flags().Changed("transaction") && cmd.Flags().Changed("fail-on-untracked") {
+			return &ExitError{Code: ExitInvalid, MachineCode: "scope_status_flags_conflict", Msg: cliMessage("scope.status_flags_conflict")}
+		}
 		root, err := resolveRepoRoot()
 		if err != nil {
 			return managedScopeExitError(err)
@@ -695,20 +749,32 @@ func newScopeStatusCmd() *cobra.Command {
 		}
 		status.GitUntrackedPaths = scopeGitUntrackedPaths(root, status.Evaluation)
 		if flagJSON {
-			return writePlannerJSON(cmd, status)
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
-			status.ObservedPendingReview, status.DesiredPolicyIdentity))
-		if len(status.GitUntrackedPaths) > 0 {
-			shown := make([]string, 0, len(status.GitUntrackedPaths))
-			for _, path := range status.GitUntrackedPaths {
-				shown = append(shown, afs.EscapeControlChars(path))
+			if err := writePlannerJSON(cmd, status); err != nil {
+				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", strings.Join(shown, ", ")))
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.status_summary", status.Stage, status.PolicyIdentityAligned,
+				status.ObservedPendingReview, status.DesiredPolicyIdentity))
+			if len(status.GitUntrackedPaths) > 0 {
+				shown := make([]string, 0, len(status.GitUntrackedPaths))
+				for _, path := range status.GitUntrackedPaths {
+					shown = append(shown, afs.EscapeControlChars(path))
+				}
+				paths := strings.Join(shown, ", ")
+				if failOnUntracked {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_check_failed", paths))
+				} else {
+					fmt.Fprintln(cmd.OutOrStdout(), cliMessage("scope.git_untracked_warning", paths))
+				}
+			}
+		}
+		if failOnUntracked && len(status.GitUntrackedPaths) > 0 {
+			return &ExitError{Code: ExitDrift}
 		}
 		return nil
 	}}
 	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().BoolVar(&failOnUntracked, "fail-on-untracked", false, cliMessage("scope.flag.fail_on_untracked"))
 	return command
 }
 

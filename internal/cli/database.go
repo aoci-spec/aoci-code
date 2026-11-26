@@ -12,6 +12,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/dbevidence"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/spf13/cobra"
 )
 
@@ -273,9 +274,10 @@ func databaseSourceExitError(err error) error {
 		return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code,
 			Msg: cliMessage("database.error.credential_env_missing", sourceErr.SourceID)}
 	}
-	if sourceErr.Object != "" {
+	if object := sourceErr.DisplayObject(); object != "" {
 		return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code,
-			Msg: cliMessage("database.error.source_object", sourceErr.SourceID, sourceErr.Code, sourceErr.Op, sourceErr.Object)}
+			Msg:            cliMessage("database.error.source_object", sourceErr.SourceID, sourceErr.Code, sourceErr.Op, object),
+			renderedLocale: textassets.ActiveLocale()}
 	}
 	return &ExitError{Code: code, MachineCode: "database_" + sourceErr.Code, Msg: cliMessage("database.error.source", sourceErr.SourceID, sourceErr.Code, sourceErr.Op)}
 }

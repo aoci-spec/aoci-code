@@ -18,6 +18,13 @@ import (
 	"strings"
 )
 
+// PowerShell treats typographic double quotes as delimiters too.
+const unsafeAgentPowerShellPathChars = "\"`“”„"
+
+func quoteAgentPowerShellPath(path string) string {
+	return `"` + strings.ReplaceAll(path, "$", "`$") + `"`
+}
+
 // normalizeAgentExecutablePath normalizes separators across host platforms.
 //
 // filepath.ToSlash only recognizes the current OS separator, so simulated
@@ -165,10 +172,10 @@ func agentRepositoryRootArgument(
 		return "", fmt.Errorf("%s", cliMessage("host.repository_root.not_absolute", root))
 	}
 	if goos == "windows" {
-		if strings.ContainsAny(root, "\"`$") {
+		if strings.ContainsAny(root, unsafeAgentPowerShellPathChars) {
 			return "", fmt.Errorf("%s", cliMessage("host.repository_root.powershell_unsafe"))
 		}
-		return `"` + root + `"`, nil
+		return quoteAgentPowerShellPath(root), nil
 	}
 	return "'" + strings.ReplaceAll(root, "'", `'"'"'`) + "'", nil
 }
@@ -177,8 +184,8 @@ func agentRepositoryRootArgument(
 // repository root into a target-shell command prefix: the quoted executable
 // followed by --repo and the quoted root.
 //
-// PowerShell interpolation characters are rejected because this contract uses
-// double-quoted invocation paths. POSIX paths are protected with single quotes.
+// Dollar signs are escaped in double-quoted PowerShell paths. POSIX paths
+// are protected with single quotes.
 func agentCommandPrefixFor(
 	goos,
 	executable,
@@ -208,12 +215,12 @@ func agentCommandPrefixFor(
 	if goos == "windows" {
 		if strings.ContainsAny(
 			executable,
-			"\"`$",
+			unsafeAgentPowerShellPathChars,
 		) {
 			return "", fmt.Errorf("%s", cliMessage("host.executable.powershell_unsafe"))
 		}
 
-		return `& "` + executable + `" --repo ` + rootArgument, nil
+		return "& " + quoteAgentPowerShellPath(executable) + " --repo " + rootArgument, nil
 	}
 
 	return "'" +
@@ -285,6 +292,7 @@ func bindAgentGuideCommands(
 		&commands.ScopeBudget,
 		&commands.DatabaseSnapshot,
 		&commands.DatabaseBaselineAccept,
+		&commands.DatabaseBootstrap,
 	}
 
 	for _, field := range fields {

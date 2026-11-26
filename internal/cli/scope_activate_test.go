@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/config"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -125,6 +126,59 @@ func TestScopeActivateAppliesPolicyAndRetainsVolumeSourceDrift(t *testing.T) {
 	}
 	if current.ManagedScope.PolicyIdentity == oldBaseline.ManagedScope.PolicyIdentity || current.Files["main.go"].SHA256 != oldBaseline.Files["main.go"].SHA256 {
 		t.Fatal("policy was not activated or source drift was silently baselined")
+	}
+}
+
+func TestRejectedScopeApplyPreservesSoloMarkUntilActivation(t *testing.T) {
+	root := scopeActivationFixture(t)
+	addRule := func(name string) {
+		t.Helper()
+		mustCLI(t, root, "scope", "rule", "add", name, "--action", "exclude", "--pattern", name+".txt", "--pattern-kind", "file", "--reason", "fixture artifact")
+	}
+	addRule("future")
+	inputs := t.TempDir()
+	candidates := filepath.Join(inputs, "candidates.json")
+	data, err := scopechange.Encode(scopechange.CandidateSet{Version: machinecontract.ManagedScopeCandidateSetV1,
+		Entries: []scopechange.EntryCandidate{}, Dispositions: []scopechange.EntryDisposition{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(candidates, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	preview := filepath.Join(inputs, "preview.json")
+	output := mustCLI(t, root, "scope", "preview", "--candidate-file", candidates)
+	if _, err := scopechange.DecodePreview([]byte(output)); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(preview, []byte(output), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	addRule("later")
+	main, err := baseline.HashFile(filepath.Join(root, "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := codebatch.MarkSoloBuild(root, []codebatch.Candidate{{Target: codebatch.Target{Path: "main.go", SourceSHA256: main.SHA256}}}); err != nil {
+		t.Fatal(err)
+	}
+	digest := codebatch.SoloBuildDigest(root)
+	before := activationFiles(t, root, ".aoci/config.json", ".aoci/baseline.json", "aoci.txt", "aoci.meta.txt", "aoci.code.txt")
+	stdout, stderr, code := runCLI(t, root, "--json", "scope", "apply", "--preview-file", preview)
+	if code != ExitInvalid || !strings.Contains(stdout+stderr, "deterministic_replay_failed") {
+		t.Fatalf("expected refusal of the stale preview: code=%d stdout=%s stderr=%s", code, stdout, stderr)
+	}
+	assertActivationFiles(t, root, before)
+	if digest == "" || codebatch.SoloBuildDigest(root) != digest {
+		t.Fatal("rejected Scope Apply removed or changed the solo mark")
+	}
+	code, data = activateJSON(t, root)
+	var result scopechange.Result
+	if err := json.Unmarshal(data, &result); err != nil || code != ExitOK || result.Status != "applied" {
+		t.Fatalf("fresh activation failed: code=%d output=%s err=%v", code, data, err)
+	}
+	if codebatch.SoloBuildDigest(root) != "" {
+		t.Fatal("successful Scope activation must clear the solo mark")
 	}
 }
 

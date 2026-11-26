@@ -96,11 +96,11 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 		}
 		if kind != "table" {
 			rows.Close()
-			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_virtual_table", object: item.name}
+			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_virtual_table", object: item.name, objectKnown: true}
 		}
 		if wr || strict {
 			rows.Close()
-			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_table_options", object: item.name}
+			return "", nil, &unsupportedCatalogFeature{feature: "sqlite_table_options", object: item.name, objectKnown: true}
 		}
 		selected = append(selected, item)
 	}
@@ -122,7 +122,7 @@ func collectSQLite(ctx context.Context, tx *sql.Tx, source SourceConfig) (string
 		tokens := sqliteDDLTokens(ddl)
 		for _, unsupported := range []string{"check", "deferrable", "collate", "conflict"} {
 			if tokens[unsupported] {
-				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + unsupported, object: item.name}
+				return "", nil, &unsupportedCatalogFeature{feature: "sqlite_" + unsupported, object: item.name, objectKnown: true}
 			}
 		}
 		if err := sqliteColumns(ctx, tx, &table); err != nil {
@@ -181,7 +181,7 @@ func sqliteTableColumns(ctx context.Context, tx *sql.Tx, table *TableEvidence, r
 			if !refuseGenerated {
 				continue
 			}
-			return &unsupportedCatalogFeature{feature: "sqlite_generated_column", object: table.Name}
+			return &unsupportedCatalogFeature{feature: "sqlite_generated_column", object: table.Name, objectKnown: true}
 		}
 		column.Ordinal, column.CanonicalType = cid+1, sqliteAffinity(column.NativeType)
 		column.Nullable = !notNull
@@ -213,7 +213,7 @@ func sqliteIndexes(ctx context.Context, tx *sql.Tx, table *TableEvidence) error 
 		}
 		if partial {
 			rows.Close()
-			return &unsupportedCatalogFeature{feature: "sqlite_partial_index", object: table.Name}
+			return &unsupportedCatalogFeature{feature: "sqlite_partial_index", object: table.Name, objectKnown: true}
 		}
 		index.Primary, index.Method = origin == "pk", "btree"
 		table.Indexes = append(table.Indexes, index)
@@ -247,7 +247,7 @@ func sqliteIndexes(ctx context.Context, tx *sql.Tx, table *TableEvidence) error 
 			}
 			if cid < 0 || !name.Valid || !strings.EqualFold(coll, "BINARY") {
 				rows.Close()
-				return &unsupportedCatalogFeature{feature: "sqlite_index_expression_or_collation", object: table.Name}
+				return &unsupportedCatalogFeature{feature: "sqlite_index_expression_or_collation", object: table.Name, objectKnown: true}
 			}
 			index.Elements = append(index.Elements, IndexElement{Position: seq + 1, Column: &name.String, Descending: desc})
 		}
@@ -310,7 +310,7 @@ func sqliteForeignKeys(ctx context.Context, tx *sql.Tx, table *TableEvidence) er
 		foreign := &table.ForeignKeys[i]
 		var parent string
 		if err := tx.QueryRowContext(ctx, `SELECT name FROM main.sqlite_schema WHERE type = 'table' AND name = ? COLLATE NOCASE`, foreign.ReferencedObject).Scan(&parent); err != nil {
-			return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
+			return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name, objectKnown: true}
 		}
 		parentTable := TableEvidence{Name: parent}
 		if err := sqliteTableColumns(ctx, tx, &parentTable, false); err != nil {
@@ -318,7 +318,7 @@ func sqliteForeignKeys(ctx context.Context, tx *sql.Tx, table *TableEvidence) er
 		}
 		if foreign.ReferencedColumns[0] == "" {
 			if parentTable.PrimaryKey == nil || len(parentTable.PrimaryKey.Columns) != len(foreign.Columns) {
-				return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
+				return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name, objectKnown: true}
 			}
 			foreign.ReferencedColumns = parentTable.PrimaryKey.Columns
 		} else {
@@ -331,7 +331,7 @@ func sqliteForeignKeys(ctx context.Context, tx *sql.Tx, table *TableEvidence) er
 					}
 				}
 				if !found {
-					return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name}
+					return &unsupportedCatalogFeature{feature: "sqlite_foreign_key_target", object: table.Name, objectKnown: true}
 				}
 			}
 		}

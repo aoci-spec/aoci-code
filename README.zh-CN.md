@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/78fcbeeb-013a-4ad3-aeee-c1dc303d2501
 
 2.1 **首次建立索引需要时间。** Agent 要读完全部受管文件并逐个撰写条目，系统越大耗时越长：20 万行代码大约需要 1 小时，具体取决于所用模型和 Agent 的速度。索引按批次建立，中途中断后可以继续。
 
-2.2 **有数据库的系统，建议再建数据库索引。** 目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5。MySQL 支持 5.7.6 及以上版本，不支持 MariaDB。先建代码索引，再建数据库索引，代码认知与表级认知一起交付时，Agent 对系统的理解更完整。
+2.2 **有数据库的系统，建议再建数据库索引。** 目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5 和 SQLite。MySQL 支持 5.7.6 及以上版本，不支持 MariaDB。先建代码索引，再建数据库索引，代码认知与表级认知一起交付时，Agent 对系统的理解更完整。
 
 2.3 **只读你的系统，不联网，不存凭据。** AOCI-CODE 只读取源码和数据库的表结构，不读业务数据；写入的只有项目目录内的索引文件和自身状态，以及用户缓存目录里状态页的登记记录。它不访问互联网、不上传任何内容，唯一会打开的连接是你声明的数据库（只取表结构）和它自己的本机回环状态页。数据库凭据只通过环境变量名引用，从不保存。索引内容由你自己的 Agent 在本地撰写，走的是你已经在用的模型通道，AOCI-CODE 不引入任何新的数据出口。
 
@@ -72,7 +72,7 @@ Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给�
 
 索引由 AOCI 的 MCP 工具创作，而 `init` 刚写入的 MCP server 在当时那个会话里还没有加载，所以建立索引必须放在重启之后。支持动态加载 MCP 的宿主可能不必重启；判断方法见“宿主集成”。
 
-如果你的项目有数据库（目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5），推荐再建立数据库索引。先按“Database Cognition”一节声明数据源，并在宿主环境里提供连接串环境变量（AOCI 不保存凭据），然后输入：
+如果你的项目有数据库（目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5 和 SQLite），推荐再建立数据库索引。先按“Database Cognition”一节声明数据源，服务端数据库还要在宿主环境里提供连接串环境变量（AOCI 不保存凭据；SQLite 数据源改用 `--path` 指定文件），然后输入：
 
 ```text
 请建立这个项目的数据库AOCI索引。
@@ -616,7 +616,7 @@ Codex `--hooks` 把压缩handoff限制为receipt身份、未完成write或Recove
 | `aoci index agent guide` | 进入确定性的宿主智能体工作流 |
 | `aoci capabilities` | 查看当前二进制提供的能力 |
 | `aoci doctor` | 诊断仓库和宿主集成 |
-| `aoci database` | 显式配置并验证 PostgreSQL/MySQL/openGauss Schema Evidence |
+| `aoci database` | 显式配置并验证 PostgreSQL/MySQL/openGauss/SQLite Schema Evidence |
 | `aoci database source access` | 只读检查数据库凭据引用是否已由外部环境提供，不返回凭据值 |
 | `aoci database cognition bootstrap` | 为已对齐的 Code-only Volumes 项目添加 Database Cognition |
 | `aoci cognition plan` | 只读预览 Bootstrap 或 Legacy-to-Volumes 迁移计划 |
@@ -713,7 +713,7 @@ AOCI-CODE 可以将数据库结构纳入同一套认知和演进治理，但访�
 
 ```text
 显式 database 命令
-  → 只读 PostgreSQL/MySQL/openGauss 系统目录
+  → 只读 PostgreSQL/MySQL/openGauss 系统目录，或以只读方式打开的 SQLite 文件
   → Canonical Schema Evidence
   → 人工接受 Evidence Hash
   → 宿主模型根据完整证据创作表级 FRAS
@@ -824,7 +824,7 @@ aoci --repo . cognition system evolution \
 | **Drift Detection** | 区分 Missing、Orphan、Stale、Unbaselined、换行变化、策展差异,以及被挡在授权之外的源文件(空、二进制、超限) |
 | **Governed Updates** | 候选经源码绑定、Plan、校验、Review、CAS、原子写入、Baseline 与恢复流程进入正式资产 |
 | **Delivery Attestation** | 通过 Chunk、Cursor、Receipt 与 Challenge 证明 Whole-Index 确已完整交付 |
-| **Database Cognition** | 根据显式接受的 PostgreSQL/MySQL/openGauss Schema Evidence 形成并治理表级认知 |
+| **Database Cognition** | 根据显式接受的 PostgreSQL/MySQL/openGauss/SQLite Schema Evidence 形成并治理表级认知 |
 | **System Intelligence Projection** | 从权威 Cognition 及其绑定派生 Lineage、窄 Relations、Database-to-Code Impact、Snapshot 与 Evolution，不复制权威状态；Impact 仅沿模型明确创作的 R 关系遍历 |
 
 ## 🔗 与其他代码理解方法的关系
@@ -853,7 +853,7 @@ AOCI-CODE 与现有工具互补，不替代它们。
 | **正式认知** | UTF-8 明文 Cognition Volumes，可由 Git diff 和版本管理 |
 | **机器状态** | JSON/JSONL、SHA-256、Baseline、Manifest、Receipt、Ledger 与 Recovery |
 | **写入安全** | 跨进程锁、CAS、同目录临时文件、平台原子替换和失败关闭 |
-| **数据库** | 核心运行不依赖业务数据库；可选 PostgreSQL/MySQL/openGauss Schema Evidence 使用纯 Go 驱动 |
+| **数据库** | 核心运行不依赖业务数据库；可选 PostgreSQL/MySQL/openGauss/SQLite Schema Evidence 使用纯 Go 驱动 |
 | **系统认知** | 从权威资产即时派生的 Lineage、Relations、Impact、Snapshot 与 Evolution 投影 |
 | **运行方式** | Agent-native、Deterministic-only |
 

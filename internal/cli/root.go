@@ -76,6 +76,9 @@ type ExitError struct {
 	Err         error
 	Msg         string
 	Details     any
+	// renderedLocale records the locale of a message already formatted from
+	// a localized template, whose data may use a different language.
+	renderedLocale string
 }
 
 // Error implements the error interface.
@@ -455,10 +458,12 @@ func activateInvocationLocale(args []string) error {
 		// Locale without recording it, so the upgrade waits for an ordinary
 		// CLI command.
 		observeOnly := command == "mcp" || command == "ui"
+		// Scan decides whether to materialize the Locale after Cobra parses --dry-run.
+		deferScanWrite := command == "scan"
 		if root, err := config.FindRepoRoot(".", explicitRepo); err == nil {
 			var cfg *config.Config
 			var loadErr error
-			if isCognitionPlannerInvocation(args) || hookInvocation || observeOnly {
+			if isCognitionPlannerInvocation(args) || hookInvocation || observeOnly || deferScanWrite {
 				cfg, loadErr = config.LoadReadOnly(root)
 			} else {
 				cfg, loadErr = config.Load(root)
@@ -781,6 +786,9 @@ func localizedCLIErrorMessage(err error, code int) string {
 		return ""
 	}
 	message := err.Error()
+	if exit, ok := err.(*ExitError); ok && exit.Msg != "" && exit.renderedLocale == textassets.ActiveLocale() {
+		return message
+	}
 	if localeDiagnosticMatchesActiveLocale(message) {
 		return message
 	}

@@ -314,20 +314,49 @@ at most 50 exact model authoring targets by default, never more than
 200 exact model authoring targets (the wire ceiling), and cut earlier where the
 response would exceed the transport budget `maintain_transport_budget_bytes`
 (default 24 KiB), so a batch of new Entries carries more candidates than a
-batch of long existing ones. It is also cut where its source would pass
-20,000 lines of reading; a larger file travels alone. `authoring_batch.source_lines`
-says how much the batch asks the model to read, and `scan` and `init` print the
-total for the first build next to the round count. The team cap and the budget move it (`aoci config
+batch of long existing ones. Maintain uses trusted cached line counts to cut
+at 20,000 lines of reading. A file known to exceed that limit travels alone.
+`authoring_batch.source_lines` says how much the batch asks the model to read.
+The team cap and the budget move it (`aoci config
 set code_cognition_batch_entries N`, `aoci config set
 maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
-closure (while candidates are present the review and write lists are a
-five-item sample with `review_total` and `write_total` counts) and the
-affected-domain authoring contract. The response separates the
+closure and the affected-domain authoring contract. With candidates present,
+the review and write lists hold up to five items. Maintain reduces those
+samples and the governance samples when the serialized response needs more
+room, then cuts the batch further if needed. Their complete counts travel with
+any shortened list. If one object with its required fields still exceeds the
+budget with empty samples, Maintain delivers it alone with
+`authoring_batch.transport_budget_exceeded: true`. An already delivered sibling
+or optimization batch also travels whole with this marker when it exceeds a
+lowered budget. Maintain recuts undelivered work under the new budget. The
+host opens the full tool result or its attachment, then submits the complete
+batch with its required review or removals. The combined ceiling for candidates
+and Code removals is 200. `orphan_remove_candidates_total` gives the full orphan
+count, and `authoring_batch.remaining` includes Code removals left for later
+batches. A pure Database response without Observe review or orphan
+removals uses its independent Evidence limit. Adding required Observe review
+puts the whole response under the team transport budget. Use the
+[terminal review path](managed-scope-and-budget.md#approving-a-change) when
+the Observe list exceeds the MCP listing limit.
+Verify and Check report the complete governance lists. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
 and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
+
+`init`, `scan --dry-run`, and `scan` estimate rounds for the first Code build
+using Maintain's batch limits and the paths remaining in each round. With the
+fingerprint cache enabled by default, the estimate assumes a normal `scan`
+will save the measured line counts for Maintain. The estimate may be high when
+a recently written file is still in the cache trust window. When caching is
+disabled, file reads still contribute to the displayed source-line total, and
+the estimator and Maintain reserve the widest scale evidence.
+
+Database authoring, an orphan-only cleanup batch, and a separate Observe
+review under a human approval posture can add rounds. The estimate assumes
+one lead MCP session reuses its authoring contract. Restarting the MCP service
+mid-build resends that contract and can add rounds.
 
 Parallel current batches (the Volumes contract's section "Parallel current
 batches (L4)") are implemented since 0.2.0-rc1. Under the team key
@@ -354,11 +383,11 @@ on a repository pinned to one batch, what four would take and the
 `config set` that turns it on. A Maintain that lists siblings carries one
 instruction line telling the Agent to hand each to its own session (a
 subagent that calls `aoci_maintain {batch_id}`, authors, and applies) and to
-call Maintain again once every sibling is applied. A Host that runs no
-subagents loses nothing and needs no setting: it authors the batch it was
-given and calls Maintain again. Siblings nobody fetched are released when the
-first applies, and from then until the work is done Maintain issues single
-batches at full size. A sibling listing names each batch, its size, and its
+call Maintain again once every sibling is applied. A Host working in one
+session authors the batch it was given and calls Maintain again. The first
+batch reserves space for the sibling listing. Siblings nobody fetched are
+released when the first applies, and from then until the work is done Maintain
+issues single batches at full size. A sibling listing names each batch, its size, and its
 state, never its paths. Since 2026-11 three siblings are the default for work beyond one
 batch; `aoci config set code_cognition_parallel_batches 1` keeps one batch
 per Maintain.
@@ -377,13 +406,13 @@ The batch is sized so the model authors it inline as the arguments of one
 `aoci_update_entry` call: no intermediate files, helper scripts, or shell
 staging are needed, and a lost context is recovered by calling Maintain again,
 which reproduces the same batch and candidate identities from the unchanged
-repository. The Maintain response itself stays inside ordinary Host tool-result
-windows regardless of repository size: candidates, plans, and receipts are
-always complete, while per-item governance enumerations (`governance.findings`,
+repository. Candidates, plans, and receipts travel complete for the machine
+batch. Per-item governance enumerations (`governance.findings`,
 `governance.code_drift.*`, `sets.review`, `sets.write`) keep a leading sample
-of 20, or of five while the response carries candidates, and report complete
-counts under `governance.list_truncation`, `sets.review_total`, and
-`sets.write_total`; `aoci verify --json` and `aoci check --json` still list
+of at most 20 items, or at most five while the response carries candidates,
+and report complete counts under `governance.list_truncation`,
+`sets.review_total`, and `sets.write_total`; `aoci verify --json` and
+`aoci check --json` still list
 every item. Raise the batch only when both the Host window and the model can
 carry it — a 1,400-file repository at 200 per batch answered its first Maintain
 with roughly 330 KB, which no Host displays inline.

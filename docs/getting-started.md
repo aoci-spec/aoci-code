@@ -44,16 +44,18 @@ aoci --repo . scan
 It never invents repository semantics. `scan` is not optional: it establishes
 the governed Baseline that every later step binds to. Without it the Guide
 reports `blocked` with a `baseline_missing` stop, and no authoring path exists
-yet. Fresh initialization uses Code-only Cognition Volumes; Database stays
-absent until you declare a source. `scan` counts the files `init` itself
-created (`AGENTS.md`, `.gitattributes`, `.gitignore`) among the index files,
-so its number is higher than the proposal `init` printed; they get Entries
-like any other file.
+yet. Fresh initialization uses Code-only Cognition Volumes. Database stays
+absent until you declare a source. The scope proposal in `init` describes
+the tree before initialization writes. The round estimate in `init` and
+the one in `scan` include generated files such as `AGENTS.md`,
+`.gitattributes`, and the root `.gitignore` when the final rules put them
+in the Index role.
 
-`init` also says what the first build costs: how many files need an Entry,
-about how many Maintain rounds that takes, and what four Agent sessions
-authoring at once would make of it. Read that line before `scan`. Until the
-first scan, excluding a directory is free; afterwards, excluding a file that
+`init` reports how many files need a Code Entry and estimates the Maintain
+rounds for one session and for the configured number of sessions authoring
+at once. A repository set to one batch gets a preview of four sessions.
+Read that estimate before `scan`. Until the first scan, excluding a
+directory is free. Afterwards, excluding a file that
 has no Entry yet is a coverage reduction a person approves. On a large
 repository `init` prints the exclusion command to start smaller.
 
@@ -132,3 +134,51 @@ rule for the Agent, so a host that reads it closes tasks this way on its own.
 layouts as a quality readout. A Legacy single-file repository is read-only
 since 0.2.0 and migrates with `aoci cognition onboard start --json`; see
 [`upgrading.md`](upgrading.md).
+
+## Record a design decision
+
+Keep the context and trade-offs in a versioned architecture decision record
+(ADR). For example, create `docs/decisions/0001-preserve-tenant-overrides.md`:
+
+```markdown
+# Preserve tenant overrides during upgrades
+
+**Status** Accepted
+
+## Context
+
+Replacing defaults during an upgrade also discarded tenant overrides.
+
+## Decision
+
+Merge new defaults beneath explicit tenant overrides.
+
+## Trade-off
+
+Upgrades must verify which setting wins when both define it.
+
+## Evidence
+
+See `internal/settings/merge.go`. Link the implementing commit and
+the regression test when they are available.
+```
+
+Use `aoci scope explain docs/decisions/0001-preserve-tenant-overrides.md` to
+check that the ADR has the `index` role. If it needs to be admitted, follow
+[Managed Scope](managed-scope-and-budget.md). Review the ADR in Git with its
+implementation. After the files settle, let `aoci_maintain` issue candidates
+and submit each complete batch through `aoci_update_entry`. Give the ADR
+Entry an `F` summary such as `Records the decision to preserve tenant overrides
+during upgrades`. When the decision is needed to safely change
+`internal/settings/merge.go`, the code Entry's `R` can include
+`code:docs/decisions/0001-preserve-tenant-overrides.md`. Keep any still-relevant
+strong relations. Historical rationale belongs in the ADR.
+[FRAS v2](../spec/public/aoci-object-fras-v2.txt) reserves `S` for current
+constraints that are hard to infer and matter to a safe change.
+
+In a later session, establish cognition as in Step 2. To investigate this
+file, call `aoci_get_entries` with `{"paths":["internal/settings/merge.go"]}`
+and read its `R` field. Open `docs/decisions/0001-preserve-tenant-overrides.md`
+from the repository root to read the original reasoning. To start with a
+topic, call `aoci_search` with `{"scope":"code","keyword":"tenant overrides"}`.
+The search matches Entry text. Find the ADR Entry and open its source file.

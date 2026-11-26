@@ -157,9 +157,10 @@ func volumeGovernanceNextStep(facts *volumegovernance.Facts) string {
 		return cliMessage("governance.next.review_observed_evidence")
 	case facts.Result == volumegovernance.ResultBlocked:
 		return cliMessage("governance.next.blocked")
-	case facts.Result == volumegovernance.ResultEvidenceRequired && facts.NextRequiredAction == machinecontract.DatabaseCognitionActionBootstrapVolume:
-		return cliMessage("governance.next.bootstrap_database_cognition")
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
+		if bootstrap, _ := facts.DatabaseEvidenceRemediation(); bootstrap {
+			return cliMessage("governance.next.bootstrap_database_cognition")
+		}
 		return cliMessage("governance.next.evidence_required")
 	// An orphan is authoring work Maintain clears, so it ranks with
 	// authoring, below a blocker or owed Evidence that Maintain would refuse

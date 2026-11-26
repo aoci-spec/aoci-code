@@ -284,8 +284,8 @@ targets under one Managed Scope and Composite preimage. It may exceed one batch
 and is not an atomic-write boundary. Maintain deterministically issues one
 current machine batch of at most the team batch size — the configuration key
 `code_cognition_batch_entries`, machine default 50, never above the wire
-ceiling EntriesBatchMaxItems=200 — cut earlier where the Code part of the
-response would exceed the team transport budget
+ceiling EntriesBatchMaxItems=200 — cut earlier where the serialized response
+would exceed the team transport budget
 `maintain_transport_budget_bytes` (machine default 24 KiB, inclusive range
 16 KiB through 192 KiB; the batch always carries at least one candidate;
 Database candidates keep their own `database_cognition_batch_evidence_bytes`
@@ -326,11 +326,31 @@ batch. The batch is sized so the model authors it inline as one
 aoci_update_entry call; a Maintain response keeps its candidates, plans, and
 receipts complete while per-item governance enumerations (findings, drift
 lists, the review closure) carry a leading sample plus complete counts under
-`list_truncation` / `review_total`, and the four per-asset governance records
+`list_truncation` / `review_total` / `write_total`. The four per-asset governance records
 (`root`, `meta`, `code`, `database`) stay off the wire, since
-`cognition_receipt` and `code_plan` carry those identities, so the response
-fits ordinary Host tool-result windows regardless of repository size. Verify
-and Check keep reporting every item and every record. Missing, Stale, or
+`cognition_receipt` and `code_plan` carry those identities. Maintain measures
+the serialized UTF-8 tool text including its trailing newline and reduces
+the advisory samples as needed. Samples contain at most 20 items, or at most
+five alongside candidates. A sample may be empty, with its complete count
+still reported. If the response still exceeds the budget, Maintain cuts the
+candidate batch further before issuing it. A single candidate with its
+required fields still travels complete if it exceeds the budget, with
+`authoring_batch.transport_budget_exceeded: true`. An already delivered sibling
+or optimization batch keeps its bindings and travels complete with this marker
+if it exceeds the current budget. Required Observe evidence and the current
+batch's orphan removal obligations travel complete. See Observe evidence
+review below for the terminal route when its list exceeds the MCP limit.
+The combined number of candidates and Code removals per batch is at most
+EntriesBatchMaxItems=200. `orphan_remove_candidates_total` reports the full orphan
+count, and `authoring_batch.remaining` includes Code removals left for later
+batches. The Host reads the full result and submits the complete machine batch
+and the required review or removals.
+Pure Database candidate responses use the independent Evidence limit stated
+above. That exception applies only to responses without required Observe
+review or orphan removals. A response combining Database candidates with
+required Observe review uses the whole-response transport budget, including
+the single-candidate rule. Verify and Check
+keep reporting every item and every record. Missing, Stale, or
 Unbaselined targets keep Guide and Maintain
 authoring_required; neither may report Whole-Index aligned until remaining and
 all governance debt are zero. Source, Scope, Composite, or candidate-receipt
@@ -349,9 +369,9 @@ longer holds the text passes `include_instructions: true` on its next
 context-compaction reload advances the refresh generation, so the Maintain
 after it carries the contract without any flag. What a response adds beyond
 the contract (the optimization review note) rides in `instructions` either
-way. The transport budget reserves the contract only on the rounds that carry
-it, so a later round of the same process may issue more candidates of the
-same ordered targets than the first; the Guide and the `scan` estimate
+way. Sequential rounds that carry a reference can use more of the budget
+for candidates. Issued parallel and optimization batches reserve the full
+contract for a later `include_instructions` call. The Guide and the `scan` estimate
 project the first round's shape. A batch is still decided by the repository
 state alone: calling Maintain again on an unchanged repository issues the
 same targets in the same order, and a batch already applied is never issued
@@ -784,10 +804,13 @@ setting and is recognised by what it does: when a sibling of a plan has
 applied and every other outstanding one was never handed to any session,
 those are released and the build is marked as one session's, and while that
 same work is outstanding every no-argument Maintain issues the single
-current batch at full size. The mark is a runtime fact under `.aoci`, in no
-identity; it names the work it was made for, each target with its source
-digest, and holds for nothing else, so work it does not name, however the
-earlier work ended, is offered as siblings again. A sibling any session was handed keeps its
+current batch at full size. The mark is a runtime hint under `.aoci`. It
+tracks outstanding targets and their source digests. Successful Code
+Applies retire their targets when Baseline advancement is verified.
+Maintain retires targets absent from the work it observes, including when
+the remaining work fits one batch. A target that becomes work again after
+retirement is offered as siblings when the usual parallel cut applies,
+even if its source bytes are the same. A sibling any session was handed keeps its
 plan; a released one asked for by `batch_id` answers
 `maintain_batch_id_unknown` with zero writes and the replan hint. The wire
 ceiling is 4. It is
@@ -801,7 +824,10 @@ used, every sibling against the same plan preimage: the Code Volume digest,
 the Composite identity, and the Scope identity at issuance. Sibling target
 sets are disjoint by construction; each sibling has its own `batch_id` and
 every sibling records the one `logical_plan`. The response delivers the first
-sibling as today's complete current batch, within the transport budget, and
+sibling as today's complete current batch under the transport budget rules
+above. Maintain records sibling delivery after building the bounded response.
+Code orphan removals ride with the first delivered batch, including redelivery
+of that batch. The response
 lists the others under `code_plan.siblings` as issued, not delivered: each
 with `batch_id`, `included`, and `state` (`issued`, `delivered`, `applied`,
 `invalidated`). A listing carries no target paths since 2026-11: the Agent
@@ -810,13 +836,28 @@ cost a quarter of each batch. The server that was handed a sibling by a
 no-argument Maintain answers that same sibling again while it is
 outstanding, as a single batch always was; another server, or a request by
 `batch_id`, takes one no session holds. Plan records are read and written
-under the index lock, and a call that finds the Code Volume moved since it
-loaded starts over instead of judging the plan. A Host obtains a sibling's complete
+under the index lock. A no-argument call rechecks the Code Volume, plan
+marker, and Baseline of its assessment before using it to issue a plan.
+An assessment recommending restoration of formal assets is also checked
+under the lock against the formal assets it would restore and pending
+Recovery state. A moved snapshot requires a fresh assessment. If the
+bounded reload cannot settle, the tool error is a `write_conflict` with
+`reason_code=maintain_snapshot_changed` and structured
+`next_action=call_no_argument_aoci_maintain_for_current_machine_batch`.
+A Host obtains a sibling's complete
 candidates with `aoci_maintain` carrying that `batch_id`; the response is a
 complete current batch sized by the same transport budget, marked
 `sibling_of` the logical plan, and its `next_action` is
 `author_complete_current_machine_batch`. A Host never slices Maintain output;
 a sibling is the machine's cut, delivered whole.
+
+Delivery by `batch_id` reads the current team transport budget under the
+index lock. Under a reduced transport budget, an undelivered sibling that
+would exceed the budget is cut again. The response names the new
+`batch_id`, the previous receipt no longer authorizes Apply, and the released
+targets remain for later batches. Delivered siblings retain their bindings.
+After an optimization Apply, the next unissued batch is cut from the remaining
+objects in checkpoint order using the current budget.
 
 Apply. `aoci_update_entry` with the `code_batch_id` of any issued sibling is
 accepted in any order. The preimage rule is relaxed exactly this far: the Code

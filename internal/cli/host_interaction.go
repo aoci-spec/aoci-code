@@ -215,6 +215,12 @@ func posixQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
+// powerShellSingleQuotes are the characters PowerShell reads as a single
+// quote: the ASCII one and the typographic left, right, low-9, and reversed
+// marks. Each is doubled inside a single-quoted string, or a path holding one
+// ends the argument early.
+var powerShellSingleQuotes = strings.NewReplacer("'", "''", "\u2018", "\u2018\u2018", "\u2019", "\u2019\u2019", "\u201a", "\u201a\u201a", "\u201b", "\u201b\u201b")
+
 func powerShellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+	return "'" + powerShellSingleQuotes.Replace(value) + "'"
 }

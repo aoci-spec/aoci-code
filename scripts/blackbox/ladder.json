@@ -330,9 +330,9 @@
     "full-confidence.yml"
    ],
    "last_verified": {
-    "version": "v0.2.0-rc2",
-    "date": "2026-11-18",
-    "evidence": "full-confidence 44121556362 on 85f0386: native-lifecycle macOS and Windows green after rerunning the macos-15 job GitHub cancelled for runner capacity"
+    "version": "v0.2.0-rc4",
+    "date": "2026-11-26",
+    "evidence": "CI full-confidence run 45779681932 at 7a93781: native-lifecycle macos-15, macos-15-intel, windows-latest all success"
    }
   },
   {

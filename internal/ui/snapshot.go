@@ -249,12 +249,28 @@ func suggestions(locale string, facts *volumegovernance.Facts, guide any) []Sugg
 			list = append(list, Suggestion{Label: message(locale, "ui.suggest.blocked"), Note: stop["safe_next_action"]})
 		}
 	case facts.Result == volumegovernance.ResultEvidenceRequired:
+		bootstrap, sources := facts.DatabaseEvidenceRemediation()
+		if bootstrap {
+			command := commands["database_bootstrap"]
+			if command == "" {
+				command = "aoci " + machinecontract.RemediationCommandDatabaseBootstrap
+			}
+			list = append(list, Suggestion{Label: message(locale, "cli.short.database_cognition_bootstrap"), Command: command})
+			break
+		}
 		// The snapshot prints the accept command with the digest it binds
 		// filled in, so the page suggests the snapshot alone rather than an
 		// accept command with a {snapshot_sha} the person cannot fill.
-		for _, source := range facts.DatabaseCognition.Sources {
+		// Guide binds the executable and --repo before the machine command
+		// suffix. Only that suffix contains a source placeholder to fill.
+		const suffix = " " + machinecontract.RemediationCommandDatabaseSnapshot
+		prefix, ok := strings.CutSuffix(commands["database_snapshot"], suffix)
+		if !ok {
+			prefix = "aoci"
+		}
+		for _, source := range sources {
 			list = append(list, Suggestion{Label: message(locale, "ui.suggest.evidence"),
-				Command: "aoci " + strings.ReplaceAll(machinecontract.RemediationCommandDatabaseSnapshot, "{source}", source.SourceID)})
+				Command: prefix + strings.Replace(suffix, "{source}", source, 1)})
 		}
 	case facts.Result == volumegovernance.ResultAuthoringRequired:
 		note := ""

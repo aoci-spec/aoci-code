@@ -49,14 +49,18 @@ func init() {
 			if err != nil {
 				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
-			cfg, err := config.Load(root)
-			if err != nil {
-				return &ExitError{Code: ExitConfig, Msg: err.Error()}
-			}
+			loadConfig := config.Load
 			if dryRun {
 				// A dry run is documented to write nothing: the fingerprint
 				// cache may answer, never save.
+				cacheWrites := baseline.FingerprintCacheWritesEnabled()
 				baseline.SetFingerprintCacheWrites(false)
+				defer baseline.SetFingerprintCacheWrites(cacheWrites)
+				loadConfig = config.LoadReadOnly
+			}
+			cfg, err := loadConfig(root)
+			if err != nil {
+				return &ExitError{Code: ExitConfig, Msg: err.Error()}
 			}
 			if !dryRun {
 				volumeLayout, layoutErr := activeVolumeLayout(root, cfg.IndexPath)
