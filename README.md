@@ -93,7 +93,7 @@ The agent starts the panel in the background with `aoci ui --detach --json` and 
 
 Why the restart: the index is written through AOCI's MCP tools, and the session that ran `init` has not loaded the MCP server `init` just wrote. A host that loads MCP servers dynamically may not need a restart; [Host integration](#host-integration) explains how to tell.
 
-If your project has a database (PostgreSQL and MySQL are supported, plus constrained openGauss 6.0.5 and SQLite), index it as well. Declare the source as described under [Database Cognition](#database-cognition), provide the connection-string environment variable in the host environment (AOCI stores no credentials), then send:
+If your project has a database (PostgreSQL and MySQL are supported, plus constrained openGauss 6.0.5 and SQLite), index it as well. Declare the source as described under [Database Cognition](#database-cognition), for a server database provide the connection-string environment variable in the host environment (AOCI stores no credentials; a SQLite source names its file with `--path` instead), then send:
 
 ```text
 Build the AOCI database index for this project.

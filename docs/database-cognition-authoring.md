@@ -186,7 +186,7 @@ echo absolute filesystem paths. The pre-existing MCP cognition receipt still use
 
 Fresh initialization creates Code-only Volumes. An existing Legacy project
 is never migrated implicitly: it stays readable but is read-only since 0.2.0,
-and `aoci cognition onboard start --json` migrates it. Code-only Volumes can
+and `aoci cognition onboard start --json` starts its migration. Code-only Volumes can
 add Database Cognition without Legacy Migration. `status --deep` remains a
 Legacy-only read, and `index score` reads both layouts.
 Database Cognition authoring uses ordinary no-argument Maintain

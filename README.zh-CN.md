@@ -72,7 +72,7 @@ Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给�
 
 索引由 AOCI 的 MCP 工具创作，而 `init` 刚写入的 MCP server 在当时那个会话里还没有加载，所以建立索引必须放在重启之后。支持动态加载 MCP 的宿主可能不必重启；判断方法见“宿主集成”。
 
-如果你的项目有数据库（目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5 和 SQLite），推荐再建立数据库索引。先按“Database Cognition”一节声明数据源，并在宿主环境里提供连接串环境变量（AOCI 不保存凭据），然后输入：
+如果你的项目有数据库（目前支持 MySQL、PostgreSQL，以及受限支持的 openGauss 6.0.5 和 SQLite），推荐再建立数据库索引。先按“Database Cognition”一节声明数据源，服务端数据库还要在宿主环境里提供连接串环境变量（AOCI 不保存凭据；SQLite 数据源改用 `--path` 指定文件），然后输入：
 
 ```text
 请建立这个项目的数据库AOCI索引。

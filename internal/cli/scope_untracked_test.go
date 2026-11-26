@@ -116,6 +116,13 @@ func TestScopeStatusFailOnUntracked(t *testing.T) {
 	if code != ExitInvalid || !strings.Contains(conflict+stderr, "--fail-on-untracked") {
 		t.Fatalf("incompatible flags are invalid input: exit=%d stdout=%s stderr=%s", code, conflict, stderr)
 	}
+	// Passing both flags is the conflict, whatever their values (rv46).
+	for _, args := range [][]string{{"--transaction=", "--fail-on-untracked"}, {"--transaction", "pending", "--fail-on-untracked=false"}} {
+		out, errOut, exit := runCLI(t, root, append([]string{"scope", "status"}, args...)...)
+		if exit != ExitInvalid {
+			t.Fatalf("flags %v must be refused as invalid input: exit=%d stdout=%s stderr=%s", args, exit, out, errOut)
+		}
+	}
 	if after := scopeStatusTree(t, root); !reflect.DeepEqual(after, before) {
 		t.Fatal("the untracked check changed repository files, Git metadata, or Ledger")
 	}
