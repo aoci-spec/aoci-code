@@ -218,7 +218,6 @@ func init() {
 			var scopeProposal *managedscope.Proposal
 			var initialInventory afs.SafeInventorySummary
 			var initialIndexCount, outsideChildIndexCount int
-			var initIndexPaths []string
 
 			if _, statErr := os.Stat(
 				config.FilePath(root),
@@ -282,10 +281,11 @@ func init() {
 				proposal := managedscope.BuildProposal(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))
 				scopeProposal = &proposal
 				initialInventory, initialIndexCount = evaluation.SafeInventory, evaluation.IndexCount
+				paths := make([]string, 0, len(evaluation.Index))
 				for _, item := range evaluation.Index {
-					initIndexPaths = append(initIndexPaths, item.Path)
+					paths = append(paths, item.Path)
 				}
-				outsideChildIndexCount = indexPathsOutsideChildRepositories(root, initIndexPaths)
+				outsideChildIndexCount = indexPathsOutsideChildRepositories(root, paths)
 				if proposal.RequiresHumanApproval {
 					return &ExitError{Code: ExitConfig, MachineCode: "managed_scope_auto_authorization_blocked",
 						Msg: initialScopeBlockedDetail(evaluation, scopeProfile, len(cfg.SafeInventoryHighRiskOptIn))}
@@ -639,14 +639,12 @@ func init() {
 					baselineNote,
 				)
 			}
-			// A fresh repository learns what its first build costs while a
-			// narrower scope is still free (2026-11-02): scan prints the same
-			// estimate, but by then the roles are frozen.
-			if scopeProposal != nil {
-				outputLines = append(outputLines, initAuthoringEstimateLines(root, cfg, initIndexPaths)...)
-			}
-
 			if !flagQuiet {
+				// Measure the final index selection, including the files and
+				// ignore rules init wrote after the scope proposal.
+				if scopeProposal != nil {
+					outputLines = append(outputLines, initAuthoringEstimateLines(root)...)
+				}
 				fmt.Println(cliMessage("init.complete", root))
 
 				for _, line := range outputLines {

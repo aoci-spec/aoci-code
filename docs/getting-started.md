@@ -44,17 +44,18 @@ aoci --repo . scan
 It never invents repository semantics. `scan` is not optional: it establishes
 the governed Baseline that every later step binds to. Without it the Guide
 reports `blocked` with a `baseline_missing` stop, and no authoring path exists
-yet. Fresh initialization uses Code-only Cognition Volumes; Database stays
-absent until you declare a source. `scan` counts the files `init` itself
-created (`AGENTS.md`, `.gitattributes`, `.gitignore`) among the index files,
-so its number is higher than the proposal `init` printed; they get Entries
-like any other file.
+yet. Fresh initialization uses Code-only Cognition Volumes. Database stays
+absent until you declare a source. The scope proposal in `init` describes
+the tree before initialization writes. The round estimate in `init` and
+the one in `scan` include generated files such as `AGENTS.md`,
+`.gitattributes`, and the root `.gitignore` when the final rules put them
+in the Index role.
 
-`init` also reports how many files need an Entry and estimates the Maintain
+`init` reports how many files need a Code Entry and estimates the Maintain
 rounds for one session and for the configured number of sessions authoring
 at once. A repository set to one batch gets a preview of four sessions.
-Read that estimate before `scan`. Until the
-first scan, excluding a directory is free; afterwards, excluding a file that
+Read that estimate before `scan`. Until the first scan, excluding a
+directory is free. Afterwards, excluding a file that
 has no Entry yet is a coverage reduction a person approves. On a large
 repository `init` prints the exclusion command to start smaller.
 

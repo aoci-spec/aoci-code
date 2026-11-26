@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
 // init on a fresh repository says what the first build costs while a
@@ -30,7 +33,7 @@ func TestInitShowsTheFirstBuildCostBeforeTheFirstScan(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("init: %d\n%s", code, output)
 	}
-	for _, want := range []string{"1100 index files need an Entry: about", "up to that many Agent sessions author at once", "exclude directories before the first scan"} {
+	for _, want := range []string{"1102 index files need an Entry: about", "up to that many Agent sessions author at once", "exclude directories before the first scan"} {
 		if !strings.Contains(output, want) {
 			t.Fatalf("init on a large repository does not say %q:\n%s", want, output)
 		}
@@ -44,8 +47,39 @@ func TestInitShowsTheFirstBuildCostBeforeTheFirstScan(t *testing.T) {
 	if code != ExitOK {
 		t.Fatalf("init: %d\n%s", code, output)
 	}
-	if !strings.Contains(output, "1 index file needs an Entry: one Maintain round") || strings.Contains(output, "exclude directories before the first scan") ||
+	if !strings.Contains(output, "3 index files need an Entry: one Maintain round") || strings.Contains(output, "exclude directories before the first scan") ||
 		strings.Contains(output, "Agent sessions can author at once") {
 		t.Fatalf("init on a one-file repository says too much or too little:\n%s", output)
+	}
+}
+
+func TestInitFirstBuildEstimateIncludesGeneratedFiles(t *testing.T) {
+	pinDefaultLocale(t)
+	t.Setenv(baseline.FingerprintCacheEnv, "off")
+	root := t.TempDir()
+	initCLITestGitRepository(t, root)
+	for i := range 27 {
+		testkit.WriteFile(t, root, fmt.Sprintf("src/module0000/file%03d.go", i), "package fixture\n")
+	}
+	printed, _, stderr, code := runCLIPrinted(t, root, "init", "--locale", "en-US", "--agent=", "--hooks=false", "--here=false")
+	if code != ExitOK {
+		t.Fatalf("init failed: exit %d: %s", code, stderr)
+	}
+	estimate := readScanAuthoringEstimate(t, root)
+	if estimate.Targets != 29 || estimate.Rounds != 2 {
+		t.Fatalf("scan must include AGENTS.md and .gitattributes: %+v", estimate)
+	}
+	sizes := authorFirstBuild(t, root, estimate.ParallelBatches, estimate.Targets, false)
+	if len(sizes) != estimate.Rounds {
+		t.Fatalf("scan estimated %d rounds, reached alignment with batches %v", estimate.Rounds, sizes)
+	}
+	for _, line := range strings.Split(printed, "\n") {
+		if strings.Contains(line, "index files need an Entry:") {
+			t.Logf("init=%q scan=%d targets in %d rounds, Maintain batch sizes=%v", strings.TrimSpace(line), estimate.Targets, estimate.Rounds, sizes)
+			break
+		}
+	}
+	if want := scanAuthoringEstimateLine(estimate); !strings.Contains(printed, want) {
+		t.Fatalf("init estimate must agree with scan and the actual build; want %q", want)
 	}
 }

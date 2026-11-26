@@ -29,11 +29,11 @@ func TestEstimateCodeAuthoringRoundsParallelFollowsTheSiblingCut(t *testing.T) {
 	if err := cfg.SetCodeCognitionParallelBatches(4); err != nil {
 		t.Fatal(err)
 	}
-	sequential, four := EstimateCodeAuthoringRounds(cfg, set, paths, nil, nil)
+	sequential, four := EstimateCodeAuthoringRounds(cfg, set, paths, nil)
 	if four < 1 || four > sequential || four < (sequential+3)/4 {
 		t.Fatalf("four sessions take between ceil(%d/4) and %d rounds each, got %d", sequential, sequential, four)
 	}
-	if single, parallel := EstimateCodeAuthoringRounds(cfg, set, nil, nil, nil); single != 0 || parallel != 0 {
+	if single, parallel := EstimateCodeAuthoringRounds(cfg, set, nil, nil); single != 0 || parallel != 0 {
 		t.Fatal("nothing to author is zero rounds")
 	}
 }

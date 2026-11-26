@@ -223,9 +223,9 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 // EstimateCodeAuthoringRounds projects first-build rounds for one session and
 // for sessions applying all siblings in each plan. With parallelism disabled,
 // the second value previews enabling the maximum number of siblings.
-// Counted lines bound reading. Only trusted cached counts size the scale
-// evidence, since Maintain reserves the widest form when the cache is cold.
-func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string, lines, cachedLines map[string]int) (rounds, parallelRounds int) {
+// Like Maintain, it uses trusted cached line counts for both the reading
+// bound and scale evidence width.
+func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths []string, cachedLines map[string]int) (rounds, parallelRounds int) {
 	if len(paths) == 0 {
 		return 0, 0
 	}
@@ -238,8 +238,6 @@ func EstimateCodeAuthoringRounds(cfg *config.Config, set *cognition.Set, paths [
 	ordered, _ := codebatch.Select(candidates, 0)
 	full := baseCodeCandidateBudget(cfg, set, cachedLines, true)
 	ref := baseCodeCandidateBudget(cfg, set, cachedLines, false)
-	full.LineCount = func(candidate codebatch.Candidate) int { return lines[candidate.Path] }
-	ref.LineCount = full.LineCount
 
 	parallel := cfg.CodeCognitionParallelBatchLimit()
 	rounds = countCodeAuthoringRounds(ordered, limit, parallel, full, ref, false)

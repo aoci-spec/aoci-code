@@ -314,14 +314,9 @@ at most 50 exact model authoring targets by default, never more than
 200 exact model authoring targets (the wire ceiling), and cut earlier where the
 response would exceed the transport budget `maintain_transport_budget_bytes`
 (default 24 KiB), so a batch of new Entries carries more candidates than a
-batch of long existing ones. It is also cut where its source would pass
-20,000 lines of reading; a larger file travels alone. `authoring_batch.source_lines`
-says how much the batch asks the model to read, and `scan` and `init` print the
-total for the first build next to the round estimate. The estimate uses the
-same byte, source-line, and entry limits as Maintain and sizes each round from
-the paths it still has to cover. It assumes one lead session keeps its
-authoring contract between rounds. When cached line counts are unavailable,
-the estimate reserves the widest scale evidence on the wire.
+batch of long existing ones. Maintain uses trusted cached line counts to cut
+at 20,000 lines of reading. A file known to exceed that limit travels alone.
+`authoring_batch.source_lines` says how much the batch asks the model to read.
 The team cap and the budget move it (`aoci config
 set code_cognition_batch_entries N`, `aoci config set
 maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
@@ -333,6 +328,17 @@ logical plan from the complete current machine batch with `total_targets`,
 and a continuation action. The limit is per request and atomic Apply, never per
 Whole-Index or Managed Scope. After a successful non-final batch, call Maintain
 again against the new preimage; Guide cannot report complete while debt remains.
+
+`init` and `scan` estimate rounds for the first Code build. They use the
+same batch limits and trusted cached line counts as Maintain and size each
+round from the remaining paths. With a cold cache, file reads contribute to
+the displayed source-line total. Both the estimator and Maintain reserve the
+widest scale evidence when the cache has no trusted count.
+
+Database authoring, an orphan-only cleanup batch, and a separate Observe
+review under a human approval posture can add rounds. The estimate assumes
+one lead MCP session reuses its authoring contract. Restarting the MCP service
+mid-build resends that contract and can add rounds.
 
 Parallel current batches (the Volumes contract's section "Parallel current
 batches (L4)") are implemented since 0.2.0-rc1. Under the team key

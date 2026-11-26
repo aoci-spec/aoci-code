@@ -11,6 +11,8 @@ import (
 
 	"github.com/aoci-spec/aoci-code/engine"
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
@@ -58,14 +60,7 @@ func TestFirstBuildEstimateMatchesMaintain(t *testing.T) {
 				if mode.parallel == 1 {
 					mustCLI(t, root, "config", "set", "code_cognition_parallel_batches", "1")
 				}
-				var scan struct {
-					Estimate scanAuthoringEstimate `json:"authoring_estimate"`
-				}
-				raw := mustCLI(t, root, "scan", "--json")
-				if err := json.Unmarshal([]byte(raw), &scan); err != nil {
-					t.Fatal(err)
-				}
-				estimate := scan.Estimate
+				estimate := readScanAuthoringEstimate(t, root)
 				if estimate.Targets != targets || estimate.ParallelBatches != mode.parallel {
 					t.Fatalf("unexpected fixture estimate: %+v", estimate)
 				}
@@ -86,6 +81,64 @@ func TestFirstBuildEstimateMatchesMaintain(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestColdFirstBuildEstimateUsesMaintainLineEvidence(t *testing.T) {
+	pinDefaultLocale(t)
+	t.Setenv(baseline.FingerprintCacheEnv, "off")
+	root := t.TempDir()
+	initialPaths := []string{".gitattributes", ".gitignore", "AGENTS.md"}
+	testkit.WriteFile(t, root, ".gitattributes", "* text=auto\n")
+	testkit.WriteFile(t, root, ".gitignore", "# Fixture\n")
+	testkit.WriteFile(t, root, "AGENTS.md", "# Fixture\n")
+	const shortPaths = 17
+	for i := range shortPaths {
+		path := fmt.Sprintf("src/a/file%03d.go", i)
+		testkit.WriteFile(t, root, path, "package fixture\n")
+		initialPaths = append(initialPaths, path)
+	}
+	directory := "src/z" + strings.Repeat("x", 190) + "/" + strings.Repeat("m", 190) + "/" + strings.Repeat("n", 190)
+	for i := range 5 {
+		testkit.WriteFile(t, root, fmt.Sprintf("%s/file%03d.go", directory, i), "package fixture\n")
+	}
+	mustCLI(t, root, "--quiet", "init", "--locale", "en-US", "--agent=", "--hooks=false", "--here=false")
+	mustCLI(t, root, "config", "set", "code_cognition_parallel_batches", "1")
+	mustCLI(t, root, "config", "set", "code_cognition_batch_entries", "20")
+
+	// Including the tall file exactly fills the reading budget. Only a warm
+	// line cache should cut before the next short file and alter the next
+	// round's path samples.
+	tallLines := machinecontract.CodeCognitionBatchSourceLines
+	for _, path := range initialPaths[:len(initialPaths)-2] {
+		count, err := afs.CountFileLines(filepath.Join(root, filepath.FromSlash(path)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		tallLines -= count
+	}
+	testkit.WriteFile(t, root, "src/a/file015.go", "package fixture\n"+strings.Repeat("//x\n", tallLines-1))
+
+	estimate := readScanAuthoringEstimate(t, root)
+	if estimate.Targets != 25 || estimate.BatchLimit != 20 || estimate.SourceLines != machinecontract.CodeCognitionBatchSourceLines+6 {
+		t.Fatalf("unexpected fixture estimate: %+v", estimate)
+	}
+	sizes := authorFirstBuild(t, root, 1, 25, false)
+	t.Logf("scan estimate=%d actual=%d batch sizes=%v source lines=%d", estimate.Rounds, len(sizes), sizes, estimate.SourceLines)
+	if len(sizes) != 3 || sizes[0] != estimate.BatchLimit || estimate.Rounds != len(sizes) {
+		t.Fatalf("estimated %d rounds, reached alignment with batches %v; want 3 rounds", estimate.Rounds, sizes)
+	}
+}
+
+func readScanAuthoringEstimate(t *testing.T, root string) scanAuthoringEstimate {
+	t.Helper()
+	var scan struct {
+		Estimate scanAuthoringEstimate `json:"authoring_estimate"`
+	}
+	raw := mustCLI(t, root, "scan", "--json")
+	if err := json.Unmarshal([]byte(raw), &scan); err != nil {
+		t.Fatal(err)
+	}
+	return scan.Estimate
 }
 
 func authorFirstBuild(t *testing.T, root string, parallel, targets int, deliverSiblings bool) []int {
