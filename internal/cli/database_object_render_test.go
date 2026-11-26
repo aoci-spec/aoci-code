@@ -26,6 +26,7 @@ func TestDatabaseCatalogObjectOutput(t *testing.T) {
 			}{
 				{"sqlite_newline", "CREATE TABLE \"audit.ix)\nfixture\" (id INTEGER PRIMARY KEY) WITHOUT ROWID", `"audit.ix)\nfixture"`},
 				{"sqlite_han", "CREATE TABLE \"客户 表\" (id INTEGER PRIMARY KEY) WITHOUT ROWID", `"客户 表"`},
+				{"sqlite_empty", `CREATE TABLE "" (id INTEGER PRIMARY KEY) WITHOUT ROWID`, `""`},
 				{"mysql_han", "", "分区表"},
 			} {
 				t.Run(fixture.name, func(t *testing.T) {

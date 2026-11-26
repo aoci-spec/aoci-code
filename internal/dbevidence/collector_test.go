@@ -367,7 +367,7 @@ func TestOpenGaussCollectorRejectsUnsupportedServerProfiles(t *testing.T) {
 			_, _, _, err := collector.Snapshot(context.Background(), source)
 			var sourceErr *SourceError
 			if !errors.As(err, &sourceErr) || sourceErr.Code != "unsupported_catalog_feature" ||
-				sourceErr.Op != "catalog_query_facts_"+test.feature || sourceErr.Object != "" {
+				sourceErr.Op != "catalog_query_facts_"+test.feature || sourceErr.Object != "" || sourceErr.DisplayObject() != "" {
 				t.Fatalf("unsupported openGauss profile must be rejected without an object: %+v, err=%v", sourceErr, err)
 			}
 		})

@@ -28,7 +28,7 @@ func (err *SourceError) DisplayObject() string {
 	if err.objectName.namespace != "" {
 		return err.objectName.label(quoteCatalogIdentifier)
 	}
-	if err.Object == "" {
+	if err.Object == "" && !err.objectKnown {
 		return ""
 	}
 	return quoteCatalogIdentifier(err.Object)
