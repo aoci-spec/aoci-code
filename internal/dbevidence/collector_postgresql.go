@@ -299,6 +299,11 @@ func postgresqlPartitionChildren(ctx context.Context, tx *sql.Tx, source SourceC
 		if err := rows.Scan(&namespace, &tableName, &parentNamespace, &parentTable, &bound); err != nil {
 			return &catalogStageFailure{kind: "decode", err: err}
 		}
+		child := tables[tableKey(namespace, tableName)]
+		parent := tables[tableKey(parentNamespace, parentTable)]
+		if child == nil && parent == nil {
+			continue
+		}
 		if !bound.Valid {
 			return &catalogStageFailure{kind: "validate", err: fmt.Errorf("partition has no catalog bound")}
 		}
@@ -310,8 +315,8 @@ func postgresqlPartitionChildren(ctx context.Context, tx *sql.Tx, source SourceC
 		if err != nil {
 			return &catalogStageFailure{kind: "identity", err: err}
 		}
-		attachPartitionParent(tables[tableKey(namespace, tableName)], parentRef, bound.String)
-		appendPartitionChild(tables[tableKey(parentNamespace, parentTable)], childRef)
+		attachPartitionParent(child, parentRef, bound.String)
+		appendPartitionChild(parent, childRef)
 	}
 	if err := rows.Err(); err != nil {
 		return &catalogStageFailure{kind: "iterate", err: err}

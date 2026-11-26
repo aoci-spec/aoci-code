@@ -150,6 +150,11 @@ below 5.7.6, a version that cannot be read as major.minor.patch, or MariaDB
 fails closed with unsupported_catalog_feature before any table query; MariaDB
 and other forks are not supported.
 
+When a selected MySQL table has a non-empty SUBPARTITION_NAME in
+information_schema.PARTITIONS, collection fails with
+unsupported_catalog_feature (catalog_query_partitions_mysql_subpartition)
+and reports the table name before producing any Evidence.
+
 4. Canonical object identity
 
 PostgreSQL, MySQL, and openGauss table identities use:

@@ -27,6 +27,7 @@ type mockCatalogState struct {
 	openGaussCompatibility string
 	openGaussRows          map[string][][]driver.Value
 	postgresIndexRows      [][]driver.Value
+	catalogRows            map[string][][]driver.Value
 }
 
 type mockCatalogDriver struct{}
@@ -73,6 +74,8 @@ func (conn *mockCatalogConn) QueryContext(_ context.Context, query string, _ []d
 	}
 	if override, ok := conn.state.openGaussRows[query]; ok {
 		values = override
+	} else if overrides, ok := conn.state.catalogRows[query]; ok {
+		values = overrides
 	}
 	return &mockCatalogRows{columns: columns, values: values}, nil
 }
@@ -521,7 +524,11 @@ func mockMySQLResult(query string) ([]string, [][]driver.Value) {
 		// What the 5.7 projection can answer: NULL AS EXPRESSION, 'YES' AS IS_VISIBLE.
 		return []string{"schema", "table", "name", "non_unique", "position", "column", "expression", "prefix", "collation", "method", "visible"}, [][]driver.Value{{"aoci_test", "Order Items", "name_prefix", int64(1), int64(1), "select", nil, int64(12), "A", "BTREE", "YES"}}
 	case mysqlPartitionsSQL:
-		return []string{"schema", "table", "name", "ordinal", "method", "expression", "description"}, nil
+		columns := []string{"schema", "table", "name", "ordinal", "method", "expression", "description"}
+		if strings.Contains(query, "SUBPARTITION_NAME") {
+			columns = append(columns, "SUBPARTITION_NAME")
+		}
+		return columns, nil
 	default:
 		return []string{"unexpected"}, nil
 	}

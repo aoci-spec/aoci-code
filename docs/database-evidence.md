@@ -197,6 +197,10 @@ Queries use `information_schema` and the necessary `pg_catalog` functions and
 tables. `information_schema`, `pg_catalog`, `pg_toast*`, and `pg_temp_*` are
 always excluded as object namespaces.
 
+Partition links are checked when either table is selected. Evidence for the
+selected table still names its parent or child when the other table is
+outside the selection.
+
 ## MySQL collector
 
 The MySQL collector supports MySQL 5.7.6 and later and records:
@@ -227,6 +231,10 @@ forks are not supported.
 `information_schema`, `mysql`, `performance_schema`, and `sys` are always
 excluded as object namespaces. MySQL v1 intentionally treats one configured
 database as the source namespace.
+
+A selected table with named subpartitions stops collection with
+`unsupported_catalog_feature` (`catalog_query_partitions_mysql_subpartition`)
+and reports the table name before producing any Evidence.
 
 ## openGauss collector
 
