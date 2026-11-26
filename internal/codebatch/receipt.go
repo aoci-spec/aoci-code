@@ -354,6 +354,28 @@ func LoadReceipt(root, batchID string) (Receipt, error) {
 }
 
 func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, limit int, logical string) (Plan, error) {
+	plan, publish := preparePlan(compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, all, selected, limit, logical)
+	if err := publish(root); err != nil {
+		return Plan{}, err
+	}
+	return plan, nil
+}
+
+// PrepareBatch binds a selected prefix or sibling without issuing a receipt.
+// Publish the returned batch only after the complete response fits.
+func PrepareBatch(ids ParallelIdentities, logical string, all, selected []Candidate, limit, transportBytes int) (Plan, func(string) error, error) {
+	if limit < 1 || len(selected) == 0 || (logical != "" && !validSHA256(logical)) {
+		return Plan{}, nil, fmt.Errorf("code_candidate_batch_limit_invalid")
+	}
+	if err := validateCandidates(all); err != nil {
+		return Plan{}, nil, err
+	}
+	plan, publish := preparePlan(ids.CompositeIdentity, ids.ScopePolicyIdentity, ids.CodeVolumePath, ids.CodeVolumeSHA256, all, selected, limit, logical)
+	plan.TransportBudgetBytes = transportBytes
+	return plan, publish, nil
+}
+
+func preparePlan(compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256 string, all, selected []Candidate, limit int, logical string) (Plan, func(string) error) {
 	allTargets := targetsWithoutCandidateIDs(all)
 	planID := receiptHash("code-cognition-plan/v1", compositeIdentity, scopePolicyIdentity, codeVolumePath, codeVolumeSHA256, encodeTargets(allTargets, false))
 	selectedTargets := targetsWithoutCandidateIDs(selected)
@@ -373,15 +395,14 @@ func savePlan(root, compositeIdentity, scopePolicyIdentity, codeVolumePath, code
 	receipt := Receipt{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
 		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
 		Targets: selectedTargets, LogicalPlan: logical}
-	if err := saveReceipt(root, receipt); err != nil {
-		return Plan{}, err
-	}
 	remaining := len(all) - len(selected)
 	return Plan{Version: Version, PlanID: planID, BatchID: batchID, CompositeIdentity: compositeIdentity,
-		ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
-		TotalTargets: len(all), MaxEntries: limit, Included: len(selected), Remaining: remaining,
-		CompleteCandidateSetForBatch: true, ContinuationRequired: remaining > 0, Candidates: planCandidates,
-		NextAction: "author_complete_current_machine_batch", LogicalPlan: logical}, nil
+			ScopePolicyIdentity: scopePolicyIdentity, CodeVolumePath: codeVolumePath, CodeVolumeSHA256: codeVolumeSHA256,
+			TotalTargets: len(all), MaxEntries: limit, Included: len(selected), Remaining: remaining,
+			CompleteCandidateSetForBatch: true, ContinuationRequired: remaining > 0, Candidates: planCandidates,
+			NextAction: "author_complete_current_machine_batch", LogicalPlan: logical}, func(root string) error {
+			return saveReceipt(root, receipt)
+		}
 }
 
 func saveReceipt(root string, receipt Receipt) error {

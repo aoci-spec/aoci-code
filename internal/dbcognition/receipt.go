@@ -22,6 +22,18 @@ import (
 )
 
 func BuildPlan(root string, assessment Assessment, set *cognition.Set, objectLimit, evidenceByteLimit int) (Plan, error) {
+	plan, err := PreparePlan(root, assessment, set, objectLimit, evidenceByteLimit)
+	if err != nil {
+		return Plan{}, err
+	}
+	if err := PublishPlan(root, plan); err != nil {
+		return Plan{}, err
+	}
+	return plan, nil
+}
+
+// PreparePlan binds the current Evidence without issuing a batch receipt.
+func PreparePlan(root string, assessment Assessment, set *cognition.Set, objectLimit, evidenceByteLimit int) (Plan, error) {
 	if assessment.DatabaseVolumeState != cognition.AssetPresent || assessment.DatabaseVolumePath == "" || assessment.DatabaseVolumeSHA256 == "" {
 		return Plan{}, errors.New(machinecontract.DatabaseCognitionVolumeAbsent)
 	}
@@ -78,11 +90,20 @@ func BuildPlan(root string, assessment Assessment, set *cognition.Set, objectLim
 		targets[index].CandidateID = receiptHash("database-cognition-object/v1", batchID, targets[index].ObjectRef, targets[index].SourceID, targets[index].CognitionState, targets[index].EvidenceVersion, targets[index].TableEvidenceSHA256, targets[index].EvidenceRef)
 		selected[index].CandidateID = targets[index].CandidateID
 	}
-	receipt := Receipt{Version: machinecontract.DatabaseCognitionCandidateVersion, BatchID: batchID, DatabaseVolumePath: assessment.DatabaseVolumePath, DatabaseVolumeSHA256: assessment.DatabaseVolumeSHA256, Targets: targets}
-	if err := SaveReceipt(root, receipt); err != nil {
-		return Plan{}, err
+	return Plan{Version: machinecontract.DatabaseCognitionCandidateVersion, BatchID: batchID, DatabaseVolumePath: assessment.DatabaseVolumePath, DatabaseVolumeSHA256: assessment.DatabaseVolumeSHA256, TargetCount: len(selected), Remaining: len(actionable) - len(selected), EvidenceBytes: totalBytes, Candidates: selected, NextAction: machinecontract.DatabaseCognitionActionAuthorCompleteBatch}, nil
+}
+
+// PublishPlan issues the receipt for the selected candidates.
+func PublishPlan(root string, plan Plan) error {
+	if len(plan.Candidates) == 0 {
+		return nil
 	}
-	return Plan{Version: receipt.Version, BatchID: batchID, DatabaseVolumePath: receipt.DatabaseVolumePath, DatabaseVolumeSHA256: receipt.DatabaseVolumeSHA256, TargetCount: len(selected), Remaining: len(actionable) - len(selected), EvidenceBytes: totalBytes, Candidates: selected, NextAction: machinecontract.DatabaseCognitionActionAuthorCompleteBatch}, nil
+	targets := make([]ReceiptTarget, 0, len(plan.Candidates))
+	for _, candidate := range plan.Candidates {
+		targets = append(targets, candidate.ReceiptTarget)
+	}
+	return SaveReceipt(root, Receipt{Version: plan.Version, BatchID: plan.BatchID, DatabaseVolumePath: plan.DatabaseVolumePath,
+		DatabaseVolumeSHA256: plan.DatabaseVolumeSHA256, Targets: targets})
 }
 
 type loadedSnapshot struct {

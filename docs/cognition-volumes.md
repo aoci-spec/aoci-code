@@ -323,9 +323,15 @@ maintain_transport_budget_bytes B`). The batch comes with Review/Write/Guard
 closure and the affected-domain authoring contract. With candidates present,
 the review and write lists hold up to five items. Maintain reduces those
 samples and the governance samples when the serialized response needs more
-room. Their complete counts travel with any shortened list. If one Code
-object and the required fields exceed the budget with empty samples,
-Maintain delivers it alone and sets `authoring_batch.transport_budget_exceeded`.
+room, then cuts the batch further if needed. Their complete counts travel with
+any shortened list. If one object with its required fields still exceeds the
+budget with empty samples, Maintain delivers it alone with
+`authoring_batch.transport_budget_exceeded: true`. Required Observe evidence
+and first-delivery orphan removals stay complete. The host opens the full tool
+result or its attachment, then submits the complete batch with the required
+review or removals. A pure Database response without Observe review or orphan
+removals uses its independent Evidence limit. Adding required Observe review
+puts the whole response under the team transport budget.
 Verify and Check report the complete governance lists. The response separates the
 logical plan from the complete current machine batch with `total_targets`,
 `max_entries`, `included`, `remaining`, batch and Composite/Scope identities,
@@ -393,13 +399,13 @@ The batch is sized so the model authors it inline as the arguments of one
 `aoci_update_entry` call: no intermediate files, helper scripts, or shell
 staging are needed, and a lost context is recovered by calling Maintain again,
 which reproduces the same batch and candidate identities from the unchanged
-repository. The Maintain response itself stays inside ordinary Host tool-result
-windows regardless of repository size: candidates, plans, and receipts are
-always complete, while per-item governance enumerations (`governance.findings`,
+repository. Candidates, plans, and receipts travel complete for the machine
+batch. Per-item governance enumerations (`governance.findings`,
 `governance.code_drift.*`, `sets.review`, `sets.write`) keep a leading sample
-of 20, or of five while the response carries candidates, and report complete
-counts under `governance.list_truncation`, `sets.review_total`, and
-`sets.write_total`; `aoci verify --json` and `aoci check --json` still list
+of at most 20 items, or at most five while the response carries candidates,
+and report complete counts under `governance.list_truncation`,
+`sets.review_total`, and `sets.write_total`; `aoci verify --json` and
+`aoci check --json` still list
 every item. Raise the batch only when both the Host window and the model can
 carry it — a 1,400-file repository at 200 per batch answered its first Maintain
 with roughly 330 KB, which no Host displays inline.

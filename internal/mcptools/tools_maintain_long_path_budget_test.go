@@ -3,6 +3,8 @@ package mcptools
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -137,15 +139,56 @@ func TestMaintainTransportBudgetForVeryLongPaths(t *testing.T) {
 	}
 }
 
+func TestParallelBudgetDeliversOrphanWithFirstBatch(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("fixture needs Linux paths over 1 KiB")
+	}
+	root := buildManyFileVolumesRepo(t, 12)
+	buildToAligned(t, connectMCPClient(t, root))
+	const orphan = "pkg/mod001/file011.go"
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(orphan))); err != nil {
+		t.Fatal(err)
+	}
+	directory := strings.Repeat(strings.Repeat("&", 227)+"/", 8)
+	for i := range 3 {
+		writeVolumeTestFile(t, root, fmt.Sprintf("%sitem%02d.go", directory, i), "package fixture\n")
+	}
+	leader := connectMCPClient(t, root)
+	cfg, err := config.LoadReadOnly(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := checkLongPathMaintain(t, leader, nil, cfg.MaintainTransportBudget(), true, "first delivery")
+	if len(first.OrphanRemovals) != 1 || first.OrphanRemovals[0] != "code:"+orphan || len(first.CodePlan.Siblings) != 2 {
+		t.Fatalf("first delivery must carry the orphan and list both siblings, got orphans=%v siblings=%d", first.OrphanRemovals, len(first.CodePlan.Siblings))
+	}
+	args := codeBatchArguments(wireCodePlan(*first))
+	args["removals"] = []map[string]string{{"path": orphan}}
+	if applied := applyVolumeBatch(t, leader, args); applied.Status != autoStatusApplied || applied.Aligned {
+		t.Fatalf("lead Apply must remove the orphan and leave sibling work, got status=%s aligned=%v", applied.Status, applied.Aligned)
+	}
+	for i, sibling := range first.CodePlan.Siblings {
+		worker := connectMCPClient(t, root)
+		batch := checkLongPathMaintain(t, worker, map[string]any{"batch_id": sibling.BatchID}, cfg.MaintainTransportBudget(), true, "sibling")
+		if len(batch.OrphanRemovals) != 0 {
+			t.Fatal("later delivery repeated the orphan")
+		}
+		applied := applyVolumeBatch(t, worker, codeBatchArguments(wireCodePlan(*batch)))
+		if applied.Status != autoStatusApplied || applied.Aligned != (i == len(first.CodePlan.Siblings)-1) {
+			t.Fatalf("Apply %d status=%s aligned=%v", i, applied.Status, applied.Aligned)
+		}
+	}
+}
+
 func checkLongPathMaintain(t *testing.T, session *mcp.ClientSession, args map[string]any, budget int, expectOversize bool, label string) *volumeMaintainResult {
 	t.Helper()
 	raw := callVolumeTool(t, session, "aoci_maintain", args)
 	var result volumeMaintainResult
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
-		t.Fatal(err)
+		t.Fatalf("%s: decode Maintain result: %v, response=%q", label, err, raw)
 	}
 	if result.CodePlan == nil || len(result.Candidates) == 0 {
-		t.Fatalf("%s: no current Code batch, status=%s", label, result.Status)
+		t.Fatalf("%s: no current Code batch, status=%s result=%s next=%s", label, result.Status, result.Result, result.NextAction)
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(raw), &fields); err != nil {

@@ -2,11 +2,13 @@ package cli
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -81,6 +83,9 @@ func TestFirstBuildEstimateMatchesMaintain(t *testing.T) {
 				if predicted != actual {
 					t.Errorf("estimated %d Maintain rounds, reached alignment in %d", predicted, actual)
 				}
+				if fixture.name == "long_paths" && mode.deliverSiblings && actual > 7 {
+					t.Errorf("the long-path fixture took %d parallel rounds, above the seven-round baseline", actual)
+				}
 			})
 		}
 	}
@@ -100,7 +105,9 @@ func TestColdFirstBuildEstimateUsesMaintainLineEvidence(t *testing.T) {
 		testkit.WriteFile(t, root, path, "package fixture\n")
 		initialPaths = append(initialPaths, path)
 	}
-	directory := "src/z" + strings.Repeat("x", 190) + "/" + strings.Repeat("m", 190) + "/" + strings.Repeat("n", 190)
+	// The last five paths must make the candidate payload itself span two
+	// rounds even when advisory samples no longer consume most of the budget.
+	directory := "src/z" + strings.Repeat("x", 190) + strings.Repeat("/"+strings.Repeat("m", 190), 8)
 	for i := range 5 {
 		testkit.WriteFile(t, root, fmt.Sprintf("%s/file%03d.go", directory, i), "package fixture\n")
 	}
@@ -202,6 +209,93 @@ func TestScanDryRunLeavesLegacyLocaleUnwritten(t *testing.T) {
 	mustCLI(t, root, "scan", "--json", "--dry-run")
 	if after := snapshotInitTree(t, root); !maps.Equal(before, after) {
 		t.Fatal("scan --dry-run changed the pre-Locale repository tree")
+	}
+}
+
+func TestMaintainDatabaseAndObserveShareTransportBudget(t *testing.T) {
+	pinDefaultLocale(t)
+	if runtime.GOOS != "linux" {
+		t.Skip("fixture needs Linux paths over 1 KiB")
+	}
+	root := t.TempDir()
+	for path, content := range map[string]string{
+		"main.go": "package fixture\n", ".gitattributes": "* text=auto\n", "AGENTS.md": "# Fixture\n",
+	} {
+		testkit.WriteFile(t, root, path, content)
+	}
+	directory := strings.Repeat(strings.Repeat("&", 227)+"/", 8)
+	for i := range 3 {
+		testkit.WriteFile(t, root, fmt.Sprintf("%sitem%02d_test.go", directory, i), "package fixture\n")
+	}
+	mustCLI(t, root, "--quiet", "init", "--locale", "en-US", "--agent=", "--hooks=false", "--here=false")
+	scan := readScanAuthoringEstimate(t, root)
+	authorFirstBuild(t, root, scan.ParallelBatches, scan.Targets, false)
+
+	dbPath := filepath.Join(t.TempDir(), "wide.sqlite")
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	for i := range 12 {
+		columns := []string{"id INTEGER PRIMARY KEY"}
+		for j := range 26 {
+			columns = append(columns, fmt.Sprintf("fixture_property_%02d TEXT DEFAULT 'synthetic'", j))
+		}
+		if _, err := db.Exec(fmt.Sprintf("CREATE TABLE fixture_table_%02d (%s)", i, strings.Join(columns, ","))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mustCLI(t, root, "database", "source", "add", "--source-id", "local", "--engine", "sqlite", "--path", dbPath)
+	var snap struct {
+		SHA256 string `json:"source_snapshot_sha256"`
+	}
+	if err := json.Unmarshal([]byte(mustCLI(t, root, "database", "snapshot", "--source", "local", "--json")), &snap); err != nil {
+		t.Fatal(err)
+	}
+	mustCLI(t, root, "database", "baseline", "accept", "--source", "local", "--snapshot-sha", snap.SHA256, "--json")
+
+	repo, err := engine.Open(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := repo.Connect(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	read := func() (int, int, int, bool, bool) {
+		t.Helper()
+		result, err := session.Call(t.Context(), "aoci_maintain", nil)
+		if err != nil || result.IsError {
+			t.Fatalf("Maintain: %v %s", err, result.Text)
+		}
+		var response struct {
+			Candidates []json.RawMessage `json:"candidates"`
+			Batch      struct {
+				Exceeded bool `json:"transport_budget_exceeded"`
+			} `json:"authoring_batch"`
+			Observe struct {
+				Evidence []json.RawMessage `json:"evidence"`
+				Confirm  *struct{}         `json:"confirm_request"`
+			} `json:"observe_review"`
+		}
+		if err := json.Unmarshal([]byte(result.Text), &response); err != nil {
+			t.Fatal(err)
+		}
+		return len(result.Text), len(response.Candidates), len(response.Observe.Evidence), response.Batch.Exceeded, response.Observe.Confirm != nil
+	}
+	bytes, candidates, listed, exceeded, confirm := read()
+	if bytes <= scan.TransportBudgetBytes || candidates <= 1 || listed != 0 || exceeded || confirm {
+		t.Fatalf("pure Database plan should retain its independent Evidence limit, got %d bytes, %d candidates, %d review items, exceeded=%t confirm=%t", bytes, candidates, listed, exceeded, confirm)
+	}
+	for i := range 3 {
+		testkit.WriteFile(t, root, fmt.Sprintf("%sitem%02d_test.go", directory, i), "package fixture\n// observed change\n")
+	}
+	bytes, candidates, listed, exceeded, confirm = read()
+	t.Logf("Database with Observe: %d bytes, %d candidates, %d review items, exceeded=%t confirm=%t", bytes, candidates, listed, exceeded, confirm)
+	if bytes <= scan.TransportBudgetBytes || candidates != 1 || listed != 3 || !exceeded || !confirm {
+		t.Fatal("oversize Observe evidence must stay complete beside a single marked Database candidate")
 	}
 }
 

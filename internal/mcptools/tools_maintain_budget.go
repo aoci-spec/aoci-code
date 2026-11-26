@@ -36,6 +36,9 @@ const maintainInstructionsFallbackBytes = 3 << 10
 // and the complete lists stay in Verify and Check.
 const maintainCandidateSampleLimit = 5
 
+// Samples can be trimmed down to their counts to leave room for candidates.
+const maintainCandidateSampleReserveBytes = 2 << 10
+
 // optimizationCandidateExtraBytes covers the cost, importance, and selection
 // reason an optimization candidate carries beyond an ordinary one.
 const optimizationCandidateExtraBytes = 320
@@ -85,8 +88,18 @@ func optimizationCandidateBudget(cfg *config.Config, set *cognition.Set, candida
 }
 
 func reserveCandidateSamples(budget codebatch.Budget, ordered []codebatch.Candidate) codebatch.Budget {
-	budget.Bytes = max(1<<10, budget.Bytes-sampleBytes(ordered))
+	// Path samples are advisory. Reserve their encoded size up to a small
+	// share of the response so a few deep paths cannot displace most of the
+	// batch. The wire builder drops the samples that do not fit.
+	budget.Bytes = max(1<<10, budget.Bytes-min(sampleBytes(ordered), maintainCandidateSampleReserveBytes))
 	return budget
+}
+
+// cutMaintainCodeBatch is the shared prefix cut for Maintain and the first
+// build projection. Live Maintain can lower limit when the complete serialized
+// response carries additional required evidence.
+func cutMaintainCodeBatch(ordered []codebatch.Candidate, limit int, budget codebatch.Budget) []codebatch.Candidate {
+	return ordered[:codebatch.PrefixWithinBudget(ordered, limit, budget)]
 }
 
 // fixedOverheadBytes is the base reservation plus the two repository-sized
@@ -224,11 +237,11 @@ func PlanCodeBatchIncluded(root string, cfg *config.Config, set *cognition.Set, 
 		return 0
 	}
 	budget := codeCandidateBudget(cfg, set, all, lines, true)
-	_, selected := codebatch.SelectWithBudget(all, codeBatchLimit(cfg), budget)
+	ordered, _ := codebatch.Select(all, 0)
+	selected := cutMaintainCodeBatch(ordered, codeBatchLimit(cfg), budget)
 	// Work beyond one batch is issued as siblings, whose first is cut under
 	// the budget less the sibling listing: the Guide shows that batch.
 	if parallel := cfg.CodeCognitionParallelBatchLimit(); parallel > 1 && len(selected) < len(all) {
-		ordered, _ := codebatch.Select(all, 0)
 		if cuts := cutParallelSiblings(ordered, codeBatchLimit(cfg), parallel, budget, budget); len(cuts) > 0 {
 			return len(cuts[0])
 		}
@@ -276,7 +289,7 @@ func countCodeAuthoringRounds(remaining []codebatch.Candidate, limit, parallel i
 		if rounds > 0 {
 			first = reserveCandidateSamples(ref, remaining)
 		}
-		taken := codebatch.PrefixWithinBudget(remaining, limit, first)
+		taken := len(cutMaintainCodeBatch(remaining, limit, first))
 		if parallel > 1 && taken < len(remaining) {
 			cuts := cutParallelSiblings(remaining, limit, parallel, first, ahead)
 			taken = len(cuts[0])

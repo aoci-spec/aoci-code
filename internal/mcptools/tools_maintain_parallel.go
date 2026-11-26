@@ -205,7 +205,7 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 	reserve := 0
 	var cuts [][]codebatch.Candidate
 	for iteration := 0; iteration < 4; iteration++ {
-		held := map[string]bool{}
+		remaining := ordered
 		cuts = nil
 		for position := 0; position < parallel; position++ {
 			budget := aheadBudget
@@ -219,14 +219,12 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 			if budget.Bytes < 1<<10 {
 				budget.Bytes = 1 << 10
 			}
-			selected := codebatch.CutSibling(ordered, held, limit, budget)
+			selected := cutMaintainCodeBatch(remaining, limit, budget)
 			if len(selected) == 0 {
 				break
 			}
-			for _, candidate := range selected {
-				held[candidate.ObjectRef] = true
-			}
 			cuts = append(cuts, selected)
+			remaining = remaining[len(selected):]
 		}
 		listing := siblingListingBytes(cuts)
 		// A sibling delivered by batch_id also names its plan in sibling_of.
@@ -256,7 +254,7 @@ func cutParallelSiblings(ordered []codebatch.Candidate, limit, parallel int, fir
 // agents calling no-argument Maintain each receive their own; when every
 // outstanding sibling is already delivered, the first of them is delivered
 // again, which is what a single agent sees between its Applies.
-func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, contractOnWire bool, parallel int, session *cognitionRefreshSession) {
+func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, all []codebatch.Candidate, lines map[string]int, cutLimit int, contractOnWire bool, parallel int, session *cognitionRefreshSession) {
 	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
 	plan := currentParallelPlan(root, ids)
 	if len(all) == 0 {
@@ -280,57 +278,46 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		}
 	}
 	firstBudget := codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
+	var publishFresh func() error
 	if plan == nil {
-		result.planIssuedNow = true
 		fresh := codebatch.NewParallelPlan(ids)
-		ordered, _ := codebatch.Select(all, 0)
-		cuts := cutParallelSiblings(ordered, limit, parallel, firstBudget, codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true))
+		cuts := cutParallelSiblings(all, cutLimit, parallel, firstBudget, codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true))
 		if len(cuts) == 0 {
 			return
 		}
+		receipts = map[string]codebatch.Receipt{}
+		siblings = nil
+		publishers := make([]func(string) error, 0, len(cuts))
 		for _, cut := range cuts {
 			if fail := firstUnspellableCandidate(root, loaded, cut); fail != nil {
 				result.Stop = fail.GlobalStop
 				return
 			}
-		}
-		if err := codebatch.SaveParallelPlan(root, fresh, loaded.set.Volumes[cognition.ScopeCode].Raw); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
-			return
-		}
-		receipts = map[string]codebatch.Receipt{}
-		siblings = nil
-		for position, cut := range cuts {
-			budget := firstBudget
-			if position > 0 {
-				budget = codeCandidateBudget(loaded.cfg, loaded.set, all, lines, true)
-			}
-			issued, err := codebatch.BuildSiblingPlan(root, fresh.LogicalPlan, ids.CompositeIdentity, ids.ScopePolicyIdentity,
-				ids.CodeVolumePath, fresh.PreimageSHA256, all, cut, limit, budget)
+			issued, publish, err := codebatch.PrepareBatch(ids, fresh.LogicalPlan, all, cut, limit, firstBudget.Total)
 			if err != nil {
-				_ = codebatch.RemoveParallelPlans(root)
-				result.issueFailure = "code_parallel_plan_issue_failed"
+				result.issueFailure = err.Error()
 				return
 			}
-			receipt, loadErr := codebatch.LoadReceipt(root, issued.BatchID)
-			if loadErr != nil {
-				_ = codebatch.RemoveParallelPlans(root)
-				result.issueFailure = "code_parallel_plan_issue_failed"
-				return
-			}
+			publishers = append(publishers, publish)
 			fresh.Siblings = append(fresh.Siblings, issued.BatchID)
-			receipts[issued.BatchID] = receipt
 			paths := make([]string, 0, len(cut))
-			for _, candidate := range cut {
+			targets := make([]codebatch.Target, 0, len(cut))
+			for _, candidate := range issued.Candidates {
 				paths = append(paths, candidate.Path)
+				targets = append(targets, candidate.Target)
 			}
+			receipts[issued.BatchID] = codebatch.Receipt{PlanID: issued.PlanID, BatchID: issued.BatchID, Targets: targets}
 			siblings = append(siblings, codebatch.Sibling{BatchID: issued.BatchID, Targets: paths, Included: len(paths), State: codebatch.SiblingIssued})
 		}
-		if err := codebatch.UpdateParallelPlan(root, fresh); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
-			return
-		}
 		plan = &fresh
+		publishFresh = func() error {
+			for _, publish := range publishers {
+				if err := publish(root); err != nil {
+					return err
+				}
+			}
+			return codebatch.SaveParallelPlan(root, *plan, loaded.set.Volumes[cognition.ScopeCode].Raw)
+		}
 	}
 	// The sibling this server was already handed, while it is still out, is
 	// the current batch again: one session asking twice gets one batch, and
@@ -359,15 +346,27 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 	if current == nil {
 		return
 	}
-	if current.State == codebatch.SiblingIssued {
+	result.firstDelivery = len(plan.Delivered) == 0
+	result.fixedCodeBatch = publishFresh == nil
+	deliver := current.State == codebatch.SiblingIssued
+	batchID := current.BatchID
+	if deliver {
 		current.State = codebatch.SiblingDelivered
-		plan.Delivered = append(plan.Delivered, current.BatchID)
-		if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-			result.issueFailure = "code_parallel_plan_issue_failed"
-			return
-		}
 	}
-	session.HoldSibling(current.BatchID)
+	result.publishCodeBatch = func() error {
+		if deliver {
+			plan.Delivered = append(plan.Delivered, batchID)
+			publish := publishFresh
+			if publish == nil {
+				publish = func() error { return codebatch.UpdateParallelPlan(root, *plan) }
+			}
+			if err := publish(); err != nil {
+				return err
+			}
+		}
+		session.HoldSibling(batchID)
+		return nil
+	}
 	receipt := receipts[current.BatchID]
 	held := 0
 	others := make([]codebatch.Sibling, 0, len(siblings))
@@ -398,6 +397,64 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		LogicalPlan: plan.LogicalPlan, Siblings: others}
 	result.Batch.TransportBudgetBytes = firstBudget.Total
 	appendReceiptCandidates(root, loaded, result, receipt)
+	if publishFresh != nil {
+		result.checkParallelBudget = func(wire volumeMaintainResult) (int, error) {
+			return parallelDeliveryCutLimit(root, loaded, wire, siblings, receipts)
+		}
+	}
+}
+
+// parallelDeliveryCutLimit tests the full-contract form a fresh worker (or a
+// lead recalling the contract) can request, before publishing any sibling.
+// A zero result accepts the cuts. Otherwise the result caps the next attempt.
+func parallelDeliveryCutLimit(root string, loaded *cognitionRepoCtx, lead volumeMaintainResult, siblings []codebatch.Sibling, receipts map[string]codebatch.Receipt) (int, error) {
+	contract, err := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})
+	if err != nil {
+		return 0, err
+	}
+	if lead.InstructionsRef != nil {
+		lead.Instructions = append(append([]string{}, lead.Instructions...), contract.Instructions...)
+		lead.AuthoringMeta, lead.InstructionsRef = contract.AuthoringMeta, nil
+	}
+	_, fits, err := maintainPayload(lead, loaded.cfg)
+	if err != nil {
+		return 0, err
+	}
+	if !fits {
+		return len(lead.Candidates) - 1, nil
+	}
+	for _, sibling := range siblings {
+		if sibling.BatchID == lead.CodePlan.BatchID {
+			continue
+		}
+		wire := lead
+		wire.OrphanRemovals = nil
+		wire.Candidates = nil
+		receipt := receipts[sibling.BatchID]
+		appendReceiptCandidates(root, loaded, &wire, receipt)
+		wire.Sets.Write = candidateRefs(wire.Candidates)
+		wire.Sets.Review = reviewClosure(loaded.set, wire.Candidates)
+		wire.Batch.Included = len(wire.Candidates)
+		wire.Batch.SourceLines, wire.Batch.SourceLinesBudget = batchSourceLines(wire.Candidates)
+		plan := *lead.CodePlan
+		plan.PlanID, plan.BatchID, plan.Included = receipt.PlanID, receipt.BatchID, len(wire.Candidates)
+		plan.SiblingOf = plan.LogicalPlan
+		plan.Siblings = nil
+		for _, other := range siblings {
+			if other.BatchID != receipt.BatchID {
+				plan.Siblings = append(plan.Siblings, other)
+			}
+		}
+		wire.CodePlan = &plan
+		_, fits, err := maintainPayload(wire, loaded.cfg)
+		if err != nil {
+			return 0, err
+		}
+		if !fits {
+			return len(wire.Candidates) - 1, nil
+		}
+	}
+	return 0, nil
 }
 
 // appendReceiptCandidates turns a sibling's receipt targets into the response
@@ -470,7 +527,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		}
 	}
 	siblings, receipts := parallelSiblingStates(root, plan)
-	changed := false
+	deliver := false
 	var requested *codebatch.Sibling
 	for index := range siblings {
 		if siblings[index].BatchID == batchID {
@@ -512,17 +569,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	case "":
 	case codebatch.SiblingIssued, codebatch.SiblingDelivered:
 		receipt := receipts[batchID]
-		if state == codebatch.SiblingIssued {
-			plan.Delivered = append(plan.Delivered, batchID)
-			changed = true
-		}
-		if changed {
-			// The candidates are returned only once the delivery is on
-			// record: an unrecorded one could be released under its Agent.
-			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
-			}
-		}
+		deliver = state == codebatch.SiblingIssued
 		appendReceiptCandidates(root, loaded, &result, receipt)
 		held := 0
 		for _, sibling := range siblings {
@@ -557,17 +604,23 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		if contractErr != nil {
 			return failResult(&Fail{Code: errInternal, Msg: "volume_authoring_contract_invalid"})
 		}
-		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
+		var lead []string
+		if observeRides {
+			result.ObserveReview = observeReviewForBatch(facts)
+			lead = append(lead, mcpMessage("maintain.observe_review_in_batch_instruction", result.ObserveReview.ReviewDigest))
+		}
+		if len(plan.Delivered) == 0 {
+			for _, orphan := range facts.CodeDrift.Orphan {
+				result.OrphanRemovals = append(result.OrphanRemovals, "code:"+orphan)
+			}
+			if len(result.OrphanRemovals) != 0 {
+				lead = append(lead, mcpMessage("maintain.orphan_removals_instruction"))
+			}
+		}
+		attachAuthoringContract(&result, contract, lead, refreshSession, includeInstructions)
 	default:
 		// Applied, or invalidated by a foreign change or its own source drift:
 		// the state is the answer, and no-argument Maintain plans afresh.
-		if changed {
-			// The candidates are returned only once the delivery is on
-			// record: an unrecorded one could be released under its Agent.
-			if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
-				return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
-			}
-		}
 		listed := codebatch.Sibling{BatchID: batchID, Targets: []string{}, State: state}
 		if requested != nil {
 			listed.Targets, listed.Included = requested.Targets, requested.Included
@@ -580,7 +633,20 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 	result.Batch.NextAction = result.NextAction
 	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
 	result.Metrics.SemanticFiles = len(result.Candidates)
-	response := renderMaintainTransport(result, loaded.cfg, refreshSession)
+	data, fits, err := maintainPayload(result, loaded.cfg)
+	if err != nil {
+		return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+	}
+	if !fits {
+		return maintainReplanResponse(result, loaded.cfg)
+	}
+	if deliver {
+		plan.Delivered = append(plan.Delivered, batchID)
+		if err := codebatch.UpdateParallelPlan(root, *plan); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "code_parallel_plan_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	response := maintainResponse(data, result, refreshSession)
 	ledgerResult := ledger.ResultError
 	if result.Status == autoStatusRepairRequired && !response.IsError {
 		ledgerResult = ledger.ResultRepairRequired

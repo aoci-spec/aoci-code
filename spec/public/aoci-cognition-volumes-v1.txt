@@ -284,8 +284,8 @@ targets under one Managed Scope and Composite preimage. It may exceed one batch
 and is not an atomic-write boundary. Maintain deterministically issues one
 current machine batch of at most the team batch size — the configuration key
 `code_cognition_batch_entries`, machine default 50, never above the wire
-ceiling EntriesBatchMaxItems=200 — cut earlier where the Code part of the
-response would exceed the team transport budget
+ceiling EntriesBatchMaxItems=200 — cut earlier where the serialized response
+would exceed the team transport budget
 `maintain_transport_budget_bytes` (machine default 24 KiB, inclusive range
 16 KiB through 192 KiB; the batch always carries at least one candidate;
 Database candidates keep their own `database_cognition_batch_evidence_bytes`
@@ -330,14 +330,20 @@ lists, the review closure) carry a leading sample plus complete counts under
 (`root`, `meta`, `code`, `database`) stay off the wire, since
 `cognition_receipt` and `code_plan` carry those identities. Maintain measures
 the serialized UTF-8 tool text including its trailing newline and reduces
-the advisory samples further when they would exceed the team budget. A
-sample may be empty, with its complete count still reported. If a response
-containing one Code object and its required fields still exceeds the budget
-with empty samples, it carries that object alone and reports
-`authoring_batch.transport_budget_exceeded: true`. A remaining oversize
-envelope with multiple actionable objects or a required Observe review
-returns a tool error with `maintain_transport_budget_exceeded`. Database-only
-candidate responses use the Evidence limit stated above. Verify and Check
+the advisory samples as needed. Samples contain at most 20 items, or at most
+five alongside candidates. A sample may be empty, with its complete count
+still reported. If the response still exceeds the budget, Maintain cuts the
+candidate batch further before issuing it. A single candidate with its
+required fields still travels complete if it exceeds the budget, with
+`authoring_batch.transport_budget_exceeded: true`. Required Observe evidence
+and first-delivery orphan removal obligations travel complete, including in
+responses that carry only these obligations. The Host reads the full result
+and submits the complete machine batch and required review or removals.
+Pure Database candidate responses use the independent Evidence limit stated
+above. That exception applies only to responses without required Observe
+review or orphan removals. A response combining Database candidates with
+required Observe review uses the whole-response transport budget, including
+the single-candidate rule. Verify and Check
 keep reporting every item and every record. Missing, Stale, or
 Unbaselined targets keep Guide and Maintain
 authoring_required; neither may report Whole-Index aligned until remaining and
@@ -810,7 +816,8 @@ the Composite identity, and the Scope identity at issuance. Sibling target
 sets are disjoint by construction; each sibling has its own `batch_id` and
 every sibling records the one `logical_plan`. The response delivers the first
 sibling as today's complete current batch under the transport budget rules
-above, and
+above. Maintain records sibling delivery after building the bounded response.
+Code orphan removals ride with the first successful delivery. The response
 lists the others under `code_plan.siblings` as issued, not delivered: each
 with `batch_id`, `included`, and `state` (`issued`, `delivered`, `applied`,
 `invalidated`). A listing carries no target paths since 2026-11: the Agent

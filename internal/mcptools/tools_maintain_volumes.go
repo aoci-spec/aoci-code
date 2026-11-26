@@ -118,9 +118,13 @@ type volumeMaintainResult struct {
 	// which is a failure to report and never an empty, aligned-looking answer.
 	volumeMoved  bool
 	issueFailure string
-	// planIssuedNow marks the response that issued a fresh parallel plan:
-	// the one sibling Code orphans may ride.
-	planIssuedNow           bool
+	// firstDelivery marks the lead response before any sibling is delivered.
+	// Code orphans ride this response while the index lock is held.
+	firstDelivery           bool
+	fixedCodeBatch          bool
+	releasePlanLock         func()
+	publishCodeBatch        func() error
+	checkParallelBudget     func(volumeMaintainResult) (int, error)
 	lockErr                 error
 	planMarker              string
 	authoringContractDigest string
@@ -200,36 +204,125 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	// the posture lets the model confirm it: the batch is issued beside the
 	// listing and confirms it on the way in (2026-11-01).
 	observeRides := facts.NextRequiredAction == machinecontract.ActionReviewObservedEvidence && observeReviewRidesWithBatch(root, facts)
-	if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
-		if requested[cognition.ScopeCode] && facts.Code.Enabled {
-			result.planMarker = planMarker
-			buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
-			if result.volumeMoved {
-				if attempt >= maintainReloadAttempts {
-					return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
+
+	base := result
+	codeLimit, databaseLimit := codeBatchLimit(loaded.cfg), codeBatchLimit(loaded.cfg)
+	var data []byte
+	defer func() {
+		if result.releasePlanLock != nil {
+			result.releasePlanLock()
+		}
+	}()
+	for {
+		result = base
+		if (facts.Result != volumegovernance.ResultBlocked && facts.Result != volumegovernance.ResultEvidenceRequired) || observeRides {
+			if requested[cognition.ScopeCode] && facts.Code.Enabled {
+				result.planMarker = planMarker
+				buildVolumeCodeCandidates(root, loaded, &result, codeWork, snapshotOfState(state), codeLimit, codeContractOnWire(loaded.cfg, loaded.set, refreshSession, includeInstructions), refreshSession)
+				if result.volumeMoved {
+					if attempt >= maintainReloadAttempts {
+						return failResult(&Fail{Code: errWriteConflict, Msg: "code_volume_changed_during_maintain", Hint: writeMessage("entry.batch.hint.replan")})
+					}
+					reloaded, fail := loadCognitionCtx(root)
+					if fail != nil {
+						return failResult(fail)
+					}
+					return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
 				}
-				reloaded, fail := loadCognitionCtx(root)
-				if fail != nil {
-					return failResult(fail)
+				if result.lockErr != nil {
+					return failResult(maintainLockFailure(result.lockErr))
 				}
-				return handleVolumeMaintainAttempt(root, serviceVersion, requestedScope, includeInstructions, reloaded, refreshSession, attempt+1)
+				if result.issueFailure != "" {
+					return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
+				}
 			}
-			if result.lockErr != nil {
-				return failResult(maintainLockFailure(result.lockErr))
-			}
-			if result.issueFailure != "" {
-				return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + result.issueFailure, Hint: writeMessage("entry.batch.hint.replan")})
+			// Code siblings issued in parallel plan against the Database Volume's
+			// bytes: a Database batch beside them would stale every sibling still
+			// being authored once it applies (audit G2-05), so Database waits
+			// until the siblings are in.
+			if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) &&
+				!codeSiblingsOutstandingOnDisk(root, facts, loaded.set) {
+				buildVolumeDatabaseCandidates(root, loaded, &result, min(databaseLimit, codeBatchLimit(loaded.cfg)-len(result.Candidates)))
 			}
 		}
-		// Code siblings issued in parallel plan against the Database Volume's
-		// bytes: a Database batch beside them would stale every sibling still
-		// being authored once it applies (audit G2-05), so Database waits
-		// until the siblings are in.
-		if result.Stop == nil && requested[cognition.ScopeDatabase] && facts.Database.Enabled && !codeSiblingsIssued(result) &&
-			!codeSiblingsOutstandingOnDisk(root, facts, loaded.set) {
-			buildVolumeDatabaseCandidates(root, loaded, &result, codeBatchLimit(loaded.cfg)-len(result.Candidates))
+		if failure := finishVolumeMaintainResult(root, loaded, &result, requested, codeWork, observeRides, includeInstructions, refreshSession); failure != nil {
+			return failure
+		}
+		result.Metrics.DeterministicMs = elapsedMilliseconds(start)
+		result.Metrics.SemanticFiles = len(result.Candidates)
+		var fits bool
+		data, fits, err = maintainPayload(result, loaded.cfg)
+		if err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+		}
+		narrowSiblingLimit := 0
+		if fits && result.checkParallelBudget != nil {
+			narrowSiblingLimit, err = result.checkParallelBudget(result)
+			if err != nil {
+				return failResult(&Fail{Code: errInternal, Msg: "volumes_maintain_result_invalid"})
+			}
+			fits = narrowSiblingLimit == 0
+		}
+		if fits {
+			break
+		}
+		databaseCount := 0
+		if result.DatabasePlan != nil {
+			databaseCount = result.DatabasePlan.TargetCount
+		}
+		if databaseCount > 0 {
+			databaseLimit = databaseCount / 2
+		} else if narrowSiblingLimit > 0 {
+			codeLimit = narrowSiblingLimit
+		} else if !result.fixedCodeBatch && len(result.Candidates) > 1 {
+			codeLimit = len(result.Candidates) - 1
+		} else {
+			return maintainReplanResponse(result, loaded.cfg)
+		}
+		if result.releasePlanLock != nil {
+			result.releasePlanLock()
+			result.releasePlanLock = nil
 		}
 	}
+	if result.DatabasePlan != nil {
+		if err := dbcognition.PublishPlan(root, *result.DatabasePlan); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "database_candidate_batch_issue_failed", Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	if result.publishCodeBatch != nil {
+		if err := result.publishCodeBatch(); err != nil {
+			return failResult(&Fail{Code: errInternal, Msg: "code_batch_issue_failed: " + err.Error(), Hint: writeMessage("entry.batch.hint.replan")})
+		}
+	}
+	response := maintainResponse(data, result, refreshSession)
+	if refreshSession != nil && !response.IsError {
+		refreshSession.noteSemanticThreshold(len(result.Candidates), loaded.cfg.CognitionRefreshThreshold)
+	}
+	ledgerResult := ledger.ResultOK
+	if result.Status == autoStatusStopped || response.IsError {
+		ledgerResult = ledger.ResultError
+	} else if result.Status == autoStatusRepairRequired {
+		ledgerResult = ledger.ResultRepairRequired
+	}
+	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
+		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
+		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
+		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
+		BatchID: result.Batch.BatchIdentity}
+	if result.CodePlan != nil && result.CodePlan.BatchID != "" {
+		event.BatchID = result.CodePlan.BatchID
+	}
+	if result.Status == autoStatusStopped {
+		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
+	}
+	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
+	return response
+}
+
+// finishVolumeMaintainResult assembles the response without publishing any receipts.
+// The same binding and authoring envelope is measured before it is delivered.
+func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, requested map[string]bool, codeWork volumegovernance.CodeAuthoringWork, observeRides, includeInstructions bool, refreshSession *cognitionRefreshSession) *mcp.CallToolResult {
+	facts := result.Governance.Facts
 	result.Batch.TotalTargets = volumeAuthoringTargetCount(facts, requested, codeWork)
 	result.Batch.Included = len(result.Candidates)
 	result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
@@ -239,7 +332,7 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 	}
 	result.Batch.CompleteCandidateSet = len(result.Candidates) > 0
 	result.Batch.ContinuationRequired = result.Batch.Remaining > 0
-	if codeSiblingsIssued(result) {
+	if codeSiblingsIssued(*result) {
 		// Siblings issued ahead hold targets this response does not carry:
 		// remaining counts what no sibling holds plus the Database work held
 		// back, and the plan continues while either is outstanding.
@@ -251,13 +344,13 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		result.Batch.Remaining = result.CodePlan.Remaining + databaseOutstanding
 		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
 	}
-	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(result)
+	result.Batch.LogicalPlan, result.Batch.BatchIdentity = volumeBatchIdentities(*result)
 	result.Batch.NextAction = "author_complete_current_machine_batch"
 	// Code orphans ride a single batch, or of a parallel plan only the
 	// response that issued it: a sibling handed out later by no-argument
 	// Maintain carried the same removals, and the second to apply found them
 	// gone and stopped (audit G2-10, rv37).
-	codeOrphansRide := !codeSiblingsIssued(result) || result.planIssuedNow
+	codeOrphansRide := !codeSiblingsIssued(*result) || result.firstDelivery
 	for _, orphan := range facts.CodeDrift.Orphan {
 		if requested[cognition.ScopeCode] && codeOrphansRide {
 			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+orphan)
@@ -354,38 +447,14 @@ func handleVolumeMaintainAttempt(root, serviceVersion, requestedScope string, in
 		if others := parallelSiblingsToHandOut(result.CodePlan); others > 0 {
 			lead = append(lead, mcpMessage("maintain.parallel_siblings_instruction", others))
 		}
-		attachAuthoringContract(&result, contract, nil, refreshSession, includeInstructions)
+		attachAuthoringContract(result, contract, nil, refreshSession, includeInstructions)
 		if len(lead) > 0 {
 			result.Instructions = append(lead, result.Instructions...)
 		}
 	} else if result.NextAction == machinecontract.MaintainActionRemoveOrphansInBatch {
 		result.Instructions = append(result.Instructions, mcpMessage("maintain.orphan_removals_instruction"))
 	}
-	result.Metrics.DeterministicMs = elapsedMilliseconds(start)
-	result.Metrics.SemanticFiles = len(result.Candidates)
-	response := renderMaintainTransport(result, loaded.cfg, refreshSession)
-	if refreshSession != nil && !response.IsError {
-		refreshSession.noteSemanticThreshold(len(result.Candidates), loaded.cfg.CognitionRefreshThreshold)
-	}
-	ledgerResult := ledger.ResultOK
-	if result.Status == autoStatusStopped || response.IsError {
-		ledgerResult = ledger.ResultError
-	} else if result.Status == autoStatusRepairRequired {
-		ledgerResult = ledger.ResultRepairRequired
-	}
-	event := ledger.Event{Op: "maintain", Source: ledger.SourceAgent,
-		Result: ledgerResult, PathsCount: len(result.Candidates), DurationMs: result.Metrics.DeterministicMs,
-		AOCIToolCalls: 1, SemanticFiles: len(result.Candidates),
-		GovernanceResult: result.Result, NextAction: result.NextAction, FormalWritesStarted: ledgerFlag(false),
-		BatchID: result.Batch.BatchIdentity}
-	if result.CodePlan != nil && result.CodePlan.BatchID != "" {
-		event.BatchID = result.CodePlan.BatchID
-	}
-	if result.Status == autoStatusStopped {
-		event.Blocker = maintainBlocker(facts, databaseOrphans(result.OrphanRemovals), result.Stop != nil)
-	}
-	ledger.Append(root, loaded.cfg.LedgerEnabled, event)
-	return response
+	return nil
 }
 
 // SnapshotOfState is the Code source snapshot a governance verdict was
@@ -424,13 +493,14 @@ func mustVolumeScope(set *cognition.Set) cognition.ScopeView {
 // candidates: a target the Code Volume already describes is an update, any
 // other is a create. The work set is the same value the batch total and Guide
 // report, so the plan can never promise more than it issues.
-func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, contractOnWire bool, session *cognitionRefreshSession) {
+func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *volumeMaintainResult, work volumegovernance.CodeAuthoringWork, snapshot map[string]baseline.Fingerprint, cutLimit int, contractOnWire bool, session *cognitionRefreshSession) {
 	all, lines := codeCandidatesForWork(root, loaded.set, work, snapshot)
 	var budget codebatch.Budget
-	var selected []codebatch.Candidate
+	var ordered, selected []codebatch.Candidate
 	if len(all) > 0 {
 		budget = codeCandidateBudget(loaded.cfg, loaded.set, all, lines, contractOnWire)
-		_, selected = codebatch.SelectWithBudget(all, codeBatchLimit(loaded.cfg), budget)
+		ordered, _ = codebatch.Select(all, 0)
+		selected = cutMaintainCodeBatch(ordered, cutLimit, budget)
 	}
 	// The plan records are read and written under the index lock, on the
 	// Volume bytes this call loaded: a sibling's Apply that landed since is
@@ -462,7 +532,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			result.volumeMoved = true
 			return
 		}
-		defer release()
+		result.releasePlanLock = release
 	}
 	if len(all) == 0 {
 		if planLocked {
@@ -491,7 +561,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			outstanding = false
 		}
 		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuildCovers(root, all)) {
-			buildParallelCodeCandidates(root, loaded, result, all, lines, contractOnWire, parallel, session)
+			buildParallelCodeCandidates(root, loaded, result, ordered, lines, cutLimit, contractOnWire, parallel, session)
 			return
 		}
 	}
@@ -504,13 +574,13 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		result.Stop = fail.GlobalStop
 		return
 	}
-	plan, err := codebatch.BuildPlanWithBudget(root, result.Governance.CompositeIdentity,
-		result.Governance.ManagedScope.PolicyIdentity, result.Governance.Code.Path,
-		result.Governance.Code.SHA256, all, codeBatchLimit(loaded.cfg), budget)
+	ids := parallelIdentitiesOf(result.Governance.Facts, loaded.set)
+	plan, publish, err := codebatch.PrepareBatch(ids, "", ordered, selected, codeBatchLimit(loaded.cfg), budget.Total)
 	if err != nil {
 		result.issueFailure = err.Error()
 		return
 	}
+	result.publishCodeBatch = func() error { return publish(root) }
 	result.CodePlan = transportCodePlan(plan)
 	result.Batch.TransportBudgetBytes = plan.TransportBudgetBytes
 	thresholds := optimizationEScaleThresholds(loaded.set)
@@ -606,7 +676,7 @@ func buildVolumeDatabaseCandidates(root string, loaded *cognitionRepoCtx, result
 	if objectLimit > capacity {
 		objectLimit = capacity
 	}
-	plan, err := dbcognition.BuildPlan(root, assessment, loaded.set, objectLimit, evidenceLimit)
+	plan, err := dbcognition.PreparePlan(root, assessment, loaded.set, objectLimit, evidenceLimit)
 	if err != nil {
 		return
 	}
