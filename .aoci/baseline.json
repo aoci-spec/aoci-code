@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-26T05:34:18Z",
+  "updated_at": "2026-11-26T05:40:38Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -107,15 +107,15 @@
     },
     "README.md": {
       "role": "index",
-      "sha256": "7521b2b75da1aadd00d58f912f8f3deddfd8d605592afb9edca57edac55cbc08",
-      "size": 78924,
-      "normalized_sha256": "7521b2b75da1aadd00d58f912f8f3deddfd8d605592afb9edca57edac55cbc08"
+      "sha256": "64ea39824cd00eea0f789a71e8198fe4f08b179a9b290f3becfc54fe73282c51",
+      "size": 79002,
+      "normalized_sha256": "64ea39824cd00eea0f789a71e8198fe4f08b179a9b290f3becfc54fe73282c51"
     },
     "README.zh-CN.md": {
       "role": "index",
-      "sha256": "8382240ffb6d1ec46af1204c110b8aaca851993532955cc11081381172facb56",
-      "size": 70852,
-      "normalized_sha256": "8382240ffb6d1ec46af1204c110b8aaca851993532955cc11081381172facb56"
+      "sha256": "fcc3a1772295a66fc6f3b479f52f15db3d8edd4443db9689de97352b5e461465",
+      "size": 70939,
+      "normalized_sha256": "fcc3a1772295a66fc6f3b479f52f15db3d8edd4443db9689de97352b5e461465"
     },
     "SECURITY.md": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "84f2c62813d257c05e5b345a1575aa0eafa105190f20202084cea237af35cae4",
-      "size": 242397,
-      "normalized_sha256": "84f2c62813d257c05e5b345a1575aa0eafa105190f20202084cea237af35cae4"
+      "sha256": "05e00e830e3451d23025a537629dcb22856a4c1fc3502f1c08d1e908c2ad575e",
+      "size": 242406,
+      "normalized_sha256": "05e00e830e3451d23025a537629dcb22856a4c1fc3502f1c08d1e908c2ad575e"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -203,9 +203,9 @@
     },
     "docs/database-cognition-authoring.md": {
       "role": "index",
-      "sha256": "50a23546c47a795d60843c8f99e0070b2ce73146fb11542f8e46093b003f42a4",
-      "size": 11314,
-      "normalized_sha256": "50a23546c47a795d60843c8f99e0070b2ce73146fb11542f8e46093b003f42a4"
+      "sha256": "d8d1396c90ebc442b563312b5ecfc8b28e6eb17d2d1dff2ac452111f00946b4b",
+      "size": 11319,
+      "normalized_sha256": "d8d1396c90ebc442b563312b5ecfc8b28e6eb17d2d1dff2ac452111f00946b4b"
     },
     "docs/database-evidence.md": {
       "role": "index",

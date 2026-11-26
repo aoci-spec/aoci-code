@@ -47,7 +47,7 @@ atomic.go[CG9L]: F:Provides durable replace CAS, create CAS, atomic writes, and 
 
 **The first index takes a while.** The agent reads every managed file and writes one entry per file: about an hour per 200,000 lines of code, depending on the model and the agent's speed. It runs in batches and resumes where it stopped if interrupted.
 
-**Have a database? Index it too.** MySQL and PostgreSQL are supported, and openGauss 6.0.5 with constraints. MySQL means 5.7.6 and later; MariaDB is not supported. Build the code index first, then the database index. With code and table-level knowledge delivered together, the agent understands the system more completely.
+**Have a database? Index it too.** MySQL and PostgreSQL are supported, and openGauss 6.0.5 and SQLite with constraints. MySQL means 5.7.6 and later; MariaDB is not supported. Build the code index first, then the database index. With code and table-level knowledge delivered together, the agent understands the system more completely.
 
 **Local only: read-only on your system, no Internet, no stored credentials.** AOCI-CODE reads your source code and database table structures, never business data. It writes its index files and its own state inside the project directory, plus the status page's registration in your user cache directory. It never reaches the Internet and uploads nothing: the only connections it opens are to the database you declare, for catalog metadata, and to its own loopback status page. Database credentials are referenced by environment-variable name and never stored. The index text is written locally by your own agent through the model channel you already use; AOCI-CODE adds no new data exit.
 
@@ -93,7 +93,7 @@ The agent starts the panel in the background with `aoci ui --detach --json` and 
 
 Why the restart: the index is written through AOCI's MCP tools, and the session that ran `init` has not loaded the MCP server `init` just wrote. A host that loads MCP servers dynamically may not need a restart; [Host integration](#host-integration) explains how to tell.
 
-If your project has a database (PostgreSQL and MySQL are supported, plus constrained openGauss 6.0.5), index it as well. Declare the source as described under [Database Cognition](#database-cognition), provide the connection-string environment variable in the host environment (AOCI stores no credentials), then send:
+If your project has a database (PostgreSQL and MySQL are supported, plus constrained openGauss 6.0.5 and SQLite), index it as well. Declare the source as described under [Database Cognition](#database-cognition), provide the connection-string environment variable in the host environment (AOCI stores no credentials), then send:
 
 ```text
 Build the AOCI database index for this project.
@@ -641,7 +641,7 @@ Boundaries: it binds loopback addresses only (any other bind is refused), answer
 | `aoci index agent guide` | Enters the deterministic host-agent workflow |
 | `aoci capabilities` | Shows the capabilities the current binary provides |
 | `aoci doctor` | Diagnoses the repository and host integration |
-| `aoci database` | Explicitly configures and validates PostgreSQL/MySQL/openGauss schema evidence |
+| `aoci database` | Explicitly configures and validates PostgreSQL/MySQL/openGauss/SQLite schema evidence |
 | `aoci database source access` | Read-only check of whether the external environment has provided a database credential reference; does not return the credential value |
 | `aoci database cognition bootstrap` | Adds Database Cognition to an aligned Code-only Volumes project |
 | `aoci cognition plan` | Read-only preview of a bootstrap or Legacy-to-Volumes migration plan |
@@ -738,7 +738,7 @@ AOCI-CODE can bring database structure under the same index and the same governa
 
 ```text
 Explicit database command
-  → Read-only PostgreSQL/MySQL/openGauss system catalogs
+  → Read-only PostgreSQL/MySQL/openGauss system catalogs, or a SQLite file opened read-only
   → Canonical schema evidence
   → Human acceptance of the evidence hash
   → The host model writes table-level FRAS from complete evidence
@@ -869,7 +869,7 @@ Search, ASTs, LSP, code graphs, and RAG are good at structural and retrieval que
 - **Drift detection.** Distinguishes Missing, Orphan, Stale, Unbaselined, line-ending changes, curation differences, and sources held out of authoring (empty, binary, oversize).
 - **Governed updates.** Candidates enter the formal files through source binding, plan, validation, review, CAS, atomic writes, Baseline, and recovery workflows.
 - **Delivery attestation.** Chunk, cursor, receipt, and challenge prove that the Whole-Index was delivered in full.
-- **Database Cognition.** Table-level entries built and governed from explicitly accepted PostgreSQL/MySQL/openGauss schema evidence.
+- **Database Cognition.** Table-level entries built and governed from explicitly accepted PostgreSQL/MySQL/openGauss/SQLite schema evidence.
 - **System projections.** Lineage, narrow Relations, database-to-code Impact, Snapshot, and Evolution observations derived from the authoritative index and its bindings without duplicating authoritative state; Impact traverses only explicit model-authored R relationships.
 
 AOCI-CODE complements existing tools rather than replacing them.
@@ -894,7 +894,7 @@ The recommended combination: AOCI-CODE provides the global semantic prior; code 
 | **Index files** | UTF-8 plain-text Cognition Volumes, diffable and versionable with Git |
 | **Machine state** | JSON/JSONL, SHA-256, Baseline, manifest, receipt, ledger, and recovery |
 | **Write safety** | Cross-process locks, CAS, same-directory temporary files, platform-atomic replacement, and fail-closed behavior |
-| **Database** | Core operation does not depend on a business database; optional PostgreSQL/MySQL/openGauss schema evidence uses pure-Go drivers |
+| **Database** | Core operation does not depend on a business database; optional PostgreSQL/MySQL/openGauss/SQLite schema evidence uses pure-Go drivers |
 | **System cognition** | Lineage, Relations, Impact, Snapshot, and Evolution projections derived on demand from authoritative assets |
 | **Execution modes** | Agent-native, Deterministic-only |
 
