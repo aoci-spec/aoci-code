@@ -226,27 +226,20 @@ func newScopeExplainCmd() *cobra.Command {
 				if parent := submoduleParent(rel, evaluation.Exclude); parent != "" {
 					// A path at or under a gitlink belongs to another repository; the
 					// superproject never lists it, so explain names the boundary (#107).
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: afs.SafetyUnsafe, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: "git_submodule:" + afs.SafetyUnsafe}
+					item = explainSafetyExclusion(rel, afs.SafetyUnsafe, "git_submodule", "future_or_absent")
+				} else if folded, found := foldedScopeExclusion(rel, evaluation.Exclude); found {
+					item = folded
 				} else if category, source := afs.BuiltInSafetyCategory(rel, cfg.WalkOptions().SensitiveNameRules); category != "" {
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: category, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + category}
+					item = explainSafetyExclusion(rel, category, source, "future_or_absent")
 				} else if source, excluded := afs.ConfiguredExclusionSource(rel, cfg.WalkOptions()); excluded {
-					// A path under an exclude_dirs directory is a configured hard
-					// exclusion; since rc18 a git-ignored directory of that kind is
-					// one inventory line, so its files are not in the evaluation.
-					item = managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
-						Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
-						RulePriority: 700, SafetyStatus: afs.SafetyConfigured, GitStatus: "future_or_absent", ReadsContent: false,
-						EntersWholeIndex: false, EntersObserveFingerprint: false, Reason: source + ":" + afs.SafetyConfigured}
+					item = explainSafetyExclusion(rel, afs.SafetyConfigured, source, "future_or_absent")
 				} else {
 					curated := containsScopePath(cfg.CurationExclude, rel)
-					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, false, curated)
-					item.GitStatus = "future_or_absent"
+					ignored, _ := afs.PathIgnoredByGit(root, rel)
+					item = managedscope.EvaluatePath(cfg.EffectiveManagedScope(), cognition.RootLayout(root), rel, ignored, curated)
+					if !ignored {
+						item.GitStatus = "future_or_absent"
+					}
 				}
 			}
 			if flagJSON {
@@ -264,6 +257,24 @@ func newScopeExplainCmd() *cobra.Command {
 			}
 			return nil
 		}}
+}
+
+func explainSafetyExclusion(rel, category, source, gitStatus string) managedscope.PathEvaluation {
+	return managedscope.PathEvaluation{Version: machinecontract.ManagedScopeEvaluationV2, Path: rel,
+		Role: machinecontract.ScopeRoleExclude, RuleSource: machinecontract.ScopeRuleSafety,
+		RulePriority: 700, SafetyStatus: category, GitStatus: gitStatus, Reason: source + ":" + category}
+}
+
+// A folded Safe Inventory directory represents all descendants.
+func foldedScopeExclusion(rel string, exclusions []managedscope.PathEvaluation) (managedscope.PathEvaluation, bool) {
+	for _, item := range exclusions {
+		if item.RuleSource == machinecontract.ScopeRuleSafety && strings.HasSuffix(item.Path, "/") &&
+			(strings.HasPrefix(rel, item.Path) || rel == strings.TrimSuffix(item.Path, "/")) {
+			item.Path = rel
+			return item, true
+		}
+	}
+	return managedscope.PathEvaluation{}, false
 }
 
 // submoduleParent returns the gitlink that rel is or sits under, from the
