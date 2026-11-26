@@ -532,8 +532,8 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 			result.lockErr = lockErr
 			return
 		}
-		// A plan recorded since this call assessed the tree came from a
-		// newer view of it; the call starts over instead of judging it.
+		// A plan or solo progress recorded since this call assessed the
+		// tree came from a newer view of it.
 		if moved {
 			result.volumeMoved = true
 			return
@@ -552,6 +552,7 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 		}
 		return
 	}
+	solo := planLocked && codebatch.SoloBuildCovers(root, all)
 	parallelWork := planLocked && loaded.cfg.CodeCognitionParallelBatchLimit() > 1
 	// Sibling batches exist for work one batch cannot hold: a plan with a
 	// sibling still out continues, and work beyond one batch starts one.
@@ -570,8 +571,9 @@ func buildVolumeCodeCandidates(root string, loaded *cognitionRepoCtx, result *vo
 				return
 			}
 			outstanding = false
+			solo = true
 		}
-		if outstanding || (len(selected) < len(all) && !codebatch.SoloBuildCovers(root, all)) {
+		if outstanding || (len(selected) < len(all) && !solo) {
 			buildParallelCodeCandidates(root, loaded, result, ordered, lines, cutLimit, contractOnWire, parallel, session)
 			return
 		}

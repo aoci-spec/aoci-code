@@ -12,7 +12,10 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
 
@@ -174,6 +177,175 @@ func TestTheSoloMarkHoldsOnlyForTheWorkItNamed(t *testing.T) {
 	}
 	if wave := maintainVolumeBatch(t, connectMCPClient(t, root)); wave.CodePlan == nil || wave.CodePlan.LogicalPlan == "" {
 		t.Fatalf("work the mark never named must be offered as siblings: %#v", wave.CodePlan)
+	}
+}
+
+func TestSoloWorkCompletedThroughHumanApplyDoesNotSuppressLaterSiblings(t *testing.T) {
+	const files = 160
+	root := buildManyFileVolumesRepo(t, files)
+	session := connectMCPClient(t, root)
+	first := maintainVolumeBatch(t, session)
+	if first.CodePlan == nil || len(first.CodePlan.Siblings) != 2 {
+		t.Fatalf("expected three siblings: %#v", first.CodePlan)
+	}
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied || applied.Aligned {
+		t.Fatalf("expected a successful partial sibling Apply: %s aligned=%v", applied.Status, applied.Aligned)
+	}
+	second := maintainVolumeBatch(t, session)
+	if second.CodePlan == nil || second.CodePlan.LogicalPlan != "" || second.CodePlan.Remaining == 0 {
+		t.Fatalf("remaining work must begin as solo: %#v", second.CodePlan)
+	}
+	arguments := codeBatchArguments(wireCodePlan(second))
+	soloDigest := codebatch.SoloBuildDigest(root)
+	save := saveAtomicBaseline
+	saveAtomicBaseline = func(string, *baseline.Baseline) error { return errors.New("injected baseline save failure") }
+	t.Cleanup(func() { saveAtomicBaseline = save })
+	cut := applyVolumeBatch(t, session, arguments)
+	saveAtomicBaseline = save
+	if cut.Status != autoStatusStopped || cut.Aligned || soloDigest == "" || codebatch.SoloBuildDigest(root) != soloDigest {
+		t.Fatalf("an incomplete Apply must preserve the hint for Recovery: %s aligned=%v", cut.Status, cut.Aligned)
+	}
+	applied := applyVolumeBatch(t, session, arguments)
+	if applied.Status != autoStatusApplied || applied.Aligned {
+		t.Fatalf("expected a successful partial solo Apply: %s aligned=%v", applied.Status, applied.Aligned)
+	}
+	if stillSolo := maintainVolumeBatch(t, connectMCPClient(t, root)); stillSolo.CodePlan == nil || stillSolo.CodePlan.LogicalPlan != "" {
+		t.Fatalf("unfinished solo work must stay single across sessions: %#v", stillSolo.CodePlan)
+	}
+
+	// Finish the original build through the write path used by update-entry.
+	// Read Verify's shared facts so a final Maintain cannot clear the mark
+	// for the writer.
+	remaining := make([]AtomicUpdateItem, 0, second.CodePlan.Remaining)
+	original := make([]string, 0, second.CodePlan.Remaining)
+	for i := len(first.Candidates) + len(second.Candidates); i < files; i++ {
+		path := fmt.Sprintf("pkg/mod%03d/file%03d.go", i/10, i)
+		remaining = append(remaining, AtomicUpdateItem{Path: path, NewEntry: fixtureEntryLine(path),
+			SourceSHA256: volumeSourceSHA(t, root, path)})
+		original = append(original, volumeFileText(t, root, path))
+	}
+	humanApply := func() *AtomicBatchOutcome {
+		outcome, fail := ApplyUpdateEntriesAtomic(root, remaining, ledger.SourceHuman, false)
+		if fail != nil || outcome == nil || !outcome.BaselineComplete {
+			t.Fatalf("human Apply did not complete: outcome=%#v fail=%#v", outcome, fail)
+		}
+		return outcome
+	}
+	humanApply()
+	if facts, _ := verifyAligned(t, root); !facts.GovernanceAligned {
+		t.Fatalf("human Apply did not align the build: %s", facts.NextRequiredAction)
+	}
+
+	// Accept a different source revision without running Maintain, then
+	// restore the exact bytes the old mark originally named.
+	for i := range remaining {
+		path := remaining[i].Path
+		writeVolumeTestFile(t, root, path, original[i]+"\n// intermediate revision\n")
+		remaining[i].SourceSHA256 = volumeSourceSHA(t, root, path)
+	}
+	if rebinding := humanApply(); !rebinding.AlreadyApplied {
+		t.Fatal("unchanged Entries should only rebind the Baseline")
+	}
+	for i, item := range remaining {
+		writeVolumeTestFile(t, root, item.Path, original[i])
+	}
+	wave := maintainVolumeBatch(t, connectMCPClient(t, root))
+	if wave.CodePlan == nil || wave.CodePlan.LogicalPlan == "" || len(wave.CodePlan.Siblings) == 0 {
+		t.Fatalf("same source bytes in a new wave must issue siblings: %#v", wave.CodePlan)
+	}
+	t.Logf("human Apply reached alignment, then %d restored targets issued %d siblings", len(remaining), len(wave.CodePlan.Siblings)+1)
+}
+
+func TestSoloWorkDoesNotReviveTargetsSeenAbsentOrReverted(t *testing.T) {
+	for _, removed := range []bool{false, true} {
+		name := "reverted"
+		if removed {
+			name = "deleted"
+		}
+		t.Run(name, func(t *testing.T) {
+			const files = 100
+			root := buildManyFileVolumesRepo(t, files)
+			session := connectMCPClient(t, root)
+			buildToAligned(t, session)
+			path := func(i int) string { return fmt.Sprintf("pkg/mod%03d/file%03d.go", i/10, i) }
+			original := make([]string, files)
+			for i := range files {
+				original[i] = volumeFileText(t, root, path(i))
+				writeVolumeTestFile(t, root, path(i), original[i]+"\n// wave\n")
+			}
+			first := maintainVolumeBatch(t, session)
+			if first.CodePlan == nil || len(first.CodePlan.Siblings) != 2 {
+				t.Fatalf("expected a parallel update wave: %#v", first.CodePlan)
+			}
+			if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied {
+				t.Fatalf("the first sibling did not apply: %s", applied.Status)
+			}
+			solo := maintainVolumeBatch(t, session)
+			if solo.CodePlan == nil || solo.CodePlan.LogicalPlan != "" {
+				t.Fatalf("unfetched siblings did not leave a solo wave: %#v", solo.CodePlan)
+			}
+
+			for i := len(first.Candidates) + 1; i < files; i++ {
+				if !removed {
+					writeVolumeTestFile(t, root, path(i), original[i])
+				} else if err := os.Remove(filepath.Join(root, filepath.FromSlash(path(i)))); err != nil {
+					t.Fatal(err)
+				}
+			}
+			reduced := maintainVolumeBatch(t, session)
+			if len(reduced.Candidates) != 1 || reduced.CodePlan == nil || reduced.CodePlan.LogicalPlan != "" {
+				t.Fatalf("reduced work must fit one batch: %d, %#v", len(reduced.Candidates), reduced.CodePlan)
+			}
+			for i := len(first.Candidates) + 1; i < files; i++ {
+				writeVolumeTestFile(t, root, path(i), original[i]+"\n// wave\n")
+			}
+			wave := maintainVolumeBatch(t, session)
+			if wave.CodePlan == nil || wave.CodePlan.LogicalPlan == "" || len(wave.CodePlan.Siblings) == 0 {
+				t.Fatalf("targets that returned after being seen %s must issue siblings: %#v", name, wave.CodePlan)
+			}
+		})
+	}
+}
+
+func TestFinalApplyClearsSoloWorkThatRevertedDuringTheBatch(t *testing.T) {
+	const files = 100
+	root := buildManyFileVolumesRepo(t, files)
+	session := connectMCPClient(t, root)
+	buildToAligned(t, session)
+	original := map[string]string{}
+	for i := range files {
+		path := fmt.Sprintf("pkg/mod%03d/file%03d.go", i/10, i)
+		original[path] = volumeFileText(t, root, path)
+		writeVolumeTestFile(t, root, path, original[path]+"\n// wave\n")
+	}
+	first := maintainVolumeBatch(t, session)
+	if first.CodePlan == nil || len(first.CodePlan.Siblings) != 2 {
+		t.Fatalf("expected to start a parallel wave: %#v", first.CodePlan)
+	}
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied {
+		t.Fatalf("sibling Apply failed: %s", applied.Status)
+	}
+	solo := maintainVolumeBatch(t, session)
+	if solo.CodePlan == nil || solo.CodePlan.LogicalPlan != "" {
+		t.Fatalf("expected a solo batch: %#v", solo.CodePlan)
+	}
+	for _, batch := range []volumeMaintainResult{first, solo} {
+		for _, candidate := range batch.Candidates {
+			delete(original, candidate.Path)
+		}
+	}
+	if len(original) == 0 {
+		t.Fatal("fixture must leave targets outside the issued batch")
+	}
+	for path, source := range original {
+		writeVolumeTestFile(t, root, path, source)
+	}
+	applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(solo)))
+	if applied.TerminalProof == nil || !applied.TerminalProof.Aligned {
+		t.Fatalf("the last Apply did not prove alignment: %s, %#v", applied.Status, applied.TerminalProof)
+	}
+	if _, err := os.Lstat(filepath.Join(root, ".aoci", "drafts", "code-cognition", "solo-build")); !os.IsNotExist(err) {
+		t.Fatalf("the aligned proof must retire the reverted remainder: %v", err)
 	}
 }
 

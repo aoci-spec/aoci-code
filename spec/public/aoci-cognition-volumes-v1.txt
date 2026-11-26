@@ -804,10 +804,13 @@ setting and is recognised by what it does: when a sibling of a plan has
 applied and every other outstanding one was never handed to any session,
 those are released and the build is marked as one session's, and while that
 same work is outstanding every no-argument Maintain issues the single
-current batch at full size. The mark is a runtime fact under `.aoci`, in no
-identity; it names the work it was made for, each target with its source
-digest, and holds for nothing else, so work it does not name, however the
-earlier work ended, is offered as siblings again. A sibling any session was handed keeps its
+current batch at full size. The mark is a runtime hint under `.aoci`. It
+tracks outstanding targets and their source digests. Successful Code
+Applies retire their targets when Baseline advancement is verified.
+Maintain retires targets absent from the work it observes, including when
+the remaining work fits one batch. A target that becomes work again after
+retirement is offered as siblings when the usual parallel cut applies,
+even if its source bytes are the same. A sibling any session was handed keeps its
 plan; a released one asked for by `batch_id` answers
 `maintain_batch_id_unknown` with zero writes and the replan hint. The wire
 ceiling is 4. It is

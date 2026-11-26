@@ -1488,6 +1488,10 @@ func advanceCognitionVolumeBaseline(root string, state *baseline.Baseline, plan 
 			return false, writeMessage("entry.volume.recovery_required")
 		}
 	}
+	// Both forward Apply and Recovery reach this point under the index lock.
+	// The verified Code work has ended even if other governance debt remains
+	// or the caller is the human CLI and never asks for an MCP terminal proof.
+	codebatch.RetireSoloBuildTargets(root, plan.rels)
 	return true, writeMessage("entry.volume.baseline_advanced", len(plan.rels), strings.Join(plan.changeEnvelope.WriteSet, ","))
 }
 
