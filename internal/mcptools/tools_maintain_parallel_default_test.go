@@ -180,6 +180,52 @@ func TestTheSoloMarkHoldsOnlyForTheWorkItNamed(t *testing.T) {
 	}
 }
 
+func beginSoloBuild(t *testing.T, files, limit int) (string, *mcp.ClientSession, volumeMaintainResult, string) {
+	t.Helper()
+	root := buildManyFileVolumesRepo(t, files)
+	setBatchEntries(t, root, limit)
+	session := connectMCPClient(t, root)
+	first := maintainVolumeBatch(t, session)
+	if first.CodePlan == nil || len(first.CodePlan.Siblings) != 2 {
+		t.Fatalf("expected a parallel lead with two siblings, got %#v", first.CodePlan)
+	}
+	if applied := applyVolumeBatch(t, session, codeBatchArguments(wireCodePlan(first))); applied.Status != autoStatusApplied || applied.Aligned {
+		t.Fatalf("expected a successful partial sibling Apply: %s aligned=%v", applied.Status, applied.Aligned)
+	}
+	solo := maintainVolumeBatch(t, session)
+	requireSoloBatch(t, solo)
+	return root, session, solo, filepath.Join(root, ".aoci", "drafts", "code-cognition", "solo-build")
+}
+
+func requireSoloBatch(t *testing.T, batch volumeMaintainResult) {
+	t.Helper()
+	if batch.CodePlan == nil || batch.CodePlan.LogicalPlan != "" || len(batch.CodePlan.Siblings) != 0 || len(batch.Candidates) == 0 {
+		t.Fatalf("expected one nonempty solo batch, got plan=%#v candidates=%d", batch.CodePlan, len(batch.Candidates))
+	}
+}
+
+func TestLegacySoloMarkKeepsInFlightBatch(t *testing.T) {
+	root, leader, solo, mark := beginSoloBuild(t, 160, 50)
+	legacy, ok := strings.CutPrefix(volumeFileText(t, root, ".aoci/drafts/code-cognition/solo-build"), "code-cognition-solo-build/v2\n")
+	if !ok || legacy == "" {
+		t.Fatal("fixture must start with a nonempty v2 mark")
+	}
+	// The previous binary wrote precisely these digest/path rows, without a header.
+	if err := os.WriteFile(mark, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	next := maintainVolumeBatch(t, connectMCPClient(t, root))
+	requireSoloBatch(t, next)
+	if got := volumeFileText(t, root, ".aoci/drafts/code-cognition/solo-build"); got != "code-cognition-solo-build/v2\n"+legacy {
+		t.Fatal("the concurrent Maintain did not migrate the original rows")
+	}
+	applied := applyVolumeBatch(t, leader, codeBatchArguments(wireCodePlan(solo)))
+	if applied.Status != autoStatusApplied || applied.Applied != len(solo.Candidates) {
+		t.Fatalf("the original solo batch must still apply: status=%s applied=%d", applied.Status, applied.Applied)
+	}
+	t.Logf("migrated legacy mark with no added siblings and applied %d in-flight Entries", applied.Applied)
+}
+
 func TestSoloWorkCompletedThroughHumanApplyDoesNotSuppressLaterSiblings(t *testing.T) {
 	const files = 160
 	root := buildManyFileVolumesRepo(t, files)

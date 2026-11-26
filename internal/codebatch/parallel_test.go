@@ -84,17 +84,24 @@ func TestSoloBuildProgressInvalidatesOlderCleanup(t *testing.T) {
 	}
 }
 
-func TestSoloBuildDropsLegacyHintWithoutProgress(t *testing.T) {
-	root := t.TempDir()
-	if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
-		t.Fatal(err)
-	}
+func TestSoloBuildMigratesLegacyHint(t *testing.T) {
 	digest := strings.Repeat("f", 64)
-	if err := os.WriteFile(soloBuildPath(root), []byte(digest+" a.go\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if SoloBuildCovers(root, []Candidate{{Target: Target{Path: "a.go", SourceSHA256: digest}}}) || ParallelRecordsExist(root) {
-		t.Fatal("a legacy hint cannot distinguish active targets from retired ones")
+	for _, departed := range []string{"", digest + " settled.go\n"} {
+		root := t.TempDir()
+		if err := os.MkdirAll(parallelDirectory(root), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		const path = "name with spaces.go"
+		line := digest + " " + path + "\n"
+		if err := os.WriteFile(soloBuildPath(root), []byte(line+departed), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if !SoloBuildCovers(root, []Candidate{{Target: Target{Path: path, SourceSHA256: digest}}}) {
+			t.Fatal("the active subset of a legacy hint must stay solo")
+		}
+		if got := string(soloBuildBytes(root)); got != soloBuildVersion+"\n"+line {
+			t.Fatalf("migration must keep only current work in v2, got %q", got)
+		}
 	}
 }
 

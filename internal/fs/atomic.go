@@ -73,6 +73,13 @@ func AtomicWrite(targetPath string, data []byte) error {
 	return atomicWrite(targetPath, data)
 }
 
+// AtomicWriteKeepingTarget publishes by rename alone. If the rename fails,
+// the old target stays at its original name, including on Windows where
+// AtomicWrite can fall back to moving the target aside.
+func AtomicWriteKeepingTarget(targetPath string, data []byte) error {
+	return stageAtomicWrite(targetPath, data, nil, "")
+}
+
 // AtomicWriteMode publishes with exactly the given file mode, also when it
 // replaces an existing file, so a private backup never inherits the generic
 // new-file mode or a prior backup's broader permissions.
@@ -538,6 +545,10 @@ func atomicWrite(targetPath string, data []byte) error {
 }
 
 func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileMode) error {
+	return stageAtomicWrite(targetPath, data, requestedPerm, runtime.GOOS)
+}
+
+func stageAtomicWrite(targetPath string, data []byte, requestedPerm *os.FileMode, renameFallbackOS string) error {
 	dir := filepath.Dir(targetPath)
 
 	// Remember an existing target's permissions so the rename keeps them
@@ -578,7 +589,7 @@ func atomicWriteWithPerm(targetPath string, data []byte, requestedPerm *os.FileM
 		return fmt.Errorf("设置权限失败: %w", err)
 	}
 	// rename first (the normal path on POSIX and Windows overwrites atomically)
-	return publishAtomicRename(tmpName, targetPath, runtime.GOOS, os.Rename, os.Remove)
+	return publishAtomicRename(tmpName, targetPath, renameFallbackOS, os.Rename, os.Remove)
 }
 
 // publishAtomicRename finishes the publication: a normal rename, and only on Windows one non-atomic

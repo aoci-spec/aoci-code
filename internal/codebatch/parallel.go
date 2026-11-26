@@ -289,10 +289,11 @@ func MarkSoloBuild(root string, work []Candidate) error {
 }
 
 // SoloBuildCovers reconciles the mark against the current work under the
-// index lock. A subset at the same digests stays solo, with departed targets
-// retired even when the subset fits one batch. New work starts a fresh plan.
+// index lock. A subset at the same digests stays solo. Rewriting the mark
+// retires departed targets and upgrades headerless marks from older binaries.
+// New work starts a fresh plan.
 func SoloBuildCovers(root string, work []Candidate) bool {
-	named := loadSoloBuild(root)
+	named, legacy := loadSoloBuild(root)
 	if len(named) == 0 {
 		return false
 	}
@@ -302,7 +303,7 @@ func SoloBuildCovers(root string, work []Candidate) bool {
 			return false
 		}
 	}
-	if len(work) == len(named) {
+	if !legacy && len(work) == len(named) {
 		return true
 	}
 	remaining := make(map[string]string, len(work))
@@ -316,7 +317,7 @@ func SoloBuildCovers(root string, work []Candidate) bool {
 // the index lock. A later change to the same bytes can then start new work
 // even when no Maintain observed the intervening aligned state.
 func RetireSoloBuildTargets(root string, paths []string) {
-	named := loadSoloBuild(root)
+	named, _ := loadSoloBuild(root)
 	before := len(named)
 	for _, path := range paths {
 		delete(named, path)
@@ -362,28 +363,27 @@ func ClearSoloBuildIfUnchanged(root, digest string) {
 	}
 }
 
-func loadSoloBuild(root string) map[string]string {
+func loadSoloBuild(root string) (named map[string]string, legacy bool) {
 	data := soloBuildBytes(root)
 	if data == nil {
-		return nil
+		return nil, false
 	}
 	version, rest, _ := strings.Cut(string(data), "\n")
-	if version != soloBuildVersion {
-		// Older hints contain the original set and cannot prove which
-		// targets already left it.
-		ClearSoloBuild(root)
-		return nil
+	legacy = version != soloBuildVersion
+	if legacy {
+		// Earlier binaries wrote the same digest/path rows without a header.
+		rest = string(data)
 	}
-	named := map[string]string{}
+	named = map[string]string{}
 	for _, line := range strings.Split(strings.TrimSuffix(rest, "\n"), "\n") {
 		digest, target, ok := strings.Cut(line, " ")
 		if !ok || !validSHA256(digest) || target == "" {
 			ClearSoloBuild(root)
-			return nil
+			return nil, false
 		}
 		named[target] = digest
 	}
-	return named
+	return named, legacy
 }
 
 func writeSoloBuild(root string, named map[string]string) error {
@@ -396,16 +396,13 @@ func writeSoloBuild(root string, named map[string]string) error {
 		lines = append(lines, digest+" "+path)
 	}
 	sort.Strings(lines)
-	return afs.AtomicWrite(soloBuildPath(root), []byte(soloBuildVersion+"\n"+strings.Join(lines, "\n")+"\n"))
+	return afs.AtomicWriteKeepingTarget(soloBuildPath(root), []byte(soloBuildVersion+"\n"+strings.Join(lines, "\n")+"\n"))
 }
 
-// If an advisory progress write fails, try to drop the hint. It must never
-// become a precondition for committing or recovering a formal batch.
+// A failed shrink leaves the older, wider mark in place. The remaining
+// targets still match it, so Maintain can keep issuing single batches.
 func updateSoloBuild(root string, named map[string]string) bool {
-	if err := writeSoloBuild(root, named); err != nil {
-		ClearSoloBuild(root)
-		return false
-	}
+	_ = writeSoloBuild(root, named)
 	return len(named) != 0
 }
 

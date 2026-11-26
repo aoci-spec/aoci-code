@@ -229,10 +229,6 @@ func Apply(repositoryRoot string, preview *Preview, approval *Approval) (*Result
 // ApplyAuthorized selects exactly one authorization mechanism from the bound
 // team policy, then publishes through the shared CAS/recovery transaction.
 func ApplyAuthorized(repositoryRoot string, preview *Preview, approval *Approval, policyBound *PolicyBoundApproval) (*Result, error) {
-	// A Scope Change decides anew what work is left, so a build one session
-	// was marked as working alone is judged afresh by the next Maintain. The
-	// mark is a runtime hint in no identity; dropping it costs nothing.
-	codebatch.ClearSoloBuild(repositoryRoot)
 	root, err := filepath.Abs(repositoryRoot)
 	if err != nil || preview == nil {
 		return nil, fmt.Errorf("managed_scope_apply_input_invalid")
@@ -449,6 +445,9 @@ func advance(root string, intent *RecoveryIntent) (*Result, error) {
 	if err := internalVerify(root, intent); err != nil {
 		return nil, fmt.Errorf("managed_scope_internal_verify_failed: %w", err)
 	}
+	// Once the new Scope is verified, Maintain can judge the remaining work
+	// afresh. Apply and Resume both hold the index lock here.
+	codebatch.ClearSoloBuild(root)
 	result := resultFor(intent, "applied", written)
 	if err := saveResult(root, intent.TransactionID, result); err != nil {
 		return nil, err
