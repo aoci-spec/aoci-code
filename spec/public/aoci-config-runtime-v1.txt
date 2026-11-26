@@ -40,6 +40,13 @@ retains the old rules identity. The local layer cannot change it, `config
 set` refuses any other value, and changing it after the first scan requires
 a governed Scope Change.
 
+`recurse_submodules` is a team-owned boolean. When true, Safe Inventory reads
+each initialized git submodule below a Git root through its own Git, as the
+Safe Inventory contract defines. An absent key is false and retains the old
+rules identity. The local layer cannot change it, `config set` accepts only
+`true` or `false`, and changing it after the first scan requires a governed
+Scope Change.
+
 `code_cognition_parallel_batches` is a team-owned integer defined by the
 Cognition Volumes contract for parallel current batches (implemented in
 0.2.0-rc1): absent is 3, 1 keeps one current batch per Maintain, and under

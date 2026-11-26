@@ -2,6 +2,18 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- `recurse_submodules` (#107): a team-owned switch that reads each
+  initialized git submodule below a Git root through its own Git, with the
+  hardened command and boundary checks a container child gets (#54). Its
+  paths join the superproject's inventory under the gitlink path, its
+  `.gitignore` holds, its `.git` stays excluded, and nested submodules are
+  read the same way; an uninitialized submodule, or one reached through a
+  symbolic link, stays a `git_submodule` boundary. The key enters the rules
+  identity only when true, so existing repositories keep their identity and
+  enabling it is a governed Scope Change.
+
 ## v0.2.0-rc4
 
 The fourth 0.2.0 candidate is the pre-release audit: a whole-system review of

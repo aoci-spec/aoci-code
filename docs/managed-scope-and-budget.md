@@ -205,9 +205,9 @@ Two limits matter:
   ignore rule, and a non-Git root has none. Left alone, that machine-bound file
   takes the `index` role at the first `scan`, so exclude it with a rule first.
 - If the selected root is itself a Git repository, Git is the inventory
-  authority. Git does not enumerate the contents of submodules, so initialize
-  each submodule separately. A parent repository cannot use this non-Git bridge
-  to absorb them.
+  authority. Git does not enumerate the contents of submodules: set
+  `recurse_submodules` (below) to read them from the superproject, or
+  initialize each submodule separately.
 
 To start with only part of a large container, add one `exclude` rule per
 deferred module, and one for the host configuration, before the first `scan`:
@@ -408,9 +408,22 @@ machine, as with `exclude_root_dirs`.
 A git submodule is its own repository. The superproject tracks only its
 commit, so `scan` lists none of its files, reports the gitlink as one
 `git_submodule` boundary, and says how many submodules it left alone;
-`scope explain` on a path beneath one names the boundary. To index a
-submodule's code, initialize the submodule itself as a repository. Indexing
-submodules from the superproject is planned (#107).
+`scope explain` on a path beneath one names the boundary. To index
+first-party submodules from the superproject, enable the team switch before
+the first `scan` (or as a governed Scope Change afterwards):
+
+```bash
+aoci config set recurse_submodules true
+aoci scope preview
+```
+
+Each initialized submodule is then read through its own Git, exactly as a
+container child is: its `.gitignore` holds, its `.git` stays excluded, and
+its Entries live in the superproject's Volume under the submodule path.
+An uninitialized submodule stays a boundary, so run `git submodule update
+--init` first. Moving a submodule to another commit changes its files, which
+the next Maintain reports as drift like any other change. A large workspace
+still needs exclude rules for the modules it defers (#107).
 
 A git-ignored directory whose every file is a hard exclusion anyway, because
 its name is built in or a component listed in `exclude_dirs` or in

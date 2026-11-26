@@ -169,6 +169,21 @@ func BuildSafeInventory(root string, opt WalkOptions) (*SafeInventory, error) {
 		tracked, untracked, ignored, ignoredDirs = container.tracked, container.untracked, container.ignored, container.ignoredDirs
 		gitlinks, pruned, childRoots = container.gitlinks, container.pruned, container.childRoots
 	}
+	if gitRepository && opt.RecurseSubmodules && len(gitlinks) > 0 {
+		var modules containerInventory
+		modules, err = recurseSubmodules(absRoot, gitlinks, opt, collapsible)
+		if err != nil {
+			return nil, err
+		}
+		// A recursed gitlink is a directory whose files are listed below it,
+		// not a candidate path of its own.
+		tracked = withoutPaths(tracked, modules.childRoots)
+		tracked = append(tracked, modules.tracked...)
+		untracked = append(untracked, modules.untracked...)
+		ignored = append(ignored, modules.ignored...)
+		ignoredDirs = append(ignoredDirs, modules.ignoredDirs...)
+		gitlinks, pruned, childRoots = modules.gitlinks, append(pruned, modules.pruned...), modules.childRoots
+	}
 
 	report := &SafeInventory{Summary: SafeInventorySummary{
 		Version: SafeInventoryVersion, GitRepository: gitRepository,
@@ -731,6 +746,92 @@ func (result *containerInventory) addChildRepository(root, rel, path string, opt
 	return nil
 }
 
+// recurseSubmodules reads every initialized submodule below a Git root
+// through its own Git, with the hardened command and the show-toplevel
+// boundary check a container child gets (addChildRepository), so its
+// .gitignore holds and its .git file stays a VCS exclusion (#107). A nested
+// submodule is read the same way once its parent has listed it. A gitlink
+// whose work tree holds no .git entry is uninitialized: it stays a
+// git_submodule boundary. A gitlink reached through a symbolic link, or that
+// is not a directory, is never entered: Git would read a repository outside
+// the root through that link.
+func recurseSubmodules(root string, gitlinks map[string]bool, opt WalkOptions, collapsible func(dir string) bool) (containerInventory, error) {
+	result := containerInventory{tracked: []string{}, untracked: []string{}, ignored: []string{}, ignoredDirs: []string{}, gitlinks: map[string]bool{}, childRoots: []string{}}
+	pending := make([]string, 0, len(gitlinks))
+	for rel := range gitlinks {
+		pending = append(pending, rel)
+	}
+	sort.Strings(pending)
+	read := map[string]bool{}
+	for len(pending) > 0 {
+		rel := pending[0]
+		pending = pending[1:]
+		if read[rel] {
+			continue
+		}
+		read[rel] = true
+		if !submoduleWorkTree(root, rel) {
+			result.gitlinks[rel] = true
+			continue
+		}
+		nested := result.gitlinks
+		result.gitlinks = map[string]bool{}
+		if err := result.addChildRepository(root, rel, filepath.Join(root, filepath.FromSlash(rel)), opt, collapsible); err != nil {
+			return containerInventory{}, err
+		}
+		children := make([]string, 0, len(result.gitlinks))
+		for child := range result.gitlinks {
+			children = append(children, child)
+		}
+		sort.Strings(children)
+		result.gitlinks = nested
+		// The child's gitlinks are its nested submodules; the child's own
+		// listing also named each as a tracked path, which the next read
+		// replaces with that submodule's files.
+		result.tracked = withoutPaths(result.tracked, children)
+		pending = append(pending, children...)
+	}
+	for _, list := range []*[]string{&result.tracked, &result.untracked, &result.ignored, &result.ignoredDirs, &result.childRoots} {
+		sort.Strings(*list)
+	}
+	sort.Slice(result.pruned, func(i, j int) bool { return result.pruned[i].PathSummary < result.pruned[j].PathSummary })
+	return result, nil
+}
+
+// submoduleWorkTree reports whether rel names an initialized submodule work
+// tree inside root: every component is a real directory, never a link, and
+// the last one holds a .git entry.
+func submoduleWorkTree(root, rel string) bool {
+	path := root
+	for _, part := range strings.Split(rel, "/") {
+		path = filepath.Join(path, part)
+		info, err := os.Lstat(path)
+		if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() || unsafePlatformObject(path) {
+			return false
+		}
+	}
+	_, err := os.Lstat(filepath.Join(path, ".git"))
+	return err == nil
+}
+
+// withoutPaths returns paths minus every exact entry of drop.
+func withoutPaths(paths, drop []string) []string {
+	if len(drop) == 0 {
+		return paths
+	}
+	skip := make(map[string]bool, len(drop))
+	for _, path := range drop {
+		skip[path] = true
+	}
+	kept := paths[:0:0]
+	for _, path := range paths {
+		if !skip[path] {
+			kept = append(kept, path)
+		}
+	}
+	return kept
+}
+
 // Sensitive-name rule sets. V1 is the rc22 built-in; V2 adds the credential
 // shapes of #148. The selected set is persisted team configuration
 // (sensitive_name_rules) and enters the Safe Inventory rules identity, so an
@@ -980,6 +1081,11 @@ func safeInventoryRulesIdentity(opt WalkOptions) string {
 	if len(opt.ExcludeRootDirs) > 0 {
 		values = append(values, "exclude_root_dirs:v1")
 		values = append(values, opt.ExcludeRootDirs...)
+	}
+	// Likewise absent unless enabled: turning it on changes which paths
+	// exist, so it is a governed Scope Change (#107).
+	if opt.RecurseSubmodules {
+		values = append(values, "recurse_submodules:v1")
 	}
 	return digestStrings(values)
 }

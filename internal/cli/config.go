@@ -73,7 +73,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						args[0],
-						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/recurse_submodules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/installed_agents/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
 					),
 				}
 			}
@@ -132,6 +132,12 @@ func init() {
 					return &ExitError{Code: ExitConfig, Msg: cliMessage("config.bad_sensitive_name_rules", value)}
 				}
 				cfg.SensitiveNameRules = value
+			case "recurse_submodules":
+				parsed, parseErr := parseBool(value)
+				if parseErr != nil {
+					return &ExitError{Code: ExitConfig, Msg: parseErr.Error()}
+				}
+				cfg.RecurseSubmodules = parsed
 			case "exclude_files":
 				cfg.ExcludeFiles = splitCSV(value)
 			case "curation_exclude":
@@ -269,7 +275,7 @@ func init() {
 					Msg: cliMessage(
 						"config.unknown_key",
 						key,
-						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
+						"exclude_dirs/exclude_root_dirs/sensitive_name_rules/recurse_submodules/exclude_files/curation_exclude/index_path/locale/hook_strict/ledger_enabled/automation_mode/cognition_refresh_threshold/overview_delivery.chunk_tokens/code_cognition_batch_entries/maintain_transport_budget_bytes/code_cognition_parallel_batches/human_approval_channel",
 					),
 				}
 			}
@@ -388,6 +394,8 @@ func configValue(cfg *config.Config, key string, jsonMode bool) (any, bool) {
 		// The effective rule set: an absent key is v1, so an old repository
 		// answers v1 rather than an empty string.
 		return afs.NormalizeSensitiveNameRules(cfg.SensitiveNameRules), true
+	case "recurse_submodules":
+		return cfg.RecurseSubmodules, true
 	case "exclude_files":
 		if jsonMode {
 			return cfg.ExcludeFiles, true

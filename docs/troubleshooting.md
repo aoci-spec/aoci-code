@@ -619,7 +619,9 @@ files are never listed.
 A submodule is a separate repository: the superproject tracks only its
 commit, so `scan` lists none of its files, announces how many submodules it
 left alone, and `scope explain <path>` on anything beneath one answers
-`git_submodule`. Initialize the submodule itself to index its code. Before
+`git_submodule`. Set `aoci config set recurse_submodules true` to read
+initialized submodules from the superproject, or initialize the submodule
+itself to index its code. Before
 rc20 the gitlink was reported as `unsafe_filesystem_object`, which said
 nothing about why (#107).
 
