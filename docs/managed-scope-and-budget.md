@@ -211,9 +211,9 @@ Two limits matter:
   ignore rule, and a non-Git root has none. Left alone, that machine-bound file
   takes the `index` role at the first `scan`, so exclude it with a rule first.
 - If the selected root is itself a Git repository, Git is the inventory
-  authority. Git does not enumerate the contents of submodules, so initialize
-  each submodule separately. A parent repository cannot use this non-Git bridge
-  to absorb them.
+  authority. Git does not enumerate the contents of submodules: set
+  `recurse_submodules` (below) to read them from the superproject, or
+  initialize each submodule separately.
 
 To start with only part of a large container, add one `exclude` rule per
 deferred module, and one for the host configuration, before the first `scan`:
@@ -427,9 +427,43 @@ machine, as with `exclude_root_dirs`.
 A git submodule is its own repository. The superproject tracks only its
 commit, so `scan` lists none of its files, reports the gitlink as one
 `git_submodule` boundary, and says how many submodules it left alone;
-`scope explain` on a path beneath one names the boundary. To index a
-submodule's code, initialize the submodule itself as a repository. Indexing
-submodules from the superproject is planned (#107).
+`scope explain` on a path beneath one names the boundary. To index
+first-party submodules from the superproject, enable the team switch before
+the first `scan` (or as a governed Scope Change afterwards):
+
+```bash
+aoci config set recurse_submodules true
+aoci scope preview
+```
+
+Each initialized submodule is then read through its own Git, exactly as a
+container child is: its `.gitignore` holds, its `.git` stays excluded, and
+its Entries live in the superproject's Volume under the submodule path.
+Discovery asks Git for paths only (`ls-files`), so no tracked file is read
+to list it, including one Safe Inventory excludes.
+
+Two boundaries apply, and they are checked separately. The working-tree
+boundary: the submodule's work tree, and every directory leading to it, must
+be a real directory inside the root, never a symbolic link. The Git-metadata
+boundary: Git must report that work tree as its own top level. Where the
+metadata lives is Git's business; the usual `.git` file pointing into the
+superproject's `.git/modules/` is accepted, as is any other gitdir Git
+resolves for that work tree.
+
+A submodule whose checkout is unavailable locally (never initialized, or
+after `git submodule deinit`) stays a `git_submodule` boundary, at any
+nesting depth; run `git submodule update --init --recursive` to read it. Its
+existing Entries and Baseline records are kept meanwhile: Maintain does not
+offer them as orphans, because the gitlink and the team configuration are
+unchanged. Moving a submodule to another commit changes its files, which the
+next Maintain reports as drift like any other change.
+
+A submodule whose every path is excluded anyway is not listed through its
+Git at all, so a workspace that defers most of its submodules stays fast:
+one under a hard exclusion (a built-in directory, `exclude_root_dirs`,
+`exclude_dirs`), or one an enabled user `exclude` directory rule without
+exceptions covers while no user rule of another action reaches into it.
+Each is one exclusion line instead of one per file (#107).
 
 A git-ignored directory whose every file is a hard exclusion anyway, because
 its name is built in or a component listed in `exclude_dirs` or in

@@ -45,6 +45,21 @@ type WalkOptions struct {
 	// persisted team configuration, never a built-in default, because the rule
 	// set enters every scope identity (safeInventoryRulesIdentity).
 	SensitiveNameRules string
+	// RecurseSubmodules reads each initialized git submodule through its own
+	// Git, the way a non-Git container reads a child repository (#54): the
+	// submodule's tracked, untracked, and ignored paths join the
+	// superproject's namespace under the gitlink path, so its .gitignore
+	// holds and every hard boundary still applies (#107). An uninitialized
+	// gitlink stays a git_submodule boundary. Team configuration: false keeps
+	// the exact pre-#107 rules identity.
+	RecurseSubmodules bool
+	// PruneSubmodule, when set, names the recursed submodules whose every
+	// path the caller's own policy already excludes. Such a submodule is not
+	// listed through its Git: it becomes one exclusion line, as Managed
+	// Scope would have excluded each of its files anyway. It is derived from
+	// policy the caller binds elsewhere, so it never enters the rules
+	// identity, and it is not configuration.
+	PruneSubmodule func(rel string) (source string, ok bool) `json:"-"`
 }
 
 // WalkRepo traverses the repository and returns the sorted relative paths (forward slashes, regular files only).

@@ -34,6 +34,28 @@ facts, the Baseline keys stay container-relative, and a gitlink inside a child
 names a boundary as it does under a Git root. New non-ignored source files
 remain eligible; governance is not limited to tracked files.
 
+Under a Git root a gitlink is a `git_submodule` boundary unless the team-owned
+configuration key `recurse_submodules` is true. Then every initialized
+submodule (a gitlink whose work tree is a real directory holding a `.git`
+entry) is read through its own Git under the same boundary checks as a
+container child: its paths enter the inventory superproject-relative, its
+`.gitignore` holds, its `.git` stays excluded, it is counted in
+`child_repositories`, and a submodule nested in it is read the same way.
+Discovery uses path-only Git queries (`ls-files`) and never a command that
+reads a tracked file's content. A recursed gitlink is never a candidate of its
+own. An uninitialized gitlink at any depth, or one whose work tree is reached
+through a symbolic link, stays a boundary. The working-tree boundary (every
+component a real directory inside the root) and the Git-metadata boundary
+(Git reports that work tree as its own top level, wherever its gitdir lives)
+are checked separately. A submodule below a hard-excluded directory, or one
+whose every path an enabled user `exclude` directory rule without exceptions
+covers while no user rule of another action reaches into it, is one
+exclusion line and its Git is not run; neither enters the rules identity.
+Governed objects below a boundary that exists only because the checkout is
+missing locally are not Orphan or removed Observe evidence. The key enters
+the rules identity only when true, so an absent key keeps the pre-existing
+identity and enabling it is a governed Scope Change.
+
 The shared Git ignore-status probe follows the winning rule's polarity:
 a matching negative rule makes an untracked path visible, even though verbose
 `git check-ignore` reports that rule with a successful exit status. A tracked

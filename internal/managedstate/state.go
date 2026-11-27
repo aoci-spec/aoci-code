@@ -6,6 +6,7 @@ package managedstate
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
@@ -105,11 +106,70 @@ func Detect(root string, cfg *config.Config, document *index.Document, state *St
 	if state.ScopeChangeRequired {
 		return nil, fmt.Errorf("scope_refresh_required")
 	}
+	var result *baseline.DetectResult
 	if state.Legacy {
-		return baseline.DetectWith(root, document, state.Baseline, state.Snapshot, cfg.WalkOptions(), cfg.LineEndingTolerance), nil
+		result = baseline.DetectWith(root, document, state.Baseline, state.Snapshot, cfg.WalkOptions(), cfg.LineEndingTolerance)
+	} else {
+		result = baseline.DetectManagedScope(root, document, state.Baseline, state.Snapshot,
+			cfg.WalkOptions(), cfg.LineEndingTolerance)
 	}
-	return baseline.DetectManagedScope(root, document, state.Baseline, state.Snapshot,
-		cfg.WalkOptions(), cfg.LineEndingTolerance), nil
+	if cfg.RecurseSubmodules {
+		holdUnavailableSubmodules(result, unavailableSubmodules(state))
+	}
+	return result, nil
+}
+
+// unavailableSubmodules names the gitlinks the inventory kept as a
+// git_submodule boundary: the superproject still records the submodule, but
+// its checkout is missing locally (never initialized, or `git submodule
+// deinit`). Under recurse_submodules that is a local fact, not a team
+// decision.
+func unavailableSubmodules(state *State) []string {
+	roots := []string{}
+	if state.Evaluation != nil {
+		for _, item := range state.Evaluation.Exclude {
+			if strings.HasPrefix(item.Reason, "git_submodule:") {
+				roots = append(roots, item.Path)
+			}
+		}
+	} else if state.Inventory != nil {
+		for _, exclusion := range state.Inventory.Exclusions {
+			if exclusion.RuleSource == "git_submodule" {
+				roots = append(roots, exclusion.PathSummary)
+			}
+		}
+	}
+	return roots
+}
+
+// holdUnavailableSubmodules keeps the governed objects below an unavailable
+// submodule out of Orphan and ObservedRemoved: their files are absent only
+// from this checkout, so Maintain must not offer to remove shared Entries,
+// and a re-init finds them current again. Their Baseline records are left
+// alone for the same reason.
+func holdUnavailableSubmodules(result *baseline.DetectResult, roots []string) {
+	if result == nil || len(roots) == 0 {
+		return
+	}
+	below := func(rel string) bool {
+		for _, root := range roots {
+			if strings.HasPrefix(rel, root+"/") {
+				return true
+			}
+		}
+		return false
+	}
+	keep := func(paths []string) []string {
+		kept := paths[:0:0]
+		for _, path := range paths {
+			if !below(path) {
+				kept = append(kept, path)
+			}
+		}
+		return kept
+	}
+	result.Orphan = keep(result.Orphan)
+	result.ObservedRemoved = keep(result.ObservedRemoved)
 }
 
 func CurationExclusions(root string, cfg *config.Config, value *baseline.Baseline) ([]string, error) {

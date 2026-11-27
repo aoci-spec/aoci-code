@@ -25,6 +25,22 @@ undoing.
 
 Changes:
 
+- `recurse_submodules` (#107): a team-owned switch that reads each
+  initialized git submodule below a Git root through its own Git, with the
+  hardened command and boundary checks a container child gets (#54). Its
+  paths join the superproject's inventory under the gitlink path, its
+  `.gitignore` holds, its `.git` stays excluded, and nested submodules are
+  read the same way; an uninitialized submodule, or one reached through a
+  symbolic link, stays a `git_submodule` boundary. The key enters the rules
+  identity only when true, so existing repositories keep their identity and
+  enabling it is a governed Scope Change. Discovery runs path-only
+  `git ls-files` queries, so no tracked file is read to list it; a nested
+  uninitialized gitlink stays a boundary; a submodule below a hard exclusion
+  never has its Git started; a submodule whose checkout is missing locally
+  (after `git submodule deinit`) keeps its Entries instead of offering them
+  as orphans; and a submodule a user `exclude` directory rule removes whole
+  is one exclusion line instead of a listing of every file (a workspace with
+  25 of 26 submodules deferred: `aoci status` 6.3 s to 0.9 s).
 - Database Evidence names the object a refusal is about: an unsupported
   openGauss feature reports `schema.table`, or `schema.table (index)` for an
   index or key; a name holding a line
