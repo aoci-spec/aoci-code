@@ -970,6 +970,7 @@
   "scope.flag.safety_approval_file": "Path to a managed-scope-safety-approval/v1 JSON artifact",
   "scope.flag.safety_out_file": "Write the managed-scope-safety-approval/v1 artifact to this path instead of stdout",
   "scope.flag.target_tokens": "Whole-Index target token count",
+  "scope.flag.transaction": "Exact Scope Change transaction identity",
   "scope.flag.warning_tokens": "Whole-Index warning token count",
   "scope.preview_summary": "Scope stage %s | index %d | observe %d | exclude %d | authoring targets %d | human review %d",
   "scope.rule_line": "%s | %s | %s:%s | source=%s | order=%d | enabled=%t | decision_basis=%s | %s",

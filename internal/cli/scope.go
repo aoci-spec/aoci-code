@@ -773,7 +773,7 @@ func newScopeStatusCmd() *cobra.Command {
 		}
 		return nil
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("scope.flag.transaction"))
 	command.Flags().BoolVar(&failOnUntracked, "fail-on-untracked", false, cliMessage("scope.flag.fail_on_untracked"))
 	return command
 }
@@ -910,7 +910,7 @@ func newScopeResumeCmd() *cobra.Command {
 		}
 		return writeScopeChangeResult(cmd, root, result)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("scope.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
 }
@@ -928,7 +928,7 @@ func newScopeRollbackCmd() *cobra.Command {
 		}
 		return writeScopeChangeResult(cmd, root, result)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("scope.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
 }

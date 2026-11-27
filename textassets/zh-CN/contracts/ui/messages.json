@@ -970,6 +970,7 @@
   "scope.flag.safety_approval_file": "managed-scope-safety-approval/v1 JSON Artifact路径",
   "scope.flag.safety_out_file": "把 managed-scope-safety-approval/v1 Artifact 写入该路径而不是 stdout",
   "scope.flag.target_tokens": "Whole-Index目标Token数",
+  "scope.flag.transaction": "精确 Scope Change 事务标识",
   "scope.flag.warning_tokens": "Whole-Index警告Token数",
   "scope.preview_summary": "Scope阶段%s | index %d | observe %d | exclude %d | Authoring目标%d | 人工复核%d",
   "scope.rule_line": "%s | %s | %s:%s | 来源=%s | 顺序=%d | 启用=%t | decision_basis=%s | %s",
