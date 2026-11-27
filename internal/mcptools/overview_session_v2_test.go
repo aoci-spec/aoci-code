@@ -65,6 +65,67 @@ func workCounters(t *testing.T, result *mcp.CallToolResult) overviewWork {
 	return work
 }
 
+func TestOverviewCodeSectionRootMetadata(t *testing.T) {
+	for _, fixture := range []struct{ kind, path string }{
+		{kind: "neutral", path: "/<repository>"},
+		{kind: "recorded", path: "/original/checkout"},
+	} {
+		t.Run(fixture.kind, func(t *testing.T) {
+			root := buildVolumeRepo(t, true, false)
+			names := make([]string, 60)
+			for i := range names {
+				names[i] = fmt.Sprintf("entry-%03d.go", i)
+			}
+			writeVolumeAttestationEntries(t, root, names)
+			code, err := os.ReadFile(filepath.Join(root, "aoci.code.txt"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			codeText := strings.Replace(string(code), filepath.ToSlash(root)+"/===", fixture.path+"/===", 1)
+			writeVolumeTestFile(t, root, "aoci.code.txt", codeText)
+
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.OverviewDelivery.ChunkTokens = machinecontract.OverviewChunkTokensMax
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			full := sessionOverview(t, root, newCognitionRefreshSession(), "host", overviewIn{Scope: "all"})
+			metadata, _, found := strings.Cut(resText(t, full), "<<<AOCI_OVERVIEW_BODY_BEGIN/v1")
+			if full.IsError || !found || !strings.Contains(metadata, "\nsection_root: "+fixture.kind+"\n") {
+				t.Fatalf("full delivery did not report section_root=%s: %s", fixture.kind, metadata)
+			}
+
+			cfg.OverviewDelivery.ChunkTokens = machinecontract.OverviewChunkTokensMin
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			session := newCognitionRefreshSession()
+			first, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", overviewIn{Scope: "all"}))
+			if first["section_root"] != fixture.kind {
+				t.Fatalf("first chunk section_root=%v, want %s", first["section_root"], fixture.kind)
+			}
+			cursor, ok := first["next_cursor"].(string)
+			if !ok || cursor == "" {
+				t.Fatal("first chunk has no cursor")
+			}
+			next, _ := chunkMetadata(t, sessionOverview(t, root, session, "host", overviewIn{Scope: "all", Cursor: cursor}))
+			if _, present := next["section_root"]; present {
+				t.Fatalf("continuation carries section_root: %v", next["section_root"])
+			}
+		})
+	}
+
+	root := buildVolumeRepo(t, true, false)
+	meta := sessionOverview(t, root, newCognitionRefreshSession(), "host", overviewIn{Scope: "meta"})
+	header, _, found := strings.Cut(resText(t, meta), "<<<AOCI_OVERVIEW_BODY_BEGIN/v1")
+	if meta.IsError || !found || strings.Contains(header, "\nsection_root:") {
+		t.Fatalf("meta delivery should omit section_root: %s", header)
+	}
+}
+
 func TestOverviewV2CanonicalChunksAndWork(t *testing.T) {
 	root := chunkSessionRepo(t)
 	session := newCognitionRefreshSession()

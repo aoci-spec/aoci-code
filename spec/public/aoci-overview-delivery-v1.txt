@@ -25,6 +25,13 @@ and Section counts, estimated tokens, Index SHA-256, framed-body bytes and
 SHA-256, and delivery state remain machine Metadata. Dirty or Stale cognition
 may be delivered but is unreliable as current implementation evidence.
 
+Complete Volumes delivery with at least one Code directory section adds
+the optional section_root metadata to the single response or the first
+Chunk. It is neutral if all Code directory headings use /<repository>,
+and recorded if a heading uses a recorded path. This describes how the
+Code Volume spells its section roots. runtime_repository_root identifies
+the current checkout.
+
 Only explicit `check_only=true` produces `request_mode=check_only`,
 `delivery_mode=checkpoint`, and no cognition body or chunk chain. Pending
 Recovery or an incoherent snapshot fails closed without mixed content. The
