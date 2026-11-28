@@ -8,13 +8,16 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
@@ -101,8 +104,256 @@ func applyMaintainBatch(t *testing.T, session *mcp.ClientSession, response map[s
 		entries = append(entries, map[string]any{"path": item["path"], "source_sha256": item["source_sha256"],
 			"candidate_id": item["candidate_id"], "new_entry": fixtureEntryLine(item["path"].(string))})
 	}
-	raw := callVolumeTool(t, session, "aoci_update_entry", map[string]any{"code_batch_id": plan["batch_id"], "entries": entries})
+	args := map[string]any{"code_batch_id": plan["batch_id"], "entries": entries}
+	if paths, _ := response["orphan_remove_candidates"].([]any); len(paths) > 0 {
+		removals := make([]map[string]string, 0, len(paths))
+		for _, path := range paths {
+			removals = append(removals, map[string]string{"path": strings.TrimPrefix(path.(string), "code:")})
+		}
+		args["removals"] = removals
+	}
+	raw := callVolumeTool(t, session, "aoci_update_entry", args)
 	return decodeMaintainJSON(t, raw)
+}
+
+func twoParallelBatches(t *testing.T) string {
+	t.Helper()
+	root := parallelVolumesRepo(t, 4, 2)
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetCodeCognitionBatchEntries(2); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func TestParallelOrphanRemovalOwnedByLead(t *testing.T) {
+	root := twoParallelBatches(t)
+	if err := os.Remove(filepath.Join(root, "main.go")); err != nil {
+		t.Fatal(err)
+	}
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	lead := maintainJSON(t, one, nil)
+	sibling := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, lead))[0]["batch_id"]})
+	if got := fmt.Sprint(lead["orphan_remove_candidates"]); got != "[code:main.go]" {
+		t.Fatalf("lead must carry the orphan: %s", got)
+	}
+	if got := fmt.Sprint(sibling["orphan_remove_candidates"]); got != "[]" {
+		t.Fatalf("sibling must leave the orphan to the lead: %s", got)
+	}
+	for _, result := range []map[string]any{lead, sibling} {
+		if remaining := result["authoring_batch"].(map[string]any)["remaining"]; remaining != float64(0) {
+			t.Errorf("Maintain counted a held orphan: remaining=%v", remaining)
+		}
+	}
+	if first := applyMaintainBatch(t, two, sibling); first["status"] != autoStatusApplied ||
+		first["remaining"] != float64(0) || first["aligned"] != false || first["terminal_proof"] != nil {
+		t.Errorf("non-lead Apply should report zero unissued work and wait for the lead: %v", first)
+	}
+	if final := applyMaintainBatch(t, one, lead); final["status"] != autoStatusApplied ||
+		final["remaining"] != float64(0) || final["aligned"] != true || final["terminal_proof"] == nil {
+		t.Fatalf("lead Apply must remove the orphan and align: %v", final)
+	}
+}
+
+func TestParallelLeadInvalidationReleasesOrphanRemoval(t *testing.T) {
+	root := twoParallelBatches(t)
+	if err := os.Remove(filepath.Join(root, "main.go")); err != nil {
+		t.Fatal(err)
+	}
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	lead := maintainJSON(t, one, nil)
+	drifted := candidatePaths(lead)[0]
+	writeVolumeTestFile(t, root, drifted, "package drift\n")
+	sibling := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, lead))[0]["batch_id"]})
+	if remaining := sibling["authoring_batch"].(map[string]any)["remaining"]; remaining != float64(3) {
+		t.Fatalf("the two invalidated targets and their orphan must now be unissued: remaining=%v", remaining)
+	}
+	if applied := applyMaintainBatch(t, two, sibling); applied["status"] != autoStatusApplied || applied["remaining"] != float64(3) {
+		t.Fatalf("Apply must count the released work: status=%v remaining=%v", applied["status"], applied["remaining"])
+	}
+	next := maintainJSON(t, one, nil)
+	if got := fmt.Sprint(next["orphan_remove_candidates"]); got != "[code:main.go]" {
+		t.Fatalf("the next batch must carry the released orphan: %v", got)
+	}
+}
+
+func TestParallelApplyAlignmentUsesOneSnapshot(t *testing.T) {
+	root := twoParallelBatches(t)
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	first := maintainJSON(t, one, nil)
+	second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, first))[0]["batch_id"]})
+
+	loaded, resume := make(chan struct{}), make(chan struct{})
+	var resumed sync.Once
+	release := func() { resumed.Do(func() { close(resume) }) }
+	hook := beforeAutoAlignmentSnapshot
+	var reads atomic.Int32
+	beforeAutoAlignmentSnapshot = func(path string) {
+		if path == root && reads.Add(1) == 1 {
+			close(loaded)
+			<-resume
+		}
+	}
+	t.Cleanup(func() { beforeAutoAlignmentSnapshot = hook })
+	done := make(chan map[string]any, 1)
+	go func() { done <- applyMaintainBatch(t, one, first) }()
+	defer release()
+	select {
+	case <-loaded:
+	case <-time.After(5 * time.Second):
+		t.Fatal("first Apply did not reach the snapshot hook")
+	}
+	terminal := applyMaintainBatch(t, two, second)
+	release()
+	select {
+	case late := <-done:
+		for _, result := range []map[string]any{terminal, late} {
+			if result["status"] != autoStatusApplied || result["remaining"] != float64(0) ||
+				result["aligned"] != true || result["terminal_proof"] == nil {
+				t.Fatalf("Apply reported stale work after both siblings had committed: remaining=%v aligned=%v findings=%v",
+					result["remaining"], result["aligned"], result["findings"])
+			}
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("first Apply did not resume")
+	}
+}
+
+func TestParallelApplyHoldsSnapshotLockBetweenVolumesAndBaseline(t *testing.T) {
+	root := twoParallelBatches(t)
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	first := maintainJSON(t, one, nil)
+	second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, first))[0]["batch_id"]})
+
+	volumesRead, resume := make(chan struct{}), make(chan struct{})
+	hook := afterAutoAlignmentVolumesRead
+	var reads atomic.Int32
+	afterAutoAlignmentVolumesRead = func(path string) {
+		if path == root && reads.Add(1) == 1 {
+			close(volumesRead)
+			<-resume
+		}
+	}
+	t.Cleanup(func() { afterAutoAlignmentVolumesRead = hook })
+	var resumed sync.Once
+	release := func() { resumed.Do(func() { close(resume) }) }
+	defer release()
+
+	a := startParallelApply(t, one, first)
+	awaitParallelApply(t, volumesRead, "A reading the Volumes", 5*time.Second)
+	_, lockErr := os.Stat(filepath.Join(root, ".aoci", "lock"))
+	b := startParallelApply(t, two, second)
+	var bResult map[string]any
+	bFinishedEarly := false
+	select {
+	case bResult = <-b:
+		bFinishedEarly = true
+	case <-time.After(500 * time.Millisecond):
+	}
+	release()
+	aResult := awaitParallelApply(t, a, "A completing", 5*time.Second)
+	if !bFinishedEarly {
+		bResult = awaitParallelApply(t, b, "B completing", 5*time.Second)
+	}
+	if lockErr != nil || bFinishedEarly {
+		t.Errorf("B must wait while A holds the lock between Volumes and Baseline: lock=%v B completed=%t", lockErr, bFinishedEarly)
+	}
+	if aResult["status"] != autoStatusApplied || aResult["applied"] != float64(2) ||
+		aResult["remaining"] != float64(0) || aResult["aligned"] != false || aResult["terminal_proof"] != nil {
+		t.Errorf("A must report its own committed sibling and still await B: remaining=%v aligned=%v", aResult["remaining"], aResult["aligned"])
+	}
+	assertParallelTerminalProof(t, bResult)
+}
+
+func TestParallelApplyReportsUnknownRemainingAfterSnapshotLockTimeout(t *testing.T) {
+	root := twoParallelBatches(t)
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	first := maintainJSON(t, one, nil)
+	second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, first))[0]["batch_id"]})
+
+	aCommitted, resumeA := make(chan struct{}), make(chan struct{})
+	bHasLock, resumeB := make(chan struct{}), make(chan struct{})
+	before, after := beforeAutoAlignmentSnapshot, afterAutoAlignmentVolumesRead
+	var attempts, reads atomic.Int32
+	beforeAutoAlignmentSnapshot = func(path string) {
+		if path == root && attempts.Add(1) == 1 {
+			close(aCommitted)
+			<-resumeA
+		}
+	}
+	afterAutoAlignmentVolumesRead = func(path string) {
+		if path == root && reads.Add(1) == 1 {
+			close(bHasLock)
+			<-resumeB
+		}
+	}
+	t.Cleanup(func() {
+		beforeAutoAlignmentSnapshot, afterAutoAlignmentVolumesRead = before, after
+	})
+	var resumedA, resumedB sync.Once
+	releaseA := func() { resumedA.Do(func() { close(resumeA) }) }
+	releaseB := func() { resumedB.Do(func() { close(resumeB) }) }
+	defer releaseA()
+	defer releaseB()
+
+	a := startParallelApply(t, one, first)
+	awaitParallelApply(t, aCommitted, "A committing", 5*time.Second)
+	b := startParallelApply(t, two, second)
+	awaitParallelApply(t, bHasLock, "B holding the snapshot lock", 5*time.Second)
+	releaseA()
+	result := awaitParallelApply(t, a, "A returning after the lock timeout", 20*time.Second)
+	releaseB()
+	assertParallelTerminalProof(t, awaitParallelApply(t, b, "B completing", 5*time.Second))
+
+	if _, hasRemaining := result["remaining"]; hasRemaining {
+		t.Errorf("Apply reported an uncomputed remaining=%v", result["remaining"])
+	}
+	if result["status"] != autoStatusApplied || result["applied"] != float64(2) ||
+		result["formal_writes_started"] != true || result["aligned"] != false || result["terminal_proof"] != nil {
+		t.Errorf("Apply must preserve its committed result without claiming alignment: %v", result)
+	}
+	if result["next_action"] != machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch ||
+		!strings.Contains(fmt.Sprint(result["findings"]), "alignment_snapshot_unavailable") {
+		t.Errorf("Apply must report the unavailable snapshot and direct the Host to no-argument Maintain: findings=%v next_action=%v",
+			result["findings"], result["next_action"])
+	}
+}
+
+func startParallelApply(t *testing.T, session *mcp.ClientSession, batch map[string]any) <-chan map[string]any {
+	t.Helper()
+	done := make(chan map[string]any, 1)
+	go func() {
+		defer close(done)
+		done <- applyMaintainBatch(t, session, batch)
+	}()
+	return done
+}
+
+func awaitParallelApply[T any](t *testing.T, done <-chan T, step string, timeout time.Duration) T {
+	t.Helper()
+	select {
+	case result := <-done:
+		return result
+	case <-time.After(timeout):
+		t.Fatalf("timed out waiting for %s", step)
+		var zero T
+		return zero
+	}
+}
+
+func assertParallelTerminalProof(t *testing.T, result map[string]any) {
+	t.Helper()
+	proof, _ := result["terminal_proof"].(map[string]any)
+	if result["status"] != autoStatusApplied || result["applied"] != float64(2) ||
+		result["remaining"] != float64(0) || result["aligned"] != true || proof["aligned"] != true {
+		t.Fatalf("B must commit and carry the aligned terminal proof: %v", result)
+	}
 }
 
 func verifyAligned(t *testing.T, root string) (*volumegovernance.Facts, *cognition.Set) {
@@ -366,8 +617,9 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 	}
 	// Once the surviving sibling applies, the plan completes and the next one
 	// issues the drifted targets again, under their new digests.
-	if applied := applyMaintainBatch(t, session, again); applied["status"] != autoStatusApplied {
-		t.Fatalf("the surviving sibling applies: %v", applied)
+	if applied := applyMaintainBatch(t, session, again); applied["status"] != autoStatusApplied || applied["remaining"] != againPlan["remaining"] {
+		t.Fatalf("the surviving sibling applies and the invalidated targets stay unissued: status=%v remaining=%v want=%v",
+			applied["status"], applied["remaining"], againPlan["remaining"])
 	}
 	next := maintainJSON(t, session, map[string]any{})
 	nextPlan := codePlanOf(t, next)
@@ -382,6 +634,45 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 	}
 	if nextPlan["logical_plan"] == plan["logical_plan"] || !issued[drifted] {
 		t.Fatalf("the next plan issues the drifted target: same_plan=%v issued=%v", nextPlan["logical_plan"] == plan["logical_plan"], issued[drifted])
+	}
+}
+
+func TestParallelApplyCountsOnlyUnissuedTargets(t *testing.T) {
+	for _, outside := range []int{0, 1} {
+		t.Run(fmt.Sprintf("outside_%d", outside), func(t *testing.T) {
+			root := parallelVolumesRepo(t, 8+outside, 2)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cfg.SetCodeCognitionBatchEntries(4); err != nil {
+				t.Fatal(err)
+			}
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+			first := maintainJSON(t, one, nil)
+			plan := codePlanOf(t, first)
+			second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(plan)[0]["batch_id"]})
+			want := float64(outside)
+			for _, response := range []map[string]any{first, second} {
+				if batch := response["authoring_batch"].(map[string]any); batch["remaining"] != want || batch["continuation_required"] != true {
+					t.Fatalf("expected %d unissued targets with a sibling outstanding: %v", outside, batch)
+				}
+			}
+			interim := applyMaintainBatch(t, one, first)
+			if interim["status"] != autoStatusApplied || interim["remaining"] != want || interim["aligned"] != false ||
+				interim["terminal_proof"] != nil || !strings.Contains(interim["next_action"].(string), "batch_id") {
+				t.Fatalf("Apply must count unissued targets and direct the Host to finish the wave: status=%v remaining=%v aligned=%v next_action=%v",
+					interim["status"], interim["remaining"], interim["aligned"], interim["next_action"])
+			}
+			last := applyMaintainBatch(t, two, second)
+			if last["status"] != autoStatusApplied || last["remaining"] != want || last["aligned"] != (outside == 0) ||
+				(last["terminal_proof"] != nil) != (outside == 0) {
+				t.Fatalf("unexpected result after the wave: %v", last)
+			}
+		})
 	}
 }
 

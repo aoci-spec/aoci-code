@@ -63,7 +63,7 @@ func TestRuntimeRulesExposeSessionCognitionContract(t *testing.T) {
 		"failed_step、error 和 recovery",
 		"不得绕过冲突、审批、权限、人工裁决、CAS和安全信号",
 		"它不替代Curation、孤儿裁决",
-		"只在当前布局和工具返回状态支持时使用 aoci_report",
+		"自0.2.0起aoci_report不再写入",
 		"错误认知比暂时缺失更有害",
 	} {
 		if !strings.Contains(rules, anchor) {

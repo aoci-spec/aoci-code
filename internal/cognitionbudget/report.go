@@ -190,16 +190,37 @@ func EstimateTokensOfSize(byteCount int) int { return byteCount / 3 }
 // band never sits below the Meta S quota: the authoring contract states that
 // quota in runes, one CJK rune is three bytes and therefore one token, so a
 // band below the quota rejected Entries the contract permitted at ~40% of the
-// declared length (#146). Tokens never exceed runes, so an S within its rune
-// quota is never a budget violation; a policy that raises the band above the
-// quota keeps the band. quota may be nil: the machine default is the floor the
-// error-level rune gate applies anyway (index.LimitForC).
+// declared length (#146). A four-byte rune can still reach the token ceiling
+// first. quota may be nil: the machine default is the floor the error-level
+// rune gate applies anyway (index.LimitForC).
 func SFieldMaxTokens(band FieldBand, importance int, quota *index.SQuotaThresholds) int {
 	limit, _ := quota.LimitForC(importance)
 	if band.MaxTokens > limit {
 		return band.MaxTokens
 	}
 	return limit
+}
+
+// EffectiveSFieldBands projects the validator's S token ceilings for display.
+// A Meta quota can split a policy band, while its advisory target still applies.
+func EffectiveSFieldBands(bands []FieldBand, quota *index.SQuotaThresholds) []FieldBand {
+	effective := []FieldBand{}
+	for importance := 9; importance >= 1; importance-- {
+		band, found := LimitFor(bands, importance)
+		if !found {
+			continue
+		}
+		band.MaxTokens = SFieldMaxTokens(band, importance, quota)
+		last := len(effective) - 1
+		if last >= 0 && effective[last].MinC == importance+1 &&
+			effective[last].MaxTokens == band.MaxTokens && effective[last].TargetTokens == band.TargetTokens {
+			effective[last].MinC = importance
+			continue
+		}
+		band.MinC, band.MaxC = importance, importance
+		effective = append(effective, band)
+	}
+	return effective
 }
 
 // Build measures raw as one cognition asset. A Legacy index carries its S quota

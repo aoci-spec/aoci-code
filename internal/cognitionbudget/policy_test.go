@@ -5,8 +5,27 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
+
+func TestEffectiveSFieldBandsUsePolicyAndMetaCeilings(t *testing.T) {
+	policy := DefaultPolicy(machinecontract.BudgetModeEnforce)
+	policy.S[len(policy.S)-1].MaxTokens = 65
+	quota := index.ExtractSQuotaThresholds("#S配额: C2<=75")
+	bands := EffectiveSFieldBands(policy.S, quota)
+	for c, want := range map[int]int{1: 65, 2: 75, 3: 65, 4: 200, 9: 600} {
+		original, _ := LimitFor(policy.S, c)
+		reported, found := LimitFor(bands, c)
+		if !found || reported.MaxTokens != want || reported.MaxTokens != SFieldMaxTokens(original, c, quota) ||
+			reported.TargetTokens != original.TargetTokens {
+			t.Errorf("C%d effective S band = %+v, want ceiling %d and advisory target %d", c, reported, want, original.TargetTokens)
+		}
+	}
+	if band, _ := LimitFor(policy.S, 2); band.MaxTokens != 65 {
+		t.Fatalf("display changed the persisted policy band: %+v", band)
+	}
+}
 
 func budgetFixture(body string) []byte {
 	return []byte("# header\n===/repo/===\nmain.go[C.RT.9.T]: F:core | R:" + body + " | A:- | S:" + body + "\n")

@@ -32,7 +32,7 @@ func TestAlignmentInspectorToleratesLineEndingOnlyVolumes(t *testing.T) {
 		t.Fatalf("load: %+v", fail)
 	}
 	outcome := &AtomicBatchOutcome{Volumes: []string{"code"}, Items: []*UpdateOutcome{{Action: "no_change", Rel: "generated/0000.go"}}, BaselineComplete: true}
-	_, _, findings, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
+	_, _, findings, _, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
 	for _, finding := range findings {
 		if strings.HasPrefix(finding, "unaligned: aoci.code.txt") {
 			t.Fatalf("a line-ending-only Volume must count as aligned: %v", findings)

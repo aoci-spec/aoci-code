@@ -42,7 +42,6 @@ var evolutionNarrativeTerms = []string{
 	"本次修改",
 	"本次新增",
 	"本次调整",
-	"改为",
 	"新增了",
 	"修复了",
 	"现在改",

@@ -111,14 +111,15 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 }
 
 type autoResult struct {
-	Version                 int                          `json:"version"`
-	Status                  string                       `json:"status"`
-	Aligned                 bool                         `json:"aligned"`
-	RefreshStatus           string                       `json:"refresh_status,omitempty"`
-	RefreshReasons          []string                     `json:"refresh_reasons,omitempty"`
-	Attempted               int                          `json:"attempted"`
-	Applied                 int                          `json:"applied"`
-	Remaining               int                          `json:"remaining"`
+	Version                 int      `json:"version"`
+	Status                  string   `json:"status"`
+	Aligned                 bool     `json:"aligned"`
+	RefreshStatus           string   `json:"refresh_status,omitempty"`
+	RefreshReasons          []string `json:"refresh_reasons,omitempty"`
+	Attempted               int      `json:"attempted"`
+	Applied                 int      `json:"applied"`
+	Remaining               int      `json:"remaining"`
+	omitRemaining           bool
 	FormalWritesStarted     bool                         `json:"formal_writes_started"`
 	FindingCount            int                          `json:"finding_count"`
 	Receipt                 cognitionReceipt             `json:"cognition_receipt"`
@@ -164,7 +165,16 @@ func renderAutoResult(result autoResult) string {
 		result.RetryScope = []string{}
 	}
 	result.FindingCount = len(result.Findings)
-	data, err := json.Marshal(result)
+	var wire any = result
+	if result.omitRemaining {
+		// An unavailable snapshot has no count. Omit just that response's
+		// field so ordinary replies still distinguish a measured zero.
+		wire = struct {
+			autoResult
+			Remaining *int `json:"remaining,omitempty"`
+		}{autoResult: result}
+	}
+	data, err := json.Marshal(wire)
 	if err != nil {
 		return `{"version":1,"status":"` + autoStatusStopped +
 			`","aligned":false,"next_action":` +

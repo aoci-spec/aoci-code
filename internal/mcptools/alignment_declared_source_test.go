@@ -30,7 +30,7 @@ func TestAlignmentInspectorIgnoresDeclaredOnlySources(t *testing.T) {
 		t.Fatalf("load: %+v", fail)
 	}
 	outcome := &AtomicBatchOutcome{Volumes: []string{"database"}, Items: []*UpdateOutcome{{Action: "no_change", Rel: "database://primary/public/users"}}, BaselineComplete: true}
-	_, _, findings, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
+	_, _, findings, _, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
 	for _, finding := range findings {
 		if strings.Contains(finding, "engine_not_implemented") {
 			t.Fatalf("a declared-only source must not block alignment: %v", findings)

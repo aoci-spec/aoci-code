@@ -96,7 +96,7 @@ func TestVolumeAlignmentInspectorIgnoresFormalObserveRecords(t *testing.T) {
 		t.Fatalf("load: %+v", fail)
 	}
 	outcome := &AtomicBatchOutcome{Volumes: []string{"code"}, Items: []*UpdateOutcome{{Action: "update", Rel: "main.go"}}, BaselineComplete: true}
-	aligned, remaining, findings, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
+	aligned, remaining, findings, _, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
 	if !aligned || remaining != 0 || strings.Contains(strings.Join(findings, " "), "observed_removed") {
 		t.Fatalf("the post-Apply inspector disagrees with governance: aligned=%t remaining=%d findings=%v", aligned, remaining, findings)
 	}
