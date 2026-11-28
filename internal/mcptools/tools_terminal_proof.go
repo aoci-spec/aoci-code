@@ -38,18 +38,23 @@ type TerminalProof struct {
 // blocker's remediation; a repository that cannot be assessed is reported as
 // such, never as aligned.
 func BuildTerminalProof(root string) (*TerminalProof, *volumegovernance.Facts) {
-	unavailable := func(code string) *TerminalProof {
-		return &TerminalProof{Version: terminalProofVersion, GovernanceResult: "unavailable",
-			GuideNextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch,
-			Findings:        []volumegovernance.Finding{{Code: code, Domain: "code"}}}
-	}
 	loaded, fail := loadCognitionCtx(root)
 	if fail != nil {
-		return unavailable(fail.Code), nil
+		return unavailableTerminalProof(fail.Code), nil
 	}
+	return terminalProofFromLoaded(root, loaded)
+}
+
+func unavailableTerminalProof(code string) *TerminalProof {
+	return &TerminalProof{Version: terminalProofVersion, GovernanceResult: "unavailable",
+		GuideNextAction: machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch,
+		Findings:        []volumegovernance.Finding{{Code: code, Domain: "code"}}}
+}
+
+func terminalProofFromLoaded(root string, loaded *cognitionRepoCtx) (*TerminalProof, *volumegovernance.Facts) {
 	facts, err := volumegovernance.Assess(root, loaded.cfg, loaded.set)
 	if err != nil {
-		return unavailable("governance_assess_failed"), nil
+		return unavailableTerminalProof("governance_assess_failed"), nil
 	}
 	findings := make([]volumegovernance.Finding, 0, len(facts.Findings))
 	for _, finding := range facts.Findings {

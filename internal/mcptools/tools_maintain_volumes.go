@@ -116,10 +116,9 @@ type volumeMaintainResult struct {
 	// written between this call's load and its turn at the plan, so the call
 	// starts over on the current bytes; or the batch could not be issued,
 	// which is a failure to report and never an empty, aligned-looking answer.
-	volumeMoved  bool
-	issueFailure string
-	// Orphans ride only the first sibling, including redelivery of that batch.
-	codeOrphansRide         bool
+	volumeMoved             bool
+	issueFailure            string
+	parallelOrphans         *parallelCodeOrphans
 	deliveredBatch          bool
 	releasePlanLock         func()
 	publishCodeBatch        func() error
@@ -395,7 +394,7 @@ func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *v
 		}
 	}
 	if requested[cognition.ScopeCode] {
-		addMaintainCodeOrphans(result, facts.CodeDrift.Orphan, !codeSiblingsIssued(*result) || result.codeOrphansRide)
+		addMaintainCodeOrphans(result, facts.CodeDrift.Orphan)
 	} else {
 		result.OrphanRemovalTotal = len(result.OrphanRemovals)
 	}
@@ -497,19 +496,24 @@ func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *v
 
 // addMaintainCodeOrphans uses the same combined candidate/removal ceiling
 // that Apply validates. Database orphans remain separate removal actions.
-func addMaintainCodeOrphans(result *volumeMaintainResult, orphans []string, carry bool) {
+func addMaintainCodeOrphans(result *volumeMaintainResult, orphans []string) {
 	result.OrphanRemovalTotal = len(result.OrphanRemovals) + len(orphans)
-	included := 0
-	if carry {
-		included = min(len(orphans), machinecontract.EntriesBatchMaxItems-len(result.Candidates))
-		for _, path := range orphans[:included] {
-			result.OrphanRemovals = append(result.OrphanRemovals, "code:"+path)
-		}
+	carried := codeOrphansForBatch(orphans, len(result.Candidates))
+	held := len(carried)
+	if result.parallelOrphans != nil {
+		carried, held = result.parallelOrphans.carried, result.parallelOrphans.held
+	}
+	for _, path := range carried {
+		result.OrphanRemovals = append(result.OrphanRemovals, "code:"+path)
 	}
 	sort.Strings(result.OrphanRemovals)
-	result.Batch.Remaining += len(orphans) - included
-	result.Batch.ContinuationRequired = result.Batch.ContinuationRequired || len(orphans) > included
-	result.Batch.CompleteCandidateSet = result.Batch.CompleteCandidateSet || included > 0
+	result.Batch.Remaining += len(orphans) - held
+	result.Batch.ContinuationRequired = result.Batch.ContinuationRequired || len(orphans) > held
+	result.Batch.CompleteCandidateSet = result.Batch.CompleteCandidateSet || len(carried) > 0
+}
+
+func codeOrphansForBatch(orphans []string, candidates int) []string {
+	return orphans[:min(len(orphans), machinecontract.EntriesBatchMaxItems-candidates)]
 }
 
 // SnapshotOfState is the Code source snapshot a governance verdict was

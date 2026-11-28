@@ -127,18 +127,17 @@ type repoCtx struct {
 	text  string          // the raw index text
 	doc   *index.Document // ResolveRelPaths already applied
 	bl    *baseline.Baseline
-	// dict is the text that holds the tag dictionary and the E-scale thresholds. In Volumes v1 the dictionary lives in the Meta volume,
-	// while the Code volume's own header is a single marker line, and extracting a header from text yields no threshold; Legacy keeps the
-	// dictionary and the entries in one file, and leaving this empty falls back to the index header.
-	dict string
+	// Volumes use the full Meta for the shared S quota and only its Code
+	// dictionary for Code E-scale thresholds. Legacy uses the index header.
+	meta string
 }
 
 // dictionaryText returns the text whose dictionary lines govern threshold
 // checks for this context: the Meta Volume for a Volumes Code context, the
 // index header for Legacy.
 func (rc *repoCtx) dictionaryText(header string) string {
-	if rc != nil && rc.dict != "" {
-		return rc.dict
+	if rc.meta != "" {
+		return index.ScopedDictionaryText(rc.meta, cognition.ScopeCode)
 	}
 	return header
 }

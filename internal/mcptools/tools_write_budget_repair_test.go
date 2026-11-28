@@ -129,6 +129,54 @@ func TestSMaximumReportedInMaintainAndRepair(t *testing.T) {
 	}
 }
 
+func TestCustomMetaSQuotaMatchesMaintainAndApplyInAllSections(t *testing.T) {
+	for _, section := range []string{"preamble", "code", "database"} {
+		t.Run(section, func(t *testing.T) {
+			root := buildManyFileVolumesRepo(t, 1)
+			const quota = "#S quota: C1<=75\n"
+			meta := volumeFileText(t, root, "aoci.meta.txt")
+			switch section {
+			case "preamble":
+				meta = strings.Replace(meta, "#[Tag dictionary: code]", quota+"#[Tag dictionary: code]", 1)
+			case "code":
+				meta = strings.Replace(meta, "#[Tag dictionary: database]", quota+"#[Tag dictionary: database]", 1)
+			case "database":
+				meta += "\n" + quota
+			}
+			writeVolumeTestFile(t, root, "aoci.meta.txt", meta)
+			activateEnforceBudget(t, root)
+			session := connectMCPClient(t, root)
+			response := maintainJSON(t, session, nil)
+			budget := response["governance"].(map[string]any)["budget"].(map[string]any)
+			var maximum any
+			for _, item := range budget["s"].([]any) {
+				band := item.(map[string]any)
+				if band["min_c"] == float64(1) {
+					maximum = band["max_tokens"]
+				}
+			}
+			if maximum != float64(75) || !strings.Contains(fmt.Sprint(response["instructions"]), "C1<=75") {
+				t.Fatalf("Maintain must report the effective limit of 75 tokens: %v", maximum)
+			}
+			apply := func(runes int) autoResult {
+				t.Helper()
+				return decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", []updateEntryItemIn{{
+					Path: "main.go", SourceSHA256: sourceSHA256(t, root, "main.go"),
+					NewEntry: "main.go[CD1S]: F:run the fixture | R:- | A:main | S:" + strings.Repeat("😀", runes),
+				}}))
+			}
+			over := apply(57)
+			if over.Status != autoStatusRepairRequired || len(over.Findings) != 1 ||
+				over.Findings[0].Expected != "max_tokens=75" || over.Findings[0].Actual != "actual_tokens=76" {
+				t.Errorf("Apply must enforce the same 75-token limit: status=%s findings=%+v", over.Status, over.Findings)
+			}
+			if valid := apply(56); valid.Status != autoStatusApplied {
+				t.Fatalf("Apply refused 74 tokens within both limits: status=%s findings=%+v", valid.Status, valid.Findings)
+			}
+		})
+	}
+}
+
 func TestBudgetEnforceViolationReturnsStructuredRepair(t *testing.T) {
 	root := buildSingleCodeWriteRepo(t, false)
 	activateEnforceBudget(t, root)

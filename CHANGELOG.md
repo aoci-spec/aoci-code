@@ -2,6 +2,16 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Successful Apply reports only work outside the issued sibling batches in
+  `remaining`. An Apply can report `remaining=0` while siblings still need
+  to be applied. Follow `next_action` and close the parallel wave only when
+  `aligned` and `terminal_proof.aligned` are true.
+- `governance.budget.s[].max_tokens` reports the effective S token limit
+  after applying the Meta rune quota floor. A configured importance band
+  can split where the effective limits differ.
+
 ## v0.2.0-rc5
 
 The fifth 0.2.0 candidate closes three known limitations of rc4 and the
