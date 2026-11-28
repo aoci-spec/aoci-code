@@ -56,15 +56,17 @@ func NewEnvironmentCredentialProvider(lookup func(string) string) CredentialProv
 // AccessPlan is a redacted, read-only onboarding result. It reports only a
 // provider reference and readiness; it never contains the resolved value.
 type AccessPlan struct {
-	Version          string `json:"version"`
-	SourceID         string `json:"source_id"`
-	Provider         string `json:"provider"`
-	Reference        string `json:"reference"`
-	Status           string `json:"status"`
-	NextAction       string `json:"next_action"`
-	CredentialSaved  bool   `json:"credential_saved"`
-	NetworkAccessed  bool   `json:"network_accessed"`
-	BusinessDataRead bool   `json:"business_data_read"`
+	Version                 string `json:"version"`
+	SourceID                string `json:"source_id"`
+	Provider                string `json:"provider"`
+	Reference               string `json:"reference"`
+	Status                  string `json:"status"`
+	NextAction              string `json:"next_action"`
+	ConnectionStringExample string `json:"connection_string_example,omitempty"`
+	ActionHint              string `json:"action_hint,omitempty"`
+	CredentialSaved         bool   `json:"credential_saved"`
+	NetworkAccessed         bool   `json:"network_accessed"`
+	BusinessDataRead        bool   `json:"business_data_read"`
 }
 
 // InspectAccess validates configuration and checks runtime credential
@@ -104,6 +106,7 @@ func InspectAccess(ctx context.Context, source SourceConfig, provider Credential
 		return AccessPlan{}, &SourceError{Code: "credential_provider_unsupported", SourceID: source.SourceID, Op: "access_preflight"}
 	}
 	if _, err := provider.Resolve(ctx, CredentialRequest{SourceID: source.SourceID, Reference: source.CredentialEnv}); err != nil {
+		plan.ConnectionStringExample = ConnectionStringExample(source.Engine)
 		return plan, nil
 	}
 	plan.Status = AccessStatusReady

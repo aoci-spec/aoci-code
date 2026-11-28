@@ -211,10 +211,18 @@ func newDatabaseSourceAccessCmd() *cobra.Command {
 			if err != nil {
 				return databaseSourceExitError(err)
 			}
+			hint := ""
+			if plan.Status == dbevidence.AccessStatusActionRequired && plan.ConnectionStringExample != "" {
+				hint = cliMessage("database.access.format_hint", plan.Reference, plan.ConnectionStringExample)
+				plan.ActionHint = hint
+			}
 			if flagJSON {
 				return writeDatabaseJSON(cmd, plan)
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), cliMessage("database.access.summary", plan.SourceID, plan.Status, plan.Provider, plan.Reference, plan.NextAction))
+			if hint != "" {
+				fmt.Fprintln(cmd.OutOrStdout(), hint)
+			}
 			return nil
 		},
 	}

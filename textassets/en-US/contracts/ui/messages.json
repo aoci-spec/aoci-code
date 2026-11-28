@@ -341,6 +341,7 @@
   "config.unknown_key": "unknown configuration key %q (available: %s)",
   "config.unsupported_locale": "Unsupported Locale %q (available: en-US, zh-CN)",
   "config.write_error": "write configuration: %v",
+  "database.access.format_hint": "Set %s outside AOCI using this format (replace placeholders; never store credentials in the repository): %s",
   "database.access.summary": "Database access for %s: status=%s provider=%s reference=%s next_action=%s; no connection was opened.",
   "database.baseline.accepted": "Accepted database evidence for %s: %d tables, source_snapshot_sha256=%s.",
   "database.bootstrap.completed": "Database Cognition is ready for automatic authoring.",

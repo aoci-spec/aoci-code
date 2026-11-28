@@ -45,8 +45,54 @@ func TestAccessPlanReturnsOneActionWhenCredentialIsUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	if plan.Status != AccessStatusActionRequired || plan.NextAction != AccessActionProvideReadOnly ||
-		plan.Reference != "AOCI_DB_PRIMARY_DSN" {
+		plan.Reference != "AOCI_DB_PRIMARY_DSN" || plan.ConnectionStringExample != ConnectionStringExample(EngineMySQL) {
 		t.Fatalf("unexpected missing-access plan: %#v", plan)
+	}
+}
+
+func TestAccessPlanAttachesFormatExampleOnlyWhenActionRequired(t *testing.T) {
+	for _, engine := range []Engine{EnginePostgreSQL, EngineMySQL, EngineOpenGauss} {
+		source := SourceConfig{
+			SourceID:      "primary",
+			Engine:        engine,
+			Database:      "app",
+			CredentialEnv: DefaultCredentialEnv("primary"),
+			Enabled:       true,
+		}
+		missing, err := InspectAccess(context.Background(), source, NewEnvironmentCredentialProvider(func(string) string { return "" }))
+		if err != nil {
+			t.Fatalf("%s missing: %v", engine, err)
+		}
+		if missing.Status != AccessStatusActionRequired || missing.ConnectionStringExample != ConnectionStringExample(engine) {
+			t.Fatalf("%s missing plan = %#v, want example %q", engine, missing, ConnectionStringExample(engine))
+		}
+
+		ready, err := InspectAccess(context.Background(), source, NewEnvironmentCredentialProvider(func(string) string { return "secret-dsn" }))
+		if err != nil {
+			t.Fatalf("%s ready: %v", engine, err)
+		}
+		if ready.Status != AccessStatusReady || ready.ConnectionStringExample != "" {
+			t.Fatalf("%s ready plan must omit format example: %#v", engine, ready)
+		}
+
+		source.Enabled = false
+		disabled, err := InspectAccess(context.Background(), source, NewEnvironmentCredentialProvider(func(string) string { return "" }))
+		if err != nil {
+			t.Fatalf("%s disabled: %v", engine, err)
+		}
+		if disabled.Status != AccessStatusSourceDisabled || disabled.ConnectionStringExample != "" {
+			t.Fatalf("%s disabled plan must omit format example: %#v", engine, disabled)
+		}
+	}
+
+	sqlitePlan, err := InspectAccess(context.Background(), SourceConfig{
+		SourceID: "local", Engine: EngineSQLite, Path: "data/app.db", Enabled: true,
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sqlitePlan.ConnectionStringExample != "" {
+		t.Fatalf("sqlite plan must omit server format example: %#v", sqlitePlan)
 	}
 }
 
