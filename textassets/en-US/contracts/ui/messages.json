@@ -694,7 +694,7 @@
   "init.scope_blocked_high_risk": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision — %d exact high-risk opt-in(s) are configured and require human review before the first Baseline.",
   "init.scope_blocked_no_index": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision — the %q profile assigns no path to the index role while %d managed candidate(s) exist. Pick a profile that indexes sources (--scope-profile production) or declare index rules before initialization.",
   "init.scope_blocked_tracked_sensitive": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision — %d tracked path(s) are excluded by a built-in safety rule and need an explicit decision: %s. Remove them from Git, add them to .gitignore, or opt in exactly with \"aoci scope safety\" after initialization, then run init again.",
-  "init.scope_proposal": "Scope Proposal: git_tracked=%d new_source=%d index=%d observe=%d exclude=%d safety_excluded=%d estimated_whole_index_tokens=%d human_decisions=%d largest_directories=%s",
+  "init.scope_proposal": "Scope Proposal: git_tracked=%d new_source=%d index=%d observe=%d exclude=%d safety_excluded=%d estimated_whole_index_tokens=%d safety_excluded_tracked=%d (excluded by built-in safety rules; no action required) largest_directories=%s",
   "init.skeleton_created": "%s skeleton created (no project Entries were fabricated)",
   "inventory.clean": "Conclusion: no files await indexing ✓",
   "inventory.index_read_error": "read index (is the project initialized? run aoci init first): %v",

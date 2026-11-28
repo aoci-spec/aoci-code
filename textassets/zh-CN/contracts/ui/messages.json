@@ -694,7 +694,7 @@
   "init.scope_blocked_high_risk": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision —— 已配置%d条精确高风险接纳，首次建立Baseline前需要真人复核。",
   "init.scope_blocked_no_index": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision —— %q配置未把任何路径分配给index角色，但存在%d个受管候选。请改用会索引源码的配置（--scope-profile production），或在初始化前声明index规则。",
   "init.scope_blocked_tracked_sensitive": "managed_scope_auto_authorization_blocked: initial_scope_requires_machine_decision —— %d个已被Git跟踪的路径命中内建安全规则被排除，需要明确决策：%s。请将其移出Git、加入.gitignore，或在初始化后用“aoci scope safety”按精确路径显式接纳，然后重新运行init。",
-  "init.scope_proposal": "Scope Proposal: git_tracked=%d new_source=%d index=%d observe=%d exclude=%d safety_excluded=%d estimated_whole_index_tokens=%d human_decisions=%d largest_directories=%s",
+  "init.scope_proposal": "Scope Proposal: git_tracked=%d new_source=%d index=%d observe=%d exclude=%d safety_excluded=%d estimated_whole_index_tokens=%d 已跟踪安全排除=%d（被内置安全规则排除、无需处理） largest_directories=%s",
   "init.skeleton_created": "%s 骨架已生成(不自动伪造项目条目)",
   "inventory.clean": "结论: 无待索引文件 ✓",
   "inventory.index_read_error": "读取索引失败(未初始化?先aoci init): %v",
