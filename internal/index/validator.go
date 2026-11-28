@@ -198,8 +198,9 @@ func ValidateEntryLineWith(relPath, line string, th *SQuotaThresholds) []Violati
 	}
 
 	// 6. Evolution-narrative detection (Warning level): S must state the current state
+	_, _, _, sBody := splitFRAS(rest)
 	for _, w := range machinecontract.EvolutionNarrativeTerms() {
-		if strings.Contains(line, w) {
+		if strings.Contains(sBody, w) {
 			vs = append(vs, Violation{LevelWarning,
 				"疑似演进叙事(\"" + w + "\"): 条目应陈述文件此刻是什么,不是发生过什么;变更历史归 Git"})
 			break // one warning is enough; do not flood word by word

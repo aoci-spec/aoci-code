@@ -34,7 +34,15 @@ func TestLexicalContractsAreUniqueAndReturnedAsCopies(t *testing.T) {
 		if term == "" || seenEvolution[term] {
 			t.Fatalf("演进叙事机器词表含空项或重复项: %q", term)
 		}
+		if term == "改为" {
+			t.Fatalf("裸动词 %q 不应留在演进叙事词表中（会误报运行时状态转换）", term)
+		}
 		seenEvolution[term] = true
+	}
+	for _, required := range []string{"本次修改", "现在改", "原来是", "此前是", "之前是"} {
+		if !seenEvolution[required] {
+			t.Fatalf("演进叙事机器词表缺少带时间锚点的词项: %q", required)
+		}
 	}
 	evolutionTerms[0] = "mutated"
 	if EvolutionNarrativeTerms()[0] == "mutated" {
