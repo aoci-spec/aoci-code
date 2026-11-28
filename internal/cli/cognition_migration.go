@@ -249,7 +249,7 @@ func newMigrationStatusCmd() *cobra.Command {
 		}
 		return writeMigrationStatus(cmd, status)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.transaction"))
 	return command
 }
 
@@ -266,7 +266,7 @@ func newMigrationResumeCmd() *cobra.Command {
 		}
 		return writeMigrationResult(cmd, result)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
 }
@@ -290,7 +290,7 @@ func newMigrationRollbackCmd() *cobra.Command {
 		}
 		return writeMigrationResult(cmd, result)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.transaction"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
 }
@@ -321,7 +321,7 @@ func newMigrationReversalPrepareCmd() *cobra.Command {
 		fmt.Fprintln(cmd.OutOrStdout(), cliMessage("cognition.migration.reversal_plan_summary", plan.Eligible, plan.PlanDigest, len(plan.Risks)))
 		return nil
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.transaction"))
 	command.Flags().StringVar(&preparedAt, "prepared-at", "", cliMessage("cognition.migration.flag.prepared_at"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
@@ -410,7 +410,7 @@ func newMigrationReversalStatusCmd() *cobra.Command {
 		}
 		return writeMigrationStatus(cmd, status)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.reversal_transaction"))
 	return command
 }
 
@@ -427,7 +427,7 @@ func newMigrationReversalResumeCmd() *cobra.Command {
 		}
 		return writeMigrationResult(cmd, result)
 	}}
-	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.bootstrap.flag.transaction"))
+	command.Flags().StringVar(&transaction, "transaction", "", cliMessage("cognition.migration.flag.reversal_transaction"))
 	_ = command.MarkFlagRequired("transaction")
 	return command
 }
