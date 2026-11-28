@@ -366,10 +366,11 @@ aoci --repo . config set code_cognition_batch_entries 100
 `overview_delivery.chunk_tokens` affects Whole-Index delivery, not semantic
 authoring throughput. Raising it can reduce Overview round trips on a Host that
 preserves the complete response. If the Host truncates or spills a result,
-lower it and restart the Chunk chain instead:
+lower it and restart the Chunk chain. The example uses the supported minimum
+of 4000.
 
 ```bash
-aoci --repo . config set overview_delivery.chunk_tokens 24000
+aoci --repo . config set overview_delivery.chunk_tokens 4000
 ```
 
 When the Host controls model selection, a faster model that can still follow
