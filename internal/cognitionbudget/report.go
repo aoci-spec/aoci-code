@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -206,11 +207,20 @@ func RFieldMaxTokens(band FieldBand) int {
 // RFieldLimits returns the effective R ceilings enforced for one policy band:
 // estimated tokens (bytes/3 rounded down), Unicode runes (capped by the FRAS v2
 // hard rune limit and by maxBytes since every UTF-8 rune is at least 1 byte),
-// and UTF-8 bytes (maxTokens*3 + 2).
+// and UTF-8 bytes (maxTokens*3 + 2, saturated at the UTF-8 byte maximum of the
+// FRAS v2 rune ceiling so large configured token limits never overflow int).
 func RFieldLimits(band FieldBand) (maxTokens, maxRunes, maxBytes int) {
 	maxTokens = RFieldMaxTokens(band)
-	maxBytes = maxTokens*3 + 2
+	if maxTokens <= 0 {
+		return 0, 0, 0
+	}
 	maxRunes = machinecontract.ObjectFRASV2RMaxRunes
+	maxPossibleBytes := maxRunes * utf8.UTFMax
+	if maxTokens > (maxPossibleBytes-2)/3 {
+		maxBytes = maxPossibleBytes
+	} else {
+		maxBytes = maxTokens*3 + 2
+	}
 	if maxBytes < maxRunes {
 		maxRunes = maxBytes
 	}

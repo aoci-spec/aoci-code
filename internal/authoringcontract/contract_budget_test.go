@@ -53,3 +53,28 @@ func TestTheContractStatesTheEnforcedRBudget(t *testing.T) {
 		}
 	}
 }
+
+func TestEnforcedRBudgetSaturatesLargeCustomTokens(t *testing.T) {
+	policy := cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce)
+	policy.R[0].MaxTokens = int(int64(1) << 62)
+	for locale, want := range map[string]string{
+		textassets.DefaultLocale: "C9<=360 runes/1440 bytes",
+		textassets.LegacyLocale:  "C9<=360字/1440字节",
+	} {
+		template, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
+		if err != nil {
+			t.Fatal(err)
+		}
+		built, err := BuildWithBudget([]byte(template), []string{"code"}, locale, &policy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		joined := strings.Join(built.Instructions, "\n")
+		if !strings.Contains(joined, want) {
+			t.Fatalf("%s huge custom R budget must saturate to %q, got:\n%s", locale, want, joined)
+		}
+		if strings.Contains(joined, "C9<=-") {
+			t.Fatalf("%s huge custom R budget overflowed to negative limit:\n%s", locale, joined)
+		}
+	}
+}
