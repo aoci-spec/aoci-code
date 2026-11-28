@@ -8,8 +8,10 @@ package mcptools
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
@@ -22,6 +24,11 @@ import (
 // the default fixture lands in LegacyPolicy (observe) and never reaches the enforce refusal path.
 func activateEnforceBudget(t *testing.T, root string) {
 	t.Helper()
+	activateEnforceBudgetPolicy(t, root, cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce))
+}
+
+func activateEnforceBudgetPolicy(t *testing.T, root string, rawBudget cognitionbudget.Policy) {
+	t.Helper()
 	cfg, err := config.LoadBase(root)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +37,7 @@ func activateEnforceBudget(t *testing.T, root string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	budget, err := cognitionbudget.Normalize(cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce))
+	budget, err := cognitionbudget.Normalize(rawBudget)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -278,4 +285,147 @@ func TestLengthAndBudgetFindingsArriveInOneRepair(t *testing.T) {
 	if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
 		t.Fatal("the refusal must write nothing")
 	}
+}
+
+// Joint contract test for R's two independent enforcement layers (cognitionbudget
+// UTF-8 byte/token ceiling and FRAS v2 Unicode rune ceiling) plus Maintain's
+// effective display projection, exercised end to end through real MCP write and
+// Maintain paths using canonical mixed UTF-8 code: references.
+func TestRJointMixedUTF8ByteAndRuneBoundariesThroughWritePath(t *testing.T) {
+	makeMixedCodeRef := func(t *testing.T, cjkCount, asciiCount, wantRunes, wantBytes int) string {
+		t.Helper()
+		ref := "code:" + strings.Repeat("模", cjkCount) + strings.Repeat("a", asciiCount) + ".go"
+		if gotRunes, gotBytes := utf8.RuneCountInString(ref), len(ref); gotRunes != wantRunes || gotBytes != wantBytes {
+			t.Fatalf("fixture ref runes=%d bytes=%d, want runes=%d bytes=%d", gotRunes, gotBytes, wantRunes, wantBytes)
+		}
+		return ref
+	}
+
+	submitR := func(t *testing.T, root string, importance int, rValue string) autoResult {
+		t.Helper()
+		line := fmt.Sprintf("main.go[CD%dS]: F:run the fixture | R:%s | A:main | S:-", importance, rValue)
+		return decodeAutoResult(t, handleMCPUpdateBatch(root, "test-version", []updateEntryItemIn{{
+			Path: "main.go", SourceSHA256: sourceSHA256(t, root, "main.go"), NewEntry: line,
+		}}))
+	}
+
+	t.Run("default_c9_byte_and_rune_boundaries", func(t *testing.T) {
+		root := buildManyFileVolumesRepo(t, 1)
+		activateEnforceBudget(t, root)
+		session := connectMCPClient(t, root)
+		maintained := maintainJSON(t, session, nil)
+		instructions := fmt.Sprint(maintained["instructions"])
+		if !strings.Contains(instructions, "C9<=360字/542字节") && !strings.Contains(instructions, "C9<=360 runes/542 bytes") {
+			t.Fatalf("Maintain instructions missing effective C9 R ceiling: %s", instructions)
+		}
+
+		// Byte ceiling hit first (runes=242 < 360, bytes=542 vs 543).
+		atBytes := makeMixedCodeRef(t, 150, 84, 242, 542)
+		if res := submitR(t, root, 9, atBytes); res.Status != autoStatusApplied || res.Applied != 1 || !strings.Contains(volumeFileText(t, root, "aoci.code.txt"), atBytes) {
+			t.Fatalf("C9 mixed UTF-8 R at exact 542-byte ceiling must apply: %#v", res)
+		}
+		indexBefore := volumeFileText(t, root, "aoci.code.txt")
+		overBytes := makeMixedCodeRef(t, 150, 85, 243, 543)
+		if res := submitR(t, root, 9, overBytes); res.Status != autoStatusRepairRequired || res.FormalWritesStarted || len(res.Findings) != 1 ||
+			res.Findings[0].RuleCode != "entry_field_budget_exceeded" || res.Findings[0].Field != "R" ||
+			res.Findings[0].Expected != "max_tokens=180" || res.Findings[0].Actual != "actual_tokens=181" {
+			t.Fatalf("C9 mixed UTF-8 R at 543 bytes must fail only budget gate: %#v", res)
+		}
+		if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+			t.Fatal("budget refusal must write nothing")
+		}
+
+		// Rune ceiling hit first (runes=360 vs 361, bytes=440/441 <= 542).
+		atRunes := makeMixedCodeRef(t, 40, 312, 360, 440)
+		if res := submitR(t, root, 9, atRunes); res.Status != autoStatusApplied || res.Applied != 1 || !strings.Contains(volumeFileText(t, root, "aoci.code.txt"), atRunes) {
+			t.Fatalf("C9 mixed UTF-8 R at exact 360-rune ceiling must apply: %#v", res)
+		}
+		indexBefore = volumeFileText(t, root, "aoci.code.txt")
+		overRunes := makeMixedCodeRef(t, 40, 313, 361, 441)
+		if res := submitR(t, root, 9, overRunes); res.Status != autoStatusRepairRequired || res.FormalWritesStarted || len(res.Findings) != 1 ||
+			res.Findings[0].RuleCode != "fras_r_too_long" || res.Findings[0].Field != "R" ||
+			res.Findings[0].Expected != "max_runes=360" || res.Findings[0].Actual != "rune_count=361" {
+			t.Fatalf("C9 mixed UTF-8 R at 361 runes must fail only FRAS rune gate: %#v", res)
+		}
+		if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+			t.Fatal("FRAS rune refusal must write nothing")
+		}
+
+		// Both ceilings exceeded together (runes=361 > 360 and bytes=543 > 542).
+		overBoth := makeMixedCodeRef(t, 91, 262, 361, 543)
+		res := submitR(t, root, 9, overBoth)
+		if res.Status != autoStatusRepairRequired || res.FormalWritesStarted || len(res.Findings) != 2 {
+			t.Fatalf("C9 mixed UTF-8 R exceeding both ceilings must report both findings: %#v", res)
+		}
+		rules := map[string]int{}
+		for _, finding := range res.Findings {
+			if finding.Field != "R" {
+				t.Fatalf("unexpected non-R finding: %+v", finding)
+			}
+			rules[finding.RuleCode]++
+		}
+		if rules["fras_r_too_long"] != 1 || rules["entry_field_budget_exceeded"] != 1 {
+			t.Fatalf("expected both fras_r_too_long and entry_field_budget_exceeded, got %v (%#v)", rules, res.Findings)
+		}
+		if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+			t.Fatal("joint refusal must write nothing")
+		}
+	})
+
+	t.Run("default_c3_tight_byte_boundary", func(t *testing.T) {
+		root := buildSingleCodeWriteRepo(t, false)
+		activateEnforceBudget(t, root)
+		atBytes := makeMixedCodeRef(t, 40, 24, 72, 152)
+		if res := submitR(t, root, 3, atBytes); res.Status != autoStatusApplied || res.Applied != 1 || len(res.Findings) != 0 {
+			t.Fatalf("C3 mixed UTF-8 R at exact 152-byte ceiling must apply: %#v", res)
+		}
+		indexBefore := volumeFileText(t, root, "aoci.code.txt")
+		overBytes := makeMixedCodeRef(t, 40, 25, 73, 153)
+		if res := submitR(t, root, 3, overBytes); res.Status != autoStatusRepairRequired || res.FormalWritesStarted || len(res.Findings) != 1 ||
+			res.Findings[0].RuleCode != "entry_field_budget_exceeded" || res.Findings[0].Field != "R" ||
+			res.Findings[0].Expected != "max_tokens=50" || res.Findings[0].Actual != "actual_tokens=51" {
+			t.Fatalf("C3 mixed UTF-8 R at 153 bytes must fail budget gate: %#v", res)
+		}
+		if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+			t.Fatal("C3 budget refusal must write nothing")
+		}
+	})
+
+	t.Run("huge_custom_c9_budget_saturates_display_and_enforces_fras_runes", func(t *testing.T) {
+		root := buildManyFileVolumesRepo(t, 1)
+		policy := cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce)
+		hugeTokens := int(int64(1) << 62)
+		if math.MaxInt == math.MaxInt32 {
+			hugeTokens = math.MaxInt
+		}
+		policy.R[0].MaxTokens = hugeTokens
+		activateEnforceBudgetPolicy(t, root, policy)
+
+		session := connectMCPClient(t, root)
+		maintained := maintainJSON(t, session, nil)
+		instructions := fmt.Sprint(maintained["instructions"])
+		if strings.Contains(instructions, "C9<=-") {
+			t.Fatalf("Maintain instructions overflowed to negative C9 limit: %s", instructions)
+		}
+		if !strings.Contains(instructions, "C9<=360字/1440字节") && !strings.Contains(instructions, "C9<=360 runes/1440 bytes") {
+			t.Fatalf("Maintain instructions missing saturated C9 R ceiling (360/1440): %s", instructions)
+		}
+
+		// 360 mixed UTF-8 runes totaling 1064 bytes: well above default 542 bytes,
+		// valid under both the huge token ceiling and FRAS 360-rune cap.
+		atRunes := makeMixedCodeRef(t, 352, 0, 360, 1064)
+		if res := submitR(t, root, 9, atRunes); res.Status != autoStatusApplied || res.Applied != 1 || !strings.Contains(volumeFileText(t, root, "aoci.code.txt"), atRunes) {
+			t.Fatalf("C9 mixed UTF-8 R at 360 runes (1064 bytes) must apply under huge custom budget: %#v", res)
+		}
+		indexBefore := volumeFileText(t, root, "aoci.code.txt")
+		overRunes := makeMixedCodeRef(t, 353, 0, 361, 1067)
+		if res := submitR(t, root, 9, overRunes); res.Status != autoStatusRepairRequired || res.FormalWritesStarted || len(res.Findings) != 1 ||
+			res.Findings[0].RuleCode != "fras_r_too_long" || res.Findings[0].Field != "R" ||
+			res.Findings[0].Expected != "max_runes=360" || res.Findings[0].Actual != "rune_count=361" {
+			t.Fatalf("C9 mixed UTF-8 R at 361 runes must still hit FRAS rune gate under huge budget: %#v", res)
+		}
+		if volumeFileText(t, root, "aoci.code.txt") != indexBefore {
+			t.Fatal("FRAS rune refusal under huge budget must write nothing")
+		}
+	})
 }
