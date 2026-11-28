@@ -17,6 +17,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/config"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
@@ -221,6 +222,137 @@ func TestParallelApplyAlignmentUsesOneSnapshot(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("first Apply did not resume")
+	}
+}
+
+func TestParallelApplyHoldsSnapshotLockBetweenVolumesAndBaseline(t *testing.T) {
+	root := twoParallelBatches(t)
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	first := maintainJSON(t, one, nil)
+	second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, first))[0]["batch_id"]})
+
+	volumesRead, resume := make(chan struct{}), make(chan struct{})
+	hook := afterAutoAlignmentVolumesRead
+	var reads atomic.Int32
+	afterAutoAlignmentVolumesRead = func(path string) {
+		if path == root && reads.Add(1) == 1 {
+			close(volumesRead)
+			<-resume
+		}
+	}
+	t.Cleanup(func() { afterAutoAlignmentVolumesRead = hook })
+	var resumed sync.Once
+	release := func() { resumed.Do(func() { close(resume) }) }
+	defer release()
+
+	a := startParallelApply(t, one, first)
+	awaitParallelApply(t, volumesRead, "A reading the Volumes", 5*time.Second)
+	_, lockErr := os.Stat(filepath.Join(root, ".aoci", "lock"))
+	b := startParallelApply(t, two, second)
+	var bResult map[string]any
+	bFinishedEarly := false
+	select {
+	case bResult = <-b:
+		bFinishedEarly = true
+	case <-time.After(500 * time.Millisecond):
+	}
+	release()
+	aResult := awaitParallelApply(t, a, "A completing", 5*time.Second)
+	if !bFinishedEarly {
+		bResult = awaitParallelApply(t, b, "B completing", 5*time.Second)
+	}
+	if lockErr != nil || bFinishedEarly {
+		t.Errorf("B must wait while A holds the lock between Volumes and Baseline: lock=%v B completed=%t", lockErr, bFinishedEarly)
+	}
+	if aResult["status"] != autoStatusApplied || aResult["applied"] != float64(2) ||
+		aResult["remaining"] != float64(0) || aResult["aligned"] != false || aResult["terminal_proof"] != nil {
+		t.Errorf("A must report its own committed sibling and still await B: remaining=%v aligned=%v", aResult["remaining"], aResult["aligned"])
+	}
+	assertParallelTerminalProof(t, bResult)
+}
+
+func TestParallelApplyReportsUnknownRemainingAfterSnapshotLockTimeout(t *testing.T) {
+	root := twoParallelBatches(t)
+	one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+	first := maintainJSON(t, one, nil)
+	second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(codePlanOf(t, first))[0]["batch_id"]})
+
+	aCommitted, resumeA := make(chan struct{}), make(chan struct{})
+	bHasLock, resumeB := make(chan struct{}), make(chan struct{})
+	before, after := beforeAutoAlignmentSnapshot, afterAutoAlignmentVolumesRead
+	var attempts, reads atomic.Int32
+	beforeAutoAlignmentSnapshot = func(path string) {
+		if path == root && attempts.Add(1) == 1 {
+			close(aCommitted)
+			<-resumeA
+		}
+	}
+	afterAutoAlignmentVolumesRead = func(path string) {
+		if path == root && reads.Add(1) == 1 {
+			close(bHasLock)
+			<-resumeB
+		}
+	}
+	t.Cleanup(func() {
+		beforeAutoAlignmentSnapshot, afterAutoAlignmentVolumesRead = before, after
+	})
+	var resumedA, resumedB sync.Once
+	releaseA := func() { resumedA.Do(func() { close(resumeA) }) }
+	releaseB := func() { resumedB.Do(func() { close(resumeB) }) }
+	defer releaseA()
+	defer releaseB()
+
+	a := startParallelApply(t, one, first)
+	awaitParallelApply(t, aCommitted, "A committing", 5*time.Second)
+	b := startParallelApply(t, two, second)
+	awaitParallelApply(t, bHasLock, "B holding the snapshot lock", 5*time.Second)
+	releaseA()
+	result := awaitParallelApply(t, a, "A returning after the lock timeout", 20*time.Second)
+	releaseB()
+	assertParallelTerminalProof(t, awaitParallelApply(t, b, "B completing", 5*time.Second))
+
+	if _, hasRemaining := result["remaining"]; hasRemaining {
+		t.Errorf("Apply reported an uncomputed remaining=%v", result["remaining"])
+	}
+	if result["status"] != autoStatusApplied || result["applied"] != float64(2) ||
+		result["formal_writes_started"] != true || result["aligned"] != false || result["terminal_proof"] != nil {
+		t.Errorf("Apply must preserve its committed result without claiming alignment: %v", result)
+	}
+	if result["next_action"] != machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch ||
+		!strings.Contains(fmt.Sprint(result["findings"]), "alignment_snapshot_unavailable") {
+		t.Errorf("Apply must report the unavailable snapshot and direct the Host to no-argument Maintain: findings=%v next_action=%v",
+			result["findings"], result["next_action"])
+	}
+}
+
+func startParallelApply(t *testing.T, session *mcp.ClientSession, batch map[string]any) <-chan map[string]any {
+	t.Helper()
+	done := make(chan map[string]any, 1)
+	go func() {
+		defer close(done)
+		done <- applyMaintainBatch(t, session, batch)
+	}()
+	return done
+}
+
+func awaitParallelApply[T any](t *testing.T, done <-chan T, step string, timeout time.Duration) T {
+	t.Helper()
+	select {
+	case result := <-done:
+		return result
+	case <-time.After(timeout):
+		t.Fatalf("timed out waiting for %s", step)
+		var zero T
+		return zero
+	}
+}
+
+func assertParallelTerminalProof(t *testing.T, result map[string]any) {
+	t.Helper()
+	proof, _ := result["terminal_proof"].(map[string]any)
+	if result["status"] != autoStatusApplied || result["applied"] != float64(2) ||
+		result["remaining"] != float64(0) || result["aligned"] != true || proof["aligned"] != true {
+		t.Fatalf("B must commit and carry the aligned terminal proof: %v", result)
 	}
 }
 

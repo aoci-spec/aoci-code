@@ -165,6 +165,10 @@ func loadMCPConfig(root string) (*config.Config, *Fail) {
 // Legacy is adapted to CognitionSet; Volumes v1 never falls through to the
 // monolithic parser.
 func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
+	return loadCognitionCtxBeforeBaseline(root, nil)
+}
+
+func loadCognitionCtxBeforeBaseline(root string, beforeBaseline func()) (*cognitionRepoCtx, *Fail) {
 	// Only a layout transaction stops the loader: an MCP write receipt is
 	// closed by the tool that wrote it, and that tool loads the repository
 	// here. Delivery (Overview, Header, Search) still refuses on every receipt
@@ -215,6 +219,9 @@ func loadCognitionCtx(root string) (*cognitionRepoCtx, *Fail) {
 	}
 	if set.LayoutMode == cognition.LayoutLegacyMonolithic && len(set.Root.Document.Sections) == 0 {
 		return nil, &Fail{Code: errIndexInvalid, Msg: mcpMessage("mcp.error.no_sections"), Hint: mcpMessage("mcp.error.no_sections_hint", paths.IndexPath)}
+	}
+	if beforeBaseline != nil {
+		beforeBaseline()
 	}
 	bl, _, _ := baseline.Load(root)
 	return &cognitionRepoCtx{cfg: cfg, paths: paths, set: set, bl: bl}, nil

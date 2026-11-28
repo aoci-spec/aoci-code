@@ -462,6 +462,7 @@
   "entry.batch.hint.replan": "Replan the complete batch against the current index",
   "entry.batch.hint.unique_paths": "Each path may appear only once in a batch",
   "entry.batch.index_write_failed": "Could not persist the atomic Entry batch: %s",
+  "entry.batch.alignment_snapshot_unavailable": "Apply completed, but the alignment snapshot was unavailable. %s. Call aoci_maintain without arguments to check the current state.",
   "entry.batch.lock_failed": "Could not acquire the atomic-batch index lock: %s",
   "entry.batch.lock_release_warning": "Warning: could not release the atomic-batch index lock: %s",
   "entry.batch.lock_timeout": "Timed out acquiring the atomic-batch index lock: %s",

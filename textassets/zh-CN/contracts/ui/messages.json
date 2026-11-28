@@ -462,6 +462,7 @@
   "entry.batch.hint.replan": "基于最新索引重新规划完整批次",
   "entry.batch.hint.unique_paths": "同一批次每个路径只能出现一次",
   "entry.batch.index_write_failed": "原子批量索引落盘失败: %s",
+  "entry.batch.alignment_snapshot_unavailable": "Apply 已完成，但未能取得收尾快照。%s。请无参调用 aoci_maintain 重新读取当前状态。",
   "entry.batch.lock_failed": "原子批量索引写锁获取失败: %s",
   "entry.batch.lock_release_warning": "警告: 释放原子批量索引写锁异常: %s",
   "entry.batch.lock_timeout": "原子批量索引写锁获取超时: %s",

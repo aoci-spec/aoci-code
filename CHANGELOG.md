@@ -12,6 +12,13 @@ All notable public changes to AOCI-CODE will be documented in this file.
   after applying the Meta rune quota floor. A configured importance band
   can split where the effective limits differ.
 
+Upgrading with a parallel wave in flight may produce a reply with the old
+`remaining` count until the first sibling is redelivered by the new version.
+When downgrading with only parallel drafts in flight, use no-argument
+`aoci_maintain` to reissue the pending work. If a Recovery receipt already
+records an Intent, finish Recovery with the version that wrote it before
+downgrading. See [Rollback](docs/rollback.md).
+
 ## v0.2.0-rc5
 
 The fifth 0.2.0 candidate closes three known limitations of rc4 and the

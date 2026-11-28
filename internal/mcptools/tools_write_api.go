@@ -901,8 +901,11 @@ func handleMCPUpdateBatchReviewed(
 		// Name the facts the inspector saw; a bare sentence sent one user
 		// through the same retry five times without learning why (#90).
 		sample := alignment.findings
+		if alignment.snapshotLockFailure != "" {
+			sample = []string{alignment.snapshotLockFailure}
+		}
 		if len(sample) > 5 {
-			sample = append(append([]string{}, sample[:5]...), fmt.Sprintf("(+%d more)", len(alignment.findings)-5))
+			sample = append(append([]string{}, sample[:5]...), fmt.Sprintf("(+%d more)", len(sample)-5))
 		}
 		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch: %s", strings.Join(sample, "; "))
 	}
@@ -1013,6 +1016,12 @@ func handleMCPUpdateBatchReviewed(
 	}
 	if alignment.finishSiblings {
 		result.NextAction = mcpMessage("maintain.finish_parallel_wave")
+	}
+	if alignment.snapshotLockFailure != "" {
+		result.omitRemaining = true
+		const code = "alignment_snapshot_unavailable"
+		result.Findings = machineFindings{genericMachineFinding(code, "["+code+"] "+alignment.snapshotLockFailure)}
+		result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
 	}
 	if optimization != nil {
 		result.Remaining = optimization.Remaining

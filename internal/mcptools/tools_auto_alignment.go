@@ -17,16 +17,18 @@ import (
 )
 
 var beforeAutoAlignmentSnapshot = func(string) {}
+var afterAutoAlignmentVolumesRead = func(string) {}
 
 type autoApplyAlignment struct {
-	aligned        bool
-	remaining      int
-	findings       []string
-	receipt        cognitionReceipt
-	finishSiblings bool
-	terminalProof  *TerminalProof
-	rootOverview   *rootOverviewInvite
-	nextCommands   []string
+	aligned             bool
+	remaining           int
+	findings            []string
+	receipt             cognitionReceipt
+	finishSiblings      bool
+	terminalProof       *TerminalProof
+	rootOverview        *rootOverviewInvite
+	nextCommands        []string
+	snapshotLockFailure string
 }
 
 func inspectAutoAlignment(root, mcpServiceVersion string, outcome *AtomicBatchOutcome, wantProof bool) autoApplyAlignment {
@@ -36,11 +38,13 @@ func inspectAutoAlignment(root, mcpServiceVersion string, outcome *AtomicBatchOu
 	beforeAutoAlignmentSnapshot(root)
 	lock, err := afs.AcquireIndexLock(root)
 	if err != nil {
-		return autoApplyAlignment{remaining: 1, findings: []string{maintainLockFailure(err).Msg},
-			receipt: newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)}
+		return autoApplyAlignment{
+			snapshotLockFailure: mcpMessage("entry.batch.alignment_snapshot_unavailable", maintainLockFailure(err).Msg),
+			receipt:             newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull),
+		}
 	}
 	defer func() { _ = lock.Release() }()
-	loaded, fail := loadCognitionCtx(root)
+	loaded, fail := loadCognitionCtxBeforeBaseline(root, func() { afterAutoAlignmentVolumesRead(root) })
 	if fail != nil {
 		return autoApplyAlignment{remaining: 1, findings: []string{"[" + fail.Code + "] " + fail.Msg},
 			receipt: newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)}

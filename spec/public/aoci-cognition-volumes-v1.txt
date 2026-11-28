@@ -397,6 +397,14 @@ The shared facts rule over the Apply's own inspector: an Apply whose facts
 still see a blocker answers `aligned=false` with the blocker's remediation,
 never an aligned proof. The CLI commands remain for CI and for a person.
 
+If the index lock cannot be acquired for the alignment snapshot after an
+ordinary batch has committed, Apply reports `status=applied` with the actual
+`applied` count and a finding prefixed by `[alignment_snapshot_unavailable]`.
+It omits `remaining` because the count is unknown, reports `aligned=false`,
+and omits `terminal_proof`. The `next_action` is
+`call_no_argument_aoci_maintain_for_current_machine_batch`, which tells the
+Host to call no-argument Maintain to read the current state.
+
 Results that hand the next step to the CLI carry the commands to run: a
 blocked Maintain names a blocker the Host can clear itself (baseline_missing,
 observed_pending, scope_change_required, cognition_budget_exceeded); an
