@@ -191,6 +191,34 @@ func loadAgentsTemplate() (string, error) {
 	return value, nil
 }
 
+// agentsBackupRelDir is the repository-relative directory holding private
+// AGENTS.md preimages created before rewriting an existing AGENTS.md.
+const agentsBackupRelDir = ".aoci/backups"
+
+// ValidateAgentsBackupDir checks without writing that .aoci and .aoci/backups
+// (when present) are real directories inside root rather than symbolic links
+// or non-directory entries, returning a localized refusal otherwise.
+func ValidateAgentsBackupDir(root string) error {
+	if err := afs.CheckDirInRoot(root, agentsBackupRelDir); err != nil {
+		if bad := afs.UnsafeDirPathSegment(err); bad != "" {
+			return errors.New(hookMessage("hook.agents_backup_dir_unsafe", bad))
+		}
+		return errors.New(hookMessage("hook.backup_error", filepath.Join(root, "AGENTS.md"), err))
+	}
+	return nil
+}
+
+func ensureAgentsBackupDir(root string) (string, error) {
+	dir, err := afs.EnsureDirInRoot(root, agentsBackupRelDir, 0o755)
+	if err != nil {
+		if bad := afs.UnsafeDirPathSegment(err); bad != "" {
+			return "", errors.New(hookMessage("hook.agents_backup_dir_unsafe", bad))
+		}
+		return "", errors.New(hookMessage("hook.backup_error", filepath.Join(root, "AGENTS.md"), err))
+	}
+	return dir, nil
+}
+
 // EnsureAgentsBlock writes or replaces the aoci marker block in the repository root AGENTS.md.
 // An existing block is replaced as a whole and the content outside the block keeps every byte; without a block it is appended at the end; a missing file is created.
 // It returns an explanation of the action.
@@ -219,18 +247,14 @@ func EnsureAgentsBlockWithBackup(root string) (string, string, error) {
 	}
 	block = strings.TrimRight(block, "\n")
 	path := filepath.Join(root, "AGENTS.md")
-	// Store AGENTS.md preimages under .aoci/backups/ so they are ignored by
-	// .aoci/.gitignore and hard-excluded from Managed Scope without modifying
-	// the team .gitignore, even on re-init, interrupted init, or non-Git roots.
-	backupDir := filepath.Join(root, ".aoci", "backups")
 
 	data, rerr := os.ReadFile(path)
 	if rerr != nil {
 		if !os.IsNotExist(rerr) {
 			return "", "", rerr
 		}
-		// Create
-		if _, err := backupToDirThenWrite(path, backupDir, []byte(block+"\n")); err != nil {
+		// Create: no existing AGENTS.md, so no backup is written.
+		if err := afs.AtomicWrite(path, []byte(block+"\n")); err != nil {
 			return "", "", err
 		}
 		return hookMessage("hook.agents_created"), "", nil
@@ -245,11 +269,17 @@ func EnsureAgentsBlockWithBackup(root string) (string, string, error) {
 		if newText == text {
 			return hookMessage("hook.agents_current"), "", nil
 		}
+		// Verify and create .aoci/backups inside root before writing any backup
+		// or modifying AGENTS.md so symlinks/non-directories fail closed cleanly.
+		backupDir, err := ensureAgentsBackupDir(root)
+		if err != nil {
+			return "", "", err
+		}
 		bak, err := backupToDirThenWrite(path, backupDir, []byte(newText))
 		if err != nil {
 			return "", "", err
 		}
-		backupRel := ".aoci/backups/" + filepath.Base(bak)
+		backupRel := agentsBackupRelDir + "/" + filepath.Base(bak)
 		return hookMessage("hook.agents_updated", backupRel), backupRel, nil
 	}
 	// Append at the end
@@ -259,11 +289,15 @@ func EnsureAgentsBlockWithBackup(root string) (string, string, error) {
 	} else if !strings.HasSuffix(text, "\n\n") {
 		sep = "\n"
 	}
+	backupDir, err := ensureAgentsBackupDir(root)
+	if err != nil {
+		return "", "", err
+	}
 	bak, err := backupToDirThenWrite(path, backupDir, []byte(text+sep+block+"\n"))
 	if err != nil {
 		return "", "", err
 	}
-	backupRel := ".aoci/backups/" + filepath.Base(bak)
+	backupRel := agentsBackupRelDir + "/" + filepath.Base(bak)
 	return hookMessage("hook.agents_appended", backupRel), backupRel, nil
 }
 

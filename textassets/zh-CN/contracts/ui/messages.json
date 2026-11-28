@@ -598,6 +598,7 @@
   "header.show.failed": "[%s] %s（%s）",
   "hook.agents_appended": "AGENTS.md 已追加 aoci 区块(原有内容未动；原文件已备份至 %s)",
   "hook.agents_asset_error": "加载AGENTS模板资产失败: %v",
+  "hook.agents_backup_dir_unsafe": "拒绝备份或改写 AGENTS.md：%s 必须是仓库内的真实目录（不能是符号链接或普通文件）；请修复该路径后重试",
   "hook.agents_created": "AGENTS.md 已创建(含 aoci 区块)",
   "hook.agents_current": "AGENTS.md aoci 区块已最新(跳过)",
   "hook.agents_updated": "AGENTS.md aoci 区块已更新(区块外内容未动；原文件已备份至 %s)",

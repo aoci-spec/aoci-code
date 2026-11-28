@@ -441,3 +441,117 @@ func TestInitAgentsBackupProtectedAcrossScannedRepoRetryAndNoGitCustomExclude(t 
 		}
 	})
 }
+
+func TestInitRefusesSymlinkOrFileBackupDirAndPreservesAgentsBytes(t *testing.T) {
+	original := "# Project instructions\nDo not overwrite when backup directory is unsafe.\n"
+
+	for _, locale := range []struct {
+		code   string
+		marker string
+	}{
+		{"en-US", "refused to back up or modify AGENTS.md"},
+		{"zh-CN", "拒绝备份或改写 AGENTS.md"},
+	} {
+		t.Run(locale.code, func(t *testing.T) {
+			cases := []struct {
+				name       string
+				needLink   bool
+				wantTarget string
+				setup      func(t *testing.T, root, outside string) string
+			}{
+				{
+					name:       "backups_symlink_outside_repo",
+					needLink:   true,
+					wantTarget: ".aoci/backups",
+					setup: func(t *testing.T, root, outside string) string {
+						if err := os.MkdirAll(filepath.Join(root, ".aoci"), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Symlink(outside, filepath.Join(root, ".aoci", "backups")); err != nil {
+							t.Fatal(err)
+						}
+						return outside
+					},
+				},
+				{
+					name:       "backups_symlink_inside_repo",
+					needLink:   true,
+					wantTarget: ".aoci/backups",
+					setup: func(t *testing.T, root, _ string) string {
+						inside := filepath.Join(root, "elsewhere")
+						if err := os.MkdirAll(inside, 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.MkdirAll(filepath.Join(root, ".aoci"), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.Symlink(inside, filepath.Join(root, ".aoci", "backups")); err != nil {
+							t.Fatal(err)
+						}
+						return inside
+					},
+				},
+				{
+					name:       "backups_is_regular_file",
+					wantTarget: ".aoci/backups",
+					setup: func(t *testing.T, root, _ string) string {
+						if err := os.MkdirAll(filepath.Join(root, ".aoci"), 0o755); err != nil {
+							t.Fatal(err)
+						}
+						if err := os.WriteFile(filepath.Join(root, ".aoci", "backups"), []byte("not a directory\n"), 0o644); err != nil {
+							t.Fatal(err)
+						}
+						return ""
+					},
+				},
+				{
+					name:       "aoci_symlink_outside_repo",
+					needLink:   true,
+					wantTarget: ".aoci",
+					setup: func(t *testing.T, root, outside string) string {
+						if err := os.Symlink(outside, filepath.Join(root, ".aoci")); err != nil {
+							t.Fatal(err)
+						}
+						return outside
+					},
+				},
+			}
+
+			for _, tc := range cases {
+				t.Run(tc.name, func(t *testing.T) {
+					if tc.needLink && runtime.GOOS == "windows" {
+						t.Skip("symlink creation requires elevated privileges on Windows")
+					}
+					root := initGitRepo(t)
+					outside := t.TempDir()
+					testkit.WriteFile(t, root, "AGENTS.md", original)
+					testkit.Git(t, root, "add", "AGENTS.md", "src/a.go")
+					testkit.Git(t, root, "commit", "-qm", "seed repo")
+					redirectDir := tc.setup(t, root, outside)
+
+					stdout, stderr, code := runCLI(t, root, "init", "--locale", locale.code, "--agent=", "--hooks=false", "--here=false")
+					if code == ExitOK {
+						t.Fatalf("init succeeded despite unsafe %s: stdout=%s stderr=%s", tc.wantTarget, stdout, stderr)
+					}
+					combined := stdout + stderr
+					if !strings.Contains(combined, locale.marker) || !strings.Contains(combined, tc.wantTarget) {
+						t.Fatalf("init refusal missing localized reason for %s: %s", tc.wantTarget, combined)
+					}
+					after, err := os.ReadFile(filepath.Join(root, "AGENTS.md"))
+					if err != nil || string(after) != original {
+						t.Fatalf("AGENTS.md bytes changed after refused init: err=%v got=%q", err, string(after))
+					}
+					if redirectDir != "" {
+						entries, err := os.ReadDir(redirectDir)
+						if err != nil {
+							t.Fatal(err)
+						}
+						if len(entries) != 0 {
+							t.Fatalf("refused init wrote into redirected dir %s: %v", redirectDir, entries)
+						}
+					}
+				})
+			}
+		})
+	}
+}

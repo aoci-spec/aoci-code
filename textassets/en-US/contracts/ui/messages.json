@@ -598,6 +598,7 @@
   "header.show.failed": "[%s] %s (%s)",
   "hook.agents_appended": "AGENTS.md aoci managed block appended; existing content was preserved (original backed up to %s)",
   "hook.agents_asset_error": "load the AGENTS template asset: %v",
+  "hook.agents_backup_dir_unsafe": "refused to back up or modify AGENTS.md: %s must be a real directory inside the repository (not a symbolic link or file); fix that path and retry",
   "hook.agents_created": "AGENTS.md created with the aoci managed block",
   "hook.agents_current": "AGENTS.md aoci managed block is current (skipped)",
   "hook.agents_updated": "AGENTS.md aoci managed block updated; content outside the block was preserved (original backed up to %s)",
