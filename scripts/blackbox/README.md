@@ -30,7 +30,7 @@ the locale twin lane mints its two fixtures in a temp dir and removes them. When
 python3 scripts/blackbox/mcp_conformance.py
 ```
 
-Fault-injection scenarios (107 scenarios, disposable fixtures in a temp dir).
+Fault-injection scenarios (108 scenarios, disposable fixtures in a temp dir).
 Without arguments every group runs in the published order and the published
 count is enforced; `--group` runs only the named letters (repeatable) and skips
 that binding, and `--list` prints the letters with what each group runs:
@@ -242,9 +242,10 @@ Environment overrides for every suite: `AOCI_REPO` (repository root),
   in aligned with the same Entry set, that a foreign edit between siblings
   replans the outstanding ones and keeps the applied one formal, that two
   Applies at once serialize and both succeed, and that one target's source
-  drift invalidates one sibling only. Conformance checks that the default
-  configuration's Maintain output carries no sibling field and that a server
-  whose configuration keeps one current batch refuses `batch_id`.
+  drift invalidates one sibling only. A large first Apply also checks the
+  transport bound and full counts behind the findings sample. Conformance
+  checks that the default configuration's Maintain output carries no sibling
+  field and that a server configured for one current batch refuses `batch_id`.
 - Group M (incremental delivery, the L5 section of the delivery contract,
   since 0.2.0-rc1) establishes a passing complete Attestation in one
   `Session`, revises one Entry and adds another, passes the probe, and checks

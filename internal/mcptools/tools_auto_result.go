@@ -3,6 +3,7 @@ package mcptools
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
@@ -110,6 +111,27 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// applyFindingsTruncation describes the complete list behind the sample.
+type applyFindingsTruncation struct {
+	Limit  int            `json:"limit"`
+	Total  int            `json:"total"`
+	ByKind map[string]int `json:"by_kind"`
+}
+
+func boundApplyAlignmentFindings(findings []string) ([]string, *applyFindingsTruncation) {
+	limit := machinecontract.MaintainTransportListLimit
+	if len(findings) <= limit {
+		return findings, nil
+	}
+	byKind := make(map[string]int)
+	for _, finding := range findings {
+		// Alignment findings use "kind: detail" or a bare machine code.
+		kind, _, _ := strings.Cut(finding, ": ")
+		byKind[kind]++
+	}
+	return findings[:limit], &applyFindingsTruncation{Limit: limit, Total: len(findings), ByKind: byKind}
+}
+
 type autoResult struct {
 	Version                 int      `json:"version"`
 	Status                  string   `json:"status"`
@@ -128,6 +150,7 @@ type autoResult struct {
 	FormatOnlyApplied       []string                     `json:"format_only_applied,omitempty"`
 	Candidates              []autoCandidate              `json:"candidates,omitempty"`
 	Findings                machineFindings              `json:"findings"`
+	FindingsTruncated       *applyFindingsTruncation     `json:"findings_truncated,omitempty"`
 	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
 	RetryScope              []string                     `json:"retry_scope"`
 	NextAction              string                       `json:"next_action"`
@@ -165,6 +188,9 @@ func renderAutoResult(result autoResult) string {
 		result.RetryScope = []string{}
 	}
 	result.FindingCount = len(result.Findings)
+	if result.FindingsTruncated != nil {
+		result.FindingCount = result.FindingsTruncated.Total
+	}
 	var wire any = result
 	if result.omitRemaining {
 		// An unavailable snapshot has no count. Omit just that response's

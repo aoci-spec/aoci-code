@@ -341,6 +341,17 @@ or optimization batch keeps its bindings and travels complete with this marker
 if it exceeds the current budget. Required Observe evidence and the current
 batch's orphan removal obligations travel complete. See Observe evidence
 review below for the terminal route when its list exceeds the MCP limit.
+
+A successful ordinary Volumes Apply that is still unaligned returns at most
+20 leading alignment `findings` in their existing order. `finding_count`
+reports the complete count. When the list is truncated, `findings_truncated`
+reports the `limit`, the complete `total`, and `by_kind` counts across the
+complete list. A kind is the diagnostic prefix before the first colon and
+space, or the entire code for a diagnostic without detail. Apply omits
+`findings_truncated` when the list is complete. The sample does not affect
+`remaining`, `aligned`, `terminal_proof`, or `next_action`. Candidate repair
+findings remain complete.
+
 The combined number of candidates and Code removals per batch is at most
 EntriesBatchMaxItems=200. `orphan_remove_candidates_total` reports the full orphan
 count, and `authoring_batch.remaining` includes Code removals left for later
