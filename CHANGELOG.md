@@ -2,7 +2,19 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
-## Unreleased
+## v0.2.0-rc6
+
+The sixth 0.2.0 candidate fixes what two real-host first builds exposed, each
+run by a Claude Code session acting as a new user with only the binary and
+README: a frontend repository (RuoYi-Vue3, on rc5) and a Java backend with a
+MySQL schema (RuoYi-Vue-Plus, on the post-rc5 build at 32e2ab4: 976 Code
+Entries and 82 Database Entries). An ordinary Volumes Apply bounds its
+alignment findings sample while keeping complete counts and fixed response
+fields, the parallel `remaining` count means the same in Maintain and Apply,
+the authoring contract states the field ceilings the write gate enforces, a
+`cognition-state/v2` checkpoint reports the proof the session already holds,
+and database onboarding documents the connection-string format of each server
+engine.
 
 - An ordinary Volumes Apply samples alignment findings under both
   the 20-item limit and the team's Maintain byte budget.
@@ -30,6 +42,37 @@ All notable public changes to AOCI-CODE will be documented in this file.
 - `governance.budget.s[].max_tokens` reports the effective S token limit
   after applying the Meta rune quota floor. A configured importance band
   can split where the effective limits differ.
+- The authoring contract states each importance band's effective R ceiling
+  in both runes and UTF-8 bytes, computed by the function the write gate uses;
+  a very large configured R budget saturates instead of overflowing. It also
+  says that A counts every ASCII comma, including commas inside a parameter
+  list.
+- A too-long `root_overview` line is refused with its limit and actual
+  character count, and the input-schema descriptions state the 200 and 600
+  character limits.
+- An Attestation for a body delivered before the Host's current compaction is
+  refused unscored (`model_attestation=fail`,
+  `stale_pre_compaction_delivery`); that Host's earlier delta base is
+  withdrawn, so an old anchor falls back to a complete delivery. After a
+  consumed capacity stop or a consumed partial or failed Attestation, a
+  matching, governance-aligned `check_only` directs the Host to continue from
+  source and tests.
+- `docs/database-evidence.md` lists the connection-string format of
+  PostgreSQL, MySQL, and openGauss. `aoci database source access` adds that
+  format and an `action_hint` when the credential variable is unset or blank;
+  `status=ready` means the variable is set and non-empty after trimming
+  whitespace, not that its format is valid.
+- `aoci init` writes the backup of a rewritten `AGENTS.md` under
+  `.aoci/backups/` and names it in its output; a `.aoci` or `.aoci/backups`
+  that is already a link or a non-directory when `init` checks it stops `init`
+  before `AGENTS.md` is touched.
+- Wording from the first-build test: the AGENTS template and the Maintain
+  description say `repair_required` with `result=authoring_required` is the
+  normal authoring pickup, `aoci_report` is no longer a recommended entry
+  point, the READMEs say Claude Code needs `init --agent claude` without
+  `--hooks`, the authoring contract states S quota units and the ` | ` field
+  separator rule, and the evolution-narrative warning reads only the S field
+  and no longer matches a bare 改为.
 
 Upgrading with a parallel wave in flight may produce a reply with the old
 `remaining` count until the first sibling is redelivered by the new version.
