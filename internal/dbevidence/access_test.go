@@ -207,6 +207,22 @@ func TestConnectionStringExamplesAreDriverVerifiedAndDocumented(t *testing.T) {
 			}
 		}
 	}
+	specBytes, err := os.ReadFile(filepath.Join("..", "..", "spec", "public", "aoci-database-evidence-v1.txt"))
+	if err != nil {
+		t.Fatalf("read spec/public/aoci-database-evidence-v1.txt: %v", err)
+	}
+	specText := string(specBytes)
+	for _, token := range []string{
+		AccessPlanVersion,
+		"connection_string_example",
+		"action_hint",
+		"status=action_required",
+		"status=ready",
+	} {
+		if !strings.Contains(specText, token) {
+			t.Fatalf("spec/public/aoci-database-evidence-v1.txt is missing %q", token)
+		}
+	}
 }
 
 func markdownHasAnchor(doc, anchor string) bool {

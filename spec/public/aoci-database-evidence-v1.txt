@@ -367,9 +367,25 @@ R73 adds `database-access-plan/v1` and a Credential Provider boundary without
 changing Source selection or Evidence identity. The only implemented provider
 is `environment`, backed by the compatible `credential_env` reference. Source
 add may derive a default reference from `source_id`; it never derives or stores
-a credential value. `database source access` checks readiness without opening
-a connection and reports zero network and business-row access. Vault,
+a credential value. `database source access` checks in-process only whether the
+configured environment variable is set and non-empty without printing, saving,
+validating DSN syntax, or opening a connection, and reports zero network and
+business-row access. For `provider=environment`, `status=ready` means only that
+the referenced environment variable is non-empty, not that its connection
+string format or connectivity is valid (a non-empty malformed value still
+reports `ready`; format and connectivity are validated only when explicit
+`source inspect`, `snapshot`, or `verify` opens the engine driver). Vault,
 Kubernetes, and cloud-secret providers are explicitly outside this version.
+
+`database-access-plan/v1` defines two additive optional string fields:
+`connection_string_example` and `action_hint`. Both are omitted except when
+`status=action_required` for a server source whose credential environment
+variable is unset. In that state, `connection_string_example` carries the
+canonical placeholder format for the declared engine from
+`internal/dbevidence` (never real credentials), and `action_hint` carries the
+localized CLI guidance referencing `credential_env` and that placeholder
+format. Neither field appears on `status=ready`, `status=source_disabled`, or
+`provider=file` (`sqlite`).
 
 The Lineage and Impact views consume only accepted Database Cognition Baseline
 bindings. They do not change Schema Evidence, do not become Evidence, and do
