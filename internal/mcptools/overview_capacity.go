@@ -70,6 +70,16 @@ func (session *cognitionRefreshSession) newCompactionEvent(owner volumeDeliveryO
 		!session.compactionEvents[compactionEventKey{owner, eventID}]
 }
 
+func (session *cognitionRefreshSession) rememberCompactionEvent(owner volumeDeliveryOwner, eventID string) {
+	if eventID == "" {
+		return
+	}
+	if len(session.compactionEvents) >= 256 || session.compactionEvents == nil {
+		session.compactionEvents = map[compactionEventKey]bool{}
+	}
+	session.compactionEvents[compactionEventKey{owner, eventID}] = true
+}
+
 // hostCapacityInterruption reports, to the handler that holds the Ledger, the
 // interruption one evaluate call just recorded.
 type hostCapacityInterruption struct {

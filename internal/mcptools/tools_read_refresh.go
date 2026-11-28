@@ -411,6 +411,7 @@ func receiptIdentityMatches(left, right cognitionReceipt) bool {
 }
 
 func (session *cognitionRefreshSession) adoptReliableReceipt(
+	owner volumeDeliveryOwner,
 	input *cognitionReceipt,
 	current cognitionReceipt,
 	modelState string,
@@ -425,6 +426,7 @@ func (session *cognitionRefreshSession) adoptReliableReceipt(
 	// model_cognition_state=valid establishes an otherwise matching receipt.
 	session.lastReceipt = receiptWithState(*input, cognitionStateValid, true)
 	session.consumeEvent(input.LastRefreshEventID)
+	session.rememberCompactionEvent(owner, input.LastRefreshEventID)
 }
 
 func receiptReliable(receipt cognitionReceipt) bool {
@@ -521,10 +523,7 @@ func (session *cognitionRefreshSession) addHostReasons(owner volumeDeliveryOwner
 		return
 	}
 	if compaction {
-		if len(session.compactionEvents) >= 256 || session.compactionEvents == nil {
-			session.compactionEvents = map[compactionEventKey]bool{}
-		}
-		session.compactionEvents[compactionEventKey{owner, eventID}] = true
+		session.rememberCompactionEvent(owner, eventID)
 		session.invalidateCompactionProof(owner)
 	}
 	for _, reason := range reasons {
@@ -581,7 +580,7 @@ func (session *cognitionRefreshSession) evaluateRefresh(
 ) cognitionRefreshAssessment {
 	projectCheckpoint := input.CheckOnly && cognitionStateV2Requested(input)
 	if !projectCheckpoint {
-		session.adoptReliableReceipt(input.Receipt, current, input.ModelState)
+		session.adoptReliableReceipt(owner, input.Receipt, current, input.ModelState)
 	}
 	// Read before this request's reasons join the pending set: a fresh
 	// compaction declaration over an open compaction reload is the
