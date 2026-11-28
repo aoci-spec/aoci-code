@@ -175,6 +175,12 @@ const (
 	OverviewDeliveryGuidanceSourceBound   = "full_system_claim_disabled_source_bound_task_continuation_allowed"
 )
 
+// Code section root kinds in complete Volumes Overview metadata.
+const (
+	OverviewSectionRootNeutral  = "neutral"
+	OverviewSectionRootRecorded = "recorded"
+)
+
 // Host capacity (#114). A context-compaction reload that is itself interrupted
 // by another compaction proves the Whole-Index does not fit the Host's
 // post-compaction context; from then on, for the life of that MCP server

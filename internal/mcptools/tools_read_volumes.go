@@ -11,6 +11,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/aoci-spec/aoci-code/internal/cognition"
+	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/ledger"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
@@ -267,12 +268,13 @@ func handleVolumeOverview(
 		current, assessment, eventID, true,
 	)
 	delivered = receiptWithDeliveredVolumes(delivered, view)
+	sectionCount, sectionRoot := volumeSectionMetadata(view)
 	renderCtx := overviewRenderContext{
 		Root: root, MCPServiceVersion: mcpServiceVersion,
 		LayoutMode: string(loaded.set.LayoutMode), RequestedScope: view.RequestedScope,
 		EffectiveScope: view.EffectiveScope, AssetState: view.AssetState,
 		ScopeIdentity: view.ScopeIdentity, Content: body, ContentBytes: contentBytes,
-		EntryCount: len(sequence), SectionCount: countVolumeSections(view),
+		EntryCount: len(sequence), SectionCount: sectionCount, SectionRoot: sectionRoot,
 		EstimatedTokens: estimatedTokens,
 		Receipt:         delivered, Assessment: assessment, Sequence: sequence,
 		Session: refreshSession, Transport: refreshSession, Owner: owner, DeliveryID: selected, LedgerEnabled: loaded.cfg.LedgerEnabled,
@@ -427,17 +429,27 @@ func volumeScopeBytes(view cognition.ScopeView) int {
 	return total
 }
 
-func countVolumeSections(view cognition.ScopeView) int {
-	total := 0
+func volumeSectionMetadata(view cognition.ScopeView) (int, string) {
+	count := 0
+	allNeutral := true
 	for _, asset := range view.Assets {
 		if asset.Document == nil {
 			continue
 		}
 		for _, section := range asset.Document.Sections {
-			if section.AbsPath != "" {
-				total++
+			if section.AbsPath == "" {
+				continue
 			}
+			count++
+			allNeutral = allNeutral && (section.AbsPath == index.NeutralRepositoryRoot ||
+				strings.HasPrefix(section.AbsPath, index.NeutralRepositoryRoot+"/"))
 		}
 	}
-	return total
+	if count == 0 {
+		return 0, ""
+	}
+	if allNeutral {
+		return count, machinecontract.OverviewSectionRootNeutral
+	}
+	return count, machinecontract.OverviewSectionRootRecorded
 }

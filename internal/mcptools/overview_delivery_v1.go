@@ -165,6 +165,7 @@ type overviewRenderContext struct {
 	ContentBytes      int
 	EntryCount        int
 	SectionCount      int
+	SectionRoot       string
 	EstimatedTokens   int
 	Receipt           cognitionReceipt
 	Assessment        cognitionRefreshAssessment
@@ -482,6 +483,9 @@ func renderOverviewMetadata(
 		formatChallengeOrdinals(challenge.Ordinals), len(challenge.Ordinals),
 		level.Level, level.State, fullScopeReliable(receipt, reliable),
 	)
+	if facts.DeliveryMode == overviewDeliveryFull && ctx.SectionRoot != "" {
+		fmt.Fprintf(&builder, "section_root: %s\n", ctx.SectionRoot)
+	}
 	if includeCognitionLevelMessage {
 		builder.WriteString(renderOverviewCognitionLevelMessage(level))
 	}
@@ -631,6 +635,9 @@ func renderOverviewChunk(
 	}
 	if chunkIndex == 0 {
 		metadata["runtime_repository_root"] = ctx.Root
+		if ctx.Delta == nil && ctx.SectionRoot != "" {
+			metadata["section_root"] = ctx.SectionRoot
+		}
 		metadata["entry_count"] = ctx.EntryCount
 		metadata["section_count"] = ctx.SectionCount
 		metadata["estimated_tokens"] = ctx.EstimatedTokens
