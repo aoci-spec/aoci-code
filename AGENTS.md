@@ -80,7 +80,6 @@ For a Fresh Bootstrap, follow only the current machine-issued Plan and live Guid
 - `aoci_overview`: establish or restore complete cognition for this repository.
 - `aoci_maintain`: after managed objects reach their final stable state, check whether cognition needs maintenance.
 - `aoci_update_entry`: submit a complete semantic update batch bound to current evidence and source digests.
-- `aoci_report`: when the current layout and tool state support it, record follow-up work if evidence is insufficient to generate semantics reliably; do not guess.
 
 For other MCP tools, CLI commands, parameters, and specialized workflows, follow current tool descriptions, Guide, and `--help` output. This file does not duplicate the full manual.
 
@@ -135,7 +134,7 @@ This managed block defines only repository integration, cognition use, and task-
 
 7. If maintenance returns actual semantic candidates, the Host model must independently author the complete tag and F/R/A/S updates from each candidate's bound object and necessary evidence. Submit the complete candidate set for that current machine-issued batch in one `aoci_update_entry` call while preserving each path and the domain batch identity; `source_sha256` and `candidate_id` may be omitted, since the server takes them from the issued batch. `max_entries` limits one request and atomic transaction, not the logical plan, Whole-Index, or Managed Scope. When `remaining` is nonzero, call Maintain again after the successful Apply and continue from the new preimage; never shrink Index coverage or slice a returned batch to satisfy transport limits.
 
-   When evidence is insufficient and the current layout supports `aoci_report`, use it instead of guessing, applying a template, or generating unsupported cognition merely to eliminate follow-up work.
+   When evidence is insufficient, do not guess, apply a template, or generate unsupported cognition merely to eliminate follow-up work; since 0.2.0 `aoci_report` writes nothing, so carry such uncertainty through `aoci_maintain` findings and Guide.
 
 8. Obey structured tool states and safety boundaries:
 

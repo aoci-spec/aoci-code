@@ -177,7 +177,7 @@ func TestManifestDeclaresRuntimeRules(t *testing.T) {
 			"不能替代匹配当前AOCI身份的认知收据",
 			"该结果保留已交付认知的实际scope和状态",
 			"aoci_maintain只用于已建立索引的增量维护",
-			"只在当前布局和工具返回状态支持时使用 aoci_report",
+			"自0.2.0起aoci_report不再写入",
 		} {
 			if !containsString(asset.LocaleAnchors[LegacyLocale], anchor) {
 				t.Fatalf("runtime rules manifest缺少Locale语义锚点%q: %+v", anchor, asset)
@@ -209,7 +209,7 @@ func TestRuntimeRulesStayWithinCognitionBoundary(t *testing.T) {
 				"Only current_system_cognition_reliable=true permits an unqualified current complete-system cognition claim",
 				"aoci_maintain is for incremental maintenance of an established index",
 				"semantic artifacts required by the current Plan and Guide",
-				"Use aoci_report only when the current layout and returned tool state support it",
+				"Since 0.2.0 aoci_report writes nothing",
 			},
 			forbidden: []string{
 				"complements rather than replaces source reading",
@@ -231,7 +231,7 @@ func TestRuntimeRulesStayWithinCognitionBoundary(t *testing.T) {
 				"只有current_system_cognition_reliable=true允许无保留地声称当前完整系统认知可靠",
 				"aoci_maintain只用于已建立索引的增量维护",
 				"当前Plan与Guide要求的语义产物",
-				"只在当前布局和工具返回状态支持时使用 aoci_report",
+				"自0.2.0起aoci_report不再写入",
 			},
 			forbidden: []string{
 				"与源码阅读、LSP、CodeGraph及其他结构化工具互补",

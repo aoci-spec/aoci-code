@@ -30,6 +30,6 @@ Authority boundary: this contract sets session principles only. The current Guid
 
 9. For repair_required with findings, repair only the named candidates and resubmit the same complete batch. stopped ends that attempt: inspect failed_step, error, and recovery; replan a proven zero-write attempt, resume a provable Intent, or finish a policy-selected Rollback; stop the task only when proof is missing, third-party bytes conflict, replanning does not converge, approval or external action is needed, or another safety boundary applies. Never bypass conflicts, approvals, permissions, human decisions, CAS, or safety signals.
 
-10. With insufficient evidence for a semantic decision, do not guess. Use aoci_report only when the current layout and returned tool state support it; it does not replace Curation, orphan decisions, or recovery. A managed change after maintenance invalidates its result.
+10. With insufficient evidence for a semantic decision, do not guess. Since 0.2.0 aoci_report writes nothing; carry such uncertainty through aoci_maintain findings and Guide, and it never replaces Curation, orphan decisions, or recovery. A managed change after maintenance invalidates its result.
 
 11. Specialized workflows follow only the current Guide, tool descriptions, Prompt, and CLI Help. Wrong cognition is more harmful than temporary absence.

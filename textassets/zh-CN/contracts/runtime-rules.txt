@@ -30,6 +30,6 @@ AOCI 为模型提供稳定、可版本化、可增量维护的仓库级认知。
 
 9. 返回 repair_required 且包含 findings 时，只修复命中的候选并重提同一完整批次。stopped只结束该次尝试：检查failed_step、error 和 recovery；可证明零写入则重新Plan，Intent可证明则Resume，策略要求Rollback则完成后重新Plan；只有证据不足、第三方字节冲突、有界重新Plan仍不收敛、需要审批或外部动作或命中其他安全边界时才停止任务。不得绕过冲突、审批、权限、人工裁决、CAS和安全信号。
 
-10. 语义裁决证据不足时不得猜写。只在当前布局和工具返回状态支持时使用 aoci_report；它不替代Curation、孤儿裁决或故障恢复。维护后再改动受管理对象，维护结果即失效。
+10. 语义裁决证据不足时不得猜写。自0.2.0起aoci_report不再写入，改由aoci_maintain的findings与Guide承载这类不确定性；它不替代Curation、孤儿裁决或故障恢复。维护后再改动受管理对象，维护结果即失效。
 
 11. 专项流程只以当前Guide、工具说明、Prompt与CLI Help为准。错误认知比暂时缺失更有害。

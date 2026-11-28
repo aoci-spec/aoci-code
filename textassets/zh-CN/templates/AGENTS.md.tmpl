@@ -25,7 +25,6 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 - `aoci_overview`：建立或恢复本仓库的完整认知。
 - `aoci_maintain`：受管理对象达到最终稳定状态后检查认知是否需要维护。
 - `aoci_update_entry`：提交与当前证据和源码摘要绑定的完整语义更新批次。
-- `aoci_report`：仅当当前布局和工具状态支持时，在证据不足、无法可靠生成语义时登记待办，不猜写。
 
 其他MCP工具、CLI命令、参数和专项流程，以当前工具说明、Guide和 `--help` 返回内容为准，不在本文件中重复完整手册。
 
@@ -80,7 +79,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 7. 若维护结果返回真实语义候选，Host 模型必须基于每个候选绑定的对象和必要证据，独立创作完整标签与F/R/A/S更新。通过 `aoci_update_entry` 一次提交当前机器签发批次的完整候选集合，同时原样保留每项路径与对应domain批次身份；`source_sha256` 与 `candidate_id` 可以省略，由服务端按签发的批次取得。`max_entries`只限制单次请求和原子事务，不限制logical plan、Whole-Index或Managed Scope。`remaining`非零时，在当前批次成功Apply后重新调用Maintain并从新preimage继续；绝不能为满足transport上限缩减Index覆盖或自行截取返回批次。
 
-   没有足够证据且当前布局支持 `aoci_report` 时，使用它而不猜测、套用模板或为消除待办而生成缺乏证据的认知。
+   没有足够证据时不得猜写、套用模板或为消除待办而生成缺乏证据的认知；自0.2.0起 `aoci_report` 不再写入，改由 `aoci_maintain` 的 findings 与 Guide 承载这类不确定性。
 
 8. 必须遵守工具返回的结构化状态和安全边界：
 
