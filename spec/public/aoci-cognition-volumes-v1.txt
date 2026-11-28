@@ -342,12 +342,17 @@ if it exceeds the current budget. Required Observe evidence and the current
 batch's orphan removal obligations travel complete. See Observe evidence
 review below for the terminal route when its list exceeds the MCP limit.
 
-A successful ordinary Volumes Apply that is still unaligned returns at most
-20 leading alignment `findings` in their existing order. `finding_count`
-reports the complete count. When the list is truncated, `findings_truncated`
-reports the `limit`, the complete `total`, and `by_kind` counts across the
-complete list. A kind is the diagnostic prefix before the first colon and
-space, or the entire code for a diagnostic without detail. Apply omits
+A successful ordinary Volumes Apply that is still unaligned returns the
+longest prefix of its alignment `findings` that fits both bounds. The list has
+at most 20 items, and the serialized UTF-8 tool text, including the trailing
+newline, uses the team's Maintain transport budget. Apply reserves the
+other response fields first. If no item fits, the sample is empty and the
+other fields stay complete.
+`finding_count` reports the complete count. A truncated list carries
+`findings_truncated` with the count `limit`, the reply `byte_limit`, the
+complete `total`, and `by_kind` counts across the complete list. A kind is the
+diagnostic prefix before the first colon and space, or the entire code for a
+diagnostic without detail. The sample may omit an entire kind. Apply omits
 `findings_truncated` when the list is complete. The sample does not affect
 `remaining`, `aligned`, `terminal_proof`, or `next_action`. Candidate repair
 findings remain complete.

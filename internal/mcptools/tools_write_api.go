@@ -990,11 +990,6 @@ func handleMCPUpdateBatchReviewed(
 	}
 	audit := buildAutoAudit(input, outcome)
 	appendAutoFinalizeEvent(root, autoStatusApplied, metrics)
-	findings := alignment.findings
-	var findingsTruncated *applyFindingsTruncation
-	if optimizationContext == nil && !alignment.aligned && alignment.receipt.LayoutMode == cognition.LayoutVolumesV1 {
-		findings, findingsTruncated = boundApplyAlignmentFindings(findings)
-	}
 	result := autoResult{
 		ObserveReview:       review,
 		Version:             1,
@@ -1007,8 +1002,6 @@ func handleMCPUpdateBatchReviewed(
 		Receipt:             alignment.receipt,
 		Metrics:             metrics,
 		Audit:               audit,
-		Findings:            genericMachineFindings(findings),
-		FindingsTruncated:   findingsTruncated,
 		NextAction: autoApplyNextAction(
 			outcome != nil && len(outcome.Volumes) > 0,
 			alignment.aligned,
@@ -1038,6 +1031,12 @@ func handleMCPUpdateBatchReviewed(
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
+	if optimizationContext == nil && !alignment.aligned && alignment.transportBudget > 0 {
+		return textResult(renderBoundedApplyResult(result, alignment.findings, alignment.transportBudget))
+	}
+	if alignment.snapshotLockFailure == "" {
+		result.Findings = genericMachineFindings(alignment.findings)
+	}
 	return textResult(renderAutoResult(result))
 }
 

@@ -3436,7 +3436,7 @@ def group_l_parallel():
           and r8.get("status") == "applied" and r8.get("aligned") is False and r8.get("applied") == included8
           and included8 > 0 and r8.get("remaining") == (m8.get("code_plan") or {}).get("remaining")
           and len(findings8) == 20 < total8 == r8.get("finding_count")
-          and truncated8 == {"limit": 20, "total": total8, "by_kind": {"missing": total8}}
+          and truncated8 == {"limit": 20, "byte_limit": BUDGET, "total": total8, "by_kind": {"missing": total8}}
           and 0 < size8 <= BUDGET)
     record(g, "L8.apply-findings-fit-transport-and-retain-counts", "PASS" if ok else "FAIL",
            f"bytes={size8}/{BUDGET} shown={len(findings8)} total={r8.get('finding_count')}/{total8} "

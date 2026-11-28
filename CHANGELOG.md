@@ -4,9 +4,12 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
-- An unaligned ordinary Volumes Apply returns up to 20 alignment findings.
-  `finding_count` still reports the complete count, and `findings_truncated`
-  gives the limit and complete totals by finding kind when items are omitted.
+- An unaligned ordinary Volumes Apply samples alignment findings under both
+  the 20-item limit and the team's Maintain byte budget.
+  `finding_count` reports the complete count, and `findings_truncated` gives
+  both limits and totals by kind. An entire kind can fall outside the sample.
+  Use Maintain to obtain the next candidates, or Verify or Check to see the
+  complete diagnostic list.
 - Successful Apply reports only work outside the issued sibling batches in
   `remaining`. An Apply can report `remaining=0` while siblings still need
   to be applied. Follow `next_action` and close the parallel wave only when

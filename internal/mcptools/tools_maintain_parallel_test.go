@@ -97,6 +97,11 @@ func fixtureEntryLine(path string) string {
 // under the response's code_plan.batch_id.
 func applyMaintainBatch(t *testing.T, session *mcp.ClientSession, response map[string]any) map[string]any {
 	t.Helper()
+	return decodeMaintainJSON(t, applyMaintainBatchRaw(t, session, response))
+}
+
+func applyMaintainBatchRaw(t *testing.T, session *mcp.ClientSession, response map[string]any) string {
+	t.Helper()
 	plan := codePlanOf(t, response)
 	entries := []map[string]any{}
 	for _, candidate := range response["candidates"].([]any) {
@@ -112,8 +117,7 @@ func applyMaintainBatch(t *testing.T, session *mcp.ClientSession, response map[s
 		}
 		args["removals"] = removals
 	}
-	raw := callVolumeTool(t, session, "aoci_update_entry", args)
-	return decodeMaintainJSON(t, raw)
+	return callVolumeTool(t, session, "aoci_update_entry", args)
 }
 
 func twoParallelBatches(t *testing.T) string {

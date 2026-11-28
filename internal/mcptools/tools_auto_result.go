@@ -3,6 +3,7 @@ package mcptools
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 
@@ -113,15 +114,20 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 
 // applyFindingsTruncation describes the complete list behind the sample.
 type applyFindingsTruncation struct {
-	Limit  int            `json:"limit"`
-	Total  int            `json:"total"`
-	ByKind map[string]int `json:"by_kind"`
+	Limit     int            `json:"limit"`
+	ByteLimit int            `json:"byte_limit"`
+	Total     int            `json:"total"`
+	ByKind    map[string]int `json:"by_kind"`
 }
 
-func boundApplyAlignmentFindings(findings []string) ([]string, *applyFindingsTruncation) {
+func renderBoundedApplyResult(result autoResult, findings []string, budget int) string {
 	limit := machinecontract.MaintainTransportListLimit
+	sample := genericMachineFindings(findings[:min(len(findings), limit)])
 	if len(findings) <= limit {
-		return findings, nil
+		result.Findings = sample
+		if wire := renderAutoResult(result); len(wire) <= budget || len(findings) == 0 {
+			return wire
+		}
 	}
 	byKind := make(map[string]int)
 	for _, finding := range findings {
@@ -129,7 +135,15 @@ func boundApplyAlignmentFindings(findings []string) ([]string, *applyFindingsTru
 		kind, _, _ := strings.Cut(finding, ": ")
 		byKind[kind]++
 	}
-	return findings[:limit], &applyFindingsTruncation{Limit: limit, Total: len(findings), ByKind: byKind}
+	result.FindingsTruncated = &applyFindingsTruncation{Limit: limit, ByteLimit: budget, Total: len(findings), ByKind: byKind}
+	// Like Maintain, measure the actual serialized tool text with its newline.
+	// With the totals fixed, every extra finding only increases the wire size.
+	firstOverBudget := sort.Search(len(sample)+1, func(count int) bool {
+		result.Findings = sample[:count]
+		return len(renderAutoResult(result)) > budget
+	})
+	result.Findings = sample[:max(0, firstOverBudget-1)]
+	return renderAutoResult(result)
 }
 
 type autoResult struct {
