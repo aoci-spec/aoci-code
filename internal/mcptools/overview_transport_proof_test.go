@@ -32,12 +32,22 @@ type transportProofFixture struct {
 
 func newTransportProofFixture(t *testing.T) *transportProofFixture {
 	t.Helper()
-	fixture := &transportProofFixture{t: t, root: chunkSessionRepo(t), session: newCognitionRefreshSession()}
+	return transportProofFixtureForRoot(t, chunkSessionRepo(t))
+}
+
+func transportProofFixtureForRoot(t *testing.T, root string) *transportProofFixture {
+	t.Helper()
+	return transportProofFixtureForScope(t, root, cognition.ScopeAll)
+}
+
+func transportProofFixtureForScope(t *testing.T, root, scope string) *transportProofFixture {
+	t.Helper()
+	fixture := &transportProofFixture{t: t, root: root, session: newCognitionRefreshSession()}
 	loaded, fail := loadCognitionCtx(fixture.root)
 	if fail != nil {
 		t.Fatal(fail.Msg)
 	}
-	view, err := loaded.set.Scope(cognition.ScopeAll)
+	view, err := loaded.set.Scope(scope)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +63,7 @@ func newTransportProofFixture(t *testing.T) *transportProofFixture {
 	}
 	decode := func(arguments map[string]any) overviewIn {
 		t.Helper()
-		arguments["scope"] = cognition.ScopeAll
+		arguments["scope"] = scope
 		encoded, err := json.Marshal(arguments)
 		if err != nil {
 			t.Fatal(err)

@@ -95,6 +95,14 @@ func handleVolumeOverview(
 	if semanticFail != nil {
 		return failResult(semanticFail)
 	}
+	if input.CheckOnly && cognitionStateV2Requested(input) {
+		if fail := confirmCognitionSnapshot(root, loaded.set); fail != nil {
+			return failResult(fail)
+		}
+		if metadataErr != nil || metadata[loaded.paths.BaselinePath] != semantic.baselineSHA256 {
+			semantic.baselineSHA256 = ""
+		}
+	}
 	var guard *overviewSourceGuard
 	if metadataErr == nil && input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil && !input.CheckOnly {
 		guard = newOverviewSourceGuard(root, loaded, metadata, state)
@@ -106,7 +114,7 @@ func handleVolumeOverview(
 		// The delivery this request picked was replaced while it fell back.
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
-	assessment := refreshSession.evaluate(input, current, semantic, hostReasons, eventID)
+	assessment := refreshSession.evaluateOverview(input, current, semantic, hostReasons, eventID, owner)
 	if input.CheckOnly {
 		var probe *cognitionProbe
 		var probeResult *cognitionProbeResult
@@ -137,7 +145,7 @@ func handleVolumeOverview(
 				return errResult(errBadArgs, planErr.Error(), "")
 			}
 			plan = &measured
-			capacity = refreshSession.capacityFacts(measured.EstimatedTokens)
+			capacity = refreshSession.capacityFacts(owner, measured.EstimatedTokens)
 		}
 		compact := renderOverviewCheckpoint(
 			assessment, input,
@@ -178,13 +186,13 @@ func handleVolumeOverview(
 	framed := frameOverviewBody(root, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, body)
 	fresh := input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil
 	estimatedTokens := volumeScopeBytes(view) / 3
-	if fresh && refreshSession.capacityStopApplies(estimatedTokens) {
+	if fresh && refreshSession.capacityStopApplies(owner, estimatedTokens) {
 		plan, planErr := planOverviewDelivery(framed, sequence, view.EffectiveScope, view.ScopeIdentity, view.ObjectCount, estimatedTokens, loaded.cfg.OverviewDelivery.ChunkTokens)
 		if planErr != nil {
 			return errResult(errBadArgs, planErr.Error(), "")
 		}
-		capacity := refreshSession.capacityFacts(estimatedTokens)
-		receipt := refreshSession.consumeCapacityStop(current, eventID)
+		capacity := refreshSession.capacityFacts(owner, estimatedTokens)
+		receipt := refreshSession.consumeCapacityStop(owner, current, eventID)
 		output := renderOverviewCapacityStop(capacityStopView{
 			Root: root, MCPServiceVersion: mcpServiceVersion, LayoutMode: string(loaded.set.LayoutMode),
 			RequestedScope: view.RequestedScope, EffectiveScope: view.EffectiveScope,
@@ -342,8 +350,10 @@ func handleVolumeOverview(
 	}
 	delivery.evidence.commit()
 	refreshSession.commitTransport(owner, view.RequestedScope, deliveryID, input, delivery.Facts)
-	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil, assessment.RefreshReasons, estimatedTokens)
-	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
+	refreshSession.recordCheckpointProof(owner, delivered, semantic.baselineSHA256, input, delivery.Facts)
+	fullScope := view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil
+	refreshSession.noteDeliveryChain(owner, &delivery, framed.Receipt.BodySHA256, fresh, fullScope, assessment.RefreshReasons, estimatedTokens)
+	refreshSession.recordAttestedDelivery(owner, fullScope, delivered, delivery.Attestation, markDelivered)
 	refreshSession.settleDeltaBase(renderCtx, delivery.Attestation)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	if deltaFacts != nil && fresh {

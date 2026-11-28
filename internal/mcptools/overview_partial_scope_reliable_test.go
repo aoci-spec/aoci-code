@@ -46,4 +46,13 @@ func TestOverviewPartialScopeNeverReadsAsFullCognition(t *testing.T) {
 	if !strings.Contains(out, "model_full_cognition_reliable: false") || strings.Contains(out, "model_full_cognition_reliable: true") {
 		t.Fatalf("a partial scope must never read as full cognition:\n%s", out)
 	}
+	code := checkpointV2ForTest(t, root, session, "first", overviewIn{Scope: cognition.ScopeCode})
+	if !code.CognitionStateV2.StrictAttestationVerified || !code.CognitionStateV2.DeliveryVerified ||
+		!code.Assessment.Receipt.ModelScopeReliable || code.CognitionStateV2.CurrentSystemCognitionReliable {
+		t.Fatalf("a checkpoint must keep the scope proof without extending it to the system: %+v", code)
+	}
+	all := checkpointV2ForTest(t, root, session, "first", overviewIn{Scope: cognition.ScopeAll})
+	if all.CognitionStateV2.DeliveryVerified || all.Assessment.Receipt.ModelFullReliable {
+		t.Fatalf("a whole-scope checkpoint borrowed the Code scope's proof: %+v", all)
+	}
 }

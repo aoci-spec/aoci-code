@@ -105,6 +105,69 @@ type overviewCheckpointEnvelope struct {
 	HostCapacity *hostCapacityFacts    `json:"host_capacity,omitempty"`
 }
 
+// overviewCheckpointProof retains only the verdicts needed by a checkpoint.
+// It lives on the current transport record of one Host and requested scope.
+type overviewCheckpointProof struct {
+	receipt        cognitionReceipt
+	baselineSHA256 string
+	hostStatus     string
+	attestation    overviewAttestationResult
+}
+
+func checkpointDeliveryScope(receipt cognitionReceipt) string {
+	if receipt.Version == 2 {
+		return receipt.RequestedScope
+	}
+	return receipt.Scope
+}
+
+// Callers hold session.mu. A snapshot change withdraws the matching proof;
+// a pending compaction withdraws the pre-compaction Host memory.
+func (session *cognitionRefreshSession) currentCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string) *overviewCheckpointProof {
+	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
+	if delivery == nil || delivery.beforeCompaction || delivery.sent < delivery.count || session.compactionPendingFor(owner) {
+		return nil
+	}
+	proof := delivery.checkpoint
+	if proof == nil || baselineSHA256 == "" || proof.baselineSHA256 != baselineSHA256 || !receiptIdentityMatches(proof.receipt, receipt) {
+		return nil
+	}
+	return proof
+}
+
+// recordCheckpointProof runs after transport and proof acceptance. It keeps
+// the scored result for this exact body without keeping any model answers.
+func (session *cognitionRefreshSession) recordCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string, input overviewIn, facts overviewDeliveryFacts) {
+	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
+	if delivery == nil || delivery.beforeCompaction || delivery.body != facts.BodySHA256 || baselineSHA256 == "" {
+		return
+	}
+	if facts.ChunkKnown {
+		if input.Cursor == "" {
+			delivery.checkpoint = &overviewCheckpointProof{
+				receipt: receipt, baselineSHA256: baselineSHA256, hostStatus: hostDeliveryUnconfirmed,
+			}
+		}
+		return
+	}
+	proof := delivery.checkpoint
+	if proof == nil || delivery.sent < delivery.count || proof.baselineSHA256 != baselineSHA256 ||
+		!receiptIdentityMatches(proof.receipt, receipt) {
+		return
+	}
+	result := facts.Attestation
+	proof.hostStatus = facts.HostDeliveryStatus
+	proof.attestation = overviewAttestationResult{
+		DeliveryIntegrity:     result.DeliveryIntegrity,
+		ModelAttestation:      result.ModelAttestation,
+		CognitionAssimilation: result.CognitionAssimilation,
+		ReportProvided:        result.ReportProvided,
+		EnvelopeValid:         result.EnvelopeValid,
+		TruncationDetected:    result.TruncationDetected,
+		StrictFailureReasons:  append([]string(nil), result.StrictFailureReasons...),
+	}
+}
+
 func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overviewIn, fullScope bool,
 	probe *cognitionProbe, probeResult *cognitionProbeResult, plan *overviewDeliveryPlan, capacity *hostCapacityFacts) string {
 	envelope := overviewCheckpointEnvelope{
@@ -115,13 +178,16 @@ func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overv
 		DeliveryPlan: plan, HostCapacity: capacity,
 	}
 	if cognitionStateV2Requested(input) {
-		state := assessOverviewCognitionStateV2(
-			true, fullScope, assessment.Semantic.GovernanceAligned, true,
-			overviewAttestationResult{
-				DeliveryIntegrity: deliveryIntegrityIncomplete,
-				ModelAttestation:  modelAttestationNotProvided,
-			},
-		)
+		attestation := overviewAttestationResult{
+			DeliveryIntegrity: deliveryIntegrityIncomplete,
+			ModelAttestation:  modelAttestationNotProvided,
+		}
+		if proof := assessment.checkpointProof; proof != nil {
+			attestation = proof.attestation
+			envelope.HostDeliveryStatus = proof.hostStatus
+		}
+		state := assessOverviewCognitionStateV2(plan != nil, fullScope, assessment.Semantic.GovernanceAligned, true, attestation)
+		state.CurrentSystemCognitionReliable = state.CurrentSystemCognitionReliable && assessment.Receipt.ModelFullReliable
 		envelope.CognitionStateV2 = &state
 	}
 	data, _ := json.Marshal(envelope)
@@ -306,7 +372,8 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	hostStatus := hostDeliveryStatus(input.HostConfirmation, framed)
 	report := input.ModelAttestation
 	body := framed.Receipt.BodySHA256
-	remembers := input.HostConfirmation != nil || input.ModelAttestation != nil || input.Cursor != ""
+	proofRequest := input.HostConfirmation != nil || input.ModelAttestation != nil
+	remembers := proofRequest || input.Cursor != ""
 	if remembers {
 		// The two proof halves each bind this exact body, so the half missing
 		// from this call may be the one an earlier call already delivered. A
@@ -315,7 +382,8 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		// committed (commitTransport), so a refused request forgets nothing.
 		hostStatus, report = ctx.Session.peekDeliveryEvidence(ctx.Owner, body, hostStatus, report)
 	}
-	served := ctx.transport().deliveryServed(ctx.Owner, ctx.RequestedScope, body, ctx.DeliveryID)
+	transport := ctx.transport()
+	served := transport.deliveryServed(ctx.Owner, ctx.RequestedScope, body, ctx.DeliveryID)
 	if hostStatus == hostDeliveryConfirmed && !served {
 		// The body hash is printed on the first Chunk and an unchanged index
 		// has the hash it had before, so a matching confirmation proves a
@@ -328,19 +396,30 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 	// What this call leaves in the proof memory is written only when its
 	// response is committed: a refused proof leaves no half behind.
 	var evidence *pendingEvidence
-	if remembers && ctx.Session != nil {
-		evidence = &pendingEvidence{session: ctx.Session, key: deliveryKey{owner: ctx.Owner, body: body},
-			confirmed: hostStatus == hostDeliveryConfirmed, attestation: report}
-	}
-	if report != nil {
-		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scoring_started", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: "started"})
-	}
-	attestation := assessOverviewAttestation(
-		challenge, ctx.EntryCount, ctx.EstimatedTokens,
-		hostStatus, ctx.Assessment.Semantic.GovernanceAligned, report,
-	)
-	if report != nil {
-		ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scored", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: attestation.ModelAttestation})
+	var attestation overviewAttestationResult
+	stale := remembers && transport.deliveryBeforeCompaction(ctx.Owner, ctx.RequestedScope, body, ctx.DeliveryID)
+	if stale && report != nil {
+		reason := machinecontract.StrictAttestationReasonStalePreCompaction
+		attestation = overviewAttestationResult{
+			DeliveryIntegrity: deliveryIntegrityFromHostStatus(hostStatus), ModelAttestation: modelAttestationFail,
+			CognitionAssimilation: cognitionAssimilationUncertain, ReportProvided: true, ChallengeTotal: len(challenge.Ordinals),
+			StrictFailureReasons: []string{reason}, RejectionReason: reason,
+		}
+	} else {
+		if remembers && !stale && ctx.Session != nil {
+			evidence = &pendingEvidence{session: ctx.Session, key: deliveryKey{owner: ctx.Owner, body: body},
+				confirmed: hostStatus == hostDeliveryConfirmed, attestation: report}
+		}
+		if report != nil {
+			ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scoring_started", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: "started"})
+		}
+		attestation = assessOverviewAttestation(
+			challenge, ctx.EntryCount, ctx.EstimatedTokens,
+			hostStatus, ctx.Assessment.Semantic.GovernanceAligned, report,
+		)
+		if report != nil {
+			ledger.Append(ctx.Root, ctx.LedgerEnabled, ledger.Event{Op: "overview_attestation_scored", Source: ledger.SourceAgent, IndexSHA256: ctx.ScopeIdentity, Result: attestation.ModelAttestation})
+		}
 	}
 	facts := overviewDeliveryFacts{
 		IndexSHA256: ctx.ScopeIdentity, IndexBytes: ctx.ContentBytes,
@@ -350,10 +429,10 @@ func renderOverviewDelivery(ctx overviewRenderContext, input overviewIn, chunkTo
 		HostDeliveryStatus: hostStatus, Attestation: attestation,
 		// A response that carries the body to its end says so itself; only a
 		// proof response speaks for an earlier transmission.
-		ServerSent: served || (input.HostConfirmation == nil && input.ModelAttestation == nil),
+		ServerSent: served || !proofRequest,
 	}
 
-	if input.HostConfirmation != nil || input.ModelAttestation != nil {
+	if proofRequest {
 		facts.DeliveryMode = overviewDeliveryAttestation
 		facts.FullTextIncluded = false
 		output := renderOverviewMetadata(
@@ -509,6 +588,10 @@ func renderOverviewMetadata(
 			formatAttestationList(attestation.UnseenSections), formatAttestationList(attestation.UncertaintyReasons),
 			attestation.ChallengePassed, attestation.ChallengeTotal,
 		)
+		if attestation.RejectionReason != "" {
+			fmt.Fprintf(&builder, "model_attestation_failure_reason: %s\nmodel_attestation_failure_message: %s\n",
+				attestation.RejectionReason, overviewMetadataLineValue(mcpMessage("overview.attestation.stale_pre_compaction_delivery")))
+		}
 	}
 	if includeCognitionStateV2 {
 		state := assessOverviewCognitionStateV2(

@@ -286,7 +286,7 @@ func (session *cognitionRefreshSession) deltaFallbackReason(owner volumeDelivery
 		return machinecontract.OverviewFallbackDeltaBaseUnknown
 	case !session.established || !receiptReliable(session.lastReceipt):
 		return machinecontract.OverviewFallbackDeltaBaseUnreliable
-	case session.compactionPending():
+	case session.compactionPendingFor(owner):
 		return machinecontract.OverviewFallbackDeltaCompactionPending
 	case !probed || passed.identity != identity || passed.generation != generation:
 		return machinecontract.OverviewFallbackDeltaProbeRequired
@@ -315,7 +315,7 @@ func (session *cognitionRefreshSession) anchorDeltaBase(owner volumeDeliveryOwne
 // it so the next request is complete. A dirty delivery moves nothing. The
 // caller holds session.mu and has already recorded the attested delivery.
 func (session *cognitionRefreshSession) settleDeltaBase(ctx overviewRenderContext, attestation overviewAttestationResult) {
-	if !attestation.ReportProvided || attestation.DeliveryIntegrity != deliveryIntegrityConfirmed {
+	if session.compactionPendingFor(ctx.Owner) || !attestation.ReportProvided || attestation.DeliveryIntegrity != deliveryIntegrityConfirmed {
 		return
 	}
 	pass := attestation.ModelAttestation == modelAttestationPass && ctx.Assessment.Semantic.GovernanceAligned

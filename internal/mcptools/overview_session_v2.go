@@ -358,7 +358,10 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	if !refresh.deliveries.holds(entry) {
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
-	if !refresh.deliveries.proofFits(entry, input.ModelAttestation) {
+	ctx := entry.ctx
+	body := ctx.Prepared.body.Receipt.BodySHA256
+	if !refresh.deliveryBeforeCompaction(entry.owner, ctx.RequestedScope, body, entry.id) &&
+		!refresh.deliveries.proofFits(entry, input.ModelAttestation) {
 		// The live path takes over, with the halves this delivery already
 		// accepted: they move to the Host session's own memory.
 		for key, evidence := range entry.ctx.Session.deliveryEvidence {
@@ -368,8 +371,7 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 		refresh.deliveries.remove(entry)
 		return nil
 	}
-	ctx := entry.ctx
-	ctx.Assessment = refresh.evaluate(input, ctx.Receipt, entry.semantic, hostReasons, eventID)
+	ctx.Assessment = refresh.evaluateOverview(input, ctx.Receipt, entry.semantic, hostReasons, eventID, entry.owner)
 	delivery, err := renderOverviewDelivery(ctx, input, entry.tokens)
 	if err != nil {
 		return errResult(errBadArgs, err.Error(), "")
@@ -389,16 +391,20 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	}
 	// The response stands. Only now is room made for its proof (which may
 	// evict another delivery) and its proof memory written.
-	if err := refresh.deliveries.reserveProof(entry, input.ModelAttestation); err == nil {
+	proofRetained := delivery.evidence != nil && refresh.deliveries.reserveProof(entry, input.ModelAttestation) == nil
+	if proofRetained {
 		delivery.evidence.commit()
 	}
 	refresh.commitTransport(entry.owner, ctx.RequestedScope, entry.id, input, delivery.Facts)
+	if proofRetained {
+		refresh.recordCheckpointProof(entry.owner, ctx.Receipt, entry.semantic.baselineSHA256, input, delivery.Facts)
+	}
 	// A reused delivery is never fresh, so it opens no attempt; its scope still
 	// matters, because a confirmed complete delivery is the proof that clears
 	// the capacity verdict (#168).
 	fullScope := ctx.EffectiveScope == cognition.ScopeAll && ctx.Delta == nil
-	refresh.noteDeliveryChain(&delivery, ctx.Prepared.body.Receipt.BodySHA256, false, fullScope, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
-	refresh.recordAttestedDelivery(ctx.Receipt, delivery.Attestation, entry.semantic.GovernanceAligned)
+	refresh.noteDeliveryChain(entry.owner, &delivery, ctx.Prepared.body.Receipt.BodySHA256, false, fullScope, ctx.Assessment.RefreshReasons, ctx.EstimatedTokens)
+	refresh.recordAttestedDelivery(entry.owner, fullScope, ctx.Receipt, delivery.Attestation, entry.semantic.GovernanceAligned)
 	refresh.settleDeltaBase(ctx, delivery.Attestation)
 	ledger.Append(root, loaded.cfg.LedgerEnabled, delivery.Facts.ledgerEvent(time.Since(start).Milliseconds()))
 	recordOverviewProofEvents(root, loaded.cfg.LedgerEnabled, input, delivery, ctx.Prepared.body)

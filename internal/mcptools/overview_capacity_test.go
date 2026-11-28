@@ -230,6 +230,122 @@ func TestCapacityStopAnswersOnlyFreshRequests(t *testing.T) {
 	}
 }
 
+func TestCompactionInvalidatesEarlierProofAndDeltaBase(t *testing.T) {
+	for _, stop := range []bool{false, true} {
+		t.Run(fmt.Sprintf("capacity_stop_%t", stop), func(t *testing.T) {
+			root, _ := deltaVolumesFixture(t, 10)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.LedgerEnabled = true
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			fixture := transportProofFixtureForRoot(t, root)
+			const owner = "compacted-host"
+			fixture.prove(owner, overviewIn{})
+			proof := fixture.prove(owner, fixture.both)
+			if overviewMetadataValue(t, proof, "model_full_cognition_reliable") != "true" {
+				t.Fatal("fixture must first establish a reliable delivery")
+			}
+			if stop {
+				fixture.prove(owner, compactionReload("all", "compact-1"))
+				capacity := capacityStopFacts(t, fixture.prove(owner, compactionReload("all", "compact-2")))
+				if capacity["delivery_mode"] != machinecontract.OverviewDeliveryModeCapacityStop {
+					t.Fatalf("fixture must reach the stop: %v", capacity)
+				}
+				checkpoint := checkpointV2ForTest(t, root, fixture.session, owner, overviewIn{})
+				assertCheckpointSourceBound(t, checkpoint.Assessment)
+			} else {
+				checkpointV2ForTest(t, root, fixture.session, owner, compactionReload("all", "compact-1"))
+			}
+
+			generation := fixture.session.generation
+			compactionPending := fixture.session.compactionPending()
+			old := fixture.both
+			old.CognitionStateVersion = machinecontract.CognitionStateV2
+			eventsBefore := len(overviewProofEvents(t, root))
+			late := fixture.prove(owner, old)
+			state := cognitionStateV2MetadataForTest(t, late)
+			if overviewMetadataValue(t, late, "host_delivery_status") != hostDeliveryIncomplete ||
+				state.CurrentSystemCognitionReliable ||
+				fixture.session.generation != generation || fixture.session.compactionPending() != compactionPending {
+				t.Errorf("old confirmation changed the host status or consumed compaction: host=%s generation=%d pending=%t",
+					overviewMetadataValue(t, late, "host_delivery_status"), fixture.session.generation, fixture.session.compactionPending())
+			}
+			grade := overviewMetadataValue(t, late, "model_attestation")
+			const reason = "stale_pre_compaction_delivery"
+			if grade != modelAttestationFail || state.StrictAttestationVerified || state.ModelCognitionUsable ||
+				len(state.StrictAttestationFailureReasons) != 1 || state.StrictAttestationFailureReasons[0] != reason {
+				t.Errorf("old report must be rejected: model_attestation=%s strict_verified=%t reasons=%v usable=%t",
+					grade, state.StrictAttestationVerified, state.StrictAttestationFailureReasons, state.ModelCognitionUsable)
+			}
+			if !strings.Contains(late, "\nmodel_attestation_failure_reason: "+reason+"\n") {
+				t.Error("expected a machine-readable stale report rejection in ordinary metadata")
+			}
+			for _, event := range overviewProofEvents(t, root)[eventsBefore:] {
+				if event.Op == "overview_attestation_scoring_started" || event.Op == "overview_attestation_scored" {
+					t.Errorf("old report reached the scorer: %s/%s", event.Op, event.Result)
+				}
+			}
+			// A probe at the current identity cannot revive the old anchor.
+			fixture.session.noteProbePass(volumeDeliveryOwner{direct: owner}, fixture.identity, fixture.session.generation)
+			reload := fixture.prove(owner, overviewIn{DeltaSince: fixture.identity})
+			if overviewMetadataValue(t, reload, "delivery_mode") != overviewDeliveryFull ||
+				overviewMetadataValue(t, reload, "fallback_reason") != machinecontract.OverviewFallbackDeltaBaseUnknown {
+				t.Errorf("the old anchor must fall back to full/unknown: mode=%s reason=%s",
+					overviewMetadataValue(t, reload, "delivery_mode"), overviewMetadataValue(t, reload, "fallback_reason"))
+				return
+			}
+			checkpoint := checkpointV2ForTest(t, root, fixture.session, owner, overviewIn{})
+			if checkpoint.CognitionStateV2.CurrentSystemCognitionReliable {
+				t.Fatal("the fresh body alone cannot restore reliability")
+			}
+			first, second := fixture.host, fixture.model
+			if stop {
+				first, second = second, first
+			}
+			second.CognitionStateVersion = machinecontract.CognitionStateV2
+			fixture.prove(owner, first)
+			newProof := fixture.prove(owner, second)
+			if overviewMetadataValue(t, newProof, "host_delivery_status") != hostDeliveryConfirmed ||
+				overviewMetadataValue(t, newProof, "model_attestation") != modelAttestationPass ||
+				!cognitionStateV2MetadataForTest(t, newProof).CurrentSystemCognitionReliable ||
+				!checkpointV2ForTest(t, root, fixture.session, owner, overviewIn{}).CognitionStateV2.CurrentSystemCognitionReliable {
+				t.Fatal("fresh full delivery and split proof must restore reliability")
+			}
+		})
+	}
+}
+
+func TestOnlyTheCompactedHostsFullProofCanFinishRefresh(t *testing.T) {
+	root, _ := deltaVolumesFixture(t, 10)
+	full := transportProofFixtureForRoot(t, root)
+	scoped := transportProofFixtureForScope(t, root, "code")
+	scoped.session = full.session
+	const owner, other, event = "owner", "other-host", "same-event-id"
+	for _, host := range []string{owner, other} {
+		full.prove(host, overviewIn{})
+		full.prove(host, full.both)
+	}
+	checkpointV2ForTest(t, root, full.session, owner, compactionReload("all", event))
+	scoped.prove(owner, overviewIn{Scope: "code"})
+	local := scoped.prove(owner, scoped.both)
+	if overviewMetadataValue(t, local, "host_delivery_status") != hostDeliveryConfirmed || !full.session.compactionPending() {
+		t.Fatal("the scoped proof must succeed for its own body and leave compaction pending")
+	}
+	full.prove(other, full.both)
+	if !full.session.compactionPending() || !checkpointV2ForTest(t, root, full.session, other, overviewIn{}).CognitionStateV2.CurrentSystemCognitionReliable {
+		t.Fatal("another Host must keep its own proof without consuming the pending compaction")
+	}
+	checkpointV2ForTest(t, root, full.session, other, compactionReload("all", event))
+	late := full.prove(other, full.both)
+	if overviewMetadataValue(t, late, "host_delivery_status") != hostDeliveryIncomplete {
+		t.Fatalf("the same event ID from a different Host must invalidate that Host's proof: %s", late)
+	}
+}
+
 // The Legacy layout serves Overview too, and loops the same way.
 func TestLegacyCompactionReloadLoopStops(t *testing.T) {
 	root := t.TempDir()

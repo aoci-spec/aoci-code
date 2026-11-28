@@ -28,12 +28,13 @@ explicitly requested. An unknown projection version fails as a bad argument
 before Overview delivery. The projection adds no MCP tool and does not change
 the MCP tool-name identity.
 
-Legacy `cognition_level`, `cognition_level_state`,
+For ordinary Overview delivery, legacy `cognition_level`, `cognition_level_state`,
 `cognition_level_message`, `delivery_integrity`, `model_attestation`,
 `cognition_assimilation`, `cognition_state`, `model_scope_cognition_reliable`,
 `model_full_cognition_reliable`, `completed`, and cognition Receipt fields keep
 their existing values and meanings. The v2 projection cannot feed back into
-their calculation or into refresh-generation consumption.
+their calculation or into refresh-generation consumption. The opted-in
+checkpoint assessment below also uses the existing delivery and proof facts.
 
 Projection shape
 ----------------
@@ -126,6 +127,7 @@ Strict Attestation
 Failure reasons are deterministic, ordered, and additive. The vocabulary is:
 
 * `not_provided`;
+* `stale_pre_compaction_delivery`;
 * `attestation_envelope_identity_mismatch`;
 * `challenge_answer_count_mismatch`;
 * `ordinal_order_mismatch`;
@@ -176,6 +178,33 @@ submission, an explicit checkpoint response, or a blocked/absent-scope
 terminal response. It is false during initial Full delivery, every Chunk
 delivery including the final body Chunk, and a Host-confirmation-only response
 that still awaits an Attestation report.
+
+Checkpoints
+-----------
+
+With `check_only=true` and this projection requested, the assessment and the
+v2 state read the same proof record. The record belongs to the current
+delivery for this Host session and requested scope. The scope identity and
+the Baseline bytes must still match. The top-level `host_delivery_status`
+reflects that delivery. With no matching record it is
+`host_delivery_incomplete`, and strict Attestation is `not_provided`.
+
+Dirty or Stale governance with the same scope identity and Baseline can still
+report the confirmed delivery and its strict verdict. It withholds current
+system reliability and a reliable checkpoint receipt. A partial or failed
+Attestation supersedes the earlier strict verdict. A fresh delivery starts its
+own proof, and a declared context compaction withdraws the earlier proof of
+that Host. While its compaction is pending, the checkpoint cannot establish
+reliability. After a consumed capacity stop or an aligned partial or failed
+Attestation, the checkpoint gives source-bound continuation instead of a new
+automatic Overview request.
+Another Host connection, a restarted server, and a receipt supplied in the
+request cannot establish session proof.
+
+The checkpoint sends no body, does not confirm delivery or score Attestation,
+and does not advance the refresh generation or replace the stored receipt.
+Explicitly declared refresh events are still processed under the refresh
+contract. Without the v2 opt-in the legacy checkpoint response is unchanged.
 
 Fresh Bootstrap, Candidate, and authoring provenance
 ----------------------------------------------------

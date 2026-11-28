@@ -74,6 +74,7 @@ func semanticFactsFromVolumeGovernance(
 	facts *volumegovernance.Facts,
 ) semanticChangeFacts {
 	result := semanticChangeFacts{
+		baselineSHA256:         facts.BaselineSHA256,
 		Threshold:              loaded.cfg.CognitionRefreshThreshold,
 		SemanticStale:          len(facts.CodeDrift.Stale),
 		ActionableMissing:      len(facts.CodeDrift.Missing),

@@ -145,6 +145,7 @@ const (
 	StrictAttestationNotProvided = "not_provided"
 
 	StrictAttestationReasonNotProvided              = "not_provided"
+	StrictAttestationReasonStalePreCompaction       = "stale_pre_compaction_delivery"
 	StrictAttestationReasonEnvelopeIdentityMismatch = "attestation_envelope_identity_mismatch"
 	StrictAttestationReasonAnswerCountMismatch      = "challenge_answer_count_mismatch"
 	StrictAttestationReasonOrdinalOrderMismatch     = "ordinal_order_mismatch"
@@ -254,6 +255,7 @@ func CognitionStateV2LevelStates() []string {
 func StrictAttestationFailureReasons() []string {
 	return []string{
 		StrictAttestationReasonNotProvided,
+		StrictAttestationReasonStalePreCompaction,
 		StrictAttestationReasonEnvelopeIdentityMismatch,
 		StrictAttestationReasonAnswerCountMismatch,
 		StrictAttestationReasonOrdinalOrderMismatch,

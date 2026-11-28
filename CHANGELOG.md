@@ -15,6 +15,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
   keeps those facts complete and sets `transport_budget_exceeded: true`
   (omitted when within budget), so the response may exceed the host tool-result
   window.
+- Overview checkpoints that opt in to `cognition-state/v2` project the same
+  Host- and scope-bound delivery and Attestation proof as their assessment,
+  with reliability gated by the current Baseline and governance.
 - Successful Apply reports only work outside the issued sibling batches in
   `remaining`. An Apply can report `remaining=0` while siblings still need
   to be applied. Follow `next_action` and close the parallel wave only when
@@ -34,6 +37,18 @@ When downgrading with only parallel drafts in flight, use no-argument
 `aoci_maintain` to reissue the pending work. If a Recovery receipt already
 records an Intent, finish Recovery with the version that wrote it before
 downgrading. See [Rollback](docs/rollback.md).
+
+### Known limitations
+
+The following compaction cases are deferred until after 0.2.0:
+
+- After an MCP server restart, a `cognition-state/v2` checkpoint can register
+  an already consumed compaction event again when the Host resubmits it with
+  its previous valid receipt. The Host can see an extra full reload request.
+- When two Hosts on the same MCP server are both awaiting a compaction reload,
+  the server tracks a single pending owner. The later Host can replace the
+  earlier owner and consume its pending event. The earlier Host's checkpoint
+  still reports cognition as unreliable.
 
 ## v0.2.0-rc5
 

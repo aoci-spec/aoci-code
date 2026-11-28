@@ -106,6 +106,7 @@ type overviewAttestationResult struct {
 	ReportedEntryCountMatch  bool
 	ReportedTokensMatch      bool
 	StrictFailureReasons     []string
+	RejectionReason          string
 	ChallengePassed          int
 	ChallengeTotal           int
 	ReportedEntryCount       int
