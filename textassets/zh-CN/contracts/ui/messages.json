@@ -891,6 +891,7 @@
   "remove.hint.inspect_recovery": "人工核对外部索引变化与.aoci/transactions中的恢复记录",
   "remove.hint.ledger_disabled": "受治理的删除以Ledger终态事件收尾：在团队配置（.aoci/config.json）中把ledger_enabled设为true后重试；本次未写入任何内容",
   "root_overview.invite": "索引已对齐,而 Root 还没有概览。请依据你现在对整个系统的了解撰写两行(各一行),连同这里的 root_sha256 通过 aoci_update_entry 的 root_overview 提交:project 写这个系统是什么、做什么,global_invariants 写贯穿全系统、任何改动都必须遵守的少数几条约束。系统确实没有这类约束时,在 global_invariants 写 none。这一步可选,不影响对齐。",
+  "root_overview.too_long": "root_overview_%s_too_long：%d 个 Unicode 字符，超过上限 %d 个 Unicode 字符",
   "remove.hint.new_decision": "核对新条目来源；只有形成新的删除决策后才能重新调用",
   "remove.hint.relative_path": "path须为仓库相对路径且不得逃逸仓库",
   "remove.hint.replan": "重新调用工具，使其在当前索引中重新定位条目",

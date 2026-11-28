@@ -208,6 +208,7 @@ var requiredRemoveMessages = map[string][]any{
 	"remove.transform_failed":                  {"detail"},
 	"remove.hint.ledger_disabled":              nil,
 	"root_overview.invite":                     nil,
+	"root_overview.too_long":                   {"project", 201, 200},
 	"remove.orphan_blocked_by_scope_change":    {"path", "command"},
 	"remove.lock_failed":                       {"detail"},
 	"remove.cas_read_failed":                   {"detail"},

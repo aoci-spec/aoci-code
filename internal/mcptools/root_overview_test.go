@@ -11,6 +11,7 @@ import (
 	"github.com/aoci-spec/aoci-code/internal/baseline"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
+	"github.com/aoci-spec/aoci-code/textassets"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -160,6 +161,84 @@ func TestRootOverviewRefusals(t *testing.T) {
 	}
 	if after, _ := os.ReadFile(filepath.Join(root, "aoci.txt")); string(after) != string(before) || rootReceiptPending(root) {
 		t.Fatal("a refused overview must write nothing")
+	}
+}
+
+func TestRootOverviewTooLongNamesLimitAndActualCountAndSchemaDocumentsLimits(t *testing.T) {
+	previousLocale := textassets.ActiveLocale()
+	t.Cleanup(func() { _ = textassets.SetActiveLocale(previousLocale) })
+
+	for _, tc := range []struct {
+		locale   string
+		unitWord string
+	}{
+		{textassets.DefaultLocale, "Unicode characters"},
+		{textassets.LegacyLocale, "Unicode 字符"},
+	} {
+		t.Run(tc.locale, func(t *testing.T) {
+			root, session := deltaVolumesFixture(t, 4)
+			if err := textassets.SetActiveLocale(tc.locale); err != nil {
+				t.Fatal(err)
+			}
+			sha := rootInvite(t, session)["root_sha256"].(string)
+
+			cases := []struct {
+				code       string
+				project    string
+				invariant  string
+				wantActual string
+				wantLimit  string
+			}{
+				{
+					code:       "root_overview_project_too_long",
+					project:    strings.Repeat("汉", machinecontract.RootOverviewProjectMaxChars+5),
+					invariant:  "fine",
+					wantActual: "205",
+					wantLimit:  "200",
+				},
+				{
+					code:       "root_overview_global_invariants_too_long",
+					project:    "fine",
+					invariant:  strings.Repeat("x", machinecontract.RootOverviewInvariantsMaxChars+7),
+					wantActual: "607",
+					wantLimit:  "600",
+				},
+			}
+			for _, current := range cases {
+				refused := submitRootOverview(t, session, current.project, current.invariant, sha)
+				nextAction, _ := refused["next_action"].(string)
+				if refused["status"] != autoStatusRepairRequired || refused["formal_writes_started"] != false {
+					t.Fatalf("%s/%s: unexpected status: %v", tc.locale, current.code, refused)
+				}
+				for _, want := range []string{current.code, current.wantActual, current.wantLimit, tc.unitWord} {
+					if !strings.Contains(nextAction, want) {
+						t.Fatalf("%s/%s: refusal %q missing %q", tc.locale, current.code, nextAction, want)
+					}
+				}
+			}
+
+			schemas, err := loadMCPInputSchemas()
+			if err != nil {
+				t.Fatal(err)
+			}
+			updateSchema := schemas["aoci_update_entry"].(map[string]any)
+			props := updateSchema["properties"].(map[string]any)
+			roSchema := props["root_overview"].(map[string]any)
+			desc, _ := roSchema["description"].(string)
+			for _, want := range []string{"200", "600", tc.unitWord} {
+				if !strings.Contains(desc, want) {
+					t.Fatalf("%s root_overview schema description %q missing %q", tc.locale, desc, want)
+				}
+			}
+			roProps := roSchema["properties"].(map[string]any)
+			if got := roProps["project"].(map[string]any)["maxLength"]; got != 4*machinecontract.RootOverviewProjectMaxChars {
+				t.Fatalf("%s project schema maxLength = %v, want %d (4x cap preserved)", tc.locale, got, 4*machinecontract.RootOverviewProjectMaxChars)
+			}
+			if got := roProps["global_invariants"].(map[string]any)["maxLength"]; got != 4*machinecontract.RootOverviewInvariantsMaxChars {
+				t.Fatalf("%s global_invariants schema maxLength = %v, want %d (4x cap preserved)", tc.locale, got, 4*machinecontract.RootOverviewInvariantsMaxChars)
+			}
+			_ = root
+		})
 	}
 }
 

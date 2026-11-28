@@ -161,13 +161,14 @@ func rewriteRootOverview(raw []byte, project, invariants string) []byte {
 
 // rootOverviewValueFinding names why one authored value is refused, or "".
 func rootOverviewValueFinding(field, value string, maxChars int) string {
+	trimmed := strings.TrimSpace(value)
 	switch {
 	case !utf8.ValidString(value) || strings.ContainsAny(value, "\r\n\x00"):
 		return "root_overview_" + field + "_not_one_line"
-	case !rootOverviewAuthored(strings.TrimSpace(value)):
+	case !rootOverviewAuthored(trimmed):
 		return "root_overview_" + field + "_unauthored"
-	case utf8.RuneCountInString(strings.TrimSpace(value)) > maxChars:
-		return "root_overview_" + field + "_too_long"
+	case utf8.RuneCountInString(trimmed) > maxChars:
+		return writeMessage("root_overview.too_long", field, utf8.RuneCountInString(trimmed), maxChars)
 	}
 	return ""
 }

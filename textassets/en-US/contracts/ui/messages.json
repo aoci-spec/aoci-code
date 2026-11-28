@@ -891,6 +891,7 @@
   "remove.hint.inspect_recovery": "Inspect the external index change and the recovery record under .aoci/transactions",
   "remove.hint.ledger_disabled": "Governed removal completes with a terminal Ledger event: set ledger_enabled to true in the team configuration (.aoci/config.json) and retry; nothing was written",
   "root_overview.invite": "The index is aligned and its Root still carries no overview. From what you now know of the whole system, author two single lines and submit them through aoci_update_entry root_overview with this root_sha256: project says what the system is and does, global_invariants the few constraints that hold across it and that a change anywhere must respect. Write none in global_invariants when the system has none. This is optional and never affects alignment.",
+  "root_overview.too_long": "root_overview_%s_too_long: %d Unicode characters exceeds the maximum of %d Unicode characters",
   "remove.hint.new_decision": "Inspect the new Entry source and issue a new request only after making a new removal decision",
   "remove.hint.relative_path": "path must be repository-relative and must not escape the repository",
   "remove.hint.replan": "Retry the tool so it locates the Entry in the current index",
