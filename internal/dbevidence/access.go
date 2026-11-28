@@ -56,19 +56,24 @@ func NewEnvironmentCredentialProvider(lookup func(string) string) CredentialProv
 // AccessPlan is a redacted, read-only onboarding result. It reports only a
 // provider reference and readiness; it never contains the resolved value.
 type AccessPlan struct {
-	Version          string `json:"version"`
-	SourceID         string `json:"source_id"`
-	Provider         string `json:"provider"`
-	Reference        string `json:"reference"`
-	Status           string `json:"status"`
-	NextAction       string `json:"next_action"`
-	CredentialSaved  bool   `json:"credential_saved"`
-	NetworkAccessed  bool   `json:"network_accessed"`
-	BusinessDataRead bool   `json:"business_data_read"`
+	Version                 string `json:"version"`
+	SourceID                string `json:"source_id"`
+	Provider                string `json:"provider"`
+	Reference               string `json:"reference"`
+	Status                  string `json:"status"`
+	NextAction              string `json:"next_action"`
+	ConnectionStringExample string `json:"connection_string_example,omitempty"`
+	ActionHint              string `json:"action_hint,omitempty"`
+	CredentialSaved         bool   `json:"credential_saved"`
+	NetworkAccessed         bool   `json:"network_accessed"`
+	BusinessDataRead        bool   `json:"business_data_read"`
 }
 
-// InspectAccess validates configuration and checks runtime credential
-// availability without opening a database connection.
+// InspectAccess validates source configuration and checks in-process whether
+// the configured environment credential is set and non-empty without printing,
+// storing, validating DSN syntax, or opening a database connection. A ready
+// status therefore means non-empty rather than format-valid; the engine driver
+// validates format and connectivity on inspect, snapshot, or verify.
 func InspectAccess(ctx context.Context, source SourceConfig, provider CredentialProvider) (AccessPlan, error) {
 	if err := NormalizeSource(&source); err != nil {
 		return AccessPlan{}, &SourceError{Code: "configuration_invalid", SourceID: "invalid", Op: "access_preflight"}
@@ -104,6 +109,7 @@ func InspectAccess(ctx context.Context, source SourceConfig, provider Credential
 		return AccessPlan{}, &SourceError{Code: "credential_provider_unsupported", SourceID: source.SourceID, Op: "access_preflight"}
 	}
 	if _, err := provider.Resolve(ctx, CredentialRequest{SourceID: source.SourceID, Reference: source.CredentialEnv}); err != nil {
+		plan.ConnectionStringExample = ConnectionStringExample(source.Engine)
 		return plan, nil
 	}
 	plan.Status = AccessStatusReady
@@ -116,4 +122,21 @@ func InspectAccess(ctx context.Context, source SourceConfig, provider Credential
 func DefaultCredentialEnv(sourceID string) string {
 	value := strings.ToUpper(strings.ReplaceAll(sourceID, "-", "_"))
 	return "AOCI_DB_" + value + "_DSN"
+}
+
+// ConnectionStringExample returns the canonical placeholder connection string
+// format accepted by the named server engine's configured Go driver. It never
+// contains real credentials and is the single source of truth shared between
+// docs/database-evidence.md and access preflight diagnostics.
+func ConnectionStringExample(engine Engine) string {
+	switch engine {
+	case EnginePostgreSQL:
+		return "postgres://<user>:<password>@<host>:<port>/<database>"
+	case EngineMySQL:
+		return "<user>:<password>@tcp(<host>:<port>)/<database>"
+	case EngineOpenGauss:
+		return "opengauss://<user>:<password>@<host>:<port>/<database>?sslmode=verify-full"
+	default:
+		return ""
+	}
 }

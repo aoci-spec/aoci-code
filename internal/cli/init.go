@@ -211,6 +211,12 @@ func init() {
 					return &ExitError{Code: ExitConfig, Msg: preflightErr.Error()}
 				}
 			}
+			// Refuse a symlinked or non-directory .aoci or .aoci/backups before
+			// init creates any directory or writes AGENTS.md so backups can
+			// never be redirected outside the repository or to another path.
+			if preflightErr := hooks.ValidateAgentsBackupDir(root); preflightErr != nil {
+				return &ExitError{Code: ExitConfig, Msg: preflightErr.Error()}
+			}
 
 			outputLines := []string{}
 			configExisted := true

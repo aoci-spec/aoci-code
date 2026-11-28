@@ -35,6 +35,10 @@ var (
 	ErrRelPathUNC      = errors.New("path_unc_rejected")
 	ErrRelPathNoTarget = errors.New("path_without_target")
 	ErrRelPathEscapes  = errors.New("path_escapes_repository")
+	// ErrUnsafeDirPath reports a directory path under the repository whose
+	// segment is a symbolic link, irregular entry (e.g. junction), non-directory,
+	// or resolves outside the repository root.
+	ErrUnsafeDirPath = errors.New("unsafe_dir_path")
 )
 
 // RelPathMessageKey names the UI catalog message that explains a
@@ -139,4 +143,90 @@ func HashRegularFileInRoot(root, rel string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(digest.Sum(nil)), nil
+}
+
+// UnsafeDirPathSegment extracts the offending repository-relative segment from
+// an ErrUnsafeDirPath error, or returns "" for other errors.
+func UnsafeDirPathSegment(err error) string {
+	if !errors.Is(err, ErrUnsafeDirPath) {
+		return ""
+	}
+	prefix := ErrUnsafeDirPath.Error() + ": "
+	msg := err.Error()
+	if idx := strings.Index(msg, prefix); idx >= 0 {
+		return strings.TrimSpace(msg[idx+len(prefix):])
+	}
+	return ""
+}
+
+// CheckDirInRoot validates rel with NormalizeRelPath and inspects every
+// existing segment under root with os.Lstat without creating directories.
+// Any existing symbolic link, irregular entry, non-directory, or resolved path
+// outside the resolved repository root returns an ErrUnsafeDirPath error.
+func CheckDirInRoot(root, rel string) error {
+	_, err := walkDirInRoot(root, rel, false, 0)
+	return err
+}
+
+// EnsureDirInRoot validates rel with NormalizeRelPath, refuses any symbolic
+// link, irregular entry, or non-directory segment under root, creates missing
+// directory segments with perm, and confirms the resulting directory resolves
+// inside the resolved repository root.
+func EnsureDirInRoot(root, rel string, perm os.FileMode) (string, error) {
+	return walkDirInRoot(root, rel, true, perm)
+}
+
+func walkDirInRoot(root, rel string, create bool, perm os.FileMode) (string, error) {
+	clean, err := NormalizeRelPath(rel)
+	if err != nil {
+		return "", err
+	}
+	clean = strings.TrimSuffix(clean, "/")
+	if clean == "" {
+		return "", ErrRelPathNoTarget
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(absRoot)
+	if err != nil {
+		return "", err
+	}
+	parts := strings.Split(clean, "/")
+	current := absRoot
+	deepestExisting := absRoot
+	for index, part := range parts {
+		current = filepath.Join(current, part)
+		segRel := strings.Join(parts[:index+1], "/")
+		info, statErr := os.Lstat(current)
+		if statErr != nil {
+			if !errors.Is(statErr, os.ErrNotExist) {
+				return "", statErr
+			}
+			if !create {
+				break
+			}
+			if mkErr := os.Mkdir(current, perm); mkErr != nil {
+				return "", mkErr
+			}
+			info, statErr = os.Lstat(current)
+			if statErr != nil {
+				return "", statErr
+			}
+		}
+		if info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeIrregular != 0 || !info.IsDir() {
+			return "", fmt.Errorf("%w: %s", ErrUnsafeDirPath, segRel)
+		}
+		deepestExisting = current
+	}
+	resolvedExisting, err := filepath.EvalSymlinks(deepestExisting)
+	if err != nil {
+		return "", err
+	}
+	relCheck, err := filepath.Rel(resolvedRoot, resolvedExisting)
+	if err != nil || relCheck == ".." || strings.HasPrefix(relCheck, ".."+string(filepath.Separator)) || filepath.IsAbs(relCheck) {
+		return "", fmt.Errorf("%w: %s", ErrUnsafeDirPath, clean)
+	}
+	return current, nil
 }

@@ -77,6 +77,139 @@ func TestDatabaseSourceCLIDefaultsCredentialReferenceAndReportsAccessPlan(t *tes
 	if plan.Status != dbevidence.AccessStatusActionRequired || plan.NetworkAccessed || plan.CredentialSaved || plan.BusinessDataRead {
 		t.Fatalf("unexpected access plan: %#v", plan)
 	}
+	wantExample := dbevidence.ConnectionStringExample(dbevidence.EnginePostgreSQL)
+	if plan.ConnectionStringExample != wantExample || !strings.Contains(plan.ActionHint, wantExample) || !strings.Contains(plan.ActionHint, "AOCI_DB_ORDERS_READ_DSN") {
+		t.Fatalf("action_required JSON plan missing format example/hint: %#v", plan)
+	}
+}
+
+func TestDatabaseSourceAccessIncludesLocalizedFormatHintWithoutLeakingSecrets(t *testing.T) {
+	engines := []struct {
+		engine    dbevidence.Engine
+		sourceID  string
+		envName   string
+		namespace string
+		secret    string
+	}{
+		{dbevidence.EnginePostgreSQL, "pg-main", "AOCI_DB_PG_MAIN_DSN", "public", "postgres://secret-pg-user:secret-pg-pass@secret-pg-host:5432/app"},
+		{dbevidence.EngineMySQL, "mysql-main", "AOCI_DB_MYSQL_MAIN_DSN", "app", "secret-my-user:secret-my-pass@tcp(secret-my-host:3306)/app"},
+		{dbevidence.EngineOpenGauss, "og-main", "AOCI_DB_OG_MAIN_DSN", "public", "opengauss://secret-og-user:secret-og-pass@secret-og-host:5432/app?sslmode=verify-full"},
+	}
+
+	for _, locale := range []struct {
+		code       string
+		hintMarker string
+	}{
+		{"en-US", "outside AOCI using this format"},
+		{"zh-CN", "格式样例"},
+	} {
+		t.Run(locale.code, func(t *testing.T) {
+			root := databaseCLIRepo(t)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Locale = locale.code
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			for _, tc := range engines {
+				var stdout, stderr bytes.Buffer
+				addArgs := []string{"--repo", root, "--json", "database", "source", "add",
+					"--source-id", tc.sourceID, "--engine", string(tc.engine),
+					"--database-name", "app", "--namespace", tc.namespace,
+					"--credential-env", tc.envName}
+				if code := executeCLI(addArgs, &stdout, &stderr); code != ExitOK {
+					t.Fatalf("add %s: code=%d stderr=%s", tc.sourceID, code, stderr.String())
+				}
+
+				wantExample := dbevidence.ConnectionStringExample(tc.engine)
+
+				for _, state := range []struct {
+					name string
+					set  bool
+					val  string
+				}{
+					{"unset", false, ""},
+					{"empty", true, ""},
+					{"whitespace_only", true, " \t\n "},
+				} {
+					if state.set {
+						t.Setenv(tc.envName, state.val)
+					} else {
+						prev, existed := os.LookupEnv(tc.envName)
+						_ = os.Unsetenv(tc.envName)
+						t.Cleanup(func() {
+							if existed {
+								_ = os.Setenv(tc.envName, prev)
+							}
+						})
+					}
+
+					// Human output on action_required
+					stdout.Reset()
+					stderr.Reset()
+					if code := executeCLI([]string{"--repo", root, "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
+						t.Fatalf("human access %s (%s): code=%d stderr=%s", tc.sourceID, state.name, code, stderr.String())
+					}
+					humanOut := stdout.String()
+					if !strings.Contains(humanOut, locale.hintMarker) || !strings.Contains(humanOut, tc.envName) || !strings.Contains(humanOut, wantExample) {
+						t.Fatalf("%s human access (%s) missing localized format hint for %s:\n%s", locale.code, state.name, tc.engine, humanOut)
+					}
+
+					// JSON output on action_required
+					stdout.Reset()
+					stderr.Reset()
+					if code := executeCLI([]string{"--repo", root, "--json", "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
+						t.Fatalf("json access %s (%s): code=%d stderr=%s", tc.sourceID, state.name, code, stderr.String())
+					}
+					var plan dbevidence.AccessPlan
+					if err := json.Unmarshal(stdout.Bytes(), &plan); err != nil {
+						t.Fatalf("decode access json: %v\n%s", err, stdout.String())
+					}
+					if plan.Status != dbevidence.AccessStatusActionRequired ||
+						plan.ConnectionStringExample != wantExample ||
+						!strings.Contains(plan.ActionHint, locale.hintMarker) ||
+						!strings.Contains(plan.ActionHint, tc.envName) ||
+						!strings.Contains(plan.ActionHint, wantExample) {
+						t.Fatalf("%s json access (%s) missing format hint for %s: %#v", locale.code, state.name, tc.engine, plan)
+					}
+				}
+
+				// When credential is set: ready, no hint, and never leak the secret value.
+				t.Setenv(tc.envName, tc.secret)
+				for _, jsonMode := range []bool{false, true} {
+					stdout.Reset()
+					stderr.Reset()
+					args := []string{"--repo", root}
+					if jsonMode {
+						args = append(args, "--json")
+					}
+					args = append(args, "database", "source", "access", "--source", tc.sourceID)
+					if code := executeCLI(args, &stdout, &stderr); code != ExitOK {
+						t.Fatalf("ready access %s (json=%t): code=%d stderr=%s", tc.sourceID, jsonMode, code, stderr.String())
+					}
+					combined := stdout.String() + stderr.String()
+					for _, secretPart := range []string{tc.secret, "secret-pg-", "secret-my-", "secret-og-"} {
+						if strings.Contains(combined, secretPart) {
+							t.Fatalf("ready access leaked %q:\n%s", secretPart, combined)
+						}
+					}
+					if jsonMode {
+						var readyPlan dbevidence.AccessPlan
+						if err := json.Unmarshal(stdout.Bytes(), &readyPlan); err != nil {
+							t.Fatal(err)
+						}
+						if readyPlan.Status != dbevidence.AccessStatusReady || readyPlan.ConnectionStringExample != "" || readyPlan.ActionHint != "" {
+							t.Fatalf("ready json plan must not include action_required hint: %#v", readyPlan)
+						}
+					} else if strings.Contains(stdout.String(), wantExample) {
+						t.Fatalf("ready human output should not print action_required format hint:\n%s", stdout.String())
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestDatabaseSourceCLIAcceptsCanonicalOpenGaussEngine(t *testing.T) {

@@ -805,7 +805,7 @@ Then use the read-only access preflight to see whether the external environment 
 aoci --repo . database source access --source primary --json
 ```
 
-This command does not connect to the database, return a credential value, or ask you to paste a DSN into a conversation. A database or infrastructure administrator provides the environment variable outside the AOCI process and grants read-only, least-privilege access to the system catalogs. Source configuration stores only the credential **reference name**, not the secret.
+This command does not connect to the database, return a credential value, or ask you to paste a DSN into a conversation. It only checks in-process whether the configured environment variable is set and non-empty and does not validate DSN syntax, so `status=ready` does not guarantee that the format is valid (format and connectivity are verified when `source inspect`, `snapshot`, or `verify` runs the driver). A database or infrastructure administrator provides the environment variable outside the AOCI process and grants read-only, least-privilege access to the system catalogs. Source configuration stores only the credential **reference name**, not the secret. For the connection-string format each server engine accepts (PostgreSQL, MySQL, and openGauss), see [Connection string formats](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/docs/database-evidence.md#connection-string-formats).
 
 The current release provides only the environment credential provider. Cloud secret managers such as Vault, Kubernetes Secret, and AWS/GCP/Azure may be integrated through the same provider boundary in later versions; they are not available today, and this README does not imply otherwise.
 

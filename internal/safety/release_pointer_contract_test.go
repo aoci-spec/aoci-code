@@ -171,3 +171,27 @@ func TestNoticeKeepsAnAvailabilityDateForEveryReleasedVersion(t *testing.T) {
 		t.Errorf("NOTICE records %d availability date(s) for %d released version(s)", len(dates), len(sections))
 	}
 }
+
+// Every GitHub blob link in README.md and README.zh-CN.md must pin the same
+// release tag as CHANGELOG's current release so cutting a new release moves
+// every link (including newly added doc anchors) together to the new tag and
+// never leaves a link stale on an earlier tag or pointing to a moving branch.
+func TestBothReadmeBlobLinksNameTheCurrentVersion(t *testing.T) {
+	root := releaseRepoRoot(t)
+	want := "v" + currentReleaseVersion(t, root)
+	blobLink := regexp.MustCompile(`https://github\.com/aoci-spec/aoci-code/blob/([^/\s)\]]+)/`)
+
+	for _, file := range []string{"README.md", "README.zh-CN.md"} {
+		text := readReleaseFile(t, root, file)
+		matches := blobLink.FindAllStringSubmatch(text, -1)
+		if len(matches) == 0 {
+			t.Errorf("%s carries no GitHub blob links", file)
+			continue
+		}
+		for _, match := range matches {
+			if match[1] != want {
+				t.Errorf("%s blob link pins %q where CHANGELOG's current release is %q", file, match[1], want)
+			}
+		}
+	}
+}
