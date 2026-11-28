@@ -663,7 +663,6 @@
   "init.automation_invalid": "automation.mode is invalid; repair the team config.json first",
   "init.bad_agent": "unknown Agent %q (available: claude, codex, cursor, opencode, qoder, pi, all; all keeps the existing claude/codex/cursor set; omit it to create the skeleton and detect Agents only)",
   "init.bad_scope_profile": "invalid Managed Scope profile %q (available: production, full, custom)",
-  "init.backup_gitignore_updated": "Added AOCI backup files to .gitignore so they stay out of Git and out of Managed Scope: %s",
   "init.baseline_advanced": "Baseline advanced for this init operation: %s",
   "init.baseline_concurrent_suffix": "; concurrent changes were not advanced: %s",
   "init.baseline_concurrent_warning": "Warning: files changed again after init; the Baseline was not advanced for: %s",

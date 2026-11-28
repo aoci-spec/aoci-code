@@ -469,8 +469,8 @@ func init() {
 
 			outputLines = append(outputLines, cliMessage("init.config_ready"))
 			beforeAgents, beforeAgentsExisted := fingerprintInitPath(root, "AGENTS.md")
-			agentsMessage, agentsBackupFile, err :=
-				hooks.EnsureAgentsBlockWithBackup(
+			agentsMessage, err :=
+				hooks.EnsureAgentsBlock(
 					root,
 				)
 			if err != nil {
@@ -486,7 +486,6 @@ func init() {
 				expectedPostimages["AGENTS.md"] = fingerprint
 			}
 
-			var hostIgnoreCandidates []string
 			if agent != "" {
 				agents := []string{
 					agent,
@@ -554,11 +553,31 @@ func init() {
 					}
 				}
 
+				// It must happen before the first scan: miss this moment and the machine-bound host configuration enters
+				// the Managed Scope in the index role, after which --force cannot advance the role,
+				// and removal goes through the coverage-reduction Scope Change approval.
+				hostIgnoreCandidates := []string{}
 				for _, agentName := range agents {
 					hostIgnoreCandidates = append(
 						hostIgnoreCandidates,
 						initAgentCandidatePaths(agentName)...,
 					)
+				}
+				hostIgnoreMessage, hostIgnoreErr := ensureHostConfigGitignore(
+					root,
+					hostIgnoreCandidates,
+				)
+				if hostIgnoreErr != nil {
+					return hostIgnoreErr
+				}
+				if hostIgnoreMessage != "" {
+					outputLines = append(
+						outputLines,
+						hostIgnoreMessage,
+					)
+					if fingerprint, ok := fingerprintInitPath(root, ".gitignore"); ok {
+						expectedPostimages[".gitignore"] = fingerprint
+					}
 				}
 
 				// Without Git no ignore file keeps the host configuration out of
@@ -601,33 +620,6 @@ func init() {
 						outputLines,
 						cliMessage("init.detected_agents", strings.Join(found, ", ")),
 					)
-				}
-			}
-
-			// It must happen before the first scan: miss this moment and the machine-bound host configuration enters
-			// the Managed Scope in the index role, after which --force cannot advance the role,
-			// and removal goes through the coverage-reduction Scope Change approval.
-			// AGENTS.md.backup.* is written only before the first scan (when an agent ignore block is already being
-			// managed or an existing AGENTS.md was backed up) so an existing repository's Baseline and roles never move.
-			var extraIgnorePatterns []string
-			if beforeFirstScan && (len(hostIgnoreCandidates) > 0 || agentsBackupFile != "") {
-				extraIgnorePatterns = append(extraIgnorePatterns, agentsBackupIgnorePattern)
-			}
-			hostIgnoreMessage, hostIgnoreErr := ensureHostConfigGitignore(
-				root,
-				hostIgnoreCandidates,
-				extraIgnorePatterns,
-			)
-			if hostIgnoreErr != nil {
-				return hostIgnoreErr
-			}
-			if hostIgnoreMessage != "" {
-				outputLines = append(
-					outputLines,
-					hostIgnoreMessage,
-				)
-				if fingerprint, ok := fingerprintInitPath(root, ".gitignore"); ok {
-					expectedPostimages[".gitignore"] = fingerprint
 				}
 			}
 

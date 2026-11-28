@@ -105,25 +105,18 @@ func ensureAOCIRuntimeGitignore(
 // never read or rewritten; a second init only adds new paths under the same marker.
 const hostConfigIgnoreMarker = "# AOCI agent host integration (machine-bound; do not commit)"
 
-// agentsBackupIgnorePattern keeps timestamped AGENTS.md preimages created by
-// hooks.BackupThenWrite out of Git while leaving AGENTS.md itself tracked.
-const agentsBackupIgnorePattern = "AGENTS.md.backup.*"
-
-// ensureHostConfigGitignore adds the host configuration init just wrote (and
-// any extra backup patterns such as AGENTS.md.backup.*) to the repository root
-// .gitignore.
+// ensureHostConfigGitignore adds the host configuration init just wrote to the repository root .gitignore.
 //
 // Why it must happen before the first scan: these files carry local absolute paths; once committed, someone else's init judges only
 // by whether the key exists, returns early as idempotent, and silently spins. And the roles of the Managed Scope are fixed at the first scan,
 // after which --force cannot advance them, and removal goes through the coverage-reduction Scope Change approval; so missing this
 // moment costs one human approval, not one changed line of configuration.
 //
-// Boundary: only candidate paths that really exist this time are appended; a path already tracked by Git is always skipped, since that means the maintainer
+// Boundary: only paths that really exist this time are appended; a path already tracked by Git is always skipped, since that means the maintainer
 // has decided to commit it and init does not change their mind; an equivalent entry already in the root .gitignore is not written twice.
 func ensureHostConfigGitignore(
 	root string,
 	candidatePaths []string,
-	extraPatterns []string,
 ) (
 	string,
 	error,
@@ -135,7 +128,7 @@ func ensureHostConfigGitignore(
 		}
 		present = append(present, relativePath)
 	}
-	if len(present) == 0 && len(extraPatterns) == 0 {
+	if len(present) == 0 {
 		return "", nil
 	}
 
@@ -152,7 +145,7 @@ func ensureHostConfigGitignore(
 	}
 	current := string(existing)
 
-	hostAdded := make([]string, 0, len(present))
+	added := make([]string, 0, len(present))
 	for _, relativePath := range present {
 		if tracked[relativePath] {
 			continue
@@ -160,7 +153,7 @@ func ensureHostConfigGitignore(
 		if gitignoreAlreadyCovers(current, relativePath) {
 			continue
 		}
-		hostAdded = append(hostAdded, relativePath)
+		added = append(added, relativePath)
 		current = appendGitignoreLine(current, relativePath)
 
 		// The installers back a host config up before rewriting it, and the
@@ -173,25 +166,14 @@ func ensureHostConfigGitignore(
 			current = appendGitignoreLine(current, backups)
 		}
 	}
-	extraAdded := make([]string, 0, len(extraPatterns))
-	for _, pattern := range extraPatterns {
-		if pattern == "" || gitignoreAlreadyCovers(current, pattern) {
-			continue
-		}
-		extraAdded = append(extraAdded, pattern)
-		current = appendGitignoreLine(current, pattern)
-	}
-	if len(hostAdded) == 0 && len(extraAdded) == 0 {
+	if len(added) == 0 {
 		return "", nil
 	}
 
 	if err := fs.AtomicWrite(targetPath, []byte(current)); err != nil {
 		return "", errors.New(cliMessage("init.host_gitignore_write_error", err))
 	}
-	if len(hostAdded) > 0 {
-		return cliMessage("init.host_gitignore_updated", strings.Join(append(hostAdded, extraAdded...), ", ")), nil
-	}
-	return cliMessage("init.backup_gitignore_updated", strings.Join(extraAdded, ", ")), nil
+	return cliMessage("init.host_gitignore_updated", strings.Join(added, ", ")), nil
 }
 
 // trackedRepositoryPaths reads the set of paths Git currently tracks.

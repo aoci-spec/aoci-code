@@ -103,7 +103,7 @@ func TestEnsureAgentsBlockWithBackupReportsExactBackupFile(t *testing.T) {
 				t.Fatalf("fresh AGENTS.md must not report a backup: msg=%q bak=%q", msg, bak)
 			}
 
-			// Existing AGENTS.md without markers: appended, backup reported.
+			// Existing AGENTS.md without markers: appended, backup under .aoci/backups/ with 0600.
 			root := t.TempDir()
 			original := "# Project rules\nKeep this untouched.\n"
 			if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(original), 0o644); err != nil {
@@ -113,12 +113,22 @@ func TestEnsureAgentsBlockWithBackupReportsExactBackupFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.HasPrefix(bak, "AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
-				t.Fatalf("append must report backup file: msg=%q bak=%q", msg, bak)
+			if !strings.HasPrefix(bak, ".aoci/backups/AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
+				t.Fatalf("append must report backup under .aoci/backups/: msg=%q bak=%q", msg, bak)
 			}
-			saved, err := os.ReadFile(filepath.Join(root, bak))
+			if rootBackups, _ := filepath.Glob(filepath.Join(root, "AGENTS.md.backup.*")); len(rootBackups) != 0 {
+				t.Fatalf("AGENTS.md backup must not be written at repository root: %v", rootBackups)
+			}
+			bakPath := filepath.Join(root, filepath.FromSlash(bak))
+			saved, err := os.ReadFile(bakPath)
 			if err != nil || string(saved) != original {
 				t.Fatalf("backup content mismatch: err=%v got=%q", err, string(saved))
+			}
+			if runtime.GOOS != "windows" {
+				info, err := os.Stat(bakPath)
+				if err != nil || info.Mode().Perm() != 0o600 {
+					t.Fatalf("AGENTS.md backup must be mode 0600: %v %v", info, err)
+				}
 			}
 
 			// Idempotent re-run: no backup reported.
@@ -130,7 +140,7 @@ func TestEnsureAgentsBlockWithBackupReportsExactBackupFile(t *testing.T) {
 				t.Fatalf("idempotent run must not create a backup: msg=%q bak=%q", msg, bak)
 			}
 
-			// Existing AGENTS.md with stale managed block: updated, backup reported.
+			// Existing AGENTS.md with stale managed block: updated, backup under .aoci/backups/ with 0600.
 			stale := "# Header\n\n" + agentsBegin + "\nstale\n" + agentsEnd + "\n"
 			if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(stale), 0o644); err != nil {
 				t.Fatal(err)
@@ -139,12 +149,22 @@ func TestEnsureAgentsBlockWithBackupReportsExactBackupFile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.HasPrefix(bak, "AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
-				t.Fatalf("update must report backup file: msg=%q bak=%q", msg, bak)
+			if !strings.HasPrefix(bak, ".aoci/backups/AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
+				t.Fatalf("update must report backup under .aoci/backups/: msg=%q bak=%q", msg, bak)
 			}
-			saved, err = os.ReadFile(filepath.Join(root, bak))
+			if rootBackups, _ := filepath.Glob(filepath.Join(root, "AGENTS.md.backup.*")); len(rootBackups) != 0 {
+				t.Fatalf("updated AGENTS.md backup must not be written at repository root: %v", rootBackups)
+			}
+			bakPath = filepath.Join(root, filepath.FromSlash(bak))
+			saved, err = os.ReadFile(bakPath)
 			if err != nil || string(saved) != stale {
 				t.Fatalf("updated backup content mismatch: err=%v got=%q", err, string(saved))
+			}
+			if runtime.GOOS != "windows" {
+				info, err := os.Stat(bakPath)
+				if err != nil || info.Mode().Perm() != 0o600 {
+					t.Fatalf("updated AGENTS.md backup must be mode 0600: %v %v", info, err)
+				}
 			}
 		})
 	}
