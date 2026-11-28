@@ -125,7 +125,7 @@ func checkpointDeliveryScope(receipt cognitionReceipt) string {
 // a pending compaction withdraws the pre-compaction Host memory.
 func (session *cognitionRefreshSession) currentCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string) *overviewCheckpointProof {
 	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
-	if delivery == nil || delivery.sent < delivery.count || session.pendingReasons[machinecontract.RefreshReasonContextCompaction] {
+	if delivery == nil || delivery.beforeCompaction || delivery.sent < delivery.count || session.compactionPendingFor(owner) {
 		return nil
 	}
 	proof := delivery.checkpoint
@@ -139,7 +139,7 @@ func (session *cognitionRefreshSession) currentCheckpointProof(owner volumeDeliv
 // the scored result for this exact body without keeping any model answers.
 func (session *cognitionRefreshSession) recordCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string, input overviewIn, facts overviewDeliveryFacts) {
 	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
-	if delivery == nil || delivery.body != facts.BodySHA256 || baselineSHA256 == "" {
+	if delivery == nil || delivery.beforeCompaction || delivery.body != facts.BodySHA256 || baselineSHA256 == "" {
 		return
 	}
 	if facts.ChunkKnown {

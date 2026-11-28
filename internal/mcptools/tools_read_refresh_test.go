@@ -480,6 +480,7 @@ func TestRefreshSessionPartialAttestationConsumesEventWithoutGrantingReliability
 	}
 	delivered := session.deliveredReceipt(current, "compact-partial")
 	session.recordAttestedDelivery(
+		volumeDeliveryOwner{}, true,
 		delivered,
 		overviewAttestationResult{
 			ReportProvided:        true,

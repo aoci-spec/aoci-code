@@ -872,6 +872,7 @@
   "overview.refresh.event_id_required": "宿主声明刷新原因时必须提供 refresh_event_id",
   "overview.refresh.maintain_required": "在该稳定检查点调用一次 aoci_maintain；严格处理其 repair_required 或 stopped，再证明aligned后重新请求Overview。",
   "overview.refresh.not_required": "继续复用当前完整认知；局部不确定时先调查源码，只在必要时使用局部召回。",
+  "overview.refresh.source_bound": "继续依据源码和测试完成当前任务。本次刷新尝试已结束，请暂缓完整系统认知声明，并停止自动重试 Overview。",
   "overview.refresh.ready": "checkpoint已经aligned，terminal_proof.aligned=true 即表示首建或维护已对齐完成；不要再次Maintain。cognition_state=uncertain 只表示本会话还没读过完整索引，不是出错；若要在同一会话接着开发（尤其有子代理参与首建），再调用一次完整 aoci_overview，否则由Agent决定下一阶段是否需要普通完整Overview。",
   "overview.refresh.reason_invalid": "不支持宿主刷新原因 %q；只能使用 context_compaction 或 phase_transition",
   "planner.artifact_written": "Artifact 已写入 %s",

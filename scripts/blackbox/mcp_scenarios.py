@@ -1817,8 +1817,8 @@ def current_entries(fx):
     with open(os.path.join(fx, "aoci.code.txt"), encoding="utf-8") as fh:
         return parse_body_entries(fh.read(), fx)
 
-def attest_delivery(s, fx, t, wrong=False):
-    """Confirm and attest one full-form delivery (complete or delta) from the
+def delivery_proof_arguments(fx, t, wrong=False):
+    """Build both proofs for a full-form delivery (complete or delta) from the
     current on-disk sequence; `wrong` answers every core F incorrectly."""
     meta, body = overview_meta_and_full_body(t)
     ordinals = meta.get("challenge_ordinals") or []
@@ -1846,7 +1846,10 @@ def attest_delivery(s, fx, t, wrong=False):
                "body_sha256": meta.get("body_sha256"),
                "body_bytes": meta.get("body_utf8_bytes"),
                "end_marker_observed": True}
-    t2, err = text_of(s.call("aoci_overview", {"host_delivery_confirmation": confirm, "model_cognition_attestation": att}))
+    return {"host_delivery_confirmation": confirm, "model_cognition_attestation": att}
+
+def attest_delivery(s, fx, t, wrong=False):
+    t2, err = text_of(s.call("aoci_overview", delivery_proof_arguments(fx, t, wrong)))
     return parse_kv(t2), t2
 
 def truthy(value):
@@ -1940,10 +1943,14 @@ def group_m_delta():
     t4, err = text_of(s.call("aoci_overview", {"delta_since": after_second}))
     meta4, _ = overview_meta_and_full_body(t4)
     wrong, _ = attest_delivery(s, fx, t4, wrong=True)
+    rejected_checkpoint, rejected_err = text_of(s.call("aoci_overview", {"check_only": True, "cognition_state_version": "cognition-state/v2"}))
+    assessment4 = jload(rejected_checkpoint).get("assessment") or {}
     probed2 = pass_probe(s, fx)
     t5, err = text_of(s.call("aoci_overview", {"delta_since": after_second}))
     meta5, _ = overview_meta_and_full_body(t5)
     ok4 = (probed and meta4.get("delivery_mode") == "delta" and wrong.get("model_attestation") in ("partial", "fail")
+           and not rejected_err and assessment4.get("recall") == "none"
+           and assessment4.get("delivery_guidance") == "full_system_claim_disabled_source_bound_task_continuation_allowed"
            and probed2 and meta5.get("delivery_mode") == "full" and meta5.get("fallback_reason") == "delta_base_unknown")
     record(g, "M4.partial-delta-attestation-drops-the-base", "PASS" if ok4 else "FAIL",
            f"delta={meta4.get('delivery_mode')} wrong={wrong.get('model_attestation')} next={meta5.get('delivery_mode')} reason={meta5.get('fallback_reason')}"[:200])
@@ -1968,6 +1975,39 @@ def group_m_delta():
     ok6 = probed and meta7.get("delivery_mode") == "full" and meta7.get("fallback_reason") == "delta_base_unknown"
     record(g, "M6.restart-has-no-base", "PASS" if ok6 else "FAIL",
            f"mode={meta7.get('delivery_mode')} reason={meta7.get('fallback_reason')}"[:200])
+
+    # M8: a replayed proof and anchor from before compaction cannot replace
+    # the fresh full delivery in the new compaction cycle.
+    replay_session = Session(fx)
+    previous, previous_err = text_of(replay_session.call("aoci_overview"))
+    old_args = delivery_proof_arguments(fx, previous)
+    previous_proof, previous_proof_err = text_of(replay_session.call("aoci_overview", old_args))
+    checkpoint_v2 = {"check_only": True, "cognition_state_version": "cognition-state/v2"}
+    declared, declared_err = text_of(replay_session.call("aoci_overview", dict(
+        checkpoint_v2, refresh_reasons=["context_compaction"], refresh_event_id="M8-compact")))
+    replay, replay_err = text_of(replay_session.call("aoci_overview", old_args))
+    checked, checked_err = text_of(replay_session.call("aoci_overview", checkpoint_v2))
+    fresh, fresh_err = text_of(replay_session.call("aoci_overview", {"delta_since": old_args["model_cognition_attestation"]["index_sha256"]}))
+    fresh_meta, fresh_body = overview_meta_and_full_body(fresh)
+    fresh_proof, _ = attest_delivery(replay_session, fx, fresh)
+    restored, restored_err = text_of(replay_session.call("aoci_overview", checkpoint_v2))
+    replay_session.close()
+    before_assessment = jload(declared).get("assessment") or {}
+    after_assessment = jload(checked).get("assessment") or {}
+    replay_meta = parse_kv(replay)
+    ok8 = (not any((previous_err, previous_proof_err, declared_err, replay_err, checked_err, fresh_err, restored_err))
+           and parse_kv(previous_proof).get("model_attestation") == "pass"
+           and replay_meta.get("host_delivery_status") == "host_delivery_incomplete"
+           and not truthy(replay_meta.get("model_full_cognition_reliable"))
+           and before_assessment.get("refresh_reasons") == after_assessment.get("refresh_reasons") == ["context_compaction"]
+           and (before_assessment.get("cognition_receipt") or {}).get("refresh_generation")
+           == (after_assessment.get("cognition_receipt") or {}).get("refresh_generation")
+           and fresh_meta.get("delivery_mode") == "full" and fresh_meta.get("fallback_reason") == "delta_base_unknown"
+           and bool(fresh_body) and fresh_proof.get("model_attestation") == "pass"
+           and (jload(restored).get("cognition_state_v2") or {}).get("current_system_cognition_reliable") is True)
+    record(g, "M8.compaction-rejects-previous-delivery-proof-and-anchor", "PASS" if ok8 else "FAIL",
+           f"old_host={replay_meta.get('host_delivery_status')} pending={after_assessment.get('refresh_reasons')} "
+           f"fallback={fresh_meta.get('fallback_reason')} new_proof={fresh_proof.get('model_attestation')}")
 
     # M7: the opt-in checkpoint reuses verified proof in the same Host
     # session and withdraws the full-system claim when managed source drifts.

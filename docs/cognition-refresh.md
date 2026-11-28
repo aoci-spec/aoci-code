@@ -102,6 +102,12 @@ newly delivered body. After that fresh complete transport, a partial or failed
 Attestation still consumes the generation and permits the existing source-bound
 continuation without an automatic second Overview.
 
+Proof and the incremental anchor from before compaction are withdrawn for the
+declaring Host. A fresh complete delivery and its passing Attestation restore
+reliability. After a consumed capacity stop or partial or failed Attestation,
+the matching check-only reply directs the Host to continue from source and
+tests.
+
 `check_only` is the inexpensive probe: it always returns compact JSON. Calling
 without `check_only` asks AOCI to deliver the complete selected scope. The
 AI Agent decides when it needs that view except after known Host compaction,
@@ -349,5 +355,9 @@ cognition.
 A probe pass is also what makes an incremental Overview eligible: a Host
 that holds the last attested body and passes the probe over the current
 identity can ask with `delta_since` for only the objects changed since that
-body. See
+body. If only the Baseline changes and governance stays aligned, an empty
+delta can carry the existing incremental anchor forward. It sends no body or
+new Attestation and leaves the checkpoint's Baseline binding as it was. The
+v2 checkpoint withholds reliability until a proof matches the current
+Baseline. See
 [`overview-delivery.md`](overview-delivery.md).

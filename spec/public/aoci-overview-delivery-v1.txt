@@ -455,7 +455,8 @@ below holds; otherwise the call answers the complete scope, `delivery_mode`
 proceeds as for an ordinary complete request:
 
 * `delta_since` equals the retained base's scope identity
-  (`delta_base_unknown` otherwise);
+  (`delta_base_unknown` otherwise). A new context-compaction event withdraws
+  the declaring Host's previous base and probe pass;
 * the base receipt is reliable (`delta_base_unreliable`);
 * no `context_compaction` declaration is pending
   (`delta_compaction_pending`): a known compaction takes the complete reload

@@ -259,7 +259,7 @@ func registerReadTools(
 						if planErr != nil {
 							return errResult(errBadArgs, planErr.Error(), "")
 						}
-						compact := renderOverviewCheckpoint(assessment, input, true, probe, probeResult, &measured, refreshSession.capacityFacts(measured.EstimatedTokens))
+						compact := renderOverviewCheckpoint(assessment, input, true, probe, probeResult, &measured, refreshSession.capacityFacts(owner, measured.EstimatedTokens))
 						recordCapacityEvents(root, repository.cfg.LedgerEnabled, currentReceipt.IndexSHA256, assessment.Interruption, nil, overviewDeliveryPlan{}, nil)
 						ledger.Append(root, repository.cfg.LedgerEnabled, ledger.Event{
 							Op:              "cognition_check",
@@ -291,13 +291,13 @@ func registerReadTools(
 					legacyFramed := frameOverviewBody(root, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, repository.text)
 					fresh := input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil
 					estimatedTokens := len(repository.text) / 3
-					if fresh && refreshSession.capacityStopApplies(estimatedTokens) {
+					if fresh && refreshSession.capacityStopApplies(owner, estimatedTokens) {
 						plan, planErr := planOverviewDelivery(legacyFramed, sequence, cognitionScopeRepositoryFull, currentReceipt.IndexSHA256, entryCount, estimatedTokens, loaded.cfg.OverviewDelivery.ChunkTokens)
 						if planErr != nil {
 							return errResult(errBadArgs, planErr.Error(), "")
 						}
-						capacity := refreshSession.capacityFacts(estimatedTokens)
-						receipt := refreshSession.consumeCapacityStop(currentReceipt, eventID)
+						capacity := refreshSession.capacityFacts(owner, estimatedTokens)
+						receipt := refreshSession.consumeCapacityStop(owner, currentReceipt, eventID)
 						output := renderOverviewCapacityStop(capacityStopView{
 							Root: root, MCPServiceVersion: mcpServiceVersion, LayoutMode: string(loaded.set.LayoutMode),
 							RequestedScope: cognitionScopeRepositoryFull, EffectiveScope: cognitionScopeRepositoryFull,
@@ -328,9 +328,9 @@ func registerReadTools(
 					delivery.evidence.commit()
 					refreshSession.commitTransport(owner, cognitionScopeRepositoryFull, "", input, delivery.Facts)
 					refreshSession.recordCheckpointProof(owner, deliveredReceipt, semantic.baselineSHA256, input, delivery.Facts)
-					refreshSession.noteDeliveryChain(&delivery, legacyFramed.Receipt.BodySHA256, fresh, true, assessment.RefreshReasons, estimatedTokens)
+					refreshSession.noteDeliveryChain(owner, &delivery, legacyFramed.Receipt.BodySHA256, fresh, true, assessment.RefreshReasons, estimatedTokens)
 					refreshSession.recordAttestedDelivery(
-						deliveredReceipt, delivery.Attestation, markDelivered,
+						owner, true, deliveredReceipt, delivery.Attestation, markDelivered,
 					)
 
 					ledger.Append(

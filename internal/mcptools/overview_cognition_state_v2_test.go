@@ -161,6 +161,42 @@ func TestOverviewCheckpointV2PreservesLatestAttestationVerdict(t *testing.T) {
 	}
 }
 
+func TestOverviewCheckpointContinuesSourceBoundAfterInitialUncertainAttestation(t *testing.T) {
+	for _, verdict := range []string{modelAttestationPartial, modelAttestationFail} {
+		t.Run(verdict, func(t *testing.T) {
+			root, _ := deltaVolumesFixture(t, 10)
+			fixture := transportProofFixtureForRoot(t, root)
+			const owner = "host"
+			fixture.prove(owner, overviewIn{})
+			answers := fixture.both.ModelAttestation.ChallengeAnswers
+			wrong := len(answers) - 1
+			if verdict == modelAttestationFail {
+				wrong = len(answers)
+			}
+			for i := range answers[:wrong] {
+				answers[i].CoreF = "unrelated answer"
+			}
+			proof := fixture.prove(owner, fixture.both)
+			if overviewMetadataValue(t, proof, "model_attestation") != verdict {
+				t.Fatalf("fixture must return %s: %s", verdict, proof)
+			}
+			checkpoint := checkpointV2ForTest(t, root, fixture.session, owner, overviewIn{})
+			assertCheckpointSourceBound(t, checkpoint.Assessment)
+		})
+	}
+}
+
+func assertCheckpointSourceBound(t *testing.T, assessment cognitionRefreshAssessment) {
+	t.Helper()
+	if assessment.State != cognitionStateUncertain || assessment.Recall != cognitionRecallNone ||
+		assessment.RefreshStatus != machinecontract.RefreshStatusNotRequired || assessment.Receipt.ModelFullReliable ||
+		assessment.DeliveryGuidance != machinecontract.OverviewDeliveryGuidanceSourceBound ||
+		assessment.NextAction != mcpMessage("overview.refresh.source_bound") {
+		t.Errorf("consumed attempt must continue source-bound: state=%s recall=%s status=%s next_action=%s",
+			assessment.State, assessment.Recall, assessment.RefreshStatus, assessment.NextAction)
+	}
+}
+
 func TestCognitionStateV2ProjectionKeepsProofAndGovernanceOutOfLevel(t *testing.T) {
 	usableStrictFailure := overviewAttestationResult{
 		DeliveryIntegrity:       deliveryIntegrityConfirmed,

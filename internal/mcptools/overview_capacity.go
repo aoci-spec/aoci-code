@@ -36,6 +36,7 @@ import (
 // declared context_compaction refresh was pending. It closes when a confirmed,
 // attested delivery or a capacity stop consumes the pending events.
 type compactionDeliveryAttempt struct {
+	Owner           volumeDeliveryOwner
 	ChainID         string
 	ScopeIdentity   string
 	EstimatedTokens int
@@ -46,11 +47,27 @@ type compactionDeliveryAttempt struct {
 // hostCapacityVerdict is what this server session learned about the Host: the
 // smallest scope whose compaction reload was interrupted by compaction.
 type hostCapacityVerdict struct {
+	Owner                 volumeDeliveryOwner
 	FailedEstimatedTokens int
 	Interruptions         int
 	InterruptedChainID    string
 	InterruptedChunks     int
 	InterruptedChunkCount int
+}
+
+type consumedCapacityStop struct {
+	owner   volumeDeliveryOwner
+	receipt cognitionReceipt
+}
+
+type compactionEventKey struct {
+	owner volumeDeliveryOwner
+	id    string
+}
+
+func (session *cognitionRefreshSession) newCompactionEvent(owner volumeDeliveryOwner, reasons []string, eventID string) bool {
+	return eventID != "" && containsString(reasons, machinecontract.RefreshReasonContextCompaction) &&
+		!session.compactionEvents[compactionEventKey{owner, eventID}]
 }
 
 // hostCapacityInterruption reports, to the handler that holds the Ledger, the
@@ -114,15 +131,14 @@ func planOverviewDelivery(framed framedOverviewBody, sequence []overviewChalleng
 // own reasons join the pending set: a context_compaction declared with a
 // fresh event while a compaction reload is still open is the interruption.
 // The caller holds session.mu.
-func (session *cognitionRefreshSession) noteCompactionDeclaration(hostReasons []string, eventID string) *hostCapacityInterruption {
+func (session *cognitionRefreshSession) noteCompactionDeclaration(owner volumeDeliveryOwner, hostReasons []string, eventID string) *hostCapacityInterruption {
 	attempt := session.compactionAttempt
-	if attempt == nil || eventID == "" || session.pendingEvents[eventID] || session.consumedEvents[eventID] ||
-		!containsString(hostReasons, machinecontract.RefreshReasonContextCompaction) {
+	if attempt == nil || attempt.Owner != owner || !session.newCompactionEvent(owner, hostReasons, eventID) {
 		return nil
 	}
 	verdict := session.capacity
-	if verdict == nil {
-		verdict = &hostCapacityVerdict{}
+	if verdict == nil || verdict.Owner != owner {
+		verdict = &hostCapacityVerdict{Owner: owner}
 		session.capacity = verdict
 	}
 	if verdict.FailedEstimatedTokens == 0 || attempt.EstimatedTokens < verdict.FailedEstimatedTokens {
@@ -147,14 +163,23 @@ func (session *cognitionRefreshSession) compactionPending() bool {
 	return session.pendingReasons[machinecontract.RefreshReasonContextCompaction]
 }
 
+func (session *cognitionRefreshSession) compactionPendingFor(owner volumeDeliveryOwner) bool {
+	return session.compactionPending() && session.compactionOwner == owner
+}
+
+func (session *cognitionRefreshSession) canFinishCompaction(owner volumeDeliveryOwner, fullScope bool) bool {
+	return !session.compactionPending() || (fullScope && session.compactionPendingFor(owner))
+}
+
 // noteFreshDelivery records the delivery chain a fresh complete request just
 // started. Under a pending compaction refresh it opens (or replaces) the
 // compaction reload attempt. The caller holds session.mu.
-func (session *cognitionRefreshSession) noteFreshDelivery(chainID string, plan overviewDeliveryPlan, chunkIndex int) {
-	if !session.compactionPending() {
+func (session *cognitionRefreshSession) noteFreshDelivery(owner volumeDeliveryOwner, chainID string, plan overviewDeliveryPlan, chunkIndex int) {
+	if !session.compactionPendingFor(owner) {
 		return
 	}
 	session.compactionAttempt = &compactionDeliveryAttempt{
+		Owner:   owner,
 		ChainID: chainID, ScopeIdentity: plan.ScopeIdentity,
 		EstimatedTokens: plan.EstimatedTokens, ChunkCount: plan.ChunkCount, ChunksServed: chunkIndex,
 	}
@@ -171,17 +196,17 @@ func (session *cognitionRefreshSession) noteChunkServed(chainID string, chunkInd
 // capacityStopApplies decides the stop for a fresh complete request: a
 // compaction refresh is pending and the verdict covers a scope this large.
 // The caller holds session.mu.
-func (session *cognitionRefreshSession) capacityStopApplies(estimatedTokens int) bool {
-	return session.capacity != nil && session.compactionPending() &&
+func (session *cognitionRefreshSession) capacityStopApplies(owner volumeDeliveryOwner, estimatedTokens int) bool {
+	return session.capacity != nil && session.capacity.Owner == owner && session.compactionPendingFor(owner) &&
 		estimatedTokens >= session.capacity.FailedEstimatedTokens
 }
 
 // capacityFacts reports the verdict and what a compaction reload of a scope
 // this large would get. The caller holds session.mu.
-func (session *cognitionRefreshSession) capacityFacts(estimatedTokens int) *hostCapacityFacts {
+func (session *cognitionRefreshSession) capacityFacts(owner volumeDeliveryOwner, estimatedTokens int) *hostCapacityFacts {
 	facts := &hostCapacityFacts{CompactionReload: machinecontract.OverviewCompactionReloadDeliver}
 	verdict := session.capacity
-	if verdict == nil {
+	if verdict == nil || verdict.Owner != owner {
 		return facts
 	}
 	facts.Verdict = true
@@ -201,8 +226,8 @@ func (session *cognitionRefreshSession) capacityFacts(estimatedTokens int) *host
 // interrupted: the Host has then held every chunk of such a scope, so the
 // verdict no longer describes it. A smaller confirmed scope proves nothing
 // about the whole and leaves it. The caller holds session.mu.
-func (session *cognitionRefreshSession) clearCapacityVerdict(estimatedTokens int) {
-	if session.capacity != nil && estimatedTokens >= session.capacity.FailedEstimatedTokens {
+func (session *cognitionRefreshSession) clearCapacityVerdict(owner volumeDeliveryOwner, estimatedTokens int) {
+	if session.capacity != nil && session.capacity.Owner == owner && estimatedTokens >= session.capacity.FailedEstimatedTokens {
 		session.capacity = nil
 	}
 }
@@ -211,10 +236,16 @@ func (session *cognitionRefreshSession) clearCapacityVerdict(estimatedTokens int
 // the generation advances with an uncertain receipt, exactly like a complete
 // transport whose Attestation fell short, so the Host continues source-bound
 // instead of asking again. The caller holds session.mu.
-func (session *cognitionRefreshSession) consumeCapacityStop(current cognitionReceipt, eventID string) cognitionReceipt {
+func (session *cognitionRefreshSession) consumeCapacityStop(owner volumeDeliveryOwner, current cognitionReceipt, eventID string) cognitionReceipt {
 	receipt := receiptWithState(session.deliveredReceipt(current, eventID), cognitionStateUncertain, false)
 	session.markDeliveryAttempt(receipt)
+	session.lastCapacityStop = &consumedCapacityStop{owner: owner, receipt: receipt}
 	return receipt
+}
+
+func (session *cognitionRefreshSession) capacityStopMatches(owner volumeDeliveryOwner, current cognitionReceipt) bool {
+	stop := session.lastCapacityStop
+	return stop != nil && stop.owner == owner && receiptIdentityMatches(stop.receipt, current)
 }
 
 // noteDeliveryChain stamps a rendered response with its chain ID and the
@@ -225,7 +256,7 @@ func (session *cognitionRefreshSession) consumeCapacityStop(current cognitionRec
 // never lower the verdict. A later chunk advances the attempt; a proof half
 // for its body closes it, since the Host then held every chunk.
 // The caller holds session.mu.
-func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRendered, bodySHA256 string, fresh, fullScope bool, reasons []string, estimatedTokens int) {
+func (session *cognitionRefreshSession) noteDeliveryChain(owner volumeDeliveryOwner, delivery *overviewRendered, bodySHA256 string, fresh, fullScope bool, reasons []string, estimatedTokens int) {
 	chainID := session.deliveryChainID(bodySHA256, fresh)
 	delivery.Facts.ChainID = chainID
 	delivery.Facts.RefreshReasons = append([]string(nil), reasons...)
@@ -243,9 +274,9 @@ func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRend
 			return
 		}
 		if fullScope && delivery.Attestation.DeliveryIntegrity == deliveryIntegrityConfirmed {
-			session.clearCapacityVerdict(estimatedTokens)
+			session.clearCapacityVerdict(owner, estimatedTokens)
 		}
-		if attempt := session.compactionAttempt; attempt != nil && attempt.ScopeIdentity == delivery.Facts.IndexSHA256 {
+		if attempt := session.compactionAttempt; fullScope && attempt != nil && attempt.Owner == owner && attempt.ScopeIdentity == delivery.Facts.IndexSHA256 {
 			session.compactionAttempt = nil
 		}
 		return
@@ -255,7 +286,7 @@ func (session *cognitionRefreshSession) noteDeliveryChain(delivery *overviewRend
 	}
 	if fresh {
 		if fullScope {
-			session.noteFreshDelivery(chainID, overviewDeliveryPlan{
+			session.noteFreshDelivery(owner, chainID, overviewDeliveryPlan{
 				ScopeIdentity: delivery.Facts.IndexSHA256, EstimatedTokens: estimatedTokens,
 				ChunkCount: delivery.Facts.ChunkCount,
 			}, delivery.Facts.ChunkIndex)

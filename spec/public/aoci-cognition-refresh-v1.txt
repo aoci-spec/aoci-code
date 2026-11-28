@@ -116,6 +116,21 @@ governance and pending refresh facts determine whether that proof is
 currently reliable. A supplied receipt cannot create proof or advance the
 generation. See aoci-cognition-state-v2.txt for the checkpoint proof rules.
 
+A fresh context-compaction event invalidates earlier delivery proof, probe
+passes, and the delta anchor of the declaring Host. An earlier confirmation
+is reported as `host_delivery_incomplete`, even if the current formal scope
+identity is unchanged. A request for the invalidated delta anchor falls back
+to a complete delivery with `delta_base_unknown`. Only a fresh complete
+delivery to that Host and its confirmed, aligned Attestation attempt can
+consume the pending compaction through proof. A passing attempt restores
+reliability. A scoped delivery and another Host's proof cannot consume it.
+
+For a matching consumed capacity stop or a completed partial or failed
+Attestation, a checkpoint without another pending obligation reports
+`recall=none`, `refresh_status=refresh_not_required`, and the source-bound
+`delivery_guidance`. Its localized next action directs the Host to continue
+from source and tests.
+
 When check_only is absent or false, the call is an explicit cognition request.
 AOCI delivers the complete requested scope whenever it can form one coherent,
 verified CognitionSet. It does not suppress the body because a matching receipt
@@ -292,8 +307,10 @@ outlives Host compactions, so the server records what the Host cannot:
 - a compaction reload attempt opens when a fresh complete delivery of the
   complete scope (Volumes all, Legacy repository) starts while a declared
   context_compaction is pending. A later chunk of the same chain advances it.
-  A proof half for its body, or any confirmed and attested delivery that
-  consumes the pending events, closes it. Scoped deliveries never open an
+  A proof half for its current body from the same Host can close the
+  capacity attempt. Consuming the pending refresh through Attestation
+  still requires a confirmed complete delivery and governance alignment.
+  Scoped deliveries never open an
   attempt: the reload this section protects is the Whole-Index, so an
   unattested small read can never lower the verdict;
 - an incomplete Host confirmation without a model proof half does not close
@@ -324,9 +341,10 @@ then held every chunk of such a scope, so the verdict no longer describes it,
 and an interruption that was the Host's own stop rather than its capacity does
 not keep a long-lived Host source-bound for the rest of the server session.
 An explicit ordinary request made while no compaction refresh is pending still
-delivers the complete scope, a scope below the verdict (code, database, meta,
-project) still delivers, and continuation and proof calls for a chain the Host
-already holds are served as before.
+delivers the complete scope, and a scope below the verdict (code, database,
+meta, project) still delivers. A held cursor can continue an earlier chain.
+Transport from before the newest compaction event cannot establish current
+delivery confirmation or reliability.
 
 check_only reports delivery_plan (scope, scope identity, Entry count, estimated
 tokens, framed-body bytes, chunk_tokens, and chunk count, measured by the

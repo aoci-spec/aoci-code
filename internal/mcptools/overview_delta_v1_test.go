@@ -417,6 +417,14 @@ func TestOverviewDeltaDeliversOnlyWhatChangedSinceTheAttestedBase(t *testing.T) 
 	if proof := attestDelivered(t, session, root, second, true); !strings.Contains(proof, "model_attestation: partial") && !strings.Contains(proof, "model_attestation: fail") {
 		t.Fatalf("wrong answers must not pass: %s", proof[:400])
 	}
+	var checkpoint overviewCheckpointEnvelope
+	rawCheckpoint := callVolumeTool(t, session, "aoci_overview", map[string]any{
+		"check_only": true, "cognition_state_version": machinecontract.CognitionStateV2,
+	})
+	if err := json.Unmarshal([]byte(rawCheckpoint), &checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	assertCheckpointSourceBound(t, checkpoint.Assessment)
 	passProbe(t, session, root)
 	dropped := callVolumeTool(t, session, "aoci_overview", map[string]any{"delta_since": afterFirst})
 	if overviewMetadataValue(t, dropped, "delivery_mode") != overviewDeliveryFull || overviewMetadataValue(t, dropped, "fallback_reason") != machinecontract.OverviewFallbackDeltaBaseUnknown {
@@ -430,7 +438,7 @@ func TestOverviewDeltaDeliversOnlyWhatChangedSinceTheAttestedBase(t *testing.T) 
 	current := overviewMetadataValue(t, dropped, "index_sha256")
 	callVolumeTool(t, session, "aoci_overview", map[string]any{"check_only": true, "refresh_reasons": []string{"context_compaction"}, "refresh_event_id": "delta-compaction-1"})
 	compaction := callVolumeTool(t, session, "aoci_overview", map[string]any{"delta_since": current})
-	if overviewMetadataValue(t, compaction, "fallback_reason") != machinecontract.OverviewFallbackDeltaCompactionPending {
+	if overviewMetadataValue(t, compaction, "fallback_reason") != machinecontract.OverviewFallbackDeltaBaseUnknown {
 		t.Fatalf("a pending compaction must take the complete reload: %s", overviewMetadataValue(t, compaction, "fallback_reason"))
 	}
 	if proof := attestDelivered(t, session, root, compaction, false); !strings.Contains(proof, "model_attestation: pass") {

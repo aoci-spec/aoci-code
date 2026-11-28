@@ -872,6 +872,7 @@
   "overview.refresh.event_id_required": "refresh_event_id is required for host-declared refresh reasons",
   "overview.refresh.maintain_required": "At this stable checkpoint, run aoci_maintain once; resolve repair_required or stopped exactly as returned, then prove alignment before requesting Overview again.",
   "overview.refresh.not_required": "Reuse the current complete cognition. For a local uncertainty, inspect source and use local retrieval only when needed.",
+  "overview.refresh.source_bound": "Continue the current task using source and tests. The refresh attempt is complete. Avoid a complete-system cognition claim or an automatic Overview retry.",
   "overview.refresh.ready": "The checkpoint is aligned and terminal_proof.aligned=true is the completion and alignment proof; do not maintain again. cognition_state=uncertain only means this session has not loaded the full index via aoci_overview yet, not an error. If continuing development in this same session (especially after subagents helped build the index), call one ordinary complete aoci_overview; otherwise the Agent decides whether its next phase needs an Overview.",
   "overview.refresh.reason_invalid": "unsupported host refresh reason %q; use context_compaction or phase_transition",
   "planner.artifact_written": "Artifact written to %s",
