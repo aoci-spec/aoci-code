@@ -69,8 +69,11 @@ type AccessPlan struct {
 	BusinessDataRead        bool   `json:"business_data_read"`
 }
 
-// InspectAccess validates configuration and checks runtime credential
-// availability without opening a database connection.
+// InspectAccess validates source configuration and checks in-process whether
+// the configured environment credential is set and non-empty without printing,
+// storing, validating DSN syntax, or opening a database connection. A ready
+// status therefore means non-empty rather than format-valid; the engine driver
+// validates format and connectivity on inspect, snapshot, or verify.
 func InspectAccess(ctx context.Context, source SourceConfig, provider CredentialProvider) (AccessPlan, error) {
 	if err := NormalizeSource(&source); err != nil {
 		return AccessPlan{}, &SourceError{Code: "configuration_invalid", SourceID: "invalid", Op: "access_preflight"}

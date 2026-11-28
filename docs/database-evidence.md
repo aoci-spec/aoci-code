@@ -2,7 +2,11 @@
 
 The current release provides a redacted access preflight and an
 environment Credential Provider adapter. `database source add` can derive the environment reference from
-`source_id`, and `database source access` checks readiness without connecting.
+`source_id`, and `database source access` checks in-process whether that
+environment variable is set and non-empty without printing, saving, validating
+its DSN format, or connecting (`status=ready` means non-empty, not format-valid;
+the driver validates format on explicit `source inspect`, `snapshot`, or
+`verify`).
 No credential value is saved; Vault, Kubernetes, and cloud secret providers
 remain future adapters. The public derived-view boundary is in
 [`aoci-system-cognition-runtime-v1.txt`](../spec/public/aoci-system-cognition-runtime-v1.txt).
@@ -112,6 +116,13 @@ schemes are accepted). Any TCP connection outside a numeric loopback address
 must use `sslmode=verify-full` (with an optional absolute path in
 `sslrootcert`); `sslmode=disable` is accepted only for numeric loopback
 addresses or Unix domain sockets.
+
+`aoci database source access` checks only whether the configured environment
+variable is set and non-empty inside the process; it never prints, saves, or
+opens a connection with the value, and it does not parse or validate DSN
+syntax. A `status=ready` result therefore does not guarantee that the format is
+valid—format and connectivity are validated only when an explicit
+`source inspect`, `snapshot`, or `verify` runs the engine driver.
 
 The environment value is passed directly to the selected driver and is never
 placed in configuration, Evidence, Snapshot, Baseline, Ledger, Research
