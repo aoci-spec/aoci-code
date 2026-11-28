@@ -234,6 +234,14 @@ func TestCompactionInvalidatesEarlierProofAndDeltaBase(t *testing.T) {
 	for _, stop := range []bool{false, true} {
 		t.Run(fmt.Sprintf("capacity_stop_%t", stop), func(t *testing.T) {
 			root, _ := deltaVolumesFixture(t, 10)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.LedgerEnabled = true
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
 			fixture := transportProofFixtureForRoot(t, root)
 			const owner = "compacted-host"
 			fixture.prove(owner, overviewIn{})
@@ -257,12 +265,29 @@ func TestCompactionInvalidatesEarlierProofAndDeltaBase(t *testing.T) {
 			compactionPending := fixture.session.compactionPending()
 			old := fixture.both
 			old.CognitionStateVersion = machinecontract.CognitionStateV2
+			eventsBefore := len(overviewProofEvents(t, root))
 			late := fixture.prove(owner, old)
+			state := cognitionStateV2MetadataForTest(t, late)
 			if overviewMetadataValue(t, late, "host_delivery_status") != hostDeliveryIncomplete ||
-				cognitionStateV2MetadataForTest(t, late).CurrentSystemCognitionReliable ||
+				state.CurrentSystemCognitionReliable ||
 				fixture.session.generation != generation || fixture.session.compactionPending() != compactionPending {
 				t.Errorf("old confirmation changed the host status or consumed compaction: host=%s generation=%d pending=%t",
 					overviewMetadataValue(t, late, "host_delivery_status"), fixture.session.generation, fixture.session.compactionPending())
+			}
+			grade := overviewMetadataValue(t, late, "model_attestation")
+			const reason = "stale_pre_compaction_delivery"
+			if grade != modelAttestationFail || state.StrictAttestationVerified || state.ModelCognitionUsable ||
+				len(state.StrictAttestationFailureReasons) != 1 || state.StrictAttestationFailureReasons[0] != reason {
+				t.Errorf("old report must be rejected: model_attestation=%s strict_verified=%t reasons=%v usable=%t",
+					grade, state.StrictAttestationVerified, state.StrictAttestationFailureReasons, state.ModelCognitionUsable)
+			}
+			if !strings.Contains(late, "\nmodel_attestation_failure_reason: "+reason+"\n") {
+				t.Error("expected a machine-readable stale report rejection in ordinary metadata")
+			}
+			for _, event := range overviewProofEvents(t, root)[eventsBefore:] {
+				if event.Op == "overview_attestation_scoring_started" || event.Op == "overview_attestation_scored" {
+					t.Errorf("old report reached the scorer: %s/%s", event.Op, event.Result)
+				}
 			}
 			// A probe at the current identity cannot revive the old anchor.
 			fixture.session.noteProbePass(volumeDeliveryOwner{direct: owner}, fixture.identity, fixture.session.generation)
@@ -277,11 +302,18 @@ func TestCompactionInvalidatesEarlierProofAndDeltaBase(t *testing.T) {
 			if checkpoint.CognitionStateV2.CurrentSystemCognitionReliable {
 				t.Fatal("the fresh body alone cannot restore reliability")
 			}
-			newProof := fixture.prove(owner, old)
+			first, second := fixture.host, fixture.model
+			if stop {
+				first, second = second, first
+			}
+			second.CognitionStateVersion = machinecontract.CognitionStateV2
+			fixture.prove(owner, first)
+			newProof := fixture.prove(owner, second)
 			if overviewMetadataValue(t, newProof, "host_delivery_status") != hostDeliveryConfirmed ||
+				overviewMetadataValue(t, newProof, "model_attestation") != modelAttestationPass ||
 				!cognitionStateV2MetadataForTest(t, newProof).CurrentSystemCognitionReliable ||
 				!checkpointV2ForTest(t, root, fixture.session, owner, overviewIn{}).CognitionStateV2.CurrentSystemCognitionReliable {
-				t.Fatal("fresh full delivery and proof must restore reliability")
+				t.Fatal("fresh full delivery and split proof must restore reliability")
 			}
 		})
 	}

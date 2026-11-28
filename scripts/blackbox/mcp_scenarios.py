@@ -1998,6 +1998,8 @@ def group_m_delta():
     ok8 = (not any((previous_err, previous_proof_err, declared_err, replay_err, checked_err, fresh_err, restored_err))
            and parse_kv(previous_proof).get("model_attestation") == "pass"
            and replay_meta.get("host_delivery_status") == "host_delivery_incomplete"
+           and replay_meta.get("model_attestation") == "fail"
+           and replay_meta.get("model_attestation_failure_reason") == "stale_pre_compaction_delivery"
            and not truthy(replay_meta.get("model_full_cognition_reliable"))
            and before_assessment.get("refresh_reasons") == after_assessment.get("refresh_reasons") == ["context_compaction"]
            and (before_assessment.get("cognition_receipt") or {}).get("refresh_generation")
@@ -2006,7 +2008,8 @@ def group_m_delta():
            and bool(fresh_body) and fresh_proof.get("model_attestation") == "pass"
            and (jload(restored).get("cognition_state_v2") or {}).get("current_system_cognition_reliable") is True)
     record(g, "M8.compaction-rejects-previous-delivery-proof-and-anchor", "PASS" if ok8 else "FAIL",
-           f"old_host={replay_meta.get('host_delivery_status')} pending={after_assessment.get('refresh_reasons')} "
+           f"old_host={replay_meta.get('host_delivery_status')} old_proof={replay_meta.get('model_attestation_failure_reason')} "
+           f"pending={after_assessment.get('refresh_reasons')} "
            f"fallback={fresh_meta.get('fallback_reason')} new_proof={fresh_proof.get('model_attestation')}")
 
     # M7: the opt-in checkpoint reuses verified proof in the same Host

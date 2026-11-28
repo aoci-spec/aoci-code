@@ -985,11 +985,24 @@ func (session *cognitionRefreshSession) deliveryServed(owner volumeDeliveryOwner
 	if session == nil {
 		return true
 	}
-	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
-	if current == nil || current.beforeCompaction || current.body != bodySHA256 || (delivery != "" && current.delivery != delivery) {
-		return false
+	current := session.proofDelivery(owner, scope, bodySHA256, delivery)
+	return current != nil && !current.beforeCompaction && current.count > 0 && current.sent >= current.count
+}
+
+func (session *cognitionRefreshSession) deliveryBeforeCompaction(owner volumeDeliveryOwner, scope, bodySHA256, delivery string) bool {
+	current := session.proofDelivery(owner, scope, bodySHA256, delivery)
+	return current != nil && current.beforeCompaction
+}
+
+func (session *cognitionRefreshSession) proofDelivery(owner volumeDeliveryOwner, scope, bodySHA256, delivery string) *currentDelivery {
+	if session == nil {
+		return nil
 	}
-	return current.count > 0 && current.sent >= current.count
+	current := session.currentDeliveries[deliveryScope{owner: owner, scope: scope}]
+	if current == nil || current.body != bodySHA256 || (delivery != "" && current.delivery != delivery) {
+		return nil
+	}
+	return current
 }
 
 // recordAttestedDelivery consumes one complete, host-confirmed delivery

@@ -27,6 +27,18 @@ When downgrading with only parallel drafts in flight, use no-argument
 records an Intent, finish Recovery with the version that wrote it before
 downgrading. See [Rollback](docs/rollback.md).
 
+### Known limitations
+
+The following compaction cases are deferred until after 0.2.0:
+
+- After an MCP server restart, a `cognition-state/v2` checkpoint can register
+  an already consumed compaction event again when the Host resubmits it with
+  its previous valid receipt. The Host can see an extra full reload request.
+- When two Hosts on the same MCP server are both awaiting a compaction reload,
+  the server tracks a single pending owner. The later Host can replace the
+  earlier owner and consume its pending event. The earlier Host's checkpoint
+  still reports cognition as unreliable.
+
 ## v0.2.0-rc5
 
 The fifth 0.2.0 candidate closes three known limitations of rc4 and the

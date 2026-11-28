@@ -1199,6 +1199,7 @@
   "ui.error.registry": "cannot locate the panel registry (user cache directory): %s",
   "ui.error.legacy_page": "an unauthenticated legacy panel is still running; run aoci ui --stop for this repository before starting a new panel",
   "overview.attestation.schema_expected": "Attestation schema rejected before semantic scoring. Every challenge_answers item requires exactly ordinal, object_identity, tag, core_f with additionalProperties=false. Use object_identity; object and object_ref are invalid.",
+  "overview.attestation.stale_pre_compaction_delivery": "Attestation rejected before scoring because the delivery predates the Host's context compaction.",
   "config.locale_entries_prospective": "Existing Entries keep the language they were written in; Entries created or updated from now on are authored in %s.",
   "guide.recovery_pending.locale": "%s: run aoci config set locale <target> with the receipt's target; it resumes at the receipt's postimage, and a different target is refused until it completes",
   "guide.recovery_pending.relocate": "%s: run aoci index relocate; it resumes at the receipt's postimage",

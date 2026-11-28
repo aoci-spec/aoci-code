@@ -194,7 +194,11 @@ answer to it:
   `server_delivery_complete: false`. The Host finishes the chain by its
   `next_cursor` and confirms again;
 * a proof half for a body not sent to its end closes no compaction reload
-  attempt, whichever half it is.
+  attempt, whichever half it is;
+* an Attestation report for a delivery marked as predating this Host's context
+  compaction is rejected before scoring, including after `capacity_stop`, with
+  `model_attestation=fail` and
+  `model_attestation_failure_reason=stale_pre_compaction_delivery`.
 
 On a Legacy layout the same rules hold.
 

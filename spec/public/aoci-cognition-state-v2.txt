@@ -127,6 +127,7 @@ Strict Attestation
 Failure reasons are deterministic, ordered, and additive. The vocabulary is:
 
 * `not_provided`;
+* `stale_pre_compaction_delivery`;
 * `attestation_envelope_identity_mismatch`;
 * `challenge_answer_count_mismatch`;
 * `ordinal_order_mismatch`;

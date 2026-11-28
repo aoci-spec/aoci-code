@@ -1199,6 +1199,7 @@
   "ui.error.registry": "无法定位面板登记目录（用户缓存目录）：%s",
   "ui.error.legacy_page": "旧版未认证面板仍在运行；请先对本仓库运行 aoci ui --stop，再启动新面板",
   "overview.attestation.schema_expected": "Attestation Schema 在语义评分前拒绝了请求。challenge_answers 的每项必须且只能包含 ordinal、object_identity、tag、core_f，additionalProperties=false。请使用 object_identity；object 和 object_ref 无效。",
+  "overview.attestation.stale_pre_compaction_delivery": "交付早于 Host 的上下文压缩，认证报告已在评分前被拒绝。",
   "config.locale_entries_prospective": "已有 Entry 保留其写成时的语言；从现在起新建或更新的 Entry 以 %s 创作。",
   "guide.recovery_pending.locale": "%s：以回执中的目标重新运行 aoci config set locale <target>；它从回执的后像处续接，完成前拒绝其他目标",
   "guide.recovery_pending.relocate": "%s：运行 aoci index relocate；它从回执的后像处续接",

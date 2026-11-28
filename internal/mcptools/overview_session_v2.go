@@ -358,7 +358,10 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	if !refresh.deliveries.holds(entry) {
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
-	if !refresh.deliveries.proofFits(entry, input.ModelAttestation) {
+	ctx := entry.ctx
+	body := ctx.Prepared.body.Receipt.BodySHA256
+	if !refresh.deliveryBeforeCompaction(entry.owner, ctx.RequestedScope, body, entry.id) &&
+		!refresh.deliveries.proofFits(entry, input.ModelAttestation) {
 		// The live path takes over, with the halves this delivery already
 		// accepted: they move to the Host session's own memory.
 		for key, evidence := range entry.ctx.Session.deliveryEvidence {
@@ -368,7 +371,6 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 		refresh.deliveries.remove(entry)
 		return nil
 	}
-	ctx := entry.ctx
 	ctx.Assessment = refresh.evaluateOverview(input, ctx.Receipt, entry.semantic, hostReasons, eventID, entry.owner)
 	delivery, err := renderOverviewDelivery(ctx, input, entry.tokens)
 	if err != nil {
@@ -389,7 +391,7 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	}
 	// The response stands. Only now is room made for its proof (which may
 	// evict another delivery) and its proof memory written.
-	proofRetained := refresh.deliveries.reserveProof(entry, input.ModelAttestation) == nil
+	proofRetained := delivery.evidence != nil && refresh.deliveries.reserveProof(entry, input.ModelAttestation) == nil
 	if proofRetained {
 		delivery.evidence.commit()
 	}
