@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -175,13 +176,49 @@ func TestConnectionStringExamplesAreDriverVerifiedAndDocumented(t *testing.T) {
 		}
 	}
 
+	const targetAnchor = "connection-string-formats"
+	if !markdownHasAnchor(docsText, targetAnchor) {
+		t.Fatalf("docs/database-evidence.md is missing the heading for anchor #%s", targetAnchor)
+	}
+
+	targetPattern := regexp.MustCompile(`https://github\.com/aoci-spec/aoci-code/blob/([^/\s)\]]+)/docs/database-evidence\.md#` + regexp.QuoteMeta(targetAnchor))
+	anyBlobPattern := regexp.MustCompile(`https://github\.com/aoci-spec/aoci-code/blob/([^/\s)\]]+)/`)
 	for _, readme := range []string{"README.md", "README.zh-CN.md"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", readme))
 		if err != nil {
 			t.Fatalf("read %s: %v", readme, err)
 		}
-		if !strings.Contains(string(raw), "docs/database-evidence.md#connection-string-formats") {
-			t.Fatalf("%s does not point to docs/database-evidence.md#connection-string-formats", readme)
+		text := string(raw)
+		targetMatch := targetPattern.FindStringSubmatch(text)
+		if targetMatch == nil {
+			t.Fatalf("%s does not link to docs/database-evidence.md#%s", readme, targetAnchor)
+		}
+		linkTag := targetMatch[1]
+		if linkTag == "main" {
+			t.Fatalf("%s links to docs/database-evidence.md#%s on moving branch main instead of the README release tag", readme, targetAnchor)
+		}
+		allTags := anyBlobPattern.FindAllStringSubmatch(text, -1)
+		if len(allTags) < 2 {
+			t.Fatalf("%s has too few blob links (%d) to verify release-tag consistency", readme, len(allTags))
+		}
+		for _, match := range allTags {
+			if match[1] != linkTag {
+				t.Fatalf("%s database-evidence link uses tag %q, disagreeing with sibling blob link tag %q", readme, linkTag, match[1])
+			}
 		}
 	}
+}
+
+func markdownHasAnchor(doc, anchor string) bool {
+	heading := regexp.MustCompile(`(?m)^#{1,6}\s+(.+?)\s*$`)
+	nonSlug := regexp.MustCompile(`[^a-z0-9\- ]+`)
+	for _, match := range heading.FindAllStringSubmatch(doc, -1) {
+		slug := strings.ToLower(strings.TrimSpace(match[1]))
+		slug = nonSlug.ReplaceAllString(slug, "")
+		slug = strings.ReplaceAll(slug, " ", "-")
+		if slug == anchor {
+			return true
+		}
+	}
+	return false
 }
