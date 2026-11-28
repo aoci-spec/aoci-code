@@ -4,6 +4,9 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- Overview checkpoints that opt in to `cognition-state/v2` project the same
+  Host- and scope-bound delivery and Attestation proof as their assessment,
+  with reliability gated by the current Baseline and governance.
 - Successful Apply reports only work outside the issued sibling batches in
   `remaining`. An Apply can report `remaining=0` while siblings still need
   to be applied. Follow `next_action` and close the parallel wave only when

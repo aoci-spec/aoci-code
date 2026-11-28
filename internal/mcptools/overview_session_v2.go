@@ -389,10 +389,14 @@ func serveVolumeDelivery(root string, input overviewIn, loaded *cognitionRepoCtx
 	}
 	// The response stands. Only now is room made for its proof (which may
 	// evict another delivery) and its proof memory written.
-	if err := refresh.deliveries.reserveProof(entry, input.ModelAttestation); err == nil {
+	proofRetained := refresh.deliveries.reserveProof(entry, input.ModelAttestation) == nil
+	if proofRetained {
 		delivery.evidence.commit()
 	}
 	refresh.commitTransport(entry.owner, ctx.RequestedScope, entry.id, input, delivery.Facts)
+	if proofRetained {
+		refresh.recordCheckpointProof(entry.owner, ctx.Receipt, entry.semantic.baselineSHA256, input, delivery.Facts)
+	}
 	// A reused delivery is never fresh, so it opens no attempt; its scope still
 	// matters, because a confirmed complete delivery is the proof that clears
 	// the capacity verdict (#168).

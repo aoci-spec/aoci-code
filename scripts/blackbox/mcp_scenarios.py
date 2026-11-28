@@ -1969,6 +1969,34 @@ def group_m_delta():
     record(g, "M6.restart-has-no-base", "PASS" if ok6 else "FAIL",
            f"mode={meta7.get('delivery_mode')} reason={meta7.get('fallback_reason')}"[:200])
 
+    # M7: the opt-in checkpoint reuses verified proof in the same Host
+    # session and withdraws the full-system claim when managed source drifts.
+    s3 = Session(fx)
+    full, delivery_err = text_of(s3.call("aoci_overview"))
+    proof7, _ = attest_delivery(s3, fx, full)
+    checkpoint_args = {"check_only": True, "cognition_state_version": "cognition-state/v2"}
+    before, before_err = text_of(s3.call("aoci_overview", checkpoint_args))
+    with open(os.path.join(fx, "pkg", "f001.go"), "a", encoding="utf-8") as fh:
+        fh.write("\nfunc CheckpointDrift() int { return 42 }\n")
+    after, after_err = text_of(s3.call("aoci_overview", checkpoint_args))
+    s3.close()
+    clean, dirty = jload(before), jload(after)
+    clean_state = clean.get("cognition_state_v2") or {}
+    dirty_state = dirty.get("cognition_state_v2") or {}
+    clean_receipt = (clean.get("assessment") or {}).get("cognition_receipt") or {}
+    dirty_receipt = (dirty.get("assessment") or {}).get("cognition_receipt") or {}
+    ok7 = (not delivery_err and not before_err and not after_err and proof7.get("model_attestation") == "pass"
+           and clean.get("host_delivery_status") == dirty.get("host_delivery_status") == "host_delivery_confirmed"
+           and clean_state.get("current_system_cognition_reliable") is True
+           and clean_receipt.get("model_full_cognition_reliable") is True
+           and dirty_state.get("governance_aligned") is False
+           and dirty_state.get("current_system_cognition_reliable") is False
+           and dirty_receipt.get("model_full_cognition_reliable") is False
+           and clean_receipt.get("refresh_generation") == dirty_receipt.get("refresh_generation"))
+    record(g, "M7.checkpoint-v2-reflects-session-proof-and-source-drift", "PASS" if ok7 else "FAIL",
+           f"proof={proof7.get('model_attestation')} clean={clean_state.get('current_system_cognition_reliable')} "
+           f"dirty={dirty_state.get('current_system_cognition_reliable')} host={clean.get('host_delivery_status')}")
+
 def group_n():
     """next_commands are complete, runnable commands that clear what they name;
     attested cognition under tree drift reads uncertain, never invalid."""

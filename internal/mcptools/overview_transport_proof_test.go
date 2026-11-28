@@ -32,7 +32,12 @@ type transportProofFixture struct {
 
 func newTransportProofFixture(t *testing.T) *transportProofFixture {
 	t.Helper()
-	fixture := &transportProofFixture{t: t, root: chunkSessionRepo(t), session: newCognitionRefreshSession()}
+	return transportProofFixtureForRoot(t, chunkSessionRepo(t))
+}
+
+func transportProofFixtureForRoot(t *testing.T, root string) *transportProofFixture {
+	t.Helper()
+	fixture := &transportProofFixture{t: t, root: root, session: newCognitionRefreshSession()}
 	loaded, fail := loadCognitionCtx(fixture.root)
 	if fail != nil {
 		t.Fatal(fail.Msg)

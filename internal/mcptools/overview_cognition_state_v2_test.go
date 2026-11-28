@@ -3,6 +3,9 @@ package mcptools
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -10,6 +13,153 @@ import (
 
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 )
+
+func checkpointV2ForTest(t *testing.T, root string, session *cognitionRefreshSession, owner string, input overviewIn) overviewCheckpointEnvelope {
+	t.Helper()
+	input.CheckOnly, input.CognitionStateVersion = true, machinecontract.CognitionStateV2
+	result := sessionOverview(t, root, session, owner, input)
+	var checkpoint overviewCheckpointEnvelope
+	if result.IsError {
+		t.Fatalf("checkpoint failed: %s", resText(t, result))
+	}
+	if err := json.Unmarshal([]byte(resText(t, result)), &checkpoint); err != nil || checkpoint.CognitionStateV2 == nil {
+		t.Fatalf("checkpoint is missing its v2 projection: %v", err)
+	}
+	if checkpoint.FullTextIncluded || checkpoint.DeliveryMode != overviewDeliveryCheckpoint || checkpoint.Assessment.OverviewReads != 0 ||
+		!checkpoint.CognitionStateV2.ProtocolCompleted {
+		t.Fatalf("checkpoint delivered a body or failed to close the check: %+v", checkpoint)
+	}
+	return checkpoint
+}
+
+func TestOverviewCheckpointV2ProjectsOnlyCurrentSessionProof(t *testing.T) {
+	for _, change := range []string{"unchanged", "index", "baseline", "compaction", "dirty", "stale", "redelivery", "another_host", "restart"} {
+		t.Run(change, func(t *testing.T) {
+			root, _ := deltaVolumesFixture(t, 10)
+			fixture := transportProofFixtureForRoot(t, root)
+			const owner = "original-host"
+			fixture.prove(owner, overviewIn{})
+			out := fixture.prove(owner, fixture.both)
+			if !strings.Contains(out, "cognition_level_state: cognition_governed") {
+				t.Fatalf("the fixture must establish reliable cognition: %.700s", out)
+			}
+			session, host := fixture.session, owner
+			wantConfirmed, wantGoverned := false, true
+			input := overviewIn{}
+			read := func(name string) string {
+				t.Helper()
+				data, err := os.ReadFile(filepath.Join(fixture.root, name))
+				if err != nil {
+					t.Fatal(err)
+				}
+				return string(data)
+			}
+			switch change {
+			case "unchanged":
+				wantConfirmed = true
+			case "index":
+				code := read("aoci.code.txt")
+				writeVolumeTestFile(t, fixture.root, "aoci.code.txt", strings.Replace(code, "F:", "F:changed ", 1))
+				wantGoverned = false
+			case "baseline":
+				loaded, fail := loadCognitionCtx(fixture.root)
+				if fail != nil {
+					t.Fatal(fail)
+				}
+				data, err := os.ReadFile(loaded.paths.BaselinePath)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(loaded.paths.BaselinePath, append(data, '\n'), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			case "compaction":
+				input.RefreshReasons = []string{machinecontract.RefreshReasonContextCompaction}
+				input.RefreshEventID = "checkpoint-compaction"
+			case "dirty":
+				writeVolumeTestFile(t, fixture.root, "new.go", "package fixture\n")
+				wantConfirmed, wantGoverned = true, false
+			case "stale":
+				writeVolumeTestFile(t, fixture.root, "main.go", read("main.go")+"func updated() {}\n")
+				wantConfirmed, wantGoverned = true, false
+			case "redelivery":
+				fixture.prove(owner, overviewIn{})
+			case "another_host":
+				host = "new-host"
+				input.Receipt, input.ModelState = &fixture.session.lastReceipt, cognitionStateValid
+			case "restart":
+				session = newCognitionRefreshSession()
+				input.Receipt, input.ModelState = &fixture.session.lastReceipt, cognitionStateValid
+			}
+			generation, receipt := session.generation, session.lastReceipt
+			checkpoint := checkpointV2ForTest(t, fixture.root, session, host, input)
+			state := checkpoint.CognitionStateV2
+			wantHost, wantStrict := hostDeliveryIncomplete, machinecontract.StrictAttestationNotProvided
+			if wantConfirmed {
+				wantHost, wantStrict = hostDeliveryConfirmed, machinecontract.StrictAttestationVerified
+			}
+			if change == "redelivery" {
+				wantHost = hostDeliveryUnconfirmed
+			}
+			wantReliable := change == "unchanged"
+			if checkpoint.HostDeliveryStatus != wantHost || state.DeliveryVerified != wantConfirmed ||
+				state.StrictAttestationStatus != wantStrict || state.GovernanceAligned != wantGoverned ||
+				state.CurrentSystemCognitionReliable != wantReliable || checkpoint.Assessment.Receipt.ModelFullReliable != wantReliable ||
+				(checkpoint.Assessment.State == cognitionStateValid) != wantReliable {
+				t.Fatalf("checkpoint must combine only matching proof with live governance: host=%s state=%+v assessment=%+v", checkpoint.HostDeliveryStatus, state, checkpoint.Assessment)
+			}
+			if session.generation != generation || !reflect.DeepEqual(session.lastReceipt, receipt) {
+				t.Fatalf("checkpoint changed the session generation or receipt: %d -> %d", generation, session.generation)
+			}
+			if change == "compaction" {
+				again := checkpointV2ForTest(t, fixture.root, session, host, overviewIn{})
+				if again.CognitionStateV2.CurrentSystemCognitionReliable || again.Assessment.Receipt.ModelFullReliable ||
+					!reflect.DeepEqual(again.Assessment.RefreshReasons, input.RefreshReasons) {
+					t.Fatalf("a later checkpoint reused proof while compaction was pending: %+v", again)
+				}
+				fixture.prove("different-host", overviewIn{})
+				fixture.prove("different-host", fixture.both)
+				after := checkpointV2ForTest(t, fixture.root, session, owner, overviewIn{})
+				if after.CognitionStateV2.CurrentSystemCognitionReliable || after.CognitionStateV2.DeliveryVerified {
+					t.Fatalf("another Host's proof revived the pre-compaction delivery: %+v", after)
+				}
+			}
+		})
+	}
+}
+
+func TestOverviewCheckpointV2PreservesLatestAttestationVerdict(t *testing.T) {
+	for _, verdict := range []string{machinecontract.StrictAttestationPartial, machinecontract.StrictAttestationFailed} {
+		t.Run(verdict, func(t *testing.T) {
+			root, _ := deltaVolumesFixture(t, 10)
+			fixture := transportProofFixtureForRoot(t, root)
+			const owner = "host"
+			fixture.prove(owner, overviewIn{})
+			fixture.prove(owner, fixture.both)
+			latest := fixture.both
+			report := *latest.ModelAttestation
+			answers := append([]overviewChallengeAnswer(nil), report.ChallengeAnswers...)
+			report.ChallengeAnswers = answers
+			latest.ModelAttestation = &report
+			wrong := len(answers) - 1
+			if verdict == machinecontract.StrictAttestationFailed {
+				wrong = len(answers)
+			}
+			for i := range answers[:wrong] {
+				answers[i].CoreF = "unrelated answer"
+			}
+			fixture.prove(owner, latest)
+			checkpoint := checkpointV2ForTest(t, fixture.root, fixture.session, owner, overviewIn{})
+			state := checkpoint.CognitionStateV2
+			if checkpoint.HostDeliveryStatus != hostDeliveryConfirmed || !state.DeliveryVerified || !state.ModelCognitionUsable ||
+				state.StrictAttestationStatus != verdict || state.StrictAttestationVerified ||
+				!reflect.DeepEqual(state.StrictAttestationFailureReasons, []string{machinecontract.StrictAttestationReasonCoreFMismatch}) ||
+				state.CurrentSystemCognitionReliable || checkpoint.Assessment.Receipt.ModelFullReliable {
+				t.Fatalf("checkpoint lost the confirmed delivery or the latest strict verdict: %+v", checkpoint)
+			}
+		})
+	}
+}
 
 func TestCognitionStateV2ProjectionKeepsProofAndGovernanceOutOfLevel(t *testing.T) {
 	usableStrictFailure := overviewAttestationResult{

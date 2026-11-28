@@ -105,6 +105,69 @@ type overviewCheckpointEnvelope struct {
 	HostCapacity *hostCapacityFacts    `json:"host_capacity,omitempty"`
 }
 
+// overviewCheckpointProof retains only the verdicts needed by a checkpoint.
+// It lives on the current transport record of one Host and requested scope.
+type overviewCheckpointProof struct {
+	receipt        cognitionReceipt
+	baselineSHA256 string
+	hostStatus     string
+	attestation    overviewAttestationResult
+}
+
+func checkpointDeliveryScope(receipt cognitionReceipt) string {
+	if receipt.Version == 2 {
+		return receipt.RequestedScope
+	}
+	return receipt.Scope
+}
+
+// Callers hold session.mu. A snapshot change withdraws the matching proof;
+// a pending compaction withdraws the pre-compaction Host memory.
+func (session *cognitionRefreshSession) currentCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string) *overviewCheckpointProof {
+	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
+	if delivery == nil || delivery.sent < delivery.count || session.pendingReasons[machinecontract.RefreshReasonContextCompaction] {
+		return nil
+	}
+	proof := delivery.checkpoint
+	if proof == nil || baselineSHA256 == "" || proof.baselineSHA256 != baselineSHA256 || !receiptIdentityMatches(proof.receipt, receipt) {
+		return nil
+	}
+	return proof
+}
+
+// recordCheckpointProof runs after transport and proof acceptance. It keeps
+// the scored result for this exact body without keeping any model answers.
+func (session *cognitionRefreshSession) recordCheckpointProof(owner volumeDeliveryOwner, receipt cognitionReceipt, baselineSHA256 string, input overviewIn, facts overviewDeliveryFacts) {
+	delivery := session.currentDeliveries[deliveryScope{owner: owner, scope: checkpointDeliveryScope(receipt)}]
+	if delivery == nil || delivery.body != facts.BodySHA256 || baselineSHA256 == "" {
+		return
+	}
+	if facts.ChunkKnown {
+		if input.Cursor == "" {
+			delivery.checkpoint = &overviewCheckpointProof{
+				receipt: receipt, baselineSHA256: baselineSHA256, hostStatus: hostDeliveryUnconfirmed,
+			}
+		}
+		return
+	}
+	proof := delivery.checkpoint
+	if proof == nil || delivery.sent < delivery.count || proof.baselineSHA256 != baselineSHA256 ||
+		!receiptIdentityMatches(proof.receipt, receipt) {
+		return
+	}
+	result := facts.Attestation
+	proof.hostStatus = facts.HostDeliveryStatus
+	proof.attestation = overviewAttestationResult{
+		DeliveryIntegrity:     result.DeliveryIntegrity,
+		ModelAttestation:      result.ModelAttestation,
+		CognitionAssimilation: result.CognitionAssimilation,
+		ReportProvided:        result.ReportProvided,
+		EnvelopeValid:         result.EnvelopeValid,
+		TruncationDetected:    result.TruncationDetected,
+		StrictFailureReasons:  append([]string(nil), result.StrictFailureReasons...),
+	}
+}
+
 func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overviewIn, fullScope bool,
 	probe *cognitionProbe, probeResult *cognitionProbeResult, plan *overviewDeliveryPlan, capacity *hostCapacityFacts) string {
 	envelope := overviewCheckpointEnvelope{
@@ -115,13 +178,16 @@ func renderOverviewCheckpoint(assessment cognitionRefreshAssessment, input overv
 		DeliveryPlan: plan, HostCapacity: capacity,
 	}
 	if cognitionStateV2Requested(input) {
-		state := assessOverviewCognitionStateV2(
-			true, fullScope, assessment.Semantic.GovernanceAligned, true,
-			overviewAttestationResult{
-				DeliveryIntegrity: deliveryIntegrityIncomplete,
-				ModelAttestation:  modelAttestationNotProvided,
-			},
-		)
+		attestation := overviewAttestationResult{
+			DeliveryIntegrity: deliveryIntegrityIncomplete,
+			ModelAttestation:  modelAttestationNotProvided,
+		}
+		if proof := assessment.checkpointProof; proof != nil {
+			attestation = proof.attestation
+			envelope.HostDeliveryStatus = proof.hostStatus
+		}
+		state := assessOverviewCognitionStateV2(plan != nil, fullScope, assessment.Semantic.GovernanceAligned, true, attestation)
+		state.CurrentSystemCognitionReliable = state.CurrentSystemCognitionReliable && assessment.Receipt.ModelFullReliable
 		envelope.CognitionStateV2 = &state
 	}
 	data, _ := json.Marshal(envelope)

@@ -133,6 +133,7 @@ func (session *cognitionRefreshSession) bindVolumeGovernanceSnapshot(
 }
 
 type semanticChangeFacts struct {
+	baselineSHA256         string
 	Count                  int    `json:"semantic_change_count"`
 	Threshold              int    `json:"semantic_change_threshold"`
 	PathSetSHA256          string `json:"semantic_change_paths_sha256"`
@@ -179,7 +180,8 @@ type cognitionRefreshAssessment struct {
 	NextAction       string              `json:"next_action"`
 	// Interruption is set when this evaluation recorded a compaction reload
 	// interrupted by compaction; the handler writes it to the Ledger.
-	Interruption *hostCapacityInterruption `json:"-"`
+	Interruption    *hostCapacityInterruption `json:"-"`
+	checkpointProof *overviewCheckpointProof
 }
 
 func inspectSemanticChanges(
@@ -192,7 +194,11 @@ func inspectSemanticChanges(
 	}
 	facts.Threshold = repository.cfg.CognitionRefreshThreshold
 
-	state, err := managedstate.Load(root, repository.cfg)
+	value, _, baselineSHA256, err := baseline.LoadWithDigest(root)
+	if err != nil {
+		return facts, &Fail{Code: errInternal, Msg: mcpMessage("maintain.snapshot_failed", localeSafeMCPDetail(err.Error()))}
+	}
+	state, err := managedstate.LoadFromBaseline(root, repository.cfg, value)
 	if err != nil {
 		return facts, &Fail{
 			Code: errInternal,
@@ -232,6 +238,7 @@ func inspectSemanticChanges(
 		formatOnlyPaths,
 		warnings,
 	)
+	facts.baselineSHA256 = baselineSHA256
 	if !state.Legacy {
 		facts.ScopeChangeRequired = state.ScopeChangeRequired
 		facts.ScopePolicyIdentity = state.DesiredPolicyIdentity
@@ -509,6 +516,11 @@ func (session *cognitionRefreshSession) addHostReasons(reasons []string, eventID
 		return
 	}
 	for _, reason := range reasons {
+		if reason == machinecontract.RefreshReasonContextCompaction && !session.pendingEvents[eventID] {
+			for _, delivery := range session.currentDeliveries {
+				delivery.checkpoint = nil
+			}
+		}
 		session.pendingReasons[reason] = true
 	}
 	session.pendingEvents[eventID] = true
@@ -531,7 +543,26 @@ func (session *cognitionRefreshSession) evaluate(
 	hostReasons []string,
 	eventID string,
 ) cognitionRefreshAssessment {
-	session.adoptReliableReceipt(input.Receipt, current, input.ModelState)
+	return session.evaluateRefresh(input, current, facts, hostReasons, eventID, nil)
+}
+
+func (session *cognitionRefreshSession) evaluateOverview(
+	input overviewIn, current cognitionReceipt, facts semanticChangeFacts,
+	hostReasons []string, eventID string, owner volumeDeliveryOwner,
+) cognitionRefreshAssessment {
+	if input.CheckOnly && cognitionStateV2Requested(input) {
+		return session.evaluateRefresh(input, current, facts, hostReasons, eventID, &owner)
+	}
+	return session.evaluate(input, current, facts, hostReasons, eventID)
+}
+
+func (session *cognitionRefreshSession) evaluateRefresh(
+	input overviewIn, current cognitionReceipt, facts semanticChangeFacts,
+	hostReasons []string, eventID string, checkpointOwner *volumeDeliveryOwner,
+) cognitionRefreshAssessment {
+	if checkpointOwner == nil {
+		session.adoptReliableReceipt(input.Receipt, current, input.ModelState)
+	}
 	// Read before this request's reasons join the pending set: a fresh
 	// compaction declaration over an open compaction reload is the
 	// interruption the Host-capacity verdict records.
@@ -559,9 +590,18 @@ func (session *cognitionRefreshSession) evaluate(
 	reasons := session.pendingReasonList()
 	stable := input.StableCheckpoint != nil && *input.StableCheckpoint
 	status := machinecontract.RefreshStatusNotRequired
+	identityMatches := receiptIdentityMatches(session.lastReceipt, current)
+	identityReliable := session.established && identityMatches && receiptReliable(session.lastReceipt)
+	var proof *overviewCheckpointProof
+	if checkpointOwner != nil {
+		proof = session.currentCheckpointProof(*checkpointOwner, current, facts.baselineSHA256)
+		identityMatches = proof != nil
+		initial = proof == nil || !proof.attestation.ReportProvided || proof.hostStatus != hostDeliveryConfirmed
+		identityReliable = proof != nil && proof.attestation.CognitionAssimilation == cognitionAssimilationComplete
+	}
 
 	switch {
-	case initial && !facts.GovernanceAligned:
+	case (initial || checkpointOwner != nil) && !facts.GovernanceAligned:
 		if facts.Count > 0 && !stable {
 			status = machinecontract.RefreshStatusDeferredUntilStable
 		} else {
@@ -569,7 +609,7 @@ func (session *cognitionRefreshSession) evaluate(
 		}
 	case initial:
 		status = machinecontract.RefreshStatusReadyForOverview
-	case !receiptIdentityMatches(session.lastReceipt, current):
+	case !identityMatches:
 		// A different scope or changed Volume identity requires one delivery,
 		// but does not invent a durable refresh reason or governance state.
 		status = machinecontract.RefreshStatusReadyForOverview
@@ -583,8 +623,6 @@ func (session *cognitionRefreshSession) evaluate(
 		status = machinecontract.RefreshStatusReadyForOverview
 	}
 
-	identityReliable := session.established && receiptReliable(session.lastReceipt) &&
-		receiptIdentityMatches(session.lastReceipt, current)
 	// invalid is reserved for identity breaks: no delivery in this session, or a
 	// receipt whose repository, service, or index no longer matches. A reliable
 	// receipt with a pending refresh — a dirty tree deferring until stable, a
@@ -635,6 +673,7 @@ func (session *cognitionRefreshSession) evaluate(
 		LocalRecalls:     0,
 		NextAction:       refreshNextAction(status),
 		Interruption:     interruption,
+		checkpointProof:  proof,
 	}
 }
 
@@ -828,6 +867,7 @@ type deliveryScope struct {
 type currentDelivery struct {
 	body, delivery string
 	sent, count    int
+	checkpoint     *overviewCheckpointProof
 }
 
 // currentDeliveryMax bounds the memory. A scope evicted from it has no

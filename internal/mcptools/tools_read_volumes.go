@@ -95,6 +95,14 @@ func handleVolumeOverview(
 	if semanticFail != nil {
 		return failResult(semanticFail)
 	}
+	if input.CheckOnly && cognitionStateV2Requested(input) {
+		if fail := confirmCognitionSnapshot(root, loaded.set); fail != nil {
+			return failResult(fail)
+		}
+		if metadataErr != nil || metadata[loaded.paths.BaselinePath] != semantic.baselineSHA256 {
+			semantic.baselineSHA256 = ""
+		}
+	}
 	var guard *overviewSourceGuard
 	if metadataErr == nil && input.Cursor == "" && input.HostConfirmation == nil && input.ModelAttestation == nil && !input.CheckOnly {
 		guard = newOverviewSourceGuard(root, loaded, metadata, state)
@@ -106,7 +114,7 @@ func handleVolumeOverview(
 		// The delivery this request picked was replaced while it fell back.
 		return errResult(errBadArgs, "overview_session_unavailable_restart_required", "")
 	}
-	assessment := refreshSession.evaluate(input, current, semantic, hostReasons, eventID)
+	assessment := refreshSession.evaluateOverview(input, current, semantic, hostReasons, eventID, owner)
 	if input.CheckOnly {
 		var probe *cognitionProbe
 		var probeResult *cognitionProbeResult
@@ -342,6 +350,7 @@ func handleVolumeOverview(
 	}
 	delivery.evidence.commit()
 	refreshSession.commitTransport(owner, view.RequestedScope, deliveryID, input, delivery.Facts)
+	refreshSession.recordCheckpointProof(owner, delivered, semantic.baselineSHA256, input, delivery.Facts)
 	refreshSession.noteDeliveryChain(&delivery, framed.Receipt.BodySHA256, fresh, view.EffectiveScope == cognition.ScopeAll && deltaFacts == nil, assessment.RefreshReasons, estimatedTokens)
 	refreshSession.recordAttestedDelivery(delivered, delivery.Attestation, markDelivered)
 	refreshSession.settleDeltaBase(renderCtx, delivery.Attestation)

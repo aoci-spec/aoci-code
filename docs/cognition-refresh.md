@@ -19,6 +19,16 @@ and returns the complete requested scope whenever AOCI can form a coherent
 snapshot. A matching receipt, a below-threshold count, or no pending reason
 does not suppress that body.
 
+An opted-in `check_only` with `cognition_state_version: cognition-state/v2`
+reports the same proof in its assessment, `host_delivery_status`, and v2
+projection. It reuses the current delivery and Attestation result for that
+Host session and scope while the scope identity and Baseline still match.
+Dirty or Stale governance can retain confirmed delivery and a strict verdict
+while making current cognition unreliable. A declared compaction, another
+Host connection, or an MCP restart leaves the checkpoint without the prior
+proof. The check sends no body, consumes no generation, and leaves the
+session's stored receipt intact.
+
 If the repository has semantic drift, finish the nearest stable work unit and
 run the normal formatting, lint, and tests first. Then run `aoci_maintain` once,
 resolve `repair_required`, classify any `stopped` attempt from its formal-write

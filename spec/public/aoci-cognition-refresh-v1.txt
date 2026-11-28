@@ -109,6 +109,13 @@ durable workflow states. Natural-language next actions are localized; machine
 values do not vary by Locale. check_only=true always returns compact JSON and
 never returns the cognition body.
 
+With `cognition_state_version=cognition-state/v2`, the checkpoint assessment,
+Host delivery status, and v2 projection reuse the current proof of the
+requesting Host and scope. Scope identity and Baseline must match, and live
+governance and pending refresh facts determine whether that proof is
+currently reliable. A supplied receipt cannot create proof or advance the
+generation. See aoci-cognition-state-v2.txt for the checkpoint proof rules.
+
 When check_only is absent or false, the call is an explicit cognition request.
 AOCI delivers the complete requested scope whenever it can form one coherent,
 verified CognitionSet. It does not suppress the body because a matching receipt
@@ -183,8 +190,11 @@ The original required fields are unchanged. During one MCP stdio session the
 server retains only receipt identity, pending reasons, bounded event IDs, and a
 generation number in the refresh state. Separately, the Overview delivery
 store of aoci-overview-delivery-v1.txt keeps each delivered body in bounded
-process memory so later Chunk and proof calls are answered from the same bytes;
-it is never persisted and expires or is evicted under that spec's limits. One complete,
+process memory so later Chunk and proof calls are answered from the same bytes.
+The current Host and scope transport record also carries the compact proof
+verdict and its Baseline binding for opted-in checkpoints.
+The delivered body and proof memory are never persisted.
+Retained bodies expire or are evicted under that spec's limits. One complete,
 Host-confirmed, aligned Attestation attempt consumes the merged event and
 starts the next counting cycle. Pass records a reliable receipt; partial or
 fail records an uncertain receipt and the existing source-bound delivery
