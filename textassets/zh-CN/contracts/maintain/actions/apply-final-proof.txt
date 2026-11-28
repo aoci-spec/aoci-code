@@ -1,1 +1,1 @@
-最后一个Volumes批次已应用且remaining=0；terminal_proof 已带回 Verify、Aggregate Check 和 Guide 会算出的同一份终态证明（governance_result、check_passed、guide_complete），三者都不必再运行：本次任务的认知收尾已完成。不得再次调用aoci_maintain或执行正式认知写入；aoci check 仍可用于 CI
+最后一个Volumes批次已应用且remaining=0；terminal_proof（terminal_proof.aligned=true）已带回 Verify、Aggregate Check 和 Guide 会算出的同一份终态证明（governance_result、check_passed、guide_complete），三者都不必再运行：本次任务的认知收尾已完成。不得再次调用aoci_maintain或执行正式认知写入；aoci check 仍可用于 CI。cognition_state=uncertain 只表示本会话还没读过完整索引，不是出错；若要在同一会话接着开发（尤其有子代理参与首建），再调用一次完整 aoci_overview。

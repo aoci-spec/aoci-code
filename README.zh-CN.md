@@ -232,6 +232,8 @@ Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给�
 
 宿主应读取项目内的 AOCI Rules 和实时 Guide，调查源码、测试、配置及相关证据，然后为 `index` 角色的受管对象创作 FRAS 候选。普通用户无需手工编排 Plan、Stage、Check、Diff、CAS 或 Apply。
 
+最后一个批次返回 `terminal_proof.aligned=true` 就是首建完成。此时 `cognition_receipt` 里的 `cognition_state=uncertain` 只表示本会话还没读过完整索引，不是出错。若要在同一会话接着开发（尤其有子代理参与首建），再调用一次完整 `aoci_overview`；若随后新开会话，新会话会在开工时自行加载。
+
 首次建立完成后，用户可以像平常一样直接提出开发需求，例如：
 
 ```text

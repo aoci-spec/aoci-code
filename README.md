@@ -243,6 +243,8 @@ The agent starts the panel in the background with `aoci ui --detach --json` and 
 
 The host reads the project's AOCI rules and live guide, inspects source code, tests, configuration, and relevant evidence, and then writes FRAS candidates for every managed object whose role is `index`. You do not need to orchestrate Plan, Stage, Check, Diff, CAS, or Apply yourself.
 
+When the final batch reports `terminal_proof.aligned=true`, the first index build is complete. Seeing `cognition_state=uncertain` in `cognition_receipt` at that point only means this session has not read the complete index through `aoci_overview` yet—it is not an error. If you plan to keep developing in the same session (especially when subagents helped author the first build), call one complete `aoci_overview`; otherwise a new session loads it when work starts.
+
 Once the first index is complete, send ordinary development requests as usual, for example:
 
 ```text
