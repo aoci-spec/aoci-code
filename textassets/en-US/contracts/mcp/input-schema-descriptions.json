@@ -56,6 +56,6 @@
     "removals": "Code orphans to drop in this same batch, each as aoci_maintain listed it under orphan_remove_candidates; may stand alone when there is nothing to author",
     "removals[].path": "Repository-relative path of the orphan Entry, with or without its code: prefix",
     "observe_review": "Confirms, before the batch is planned, the Observe evidence aoci_maintain listed beside it: its review_digest and who reviewed it; a digest the current list no longer has is a zero-write repair finding",
-    "root_overview": "Authors the Root's two overview lines an aligned result invited through root_overview: project (what the system is and does) and global_invariants (the constraints that hold across it, or none), each one line, with the root_sha256 that result gave; stands alone, with no Entries, removals, or review beside it"
+    "root_overview": "Authors the Root's two overview lines an aligned result invited through root_overview: project (what the system is and does, at most {{.RootOverviewProjectMaxChars}} Unicode characters) and global_invariants (the constraints that hold across it, or none, at most {{.RootOverviewInvariantsMaxChars}} Unicode characters), each one line, with the root_sha256 that result gave; stands alone, with no Entries, removals, or review beside it"
   }
 }

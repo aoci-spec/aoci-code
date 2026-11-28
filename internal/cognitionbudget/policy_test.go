@@ -2,8 +2,10 @@ package cognitionbudget
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/aoci-spec/aoci-code/internal/index"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
@@ -24,6 +26,96 @@ func TestEffectiveSFieldBandsUsePolicyAndMetaCeilings(t *testing.T) {
 	}
 	if band, _ := LimitFor(policy.S, 2); band.MaxTokens != 65 {
 		t.Fatalf("display changed the persisted policy band: %+v", band)
+	}
+}
+
+func TestEffectiveRFieldBandsMatchValidatorRunesAndBytes(t *testing.T) {
+	policy := DefaultPolicy(machinecontract.BudgetModeEnforce)
+	bands := EffectiveRFieldBands(policy.R)
+	want := map[int][3]int{
+		9: {180, 360, 542},
+		8: {140, 360, 422},
+		7: {90, 272, 272},
+		6: {90, 272, 272},
+		5: {90, 272, 272},
+		4: {50, 152, 152},
+		3: {50, 152, 152},
+		2: {50, 152, 152},
+		1: {50, 152, 152},
+	}
+	find := func(c int) (EffectiveRFieldBand, bool) {
+		for _, band := range bands {
+			if c >= band.MinC && c <= band.MaxC {
+				return band, true
+			}
+		}
+		return EffectiveRFieldBand{}, false
+	}
+	for c, expected := range want {
+		original, _ := LimitFor(policy.R, c)
+		got, found := find(c)
+		maxTokens, maxRunes, maxBytes := RFieldLimits(original)
+		if !found || got.MaxTokens != expected[0] || got.MaxRunes != expected[1] || got.MaxBytes != expected[2] ||
+			got.MaxTokens != maxTokens || got.MaxRunes != maxRunes || got.MaxBytes != maxBytes ||
+			got.TargetTokens != original.TargetTokens {
+			t.Fatalf("C%d effective R band = %+v, want tokens=%d runes=%d bytes=%d target=%d",
+				c, got, expected[0], expected[1], expected[2], original.TargetTokens)
+		}
+		// Boundary proof against ValidateEntryWithSQuota: maxBytes passes, maxBytes+1 fails.
+		okLine := fmt.Sprintf("main.go[C.RT.%d.T]: F:core | R:%s | A:- | S:-", c, strings.Repeat("a", got.MaxBytes))
+		if vs := ValidateEntryWithSQuota(okLine, policy, nil); len(vs) != 0 {
+			t.Fatalf("C%d R at effective maxBytes=%d must pass budget gate, got %+v", c, got.MaxBytes, vs)
+		}
+		overLine := fmt.Sprintf("main.go[C.RT.%d.T]: F:core | R:%s | A:- | S:-", c, strings.Repeat("a", got.MaxBytes+1))
+		if vs := ValidateEntryWithSQuota(overLine, policy, nil); len(vs) != 1 || vs[0].Field != "R" || vs[0].Maximum != got.MaxTokens {
+			t.Fatalf("C%d R at maxBytes+1=%d must fail budget gate at max_tokens=%d, got %+v", c, got.MaxBytes+1, got.MaxTokens, vs)
+		}
+	}
+}
+
+func TestRFieldLimitsSaturatesLargeTokenCeilingsWithoutOverflow(t *testing.T) {
+	maxRunes := machinecontract.ObjectFRASV2RMaxRunes
+	maxPossibleBytes := maxRunes * utf8.UTFMax
+	hugeTokens := int(int64(1) << 62) // 4611686018427387904 on 64-bit platforms
+	if math.MaxInt == math.MaxInt32 {
+		hugeTokens = math.MaxInt
+	}
+	for _, tc := range []struct {
+		name      string
+		maxTokens int
+		wantTok   int
+		wantRunes int
+		wantBytes int
+	}{
+		{name: "negative", maxTokens: -5, wantTok: 0, wantRunes: 0, wantBytes: 0},
+		{name: "zero", maxTokens: 0, wantTok: 0, wantRunes: 0, wantBytes: 0},
+		{name: "below_saturation", maxTokens: (maxPossibleBytes - 2) / 3, wantTok: (maxPossibleBytes - 2) / 3, wantRunes: maxRunes, wantBytes: maxPossibleBytes - 1},
+		{name: "at_saturation", maxTokens: (maxPossibleBytes-2)/3 + 1, wantTok: (maxPossibleBytes-2)/3 + 1, wantRunes: maxRunes, wantBytes: maxPossibleBytes},
+		{name: "huge_custom_band", maxTokens: hugeTokens, wantTok: hugeTokens, wantRunes: maxRunes, wantBytes: maxPossibleBytes},
+		{name: "max_int", maxTokens: math.MaxInt, wantTok: math.MaxInt, wantRunes: maxRunes, wantBytes: maxPossibleBytes},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gotTok, gotRunes, gotBytes := RFieldLimits(FieldBand{MinC: 9, MaxC: 9, TargetTokens: 1, MaxTokens: tc.maxTokens})
+			if gotTok != tc.wantTok || gotRunes != tc.wantRunes || gotBytes != tc.wantBytes {
+				t.Fatalf("RFieldLimits(maxTokens=%d) = (%d, %d, %d), want (%d, %d, %d)",
+					tc.maxTokens, gotTok, gotRunes, gotBytes, tc.wantTok, tc.wantRunes, tc.wantBytes)
+			}
+		})
+	}
+
+	policy := DefaultPolicy(machinecontract.BudgetModeEnforce)
+	policy.R[0].MaxTokens = hugeTokens
+	if _, err := Normalize(policy); err != nil {
+		t.Fatalf("custom huge C9 R budget must normalize cleanly: %v", err)
+	}
+	bands := EffectiveRFieldBands(policy.R)
+	if len(bands) == 0 || bands[0].MinC != 9 || bands[0].MaxC != 9 ||
+		bands[0].MaxRunes != maxRunes || bands[0].MaxBytes != maxPossibleBytes {
+		t.Fatalf("C9 effective R band under huge max_tokens = %+v, want runes=%d bytes=%d", bands[0], maxRunes, maxPossibleBytes)
+	}
+	okLine := "main.go[C.RT.9.T]: F:core | R:code:a.go | A:- | S:-"
+	if vs := ValidateEntryWithSQuota(okLine, policy, nil); len(vs) != 0 {
+		t.Fatalf("valid C9 entry must pass under huge custom R budget, got %+v", vs)
 	}
 }
 

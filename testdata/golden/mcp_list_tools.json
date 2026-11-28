@@ -591,7 +591,7 @@
         },
         "root_overview": {
           "additionalProperties": false,
-          "description": "撰写已对齐的结果通过 root_overview 邀请的 Root 两行概览：project（系统是什么、做什么）与 global_invariants（贯穿全系统的约束，没有则写 none），各一行，并带上该结果给出的 root_sha256；单独提交，不与条目、删除或复核同批",
+          "description": "撰写已对齐的结果通过 root_overview 邀请的 Root 两行概览：project（系统是什么、做什么，最多 200 个 Unicode 字符）与 global_invariants（贯穿全系统的约束，没有则写 none，最多 600 个 Unicode 字符），各一行，并带上该结果给出的 root_sha256；单独提交，不与条目、删除或复核同批",
           "properties": {
             "global_invariants": {
               "maxLength": 2400,

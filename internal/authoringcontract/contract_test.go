@@ -101,6 +101,41 @@ func TestCustomMetaLetterReuseDoesNotAcquireStarterMeanings(t *testing.T) {
 	}
 }
 
+func TestAuthoringContractWarnsAboutACommaSplitting(t *testing.T) {
+	anchors := map[string][]string{
+		textassets.DefaultLocale: {
+			`split on every ASCII comma ","`,
+			`foo(a, b)`,
+			`without comma-separated parameter lists`,
+		},
+		textassets.LegacyLocale: {
+			`按所有英文逗号 "," 切分计数`,
+			`带参数的方法签名如 foo(a, b)`,
+			`不要写带逗号的参数列表`,
+		},
+	}
+	for locale, required := range anchors {
+		t.Run(locale, func(t *testing.T) {
+			template, err := textassets.Render(locale, textassets.TemplateVolumeMeta, machinecontract.NumericText())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, domain := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
+				output, err := Build([]byte(template), []string{domain}, locale)
+				if err != nil {
+					t.Fatalf("%s/%s: %v", locale, domain, err)
+				}
+				combined := strings.Join(output.Instructions, "\n")
+				for _, want := range required {
+					if !strings.Contains(combined, want) {
+						t.Errorf("%s/%s authoring contract missing A comma-splitting warning %q", locale, domain, want)
+					}
+				}
+			}
+		})
+	}
+}
+
 func assertExampleTag(t *testing.T, example, want string) {
 	t.Helper()
 	entry, ok := index.ParseEntryLine(example, 1)
