@@ -88,7 +88,8 @@ func Build(metaRaw []byte, domains []string, locale string) (Output, error) {
 }
 
 // BuildWithBudget adds the importance-based limits enforced alongside the
-// FRAS rune limits. R is expressed in UTF-8 bytes and S in estimated tokens.
+// FRAS rune limits. R states both effective runes and UTF-8 bytes from the
+// shared cognitionbudget projection, and S states effective estimated tokens.
 func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *cognitionbudget.Policy) (Output, error) {
 	parsed, err := ParseMeta(metaRaw, domains)
 	if err != nil {
@@ -102,10 +103,11 @@ func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *co
 	if normalizeErr != nil {
 		return output, nil
 	}
+	rBands := cognitionbudget.EffectiveRFieldBands(normalized.R)
 	sBands := cognitionbudget.EffectiveSFieldBands(normalized.S, index.ExtractSQuotaThresholds(string(metaRaw)))
 	for _, limit := range []struct{ key, bands string }{
-		{"volumes.authoring.r_budget", formatBudgetBands(normalized.R, true)},
-		{"volumes.authoring.s_budget", formatBudgetBands(sBands, false)},
+		{"volumes.authoring.r_budget", formatEffectiveRBands(rBands, locale)},
+		{"volumes.authoring.s_budget", formatBudgetBands(sBands)},
 	} {
 		line, messageErr := textassets.Message(locale, limit.key, limit.bands)
 		if messageErr != nil {
@@ -116,9 +118,39 @@ func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *co
 	return output, nil
 }
 
-// formatBudgetBands lists the ceilings in descending C order, merging
-// adjacent bands with the same ceiling. Token estimation rounds down.
-func formatBudgetBands(bands []cognitionbudget.FieldBand, inBytes bool) string {
+// formatEffectiveRBands renders effective R rune and byte ceilings in
+// descending C order from the shared cognitionbudget projection.
+func formatEffectiveRBands(bands []cognitionbudget.EffectiveRFieldBand, locale string) string {
+	type span struct{ high, low, runes, bytes int }
+	spans := []span{}
+	for _, current := range bands {
+		if last := len(spans) - 1; last >= 0 &&
+			spans[last].runes == current.MaxRunes &&
+			spans[last].bytes == current.MaxBytes &&
+			spans[last].low == current.MaxC+1 {
+			spans[last].low = current.MinC
+			continue
+		}
+		spans = append(spans, span{high: current.MaxC, low: current.MinC, runes: current.MaxRunes, bytes: current.MaxBytes})
+	}
+	sep, format := ", ", "%s<=%d runes/%d bytes"
+	if locale == textassets.LegacyLocale {
+		sep, format = "、", "%s<=%d字/%d字节"
+	}
+	parts := make([]string, 0, len(spans))
+	for _, current := range spans {
+		label := fmt.Sprintf("C%d", current.high)
+		if current.low != current.high {
+			label += fmt.Sprintf("-%d", current.low)
+		}
+		parts = append(parts, fmt.Sprintf(format, label, current.runes, current.bytes))
+	}
+	return strings.Join(parts, sep)
+}
+
+// formatBudgetBands lists the token ceilings in descending C order, merging
+// adjacent bands with the same ceiling.
+func formatBudgetBands(bands []cognitionbudget.FieldBand) string {
 	type span struct{ high, low, limit int }
 	spans := []span{}
 	for importance := 9; importance >= 1; importance-- {
@@ -127,9 +159,6 @@ func formatBudgetBands(bands []cognitionbudget.FieldBand, inBytes bool) string {
 			continue
 		}
 		limit := band.MaxTokens
-		if inBytes {
-			limit = limit*3 + 2
-		}
 		if last := len(spans) - 1; last >= 0 && spans[last].limit == limit && spans[last].low == importance+1 {
 			spans[last].low = importance
 			continue

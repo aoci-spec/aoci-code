@@ -186,6 +186,69 @@ func EstimateTokens(data []byte) int { return EstimateTokensOfSize(len(data)) }
 // has, so a caller summing several assets never has to restate the formula.
 func EstimateTokensOfSize(byteCount int) int { return byteCount / 3 }
 
+// EffectiveRFieldBand is the effective R limit for one merged C range,
+// combining the FRAS v2 hard rune cap with the enforced token/byte budget.
+type EffectiveRFieldBand struct {
+	MinC         int
+	MaxC         int
+	TargetTokens int
+	MaxTokens    int
+	MaxRunes     int
+	MaxBytes     int
+}
+
+// RFieldMaxTokens is the enforced R hard limit in estimated tokens for one
+// policy band. Display projections and budget validation both read this helper.
+func RFieldMaxTokens(band FieldBand) int {
+	return band.MaxTokens
+}
+
+// RFieldLimits returns the effective R ceilings enforced for one policy band:
+// estimated tokens (bytes/3 rounded down), Unicode runes (capped by the FRAS v2
+// hard rune limit and by maxBytes since every UTF-8 rune is at least 1 byte),
+// and UTF-8 bytes (maxTokens*3 + 2).
+func RFieldLimits(band FieldBand) (maxTokens, maxRunes, maxBytes int) {
+	maxTokens = RFieldMaxTokens(band)
+	maxBytes = maxTokens*3 + 2
+	maxRunes = machinecontract.ObjectFRASV2RMaxRunes
+	if maxBytes < maxRunes {
+		maxRunes = maxBytes
+	}
+	return maxTokens, maxRunes, maxBytes
+}
+
+// EffectiveRFieldBands projects the validator's effective R rune and byte
+// ceilings for display in descending C order, merging adjacent bands with the
+// same effective limits.
+func EffectiveRFieldBands(bands []FieldBand) []EffectiveRFieldBand {
+	effective := []EffectiveRFieldBand{}
+	for importance := 9; importance >= 1; importance-- {
+		band, found := LimitFor(bands, importance)
+		if !found {
+			continue
+		}
+		maxTokens, maxRunes, maxBytes := RFieldLimits(band)
+		last := len(effective) - 1
+		if last >= 0 && effective[last].MinC == importance+1 &&
+			effective[last].MaxTokens == maxTokens &&
+			effective[last].MaxRunes == maxRunes &&
+			effective[last].MaxBytes == maxBytes &&
+			effective[last].TargetTokens == band.TargetTokens {
+			effective[last].MinC = importance
+			continue
+		}
+		effective = append(effective, EffectiveRFieldBand{
+			MinC:         importance,
+			MaxC:         importance,
+			TargetTokens: band.TargetTokens,
+			MaxTokens:    maxTokens,
+			MaxRunes:     maxRunes,
+			MaxBytes:     maxBytes,
+		})
+	}
+	return effective
+}
+
 // SFieldMaxTokens is the S hard limit in tokens for one importance level. The
 // band never sits below the Meta S quota: the authoring contract states that
 // quota in runes, one CJK rune is three bytes and therefore one token, so a
@@ -270,8 +333,10 @@ func BuildWithSQuota(repositoryRoot string, raw []byte, policy Policy, quota *in
 			report.RTokens += cost.RTokens
 			report.ATokens += cost.ATokens
 			report.STokens += cost.STokens
-			if band, ok := LimitFor(normalized.R, importance); ok && cost.RTokens > band.MaxTokens {
-				report.Violations = append(report.Violations, Violation{Code: "entry_field_budget_exceeded", Path: cost.Path, Field: "R", Importance: importance, Actual: cost.RTokens, Maximum: band.MaxTokens})
+			if band, ok := LimitFor(normalized.R, importance); ok {
+				if limit := RFieldMaxTokens(band); cost.RTokens > limit {
+					report.Violations = append(report.Violations, Violation{Code: "entry_field_budget_exceeded", Path: cost.Path, Field: "R", Importance: importance, Actual: cost.RTokens, Maximum: limit})
+				}
 			}
 			if band, ok := LimitFor(normalized.S, importance); ok {
 				if limit := SFieldMaxTokens(band, importance, quota); cost.STokens > limit {
@@ -416,7 +481,7 @@ func ValidateEntryWithSQuota(line string, policy Policy, quota *index.SQuotaThre
 		if !found {
 			continue
 		}
-		limit := band.MaxTokens
+		limit := RFieldMaxTokens(band)
 		if item.name == "S" {
 			limit = SFieldMaxTokens(band, importance, quota)
 		}

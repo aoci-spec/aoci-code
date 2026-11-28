@@ -27,6 +27,50 @@ func TestEffectiveSFieldBandsUsePolicyAndMetaCeilings(t *testing.T) {
 	}
 }
 
+func TestEffectiveRFieldBandsMatchValidatorRunesAndBytes(t *testing.T) {
+	policy := DefaultPolicy(machinecontract.BudgetModeEnforce)
+	bands := EffectiveRFieldBands(policy.R)
+	want := map[int][3]int{
+		9: {180, 360, 542},
+		8: {140, 360, 422},
+		7: {90, 272, 272},
+		6: {90, 272, 272},
+		5: {90, 272, 272},
+		4: {50, 152, 152},
+		3: {50, 152, 152},
+		2: {50, 152, 152},
+		1: {50, 152, 152},
+	}
+	find := func(c int) (EffectiveRFieldBand, bool) {
+		for _, band := range bands {
+			if c >= band.MinC && c <= band.MaxC {
+				return band, true
+			}
+		}
+		return EffectiveRFieldBand{}, false
+	}
+	for c, expected := range want {
+		original, _ := LimitFor(policy.R, c)
+		got, found := find(c)
+		maxTokens, maxRunes, maxBytes := RFieldLimits(original)
+		if !found || got.MaxTokens != expected[0] || got.MaxRunes != expected[1] || got.MaxBytes != expected[2] ||
+			got.MaxTokens != maxTokens || got.MaxRunes != maxRunes || got.MaxBytes != maxBytes ||
+			got.TargetTokens != original.TargetTokens {
+			t.Fatalf("C%d effective R band = %+v, want tokens=%d runes=%d bytes=%d target=%d",
+				c, got, expected[0], expected[1], expected[2], original.TargetTokens)
+		}
+		// Boundary proof against ValidateEntryWithSQuota: maxBytes passes, maxBytes+1 fails.
+		okLine := fmt.Sprintf("main.go[C.RT.%d.T]: F:core | R:%s | A:- | S:-", c, strings.Repeat("a", got.MaxBytes))
+		if vs := ValidateEntryWithSQuota(okLine, policy, nil); len(vs) != 0 {
+			t.Fatalf("C%d R at effective maxBytes=%d must pass budget gate, got %+v", c, got.MaxBytes, vs)
+		}
+		overLine := fmt.Sprintf("main.go[C.RT.%d.T]: F:core | R:%s | A:- | S:-", c, strings.Repeat("a", got.MaxBytes+1))
+		if vs := ValidateEntryWithSQuota(overLine, policy, nil); len(vs) != 1 || vs[0].Field != "R" || vs[0].Maximum != got.MaxTokens {
+			t.Fatalf("C%d R at maxBytes+1=%d must fail budget gate at max_tokens=%d, got %+v", c, got.MaxBytes+1, got.MaxTokens, vs)
+		}
+	}
+}
+
 func budgetFixture(body string) []byte {
 	return []byte("# header\n===/repo/===\nmain.go[C.RT.9.T]: F:core | R:" + body + " | A:- | S:" + body + "\n")
 }
