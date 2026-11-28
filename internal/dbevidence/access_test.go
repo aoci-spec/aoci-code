@@ -60,12 +60,35 @@ func TestAccessPlanAttachesFormatExampleOnlyWhenActionRequired(t *testing.T) {
 			CredentialEnv: DefaultCredentialEnv("primary"),
 			Enabled:       true,
 		}
-		missing, err := InspectAccess(context.Background(), source, NewEnvironmentCredentialProvider(func(string) string { return "" }))
-		if err != nil {
-			t.Fatalf("%s missing: %v", engine, err)
-		}
-		if missing.Status != AccessStatusActionRequired || missing.ConnectionStringExample != ConnectionStringExample(engine) {
-			t.Fatalf("%s missing plan = %#v, want example %q", engine, missing, ConnectionStringExample(engine))
+		for _, emptyCase := range []struct {
+			name string
+			set  bool
+			val  string
+		}{
+			{"unset", false, ""},
+			{"empty", true, ""},
+			{"whitespace_only", true, " \t\r\n "},
+		} {
+			t.Run(string(engine)+"/"+emptyCase.name, func(t *testing.T) {
+				if emptyCase.set {
+					t.Setenv(source.CredentialEnv, emptyCase.val)
+				} else {
+					prev, existed := os.LookupEnv(source.CredentialEnv)
+					_ = os.Unsetenv(source.CredentialEnv)
+					t.Cleanup(func() {
+						if existed {
+							_ = os.Setenv(source.CredentialEnv, prev)
+						}
+					})
+				}
+				missing, err := InspectAccess(context.Background(), source, nil)
+				if err != nil {
+					t.Fatalf("%s %s: %v", engine, emptyCase.name, err)
+				}
+				if missing.Status != AccessStatusActionRequired || missing.ConnectionStringExample != ConnectionStringExample(engine) {
+					t.Fatalf("%s %s plan = %#v, want example %q", engine, emptyCase.name, missing, ConnectionStringExample(engine))
+				}
+			})
 		}
 
 		ready, err := InspectAccess(context.Background(), source, NewEnvironmentCredentialProvider(func(string) string { return "secret-dsn" }))
@@ -218,6 +241,7 @@ func TestConnectionStringExamplesAreDriverVerifiedAndDocumented(t *testing.T) {
 		"action_hint",
 		"status=action_required",
 		"status=ready",
+		"unset or empty after trimming leading and trailing whitespace",
 	} {
 		if !strings.Contains(specText, token) {
 			t.Fatalf("spec/public/aoci-database-evidence-v1.txt is missing %q", token)

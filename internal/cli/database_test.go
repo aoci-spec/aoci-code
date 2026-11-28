@@ -123,36 +123,57 @@ func TestDatabaseSourceAccessIncludesLocalizedFormatHintWithoutLeakingSecrets(t 
 					t.Fatalf("add %s: code=%d stderr=%s", tc.sourceID, code, stderr.String())
 				}
 
-				t.Setenv(tc.envName, "")
 				wantExample := dbevidence.ConnectionStringExample(tc.engine)
 
-				// Human output on action_required
-				stdout.Reset()
-				stderr.Reset()
-				if code := executeCLI([]string{"--repo", root, "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
-					t.Fatalf("human access %s: code=%d stderr=%s", tc.sourceID, code, stderr.String())
-				}
-				humanOut := stdout.String()
-				if !strings.Contains(humanOut, locale.hintMarker) || !strings.Contains(humanOut, tc.envName) || !strings.Contains(humanOut, wantExample) {
-					t.Fatalf("%s human access missing localized format hint for %s:\n%s", locale.code, tc.engine, humanOut)
-				}
+				for _, state := range []struct {
+					name string
+					set  bool
+					val  string
+				}{
+					{"unset", false, ""},
+					{"empty", true, ""},
+					{"whitespace_only", true, " \t\n "},
+				} {
+					if state.set {
+						t.Setenv(tc.envName, state.val)
+					} else {
+						prev, existed := os.LookupEnv(tc.envName)
+						_ = os.Unsetenv(tc.envName)
+						t.Cleanup(func() {
+							if existed {
+								_ = os.Setenv(tc.envName, prev)
+							}
+						})
+					}
 
-				// JSON output on action_required
-				stdout.Reset()
-				stderr.Reset()
-				if code := executeCLI([]string{"--repo", root, "--json", "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
-					t.Fatalf("json access %s: code=%d stderr=%s", tc.sourceID, code, stderr.String())
-				}
-				var plan dbevidence.AccessPlan
-				if err := json.Unmarshal(stdout.Bytes(), &plan); err != nil {
-					t.Fatalf("decode access json: %v\n%s", err, stdout.String())
-				}
-				if plan.Status != dbevidence.AccessStatusActionRequired ||
-					plan.ConnectionStringExample != wantExample ||
-					!strings.Contains(plan.ActionHint, locale.hintMarker) ||
-					!strings.Contains(plan.ActionHint, tc.envName) ||
-					!strings.Contains(plan.ActionHint, wantExample) {
-					t.Fatalf("%s json access missing format hint for %s: %#v", locale.code, tc.engine, plan)
+					// Human output on action_required
+					stdout.Reset()
+					stderr.Reset()
+					if code := executeCLI([]string{"--repo", root, "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
+						t.Fatalf("human access %s (%s): code=%d stderr=%s", tc.sourceID, state.name, code, stderr.String())
+					}
+					humanOut := stdout.String()
+					if !strings.Contains(humanOut, locale.hintMarker) || !strings.Contains(humanOut, tc.envName) || !strings.Contains(humanOut, wantExample) {
+						t.Fatalf("%s human access (%s) missing localized format hint for %s:\n%s", locale.code, state.name, tc.engine, humanOut)
+					}
+
+					// JSON output on action_required
+					stdout.Reset()
+					stderr.Reset()
+					if code := executeCLI([]string{"--repo", root, "--json", "database", "source", "access", "--source", tc.sourceID}, &stdout, &stderr); code != ExitOK {
+						t.Fatalf("json access %s (%s): code=%d stderr=%s", tc.sourceID, state.name, code, stderr.String())
+					}
+					var plan dbevidence.AccessPlan
+					if err := json.Unmarshal(stdout.Bytes(), &plan); err != nil {
+						t.Fatalf("decode access json: %v\n%s", err, stdout.String())
+					}
+					if plan.Status != dbevidence.AccessStatusActionRequired ||
+						plan.ConnectionStringExample != wantExample ||
+						!strings.Contains(plan.ActionHint, locale.hintMarker) ||
+						!strings.Contains(plan.ActionHint, tc.envName) ||
+						!strings.Contains(plan.ActionHint, wantExample) {
+						t.Fatalf("%s json access (%s) missing format hint for %s: %#v", locale.code, state.name, tc.engine, plan)
+					}
 				}
 
 				// When credential is set: ready, no hint, and never leak the secret value.
