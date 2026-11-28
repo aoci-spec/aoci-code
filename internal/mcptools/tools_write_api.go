@@ -1031,7 +1031,7 @@ func handleMCPUpdateBatchReviewed(
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
-	if optimizationContext == nil && !alignment.aligned && alignment.transportBudget > 0 {
+	if optimizationContext == nil && alignment.transportBudget > 0 {
 		return textResult(renderBoundedApplyResult(result, alignment.findings, alignment.transportBudget))
 	}
 	if alignment.snapshotLockFailure == "" {

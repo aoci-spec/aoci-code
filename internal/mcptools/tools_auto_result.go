@@ -125,8 +125,12 @@ func renderBoundedApplyResult(result autoResult, findings []string, budget int) 
 	sample := genericMachineFindings(findings[:min(len(findings), limit)])
 	if len(findings) <= limit {
 		result.Findings = sample
-		if wire := renderAutoResult(result); len(wire) <= budget || len(findings) == 0 {
+		if wire := renderAutoResult(result); len(wire) <= budget {
 			return wire
+		}
+		if len(findings) == 0 {
+			result.TransportBudgetExceeded = true
+			return renderAutoResult(result)
 		}
 	}
 	byKind := make(map[string]int)
@@ -143,6 +147,9 @@ func renderBoundedApplyResult(result autoResult, findings []string, budget int) 
 		return len(renderAutoResult(result)) > budget
 	})
 	result.Findings = sample[:max(0, firstOverBudget-1)]
+	if firstOverBudget == 0 {
+		result.TransportBudgetExceeded = true
+	}
 	return renderAutoResult(result)
 }
 
@@ -165,6 +172,7 @@ type autoResult struct {
 	Candidates              []autoCandidate              `json:"candidates,omitempty"`
 	Findings                machineFindings              `json:"findings"`
 	FindingsTruncated       *applyFindingsTruncation     `json:"findings_truncated,omitempty"`
+	TransportBudgetExceeded bool                         `json:"transport_budget_exceeded,omitempty"`
 	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
 	RetryScope              []string                     `json:"retry_scope"`
 	NextAction              string                       `json:"next_action"`
