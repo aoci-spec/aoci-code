@@ -104,11 +104,10 @@ const (
 	MaintainTransportBudgetBytesClaudeCode = 40 << 10
 	OverviewChunkTokensClaudeCode          = 12000
 
-	// MaintainTransportListLimit bounds the per-item enumerations Maintain
-	// carries for situational awareness (governance findings, drift lists,
-	// review closure). Beyond it the response keeps the leading sample plus the
-	// complete count; the actionable list is always the candidate set, and
-	// Verify and Check keep reporting every item.
+	// MaintainTransportListLimit bounds Maintain's advisory enumerations
+	// and the alignment findings of an unaligned ordinary Volumes Apply.
+	// The response keeps a leading sample and the complete count. Verify
+	// and Check keep reporting every item.
 	MaintainTransportListLimit = 20
 
 	// Database Cognition batches are bounded by object count and the exact

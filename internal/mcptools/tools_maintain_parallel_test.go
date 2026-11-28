@@ -97,6 +97,11 @@ func fixtureEntryLine(path string) string {
 // under the response's code_plan.batch_id.
 func applyMaintainBatch(t *testing.T, session *mcp.ClientSession, response map[string]any) map[string]any {
 	t.Helper()
+	return decodeMaintainJSON(t, applyMaintainBatchRaw(t, session, response))
+}
+
+func applyMaintainBatchRaw(t *testing.T, session *mcp.ClientSession, response map[string]any) string {
+	t.Helper()
 	plan := codePlanOf(t, response)
 	entries := []map[string]any{}
 	for _, candidate := range response["candidates"].([]any) {
@@ -112,8 +117,7 @@ func applyMaintainBatch(t *testing.T, session *mcp.ClientSession, response map[s
 		}
 		args["removals"] = removals
 	}
-	raw := callVolumeTool(t, session, "aoci_update_entry", args)
-	return decodeMaintainJSON(t, raw)
+	return callVolumeTool(t, session, "aoci_update_entry", args)
 }
 
 func twoParallelBatches(t *testing.T) string {
@@ -671,6 +675,61 @@ func TestParallelApplyCountsOnlyUnissuedTargets(t *testing.T) {
 			if last["status"] != autoStatusApplied || last["remaining"] != want || last["aligned"] != (outside == 0) ||
 				(last["terminal_proof"] != nil) != (outside == 0) {
 				t.Fatalf("unexpected result after the wave: %v", last)
+			}
+		})
+	}
+}
+
+func TestParallelApplyBoundsAlignmentFindings(t *testing.T) {
+	const batchSize = 4
+	limit := machinecontract.MaintainTransportListLimit
+	for _, missing := range []int{limit, limit + 4} {
+		t.Run(fmt.Sprint(missing), func(t *testing.T) {
+			root := parallelVolumesRepo(t, missing+batchSize, 2)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cfg.SetCodeCognitionBatchEntries(batchSize); err != nil {
+				t.Fatal(err)
+			}
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			session := connectMCPClient(t, root)
+			batch := maintainJSON(t, session, nil)
+			result := applyMaintainBatch(t, session, batch)
+			if result["status"] != autoStatusApplied || result["applied"] != float64(batchSize) || result["aligned"] != false ||
+				result["remaining"] != codePlanOf(t, batch)["remaining"] || result["terminal_proof"] != nil {
+				t.Fatalf("unexpected Apply state: status=%v applied=%v aligned=%v remaining=%v", result["status"],
+					result["applied"], result["aligned"], result["remaining"])
+			}
+			findings, _ := result["findings"].([]any)
+			if len(findings) != min(limit, missing) || result["finding_count"] != float64(missing) {
+				t.Fatalf("Apply returned %d findings with finding_count=%v, want %d of %d", len(findings),
+					result["finding_count"], min(limit, missing), missing)
+			}
+			facts, _ := verifyAligned(t, root)
+			if len(facts.CodeDrift.Missing) != missing {
+				t.Fatalf("fixture has %d missing targets, want %d", len(facts.CodeDrift.Missing), missing)
+			}
+			for i, path := range facts.CodeDrift.Missing[:len(findings)] {
+				if findings[i] != "missing: "+path {
+					t.Fatalf("finding %d = %q, want the original prefix at %q", i, findings[i], path)
+				}
+			}
+			truncation, exists := result["findings_truncated"]
+			if missing == limit {
+				if exists {
+					t.Fatalf("a complete list should omit truncation metadata: %v", truncation)
+				}
+				return
+			}
+			meta, _ := truncation.(map[string]any)
+			byKind, _ := meta["by_kind"].(map[string]any)
+			if meta["limit"] != float64(limit) || meta["total"] != float64(missing) ||
+				len(byKind) != 1 || byKind["missing"] != float64(missing) {
+				t.Fatalf("truncation must describe all %d missing targets: %v", missing, truncation)
 			}
 		})
 	}

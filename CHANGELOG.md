@@ -4,6 +4,17 @@ All notable public changes to AOCI-CODE will be documented in this file.
 
 ## Unreleased
 
+- An ordinary Volumes Apply samples alignment findings under both
+  the 20-item limit and the team's Maintain byte budget.
+  `finding_count` reports the complete count, and `findings_truncated` gives
+  both limits and totals by kind. An entire kind can fall outside the sample.
+  Use Maintain to obtain the next candidates, or Verify or Check to see the
+  complete diagnostic list. Known limitation: when fixed committed or confirmed
+  fields (such as confirming many very long Observe review paths in the same
+  batch) exceed the transport budget even with an empty findings sample, Apply
+  keeps those facts complete and sets `transport_budget_exceeded: true`
+  (omitted when within budget), so the response may exceed the host tool-result
+  window.
 - Successful Apply reports only work outside the issued sibling batches in
   `remaining`. An Apply can report `remaining=0` while siblings still need
   to be applied. Follow `next_action` and close the parallel wave only when

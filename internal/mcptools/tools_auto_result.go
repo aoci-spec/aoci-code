@@ -3,6 +3,8 @@ package mcptools
 
 import (
 	"encoding/json"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/aoci-spec/aoci-code/internal/codebatch"
@@ -110,6 +112,47 @@ func (findings *machineFindings) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// applyFindingsTruncation describes the complete list behind the sample.
+type applyFindingsTruncation struct {
+	Limit     int            `json:"limit"`
+	ByteLimit int            `json:"byte_limit"`
+	Total     int            `json:"total"`
+	ByKind    map[string]int `json:"by_kind"`
+}
+
+func renderBoundedApplyResult(result autoResult, findings []string, budget int) string {
+	limit := machinecontract.MaintainTransportListLimit
+	sample := genericMachineFindings(findings[:min(len(findings), limit)])
+	if len(findings) <= limit {
+		result.Findings = sample
+		if wire := renderAutoResult(result); len(wire) <= budget {
+			return wire
+		}
+		if len(findings) == 0 {
+			result.TransportBudgetExceeded = true
+			return renderAutoResult(result)
+		}
+	}
+	byKind := make(map[string]int)
+	for _, finding := range findings {
+		// Alignment findings use "kind: detail" or a bare machine code.
+		kind, _, _ := strings.Cut(finding, ": ")
+		byKind[kind]++
+	}
+	result.FindingsTruncated = &applyFindingsTruncation{Limit: limit, ByteLimit: budget, Total: len(findings), ByKind: byKind}
+	// Like Maintain, measure the actual serialized tool text with its newline.
+	// With the totals fixed, every extra finding only increases the wire size.
+	firstOverBudget := sort.Search(len(sample)+1, func(count int) bool {
+		result.Findings = sample[:count]
+		return len(renderAutoResult(result)) > budget
+	})
+	result.Findings = sample[:max(0, firstOverBudget-1)]
+	if firstOverBudget == 0 {
+		result.TransportBudgetExceeded = true
+	}
+	return renderAutoResult(result)
+}
+
 type autoResult struct {
 	Version                 int      `json:"version"`
 	Status                  string   `json:"status"`
@@ -128,6 +171,8 @@ type autoResult struct {
 	FormatOnlyApplied       []string                     `json:"format_only_applied,omitempty"`
 	Candidates              []autoCandidate              `json:"candidates,omitempty"`
 	Findings                machineFindings              `json:"findings"`
+	FindingsTruncated       *applyFindingsTruncation     `json:"findings_truncated,omitempty"`
+	TransportBudgetExceeded bool                         `json:"transport_budget_exceeded,omitempty"`
 	PreserveOtherCandidates bool                         `json:"preserve_other_candidates"`
 	RetryScope              []string                     `json:"retry_scope"`
 	NextAction              string                       `json:"next_action"`
@@ -165,6 +210,9 @@ func renderAutoResult(result autoResult) string {
 		result.RetryScope = []string{}
 	}
 	result.FindingCount = len(result.Findings)
+	if result.FindingsTruncated != nil {
+		result.FindingCount = result.FindingsTruncated.Total
+	}
 	var wire any = result
 	if result.omitRemaining {
 		// An unavailable snapshot has no count. Omit just that response's

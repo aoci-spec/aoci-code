@@ -1003,7 +1003,6 @@ func handleMCPUpdateBatchReviewed(
 		Receipt:             alignment.receipt,
 		Metrics:             metrics,
 		Audit:               audit,
-		Findings:            genericMachineFindings(alignment.findings),
 		NextAction: autoApplyNextAction(
 			outcome != nil && len(outcome.Volumes) > 0,
 			alignment.aligned,
@@ -1033,6 +1032,12 @@ func handleMCPUpdateBatchReviewed(
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)
+	if optimizationContext == nil && alignment.transportBudget > 0 {
+		return textResult(renderBoundedApplyResult(result, alignment.findings, alignment.transportBudget))
+	}
+	if alignment.snapshotLockFailure == "" {
+		result.Findings = genericMachineFindings(alignment.findings)
+	}
 	return textResult(renderAutoResult(result))
 }
 

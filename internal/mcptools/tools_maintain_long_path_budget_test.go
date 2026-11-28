@@ -50,6 +50,78 @@ func TestMaintainBudgetCountsEncodedPathsAndContract(t *testing.T) {
 	}
 }
 
+func TestApplyFindingsFitTransportWithDeepUnissuedPaths(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("fixture needs Linux paths over 3 KiB")
+	}
+	const shortFiles, longFiles, leadSize = 40, 35, 27
+	root := buildManyFileVolumesRepo(t, shortFiles)
+	activateEnforceBudget(t, root)
+	directory := strings.Repeat(strings.Repeat("z", 218)+"/", 15)
+	longPath := func(i int) string { return fmt.Sprintf("%sdeep%02d.go", directory, i) }
+	// The short files are already in the Baseline. Every deep file therefore
+	// contributes both an unbaselined and a missing finding.
+	for i := range longFiles {
+		writeVolumeTestFile(t, root, longPath(i), "package fixture\n")
+	}
+	cfg, err := config.LoadBase(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.SetCodeCognitionBatchEntries(leadSize); err != nil {
+		t.Fatal(err)
+	}
+	if err := config.Save(root, cfg); err != nil {
+		t.Fatal(err)
+	}
+	budget := cfg.MaintainTransportBudget()
+	session := connectMCPClient(t, root)
+	maintain := maintainJSON(t, session, nil)
+	paths := candidatePaths(maintain)
+	if len(paths) != leadSize || len(siblingsOf(codePlanOf(t, maintain))) != 2 {
+		t.Fatalf("the fixture must issue a %d-target lead and two siblings, got %d targets", leadSize, len(paths))
+	}
+	for _, path := range paths {
+		if len(path) > 100 {
+			t.Fatalf("the lead must contain short paths, got %d bytes", len(path))
+		}
+	}
+	wire := applyMaintainBatchRaw(t, session, maintain)
+	result := decodeMaintainJSON(t, wire)
+	if result["status"] != autoStatusApplied || result["applied"] != float64(len(paths)) || result["aligned"] != false {
+		t.Fatalf("the lead must apply and leave pending work: status=%v applied=%v aligned=%v",
+			result["status"], result["applied"], result["aligned"])
+	}
+	if size := len(wire); size > budget {
+		t.Fatalf("long-path Apply response is %d bytes, budget is %d (applied=%d, finding_count=%v)", size, budget, len(paths), result["finding_count"])
+	}
+	meta, _ := result["findings_truncated"].(map[string]any)
+	kinds, _ := meta["by_kind"].(map[string]any)
+	missing := shortFiles + longFiles - len(paths)
+	total := missing + longFiles
+	if result["finding_count"] != float64(total) || meta["total"] != float64(total) || meta["byte_limit"] != float64(budget) ||
+		len(kinds) != 2 || kinds["missing"] != float64(missing) || kinds["unbaselined"] != float64(longFiles) {
+		t.Fatalf("the cut must report all findings and both kinds: count=%v truncation=%v", result["finding_count"], meta)
+	}
+	findings, _ := result["findings"].([]any)
+	if len(findings) == 0 || len(findings) >= int(meta["limit"].(float64)) {
+		t.Fatalf("the byte budget should shorten the count-limited prefix: shown=%d", len(findings))
+	}
+	for i, finding := range findings {
+		if finding != "unbaselined: "+longPath(i) {
+			t.Fatalf("finding %d is outside the original prefix", i)
+		}
+	}
+	next, err := json.Marshal("unbaselined: " + longPath(len(findings)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(wire)+1+len(next) <= budget {
+		t.Fatal("the prefix left enough budget for another finding")
+	}
+	t.Logf("applied=%d findings=%d/%d bytes=%d/%d", len(paths), len(findings), total, len(wire), budget)
+}
+
 func TestParallelLeadCutReservesRecalledContract(t *testing.T) {
 	paths := make([]codebatch.Candidate, 24)
 	for i := range paths {

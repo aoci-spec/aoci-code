@@ -3419,6 +3419,29 @@ def group_l_parallel():
            f"siblings={len(siblings(m7)) if not first_ok else 2} guide={gb7.get('included')} first={p7.get('included')} "
            f"rounds={rounds7} sizes={sizes7[:6]} aligned={aligned7} {bad7}")
 
+    # L8: the first Apply of a large parallel build stays in the transport
+    # window while reporting the full number of outstanding findings.
+    large_files = 1600
+    fx8 = make_fixture("fx-parallel-apply-findings", large_files)
+    s8 = Session(fx8)
+    m8, _, maintain_err8 = maintain(s8)
+    r8, text8, apply_err8 = submit_batch(s8, m8)
+    s8.close()
+    included8 = len(targets(m8))
+    total8 = large_files + INIT_GENERATED_TARGETS - included8
+    findings8 = r8.get("findings") or []
+    truncated8 = r8.get("findings_truncated") or {}
+    size8 = len(text8.encode("utf-8"))
+    ok = (not maintain_err8 and not apply_err8 and len(siblings(m8)) == 2
+          and r8.get("status") == "applied" and r8.get("aligned") is False and r8.get("applied") == included8
+          and included8 > 0 and r8.get("remaining") == (m8.get("code_plan") or {}).get("remaining")
+          and len(findings8) == 20 < total8 == r8.get("finding_count")
+          and truncated8 == {"limit": 20, "byte_limit": BUDGET, "total": total8, "by_kind": {"missing": total8}}
+          and 0 < size8 <= BUDGET)
+    record(g, "L8.apply-findings-fit-transport-and-retain-counts", "PASS" if ok else "FAIL",
+           f"bytes={size8}/{BUDGET} shown={len(findings8)} total={r8.get('finding_count')}/{total8} "
+           f"remaining={r8.get('remaining')} by_kind={truncated8.get('by_kind')}")
+
 GROUP_RUNS = [
     ("A", group_a), ("B", group_b), ("C", group_c), ("D", group_d), ("E", group_e), ("F", group_f),
     ("N", group_n), ("F", group_f_scope), ("F", group_f_activate), ("F", group_f_ignored_tool_file),

@@ -29,6 +29,7 @@ type autoApplyAlignment struct {
 	rootOverview        *rootOverviewInvite
 	nextCommands        []string
 	snapshotLockFailure string
+	transportBudget     int
 }
 
 func inspectAutoAlignment(root, mcpServiceVersion string, outcome *AtomicBatchOutcome, wantProof bool) autoApplyAlignment {
@@ -52,7 +53,7 @@ func inspectAutoAlignment(root, mcpServiceVersion string, outcome *AtomicBatchOu
 	if loaded.set.LayoutMode == cognition.LayoutLegacyMonolithic {
 		return inspectLegacyApplyAlignment(root, mcpServiceVersion, loaded)
 	}
-	var result autoApplyAlignment
+	result := autoApplyAlignment{transportBudget: maintainTransportBudget(loaded.cfg)}
 	result.aligned, result.remaining, result.findings, result.receipt, result.finishSiblings =
 		inspectCognitionVolumeAlignment(root, mcpServiceVersion, loaded, outcome)
 	if result.aligned && wantProof {
