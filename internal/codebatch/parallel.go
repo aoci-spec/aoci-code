@@ -59,6 +59,9 @@ type ParallelPlan struct {
 	DatabaseSHA256      string   `json:"database_sha256,omitempty"`
 	Siblings            []string `json:"siblings"`
 	Delivered           []string `json:"delivered,omitempty"`
+	// OrphanRemovals are the Code paths carried on the first delivery.
+	// Their assignment is a transport fact outside the batch identities.
+	OrphanRemovals []string `json:"orphan_removals,omitempty"`
 }
 
 // AppliedOperation is one Entry write a sibling made, exactly as the editor
@@ -223,6 +226,17 @@ func validateParallelPlan(plan ParallelPlan) error {
 		if !seen[batchID] {
 			return fmt.Errorf("code_parallel_plan_invalid")
 		}
+	}
+	if len(plan.OrphanRemovals) > 0 && len(plan.Delivered) == 0 {
+		return fmt.Errorf("code_parallel_plan_invalid")
+	}
+	removals := map[string]bool{}
+	for _, path := range plan.OrphanRemovals {
+		normalized, err := afs.NormalizeRelPath(path)
+		if err != nil || normalized != path || removals[path] {
+			return fmt.Errorf("code_parallel_plan_invalid")
+		}
+		removals[path] = true
 	}
 	return nil
 }

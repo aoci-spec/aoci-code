@@ -1217,8 +1217,7 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 	bytes := len(set.Root.Raw) + len(set.Meta.Raw)
 	violations := []cognitionbudget.Violation{}
 	coverage := cognitionbudget.NewSCoverageTally(policy.S)
-	// The S hard limit is the Meta's own rune quota, the same declaration the
-	// error-level rune gate applies when the projected set is parsed.
+	// The Meta rune quota floors the S token limit for the projected set.
 	quota := index.ExtractSQuotaThresholds(string(set.Meta.Raw))
 	for _, id := range []string{cognition.ScopeCode, cognition.ScopeDatabase} {
 		asset := enabledAsset(set, id)
@@ -1256,7 +1255,7 @@ func AssessProjectedBudget(cfg *config.Config, set *cognition.Set) BudgetFacts {
 	return BudgetFacts{Mode: policy.Mode, Status: status, WholeIndexTokens: tokens,
 		TargetTokens: policy.WholeIndex.TargetTokens, WarningTokens: policy.WholeIndex.WarningTokens,
 		MaxTokens: policy.WholeIndex.MaxTokens, R: append([]cognitionbudget.FieldBand{}, policy.R...),
-		S: append([]cognitionbudget.FieldBand{}, policy.S...), Violations: violations,
+		S: cognitionbudget.EffectiveSFieldBands(policy.S, quota), Violations: violations,
 		SCoverage: coverage.Bands, HighImportanceEntries: coverage.HighImportanceEntries,
 		HighImportanceSAbsent:        coverage.HighImportanceSAbsent,
 		HighImportanceSAbsentPercent: coverage.HighImportanceSAbsentPercent()}

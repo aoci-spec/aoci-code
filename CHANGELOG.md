@@ -2,6 +2,28 @@
 
 All notable public changes to AOCI-CODE will be documented in this file.
 
+## Unreleased
+
+- Successful Apply reports only work outside the issued sibling batches in
+  `remaining`. An Apply can report `remaining=0` while siblings still need
+  to be applied. Follow `next_action` and close the parallel wave only when
+  `aligned` and `terminal_proof.aligned` are true.
+- When an Apply has committed but cannot take the closing snapshot, it
+  reports `[alignment_snapshot_unavailable]` and leaves `remaining` out: a
+  missing `remaining` means unknown, not zero. A host that reads a missing
+  field as 0 must not stop on it; call no-argument `aoci_maintain` as the
+  `next_action` says.
+- `governance.budget.s[].max_tokens` reports the effective S token limit
+  after applying the Meta rune quota floor. A configured importance band
+  can split where the effective limits differ.
+
+Upgrading with a parallel wave in flight may produce a reply with the old
+`remaining` count until the first sibling is redelivered by the new version.
+When downgrading with only parallel drafts in flight, use no-argument
+`aoci_maintain` to reissue the pending work. If a Recovery receipt already
+records an Intent, finish Recovery with the version that wrote it before
+downgrading. See [Rollback](docs/rollback.md).
+
 ## v0.2.0-rc5
 
 The fifth 0.2.0 candidate closes three known limitations of rc4 and the

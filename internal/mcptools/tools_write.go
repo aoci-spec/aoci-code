@@ -167,9 +167,11 @@ func prepareUpdateEntry(
 	)
 	dictText := rc.dictionaryText(headerText)
 
-	sQuota := index.ExtractSQuotaThresholds(
-		dictText,
-	)
+	quotaText := headerText
+	if rc.meta != "" {
+		quotaText = rc.meta
+	}
+	sQuota := index.ExtractSQuotaThresholds(quotaText)
 	if fail := entryBudgetFail(rel, "code:"+rel, cognition.ScopeCode, line, rc.cfg.EffectiveCognitionBudget(), sQuota); fail != nil {
 		return nil, "", fail
 	}

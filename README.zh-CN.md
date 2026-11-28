@@ -232,6 +232,8 @@ Agent 会用 `aoci ui --detach --json` 在后台启动面板并把链接交给�
 
 宿主应读取项目内的 AOCI Rules 和实时 Guide，调查源码、测试、配置及相关证据，然后为 `index` 角色的受管对象创作 FRAS 候选。普通用户无需手工编排 Plan、Stage、Check、Diff、CAS 或 Apply。
 
+最后一个批次返回 `terminal_proof.aligned=true` 就是首建完成。此时 `cognition_receipt` 里的 `cognition_state=uncertain` 只表示本会话还没读过完整索引，不是出错。若要在同一会话接着开发（尤其有子代理参与首建），再调用一次完整 `aoci_overview`；若随后新开会话，新会话会在开工时自行加载。
+
 首次建立完成后，用户可以像平常一样直接提出开发需求，例如：
 
 ```text
@@ -311,7 +313,7 @@ aoci.database.txt           Database：可选的表级认知；默认不存在
 
 新项目初始化时会创建 Volume Root、Meta 和一个空的 Code Volume；Database 默认不存在。AOCI-CODE 不会自动生成仓库业务语义或 Database 语义。
 
-`aoci init --agent <name>` 还会写入宿主集成配置（`.mcp.json`、`.claude/settings.json`、`.codex/config.toml` 或 `opencode.json`），其中的命令与仓库路径是本机绑定的绝对路径。请把这些文件加入仓库的 `.gitignore` 且不要提交：提交后的副本在任何其他机器上都会失效，而安装器按条目是否存在做幂等判断，在那台机器上重跑 `init` 会静默保留坏路径。
+`aoci init --agent <name>` 还会写入宿主集成配置（`.mcp.json`、加 `--hooks` 时写入的 `.claude/settings.json`、`.codex/config.toml` 或 `opencode.json`），其中的命令与仓库路径是本机绑定的绝对路径。请把这些文件加入仓库的 `.gitignore` 且不要提交：提交后的副本在任何其他机器上都会失效，而安装器按条目是否存在做幂等判断，在那台机器上重跑 `init` 会静默保留坏路径。
 
 
 ## 🔄 一次完整开发任务如何运行
@@ -546,12 +548,12 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 
 ## 🔌 宿主集成
 
-`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置，并可通过 `--hooks` 选择安装上下文压缩prompt与 `SessionStart(compact)`，但仍不安装文件编辑Hook；Claude Code 可以安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效且没有发生已知Host上下文压缩，后续任务会复用当前认知，不会机械地重复注入整个索引。
+`aoci init` 始终写入托管的 AI Agent 规则，但宿主接入行为不同：Codex 写入项目级 MCP 配置，并可通过 `--hooks` 选择安装上下文压缩prompt与 `SessionStart(compact)`，但仍不安装文件编辑Hook；Claude Code 首建与日常使用只需 `init --agent claude`（项目级 MCP），不需要 `--hooks`；只有想在改文件前自动收到条目提醒或启用 Stale 守卫时才加 `--hooks` 安装 `PreToolUse` Hook；OpenCode V1 使用严格的项目级 `opencode.json`；Cursor 只返回参考配置片段，不写入项目配置。配置完成后，先检查当前宿主会话是否已显示 AOCI 工具；仅在尚未加载新 server 时刷新或重新打开项目会话。新会话通常先读取一次 Rules 与 Whole-Index；只要认知身份仍有效且没有发生已知Host上下文压缩，后续任务会复用当前认知，不会机械地重复注入整个索引。
 
 | 宿主 | 当前接入方式 | 边界 |
 | --- | --- | --- |
 | **Codex** | 项目级 stdio MCP；可选 `--hooks` 压缩prompt与 `SessionStart(compact)` | 必须通过Codex `/hooks` 审查并信任；不安装文件编辑Hook |
-| **Claude Code** | 项目级 MCP；可选 `PreToolUse` 薄守卫 | Hook 只负责写前提示或 Stale 守卫，不是 AI Agent runtime |
+| **Claude Code** | 项目级 MCP（`init --agent claude`）；可选 `--hooks` `PreToolUse` 薄守卫 | 首建与日常使用不需要 `--hooks`；仅想在改文件前自动收到条目提醒或启用 Stale 守卫时才加 `--hooks`（此时写入 `.claude/settings.json`），不是 AI Agent runtime |
 | **OpenCode V1** | 通过 `--agent opencode` 写入严格的项目根 `opencode.json` | 工具已加载可直接继续；否则刷新或重新打开项目会话 |
 | **Cursor** | 返回 MCP 参考配置片段 | 不写入项目配置，仍需按宿主手工完成接入 |
 | **Qoder** | `--agent qoder` 写入 Qoder CLI 读取的项目级 `.mcp.json`（已用 `qoder mcp list` 验证）；IDE 把同一段粘到 设置 > MCP | 没有 hook 接入面，`--hooks` 会提示被忽略 |
@@ -561,6 +563,7 @@ Code Volume、Database Volume 和 Scope 可以共同演进，但它们共享同�
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
 aoci --repo /absolute/path/to/repository init --agent codex --hooks
+aoci --repo /absolute/path/to/repository init --agent claude
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor

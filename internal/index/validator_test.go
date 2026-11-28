@@ -92,6 +92,86 @@ func TestEvolutionNarrativeMachineTermsAllReachValidator(t *testing.T) {
 	}
 }
 
+func TestEvolutionNarrativeChecksOnlySAndAllowsRuntimeGaiWei(t *testing.T) {
+	cases := []struct {
+		name     string
+		path     string
+		line     string
+		wantWarn bool
+		wantTerm string
+	}{
+		{
+			name:     "运行时改为不误报",
+			path:     "src/components/Crontab/day.vue",
+			line:     "day.vue[EU5T]: F:Cron日配置面板 | R:- | A:day | S:选“不指定”时把周改为*",
+			wantWarn: false,
+		},
+		{
+			name:     "F字段含时间词不误报",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:原来是旧路由但当前作为兼容入口 | R:- | A:- | S:缺失配置直接失败",
+			wantWarn: false,
+		},
+		{
+			name:     "A字段含时间词不误报",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:示例 | R:- | A:修复了回调 | S:-",
+			wantWarn: false,
+		},
+		{
+			name:     "R字段含时间词不误报",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:示例 | R:code:本次修改/a.go | A:- | S:-",
+			wantWarn: false,
+		},
+		{
+			name:     "S字段真正演进叙事仍报本次修改",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:示例 | R:- | A:- | S:本次修改把配置迁移到新结构",
+			wantWarn: true,
+			wantTerm: "本次修改",
+		},
+		{
+			name:     "S字段真正演进叙事仍报此前是",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:示例 | R:- | A:- | S:此前是全局单例",
+			wantWarn: true,
+			wantTerm: "此前是",
+		},
+		{
+			name:     "S变体段真正演进叙事仍报现在改",
+			path:     "a/b.go",
+			line:     "b.go[DG5T]: F:示例 | R:- | A:- | S1:核心约束 | S2:现在改为异步提交",
+			wantWarn: true,
+			wantTerm: "现在改",
+		},
+	}
+
+	for _, current := range cases {
+		t.Run(current.name, func(t *testing.T) {
+			violations := ValidateEntryLine(current.path, current.line)
+			if HasError(violations) {
+				t.Fatalf("演进叙事检查不得产生硬拒Error: %+v", violations)
+			}
+			var narrativeWarn string
+			for _, violation := range violations {
+				if violation.Level == LevelWarning && strings.Contains(violation.Msg, "疑似演进叙事") {
+					narrativeWarn = violation.Msg
+				}
+			}
+			if current.wantWarn && narrativeWarn == "" {
+				t.Fatalf("期望产出疑似演进叙事Warning（词=%q），实际无: %+v", current.wantTerm, violations)
+			}
+			if current.wantWarn && current.wantTerm != "" && !strings.Contains(narrativeWarn, current.wantTerm) {
+				t.Fatalf("Warning未命中预期词项%q: %q", current.wantTerm, narrativeWarn)
+			}
+			if !current.wantWarn && narrativeWarn != "" {
+				t.Fatalf("不应误报疑似演进叙事Warning: %q", narrativeWarn)
+			}
+		})
+	}
+}
+
 // TestValidateEntryLineDupMessage locks the actionable refusal reason for a repeated part.
 func TestValidateEntryLineDupMessage(t *testing.T) {
 	violations := ValidateEntryLine(

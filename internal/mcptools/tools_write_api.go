@@ -894,15 +894,18 @@ func handleMCPUpdateBatchReviewed(
 			),
 		}))
 	}
-	aligned, remaining, findings, receipt := inspectAutoAlignment(root, mcpServiceVersion, outcome)
+	alignment := inspectAutoAlignment(root, mcpServiceVersion, outcome, optimizationContext == nil)
 	var optimization *cognitionOptimizationStatus
 	var optimizationErr error
-	if optimizationContext != nil && !aligned {
+	if optimizationContext != nil && !alignment.aligned {
 		// Name the facts the inspector saw; a bare sentence sent one user
 		// through the same retry five times without learning why (#90).
-		sample := findings
+		sample := alignment.findings
+		if alignment.snapshotLockFailure != "" {
+			sample = []string{alignment.snapshotLockFailure}
+		}
 		if len(sample) > 5 {
-			sample = append(append([]string{}, sample[:5]...), fmt.Sprintf("(+%d more)", len(findings)-5))
+			sample = append(append([]string{}, sample[:5]...), fmt.Sprintf("(+%d more)", len(sample)-5))
 		}
 		optimizationErr = fmt.Errorf("ordinary governance is not aligned after the optimization batch: %s", strings.Join(sample, "; "))
 	}
@@ -991,22 +994,34 @@ func handleMCPUpdateBatchReviewed(
 		ObserveReview:       review,
 		Version:             1,
 		Status:              autoStatusApplied,
-		Aligned:             aligned,
+		Aligned:             alignment.aligned,
 		Attempted:           len(input),
 		Applied:             applied,
-		Remaining:           remaining,
+		Remaining:           alignment.remaining,
 		FormalWritesStarted: map[bool]bool{true: optimizationFormalWritesStarted, false: applied > 0}[optimizationContext != nil],
-		Receipt:             receipt,
+		Receipt:             alignment.receipt,
 		Metrics:             metrics,
 		Audit:               audit,
-		Findings:            genericMachineFindings(findings),
+		Findings:            genericMachineFindings(alignment.findings),
 		NextAction: autoApplyNextAction(
 			outcome != nil && len(outcome.Volumes) > 0,
-			aligned,
+			alignment.aligned,
 			applied,
 			duplicate,
 		),
-		Optimization: optimization,
+		Optimization:  optimization,
+		TerminalProof: alignment.terminalProof,
+		RootOverview:  alignment.rootOverview,
+		NextCommands:  alignment.nextCommands,
+	}
+	if alignment.finishSiblings {
+		result.NextAction = mcpMessage("maintain.finish_parallel_wave")
+	}
+	if alignment.snapshotLockFailure != "" {
+		result.omitRemaining = true
+		const code = "alignment_snapshot_unavailable"
+		result.Findings = machineFindings{genericMachineFinding(code, "["+code+"] "+alignment.snapshotLockFailure)}
+		result.NextAction = machinecontract.ActionCallNoArgumentMaintainForCurrentMachineBatch
 	}
 	if optimization != nil {
 		result.Remaining = optimization.Remaining
@@ -1014,28 +1029,6 @@ func handleMCPUpdateBatchReviewed(
 			result.NextAction = "call_aoci_maintain_with_cognition_optimization"
 		} else {
 			result.NextAction = "none"
-		}
-	}
-	// The final ordinary Volumes Apply carries the verdict Verify, Aggregate
-	// Check, and Guide would compute, so the Agent's closing ends here instead
-	// of in three more calls. The shared facts rule over the Apply's own
-	// inspector: when they still see a blocker, the result says so and names
-	// the remediation. Continuation batches and Optimization keep their own
-	// machine next-actions.
-	if optimization == nil && aligned && outcome != nil && len(outcome.Volumes) > 0 {
-		soloDigest := codebatch.SoloBuildDigest(root)
-		proof, facts := BuildTerminalProof(root)
-		result.TerminalProof = proof
-		if proof.Aligned {
-			codebatch.ClearSoloBuildIfUnchanged(root, soloDigest)
-			if current, loadFail := loadCognitionCtx(root); loadFail == nil {
-				result.RootOverview = rootOverviewInvitation(current, facts)
-			}
-		}
-		if !proof.Aligned {
-			result.Aligned = false
-			result.NextAction = mcpContract(textassets.ContractMaintainActionApplyRemaining)
-			result.NextCommands = blockedNextCommands(root, facts, nil)
 		}
 	}
 	applyAutoRefreshOutcome(&result, refreshSession)

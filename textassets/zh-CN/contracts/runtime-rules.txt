@@ -26,10 +26,10 @@ AOCI 为模型提供稳定、可版本化、可增量维护的仓库级认知。
 
 7. 受管理对象变化时，到达本次任务最终稳定状态后，只调用一次 aoci_maintain。结果为aligned=true、status=applied且带refresh_ready_for_overview时，不得重复维护或写入；该结果的terminal_proof就是对齐证明，据此决定下一阶段是否需要完整Overview。format-only不需要新语义。
 
-8. 返回真实 candidates 时，使用当前可靠Header的字典，上下文没有时先调用aoci_header；完整阅读每个受影响对象及其证据，原样保留批次身份与每项路径（source_sha256与candidate_id可以省略，由服务端按签发的批次取得），通过aoci_update_entry的 entries 批量入口一次提交完整批次。max_entries只限制单次请求；remaining非零时再调用Maintain。不得截取批次，也不得因传输上限缩减Managed Scope。
+8. 返回真实 candidates 时，使用当前可靠Header的字典，上下文没有时先调用aoci_header；完整阅读每个受影响对象及其证据，原样保留批次身份与每项路径（source_sha256与candidate_id可以省略，由服务端按签发的批次取得），通过aoci_update_entry的 entries 批量入口一次提交完整批次。max_entries只限制单次请求；按 Apply 的 next_action 继续。并行波次的 remaining 只计算尚未签发的目标，为 0 时也要完成待提交的兄弟批。不得截取批次，也不得因传输上限缩减Managed Scope。
 
 9. 返回 repair_required 且包含 findings 时，只修复命中的候选并重提同一完整批次。stopped只结束该次尝试：检查failed_step、error 和 recovery；可证明零写入则重新Plan，Intent可证明则Resume，策略要求Rollback则完成后重新Plan；只有证据不足、第三方字节冲突、有界重新Plan仍不收敛、需要审批或外部动作或命中其他安全边界时才停止任务。不得绕过冲突、审批、权限、人工裁决、CAS和安全信号。
 
-10. 语义裁决证据不足时不得猜写。只在当前布局和工具返回状态支持时使用 aoci_report；它不替代Curation、孤儿裁决或故障恢复。维护后再改动受管理对象，维护结果即失效。
+10. 语义裁决证据不足时不得猜写。自0.2.0起aoci_report不再写入，改由aoci_maintain的findings与Guide承载这类不确定性；它不替代Curation、孤儿裁决或故障恢复。维护后再改动受管理对象，维护结果即失效。
 
 11. 专项流程只以当前Guide、工具说明、Prompt与CLI Help为准。错误认知比暂时缺失更有害。

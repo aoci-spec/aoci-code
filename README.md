@@ -243,6 +243,8 @@ The agent starts the panel in the background with `aoci ui --detach --json` and 
 
 The host reads the project's AOCI rules and live guide, inspects source code, tests, configuration, and relevant evidence, and then writes FRAS candidates for every managed object whose role is `index`. You do not need to orchestrate Plan, Stage, Check, Diff, CAS, or Apply yourself.
 
+When the final batch reports `terminal_proof.aligned=true`, the first index build is complete. Seeing `cognition_state=uncertain` in `cognition_receipt` at that point only means this session has not read the complete index through `aoci_overview` yet—it is not an error. If you plan to keep developing in the same session (especially when subagents helped author the first build), call one complete `aoci_overview`; otherwise a new session loads it when work starts.
+
 Once the first index is complete, send ordinary development requests as usual, for example:
 
 ```text
@@ -323,7 +325,7 @@ aoci.database.txt           Database: optional table-level entries; absent by de
 Initializing a new project creates the Root, Meta, and an empty Code Volume; Database is absent by default. AOCI-CODE does not generate business meaning for the repository or the database on its own.
 
 `aoci init --agent <name>` additionally writes host integration configuration
-(`.mcp.json`, `.claude/settings.json`, `.codex/config.toml`, or `opencode.json`)
+(`.mcp.json`, `.claude/settings.json` when `--hooks` is passed, `.codex/config.toml`, or `opencode.json`)
 whose command and repository paths are machine-bound absolute paths. Add those
 files to the repository's `.gitignore` and do not commit them: a committed copy
 breaks on every other machine, and because the installers detect an existing
@@ -562,7 +564,7 @@ The Code Volume, the Database Volume, and scope can evolve together, but they sh
 `aoci init` always writes managed agent rules, but host integration differs:
 
 - **Codex** gets project-level MCP configuration and, with `--hooks`, a context-compaction prompt plus `SessionStart(compact)`. It still installs no file-edit hook.
-- **Claude Code** can install a `PreToolUse` hook.
+- **Claude Code** only needs `init --agent claude` (project-level MCP) for first build and daily use—`--hooks` is not required; add `--hooks` only if you want automatic Entry reminders before editing files or to enable the Stale guard via a `PreToolUse` hook.
 - **OpenCode V1** gets a strict project-level `opencode.json`.
 - **Cursor** only returns a reference configuration snippet; nothing is written to the project.
 
@@ -571,7 +573,7 @@ After configuration, check whether the current host session already exposes the 
 | Host | Current integration | Boundary |
 | --- | --- | --- |
 | **Codex** | Project-level stdio MCP; optional `--hooks` compaction prompt and `SessionStart(compact)` | Requires review and trust through Codex `/hooks`; installs no file-edit hook |
-| **Claude Code** | Project-level MCP; optional thin `PreToolUse` guard | The hook only provides a pre-write reminder or stale guard; it is not the agent runtime |
+| **Claude Code** | Project-level MCP (`init --agent claude`); optional `--hooks` thin `PreToolUse` guard | First build and daily use do not need `--hooks`; add `--hooks` only for automatic pre-edit Entry reminders or a Stale guard (writes `.claude/settings.json`); it is not the agent runtime |
 | **OpenCode V1** | Strict project-root `opencode.json` via `--agent opencode` | Continue immediately if tools are loaded; otherwise refresh or reopen the project session |
 | **Cursor** | Returns an MCP reference configuration snippet | Does not write project configuration; you complete the integration manually for the host |
 | **Qoder** | `--agent qoder` writes the project-level `.mcp.json` Qoder CLI reads (verified with `qoder mcp list`); the IDE takes the same block through Settings > MCP | No hook surface; `--hooks` is reported as ignored |
@@ -581,6 +583,7 @@ After configuration, check whether the current host session already exposes the 
 ```bash
 aoci --repo /absolute/path/to/repository init --agent codex
 aoci --repo /absolute/path/to/repository init --agent codex --hooks
+aoci --repo /absolute/path/to/repository init --agent claude
 aoci --repo /absolute/path/to/repository init --agent claude --hooks
 aoci --repo /absolute/path/to/repository init --agent opencode
 aoci --repo /absolute/path/to/repository init --agent cursor

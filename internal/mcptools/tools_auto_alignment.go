@@ -2,65 +2,98 @@
 package mcptools
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/aoci-spec/aoci-code/internal/baseline"
+	"github.com/aoci-spec/aoci-code/internal/codebatch"
 	"github.com/aoci-spec/aoci-code/internal/cognition"
 	"github.com/aoci-spec/aoci-code/internal/cognitionbudget"
 	"github.com/aoci-spec/aoci-code/internal/curation"
 	"github.com/aoci-spec/aoci-code/internal/dbcognition"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
 	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/managedstate"
 	"github.com/aoci-spec/aoci-code/internal/volumegovernance"
 )
 
-func inspectAutoAlignment(
-	root,
-	mcpServiceVersion string,
-	outcomes ...*AtomicBatchOutcome,
-) (
-	aligned bool,
-	remaining int,
-	findings []string,
-	receipt cognitionReceipt,
-) {
-	loaded, fail := loadCognitionCtx(root)
-	if fail != nil {
-		return false, 1, []string{"[" + fail.Code + "] " + fail.Msg},
-			newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)
-	}
-	if loaded.set.LayoutMode == cognition.LayoutVolumesV1 {
-		var outcome *AtomicBatchOutcome
-		if len(outcomes) > 0 {
-			outcome = outcomes[0]
+var beforeAutoAlignmentSnapshot = func(string) {}
+var afterAutoAlignmentVolumesRead = func(string) {}
+
+type autoApplyAlignment struct {
+	aligned             bool
+	remaining           int
+	findings            []string
+	receipt             cognitionReceipt
+	finishSiblings      bool
+	terminalProof       *TerminalProof
+	rootOverview        *rootOverviewInvite
+	nextCommands        []string
+	snapshotLockFailure string
+}
+
+func inspectAutoAlignment(root, mcpServiceVersion string, outcome *AtomicBatchOutcome, wantProof bool) autoApplyAlignment {
+	// The commit has released the index lock. A sibling may have applied in
+	// between. Hold the same lock from the first read through the proof so
+	// the Volumes, Baseline, and sibling records describe one committed state.
+	beforeAutoAlignmentSnapshot(root)
+	lock, err := afs.AcquireIndexLock(root)
+	if err != nil {
+		return autoApplyAlignment{
+			snapshotLockFailure: mcpMessage("entry.batch.alignment_snapshot_unavailable", maintainLockFailure(err).Msg),
+			receipt:             newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull),
 		}
-		return inspectCognitionVolumeAlignment(root, mcpServiceVersion, loaded, outcome)
 	}
+	defer func() { _ = lock.Release() }()
+	loaded, fail := loadCognitionCtxBeforeBaseline(root, func() { afterAutoAlignmentVolumesRead(root) })
+	if fail != nil {
+		return autoApplyAlignment{remaining: 1, findings: []string{"[" + fail.Code + "] " + fail.Msg},
+			receipt: newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)}
+	}
+	if loaded.set.LayoutMode == cognition.LayoutLegacyMonolithic {
+		return inspectLegacyApplyAlignment(root, mcpServiceVersion, loaded)
+	}
+	var result autoApplyAlignment
+	result.aligned, result.remaining, result.findings, result.receipt, result.finishSiblings =
+		inspectCognitionVolumeAlignment(root, mcpServiceVersion, loaded, outcome)
+	if result.aligned && wantProof {
+		proof, facts := terminalProofFromLoaded(root, loaded)
+		result.terminalProof = proof
+		result.aligned = proof.Aligned
+		if proof.Aligned {
+			codebatch.ClearSoloBuild(root)
+			result.rootOverview = rootOverviewInvitation(loaded, facts)
+		} else {
+			result.nextCommands = blockedNextCommands(root, facts, nil)
+		}
+	}
+	return result
+}
+
+func inspectLegacyApplyAlignment(root, mcpServiceVersion string, loaded *cognitionRepoCtx) autoApplyAlignment {
 	repository := loaded.legacyRepo()
-	receipt = newCognitionReceipt(
+	receipt := newCognitionReceipt(
 		root, mcpServiceVersion, repository.text, cognitionScopeRepositoryFull,
 	)
 	state, err := managedstate.Load(root, repository.cfg)
 	if err != nil {
-		return false, 1, []string{"snapshot: " + err.Error()}, receipt
+		return autoApplyAlignment{remaining: 1, findings: []string{"snapshot: " + err.Error()}, receipt: receipt}
 	}
 	if state.ScopeChangeRequired {
-		return false, 1, []string{"scope_change_required"}, receipt
+		return autoApplyAlignment{remaining: 1, findings: []string{"scope_change_required"}, receipt: receipt}
 	}
 	warnings := state.Warnings
 	detected, err := managedstate.Detect(root, repository.cfg, repository.doc, state)
 	if err != nil {
-		return false, 1, []string{"snapshot: " + err.Error()}, receipt
+		return autoApplyAlignment{remaining: 1, findings: []string{"snapshot: " + err.Error()}, receipt: receipt}
 	}
 	classification, _, _, err := curation.BuildClassification(
 		root, repository.cfg, detected.Missing,
 	)
 	if err != nil {
-		return false, 1, []string{"curation: " + err.Error()}, receipt
+		return autoApplyAlignment{remaining: 1, findings: []string{"curation: " + err.Error()}, receipt: receipt}
 	}
 
-	findings = []string{}
+	findings := []string{}
 	for _, rel := range detected.Stale {
 		findings = append(findings, "stale: "+rel)
 	}
@@ -100,14 +133,7 @@ func inspectAutoAlignment(
 			}
 		}
 	}
-	remaining = len(findings)
-	if remaining == 0 {
-		return true, 0, findings, receipt
-	}
-	if len(findings) == 0 {
-		findings = append(findings, fmt.Sprintf("remaining=%d", remaining))
-	}
-	return false, remaining, findings, receipt
+	return autoApplyAlignment{aligned: len(findings) == 0, remaining: len(findings), findings: findings, receipt: receipt}
 }
 
 func inspectCognitionVolumeAlignment(
@@ -115,28 +141,30 @@ func inspectCognitionVolumeAlignment(
 	mcpServiceVersion string,
 	loaded *cognitionRepoCtx,
 	outcome *AtomicBatchOutcome,
-) (bool, int, []string, cognitionReceipt) {
+) (bool, int, []string, cognitionReceipt, bool) {
 	view, err := loaded.set.Scope(cognition.ScopeAll)
 	if err != nil {
 		return false, 1, []string{"scope: " + err.Error()},
-			newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull)
+			newCognitionReceipt(root, mcpServiceVersion, "", cognitionScopeRepositoryFull), false
 	}
 	receipt := newVolumeCognitionReceipt(root, mcpServiceVersion, loaded.set, view)
 	if outcome == nil || len(outcome.Volumes) == 0 || len(outcome.Volumes) > 2 || len(outcome.Items) == 0 {
-		return false, 1, []string{"cognition_volume_alignment_unavailable"}, receipt
+		return false, 1, []string{"cognition_volume_alignment_unavailable"}, receipt, false
 	}
 	state, exists, loadErr := baseline.Load(root)
 	if loadErr != nil || !exists || state == nil {
-		return false, 1, []string{"baseline_unavailable"}, receipt
+		return false, 1, []string{"baseline_unavailable"}, receipt, false
 	}
 	findings := []string{}
+	parallelRemaining, outstanding := 0, 0
+	parallelWave, finishSiblings := false, false
 	if code := loaded.set.Volumes["code"]; code != nil && code.Document != nil {
 		managed, managedErr := managedstate.Load(root, loaded.cfg)
 		if managedErr != nil {
-			return false, 1, []string{"managed_scope: " + managedErr.Error()}, receipt
+			return false, 1, []string{"managed_scope: " + managedErr.Error()}, receipt, false
 		}
 		if managed.ScopeChangeRequired {
-			return false, 1, []string{"scope_change_required"}, receipt
+			return false, 1, []string{"scope_change_required"}, receipt, false
 		}
 		// The one Code drift projection every reader shares: formal cognition
 		// assets leave the snapshot and the Baseline, so a Root or Meta record
@@ -146,7 +174,18 @@ func inspectCognitionVolumeAlignment(
 		// batch beside one image could never finalize (#90).
 		drift, detected, driftErr := volumegovernance.CodeDrift(root, loaded.cfg, code.Document, managed)
 		if driftErr != nil {
-			return false, 1, []string{"snapshot: " + driftErr.Error()}, receipt
+			return false, 1, []string{"snapshot: " + driftErr.Error()}, receipt, false
+		}
+		if loaded.cfg.CodeCognitionParallelBatchLimit() > 1 {
+			plan, siblings := currentParallelSiblings(root, parallelIdentities(loaded.set, managed.DesiredPolicyIdentity))
+			if plan != nil {
+				parallelWave = true
+				work := volumegovernance.CodeAuthoringWorkFor(loaded.set, drift)
+				unissuedOrphans := len(drift.Orphan) - len(heldParallelOrphans(plan, siblings, drift.Orphan))
+				parallelRemaining = unissuedCodeTargetCount(work.Targets, siblings) + unissuedOrphans
+				outstanding = outstandingSiblingCount(siblings)
+				finishSiblings = outstanding > 0 && !siblingsNeverFetched(siblings)
+			}
 		}
 		for _, rel := range drift.Stale {
 			findings = append(findings, "stale: "+rel)
@@ -193,8 +232,10 @@ func inspectCognitionVolumeAlignment(
 			findings = append(findings, "unaligned: "+volumePath)
 		}
 	}
-	if containsString(outcome.Volumes, "database") {
+	if containsString(outcome.Volumes, cognition.ScopeDatabase) ||
+		(parallelWave && loaded.set.Volumes[cognition.ScopeDatabase] != nil) {
 		database := dbcognition.Assess(root, loaded.cfg.DatabaseSources, loaded.set, state)
+		parallelRemaining += databaseAuthoringTargetCount(database.Summary)
 		for _, source := range database.Sources {
 			// A declared-only source blocks nothing, as Maintain answers
 			// (audit G2-03).
@@ -211,10 +252,11 @@ func inspectCognitionVolumeAlignment(
 			findings = append(findings, "database_cognition_unaligned")
 		}
 	}
-	if len(findings) > 0 {
-		return false, len(findings), findings, receipt
+	remaining := len(findings)
+	if parallelWave {
+		remaining = parallelRemaining
 	}
-	return true, 0, findings, receipt
+	return len(findings) == 0 && remaining == 0 && outstanding == 0, remaining, findings, receipt, finishSiblings
 }
 
 func containsString(values []string, target string) bool {
