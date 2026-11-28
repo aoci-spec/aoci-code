@@ -12,6 +12,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aoci-spec/aoci-code/internal/baseline"
+	afs "github.com/aoci-spec/aoci-code/internal/fs"
+	"github.com/aoci-spec/aoci-code/internal/machinecontract"
 	"github.com/aoci-spec/aoci-code/internal/testkit"
 )
 
@@ -158,5 +161,153 @@ func TestInitWithoutAgentWritesNoHostIgnore(t *testing.T) {
 	}
 	if ignore := readGitignore(t, root); strings.Contains(ignore, hostConfigIgnoreMarker) {
 		t.Fatalf("no host configuration was written, so nothing may be ignored:\n%s", ignore)
+	}
+}
+
+func TestInitIgnoresAgentsBackupBeforeFirstScanAndReportsBackupFile(t *testing.T) {
+	for _, tc := range []struct {
+		locale string
+		marker string
+	}{
+		{"en-US", "original backed up to "},
+		{"zh-CN", "原文件已备份至 "},
+	} {
+		t.Run(tc.locale, func(t *testing.T) {
+			root := initGitRepo(t)
+			original := "# Maintainer AGENTS rules\nKeep this section.\n"
+			testkit.WriteFile(t, root, "AGENTS.md", original)
+			testkit.Git(t, root, "add", "AGENTS.md")
+			testkit.Git(t, root, "commit", "-qm", "add existing AGENTS.md")
+
+			printed, _, stderr, code := runCLIPrinted(t, root, "init", "--locale", tc.locale, "--agent=", "--hooks=false", "--here=false")
+			if code != ExitOK {
+				t.Fatalf("init failed: code=%d stderr=%s", code, stderr)
+			}
+
+			backups, err := filepath.Glob(filepath.Join(root, "AGENTS.md.backup.*"))
+			if err != nil || len(backups) != 1 {
+				t.Fatalf("expected one AGENTS.md backup file, got %v (err=%v)", backups, err)
+			}
+			backupName := filepath.Base(backups[0])
+			if saved, readErr := os.ReadFile(backups[0]); readErr != nil || string(saved) != original {
+				t.Fatalf("backup content mismatch: err=%v got=%q", readErr, string(saved))
+			}
+			if !strings.Contains(printed, tc.marker+backupName) {
+				t.Fatalf("init output must report backup filename %q:\n%s", backupName, printed)
+			}
+
+			ignore := readGitignore(t, root)
+			if !strings.Contains(ignore, hostConfigIgnoreMarker) || !strings.Contains(ignore, agentsBackupIgnorePattern) {
+				t.Fatalf(".gitignore must include %s inside init ignore block:\n%s", agentsBackupIgnorePattern, ignore)
+			}
+			for _, line := range strings.Split(ignore, "\n") {
+				if strings.TrimSpace(line) == "AGENTS.md" {
+					t.Fatalf(".gitignore must never ignore AGENTS.md itself:\n%s", ignore)
+				}
+			}
+			if ignored, rule := afs.PathIgnoredByGit(root, backupName); !ignored {
+				t.Fatalf("backup %q must be ignored by Git: ignored=%t rule=%q", backupName, ignored, rule)
+			}
+			if ignored, rule := afs.PathIgnoredByGit(root, "AGENTS.md"); ignored {
+				t.Fatalf("AGENTS.md must remain unignored by Git: ignored=%t rule=%q", ignored, rule)
+			}
+
+			// First scan must exclude the backup while keeping AGENTS.md and .gitignore indexed.
+			var out, errOut bytes.Buffer
+			if scanCode := executeCLI([]string{"--repo", root, "--quiet", "scan"}, &out, &errOut); scanCode != ExitOK {
+				t.Fatalf("scan failed: %d %s %s", scanCode, out.String(), errOut.String())
+			}
+			state, exists, err := baseline.Load(root)
+			if err != nil || !exists {
+				t.Fatalf("load baseline: exists=%t err=%v", exists, err)
+			}
+			if _, present := state.Files[backupName]; present {
+				t.Fatalf("AGENTS.md backup %q must not enter Managed Scope", backupName)
+			}
+			if state.Files["AGENTS.md"].Role != machinecontract.ScopeRoleIndex {
+				t.Fatalf("AGENTS.md role = %q, want index", state.Files["AGENTS.md"].Role)
+			}
+			if state.Files[".gitignore"].Role != machinecontract.ScopeRoleIndex {
+				t.Fatalf(".gitignore role = %q, want index", state.Files[".gitignore"].Role)
+			}
+		})
+	}
+}
+
+func TestInitWithAgentIncludesAgentsBackupPatternBeforeFirstScan(t *testing.T) {
+	root := initGitRepo(t)
+	if _, err := runInit(t, root, "--agent=codex", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	ignore := readGitignore(t, root)
+	if !strings.Contains(ignore, agentsBackupIgnorePattern) {
+		t.Fatalf("init --agent=codex must add %s before first scan:\n%s", agentsBackupIgnorePattern, ignore)
+	}
+}
+
+func TestInitDoesNotModifyExistingRepoGitignoreOrBaselineRolesForAgentsBackup(t *testing.T) {
+	root := initGitRepo(t)
+	// Simulate an existing repository that already completed its first scan
+	// without AGENTS.md.backup.* in .gitignore, with AGENTS.md in observe role.
+	testkit.WriteFile(t, root, ".gitignore", "# existing repo\nbuild/\n")
+	if _, err := runInit(t, root, "--agent=", "--hooks=false"); err != nil {
+		t.Fatal(err)
+	}
+	agentsPath := filepath.Join(root, "AGENTS.md")
+	currentAgents, err := os.ReadFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleAgents := strings.Replace(string(currentAgents), "<!-- aoci:end -->", "# stale\n<!-- aoci:end -->", 1)
+	if err := os.WriteFile(agentsPath, []byte(staleAgents), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	agentsFP, err := baseline.HashFile(agentsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentsFP.Role = machinecontract.ScopeRoleObserve
+	gitignoreFP, err := baseline.HashFile(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitignoreFP.Role = machinecontract.ScopeRoleIndex
+	state := baseline.NewBaseline(map[string]baseline.Fingerprint{
+		"AGENTS.md":  agentsFP,
+		".gitignore": gitignoreFP,
+	})
+	state.ManagedScope = &baseline.ManagedScopeState{
+		Version:             machinecontract.ManagedScopeBaselineV1,
+		PolicyIdentity:      strings.Repeat("b", 64),
+		ObserveChangePolicy: machinecontract.ObserveChangeInformational,
+	}
+	if err := baseline.Save(root, state); err != nil {
+		t.Fatal(err)
+	}
+	beforeGitignore := readGitignore(t, root)
+
+	printed, _, stderr, code := runCLIPrinted(t, root, "init", "--agent=", "--hooks=false", "--here=false")
+	if code != ExitOK {
+		t.Fatalf("re-init failed: code=%d stderr=%s", code, stderr)
+	}
+	backups, err := filepath.Glob(filepath.Join(root, "AGENTS.md.backup.*"))
+	if err != nil || len(backups) != 1 {
+		t.Fatalf("expected backup on stale AGENTS.md rewrite, got %v (err=%v)", backups, err)
+	}
+	if !strings.Contains(printed, filepath.Base(backups[0])) {
+		t.Fatalf("re-init output must still report backup file %q:\n%s", filepath.Base(backups[0]), printed)
+	}
+	if afterGitignore := readGitignore(t, root); afterGitignore != beforeGitignore {
+		t.Fatalf("existing repo .gitignore must not be modified after Baseline exists:\nbefore:\n%s\nafter:\n%s", beforeGitignore, afterGitignore)
+	}
+	afterBaseline, exists, err := baseline.Load(root)
+	if err != nil || !exists {
+		t.Fatalf("load baseline: exists=%t err=%v", exists, err)
+	}
+	if afterBaseline.Files["AGENTS.md"].Role != machinecontract.ScopeRoleObserve {
+		t.Fatalf("existing repo AGENTS.md role changed: %+v", afterBaseline.Files["AGENTS.md"])
+	}
+	if afterBaseline.Files[".gitignore"] != gitignoreFP {
+		t.Fatalf("existing repo .gitignore baseline entry changed: got=%+v want=%+v", afterBaseline.Files[".gitignore"], gitignoreFP)
 	}
 }

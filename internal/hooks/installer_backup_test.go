@@ -4,7 +4,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+
+	"github.com/aoci-spec/aoci-code/textassets"
 )
 
 func TestBackupThenWritePreservesDistinctSameSecondPreimages(t *testing.T) {
@@ -70,6 +73,78 @@ func TestBackupThenWriteKeepsHostConfigurationBackupsPrivate(t *testing.T) {
 				if err != nil || info.Mode().Perm() != mode {
 					t.Fatalf("original mode changed: %v", info)
 				}
+			}
+		})
+	}
+}
+
+func TestEnsureAgentsBlockWithBackupReportsExactBackupFile(t *testing.T) {
+	for _, tc := range []struct {
+		locale string
+		marker string
+	}{
+		{textassets.DefaultLocale, "original backed up to "},
+		{textassets.LegacyLocale, "原文件已备份至 "},
+	} {
+		t.Run(tc.locale, func(t *testing.T) {
+			previous := textassets.ActiveLocale()
+			if err := textassets.SetActiveLocale(tc.locale); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = textassets.SetActiveLocale(previous) })
+
+			// Fresh directory: created with no backup.
+			fresh := t.TempDir()
+			msg, bak, err := EnsureAgentsBlockWithBackup(fresh)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bak != "" || strings.Contains(msg, ".backup.") {
+				t.Fatalf("fresh AGENTS.md must not report a backup: msg=%q bak=%q", msg, bak)
+			}
+
+			// Existing AGENTS.md without markers: appended, backup reported.
+			root := t.TempDir()
+			original := "# Project rules\nKeep this untouched.\n"
+			if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(original), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			msg, bak, err = EnsureAgentsBlockWithBackup(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(bak, "AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
+				t.Fatalf("append must report backup file: msg=%q bak=%q", msg, bak)
+			}
+			saved, err := os.ReadFile(filepath.Join(root, bak))
+			if err != nil || string(saved) != original {
+				t.Fatalf("backup content mismatch: err=%v got=%q", err, string(saved))
+			}
+
+			// Idempotent re-run: no backup reported.
+			msg, bak, err = EnsureAgentsBlockWithBackup(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if bak != "" || strings.Contains(msg, ".backup.") {
+				t.Fatalf("idempotent run must not create a backup: msg=%q bak=%q", msg, bak)
+			}
+
+			// Existing AGENTS.md with stale managed block: updated, backup reported.
+			stale := "# Header\n\n" + agentsBegin + "\nstale\n" + agentsEnd + "\n"
+			if err := os.WriteFile(filepath.Join(root, "AGENTS.md"), []byte(stale), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			msg, bak, err = EnsureAgentsBlockWithBackup(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(bak, "AGENTS.md.backup.") || !strings.Contains(msg, tc.marker+bak) {
+				t.Fatalf("update must report backup file: msg=%q bak=%q", msg, bak)
+			}
+			saved, err = os.ReadFile(filepath.Join(root, bak))
+			if err != nil || string(saved) != stale {
+				t.Fatalf("updated backup content mismatch: err=%v got=%q", err, string(saved))
 			}
 		})
 	}
