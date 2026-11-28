@@ -342,15 +342,16 @@ if it exceeds the current budget. Required Observe evidence and the current
 batch's orphan removal obligations travel complete. See Observe evidence
 review below for the terminal route when its list exceeds the MCP limit.
 
-A successful ordinary Volumes Apply that is still unaligned returns the
-longest prefix of its alignment `findings` that fits both bounds. The list has
-at most 20 items, and the serialized UTF-8 tool text, including the trailing
-newline, uses the team's Maintain transport budget. Apply reserves the
-other response fields first. If no item fits, the sample is empty and the
-other fields stay complete. If the response still exceeds the transport budget
-with an empty sample, Apply sets `transport_budget_exceeded: true` (omitted
-otherwise) and returns all committed and confirmed facts complete; such a
-response may exceed the host tool-result window.
+A successful ordinary Volumes Apply returns the longest prefix of its
+alignment `findings` that fits both bounds. The list has at most 20 items, and
+the serialized UTF-8 tool text, including the trailing newline, uses the
+team's Maintain transport budget. Apply reserves the other response fields
+first. If no item fits, the sample is empty and the other fields stay
+complete. If the response still exceeds the transport budget with an empty
+sample, including an aligned final Apply carrying `terminal_proof`, Apply sets
+`transport_budget_exceeded: true` (omitted otherwise) and returns all
+committed and confirmed facts complete; such a response may exceed the host
+tool-result window.
 `finding_count` reports the complete count. A truncated list carries
 `findings_truncated` with the count `limit`, the reply `byte_limit`, the
 complete `total`, and `by_kind` counts across the complete list. A kind is the
