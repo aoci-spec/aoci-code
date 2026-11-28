@@ -177,6 +177,41 @@ jobs:
           done
           go test -short -count=1 -v -run SQLite ./internal/dbevidence ./internal/cli ./internal/onboarding
 
+  mongodb-catalog:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: "7.0"
+            image: mongo:7.0.48@sha256:41e8195b2791692695e1dc9bd21cd51d0a3af05fff8ace9304a5c1acf94f1ae1
+          - version: "8.0"
+            image: mongo:8.0.38@sha256:479e85ced54ffb8a40dade1dcde2da2a9ae858515b9415e9cc54bfb8f0575d01
+    name: MongoDB catalog (${{ matrix.version }})
+    services:
+      mongodb:
+        image: ${{ matrix.image }}
+        env:
+          MONGO_INITDB_ROOT_USERNAME: fixture-admin
+          MONGO_INITDB_ROOT_PASSWORD: fixture-admin-test-password
+        ports:
+          - 27017/tcp
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'quit(db.adminCommand({ping:1}).ok === 1 ? 0 : 1)'"
+          --health-interval 5s --health-timeout 4s --health-retries 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Read-only MongoDB catalog integration
+        env:
+          CGO_ENABLED: "0"
+          AOCI_TEST_MONGODB_ADMIN_URI: mongodb://fixture-admin:fixture-admin-test-password@127.0.0.1:${{ job.services.mongodb.ports[27017] }}/?directConnection=true
+        run: go test -tags=integration -count=1 -v ./internal/dbevidence/mongocatalog
+
   windows-compile:
     timeout-minutes: 10
     runs-on: ubuntu-latest

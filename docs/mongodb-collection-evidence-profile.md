@@ -1,11 +1,10 @@
 # MongoDB collection Evidence profile (proposed)
 
 Status: a proposal from issue #135, written up by dayebishouji (#166), pending
-implementation and real-engine acceptance. It records the collection profile
-for the implementation steps that follow. The implemented source declaration
-is documented in Database Evidence v1 under `spec/public`; this collection
-profile remains a proposal pending the collector and real-engine acceptance.
-The current binary accepts `mongodb` declarations and reports
+integration with Database Evidence. The internal collector reads the catalog
+twice into memory and exercises that boundary against MongoDB 7.0 and 8.0 in
+CI. The source declaration is documented in Database Evidence v1 under
+`spec/public`. The current binary accepts `mongodb` declarations and reports
 `engine_not_implemented` for access and collection.
 
 ## 1. Authority and implementation boundary

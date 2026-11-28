@@ -74,6 +74,12 @@ Database Evidence support uses four reviewed pure-Go direct dependencies:
 | `github.com/ncruces/go-sqlite3` | `v0.37.0` | MIT | SQLite read-only catalog collector |
 | `gitcode.com/opengauss/openGauss-connector-go-pq` | `v1.0.8` + reviewed AOCI patch | MIT | openGauss `database/sql` driver; the complete patched module is carried under `third_party/` |
 
+The internal MongoDB catalog collector pins the official pure-Go
+`go.mongodb.org/mongo-driver/v2 v2.10.1` (Apache-2.0). The package is exercised
+against MongoDB 7.0 and 8.0. Its dependency closure is covered by the source
+license scan. The release binary's module inventory still reflects the
+Database Evidence engines exposed through the CLI and MCP.
+
 The pinned `go-licenses` v1.6.0 gate enumerates every reachable external Go
 package after `go mod verify` across the complete Linux, macOS, and Windows
 release matrix, rejects an unknown external license, and rejects AGPL, GPL, or

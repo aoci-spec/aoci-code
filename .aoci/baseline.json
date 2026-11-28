@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-08-07T17:44:36Z",
-  "updated_at": "2026-11-28T05:39:42Z",
+  "updated_at": "2026-11-28T08:28:43Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -23,9 +23,9 @@
     },
     ".github/workflows/ci.yml": {
       "role": "index",
-      "sha256": "6b5eea487252a7a3a1d6a9696d0c67473c9c8eb4ab0241a40cdd47e094a159b7",
-      "size": 11190,
-      "normalized_sha256": "6b5eea487252a7a3a1d6a9696d0c67473c9c8eb4ab0241a40cdd47e094a159b7"
+      "sha256": "6dd1326d1e0ade03508650813d3e223e5b018864b4c34471aa3f87b869ffaecb",
+      "size": 12649,
+      "normalized_sha256": "6dd1326d1e0ade03508650813d3e223e5b018864b4c34471aa3f87b869ffaecb"
     },
     ".github/workflows/full-confidence.yml": {
       "role": "index",
@@ -137,9 +137,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "39cfa60fa4fa8fbd3f2601b8ae77dd2a8c24a6ac3c53ee28fb8ad256fb21afa0",
-      "size": 243916,
-      "normalized_sha256": "39cfa60fa4fa8fbd3f2601b8ae77dd2a8c24a6ac3c53ee28fb8ad256fb21afa0"
+      "sha256": "adf458f0f4eb36efa2df93f1670fae9986157a4c0ab59076ea3bcbd5bd0b5936",
+      "size": 244034,
+      "normalized_sha256": "adf458f0f4eb36efa2df93f1670fae9986157a4c0ab59076ea3bcbd5bd0b5936"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -245,9 +245,9 @@
     },
     "docs/mongodb-collection-evidence-profile.md": {
       "role": "index",
-      "sha256": "8c95cb88ec6f9ca26f9d04f36ae5bf34bb3ba4016ed95240001b20d3a046d795",
-      "size": 9308,
-      "normalized_sha256": "8c95cb88ec6f9ca26f9d04f36ae5bf34bb3ba4016ed95240001b20d3a046d795"
+      "sha256": "4f55d8cc0619957dfe4496dfc5eff52ab1c52661e4f673d65ccd0ef2a4590a9d",
+      "size": 9242,
+      "normalized_sha256": "4f55d8cc0619957dfe4496dfc5eff52ab1c52661e4f673d65ccd0ef2a4590a9d"
     },
     "docs/overview-delivery.md": {
       "role": "index",
@@ -269,9 +269,9 @@
     },
     "docs/supply-chain.md": {
       "role": "index",
-      "sha256": "f6ea8cc508b388243dc0e2394d60a1f14ee8182224b42788600f20c2ab1c854c",
-      "size": 12270,
-      "normalized_sha256": "f6ea8cc508b388243dc0e2394d60a1f14ee8182224b42788600f20c2ab1c854c"
+      "sha256": "965e1a4805492cbafbceec0651fa865d32efe6ca6da99f6b1a358f661466ff15",
+      "size": 12623,
+      "normalized_sha256": "965e1a4805492cbafbceec0651fa865d32efe6ca6da99f6b1a358f661466ff15"
     },
     "docs/troubleshooting.md": {
       "role": "index",
@@ -445,15 +445,15 @@
     },
     "go.mod": {
       "role": "index",
-      "sha256": "ee288d01ec943e532aa47a54a9c7244a229233b24b1cfa8bb66f1962b2da6789",
-      "size": 1378,
-      "normalized_sha256": "ee288d01ec943e532aa47a54a9c7244a229233b24b1cfa8bb66f1962b2da6789"
+      "sha256": "e6e6be451f53fe0b9c1a714db0e07a8f7366cc34d04300bb224abbe3ec116243",
+      "size": 1635,
+      "normalized_sha256": "e6e6be451f53fe0b9c1a714db0e07a8f7366cc34d04300bb224abbe3ec116243"
     },
     "go.sum": {
       "role": "index",
-      "sha256": "166c8c7d7e1c3a26001a7f03c4c24d06dd1da2b4e2170eabea16a22c5b25fac1",
-      "size": 14433,
-      "normalized_sha256": "166c8c7d7e1c3a26001a7f03c4c24d06dd1da2b4e2170eabea16a22c5b25fac1"
+      "sha256": "e35e41dffcb0784992bb06f3605b53f77419b75b5a4dd4778a4ff3d941d9668a",
+      "size": 16773,
+      "normalized_sha256": "e35e41dffcb0784992bb06f3605b53f77419b75b5a4dd4778a4ff3d941d9668a"
     },
     "internal/authoringcontract/contract.go": {
       "role": "index",
@@ -3780,6 +3780,22 @@
       "size": 10101,
       "normalized_sha256": "c5bb5747ab5b7c5e8cfae3e314ceef795ab0753c7636df3cb188c915251fb846",
       "format_sha256": "c5bb5747ab5b7c5e8cfae3e314ceef795ab0753c7636df3cb188c915251fb846",
+      "format_kind": "gofmt"
+    },
+    "internal/dbevidence/mongocatalog/catalog.go": {
+      "role": "index",
+      "sha256": "171141e5a67a516a2e8f548756fec1365723b8a92ecfbbf20024d62a20d6811b",
+      "size": 4890,
+      "normalized_sha256": "171141e5a67a516a2e8f548756fec1365723b8a92ecfbbf20024d62a20d6811b",
+      "format_sha256": "171141e5a67a516a2e8f548756fec1365723b8a92ecfbbf20024d62a20d6811b",
+      "format_kind": "gofmt"
+    },
+    "internal/dbevidence/mongocatalog/catalog_integration_test.go": {
+      "role": "observe",
+      "sha256": "b7eb80ee438253dd7b114712852fc08e5a06db9cfaa60a8a2cb0819c9e8645dd",
+      "size": 9452,
+      "normalized_sha256": "b7eb80ee438253dd7b114712852fc08e5a06db9cfaa60a8a2cb0819c9e8645dd",
+      "format_sha256": "b7eb80ee438253dd7b114712852fc08e5a06db9cfaa60a8a2cb0819c9e8645dd",
       "format_kind": "gofmt"
     },
     "internal/dbevidence/mongodb_source_test.go": {
@@ -7896,9 +7912,9 @@
     },
     "scripts/check-deps.sh": {
       "role": "index",
-      "sha256": "c7723d226b46af9fb2eb1ca8c1882d07ef7225500b6dc29d9b71f2f95b903663",
-      "size": 5375,
-      "normalized_sha256": "c7723d226b46af9fb2eb1ca8c1882d07ef7225500b6dc29d9b71f2f95b903663"
+      "sha256": "4d58ef78301d2be15223a455049c0202c46f027099fef63ece378a19570f8727",
+      "size": 5457,
+      "normalized_sha256": "4d58ef78301d2be15223a455049c0202c46f027099fef63ece378a19570f8727"
     },
     "scripts/check-index-quality.sh": {
       "role": "index",

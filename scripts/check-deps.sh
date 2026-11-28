@@ -29,6 +29,7 @@ CORE_PKGS=(
   "${MODULE}/internal/curation"
   "${MODULE}/internal/mcptools"
   "${MODULE}/internal/dbevidence"
+  "${MODULE}/internal/dbevidence/mongocatalog"
   "${MODULE}/engine"
 )
 
@@ -51,6 +52,7 @@ EXPECTED_DIRECT_MODULES=(
   "github.com/ncruces/go-sqlite3"
   "github.com/spf13/cobra"
   "github.com/spf13/pflag"
+  "go.mongodb.org/mongo-driver/v2"
   "golang.org/x/sys"
 )
 
