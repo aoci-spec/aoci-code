@@ -927,7 +927,7 @@ aoci --repo . index agent guide --agent codex --json
 
 ## 🧪 黑盒验证套件
 
-仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) 内置四套独立黑盒套件，
+仓库在 [`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/scripts/blackbox/README.md) 内置四套独立黑盒套件，
 全部站在进程外、只通过公开 stdio MCP 协议与 CLI 检验构建出的 `aoci` 二进制：
 
 - **协议一致性** —— 62 项只读检查，覆盖 MCP 线协议表面，locale 相关语句另在
@@ -951,7 +951,7 @@ OpenCode 与你自己的模型订阅），因此克隆仓库即可验证自己�
 fork；`AOCI_BIN` 也可以把一致性与场景套件指向任何声称实现了 `spec/public/`
 公开合同的其他二进制。这些套件随仓库克隆分发，二进制 Release archive 不包含
 它们。命令与结果解读见
-[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md)。
+[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/scripts/blackbox/README.md)。
 
 ## ⚖️ 研究、知识产权与许可证
 
@@ -972,7 +972,7 @@ AOCI-CODE v0.2.0-rc5 是采用 FSL-1.1-MIT 的 Fair Source/source-available 软�
 
 ## 💬 交流群
 
-用微信或企业微信扫码，先添加 AOCI 小助手（企业微信），小助手会拉您进讨论群，和维护者及其他用户直接交流。问题反馈和功能建议请尽量提 [GitHub Issue](https://github.com/aoci-spec/aoci-code/issues)，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) 私下报告，不要发在群里。
+用微信或企业微信扫码，先添加 AOCI 小助手（企业微信），小助手会拉您进讨论群，和维护者及其他用户直接交流。问题反馈和功能建议请尽量提 [GitHub Issue](https://github.com/aoci-spec/aoci-code/issues)，方便大家检索；疑似安全漏洞请按 [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/SECURITY.md) 私下报告，不要发在群里。
 
 <img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="AOCI 小助手企业微信二维码" width="240">
 

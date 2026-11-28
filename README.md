@@ -971,7 +971,7 @@ No. The current capability is a narrow relation projection, not an independent g
 ## Black-box verification suites
 
 The repository ships four standalone black-box suites under
-[`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) that exercise a built `aoci`
+[`scripts/blackbox/`](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/scripts/blackbox/README.md) that exercise a built `aoci`
 binary strictly from outside the process, over the public stdio MCP protocol
 and CLI only:
 
@@ -1003,7 +1003,7 @@ repository clone can verify its own build, a platform port, or a fork — and
 `AOCI_BIN` can point the conformance and scenario suites at any alternative
 binary that claims the public contracts in `spec/public/`. These suites live
 in the repository clone; binary Release archives do not include them. See
-[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/main/scripts/blackbox/README.md) for commands and
+[`scripts/blackbox/README.md`](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/scripts/blackbox/README.md) for commands and
 result interpretation.
 
 ## Research, intellectual property, and license
@@ -1025,7 +1025,7 @@ AOCI-CODE v0.2.0-rc5 is Fair Source/source-available software licensed under FSL
 
 ## Community
 
-Scan the code with WeChat or WeCom (企业微信) to add the AOCI assistant, who will invite you to the discussion group to talk with the maintainers and other users. File bug reports and feature requests as [GitHub issues](https://github.com/aoci-spec/aoci-code/issues) so they stay searchable, and report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/main/SECURITY.md) describes, never in the group.
+Scan the code with WeChat or WeCom (企业微信) to add the AOCI assistant, who will invite you to the discussion group to talk with the maintainers and other users. File bug reports and feature requests as [GitHub issues](https://github.com/aoci-spec/aoci-code/issues) so they stay searchable, and report suspected vulnerabilities privately as [SECURITY.md](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/SECURITY.md) describes, never in the group.
 
 <img src="https://raw.githubusercontent.com/aoci-spec/aoci-code/main/assets/wecom-group-qr.png" alt="QR code for adding the AOCI assistant on WeCom" width="240">
 
