@@ -97,7 +97,7 @@ func TestVolumeAlignmentInspectorReadsTheGovernanceProjection(t *testing.T) {
 		t.Fatalf("load: %+v", fail)
 	}
 	outcome := &AtomicBatchOutcome{Volumes: []string{"code"}, Items: []*UpdateOutcome{{Action: "update", Rel: "main.go"}}, BaselineComplete: true}
-	aligned, remaining, findings, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
+	aligned, remaining, findings, _, _ := inspectCognitionVolumeAlignment(root, "test", loaded, outcome)
 	// The Code Volume's own fingerprint is unchanged, so the only findings are
 	// the projection's drift lines.
 	if aligned || remaining != len(expected) || !reflect.DeepEqual(findings, expected) {

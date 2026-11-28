@@ -894,7 +894,7 @@ func handleMCPUpdateBatchReviewed(
 			),
 		}))
 	}
-	aligned, remaining, findings, receipt := inspectAutoAlignment(root, mcpServiceVersion, outcome)
+	aligned, remaining, findings, receipt, finishSiblings := inspectAutoAlignment(root, mcpServiceVersion, outcome)
 	var optimization *cognitionOptimizationStatus
 	var optimizationErr error
 	if optimizationContext != nil && !aligned {
@@ -1007,6 +1007,9 @@ func handleMCPUpdateBatchReviewed(
 			duplicate,
 		),
 		Optimization: optimization,
+	}
+	if finishSiblings {
+		result.NextAction = mcpMessage("maintain.finish_parallel_wave")
 	}
 	if optimization != nil {
 		result.Remaining = optimization.Remaining

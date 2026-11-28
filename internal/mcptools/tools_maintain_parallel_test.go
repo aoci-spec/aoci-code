@@ -366,8 +366,9 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 	}
 	// Once the surviving sibling applies, the plan completes and the next one
 	// issues the drifted targets again, under their new digests.
-	if applied := applyMaintainBatch(t, session, again); applied["status"] != autoStatusApplied {
-		t.Fatalf("the surviving sibling applies: %v", applied)
+	if applied := applyMaintainBatch(t, session, again); applied["status"] != autoStatusApplied || applied["remaining"] != againPlan["remaining"] {
+		t.Fatalf("the surviving sibling applies and the invalidated targets stay unissued: status=%v remaining=%v want=%v",
+			applied["status"], applied["remaining"], againPlan["remaining"])
 	}
 	next := maintainJSON(t, session, map[string]any{})
 	nextPlan := codePlanOf(t, next)
@@ -382,6 +383,45 @@ func TestParallelSourceDriftInvalidatesOneSiblingOnly(t *testing.T) {
 	}
 	if nextPlan["logical_plan"] == plan["logical_plan"] || !issued[drifted] {
 		t.Fatalf("the next plan issues the drifted target: same_plan=%v issued=%v", nextPlan["logical_plan"] == plan["logical_plan"], issued[drifted])
+	}
+}
+
+func TestParallelApplyCountsOnlyUnissuedTargets(t *testing.T) {
+	for _, outside := range []int{0, 1} {
+		t.Run(fmt.Sprintf("outside_%d", outside), func(t *testing.T) {
+			root := parallelVolumesRepo(t, 8+outside, 2)
+			cfg, err := config.LoadBase(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := cfg.SetCodeCognitionBatchEntries(4); err != nil {
+				t.Fatal(err)
+			}
+			if err := config.Save(root, cfg); err != nil {
+				t.Fatal(err)
+			}
+			one, two := connectMCPClient(t, root), connectMCPClient(t, root)
+			first := maintainJSON(t, one, nil)
+			plan := codePlanOf(t, first)
+			second := maintainJSON(t, two, map[string]any{"batch_id": siblingsOf(plan)[0]["batch_id"]})
+			want := float64(outside)
+			for _, response := range []map[string]any{first, second} {
+				if batch := response["authoring_batch"].(map[string]any); batch["remaining"] != want || batch["continuation_required"] != true {
+					t.Fatalf("expected %d unissued targets with a sibling outstanding: %v", outside, batch)
+				}
+			}
+			interim := applyMaintainBatch(t, one, first)
+			if interim["status"] != autoStatusApplied || interim["remaining"] != want || interim["aligned"] != false ||
+				interim["terminal_proof"] != nil || !strings.Contains(interim["next_action"].(string), "batch_id") {
+				t.Fatalf("Apply must count unissued targets and direct the Host to finish the wave: status=%v remaining=%v aligned=%v next_action=%v",
+					interim["status"], interim["remaining"], interim["aligned"], interim["next_action"])
+			}
+			last := applyMaintainBatch(t, two, second)
+			if last["status"] != autoStatusApplied || last["remaining"] != want || last["aligned"] != (outside == 0) ||
+				(last["terminal_proof"] != nil) != (outside == 0) {
+				t.Fatalf("unexpected result after the wave: %v", last)
+			}
+		})
 	}
 }
 

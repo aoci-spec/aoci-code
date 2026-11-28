@@ -383,8 +383,7 @@ func finishVolumeMaintainResult(root string, loaded *cognitionRepoCtx, result *v
 		// back, and the plan continues while either is outstanding.
 		databaseOutstanding := 0
 		if requested[cognition.ScopeDatabase] && facts.Database.Enabled {
-			summary := facts.DatabaseCognition.Summary
-			databaseOutstanding = summary.Missing + summary.Stale + summary.Unbaselined
+			databaseOutstanding = databaseAuthoringTargetCount(facts.DatabaseCognition.Summary)
 		}
 		result.Batch.Remaining = result.CodePlan.Remaining + databaseOutstanding
 		result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
@@ -757,9 +756,13 @@ func volumeAuthoringTargetCount(facts *volumegovernance.Facts, requested map[str
 		total += len(work.Targets)
 	}
 	if requested[cognition.ScopeDatabase] {
-		total += facts.DatabaseCognition.Summary.Missing + facts.DatabaseCognition.Summary.Stale + facts.DatabaseCognition.Summary.Unbaselined
+		total += databaseAuthoringTargetCount(facts.DatabaseCognition.Summary)
 	}
 	return total
+}
+
+func databaseAuthoringTargetCount(summary dbcognition.Summary) int {
+	return summary.Missing + summary.Stale + summary.Unbaselined
 }
 
 func volumeBatchIdentities(result volumeMaintainResult) (string, string) {

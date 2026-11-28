@@ -320,9 +320,10 @@ structure and the parts that decide its behaviour, and an Entry states only what
 that reading showed. The machine reports the volume; it never judges the reading.
 
 Each current batch is an independent atomic Apply. A successful Apply advances
-the formal Volume and Baseline to a new preimage. If remaining is nonzero, the
-Host calls no-argument Maintain again and receives the next complete current
-batch. The batch is sized so the model authors it inline as one
+the formal Volume and Baseline to a new preimage. Outside an active parallel
+wave, if remaining is nonzero, the Host calls no-argument Maintain again and
+receives the next complete current batch. For a parallel wave, follow L4
+Completion below. The batch is sized so the model authors it inline as one
 aoci_update_entry call; a Maintain response keeps its candidates, plans, and
 receipts complete while per-item governance enumerations (findings, drift
 lists, the review closure) carry a leading sample plus complete counts under
@@ -345,6 +346,14 @@ EntriesBatchMaxItems=200. `orphan_remove_candidates_total` reports the full orph
 count, and `authoring_batch.remaining` includes Code removals left for later
 batches. The Host reads the full result and submits the complete machine batch
 and the required review or removals.
+
+`governance.budget.s` reports effective S token ceilings by importance C.
+Each ceiling is the greater of the configured S token maximum and the
+effective Meta S rune quota for that C. The token estimate is the UTF-8 byte
+count divided by three and rounded down. The rune quota applies independently.
+The budget mode determines whether the token ceiling is enforced. Candidate
+repair findings report the exceeded ceiling and its unit.
+
 Pure Database candidate responses use the independent Evidence limit stated
 above. That exception applies only to responses without required Observe
 review or orphan removals. A response combining Database candidates with
@@ -909,10 +918,15 @@ governed-batch lock; the second sees the first's postimage as its preimage
 and proceeds under the rule above. No second lock, transaction, Ledger, or
 Recovery path exists; a failure mid-Apply recovers as a single batch does.
 
-Completion. `remaining` counts targets outside every issued sibling; the
-Apply after which `remaining` is zero and no sibling is outstanding carries
-`terminal_proof`, and Guide reports aligned only then. Hosts may run siblings sequentially with one
-agent, which is just today's flow with the batches issued ahead of time.
+Completion. Maintain and successful Apply both use `remaining` for targets
+outside every live issued or delivered sibling. Targets released by an
+invalidated sibling count again if they still need work. Finish outstanding
+siblings even when `remaining` is zero. The Apply after which `remaining` is
+zero and no sibling is outstanding carries `terminal_proof` when governance is
+aligned, and Guide reports aligned only then. A Host working alone may call
+no-argument Maintain after its Apply to release siblings that were never
+delivered and continue sequentially. Once the wave has ended, call
+no-argument Maintain for any remaining targets.
 
 Conformance the implementation must ship: output for work that fits one
 batch, and under a value of 1, is byte-identical to the single-batch

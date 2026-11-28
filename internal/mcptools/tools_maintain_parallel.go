@@ -28,8 +28,15 @@ import (
 // loaded set and the verdict: the formal assets around the Code Volume and
 // the Code Volume itself.
 func parallelIdentitiesOf(facts *volumegovernance.Facts, set *cognition.Set) codebatch.ParallelIdentities {
-	ids := codebatch.ParallelIdentities{CompositeIdentity: facts.CompositeIdentity, ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity,
-		CodeVolumePath: facts.Code.Path, CodeVolumeSHA256: facts.Code.SHA256, RootSHA256: set.Root.SHA256, MetaSHA256: set.Meta.SHA256}
+	return parallelIdentities(set, facts.ManagedScope.PolicyIdentity)
+}
+
+func parallelIdentities(set *cognition.Set, scopePolicyIdentity string) codebatch.ParallelIdentities {
+	ids := codebatch.ParallelIdentities{CompositeIdentity: set.CompositeIdentity, ScopePolicyIdentity: scopePolicyIdentity,
+		RootSHA256: set.Root.SHA256, MetaSHA256: set.Meta.SHA256}
+	if asset := set.Volumes[cognition.ScopeCode]; asset != nil {
+		ids.CodeVolumePath, ids.CodeVolumeSHA256 = asset.Descriptor.Path, asset.SHA256
+	}
 	if asset := set.Volumes[cognition.ScopeDatabase]; asset != nil {
 		ids.DatabaseSHA256 = asset.SHA256
 	}
@@ -96,13 +103,19 @@ func currentParallelPlan(root string, ids codebatch.ParallelIdentities) *codebat
 	if err != nil || plan == nil {
 		return nil
 	}
-	if plan.PlanHolds(ids) {
-		if proven, replayErr := codebatch.ReplayProves(root, root, plan, ids.CodeVolumeSHA256); replayErr == nil && proven {
-			return plan
-		}
+	if parallelPlanHolds(root, plan, ids) {
+		return plan
 	}
 	_ = codebatch.RemoveParallelPlans(root)
 	return nil
+}
+
+func parallelPlanHolds(root string, plan *codebatch.ParallelPlan, ids codebatch.ParallelIdentities) bool {
+	if !plan.PlanHolds(ids) {
+		return false
+	}
+	proven, err := codebatch.ReplayProves(root, root, plan, ids.CodeVolumeSHA256)
+	return err == nil && proven
 }
 
 // parallelSiblingStates reads every sibling of the plan as the wire lists it:
@@ -189,28 +202,52 @@ func siblingsNeverFetched(siblings []codebatch.Sibling) bool {
 // Maintain entry issues one while this holds (audit G2-05, rv34: the explicit
 // Database scope went around the response-level check).
 func codeSiblingsOutstandingOnDisk(root string, facts *volumegovernance.Facts, set *cognition.Set) bool {
+	return outstandingSiblingCount(currentParallelSiblings(root, parallelIdentitiesOf(facts, set))) > 0
+}
+
+// currentParallelSiblings checks the plan without dropping stale records.
+// Database issuance and post-Apply inspection can call it outside the lock.
+func currentParallelSiblings(root string, ids codebatch.ParallelIdentities) []codebatch.Sibling {
 	plan, err := codebatch.LoadParallelPlan(root)
-	ids := parallelIdentitiesOf(facts, set)
-	if err != nil || plan == nil || len(plan.Siblings) == 0 || !plan.PlanHolds(ids) {
-		return false
-	}
-	// A plan the current Code Volume no longer replays from (a foreign Code
-	// write landed) holds no live sibling, as currentParallelPlan judges; it
-	// is only read here, never dropped, since this check takes no lock (rv35).
-	if proven, replayErr := codebatch.ReplayProves(root, root, plan, ids.CodeVolumeSHA256); replayErr != nil || !proven {
-		return false
+	if err != nil || plan == nil || len(plan.Siblings) == 0 || !parallelPlanHolds(root, plan, ids) {
+		return nil
 	}
 	siblings, _ := parallelSiblingStates(root, plan)
+	return siblings
+}
+
+func outstandingSiblingCount(siblings []codebatch.Sibling) int {
+	count := 0
 	for _, sibling := range siblings {
 		if siblingOutstanding(sibling.State) {
-			return true
+			count++
 		}
 	}
-	return false
+	return count
 }
 
 func siblingOutstanding(state string) bool {
 	return state == codebatch.SiblingIssued || state == codebatch.SiblingDelivered
+}
+
+// Only a live sibling holds its targets. Count paths in the current work
+// because a target that has left the work cannot offset other unissued work.
+func unissuedCodeTargetCount(targets []string, siblings []codebatch.Sibling) int {
+	held := make(map[string]bool)
+	for _, sibling := range siblings {
+		if siblingOutstanding(sibling.State) {
+			for _, path := range sibling.Targets {
+				held[path] = true
+			}
+		}
+	}
+	remaining := 0
+	for _, path := range targets {
+		if !held[path] {
+			remaining++
+		}
+	}
+	return remaining
 }
 
 // siblingListingBytes measures what the response carries to list siblings
@@ -298,13 +335,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 	var receipts map[string]codebatch.Receipt
 	if plan != nil {
 		siblings, receipts = parallelSiblingStates(root, plan)
-		outstanding := 0
-		for _, sibling := range siblings {
-			if siblingOutstanding(sibling.State) {
-				outstanding++
-			}
-		}
-		if outstanding == 0 {
+		if outstandingSiblingCount(siblings) == 0 {
 			_ = codebatch.RemoveParallelPlans(root)
 			plan = nil
 		}
@@ -392,6 +423,7 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 			return
 		}
 		current.BatchID, current.Included = receipt.BatchID, len(receipt.Targets)
+		current.Targets = current.Targets[:current.Included]
 	}
 	batchID := receipt.BatchID
 	if deliver {
@@ -411,31 +443,22 @@ func buildParallelCodeCandidates(root string, loaded *cognitionRepoCtx, result *
 		session.HoldSibling(batchID)
 		return nil
 	}
-	held := 0
 	others := make([]codebatch.Sibling, 0, len(siblings))
 	for _, sibling := range siblings {
-		if siblingOutstanding(sibling.State) {
-			held += sibling.Included
-		}
 		if sibling.BatchID != current.BatchID {
 			others = append(others, sibling)
 		}
 	}
-	remaining := len(all) - held
-	if remaining < 0 {
-		remaining = 0
+	targets := make([]string, 0, len(all))
+	for _, candidate := range all {
+		targets = append(targets, candidate.Path)
 	}
-	outstandingOthers := 0
-	for _, sibling := range others {
-		if siblingOutstanding(sibling.State) {
-			outstandingOthers++
-		}
-	}
+	remaining := unissuedCodeTargetCount(targets, siblings)
 	result.CodePlan = &codebatch.Plan{Version: codebatch.Version, PlanID: receipt.PlanID, BatchID: receipt.BatchID,
 		CompositeIdentity: ids.CompositeIdentity, ScopePolicyIdentity: ids.ScopePolicyIdentity,
 		CodeVolumePath: ids.CodeVolumePath, CodeVolumeSHA256: plan.PreimageSHA256,
 		TotalTargets: len(all), MaxEntries: limit, Included: len(receipt.Targets), Remaining: remaining,
-		CompleteCandidateSetForBatch: true, ContinuationRequired: remaining > 0 || outstandingOthers > 0,
+		CompleteCandidateSetForBatch: true, ContinuationRequired: remaining > 0 || outstandingSiblingCount(others) > 0,
 		TransportBudgetBytes: firstBudget.Total, NextAction: "author_complete_current_machine_batch",
 		LogicalPlan: plan.LogicalPlan, Siblings: others}
 	result.Batch.TransportBudgetBytes = firstBudget.Total
@@ -625,12 +648,7 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 		Batch: volumeAuthoringBatch{MaxEntries: codeBatchLimit(loaded.cfg),
 			CompositeIdentity: facts.CompositeIdentity, ScopePolicyIdentity: facts.ManagedScope.PolicyIdentity},
 	}
-	proven := false
-	if plan.PlanHolds(ids) {
-		if ok, replayErr := codebatch.ReplayProves(root, root, plan, ids.CodeVolumeSHA256); replayErr == nil && ok {
-			proven = true
-		}
-	}
+	proven := parallelPlanHolds(root, plan, ids)
 	siblings, receipts := parallelSiblingStates(root, plan)
 	deliver := false
 	var requested *codebatch.Sibling
@@ -693,35 +711,29 @@ func handleParallelSiblingDelivery(root, serviceVersion, batchID string, include
 				}
 			}
 			appendReceiptCandidates(root, loaded, &result, receipt)
-			held := 0
-			for _, sibling := range siblings {
-				if siblingOutstanding(sibling.State) {
-					held += sibling.Included
-				}
+			current := codebatch.Sibling{State: state, Targets: make([]string, 0, len(receipt.Targets))}
+			for _, target := range receipt.Targets {
+				current.Targets = append(current.Targets, target.Path)
 			}
-			held -= len(original.Targets) - len(receipt.Targets)
 			work := volumegovernance.CodeAuthoringWorkFor(loaded.set, facts.CodeDrift)
-			remaining := len(work.Targets) - held
-			if remaining < 0 {
-				remaining = 0
-			}
+			remaining := unissuedCodeTargetCount(work.Targets, append([]codebatch.Sibling{current}, others...))
 			result.CodePlan.BatchID = receipt.BatchID
 			result.CodePlan.PlanID, result.CodePlan.Included, result.CodePlan.Remaining = receipt.PlanID, len(receipt.Targets), remaining
 			result.CodePlan.TotalTargets, result.CodePlan.CompleteCandidateSetForBatch = len(work.Targets), true
-			outstandingOthers := 0
-			for _, sibling := range others {
-				if siblingOutstanding(sibling.State) {
-					outstandingOthers++
-				}
-			}
-			result.CodePlan.ContinuationRequired = remaining > 0 || outstandingOthers > 0
+			result.CodePlan.ContinuationRequired = remaining > 0 || outstandingSiblingCount(others) > 0
 			result.CodePlan.NextAction = "author_complete_current_machine_batch"
 			result.Status, result.Result, result.NextAction = autoStatusRepairRequired, volumegovernance.ResultAuthoringRequired, "author_complete_current_machine_batch"
-			result.Batch.TotalTargets, result.Batch.Included, result.Batch.Remaining = len(work.Targets), len(receipt.Targets), remaining
+			databaseOutstanding := 0
+			if facts.Database.Enabled {
+				databaseOutstanding = databaseAuthoringTargetCount(facts.DatabaseCognition.Summary)
+			}
+			result.Batch.TotalTargets, result.Batch.Included = len(work.Targets)+databaseOutstanding, len(receipt.Targets)
+			result.Batch.Remaining = remaining + databaseOutstanding
 			result.Batch.TransportBudgetBytes = maintainTransportBudget(loaded.cfg)
 			result.CodePlan.TransportBudgetBytes = result.Batch.TransportBudgetBytes
 			result.Batch.SourceLines, result.Batch.SourceLinesBudget = batchSourceLines(result.Candidates)
-			result.Batch.CompleteCandidateSet, result.Batch.ContinuationRequired = true, result.CodePlan.ContinuationRequired
+			result.Batch.CompleteCandidateSet = true
+			result.Batch.ContinuationRequired = result.CodePlan.ContinuationRequired || databaseOutstanding > 0
 			result.Sets.Write = candidateRefs(result.Candidates)
 			result.Sets.Review = reviewClosure(loaded.set, result.Candidates)
 			contract, contractErr := buildAuthoringContract(loaded.cfg, loaded.set.Meta.Raw, []string{cognition.ScopeCode})

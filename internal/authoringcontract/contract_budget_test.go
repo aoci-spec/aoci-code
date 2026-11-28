@@ -13,7 +13,7 @@ import (
 // the contract, as the write measures it; observe mode adds nothing.
 func TestTheContractStatesTheEnforcedRBudget(t *testing.T) {
 	enforce := cognitionbudget.DefaultPolicy(machinecontract.BudgetModeEnforce)
-	if got := rBudgetBands(enforce); got != "C9<=542 C8<=422 C7-5<=272 C4-1<=152" {
+	if got := formatBudgetBands(enforce.R, true); got != "C9<=542 C8<=422 C7-5<=272 C4-1<=152" {
 		t.Fatalf("R bands: %s", got)
 	}
 	template, err := textassets.Render(textassets.DefaultLocale, textassets.TemplateVolumeMeta, machinecontract.NumericText())

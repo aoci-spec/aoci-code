@@ -87,11 +87,8 @@ func Build(metaRaw []byte, domains []string, locale string) (Output, error) {
 	return BuildWithBudget(metaRaw, domains, locale, nil)
 }
 
-// BuildWithBudget is Build for a repository whose cognition budget the write
-// enforces: the R field is then also limited by importance, in UTF-8 bytes,
-// tighter than the FRAS rune limit for most bands, and a model that is not
-// told learns it only from a refused batch (scipy first build, C3). The S
-// band never binds below the Meta rune quota, so only R is stated.
+// BuildWithBudget adds the importance-based limits enforced alongside the
+// FRAS rune limits. R is expressed in UTF-8 bytes and S in estimated tokens.
 func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *cognitionbudget.Policy) (Output, error) {
 	parsed, err := ParseMeta(metaRaw, domains)
 	if err != nil {
@@ -101,39 +98,43 @@ func BuildWithBudget(metaRaw []byte, domains []string, locale string, policy *co
 	if err != nil || policy == nil || policy.Mode != machinecontract.BudgetModeEnforce {
 		return output, err
 	}
-	bands := rBudgetBands(*policy)
-	if bands == "" {
+	normalized, normalizeErr := cognitionbudget.Normalize(*policy)
+	if normalizeErr != nil {
 		return output, nil
 	}
-	line, messageErr := textassets.Message(locale, "volumes.authoring.r_budget", bands)
-	if messageErr != nil {
-		return Output{}, messageErr
+	sBands := cognitionbudget.EffectiveSFieldBands(normalized.S, index.ExtractSQuotaThresholds(string(metaRaw)))
+	for _, limit := range []struct{ key, bands string }{
+		{"volumes.authoring.r_budget", formatBudgetBands(normalized.R, true)},
+		{"volumes.authoring.s_budget", formatBudgetBands(sBands, false)},
+	} {
+		line, messageErr := textassets.Message(locale, limit.key, limit.bands)
+		if messageErr != nil {
+			return Output{}, messageErr
+		}
+		output.Instructions = append(output.Instructions, line)
 	}
-	output.Instructions = append(output.Instructions, line)
 	return output, nil
 }
 
-// rBudgetBands spells the R byte limit of each importance band, highest
-// first, merging neighbours with the same limit: a token is three UTF-8
-// bytes, and a field is over its band past three bytes per token.
-func rBudgetBands(policy cognitionbudget.Policy) string {
-	normalized, err := cognitionbudget.Normalize(policy)
-	if err != nil {
-		return ""
-	}
-	type span struct{ high, low, bytes int }
+// formatBudgetBands lists the ceilings in descending C order, merging
+// adjacent bands with the same ceiling. Token estimation rounds down.
+func formatBudgetBands(bands []cognitionbudget.FieldBand, inBytes bool) string {
+	type span struct{ high, low, limit int }
 	spans := []span{}
 	for importance := 9; importance >= 1; importance-- {
-		band, found := cognitionbudget.LimitFor(normalized.R, importance)
+		band, found := cognitionbudget.LimitFor(bands, importance)
 		if !found {
 			continue
 		}
-		bytes := band.MaxTokens*3 + 2
-		if last := len(spans) - 1; last >= 0 && spans[last].bytes == bytes && spans[last].low == importance+1 {
+		limit := band.MaxTokens
+		if inBytes {
+			limit = limit*3 + 2
+		}
+		if last := len(spans) - 1; last >= 0 && spans[last].limit == limit && spans[last].low == importance+1 {
 			spans[last].low = importance
 			continue
 		}
-		spans = append(spans, span{high: importance, low: importance, bytes: bytes})
+		spans = append(spans, span{high: importance, low: importance, limit: limit})
 	}
 	parts := make([]string, 0, len(spans))
 	for _, current := range spans {
@@ -141,7 +142,7 @@ func rBudgetBands(policy cognitionbudget.Policy) string {
 		if current.low != current.high {
 			label += fmt.Sprintf("-%d", current.low)
 		}
-		parts = append(parts, fmt.Sprintf("%s<=%d", label, current.bytes))
+		parts = append(parts, fmt.Sprintf("%s<=%d", label, current.limit))
 	}
 	return strings.Join(parts, " ")
 }
