@@ -139,7 +139,7 @@ This managed block defines only repository integration, cognition use, and task-
 
 8. Obey structured tool states and safety boundaries:
 
-   - `repair_required`: repair only the explicitly identified candidates, then resubmit the complete current machine-issued batch;
+   - `repair_required`: on `aoci_maintain`, `status=repair_required` with `result=authoring_required` is the normal authoring-batch pickup state (not a failure); on `aoci_update_entry`, `repair_required` with `findings` means the write was rejected, so repair only the explicitly identified candidates and resubmit the complete current machine-issued batch;
    - `stopped`: end that write attempt and inspect `failed_step`, error, formal-write evidence, and Recovery. In auto mode, a proven zero-write closure is followed by a fresh Plan; a complete Intent with provable postimage is resumed; a policy-selected Rollback with exact preimage is completed and replanned. Stop the user task only when proof is unavailable, third-party bytes conflict, approval or external action is required, or another real safety boundary applies;
    - never ignore conflicts, approvals, human decisions, permissions, or safety signals; and
    - after alignment, do not repeat maintenance or writes; `refresh_ready_for_overview` is a checkpoint fact, and the Agent decides whether to request an ordinary complete Overview for its next phase.

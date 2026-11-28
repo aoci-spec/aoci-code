@@ -84,7 +84,7 @@ Entry 的语义必须来自模型对真实证据的理解。不得仅依据路�
 
 8. 必须遵守工具返回的结构化状态和安全边界：
 
-   - `repair_required`：只修复明确命中的候选，再重新提交当前机器签发的完整批次；
+   - `repair_required`：`aoci_maintain` 返回 `status=repair_required` 且 `result=authoring_required` 是领取待创作批次的正常状态（不是失败）；只有 `aoci_update_entry` 返回带 `findings` 的 `repair_required` 才表示写入被拒，此时只修复明确命中的候选并重提当前机器签发的完整批次；
    - `stopped`：结束当前写入尝试并检查 `failed_step`、错误、正式写入证据与Recovery。auto模式下，已证明零写入则记录closure并重新Plan；完整Intent和可证明postimage则Resume；策略要求Rollback且preimage可证明则精确恢复后重新Plan。只有证据不足、第三方正式字节冲突、需要审批或外部动作，或命中其他真实安全边界时，才停止整个用户任务；
    - 冲突、审批、人工裁决、权限和安全信号不得忽略；
    - 已经对齐后不得重复维护或重复写入；`refresh_ready_for_overview` 是checkpoint事实，由Agent决定是否为下一阶段请求普通完整Overview。
