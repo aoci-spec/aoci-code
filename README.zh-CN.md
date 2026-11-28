@@ -758,7 +758,7 @@ aoci --repo . database source add \
 aoci --repo . database source access --source primary --json
 ```
 
-该命令不连接数据库，不返回凭据值，也不会要求普通用户在对话中粘贴 DSN。数据库或基础设施管理员应在 AOCI 进程外部提供对应环境变量，并授予只读、最小权限的系统目录访问能力。Source 配置只保存凭据**引用名称**，不保存 Secret。
+该命令不连接数据库，不返回凭据值，也不会要求普通用户在对话中粘贴 DSN。数据库或基础设施管理员应在 AOCI 进程外部提供对应环境变量，并授予只读、最小权限的系统目录访问能力。Source 配置只保存凭据**引用名称**，不保存 Secret。各服务端引擎（PostgreSQL、MySQL、openGauss）实际接受的连接串格式见[连接串格式](https://github.com/aoci-spec/aoci-code/blob/v0.2.0-rc5/docs/database-evidence.md#connection-string-formats)。
 
 当前版本只提供 Environment Credential Provider。Vault、Kubernetes Secret、AWS/GCP/Azure 等 Cloud Secret Manager 可以在后续版本通过同一 Provider 边界接入，但它们不是当前能力，也不应在 README 中暗示已经可用。
 

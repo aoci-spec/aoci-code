@@ -117,3 +117,20 @@ func DefaultCredentialEnv(sourceID string) string {
 	value := strings.ToUpper(strings.ReplaceAll(sourceID, "-", "_"))
 	return "AOCI_DB_" + value + "_DSN"
 }
+
+// ConnectionStringExample returns the canonical placeholder connection string
+// format accepted by the named server engine's configured Go driver. It never
+// contains real credentials and is the single source of truth shared between
+// docs/database-evidence.md and access preflight diagnostics.
+func ConnectionStringExample(engine Engine) string {
+	switch engine {
+	case EnginePostgreSQL:
+		return "postgres://<user>:<password>@<host>:<port>/<database>"
+	case EngineMySQL:
+		return "<user>:<password>@tcp(<host>:<port>)/<database>"
+	case EngineOpenGauss:
+		return "opengauss://<user>:<password>@<host>:<port>/<database>?sslmode=verify-full"
+	default:
+		return ""
+	}
+}

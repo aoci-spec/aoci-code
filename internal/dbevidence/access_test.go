@@ -2,8 +2,14 @@ package dbevidence
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	opengauss "gitcode.com/opengauss/openGauss-connector-go-pq"
+	mysqlDriver "github.com/go-sql-driver/mysql"
+	"github.com/jackc/pgx/v5"
 )
 
 func TestAccessPlanIsRedactedAndDoesNotOpenNetwork(t *testing.T) {
@@ -47,5 +53,89 @@ func TestAccessPlanReturnsOneActionWhenCredentialIsUnavailable(t *testing.T) {
 func TestDefaultCredentialEnvIsDeterministic(t *testing.T) {
 	if got := DefaultCredentialEnv("orders-read"); got != "AOCI_DB_ORDERS_READ_DSN" {
 		t.Fatalf("unexpected default reference: %s", got)
+	}
+}
+
+func TestConnectionStringExamplesAreDriverVerifiedAndDocumented(t *testing.T) {
+	for _, engine := range []Engine{EngineSQLite, EngineMongoDB, Engine("")} {
+		if got := ConnectionStringExample(engine); got != "" {
+			t.Fatalf("engine %q must not publish a server DSN example, got %q", engine, got)
+		}
+	}
+
+	docsBytes, err := os.ReadFile(filepath.Join("..", "..", "docs", "database-evidence.md"))
+	if err != nil {
+		t.Fatalf("read docs/database-evidence.md: %v", err)
+	}
+	docsText := string(docsBytes)
+
+	replacePlaceholders := func(example, port string) string {
+		replacer := strings.NewReplacer(
+			"<user>", "reader",
+			"<password>", "placeholder",
+			"<host>", "db.example.test",
+			"<port>", port,
+			"<database>", "app",
+		)
+		return replacer.Replace(example)
+	}
+
+	cases := []struct {
+		engine Engine
+		port   string
+		parse  func(string) error
+	}{
+		{
+			engine: EnginePostgreSQL,
+			port:   "5432",
+			parse: func(dsn string) error {
+				_, err := pgx.ParseConfig(dsn)
+				return err
+			},
+		},
+		{
+			engine: EngineMySQL,
+			port:   "3306",
+			parse: func(dsn string) error {
+				_, err := mysqlDriver.ParseDSN(dsn)
+				return err
+			},
+		},
+		{
+			engine: EngineOpenGauss,
+			port:   "5432",
+			parse: func(dsn string) error {
+				_, err := opengauss.ParseConfigStrict(dsn)
+				return err
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		example := ConnectionStringExample(tc.engine)
+		if example == "" {
+			t.Fatalf("missing connection string example for %s", tc.engine)
+		}
+		for _, placeholder := range []string{"<user>", "<password>", "<host>", "<port>", "<database>"} {
+			if !strings.Contains(example, placeholder) {
+				t.Fatalf("%s example %q missing placeholder %s", tc.engine, example, placeholder)
+			}
+		}
+		if err := tc.parse(replacePlaceholders(example, tc.port)); err != nil {
+			t.Fatalf("%s example %q was rejected by its driver parser: %v", tc.engine, example, err)
+		}
+		if !strings.Contains(docsText, example) {
+			t.Fatalf("docs/database-evidence.md does not contain canonical %s example %q", tc.engine, example)
+		}
+	}
+
+	for _, readme := range []string{"README.md", "README.zh-CN.md"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", readme))
+		if err != nil {
+			t.Fatalf("read %s: %v", readme, err)
+		}
+		if !strings.Contains(string(raw), "docs/database-evidence.md#connection-string-formats") {
+			t.Fatalf("%s does not point to docs/database-evidence.md#connection-string-formats", readme)
+		}
 	}
 }

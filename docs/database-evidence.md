@@ -96,6 +96,23 @@ variable:
 export AOCI_DB_PRIMARY_DSN='<user-owned connection string>'
 ```
 
+### Connection string formats
+
+Each server engine passes the environment value directly to its Go driver. Use
+placeholders below as templates and supply real read-only account values only in
+the external process environment:
+
+- PostgreSQL (`pgx`): `postgres://<user>:<password>@<host>:<port>/<database>`
+- MySQL (`go-sql-driver/mysql`, not a `mysql://` URL): `<user>:<password>@tcp(<host>:<port>)/<database>`
+- openGauss (`openGauss-connector-go-pq` strict parser): `opengauss://<user>:<password>@<host>:<port>/<database>?sslmode=verify-full`
+
+For openGauss, `host`, `port`, `database`, `user`, `password`, and `sslmode`
+must all be explicit (`opengauss://`, `postgres://`, and `postgresql://`
+schemes are accepted). Any TCP connection outside a numeric loopback address
+must use `sslmode=verify-full` (with an optional absolute path in
+`sslrootcert`); `sslmode=disable` is accepted only for numeric loopback
+addresses or Unix domain sockets.
+
 The environment value is passed directly to the selected driver and is never
 placed in configuration, Evidence, Snapshot, Baseline, Ledger, Research
 Manifest, or returned diagnostics. Connection failures expose a stable error
