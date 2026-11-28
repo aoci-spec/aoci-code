@@ -8,6 +8,11 @@ All notable public changes to AOCI-CODE will be documented in this file.
   `remaining`. An Apply can report `remaining=0` while siblings still need
   to be applied. Follow `next_action` and close the parallel wave only when
   `aligned` and `terminal_proof.aligned` are true.
+- When an Apply has committed but cannot take the closing snapshot, it
+  reports `[alignment_snapshot_unavailable]` and leaves `remaining` out: a
+  missing `remaining` means unknown, not zero. A host that reads a missing
+  field as 0 must not stop on it; call no-argument `aoci_maintain` as the
+  `next_action` says.
 - `governance.budget.s[].max_tokens` reports the effective S token limit
   after applying the Meta rune quota floor. A configured importance band
   can split where the effective limits differ.
