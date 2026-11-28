@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -217,6 +218,28 @@ func TestRootOverviewTooLongNamesLimitAndActualCountAndSchemaDocumentsLimits(t *
 				}
 			}
 
+			projectMaxStr := strconv.Itoa(machinecontract.RootOverviewProjectMaxChars)
+			invariantsMaxStr := strconv.Itoa(machinecontract.RootOverviewInvariantsMaxChars)
+			rawAsset, err := textassets.Load(tc.locale, textassets.ContractMCPInputSchemaDescriptions)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var rawDescriptions map[string]map[string]string
+			if err := json.Unmarshal([]byte(rawAsset), &rawDescriptions); err != nil {
+				t.Fatal(err)
+			}
+			rawRODesc := rawDescriptions["aoci_update_entry"]["root_overview"]
+			for _, placeholder := range []string{"{{.RootOverviewProjectMaxChars}}", "{{.RootOverviewInvariantsMaxChars}}"} {
+				if !strings.Contains(rawRODesc, placeholder) {
+					t.Fatalf("%s raw root_overview schema description %q must render from placeholder %q", tc.locale, rawRODesc, placeholder)
+				}
+			}
+			for _, literal := range []string{projectMaxStr, invariantsMaxStr} {
+				if strings.Contains(rawRODesc, literal) {
+					t.Fatalf("%s raw root_overview schema description %q must not hardcode %q", tc.locale, rawRODesc, literal)
+				}
+			}
+
 			schemas, err := loadMCPInputSchemas()
 			if err != nil {
 				t.Fatal(err)
@@ -225,7 +248,10 @@ func TestRootOverviewTooLongNamesLimitAndActualCountAndSchemaDocumentsLimits(t *
 			props := updateSchema["properties"].(map[string]any)
 			roSchema := props["root_overview"].(map[string]any)
 			desc, _ := roSchema["description"].(string)
-			for _, want := range []string{"200", "600", tc.unitWord} {
+			if strings.Contains(desc, "{{.") {
+				t.Fatalf("%s root_overview schema description left unrendered placeholder: %q", tc.locale, desc)
+			}
+			for _, want := range []string{projectMaxStr, invariantsMaxStr, tc.unitWord} {
 				if !strings.Contains(desc, want) {
 					t.Fatalf("%s root_overview schema description %q missing %q", tc.locale, desc, want)
 				}

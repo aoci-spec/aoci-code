@@ -60,9 +60,16 @@ func loadMCPToolDescriptions() (mcpToolDescriptions, error) {
 }
 
 func loadMCPInputSchemas() (mcpInputSchemas, error) {
-	content, err := textassets.Load(
+	content, err := textassets.Render(
 		textassets.ActiveLocale(),
 		textassets.ContractMCPInputSchemaDescriptions,
+		struct {
+			RootOverviewProjectMaxChars    int
+			RootOverviewInvariantsMaxChars int
+		}{
+			RootOverviewProjectMaxChars:    machinecontract.RootOverviewProjectMaxChars,
+			RootOverviewInvariantsMaxChars: machinecontract.RootOverviewInvariantsMaxChars,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s", mcpMessage(
